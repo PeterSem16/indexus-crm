@@ -1,0 +1,130 @@
+diallog*CLI> pjsip show endpoint 2001
+
+ Endpoint:  <Endpoint/CID.....................................>  <State.....>  <Channels.>
+    I/OAuth:  <AuthId/UserName...........................................................>
+        Aor:  <Aor............................................>  <MaxContact>
+      Contact:  <Aor/ContactUri..........................> <Hash....> <Status> <RTT(ms)..>
+  Transport:  <TransportId........>  <Type>  <cos>  <tos>  <BindAddress..................>
+   Identify:  <Identify/Endpoint.........................................................>
+        Match:  <criteria.........................>
+    Channel:  <ChannelId......................................>  <State.....>  <Time.....>
+        Exten: <DialedExten...........>  CLCID: <ConnectedLineCID.......>
+==========================================================================================
+
+ Endpoint:  2001                                                 Not in use    0 of inf
+     InAuth:  2001-auth/2001
+        Aor:  2001                                               1
+      Contact:  2001/sip:sp7c710a@10.9.20.176:60492;transp 84367ba912 Avail        26.914
+  Transport:  transport-wss             wss      0      0  0.0.0.0:8089
+
+
+ ParameterName                      : ParameterValue
+ ====================================================================
+ 100rel                             : yes
+ accountcode                        :
+ acl                                :
+ aggregate_mwi                      : true
+ allow                              : (ulaw|opus|alaw)
+ allow_overlap                      : true
+ allow_subscribe                    : true
+ allow_transfer                     : true
+ aors                               : 2001
+ asymmetric_rtp_codec               : false
+ auth                               : 2001-auth
+ bind_rtp_to_media_address          : false
+ call_group                         :
+ callerid                           : <unknown>
+ callerid_privacy                   : allowed_not_screened
+ callerid_tag                       :
+ connected_line_method              : invite
+ contact_acl                        :
+ context                            : webrtc-indexus
+ cos_audio                          : 0
+ cos_video                          : 0
+ device_state_busy_at               : 0
+ direct_media                       : false
+ direct_media_glare_mitigation      : none
+ direct_media_method                : invite
+ disable_direct_media_on_nat        : false
+ dtls_ca_file                       :
+ dtls_ca_path                       :
+ dtls_cert_file                     : /etc/asterisk/keys/asterisk.pem
+ dtls_cipher                        :
+ dtls_fingerprint                   : SHA-256
+ dtls_private_key                   : /etc/asterisk/keys/asterisk.key
+ dtls_rekey                         : 0
+ dtls_setup                         : actpass
+ dtls_verify                        : No
+ dtmf_mode                          : rfc4733
+ fax_detect                         : false
+ fax_detect_timeout                 : 0
+ force_avp                          : false
+ force_rport                        : true
+ from_domain                        :
+ from_user                          :
+ g726_non_standard                  : false
+ ice_support                        : true
+ identify_by                        : username,ip
+ inband_progress                    : false
+ incoming_mwi_mailbox               :
+ language                           :
+ mailboxes                          :
+ media_address                      :
+ media_encryption                   : dtls
+ media_encryption_optimistic        : false
+ media_use_received_transport       : false
+ message_context                    :
+ moh_suggest                        : default
+ mwi_from_user                      :
+ mwi_subscribe_replaces_unsolicited : false
+ named_call_group                   :
+ named_pickup_group                 :
+ notify_early_inuse_ringing         : false
+ one_touch_recording                : false
+ outbound_auth                      :
+ outbound_proxy                     :
+ pickup_group                       :
+ record_off_feature                 : automixmon
+ record_on_feature                  : automixmon
+ refer_blind_progress               : true
+ rewrite_contact                    : true
+ rpid_immediate                     : false
+ rtcp_mux                           : true
+ rtp_engine                         : asterisk
+ rtp_ipv6                           : false
+ rtp_keepalive                      : 0
+ rtp_symmetric                      : true
+ rtp_timeout                        : 0
+ rtp_timeout_hold                   : 0
+ sdp_owner                          : -
+ sdp_session                        : Asterisk
+ send_diversion                     : true
+ send_pai                           : false
+ send_rpid                          : false
+ set_var                            :
+ srtp_tag_32                        : false
+ sub_min_expiry                     : 0
+ subscribe_context                  :
+ t38_udptl                          : false
+ t38_udptl_ec                       : none
+ t38_udptl_ipv6                     : false
+ t38_udptl_maxdatagram              : 0
+ t38_udptl_nat                      : false
+ timers                             : yes
+ timers_min_se                      : 90
+ timers_sess_expires                : 1800
+ tone_zone                          :
+ tos_audio                          : 0
+ tos_video                          : 0
+ transport                          : transport-wss
+ trust_id_inbound                   : false
+ trust_id_outbound                  : false
+ use_avpf                           : true
+ use_ptime                          : false
+ user_eq_phone                      : false
+ voicemail_extension                :
+
+  == Manager 'sendcron' logged on from 127.0.0.1
+  == Manager 'sendcron' logged off from 127.0.0.1
+  == Manager 'sendcron' logged on from 127.0.0.1
+diallog*CLI> pjsip sho
