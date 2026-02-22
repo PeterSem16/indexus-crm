@@ -60,6 +60,8 @@ interface CallContextType {
   stopRecordingFn: React.MutableRefObject<(() => void) | null>;
   autoRecord: boolean;
   setAutoRecord: (auto: boolean) => void;
+  handleInboundAnsweredFn: React.MutableRefObject<((session: any, options: { autoRecord: boolean }) => void) | null>;
+  queuedInboundSession: React.MutableRefObject<{ session: any; options: { autoRecord: boolean } } | null>;
 }
 
 const defaultTiming: CallTimingMeta = {
@@ -99,6 +101,8 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const resumeRecordingFn = useRef<(() => void) | null>(null);
   const startRecordingFn = useRef<(() => void) | null>(null);
   const stopRecordingFn = useRef<(() => void) | null>(null);
+  const handleInboundAnsweredFn = useRef<((session: any, options: { autoRecord: boolean }) => void) | null>(null);
+  const queuedInboundSession = useRef<{ session: any; options: { autoRecord: boolean } } | null>(null);
 
   const setCallTiming = useCallback((partial: Partial<CallTimingMeta>) => {
     setCallTimingState(prev => ({ ...prev, ...partial }));
@@ -147,6 +151,8 @@ export function CallProvider({ children }: { children: ReactNode }) {
       stopRecordingFn,
       autoRecord,
       setAutoRecord,
+      handleInboundAnsweredFn,
+      queuedInboundSession,
     }}>
       {children}
     </CallContext.Provider>

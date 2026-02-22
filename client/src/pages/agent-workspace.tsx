@@ -5267,8 +5267,16 @@ export default function AgentWorkspacePage() {
 
         removeCall();
         setIncomingCallWithRef(null);
-        callContext.setAutoRecord(!!call.recordCalls);
-        setAnsweredIncomingSession(invitation);
+        const inboundOptions = { autoRecord: !!call.recordCalls };
+        if (callContext.handleInboundAnsweredFn.current) {
+          console.log("[AgentWS] Calling handleInboundAnswered directly");
+          callContext.handleInboundAnsweredFn.current(invitation, inboundOptions);
+        } else {
+          console.warn("[AgentWS] handleInboundAnsweredFn not registered, queuing session");
+          callContext.queuedInboundSession.current = { session: invitation, options: inboundOptions };
+          callContext.setAutoRecord(!!call.recordCalls);
+          setAnsweredIncomingSession(invitation);
+        }
         toast({ title: "Hovor prijatý", description: `Prepojený s ${callerNumber}` });
         await setupCallContext();
       } else {
