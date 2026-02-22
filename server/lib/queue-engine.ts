@@ -8,6 +8,7 @@ import {
   inboundCallLogs,
   ivrMessages,
   agentSessions,
+  users,
   type InboundQueue,
   type QueueMember,
   type InboundCallLog,
@@ -37,6 +38,18 @@ export interface AgentState {
   penalty: number;
 }
 
+interface PendingAgentCall {
+  callerChannelId: string;
+  callId: string;
+  agentId: string;
+  queueId: string;
+  callerNumber: string;
+  callerName: string;
+  customerId: string | null;
+  waitDuration: number;
+  queueName: string;
+}
+
 export class QueueEngine extends EventEmitter {
   private ariClient: AriClient;
   private waitingCalls: Map<string, QueuedCall> = new Map();
@@ -46,6 +59,8 @@ export class QueueEngine extends EventEmitter {
   private checkInterval: ReturnType<typeof setInterval> | null = null;
   private pendingWelcome: Map<string, { channelId: string; queueId: string }> = new Map();
   private mohPlaybacks: Map<string, string> = new Map();
+  private pendingAgentCalls: Map<string, PendingAgentCall> = new Map();
+  private activeBridges: Map<string, { bridgeId: string; callerChannelId: string; agentChannelId: string; callId: string; agentId: string }> = new Map();
 
   constructor(ariClient: AriClient) {
     super();
@@ -55,7 +70,23 @@ export class QueueEngine extends EventEmitter {
 
   private setupAriHandlers(): void {
     this.ariClient.on("stasis-start", (event: AriEvent) => {
+      if (event.channel) {
+        const agentCall = this.pendingAgentCalls.get(event.channel.id);
+        if (agentCall) {
+          this.handleAgentChannelAnswer(event.channel.id, agentCall);
+          return;
+        }
+      }
       this.handleIncomingCall(event);
+    });
+
+    this.ariClient.on("channel-state-change", (event: AriEvent) => {
+      if (event.channel && event.channel.state === "Up") {
+        const agentCall = this.pendingAgentCalls.get(event.channel.id);
+        if (agentCall) {
+          this.handleAgentChannelAnswer(event.channel.id, agentCall);
+        }
+      }
     });
 
     this.ariClient.on("channel-destroyed", (event: AriEvent) => {
@@ -549,10 +580,7 @@ export class QueueEngine extends EventEmitter {
   private async connectCallToAgent(call: QueuedCall, agent: AgentState, queue: InboundQueue): Promise<void> {
     console.log(`[QueueEngine] Connecting call ${call.id} to agent ${agent.userId}`);
 
-    await this.stopMohForChannel(call.channelId);
-
     this.updateAgentStatus(agent.userId, "busy", call.id);
-
     this.waitingCalls.delete(call.channelId);
 
     const waitDuration = Math.floor((Date.now() - call.enteredAt.getTime()) / 1000);
@@ -576,6 +604,119 @@ export class QueueEngine extends EventEmitter {
       customerId: call.customerId,
       waitDuration,
     });
+
+    const [agentUser] = await db.select({
+      sipExtension: users.sipExtension,
+      sipEnabled: users.sipEnabled,
+      fullName: users.fullName,
+    }).from(users).where(eq(users.id, agent.userId)).limit(1);
+
+    if (!agentUser || !agentUser.sipEnabled || !agentUser.sipExtension) {
+      console.log(`[QueueEngine] Agent ${agent.userId} has no SIP extension configured (sipEnabled=${agentUser?.sipEnabled}, ext=${agentUser?.sipExtension})`);
+      console.log(`[QueueEngine] Call ${call.id} waiting for agent to answer via WebRTC/workspace`);
+      return;
+    }
+
+    const sipEndpoint = `PJSIP/${agentUser.sipExtension}`;
+    console.log(`[QueueEngine] Originating call to agent SIP endpoint: ${sipEndpoint}`);
+
+    try {
+      const agentChannel = await this.ariClient.originateChannel(
+        sipEndpoint,
+        agentUser.sipExtension,
+        "default",
+        call.callerNumber
+      );
+
+      console.log(`[QueueEngine] Agent channel created: ${agentChannel.id} for agent ${agent.userId}`);
+
+      this.pendingAgentCalls.set(agentChannel.id, {
+        callerChannelId: call.channelId,
+        callId: call.id,
+        agentId: agent.userId,
+        queueId: queue.id,
+        callerNumber: call.callerNumber,
+        callerName: call.callerName,
+        customerId: call.customerId,
+        waitDuration,
+        queueName: queue.name,
+      });
+
+      setTimeout(async () => {
+        const pendingTimeout = this.pendingAgentCalls.get(agentChannel.id);
+        if (pendingTimeout) {
+          console.log(`[QueueEngine] Agent ${agent.userId} did not answer within 30s, cancelling`);
+          this.pendingAgentCalls.delete(agentChannel.id);
+          try { this.ariClient.hangupChannel(agentChannel.id, "normal"); } catch {}
+          this.updateAgentStatus(agent.userId, "available", null);
+          this.waitingCalls.set(call.channelId, call);
+          await db.update(inboundCallLogs)
+            .set({ status: "queued", assignedAgentId: null })
+            .where(eq(inboundCallLogs.id, call.id));
+          this.startMohForChannel(call.channelId, queue.id);
+          this.processQueues();
+        }
+      }, 30000);
+    } catch (err: any) {
+      console.error(`[QueueEngine] Failed to originate call to agent ${agent.userId}:`, err.message);
+      this.updateAgentStatus(agent.userId, "available", null);
+      this.waitingCalls.set(call.channelId, call);
+      await this.startMohForChannel(call.channelId, queue.id);
+      await db.update(inboundCallLogs)
+        .set({ status: "queued", assignedAgentId: null })
+        .where(eq(inboundCallLogs.id, call.id));
+      console.log(`[QueueEngine] Requeued call ${call.id} after originate failure`);
+      this.processQueues();
+    }
+  }
+
+  private async handleAgentChannelAnswer(agentChannelId: string, pending: PendingAgentCall): Promise<void> {
+    this.pendingAgentCalls.delete(agentChannelId);
+    console.log(`[QueueEngine] Agent answered! Bridging caller ${pending.callerChannelId} with agent ${agentChannelId}`);
+
+    try {
+      await this.stopMohForChannel(pending.callerChannelId);
+
+      const bridge = await this.ariClient.createBridge("mixing");
+      console.log(`[QueueEngine] Bridge created: ${bridge.id}`);
+
+      await this.ariClient.addChannelToBridge(bridge.id, pending.callerChannelId);
+      await this.ariClient.addChannelToBridge(bridge.id, agentChannelId);
+
+      console.log(`[QueueEngine] Both channels added to bridge ${bridge.id}`);
+
+      this.activeBridges.set(pending.callerChannelId, {
+        bridgeId: bridge.id,
+        callerChannelId: pending.callerChannelId,
+        agentChannelId,
+        callId: pending.callId,
+        agentId: pending.agentId,
+      });
+      this.activeBridges.set(agentChannelId, {
+        bridgeId: bridge.id,
+        callerChannelId: pending.callerChannelId,
+        agentChannelId,
+        callId: pending.callId,
+        agentId: pending.agentId,
+      });
+
+      await db.update(inboundCallLogs)
+        .set({
+          status: "answered",
+          answeredAt: new Date(),
+        })
+        .where(eq(inboundCallLogs.id, pending.callId));
+
+      this.emit("call-answered", {
+        callId: pending.callId,
+        agentId: pending.agentId,
+        callerNumber: pending.callerNumber,
+      });
+    } catch (err: any) {
+      console.error(`[QueueEngine] Failed to bridge channels:`, err.message);
+      try { await this.ariClient.hangupChannel(agentChannelId, "normal"); } catch {}
+      this.updateAgentStatus(pending.agentId, "available", null);
+    }
   }
 
   async agentAnsweredCall(callId: string, agentId: string, agentChannelId?: string): Promise<void> {
@@ -672,6 +813,63 @@ export class QueueEngine extends EventEmitter {
         this.pendingWelcome.delete(pbId);
       }
     }
+
+    const pending = this.pendingAgentCalls.get(channelId);
+    if (pending) {
+      console.log(`[QueueEngine] Agent channel ${channelId} destroyed before answer (agent rejected/unavailable)`);
+      this.pendingAgentCalls.delete(channelId);
+      this.updateAgentStatus(pending.agentId, "available", null);
+      const call: QueuedCall = {
+        id: pending.callId,
+        channelId: pending.callerChannelId,
+        callerNumber: pending.callerNumber,
+        callerName: pending.callerName,
+        queueId: pending.queueId,
+        customerId: pending.customerId,
+        enteredAt: new Date(),
+        position: 1,
+      };
+      this.waitingCalls.set(pending.callerChannelId, call);
+      this.startMohForChannel(pending.callerChannelId, pending.queueId);
+      this.processQueues();
+      return;
+    }
+
+    const bridge = this.activeBridges.get(channelId);
+    if (bridge) {
+      console.log(`[QueueEngine] Channel ${channelId} in active bridge destroyed, completing call ${bridge.callId}`);
+      this.activeBridges.delete(bridge.callerChannelId);
+      this.activeBridges.delete(bridge.agentChannelId);
+
+      const otherChannelId = channelId === bridge.callerChannelId ? bridge.agentChannelId : bridge.callerChannelId;
+      try { this.ariClient.hangupChannel(otherChannelId, "normal"); } catch {}
+      try { this.ariClient.destroyBridge(bridge.bridgeId); } catch {}
+
+      this.agentCompletedCall(bridge.callId, bridge.agentId);
+      return;
+    }
+
+    for (const [agentChId, pending] of this.pendingAgentCalls.entries()) {
+      if (pending.callerChannelId === channelId) {
+        console.log(`[QueueEngine] Caller channel ${channelId} destroyed while agent ${agentChId} is ringing`);
+        this.pendingAgentCalls.delete(agentChId);
+        try { this.ariClient.hangupChannel(agentChId, "normal"); } catch {}
+        this.updateAgentStatus(pending.agentId, "available", null);
+        db.update(inboundCallLogs)
+          .set({ status: "abandoned", completedAt: new Date(), abandonReason: "caller_hangup" })
+          .where(eq(inboundCallLogs.id, pending.callId))
+          .catch(() => {});
+        this.emit("call-abandoned", {
+          callId: pending.callId,
+          queueId: pending.queueId,
+          callerNumber: pending.callerNumber,
+          reason: "caller_hangup",
+          assignedAgentId: pending.agentId,
+        });
+        return;
+      }
+    }
+
     const call = this.waitingCalls.get(channelId);
     if (call) {
       this.handleCallerHangup(channelId);
@@ -684,6 +882,15 @@ export class QueueEngine extends EventEmitter {
 
     this.mohPlaybacks.delete(channelId);
     this.waitingCalls.delete(channelId);
+
+    for (const [agentChId, pending] of this.pendingAgentCalls.entries()) {
+      if (pending.callerChannelId === channelId) {
+        console.log(`[QueueEngine] Caller hung up, cancelling pending agent call ${agentChId}`);
+        this.pendingAgentCalls.delete(agentChId);
+        try { await this.ariClient.hangupChannel(agentChId, "normal"); } catch {}
+        this.updateAgentStatus(pending.agentId, "available", null);
+      }
+    }
 
     await db.update(inboundCallLogs)
       .set({
