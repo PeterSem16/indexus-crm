@@ -311,6 +311,8 @@ function TopBar({
   t,
   onOpenScheduledQueue,
   scheduledQueueCounts,
+  abandonedCallsCount,
+  onOpenAbandonedCalls,
 }: {
   status: AgentStatus;
   onStatusChange: (status: AgentStatus) => void;
