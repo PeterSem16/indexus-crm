@@ -31,7 +31,7 @@ import {
   DEFAULT_PHONE_DISPOSITIONS, DEFAULT_EMAIL_DISPOSITIONS, DEFAULT_SMS_DISPOSITIONS, DISPOSITION_NAME_TRANSLATIONS,
   callLogs, campaignContacts, campaignContactHistory, campaignContactSessions, campaigns, customers, users,
   collections, executiveSummaries, collectionLabResults,
-  agentSessions, agentSessionActivities, agentBreaks, scheduledReports,
+  agentSessions, agentSessionActivities, agentBreaks, scheduledReports, agentQueueStatus,
   type SafeUser, type Customer, type Product, type BillingDetails, type ActivityLog, type LeadScoringCriteria,
   type ServiceConfiguration, type InvoiceTemplate, type InvoiceLayout, type Role,
   type Campaign, type CampaignContact, type ContractInstance
@@ -1089,6 +1089,28 @@ async function performExchangeRateUpdate() {
     }
   } catch (error) {
     console.error("[ExchangeRates] Scheduled update failed:", error);
+  }
+}
+
+async function persistAgentStatusToDb(userId: string, status: string): Promise<void> {
+  try {
+    const existing = await db.select().from(agentQueueStatus).where(eq(agentQueueStatus.userId, userId)).limit(1);
+    if (existing.length > 0) {
+      await db.update(agentQueueStatus)
+        .set({ status, updatedAt: new Date(), ...(status === "available" || status === "offline" ? { currentCallId: null } : {}) })
+        .where(eq(agentQueueStatus.userId, userId));
+    } else {
+      await db.insert(agentQueueStatus).values({
+        userId,
+        status,
+        callsHandled: 0,
+        loginAt: new Date(),
+        updatedAt: new Date(),
+      });
+    }
+    console.log(`[AgentStatus] Persisted status '${status}' for agent ${userId} directly to DB`);
+  } catch (err: any) {
+    console.error(`[AgentStatus] Failed to persist status for agent ${userId}:`, err.message);
   }
 }
 
@@ -26861,13 +26883,14 @@ Guidelines:
     try {
       const existing = await storage.getActiveAgentSession(req.session.user!.id);
       if (existing) {
+        const activeBreak409 = await storage.getActiveAgentBreak(existing.id);
+        const effectiveStatus = activeBreak409 ? "break" : ((existing.status as any) || "available");
+        const existingQueueIds = (existing as any).inboundQueueIds || [];
         const engine409 = getQueueEngine();
         if (engine409) {
-          const activeBreak409 = await storage.getActiveAgentBreak(existing.id);
-          const effectiveStatus = activeBreak409 ? "break" : ((existing.status as any) || "available");
-          const existingQueueIds = (existing as any).inboundQueueIds || [];
           await engine409.updateAgentStatus(req.session.user!.id, effectiveStatus, null, existingQueueIds);
         }
+        await persistAgentStatusToDb(req.session.user!.id, effectiveStatus);
         return res.status(409).json({ error: "Active session already exists", session: existing });
       }
       const session = await storage.createAgentSession({
@@ -26878,12 +26901,13 @@ Guidelines:
         status: "available",
       });
 
+      const sessionQueueIds = req.body.inboundQueueIds || [];
       const engine = getQueueEngine();
       if (engine) {
-        const sessionQueueIds = req.body.inboundQueueIds || [];
         await engine.updateAgentStatus(req.session.user!.id, "available", null, sessionQueueIds);
         console.log(`[AgentSession] Synced agent ${req.session.user!.id} to QueueEngine as available`);
       }
+      await persistAgentStatusToDb(req.session.user!.id, "available");
 
       res.status(201).json(session);
     } catch (error) {
@@ -26902,9 +26926,12 @@ Guidelines:
       });
       if (!session) return res.status(404).json({ error: "Session not found" });
 
-      const engine = getQueueEngine();
-      if (engine && session.userId) {
-        await engine.updateAgentStatus(session.userId, status, null);
+      if (session.userId) {
+        const engine = getQueueEngine();
+        if (engine) {
+          await engine.updateAgentStatus(session.userId, status, null);
+        }
+        await persistAgentStatusToDb(session.userId, status);
       }
 
       res.json(session);
@@ -26923,9 +26950,12 @@ Guidelines:
       const session = await storage.endAgentSession(req.params.id);
       if (!session) return res.status(404).json({ error: "Session not found" });
 
-      const engine = getQueueEngine();
-      if (engine && session.userId) {
-        await engine.updateAgentStatus(session.userId, "offline", null);
+      if (session.userId) {
+        const engine = getQueueEngine();
+        if (engine) {
+          await engine.updateAgentStatus(session.userId, "offline", null);
+        }
+        await persistAgentStatusToDb(session.userId, "offline");
         console.log(`[AgentSession] Synced agent ${session.userId} to QueueEngine as offline`);
       }
 
@@ -27071,6 +27101,7 @@ Guidelines:
       if (engineBreakStart) {
         await engineBreakStart.updateAgentStatus(req.session.user!.id, "break", null);
       }
+      await persistAgentStatusToDb(req.session.user!.id, "break");
 
       res.status(201).json(brk);
     } catch (error) {
@@ -27095,6 +27126,9 @@ Guidelines:
           const engineBreakEnd = getQueueEngine();
           if (engineBreakEnd && session.userId) {
             await engineBreakEnd.updateAgentStatus(session.userId, "available", null);
+          }
+          if (session.userId) {
+            await persistAgentStatusToDb(session.userId, "available");
           }
         }
       }

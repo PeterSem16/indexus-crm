@@ -323,12 +323,36 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
       const engine = getQueueEngine();
       const stats = engine?.getQueueStats(req.params.id) || { waiting: 0, active: 0, agents: 0 };
 
-      const memberUserIds = members.map(m => m.member.userId);
-      const dbAgentStatuses = memberUserIds.length > 0
-        ? await db.select().from(agentQueueStatus).where(inArray(agentQueueStatus.userId, memberUserIds))
+      const sessionMembers = await db.select({
+        id: agentSessions.id,
+        userId: agentSessions.userId,
+        inboundQueueIds: agentSessions.inboundQueueIds,
+        status: agentSessions.status,
+      }).from(agentSessions)
+        .where(inArray(agentSessions.status, ["available", "break", "busy"]));
+
+      const sessionAgentsForQueue = sessionMembers.filter(s => {
+        const qIds: string[] = (s as any).inboundQueueIds || [];
+        return qIds.includes(req.params.id);
+      });
+
+      const allUserIds = [...new Set([
+        ...members.map(m => m.member.userId),
+        ...sessionAgentsForQueue.map(s => s.userId),
+      ])];
+
+      const dbAgentStatuses = allUserIds.length > 0
+        ? await db.select().from(agentQueueStatus).where(inArray(agentQueueStatus.userId, allUserIds))
         : [];
       const dbStatusMap = new Map(dbAgentStatuses.map(s => [s.userId, s]));
 
+      const sessionUserInfo = sessionAgentsForQueue.length > 0
+        ? await db.select({ id: users.id, username: users.username, fullName: users.fullName, role: users.role })
+            .from(users).where(inArray(users.id, sessionAgentsForQueue.map(s => s.userId)))
+        : [];
+      const sessionUserMap = new Map(sessionUserInfo.map(u => [u.id, u]));
+
+      const existingMemberIds = new Set(members.map(m => m.member.userId));
       const memberStates = members.map(m => {
         const agentState = engine?.getAgentState(m.member.userId);
         const dbState = dbStatusMap.get(m.member.userId);
@@ -340,6 +364,26 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
           callsHandled: agentState?.callsHandled || dbState?.callsHandled || 0,
         };
       });
+
+      for (const sa of sessionAgentsForQueue) {
+        if (!existingMemberIds.has(sa.userId)) {
+          const agentState = engine?.getAgentState(sa.userId);
+          const dbState = dbStatusMap.get(sa.userId);
+          const resolvedStatus = agentState?.status || dbState?.status || sa.status || "offline";
+          const userInfo = sessionUserMap.get(sa.userId);
+          memberStates.push({
+            id: `session-${sa.id}`,
+            queueId: req.params.id,
+            userId: sa.userId,
+            isActive: true,
+            priority: 1,
+            penalty: 0,
+            user: userInfo || null,
+            agentStatus: resolvedStatus,
+            callsHandled: agentState?.callsHandled || dbState?.callsHandled || 0,
+          } as any);
+        }
+      }
 
       res.json({ ...queue[0], members: memberStates, stats });
     } catch (error) {
@@ -1296,9 +1340,18 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
         };
       });
 
+      let resolvedAgentStatus = agentState?.status || "offline";
+      if (resolvedAgentStatus === "offline") {
+        const [dbStatus] = await db.select().from(agentQueueStatus)
+          .where(eq(agentQueueStatus.userId, userId)).limit(1);
+        if (dbStatus && dbStatus.status !== "offline") {
+          resolvedAgentStatus = dbStatus.status as any;
+        }
+      }
+
       res.json({
         queues: queueData,
-        agentStatus: agentState?.status || "offline",
+        agentStatus: resolvedAgentStatus,
       });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
