@@ -7,6 +7,7 @@ import {
   agentQueueStatus,
   inboundCallLogs,
   ivrMessages,
+  agentSessions,
   type InboundQueue,
   type QueueMember,
   type InboundCallLog,
@@ -165,6 +166,8 @@ export class QueueEngine extends EventEmitter {
     try {
       const states = await db.select().from(agentQueueStatus);
       const members = await db.select().from(queueMembers).where(eq(queueMembers.isActive, true));
+      const sessions = await db.select().from(agentSessions)
+        .where(inArray(agentSessions.status, ["available", "break", "busy"]));
 
       const membersByUser = new Map<string, { queueIds: string[]; minPenalty: number }>();
       for (const m of members) {
@@ -174,19 +177,52 @@ export class QueueEngine extends EventEmitter {
         membersByUser.set(m.userId, existing);
       }
 
+      const sessionsByUser = new Map<string, string[]>();
+      for (const s of sessions) {
+        const qIds: string[] = (s as any).inboundQueueIds || [];
+        if (qIds.length > 0) {
+          sessionsByUser.set(s.userId, qIds);
+        }
+      }
+
       for (const state of states) {
         const memberInfo = membersByUser.get(state.userId);
+        const sessionQueueIds = sessionsByUser.get(state.userId) || [];
+        const allQueueIds = [...new Set([...(memberInfo?.queueIds || []), ...sessionQueueIds])];
         this.agentStates.set(state.userId, {
           userId: state.userId,
           status: state.status as AgentState["status"],
           currentCallId: state.currentCallId,
           lastCallEndedAt: state.lastCallEndedAt,
           callsHandled: state.callsHandled,
-          queueIds: memberInfo?.queueIds || [],
+          queueIds: allQueueIds,
           sipExtension: null,
           penalty: memberInfo?.minPenalty || 0,
         });
+        console.log(`[QueueEngine] Loaded agent ${state.userId}: ${state.status}, queues: [${allQueueIds.join(',')}]`);
       }
+
+      for (const [userId, queueIds] of sessionsByUser.entries()) {
+        if (!this.agentStates.has(userId)) {
+          const session = sessions.find(s => s.userId === userId);
+          if (session) {
+            const sessionStatus = session.status === "available" ? "available" : session.status === "busy" ? "busy" : "break";
+            console.log(`[QueueEngine] Loaded session agent ${userId}: ${sessionStatus}, queues: [${queueIds.join(',')}]`);
+            this.agentStates.set(userId, {
+              userId,
+              status: sessionStatus as AgentState["status"],
+              currentCallId: null,
+              lastCallEndedAt: null,
+              callsHandled: 0,
+              queueIds,
+              sipExtension: null,
+              penalty: 0,
+            });
+          }
+        }
+      }
+
+      console.log(`[QueueEngine] Loaded ${this.agentStates.size} agent states total`);
     } catch (err) {
       console.error("[QueueEngine] Failed to load agent states:", err);
     }
@@ -199,10 +235,10 @@ export class QueueEngine extends EventEmitter {
     }
 
     const channel = event.channel;
-    const callerNumber = channel.caller?.number || event.args?.[2] || "unknown";
-    const callerName = channel.caller?.name || "";
-    const dialedNumber = channel.dialplan?.exten || event.args?.[1] || "";
     const stasisArgs = event.args || [];
+    const callerNumber = channel.caller?.number || stasisArgs[1] || "unknown";
+    const callerName = channel.caller?.name || "";
+    const dialedNumber = channel.dialplan?.exten || stasisArgs[0] || "";
 
     console.log(`[QueueEngine] === INCOMING CALL ===`);
     console.log(`[QueueEngine]   Caller: ${callerNumber} (${callerName})`);
@@ -364,17 +400,43 @@ export class QueueEngine extends EventEmitter {
     const members = await db.select().from(queueMembers)
       .where(and(eq(queueMembers.queueId, queue.id), eq(queueMembers.isActive, true)));
 
-    console.log(`[QueueEngine] Selecting agent for queue "${queue.name}": ${members.length} active members`);
+    console.log(`[QueueEngine] Selecting agent for queue "${queue.name}" (${queue.id}): ${members.length} DB members`);
+
+    const activeSessions = await db.select().from(agentSessions)
+      .where(inArray(agentSessions.status, ["available", "break", "busy"]));
+
+    const sessionAgentIds: string[] = [];
+    for (const session of activeSessions) {
+      const sessionQueueIds: string[] = (session as any).inboundQueueIds || [];
+      if (sessionQueueIds.includes(queue.id)) {
+        sessionAgentIds.push(session.userId);
+      }
+    }
+
+    console.log(`[QueueEngine]   Session agents for this queue: ${sessionAgentIds.length} (${sessionAgentIds.join(', ') || 'none'})`);
 
     const memberUserIds = members.map(m => m.userId);
-    const dbStates = memberUserIds.length > 0
-      ? await db.select().from(agentQueueStatus).where(inArray(agentQueueStatus.userId, memberUserIds))
-      : [];
+    const allAgentIds = [...new Set([...memberUserIds, ...sessionAgentIds])];
+
+    console.log(`[QueueEngine]   Total candidate agents: ${allAgentIds.length}`);
+
+    if (allAgentIds.length === 0) {
+      console.log(`[QueueEngine] No agents assigned to queue "${queue.name}" via members or sessions`);
+      return null;
+    }
+
+    const dbStates = await db.select().from(agentQueueStatus)
+      .where(inArray(agentQueueStatus.userId, allAgentIds));
 
     for (const dbState of dbStates) {
       const existing = this.agentStates.get(dbState.userId);
       const memberInfo = members.find(m => m.userId === dbState.userId);
       const memberQueueIds = members.filter(m => m.userId === dbState.userId).map(m => m.queueId);
+      const sessionQueueIds = activeSessions
+        .filter(s => s.userId === dbState.userId)
+        .flatMap(s => (s as any).inboundQueueIds || []);
+      const allQueueIds = [...new Set([...memberQueueIds, ...sessionQueueIds])];
+
       const wasChanged = !existing || existing.status !== dbState.status;
       this.agentStates.set(dbState.userId, {
         userId: dbState.userId,
@@ -382,21 +444,45 @@ export class QueueEngine extends EventEmitter {
         currentCallId: dbState.currentCallId,
         lastCallEndedAt: dbState.lastCallEndedAt,
         callsHandled: dbState.callsHandled,
-        queueIds: memberQueueIds.length > 0 ? memberQueueIds : (existing?.queueIds || []),
+        queueIds: allQueueIds.length > 0 ? allQueueIds : (existing?.queueIds || []),
         sipExtension: existing?.sipExtension || null,
         penalty: memberInfo?.penalty ?? existing?.penalty ?? 0,
       });
       if (wasChanged) {
-        console.log(`[QueueEngine]   Synced agent ${dbState.userId} from DB: ${dbState.status}`);
+        console.log(`[QueueEngine]   Synced agent ${dbState.userId} from DB: ${dbState.status} (queues: ${allQueueIds.join(',')})`);
+      }
+    }
+
+    for (const agentId of allAgentIds) {
+      if (!this.agentStates.has(agentId)) {
+        const session = activeSessions.find(s => s.userId === agentId);
+        if (session) {
+          const sessionStatus = session.status === "available" ? "available" : session.status === "busy" ? "busy" : "break";
+          const sessionQIds: string[] = (session as any).inboundQueueIds || [];
+          const mQIds = members.filter(m => m.userId === agentId).map(m => m.queueId);
+          console.log(`[QueueEngine]   Creating state from session for agent ${agentId}: ${sessionStatus}`);
+          this.agentStates.set(agentId, {
+            userId: agentId,
+            status: sessionStatus as AgentState["status"],
+            currentCallId: null,
+            lastCallEndedAt: null,
+            callsHandled: 0,
+            queueIds: [...new Set([...mQIds, ...sessionQIds])],
+            sipExtension: null,
+            penalty: 0,
+          });
+        }
       }
     }
 
     const availableAgents: AgentState[] = [];
-    for (const member of members) {
-      const state = this.agentStates.get(member.userId);
-      console.log(`[QueueEngine]   Member ${member.userId}: state=${state?.status || 'NOT_IN_MEMORY'} (penalty: ${member.penalty})`);
+    for (const agentId of allAgentIds) {
+      const state = this.agentStates.get(agentId);
+      const memberInfo = members.find(m => m.userId === agentId);
+      const penalty = memberInfo?.penalty ?? state?.penalty ?? 0;
+      console.log(`[QueueEngine]   Agent ${agentId}: state=${state?.status || 'NOT_IN_MEMORY'} (penalty: ${penalty})`);
       if (state && state.status === "available") {
-        availableAgents.push({ ...state, penalty: member.penalty });
+        availableAgents.push({ ...state, penalty });
       }
     }
 
