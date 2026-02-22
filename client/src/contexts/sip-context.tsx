@@ -310,7 +310,7 @@ export function SipProvider({ children }: { children: ReactNode }) {
         reconnectionDelay: 1,
         noResponseTimeout: 60,
         gracefulShutdown: false,
-        autoSendAnInitialProvisionalResponse: false,
+        sendInitialProvisionalResponse: true,
       };
 
       const userAgent = new UserAgent(userAgentOptions);
@@ -336,14 +336,6 @@ export function SipProvider({ children }: { children: ReactNode }) {
               console.warn("[SIP] Error parsing caller identity:", parseErr);
             }
             console.log(`[SIP] Incoming call from ${callerName} <${callerNumber}>`);
-
-            try {
-              invitation.progress({ statusCode: 180 }).catch((err: any) => {
-                console.warn("[SIP] Failed to send 180:", err);
-              });
-            } catch (e) {
-              console.warn("[SIP] progress() sync error:", e);
-            }
 
             setIncomingCall({
               invitation,
