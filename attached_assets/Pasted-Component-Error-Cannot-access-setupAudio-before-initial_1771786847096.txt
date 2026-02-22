@@ -1,0 +1,15 @@
+Component Error
+Cannot access 'setupAudio' before initialization.
+SipPhone@https://fc828d39-61cd-41d5-ba8d-20e8af9db227-00-7urdqg8tuo0k.worf.replit.dev/src/components/sip-phone.tsx:679:17
+renderWithHooks@https://fc828d39-61cd-41d5-ba8d-20e8af9db227-00-7urdqg8tuo0k.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-MNF4PNE3.js:11596:35
+mountIndeterminateComponent@https://fc828d39-61cd-41d5-ba8d-20e8af9db227-00-7urdqg8tuo0k.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-MNF4PNE3.js:14974:36
+beginWork$1@https://fc828d39-61cd-41d5-ba8d-20e8af9db227-00-7urdqg8tuo0k.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-MNF4PNE3.js:19806:31
+performUnitOfWork@https://fc828d39-61cd-41d5-ba8d-20e8af9db227-00-7urdqg8tuo0k.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-MNF4PNE3.js:19251:31
+workLoopSync@https://fc828d39-61cd-41d5-ba8d-20e8af9db227-00-7urdqg8tuo0k.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-MNF4PNE3.js:19190:30
+renderRootSync@https://fc828d39-61cd-41d5-ba8d-20e8af9db227-00-7urdqg8tuo0k.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-MNF4PNE3.js:19169:27
+recoverFromConcurrentError@https://fc828d39-61cd-41d5-ba8d-20e8af9db227-00-7urdqg8tuo0k.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-MNF4PNE3.js:18786:42
+performConcurrentWorkOnRoot@https://fc828d39-61cd-41d5-ba8d-20e8af9db227-00-7urdqg8tuo0k.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-MNF4PNE3.js:18734:56
+workLoop@https://fc828d39-61cd-41d5-ba8d-20e8af9db227-00-7urdqg8tuo0k.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-MNF4PNE3.js:197:50
+flushWork@https://fc828d39-61cd-41d5-ba8d-20e8af9db227-00-7urdqg8tuo0k.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-MNF4PNE3.js:176:30
+performWorkUntilDeadline@https://fc828d39-61cd-41d5-ba8d-20e8af9db227-00-7urdqg8tuo0k.worf.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-MNF4PNE3.js:384:50
+Retry

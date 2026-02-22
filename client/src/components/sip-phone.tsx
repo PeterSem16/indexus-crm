@@ -701,7 +701,7 @@ export function SipPhone({
     }).catch((err) => {
       console.error("[SIP] Failed to create call log for externally answered call:", err);
     });
-  }, [setupAudio, startRecording, stopRecordingAndUpload, onCallStart, onCallEnd]);
+  }, [startRecording, stopRecordingAndUpload, onCallStart, onCallEnd]);
 
   const handleInboundAnsweredRef = useRef(handleInboundAnswered);
   handleInboundAnsweredRef.current = handleInboundAnswered;
