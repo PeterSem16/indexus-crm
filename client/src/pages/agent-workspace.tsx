@@ -329,6 +329,8 @@ function TopBar({
   t: any;
   onOpenScheduledQueue?: () => void;
   scheduledQueueCounts?: { total: number; overdue: number };
+  abandonedCallsCount?: number;
+  onOpenAbandonedCalls?: () => void;
 }) {
   const STATUS_CONFIG = getStatusConfig(t);
   const config = STATUS_CONFIG[status];
@@ -477,6 +479,31 @@ function TopBar({
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75" />
                     <span className="relative inline-flex rounded-full h-3 w-3 bg-destructive" />
                   </span>
+                )}
+              </Button>
+            </>
+          )}
+
+          {onOpenAbandonedCalls && (
+            <>
+              <Separator orientation="vertical" className="h-6 mx-1" />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onOpenAbandonedCalls}
+                className="gap-1.5 relative"
+                data-testid="btn-open-abandoned-calls"
+              >
+                <PhoneOff className="h-3.5 w-3.5 text-destructive" />
+                <span className="text-xs hidden xl:inline">Zmeškané</span>
+                {(abandonedCallsCount || 0) > 0 && (
+                  <Badge
+                    variant="destructive"
+                    className="text-[9px] h-4 min-w-[16px] px-1 ml-0.5"
+                    data-testid="badge-abandoned-total"
+                  >
+                    {abandonedCallsCount}
+                  </Badge>
                 )}
               </Button>
             </>
@@ -3935,6 +3962,7 @@ export default function AgentWorkspacePage() {
   const [timeline, setTimeline] = useState<TimelineEntry[]>([]);
   const [isAutoMode, setIsAutoMode] = useState(false);
   const [scheduledQueueOpen, setScheduledQueueOpen] = useState(false);
+  const [abandonedCallsOpen, setAbandonedCallsOpen] = useState(false);
   const [historyDetailModal, setHistoryDetailModal] = useState<TimelineEntry | ContactHistory | null>(null);
   const [autoCountdown, setAutoCountdown] = useState<number | null>(null);
   const autoTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -4129,6 +4157,12 @@ export default function AgentWorkspacePage() {
     queryKey: ["/api/agent/my-queues"],
     enabled: !!hasAccess,
     refetchInterval: 10000,
+  });
+
+  const { data: abandonedCalls = [] } = useQuery<any[]>({
+    queryKey: ["/api/agent/abandoned-calls"],
+    enabled: !!hasAccess && agentSession.isSessionActive,
+    refetchInterval: 30000,
   });
 
   const { data: campaignDispositions = [] } = useQuery<CampaignDisposition[]>({
@@ -4999,6 +5033,13 @@ export default function AgentWorkspacePage() {
             });
           } else if (data.type === "call-cancelled") {
             setInboundCalls(prev => prev.filter(c => c.callId !== data.callId));
+            const callerDisplay = data.callerName || data.callerNumber || "Neznámy";
+            const queueDisplay = data.queueName ? ` (${data.queueName})` : "";
+            toast({
+              title: "Hovor ukončený",
+              description: `Volajúci ${callerDisplay}${queueDisplay} ukončil hovor`,
+              variant: "destructive",
+            });
           }
         } catch (err) {
           console.error(`[AgentWS] Failed to parse message:`, err);
@@ -5438,6 +5479,8 @@ export default function AgentWorkspacePage() {
         t={t}
         onOpenScheduledQueue={() => setScheduledQueueOpen(true)}
         scheduledQueueCounts={scheduledQueueCounts}
+        abandonedCallsCount={abandonedCalls.length}
+        onOpenAbandonedCalls={() => setAbandonedCallsOpen(true)}
       />
 
       <div className="flex flex-1 overflow-hidden">
@@ -5905,6 +5948,104 @@ export default function AgentWorkspacePage() {
       </Dialog>
 
       <ScheduledQueuePanel open={scheduledQueueOpen} onOpenChange={setScheduledQueueOpen} onOpenContact={handleOpenScheduledContact} />
+
+      <Dialog open={abandonedCallsOpen} onOpenChange={setAbandonedCallsOpen}>
+        <DialogContent className="sm:max-w-2xl max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <PhoneOff className="h-5 w-5 text-destructive" />
+              Zmeškané prichádzajúce hovory
+            </DialogTitle>
+          </DialogHeader>
+          <ScrollArea className="flex-1 max-h-[60vh]">
+            {abandonedCalls.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                <CheckCircle className="h-12 w-12 mb-3 text-green-500/50" />
+                <p className="font-medium">Žiadne zmeškané hovory</p>
+                <p className="text-sm">Všetky hovory boli obslúžené</p>
+              </div>
+            ) : (
+              <div className="space-y-2 p-1">
+                {abandonedCalls.map((call: any) => {
+                  const waitMin = call.waitDurationSeconds ? Math.floor(call.waitDurationSeconds / 60) : 0;
+                  const waitSec = call.waitDurationSeconds ? call.waitDurationSeconds % 60 : 0;
+                  const timeAgo = (() => {
+                    const diff = Date.now() - new Date(call.enteredQueueAt || call.createdAt).getTime();
+                    const mins = Math.floor(diff / 60000);
+                    if (mins < 60) return `pred ${mins} min`;
+                    const hrs = Math.floor(mins / 60);
+                    return `pred ${hrs}h ${mins % 60}min`;
+                  })();
+                  const statusLabel = call.status === "abandoned" ? "Zrušený" : call.status === "timeout" ? "Časový limit" : "Pretečenie";
+                  const statusColor = call.status === "abandoned" ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" : "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400";
+
+                  return (
+                    <div
+                      key={call.id}
+                      className="flex items-center justify-between gap-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
+                      data-testid={`abandoned-call-${call.id}`}
+                    >
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30">
+                          <PhoneOff className="h-4 w-4 text-red-600 dark:text-red-400" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-sm truncate">
+                              {call.customerName || call.callerName || call.callerNumber}
+                            </span>
+                            <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${statusColor}`}>
+                              {statusLabel}
+                            </Badge>
+                          </div>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                            <span>{call.callerNumber}</span>
+                            {call.queueName && (
+                              <>
+                                <span className="text-muted-foreground/50">|</span>
+                                <span>{call.queueName}</span>
+                              </>
+                            )}
+                            <span className="text-muted-foreground/50">|</span>
+                            <span>{timeAgo}</span>
+                            {call.waitDurationSeconds > 0 && (
+                              <>
+                                <span className="text-muted-foreground/50">|</span>
+                                <span>Čakal {waitMin > 0 ? `${waitMin}m ` : ""}{waitSec}s</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="default"
+                        className="shrink-0 gap-1.5"
+                        onClick={() => {
+                          const phoneNum = call.customerPhone || call.callerNumber;
+                          if (phoneNum && makeCall) {
+                            makeCall({
+                              phoneNumber: phoneNum,
+                              customerId: call.customerId || undefined,
+                              customerName: call.customerName || call.callerName || phoneNum,
+                            });
+                            setAbandonedCallsOpen(false);
+                          }
+                        }}
+                        disabled={!isSipRegistered}
+                        data-testid={`btn-callback-${call.id}`}
+                      >
+                        <Phone className="h-3.5 w-3.5" />
+                        Zavolať
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!historyDetailModal} onOpenChange={(open) => !open && setHistoryDetailModal(null)}>
         <DialogContent className="sm:max-w-3xl max-h-[85vh] flex flex-col p-0">

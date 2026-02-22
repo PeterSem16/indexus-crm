@@ -1471,6 +1471,51 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
     }
   });
 
+  app.get("/api/agent/abandoned-calls", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const user = (req.session as any)?.user;
+      if (!user?.id) return res.status(401).json({ error: "Unauthorized" });
+
+      const memberQueues = await db.select({ queueId: queueMembers.queueId })
+        .from(queueMembers)
+        .where(eq(queueMembers.userId, user.id));
+      
+      const queueIds = memberQueues.map(m => m.queueId);
+      if (queueIds.length === 0) return res.json([]);
+
+      const hoursBack = parseInt(req.query.hours as string) || 24;
+      const since = new Date(Date.now() - hoursBack * 60 * 60 * 1000);
+
+      const logs = await db.select({
+        log: inboundCallLogs,
+        queueName: inboundQueues.name,
+        customerFirstName: customers.firstName,
+        customerLastName: customers.lastName,
+        customerPhone: customers.phone,
+      })
+        .from(inboundCallLogs)
+        .leftJoin(inboundQueues, eq(inboundCallLogs.queueId, inboundQueues.id))
+        .leftJoin(customers, eq(inboundCallLogs.customerId, customers.id))
+        .where(and(
+          inArray(inboundCallLogs.queueId, queueIds),
+          inArray(inboundCallLogs.status, ["abandoned", "timeout", "overflow"]),
+          gte(inboundCallLogs.enteredQueueAt, since),
+        ))
+        .orderBy(desc(inboundCallLogs.enteredQueueAt))
+        .limit(50);
+
+      res.json(logs.map(r => ({
+        ...r.log,
+        queueName: r.queueName,
+        customerName: r.customerFirstName && r.customerLastName ? `${r.customerFirstName} ${r.customerLastName}` : null,
+        customerPhone: r.customerPhone,
+      })));
+    } catch (error) {
+      console.error("Error fetching abandoned calls:", error);
+      res.status(500).json({ error: "Failed to fetch abandoned calls" });
+    }
+  });
+
   app.post("/api/inbound-calls/:callId/answer", requireAuth, async (req: Request, res: Response) => {
     try {
       const user = (req.session as any)?.user;
@@ -1879,17 +1924,53 @@ function setupQueueEngineWebSocketEvents(engine: QueueEngine): void {
 
   engine.on("call-abandoned", async (data) => {
     console.log(`[QueueEngine] Call abandoned: ${data.callerNumber}, reason: ${data.reason}`);
+    const ws = await getWs();
+    let queueName = data.queueName || "";
+    if (!queueName && data.queueId) {
+      try {
+        const q = await db.select({ name: inboundQueues.name }).from(inboundQueues).where(eq(inboundQueues.id, data.queueId)).limit(1);
+        if (q.length > 0) queueName = q[0].name;
+      } catch {}
+    }
+    const extra = { callerNumber: data.callerNumber, callerName: data.callerName, queueName, reason: data.reason || "caller_hangup" };
     if (data.assignedAgentId) {
-      const ws = await getWs();
-      ws.notifyCallCancelled(data.assignedAgentId, data.callId);
+      ws.notifyCallCancelled(data.assignedAgentId, data.callId, extra);
+    }
+    if (data.queueId) {
+      try {
+        const members = await db.select({ userId: queueMembers.userId }).from(queueMembers).where(eq(queueMembers.queueId, data.queueId));
+        for (const m of members) {
+          if (m.userId !== data.assignedAgentId) {
+            ws.notifyCallCancelled(m.userId, data.callId, extra);
+          }
+        }
+      } catch {}
     }
   });
 
   engine.on("call-timeout", async (data) => {
     console.log(`[QueueEngine] Call timeout: ${data.callerNumber}`);
+    const ws = await getWs();
+    let queueName = data.queueName || "";
+    if (!queueName && data.queueId) {
+      try {
+        const q = await db.select({ name: inboundQueues.name }).from(inboundQueues).where(eq(inboundQueues.id, data.queueId)).limit(1);
+        if (q.length > 0) queueName = q[0].name;
+      } catch {}
+    }
+    const extra = { callerNumber: data.callerNumber, callerName: data.callerName, queueName, reason: "timeout" };
     if (data.assignedAgentId) {
-      const ws = await getWs();
-      ws.notifyCallCancelled(data.assignedAgentId, data.callId);
+      ws.notifyCallCancelled(data.assignedAgentId, data.callId, extra);
+    }
+    if (data.queueId) {
+      try {
+        const members = await db.select({ userId: queueMembers.userId }).from(queueMembers).where(eq(queueMembers.queueId, data.queueId));
+        for (const m of members) {
+          if (m.userId !== data.assignedAgentId) {
+            ws.notifyCallCancelled(m.userId, data.callId, extra);
+          }
+        }
+      } catch {}
     }
   });
 

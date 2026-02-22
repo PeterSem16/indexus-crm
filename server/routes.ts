@@ -32,6 +32,7 @@ import {
   callLogs, campaignContacts, campaignContactHistory, campaignContactSessions, campaigns, customers, users,
   collections, executiveSummaries, collectionLabResults,
   agentSessions, agentSessionActivities, agentBreaks, scheduledReports, agentQueueStatus,
+  inboundCallLogs, inboundQueues,
   type SafeUser, type Customer, type Product, type BillingDetails, type ActivityLog, type LeadScoringCriteria,
   type ServiceConfiguration, type InvoiceTemplate, type InvoiceLayout, type Role,
   type Campaign, type CampaignContact, type ContractInstance
@@ -8135,11 +8136,18 @@ export async function registerRoutes(
     try {
       const customerId = req.params.customerId;
       
-      const [callLogsList, messages, campaignHistory, allUsers] = await Promise.all([
+      const [callLogsList, messages, campaignHistory, allUsers, inboundLogs] = await Promise.all([
         storage.getCallLogsByCustomer(customerId),
         storage.getCommunicationMessagesByCustomer(customerId),
         storage.getCampaignContactHistoryByCustomer(customerId),
         storage.getAllUsers(),
+        db.select({
+          log: inboundCallLogs,
+          queueName: inboundQueues.name,
+        }).from(inboundCallLogs)
+          .leftJoin(inboundQueues, eq(inboundCallLogs.queueId, inboundQueues.id))
+          .where(eq(inboundCallLogs.customerId, customerId))
+          .orderBy(desc(inboundCallLogs.enteredQueueAt)),
       ]);
       
       const userMap = new Map(allUsers.map(u => [u.id, `${u.firstName || ""} ${u.lastName || ""}`.trim() || u.username]));
@@ -8176,6 +8184,38 @@ export async function registerRoutes(
           notes: call.notes,
           campaignId: call.campaignId,
           callLogId: call.id,
+        });
+      }
+
+      const existingCallLogIds = new Set(callLogsList.filter(c => c.id).map(c => c.id));
+      for (const { log: inLog, queueName } of inboundLogs) {
+        if (inLog.callLogId && existingCallLogIds.has(inLog.callLogId)) continue;
+        const agentName = inLog.assignedAgentId ? (userMap.get(inLog.assignedAgentId) || "Neznámy") : null;
+        const inboundStatusLabels: Record<string, string> = {
+          queued: "Vo fronte", ringing: "Zvonenie", answered: "Zodvihnutý",
+          completed: "Dokončený", abandoned: "Zrušený volajúcim", timeout: "Časový limit",
+          overflow: "Pretečenie", transferred: "Presmerovaný",
+        };
+        const waitDur = inLog.waitDurationSeconds || 0;
+        const talkDur = inLog.talkDurationSeconds || 0;
+        const durationStr = talkDur > 0 ? `${Math.floor(talkDur / 60)}:${String(talkDur % 60).padStart(2, "0")}` : null;
+        const waitStr = waitDur > 0 ? `Čakanie: ${waitDur}s` : null;
+        const detailParts = [durationStr ? `Trvanie: ${durationStr}` : null, waitStr].filter(Boolean);
+        historyItems.push({
+          id: `inbound-${inLog.id}`,
+          type: "call",
+          direction: "inbound",
+          timestamp: inLog.enteredQueueAt || inLog.createdAt,
+          status: inboundStatusLabels[inLog.status] || inLog.status,
+          statusCode: inLog.status,
+          agentName,
+          agentId: inLog.assignedAgentId,
+          content: `Prichádzajúci hovor: ${inLog.callerNumber}${queueName ? ` → ${queueName}` : ""}`,
+          details: detailParts.length > 0 ? detailParts.join(", ") : null,
+          duration: talkDur || null,
+          notes: inLog.abandonReason === "caller_hangup" ? "Zákazník ukončil hovor" : null,
+          queueName: queueName || null,
+          inboundCallLogId: inLog.id,
         });
       }
 
@@ -17502,6 +17542,17 @@ export async function registerRoutes(
         userId: req.session.user?.id
       });
       const log = await storage.createCallLog(validated);
+
+      if (log.inboundCallLogId) {
+        const updates: Record<string, any> = { callLogId: log.id };
+        if (log.customerId) updates.customerId = log.customerId;
+        if (log.userId) updates.assignedAgentId = log.userId;
+        db.update(inboundCallLogs)
+          .set(updates)
+          .where(eq(inboundCallLogs.id, log.inboundCallLogId))
+          .catch((err) => console.error("[CallLog] Failed to update inbound call log:", err));
+      }
+
       res.status(201).json(log);
     } catch (error: any) {
       console.error("Failed to create call log:", error);
@@ -17516,6 +17567,21 @@ export async function registerRoutes(
       if (!log) {
         return res.status(404).json({ error: "Call log not found" });
       }
+
+      if (log.inboundCallLogId && (req.body.customerId || req.body.status)) {
+        const inboundUpdates: Record<string, any> = {};
+        if (req.body.customerId) inboundUpdates.customerId = req.body.customerId;
+        if (req.body.status === "completed" || req.body.status === "answered") {
+          inboundUpdates.status = req.body.status;
+        }
+        if (Object.keys(inboundUpdates).length > 0) {
+          db.update(inboundCallLogs)
+            .set(inboundUpdates)
+            .where(eq(inboundCallLogs.id, log.inboundCallLogId))
+            .catch((err) => console.error("[CallLog] Failed to sync inbound call log:", err));
+        }
+      }
+
       res.json(log);
     } catch (error: any) {
       console.error("Failed to update call log:", error);

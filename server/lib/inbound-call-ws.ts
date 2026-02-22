@@ -107,10 +107,16 @@ class InboundCallWebSocketService {
     console.log(`[InboundCallWS] Broadcast to ${sent} agent connections`);
   }
 
-  notifyCallCancelled(agentUserId: string, callId: string) {
+  notifyCallCancelled(agentUserId: string, callId: string, extra?: {
+    callerNumber?: string;
+    callerName?: string;
+    queueName?: string;
+    reason?: string;
+  }) {
     this.sendToAgent(agentUserId, {
       type: "call-cancelled",
       callId,
+      ...(extra || {}),
     });
   }
 

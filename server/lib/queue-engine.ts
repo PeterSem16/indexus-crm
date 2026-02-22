@@ -918,6 +918,8 @@ export class QueueEngine extends EventEmitter {
           callId: pending.callId,
           queueId: pending.queueId,
           callerNumber: pending.callerNumber,
+          callerName: pending.callerName,
+          queueName: pending.queueName,
           reason: "caller_hangup",
           assignedAgentId: pending.agentId,
         });
@@ -960,6 +962,7 @@ export class QueueEngine extends EventEmitter {
       callId: call.id,
       queueId: call.queueId,
       callerNumber: call.callerNumber,
+      callerName: call.callerName,
       reason: "caller_hangup",
     });
   }
