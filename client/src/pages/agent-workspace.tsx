@@ -3961,11 +3961,12 @@ export default function AgentWorkspacePage() {
   const [contractWizardOpen, setContractWizardOpen] = useState(false);
   const [contractWizardStep, setContractWizardStep] = useState(1);
   const [contractForm, setContractForm] = useState({ categoryId: "", customerId: "", billingDetailsId: "", currency: "EUR", notes: "", numberRangeId: "" });
-  const [inboundCall, setInboundCall] = useState<{
+  const [inboundCalls, setInboundCalls] = useState<Array<{
     callId: string; callerNumber: string; callerName?: string;
     queueName: string; queueId: string; waitTime: number;
     channelId: string; timestamp: number;
-  } | null>(null);
+    hasSipInvitation?: boolean;
+  }>>([]);
 
   const allowedRoles = ["callCenter", "admin"];
   const hasRoleAccess = user && allowedRoles.includes(user.role);
@@ -4980,18 +4981,21 @@ export default function AgentWorkspacePage() {
           console.log(`[AgentWS] Received message:`, data.type, data);
           if (data.type === "inbound-call") {
             console.log(`[AgentWS] === INBOUND CALL POPUP === from ${data.callerNumber}`);
-            setInboundCall({
-              callId: data.callId,
-              callerNumber: data.callerNumber,
-              callerName: data.callerName,
-              queueName: data.queueName,
-              queueId: data.queueId,
-              waitTime: data.waitTime || 0,
-              channelId: data.channelId,
-              timestamp: Date.now(),
+            setInboundCalls(prev => {
+              if (prev.some(c => c.callId === data.callId)) return prev;
+              return [...prev, {
+                callId: data.callId,
+                callerNumber: data.callerNumber,
+                callerName: data.callerName,
+                queueName: data.queueName,
+                queueId: data.queueId,
+                waitTime: data.waitTime || 0,
+                channelId: data.channelId,
+                timestamp: Date.now(),
+              }];
             });
           } else if (data.type === "call-cancelled") {
-            setInboundCall(prev => prev?.callId === data.callId ? null : prev);
+            setInboundCalls(prev => prev.filter(c => c.callId !== data.callId));
           }
         } catch (err) {
           console.error(`[AgentWS] Failed to parse message:`, err);
@@ -5016,40 +5020,71 @@ export default function AgentWorkspacePage() {
 
   useEffect(() => {
     if (sipIncomingCall && agentSession.isSessionActive) {
-      console.log("[AgentWS] SIP incoming call detected, showing popup:", sipIncomingCall.callerNumber);
-      setInboundCall({
-        callId: `sip-${Date.now()}`,
-        callerNumber: sipIncomingCall.callerNumber,
-        callerName: sipIncomingCall.callerName,
-        queueName: "Inbound",
-        queueId: "sip-direct",
-        waitTime: 0,
-        channelId: "sip-webrtc",
-        timestamp: Date.now(),
+      const callerNum = sipIncomingCall.callerNumber?.replace(/[\s\-\(\)]/g, "");
+      setInboundCalls(prev => {
+        const alreadyLinked = prev.some(c => c.hasSipInvitation);
+        if (alreadyLinked) return prev;
+
+        const unlinkedCalls = prev.filter(c => !c.hasSipInvitation && c.channelId !== "sip-webrtc");
+        if (unlinkedCalls.length > 0) {
+          const matchByNumber = unlinkedCalls.find(c => {
+            const n = c.callerNumber?.replace(/[\s\-\(\)]/g, "");
+            return n === callerNum;
+          });
+          const target = matchByNumber || unlinkedCalls[unlinkedCalls.length - 1];
+          console.log("[AgentWS] SIP INVITE linked to queue call:", target.callId, target.callerNumber);
+          return prev.map(c => c.callId === target.callId ? { ...c, hasSipInvitation: true } : c);
+        }
+
+        console.log("[AgentWS] SIP incoming call (direct, no queue):", callerNum);
+        return [...prev, {
+          callId: `sip-${Date.now()}`,
+          callerNumber: sipIncomingCall.callerNumber,
+          callerName: sipIncomingCall.callerName,
+          queueName: "Inbound",
+          queueId: "sip-direct",
+          waitTime: 0,
+          channelId: "sip-webrtc",
+          timestamp: Date.now(),
+          hasSipInvitation: true,
+        }];
       });
-    } else if (!sipIncomingCall && inboundCall?.channelId === "sip-webrtc") {
-      setInboundCall(null);
+    } else if (!sipIncomingCall) {
+      setInboundCalls(prev => {
+        const hasSipDirect = prev.some(c => c.channelId === "sip-webrtc");
+        if (hasSipDirect) {
+          return prev.filter(c => c.channelId !== "sip-webrtc");
+        }
+        return prev.map(c => c.hasSipInvitation ? { ...c, hasSipInvitation: false } : c);
+      });
     }
   }, [sipIncomingCall, agentSession.isSessionActive]);
 
-  const handleAcceptInboundCall = useCallback(async (call: typeof inboundCall) => {
+  type InboundCallEntry = typeof inboundCalls[number];
+
+  const handleAcceptInboundCall = useCallback(async (call: InboundCallEntry | null) => {
     if (!call) return;
+    const removeCall = () => setInboundCalls(prev => prev.filter(c => c.callId !== call.callId));
     try {
-      if (call.channelId === "sip-webrtc" && sipIncomingCall) {
-        console.log("[AgentWS] Accepting SIP inbound call...");
+      if (call.hasSipInvitation && sipIncomingCall) {
+        console.log("[AgentWS] Accepting inbound call via SIP:", call.callerNumber);
         const callerNumber = call.callerNumber;
         const session = await answerIncomingCall();
         if (!session) {
           toast({ title: "Chyba", description: "Nepodarilo sa prijať hovor", variant: "destructive" });
-          setInboundCall(null);
+          removeCall();
           return;
         }
 
-        setInboundCall(null);
+        removeCall();
         agentSession.updateStatus("busy").catch(() => {});
         setActiveChannel("phone");
         setRightTab("actions");
         setCallNotes("");
+
+        if (call.callId && !call.callId.startsWith("sip-")) {
+          apiRequest("POST", `/api/inbound-calls/${call.callId}/accept`, { userId: user?.id }).catch(() => {});
+        }
 
         let customerFound = false;
         try {
@@ -5105,7 +5140,7 @@ export default function AgentWorkspacePage() {
       } else {
         await apiRequest("POST", `/api/inbound-calls/${call.callId}/accept`, { userId: user?.id });
         toast({ title: "Call accepted" });
-        setInboundCall(null);
+        removeCall();
       }
     } catch (err: any) {
       console.error("[AgentWS] Error accepting call:", err);
@@ -5113,16 +5148,17 @@ export default function AgentWorkspacePage() {
     }
   }, [sipIncomingCall, answerIncomingCall, callContext, toast, user?.id, agentSession, selectedCampaignId, selectedCampaign]);
 
-  const handleRejectInboundCall = useCallback((call: typeof inboundCall) => {
+  const handleRejectInboundCall = useCallback((call: InboundCallEntry | null) => {
     if (!call) return;
-    if (call.channelId === "sip-webrtc") {
+    const removeCall = () => setInboundCalls(prev => prev.filter(c => c.callId !== call.callId));
+    if (call.hasSipInvitation) {
       rejectIncomingCall();
-      setInboundCall(null);
+      removeCall();
       toast({ title: "Hovor odmietnutý" });
     } else {
       apiRequest("POST", `/api/inbound-calls/${call.callId}/reject`, { userId: user?.id })
-        .then(() => setInboundCall(null))
-        .catch(() => setInboundCall(null));
+        .then(() => removeCall())
+        .catch(() => removeCall());
     }
   }, [rejectIncomingCall, toast, user?.id]);
 
@@ -5134,10 +5170,10 @@ export default function AgentWorkspacePage() {
   return (
     <div className={`flex flex-col ${agentSession.isSessionActive ? "h-screen" : "h-[calc(100vh-8rem)] -m-6"}`}>
       <InboundCallPopup
-        inboundCall={inboundCall}
+        inboundCalls={inboundCalls}
         onAccept={(call) => handleAcceptInboundCall(call)}
         onReject={(call) => handleRejectInboundCall(call)}
-        onDismiss={() => setInboundCall(null)}
+        onDismiss={(callId) => setInboundCalls(prev => prev.filter(c => c.callId !== callId))}
       />
       <Dialog open={sessionLoginOpen && !agentSession.isSessionActive} onOpenChange={(open) => { if (!open) { setSessionLoginOpen(false); setLocation("/"); } }}>
         <DialogContent className="sm:max-w-lg">

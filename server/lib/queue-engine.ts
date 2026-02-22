@@ -58,6 +58,7 @@ export class QueueEngine extends EventEmitter {
   private wrapUpTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
   private checkInterval: ReturnType<typeof setInterval> | null = null;
   private pendingWelcome: Map<string, { channelId: string; queueId: string }> = new Map();
+  private pendingWelcomeCallData: Map<string, { channelId: string; queueId: string; callerNumber: string; callerName: string; customerId: string | null; queueName: string }> = new Map();
   private mohPlaybacks: Map<string, string> = new Map();
   private pendingAgentCalls: Map<string, PendingAgentCall> = new Map();
   private activeBridges: Map<string, { bridgeId: string; callerChannelId: string; agentChannelId: string; callId: string; agentId: string }> = new Map();
@@ -130,8 +131,21 @@ export class QueueEngine extends EventEmitter {
     const welcome = this.pendingWelcome.get(playbackId);
     if (welcome) {
       this.pendingWelcome.delete(playbackId);
-      console.log(`[QueueEngine] Welcome playback finished for channel ${welcome.channelId}, starting MOH`);
+      console.log(`[QueueEngine] Welcome playback finished for channel ${welcome.channelId}, starting MOH and queueing call`);
       await this.startMohForChannel(welcome.channelId, welcome.queueId);
+
+      const pendingData = this.pendingWelcomeCallData.get(welcome.channelId);
+      if (pendingData) {
+        this.pendingWelcomeCallData.delete(welcome.channelId);
+        await this.addCallToQueue(
+          pendingData.channelId,
+          pendingData.queueId,
+          pendingData.queueName,
+          pendingData.callerNumber,
+          pendingData.callerName,
+          pendingData.customerId
+        );
+      }
       return;
     }
 
@@ -329,6 +343,8 @@ export class QueueEngine extends EventEmitter {
       return;
     }
 
+    const customerId = await this.lookupCustomer(callerNumber);
+
     let welcomePlayed = false;
     if (queue.welcomeMessageId) {
       try {
@@ -338,8 +354,17 @@ export class QueueEngine extends EventEmitter {
           const welcomePbId = `welcome-${channel.id}-${Date.now()}`;
           console.log(`[QueueEngine] Playing welcome: sound:custom/${soundName} (pbId: ${welcomePbId})`);
           this.pendingWelcome.set(welcomePbId, { channelId: channel.id, queueId: queue.id });
+          this.pendingWelcomeCallData.set(channel.id, {
+            channelId: channel.id,
+            queueId: queue.id,
+            callerNumber,
+            callerName,
+            customerId,
+            queueName: queue.name,
+          });
           await this.ariClient.playMedia(channel.id, `sound:custom/${soundName}`, welcomePbId);
           welcomePlayed = true;
+          console.log(`[QueueEngine] Welcome playing for ${channel.id}, call will be queued after welcome finishes`);
         }
       } catch (err) {
         console.warn(`[QueueEngine] Welcome message playback failed, continuing:`, err instanceof Error ? err.message : err);
@@ -348,44 +373,46 @@ export class QueueEngine extends EventEmitter {
 
     if (!welcomePlayed) {
       await this.startMohForChannel(channel.id, queue.id);
+      await this.addCallToQueue(channel.id, queue.id, queue.name, callerNumber, callerName, customerId);
     }
+  }
 
-    const customerId = await this.lookupCustomer(callerNumber);
-
+  private async addCallToQueue(channelId: string, queueId: string, queueName: string, callerNumber: string, callerName: string, customerId: string | null): Promise<void> {
     const callLog = await db.insert(inboundCallLogs).values({
-      queueId: queue.id,
+      queueId,
       callerNumber,
       callerName,
       customerId,
-      ariChannelId: channel.id,
+      ariChannelId: channelId,
       status: "queued",
-      queuePosition: this.getQueueSize(queue.id) + 1,
+      queuePosition: this.getQueueSize(queueId) + 1,
     }).returning();
 
     const queuedCall: QueuedCall = {
       id: callLog[0].id,
-      channelId: channel.id,
+      channelId,
       callerNumber,
       callerName,
-      queueId: queue.id,
+      queueId,
       customerId,
       enteredAt: new Date(),
-      position: this.getQueueSize(queue.id) + 1,
+      position: this.getQueueSize(queueId) + 1,
     };
 
-    this.waitingCalls.set(channel.id, queuedCall);
+    this.waitingCalls.set(channelId, queuedCall);
 
     this.emit("call-queued", {
       callId: queuedCall.id,
-      queueId: queue.id,
-      queueName: queue.name,
+      queueId,
+      queueName,
       callerNumber,
       callerName,
       customerId,
       position: queuedCall.position,
-      channelId: channel.id,
+      channelId,
     });
 
+    console.log(`[QueueEngine] Call ${queuedCall.id} added to queue "${queueName}" at position ${queuedCall.position}`);
     this.processQueues();
   }
 
@@ -835,6 +862,7 @@ export class QueueEngine extends EventEmitter {
 
   private handleChannelDestroyed(channelId: string): void {
     this.mohPlaybacks.delete(channelId);
+    this.pendingWelcomeCallData.delete(channelId);
     for (const [pbId, info] of this.pendingWelcome.entries()) {
       if (info.channelId === channelId) {
         this.pendingWelcome.delete(pbId);
