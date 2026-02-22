@@ -71,9 +71,26 @@ export class QueueEngine extends EventEmitter {
   private setupAriHandlers(): void {
     this.ariClient.on("stasis-start", (event: AriEvent) => {
       if (event.channel) {
-        const agentCall = this.pendingAgentCalls.get(event.channel.id);
-        if (agentCall) {
-          this.handleAgentChannelAnswer(event.channel.id, agentCall);
+        const args = event.args || [];
+        if (args[0] === "agent-call") {
+          console.log(`[QueueEngine] StasisStart for agent channel ${event.channel.id} (args: ${args.join(',')})`);
+          const agentCall = this.pendingAgentCalls.get(event.channel.id);
+          if (agentCall) {
+            console.log(`[QueueEngine] Agent channel ${event.channel.id} entered Stasis, state: ${event.channel.state}`);
+            if (event.channel.state === "Up") {
+              this.handleAgentChannelAnswer(event.channel.id, agentCall);
+            }
+          } else {
+            console.warn(`[QueueEngine] Agent channel ${event.channel.id} StasisStart but no pending call found (race?)`);
+          }
+          return;
+        }
+        const pendingCheck = this.pendingAgentCalls.get(event.channel.id);
+        if (pendingCheck) {
+          console.log(`[QueueEngine] StasisStart matched pending agent call by channel ID: ${event.channel.id}`);
+          if (event.channel.state === "Up") {
+            this.handleAgentChannelAnswer(event.channel.id, pendingCheck);
+          }
           return;
         }
       }
@@ -618,14 +635,19 @@ export class QueueEngine extends EventEmitter {
     }
 
     const sipEndpoint = `PJSIP/${agentUser.sipExtension}`;
-    console.log(`[QueueEngine] Originating call to agent SIP endpoint: ${sipEndpoint}`);
+    console.log(`[QueueEngine] === ORIGINATING CALL TO AGENT ===`);
+    console.log(`[QueueEngine]   Agent: ${agentUser.fullName} (ext: ${agentUser.sipExtension})`);
+    console.log(`[QueueEngine]   Endpoint: ${sipEndpoint}`);
+    console.log(`[QueueEngine]   Caller channel: ${call.channelId}`);
+    console.log(`[QueueEngine]   Call ID: ${call.id}`);
 
     try {
       const agentChannel = await this.ariClient.originateChannel(
         sipEndpoint,
         agentUser.sipExtension,
         "default",
-        call.callerNumber
+        call.callerNumber,
+        `agent-call,${agent.userId},${call.channelId}`
       );
 
       console.log(`[QueueEngine] Agent channel created: ${agentChannel.id} for agent ${agent.userId}`);
@@ -971,7 +993,25 @@ export class QueueEngine extends EventEmitter {
           break;
         case "transfer":
           if (queue.afterHoursTarget) {
-            await this.ariClient.redirectChannel(channelId, `SIP/${queue.afterHoursTarget}`);
+            const target = queue.afterHoursTarget;
+            const dialEndpoint = target.match(/^\d+$/) ? `PJSIP/${target}` : (target.includes("/") ? target : `PJSIP/${target}`);
+            console.log(`[QueueEngine] After-hours transfer to ${dialEndpoint}`);
+            await this.ariClient.redirectChannel(channelId, dialEndpoint);
+          } else {
+            await this.ariClient.hangupChannel(channelId, "normal");
+          }
+          break;
+        case "user_pjsip":
+          if (queue.afterHoursTarget) {
+            const [targetUser] = await db.select({ sipExtension: users.sipExtension, sipEnabled: users.sipEnabled, fullName: users.fullName })
+              .from(users).where(eq(users.id, queue.afterHoursTarget)).limit(1);
+            if (targetUser?.sipEnabled && targetUser.sipExtension) {
+              console.log(`[QueueEngine] After-hours: transferring to user PJSIP/${targetUser.sipExtension} (${targetUser.fullName})`);
+              await this.ariClient.redirectChannel(channelId, `PJSIP/${targetUser.sipExtension}`);
+            } else {
+              console.warn(`[QueueEngine] After-hours user ${queue.afterHoursTarget} has no SIP extension, hanging up`);
+              await this.ariClient.hangupChannel(channelId, "normal");
+            }
           } else {
             await this.ariClient.hangupChannel(channelId, "normal");
           }
@@ -1007,13 +1047,46 @@ export class QueueEngine extends EventEmitter {
 
   private async handleOverflow(channelId: string, queue: InboundQueue): Promise<void> {
     try {
+      console.log(`[QueueEngine] Handling overflow for channel ${channelId}: action=${queue.overflowAction}`);
       switch (queue.overflowAction) {
         case "hangup":
           await this.ariClient.hangupChannel(channelId, "normal");
           break;
         case "transfer":
           if (queue.overflowTarget) {
-            await this.ariClient.redirectChannel(channelId, `SIP/${queue.overflowTarget}`);
+            const target = queue.overflowTarget;
+            const dialEndpoint = target.match(/^\d+$/) ? `PJSIP/${target}` : (target.includes("/") ? target : `PJSIP/${target}`);
+            console.log(`[QueueEngine] Overflow transfer to ${dialEndpoint}`);
+            await this.ariClient.redirectChannel(channelId, dialEndpoint);
+          } else {
+            await this.ariClient.hangupChannel(channelId, "normal");
+          }
+          break;
+        case "user_pjsip":
+          if (queue.overflowUserId) {
+            const [targetUser] = await db.select({ sipExtension: users.sipExtension, sipEnabled: users.sipEnabled, fullName: users.fullName })
+              .from(users).where(eq(users.id, queue.overflowUserId)).limit(1);
+            if (targetUser?.sipEnabled && targetUser.sipExtension) {
+              console.log(`[QueueEngine] Overflow: transferring to user PJSIP/${targetUser.sipExtension} (${targetUser.fullName})`);
+              await this.ariClient.redirectChannel(channelId, `PJSIP/${targetUser.sipExtension}`);
+            } else {
+              console.warn(`[QueueEngine] Overflow user ${queue.overflowUserId} has no SIP extension, hanging up`);
+              await this.ariClient.hangupChannel(channelId, "normal");
+            }
+          } else {
+            await this.ariClient.hangupChannel(channelId, "normal");
+          }
+          break;
+        case "queue":
+          if (queue.overflowTarget) {
+            console.log(`[QueueEngine] Overflow: routing to queue ${queue.overflowTarget}`);
+            const call = this.waitingCalls.get(channelId);
+            if (call) {
+              this.waitingCalls.delete(channelId);
+              call.queueId = queue.overflowTarget;
+              this.waitingCalls.set(channelId, call);
+              await this.startMohForChannel(channelId, queue.overflowTarget);
+            }
           } else {
             await this.ariClient.hangupChannel(channelId, "normal");
           }
@@ -1023,6 +1096,7 @@ export class QueueEngine extends EventEmitter {
       }
     } catch (err) {
       console.error("[QueueEngine] Overflow handling failed:", err);
+      try { await this.ariClient.hangupChannel(channelId, "normal"); } catch {}
     }
   }
 

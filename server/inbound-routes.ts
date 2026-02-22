@@ -314,6 +314,7 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
           username: users.username,
           fullName: users.fullName,
           role: users.role,
+          sipExtension: users.sipExtension,
         },
       })
         .from(queueMembers)
@@ -347,7 +348,7 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
       const dbStatusMap = new Map(dbAgentStatuses.map(s => [s.userId, s]));
 
       const sessionUserInfo = sessionAgentsForQueue.length > 0
-        ? await db.select({ id: users.id, username: users.username, fullName: users.fullName, role: users.role })
+        ? await db.select({ id: users.id, username: users.username, fullName: users.fullName, role: users.role, sipExtension: users.sipExtension })
             .from(users).where(inArray(users.id, sessionAgentsForQueue.map(s => s.userId)))
         : [];
       const sessionUserMap = new Map(sessionUserInfo.map(u => [u.id, u]));
@@ -406,6 +407,10 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
       if (data.activeTo === "") data.activeTo = null;
       if (data.afterHoursTarget === "") data.afterHoursTarget = null;
       if (data.afterHoursMessageId === "") data.afterHoursMessageId = null;
+      if (data.overflowUserId === "") data.overflowUserId = null;
+      if (data.overflowTarget === "") data.overflowTarget = null;
+      if (data.announcePositionMessageId === "") data.announcePositionMessageId = null;
+      if (data.announceWaitTimeMessageId === "") data.announceWaitTimeMessageId = null;
       const created = await db.insert(inboundQueues).values(data).returning();
       res.status(201).json(created[0]);
     } catch (error) {
@@ -428,6 +433,10 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
       if (data.activeTo === "") data.activeTo = null;
       if (data.afterHoursTarget === "") data.afterHoursTarget = null;
       if (data.afterHoursMessageId === "") data.afterHoursMessageId = null;
+      if (data.overflowUserId === "") data.overflowUserId = null;
+      if (data.overflowTarget === "") data.overflowTarget = null;
+      if (data.announcePositionMessageId === "") data.announcePositionMessageId = null;
+      if (data.announceWaitTimeMessageId === "") data.announceWaitTimeMessageId = null;
       const updated = await db.update(inboundQueues)
         .set({ ...data, updatedAt: new Date() })
         .where(eq(inboundQueues.id, req.params.id))

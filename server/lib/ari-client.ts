@@ -358,7 +358,7 @@ export class AriClient extends EventEmitter {
     await this.ariRequest("POST", `/recordings/live/${recordingName}/stop`);
   }
 
-  async originateChannel(endpoint: string, extension: string, context: string = "default", callerId?: string): Promise<AriChannel> {
+  async originateChannel(endpoint: string, extension: string, context: string = "default", callerId?: string, appArgs?: string): Promise<AriChannel> {
     const params: any = {
       endpoint,
       extension,
@@ -366,7 +366,9 @@ export class AriClient extends EventEmitter {
       app: this.config.appName,
     };
     if (callerId) params.callerId = callerId;
+    if (appArgs) params.appArgs = appArgs;
     const query = new URLSearchParams(params).toString();
+    console.log(`[ARI] Originating channel: endpoint=${endpoint}, app=${this.config.appName}, appArgs=${appArgs || 'none'}, callerId=${callerId || 'none'}`);
     return this.ariRequest("POST", `/channels?${query}`);
   }
 

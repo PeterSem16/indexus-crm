@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -38,16 +39,18 @@ import {
   Users,
   PhoneIncoming,
   Clock,
-  Activity,
   UserPlus,
   UserMinus,
-  Settings,
   ChevronDown,
   ChevronUp,
   Music,
   Volume2,
   Play,
   Square,
+  AlertTriangle,
+  User,
+  Settings2,
+  Megaphone,
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -67,9 +70,12 @@ interface InboundQueue {
   holdMusicId: string | null;
   overflowAction: string;
   overflowTarget: string | null;
+  overflowUserId: string | null;
   announcePosition: boolean;
   announceWaitTime: boolean;
   announceFrequency: number;
+  announcePositionMessageId: string | null;
+  announceWaitTimeMessageId: string | null;
   serviceLevelTarget: number;
   activeFrom: string | null;
   activeTo: string | null;
@@ -89,7 +95,7 @@ interface QueueMemberWithUser {
   penalty: number;
   skills: string[];
   isActive: boolean;
-  user: { id: string; username: string; fullName: string; role: string } | null;
+  user: { id: string; username: string; fullName: string; role: string; sipExtension?: string } | null;
   agentStatus: string;
   callsHandled: number;
 }
@@ -105,8 +111,9 @@ const STRATEGIES = [
 const OVERFLOW_ACTIONS = [
   { value: "voicemail", label: "Voicemail" },
   { value: "hangup", label: "Hangup" },
-  { value: "transfer", label: "Transfer" },
+  { value: "transfer", label: "Transfer to Number" },
   { value: "queue", label: "Route to Queue" },
+  { value: "user_pjsip", label: "Transfer to User (PJSIP Phone)" },
 ];
 
 const AFTER_HOURS_ACTIONS = [
@@ -114,6 +121,7 @@ const AFTER_HOURS_ACTIONS = [
   { value: "hangup", label: "Hang up" },
   { value: "transfer", label: "Transfer to number" },
   { value: "queue", label: "Route to another Queue" },
+  { value: "user_pjsip", label: "Transfer to User (PJSIP Phone)" },
 ];
 
 const DAYS_OF_WEEK = [
@@ -141,6 +149,51 @@ const TIMEZONES = [
 
 const COUNTRIES = ["SK", "CZ", "HU", "RO", "IT", "DE", "US"];
 
+interface FormData {
+  name: string;
+  description: string;
+  countryCode: string;
+  didNumber: string;
+  strategy: string;
+  maxWaitTime: number;
+  wrapUpTime: number;
+  maxQueueSize: number;
+  priority: number;
+  welcomeMessageId: string | null;
+  holdMusicId: string | null;
+  overflowAction: string;
+  overflowTarget: string;
+  overflowUserId: string | null;
+  announcePosition: boolean;
+  announceWaitTime: boolean;
+  announceFrequency: number;
+  announcePositionMessageId: string | null;
+  announceWaitTimeMessageId: string | null;
+  serviceLevelTarget: number;
+  activeFrom: string | null;
+  activeTo: string | null;
+  activeDays: string[];
+  timezone: string;
+  afterHoursAction: string;
+  afterHoursTarget: string;
+  afterHoursMessageId: string | null;
+  isActive: boolean;
+}
+
+const defaultFormData: FormData = {
+  name: "", description: "", countryCode: "SK", didNumber: "",
+  strategy: "round-robin", maxWaitTime: 300, wrapUpTime: 30,
+  maxQueueSize: 50, priority: 1, welcomeMessageId: null, holdMusicId: null,
+  overflowAction: "voicemail", overflowTarget: "", overflowUserId: null,
+  announcePosition: true, announceWaitTime: true,
+  announceFrequency: 30, announcePositionMessageId: null, announceWaitTimeMessageId: null,
+  serviceLevelTarget: 20,
+  activeFrom: "", activeTo: "", activeDays: ["1", "2", "3", "4", "5"],
+  timezone: "Europe/Bratislava", afterHoursAction: "voicemail",
+  afterHoursTarget: "", afterHoursMessageId: null,
+  isActive: true,
+};
+
 export function InboundQueuesTab() {
   const { t } = useI18n();
   const { toast } = useToast();
@@ -150,34 +203,8 @@ export function InboundQueuesTab() {
   const [showAddMemberDialog, setShowAddMemberDialog] = useState<string | null>(null);
   const [newMemberUserId, setNewMemberUserId] = useState("");
   const [newMemberPenalty, setNewMemberPenalty] = useState(0);
-
-  const [formData, setFormData] = useState({
-    name: "",
-    description: "",
-    countryCode: "SK",
-    didNumber: "",
-    strategy: "round-robin",
-    maxWaitTime: 300,
-    wrapUpTime: 30,
-    maxQueueSize: 50,
-    priority: 1,
-    welcomeMessageId: "" as string | null,
-    holdMusicId: "" as string | null,
-    overflowAction: "voicemail",
-    overflowTarget: "",
-    announcePosition: true,
-    announceWaitTime: true,
-    announceFrequency: 30,
-    serviceLevelTarget: 20,
-    activeFrom: "" as string | null,
-    activeTo: "" as string | null,
-    activeDays: ["1", "2", "3", "4", "5"] as string[],
-    timezone: "Europe/Bratislava",
-    afterHoursAction: "voicemail",
-    afterHoursTarget: "",
-    afterHoursMessageId: "" as string | null,
-    isActive: true,
-  });
+  const [formData, setFormData] = useState<FormData>({ ...defaultFormData });
+  const [formTab, setFormTab] = useState("general");
 
   const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
   const audioRef = useState<HTMLAudioElement | null>(null);
@@ -197,6 +224,7 @@ export function InboundQueuesTab() {
 
   const welcomeMessages = ivrMessages.filter((m: any) => m.type === "welcome" && m.isActive);
   const holdMusicMessages = ivrMessages.filter((m: any) => m.type === "hold_music" && m.isActive);
+  const announceMessages = ivrMessages.filter((m: any) => ["announcement", "position", "wait_time"].includes(m.type) && m.isActive);
 
   const playAudio = (id: string) => {
     if (playingAudioId === id) {
@@ -266,18 +294,8 @@ export function InboundQueuesTab() {
   });
 
   const resetForm = () => {
-    setFormData({
-      name: "", description: "", countryCode: "SK", didNumber: "",
-      strategy: "round-robin", maxWaitTime: 300, wrapUpTime: 30,
-      maxQueueSize: 50, priority: 1, welcomeMessageId: null, holdMusicId: null,
-      overflowAction: "voicemail",
-      overflowTarget: "", announcePosition: true, announceWaitTime: true,
-      announceFrequency: 30, serviceLevelTarget: 20,
-      activeFrom: "", activeTo: "", activeDays: ["1", "2", "3", "4", "5"],
-      timezone: "Europe/Bratislava", afterHoursAction: "voicemail",
-      afterHoursTarget: "", afterHoursMessageId: null,
-      isActive: true,
-    });
+    setFormData({ ...defaultFormData });
+    setFormTab("general");
   };
 
   const openEdit = (queue: InboundQueue) => {
@@ -295,9 +313,12 @@ export function InboundQueuesTab() {
       holdMusicId: queue.holdMusicId || null,
       overflowAction: queue.overflowAction,
       overflowTarget: queue.overflowTarget || "",
+      overflowUserId: queue.overflowUserId || null,
       announcePosition: queue.announcePosition,
       announceWaitTime: queue.announceWaitTime,
       announceFrequency: queue.announceFrequency,
+      announcePositionMessageId: queue.announcePositionMessageId || null,
+      announceWaitTimeMessageId: queue.announceWaitTimeMessageId || null,
       serviceLevelTarget: queue.serviceLevelTarget,
       activeFrom: queue.activeFrom || "",
       activeTo: queue.activeTo || "",
@@ -308,6 +329,7 @@ export function InboundQueuesTab() {
       afterHoursMessageId: queue.afterHoursMessageId || null,
       isActive: queue.isActive,
     });
+    setFormTab("general");
     setEditingQueue(queue);
   };
 
@@ -325,8 +347,40 @@ export function InboundQueuesTab() {
   };
 
   const sipUsers = allUsers.filter((u: any) => u.sipEnabled || ["agent", "operator"].includes(u.role));
+  const pjsipUsers = allUsers.filter((u: any) => u.sipEnabled && u.sipExtension);
 
   const strategyLabel = (s: string) => STRATEGIES.find(st => st.value === s)?.label || s;
+
+  const AudioSelector = ({ label, value, onChange, messages, description }: {
+    label: string;
+    value: string | null;
+    onChange: (v: string | null) => void;
+    messages: any[];
+    description?: string;
+  }) => (
+    <div>
+      <Label>{label}</Label>
+      <div className="flex gap-2">
+        <Select value={value || "__none__"} onValueChange={v => onChange(v === "__none__" ? null : v)}>
+          <SelectTrigger className="flex-1"><SelectValue placeholder="None" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__none__">None</SelectItem>
+            {messages.map((m: any) => (
+              <SelectItem key={m.id} value={m.id}>
+                {m.name} ({m.language?.toUpperCase()})
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {value && (
+          <Button type="button" variant="ghost" size="icon" onClick={() => playAudio(value)}>
+            {playingAudioId === value ? <Square className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+          </Button>
+        )}
+      </div>
+      {description && <p className="text-xs text-muted-foreground mt-1">{description}</p>}
+    </div>
+  );
 
   return (
     <div className="space-y-4">
@@ -452,129 +506,223 @@ export function InboundQueuesTab() {
       )}
 
       <Dialog open={showCreateDialog || !!editingQueue} onOpenChange={(o) => { if (!o) { setShowCreateDialog(false); setEditingQueue(null); } }}>
-        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto" data-testid="dialog-queue-form">
+        <DialogContent className="sm:max-w-4xl max-h-[92vh] overflow-y-auto" data-testid="dialog-queue-form">
           <DialogHeader>
-            <DialogTitle>{editingQueue ? "Edit Queue" : "Create Queue"}</DialogTitle>
+            <DialogTitle className="text-lg">{editingQueue ? "Edit Queue" : "Create Queue"}</DialogTitle>
           </DialogHeader>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="col-span-2">
-              <Label>Name *</Label>
-              <Input value={formData.name} onChange={e => setFormData(f => ({ ...f, name: e.target.value }))} data-testid="input-queue-name" />
-            </div>
-            <div className="col-span-2">
-              <Label>Description</Label>
-              <Textarea value={formData.description} onChange={e => setFormData(f => ({ ...f, description: e.target.value }))} data-testid="input-queue-description" />
-            </div>
-            <div>
-              <Label>DID Number</Label>
-              <Input value={formData.didNumber} onChange={e => setFormData(f => ({ ...f, didNumber: e.target.value }))} placeholder="+421..." data-testid="input-queue-did" />
-            </div>
-            <div>
-              <Label>Country</Label>
-              <Select value={formData.countryCode} onValueChange={v => setFormData(f => ({ ...f, countryCode: v }))}>
-                <SelectTrigger data-testid="select-queue-country"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {COUNTRIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Routing Strategy</Label>
-              <Select value={formData.strategy} onValueChange={v => setFormData(f => ({ ...f, strategy: v }))}>
-                <SelectTrigger data-testid="select-queue-strategy"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {STRATEGIES.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Priority</Label>
-              <Input type="number" min={1} max={10} value={formData.priority} onChange={e => setFormData(f => ({ ...f, priority: parseInt(e.target.value) || 1 }))} data-testid="input-queue-priority" />
-            </div>
-            <div>
-              <Label>Max Wait Time (sec)</Label>
-              <Input type="number" min={10} value={formData.maxWaitTime} onChange={e => setFormData(f => ({ ...f, maxWaitTime: parseInt(e.target.value) || 300 }))} data-testid="input-max-wait" />
-            </div>
-            <div>
-              <Label>Wrap-Up Time (sec)</Label>
-              <Input type="number" min={0} value={formData.wrapUpTime} onChange={e => setFormData(f => ({ ...f, wrapUpTime: parseInt(e.target.value) || 30 }))} data-testid="input-wrap-up-time" />
-            </div>
-            <div>
-              <Label>Max Queue Size</Label>
-              <Input type="number" min={1} value={formData.maxQueueSize} onChange={e => setFormData(f => ({ ...f, maxQueueSize: parseInt(e.target.value) || 50 }))} data-testid="input-max-size" />
-            </div>
-            <div>
-              <Label>SLA Target (sec)</Label>
-              <Input type="number" min={1} value={formData.serviceLevelTarget} onChange={e => setFormData(f => ({ ...f, serviceLevelTarget: parseInt(e.target.value) || 20 }))} data-testid="input-sla-target" />
-            </div>
 
-            <div className="col-span-2 border-t pt-4 mt-2">
-              <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                <Volume2 className="h-4 w-4" />
-                Audio & IVR Settings
-              </h4>
+          <Tabs value={formTab} onValueChange={setFormTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-4">
+              <TabsTrigger value="general" className="flex items-center gap-1.5 text-xs">
+                <Settings2 className="h-3.5 w-3.5" />
+                General
+              </TabsTrigger>
+              <TabsTrigger value="audio" className="flex items-center gap-1.5 text-xs">
+                <Volume2 className="h-3.5 w-3.5" />
+                Audio & Announcements
+              </TabsTrigger>
+              <TabsTrigger value="overflow" className="flex items-center gap-1.5 text-xs">
+                <AlertTriangle className="h-3.5 w-3.5" />
+                Overflow & Routing
+              </TabsTrigger>
+              <TabsTrigger value="hours" className="flex items-center gap-1.5 text-xs">
+                <Clock className="h-3.5 w-3.5" />
+                Business Hours
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="general" className="mt-4 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="col-span-2">
+                  <Label>Name *</Label>
+                  <Input value={formData.name} onChange={e => setFormData(f => ({ ...f, name: e.target.value }))} data-testid="input-queue-name" />
+                </div>
+                <div className="col-span-2">
+                  <Label>Description</Label>
+                  <Textarea value={formData.description} onChange={e => setFormData(f => ({ ...f, description: e.target.value }))} data-testid="input-queue-description" />
+                </div>
+                <div>
+                  <Label>DID Number</Label>
+                  <Input value={formData.didNumber} onChange={e => setFormData(f => ({ ...f, didNumber: e.target.value }))} placeholder="+421..." data-testid="input-queue-did" />
+                </div>
+                <div>
+                  <Label>Country</Label>
+                  <Select value={formData.countryCode} onValueChange={v => setFormData(f => ({ ...f, countryCode: v }))}>
+                    <SelectTrigger data-testid="select-queue-country"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {COUNTRIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Routing Strategy</Label>
+                  <Select value={formData.strategy} onValueChange={v => setFormData(f => ({ ...f, strategy: v }))}>
+                    <SelectTrigger data-testid="select-queue-strategy"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {STRATEGIES.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Priority</Label>
+                  <Input type="number" min={1} max={10} value={formData.priority} onChange={e => setFormData(f => ({ ...f, priority: parseInt(e.target.value) || 1 }))} data-testid="input-queue-priority" />
+                </div>
+                <div>
+                  <Label>Max Wait Time (sec)</Label>
+                  <Input type="number" min={10} value={formData.maxWaitTime} onChange={e => setFormData(f => ({ ...f, maxWaitTime: parseInt(e.target.value) || 300 }))} data-testid="input-max-wait" />
+                </div>
+                <div>
+                  <Label>Wrap-Up Time (sec)</Label>
+                  <Input type="number" min={0} value={formData.wrapUpTime} onChange={e => setFormData(f => ({ ...f, wrapUpTime: parseInt(e.target.value) || 30 }))} data-testid="input-wrap-up-time" />
+                </div>
+                <div>
+                  <Label>Max Queue Size</Label>
+                  <Input type="number" min={1} value={formData.maxQueueSize} onChange={e => setFormData(f => ({ ...f, maxQueueSize: parseInt(e.target.value) || 50 }))} data-testid="input-max-size" />
+                </div>
+                <div>
+                  <Label>SLA Target (sec)</Label>
+                  <Input type="number" min={1} value={formData.serviceLevelTarget} onChange={e => setFormData(f => ({ ...f, serviceLevelTarget: parseInt(e.target.value) || 20 }))} data-testid="input-sla-target" />
+                </div>
+                <div className="col-span-2 flex items-center gap-2">
+                  <Switch checked={formData.isActive} onCheckedChange={v => setFormData(f => ({ ...f, isActive: v }))} data-testid="switch-queue-active" />
+                  <Label>Active</Label>
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="audio" className="mt-4 space-y-5">
+              <div className="grid grid-cols-2 gap-4">
+                <AudioSelector
+                  label="Welcome Greeting"
+                  value={formData.welcomeMessageId}
+                  onChange={v => setFormData(f => ({ ...f, welcomeMessageId: v }))}
+                  messages={welcomeMessages}
+                  description="Audio played when caller enters queue"
+                />
+                <AudioSelector
+                  label="Music on Hold"
+                  value={formData.holdMusicId}
+                  onChange={v => setFormData(f => ({ ...f, holdMusicId: v }))}
+                  messages={holdMusicMessages}
+                  description="Music played while caller waits"
+                />
+              </div>
+
+              <div className="border-t pt-4">
+                <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                  <Megaphone className="h-4 w-4" />
+                  Queue Announcements
+                </h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Switch checked={formData.announcePosition} onCheckedChange={v => setFormData(f => ({ ...f, announcePosition: v }))} data-testid="switch-announce-position" />
+                      <Label>Announce Position in Queue</Label>
+                    </div>
+                    {formData.announcePosition && (
+                      <AudioSelector
+                        label="Position Announcement Voice"
+                        value={formData.announcePositionMessageId}
+                        onChange={v => setFormData(f => ({ ...f, announcePositionMessageId: v }))}
+                        messages={announceMessages}
+                        description="Voice message for 'You are number X in queue'"
+                      />
+                    )}
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Switch checked={formData.announceWaitTime} onCheckedChange={v => setFormData(f => ({ ...f, announceWaitTime: v }))} data-testid="switch-announce-wait" />
+                      <Label>Announce Estimated Wait Time</Label>
+                    </div>
+                    {formData.announceWaitTime && (
+                      <AudioSelector
+                        label="Wait Time Announcement Voice"
+                        value={formData.announceWaitTimeMessageId}
+                        onChange={v => setFormData(f => ({ ...f, announceWaitTimeMessageId: v }))}
+                        messages={announceMessages}
+                        description="Voice message for 'Estimated wait time is X minutes'"
+                      />
+                    )}
+                  </div>
+                  <div>
+                    <Label>Announce Frequency (sec)</Label>
+                    <Input type="number" min={10} max={300} value={formData.announceFrequency} onChange={e => setFormData(f => ({ ...f, announceFrequency: parseInt(e.target.value) || 30 }))} data-testid="input-announce-freq" />
+                    <p className="text-xs text-muted-foreground mt-1">How often to announce position/wait time</p>
+                  </div>
+                </div>
+              </div>
+
+              <p className="text-xs text-muted-foreground border-t pt-3">
+                Manage audio files in the IVR Audio tab. Create welcome greetings, hold music, and announcements there.
+              </p>
+            </TabsContent>
+
+            <TabsContent value="overflow" className="mt-4 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label>Welcome Greeting</Label>
-                  <div className="flex gap-2">
-                    <Select value={formData.welcomeMessageId || "__none__"} onValueChange={v => setFormData(f => ({ ...f, welcomeMessageId: v === "__none__" ? null : v }))}>
-                      <SelectTrigger className="flex-1" data-testid="select-welcome-message"><SelectValue placeholder="None" /></SelectTrigger>
+                  <Label>Overflow Action</Label>
+                  <Select value={formData.overflowAction} onValueChange={v => setFormData(f => ({ ...f, overflowAction: v }))}>
+                    <SelectTrigger data-testid="select-overflow-action"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {OVERFLOW_ACTIONS.map(a => <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground mt-1">What happens when max wait time is exceeded or queue is full</p>
+                </div>
+                {formData.overflowAction === "transfer" && (
+                  <div>
+                    <Label>Transfer Target</Label>
+                    <Input value={formData.overflowTarget} onChange={e => setFormData(f => ({ ...f, overflowTarget: e.target.value }))} placeholder="Phone number or extension" data-testid="input-overflow-target" />
+                  </div>
+                )}
+                {formData.overflowAction === "queue" && (
+                  <div>
+                    <Label>Target Queue</Label>
+                    <Select value={formData.overflowTarget || "__none__"} onValueChange={v => setFormData(f => ({ ...f, overflowTarget: v === "__none__" ? "" : v }))}>
+                      <SelectTrigger data-testid="select-overflow-queue"><SelectValue placeholder="Select queue" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="__none__">None</SelectItem>
-                        {welcomeMessages.map((m: any) => (
-                          <SelectItem key={m.id} value={m.id}>
-                            {m.name} ({m.language?.toUpperCase()})
-                          </SelectItem>
+                        {queues.filter(q => !editingQueue || q.id !== editingQueue.id).map(q => (
+                          <SelectItem key={q.id} value={q.id}>{q.name}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
-                    {formData.welcomeMessageId && (
-                      <Button type="button" variant="ghost" size="icon" onClick={() => playAudio(formData.welcomeMessageId!)} data-testid="btn-play-welcome">
-                        {playingAudioId === formData.welcomeMessageId ? <Square className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                      </Button>
-                    )}
                   </div>
-                  <p className="text-xs text-muted-foreground mt-1">Audio played when caller enters queue</p>
-                </div>
-                <div>
-                  <Label>Music on Hold</Label>
-                  <div className="flex gap-2">
-                    <Select value={formData.holdMusicId || "__none__"} onValueChange={v => setFormData(f => ({ ...f, holdMusicId: v === "__none__" ? null : v }))}>
-                      <SelectTrigger className="flex-1" data-testid="select-hold-music"><SelectValue placeholder="None" /></SelectTrigger>
+                )}
+                {formData.overflowAction === "user_pjsip" && (
+                  <div>
+                    <Label>Transfer to User (PJSIP Phone)</Label>
+                    <Select value={formData.overflowUserId || "__none__"} onValueChange={v => setFormData(f => ({ ...f, overflowUserId: v === "__none__" ? null : v }))}>
+                      <SelectTrigger data-testid="select-overflow-user"><SelectValue placeholder="Select user..." /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="__none__">None</SelectItem>
-                        {holdMusicMessages.map((m: any) => (
-                          <SelectItem key={m.id} value={m.id}>
-                            <span className="flex items-center gap-1">
-                              <Music className="h-3 w-3" />
-                              {m.name} ({m.language?.toUpperCase()})
+                        {pjsipUsers.map((u: any) => (
+                          <SelectItem key={u.id} value={u.id}>
+                            <span className="flex items-center gap-2">
+                              <User className="h-3 w-3" />
+                              {u.fullName || u.username}
+                              <span className="text-muted-foreground">({u.sipExtension})</span>
                             </span>
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
-                    {formData.holdMusicId && (
-                      <Button type="button" variant="ghost" size="icon" onClick={() => playAudio(formData.holdMusicId!)} data-testid="btn-play-hold-music">
-                        {playingAudioId === formData.holdMusicId ? <Square className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                      </Button>
-                    )}
+                    <p className="text-xs text-muted-foreground mt-1">Call will be transferred directly to this user's SIP phone</p>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-1">Music played while caller waits</p>
-                </div>
-                <div>
-                  <Label>Announce Frequency (sec)</Label>
-                  <Input type="number" min={10} max={300} value={formData.announceFrequency} onChange={e => setFormData(f => ({ ...f, announceFrequency: parseInt(e.target.value) || 30 }))} data-testid="input-announce-freq" />
-                  <p className="text-xs text-muted-foreground mt-1">How often to announce position/wait time</p>
-                </div>
+                )}
               </div>
-              <p className="text-xs text-muted-foreground mt-3">Manage audio files in the IVR Audio tab. Create welcome greetings, hold music, and announcements there.</p>
-            </div>
 
-            <div className="col-span-2 border-t pt-4 mt-2">
-              <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                <Clock className="h-4 w-4" />
-                Business Hours
-              </h4>
+              {formData.overflowAction === "user_pjsip" && pjsipUsers.length === 0 && (
+                <div className="flex items-start gap-2 p-3 bg-yellow-50 dark:bg-yellow-950 rounded-lg border border-yellow-200 dark:border-yellow-800">
+                  <AlertTriangle className="h-4 w-4 text-yellow-600 mt-0.5 shrink-0" />
+                  <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                    No users have SIP phone configured. Go to User Management to enable SIP and set an extension for users.
+                  </p>
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="hours" className="mt-4 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>Active From</Label>
@@ -620,103 +768,78 @@ export function InboundQueuesTab() {
                   </div>
                 </div>
               </div>
+
               {(formData.activeFrom || formData.activeTo) && (
-                <div className="grid grid-cols-2 gap-4 mt-4 pt-3 border-t border-dashed">
-                  <div>
-                    <Label>After-Hours Action</Label>
-                    <Select value={formData.afterHoursAction} onValueChange={v => setFormData(f => ({ ...f, afterHoursAction: v }))}>
-                      <SelectTrigger data-testid="select-after-hours-action"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {AFTER_HOURS_ACTIONS.map(a => <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                    <p className="text-xs text-muted-foreground mt-1">What happens when calls arrive outside business hours</p>
-                  </div>
-                  {(formData.afterHoursAction === "transfer" || formData.afterHoursAction === "queue") && (
+                <div className="border-t pt-4">
+                  <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                    <Clock className="h-4 w-4" />
+                    After-Hours Handling
+                  </h4>
+                  <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <Label>{formData.afterHoursAction === "queue" ? "Target Queue" : "Transfer Target"}</Label>
-                      {formData.afterHoursAction === "queue" ? (
+                      <Label>After-Hours Action</Label>
+                      <Select value={formData.afterHoursAction} onValueChange={v => setFormData(f => ({ ...f, afterHoursAction: v }))}>
+                        <SelectTrigger data-testid="select-after-hours-action"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {AFTER_HOURS_ACTIONS.map(a => <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground mt-1">What happens when calls arrive outside business hours</p>
+                    </div>
+                    {(formData.afterHoursAction === "transfer" || formData.afterHoursAction === "queue") && (
+                      <div>
+                        <Label>{formData.afterHoursAction === "queue" ? "Target Queue" : "Transfer Target"}</Label>
+                        {formData.afterHoursAction === "queue" ? (
+                          <Select value={formData.afterHoursTarget || "__none__"} onValueChange={v => setFormData(f => ({ ...f, afterHoursTarget: v === "__none__" ? "" : v }))}>
+                            <SelectTrigger data-testid="select-after-hours-queue"><SelectValue placeholder="Select queue" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="__none__">None</SelectItem>
+                              {queues.filter(q => !editingQueue || q.id !== editingQueue.id).map(q => (
+                                <SelectItem key={q.id} value={q.id}>{q.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <Input value={formData.afterHoursTarget} onChange={e => setFormData(f => ({ ...f, afterHoursTarget: e.target.value }))} placeholder="Phone number or extension" data-testid="input-after-hours-target" />
+                        )}
+                      </div>
+                    )}
+                    {formData.afterHoursAction === "user_pjsip" && (
+                      <div>
+                        <Label>Transfer to User (PJSIP Phone)</Label>
                         <Select value={formData.afterHoursTarget || "__none__"} onValueChange={v => setFormData(f => ({ ...f, afterHoursTarget: v === "__none__" ? "" : v }))}>
-                          <SelectTrigger data-testid="select-after-hours-queue"><SelectValue placeholder="Select queue" /></SelectTrigger>
+                          <SelectTrigger data-testid="select-after-hours-user"><SelectValue placeholder="Select user..." /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="__none__">None</SelectItem>
-                            {queues.filter(q => !editingQueue || q.id !== editingQueue.id).map(q => (
-                              <SelectItem key={q.id} value={q.id}>{q.name}</SelectItem>
+                            {pjsipUsers.map((u: any) => (
+                              <SelectItem key={u.id} value={u.id}>
+                                <span className="flex items-center gap-2">
+                                  <User className="h-3 w-3" />
+                                  {u.fullName || u.username}
+                                  <span className="text-muted-foreground">({u.sipExtension})</span>
+                                </span>
+                              </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
-                      ) : (
-                        <Input value={formData.afterHoursTarget} onChange={e => setFormData(f => ({ ...f, afterHoursTarget: e.target.value }))} placeholder="Phone number or extension" data-testid="input-after-hours-target" />
-                      )}
+                      </div>
+                    )}
+                    <div>
+                      <AudioSelector
+                        label="After-Hours Message"
+                        value={formData.afterHoursMessageId}
+                        onChange={v => setFormData(f => ({ ...f, afterHoursMessageId: v }))}
+                        messages={ivrMessages.filter((m: any) => m.isActive)}
+                        description="Audio played before executing after-hours action"
+                      />
                     </div>
-                  )}
-                  <div>
-                    <Label>After-Hours Message</Label>
-                    <div className="flex gap-2">
-                      <Select value={formData.afterHoursMessageId || "__none__"} onValueChange={v => setFormData(f => ({ ...f, afterHoursMessageId: v === "__none__" ? null : v }))}>
-                        <SelectTrigger className="flex-1" data-testid="select-after-hours-msg"><SelectValue placeholder="None" /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="__none__">None</SelectItem>
-                          {ivrMessages.filter((m: any) => m.isActive).map((m: any) => (
-                            <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {formData.afterHoursMessageId && (
-                        <Button type="button" variant="ghost" size="icon" onClick={() => playAudio(formData.afterHoursMessageId!)} data-testid="btn-play-afterhours">
-                          {playingAudioId === formData.afterHoursMessageId ? <Square className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                        </Button>
-                      )}
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">Audio played before executing after-hours action</p>
                   </div>
                 </div>
               )}
-            </div>
+            </TabsContent>
+          </Tabs>
 
-            <div>
-              <Label>Overflow Action</Label>
-              <Select value={formData.overflowAction} onValueChange={v => setFormData(f => ({ ...f, overflowAction: v }))}>
-                <SelectTrigger data-testid="select-overflow-action"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {OVERFLOW_ACTIONS.map(a => <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            {(formData.overflowAction === "transfer" || formData.overflowAction === "queue") && (
-              <div>
-                <Label>{formData.overflowAction === "queue" ? "Target Queue" : "Transfer Target"}</Label>
-                {formData.overflowAction === "queue" ? (
-                  <Select value={formData.overflowTarget || "__none__"} onValueChange={v => setFormData(f => ({ ...f, overflowTarget: v === "__none__" ? "" : v }))}>
-                    <SelectTrigger data-testid="select-overflow-queue"><SelectValue placeholder="Select queue" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__none__">None</SelectItem>
-                      {queues.filter(q => !editingQueue || q.id !== editingQueue.id).map(q => (
-                        <SelectItem key={q.id} value={q.id}>{q.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <Input value={formData.overflowTarget} onChange={e => setFormData(f => ({ ...f, overflowTarget: e.target.value }))} placeholder="Phone number or extension" data-testid="input-overflow-target" />
-                )}
-              </div>
-            )}
-            <div className="col-span-2 flex gap-6">
-              <div className="flex items-center gap-2">
-                <Switch checked={formData.announcePosition} onCheckedChange={v => setFormData(f => ({ ...f, announcePosition: v }))} data-testid="switch-announce-position" />
-                <Label>Announce Position</Label>
-              </div>
-              <div className="flex items-center gap-2">
-                <Switch checked={formData.announceWaitTime} onCheckedChange={v => setFormData(f => ({ ...f, announceWaitTime: v }))} data-testid="switch-announce-wait" />
-                <Label>Announce Wait Time</Label>
-              </div>
-              <div className="flex items-center gap-2">
-                <Switch checked={formData.isActive} onCheckedChange={v => setFormData(f => ({ ...f, isActive: v }))} data-testid="switch-queue-active" />
-                <Label>Active</Label>
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
+          <DialogFooter className="border-t pt-4">
             <Button variant="outline" onClick={() => { setShowCreateDialog(false); setEditingQueue(null); }} data-testid="btn-cancel-queue">
               Cancel
             </Button>
@@ -840,6 +963,7 @@ function QueueDetailPanel({ queueId, sipUsers, onAddMember }: {
           <TableHeader>
             <TableRow>
               <TableHead>Agent</TableHead>
+              <TableHead>SIP Extension</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Priority</TableHead>
               <TableHead>Calls Handled</TableHead>
@@ -853,6 +977,16 @@ function QueueDetailPanel({ queueId, sipUsers, onAddMember }: {
                   <span data-testid={`text-member-name-${member.id}`}>
                     {member.user?.fullName || member.user?.username || "Unknown"}
                   </span>
+                </TableCell>
+                <TableCell>
+                  {member.user?.sipExtension ? (
+                    <Badge variant="outline" className="text-xs font-mono">
+                      <Phone className="h-3 w-3 mr-1" />
+                      {member.user.sipExtension}
+                    </Badge>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">Not configured</span>
+                  )}
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-2">
