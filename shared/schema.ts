@@ -5511,22 +5511,23 @@ export type IvrMenuOption = typeof ivrMenuOptions.$inferSelect;
 export const inboundCallLogs = pgTable("inbound_call_logs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   queueId: varchar("queue_id").references(() => inboundQueues.id),
-  callLogId: varchar("call_log_id").references(() => callLogs.id), // linked to existing call_logs when answered
+  callLogId: varchar("call_log_id").references(() => callLogs.id),
   callerNumber: text("caller_number").notNull(),
-  callerName: text("caller_name"), // caller ID name if available
-  customerId: varchar("customer_id"), // auto-matched customer
+  callerName: text("caller_name"),
+  customerId: varchar("customer_id"),
   assignedAgentId: varchar("assigned_agent_id"),
-  ariChannelId: text("ari_channel_id"), // Asterisk ARI channel ID
-  status: text("status").notNull().default("queued"), // queued, ringing, answered, completed, abandoned, timeout, overflow
+  ariChannelId: text("ari_channel_id"),
+  didNumber: text("did_number"),
+  status: text("status").notNull().default("queued"),
   enteredQueueAt: timestamp("entered_queue_at").notNull().default(sql`now()`),
   answeredAt: timestamp("answered_at"),
   completedAt: timestamp("completed_at"),
   waitDurationSeconds: integer("wait_duration_seconds").default(0),
   talkDurationSeconds: integer("talk_duration_seconds").default(0),
   queuePosition: integer("queue_position"),
-  abandonReason: text("abandon_reason"), // caller_hangup, timeout, overflow
-  transferredTo: text("transferred_to"), // if call was transferred
-  metadata: jsonb("metadata"), // additional ARI event data
+  abandonReason: text("abandon_reason"),
+  transferredTo: text("transferred_to"),
+  metadata: jsonb("metadata"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 

@@ -1202,6 +1202,261 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
     }
   });
 
+  // ============ INBOUND CALL LOGS BY CUSTOMER ============
+
+  app.get("/api/inbound-call-logs/by-customer/:customerId", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { customerId } = req.params;
+      const logs = await db.select({
+        log: inboundCallLogs,
+        queueName: inboundQueues.name,
+        agentName: users.fullName,
+      })
+        .from(inboundCallLogs)
+        .leftJoin(inboundQueues, eq(inboundCallLogs.queueId, inboundQueues.id))
+        .leftJoin(users, eq(inboundCallLogs.assignedAgentId, users.id))
+        .where(eq(inboundCallLogs.customerId, customerId))
+        .orderBy(desc(inboundCallLogs.createdAt))
+        .limit(200);
+
+      res.json(logs.map(r => ({
+        ...r.log,
+        queueName: r.queueName,
+        agentName: r.agentName,
+      })));
+    } catch (error) {
+      console.error("Error fetching customer inbound call logs:", error);
+      res.status(500).json({ error: "Failed to fetch customer inbound call logs" });
+    }
+  });
+
+  // ============ INBOUND REPORTS ============
+
+  app.get("/api/inbound-reports/summary", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { queueId, from, to } = req.query;
+      const conditions = [];
+      if (queueId) conditions.push(eq(inboundCallLogs.queueId, queueId as string));
+      if (from) conditions.push(gte(inboundCallLogs.enteredQueueAt, new Date(from as string)));
+      if (to) conditions.push(lte(inboundCallLogs.enteredQueueAt, new Date(to as string)));
+      const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+      let slaTarget = 20;
+      if (queueId) {
+        const [queue] = await db.select({ serviceLevelTarget: inboundQueues.serviceLevelTarget }).from(inboundQueues).where(eq(inboundQueues.id, queueId as string)).limit(1);
+        if (queue) slaTarget = queue.serviceLevelTarget;
+      }
+
+      const total = await db.select({ count: sql<number>`count(*)` }).from(inboundCallLogs).where(whereClause);
+      const answered = await db.select({ count: sql<number>`count(*)` }).from(inboundCallLogs)
+        .where(and(whereClause, inArray(inboundCallLogs.status, ["answered", "completed"])));
+      const abandoned = await db.select({ count: sql<number>`count(*)` }).from(inboundCallLogs)
+        .where(and(whereClause, eq(inboundCallLogs.status, "abandoned")));
+      const timedOut = await db.select({ count: sql<number>`count(*)` }).from(inboundCallLogs)
+        .where(and(whereClause, eq(inboundCallLogs.status, "timeout")));
+      const overflowed = await db.select({ count: sql<number>`count(*)` }).from(inboundCallLogs)
+        .where(and(whereClause, eq(inboundCallLogs.status, "overflow")));
+
+      const avgWait = await db.select({ avg: sql<number>`coalesce(avg(wait_duration_seconds), 0)` }).from(inboundCallLogs).where(whereClause);
+      const avgTalk = await db.select({ avg: sql<number>`coalesce(avg(talk_duration_seconds), 0)` }).from(inboundCallLogs)
+        .where(and(whereClause, inArray(inboundCallLogs.status, ["answered", "completed"])));
+      const maxWait = await db.select({ max: sql<number>`coalesce(max(wait_duration_seconds), 0)` }).from(inboundCallLogs).where(whereClause);
+
+      const answeredWithinSla = await db.select({ count: sql<number>`count(*)` }).from(inboundCallLogs)
+        .where(and(
+          whereClause,
+          inArray(inboundCallLogs.status, ["answered", "completed"]),
+          lte(inboundCallLogs.waitDurationSeconds, slaTarget)
+        ));
+
+      const totalCount = Number(total[0]?.count || 0);
+      const answeredCount = Number(answered[0]?.count || 0);
+      const abandonedCount = Number(abandoned[0]?.count || 0);
+      const slaCount = Number(answeredWithinSla[0]?.count || 0);
+
+      res.json({
+        totalCalls: totalCount,
+        answeredCalls: answeredCount,
+        abandonedCalls: abandonedCount,
+        timedOutCalls: Number(timedOut[0]?.count || 0),
+        overflowedCalls: Number(overflowed[0]?.count || 0),
+        answerRate: totalCount > 0 ? Math.round((answeredCount / totalCount) * 100) : 0,
+        abandonRate: totalCount > 0 ? Math.round((abandonedCount / totalCount) * 100) : 0,
+        serviceLevel: totalCount > 0 ? Math.round((slaCount / totalCount) * 100) : 0,
+        serviceLevelTarget: slaTarget,
+        avgWaitTime: Math.round(Number(avgWait[0]?.avg || 0)),
+        avgTalkTime: Math.round(Number(avgTalk[0]?.avg || 0)),
+        maxWaitTime: Number(maxWait[0]?.max || 0),
+      });
+    } catch (error) {
+      console.error("Error fetching inbound report summary:", error);
+      res.status(500).json({ error: "Failed to fetch report summary" });
+    }
+  });
+
+  app.get("/api/inbound-reports/missed-calls", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { queueId, from, to, limit: limitStr } = req.query;
+      const limitNum = Math.min(parseInt(limitStr as string) || 200, 1000);
+      const conditions = [
+        inArray(inboundCallLogs.status, ["abandoned", "timeout", "overflow"]),
+      ];
+      if (queueId) conditions.push(eq(inboundCallLogs.queueId, queueId as string));
+      if (from) conditions.push(gte(inboundCallLogs.enteredQueueAt, new Date(from as string)));
+      if (to) conditions.push(lte(inboundCallLogs.enteredQueueAt, new Date(to as string)));
+
+      const logs = await db.select({
+        log: inboundCallLogs,
+        queueName: inboundQueues.name,
+        customerFirstName: customers.firstName,
+        customerLastName: customers.lastName,
+      })
+        .from(inboundCallLogs)
+        .leftJoin(inboundQueues, eq(inboundCallLogs.queueId, inboundQueues.id))
+        .leftJoin(customers, eq(inboundCallLogs.customerId, customers.id))
+        .where(and(...conditions))
+        .orderBy(desc(inboundCallLogs.enteredQueueAt))
+        .limit(limitNum);
+
+      res.json(logs.map(r => ({
+        ...r.log,
+        queueName: r.queueName,
+        customerName: r.customerFirstName && r.customerLastName ? `${r.customerFirstName} ${r.customerLastName}` : null,
+      })));
+    } catch (error) {
+      console.error("Error fetching missed calls:", error);
+      res.status(500).json({ error: "Failed to fetch missed calls" });
+    }
+  });
+
+  app.get("/api/inbound-reports/hourly", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { queueId, from, to } = req.query;
+      const conditions = [];
+      if (queueId) conditions.push(eq(inboundCallLogs.queueId, queueId as string));
+      if (from) conditions.push(gte(inboundCallLogs.enteredQueueAt, new Date(from as string)));
+      if (to) conditions.push(lte(inboundCallLogs.enteredQueueAt, new Date(to as string)));
+      const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+      const hourly = await db.select({
+        hour: sql<number>`extract(hour from entered_queue_at)::int`,
+        total: sql<number>`count(*)`,
+        answered: sql<number>`count(*) filter (where status in ('answered', 'completed'))`,
+        abandoned: sql<number>`count(*) filter (where status = 'abandoned')`,
+        avgWait: sql<number>`coalesce(avg(wait_duration_seconds), 0)`,
+      })
+        .from(inboundCallLogs)
+        .where(whereClause)
+        .groupBy(sql`extract(hour from entered_queue_at)::int`)
+        .orderBy(sql`extract(hour from entered_queue_at)::int`);
+
+      const result = Array.from({ length: 24 }, (_, i) => {
+        const found = hourly.find(h => Number(h.hour) === i);
+        return {
+          hour: i,
+          label: `${String(i).padStart(2, '0')}:00`,
+          total: Number(found?.total || 0),
+          answered: Number(found?.answered || 0),
+          abandoned: Number(found?.abandoned || 0),
+          avgWait: Math.round(Number(found?.avgWait || 0)),
+        };
+      });
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching hourly stats:", error);
+      res.status(500).json({ error: "Failed to fetch hourly stats" });
+    }
+  });
+
+  app.get("/api/inbound-reports/agents", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { queueId, from, to } = req.query;
+      const conditions = [
+        sql`assigned_agent_id IS NOT NULL`,
+      ];
+      if (queueId) conditions.push(eq(inboundCallLogs.queueId, queueId as string));
+      if (from) conditions.push(gte(inboundCallLogs.enteredQueueAt, new Date(from as string)));
+      if (to) conditions.push(lte(inboundCallLogs.enteredQueueAt, new Date(to as string)));
+
+      const agentStats = await db.select({
+        agentId: inboundCallLogs.assignedAgentId,
+        agentName: users.fullName,
+        totalCalls: sql<number>`count(*)`,
+        answeredCalls: sql<number>`count(*) filter (where ${inboundCallLogs.status} in ('answered', 'completed'))`,
+        abandonedCalls: sql<number>`count(*) filter (where ${inboundCallLogs.status} = 'abandoned')`,
+        avgWaitTime: sql<number>`coalesce(avg(${inboundCallLogs.waitDurationSeconds}), 0)`,
+        avgTalkTime: sql<number>`coalesce(avg(${inboundCallLogs.talkDurationSeconds}) filter (where ${inboundCallLogs.status} in ('answered', 'completed')), 0)`,
+        totalTalkTime: sql<number>`coalesce(sum(${inboundCallLogs.talkDurationSeconds}) filter (where ${inboundCallLogs.status} in ('answered', 'completed')), 0)`,
+      })
+        .from(inboundCallLogs)
+        .leftJoin(users, eq(inboundCallLogs.assignedAgentId, users.id))
+        .where(and(...conditions))
+        .groupBy(inboundCallLogs.assignedAgentId, users.fullName)
+        .orderBy(sql`count(*) desc`);
+
+      res.json(agentStats.map(s => ({
+        agentId: s.agentId,
+        agentName: s.agentName || "Neznámy",
+        totalCalls: Number(s.totalCalls),
+        answeredCalls: Number(s.answeredCalls),
+        abandonedCalls: Number(s.abandonedCalls),
+        avgWaitTime: Math.round(Number(s.avgWaitTime)),
+        avgTalkTime: Math.round(Number(s.avgTalkTime)),
+        totalTalkTime: Number(s.totalTalkTime),
+        answerRate: Number(s.totalCalls) > 0 ? Math.round((Number(s.answeredCalls) / Number(s.totalCalls)) * 100) : 0,
+      })));
+    } catch (error) {
+      console.error("Error fetching agent stats:", error);
+      res.status(500).json({ error: "Failed to fetch agent stats" });
+    }
+  });
+
+  app.get("/api/inbound-reports/all-calls", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { queueId, from, to, status: statusFilter, limit: limitStr, offset: offsetStr } = req.query;
+      const limitNum = Math.min(parseInt(limitStr as string) || 100, 500);
+      const offsetNum = parseInt(offsetStr as string) || 0;
+      const conditions = [];
+      if (queueId) conditions.push(eq(inboundCallLogs.queueId, queueId as string));
+      if (from) conditions.push(gte(inboundCallLogs.enteredQueueAt, new Date(from as string)));
+      if (to) conditions.push(lte(inboundCallLogs.enteredQueueAt, new Date(to as string)));
+      if (statusFilter && typeof statusFilter === "string") conditions.push(eq(inboundCallLogs.status, statusFilter));
+      const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+      const logs = await db.select({
+        log: inboundCallLogs,
+        queueName: inboundQueues.name,
+        agentName: users.fullName,
+        customerFirstName: customers.firstName,
+        customerLastName: customers.lastName,
+      })
+        .from(inboundCallLogs)
+        .leftJoin(inboundQueues, eq(inboundCallLogs.queueId, inboundQueues.id))
+        .leftJoin(users, eq(inboundCallLogs.assignedAgentId, users.id))
+        .leftJoin(customers, eq(inboundCallLogs.customerId, customers.id))
+        .where(whereClause)
+        .orderBy(desc(inboundCallLogs.enteredQueueAt))
+        .limit(limitNum)
+        .offset(offsetNum);
+
+      const totalCount = await db.select({ count: sql<number>`count(*)` }).from(inboundCallLogs).where(whereClause);
+
+      res.json({
+        data: logs.map(r => ({
+          ...r.log,
+          queueName: r.queueName,
+          agentName: r.agentName,
+          customerName: r.customerFirstName && r.customerLastName ? `${r.customerFirstName} ${r.customerLastName}` : null,
+        })),
+        total: Number(totalCount[0]?.count || 0),
+      });
+    } catch (error) {
+      console.error("Error fetching all inbound calls:", error);
+      res.status(500).json({ error: "Failed to fetch inbound calls" });
+    }
+  });
+
   // ============ QUEUE ENGINE EVENTS → WEBSOCKET ============
 
   app.get("/api/inbound-queues/waiting-calls", requireAuth, async (req: Request, res: Response) => {
@@ -1491,6 +1746,11 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
         return res.status(400).json({ error: "DID number is required" });
       }
       const created = await db.insert(didRoutes).values(data).returning();
+      if (created[0].action === "inbound_queue" && created[0].targetQueueId) {
+        await db.update(inboundQueues)
+          .set({ didNumber: created[0].didNumber, updatedAt: new Date() })
+          .where(eq(inboundQueues.id, created[0].targetQueueId));
+      }
       res.status(201).json(created[0]);
     } catch (error: any) {
       console.error("Error creating DID route:", error);
@@ -1520,11 +1780,27 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
       if (data.action && !validActions.includes(data.action)) {
         return res.status(400).json({ error: "Invalid action type" });
       }
+      const [oldRoute] = await db.select().from(didRoutes).where(eq(didRoutes.id, req.params.id)).limit(1);
       const updated = await db.update(didRoutes)
         .set({ ...data, updatedAt: new Date() })
         .where(eq(didRoutes.id, req.params.id))
         .returning();
       if (!updated[0]) return res.status(404).json({ error: "DID route not found" });
+      if (oldRoute && oldRoute.action === "inbound_queue" && oldRoute.targetQueueId) {
+        if (oldRoute.targetQueueId !== updated[0].targetQueueId || updated[0].action !== "inbound_queue") {
+          const [oldQueue] = await db.select({ didNumber: inboundQueues.didNumber }).from(inboundQueues).where(eq(inboundQueues.id, oldRoute.targetQueueId)).limit(1);
+          if (oldQueue?.didNumber === oldRoute.didNumber) {
+            await db.update(inboundQueues)
+              .set({ didNumber: null, updatedAt: new Date() })
+              .where(eq(inboundQueues.id, oldRoute.targetQueueId));
+          }
+        }
+      }
+      if (updated[0].action === "inbound_queue" && updated[0].targetQueueId) {
+        await db.update(inboundQueues)
+          .set({ didNumber: updated[0].didNumber, updatedAt: new Date() })
+          .where(eq(inboundQueues.id, updated[0].targetQueueId));
+      }
       res.json(updated[0]);
     } catch (error: any) {
       console.error("Error updating DID route:", error);
@@ -1541,7 +1817,16 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
       if (!["admin", "manager"].includes(user.role)) {
         return res.status(403).json({ error: "Admin or manager access required" });
       }
+      const [route] = await db.select().from(didRoutes).where(eq(didRoutes.id, req.params.id)).limit(1);
       await db.delete(didRoutes).where(eq(didRoutes.id, req.params.id));
+      if (route && route.action === "inbound_queue" && route.targetQueueId) {
+        const [queue] = await db.select({ didNumber: inboundQueues.didNumber }).from(inboundQueues).where(eq(inboundQueues.id, route.targetQueueId)).limit(1);
+        if (queue?.didNumber === route.didNumber) {
+          await db.update(inboundQueues)
+            .set({ didNumber: null, updatedAt: new Date() })
+            .where(eq(inboundQueues.id, route.targetQueueId));
+        }
+      }
       res.json({ success: true });
     } catch (error) {
       console.error("Error deleting DID route:", error);

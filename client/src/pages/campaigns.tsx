@@ -9,6 +9,7 @@ import { InboundQueuesTab } from "@/components/campaigns/InboundQueuesTab";
 import { IvrMessagesTab } from "@/components/campaigns/IvrMessagesTab";
 import { IvrMenusTab } from "@/components/campaigns/IvrMenusTab";
 import { DidRoutesTab } from "@/components/campaigns/DidRoutesTab";
+import { InboundReportsTab } from "@/components/campaigns/InboundReportsTab";
 import { useAuth } from "@/contexts/auth-context";
 import { useCountryFilter } from "@/contexts/country-filter-context";
 import { Button } from "@/components/ui/button";
@@ -2006,6 +2007,10 @@ export default function CampaignsPage() {
               <GitBranch className="h-4 w-4" />
               DID Smerovanie
             </TabsTrigger>
+            <TabsTrigger value="inbound-reports" className="gap-2" data-testid="tab-inbound-reports">
+              <BarChart3 className="h-4 w-4" />
+              Inbound Reporty
+            </TabsTrigger>
           </TabsList>
         </div>
 
@@ -2091,6 +2096,10 @@ export default function CampaignsPage() {
 
         <TabsContent value="did-routes" className="flex-1 overflow-auto mt-0">
           <DidRoutesTab />
+        </TabsContent>
+
+        <TabsContent value="inbound-reports" className="flex-1 overflow-auto p-6 mt-0">
+          <InboundReportsTab />
         </TabsContent>
       </Tabs>
 

@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Link } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, Search, Eye, Package, FileText, Download, Calculator, MessageSquare, History, Send, Mail, MailOpen, Phone, PhoneCall, PhoneOutgoing, PhoneIncoming, Baby, Copy, ListChecks, FileEdit, UserCircle, Clock, PlusCircle, RefreshCw, XCircle, LogIn, LogOut, AlertCircle, CheckCircle2, ArrowRight, Shield, CreditCard, Loader2, Calendar, Globe, Linkedin, Facebook, Twitter, Instagram, Building2, ExternalLink, Sparkles, FileSignature, Receipt, Target, ArrowDownLeft, ArrowUpRight, PenSquare, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, FileSpreadsheet, Filter, X, ChevronDown, ChevronUp, Upload, Mic, MicOff, Pause, Play, Grid3X3, Volume2, PhoneOff, User, Brain, Star, AlertTriangle, Tag, ClipboardList, ShieldCheck, ShieldAlert, ClipboardCheck } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Eye, Package, FileText, Download, Calculator, MessageSquare, History, Send, Mail, MailOpen, Phone, PhoneCall, PhoneOutgoing, PhoneIncoming, PhoneMissed, Baby, Copy, ListChecks, FileEdit, UserCircle, Clock, PlusCircle, RefreshCw, XCircle, LogIn, LogOut, AlertCircle, CheckCircle2, ArrowRight, Shield, CreditCard, Loader2, Calendar, Globe, Linkedin, Facebook, Twitter, Instagram, Building2, ExternalLink, Sparkles, FileSignature, Receipt, Target, ArrowDownLeft, ArrowUpRight, PenSquare, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, FileSpreadsheet, Filter, X, ChevronDown, ChevronUp, Upload, Mic, MicOff, Pause, Play, Grid3X3, Volume2, PhoneOff, User, Brain, Star, AlertTriangle, Tag, ClipboardList, ShieldCheck, ShieldAlert, ClipboardCheck } from "lucide-react";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
 import { Button } from "@/components/ui/button";
@@ -1851,6 +1851,15 @@ function CustomerHistoryTimeline({
     },
   });
 
+  const { data: inboundCallLogs = [] } = useQuery<any[]>({
+    queryKey: ["/api/inbound-call-logs/by-customer", customerId],
+    queryFn: async () => {
+      const res = await fetch(`/api/inbound-call-logs/by-customer/${customerId}`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
   const getStageName = (stageId: string) => {
     const stage = pipelineStages.find((s: any) => s.id === stageId);
     return stage?.name || stageId;
@@ -2200,8 +2209,68 @@ function CustomerHistoryTimeline({
       });
     });
 
+    inboundCallLogs.forEach((log: any) => {
+      const statusLabels: Record<string, string> = {
+        queued: "Vo fronte",
+        ringing: "Zvoní",
+        answered: "Zodvihnutý",
+        completed: "Dokončený",
+        abandoned: "Zmeškaný",
+        timeout: "Časový limit",
+        overflow: "Presmerovanie",
+      };
+      const abandonReasons: Record<string, string> = {
+        caller_hangup: "Volajúci zavesil",
+        timeout: "Prekročený čas čakania",
+        overflow: "Presmerovanie pre preplnenie",
+      };
+
+      const waitTime = log.waitDurationSeconds
+        ? `${Math.floor(log.waitDurationSeconds / 60)}:${String(log.waitDurationSeconds % 60).padStart(2, '0')}`
+        : "0:00";
+      const talkTime = log.talkDurationSeconds
+        ? `${Math.floor(log.talkDurationSeconds / 60)}:${String(log.talkDurationSeconds % 60).padStart(2, '0')}`
+        : "-";
+
+      let description = `${log.callerNumber} - ${statusLabels[log.status] || log.status}`;
+      if (log.queueName) description += ` | Fronta: ${log.queueName}`;
+      if (log.didNumber) description += ` | DID: ${log.didNumber}`;
+      description += ` | Čakanie: ${waitTime}`;
+      if (log.talkDurationSeconds) description += ` | Hovor: ${talkTime}`;
+      if (log.status === "abandoned" && log.abandonReason) {
+        description += ` | ${abandonReasons[log.abandonReason] || log.abandonReason}`;
+      }
+      if (log.agentName) description += ` | Agent: ${log.agentName}`;
+
+      const isAbandoned = ["abandoned", "timeout", "overflow"].includes(log.status);
+
+      events.push({
+        id: `inbound-${log.id}`,
+        type: "call",
+        action: "inbound_queue_call",
+        title: isAbandoned ? "Zmeškaný prichádzajúci hovor (Fronta)" : "Prichádzajúci hovor (Fronta)",
+        description,
+        details: {
+          phoneNumber: log.callerNumber,
+          direction: "inbound",
+          status: log.status,
+          queueName: log.queueName,
+          didNumber: log.didNumber,
+          waitDurationSeconds: log.waitDurationSeconds,
+          talkDurationSeconds: log.talkDurationSeconds,
+          abandonReason: log.abandonReason,
+          queuePosition: log.queuePosition,
+          agentName: log.agentName,
+        },
+        createdAt: log.enteredQueueAt || log.createdAt,
+        userId: log.assignedAgentId,
+        icon: isAbandoned ? PhoneMissed : PhoneIncoming,
+        color: isAbandoned ? "text-red-500" : "text-cyan-500",
+      });
+    });
+
     return events;
-  }, [activityLogs, documents, notes, messages, customerProducts, customerEmails, customerCallLogs, customerId, customerName, pipelineStages, products, users, t]);
+  }, [activityLogs, documents, notes, messages, customerProducts, customerEmails, customerCallLogs, inboundCallLogs, customerId, customerName, pipelineStages, products, users, t]);
 
   // Filter and sort events
   const filteredEvents = useMemo(() => {
