@@ -716,7 +716,14 @@ export function SipPhone({
     });
   }, [cleanup, toast, unregister]);
 
+  const makeCallGuardRef = useRef(false);
+
   const makeCall = useCallback(async () => {
+    if (makeCallGuardRef.current) {
+      console.log("[SIP] makeCall already in progress, ignoring duplicate");
+      return;
+    }
+    makeCallGuardRef.current = true;
     userHungUpRef.current = false;
     
     if (!isSipConfigured) {
@@ -725,10 +732,12 @@ export function SipPhone({
         description: "Kontaktujte administrátora pre nastavenie SIP telefónu",
         variant: "destructive"
       });
+      makeCallGuardRef.current = false;
       return;
     }
     
     if (!phoneNumber) {
+      makeCallGuardRef.current = false;
       return;
     }
 
@@ -743,6 +752,7 @@ export function SipPhone({
       });
       setCallState("idle");
       callContext.setCallState("idle");
+      makeCallGuardRef.current = false;
       return;
     }
 
@@ -791,6 +801,7 @@ export function SipPhone({
             });
             break;
           case SessionState.Established:
+            makeCallGuardRef.current = false;
             setCallState("active");
             setIsOnHold(false);
             callStartTimeRef.current = Date.now();
@@ -815,6 +826,7 @@ export function SipPhone({
             }
             break;
           case SessionState.Terminated:
+            makeCallGuardRef.current = false;
             if (forceIdleRef.current) {
               forceIdleRef.current = false;
               break;
@@ -900,6 +912,7 @@ export function SipPhone({
         variant: "destructive"
       });
       setCallState("idle");
+      makeCallGuardRef.current = false;
     }
   }, [phoneNumber, sipConfig.server, sipConfig.realm, ensureRegistered, onCallStart, onCallEnd, toast, createCallLogMutation, updateCallLogMutation, userId, currentUser, localCustomerId, localCampaignId, localCustomerName, currentCallLogId, isSipConfigured]);
 
@@ -940,8 +953,15 @@ export function SipPhone({
     }
   }, [isRegistered, callState, makeCall]);
 
+  const answerGuardRef = useRef(false);
+
   const handleAnswerIncoming = useCallback(async () => {
     if (!incomingCall) return;
+    if (answerGuardRef.current) {
+      console.log("[SIP] handleAnswerIncoming already in progress, ignoring duplicate");
+      return;
+    }
+    answerGuardRef.current = true;
     
     try {
       setCallState("active");
@@ -966,6 +986,7 @@ export function SipPhone({
           variant: "destructive"
         });
         setCallState("idle");
+        answerGuardRef.current = false;
         return;
       }
       
@@ -987,6 +1008,7 @@ export function SipPhone({
         customerId: localCustomerId
       });
       
+      answerGuardRef.current = false;
       onCallStart?.(incomingCall.callerNumber, callLogId);
       setupAudio(session);
       
@@ -1068,6 +1090,7 @@ export function SipPhone({
         variant: "destructive"
       });
       setCallState("idle");
+      answerGuardRef.current = false;
     }
   }, [incomingCall, answerIncomingCall, toast, createCallLogMutation, updateCallLogMutation, userId, currentUser, localCustomerId, localCustomerName, onCallStart, onCallEnd, stopRecordingAndUpload, startRecording]);
 

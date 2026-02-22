@@ -3968,6 +3968,8 @@ export default function AgentWorkspacePage() {
     hasSipInvitation?: boolean;
     sipInvitation?: any;
   }>>([]);
+  const acceptingCallRef = useRef(false);
+  const dialingRef = useRef(false);
 
   const allowedRoles = ["callCenter", "admin"];
   const hasRoleAccess = user && allowedRoles.includes(user.role);
@@ -5067,180 +5069,149 @@ export default function AgentWorkspacePage() {
 
   const handleAcceptInboundCall = useCallback(async (call: InboundCallEntry | null) => {
     if (!call) return;
+    if (acceptingCallRef.current) {
+      console.log("[AgentWS] Accept already in progress, ignoring duplicate click");
+      return;
+    }
+    acceptingCallRef.current = true;
+
     const removeCall = () => setInboundCalls(prev => prev.filter(c => c.callId !== call.callId));
+    const callerNumber = call.callerNumber;
+
+    const setupCallContext = async () => {
+      setActiveChannel("phone");
+      setRightTab("actions");
+      setCallNotes("");
+      agentSession.updateStatus("busy").catch(() => {});
+
+      if (call.callId && !call.callId.startsWith("sip-")) {
+        apiRequest("POST", `/api/inbound-calls/${call.callId}/answer`, { userId: user?.id }).catch(() => {});
+      }
+
+      let customerFound = false;
+      try {
+        const res = await fetch(`/api/customers/lookup-phone?phone=${encodeURIComponent(callerNumber)}`, { credentials: "include" });
+        if (res.ok) {
+          const matched = await res.json();
+          if (matched?.id) {
+            const custRes = await fetch(`/api/customers/${matched.id}`, { credentials: "include" });
+            if (custRes.ok) {
+              const customer = await custRes.json();
+              customerFound = true;
+              setCurrentContact(customer);
+              setCurrentCampaignContactId(null);
+
+              const newTask: TaskItem = {
+                id: `task-inbound-${Date.now()}`,
+                contact: customer,
+                campaignId: selectedCampaignId || "",
+                campaignName: selectedCampaign?.name || "Inbound",
+                campaignContactId: null,
+                channel: "phone",
+                startedAt: new Date(),
+                status: "active",
+                direction: "inbound",
+              };
+              setTasks((prev) => [...prev, newTask]);
+              setActiveTaskId(newTask.id);
+
+              setTimeline([{
+                id: `sys-inbound-${Date.now()}`,
+                type: "system",
+                timestamp: new Date(),
+                content: `Prichádzajúci hovor od ${customer.firstName} ${customer.lastName} (${callerNumber})`,
+                details: "Inbound call",
+              }]);
+            }
+          }
+        }
+      } catch (lookupErr) {
+        console.warn("[AgentWS] Customer lookup failed:", lookupErr);
+      }
+
+      if (!customerFound) {
+        setTimeline([{
+          id: `sys-inbound-${Date.now()}`,
+          type: "system",
+          timestamp: new Date(),
+          content: `Prichádzajúci hovor od ${callerNumber} (neznámy zákazník)`,
+        }]);
+      }
+    };
+
     try {
       if (call.hasSipInvitation || call.sipInvitation) {
-        console.log("[AgentWS] Accepting inbound call via SIP:", call.callerNumber);
-        const callerNumber = call.callerNumber;
+        console.log("[AgentWS] Accepting inbound call via SIP:", callerNumber);
 
-        let invitation = call.sipInvitation;
+        let invitation = call.sipInvitation || incomingCallRef?.current?.invitation;
+
         if (!invitation) {
+          await new Promise(r => setTimeout(r, 200));
           invitation = incomingCallRef?.current?.invitation;
-          console.log("[AgentWS] Fallback to incomingCallRef, has invitation:", !!invitation);
-        }
-
-        if (!invitation) {
-          console.warn("[AgentWS] No SIP invitation available, retrying...");
-          for (let wait = 0; wait < 3 && !invitation; wait++) {
-            await new Promise(r => setTimeout(r, 300 + wait * 200));
-            invitation = incomingCallRef?.current?.invitation;
-          }
         }
 
         if (!invitation) {
           toast({ title: "Chyba", description: "SIP pozvánka ešte nedorazila. Skúste znovu.", variant: "destructive" });
+          acceptingCallRef.current = false;
           return;
         }
 
         const invState = invitation.state;
-        console.log("[AgentWS] SIP invitation state before accept:", invState);
+        console.log("[AgentWS] SIP invitation state:", invState);
 
         if (invState === "Terminated" || invState === "Canceled") {
           toast({ title: "Hovor zrušený", description: "Volajúci zavesil" });
           removeCall();
+          acceptingCallRef.current = false;
           return;
         }
+
+        invitation._inboundQueueId = call.queueId;
+        invitation._inboundQueueName = call.queueName;
+        invitation._inboundCallLogId = call.callId;
+        invitation._inboundCallerNumber = callerNumber;
+        invitation._inboundCallerName = call.callerName;
 
         if (invState === "Established") {
-          console.log("[AgentWS] Call already established, skipping accept");
-          const session = invitation;
-          session._inboundQueueId = call.queueId;
-          session._inboundQueueName = call.queueName;
-          session._inboundCallLogId = call.callId;
-          session._inboundCallerNumber = callerNumber;
-          session._inboundCallerName = call.callerName;
-          removeCall();
-          setIncomingCallWithRef(null);
-          setAnsweredIncomingSession(invitation);
-          agentSession.updateStatus("busy").catch(() => {});
-          setActiveChannel("phone");
-          setRightTab("actions");
-          setCallNotes("");
-          toast({ title: "Hovor prijatý", description: `Prepojený s ${callerNumber}` });
-          return;
-        }
-
-        let session: any = null;
-        const maxRetries = 3;
-        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+          console.log("[AgentWS] Call already established, proceeding directly");
+        } else {
           try {
-            console.log(`[AgentWS] Accept attempt ${attempt}/${maxRetries}`);
             await invitation.accept({
               sessionDescriptionHandlerOptions: {
                 constraints: { audio: true, video: false }
               }
             });
-            session = invitation;
-            break;
+            console.log("[AgentWS] SIP accept succeeded");
           } catch (acceptErr: any) {
-            console.warn(`[AgentWS] Accept attempt ${attempt} failed:`, acceptErr?.message || acceptErr);
-            if (attempt < maxRetries) {
-              await new Promise(r => setTimeout(r, 300 * attempt));
-              const curState = invitation.state;
-              if (curState === "Established") {
-                console.log("[AgentWS] Call established during retry");
-                session = invitation;
-                break;
-              }
-              if (curState === "Terminated" || curState === "Canceled") {
-                toast({ title: "Hovor zrušený", description: "Volajúci zavesil" });
-                removeCall();
-                return;
-              }
+            console.warn("[AgentWS] SIP accept threw:", acceptErr?.message);
+            const postState = invitation.state;
+            if (postState !== "Established" && postState !== "Establishing") {
+              toast({ title: "Chyba", description: "Nepodarilo sa prijať hovor.", variant: "destructive" });
+              removeCall();
+              setIncomingCallWithRef(null);
+              acceptingCallRef.current = false;
+              return;
             }
+            console.log("[AgentWS] Call is", postState, "despite accept error - proceeding");
           }
         }
 
-        if (!session) {
-          const finalState = invitation.state;
-          if (finalState === "Established") {
-            console.log("[AgentWS] Invitation established despite accept errors");
-            session = invitation;
-          } else {
-            setIncomingCallWithRef(null);
-            removeCall();
-            toast({ title: "Chyba", description: "Nepodarilo sa prijať hovor. Skúste znovu.", variant: "destructive" });
-            return;
-          }
-        }
-
-        session._inboundQueueId = call.queueId;
-        session._inboundQueueName = call.queueName;
-        session._inboundCallLogId = call.callId;
-        session._inboundCallerNumber = callerNumber;
-        session._inboundCallerName = call.callerName;
-
-        setIncomingCallWithRef(null);
-        setAnsweredIncomingSession(session);
         removeCall();
-        agentSession.updateStatus("busy").catch(() => {});
-        setActiveChannel("phone");
-        setRightTab("actions");
-        setCallNotes("");
-
-        if (call.callId && !call.callId.startsWith("sip-")) {
-          apiRequest("POST", `/api/inbound-calls/${call.callId}/answer`, { userId: user?.id }).catch(() => {});
-        }
-
-        let customerFound = false;
-        try {
-          const res = await fetch(`/api/customers/lookup-phone?phone=${encodeURIComponent(callerNumber)}`, { credentials: "include" });
-          if (res.ok) {
-            const matched = await res.json();
-            if (matched?.id) {
-              const custRes = await fetch(`/api/customers/${matched.id}`, { credentials: "include" });
-              if (custRes.ok) {
-                const customer = await custRes.json();
-                customerFound = true;
-                setCurrentContact(customer);
-                setCurrentCampaignContactId(null);
-
-                const newTask: TaskItem = {
-                  id: `task-inbound-${Date.now()}`,
-                  contact: customer,
-                  campaignId: selectedCampaignId || "",
-                  campaignName: selectedCampaign?.name || "Inbound",
-                  campaignContactId: null,
-                  channel: "phone",
-                  startedAt: new Date(),
-                  status: "active",
-                  direction: "inbound",
-                };
-                setTasks((prev) => [...prev, newTask]);
-                setActiveTaskId(newTask.id);
-
-                setTimeline([{
-                  id: `sys-inbound-${Date.now()}`,
-                  type: "system",
-                  timestamp: new Date(),
-                  content: `Prichádzajúci hovor od ${customer.firstName} ${customer.lastName} (${callerNumber})`,
-                  details: "Inbound call",
-                }]);
-              }
-            }
-          }
-        } catch (lookupErr) {
-          console.warn("[AgentWS] Customer lookup failed:", lookupErr);
-        }
-
-        if (!customerFound) {
-          setTimeline([{
-            id: `sys-inbound-${Date.now()}`,
-            type: "system",
-            timestamp: new Date(),
-            content: `Prichádzajúci hovor od ${callerNumber} (neznámy zákazník)`,
-          }]);
-        }
-
+        setIncomingCallWithRef(null);
+        setAnsweredIncomingSession(invitation);
         toast({ title: "Hovor prijatý", description: `Prepojený s ${callerNumber}` });
+        await setupCallContext();
       } else {
         await apiRequest("POST", `/api/inbound-calls/${call.callId}/answer`, { userId: user?.id });
-        toast({ title: "Call accepted" });
+        toast({ title: "Hovor prijatý" });
         removeCall();
+        await setupCallContext();
       }
     } catch (err: any) {
       console.error("[AgentWS] Error accepting call:", err);
       toast({ title: "Chyba", description: err.message || "Nepodarilo sa prijať hovor", variant: "destructive" });
+    } finally {
+      acceptingCallRef.current = false;
     }
   }, [incomingCallRef, setIncomingCallWithRef, setAnsweredIncomingSession, callContext, toast, user?.id, agentSession, selectedCampaignId, selectedCampaign]);
 

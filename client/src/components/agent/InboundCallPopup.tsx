@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -60,6 +60,33 @@ function CallCard({ call, onAccept, onReject, onDismiss, isFirst }: {
   onDismiss: (callId: string) => void;
   isFirst: boolean;
 }) {
+  const [isAccepting, setIsAccepting] = useState(false);
+  const [isRejecting, setIsRejecting] = useState(false);
+  const acceptTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (acceptTimeoutRef.current) clearTimeout(acceptTimeoutRef.current);
+    };
+  }, []);
+
+  const handleAccept = useCallback(() => {
+    if (isAccepting || isRejecting) return;
+    setIsAccepting(true);
+    if (acceptTimeoutRef.current) clearTimeout(acceptTimeoutRef.current);
+    acceptTimeoutRef.current = setTimeout(() => {
+      setIsAccepting(false);
+    }, 5000);
+    onAccept(call);
+  }, [call, onAccept, isAccepting, isRejecting]);
+
+  const handleReject = useCallback(() => {
+    if (isAccepting || isRejecting) return;
+    setIsRejecting(true);
+    setTimeout(() => setIsRejecting(false), 3000);
+    onReject(call);
+  }, [call, onReject, isAccepting, isRejecting]);
+
   const { data: matchedCustomer } = useQuery<any>({
     queryKey: ["/api/customers/lookup-phone", call.callerNumber],
     queryFn: async () => {
@@ -120,18 +147,23 @@ function CallCard({ call, onAccept, onReject, onDismiss, isFirst }: {
           <Button
             size="sm"
             variant="default"
-            onClick={() => onAccept(call)}
-            disabled={!canAccept}
+            onClick={handleAccept}
+            disabled={!canAccept || isAccepting || isRejecting}
             title={canAccept ? "Accept call" : "Waiting for SIP connection..."}
             data-testid={`btn-accept-${call.callId}`}
           >
-            <Phone className="h-3.5 w-3.5 mr-1" />
-            Accept
+            {isAccepting ? (
+              <Clock className="h-3.5 w-3.5 mr-1 animate-spin" />
+            ) : (
+              <Phone className="h-3.5 w-3.5 mr-1" />
+            )}
+            {isAccepting ? "Connecting..." : "Accept"}
           </Button>
           <Button
             size="sm"
             variant="destructive"
-            onClick={() => onReject(call)}
+            onClick={handleReject}
+            disabled={isAccepting || isRejecting}
             data-testid={`btn-reject-${call.callId}`}
           >
             <PhoneOff className="h-3.5 w-3.5" />
