@@ -3911,7 +3911,7 @@ export default function AgentWorkspacePage() {
   const { t, locale } = useI18n();
   const { user } = useAuth();
   const { toast } = useToast();
-  const { makeCall, isRegistered: isSipRegistered, incomingCall: sipIncomingCall, answerIncomingCall, rejectIncomingCall } = useSip();
+  const { makeCall, isRegistered: isSipRegistered, incomingCall: sipIncomingCall, answerIncomingCall, rejectIncomingCall, setIncomingCallWithRef, setAnsweredIncomingSession, incomingCallRef } = useSip();
   const callContext = useCall();
   const [, setLocation] = useLocation();
   const { open: sidebarOpen, setOpen: setSidebarOpen } = useSidebar();
@@ -3966,6 +3966,7 @@ export default function AgentWorkspacePage() {
     queueName: string; queueId: string; waitTime: number;
     channelId: string; timestamp: number;
     hasSipInvitation?: boolean;
+    sipInvitation?: any;
   }>>([]);
 
   const allowedRoles = ["callCenter", "admin"];
@@ -5021,8 +5022,9 @@ export default function AgentWorkspacePage() {
   useEffect(() => {
     if (sipIncomingCall && agentSession.isSessionActive) {
       const callerNum = sipIncomingCall.callerNumber?.replace(/[\s\-\(\)]/g, "");
+      const invitation = sipIncomingCall.invitation;
       setInboundCalls(prev => {
-        const alreadyLinked = prev.some(c => c.hasSipInvitation);
+        const alreadyLinked = prev.some(c => c.hasSipInvitation && c.sipInvitation);
         if (alreadyLinked) return prev;
 
         const unlinkedCalls = prev.filter(c => !c.hasSipInvitation && c.channelId !== "sip-webrtc");
@@ -5033,7 +5035,7 @@ export default function AgentWorkspacePage() {
           });
           const target = matchByNumber || unlinkedCalls[unlinkedCalls.length - 1];
           console.log("[AgentWS] SIP INVITE linked to queue call:", target.callId, target.callerNumber);
-          return prev.map(c => c.callId === target.callId ? { ...c, hasSipInvitation: true } : c);
+          return prev.map(c => c.callId === target.callId ? { ...c, hasSipInvitation: true, sipInvitation: invitation } : c);
         }
 
         console.log("[AgentWS] SIP incoming call (direct, no queue):", callerNum);
@@ -5047,6 +5049,7 @@ export default function AgentWorkspacePage() {
           channelId: "sip-webrtc",
           timestamp: Date.now(),
           hasSipInvitation: true,
+          sipInvitation: invitation,
         }];
       });
     } else if (!sipIncomingCall) {
@@ -5055,7 +5058,7 @@ export default function AgentWorkspacePage() {
         if (hasSipDirect) {
           return prev.filter(c => c.channelId !== "sip-webrtc");
         }
-        return prev.map(c => c.hasSipInvitation ? { ...c, hasSipInvitation: false } : c);
+        return prev.map(c => c.hasSipInvitation ? { ...c, hasSipInvitation: false, sipInvitation: undefined } : c);
       });
     }
   }, [sipIncomingCall, agentSession.isSessionActive]);
@@ -5066,20 +5069,109 @@ export default function AgentWorkspacePage() {
     if (!call) return;
     const removeCall = () => setInboundCalls(prev => prev.filter(c => c.callId !== call.callId));
     try {
-      if (call.hasSipInvitation) {
+      if (call.hasSipInvitation || call.sipInvitation) {
         console.log("[AgentWS] Accepting inbound call via SIP:", call.callerNumber);
         const callerNumber = call.callerNumber;
-        const session = await answerIncomingCall();
-        if (!session) {
-          toast({ title: "Chyba", description: "Nepodarilo sa prijať hovor", variant: "destructive" });
+
+        let invitation = call.sipInvitation;
+        if (!invitation) {
+          invitation = incomingCallRef?.current?.invitation;
+          console.log("[AgentWS] Fallback to incomingCallRef, has invitation:", !!invitation);
+        }
+
+        if (!invitation) {
+          console.warn("[AgentWS] No SIP invitation available, retrying...");
+          for (let wait = 0; wait < 3 && !invitation; wait++) {
+            await new Promise(r => setTimeout(r, 300 + wait * 200));
+            invitation = incomingCallRef?.current?.invitation;
+          }
+        }
+
+        if (!invitation) {
+          toast({ title: "Chyba", description: "SIP pozvánka ešte nedorazila. Skúste znovu.", variant: "destructive" });
+          return;
+        }
+
+        const invState = invitation.state;
+        console.log("[AgentWS] SIP invitation state before accept:", invState);
+
+        if (invState === "Terminated" || invState === "Canceled") {
+          toast({ title: "Hovor zrušený", description: "Volajúci zavesil" });
           removeCall();
           return;
+        }
+
+        if (invState === "Established") {
+          console.log("[AgentWS] Call already established, skipping accept");
+          const session = invitation;
+          session._inboundQueueId = call.queueId;
+          session._inboundQueueName = call.queueName;
+          session._inboundCallLogId = call.callId;
+          session._inboundCallerNumber = callerNumber;
+          session._inboundCallerName = call.callerName;
+          removeCall();
+          setIncomingCallWithRef(null);
+          setAnsweredIncomingSession(invitation);
+          agentSession.updateStatus("busy").catch(() => {});
+          setActiveChannel("phone");
+          setRightTab("actions");
+          setCallNotes("");
+          toast({ title: "Hovor prijatý", description: `Prepojený s ${callerNumber}` });
+          return;
+        }
+
+        let session: any = null;
+        const maxRetries = 3;
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+          try {
+            console.log(`[AgentWS] Accept attempt ${attempt}/${maxRetries}`);
+            await invitation.accept({
+              sessionDescriptionHandlerOptions: {
+                constraints: { audio: true, video: false }
+              }
+            });
+            session = invitation;
+            break;
+          } catch (acceptErr: any) {
+            console.warn(`[AgentWS] Accept attempt ${attempt} failed:`, acceptErr?.message || acceptErr);
+            if (attempt < maxRetries) {
+              await new Promise(r => setTimeout(r, 300 * attempt));
+              const curState = invitation.state;
+              if (curState === "Established") {
+                console.log("[AgentWS] Call established during retry");
+                session = invitation;
+                break;
+              }
+              if (curState === "Terminated" || curState === "Canceled") {
+                toast({ title: "Hovor zrušený", description: "Volajúci zavesil" });
+                removeCall();
+                return;
+              }
+            }
+          }
+        }
+
+        if (!session) {
+          const finalState = invitation.state;
+          if (finalState === "Established") {
+            console.log("[AgentWS] Invitation established despite accept errors");
+            session = invitation;
+          } else {
+            setIncomingCallWithRef(null);
+            removeCall();
+            toast({ title: "Chyba", description: "Nepodarilo sa prijať hovor. Skúste znovu.", variant: "destructive" });
+            return;
+          }
         }
 
         session._inboundQueueId = call.queueId;
         session._inboundQueueName = call.queueName;
         session._inboundCallLogId = call.callId;
+        session._inboundCallerNumber = callerNumber;
+        session._inboundCallerName = call.callerName;
 
+        setIncomingCallWithRef(null);
+        setAnsweredIncomingSession(session);
         removeCall();
         agentSession.updateStatus("busy").catch(() => {});
         setActiveChannel("phone");
@@ -5150,13 +5242,18 @@ export default function AgentWorkspacePage() {
       console.error("[AgentWS] Error accepting call:", err);
       toast({ title: "Chyba", description: err.message || "Nepodarilo sa prijať hovor", variant: "destructive" });
     }
-  }, [answerIncomingCall, callContext, toast, user?.id, agentSession, selectedCampaignId, selectedCampaign]);
+  }, [incomingCallRef, setIncomingCallWithRef, setAnsweredIncomingSession, callContext, toast, user?.id, agentSession, selectedCampaignId, selectedCampaign]);
 
   const handleRejectInboundCall = useCallback((call: InboundCallEntry | null) => {
     if (!call) return;
     const removeCall = () => setInboundCalls(prev => prev.filter(c => c.callId !== call.callId));
-    if (call.hasSipInvitation) {
-      rejectIncomingCall();
+    if (call.hasSipInvitation || call.sipInvitation) {
+      if (call.sipInvitation) {
+        try { call.sipInvitation.reject(); } catch (e) { console.warn("[AgentWS] Direct reject failed:", e); }
+      } else {
+        rejectIncomingCall();
+      }
+      setIncomingCallWithRef(null);
       removeCall();
       toast({ title: "Hovor odmietnutý" });
     } else {
@@ -5164,7 +5261,7 @@ export default function AgentWorkspacePage() {
         .then(() => removeCall())
         .catch(() => removeCall());
     }
-  }, [rejectIncomingCall, toast, user?.id]);
+  }, [rejectIncomingCall, setIncomingCallWithRef, toast, user?.id]);
 
   const activeBreakTypeObj = agentSession.activeBreak
     ? agentSession.breakTypes.find(bt => bt.id === agentSession.activeBreak?.breakTypeId) || null

@@ -1,13 +1,14 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Plus, Pencil, Trash2, Search, Megaphone, PlayCircle, CheckCircle, Clock, XCircle, ExternalLink, FileText, Calendar, LayoutList, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, BarChart3, TrendingUp, Phone, RefreshCw, Users, Mail, MessageSquare, User, Check, Loader2, Shield, Headphones, X, Download, HelpCircle, BookOpen, Type, AlignLeft, ListOrdered, CircleDot, Target, Square, TextCursorInput, Variable, GripVertical, Copy, ArrowUp, ArrowDown, Mic, Coffee } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Megaphone, PlayCircle, CheckCircle, Clock, XCircle, ExternalLink, FileText, Calendar, LayoutList, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, BarChart3, TrendingUp, Phone, RefreshCw, Users, Mail, MessageSquare, User, Check, Loader2, Shield, Headphones, X, Download, HelpCircle, BookOpen, Type, AlignLeft, ListOrdered, CircleDot, Target, Square, TextCursorInput, Variable, GripVertical, Copy, ArrowUp, ArrowDown, Mic, Coffee, GitBranch } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { TranscriptSearchContent } from "@/pages/transcript-search";
 import { BreakTypesTab } from "@/components/campaigns/BreakTypesTab";
 import { InboundQueuesTab } from "@/components/campaigns/InboundQueuesTab";
 import { IvrMessagesTab } from "@/components/campaigns/IvrMessagesTab";
 import { IvrMenusTab } from "@/components/campaigns/IvrMenusTab";
+import { DidRoutesTab } from "@/components/campaigns/DidRoutesTab";
 import { useAuth } from "@/contexts/auth-context";
 import { useCountryFilter } from "@/contexts/country-filter-context";
 import { Button } from "@/components/ui/button";
@@ -2001,6 +2002,10 @@ export default function CampaignsPage() {
               <Phone className="h-4 w-4" />
               IVR Menu
             </TabsTrigger>
+            <TabsTrigger value="did-routes" className="gap-2" data-testid="tab-did-routes">
+              <GitBranch className="h-4 w-4" />
+              DID Smerovanie
+            </TabsTrigger>
           </TabsList>
         </div>
 
@@ -2082,6 +2087,10 @@ export default function CampaignsPage() {
 
         <TabsContent value="ivr-menus" className="flex-1 overflow-auto p-6 mt-0">
           <IvrMenusTab />
+        </TabsContent>
+
+        <TabsContent value="did-routes" className="flex-1 overflow-auto mt-0">
+          <DidRoutesTab />
         </TabsContent>
       </Tabs>
 

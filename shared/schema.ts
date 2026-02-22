@@ -5537,6 +5537,33 @@ export const insertInboundCallLogSchema = createInsertSchema(inboundCallLogs).om
 export type InsertInboundCallLog = z.infer<typeof insertInboundCallLogSchema>;
 export type InboundCallLog = typeof inboundCallLogs.$inferSelect;
 
+// DID Routes - routing configuration for DID (Direct Inward Dialing) numbers
+export const didRoutes = pgTable("did_routes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  didNumber: text("did_number").notNull().unique(),
+  name: text("name"),
+  description: text("description"),
+  countryCode: text("country_code"),
+  action: text("action").notNull().default("hangup"), // inbound_queue, ivr_menu, pjsip_user, voicemail, hangup, transfer
+  targetQueueId: varchar("target_queue_id"),
+  targetIvrMenuId: varchar("target_ivr_menu_id"),
+  targetUserId: varchar("target_user_id"),
+  targetExtension: text("target_extension"),
+  voicemailBox: text("voicemail_box"),
+  priority: integer("priority").notNull().default(0),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const insertDidRouteSchema = createInsertSchema(didRoutes).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertDidRoute = z.infer<typeof insertDidRouteSchema>;
+export type DidRoute = typeof didRoutes.$inferSelect;
+
 // Agent Queue Status - real-time agent availability tracking per queue
 export const agentQueueStatus = pgTable("agent_queue_status", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

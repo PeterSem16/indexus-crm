@@ -44,6 +44,9 @@ interface SipContextType {
   clearAnsweredSession: () => void;
   answerIncomingCall: () => Promise<any>;
   rejectIncomingCall: () => void;
+  setIncomingCallWithRef: (value: IncomingCall | null | ((prev: IncomingCall | null) => IncomingCall | null)) => void;
+  setAnsweredIncomingSession: (session: any) => void;
+  incomingCallRef: React.MutableRefObject<IncomingCall | null>;
 }
 
 const SipContext = createContext<SipContextType | undefined>(undefined);
@@ -570,7 +573,7 @@ export function SipProvider({ children }: { children: ReactNode }) {
   }, [clearTimers]);
 
   return (
-    <SipContext.Provider value={{ isRegistered, isRegistering, registrationError, register, unregister, ensureRegistered, userAgentRef, registererRef, pendingCall, makeCall, clearPendingCall, incomingCall, answeredIncomingSession, clearAnsweredSession, answerIncomingCall, rejectIncomingCall }}>
+    <SipContext.Provider value={{ isRegistered, isRegistering, registrationError, register, unregister, ensureRegistered, userAgentRef, registererRef, pendingCall, makeCall, clearPendingCall, incomingCall, answeredIncomingSession, clearAnsweredSession, answerIncomingCall, rejectIncomingCall, setIncomingCallWithRef, setAnsweredIncomingSession, incomingCallRef }}>
       {children}
     </SipContext.Provider>
   );

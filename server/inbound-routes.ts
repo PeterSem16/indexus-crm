@@ -13,6 +13,7 @@ import {
   agentSessions,
   users,
   customers,
+  didRoutes, insertDidRouteSchema,
 } from "@shared/schema";
 import { or, like, ilike } from "drizzle-orm";
 import { AriClient, initializeAriClient, getAriClient, destroyAriClient } from "./lib/ari-client";
@@ -1433,6 +1434,118 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
       res.json(stats);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ============ DID ROUTES ============
+
+  app.get("/api/did-routes", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { countryCode } = req.query;
+      let query = db.select().from(didRoutes).orderBy(asc(didRoutes.priority), asc(didRoutes.didNumber));
+      if (countryCode && typeof countryCode === "string") {
+        const routes = await db.select().from(didRoutes)
+          .where(eq(didRoutes.countryCode, countryCode))
+          .orderBy(asc(didRoutes.priority), asc(didRoutes.didNumber));
+        return res.json(routes);
+      }
+      const routes = await query;
+      res.json(routes);
+    } catch (error) {
+      console.error("Error fetching DID routes:", error);
+      res.status(500).json({ error: "Failed to fetch DID routes" });
+    }
+  });
+
+  app.get("/api/did-routes/:id", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const route = await db.select().from(didRoutes).where(eq(didRoutes.id, req.params.id)).limit(1);
+      if (!route[0]) return res.status(404).json({ error: "DID route not found" });
+      res.json(route[0]);
+    } catch (error) {
+      console.error("Error fetching DID route:", error);
+      res.status(500).json({ error: "Failed to fetch DID route" });
+    }
+  });
+
+  app.post("/api/did-routes", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const user = (req.session as any)?.user;
+      if (!["admin", "manager"].includes(user.role)) {
+        return res.status(403).json({ error: "Admin or manager access required" });
+      }
+      const data = { ...req.body };
+      if (data.targetQueueId === "") data.targetQueueId = null;
+      if (data.targetIvrMenuId === "") data.targetIvrMenuId = null;
+      if (data.targetUserId === "") data.targetUserId = null;
+      if (data.targetExtension === "") data.targetExtension = null;
+      if (data.voicemailBox === "") data.voicemailBox = null;
+      if (data.countryCode === "" || data.countryCode === "none") data.countryCode = null;
+      if (data.name === "") data.name = null;
+      if (data.description === "") data.description = null;
+      const validActions = ["inbound_queue", "ivr_menu", "pjsip_user", "voicemail", "hangup", "transfer"];
+      if (!validActions.includes(data.action)) {
+        return res.status(400).json({ error: "Invalid action type" });
+      }
+      if (!data.didNumber?.trim()) {
+        return res.status(400).json({ error: "DID number is required" });
+      }
+      const created = await db.insert(didRoutes).values(data).returning();
+      res.status(201).json(created[0]);
+    } catch (error: any) {
+      console.error("Error creating DID route:", error);
+      if (error?.code === "23505") {
+        return res.status(400).json({ error: "DID number already exists" });
+      }
+      res.status(500).json({ error: "Failed to create DID route" });
+    }
+  });
+
+  app.put("/api/did-routes/:id", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const user = (req.session as any)?.user;
+      if (!["admin", "manager"].includes(user.role)) {
+        return res.status(403).json({ error: "Admin or manager access required" });
+      }
+      const data = { ...req.body };
+      if (data.targetQueueId === "") data.targetQueueId = null;
+      if (data.targetIvrMenuId === "") data.targetIvrMenuId = null;
+      if (data.targetUserId === "") data.targetUserId = null;
+      if (data.targetExtension === "") data.targetExtension = null;
+      if (data.voicemailBox === "") data.voicemailBox = null;
+      if (data.countryCode === "" || data.countryCode === "none") data.countryCode = null;
+      if (data.name === "") data.name = null;
+      if (data.description === "") data.description = null;
+      const validActions = ["inbound_queue", "ivr_menu", "pjsip_user", "voicemail", "hangup", "transfer"];
+      if (data.action && !validActions.includes(data.action)) {
+        return res.status(400).json({ error: "Invalid action type" });
+      }
+      const updated = await db.update(didRoutes)
+        .set({ ...data, updatedAt: new Date() })
+        .where(eq(didRoutes.id, req.params.id))
+        .returning();
+      if (!updated[0]) return res.status(404).json({ error: "DID route not found" });
+      res.json(updated[0]);
+    } catch (error: any) {
+      console.error("Error updating DID route:", error);
+      if (error?.code === "23505") {
+        return res.status(400).json({ error: "DID number already exists" });
+      }
+      res.status(500).json({ error: "Failed to update DID route" });
+    }
+  });
+
+  app.delete("/api/did-routes/:id", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const user = (req.session as any)?.user;
+      if (!["admin", "manager"].includes(user.role)) {
+        return res.status(403).json({ error: "Admin or manager access required" });
+      }
+      await db.delete(didRoutes).where(eq(didRoutes.id, req.params.id));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting DID route:", error);
+      res.status(500).json({ error: "Failed to delete DID route" });
     }
   });
 }
