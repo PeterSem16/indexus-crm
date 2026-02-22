@@ -5383,11 +5383,14 @@ export const inboundQueues = pgTable("inbound_queues", {
   priority: integer("priority").notNull().default(1), // queue priority (higher = more important)
   welcomeMessageId: varchar("welcome_message_id"), // IVR welcome message
   holdMusicId: varchar("hold_music_id"), // hold music file
-  overflowAction: text("overflow_action").notNull().default("voicemail"), // voicemail, hangup, transfer, queue
+  overflowAction: text("overflow_action").notNull().default("voicemail"), // voicemail, hangup, transfer, queue, user_pjsip
   overflowTarget: text("overflow_target"), // target number/queue for overflow
+  overflowUserId: varchar("overflow_user_id"), // user ID for user_pjsip overflow action
   announcePosition: boolean("announce_position").notNull().default(true),
   announceWaitTime: boolean("announce_wait_time").notNull().default(true),
   announceFrequency: integer("announce_frequency").notNull().default(30), // seconds between announcements
+  announcePositionMessageId: varchar("announce_position_message_id"), // IVR message for position announcement
+  announceWaitTimeMessageId: varchar("announce_wait_time_message_id"), // IVR message for wait time announcement
   serviceLevelTarget: integer("service_level_target").notNull().default(20), // target answer time in seconds (for SLA)
   activeFrom: text("active_from"), // business hours start "HH:MM" e.g. "08:00"
   activeTo: text("active_to"), // business hours end "HH:MM" e.g. "17:00"
