@@ -5405,6 +5405,7 @@ export const inboundQueues = pgTable("inbound_queues", {
   afterHoursAction: text("after_hours_action").notNull().default("voicemail"), // voicemail, hangup, transfer, queue
   afterHoursTarget: text("after_hours_target"), // target queue/number for after-hours routing
   afterHoursMessageId: varchar("after_hours_message_id"), // IVR message to play after hours
+  recordCalls: boolean("record_calls").notNull().default(false), // enable recording & analysis for inbound calls in this queue
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
