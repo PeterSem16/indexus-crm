@@ -5066,7 +5066,7 @@ export default function AgentWorkspacePage() {
     if (!call) return;
     const removeCall = () => setInboundCalls(prev => prev.filter(c => c.callId !== call.callId));
     try {
-      if (call.hasSipInvitation && sipIncomingCall) {
+      if (call.hasSipInvitation) {
         console.log("[AgentWS] Accepting inbound call via SIP:", call.callerNumber);
         const callerNumber = call.callerNumber;
         const session = await answerIncomingCall();
@@ -5083,7 +5083,7 @@ export default function AgentWorkspacePage() {
         setCallNotes("");
 
         if (call.callId && !call.callId.startsWith("sip-")) {
-          apiRequest("POST", `/api/inbound-calls/${call.callId}/accept`, { userId: user?.id }).catch(() => {});
+          apiRequest("POST", `/api/inbound-calls/${call.callId}/answer`, { userId: user?.id }).catch(() => {});
         }
 
         let customerFound = false;
@@ -5138,7 +5138,7 @@ export default function AgentWorkspacePage() {
 
         toast({ title: "Hovor prijatý", description: `Prepojený s ${callerNumber}` });
       } else {
-        await apiRequest("POST", `/api/inbound-calls/${call.callId}/accept`, { userId: user?.id });
+        await apiRequest("POST", `/api/inbound-calls/${call.callId}/answer`, { userId: user?.id });
         toast({ title: "Call accepted" });
         removeCall();
       }
@@ -5146,7 +5146,7 @@ export default function AgentWorkspacePage() {
       console.error("[AgentWS] Error accepting call:", err);
       toast({ title: "Chyba", description: err.message || "Nepodarilo sa prijať hovor", variant: "destructive" });
     }
-  }, [sipIncomingCall, answerIncomingCall, callContext, toast, user?.id, agentSession, selectedCampaignId, selectedCampaign]);
+  }, [answerIncomingCall, callContext, toast, user?.id, agentSession, selectedCampaignId, selectedCampaign]);
 
   const handleRejectInboundCall = useCallback((call: InboundCallEntry | null) => {
     if (!call) return;

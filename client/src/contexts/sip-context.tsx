@@ -64,6 +64,7 @@ export function SipProvider({ children }: { children: ReactNode }) {
   const [incomingCall, setIncomingCall] = useState<IncomingCall | null>(null);
   const [answeredIncomingSession, setAnsweredIncomingSession] = useState<any>(null);
 
+  const incomingCallRef = useRef<IncomingCall | null>(null);
   const userAgentRef = useRef<any>(null);
   const registererRef = useRef<any>(null);
   const reRegisterTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -87,40 +88,52 @@ export function SipProvider({ children }: { children: ReactNode }) {
     setAnsweredIncomingSession(null);
   }, []);
 
+  useEffect(() => {
+    incomingCallRef.current = incomingCall;
+  }, [incomingCall]);
+
   const answerIncomingCall = useCallback(async () => {
-    if (!incomingCall?.invitation) return null;
+    const currentIncoming = incomingCallRef.current;
+    if (!currentIncoming?.invitation) {
+      console.warn("[SIP] answerIncomingCall called but no invitation available (ref check)");
+      return null;
+    }
     try {
       console.log("[SIP] Answering incoming call...");
-      const callerNumber = incomingCall.callerNumber;
-      const callerName = incomingCall.callerName;
-      await incomingCall.invitation.accept({
+      const callerNumber = currentIncoming.callerNumber;
+      const callerName = currentIncoming.callerName;
+      const invitation = currentIncoming.invitation;
+      await invitation.accept({
         sessionDescriptionHandlerOptions: {
           constraints: { audio: true, video: false }
         }
       });
-      const session = incomingCall.invitation;
-      session._inboundCallerNumber = callerNumber;
-      session._inboundCallerName = callerName;
+      invitation._inboundCallerNumber = callerNumber;
+      invitation._inboundCallerName = callerName;
+      incomingCallRef.current = null;
       setIncomingCall(null);
-      setAnsweredIncomingSession(session);
-      return session;
+      setAnsweredIncomingSession(invitation);
+      return invitation;
     } catch (e: any) {
       console.error("[SIP] Failed to answer incoming call:", e);
+      incomingCallRef.current = null;
       setIncomingCall(null);
       return null;
     }
-  }, [incomingCall]);
+  }, []);
 
   const rejectIncomingCall = useCallback(() => {
-    if (!incomingCall?.invitation) return;
+    const currentIncoming = incomingCallRef.current;
+    if (!currentIncoming?.invitation) return;
     try {
       console.log("[SIP] Rejecting incoming call...");
-      incomingCall.invitation.reject();
+      currentIncoming.invitation.reject();
     } catch (e: any) {
       console.error("[SIP] Failed to reject incoming call:", e);
     }
+    incomingCallRef.current = null;
     setIncomingCall(null);
-  }, [incomingCall]);
+  }, []);
 
   const { data: sipSettings } = useQuery<SipSettingsData | null>({
     queryKey: ["/api/sip-settings"],
