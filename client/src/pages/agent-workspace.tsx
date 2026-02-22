@@ -5267,14 +5267,17 @@ export default function AgentWorkspacePage() {
 
         removeCall();
         setIncomingCallWithRef(null);
-        const inboundOptions = { autoRecord: !!call.recordCalls };
+        const shouldAutoRecord = !!call.recordCalls || callContext.autoRecord;
+        const inboundOptions = { autoRecord: shouldAutoRecord };
+        console.log("[AgentWS] Inbound options:", { recordCalls: !!call.recordCalls, globalAutoRecord: callContext.autoRecord, shouldAutoRecord });
+        console.log("[AgentWS] handleInboundAnsweredFn registered:", !!callContext.handleInboundAnsweredFn.current);
         if (callContext.handleInboundAnsweredFn.current) {
           console.log("[AgentWS] Calling handleInboundAnswered directly");
           callContext.handleInboundAnsweredFn.current(invitation, inboundOptions);
         } else {
           console.warn("[AgentWS] handleInboundAnsweredFn not registered, queuing session");
           callContext.queuedInboundSession.current = { session: invitation, options: inboundOptions };
-          callContext.setAutoRecord(!!call.recordCalls);
+          callContext.setAutoRecord(shouldAutoRecord);
           setAnsweredIncomingSession(invitation);
         }
         toast({ title: "Hovor prijatý", description: `Prepojený s ${callerNumber}` });

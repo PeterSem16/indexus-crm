@@ -190,10 +190,12 @@ export function SipPhone({
 
   const startRecording = useCallback((session: Session) => {
     try {
+      console.log("[Recording] startRecording called, session state:", (session as any)?.state);
       const sdh = session.sessionDescriptionHandler;
-      if (!sdh) return;
+      if (!sdh) { console.warn("[Recording] No sessionDescriptionHandler - cannot record"); return; }
       const pc = (sdh as any).peerConnection as RTCPeerConnection;
-      if (!pc) return;
+      if (!pc) { console.warn("[Recording] No peerConnection - cannot record"); return; }
+      console.log("[Recording] PC state:", pc.connectionState, "senders:", pc.getSenders().length, "receivers:", pc.getReceivers().length);
 
       const recCtx = new AudioContext();
       recordingContextRef.current = recCtx;
@@ -604,7 +606,11 @@ export function SipPhone({
   }, [callState, startRingtone, stopRingtone]);
 
   const handleInboundAnswered = useCallback((session: any, options: { autoRecord: boolean }) => {
-    console.log("[SIP] handleInboundAnswered called directly, autoRecord:", options.autoRecord);
+    console.log("[SIP-INBOUND] === handleInboundAnswered START ===");
+    console.log("[SIP-INBOUND] Session state:", session?.state);
+    console.log("[SIP-INBOUND] autoRecord option:", options.autoRecord);
+    console.log("[SIP-INBOUND] Session has SDH:", !!session?.sessionDescriptionHandler);
+    console.log("[SIP-INBOUND] Session has stateChange:", !!session?.stateChange);
     const ctx = callContextRef.current;
 
     if (inboundTerminatedListenerRef.current) {
@@ -637,26 +643,53 @@ export function SipPhone({
 
     setupAudio(session);
 
+    const doStartRecording = (attempt: number = 1) => {
+      if (String(session.state) === "Terminated") {
+        console.warn("[SIP-INBOUND] Session already terminated, skipping recording attempt", attempt);
+        return;
+      }
+      console.log("[SIP-INBOUND] Starting recording attempt", attempt);
+      const sdh = session.sessionDescriptionHandler;
+      const pc = sdh ? (sdh as any).peerConnection as RTCPeerConnection : null;
+      if (!sdh || !pc) {
+        console.warn("[SIP-INBOUND] No SDH/PC yet on attempt", attempt, "sdh:", !!sdh, "pc:", !!pc);
+        if (attempt < 5) {
+          setTimeout(() => doStartRecording(attempt + 1), 500);
+          return;
+        }
+        console.error("[SIP-INBOUND] Failed to start recording after 5 attempts - no peer connection");
+        return;
+      }
+      console.log("[SIP-INBOUND] PC state:", pc.connectionState, "senders:", pc.getSenders().length, "receivers:", pc.getReceivers().length);
+      startRecording(session);
+    };
+
     if (options.autoRecord) {
-      console.log("[SIP] Auto-recording enabled for inbound call, starting in 500ms...");
-      setTimeout(() => startRecording(session), 500);
+      console.log("[SIP-INBOUND] Auto-recording enabled, starting in 500ms...");
+      setTimeout(() => doStartRecording(1), 500);
+    } else {
+      console.log("[SIP-INBOUND] Auto-recording NOT enabled for this call");
     }
 
     const inboundCallLogIdRef = { current: null as number | null };
 
     const onTerminated = (state: any) => {
-      if (state !== SessionState.Terminated) return;
+      const stateStr = String(state);
+      console.log("[SIP-INBOUND] Session state changed:", stateStr);
+      if (stateStr !== "Terminated" && state !== SessionState.Terminated) return;
       if (forceIdleRef.current) { forceIdleRef.current = false; return; }
-      console.log("[SIP] Inbound call terminated by remote party");
+      console.log("[SIP-INBOUND] === CALL TERMINATED ===");
       inboundTerminatedListenerRef.current = null;
       const ctxNow = callContextRef.current;
       const duration = callStartTimeRef.current ? Math.floor((Date.now() - callStartTimeRef.current) / 1000) : 0;
+      console.log("[SIP-INBOUND] Call duration:", duration, "seconds");
       setCallState("ended");
       if (callTimerRef.current) { clearInterval(callTimerRef.current); callTimerRef.current = null; }
       const hungUpBy = userHungUpRef.current ? "user" : "customer";
       userHungUpRef.current = false;
       ctxNow.setCallTiming({ callEndTime: Date.now(), talkDurationSeconds: duration > 0 ? duration : null, hungUpBy });
       if (duration > 0) {
+        console.log("[SIP-INBOUND] Stopping recording and uploading, callLogId:", inboundCallLogIdRef.current);
         stopRecordingAndUpload(inboundCallLogIdRef.current || 0, duration);
       } else {
         if (mediaRecorderRef.current) { try { mediaRecorderRef.current.stop(); } catch {} mediaRecorderRef.current = null; isRecordingRef.current = false; ctxNow.setIsRecording(false); ctxNow.setIsRecordingPaused(false); recordingChunksRef.current = []; }
@@ -675,8 +708,21 @@ export function SipPhone({
       }
     };
 
-    session.stateChange.addListener(onTerminated);
-    inboundTerminatedListenerRef.current = { session, listener: onTerminated };
+    if (session.stateChange) {
+      session.stateChange.addListener(onTerminated);
+      inboundTerminatedListenerRef.current = { session, listener: onTerminated };
+      console.log("[SIP-INBOUND] Terminated listener added successfully");
+    } else {
+      console.error("[SIP-INBOUND] CRITICAL: session.stateChange is undefined! Cannot detect hang-up!");
+    }
+
+    const currentSessionState = String(session.state);
+    if (currentSessionState === "Terminated") {
+      console.warn("[SIP-INBOUND] Session already terminated at listener setup time!");
+      onTerminated(SessionState.Terminated);
+    } else {
+      console.log("[SIP-INBOUND] Session state at setup:", currentSessionState);
+    }
 
     createCallLogMutation.mutateAsync({
       phoneNumber: callerNumber,
@@ -691,6 +737,7 @@ export function SipPhone({
     }).then((callLogData) => {
       setCurrentCallLogId(callLogData.id);
       inboundCallLogIdRef.current = callLogData.id;
+      console.log("[SIP-INBOUND] Call log created, id:", callLogData.id);
 
       updateCallLogMutation.mutate({
         id: callLogData.id,
@@ -700,7 +747,7 @@ export function SipPhone({
 
       onCallStart?.(callerNumber, callLogData.id);
     }).catch((err) => {
-      console.error("[SIP] Failed to create call log for externally answered call:", err);
+      console.error("[SIP-INBOUND] Failed to create call log:", err);
     });
   }, [startRecording, stopRecordingAndUpload, onCallStart, onCallEnd]);
 
@@ -728,7 +775,13 @@ export function SipPhone({
 
   useEffect(() => {
     if (!answeredIncomingSession) return;
-    console.log("[SIP] answeredIncomingSession changed (fallback), calling handleInboundAnswered");
+    if (sipPhoneAnsweredRef.current) {
+      console.log("[SIP-INBOUND] Skipping answeredIncomingSession fallback - already handled by SipPhone answer button");
+      sipPhoneAnsweredRef.current = false;
+      clearAnsweredSession();
+      return;
+    }
+    console.log("[SIP-INBOUND] answeredIncomingSession changed (fallback path), calling handleInboundAnswered");
     const session = answeredIncomingSession;
     clearAnsweredSession();
     const shouldRecord = callContextRef.current.autoRecord || session._inboundRecordCalls;
@@ -997,6 +1050,7 @@ export function SipPhone({
   }, [isRegistered, callState, makeCall]);
 
   const answerGuardRef = useRef(false);
+  const sipPhoneAnsweredRef = useRef(false);
 
   const handleAnswerIncoming = useCallback(async () => {
     if (!incomingCall) return;
@@ -1007,20 +1061,12 @@ export function SipPhone({
     answerGuardRef.current = true;
     
     try {
+      console.log("[SIP-INBOUND] SipPhone answer button clicked, caller:", incomingCall.callerNumber);
       setCallState("active");
       callContextRef.current.resetCallTiming();
       setPhoneNumber(incomingCall.callerNumber);
       
-      const callLogData = await createCallLogMutation.mutateAsync({
-        phoneNumber: incomingCall.callerNumber,
-        direction: "inbound",
-        status: "initiated",
-        userId: userId || currentUser?.id,
-        customerId: localCustomerId,
-        customerName: incomingCall.callerName !== incomingCall.callerNumber ? incomingCall.callerName : localCustomerName,
-      });
-      setCurrentCallLogId(callLogData.id);
-      
+      sipPhoneAnsweredRef.current = true;
       const session = await answerIncomingCall();
       if (!session) {
         toast({
@@ -1030,102 +1076,17 @@ export function SipPhone({
         });
         setCallState("idle");
         answerGuardRef.current = false;
+        sipPhoneAnsweredRef.current = false;
         return;
       }
       
-      sessionRef.current = session;
-      const callLogId = callLogData.id;
-      
-      setCallState("active");
-      setIsOnHold(false);
-      callStartTimeRef.current = Date.now();
-      callContextRef.current.setCallTiming({ callStartTime: Date.now() });
-      
-      callTimerRef.current = setInterval(() => {
-        setCallDuration(Math.floor((Date.now() - callStartTimeRef.current) / 1000));
-      }, 1000);
-      
-      updateCallLogMutation.mutate({
-        id: callLogId,
-        data: { status: "answered", answeredAt: new Date().toISOString() },
-        customerId: localCustomerId
-      });
+      console.log("[SIP-INBOUND] SipPhone answered successfully, delegating to handleInboundAnswered");
+      session._inboundCallerNumber = session._inboundCallerNumber || incomingCall.callerNumber;
+      session._inboundCallerName = session._inboundCallerName || incomingCall.callerName;
+      const shouldRecord = callContextRef.current.autoRecord || session._inboundRecordCalls;
+      handleInboundAnsweredRef.current(session, { autoRecord: shouldRecord });
       
       answerGuardRef.current = false;
-      onCallStart?.(incomingCall.callerNumber, callLogId);
-      setupAudio(session);
-      
-      if (callContextRef.current.autoRecord) {
-        setTimeout(() => startRecording(session), 500);
-      }
-      
-      session.stateChange.addListener((state: any) => {
-        if (state === SessionState.Terminated) {
-          if (forceIdleRef.current) {
-            forceIdleRef.current = false;
-            return;
-          }
-          const duration = callStartTimeRef.current 
-            ? Math.floor((Date.now() - callStartTimeRef.current) / 1000) 
-            : 0;
-          setCallState("ended");
-          if (callTimerRef.current) {
-            clearInterval(callTimerRef.current);
-          }
-          const hungUpBy = userHungUpRef.current ? "user" : "customer";
-          userHungUpRef.current = false;
-          callContextRef.current.setCallTiming({
-            callEndTime: Date.now(),
-            talkDurationSeconds: duration > 0 ? duration : null,
-            hungUpBy,
-          });
-          updateCallLogMutation.mutate({
-            id: callLogId,
-            data: { 
-              status: duration > 0 ? "completed" : "failed",
-              endedAt: new Date().toISOString(),
-              durationSeconds: duration,
-              hungUpBy
-            },
-            customerId: localCustomerId
-          });
-          if (duration > 0) {
-            stopRecordingAndUpload(callLogId, duration);
-          } else {
-            if (mediaRecorderRef.current) {
-              if (pauseToneNodesRef.current) { for (const o of pauseToneNodesRef.current.oscillators) { try { o.stop(); o.disconnect(); } catch (e) {} } for (const g of pauseToneNodesRef.current.gains) { try { g.disconnect(); } catch (e) {} } pauseToneNodesRef.current = null; }
-              try { mediaRecorderRef.current.stop(); } catch (e) {}
-              mediaRecorderRef.current = null;
-              isRecordingRef.current = false;
-              callContextRef.current.setIsRecording(false);
-              callContextRef.current.setIsRecordingPaused(false);
-              recordingChunksRef.current = [];
-              recordingDestinationRef.current = null;
-              recordingSourceNodesRef.current = [];
-            }
-          }
-          callContextRef.current.setAutoRecord(true);
-          onCallEnd?.(duration, duration > 0 ? "completed" : "failed", callLogId);
-          setCurrentCallLogId(null);
-          if (!callContextRef.current.preventAutoReset) {
-            setTimeout(() => {
-              setCallStateLocal((prev) => {
-                if (prev === "ended") {
-                  callContextRef.current.setCallState("idle");
-                  callContextRef.current.setCallInfo(null);
-                  callContextRef.current.resetCallTiming();
-                  return "idle";
-                }
-                return prev;
-              });
-              setCallDuration(0);
-              callContextRef.current.setCallDuration(0);
-              sessionRef.current = null;
-            }, 3000);
-          }
-        }
-      });
-      
     } catch (error: any) {
       console.error("[SIP] Error handling incoming call:", error);
       toast({
@@ -1135,8 +1096,9 @@ export function SipPhone({
       });
       setCallState("idle");
       answerGuardRef.current = false;
+      sipPhoneAnsweredRef.current = false;
     }
-  }, [incomingCall, answerIncomingCall, toast, createCallLogMutation, updateCallLogMutation, userId, currentUser, localCustomerId, localCustomerName, onCallStart, onCallEnd, stopRecordingAndUpload, startRecording]);
+  }, [incomingCall, answerIncomingCall, toast]);
 
   const handleRejectIncoming = useCallback(() => {
     rejectIncomingCall();
@@ -1147,11 +1109,13 @@ export function SipPhone({
   }, [rejectIncomingCall, toast]);
 
   const setupAudio = async (session: Session) => {
+    console.log("[SIP-INBOUND] setupAudio called, session state:", (session as any)?.state);
     const sessionDescriptionHandler = session.sessionDescriptionHandler;
-    if (!sessionDescriptionHandler) return;
+    if (!sessionDescriptionHandler) { console.warn("[SIP-INBOUND] setupAudio: No SDH, aborting"); return; }
 
     const peerConnection = (sessionDescriptionHandler as any).peerConnection as RTCPeerConnection;
-    if (!peerConnection) return;
+    if (!peerConnection) { console.warn("[SIP-INBOUND] setupAudio: No peerConnection, aborting"); return; }
+    console.log("[SIP-INBOUND] setupAudio: PC state:", peerConnection.connectionState, "senders:", peerConnection.getSenders().length, "receivers:", peerConnection.getReceivers().length);
 
     // Set up remote audio (speaker) with ontrack listener for new tracks
     peerConnection.ontrack = (event) => {
@@ -1221,12 +1185,15 @@ export function SipPhone({
   };
 
   const endCall = useCallback(() => {
+    console.log("[SIP-INBOUND] endCall called, session state:", sessionRef.current?.state);
     userHungUpRef.current = true;
     if (sessionRef.current) {
       try {
         if (sessionRef.current.state === SessionState.Established) {
+          console.log("[SIP-INBOUND] Sending BYE to end call");
           sessionRef.current.bye();
         } else {
+          console.log("[SIP-INBOUND] Cancelling call (not established)");
           (sessionRef.current as Inviter).cancel?.();
           if (currentCallLogId) {
             updateCallLogMutation.mutate({
