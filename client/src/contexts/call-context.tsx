@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useRef, useCallback, type ReactNode } from "react";
+import { createContext, useContext, useState, useRef, useCallback, useMemo, type ReactNode } from "react";
 
 export type CallState = "idle" | "connecting" | "ringing" | "active" | "on_hold" | "ended";
 
@@ -112,48 +112,50 @@ export function CallProvider({ children }: { children: ReactNode }) {
     setCallTimingState({ ...defaultTiming });
   }, []);
 
+  const contextValue = useMemo(() => ({
+    callState,
+    callInfo,
+    callDuration,
+    isMuted,
+    isOnHold,
+    isRecording,
+    isRecordingPaused,
+    volume,
+    micVolume,
+    callTiming,
+    preventAutoReset,
+    setPreventAutoReset,
+    setCallState,
+    setCallInfo,
+    setCallDuration,
+    setIsMuted,
+    setIsOnHold,
+    setIsRecording,
+    setIsRecordingPaused,
+    setVolume,
+    setMicVolume,
+    setCallTiming,
+    resetCallTiming,
+    endCallFn,
+    forceResetCallFn,
+    toggleMuteFn,
+    toggleHoldFn,
+    openDialpadFn,
+    onVolumeChangeFn,
+    onMicVolumeChangeFn,
+    sendDtmfFn,
+    pauseRecordingFn,
+    resumeRecordingFn,
+    startRecordingFn,
+    stopRecordingFn,
+    autoRecord,
+    setAutoRecord,
+    handleInboundAnsweredFn,
+    queuedInboundSession,
+  }), [callState, callInfo, callDuration, isMuted, isOnHold, isRecording, isRecordingPaused, volume, micVolume, callTiming, preventAutoReset, autoRecord, setCallTiming, resetCallTiming]);
+
   return (
-    <CallContext.Provider value={{
-      callState,
-      callInfo,
-      callDuration,
-      isMuted,
-      isOnHold,
-      isRecording,
-      isRecordingPaused,
-      volume,
-      micVolume,
-      callTiming,
-      preventAutoReset,
-      setPreventAutoReset,
-      setCallState,
-      setCallInfo,
-      setCallDuration,
-      setIsMuted,
-      setIsOnHold,
-      setIsRecording,
-      setIsRecordingPaused,
-      setVolume,
-      setMicVolume,
-      setCallTiming,
-      resetCallTiming,
-      endCallFn,
-      forceResetCallFn,
-      toggleMuteFn,
-      toggleHoldFn,
-      openDialpadFn,
-      onVolumeChangeFn,
-      onMicVolumeChangeFn,
-      sendDtmfFn,
-      pauseRecordingFn,
-      resumeRecordingFn,
-      startRecordingFn,
-      stopRecordingFn,
-      autoRecord,
-      setAutoRecord,
-      handleInboundAnsweredFn,
-      queuedInboundSession,
-    }}>
+    <CallContext.Provider value={contextValue}>
       {children}
     </CallContext.Provider>
   );

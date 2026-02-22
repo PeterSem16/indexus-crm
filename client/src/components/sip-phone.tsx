@@ -91,18 +91,18 @@ export function SipPhone({
   
   const setCallState = useCallback((state: CallState) => {
     setCallStateLocal(state);
-    callContext.setCallState(state as GlobalCallState);
-  }, [callContext]);
+    callContextRef.current.setCallState(state as GlobalCallState);
+  }, []);
   
   const setIsMuted = useCallback((muted: boolean) => {
     setIsMutedLocal(muted);
-    callContext.setIsMuted(muted);
-  }, [callContext]);
+    callContextRef.current.setIsMuted(muted);
+  }, []);
   
   const setIsOnHold = useCallback((hold: boolean) => {
     setIsOnHoldLocal(hold);
-    callContext.setIsOnHold(hold);
-  }, [callContext]);
+    callContextRef.current.setIsOnHold(hold);
+  }, []);
   
   const isMuted = isMutedLocal;
   const isOnHold = isOnHoldLocal;
@@ -256,8 +256,8 @@ export function SipPhone({
       recorder.start(1000);
       mediaRecorderRef.current = recorder;
       isRecordingRef.current = true;
-      callContext.setIsRecording(true);
-      callContext.setIsRecordingPaused(false);
+      callContextRef.current.setIsRecording(true);
+      callContextRef.current.setIsRecordingPaused(false);
       console.log("[Recording] Started recording call");
     } catch (err) {
       console.error("[Recording] Failed to start recording:", err);
@@ -317,7 +317,7 @@ export function SipPhone({
 
         console.log("[Recording] Paused - tone injected into recording");
       }
-      callContext.setIsRecordingPaused(true);
+      callContextRef.current.setIsRecordingPaused(true);
     }
   }, []);
 
@@ -364,7 +364,7 @@ export function SipPhone({
 
         console.log("[Recording] Resumed - tone fading, real audio reconnecting");
       }
-      callContext.setIsRecordingPaused(false);
+      callContextRef.current.setIsRecordingPaused(false);
     }
   }, []);
 
@@ -379,8 +379,8 @@ export function SipPhone({
   const manualStopRecording = useCallback(() => {
     if (!isRecordingRef.current || !mediaRecorderRef.current) return;
     isRecordingRef.current = false;
-    callContext.setIsRecording(false);
-    callContext.setIsRecordingPaused(false);
+    callContextRef.current.setIsRecording(false);
+    callContextRef.current.setIsRecordingPaused(false);
     if (pauseToneNodesRef.current) {
       for (const o of pauseToneNodesRef.current.oscillators) { try { o.stop(); o.disconnect(); } catch (e) {} }
       for (const g of pauseToneNodesRef.current.gains) { try { g.disconnect(); } catch (e) {} }
@@ -398,23 +398,24 @@ export function SipPhone({
   }, []);
 
   useEffect(() => {
-    callContext.pauseRecordingFn.current = pauseRecording;
-    callContext.resumeRecordingFn.current = resumeRecording;
-    callContext.startRecordingFn.current = manualStartRecording;
-    callContext.stopRecordingFn.current = manualStopRecording;
+    const ctx = callContextRef.current;
+    ctx.pauseRecordingFn.current = pauseRecording;
+    ctx.resumeRecordingFn.current = resumeRecording;
+    ctx.startRecordingFn.current = manualStartRecording;
+    ctx.stopRecordingFn.current = manualStopRecording;
     return () => {
-      callContext.pauseRecordingFn.current = null;
-      callContext.resumeRecordingFn.current = null;
-      callContext.startRecordingFn.current = null;
-      callContext.stopRecordingFn.current = null;
+      ctx.pauseRecordingFn.current = null;
+      ctx.resumeRecordingFn.current = null;
+      ctx.startRecordingFn.current = null;
+      ctx.stopRecordingFn.current = null;
     };
   }, [pauseRecording, resumeRecording, manualStartRecording, manualStopRecording]);
 
   const stopRecordingAndUpload = useCallback((callLogId: string | number, duration: number) => {
     if (!mediaRecorderRef.current || !isRecordingRef.current) return;
     isRecordingRef.current = false;
-    callContext.setIsRecording(false);
-    callContext.setIsRecordingPaused(false);
+    callContextRef.current.setIsRecording(false);
+    callContextRef.current.setIsRecordingPaused(false);
     if (pauseToneNodesRef.current) {
       for (const o of pauseToneNodesRef.current.oscillators) { try { o.stop(); o.disconnect(); } catch (e) {} }
       for (const g of pauseToneNodesRef.current.gains) { try { g.disconnect(); } catch (e) {} }
@@ -519,7 +520,7 @@ export function SipPhone({
   }, [initialNumber]);
 
   useEffect(() => {
-    if (callContext.callState === "idle" && callState !== "idle") {
+    if (callContextRef.current.callState === "idle" && callState !== "idle") {
       setCallStateLocal("idle");
       setCallDuration(0);
       sessionRef.current = null;
@@ -792,13 +793,13 @@ export function SipPhone({
         variant: "destructive"
       });
       setCallState("idle");
-      callContext.setCallState("idle");
+      callContextRef.current.setCallState("idle");
       makeCallGuardRef.current = false;
       return;
     }
 
     try {
-      callContext.resetCallTiming();
+      callContextRef.current.resetCallTiming();
       
       const callLogData = await createCallLogMutation.mutateAsync({
         phoneNumber,
@@ -834,7 +835,7 @@ export function SipPhone({
         switch (state) {
           case SessionState.Establishing:
             setCallState("ringing");
-            callContext.setCallTiming({ ringStartTime: Date.now() });
+            callContextRef.current.setCallTiming({ ringStartTime: Date.now() });
             updateCallLogMutation.mutate({
               id: callLogId,
               data: { status: "ringing" },
@@ -847,8 +848,8 @@ export function SipPhone({
             setIsOnHold(false);
             callStartTimeRef.current = Date.now();
             const ringEnd = Date.now();
-            const ringStart = callContext.callTiming.ringStartTime;
-            callContext.setCallTiming({
+            const ringStart = callContextRef.current.callTiming.ringStartTime;
+            callContextRef.current.setCallTiming({
               callStartTime: ringEnd,
               ringDurationSeconds: ringStart ? Math.round((ringEnd - ringStart) / 1000) : null,
             });
@@ -862,7 +863,7 @@ export function SipPhone({
             });
             onCallStart?.(phoneNumber, callLogId);
             setupAudio(inviter);
-            if (callContext.autoRecord) {
+            if (callContextRef.current.autoRecord) {
               setTimeout(() => startRecording(inviter), 500);
             }
             break;
@@ -881,7 +882,7 @@ export function SipPhone({
             }
             const hungUpBy = userHungUpRef.current ? "user" : "customer";
             userHungUpRef.current = false;
-            callContext.setCallTiming({
+            callContextRef.current.setCallTiming({
               callEndTime: Date.now(),
               talkDurationSeconds: duration > 0 ? duration : null,
               hungUpBy,
@@ -904,28 +905,29 @@ export function SipPhone({
                 try { mediaRecorderRef.current.stop(); } catch (e) {}
                 mediaRecorderRef.current = null;
                 isRecordingRef.current = false;
-                callContext.setIsRecording(false);
-                callContext.setIsRecordingPaused(false);
+                callContextRef.current.setIsRecording(false);
+                callContextRef.current.setIsRecordingPaused(false);
                 recordingChunksRef.current = [];
                 recordingDestinationRef.current = null;
                 recordingSourceNodesRef.current = [];
               }
             }
-            callContext.setAutoRecord(true);
+            callContextRef.current.setAutoRecord(true);
             onCallEnd?.(duration, duration > 0 ? "completed" : "failed", callLogId);
             setCurrentCallLogId(null);
-            if (!callContext.preventAutoReset) {
+            if (!callContextRef.current.preventAutoReset) {
               setTimeout(() => {
                 setCallStateLocal((prev) => {
                   if (prev === "ended") {
-                    callContext.setCallState("idle");
-                    callContext.setCallInfo(null);
-                    callContext.resetCallTiming();
+                    callContextRef.current.setCallState("idle");
+                    callContextRef.current.setCallInfo(null);
+                    callContextRef.current.resetCallTiming();
                     return "idle";
                   }
                   return prev;
                 });
                 setCallDuration(0);
+                callContextRef.current.setCallDuration(0);
                 sessionRef.current = null;
               }, 3000);
             }
@@ -1006,7 +1008,7 @@ export function SipPhone({
     
     try {
       setCallState("active");
-      callContext.resetCallTiming();
+      callContextRef.current.resetCallTiming();
       setPhoneNumber(incomingCall.callerNumber);
       
       const callLogData = await createCallLogMutation.mutateAsync({
@@ -1037,7 +1039,7 @@ export function SipPhone({
       setCallState("active");
       setIsOnHold(false);
       callStartTimeRef.current = Date.now();
-      callContext.setCallTiming({ callStartTime: Date.now() });
+      callContextRef.current.setCallTiming({ callStartTime: Date.now() });
       
       callTimerRef.current = setInterval(() => {
         setCallDuration(Math.floor((Date.now() - callStartTimeRef.current) / 1000));
@@ -1053,7 +1055,7 @@ export function SipPhone({
       onCallStart?.(incomingCall.callerNumber, callLogId);
       setupAudio(session);
       
-      if (callContext.autoRecord) {
+      if (callContextRef.current.autoRecord) {
         setTimeout(() => startRecording(session), 500);
       }
       
@@ -1072,7 +1074,7 @@ export function SipPhone({
           }
           const hungUpBy = userHungUpRef.current ? "user" : "customer";
           userHungUpRef.current = false;
-          callContext.setCallTiming({
+          callContextRef.current.setCallTiming({
             callEndTime: Date.now(),
             talkDurationSeconds: duration > 0 ? duration : null,
             hungUpBy,
@@ -1095,28 +1097,29 @@ export function SipPhone({
               try { mediaRecorderRef.current.stop(); } catch (e) {}
               mediaRecorderRef.current = null;
               isRecordingRef.current = false;
-              callContext.setIsRecording(false);
-              callContext.setIsRecordingPaused(false);
+              callContextRef.current.setIsRecording(false);
+              callContextRef.current.setIsRecordingPaused(false);
               recordingChunksRef.current = [];
               recordingDestinationRef.current = null;
               recordingSourceNodesRef.current = [];
             }
           }
-          callContext.setAutoRecord(true);
+          callContextRef.current.setAutoRecord(true);
           onCallEnd?.(duration, duration > 0 ? "completed" : "failed", callLogId);
           setCurrentCallLogId(null);
-          if (!callContext.preventAutoReset) {
+          if (!callContextRef.current.preventAutoReset) {
             setTimeout(() => {
               setCallStateLocal((prev) => {
                 if (prev === "ended") {
-                  callContext.setCallState("idle");
-                  callContext.setCallInfo(null);
-                  callContext.resetCallTiming();
+                  callContextRef.current.setCallState("idle");
+                  callContextRef.current.setCallInfo(null);
+                  callContextRef.current.resetCallTiming();
                   return "idle";
                 }
                 return prev;
               });
               setCallDuration(0);
+              callContextRef.current.setCallDuration(0);
               sessionRef.current = null;
             }, 3000);
           }
@@ -1273,8 +1276,8 @@ export function SipPhone({
           try { mediaRecorderRef.current.stop(); } catch (e) {}
           mediaRecorderRef.current = null;
           isRecordingRef.current = false;
-          callContext.setIsRecording(false);
-          callContext.setIsRecordingPaused(false);
+          callContextRef.current.setIsRecording(false);
+          callContextRef.current.setIsRecordingPaused(false);
           recordingChunksRef.current = [];
           recordingDestinationRef.current = null;
           recordingSourceNodesRef.current = [];
@@ -1321,13 +1324,13 @@ export function SipPhone({
     setIsMuted(false);
     setIsOnHold(false);
     setCurrentCallLogId(null);
-    callContext.setCallState("idle");
-    callContext.setCallDuration(0);
-    callContext.setCallInfo(null);
-    callContext.resetCallTiming();
-    callContext.setIsMuted(false);
-    callContext.setIsOnHold(false);
-  }, [callContext, currentCallLogId, updateCallLogMutation, localCustomerId]);
+    callContextRef.current.setCallState("idle");
+    callContextRef.current.setCallDuration(0);
+    callContextRef.current.setCallInfo(null);
+    callContextRef.current.resetCallTiming();
+    callContextRef.current.setIsMuted(false);
+    callContextRef.current.setIsOnHold(false);
+  }, [currentCallLogId, updateCallLogMutation, localCustomerId]);
 
   const toggleMute = useCallback(() => {
     if (!sessionRef.current) return;
@@ -1372,26 +1375,28 @@ export function SipPhone({
   }, [toast]);
 
   useEffect(() => {
-    callContext.endCallFn.current = endCall;
-    callContext.forceResetCallFn.current = forceResetCall;
-    callContext.toggleMuteFn.current = toggleMute;
-    callContext.toggleHoldFn.current = toggleHold;
-  }, [endCall, forceResetCall, toggleMute, toggleHold, callContext]);
+    const ctx = callContextRef.current;
+    ctx.endCallFn.current = endCall;
+    ctx.forceResetCallFn.current = forceResetCall;
+    ctx.toggleMuteFn.current = toggleMute;
+    ctx.toggleHoldFn.current = toggleHold;
+  }, [endCall, forceResetCall, toggleMute, toggleHold]);
 
   useEffect(() => {
-    callContext.onVolumeChangeFn.current = (vol: number) => {
+    const ctx = callContextRef.current;
+    ctx.onVolumeChangeFn.current = (vol: number) => {
       setVolume(vol);
       if (audioRef.current) {
         audioRef.current.volume = vol / 100;
       }
     };
-    callContext.onMicVolumeChangeFn.current = (vol: number) => {
+    ctx.onMicVolumeChangeFn.current = (vol: number) => {
       setMicVolume(vol);
       if (micGainNodeRef.current) {
         micGainNodeRef.current.gain.value = vol / 100;
       }
     };
-    callContext.sendDtmfFn.current = (digit: string) => {
+    ctx.sendDtmfFn.current = (digit: string) => {
       if (sessionRef.current && callState === "active") {
         try {
           const options = {
@@ -1409,20 +1414,20 @@ export function SipPhone({
         }
       }
     };
-  }, [callContext, callState]);
+  }, [callState]);
 
   useEffect(() => {
-    callContext.setVolume(volume);
-  }, [volume, callContext]);
+    callContextRef.current.setVolume(volume);
+  }, [volume]);
 
   useEffect(() => {
-    callContext.setMicVolume(micVolume);
-  }, [micVolume, callContext]);
+    callContextRef.current.setMicVolume(micVolume);
+  }, [micVolume]);
 
   useEffect(() => {
     if (callState !== "idle" && callState !== "ended") {
       const direction = activeInboundMetaRef.current?.direction || "outbound";
-      callContext.setCallInfo({
+      callContextRef.current.setCallInfo({
         phoneNumber,
         callerName: localCustomerName,
         customerId: localCustomerId,
@@ -1432,11 +1437,11 @@ export function SipPhone({
         leadScore: localLeadScore,
         clientStatus: localClientStatus,
       });
-      callContext.setCallDuration(callDuration);
+      callContextRef.current.setCallDuration(callDuration);
     } else {
-      callContext.setCallInfo(null);
+      callContextRef.current.setCallInfo(null);
     }
-  }, [callState, phoneNumber, localCustomerName, localCustomerId, localCampaignId, currentCallLogId, callDuration, callContext, localLeadScore, localClientStatus]);
+  }, [callState, phoneNumber, localCustomerName, localCustomerId, localCampaignId, currentCallLogId, callDuration, localLeadScore, localClientStatus]);
 
   const handleVolumeChange = useCallback((value: number[]) => {
     const vol = value[0];
@@ -1999,6 +2004,8 @@ export function SipPhoneHeaderButton({ user, sipContext }: SipPhoneHeaderButtonP
   const [isOpen, setIsOpen] = useState(false);
   const { pendingCall } = useSip();
   const callContext = useCall();
+  const callContextRef = useRef(callContext);
+  callContextRef.current = callContext;
   const { data: sipSettings } = useQuery<{
     server?: string;
     port?: number;
@@ -2012,8 +2019,8 @@ export function SipPhoneHeaderButton({ user, sipContext }: SipPhoneHeaderButtonP
   });
 
   useEffect(() => {
-    callContext.openDialpadFn.current = () => setIsOpen(true);
-  }, [callContext]);
+    callContextRef.current.openDialpadFn.current = () => setIsOpen(true);
+  }, []);
 
   if (!user?.sipEnabled || !sipSettings?.isEnabled) {
     return null;
