@@ -81,6 +81,7 @@ class InboundCallWebSocketService {
     queueId: string;
     waitTime: number;
     channelId: string;
+    recordCalls?: boolean;
   }) {
     const isConnected = this.isAgentConnected(agentUserId);
     const connectedAgents = this.getConnectedAgentIds();

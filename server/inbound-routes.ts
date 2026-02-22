@@ -290,10 +290,26 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
     try {
       const queues = await db.select().from(inboundQueues).orderBy(desc(inboundQueues.priority));
 
+      const allDidRoutes = await db.select({
+        didNumber: didRoutes.didNumber,
+        targetQueueId: didRoutes.targetQueueId,
+        name: didRoutes.name,
+        isActive: didRoutes.isActive,
+      }).from(didRoutes).where(eq(didRoutes.action, "inbound_queue"));
+
+      const didByQueue = new Map<string, { didNumber: string; name: string | null; isActive: boolean }[]>();
+      for (const dr of allDidRoutes) {
+        if (dr.targetQueueId) {
+          if (!didByQueue.has(dr.targetQueueId)) didByQueue.set(dr.targetQueueId, []);
+          didByQueue.get(dr.targetQueueId)!.push({ didNumber: dr.didNumber, name: dr.name, isActive: dr.isActive });
+        }
+      }
+
       const engine = getQueueEngine();
       const enriched = queues.map(q => {
         const stats = engine?.getQueueStats(q.id) || { waiting: 0, active: 0, agents: 0 };
-        return { ...q, stats };
+        const dids = didByQueue.get(q.id) || [];
+        return { ...q, stats, dids };
       });
 
       res.json(enriched);
@@ -1911,6 +1927,7 @@ function setupQueueEngineWebSocketEvents(engine: QueueEngine): void {
       queueId: data.queueId,
       waitTime: data.waitDuration || 0,
       channelId: data.channelId || "",
+      recordCalls: data.recordCalls ?? false,
     });
   });
 

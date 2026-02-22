@@ -84,8 +84,10 @@ interface InboundQueue {
   afterHoursAction: string;
   afterHoursTarget: string | null;
   afterHoursMessageId: string | null;
+  recordCalls: boolean;
   isActive: boolean;
   stats?: { waiting: number; active: number; agents: number };
+  dids?: { didNumber: string; name: string | null; isActive: boolean }[];
 }
 
 interface QueueMemberWithUser {
@@ -153,7 +155,6 @@ interface FormData {
   name: string;
   description: string;
   countryCode: string;
-  didNumber: string;
   strategy: string;
   maxWaitTime: number;
   wrapUpTime: number;
@@ -177,11 +178,12 @@ interface FormData {
   afterHoursAction: string;
   afterHoursTarget: string;
   afterHoursMessageId: string | null;
+  recordCalls: boolean;
   isActive: boolean;
 }
 
 const defaultFormData: FormData = {
-  name: "", description: "", countryCode: "SK", didNumber: "",
+  name: "", description: "", countryCode: "SK",
   strategy: "round-robin", maxWaitTime: 300, wrapUpTime: 30,
   maxQueueSize: 50, priority: 1, welcomeMessageId: null, holdMusicId: null,
   overflowAction: "voicemail", overflowTarget: "", overflowUserId: null,
@@ -191,7 +193,7 @@ const defaultFormData: FormData = {
   activeFrom: "", activeTo: "", activeDays: ["1", "2", "3", "4", "5"],
   timezone: "Europe/Bratislava", afterHoursAction: "voicemail",
   afterHoursTarget: "", afterHoursMessageId: null,
-  isActive: true,
+  recordCalls: false, isActive: true,
 };
 
 export function InboundQueuesTab() {
@@ -303,7 +305,6 @@ export function InboundQueuesTab() {
       name: queue.name,
       description: queue.description || "",
       countryCode: queue.countryCode || "SK",
-      didNumber: queue.didNumber || "",
       strategy: queue.strategy,
       maxWaitTime: queue.maxWaitTime,
       wrapUpTime: queue.wrapUpTime,
@@ -327,6 +328,7 @@ export function InboundQueuesTab() {
       afterHoursAction: queue.afterHoursAction || "voicemail",
       afterHoursTarget: queue.afterHoursTarget || "",
       afterHoursMessageId: queue.afterHoursMessageId || null,
+      recordCalls: queue.recordCalls ?? false,
       isActive: queue.isActive,
     });
     setFormTab("general");
@@ -426,11 +428,17 @@ export function InboundQueuesTab() {
                       <CardTitle className="text-base" data-testid={`text-queue-name-${queue.id}`}>
                         {queue.name}
                       </CardTitle>
-                      <div className="flex items-center gap-2 mt-1">
-                        {queue.didNumber && (
-                          <Badge variant="outline" className="text-xs" data-testid={`badge-did-${queue.id}`}>
+                      <div className="flex items-center gap-2 mt-1 flex-wrap">
+                        {queue.dids && queue.dids.length > 0 && queue.dids.map((d, i) => (
+                          <Badge key={i} variant="outline" className={`text-xs ${!d.isActive ? "opacity-50" : ""}`} data-testid={`badge-did-${queue.id}-${i}`}>
                             <Phone className="h-3 w-3 mr-1" />
-                            {queue.didNumber}
+                            {d.didNumber}
+                          </Badge>
+                        ))}
+                        {queue.recordCalls && (
+                          <Badge variant="outline" className="text-xs text-red-600 border-red-300 dark:text-red-400 dark:border-red-800">
+                            <span className="h-2 w-2 rounded-full bg-red-500 mr-1 animate-pulse" />
+                            REC
                           </Badge>
                         )}
                         <Badge variant="secondary" className="text-xs">
@@ -542,10 +550,6 @@ export function InboundQueuesTab() {
                   <Textarea value={formData.description} onChange={e => setFormData(f => ({ ...f, description: e.target.value }))} data-testid="input-queue-description" />
                 </div>
                 <div>
-                  <Label>DID Number</Label>
-                  <Input value={formData.didNumber} onChange={e => setFormData(f => ({ ...f, didNumber: e.target.value }))} placeholder="+421..." data-testid="input-queue-did" />
-                </div>
-                <div>
                   <Label>Country</Label>
                   <Select value={formData.countryCode} onValueChange={v => setFormData(f => ({ ...f, countryCode: v }))}>
                     <SelectTrigger data-testid="select-queue-country"><SelectValue /></SelectTrigger>
@@ -583,10 +587,23 @@ export function InboundQueuesTab() {
                   <Label>SLA Target (sec)</Label>
                   <Input type="number" min={1} value={formData.serviceLevelTarget} onChange={e => setFormData(f => ({ ...f, serviceLevelTarget: parseInt(e.target.value) || 20 }))} data-testid="input-sla-target" />
                 </div>
-                <div className="col-span-2 flex items-center gap-2">
-                  <Switch checked={formData.isActive} onCheckedChange={v => setFormData(f => ({ ...f, isActive: v }))} data-testid="switch-queue-active" />
-                  <Label>Active</Label>
+                <div className="col-span-2 flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <Switch checked={formData.recordCalls} onCheckedChange={v => setFormData(f => ({ ...f, recordCalls: v }))} data-testid="switch-queue-record" />
+                    <Label>Nahrávať hovory</Label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Switch checked={formData.isActive} onCheckedChange={v => setFormData(f => ({ ...f, isActive: v }))} data-testid="switch-queue-active" />
+                    <Label>Active</Label>
+                  </div>
                 </div>
+                {formData.recordCalls && (
+                  <div className="col-span-2">
+                    <p className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
+                      Hovory v tejto fronte budú automaticky nahrávané, prepísané a analyzované (sentiment, kvalita, dodržiavanie scriptu).
+                    </p>
+                  </div>
+                )}
               </div>
             </TabsContent>
 

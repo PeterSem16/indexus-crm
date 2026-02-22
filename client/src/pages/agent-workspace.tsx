@@ -3997,6 +3997,7 @@ export default function AgentWorkspacePage() {
     channelId: string; timestamp: number;
     hasSipInvitation?: boolean;
     sipInvitation?: any;
+    recordCalls?: boolean;
   }>>([]);
   const acceptingCallRef = useRef(false);
   const dialingRef = useRef(false);
@@ -5031,6 +5032,7 @@ export default function AgentWorkspacePage() {
                 waitTime: data.waitTime || 0,
                 channelId: data.channelId,
                 timestamp: Date.now(),
+                recordCalls: data.recordCalls ?? false,
               }];
             });
           } else if (data.type === "call-cancelled") {
@@ -5126,6 +5128,8 @@ export default function AgentWorkspacePage() {
       setRightTab("actions");
       setCallNotes("");
       agentSession.updateStatus("busy").catch(() => {});
+
+      callContext.setAutoRecord(!!call.recordCalls);
 
       if (call.callId && !call.callId.startsWith("sip-")) {
         apiRequest("POST", `/api/inbound-calls/${call.callId}/answer`, { userId: user?.id }).catch(() => {});

@@ -647,6 +647,7 @@ export class QueueEngine extends EventEmitter {
       callerName: call.callerName,
       customerId: call.customerId,
       waitDuration,
+      recordCalls: queue.recordCalls ?? false,
     });
 
     const [agentUser] = await db.select({
