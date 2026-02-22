@@ -1969,8 +1969,8 @@ export default function CampaignsPage() {
       </PageHeader>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
-        <div className="px-6 pt-4">
-          <TabsList>
+        <div className="px-6 pt-4 overflow-x-auto">
+          <TabsList className="w-auto inline-flex flex-nowrap">
             <TabsTrigger value="campaigns" className="gap-2" data-testid="tab-campaigns">
               <Megaphone className="h-4 w-4" />
               {t.campaigns.title}
