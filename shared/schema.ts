@@ -5528,6 +5528,9 @@ export const inboundCallLogs = pgTable("inbound_call_logs", {
   queuePosition: integer("queue_position"),
   abandonReason: text("abandon_reason"),
   transferredTo: text("transferred_to"),
+  calledBack: boolean("called_back").default(false),
+  calledBackAt: timestamp("called_back_at"),
+  calledBackByUserId: varchar("called_back_by_user_id"),
   metadata: jsonb("metadata"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
