@@ -1607,6 +1607,39 @@ function AgentWorkspaceAccessTab() {
   );
 }
 
+function InboundSubTabs() {
+  const [subTab, setSubTab] = useState("did-routes");
+  return (
+    <Tabs value={subTab} onValueChange={setSubTab} className="flex-1 flex flex-col overflow-hidden h-full">
+      <div className="px-6 pt-4">
+        <TabsList>
+          <TabsTrigger value="did-routes" className="gap-2" data-testid="tab-inbound-did">
+            <GitBranch className="h-4 w-4" />
+            DID Smerovanie
+          </TabsTrigger>
+          <TabsTrigger value="inbound-queues" className="gap-2" data-testid="tab-inbound-queues">
+            <Phone className="h-4 w-4" />
+            Inbound Queues
+          </TabsTrigger>
+          <TabsTrigger value="ivr-menus" className="gap-2" data-testid="tab-inbound-ivr-menus">
+            <Phone className="h-4 w-4" />
+            IVR Menu
+          </TabsTrigger>
+        </TabsList>
+      </div>
+      <TabsContent value="did-routes" className="flex-1 overflow-auto mt-0">
+        <DidRoutesTab />
+      </TabsContent>
+      <TabsContent value="inbound-queues" className="flex-1 overflow-auto p-6 mt-0">
+        <InboundQueuesTab />
+      </TabsContent>
+      <TabsContent value="ivr-menus" className="flex-1 overflow-auto p-6 mt-0">
+        <IvrMenusTab />
+      </TabsContent>
+    </Tabs>
+  );
+}
+
 export default function CampaignsPage() {
   const { t, locale } = useI18n();
   const { toast } = useToast();
@@ -1991,21 +2024,13 @@ export default function CampaignsPage() {
               <Coffee className="h-4 w-4" />
               {locale === "sk" ? "Prestávky" : "Breaks"}
             </TabsTrigger>
-            <TabsTrigger value="inbound-queues" className="gap-2" data-testid="tab-inbound-queues">
+            <TabsTrigger value="inbound" className="gap-2" data-testid="tab-inbound">
               <Phone className="h-4 w-4" />
-              Inbound Queues
+              Inbound
             </TabsTrigger>
             <TabsTrigger value="ivr-messages" className="gap-2" data-testid="tab-ivr-messages">
               <Mic className="h-4 w-4" />
               IVR Audio
-            </TabsTrigger>
-            <TabsTrigger value="ivr-menus" className="gap-2" data-testid="tab-ivr-menus">
-              <Phone className="h-4 w-4" />
-              IVR Menu
-            </TabsTrigger>
-            <TabsTrigger value="did-routes" className="gap-2" data-testid="tab-did-routes">
-              <GitBranch className="h-4 w-4" />
-              DID Smerovanie
             </TabsTrigger>
             <TabsTrigger value="inbound-reports" className="gap-2" data-testid="tab-inbound-reports">
               <BarChart3 className="h-4 w-4" />
@@ -2082,20 +2107,12 @@ export default function CampaignsPage() {
           <BreakTypesTab />
         </TabsContent>
 
-        <TabsContent value="inbound-queues" className="flex-1 overflow-auto p-6 mt-0">
-          <InboundQueuesTab />
+        <TabsContent value="inbound" className="flex-1 overflow-hidden mt-0">
+          <InboundSubTabs />
         </TabsContent>
 
         <TabsContent value="ivr-messages" className="flex-1 overflow-auto p-6 mt-0">
           <IvrMessagesTab />
-        </TabsContent>
-
-        <TabsContent value="ivr-menus" className="flex-1 overflow-auto p-6 mt-0">
-          <IvrMenusTab />
-        </TabsContent>
-
-        <TabsContent value="did-routes" className="flex-1 overflow-auto mt-0">
-          <DidRoutesTab />
         </TabsContent>
 
         <TabsContent value="inbound-reports" className="flex-1 overflow-auto p-6 mt-0">
