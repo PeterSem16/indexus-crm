@@ -310,12 +310,38 @@ export function SipProvider({ children }: { children: ReactNode }) {
         reconnectionDelay: 1,
         noResponseTimeout: 60,
         gracefulShutdown: false,
-        delegate: {
-          onInvite: (invitation: any) => {
-            const remoteIdentity = invitation.remoteIdentity;
-            const callerNumber = remoteIdentity?.uri?.user || "Unknown";
-            const callerName = remoteIdentity?.displayName || callerNumber;
+        autoSendAnInitialProvisionalResponse: false,
+      };
+
+      const userAgent = new UserAgent(userAgentOptions);
+      userAgentRef.current = userAgent;
+
+      userAgent.delegate = {
+        onInvite: (invitation: any) => {
+          try {
+            console.log("[SIP] >>> onInvite delegate triggered!");
+            let callerNumber = "Unknown";
+            let callerName = "Unknown";
+            try {
+              const fromHeader = invitation.request?.from;
+              if (fromHeader) {
+                callerNumber = fromHeader.uri?.user || "Unknown";
+                callerName = fromHeader.friendlyName || fromHeader.displayName || callerNumber;
+              } else {
+                const remoteId = invitation.remoteIdentity;
+                callerNumber = remoteId?.uri?.user || "Unknown";
+                callerName = remoteId?.displayName || callerNumber;
+              }
+            } catch (parseErr) {
+              console.warn("[SIP] Error parsing caller identity:", parseErr);
+            }
             console.log(`[SIP] Incoming call from ${callerName} <${callerNumber}>`);
+
+            invitation.progress().then(() => {
+              console.log("[SIP] Sent 180 Ringing for incoming call");
+            }).catch((err: any) => {
+              console.warn("[SIP] Failed to send 180 Ringing:", err);
+            });
 
             setIncomingCall({
               invitation,
@@ -324,20 +350,20 @@ export function SipProvider({ children }: { children: ReactNode }) {
             });
 
             invitation.stateChange.addListener((state: any) => {
+              console.log("[SIP] Incoming invitation state changed:", state);
               if (state === "Terminated") {
                 console.log("[SIP] Incoming call terminated/cancelled");
-                setIncomingCall((prev) => {
+                setIncomingCall((prev: IncomingCall | null) => {
                   if (prev?.invitation === invitation) return null;
                   return prev;
                 });
               }
             });
-          },
+          } catch (err) {
+            console.error("[SIP] CRITICAL: Error in onInvite handler:", err);
+          }
         },
       };
-
-      const userAgent = new UserAgent(userAgentOptions);
-      userAgentRef.current = userAgent;
 
       userAgent.transport.onConnect = () => {
         console.log("[SIP] Transport connected");

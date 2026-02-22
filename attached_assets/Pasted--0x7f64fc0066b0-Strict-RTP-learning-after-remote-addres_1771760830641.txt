@@ -1,0 +1,25 @@
+ > 0x7f64fc0066b0 -- Strict RTP learning after remote address set to: 195.28.88.42:26298
+    -- Executing [0232399030@from-sk-inbound:1] NoOp("SIP/SLOVANET-VGW-0000001a", "INDEXUS OVERRIDE DID=0232399030 FROM=0421948519438 UNIQUEID=1771760763.22918") in new stack
+    -- Executing [0232399030@from-sk-inbound:2] Goto("SIP/SLOVANET-VGW-0000001a", "indexus-incoming,0232399030,1") in new stack
+    -- Goto (indexus-incoming,0232399030,1)
+    -- Executing [0232399030@indexus-incoming:1] NoOp("SIP/SLOVANET-VGW-0000001a", "INDEXUS INBOUND from=0421948519438 did=0232399030 uniqueid=1771760763.22918") in new stack
+    -- Executing [0232399030@indexus-incoming:2] Set("SIP/SLOVANET-VGW-0000001a", "__INDEXUS_FROM=0421948519438") in new stack
+    -- Executing [0232399030@indexus-incoming:3] Set("SIP/SLOVANET-VGW-0000001a", "__INDEXUS_DID=0232399030") in new stack
+    -- Executing [0232399030@indexus-incoming:4] Set("SIP/SLOVANET-VGW-0000001a", "__INDEXUS_UNIQUEID=1771760763.22918") in new stack
+    -- Executing [0232399030@indexus-incoming:5] Stasis("SIP/SLOVANET-VGW-0000001a", "indexus-inbound,0232399030,0421948519438,1771760763.22918") in new stack
+    -- <SIP/SLOVANET-VGW-0000001a> Playing 'custom/uvitanie-pre-slovensku-infolinku.slin' (language 'sk')
+       > 0x7f64fc0066b0 -- Strict RTP switching to RTP target address 195.28.88.42:26298 as source
+  == Manager 'sendcron' logged on from 127.0.0.1
+  == Manager 'sendcron' logged off from 127.0.0.1
+       > 0x7f64fc0066b0 -- Strict RTP learning complete - Locking on source address 195.28.88.42:26298
+  == Manager 'sendcron' logged off from 127.0.0.1
+    -- Executing [2001@from-internal-indexus:1] NoOp("SIP/SLOVANET-VGW-0000001a", "Transfer to 2001 - Contacts: PJSIP/2001/sip:0chea8hi@10.9.20.180:50686;transport=ws") in new stack
+    -- Executing [2001@from-internal-indexus:2] Set("SIP/SLOVANET-VGW-0000001a", "CONTACTS=PJSIP/2001/sip:0chea8hi@10.9.20.180:50686;transport=ws") in new stack
+    -- Executing [2001@from-internal-indexus:3] GotoIf("SIP/SLOVANET-VGW-0000001a", "0?nocontact") in new stack
+    -- Executing [2001@from-internal-indexus:4] Dial("SIP/SLOVANET-VGW-0000001a", "PJSIP/2001/sip:0chea8hi@10.9.20.180:50686;transport=ws,30,tT") in new stack
+    -- Called PJSIP/2001/sip:0chea8hi@10.9.20.180:50686;transport=ws
+  == DTLS ECDH initialized (automatic), faster PFS enabled
+    -- PJSIP/2001-0000594e is ringing
+    -- Nobody picked up in 30000 ms
+    -- Executing [2001@from-internal-indexus:5] Hangup("SIP/SLOVANET-VGW-0000001a", "") in new stack
+  == Spawn extension (from-internal-indexus, 2001, 5) exited non-zero on 'SIP/SLOVANET-VGW-0000001a'
