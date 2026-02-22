@@ -681,6 +681,10 @@ function TaskListPanel({
         </div>
       </div>
 
+      <div className="px-3 pb-2">
+        <InboundQueueStatus userId={currentUserId} />
+      </div>
+
       {selectedCampaignId && (
         <div className="border-t flex flex-col flex-1 min-h-0">
           <div

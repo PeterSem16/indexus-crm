@@ -10,6 +10,7 @@ import {
   ivrMenuOptions, insertIvrMenuOptionSchema,
   inboundCallLogs,
   agentQueueStatus,
+  agentSessions,
   users,
   customers,
 } from "@shared/schema";
@@ -322,13 +323,21 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
       const engine = getQueueEngine();
       const stats = engine?.getQueueStats(req.params.id) || { waiting: 0, active: 0, agents: 0 };
 
+      const memberUserIds = members.map(m => m.member.userId);
+      const dbAgentStatuses = memberUserIds.length > 0
+        ? await db.select().from(agentQueueStatus).where(inArray(agentQueueStatus.userId, memberUserIds))
+        : [];
+      const dbStatusMap = new Map(dbAgentStatuses.map(s => [s.userId, s]));
+
       const memberStates = members.map(m => {
         const agentState = engine?.getAgentState(m.member.userId);
+        const dbState = dbStatusMap.get(m.member.userId);
+        const resolvedStatus = agentState?.status || dbState?.status || "offline";
         return {
           ...m.member,
           user: m.user,
-          agentStatus: agentState?.status || "offline",
-          callsHandled: agentState?.callsHandled || 0,
+          agentStatus: resolvedStatus,
+          callsHandled: agentState?.callsHandled || dbState?.callsHandled || 0,
         };
       });
 
@@ -1256,15 +1265,25 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
         isActive: queueMembers.isActive,
       }).from(queueMembers).where(eq(queueMembers.userId, userId));
 
-      if (memberships.length === 0) return res.json({ queues: [] });
+      const memberQueueIds = memberships.filter(m => m.isActive).map(m => m.queueId);
 
-      const queueIds = memberships.filter(m => m.isActive).map(m => m.queueId);
-      if (queueIds.length === 0) return res.json({ queues: [] });
+      const [activeSession] = await db.select().from(agentSessions)
+        .where(and(
+          eq(agentSessions.userId, userId),
+          inArray(agentSessions.status, ["available", "break", "busy"])
+        ))
+        .orderBy(desc(agentSessions.startedAt))
+        .limit(1);
+      const sessionQueueIds: string[] = (activeSession as any)?.inboundQueueIds || [];
+
+      const allQueueIds = [...new Set([...memberQueueIds, ...sessionQueueIds])];
+      if (allQueueIds.length === 0) return res.json({ queues: [] });
 
       const queueList = await db.select().from(inboundQueues)
-        .where(and(inArray(inboundQueues.id, queueIds), eq(inboundQueues.isActive, true)));
+        .where(and(inArray(inboundQueues.id, allQueueIds), eq(inboundQueues.isActive, true)));
 
       const engine = getQueueEngine();
+      const agentState = engine?.getAgentState(userId);
       const queueData = queueList.map(q => {
         const stats = engine?.getQueueStats(q.id) || { waiting: 0, active: 0, agents: 0 };
         return {
@@ -1277,7 +1296,10 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
         };
       });
 
-      res.json({ queues: queueData });
+      res.json({
+        queues: queueData,
+        agentStatus: agentState?.status || "offline",
+      });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }

@@ -26865,7 +26865,8 @@ Guidelines:
         if (engine409) {
           const activeBreak409 = await storage.getActiveAgentBreak(existing.id);
           const effectiveStatus = activeBreak409 ? "break" : ((existing.status as any) || "available");
-          await engine409.updateAgentStatus(req.session.user!.id, effectiveStatus, null);
+          const existingQueueIds = (existing as any).inboundQueueIds || [];
+          await engine409.updateAgentStatus(req.session.user!.id, effectiveStatus, null, existingQueueIds);
         }
         return res.status(409).json({ error: "Active session already exists", session: existing });
       }
@@ -26879,7 +26880,8 @@ Guidelines:
 
       const engine = getQueueEngine();
       if (engine) {
-        await engine.updateAgentStatus(req.session.user!.id, "available", null);
+        const sessionQueueIds = req.body.inboundQueueIds || [];
+        await engine.updateAgentStatus(req.session.user!.id, "available", null, sessionQueueIds);
         console.log(`[AgentSession] Synced agent ${req.session.user!.id} to QueueEngine as available`);
       }
 

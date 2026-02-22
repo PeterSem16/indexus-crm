@@ -198,7 +198,7 @@ export function InboundQueueStatus({ userId }: { userId?: string }) {
   const { data: agentQueueStatus } = useQuery<any>({
     queryKey: ["/api/agent/queue-status", userId],
     enabled: !!userId,
-    refetchInterval: 15000,
+    refetchInterval: 5000,
   });
 
   if (!agentQueueStatus?.queues?.length) return null;

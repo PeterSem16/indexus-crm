@@ -778,6 +778,7 @@ function QueueDetailPanel({ queueId, sipUsers, onAddMember }: {
 
   const { data: queueDetail } = useQuery<any>({
     queryKey: ["/api/inbound-queues", queueId],
+    refetchInterval: 5000,
   });
 
   const removeMemberMutation = useMutation({

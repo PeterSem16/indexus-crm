@@ -771,22 +771,30 @@ export class QueueEngine extends EventEmitter {
     }
   }
 
-  async updateAgentStatus(userId: string, status: AgentState["status"], currentCallId: string | null): Promise<void> {
+  async updateAgentStatus(userId: string, status: AgentState["status"], currentCallId: string | null, inboundQueueIds?: string[]): Promise<void> {
     let state = this.agentStates.get(userId);
+    const members = await db.select().from(queueMembers)
+      .where(and(eq(queueMembers.userId, userId), eq(queueMembers.isActive, true)));
+    const memberQueueIds = members.map(m => m.queueId);
+
+    const effectiveQueueIds = inboundQueueIds && inboundQueueIds.length > 0
+      ? [...new Set([...memberQueueIds, ...inboundQueueIds])]
+      : memberQueueIds;
+
     if (!state) {
-      const members = await db.select().from(queueMembers)
-        .where(and(eq(queueMembers.userId, userId), eq(queueMembers.isActive, true)));
       state = {
         userId,
         status: "offline",
         currentCallId: null,
         lastCallEndedAt: null,
         callsHandled: 0,
-        queueIds: members.map(m => m.queueId),
+        queueIds: effectiveQueueIds,
         sipExtension: null,
-        penalty: Math.min(...members.map(m => m.penalty), 999),
+        penalty: members.length > 0 ? Math.min(...members.map(m => m.penalty)) : 0,
       };
       this.agentStates.set(userId, state);
+    } else {
+      state.queueIds = effectiveQueueIds;
     }
 
     state.status = status;
@@ -794,6 +802,8 @@ export class QueueEngine extends EventEmitter {
     if (status === "available" || status === "offline") {
       state.currentCallId = null;
     }
+
+    console.log(`[QueueEngine] Agent ${userId} status → ${status}, queueIds: [${state.queueIds.join(', ')}]`);
 
     const existing = await db.select().from(agentQueueStatus).where(eq(agentQueueStatus.userId, userId));
     if (existing.length > 0) {
@@ -847,7 +857,7 @@ export class QueueEngine extends EventEmitter {
     }
 
     for (const state of this.agentStates.values()) {
-      if (state.queueIds.includes(queueId)) {
+      if (state.queueIds.includes(queueId) && state.status !== "offline") {
         agents++;
         if (state.status === "busy") active++;
       }
@@ -867,6 +877,7 @@ export class QueueEngine extends EventEmitter {
     }
 
     for (const state of this.agentStates.values()) {
+      if (state.status === "offline") continue;
       for (const qId of state.queueIds) {
         if (!stats.has(qId)) {
           stats.set(qId, { waiting: 0, active: 0, agents: 0 });
