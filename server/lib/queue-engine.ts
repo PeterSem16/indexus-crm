@@ -54,6 +54,7 @@ interface PendingAgentCall {
   customerId: string | null;
   waitDuration: number;
   queueName: string;
+  enteredAt: Date;
 }
 
 interface AssignedCall {
@@ -1362,6 +1363,7 @@ export class QueueEngine extends EventEmitter {
         customerId: call.customerId,
         waitDuration,
         queueName: queue.name,
+        enteredAt: call.enteredAt,
       });
 
       setTimeout(async () => {
@@ -1555,6 +1557,9 @@ export class QueueEngine extends EventEmitter {
       console.log(`[QueueEngine] Agent channel ${channelId} destroyed before answer (agent rejected/unavailable)`);
       this.pendingAgentCalls.delete(channelId);
       this.updateAgentStatus(pending.agentId, "available", null);
+      const assignedCall = this.assignedCalls.get(pending.callerChannelId);
+      const originalEnteredAt = assignedCall?.call.enteredAt || pending.enteredAt;
+      this.assignedCalls.delete(pending.callerChannelId);
       const call: QueuedCall = {
         id: pending.callId,
         channelId: pending.callerChannelId,
@@ -1562,7 +1567,7 @@ export class QueueEngine extends EventEmitter {
         callerName: pending.callerName,
         queueId: pending.queueId,
         customerId: pending.customerId,
-        enteredAt: new Date(),
+        enteredAt: originalEnteredAt,
         position: 1,
       };
       this.waitingCalls.set(pending.callerChannelId, call);
@@ -1869,6 +1874,7 @@ export class QueueEngine extends EventEmitter {
         customerId: null,
         waitDuration: waitingCall ? (Date.now() - waitingCall.enteredAt.getTime()) / 1000 : 0,
         queueName: queue.name,
+        enteredAt: waitingCall?.enteredAt || new Date(),
       });
 
       return true;
@@ -1988,6 +1994,7 @@ export class QueueEngine extends EventEmitter {
 
       const queue = queuesCache.get(call.queueId);
       if (!queue) continue;
+      if (queue.maxWaitTime <= 0) continue;
 
       const waitTime = (now - call.enteredAt.getTime()) / 1000;
       if (waitTime > queue.maxWaitTime) {
