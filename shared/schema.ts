@@ -5600,6 +5600,7 @@ export const voicemailBoxes = pgTable("voicemail_boxes", {
   greetingAfternoonTtsText: text("greeting_afternoon_tts_text"),
   greetingEveningTtsText: text("greeting_evening_tts_text"),
   greetingTtsVoice: text("greeting_tts_voice").default("nova"),
+  beepToneEnabled: boolean("beep_tone_enabled").notNull().default(true),
   maxDurationSeconds: integer("max_duration_seconds").notNull().default(120),
   emailNotification: boolean("email_notification").notNull().default(false),
   notifyEmails: text("notify_emails").array().default(sql`'{}'::text[]`),

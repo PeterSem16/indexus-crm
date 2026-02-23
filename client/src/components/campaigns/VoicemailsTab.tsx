@@ -78,6 +78,7 @@ interface VoicemailBox {
   greetingAfternoonTtsText: string | null;
   greetingEveningTtsText: string | null;
   greetingTtsVoice: string | null;
+  beepToneEnabled: boolean;
   maxDurationSeconds: number;
   emailNotification: boolean;
   notifyEmails: string[] | null;
@@ -138,6 +139,7 @@ interface BoxFormData {
   extension: string;
   countryCode: string;
   maxDurationSeconds: number;
+  beepToneEnabled: boolean;
   emailNotification: boolean;
   notifyEmails: string;
   transcriptionEnabled: boolean;
@@ -151,6 +153,7 @@ const defaultBoxForm: BoxFormData = {
   extension: "",
   countryCode: "SK",
   maxDurationSeconds: 120,
+  beepToneEnabled: true,
   emailNotification: false,
   notifyEmails: "",
   transcriptionEnabled: false,
@@ -906,6 +909,7 @@ function VoicemailBoxesManager() {
       extension: box.extension || "",
       countryCode: box.countryCode || "SK",
       maxDurationSeconds: box.maxDurationSeconds,
+      beepToneEnabled: box.beepToneEnabled ?? true,
       emailNotification: box.emailNotification,
       notifyEmails: (box.notifyEmails || []).join(", "),
       transcriptionEnabled: box.transcriptionEnabled,
@@ -1156,6 +1160,17 @@ function VoicemailBoxesManager() {
                 value={formData.maxDurationSeconds}
                 onChange={(e) => setFormData({ ...formData, maxDurationSeconds: parseInt(e.target.value) || 120 })}
                 data-testid="input-box-max-duration"
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <div>
+                <Label>Beep Tone Before Recording</Label>
+                <p className="text-xs text-muted-foreground">Play a pleasant beep sound before the caller starts recording their message</p>
+              </div>
+              <Switch
+                checked={formData.beepToneEnabled}
+                onCheckedChange={(v) => setFormData({ ...formData, beepToneEnabled: v })}
+                data-testid="switch-beep-tone"
               />
             </div>
             <div className="space-y-2">

@@ -1,4 +1,6 @@
 import { EventEmitter } from "events";
+import * as fs from "fs";
+import * as path from "path";
 import { db } from "../db";
 import { eq, and, inArray, asc, desc, sql } from "drizzle-orm";
 import {
@@ -9,6 +11,9 @@ import {
   ivrMessages,
   agentSessions,
   users,
+  didRoutes,
+  voicemailBoxes,
+  voicemailMessages,
   type InboundQueue,
   type QueueMember,
   type InboundCallLog,
@@ -312,7 +317,14 @@ export class QueueEngine extends EventEmitter {
 
     const queue = await this.findQueueForNumber(dialedNumber);
     if (!queue) {
-      console.log(`[QueueEngine] No queue found for DID "${dialedNumber}". Available queues:`);
+      console.log(`[QueueEngine] No queue found for DID "${dialedNumber}", checking DID routes...`);
+      const didRoute = await this.findDidRouteForNumber(dialedNumber);
+      if (didRoute) {
+        console.log(`[QueueEngine] Found DID route: "${didRoute.name}" action=${didRoute.action}`);
+        await this.handleDidRoute(channel, didRoute, callerNumber, callerName);
+        return;
+      }
+      console.log(`[QueueEngine] No DID route found either. Available queues:`);
       const allQueues = await db.select().from(inboundQueues);
       allQueues.forEach(q => console.log(`[QueueEngine]   Queue "${q.name}" → DID: "${q.didNumber}" (active: ${q.isActive})`));
       console.log(`[QueueEngine] Hanging up channel ${channel.id}`);
@@ -422,6 +434,299 @@ export class QueueEngine extends EventEmitter {
       .where(and(eq(inboundQueues.isActive, true), eq(inboundQueues.didNumber, didNumber)))
       .limit(1);
     return queues[0] || null;
+  }
+
+  private async findDidRouteForNumber(didNumber: string): Promise<typeof didRoutes.$inferSelect | null> {
+    if (!didNumber) return null;
+    const routes = await db.select().from(didRoutes)
+      .where(and(eq(didRoutes.isActive, true), eq(didRoutes.didNumber, didNumber)))
+      .limit(1);
+    return routes[0] || null;
+  }
+
+  private async handleDidRoute(channel: AriChannel, route: typeof didRoutes.$inferSelect, callerNumber: string, callerName: string): Promise<void> {
+    try {
+      switch (route.action) {
+        case "voicemail": {
+          const boxId = route.voicemailBox;
+          if (!boxId) {
+            console.warn(`[QueueEngine] DID route "${route.name}" has voicemail action but no voicemail box, hanging up`);
+            await this.ariClient.hangupChannel(channel.id, "normal");
+            return;
+          }
+          const [box] = await db.select().from(voicemailBoxes).where(eq(voicemailBoxes.id, boxId)).limit(1);
+          if (!box) {
+            console.warn(`[QueueEngine] Voicemail box ${boxId} not found, hanging up`);
+            await this.ariClient.hangupChannel(channel.id, "normal");
+            return;
+          }
+          const customerId = await this.lookupCustomer(callerNumber);
+          await this.sendToVoicemail(channel.id, box, callerNumber, callerName, customerId, route.didNumber);
+          break;
+        }
+        case "inbound_queue": {
+          if (route.targetQueueId) {
+            const [targetQueue] = await db.select().from(inboundQueues)
+              .where(and(eq(inboundQueues.id, route.targetQueueId), eq(inboundQueues.isActive, true)))
+              .limit(1);
+            if (targetQueue) {
+              console.log(`[QueueEngine] DID route → queue "${targetQueue.name}" (id: ${targetQueue.id})`);
+              await this.routeCallToQueue(channel, targetQueue, callerNumber, callerName);
+              return;
+            }
+          }
+          console.warn(`[QueueEngine] DID route target queue not found, hanging up`);
+          await this.ariClient.hangupChannel(channel.id, "normal");
+          break;
+        }
+        case "pjsip_user": {
+          if (route.targetUserId) {
+            const [targetUser] = await db.select({ sipExtension: users.sipExtension, sipEnabled: users.sipEnabled })
+              .from(users).where(eq(users.id, route.targetUserId)).limit(1);
+            if (targetUser?.sipEnabled && targetUser.sipExtension) {
+              try {
+                await this.ariClient.answerChannel(channel.id);
+              } catch {}
+              const ok = await this.transferCallToEndpoint(channel.id, `PJSIP/${targetUser.sipExtension}`, null as any);
+              if (!ok) {
+                await this.ariClient.hangupChannel(channel.id, "normal");
+              }
+              return;
+            }
+          }
+          console.warn(`[QueueEngine] DID route target user has no SIP extension, hanging up`);
+          await this.ariClient.hangupChannel(channel.id, "normal");
+          break;
+        }
+        case "transfer": {
+          if (route.targetExtension) {
+            try {
+              await this.ariClient.answerChannel(channel.id);
+            } catch {}
+            const endpoint = route.targetExtension.includes("/") ? route.targetExtension : `PJSIP/${route.targetExtension}`;
+            const ok = await this.transferCallToEndpoint(channel.id, endpoint, null as any);
+            if (!ok) {
+              await this.ariClient.hangupChannel(channel.id, "normal");
+            }
+            return;
+          }
+          await this.ariClient.hangupChannel(channel.id, "normal");
+          break;
+        }
+        case "hangup":
+        default:
+          await this.ariClient.hangupChannel(channel.id, "normal");
+          break;
+      }
+    } catch (err) {
+      console.error(`[QueueEngine] DID route handling failed:`, err);
+      try { await this.ariClient.hangupChannel(channel.id, "normal"); } catch {}
+    }
+  }
+
+  private waitForPlaybackFinished(playbackId: string, timeoutMs: number = 30000): Promise<void> {
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        this.ariClient.removeListener("playback-finished", handler);
+        resolve();
+      }, timeoutMs);
+      const handler = (event: AriEvent) => {
+        if (event.playback?.id === playbackId) {
+          clearTimeout(timer);
+          this.ariClient.removeListener("playback-finished", handler);
+          resolve();
+        }
+      };
+      this.ariClient.on("playback-finished", handler);
+    });
+  }
+
+  async sendToVoicemail(channelId: string, box: typeof voicemailBoxes.$inferSelect, callerNumber: string, callerName: string, customerId: string | null, didNumber?: string): Promise<void> {
+    try {
+      console.log(`[QueueEngine] === SENDING TO VOICEMAIL ===`);
+      console.log(`[QueueEngine]   Box: "${box.name}" (id: ${box.id})`);
+      console.log(`[QueueEngine]   Caller: ${callerNumber} (${callerName})`);
+
+      try {
+        await this.ariClient.answerChannel(channelId);
+      } catch {}
+
+      const greetingFilePath = this.getTimeBasedGreeting(box);
+      if (greetingFilePath) {
+        try {
+          const soundName = path.basename(greetingFilePath, path.extname(greetingFilePath));
+          const pbId = `vm-greeting-${channelId}-${Date.now()}`;
+          console.log(`[QueueEngine] Playing voicemail greeting: sound:custom/${soundName}`);
+          await this.ariClient.playMedia(channelId, `sound:custom/${soundName}`, pbId);
+          await this.waitForPlaybackFinished(pbId, 60000);
+          console.log(`[QueueEngine] Greeting playback finished`);
+        } catch (err) {
+          console.warn(`[QueueEngine] Greeting playback failed:`, err instanceof Error ? err.message : err);
+        }
+      }
+
+      if (box.beepToneEnabled) {
+        try {
+          const beepPbId = `vm-beep-${channelId}-${Date.now()}`;
+          console.log(`[QueueEngine] Playing beep tone before recording`);
+          await this.ariClient.playMedia(channelId, "tone:1000/200", beepPbId);
+          await this.waitForPlaybackFinished(beepPbId, 3000);
+        } catch (err) {
+          console.warn(`[QueueEngine] Beep tone playback failed:`, err instanceof Error ? err.message : err);
+        }
+      }
+
+      const recordingName = `voicemail-${box.id}-${Date.now()}`;
+      const recordingDir = path.resolve("voicemail-recordings");
+      if (!fs.existsSync(recordingDir)) {
+        fs.mkdirSync(recordingDir, { recursive: true });
+      }
+
+      const recordingStartTime = Date.now();
+      try {
+        console.log(`[QueueEngine] Starting voicemail recording: ${recordingName} (max ${box.maxDurationSeconds}s)`);
+        await this.ariClient.startRecording(channelId, recordingName, "wav");
+
+        await new Promise<void>((resolve) => {
+          const maxTimer = setTimeout(() => {
+            this.ariClient.removeListener("channel-hangup-request", hangupHandler);
+            this.ariClient.removeListener("channel-destroyed", destroyHandler);
+            resolve();
+          }, (box.maxDurationSeconds || 120) * 1000);
+          const hangupHandler = (event: AriEvent) => {
+            if (event.channel?.id === channelId) {
+              clearTimeout(maxTimer);
+              this.ariClient.removeListener("channel-destroyed", destroyHandler);
+              resolve();
+            }
+          };
+          const destroyHandler = (event: AriEvent) => {
+            if (event.channel?.id === channelId) {
+              clearTimeout(maxTimer);
+              this.ariClient.removeListener("channel-hangup-request", hangupHandler);
+              resolve();
+            }
+          };
+          this.ariClient.on("channel-hangup-request", hangupHandler);
+          this.ariClient.on("channel-destroyed", destroyHandler);
+        });
+      } catch (err) {
+        console.warn(`[QueueEngine] Recording may have ended early:`, err instanceof Error ? err.message : err);
+      }
+
+      const durationSeconds = Math.round((Date.now() - recordingStartTime) / 1000);
+
+      try {
+        await this.ariClient.stopRecording(recordingName);
+      } catch {}
+
+      const recordingPath = `voicemail-recordings/${recordingName}.wav`;
+
+      const [vmMessage] = await db.insert(voicemailMessages).values({
+        boxId: box.id,
+        callerNumber,
+        callerName: callerName || null,
+        customerId,
+        didNumber: didNumber || null,
+        recordingPath,
+        durationSeconds,
+        status: "unread",
+      }).returning();
+
+      console.log(`[QueueEngine] Voicemail message saved: ${vmMessage.id} (${durationSeconds}s)`);
+
+      try {
+        await this.ariClient.hangupChannel(channelId, "normal");
+      } catch {}
+
+      this.emit("voicemail-received", {
+        messageId: vmMessage.id,
+        boxId: box.id,
+        boxName: box.name,
+        callerNumber,
+        callerName,
+        customerId,
+      });
+
+    } catch (err) {
+      console.error(`[QueueEngine] Voicemail handling failed:`, err);
+      try { await this.ariClient.hangupChannel(channelId, "normal"); } catch {}
+    }
+  }
+
+  private async routeCallToQueue(channel: AriChannel, queue: InboundQueue, callerNumber: string, callerName: string): Promise<void> {
+    if (!this.isWithinBusinessHours(queue)) {
+      console.log(`[QueueEngine] Queue "${queue.name}" is outside business hours`);
+      await this.handleAfterHours(channel.id, queue);
+      return;
+    }
+    if (this.getQueueSize(queue.id) >= queue.maxQueueSize) {
+      console.log(`[QueueEngine] Queue "${queue.name}" is full, handling overflow`);
+      await this.handleOverflow(channel.id, queue);
+      return;
+    }
+    try {
+      await this.ariClient.answerChannel(channel.id);
+    } catch (err) {
+      console.error(`[QueueEngine] Failed to answer channel ${channel.id}:`, err);
+      return;
+    }
+    const customerId = await this.lookupCustomer(callerNumber);
+    let welcomePlayed = false;
+    if (queue.welcomeMessageId) {
+      try {
+        const [msg] = await db.select().from(ivrMessages).where(eq(ivrMessages.id, queue.welcomeMessageId)).limit(1);
+        if (msg) {
+          const soundName = msg.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+          const welcomePbId = `welcome-${channel.id}-${Date.now()}`;
+          this.pendingWelcome.set(welcomePbId, { channelId: channel.id, queueId: queue.id });
+          this.pendingWelcomeCallData.set(channel.id, {
+            channelId: channel.id,
+            queueId: queue.id,
+            callerNumber,
+            callerName,
+            customerId,
+            queueName: queue.name,
+          });
+          await this.ariClient.playMedia(channel.id, `sound:custom/${soundName}`, welcomePbId);
+          welcomePlayed = true;
+        }
+      } catch (err) {
+        console.warn(`[QueueEngine] Welcome message playback failed:`, err instanceof Error ? err.message : err);
+      }
+    }
+    if (!welcomePlayed) {
+      await this.startMohForChannel(channel.id, queue.id);
+      await this.addCallToQueue(channel.id, queue.id, queue.name, callerNumber, callerName, customerId);
+    }
+  }
+
+  private getCallerFromChannel(channelId: string): string | null {
+    const waitingCall = this.waitingCalls.get(channelId);
+    if (waitingCall) return waitingCall.callerNumber;
+    const pendingData = this.pendingWelcomeCallData.get(channelId);
+    if (pendingData) return pendingData.callerNumber;
+    return null;
+  }
+
+  private getTimeBasedGreeting(box: typeof voicemailBoxes.$inferSelect): string | null {
+    const now = new Date();
+    const hour = now.getHours();
+
+    let filePath: string | null = null;
+    if (hour >= 6 && hour < 12) {
+      filePath = box.greetingMorningFilePath;
+    } else if (hour >= 12 && hour < 18) {
+      filePath = box.greetingAfternoonFilePath;
+    } else {
+      filePath = box.greetingEveningFilePath;
+    }
+
+    if (!filePath) {
+      filePath = box.greetingFilePath;
+    }
+
+    return filePath;
   }
 
   private async lookupCustomer(phoneNumber: string): Promise<string | null> {
@@ -1078,9 +1383,20 @@ export class QueueEngine extends EventEmitter {
           await this.ariClient.hangupChannel(channelId, "normal");
           break;
         case "voicemail":
-        default:
+        default: {
+          const vmBoxId = (queue as any).afterHoursVoicemailBoxId;
+          if (vmBoxId) {
+            const [vmBox] = await db.select().from(voicemailBoxes).where(eq(voicemailBoxes.id, vmBoxId)).limit(1);
+            if (vmBox) {
+              const callerNum = this.getCallerFromChannel(channelId);
+              const customerId = callerNum ? await this.lookupCustomer(callerNum) : null;
+              await this.sendToVoicemail(channelId, vmBox, callerNum || "unknown", "", customerId, queue.didNumber || undefined);
+              break;
+            }
+          }
           await this.ariClient.hangupChannel(channelId, "normal");
           break;
+        }
       }
     } catch (err) {
       console.error("[QueueEngine] After-hours handling failed:", err);
@@ -1222,6 +1538,20 @@ export class QueueEngine extends EventEmitter {
             await this.ariClient.hangupChannel(channelId, "normal");
           }
           break;
+        case "voicemail": {
+          const vmBoxId = (queue as any).overflowVoicemailBoxId;
+          if (vmBoxId) {
+            const [vmBox] = await db.select().from(voicemailBoxes).where(eq(voicemailBoxes.id, vmBoxId)).limit(1);
+            if (vmBox) {
+              const callerNum = this.getCallerFromChannel(channelId);
+              const customerId = callerNum ? await this.lookupCustomer(callerNum) : null;
+              await this.sendToVoicemail(channelId, vmBox, callerNum || "unknown", "", customerId, queue.didNumber || undefined);
+              break;
+            }
+          }
+          await this.ariClient.hangupChannel(channelId, "normal");
+          break;
+        }
         default:
           await this.ariClient.hangupChannel(channelId, "normal");
       }
