@@ -218,7 +218,7 @@ export function VoicemailNotifications({ queueIds, onCallback }: VoicemailNotifi
 
   if (messages.length === 0) {
     return (
-      <div className="fixed top-4 left-4 z-[99]" data-testid="voicemail-empty-indicator">
+      <div className="fixed top-3 left-1/2 -translate-x-1/4 z-[99]" data-testid="voicemail-empty-indicator">
         <div className="flex items-center gap-2 bg-card border rounded-full px-3 py-1.5 shadow-md text-muted-foreground text-xs">
           <Voicemail className="h-3.5 w-3.5" />
           <span>Žiadne nové odkazy</span>
