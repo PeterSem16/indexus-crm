@@ -835,6 +835,15 @@ export class QueueEngine extends EventEmitter {
 
   private hasAvailableAgents(queueId: string): boolean {
     for (const agent of this.agentStates.values()) {
+      if (agent.queueIds.includes(queueId) && agent.status === "available") {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private hasLoggedInAgents(queueId: string): boolean {
+    for (const agent of this.agentStates.values()) {
       if (agent.queueIds.includes(queueId) && agent.status !== "offline") {
         return true;
       }
@@ -952,7 +961,7 @@ export class QueueEngine extends EventEmitter {
     }
 
     const noAgentsAction = queue.noAgentsAction || "wait";
-    if (noAgentsAction !== "wait" && !this.hasAvailableAgents(queue.id)) {
+    if (noAgentsAction !== "wait" && !this.hasLoggedInAgents(queue.id)) {
       console.log(`[QueueEngine] No agents logged in for queue "${queue.name}"`);
       await this.handleNoAgents(channel.id, queue, callerNumber, callerName);
       return;
@@ -1077,37 +1086,31 @@ export class QueueEngine extends EventEmitter {
       .where(eq(inboundQueues.isActive, true))
       .orderBy(desc(inboundQueues.priority));
 
-    const now = Date.now();
-
     for (const queue of queues) {
       const waitingCalls = this.getWaitingCallsForQueue(queue.id);
       if (waitingCalls.length === 0) continue;
 
-      for (const call of waitingCalls) {
-        const waitTime = (now - call.enteredAt.getTime()) / 1000;
-        if (queue.maxWaitTime > 0 && waitTime > queue.maxWaitTime) {
-          const savedCallerNumber = call.callerNumber;
-          const savedCallerName = call.callerName || "";
-          console.log(`[QueueEngine] Call ${call.id} exceeded maxWaitTime (${Math.floor(waitTime)}s > ${queue.maxWaitTime}s) during assignment, routing to overflow`);
+      const noAgentsAction = queue.noAgentsAction || "wait";
+      if (noAgentsAction !== "wait" && !this.hasLoggedInAgents(queue.id)) {
+        console.log(`[QueueEngine] All agents logged out for queue "${queue.name}", applying noAgents action to ${waitingCalls.length} waiting call(s)`);
+        for (const call of waitingCalls) {
           this.waitingCalls.delete(call.channelId);
           await this.stopMohForChannel(call.channelId);
+          const waitTime = (Date.now() - call.enteredAt.getTime()) / 1000;
           await db.update(inboundCallLogs)
             .set({
-              status: "timeout",
+              status: "no_agents",
               completedAt: new Date(),
-              abandonReason: "timeout",
+              abandonReason: "no_agents",
               waitDurationSeconds: Math.floor(waitTime),
             })
             .where(eq(inboundCallLogs.id, call.id));
-          await this.handleOverflow(call.channelId, queue, savedCallerNumber, savedCallerName);
-          this.emit("call-timeout", {
-            callId: call.id,
-            queueId: queue.id,
-            callerNumber: savedCallerNumber,
-          });
-          continue;
+          await this.handleNoAgents(call.channelId, queue, call.callerNumber, call.callerName || "");
         }
+        continue;
+      }
 
+      for (const call of waitingCalls) {
         const agent = await this.selectAgent(queue);
         if (!agent) break;
 
