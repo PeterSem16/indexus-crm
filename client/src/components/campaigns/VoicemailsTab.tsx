@@ -723,101 +723,144 @@ function GreetingCard({
     setPlayingPeriod(period.key);
   };
 
+  const [showReplace, setShowReplace] = useState(false);
   const PeriodIcon = period.Icon;
+  const hasGreeting = !!filePath;
 
   return (
-    <div className="border rounded-md p-3 space-y-2">
+    <div className={`border rounded-md p-3 space-y-2 ${hasGreeting ? "border-green-500/30 bg-green-50/30 dark:bg-green-950/10" : ""}`}>
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <PeriodIcon className="h-4 w-4 text-muted-foreground" />
           <span className="text-sm font-medium">{period.label}</span>
           <span className="text-xs text-muted-foreground">({period.range})</span>
+          {hasGreeting ? (
+            <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-green-500/50 text-green-700 dark:text-green-400">
+              <CheckCircle2 className="h-3 w-3 mr-1" />
+              {savedTtsText ? "TTS" : "Uploaded"}
+            </Badge>
+          ) : (
+            <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-muted-foreground">
+              Not set
+            </Badge>
+          )}
         </div>
-        {filePath && (
+        {hasGreeting && (
           <div className="flex items-center gap-1">
             <Button
               size="icon"
               variant="ghost"
+              className="h-7 w-7"
               onClick={togglePlay}
               data-testid={`button-play-greeting-${period.key}`}
             >
               {playingPeriod === period.key ? (
-                <Square className="h-4 w-4" />
+                <Square className="h-3.5 w-3.5" />
               ) : (
-                <Play className="h-4 w-4" />
+                <Play className="h-3.5 w-3.5" />
               )}
             </Button>
             <Button
               size="icon"
               variant="ghost"
-              className="text-destructive"
+              className="h-7 w-7 text-destructive"
               onClick={() => deleteMutation.mutate()}
               disabled={deleteMutation.isPending}
               data-testid={`button-delete-greeting-${period.key}`}
             >
               {deleteMutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
               ) : (
-                <Trash2 className="h-4 w-4" />
+                <Trash2 className="h-3.5 w-3.5" />
               )}
             </Button>
           </div>
         )}
       </div>
 
-      <Tabs value={mode} onValueChange={(v) => setMode(v as "tts" | "upload")}>
-        <TabsList className="h-7">
-          <TabsTrigger value="tts" className="text-xs px-2 py-0.5" data-testid={`tab-tts-${period.key}`}>TTS</TabsTrigger>
-          <TabsTrigger value="upload" className="text-xs px-2 py-0.5" data-testid={`tab-upload-${period.key}`}>Upload</TabsTrigger>
-        </TabsList>
-        <TabsContent value="tts" className="mt-2 space-y-2">
-          <Textarea
-            value={ttsText}
-            onChange={(e) => setTtsText(e.target.value)}
-            placeholder={savedTtsText || "Enter greeting text..."}
-            rows={2}
-            className="text-sm"
-            data-testid={`textarea-tts-${period.key}`}
-          />
-          <Button
-            size="sm"
-            onClick={() => generateMutation.mutate()}
-            disabled={!ttsText.trim() || generateMutation.isPending}
-            data-testid={`button-generate-greeting-${period.key}`}
-          >
-            {generateMutation.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
-            Generate
-          </Button>
-        </TabsContent>
-        <TabsContent value="upload" className="mt-2 space-y-2">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".wav,.mp3,.ogg"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) uploadMutation.mutate(file);
-              e.target.value = "";
-            }}
-            data-testid={`input-upload-greeting-${period.key}`}
-          />
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploadMutation.isPending}
-            data-testid={`button-upload-greeting-${period.key}`}
-          >
-            {uploadMutation.isPending ? (
-              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-            ) : (
-              <Upload className="h-4 w-4 mr-1" />
-            )}
-            Upload Audio
-          </Button>
-        </TabsContent>
-      </Tabs>
+      {hasGreeting && savedTtsText && (
+        <div className="bg-muted/50 rounded px-3 py-2 text-xs text-muted-foreground italic border border-muted">
+          <span className="font-medium text-foreground/70 not-italic">TTS Text:</span>{" "}
+          "{savedTtsText}"
+        </div>
+      )}
+
+      {hasGreeting && !showReplace ? (
+        <Button
+          size="sm"
+          variant="ghost"
+          className="text-xs h-7"
+          onClick={() => setShowReplace(true)}
+          data-testid={`button-replace-greeting-${period.key}`}
+        >
+          <Pencil className="h-3 w-3 mr-1" />
+          Replace greeting
+        </Button>
+      ) : (
+        <>
+          {hasGreeting && showReplace && (
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground font-medium">Replace greeting:</span>
+              <Button size="sm" variant="ghost" className="text-xs h-6 px-2" onClick={() => setShowReplace(false)}>
+                <X className="h-3 w-3" />
+              </Button>
+            </div>
+          )}
+          <Tabs value={mode} onValueChange={(v) => setMode(v as "tts" | "upload")}>
+            <TabsList className="h-7">
+              <TabsTrigger value="tts" className="text-xs px-2 py-0.5" data-testid={`tab-tts-${period.key}`}>TTS</TabsTrigger>
+              <TabsTrigger value="upload" className="text-xs px-2 py-0.5" data-testid={`tab-upload-${period.key}`}>Upload</TabsTrigger>
+            </TabsList>
+            <TabsContent value="tts" className="mt-2 space-y-2">
+              <Textarea
+                value={ttsText}
+                onChange={(e) => setTtsText(e.target.value)}
+                placeholder={savedTtsText || "Enter greeting text..."}
+                rows={2}
+                className="text-sm"
+                data-testid={`textarea-tts-${period.key}`}
+              />
+              <Button
+                size="sm"
+                onClick={() => generateMutation.mutate()}
+                disabled={!ttsText.trim() || generateMutation.isPending}
+                data-testid={`button-generate-greeting-${period.key}`}
+              >
+                {generateMutation.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+                {hasGreeting ? "Regenerate" : "Generate"}
+              </Button>
+            </TabsContent>
+            <TabsContent value="upload" className="mt-2 space-y-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".wav,.mp3,.ogg"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) uploadMutation.mutate(file);
+                  e.target.value = "";
+                }}
+                data-testid={`input-upload-greeting-${period.key}`}
+              />
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploadMutation.isPending}
+                data-testid={`button-upload-greeting-${period.key}`}
+              >
+                {uploadMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                ) : (
+                  <Upload className="h-4 w-4 mr-1" />
+                )}
+                Upload Audio
+              </Button>
+            </TabsContent>
+          </Tabs>
+        </>
+      )}
     </div>
   );
 }
