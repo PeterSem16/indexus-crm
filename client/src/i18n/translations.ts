@@ -1664,6 +1664,16 @@ export interface Translations {
     addNote: string;
     notePlaceholder: string;
     moreNotes: string;
+    noNewVoicemails: string;
+    unlistenedVoicemails: string;
+    voicemailCallback: string;
+    voicemailMarkRead: string;
+    voicemailTranscript: string;
+    voicemailMinimize: string;
+    voicemailMessage: string;
+    voicemailMessages: string;
+    voicemailMessagesMany: string;
+    noCampaigns: string;
   };
   settings: {
     title: string;
@@ -5319,6 +5329,16 @@ export const translations: Record<Locale, Translations> = {
       addNote: 'Add note',
       notePlaceholder: 'Write a note...',
       moreNotes: 'more notes',
+      noNewVoicemails: 'No new voicemails',
+      unlistenedVoicemails: 'Unlistened voicemails',
+      voicemailCallback: 'Call back',
+      voicemailMarkRead: 'Mark as read',
+      voicemailTranscript: 'Transcript',
+      voicemailMinimize: 'Minimize',
+      voicemailMessage: 'message',
+      voicemailMessages: 'messages',
+      voicemailMessagesMany: 'messages',
+      noCampaigns: 'No campaigns',
     },
     settings: {
       title: 'Settings',
@@ -8913,6 +8933,16 @@ export const translations: Record<Locale, Translations> = {
       addNote: 'Pridať poznámku',
       notePlaceholder: 'Napíšte poznámku...',
       moreNotes: 'ďalších poznámok',
+      noNewVoicemails: 'Žiadne nové odkazy',
+      unlistenedVoicemails: 'Nepočúvané odkazy',
+      voicemailCallback: 'Zavolať',
+      voicemailMarkRead: 'Označiť ako prečítané',
+      voicemailTranscript: 'Prepis',
+      voicemailMinimize: 'Minimalizovať',
+      voicemailMessage: 'odkaz',
+      voicemailMessages: 'odkazy',
+      voicemailMessagesMany: 'odkazov',
+      noCampaigns: 'Žiadne kampane',
     },
     settings: {
       title: 'Nastavenia',
@@ -12492,6 +12522,16 @@ export const translations: Record<Locale, Translations> = {
       addNote: 'Přidat poznámku',
       notePlaceholder: 'Napište poznámku...',
       moreNotes: 'dalších poznámek',
+      noNewVoicemails: 'Žádné nové vzkazy',
+      unlistenedVoicemails: 'Neposlouchané vzkazy',
+      voicemailCallback: 'Zavolat',
+      voicemailMarkRead: 'Označit jako přečtené',
+      voicemailTranscript: 'Přepis',
+      voicemailMinimize: 'Minimalizovat',
+      voicemailMessage: 'vzkaz',
+      voicemailMessages: 'vzkazy',
+      voicemailMessagesMany: 'vzkazů',
+      noCampaigns: 'Žádné kampaně',
     },
     settings: {
       title: 'Nastavení',
@@ -16034,6 +16074,16 @@ export const translations: Record<Locale, Translations> = {
       addNote: 'Jegyzet hozzáadása',
       notePlaceholder: 'Írjon jegyzetet...',
       moreNotes: 'további jegyzet',
+      noNewVoicemails: 'Nincsenek új üzenetek',
+      unlistenedVoicemails: 'Meghallgatatlan üzenetek',
+      voicemailCallback: 'Visszahívás',
+      voicemailMarkRead: 'Megjelölés olvasottként',
+      voicemailTranscript: 'Átirat',
+      voicemailMinimize: 'Kicsinyítés',
+      voicemailMessage: 'üzenet',
+      voicemailMessages: 'üzenet',
+      voicemailMessagesMany: 'üzenet',
+      noCampaigns: 'Nincsenek kampányok',
     },
     settings: {
       title: 'Beállítások',
@@ -19575,6 +19625,16 @@ export const translations: Record<Locale, Translations> = {
       addNote: 'Adăugare notă',
       notePlaceholder: 'Scrieți o notă...',
       moreNotes: 'alte note',
+      noNewVoicemails: 'Niciun mesaj vocal nou',
+      unlistenedVoicemails: 'Mesaje vocale neascultate',
+      voicemailCallback: 'Apelează',
+      voicemailMarkRead: 'Marchează ca citit',
+      voicemailTranscript: 'Transcriere',
+      voicemailMinimize: 'Minimizează',
+      voicemailMessage: 'mesaj',
+      voicemailMessages: 'mesaje',
+      voicemailMessagesMany: 'mesaje',
+      noCampaigns: 'Nicio campanie',
     },
     settings: {
       title: 'Setări',
@@ -23117,6 +23177,16 @@ export const translations: Record<Locale, Translations> = {
       addNote: 'Aggiungi nota',
       notePlaceholder: 'Scrivi una nota...',
       moreNotes: 'altre note',
+      noNewVoicemails: 'Nessun nuovo messaggio vocale',
+      unlistenedVoicemails: 'Messaggi vocali non ascoltati',
+      voicemailCallback: 'Richiama',
+      voicemailMarkRead: 'Segna come letto',
+      voicemailTranscript: 'Trascrizione',
+      voicemailMinimize: 'Riduci',
+      voicemailMessage: 'messaggio',
+      voicemailMessages: 'messaggi',
+      voicemailMessagesMany: 'messaggi',
+      noCampaigns: 'Nessuna campagna',
     },
     settings: {
       title: 'Impostazioni',
@@ -26659,6 +26729,16 @@ export const translations: Record<Locale, Translations> = {
       addNote: 'Notiz hinzufügen',
       notePlaceholder: 'Notiz schreiben...',
       moreNotes: 'weitere Notizen',
+      noNewVoicemails: 'Keine neuen Nachrichten',
+      unlistenedVoicemails: 'Ungehörte Nachrichten',
+      voicemailCallback: 'Zurückrufen',
+      voicemailMarkRead: 'Als gelesen markieren',
+      voicemailTranscript: 'Transkript',
+      voicemailMinimize: 'Minimieren',
+      voicemailMessage: 'Nachricht',
+      voicemailMessages: 'Nachrichten',
+      voicemailMessagesMany: 'Nachrichten',
+      noCampaigns: 'Keine Kampagnen',
     },
     settings: {
       title: 'Einstellungen',

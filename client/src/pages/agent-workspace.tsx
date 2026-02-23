@@ -137,7 +137,7 @@ import { StatusBadge } from "@/components/status-badge";
 import { CallRecordingPlayer } from "@/components/call-recording-player";
 import { CustomerForm, type CustomerFormData } from "@/components/customer-form";
 import { InboundCallPopup, InboundQueueStatus } from "@/components/agent/InboundCallPopup";
-import { VoicemailNotifications } from "@/components/agent/VoicemailNotifications";
+import { VoicemailNotifications, VoicemailEmptyBadge } from "@/components/agent/VoicemailNotifications";
 import type { Campaign, Customer, CampaignContact, CampaignDisposition, AgentBreakType } from "@shared/schema";
 import { DISPOSITION_NAME_TRANSLATIONS } from "@shared/schema";
 import ReactQuill from "react-quill";
@@ -540,6 +540,7 @@ function TaskListPanel({
   autoCountdown,
   onOpenTasksModal,
   agentStatus,
+  showVoicemailEmpty,
 }: {
   tasks: TaskItem[];
   activeTaskId: string | null;
@@ -562,6 +563,7 @@ function TaskListPanel({
   onOpenContactsModal: () => void;
   onOpenTasksModal: () => void;
   agentStatus: AgentStatus;
+  showVoicemailEmpty?: boolean;
 }) {
   const { t } = useI18n();
   const filteredCampaigns = useMemo(() => {
@@ -711,8 +713,9 @@ function TaskListPanel({
         </div>
       </div>
 
-      <div className="px-3 pb-2">
+      <div className="px-3 pb-2 space-y-2">
         <InboundQueueStatus userId={currentUserId} />
+        {showVoicemailEmpty && <VoicemailEmptyBadge />}
       </div>
 
       {selectedCampaignId && (
@@ -4195,6 +4198,18 @@ export default function AgentWorkspacePage() {
     refetchInterval: 30000,
   });
 
+  const { data: agentVoicemails = [] } = useQuery<any[]>({
+    queryKey: ["/api/voicemail-messages", "agent-unread-all"],
+    queryFn: async () => {
+      const params = new URLSearchParams({ status: "unread" });
+      const res = await fetch(`/api/voicemail-messages?${params}`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!hasAccess && agentSession.isSessionActive && sessionInboundQueueIds.length > 0,
+    refetchInterval: 15000,
+  });
+
   const { data: campaignDispositions = [] } = useQuery<CampaignDisposition[]>({
     queryKey: ["/api/campaigns", selectedCampaignId, "dispositions"],
     enabled: !!selectedCampaignId,
@@ -5634,6 +5649,7 @@ export default function AgentWorkspacePage() {
           onOpenContactsModal={() => { setModalFilter("all"); setModalSearch(""); setContactsModalOpen(true); }}
           onOpenTasksModal={() => setTasksModalOpen(true)}
           agentStatus={agentSession.status}
+          showVoicemailEmpty={agentSession.isSessionActive && sessionInboundQueueIds.length > 0 && agentVoicemails.length === 0}
         />
 
         <CommunicationCanvas

@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useI18n } from "@/i18n";
 import {
   Voicemail,
   Play,
@@ -39,10 +40,11 @@ function formatTime(dateStr: string): string {
   return d.toLocaleDateString([], { day: "2-digit", month: "2-digit" }) + " " + d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
-function VoicemailItem({ msg, onCallback, onMarkRead }: {
+function VoicemailItem({ msg, onCallback, onMarkRead, t }: {
   msg: any;
   onCallback: (phone: string) => void;
   onMarkRead: (id: string) => void;
+  t: any;
 }) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -118,13 +120,13 @@ function VoicemailItem({ msg, onCallback, onMarkRead }: {
             data-testid={`btn-callback-vm-${msg.id}`}
           >
             <Phone className="h-3.5 w-3.5 mr-1" />
-            Zavolať
+            {t.agentWorkspace.voicemailCallback}
           </Button>
           <Button
             size="icon"
             variant="ghost"
             onClick={() => onMarkRead(msg.id)}
-            title="Označiť ako prečítané"
+            title={t.agentWorkspace.voicemailMarkRead}
             data-testid={`btn-dismiss-vm-${msg.id}`}
           >
             <X className="h-3.5 w-3.5" />
@@ -138,7 +140,7 @@ function VoicemailItem({ msg, onCallback, onMarkRead }: {
             onClick={() => setExpanded(!expanded)}
           >
             {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-            Prepis
+            {t.agentWorkspace.voicemailTranscript}
           </button>
           {expanded && (
             <p className="text-xs text-muted-foreground mt-1 pl-2 border-l-2 border-amber-200 dark:border-amber-800">
@@ -173,7 +175,18 @@ function MinimizedVoicemailBadge({ count, onClick }: { count: number; onClick: (
   );
 }
 
+export function VoicemailEmptyBadge() {
+  const { t } = useI18n();
+  return (
+    <div className="flex items-center gap-2 bg-muted/50 border rounded-full px-3 py-1.5 text-muted-foreground text-xs" data-testid="voicemail-empty-indicator">
+      <Voicemail className="h-3.5 w-3.5" />
+      <span>{t.agentWorkspace.noNewVoicemails}</span>
+    </div>
+  );
+}
+
 export function VoicemailNotifications({ queueIds, onCallback }: VoicemailNotificationsProps) {
+  const { t } = useI18n();
   const [isMinimized, setIsMinimized] = useState(false);
   const prevCountRef = useRef(0);
 
@@ -217,19 +230,18 @@ export function VoicemailNotifications({ queueIds, onCallback }: VoicemailNotifi
   if (queueIds.length === 0) return null;
 
   if (messages.length === 0) {
-    return (
-      <div className="fixed top-3 left-1/2 -translate-x-1/4 z-[99]" data-testid="voicemail-empty-indicator">
-        <div className="flex items-center gap-2 bg-card border rounded-full px-3 py-1.5 shadow-md text-muted-foreground text-xs">
-          <Voicemail className="h-3.5 w-3.5" />
-          <span>Žiadne nové odkazy</span>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   if (isMinimized) {
     return <MinimizedVoicemailBadge count={messages.length} onClick={() => setIsMinimized(false)} />;
   }
+
+  const countLabel = messages.length === 1
+    ? t.agentWorkspace.voicemailMessage
+    : messages.length < 5
+      ? t.agentWorkspace.voicemailMessages
+      : t.agentWorkspace.voicemailMessagesMany;
 
   return (
     <div className="fixed top-4 left-4 z-[99] w-[400px] animate-in slide-in-from-top-4 duration-300" data-testid="voicemail-notif-overlay">
@@ -244,17 +256,17 @@ export function VoicemailNotifications({ queueIds, onCallback }: VoicemailNotifi
                   <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500" />
                 </span>
               </div>
-              Nepočúvané odkazy
+              {t.agentWorkspace.unlistenedVoicemails}
             </CardTitle>
             <div className="flex items-center gap-2">
               <Badge variant="secondary" className="text-xs">
-                {messages.length} {messages.length === 1 ? "odkaz" : messages.length < 5 ? "odkazy" : "odkazov"}
+                {messages.length} {countLabel}
               </Badge>
               <Button
                 size="icon"
                 variant="ghost"
                 onClick={() => setIsMinimized(true)}
-                title="Minimalizovať"
+                title={t.agentWorkspace.voicemailMinimize}
                 data-testid="btn-minimize-voicemail"
               >
                 <Minimize2 className="h-3.5 w-3.5" />
@@ -271,6 +283,7 @@ export function VoicemailNotifications({ queueIds, onCallback }: VoicemailNotifi
                   msg={msg}
                   onCallback={onCallback}
                   onMarkRead={handleMarkRead}
+                  t={t}
                 />
               ))}
             </div>
