@@ -4002,6 +4002,7 @@ export default function AgentWorkspacePage() {
   }>>([]);
   const inboundCallsRef = useRef(inboundCalls);
   inboundCallsRef.current = inboundCalls;
+  const sessionQueueIdsRef = useRef<string[]>([]);
   const cancelledCallIdsRef = useRef<Set<string>>(new Set());
   const acceptingCallRef = useRef(false);
   const dialingRef = useRef(false);
@@ -4317,6 +4318,7 @@ export default function AgentWorkspacePage() {
     if (fromSession && fromSession.length > 0) return fromSession;
     return selectedLoginQueueIds;
   }, [(agentSession.session as any)?.inboundQueueIds, selectedLoginQueueIds]);
+  sessionQueueIdsRef.current = sessionInboundQueueIds;
 
   const activeCampaigns = useMemo(() => {
     return campaigns
@@ -5044,6 +5046,15 @@ export default function AgentWorkspacePage() {
           const data = JSON.parse(event.data);
           console.log(`[AgentWS] Received message:`, data.type, data);
           if (data.type === "inbound-call") {
+            const allowedQueues = sessionQueueIdsRef.current;
+            if (allowedQueues.length === 0) {
+              console.log(`[AgentWS] Ignoring inbound call ${data.callId} - no inbound queues selected in session`);
+              return;
+            }
+            if (!allowedQueues.includes(data.queueId)) {
+              console.log(`[AgentWS] Ignoring inbound call ${data.callId} - queue ${data.queueId} not in selected queues [${allowedQueues.join(',')}]`);
+              return;
+            }
             console.log(`[AgentWS] === INBOUND CALL POPUP === from ${data.callerNumber}`);
             setInboundCalls(prev => {
               if (prev.some(c => c.callId === data.callId)) return prev;
