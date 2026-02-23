@@ -2293,7 +2293,26 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
       if (boxId) conditions.push(eq(voicemailMessages.boxId, boxId as string));
       if (queueIds) {
         const ids = (queueIds as string).split(",").filter(Boolean);
-        if (ids.length > 0) conditions.push(inArray(voicemailMessages.queueId, ids));
+        if (ids.length > 0) {
+          const queues = await db.select().from(inboundQueues).where(inArray(inboundQueues.id, ids));
+          const vmBoxIds = new Set<string>();
+          for (const q of queues) {
+            if ((q as any).noAgentsVoicemailBoxId) vmBoxIds.add((q as any).noAgentsVoicemailBoxId);
+            if ((q as any).overflowVoicemailBoxId) vmBoxIds.add((q as any).overflowVoicemailBoxId);
+            if ((q as any).afterHoursVoicemailBoxId) vmBoxIds.add((q as any).afterHoursVoicemailBoxId);
+          }
+          const boxIdArr = Array.from(vmBoxIds);
+          if (boxIdArr.length > 0) {
+            conditions.push(
+              or(
+                inArray(voicemailMessages.queueId, ids),
+                inArray(voicemailMessages.boxId, boxIdArr),
+              )!
+            );
+          } else {
+            conditions.push(inArray(voicemailMessages.queueId, ids));
+          }
+        }
       } else if (queueId) {
         conditions.push(eq(voicemailMessages.queueId, queueId as string));
       }

@@ -542,7 +542,7 @@ export class QueueEngine extends EventEmitter {
     });
   }
 
-  async sendToVoicemail(channelId: string, box: typeof voicemailBoxes.$inferSelect, callerNumber: string, callerName: string, customerId: string | null, didNumber?: string): Promise<void> {
+  async sendToVoicemail(channelId: string, box: typeof voicemailBoxes.$inferSelect, callerNumber: string, callerName: string, customerId: string | null, didNumber?: string, queueId?: string): Promise<void> {
     try {
       console.log(`[QueueEngine] === SENDING TO VOICEMAIL ===`);
       console.log(`[QueueEngine]   Box: "${box.name}" (id: ${box.id})`);
@@ -679,6 +679,7 @@ export class QueueEngine extends EventEmitter {
 
       const [vmMessage] = await db.insert(voicemailMessages).values({
         boxId: box.id,
+        queueId: queueId || null,
         callerNumber,
         callerName: callerName || null,
         customerId,
@@ -861,7 +862,7 @@ export class QueueEngine extends EventEmitter {
         if (vmBoxId) {
           const [vmBox] = await db.select().from(voicemailBoxes).where(eq(voicemailBoxes.id, vmBoxId)).limit(1);
           if (vmBox) {
-            await this.sendToVoicemail(channelId, vmBox, callerNumber, callerName, customerId, queue.didNumber || undefined);
+            await this.sendToVoicemail(channelId, vmBox, callerNumber, callerName, customerId, queue.didNumber || undefined, queue.id);
             return;
           }
         }
@@ -1727,7 +1728,7 @@ export class QueueEngine extends EventEmitter {
             const [vmBox] = await db.select().from(voicemailBoxes).where(eq(voicemailBoxes.id, vmBoxId)).limit(1);
             if (vmBox) {
               const customerId = await this.lookupCustomer(callerNumber);
-              await this.sendToVoicemail(channelId, vmBox, callerNumber, callerName, customerId, queue.didNumber || undefined);
+              await this.sendToVoicemail(channelId, vmBox, callerNumber, callerName, customerId, queue.didNumber || undefined, queue.id);
               break;
             }
           }
@@ -1905,7 +1906,7 @@ export class QueueEngine extends EventEmitter {
             const [vmBox] = await db.select().from(voicemailBoxes).where(eq(voicemailBoxes.id, vmBoxId)).limit(1);
             if (vmBox) {
               const customerId = await this.lookupCustomer(callerNumber);
-              await this.sendToVoicemail(channelId, vmBox, callerNumber, callerName, customerId, queue.didNumber || undefined);
+              await this.sendToVoicemail(channelId, vmBox, callerNumber, callerName, customerId, queue.didNumber || undefined, queue.id);
               break;
             }
           }
