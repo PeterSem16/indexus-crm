@@ -105,7 +105,7 @@ function CallCard({ call, onAccept, onReject, onDismiss, isFirst }: {
     ? matchedCustomer.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase()
     : call.callerNumber.slice(-2);
 
-  const canAccept = call.hasSipInvitation || call.channelId === "sip-webrtc";
+  const canAccept = call.hasSipInvitation === true;
 
   return (
     <div
@@ -181,7 +181,7 @@ function CallCard({ call, onAccept, onReject, onDismiss, isFirst }: {
       {!canAccept && (
         <div className="mt-2 text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
           <Clock className="h-3 w-3 animate-spin" />
-          Waiting for SIP connection...
+          {call.channelId === "sip-webrtc" ? "Čakám na opätovné zvonenie..." : "Čakám na SIP spojenie..."}
         </div>
       )}
     </div>
