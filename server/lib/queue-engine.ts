@@ -570,7 +570,7 @@ export class QueueEngine extends EventEmitter {
         try {
           const beepPbId = `vm-beep-${channelId}-${Date.now()}`;
           console.log(`[QueueEngine] Playing beep tone before recording`);
-          await this.ariClient.playMedia(channelId, "tone:1000/200", beepPbId);
+          await this.ariClient.playMedia(channelId, "sound:beep", beepPbId);
           await this.waitForPlaybackFinished(beepPbId, 3000);
         } catch (err) {
           console.warn(`[QueueEngine] Beep tone playback failed:`, err instanceof Error ? err.message : err);
