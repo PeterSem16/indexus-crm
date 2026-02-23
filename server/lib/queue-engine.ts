@@ -811,12 +811,113 @@ export class QueueEngine extends EventEmitter {
     }
   }
 
+  private hasAvailableAgents(queueId: string): boolean {
+    for (const agent of this.agentStates.values()) {
+      if (agent.queueIds.includes(queueId) && agent.status !== "offline") {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private async handleNoAgents(channelId: string, queue: InboundQueue, callerNumber: string, callerName: string): Promise<void> {
+    const action = (queue as any).noAgentsAction || "wait";
+    if (action === "wait") return;
+
+    try {
+      await this.ariClient.answerChannel(channelId);
+    } catch {}
+
+    const customerId = await this.lookupCustomer(callerNumber);
+
+    const messageId = (queue as any).noAgentsMessageId;
+    if (messageId) {
+      try {
+        const [msg] = await db.select().from(ivrMessages).where(eq(ivrMessages.id, messageId)).limit(1);
+        if (msg) {
+          const soundName = msg.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+          const pbId = `noagents-${channelId}-${Date.now()}`;
+          await this.ariClient.playMedia(channelId, `sound:custom/${soundName}`, pbId);
+          await this.waitForPlaybackFinished(pbId, 60000);
+        }
+      } catch (err) {
+        console.warn(`[QueueEngine] No-agents message playback failed:`, err instanceof Error ? err.message : err);
+      }
+    }
+
+    console.log(`[QueueEngine] No agents logged in for queue "${queue.name}", action: ${action}`);
+
+    switch (action) {
+      case "voicemail": {
+        const vmBoxId = (queue as any).noAgentsVoicemailBoxId;
+        if (vmBoxId) {
+          const [vmBox] = await db.select().from(voicemailBoxes).where(eq(voicemailBoxes.id, vmBoxId)).limit(1);
+          if (vmBox) {
+            await this.sendToVoicemail(channelId, vmBox, callerNumber, callerName, customerId, queue.didNumber || undefined);
+            return;
+          }
+        }
+        await this.ariClient.hangupChannel(channelId, "normal");
+        break;
+      }
+      case "hangup":
+        await this.ariClient.hangupChannel(channelId, "normal");
+        break;
+      case "transfer":
+        if ((queue as any).noAgentsTarget) {
+          const target = (queue as any).noAgentsTarget;
+          const dialEndpoint = target.includes("/") ? target : `PJSIP/${target}`;
+          const ok = await this.transferCallToEndpoint(channelId, dialEndpoint, queue);
+          if (!ok) await this.ariClient.hangupChannel(channelId, "normal");
+        } else {
+          await this.ariClient.hangupChannel(channelId, "normal");
+        }
+        break;
+      case "queue": {
+        const targetQueueId = (queue as any).noAgentsTarget;
+        if (targetQueueId) {
+          const [targetQueue] = await db.select().from(inboundQueues).where(eq(inboundQueues.id, targetQueueId)).limit(1);
+          const targetName = targetQueue?.name || queue.name;
+          await this.addCallToQueue(channelId, targetQueueId, targetName, callerNumber, callerName, customerId);
+          await this.startMohForChannel(channelId, targetQueueId);
+        } else {
+          await this.ariClient.hangupChannel(channelId, "normal");
+        }
+        break;
+      }
+      case "user_pjsip":
+        if ((queue as any).noAgentsUserId) {
+          const [targetUser] = await db.select({ sipExtension: users.sipExtension, sipEnabled: users.sipEnabled })
+            .from(users).where(eq(users.id, (queue as any).noAgentsUserId)).limit(1);
+          if (targetUser?.sipEnabled && targetUser.sipExtension) {
+            const ok = await this.transferCallToEndpoint(channelId, `PJSIP/${targetUser.sipExtension}`, queue);
+            if (!ok) await this.ariClient.hangupChannel(channelId, "normal");
+          } else {
+            await this.ariClient.hangupChannel(channelId, "normal");
+          }
+        } else {
+          await this.ariClient.hangupChannel(channelId, "normal");
+        }
+        break;
+      default:
+        await this.ariClient.hangupChannel(channelId, "normal");
+    }
+  }
+
   private async routeCallToQueue(channel: AriChannel, queue: InboundQueue, callerNumber: string, callerName: string): Promise<void> {
     if (!this.isWithinBusinessHours(queue)) {
       console.log(`[QueueEngine] Queue "${queue.name}" is outside business hours`);
       await this.handleAfterHours(channel.id, queue);
       return;
     }
+
+    const noAgentsAction = (queue as any).noAgentsAction || "wait";
+    if (noAgentsAction !== "wait" && !this.hasAvailableAgents(queue.id)) {
+      console.log(`[QueueEngine] No agents logged in for queue "${queue.name}"`);
+      await this.handleNoAgents(channel.id, queue, callerNumber, callerName);
+      return;
+    }
+
     if (this.getQueueSize(queue.id) >= queue.maxQueueSize) {
       console.log(`[QueueEngine] Queue "${queue.name}" is full, handling overflow`);
       await this.handleOverflow(channel.id, queue);
@@ -1757,8 +1858,10 @@ export class QueueEngine extends EventEmitter {
 
       const waitTime = (now - call.enteredAt.getTime()) / 1000;
       if (waitTime > queue.maxWaitTime) {
-        console.log(`[QueueEngine] Call ${call.id} timed out after ${Math.floor(waitTime)}s`);
+        console.log(`[QueueEngine] Call ${call.id} timed out after ${Math.floor(waitTime)}s (maxWaitTime: ${queue.maxWaitTime}s)`);
         this.waitingCalls.delete(channelId);
+
+        await this.stopMohForChannel(channelId);
 
         await db.update(inboundCallLogs)
           .set({

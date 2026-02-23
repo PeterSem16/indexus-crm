@@ -27,6 +27,7 @@ Preferred communication style: Simple, everyday language.
 - **Database**: PostgreSQL
 - **Schema**: Defined using Drizzle ORM, shared between frontend and backend.
 - **Key Tables**: `users`, `customers`, `products`, `invoices`, `collections`, `collaborators`, `visit_events`, `voice_notes`, `notifications`, `call_logs`, `call_recordings`, `campaigns`, `campaign_contacts`, `campaign_templates`, `sip_settings`, `faq_entries`, `executive_summaries`, `scheduled_reports`, `inbound_queues`, `queue_members`, `ivr_messages`, `ivr_menus`, `ivr_menu_options`, `inbound_call_logs`, `agent_queue_status`, `ari_settings`, `did_routes`, `voicemail_boxes`, `voicemail_messages`.
+- **Inbound Queue Fields**: Includes `noAgentsAction/Target/MessageId/VoicemailBoxId/UserId` for "no agents logged in" routing, `emailEnabled/emailAccountId` and `smsEnabled/smsPhoneNumber` for channel toggles.
 
 ### Modules and Features
 - **Collections (Odbery)**: Manages cord blood collections, including client/child info, collection staff, status tracking, and lab results.

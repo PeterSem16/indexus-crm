@@ -49,8 +49,11 @@ import {
   Square,
   AlertTriangle,
   User,
+  UserX,
   Settings2,
   Megaphone,
+  Mail,
+  MessageSquare,
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -86,6 +89,15 @@ interface InboundQueue {
   afterHoursTarget: string | null;
   afterHoursMessageId: string | null;
   afterHoursVoicemailBoxId: string | null;
+  noAgentsAction: string;
+  noAgentsTarget: string | null;
+  noAgentsMessageId: string | null;
+  noAgentsVoicemailBoxId: string | null;
+  noAgentsUserId: string | null;
+  emailEnabled: boolean;
+  emailAccountId: string | null;
+  smsEnabled: boolean;
+  smsPhoneNumber: string | null;
   recordCalls: boolean;
   isActive: boolean;
   stats?: { waiting: number; active: number; agents: number };
@@ -125,6 +137,15 @@ const AFTER_HOURS_ACTIONS = [
   { value: "hangup", label: "Hang up" },
   { value: "transfer", label: "Transfer to number" },
   { value: "queue", label: "Route to another Queue" },
+  { value: "user_pjsip", label: "Transfer to User (PJSIP Phone)" },
+];
+
+const NO_AGENTS_ACTIONS = [
+  { value: "wait", label: "Wait in Queue" },
+  { value: "voicemail", label: "Voicemail" },
+  { value: "hangup", label: "Hang up" },
+  { value: "transfer", label: "Transfer to Number" },
+  { value: "queue", label: "Route to Queue" },
   { value: "user_pjsip", label: "Transfer to User (PJSIP Phone)" },
 ];
 
@@ -182,6 +203,15 @@ interface FormData {
   afterHoursTarget: string;
   afterHoursMessageId: string | null;
   afterHoursVoicemailBoxId: string | null;
+  noAgentsAction: string;
+  noAgentsTarget: string;
+  noAgentsMessageId: string | null;
+  noAgentsVoicemailBoxId: string | null;
+  noAgentsUserId: string | null;
+  emailEnabled: boolean;
+  emailAccountId: string | null;
+  smsEnabled: boolean;
+  smsPhoneNumber: string | null;
   recordCalls: boolean;
   isActive: boolean;
 }
@@ -197,6 +227,8 @@ const defaultFormData: FormData = {
   activeFrom: "", activeTo: "", activeDays: ["1", "2", "3", "4", "5"],
   timezone: "Europe/Bratislava", afterHoursAction: "voicemail",
   afterHoursTarget: "", afterHoursMessageId: null, afterHoursVoicemailBoxId: null,
+  noAgentsAction: "wait", noAgentsTarget: "", noAgentsMessageId: null, noAgentsVoicemailBoxId: null, noAgentsUserId: null,
+  emailEnabled: false, emailAccountId: null, smsEnabled: false, smsPhoneNumber: null,
   recordCalls: false, isActive: true,
 };
 
@@ -338,6 +370,15 @@ export function InboundQueuesTab() {
       afterHoursTarget: queue.afterHoursTarget || "",
       afterHoursMessageId: queue.afterHoursMessageId || null,
       afterHoursVoicemailBoxId: (queue as any).afterHoursVoicemailBoxId || null,
+      noAgentsAction: (queue as any).noAgentsAction || "wait",
+      noAgentsTarget: (queue as any).noAgentsTarget || "",
+      noAgentsMessageId: (queue as any).noAgentsMessageId || null,
+      noAgentsVoicemailBoxId: (queue as any).noAgentsVoicemailBoxId || null,
+      noAgentsUserId: (queue as any).noAgentsUserId || null,
+      emailEnabled: (queue as any).emailEnabled ?? false,
+      emailAccountId: (queue as any).emailAccountId || null,
+      smsEnabled: (queue as any).smsEnabled ?? false,
+      smsPhoneNumber: (queue as any).smsPhoneNumber || null,
       recordCalls: queue.recordCalls ?? false,
       isActive: queue.isActive,
     });
@@ -614,6 +655,39 @@ export function InboundQueuesTab() {
                     </p>
                   </div>
                 )}
+              </div>
+
+              <div className="border-t pt-4">
+                <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                  <Mail className="h-4 w-4" />
+                  Channels
+                </h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Switch checked={formData.emailEnabled} onCheckedChange={v => setFormData(f => ({ ...f, emailEnabled: v }))} data-testid="switch-email-enabled" />
+                      <Label>Accept Email</Label>
+                    </div>
+                    {formData.emailEnabled && (
+                      <div>
+                        <Label>Email Account</Label>
+                        <Input value={formData.emailAccountId || ""} onChange={e => setFormData(f => ({ ...f, emailAccountId: e.target.value || null }))} placeholder="Email account ID" data-testid="input-email-account" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Switch checked={formData.smsEnabled} onCheckedChange={v => setFormData(f => ({ ...f, smsEnabled: v }))} data-testid="switch-sms-enabled" />
+                      <Label>Accept SMS</Label>
+                    </div>
+                    {formData.smsEnabled && (
+                      <div>
+                        <Label>SMS Phone Number</Label>
+                        <Input value={formData.smsPhoneNumber || ""} onChange={e => setFormData(f => ({ ...f, smsPhoneNumber: e.target.value || null }))} placeholder="Phone number for SMS" data-testid="input-sms-phone" />
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             </TabsContent>
 
@@ -893,6 +967,87 @@ export function InboundQueuesTab() {
                   </div>
                 </div>
               )}
+
+              <div className="border-t pt-4">
+                <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                  <UserX className="h-4 w-4" />
+                  No Agents Rule
+                </h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>No Agents Action</Label>
+                    <Select value={formData.noAgentsAction} onValueChange={v => setFormData(f => ({ ...f, noAgentsAction: v }))}>
+                      <SelectTrigger data-testid="select-no-agents-action"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {NO_AGENTS_ACTIONS.map(a => <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground mt-1">What happens when no agents are available in the queue</p>
+                  </div>
+                  {(formData.noAgentsAction === "transfer" || formData.noAgentsAction === "queue") && (
+                    <div>
+                      <Label>{formData.noAgentsAction === "queue" ? "Target Queue" : "Transfer Target"}</Label>
+                      {formData.noAgentsAction === "queue" ? (
+                        <Select value={formData.noAgentsTarget || "__none__"} onValueChange={v => setFormData(f => ({ ...f, noAgentsTarget: v === "__none__" ? "" : v }))}>
+                          <SelectTrigger data-testid="select-no-agents-queue"><SelectValue placeholder="Select queue" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none__">None</SelectItem>
+                            {queues.filter(q => !editingQueue || q.id !== editingQueue.id).map(q => (
+                              <SelectItem key={q.id} value={q.id}>{q.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <Input value={formData.noAgentsTarget} onChange={e => setFormData(f => ({ ...f, noAgentsTarget: e.target.value }))} placeholder="Phone number or extension" data-testid="input-no-agents-target" />
+                      )}
+                    </div>
+                  )}
+                  {formData.noAgentsAction === "user_pjsip" && (
+                    <div>
+                      <Label>Transfer to User (PJSIP Phone)</Label>
+                      <Select value={formData.noAgentsUserId || "__none__"} onValueChange={v => setFormData(f => ({ ...f, noAgentsUserId: v === "__none__" ? null : v }))}>
+                        <SelectTrigger data-testid="select-no-agents-user"><SelectValue placeholder="Select user..." /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__">None</SelectItem>
+                          {pjsipUsers.map((u: any) => (
+                            <SelectItem key={u.id} value={u.id}>
+                              <span className="flex items-center gap-2">
+                                <User className="h-3 w-3" />
+                                {u.fullName || u.username}
+                                <span className="text-muted-foreground">({u.sipExtension})</span>
+                              </span>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                  {formData.noAgentsAction === "voicemail" && (
+                    <div>
+                      <Label>Voicemail Box</Label>
+                      <Select value={formData.noAgentsVoicemailBoxId || "__none__"} onValueChange={v => setFormData(f => ({ ...f, noAgentsVoicemailBoxId: v === "__none__" ? null : v }))}>
+                        <SelectTrigger data-testid="select-no-agents-voicemail-box"><SelectValue placeholder="Select mailbox..." /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__">None (default)</SelectItem>
+                          {voicemailBoxes.filter((b: any) => b.isActive).map((b: any) => (
+                            <SelectItem key={b.id} value={b.id}>{b.name}{b.extension ? ` (${b.extension})` : ""}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground mt-1">Select which voicemail box to route callers to</p>
+                    </div>
+                  )}
+                  <div>
+                    <AudioSelector
+                      label="No Agents Message"
+                      value={formData.noAgentsMessageId}
+                      onChange={v => setFormData(f => ({ ...f, noAgentsMessageId: v }))}
+                      messages={ivrMessages.filter((m: any) => m.isActive)}
+                      description="Audio played before executing no-agents action"
+                    />
+                  </div>
+                </div>
+              </div>
             </TabsContent>
           </Tabs>
 
