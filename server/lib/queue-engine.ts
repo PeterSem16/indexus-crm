@@ -1311,6 +1311,44 @@ export class QueueEngine extends EventEmitter {
     if (!agentUser || !agentUser.sipEnabled || !agentUser.sipExtension) {
       console.log(`[QueueEngine] Agent ${agent.userId} has no SIP extension configured (sipEnabled=${agentUser?.sipEnabled}, ext=${agentUser?.sipExtension})`);
       console.log(`[QueueEngine] Call ${call.id} waiting for agent to answer via WebRTC/workspace`);
+
+      const remainingWait = Math.max(0, queue.maxWaitTime - waitDuration);
+      if (remainingWait > 0 && queue.maxWaitTime > 0) {
+        const webrtcTimeoutKey = `webrtc-timeout-${call.channelId}`;
+        console.log(`[QueueEngine] Setting maxWaitTime timeout for WebRTC call ${call.id}: ${remainingWait}s remaining`);
+        const webrtcTimer = setTimeout(async () => {
+          this.wrapUpTimers.delete(webrtcTimeoutKey);
+          const callLog = await db.select().from(inboundCallLogs).where(eq(inboundCallLogs.id, call.id)).limit(1);
+          if (callLog[0] && callLog[0].status === "ringing") {
+            console.log(`[QueueEngine] WebRTC call ${call.id} exceeded maxWaitTime (${queue.maxWaitTime}s), routing to overflow`);
+            this.updateAgentStatus(agent.userId, "available", null);
+            const totalWait = Math.floor((Date.now() - call.enteredAt.getTime()) / 1000);
+            await db.update(inboundCallLogs)
+              .set({
+                status: "timeout",
+                completedAt: new Date(),
+                abandonReason: "timeout",
+                waitDurationSeconds: totalWait,
+                assignedAgentId: null,
+              })
+              .where(eq(inboundCallLogs.id, call.id));
+            await this.stopMohForChannel(call.channelId);
+            await this.handleOverflow(call.channelId, queue, call.callerNumber, call.callerName || "");
+            this.emit("call-timeout", {
+              callId: call.id,
+              queueId: queue.id,
+              callerNumber: call.callerNumber,
+            });
+            this.emit("call-cancelled", {
+              callId: call.id,
+              callerNumber: call.callerNumber,
+              queueId: queue.id,
+              reason: "timeout",
+            });
+          }
+        }, remainingWait * 1000);
+        this.wrapUpTimers.set(webrtcTimeoutKey, webrtcTimer);
+      }
       return;
     }
 
@@ -1432,6 +1470,16 @@ export class QueueEngine extends EventEmitter {
 
     const callerChannelId = callLog[0].ariChannelId;
 
+    if (callerChannelId) {
+      const webrtcTimeoutKey = `webrtc-timeout-${callerChannelId}`;
+      const existingTimer = this.wrapUpTimers.get(webrtcTimeoutKey);
+      if (existingTimer) {
+        clearTimeout(existingTimer);
+        this.wrapUpTimers.delete(webrtcTimeoutKey);
+        console.log(`[QueueEngine] Cleared maxWaitTime timeout for answered call ${callId}`);
+      }
+    }
+
     if (callerChannelId && agentChannelId) {
       try {
         const bridge = await this.ariClient.createBridge("mixing");
@@ -1516,6 +1564,14 @@ export class QueueEngine extends EventEmitter {
   private handleChannelDestroyed(channelId: string): void {
     this.mohPlaybacks.delete(channelId);
     this.pendingWelcomeCallData.delete(channelId);
+
+    const webrtcTimeoutKey = `webrtc-timeout-${channelId}`;
+    const webrtcTimer = this.wrapUpTimers.get(webrtcTimeoutKey);
+    if (webrtcTimer) {
+      clearTimeout(webrtcTimer);
+      this.wrapUpTimers.delete(webrtcTimeoutKey);
+      console.log(`[QueueEngine] Cleared WebRTC maxWaitTime timeout for destroyed channel ${channelId}`);
+    }
     for (const [pbId, info] of this.pendingWelcome.entries()) {
       if (info.channelId === channelId) {
         this.pendingWelcome.delete(pbId);
