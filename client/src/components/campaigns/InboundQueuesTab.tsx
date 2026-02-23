@@ -75,6 +75,7 @@ interface InboundQueue {
   overflowTarget: string | null;
   overflowUserId: string | null;
   overflowVoicemailBoxId: string | null;
+  overflowMessageId: string | null;
   announcePosition: boolean;
   announceWaitTime: boolean;
   announceFrequency: number;
@@ -130,6 +131,7 @@ const OVERFLOW_ACTIONS = [
   { value: "transfer", label: "Transfer to Number" },
   { value: "queue", label: "Route to Queue" },
   { value: "user_pjsip", label: "Transfer to User (PJSIP Phone)" },
+  { value: "announcement", label: "Play Announcement & Hang up" },
 ];
 
 const AFTER_HOURS_ACTIONS = [
@@ -138,6 +140,7 @@ const AFTER_HOURS_ACTIONS = [
   { value: "transfer", label: "Transfer to number" },
   { value: "queue", label: "Route to another Queue" },
   { value: "user_pjsip", label: "Transfer to User (PJSIP Phone)" },
+  { value: "announcement", label: "Play Announcement & Hang up" },
 ];
 
 const NO_AGENTS_ACTIONS = [
@@ -147,6 +150,7 @@ const NO_AGENTS_ACTIONS = [
   { value: "transfer", label: "Transfer to Number" },
   { value: "queue", label: "Route to Queue" },
   { value: "user_pjsip", label: "Transfer to User (PJSIP Phone)" },
+  { value: "announcement", label: "Play Announcement & Hang up" },
 ];
 
 const DAYS_OF_WEEK = [
@@ -189,6 +193,7 @@ interface FormData {
   overflowTarget: string;
   overflowUserId: string | null;
   overflowVoicemailBoxId: string | null;
+  overflowMessageId: string | null;
   announcePosition: boolean;
   announceWaitTime: boolean;
   announceFrequency: number;
@@ -220,7 +225,7 @@ const defaultFormData: FormData = {
   name: "", description: "", countryCode: "SK",
   strategy: "round-robin", maxWaitTime: 300, wrapUpTime: 30,
   maxQueueSize: 50, priority: 1, welcomeMessageId: null, holdMusicId: null,
-  overflowAction: "voicemail", overflowTarget: "", overflowUserId: null, overflowVoicemailBoxId: null,
+  overflowAction: "voicemail", overflowTarget: "", overflowUserId: null, overflowVoicemailBoxId: null, overflowMessageId: null,
   announcePosition: true, announceWaitTime: true,
   announceFrequency: 30, announcePositionMessageId: null, announceWaitTimeMessageId: null,
   serviceLevelTarget: 20,
@@ -356,6 +361,7 @@ export function InboundQueuesTab() {
       overflowTarget: queue.overflowTarget || "",
       overflowUserId: queue.overflowUserId || null,
       overflowVoicemailBoxId: (queue as any).overflowVoicemailBoxId || null,
+      overflowMessageId: (queue as any).overflowMessageId || null,
       announcePosition: queue.announcePosition,
       announceWaitTime: queue.announceWaitTime,
       announceFrequency: queue.announceFrequency,
@@ -824,6 +830,21 @@ export function InboundQueuesTab() {
                       </SelectContent>
                     </Select>
                     <p className="text-xs text-muted-foreground mt-1">Select which voicemail box to route callers to</p>
+                  </div>
+                )}
+                {formData.overflowAction === "announcement" && (
+                  <div>
+                    <Label>Announcement Audio</Label>
+                    <Select value={formData.overflowMessageId || "__none__"} onValueChange={v => setFormData(f => ({ ...f, overflowMessageId: v === "__none__" ? null : v }))}>
+                      <SelectTrigger data-testid="select-overflow-announcement"><SelectValue placeholder="Select audio..." /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">None</SelectItem>
+                        {ivrMessages.filter((m: any) => m.type === "announcement" || m.type === "ivr_prompt").map((m: any) => (
+                          <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground mt-1">Audio message to play before hanging up</p>
                   </div>
                 )}
               </div>

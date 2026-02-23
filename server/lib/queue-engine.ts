@@ -339,13 +339,13 @@ export class QueueEngine extends EventEmitter {
 
     if (!this.isWithinBusinessHours(queue)) {
       console.log(`[QueueEngine] Queue "${queue.name}" is outside business hours (${queue.activeFrom}-${queue.activeTo}, tz: ${queue.timezone})`);
-      await this.handleAfterHours(channel.id, queue);
+      await this.handleAfterHours(channel.id, queue, callerNumber, callerName);
       return;
     }
 
     if (this.getQueueSize(queue.id) >= queue.maxQueueSize) {
       console.log(`[QueueEngine] Queue ${queue.name} is full, handling overflow`);
-      await this.handleOverflow(channel.id, queue);
+      await this.handleOverflow(channel.id, queue, callerNumber, callerName);
       return;
     }
 
@@ -899,6 +899,24 @@ export class QueueEngine extends EventEmitter {
           await this.ariClient.hangupChannel(channelId, "normal");
         }
         break;
+      case "announcement": {
+        const annMsgId = (queue as any).noAgentsMessageId;
+        if (annMsgId) {
+          try {
+            const [msg] = await db.select().from(ivrMessages).where(eq(ivrMessages.id, annMsgId)).limit(1);
+            if (msg) {
+              const soundName = msg.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+              const pbId = `noagents-ann-${channelId}-${Date.now()}`;
+              await this.ariClient.playMedia(channelId, `sound:custom/${soundName}`, pbId);
+              await this.waitForPlaybackFinished(pbId, 60000);
+            }
+          } catch (err) {
+            console.warn(`[QueueEngine] No-agents announcement playback failed:`, err instanceof Error ? err.message : err);
+          }
+        }
+        await this.ariClient.hangupChannel(channelId, "normal");
+        break;
+      }
       default:
         await this.ariClient.hangupChannel(channelId, "normal");
     }
@@ -907,7 +925,7 @@ export class QueueEngine extends EventEmitter {
   private async routeCallToQueue(channel: AriChannel, queue: InboundQueue, callerNumber: string, callerName: string): Promise<void> {
     if (!this.isWithinBusinessHours(queue)) {
       console.log(`[QueueEngine] Queue "${queue.name}" is outside business hours`);
-      await this.handleAfterHours(channel.id, queue);
+      await this.handleAfterHours(channel.id, queue, callerNumber, callerName);
       return;
     }
 
@@ -920,7 +938,7 @@ export class QueueEngine extends EventEmitter {
 
     if (this.getQueueSize(queue.id) >= queue.maxQueueSize) {
       console.log(`[QueueEngine] Queue "${queue.name}" is full, handling overflow`);
-      await this.handleOverflow(channel.id, queue);
+      await this.handleOverflow(channel.id, queue, callerNumber, callerName);
       return;
     }
     try {
@@ -1593,7 +1611,7 @@ export class QueueEngine extends EventEmitter {
     return withinHours;
   }
 
-  private async handleAfterHours(channelId: string, queue: InboundQueue): Promise<void> {
+  private async handleAfterHours(channelId: string, queue: InboundQueue, callerNumber: string = "unknown", callerName: string = ""): Promise<void> {
     try {
       await this.ariClient.answerChannel(channelId);
 
@@ -1664,15 +1682,32 @@ export class QueueEngine extends EventEmitter {
           }
           await this.ariClient.hangupChannel(channelId, "normal");
           break;
+        case "announcement": {
+          const annMsgId = (queue as any).afterHoursMessageId;
+          if (annMsgId) {
+            try {
+              const [msg] = await db.select().from(ivrMessages).where(eq(ivrMessages.id, annMsgId)).limit(1);
+              if (msg) {
+                const soundName = msg.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+                const pbId = `afterhours-ann-${channelId}-${Date.now()}`;
+                await this.ariClient.playMedia(channelId, `sound:custom/${soundName}`, pbId);
+                await this.waitForPlaybackFinished(pbId, 60000);
+              }
+            } catch (err) {
+              console.warn(`[QueueEngine] After-hours announcement playback failed:`, err instanceof Error ? err.message : err);
+            }
+          }
+          await this.ariClient.hangupChannel(channelId, "normal");
+          break;
+        }
         case "voicemail":
         default: {
           const vmBoxId = (queue as any).afterHoursVoicemailBoxId;
           if (vmBoxId) {
             const [vmBox] = await db.select().from(voicemailBoxes).where(eq(voicemailBoxes.id, vmBoxId)).limit(1);
             if (vmBox) {
-              const callerNum = this.getCallerFromChannel(channelId);
-              const customerId = callerNum ? await this.lookupCustomer(callerNum) : null;
-              await this.sendToVoicemail(channelId, vmBox, callerNum || "unknown", "", customerId, queue.didNumber || undefined);
+              const customerId = await this.lookupCustomer(callerNumber);
+              await this.sendToVoicemail(channelId, vmBox, callerNumber, callerName, customerId, queue.didNumber || undefined);
               break;
             }
           }
@@ -1768,9 +1803,9 @@ export class QueueEngine extends EventEmitter {
     }
   }
 
-  private async handleOverflow(channelId: string, queue: InboundQueue): Promise<void> {
+  private async handleOverflow(channelId: string, queue: InboundQueue, callerNumber: string = "unknown", callerName: string = ""): Promise<void> {
     try {
-      console.log(`[QueueEngine] Handling overflow for channel ${channelId}: action=${queue.overflowAction}`);
+      console.log(`[QueueEngine] Handling overflow for channel ${channelId}: action=${queue.overflowAction}, caller=${callerNumber}`);
       switch (queue.overflowAction) {
         case "hangup":
           await this.ariClient.hangupChannel(channelId, "normal");
@@ -1815,19 +1850,42 @@ export class QueueEngine extends EventEmitter {
               call.queueId = queue.overflowTarget;
               this.waitingCalls.set(channelId, call);
               await this.startMohForChannel(channelId, queue.overflowTarget);
+            } else {
+              const customerId = await this.lookupCustomer(callerNumber);
+              const [targetQueue] = await db.select().from(inboundQueues).where(eq(inboundQueues.id, queue.overflowTarget)).limit(1);
+              const targetName = targetQueue?.name || queue.name;
+              await this.addCallToQueue(channelId, queue.overflowTarget, targetName, callerNumber, callerName, customerId);
+              await this.startMohForChannel(channelId, queue.overflowTarget);
             }
           } else {
             await this.ariClient.hangupChannel(channelId, "normal");
           }
           break;
+        case "announcement": {
+          const annMsgId = (queue as any).overflowMessageId;
+          if (annMsgId) {
+            try {
+              const [msg] = await db.select().from(ivrMessages).where(eq(ivrMessages.id, annMsgId)).limit(1);
+              if (msg) {
+                const soundName = msg.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+                const pbId = `overflow-ann-${channelId}-${Date.now()}`;
+                await this.ariClient.playMedia(channelId, `sound:custom/${soundName}`, pbId);
+                await this.waitForPlaybackFinished(pbId, 60000);
+              }
+            } catch (err) {
+              console.warn(`[QueueEngine] Overflow announcement playback failed:`, err instanceof Error ? err.message : err);
+            }
+          }
+          await this.ariClient.hangupChannel(channelId, "normal");
+          break;
+        }
         case "voicemail": {
           const vmBoxId = (queue as any).overflowVoicemailBoxId;
           if (vmBoxId) {
             const [vmBox] = await db.select().from(voicemailBoxes).where(eq(voicemailBoxes.id, vmBoxId)).limit(1);
             if (vmBox) {
-              const callerNum = this.getCallerFromChannel(channelId);
-              const customerId = callerNum ? await this.lookupCustomer(callerNum) : null;
-              await this.sendToVoicemail(channelId, vmBox, callerNum || "unknown", "", customerId, queue.didNumber || undefined);
+              const customerId = await this.lookupCustomer(callerNumber);
+              await this.sendToVoicemail(channelId, vmBox, callerNumber, callerName, customerId, queue.didNumber || undefined);
               break;
             }
           }
@@ -1858,7 +1916,9 @@ export class QueueEngine extends EventEmitter {
 
       const waitTime = (now - call.enteredAt.getTime()) / 1000;
       if (waitTime > queue.maxWaitTime) {
-        console.log(`[QueueEngine] Call ${call.id} timed out after ${Math.floor(waitTime)}s (maxWaitTime: ${queue.maxWaitTime}s)`);
+        const savedCallerNumber = call.callerNumber;
+        const savedCallerName = call.callerName || "";
+        console.log(`[QueueEngine] Call ${call.id} timed out after ${Math.floor(waitTime)}s (maxWaitTime: ${queue.maxWaitTime}s), caller: ${savedCallerNumber}`);
         this.waitingCalls.delete(channelId);
 
         await this.stopMohForChannel(channelId);
@@ -1872,12 +1932,12 @@ export class QueueEngine extends EventEmitter {
           })
           .where(eq(inboundCallLogs.id, call.id));
 
-        await this.handleOverflow(channelId, queue);
+        await this.handleOverflow(channelId, queue, savedCallerNumber, savedCallerName);
 
         this.emit("call-timeout", {
           callId: call.id,
           queueId: queue.id,
-          callerNumber: call.callerNumber,
+          callerNumber: savedCallerNumber,
         });
       }
     }

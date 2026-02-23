@@ -436,6 +436,7 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
       if (data.noAgentsMessageId === "") data.noAgentsMessageId = null;
       if (data.noAgentsVoicemailBoxId === "") data.noAgentsVoicemailBoxId = null;
       if (data.noAgentsUserId === "") data.noAgentsUserId = null;
+      if (data.overflowMessageId === "") data.overflowMessageId = null;
       if (data.emailAccountId === "") data.emailAccountId = null;
       if (data.smsPhoneNumber === "") data.smsPhoneNumber = null;
       const created = await db.insert(inboundQueues).values(data).returning();
@@ -470,6 +471,7 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
       if (data.noAgentsMessageId === "") data.noAgentsMessageId = null;
       if (data.noAgentsVoicemailBoxId === "") data.noAgentsVoicemailBoxId = null;
       if (data.noAgentsUserId === "") data.noAgentsUserId = null;
+      if (data.overflowMessageId === "") data.overflowMessageId = null;
       if (data.emailAccountId === "") data.emailAccountId = null;
       if (data.smsPhoneNumber === "") data.smsPhoneNumber = null;
       const updated = await db.update(inboundQueues)

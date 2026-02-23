@@ -5393,6 +5393,7 @@ export const inboundQueues = pgTable("inbound_queues", {
   overflowTarget: text("overflow_target"), // target number/queue for overflow
   overflowUserId: varchar("overflow_user_id"), // user ID for user_pjsip overflow action
   overflowVoicemailBoxId: varchar("overflow_voicemail_box_id"), // voicemail box for overflow
+  overflowMessageId: varchar("overflow_message_id"), // IVR message for overflow announcement
   announcePosition: boolean("announce_position").notNull().default(true),
   announceWaitTime: boolean("announce_wait_time").notNull().default(true),
   announceFrequency: integer("announce_frequency").notNull().default(30), // seconds between announcements
