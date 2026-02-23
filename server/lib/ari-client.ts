@@ -48,8 +48,20 @@ export class AriClient extends EventEmitter {
   private config: AriConfig;
   private ws: WebSocket | null = null;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private pingInterval: ReturnType<typeof setInterval> | null = null;
+  private healthCheckInterval: ReturnType<typeof setInterval> | null = null;
+  private pongTimeout: ReturnType<typeof setTimeout> | null = null;
   private isConnecting = false;
   private _isConnected = false;
+  private lastPongTime = 0;
+  private reconnectAttempts = 0;
+  private intentionalDisconnect = false;
+
+  private static readonly PING_INTERVAL_MS = 30000;
+  private static readonly PONG_TIMEOUT_MS = 10000;
+  private static readonly HEALTH_CHECK_INTERVAL_MS = 60000;
+  private static readonly BASE_RECONNECT_DELAY_MS = 5000;
+  private static readonly MAX_RECONNECT_DELAY_MS = 60000;
 
   constructor(config: AriConfig) {
     super();
@@ -75,6 +87,8 @@ export class AriClient extends EventEmitter {
   async connect(): Promise<void> {
     if (this.isConnecting || this._isConnected) return;
     this.isConnecting = true;
+    this.intentionalDisconnect = false;
+    this.isDisconnecting = false;
 
     try {
       await this.testConnection();
@@ -85,10 +99,15 @@ export class AriClient extends EventEmitter {
         console.log("[ARI] WebSocket connected to Asterisk");
         this._isConnected = true;
         this.isConnecting = false;
+        this.reconnectAttempts = 0;
+        this.lastPongTime = Date.now();
+        this.startPingInterval();
+        this.startHealthCheck();
         this.emit("connected");
       });
 
       this.ws.on("message", (data: WebSocket.Data) => {
+        this.lastPongTime = Date.now();
         try {
           const event: AriEvent = JSON.parse(data.toString());
           this.handleEvent(event);
@@ -97,17 +116,26 @@ export class AriClient extends EventEmitter {
         }
       });
 
+      this.ws.on("pong", () => {
+        this.lastPongTime = Date.now();
+        if (this.pongTimeout) {
+          clearTimeout(this.pongTimeout);
+          this.pongTimeout = null;
+        }
+      });
+
       this.ws.on("close", () => {
         console.log("[ARI] WebSocket disconnected");
-        this._isConnected = false;
-        this.emit("disconnected");
-        this.scheduleReconnect();
+        this.handleDisconnect();
       });
 
       this.ws.on("error", (err) => {
         console.error("[ARI] WebSocket error:", err.message);
-        this._isConnected = false;
-        this.isConnecting = false;
+        if (this.ws) {
+          try { this.ws.terminate(); } catch (_) {}
+          this.ws = null;
+        }
+        this.handleDisconnect();
       });
     } catch (err: any) {
       console.error("[ARI] Connection failed:", err.message);
@@ -116,16 +144,117 @@ export class AriClient extends EventEmitter {
     }
   }
 
+  private isDisconnecting = false;
+
+  private handleDisconnect(): void {
+    if (this.isDisconnecting) return;
+    this.isDisconnecting = true;
+    this._isConnected = false;
+    this.isConnecting = false;
+    this.stopPingInterval();
+    this.stopHealthCheck();
+    this.emit("disconnected");
+    if (!this.intentionalDisconnect) {
+      this.scheduleReconnect();
+    }
+    setTimeout(() => { this.isDisconnecting = false; }, 100);
+  }
+
+  private startPingInterval(): void {
+    this.stopPingInterval();
+    this.pingInterval = setInterval(() => {
+      if (this.ws && this._isConnected && this.ws.readyState === WebSocket.OPEN) {
+        try {
+          this.ws.ping();
+          this.pongTimeout = setTimeout(() => {
+            const timeSinceActivity = Date.now() - this.lastPongTime;
+            if (timeSinceActivity > AriClient.PING_INTERVAL_MS + AriClient.PONG_TIMEOUT_MS) {
+              console.warn(`[ARI] No activity for ${Math.round(timeSinceActivity / 1000)}s and no pong. Forcing reconnect...`);
+              this.forceReconnect();
+            }
+          }, AriClient.PONG_TIMEOUT_MS);
+        } catch (err: any) {
+          console.error("[ARI] Ping failed:", err.message);
+          this.forceReconnect();
+        }
+      }
+    }, AriClient.PING_INTERVAL_MS);
+  }
+
+  private stopPingInterval(): void {
+    if (this.pingInterval) {
+      clearInterval(this.pingInterval);
+      this.pingInterval = null;
+    }
+    if (this.pongTimeout) {
+      clearTimeout(this.pongTimeout);
+      this.pongTimeout = null;
+    }
+  }
+
+  private startHealthCheck(): void {
+    this.stopHealthCheck();
+    this.healthCheckInterval = setInterval(async () => {
+      if (!this._isConnected) return;
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 5000);
+        const res = await fetch(`${this.baseUrl}/ari/asterisk/info`, {
+          signal: controller.signal,
+          headers: { Authorization: this.authHeader },
+        });
+        clearTimeout(timeout);
+        if (!res.ok) {
+          console.warn(`[ARI] Health check failed: HTTP ${res.status}`);
+          this.forceReconnect();
+        }
+      } catch (err: any) {
+        console.warn(`[ARI] Health check failed: ${err.message}`);
+        this.forceReconnect();
+      }
+    }, AriClient.HEALTH_CHECK_INTERVAL_MS);
+  }
+
+  private stopHealthCheck(): void {
+    if (this.healthCheckInterval) {
+      clearInterval(this.healthCheckInterval);
+      this.healthCheckInterval = null;
+    }
+  }
+
+  private forceReconnect(): void {
+    console.log("[ARI] Force-reconnecting...");
+    this.stopPingInterval();
+    this.stopHealthCheck();
+    this._isConnected = false;
+    this.isConnecting = false;
+    if (this.ws) {
+      try { this.ws.terminate(); } catch (_) {}
+      this.ws = null;
+    }
+    this.emit("disconnected");
+    this.scheduleReconnect();
+  }
+
   private scheduleReconnect(): void {
-    if (this.reconnectTimer) return;
+    if (this.reconnectTimer || this.intentionalDisconnect) return;
+    const delay = Math.min(
+      AriClient.BASE_RECONNECT_DELAY_MS * Math.pow(1.5, this.reconnectAttempts),
+      AriClient.MAX_RECONNECT_DELAY_MS,
+    );
+    this.reconnectAttempts++;
+    console.log(`[ARI] Scheduling reconnect in ${Math.round(delay / 1000)}s (attempt ${this.reconnectAttempts})...`);
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
       console.log("[ARI] Attempting reconnect...");
       this.connect().catch(() => {});
-    }, 5000);
+    }, delay);
   }
 
   disconnect(): void {
+    this.intentionalDisconnect = true;
+    this.stopPingInterval();
+    this.stopHealthCheck();
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
@@ -136,6 +265,7 @@ export class AriClient extends EventEmitter {
     }
     this._isConnected = false;
     this.isConnecting = false;
+    this.reconnectAttempts = 0;
   }
 
   private handleEvent(event: AriEvent): void {
