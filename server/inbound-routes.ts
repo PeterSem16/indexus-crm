@@ -2419,15 +2419,23 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
         return res.status(404).json({ error: "Voicemail recording not found" });
       }
 
-      const filePath = path.resolve(process.cwd(), messages[0].recordingPath);
-      const voicemailBaseDir = path.resolve(process.cwd(), DATA_ROOT, "voicemails");
-      const recordingsBaseDir = path.resolve(process.cwd(), DATA_ROOT, "recordings");
-      if (!filePath.startsWith(voicemailBaseDir) && !filePath.startsWith(recordingsBaseDir) && !filePath.startsWith(path.resolve(process.cwd(), DATA_ROOT))) {
+      let filePath = path.resolve(process.cwd(), messages[0].recordingPath);
+      if (!fs.existsSync(filePath)) {
+        filePath = path.resolve(DATA_ROOT, messages[0].recordingPath);
+      }
+      if (!fs.existsSync(filePath) && messages[0].recordingPath.includes("/")) {
+        const basename = path.basename(messages[0].recordingPath);
+        filePath = path.resolve(DATA_ROOT, "voicemails", basename);
+      }
+
+      const dataRootResolved = path.resolve(DATA_ROOT);
+      const cwdResolved = path.resolve(process.cwd());
+      if (!filePath.startsWith(dataRootResolved) && !filePath.startsWith(cwdResolved)) {
         return res.status(403).json({ error: "Access denied" });
       }
 
       if (!fs.existsSync(filePath)) {
-        return res.status(404).json({ error: "Recording file not found" });
+        return res.status(404).json({ error: "Recording file not found on server" });
       }
 
       const ext = path.extname(filePath).toLowerCase();

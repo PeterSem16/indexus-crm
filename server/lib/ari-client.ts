@@ -488,6 +488,31 @@ export class AriClient extends EventEmitter {
     await this.ariRequest("POST", `/recordings/live/${recordingName}/stop`);
   }
 
+  async downloadStoredRecording(recordingName: string): Promise<Buffer> {
+    const url = `${this.baseUrl}/ari/recordings/stored/${recordingName}/file`;
+    const response = await fetch(url, {
+      method: "GET",
+      headers: { Authorization: this.authHeader },
+    });
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`ARI download recording failed: ${response.status} ${text}`);
+    }
+    const arrayBuffer = await response.arrayBuffer();
+    return Buffer.from(arrayBuffer);
+  }
+
+  async deleteStoredRecording(recordingName: string): Promise<void> {
+    const url = `${this.baseUrl}/ari/recordings/stored/${recordingName}`;
+    const response = await fetch(url, {
+      method: "DELETE",
+      headers: { Authorization: this.authHeader },
+    });
+    if (!response.ok) {
+      console.warn(`[ARI] Failed to delete stored recording ${recordingName}: ${response.status}`);
+    }
+  }
+
   async originateChannel(endpoint: string, extension: string, context: string = "default", callerId?: string, appArgs?: string): Promise<AriChannel> {
     const params: any = {
       endpoint,

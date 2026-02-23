@@ -14,6 +14,7 @@ import {
   didRoutes,
   voicemailBoxes,
   voicemailMessages,
+  callLogs,
   type InboundQueue,
   type QueueMember,
   type InboundCallLog,
@@ -621,7 +622,34 @@ export class QueueEngine extends EventEmitter {
         await this.ariClient.stopRecording(recordingName);
       } catch {}
 
-      const recordingPath = `voicemail-recordings/${recordingName}.wav`;
+      try {
+        await this.ariClient.hangupChannel(channelId, "normal");
+      } catch {}
+
+      const { DATA_ROOT } = await import("../config/storage-paths");
+      const voicemailDir = path.join(DATA_ROOT, "voicemails");
+      if (!fs.existsSync(voicemailDir)) {
+        fs.mkdirSync(voicemailDir, { recursive: true });
+      }
+      const localFileName = `${recordingName}.wav`;
+      const localFilePath = path.join(voicemailDir, localFileName);
+      const recordingPath = path.join("voicemails", localFileName);
+
+      let downloadSuccess = false;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          await new Promise(resolve => setTimeout(resolve, 1000 + attempt * 1000));
+          console.log(`[QueueEngine] Downloading voicemail recording from Asterisk: ${recordingName} (attempt ${attempt + 1})`);
+          const recordingBuffer = await this.ariClient.downloadStoredRecording(recordingName);
+          fs.writeFileSync(localFilePath, recordingBuffer);
+          console.log(`[QueueEngine] Voicemail recording saved locally: ${localFilePath} (${recordingBuffer.length} bytes)`);
+          downloadSuccess = true;
+          try { await this.ariClient.deleteStoredRecording(recordingName); } catch {}
+          break;
+        } catch (dlErr) {
+          console.warn(`[QueueEngine] Download attempt ${attempt + 1} failed:`, dlErr instanceof Error ? dlErr.message : dlErr);
+        }
+      }
 
       const [vmMessage] = await db.insert(voicemailMessages).values({
         boxId: box.id,
@@ -629,16 +657,13 @@ export class QueueEngine extends EventEmitter {
         callerName: callerName || null,
         customerId,
         didNumber: didNumber || null,
-        recordingPath,
+        recordingPath: downloadSuccess ? recordingPath : null,
         durationSeconds,
         status: "unread",
+        transcriptStatus: downloadSuccess ? "pending" : "failed",
       }).returning();
 
-      console.log(`[QueueEngine] Voicemail message saved: ${vmMessage.id} (${durationSeconds}s)`);
-
-      try {
-        await this.ariClient.hangupChannel(channelId, "normal");
-      } catch {}
+      console.log(`[QueueEngine] Voicemail message saved: ${vmMessage.id} (${durationSeconds}s, download: ${downloadSuccess ? "OK" : "FAILED"})`);
 
       this.emit("voicemail-received", {
         messageId: vmMessage.id,
@@ -649,9 +674,122 @@ export class QueueEngine extends EventEmitter {
         customerId,
       });
 
+      if (downloadSuccess) {
+        this.processVoicemailAsync(vmMessage.id, localFilePath, box, customerId, callerNumber, callerName).catch(err => {
+          console.error(`[QueueEngine] Async voicemail processing failed:`, err);
+        });
+      }
+
     } catch (err) {
       console.error(`[QueueEngine] Voicemail handling failed:`, err);
       try { await this.ariClient.hangupChannel(channelId, "normal"); } catch {}
+    }
+  }
+
+  private async processVoicemailAsync(
+    messageId: string,
+    filePath: string,
+    box: typeof voicemailBoxes.$inferSelect,
+    customerId: string | null,
+    callerNumber: string,
+    callerName: string,
+  ): Promise<void> {
+    if (!fs.existsSync(filePath)) {
+      console.warn(`[QueueEngine] Voicemail file not found for transcription: ${filePath}`);
+      await db.update(voicemailMessages).set({ transcriptStatus: "failed" }).where(eq(voicemailMessages.id, messageId));
+      return;
+    }
+
+    let callLogId: string | null = null;
+    if (customerId) {
+      try {
+        const [logEntry] = await db.insert(callLogs).values({
+          userId: "system",
+          customerId,
+          phoneNumber: callerNumber,
+          direction: "inbound",
+          status: "completed",
+          startedAt: new Date(),
+          endedAt: new Date(),
+          durationSeconds: 0,
+          notes: `Voicemail zanechaný v schránke "${box.name}"`,
+          metadata: JSON.stringify({
+            type: "voicemail",
+            voicemailMessageId: messageId,
+            voicemailBoxId: box.id,
+            voicemailBoxName: box.name,
+            callerNumber,
+            callerName: callerName || null,
+          }),
+        }).returning();
+        callLogId = logEntry.id;
+        console.log(`[QueueEngine] Voicemail logged to customer history: ${customerId} (callLog: ${callLogId})`);
+      } catch (err) {
+        console.error(`[QueueEngine] Failed to log voicemail to customer history:`, err);
+      }
+    }
+
+    if (!box.transcriptionEnabled || !process.env.OPENAI_API_KEY) {
+      await db.update(voicemailMessages).set({ transcriptStatus: "completed" }).where(eq(voicemailMessages.id, messageId));
+      return;
+    }
+
+    try {
+      await db.update(voicemailMessages).set({ transcriptStatus: "processing" }).where(eq(voicemailMessages.id, messageId));
+      console.log(`[QueueEngine] Starting voicemail transcription for ${messageId}`);
+
+      const OpenAI = (await import("openai")).default;
+      const openai = new OpenAI();
+      const transcriptionResult = await openai.audio.transcriptions.create({
+        file: fs.createReadStream(filePath),
+        model: "whisper-1",
+        response_format: "text",
+      });
+      const transcriptText = transcriptionResult as unknown as string;
+      console.log(`[QueueEngine] Voicemail transcription complete: ${transcriptText.length} chars`);
+
+      await db.update(voicemailMessages).set({
+        transcriptText,
+        transcriptStatus: "completed",
+      }).where(eq(voicemailMessages.id, messageId));
+
+      if (customerId && transcriptText && transcriptText.trim().length > 10) {
+        try {
+          const analysisResult = await openai.chat.completions.create({
+            model: "gpt-4o",
+            messages: [{
+              role: "system",
+              content: "You are analyzing a voicemail left by a customer for a cord blood banking company. Provide a brief JSON analysis with: sentiment (positive/negative/neutral), summary (1-2 sentences in the same language as the transcript), urgency (low/medium/high), keyTopics (array of strings)."
+            }, {
+              role: "user",
+              content: `Voicemail transcript:\n${transcriptText}`
+            }],
+            response_format: { type: "json_object" },
+            max_tokens: 500,
+          });
+
+          const analysisText = analysisResult.choices[0]?.message?.content;
+          if (analysisText && callLogId) {
+            const analysis = JSON.parse(analysisText);
+            const [existingLog] = await db.select().from(callLogs).where(eq(callLogs.id, callLogId));
+            if (existingLog) {
+              const meta = JSON.parse(existingLog.metadata || "{}");
+              meta.voicemailAnalysis = analysis;
+              meta.transcriptText = transcriptText;
+              await db.update(callLogs).set({
+                metadata: JSON.stringify(meta),
+                notes: `Voicemail: ${analysis.summary || transcriptText.substring(0, 100)}`,
+              }).where(eq(callLogs.id, callLogId));
+            }
+            console.log(`[QueueEngine] Voicemail analysis saved for ${messageId}: ${analysis.sentiment}, urgency: ${analysis.urgency}`);
+          }
+        } catch (analysisErr) {
+          console.warn(`[QueueEngine] Voicemail analysis failed:`, analysisErr instanceof Error ? analysisErr.message : analysisErr);
+        }
+      }
+    } catch (err) {
+      console.error(`[QueueEngine] Voicemail transcription failed:`, err);
+      await db.update(voicemailMessages).set({ transcriptStatus: "failed" }).where(eq(voicemailMessages.id, messageId));
     }
   }
 

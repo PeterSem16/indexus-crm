@@ -213,6 +213,7 @@ function VoicemailInbox() {
       if (!res.ok) throw new Error("Failed to fetch");
       return res.json();
     },
+    refetchInterval: 10000,
   });
 
   const { data: stats } = useQuery<VoicemailStats>({
@@ -224,6 +225,7 @@ function VoicemailInbox() {
       if (!res.ok) throw new Error("Failed to fetch");
       return res.json();
     },
+    refetchInterval: 10000,
   });
 
   const markReadMutation = useMutation({
