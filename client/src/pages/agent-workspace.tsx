@@ -4000,6 +4000,9 @@ export default function AgentWorkspacePage() {
     sipInvitation?: any;
     recordCalls?: boolean;
   }>>([]);
+  const inboundCallsRef = useRef(inboundCalls);
+  inboundCallsRef.current = inboundCalls;
+  const cancelledCallIdsRef = useRef<Set<string>>(new Set());
   const acceptingCallRef = useRef(false);
   const dialingRef = useRef(false);
 
@@ -5058,13 +5061,19 @@ export default function AgentWorkspacePage() {
             });
           } else if (data.type === "call-cancelled") {
             setInboundCalls(prev => prev.filter(c => c.callId !== data.callId));
-            const callerDisplay = data.callerName || data.callerNumber || "Neznámy";
-            const queueDisplay = data.queueName ? ` (${data.queueName})` : "";
-            toast({
-              title: "Hovor ukončený",
-              description: `Volajúci ${callerDisplay}${queueDisplay} ukončil hovor`,
-              variant: "destructive",
-            });
+            if (!cancelledCallIdsRef.current.has(data.callId)) {
+              cancelledCallIdsRef.current.add(data.callId);
+              setTimeout(() => cancelledCallIdsRef.current.delete(data.callId), 10000);
+              const callerDisplay = data.callerName || data.callerNumber || "Neznámy";
+              const queueDisplay = data.queueName ? ` (${data.queueName})` : "";
+              toast({
+                title: "Zmeškaný hovor",
+                description: `Volajúci ${callerDisplay}${queueDisplay} zavesil počas čakania`,
+                variant: "destructive",
+              });
+            } else {
+              console.log("[AgentWS] call-cancelled WS: toast already shown for", data.callId);
+            }
           }
         } catch (err) {
           console.error(`[AgentWS] Failed to parse message:`, err);
@@ -5121,13 +5130,25 @@ export default function AgentWorkspacePage() {
         }];
       });
     } else if (!sipIncomingCall) {
-      setInboundCalls(prev => {
-        const hasSipDirect = prev.some(c => c.channelId === "sip-webrtc");
-        if (hasSipDirect) {
-          return prev.filter(c => c.channelId !== "sip-webrtc");
-        }
-        return prev.map(c => c.hasSipInvitation ? { ...c, hasSipInvitation: false, sipInvitation: undefined } : c);
-      });
+      const currentCalls = inboundCallsRef.current;
+      const cancelledCalls = currentCalls.filter(c => c.hasSipInvitation || c.channelId === "sip-webrtc");
+      if (cancelledCalls.length > 0) {
+        console.log("[AgentWS] SIP call ended/cancelled, removing", cancelledCalls.length, "linked calls:", cancelledCalls.map(c => `${c.callId} (${c.callerNumber})`));
+        cancelledCalls.forEach(c => {
+          if (!cancelledCallIdsRef.current.has(c.callId)) {
+            cancelledCallIdsRef.current.add(c.callId);
+            setTimeout(() => cancelledCallIdsRef.current.delete(c.callId), 10000);
+            const callerDisplay = c.callerName || c.callerNumber || "Neznámy";
+            const queueDisplay = c.queueName ? ` (${c.queueName})` : "";
+            toast({
+              title: "Zmeškaný hovor",
+              description: `Volajúci ${callerDisplay}${queueDisplay} zavesil počas čakania`,
+              variant: "destructive",
+            });
+          }
+        });
+        setInboundCalls(prev => prev.filter(c => !c.hasSipInvitation && c.channelId !== "sip-webrtc"));
+      }
     }
   }, [sipIncomingCall, agentSession.isSessionActive]);
 

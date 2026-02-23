@@ -376,10 +376,18 @@ export function SipProvider({ children }: { children: ReactNode }) {
               callerName,
             });
 
+            let wasAnswered = false;
             invitation.stateChange.addListener((state: any) => {
-              console.log("[SIP] Incoming invitation state changed:", state);
+              console.log("[SIP] Incoming invitation state changed:", state, "wasAnswered:", wasAnswered);
+              if (state === "Established") {
+                wasAnswered = true;
+              }
               if (state === "Terminated") {
-                console.log("[SIP] Incoming call terminated/cancelled");
+                if (!wasAnswered) {
+                  console.log("[SIP] Incoming call CANCELLED by caller (never answered)");
+                } else {
+                  console.log("[SIP] Incoming call terminated (was answered)");
+                }
                 setIncomingCallWithRef((prev: IncomingCall | null) => {
                   if (prev?.invitation === invitation) return null;
                   return prev;
