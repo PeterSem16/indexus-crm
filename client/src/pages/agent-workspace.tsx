@@ -4198,18 +4198,6 @@ export default function AgentWorkspacePage() {
     refetchInterval: 30000,
   });
 
-  const { data: agentVoicemails = [] } = useQuery<any[]>({
-    queryKey: ["/api/voicemail-messages", "agent-unread-all"],
-    queryFn: async () => {
-      const params = new URLSearchParams({ status: "unread" });
-      const res = await fetch(`/api/voicemail-messages?${params}`, { credentials: "include" });
-      if (!res.ok) return [];
-      return res.json();
-    },
-    enabled: !!hasAccess && agentSession.isSessionActive && sessionInboundQueueIds.length > 0,
-    refetchInterval: 15000,
-  });
-
   const { data: campaignDispositions = [] } = useQuery<CampaignDisposition[]>({
     queryKey: ["/api/campaigns", selectedCampaignId, "dispositions"],
     enabled: !!selectedCampaignId,
@@ -4336,6 +4324,18 @@ export default function AgentWorkspacePage() {
     return selectedLoginQueueIds;
   }, [(agentSession.session as any)?.inboundQueueIds, selectedLoginQueueIds]);
   sessionQueueIdsRef.current = sessionInboundQueueIds;
+
+  const { data: agentVoicemails = [] } = useQuery<any[]>({
+    queryKey: ["/api/voicemail-messages", "agent-unread-all"],
+    queryFn: async () => {
+      const params = new URLSearchParams({ status: "unread" });
+      const res = await fetch(`/api/voicemail-messages?${params}`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!hasAccess && agentSession.isSessionActive && sessionInboundQueueIds.length > 0,
+    refetchInterval: 15000,
+  });
 
   const activeCampaigns = useMemo(() => {
     if (agentSession.isSessionActive && sessionCampaignIds.length === 0) {
