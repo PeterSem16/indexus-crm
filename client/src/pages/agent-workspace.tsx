@@ -137,6 +137,7 @@ import { StatusBadge } from "@/components/status-badge";
 import { CallRecordingPlayer } from "@/components/call-recording-player";
 import { CustomerForm, type CustomerFormData } from "@/components/customer-form";
 import { InboundCallPopup, InboundQueueStatus } from "@/components/agent/InboundCallPopup";
+import { VoicemailNotifications } from "@/components/agent/VoicemailNotifications";
 import type { Campaign, Customer, CampaignContact, CampaignDisposition, AgentBreakType } from "@shared/schema";
 import { DISPOSITION_NAME_TRANSLATIONS } from "@shared/schema";
 import ReactQuill from "react-quill";
@@ -5360,6 +5361,16 @@ export default function AgentWorkspacePage() {
         onReject={(call) => handleRejectInboundCall(call)}
         onDismiss={(callId) => setInboundCalls(prev => prev.filter(c => c.callId !== callId))}
       />
+      {agentSession.isSessionActive && (
+        <VoicemailNotifications
+          queueIds={sessionInboundQueueIds}
+          onCallback={(phoneNumber) => {
+            if (makeCall) {
+              makeCall({ target: phoneNumber, displayName: phoneNumber });
+            }
+          }}
+        />
+      )}
       <Dialog open={sessionLoginOpen && !agentSession.isSessionActive} onOpenChange={(open) => { if (!open) { setSessionLoginOpen(false); setLocation("/"); } }}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>

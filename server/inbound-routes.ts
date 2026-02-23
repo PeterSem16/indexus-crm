@@ -2284,12 +2284,17 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
 
   app.get("/api/voicemail-messages", requireAuth, async (req: Request, res: Response) => {
     try {
-      const { boxId, queueId, status, dateFrom, dateTo, search } = req.query;
+      const { boxId, queueId, queueIds, status, dateFrom, dateTo, search } = req.query;
 
       let conditions: any[] = [];
 
       if (boxId) conditions.push(eq(voicemailMessages.boxId, boxId as string));
-      if (queueId) conditions.push(eq(voicemailMessages.queueId, queueId as string));
+      if (queueIds) {
+        const ids = (queueIds as string).split(",").filter(Boolean);
+        if (ids.length > 0) conditions.push(inArray(voicemailMessages.queueId, ids));
+      } else if (queueId) {
+        conditions.push(eq(voicemailMessages.queueId, queueId as string));
+      }
       if (status && status !== "all") conditions.push(eq(voicemailMessages.status, status as string));
       if (dateFrom) conditions.push(gte(voicemailMessages.createdAt, new Date(dateFrom as string)));
       if (dateTo) conditions.push(lte(voicemailMessages.createdAt, new Date(dateTo as string)));
