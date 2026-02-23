@@ -665,6 +665,104 @@ export function InboundQueuesTab() {
 
               <div className="border-t pt-4">
                 <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                  <UserX className="h-4 w-4" />
+                  No Agents Rule
+                </h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>No Agents Action</Label>
+                    <Select value={formData.noAgentsAction} onValueChange={v => setFormData(f => ({ ...f, noAgentsAction: v }))}>
+                      <SelectTrigger data-testid="select-no-agents-action"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {NO_AGENTS_ACTIONS.map(a => <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground mt-1">What happens when no agents are available in the queue</p>
+                  </div>
+                  {(formData.noAgentsAction === "transfer" || formData.noAgentsAction === "queue") && (
+                    <div>
+                      <Label>{formData.noAgentsAction === "queue" ? "Target Queue" : "Transfer Target"}</Label>
+                      {formData.noAgentsAction === "queue" ? (
+                        <Select value={formData.noAgentsTarget || "__none__"} onValueChange={v => setFormData(f => ({ ...f, noAgentsTarget: v === "__none__" ? "" : v }))}>
+                          <SelectTrigger data-testid="select-no-agents-queue"><SelectValue placeholder="Select queue" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none__">None</SelectItem>
+                            {queues.filter(q => !editingQueue || q.id !== editingQueue.id).map(q => (
+                              <SelectItem key={q.id} value={q.id}>{q.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <Input value={formData.noAgentsTarget} onChange={e => setFormData(f => ({ ...f, noAgentsTarget: e.target.value }))} placeholder="Phone number or extension" data-testid="input-no-agents-target" />
+                      )}
+                    </div>
+                  )}
+                  {formData.noAgentsAction === "user_pjsip" && (
+                    <div>
+                      <Label>Transfer to User (PJSIP Phone)</Label>
+                      <Select value={formData.noAgentsUserId || "__none__"} onValueChange={v => setFormData(f => ({ ...f, noAgentsUserId: v === "__none__" ? null : v }))}>
+                        <SelectTrigger data-testid="select-no-agents-user"><SelectValue placeholder="Select user..." /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__">None</SelectItem>
+                          {pjsipUsers.map((u: any) => (
+                            <SelectItem key={u.id} value={u.id}>
+                              <span className="flex items-center gap-2">
+                                <User className="h-3 w-3" />
+                                {u.fullName || u.username}
+                                <span className="text-muted-foreground">({u.sipExtension})</span>
+                              </span>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                  {formData.noAgentsAction === "voicemail" && (
+                    <div>
+                      <Label>Voicemail Box</Label>
+                      <Select value={formData.noAgentsVoicemailBoxId || "__none__"} onValueChange={v => setFormData(f => ({ ...f, noAgentsVoicemailBoxId: v === "__none__" ? null : v }))}>
+                        <SelectTrigger data-testid="select-no-agents-voicemail-box"><SelectValue placeholder="Select mailbox..." /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__">None (default)</SelectItem>
+                          {voicemailBoxes.filter((b: any) => b.isActive).map((b: any) => (
+                            <SelectItem key={b.id} value={b.id}>{b.name}{b.extension ? ` (${b.extension})` : ""}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground mt-1">Select which voicemail box to route callers to</p>
+                    </div>
+                  )}
+                  {formData.noAgentsAction === "announcement" && (
+                    <div>
+                      <Label>Announcement Audio</Label>
+                      <Select value={formData.noAgentsMessageId || "__none__"} onValueChange={v => setFormData(f => ({ ...f, noAgentsMessageId: v === "__none__" ? null : v }))}>
+                        <SelectTrigger data-testid="select-no-agents-announcement"><SelectValue placeholder="Select audio..." /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__">None</SelectItem>
+                          {ivrMessages.filter((m: any) => m.type === "announcement" || m.type === "ivr_prompt").map((m: any) => (
+                            <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground mt-1">Audio message to play before hanging up</p>
+                    </div>
+                  )}
+                  {formData.noAgentsAction !== "announcement" && (
+                    <div>
+                      <AudioSelector
+                        label="No Agents Message"
+                        value={formData.noAgentsMessageId}
+                        onChange={v => setFormData(f => ({ ...f, noAgentsMessageId: v }))}
+                        messages={ivrMessages.filter((m: any) => m.isActive)}
+                        description="Audio played before executing no-agents action"
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="border-t pt-4">
+                <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
                   <Mail className="h-4 w-4" />
                   Channels
                 </h4>
@@ -989,86 +1087,6 @@ export function InboundQueuesTab() {
                 </div>
               )}
 
-              <div className="border-t pt-4">
-                <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                  <UserX className="h-4 w-4" />
-                  No Agents Rule
-                </h4>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>No Agents Action</Label>
-                    <Select value={formData.noAgentsAction} onValueChange={v => setFormData(f => ({ ...f, noAgentsAction: v }))}>
-                      <SelectTrigger data-testid="select-no-agents-action"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {NO_AGENTS_ACTIONS.map(a => <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                    <p className="text-xs text-muted-foreground mt-1">What happens when no agents are available in the queue</p>
-                  </div>
-                  {(formData.noAgentsAction === "transfer" || formData.noAgentsAction === "queue") && (
-                    <div>
-                      <Label>{formData.noAgentsAction === "queue" ? "Target Queue" : "Transfer Target"}</Label>
-                      {formData.noAgentsAction === "queue" ? (
-                        <Select value={formData.noAgentsTarget || "__none__"} onValueChange={v => setFormData(f => ({ ...f, noAgentsTarget: v === "__none__" ? "" : v }))}>
-                          <SelectTrigger data-testid="select-no-agents-queue"><SelectValue placeholder="Select queue" /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="__none__">None</SelectItem>
-                            {queues.filter(q => !editingQueue || q.id !== editingQueue.id).map(q => (
-                              <SelectItem key={q.id} value={q.id}>{q.name}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      ) : (
-                        <Input value={formData.noAgentsTarget} onChange={e => setFormData(f => ({ ...f, noAgentsTarget: e.target.value }))} placeholder="Phone number or extension" data-testid="input-no-agents-target" />
-                      )}
-                    </div>
-                  )}
-                  {formData.noAgentsAction === "user_pjsip" && (
-                    <div>
-                      <Label>Transfer to User (PJSIP Phone)</Label>
-                      <Select value={formData.noAgentsUserId || "__none__"} onValueChange={v => setFormData(f => ({ ...f, noAgentsUserId: v === "__none__" ? null : v }))}>
-                        <SelectTrigger data-testid="select-no-agents-user"><SelectValue placeholder="Select user..." /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="__none__">None</SelectItem>
-                          {pjsipUsers.map((u: any) => (
-                            <SelectItem key={u.id} value={u.id}>
-                              <span className="flex items-center gap-2">
-                                <User className="h-3 w-3" />
-                                {u.fullName || u.username}
-                                <span className="text-muted-foreground">({u.sipExtension})</span>
-                              </span>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
-                  {formData.noAgentsAction === "voicemail" && (
-                    <div>
-                      <Label>Voicemail Box</Label>
-                      <Select value={formData.noAgentsVoicemailBoxId || "__none__"} onValueChange={v => setFormData(f => ({ ...f, noAgentsVoicemailBoxId: v === "__none__" ? null : v }))}>
-                        <SelectTrigger data-testid="select-no-agents-voicemail-box"><SelectValue placeholder="Select mailbox..." /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="__none__">None (default)</SelectItem>
-                          {voicemailBoxes.filter((b: any) => b.isActive).map((b: any) => (
-                            <SelectItem key={b.id} value={b.id}>{b.name}{b.extension ? ` (${b.extension})` : ""}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <p className="text-xs text-muted-foreground mt-1">Select which voicemail box to route callers to</p>
-                    </div>
-                  )}
-                  <div>
-                    <AudioSelector
-                      label="No Agents Message"
-                      value={formData.noAgentsMessageId}
-                      onChange={v => setFormData(f => ({ ...f, noAgentsMessageId: v }))}
-                      messages={ivrMessages.filter((m: any) => m.isActive)}
-                      description="Audio played before executing no-agents action"
-                    />
-                  </div>
-                </div>
-              </div>
             </TabsContent>
           </Tabs>
 
