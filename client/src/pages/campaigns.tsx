@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Plus, Pencil, Trash2, Search, Megaphone, PlayCircle, CheckCircle, Clock, XCircle, ExternalLink, FileText, Calendar, LayoutList, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, BarChart3, TrendingUp, Phone, RefreshCw, Users, Mail, MessageSquare, User, Check, Loader2, Shield, Headphones, X, Download, HelpCircle, BookOpen, Type, AlignLeft, ListOrdered, CircleDot, Target, Square, TextCursorInput, Variable, GripVertical, Copy, ArrowUp, ArrowDown, Mic, Coffee, GitBranch } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Megaphone, PlayCircle, CheckCircle, Clock, XCircle, ExternalLink, FileText, Calendar, LayoutList, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, BarChart3, TrendingUp, Phone, RefreshCw, Users, Mail, MessageSquare, User, Check, Loader2, Shield, Headphones, X, Download, HelpCircle, BookOpen, Type, AlignLeft, ListOrdered, CircleDot, Target, Square, TextCursorInput, Variable, GripVertical, Copy, ArrowUp, ArrowDown, Mic, Coffee, GitBranch, Voicemail } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { TranscriptSearchContent } from "@/pages/transcript-search";
 import { BreakTypesTab } from "@/components/campaigns/BreakTypesTab";
@@ -9,6 +9,7 @@ import { InboundQueuesTab } from "@/components/campaigns/InboundQueuesTab";
 import { IvrMessagesTab } from "@/components/campaigns/IvrMessagesTab";
 import { IvrMenusTab } from "@/components/campaigns/IvrMenusTab";
 import { DidRoutesTab } from "@/components/campaigns/DidRoutesTab";
+import { VoicemailsTab } from "@/components/campaigns/VoicemailsTab";
 import { InboundReportsTab } from "@/components/campaigns/InboundReportsTab";
 import { useAuth } from "@/contexts/auth-context";
 import { useCountryFilter } from "@/contexts/country-filter-context";
@@ -1625,6 +1626,10 @@ function InboundSubTabs() {
             <Phone className="h-4 w-4" />
             IVR Menu
           </TabsTrigger>
+          <TabsTrigger value="voicemails" className="gap-2" data-testid="tab-inbound-voicemails">
+            <Voicemail className="h-4 w-4" />
+            Voicemails
+          </TabsTrigger>
         </TabsList>
       </div>
       <TabsContent value="did-routes" className="flex-1 overflow-auto mt-0">
@@ -1635,6 +1640,9 @@ function InboundSubTabs() {
       </TabsContent>
       <TabsContent value="ivr-menus" className="flex-1 overflow-auto p-6 mt-0">
         <IvrMenusTab />
+      </TabsContent>
+      <TabsContent value="voicemails" className="flex-1 overflow-auto p-6 mt-0">
+        <VoicemailsTab />
       </TabsContent>
     </Tabs>
   );

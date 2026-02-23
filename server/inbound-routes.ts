@@ -14,6 +14,8 @@ import {
   users,
   customers,
   didRoutes, insertDidRouteSchema,
+  voicemailBoxes, insertVoicemailBoxSchema,
+  voicemailMessages, insertVoicemailMessageSchema,
 } from "@shared/schema";
 import { or, like, ilike } from "drizzle-orm";
 import { AriClient, initializeAriClient, getAriClient, destroyAriClient } from "./lib/ari-client";
@@ -1915,6 +1917,300 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
     } catch (error) {
       console.error("Error deleting DID route:", error);
       res.status(500).json({ error: "Failed to delete DID route" });
+    }
+  });
+
+  // ============ VOICEMAIL BOXES ============
+
+  app.get("/api/voicemail-boxes", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const boxes = await db.select().from(voicemailBoxes).orderBy(asc(voicemailBoxes.name));
+      res.json(boxes);
+    } catch (error) {
+      console.error("Error fetching voicemail boxes:", error);
+      res.status(500).json({ error: "Failed to fetch voicemail boxes" });
+    }
+  });
+
+  app.post("/api/voicemail-boxes", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const user = (req.session as any)?.user;
+      if (!["admin", "manager"].includes(user.role)) {
+        return res.status(403).json({ error: "Admin or manager access required" });
+      }
+
+      if (!req.body.name || typeof req.body.name !== "string" || !req.body.name.trim()) {
+        return res.status(400).json({ error: "Name is required" });
+      }
+
+      const created = await db.insert(voicemailBoxes).values({
+        name: req.body.name,
+        description: req.body.description || null,
+        extension: req.body.extension || null,
+        countryCode: req.body.countryCode || null,
+        greetingMessageId: req.body.greetingMessageId || null,
+        greetingFilePath: req.body.greetingFilePath || null,
+        maxDurationSeconds: parseInt(req.body.maxDurationSeconds) || 120,
+        emailNotification: req.body.emailNotification === true || req.body.emailNotification === "true",
+        notifyEmails: req.body.notifyEmails || [],
+        transcriptionEnabled: req.body.transcriptionEnabled === true || req.body.transcriptionEnabled === "true",
+        pin: req.body.pin || null,
+        isActive: true,
+      }).returning();
+
+      res.status(201).json(created[0]);
+    } catch (error) {
+      console.error("Error creating voicemail box:", error);
+      res.status(500).json({ error: "Failed to create voicemail box" });
+    }
+  });
+
+  app.put("/api/voicemail-boxes/:id", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const user = (req.session as any)?.user;
+      if (!["admin", "manager"].includes(user.role)) {
+        return res.status(403).json({ error: "Admin or manager access required" });
+      }
+
+      const updated = await db.update(voicemailBoxes)
+        .set({
+          name: req.body.name,
+          description: req.body.description || null,
+          extension: req.body.extension || null,
+          countryCode: req.body.countryCode || null,
+          greetingMessageId: req.body.greetingMessageId || null,
+          greetingFilePath: req.body.greetingFilePath || null,
+          maxDurationSeconds: parseInt(req.body.maxDurationSeconds) || 120,
+          emailNotification: req.body.emailNotification === true || req.body.emailNotification === "true",
+          notifyEmails: req.body.notifyEmails || [],
+          transcriptionEnabled: req.body.transcriptionEnabled === true || req.body.transcriptionEnabled === "true",
+          pin: req.body.pin || null,
+          isActive: req.body.isActive === true || req.body.isActive === "true",
+          updatedAt: new Date(),
+        })
+        .where(eq(voicemailBoxes.id, req.params.id))
+        .returning();
+
+      if (!updated[0]) return res.status(404).json({ error: "Voicemail box not found" });
+      res.json(updated[0]);
+    } catch (error) {
+      console.error("Error updating voicemail box:", error);
+      res.status(500).json({ error: "Failed to update voicemail box" });
+    }
+  });
+
+  app.delete("/api/voicemail-boxes/:id", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const user = (req.session as any)?.user;
+      if (user.role !== "admin") {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+
+      await db.delete(voicemailBoxes).where(eq(voicemailBoxes.id, req.params.id));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting voicemail box:", error);
+      res.status(500).json({ error: "Failed to delete voicemail box" });
+    }
+  });
+
+  // ============ VOICEMAIL MESSAGES ============
+
+  app.get("/api/voicemail-messages", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { boxId, queueId, status, dateFrom, dateTo, search } = req.query;
+
+      let conditions: any[] = [];
+
+      if (boxId) conditions.push(eq(voicemailMessages.boxId, boxId as string));
+      if (queueId) conditions.push(eq(voicemailMessages.queueId, queueId as string));
+      if (status && status !== "all") conditions.push(eq(voicemailMessages.status, status as string));
+      if (dateFrom) conditions.push(gte(voicemailMessages.createdAt, new Date(dateFrom as string)));
+      if (dateTo) conditions.push(lte(voicemailMessages.createdAt, new Date(dateTo as string)));
+      if (search) {
+        conditions.push(
+          or(
+            ilike(voicemailMessages.callerNumber, `%${search}%`),
+            ilike(voicemailMessages.callerName, `%${search}%`),
+          )!
+        );
+      }
+
+      const query = conditions.length > 0
+        ? db.select().from(voicemailMessages).where(and(...conditions)).orderBy(desc(voicemailMessages.createdAt))
+        : db.select().from(voicemailMessages).orderBy(desc(voicemailMessages.createdAt));
+
+      const messages = await query;
+      res.json(messages);
+    } catch (error) {
+      console.error("Error fetching voicemail messages:", error);
+      res.status(500).json({ error: "Failed to fetch voicemail messages" });
+    }
+  });
+
+  app.post("/api/voicemail-messages", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const user = (req.session as any)?.user;
+      if (!["admin", "manager"].includes(user.role)) {
+        return res.status(403).json({ error: "Admin or manager access required" });
+      }
+
+      if (!req.body.boxId || !req.body.callerNumber) {
+        return res.status(400).json({ error: "boxId and callerNumber are required" });
+      }
+
+      const voicemailDir = path.join(DATA_ROOT, "voicemails");
+      let sanitizedPath: string | null = null;
+      if (req.body.recordingPath) {
+        const resolved = path.resolve(process.cwd(), req.body.recordingPath);
+        const baseDir = path.resolve(process.cwd(), voicemailDir);
+        if (!resolved.startsWith(baseDir)) {
+          return res.status(400).json({ error: "Invalid recording path" });
+        }
+        sanitizedPath = path.relative(process.cwd(), resolved);
+      }
+
+      const created = await db.insert(voicemailMessages).values({
+        boxId: req.body.boxId,
+        queueId: req.body.queueId || null,
+        didNumber: req.body.didNumber || null,
+        callerNumber: req.body.callerNumber,
+        callerName: req.body.callerName || null,
+        customerId: req.body.customerId || null,
+        recordingPath: sanitizedPath,
+        durationSeconds: parseInt(req.body.durationSeconds) || 0,
+        status: "unread",
+        transcriptStatus: "pending",
+      }).returning();
+
+      res.status(201).json(created[0]);
+    } catch (error) {
+      console.error("Error creating voicemail message:", error);
+      res.status(500).json({ error: "Failed to create voicemail message" });
+    }
+  });
+
+  app.patch("/api/voicemail-messages/:id", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const updateData: any = {};
+
+      if (req.body.status !== undefined) {
+        const validStatuses = ["unread", "read", "archived", "deleted"];
+        if (!validStatuses.includes(req.body.status)) {
+          return res.status(400).json({ error: "Invalid status value" });
+        }
+        updateData.status = req.body.status;
+        if (req.body.status === "read") {
+          updateData.readAt = new Date();
+        }
+      }
+      if (req.body.transcriptText !== undefined) updateData.transcriptText = req.body.transcriptText;
+      if (req.body.transcriptStatus !== undefined) updateData.transcriptStatus = req.body.transcriptStatus;
+
+      if (Object.keys(updateData).length === 0) {
+        return res.status(400).json({ error: "No valid fields to update" });
+      }
+
+      const updated = await db.update(voicemailMessages)
+        .set(updateData)
+        .where(eq(voicemailMessages.id, req.params.id))
+        .returning();
+
+      if (!updated[0]) return res.status(404).json({ error: "Voicemail message not found" });
+      res.json(updated[0]);
+    } catch (error) {
+      console.error("Error updating voicemail message:", error);
+      res.status(500).json({ error: "Failed to update voicemail message" });
+    }
+  });
+
+  app.patch("/api/voicemail-messages/batch-status", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { ids, status } = req.body;
+      if (!ids || !Array.isArray(ids) || !status) {
+        return res.status(400).json({ error: "ids array and status required" });
+      }
+
+      const updateData: any = { status };
+      if (status === "read") updateData.readAt = new Date();
+
+      await db.update(voicemailMessages)
+        .set(updateData)
+        .where(inArray(voicemailMessages.id, ids));
+
+      res.json({ success: true, count: ids.length });
+    } catch (error) {
+      console.error("Error batch updating voicemail messages:", error);
+      res.status(500).json({ error: "Failed to batch update voicemail messages" });
+    }
+  });
+
+  app.delete("/api/voicemail-messages/:id", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const user = (req.session as any)?.user;
+      if (!["admin", "manager"].includes(user.role)) {
+        return res.status(403).json({ error: "Admin or manager access required" });
+      }
+
+      await db.delete(voicemailMessages).where(eq(voicemailMessages.id, req.params.id));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting voicemail message:", error);
+      res.status(500).json({ error: "Failed to delete voicemail message" });
+    }
+  });
+
+  app.get("/api/voicemail-messages/:id/audio", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const messages = await db.select().from(voicemailMessages).where(eq(voicemailMessages.id, req.params.id));
+      if (!messages[0] || !messages[0].recordingPath) {
+        return res.status(404).json({ error: "Voicemail recording not found" });
+      }
+
+      const filePath = path.resolve(process.cwd(), messages[0].recordingPath);
+      const voicemailBaseDir = path.resolve(process.cwd(), DATA_ROOT, "voicemails");
+      const recordingsBaseDir = path.resolve(process.cwd(), DATA_ROOT, "recordings");
+      if (!filePath.startsWith(voicemailBaseDir) && !filePath.startsWith(recordingsBaseDir) && !filePath.startsWith(path.resolve(process.cwd(), DATA_ROOT))) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      if (!fs.existsSync(filePath)) {
+        return res.status(404).json({ error: "Recording file not found" });
+      }
+
+      const ext = path.extname(filePath).toLowerCase();
+      const mimeTypes: Record<string, string> = {
+        ".wav": "audio/wav", ".mp3": "audio/mpeg", ".ogg": "audio/ogg",
+        ".gsm": "audio/gsm", ".webm": "audio/webm",
+      };
+      res.setHeader("Content-Type", mimeTypes[ext] || "audio/mpeg");
+      res.sendFile(filePath);
+    } catch (error) {
+      console.error("Error serving voicemail audio:", error);
+      res.status(500).json({ error: "Failed to serve voicemail audio" });
+    }
+  });
+
+  // Voicemail stats summary
+  app.get("/api/voicemail-stats", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { boxId } = req.query;
+      let conditions: any[] = [];
+      if (boxId) conditions.push(eq(voicemailMessages.boxId, boxId as string));
+
+      const allMessages = conditions.length > 0
+        ? await db.select().from(voicemailMessages).where(and(...conditions))
+        : await db.select().from(voicemailMessages);
+
+      const total = allMessages.length;
+      const unread = allMessages.filter(m => m.status === "unread").length;
+      const read = allMessages.filter(m => m.status === "read").length;
+      const archived = allMessages.filter(m => m.status === "archived").length;
+
+      res.json({ total, unread, read, archived });
+    } catch (error) {
+      console.error("Error fetching voicemail stats:", error);
+      res.status(500).json({ error: "Failed to fetch voicemail stats" });
     }
   });
 }
