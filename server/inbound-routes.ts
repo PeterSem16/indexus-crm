@@ -428,8 +428,10 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
       if (data.afterHoursMessageId === "") data.afterHoursMessageId = null;
       if (data.overflowUserId === "") data.overflowUserId = null;
       if (data.overflowTarget === "") data.overflowTarget = null;
+      if (data.overflowVoicemailBoxId === "") data.overflowVoicemailBoxId = null;
       if (data.announcePositionMessageId === "") data.announcePositionMessageId = null;
       if (data.announceWaitTimeMessageId === "") data.announceWaitTimeMessageId = null;
+      if (data.afterHoursVoicemailBoxId === "") data.afterHoursVoicemailBoxId = null;
       const created = await db.insert(inboundQueues).values(data).returning();
       res.status(201).json(created[0]);
     } catch (error) {
@@ -454,8 +456,10 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
       if (data.afterHoursMessageId === "") data.afterHoursMessageId = null;
       if (data.overflowUserId === "") data.overflowUserId = null;
       if (data.overflowTarget === "") data.overflowTarget = null;
+      if (data.overflowVoicemailBoxId === "") data.overflowVoicemailBoxId = null;
       if (data.announcePositionMessageId === "") data.announcePositionMessageId = null;
       if (data.announceWaitTimeMessageId === "") data.announceWaitTimeMessageId = null;
+      if (data.afterHoursVoicemailBoxId === "") data.afterHoursVoicemailBoxId = null;
       const updated = await db.update(inboundQueues)
         .set({ ...data, updatedAt: new Date() })
         .where(eq(inboundQueues.id, req.params.id))

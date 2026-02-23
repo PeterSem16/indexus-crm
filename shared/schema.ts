@@ -5392,6 +5392,7 @@ export const inboundQueues = pgTable("inbound_queues", {
   overflowAction: text("overflow_action").notNull().default("voicemail"), // voicemail, hangup, transfer, queue, user_pjsip
   overflowTarget: text("overflow_target"), // target number/queue for overflow
   overflowUserId: varchar("overflow_user_id"), // user ID for user_pjsip overflow action
+  overflowVoicemailBoxId: varchar("overflow_voicemail_box_id"), // voicemail box for overflow
   announcePosition: boolean("announce_position").notNull().default(true),
   announceWaitTime: boolean("announce_wait_time").notNull().default(true),
   announceFrequency: integer("announce_frequency").notNull().default(30), // seconds between announcements
@@ -5405,6 +5406,7 @@ export const inboundQueues = pgTable("inbound_queues", {
   afterHoursAction: text("after_hours_action").notNull().default("voicemail"), // voicemail, hangup, transfer, queue
   afterHoursTarget: text("after_hours_target"), // target queue/number for after-hours routing
   afterHoursMessageId: varchar("after_hours_message_id"), // IVR message to play after hours
+  afterHoursVoicemailBoxId: varchar("after_hours_voicemail_box_id"), // voicemail box for after-hours
   recordCalls: boolean("record_calls").notNull().default(false), // enable recording & analysis for inbound calls in this queue
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),

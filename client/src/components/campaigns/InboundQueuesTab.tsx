@@ -71,6 +71,7 @@ interface InboundQueue {
   overflowAction: string;
   overflowTarget: string | null;
   overflowUserId: string | null;
+  overflowVoicemailBoxId: string | null;
   announcePosition: boolean;
   announceWaitTime: boolean;
   announceFrequency: number;
@@ -84,6 +85,7 @@ interface InboundQueue {
   afterHoursAction: string;
   afterHoursTarget: string | null;
   afterHoursMessageId: string | null;
+  afterHoursVoicemailBoxId: string | null;
   recordCalls: boolean;
   isActive: boolean;
   stats?: { waiting: number; active: number; agents: number };
@@ -165,6 +167,7 @@ interface FormData {
   overflowAction: string;
   overflowTarget: string;
   overflowUserId: string | null;
+  overflowVoicemailBoxId: string | null;
   announcePosition: boolean;
   announceWaitTime: boolean;
   announceFrequency: number;
@@ -178,6 +181,7 @@ interface FormData {
   afterHoursAction: string;
   afterHoursTarget: string;
   afterHoursMessageId: string | null;
+  afterHoursVoicemailBoxId: string | null;
   recordCalls: boolean;
   isActive: boolean;
 }
@@ -186,13 +190,13 @@ const defaultFormData: FormData = {
   name: "", description: "", countryCode: "SK",
   strategy: "round-robin", maxWaitTime: 300, wrapUpTime: 30,
   maxQueueSize: 50, priority: 1, welcomeMessageId: null, holdMusicId: null,
-  overflowAction: "voicemail", overflowTarget: "", overflowUserId: null,
+  overflowAction: "voicemail", overflowTarget: "", overflowUserId: null, overflowVoicemailBoxId: null,
   announcePosition: true, announceWaitTime: true,
   announceFrequency: 30, announcePositionMessageId: null, announceWaitTimeMessageId: null,
   serviceLevelTarget: 20,
   activeFrom: "", activeTo: "", activeDays: ["1", "2", "3", "4", "5"],
   timezone: "Europe/Bratislava", afterHoursAction: "voicemail",
-  afterHoursTarget: "", afterHoursMessageId: null,
+  afterHoursTarget: "", afterHoursMessageId: null, afterHoursVoicemailBoxId: null,
   recordCalls: false, isActive: true,
 };
 
@@ -222,6 +226,10 @@ export function InboundQueuesTab() {
 
   const { data: ivrMessages = [] } = useQuery<any[]>({
     queryKey: ["/api/ivr-messages"],
+  });
+
+  const { data: voicemailBoxes = [] } = useQuery<any[]>({
+    queryKey: ["/api/voicemail-boxes"],
   });
 
   const welcomeMessages = ivrMessages.filter((m: any) => m.type === "welcome" && m.isActive);
@@ -315,6 +323,7 @@ export function InboundQueuesTab() {
       overflowAction: queue.overflowAction,
       overflowTarget: queue.overflowTarget || "",
       overflowUserId: queue.overflowUserId || null,
+      overflowVoicemailBoxId: (queue as any).overflowVoicemailBoxId || null,
       announcePosition: queue.announcePosition,
       announceWaitTime: queue.announceWaitTime,
       announceFrequency: queue.announceFrequency,
@@ -328,6 +337,7 @@ export function InboundQueuesTab() {
       afterHoursAction: queue.afterHoursAction || "voicemail",
       afterHoursTarget: queue.afterHoursTarget || "",
       afterHoursMessageId: queue.afterHoursMessageId || null,
+      afterHoursVoicemailBoxId: (queue as any).afterHoursVoicemailBoxId || null,
       recordCalls: queue.recordCalls ?? false,
       isActive: queue.isActive,
     });
@@ -727,6 +737,21 @@ export function InboundQueuesTab() {
                     <p className="text-xs text-muted-foreground mt-1">Call will be transferred directly to this user's SIP phone</p>
                   </div>
                 )}
+                {formData.overflowAction === "voicemail" && (
+                  <div>
+                    <Label>Voicemail Box</Label>
+                    <Select value={formData.overflowVoicemailBoxId || "__none__"} onValueChange={v => setFormData(f => ({ ...f, overflowVoicemailBoxId: v === "__none__" ? null : v }))}>
+                      <SelectTrigger data-testid="select-overflow-voicemail-box"><SelectValue placeholder="Select mailbox..." /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">None (default)</SelectItem>
+                        {voicemailBoxes.filter((b: any) => b.isActive).map((b: any) => (
+                          <SelectItem key={b.id} value={b.id}>{b.name}{b.extension ? ` (${b.extension})` : ""}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground mt-1">Select which voicemail box to route callers to</p>
+                  </div>
+                )}
               </div>
 
               {formData.overflowAction === "user_pjsip" && pjsipUsers.length === 0 && (
@@ -839,6 +864,21 @@ export function InboundQueuesTab() {
                             ))}
                           </SelectContent>
                         </Select>
+                      </div>
+                    )}
+                    {formData.afterHoursAction === "voicemail" && (
+                      <div>
+                        <Label>Voicemail Box</Label>
+                        <Select value={formData.afterHoursVoicemailBoxId || "__none__"} onValueChange={v => setFormData(f => ({ ...f, afterHoursVoicemailBoxId: v === "__none__" ? null : v }))}>
+                          <SelectTrigger data-testid="select-after-hours-voicemail-box"><SelectValue placeholder="Select mailbox..." /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none__">None (default)</SelectItem>
+                            {voicemailBoxes.filter((b: any) => b.isActive).map((b: any) => (
+                              <SelectItem key={b.id} value={b.id}>{b.name}{b.extension ? ` (${b.extension})` : ""}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground mt-1">Select which voicemail box to route callers to</p>
                       </div>
                     )}
                     <div>
