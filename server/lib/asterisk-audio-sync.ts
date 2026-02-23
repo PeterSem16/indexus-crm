@@ -67,6 +67,65 @@ function sftpUpload(sftp: any, localPath: string, remotePath: string): Promise<v
   });
 }
 
+function sftpDownload(sftp: any, remotePath: string, localPath: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const writeStream = fs.createWriteStream(localPath);
+    const readStream = sftp.createReadStream(remotePath);
+    readStream.on("error", (err: Error) => reject(err));
+    writeStream.on("close", () => resolve());
+    writeStream.on("error", (err: Error) => reject(err));
+    readStream.pipe(writeStream);
+  });
+}
+
+export async function downloadVoicemailRecordingFromAsterisk(recordingName: string, localDir: string): Promise<{ success: boolean; localPath?: string; error?: string }> {
+  try {
+    const settings = await getAriSettings();
+    if (!settings?.host || !settings?.sshUsername || !settings?.sshPassword) {
+      return { success: false, error: "SSH settings not configured" };
+    }
+
+    const conn = await connectSSH({
+      host: settings.host,
+      sshPort: settings.sshPort || 22,
+      sshUsername: settings.sshUsername,
+      sshPassword: settings.sshPassword,
+    });
+
+    const sftp = await getSFTP(conn);
+
+    const recordingBasePath = "/var/spool/asterisk/recording";
+    const remoteFilePath = `${recordingBasePath}/${recordingName}.wav`;
+
+    if (!fs.existsSync(localDir)) {
+      fs.mkdirSync(localDir, { recursive: true });
+    }
+    const localFilePath = path.join(localDir, `${recordingName}.wav`);
+
+    try {
+      await sftpDownload(sftp, remoteFilePath, localFilePath);
+      console.log(`[AudioSync] Voicemail recording downloaded: ${remoteFilePath} → ${localFilePath}`);
+
+      try {
+        sftp.unlink(remoteFilePath, () => {});
+      } catch {}
+
+      conn.end();
+      return { success: true, localPath: localFilePath };
+    } catch (dlErr) {
+      conn.end();
+      if (fs.existsSync(localFilePath)) {
+        try { fs.unlinkSync(localFilePath); } catch {}
+      }
+      return { success: false, error: `SFTP download failed: ${dlErr instanceof Error ? dlErr.message : String(dlErr)}` };
+    }
+  } catch (err) {
+    const errMsg = err instanceof Error ? err.message : String(err);
+    console.error(`[AudioSync] Voicemail recording download failed: ${errMsg}`);
+    return { success: false, error: errMsg };
+  }
+}
+
 function findFfmpeg(): string | null {
   const candidates = ["ffmpeg", "/usr/bin/ffmpeg", "/usr/local/bin/ffmpeg", "/snap/bin/ffmpeg"];
   for (const cmd of candidates) {

@@ -636,18 +636,36 @@ export class QueueEngine extends EventEmitter {
       const recordingPath = path.join("voicemails", localFileName);
 
       let downloadSuccess = false;
-      for (let attempt = 0; attempt < 3; attempt++) {
-        try {
-          await new Promise(resolve => setTimeout(resolve, 1000 + attempt * 1000));
-          console.log(`[QueueEngine] Downloading voicemail recording from Asterisk: ${recordingName} (attempt ${attempt + 1})`);
-          const recordingBuffer = await this.ariClient.downloadStoredRecording(recordingName);
-          fs.writeFileSync(localFilePath, recordingBuffer);
-          console.log(`[QueueEngine] Voicemail recording saved locally: ${localFilePath} (${recordingBuffer.length} bytes)`);
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      try {
+        const { downloadVoicemailRecordingFromAsterisk } = await import("./asterisk-audio-sync");
+        console.log(`[QueueEngine] Downloading voicemail via SFTP: ${recordingName}`);
+        const sftpResult = await downloadVoicemailRecordingFromAsterisk(recordingName, voicemailDir);
+        if (sftpResult.success && sftpResult.localPath) {
           downloadSuccess = true;
-          try { await this.ariClient.deleteStoredRecording(recordingName); } catch {}
-          break;
-        } catch (dlErr) {
-          console.warn(`[QueueEngine] Download attempt ${attempt + 1} failed:`, dlErr instanceof Error ? dlErr.message : dlErr);
+          console.log(`[QueueEngine] Voicemail downloaded via SFTP: ${sftpResult.localPath}`);
+        } else {
+          console.warn(`[QueueEngine] SFTP download failed: ${sftpResult.error}`);
+        }
+      } catch (sftpErr) {
+        console.warn(`[QueueEngine] SFTP download error:`, sftpErr instanceof Error ? sftpErr.message : sftpErr);
+      }
+
+      if (!downloadSuccess) {
+        for (let attempt = 0; attempt < 3; attempt++) {
+          try {
+            await new Promise(resolve => setTimeout(resolve, 1000 + attempt * 1000));
+            console.log(`[QueueEngine] Fallback: ARI download attempt ${attempt + 1}: ${recordingName}`);
+            const recordingBuffer = await this.ariClient.downloadStoredRecording(recordingName);
+            fs.writeFileSync(localFilePath, recordingBuffer);
+            console.log(`[QueueEngine] Voicemail downloaded via ARI: ${localFilePath} (${recordingBuffer.length} bytes)`);
+            downloadSuccess = true;
+            try { await this.ariClient.deleteStoredRecording(recordingName); } catch {}
+            break;
+          } catch (dlErr) {
+            console.warn(`[QueueEngine] ARI download attempt ${attempt + 1} failed:`, dlErr instanceof Error ? dlErr.message : dlErr);
+          }
         }
       }
 
