@@ -2547,7 +2547,7 @@ function setupQueueEngineWebSocketEvents(engine: QueueEngine): void {
         if (q.length > 0) queueName = q[0].name;
       } catch {}
     }
-    const extra = { callerNumber: data.callerNumber, callerName: data.callerName, queueName, reason: data.reason || "caller_hangup" };
+    const extra = { callerNumber: data.callerNumber, callerName: data.callerName, queueName, queueId: data.queueId, reason: data.reason || "caller_hangup" };
     if (data.assignedAgentId) {
       ws.notifyCallCancelled(data.assignedAgentId, data.callId, extra);
     }
@@ -2573,7 +2573,7 @@ function setupQueueEngineWebSocketEvents(engine: QueueEngine): void {
         if (q.length > 0) queueName = q[0].name;
       } catch {}
     }
-    const extra = { callerNumber: data.callerNumber, callerName: data.callerName, queueName, reason: "timeout" };
+    const extra = { callerNumber: data.callerNumber, callerName: data.callerName, queueName, queueId: data.queueId, reason: "timeout" };
     if (data.assignedAgentId) {
       ws.notifyCallCancelled(data.assignedAgentId, data.callId, extra);
     }

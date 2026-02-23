@@ -1096,9 +1096,21 @@ export class QueueEngine extends EventEmitter {
     console.log(`[QueueEngine]   Session agents for this queue: ${sessionAgentIds.length} (${sessionAgentIds.join(', ') || 'none'})`);
 
     const memberUserIds = members.map(m => m.userId);
-    const allAgentIds = [...new Set([...memberUserIds, ...sessionAgentIds])];
+    const activeSessionUserIds = new Set(activeSessions.map(s => s.userId));
+    const sessionAgentIdSet = new Set(sessionAgentIds);
+    const allAgentIds = [...new Set([...memberUserIds, ...sessionAgentIds])].filter(id => {
+      if (!activeSessionUserIds.has(id)) {
+        console.log(`[QueueEngine]   Skipping agent ${id}: no active session`);
+        return false;
+      }
+      if (!sessionAgentIdSet.has(id)) {
+        console.log(`[QueueEngine]   Skipping agent ${id}: active session but queue "${queue.name}" not selected`);
+        return false;
+      }
+      return true;
+    });
 
-    console.log(`[QueueEngine]   Total candidate agents: ${allAgentIds.length}`);
+    console.log(`[QueueEngine]   Total candidate agents (session-filtered): ${allAgentIds.length}`);
 
     if (allAgentIds.length === 0) {
       console.log(`[QueueEngine] No agents assigned to queue "${queue.name}" via members or sessions`);

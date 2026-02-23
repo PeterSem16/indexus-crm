@@ -112,6 +112,7 @@ class InboundCallWebSocketService {
     callerNumber?: string;
     callerName?: string;
     queueName?: string;
+    queueId?: string;
     reason?: string;
   }) {
     this.sendToAgent(agentUserId, {

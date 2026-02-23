@@ -4005,6 +4005,7 @@ export default function AgentWorkspacePage() {
   inboundCallsRef.current = inboundCalls;
   const sessionQueueIdsRef = useRef<string[]>([]);
   const cancelledCallIdsRef = useRef<Set<string>>(new Set());
+  const filteredCallerNumbersRef = useRef<Map<string, number>>(new Map());
   const acceptingCallRef = useRef(false);
   const dialingRef = useRef(false);
 
@@ -5050,10 +5051,14 @@ export default function AgentWorkspacePage() {
             const allowedQueues = sessionQueueIdsRef.current;
             if (allowedQueues.length === 0) {
               console.log(`[AgentWS] Ignoring inbound call ${data.callId} - no inbound queues selected in session`);
+              const num = data.callerNumber?.replace(/[\s\-\(\)]/g, "");
+              if (num) filteredCallerNumbersRef.current.set(num, Date.now());
               return;
             }
             if (!allowedQueues.includes(data.queueId)) {
               console.log(`[AgentWS] Ignoring inbound call ${data.callId} - queue ${data.queueId} not in selected queues [${allowedQueues.join(',')}]`);
+              const num = data.callerNumber?.replace(/[\s\-\(\)]/g, "");
+              if (num) filteredCallerNumbersRef.current.set(num, Date.now());
               return;
             }
             console.log(`[AgentWS] === INBOUND CALL POPUP === from ${data.callerNumber}`);
@@ -5072,7 +5077,12 @@ export default function AgentWorkspacePage() {
               }];
             });
           } else if (data.type === "call-cancelled") {
-            setInboundCalls(prev => prev.filter(c => c.callId !== data.callId));
+            const cancelledNum = data.callerNumber?.replace(/[\s\-\(\)]/g, "");
+            setInboundCalls(prev => prev.filter(c => {
+              if (c.callId === data.callId) return false;
+              if (cancelledNum && c.callerNumber?.replace(/[\s\-\(\)]/g, "") === cancelledNum && c.queueId === (data.queueId || c.queueId)) return false;
+              return true;
+            }));
             if (!cancelledCallIdsRef.current.has(data.callId)) {
               cancelledCallIdsRef.current.add(data.callId);
               setTimeout(() => cancelledCallIdsRef.current.delete(data.callId), 10000);
@@ -5109,9 +5119,41 @@ export default function AgentWorkspacePage() {
   }, [user?.id, agentSession.isSessionActive]);
 
   useEffect(() => {
+    if (!agentSession.isSessionActive) return;
+    const staleTimer = setInterval(() => {
+      const now = Date.now();
+      setInboundCalls(prev => {
+        const fresh = prev.filter(c => {
+          const age = now - c.timestamp;
+          if (age > 120000 && !c.hasSipInvitation) {
+            console.log(`[AgentWS] Auto-removing stale inbound call ${c.callId} (${c.callerNumber}) - ${Math.round(age / 1000)}s old`);
+            return false;
+          }
+          return true;
+        });
+        return fresh.length !== prev.length ? fresh : prev;
+      });
+      for (const [num, ts] of filteredCallerNumbersRef.current.entries()) {
+        if (now - ts > 60000) filteredCallerNumbersRef.current.delete(num);
+      }
+    }, 15000);
+    return () => clearInterval(staleTimer);
+  }, [agentSession.isSessionActive]);
+
+  useEffect(() => {
     if (sipIncomingCall && agentSession.isSessionActive) {
       const callerNum = sipIncomingCall.callerNumber?.replace(/[\s\-\(\)]/g, "");
       const invitation = sipIncomingCall.invitation;
+
+      const filteredAt = callerNum ? filteredCallerNumbersRef.current.get(callerNum) : undefined;
+      const wasRecentlyFiltered = filteredAt && (Date.now() - filteredAt) < 30000;
+      if (wasRecentlyFiltered) {
+        console.log("[AgentWS] SIP INVITE from recently filtered queue call, auto-rejecting:", callerNum);
+        try { invitation?.reject?.(); } catch {}
+        if (callerNum) filteredCallerNumbersRef.current.delete(callerNum);
+        return;
+      }
+
       setInboundCalls(prev => {
         const alreadyLinked = prev.some(c => c.hasSipInvitation && c.sipInvitation);
         if (alreadyLinked) return prev;
