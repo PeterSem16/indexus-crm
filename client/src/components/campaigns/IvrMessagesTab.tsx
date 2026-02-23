@@ -95,13 +95,26 @@ const LANGUAGES = [
 const COUNTRIES = ["SK", "CZ", "HU", "RO", "IT", "DE", "US"];
 
 const TTS_VOICES = [
-  { value: "nova", label: "Nova", gender: "female", description: "warm" },
-  { value: "shimmer", label: "Shimmer", gender: "female", description: "expressive" },
-  { value: "alloy", label: "Alloy", gender: "female", description: "balanced" },
-  { value: "onyx", label: "Onyx", gender: "male", description: "deep" },
-  { value: "echo", label: "Echo", gender: "male", description: "smooth" },
-  { value: "fable", label: "Fable", gender: "male", description: "British" },
+  { value: "nova", label: "Nova", gender: "female", description: "warm, natural" },
+  { value: "shimmer", label: "Shimmer", gender: "female", description: "expressive, clear" },
+  { value: "alloy", label: "Alloy", gender: "female", description: "balanced, neutral" },
+  { value: "coral", label: "Coral", gender: "female", description: "soft, friendly" },
+  { value: "sage", label: "Sage", gender: "female", description: "calm, professional" },
+  { value: "onyx", label: "Onyx", gender: "male", description: "deep, authoritative" },
+  { value: "echo", label: "Echo", gender: "male", description: "smooth, warm" },
+  { value: "fable", label: "Fable", gender: "male", description: "storytelling, British" },
+  { value: "ash", label: "Ash", gender: "male", description: "clear, versatile" },
 ];
+
+const LANGUAGE_VOICE_RECOMMENDATIONS: Record<string, { female: string; male: string; note: string }> = {
+  SK: { female: "nova", male: "onyx", note: "Slovak — odporúčané: Nova (ženský) / Onyx (mužský)" },
+  CS: { female: "shimmer", male: "echo", note: "Czech — doporučené: Shimmer (ženský) / Echo (mužský)" },
+  HU: { female: "coral", male: "ash", note: "Hungarian — ajánlott: Coral (női) / Ash (férfi)" },
+  RO: { female: "nova", male: "echo", note: "Romanian — recomandat: Nova (feminin) / Echo (masculin)" },
+  IT: { female: "shimmer", male: "fable", note: "Italian — consigliato: Shimmer (femminile) / Fable (maschile)" },
+  DE: { female: "sage", male: "onyx", note: "German — empfohlen: Sage (weiblich) / Onyx (männlich)" },
+  EN: { female: "nova", male: "ash", note: "English — recommended: Nova (female) / Ash (male)" },
+};
 
 const ACCEPTED_AUDIO = ".wav,.mp3,.ogg,.gsm";
 
@@ -454,7 +467,7 @@ export function IvrMessagesTab() {
       audioRef.current.pause();
     }
 
-    const audio = new Audio(`/api/ivr-messages/${id}/audio`);
+    const audio = new Audio(`/api/ivr-messages/${id}/audio?t=${Date.now()}`);
     audio.onended = () => setPlayingId(null);
     audio.onerror = () => {
       setPlayingId(null);
@@ -852,26 +865,48 @@ export function IvrMessagesTab() {
                   <Select value={formData.ttsVoice} onValueChange={(v) => setFormData((f) => ({ ...f, ttsVoice: v }))}>
                     <SelectTrigger data-testid="select-tts-voice"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="_female_header" disabled>
-                        Female Voices
-                      </SelectItem>
-                      {TTS_VOICES.filter((v) => v.gender === "female").map((v) => (
-                        <SelectItem key={v.value} value={v.value}>
-                          {v.label} — {v.description}
-                        </SelectItem>
-                      ))}
-                      <SelectItem value="_male_header" disabled>
-                        Male Voices
-                      </SelectItem>
-                      {TTS_VOICES.filter((v) => v.gender === "male").map((v) => (
-                        <SelectItem key={v.value} value={v.value}>
-                          {v.label} — {v.description}
-                        </SelectItem>
-                      ))}
+                      {(() => {
+                        const rec = LANGUAGE_VOICE_RECOMMENDATIONS[formData.language];
+                        const recommendedIds = rec ? [rec.female, rec.male] : [];
+                        const recommended = TTS_VOICES.filter(v => recommendedIds.includes(v.value));
+                        const others = TTS_VOICES.filter(v => !recommendedIds.includes(v.value));
+                        return (
+                          <>
+                            {recommended.length > 0 && (
+                              <>
+                                <SelectItem value="_rec_header" disabled>
+                                  Recommended for {LANGUAGES.find(l => l.value === formData.language)?.label || formData.language}
+                                </SelectItem>
+                                {recommended.map(v => (
+                                  <SelectItem key={v.value} value={v.value}>
+                                    {v.label} ({v.gender}) — {v.description}
+                                  </SelectItem>
+                                ))}
+                              </>
+                            )}
+                            <SelectItem value="_female_header" disabled>
+                              Female Voices
+                            </SelectItem>
+                            {others.filter(v => v.gender === "female").map(v => (
+                              <SelectItem key={v.value} value={v.value}>
+                                {v.label} — {v.description}
+                              </SelectItem>
+                            ))}
+                            <SelectItem value="_male_header" disabled>
+                              Male Voices
+                            </SelectItem>
+                            {others.filter(v => v.gender === "male").map(v => (
+                              <SelectItem key={v.value} value={v.value}>
+                                {v.label} — {v.description}
+                              </SelectItem>
+                            ))}
+                          </>
+                        );
+                      })()}
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground mt-1">
-                    OpenAI TTS voice — {TTS_VOICES.find((v) => v.value === formData.ttsVoice)?.description || ""}
+                    {LANGUAGE_VOICE_RECOMMENDATIONS[formData.language]?.note || `OpenAI TTS — ${TTS_VOICES.find((v) => v.value === formData.ttsVoice)?.description || ""}`}
                   </p>
                 </div>
               </TabsContent>

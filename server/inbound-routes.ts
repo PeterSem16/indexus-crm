@@ -688,7 +688,7 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
       const buffer = Buffer.from(await response.arrayBuffer());
       fs.writeFileSync(filePath, buffer);
 
-      const gender = ["onyx", "echo", "fable"].includes(ttsVoice) ? "male" : "female";
+      const gender = ["onyx", "echo", "fable", "ash"].includes(ttsVoice) ? "male" : "female";
 
       const created = await db.insert(ivrMessages).values({
         name: name || `TTS - ${textContent.substring(0, 50)}`,
@@ -732,7 +732,7 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
       const existing = await db.select().from(ivrMessages).where(eq(ivrMessages.id, req.params.id));
       if (!existing[0]) return res.status(404).json({ error: "IVR message not found" });
 
-      const validVoices = ["nova", "shimmer", "alloy", "onyx", "echo", "fable"];
+      const validVoices = ["nova", "shimmer", "alloy", "coral", "sage", "onyx", "echo", "fable", "ash"];
       const ttsVoice = validVoices.includes(voice) ? voice : "nova";
 
       const OpenAI = (await import("openai")).default;
@@ -753,7 +753,7 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
       const buffer = Buffer.from(await response.arrayBuffer());
       fs.writeFileSync(filePath, buffer);
 
-      const gender = ["onyx", "echo", "fable"].includes(ttsVoice) ? "male" : "female";
+      const gender = ["onyx", "echo", "fable", "ash"].includes(ttsVoice) ? "male" : "female";
 
       const updated = await db.update(ivrMessages)
         .set({
@@ -948,6 +948,8 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
 
       res.setHeader("Content-Type", mimeTypes[ext] || "application/octet-stream");
       res.setHeader("Content-Disposition", `inline; filename="${path.basename(fullPath)}"`);
+      res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+      res.setHeader("Pragma", "no-cache");
       fs.createReadStream(fullPath).pipe(res);
     } catch (error) {
       console.error("Error serving audio:", error);
