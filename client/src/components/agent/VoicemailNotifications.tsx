@@ -177,14 +177,13 @@ export function VoicemailNotifications({ queueIds, onCallback }: VoicemailNotifi
   const [isMinimized, setIsMinimized] = useState(false);
   const prevCountRef = useRef(0);
 
-  const queryKey = ["/api/voicemail-messages", "agent-unread", queueIds.join(",")];
+  const queryKey = ["/api/voicemail-messages", "agent-unread-all"];
 
   const { data: messages = [] } = useQuery<any[]>({
     queryKey,
     queryFn: async () => {
       if (queueIds.length === 0) return [];
       const params = new URLSearchParams({
-        queueIds: queueIds.join(","),
         status: "unread",
       });
       const res = await fetch(`/api/voicemail-messages?${params}`, { credentials: "include" });

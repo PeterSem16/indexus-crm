@@ -2297,11 +2297,18 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
           const queues = await db.select().from(inboundQueues).where(inArray(inboundQueues.id, ids));
           const vmBoxIds = new Set<string>();
           for (const q of queues) {
-            if ((q as any).noAgentsVoicemailBoxId) vmBoxIds.add((q as any).noAgentsVoicemailBoxId);
-            if ((q as any).overflowVoicemailBoxId) vmBoxIds.add((q as any).overflowVoicemailBoxId);
-            if ((q as any).afterHoursVoicemailBoxId) vmBoxIds.add((q as any).afterHoursVoicemailBoxId);
+            if (q.noAgentsVoicemailBoxId) vmBoxIds.add(q.noAgentsVoicemailBoxId);
+            if (q.overflowVoicemailBoxId) vmBoxIds.add(q.overflowVoicemailBoxId);
+            if (q.afterHoursVoicemailBoxId) vmBoxIds.add(q.afterHoursVoicemailBoxId);
+          }
+          const allVmBoxes = await db.select().from(voicemailBoxes);
+          for (const vb of allVmBoxes) {
+            if ((vb as any).queueId && ids.includes((vb as any).queueId)) {
+              vmBoxIds.add(vb.id);
+            }
           }
           const boxIdArr = Array.from(vmBoxIds);
+          console.log(`[VoicemailAPI] queueIds=${ids.join(',')}, resolved vmBoxIds=${boxIdArr.join(',') || 'none'}, queues found: ${queues.length}`);
           if (boxIdArr.length > 0) {
             conditions.push(
               or(
@@ -2310,7 +2317,18 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
               )!
             );
           } else {
-            conditions.push(inArray(voicemailMessages.queueId, ids));
+            const allBoxIds = allVmBoxes.map(vb => vb.id);
+            if (allBoxIds.length > 0) {
+              console.log(`[VoicemailAPI] No queue-linked VM boxes found, falling back to all VM boxes: ${allBoxIds.join(',')}`);
+              conditions.push(
+                or(
+                  inArray(voicemailMessages.queueId, ids),
+                  inArray(voicemailMessages.boxId, allBoxIds),
+                )!
+              );
+            } else {
+              conditions.push(inArray(voicemailMessages.queueId, ids));
+            }
           }
         }
       } else if (queueId) {
