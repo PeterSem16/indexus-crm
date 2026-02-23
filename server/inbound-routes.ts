@@ -1,6 +1,6 @@
 import { Express, Request, Response } from "express";
 import { db } from "./db";
-import { eq, and, desc, asc, sql, gte, lte, inArray } from "drizzle-orm";
+import { eq, and, desc, asc, sql, gte, lte, gt, inArray } from "drizzle-orm";
 import {
   ariSettings, insertAriSettingsSchema,
   inboundQueues, insertInboundQueueSchema,
@@ -2286,7 +2286,9 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
     try {
       const { boxId, queueId, queueIds, status, dateFrom, dateTo, search } = req.query;
 
-      let conditions: any[] = [];
+      let conditions: any[] = [
+        gt(voicemailMessages.durationSeconds, 1),
+      ];
 
       if (boxId) conditions.push(eq(voicemailMessages.boxId, boxId as string));
       if (queueIds) {

@@ -669,6 +669,14 @@ export class QueueEngine extends EventEmitter {
         }
       }
 
+      if (durationSeconds < 2) {
+        console.log(`[QueueEngine] Voicemail too short (${durationSeconds}s), discarding - caller likely hung up immediately`);
+        if (downloadSuccess) {
+          try { fs.unlinkSync(localFilePath); } catch {}
+        }
+        return;
+      }
+
       const [vmMessage] = await db.insert(voicemailMessages).values({
         boxId: box.id,
         callerNumber,
