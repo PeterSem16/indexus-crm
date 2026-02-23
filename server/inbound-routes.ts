@@ -1956,6 +1956,13 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
         countryCode: req.body.countryCode || null,
         greetingMessageId: req.body.greetingMessageId || null,
         greetingFilePath: req.body.greetingFilePath || null,
+        greetingMorningFilePath: req.body.greetingMorningFilePath || null,
+        greetingAfternoonFilePath: req.body.greetingAfternoonFilePath || null,
+        greetingEveningFilePath: req.body.greetingEveningFilePath || null,
+        greetingMorningTtsText: req.body.greetingMorningTtsText || null,
+        greetingAfternoonTtsText: req.body.greetingAfternoonTtsText || null,
+        greetingEveningTtsText: req.body.greetingEveningTtsText || null,
+        greetingTtsVoice: req.body.greetingTtsVoice || "nova",
         maxDurationSeconds: parseInt(req.body.maxDurationSeconds) || 120,
         emailNotification: req.body.emailNotification === true || req.body.emailNotification === "true",
         notifyEmails: req.body.notifyEmails || [],
@@ -1986,6 +1993,13 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
           countryCode: req.body.countryCode || null,
           greetingMessageId: req.body.greetingMessageId || null,
           greetingFilePath: req.body.greetingFilePath || null,
+          greetingMorningFilePath: req.body.greetingMorningFilePath || null,
+          greetingAfternoonFilePath: req.body.greetingAfternoonFilePath || null,
+          greetingEveningFilePath: req.body.greetingEveningFilePath || null,
+          greetingMorningTtsText: req.body.greetingMorningTtsText || null,
+          greetingAfternoonTtsText: req.body.greetingAfternoonTtsText || null,
+          greetingEveningTtsText: req.body.greetingEveningTtsText || null,
+          greetingTtsVoice: req.body.greetingTtsVoice || "nova",
           maxDurationSeconds: parseInt(req.body.maxDurationSeconds) || 120,
           emailNotification: req.body.emailNotification === true || req.body.emailNotification === "true",
           notifyEmails: req.body.notifyEmails || [],
@@ -2017,6 +2031,225 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
     } catch (error) {
       console.error("Error deleting voicemail box:", error);
       res.status(500).json({ error: "Failed to delete voicemail box" });
+    }
+  });
+
+  app.patch("/api/voicemail-boxes/:id/greeting-voice", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const user = (req.session as any)?.user;
+      if (!["admin", "manager"].includes(user.role)) {
+        return res.status(403).json({ error: "Admin or manager access required" });
+      }
+      const { voice } = req.body;
+      if (!voice) return res.status(400).json({ error: "Voice is required" });
+
+      const updated = await db.update(voicemailBoxes)
+        .set({ greetingTtsVoice: voice, updatedAt: new Date() })
+        .where(eq(voicemailBoxes.id, req.params.id))
+        .returning();
+
+      if (!updated[0]) return res.status(404).json({ error: "Voicemail box not found" });
+      res.json(updated[0]);
+    } catch (error) {
+      console.error("Error updating greeting voice:", error);
+      res.status(500).json({ error: "Failed to update greeting voice" });
+    }
+  });
+
+  // ============ VOICEMAIL GREETING TTS ============
+
+  app.post("/api/voicemail-boxes/:id/generate-greeting", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const user = (req.session as any)?.user;
+      if (!["admin", "manager"].includes(user.role)) {
+        return res.status(403).json({ error: "Admin or manager access required" });
+      }
+
+      const { period, textContent, voice } = req.body;
+      if (!textContent || typeof textContent !== "string" || !textContent.trim()) {
+        return res.status(400).json({ error: "Text content is required" });
+      }
+      const validPeriods = ["morning", "afternoon", "evening"];
+      if (!period || !validPeriods.includes(period)) {
+        return res.status(400).json({ error: "Period must be morning, afternoon, or evening" });
+      }
+
+      const existing = await db.select().from(voicemailBoxes).where(eq(voicemailBoxes.id, req.params.id));
+      if (!existing[0]) return res.status(404).json({ error: "Voicemail box not found" });
+
+      const validVoices = ["nova", "shimmer", "alloy", "coral", "sage", "onyx", "echo", "fable", "ash"];
+      const ttsVoice = validVoices.includes(voice) ? voice : "nova";
+
+      const OpenAI = (await import("openai")).default;
+      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+      const response = await openai.audio.speech.create({
+        model: "tts-1",
+        voice: ttsVoice as any,
+        input: textContent.trim(),
+        response_format: "mp3",
+      });
+
+      const dir = path.join(DATA_ROOT, "voicemail-greetings");
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+
+      const filename = `greeting-${req.params.id}-${period}-${Date.now()}.mp3`;
+      const filePath = path.join(dir, filename);
+      const buffer = Buffer.from(await response.arrayBuffer());
+      fs.writeFileSync(filePath, buffer);
+
+      const relativePath = path.relative(process.cwd(), filePath);
+      const fieldMap: Record<string, any> = {
+        morning: {
+          greetingMorningFilePath: relativePath,
+          greetingMorningTtsText: textContent.trim(),
+          greetingTtsVoice: ttsVoice,
+        },
+        afternoon: {
+          greetingAfternoonFilePath: relativePath,
+          greetingAfternoonTtsText: textContent.trim(),
+          greetingTtsVoice: ttsVoice,
+        },
+        evening: {
+          greetingEveningFilePath: relativePath,
+          greetingEveningTtsText: textContent.trim(),
+          greetingTtsVoice: ttsVoice,
+        },
+      };
+
+      const updated = await db.update(voicemailBoxes)
+        .set({ ...fieldMap[period], updatedAt: new Date() })
+        .where(eq(voicemailBoxes.id, req.params.id))
+        .returning();
+
+      res.json(updated[0]);
+    } catch (error: any) {
+      console.error("Error generating voicemail greeting TTS:", error);
+      res.status(500).json({ error: `TTS generation failed: ${error.message}` });
+    }
+  });
+
+  const greetingUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+  app.post("/api/voicemail-boxes/:id/upload-greeting", requireAuth, greetingUpload.single("file"), async (req: Request, res: Response) => {
+    try {
+      const user = (req.session as any)?.user;
+      if (!["admin", "manager"].includes(user.role)) {
+        return res.status(403).json({ error: "Admin or manager access required" });
+      }
+
+      const { period } = req.body;
+      const validPeriods = ["morning", "afternoon", "evening"];
+      if (!period || !validPeriods.includes(period)) {
+        return res.status(400).json({ error: "Period must be morning, afternoon, or evening" });
+      }
+
+      const existing = await db.select().from(voicemailBoxes).where(eq(voicemailBoxes.id, req.params.id));
+      if (!existing[0]) return res.status(404).json({ error: "Voicemail box not found" });
+
+      if (!req.file) {
+        return res.status(400).json({ error: "Audio file is required" });
+      }
+
+      const dir = path.join(DATA_ROOT, "voicemail-greetings");
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+
+      const ext = path.extname(req.file.originalname).toLowerCase();
+      const allowedExts = [".mp3", ".wav", ".ogg", ".gsm"];
+      if (!allowedExts.includes(ext)) {
+        return res.status(400).json({ error: "Unsupported audio format. Use MP3, WAV, OGG, or GSM." });
+      }
+
+      const filename = `greeting-${req.params.id}-${period}-${Date.now()}${ext}`;
+      const filePath = path.join(dir, filename);
+      fs.writeFileSync(filePath, req.file.buffer);
+
+      const relativePath = path.relative(process.cwd(), filePath);
+      const fieldMap: Record<string, any> = {
+        morning: { greetingMorningFilePath: relativePath, greetingMorningTtsText: null },
+        afternoon: { greetingAfternoonFilePath: relativePath, greetingAfternoonTtsText: null },
+        evening: { greetingEveningFilePath: relativePath, greetingEveningTtsText: null },
+      };
+
+      const updated = await db.update(voicemailBoxes)
+        .set({ ...fieldMap[period], updatedAt: new Date() })
+        .where(eq(voicemailBoxes.id, req.params.id))
+        .returning();
+
+      res.json(updated[0]);
+    } catch (error: any) {
+      console.error("Error uploading voicemail greeting:", error);
+      res.status(500).json({ error: `Upload failed: ${error.message}` });
+    }
+  });
+
+  app.get("/api/voicemail-boxes/:id/greeting-audio/:period", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { period } = req.params;
+      const validPeriods = ["morning", "afternoon", "evening"];
+      if (!validPeriods.includes(period)) {
+        return res.status(400).json({ error: "Invalid period" });
+      }
+
+      const box = await db.select().from(voicemailBoxes).where(eq(voicemailBoxes.id, req.params.id)).limit(1);
+      if (!box[0]) return res.status(404).json({ error: "Voicemail box not found" });
+
+      const fieldMap: Record<string, string | null> = {
+        morning: box[0].greetingMorningFilePath,
+        afternoon: box[0].greetingAfternoonFilePath,
+        evening: box[0].greetingEveningFilePath,
+      };
+
+      const greetingPath = fieldMap[period];
+      if (!greetingPath) return res.status(404).json({ error: "No greeting audio for this period" });
+
+      const fullPath = path.resolve(process.cwd(), greetingPath);
+      if (!fs.existsSync(fullPath)) {
+        return res.status(404).json({ error: "Greeting audio file not found on disk" });
+      }
+
+      const ext = path.extname(fullPath).toLowerCase();
+      const mimeTypes: Record<string, string> = {
+        ".mp3": "audio/mpeg", ".wav": "audio/wav", ".ogg": "audio/ogg", ".gsm": "audio/gsm",
+      };
+
+      res.setHeader("Content-Type", mimeTypes[ext] || "application/octet-stream");
+      res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+      fs.createReadStream(fullPath).pipe(res);
+    } catch (error) {
+      console.error("Error serving greeting audio:", error);
+      res.status(500).json({ error: "Failed to serve greeting audio" });
+    }
+  });
+
+  app.delete("/api/voicemail-boxes/:id/greeting/:period", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const user = (req.session as any)?.user;
+      if (!["admin", "manager"].includes(user.role)) {
+        return res.status(403).json({ error: "Admin or manager access required" });
+      }
+
+      const { period } = req.params;
+      const validPeriods = ["morning", "afternoon", "evening"];
+      if (!validPeriods.includes(period)) {
+        return res.status(400).json({ error: "Invalid period" });
+      }
+
+      const fieldMap: Record<string, any> = {
+        morning: { greetingMorningFilePath: null, greetingMorningTtsText: null },
+        afternoon: { greetingAfternoonFilePath: null, greetingAfternoonTtsText: null },
+        evening: { greetingEveningFilePath: null, greetingEveningTtsText: null },
+      };
+
+      const updated = await db.update(voicemailBoxes)
+        .set({ ...fieldMap[period], updatedAt: new Date() })
+        .where(eq(voicemailBoxes.id, req.params.id))
+        .returning();
+
+      if (!updated[0]) return res.status(404).json({ error: "Voicemail box not found" });
+      res.json(updated[0]);
+    } catch (error) {
+      console.error("Error deleting greeting:", error);
+      res.status(500).json({ error: "Failed to delete greeting" });
     }
   });
 

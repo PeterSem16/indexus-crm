@@ -143,6 +143,10 @@ export function DidRoutesTab() {
     queryKey: ["/api/users"],
   });
 
+  const { data: voicemailBoxes = [] } = useQuery<any[]>({
+    queryKey: ["/api/voicemail-boxes"],
+  });
+
   const createMutation = useMutation({
     mutationFn: (data: Partial<DidRoute>) => apiRequest("POST", "/api/did-routes", data),
     onSuccess: () => {
@@ -243,8 +247,10 @@ export function DidRoutesTab() {
       }
       case "transfer":
         return route.targetExtension || "-";
-      case "voicemail":
-        return route.voicemailBox || "-";
+      case "voicemail": {
+        const box = voicemailBoxes.find((b: any) => b.id === route.voicemailBox);
+        return box ? `${box.name}${box.extension ? ` (${box.extension})` : ""}` : route.voicemailBox || "-";
+      }
       default:
         return "-";
     }
@@ -478,12 +484,22 @@ export function DidRoutesTab() {
             {form.action === "voicemail" && (
               <div className="space-y-2">
                 <Label>Schránka odkazovej služby</Label>
-                <Input
-                  placeholder="napr. 1000"
-                  value={form.voicemailBox || ""}
-                  onChange={(e) => setForm({ ...form, voicemailBox: e.target.value })}
-                  data-testid="input-did-voicemail-box"
-                />
+                <Select value={form.voicemailBox || "__none__"} onValueChange={(v) => setForm({ ...form, voicemailBox: v === "__none__" ? "" : v })}>
+                  <SelectTrigger data-testid="select-did-voicemail-box">
+                    <SelectValue placeholder="Vyberte schránku..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Žiadna</SelectItem>
+                    {voicemailBoxes.filter((b: any) => b.isActive).map((b: any) => (
+                      <SelectItem key={b.id} value={b.id}>
+                        {b.name}{b.extension ? ` (${b.extension})` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {voicemailBoxes.filter((b: any) => b.isActive).length === 0 && (
+                  <p className="text-xs text-yellow-600">Nie su nakonfigurovane ziadne odkazove schranky. Vytvorte ich v zalozke Voicemails.</p>
+                )}
               </div>
             )}
 

@@ -5593,6 +5593,13 @@ export const voicemailBoxes = pgTable("voicemail_boxes", {
   countryCode: text("country_code"),
   greetingMessageId: varchar("greeting_message_id"), // FK to ivr_messages
   greetingFilePath: text("greeting_file_path"), // direct path to greeting audio
+  greetingMorningFilePath: text("greeting_morning_file_path"), // morning greeting (06:00-11:59)
+  greetingAfternoonFilePath: text("greeting_afternoon_file_path"), // afternoon greeting (12:00-17:59)
+  greetingEveningFilePath: text("greeting_evening_file_path"), // evening greeting (18:00-05:59)
+  greetingMorningTtsText: text("greeting_morning_tts_text"),
+  greetingAfternoonTtsText: text("greeting_afternoon_tts_text"),
+  greetingEveningTtsText: text("greeting_evening_tts_text"),
+  greetingTtsVoice: text("greeting_tts_voice").default("nova"),
   maxDurationSeconds: integer("max_duration_seconds").notNull().default(120),
   emailNotification: boolean("email_notification").notNull().default(false),
   notifyEmails: text("notify_emails").array().default(sql`'{}'::text[]`),

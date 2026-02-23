@@ -54,6 +54,10 @@ import {
   FileText,
   Settings,
   X,
+  Sun,
+  Sunset,
+  Moon,
+  Upload,
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -67,6 +71,13 @@ interface VoicemailBox {
   countryCode: string | null;
   greetingMessageId: string | null;
   greetingFilePath: string | null;
+  greetingMorningFilePath: string | null;
+  greetingAfternoonFilePath: string | null;
+  greetingEveningFilePath: string | null;
+  greetingMorningTtsText: string | null;
+  greetingAfternoonTtsText: string | null;
+  greetingEveningTtsText: string | null;
+  greetingTtsVoice: string | null;
   maxDurationSeconds: number;
   emailNotification: boolean;
   notifyEmails: string[] | null;
@@ -102,6 +113,24 @@ interface VoicemailStats {
 }
 
 const COUNTRIES = ["SK", "CZ", "HU", "RO", "IT", "DE", "US"];
+
+const TTS_VOICES = [
+  { value: "nova", label: "Nova", gender: "female" },
+  { value: "shimmer", label: "Shimmer", gender: "female" },
+  { value: "alloy", label: "Alloy", gender: "female" },
+  { value: "coral", label: "Coral", gender: "female" },
+  { value: "sage", label: "Sage", gender: "female" },
+  { value: "onyx", label: "Onyx", gender: "male" },
+  { value: "echo", label: "Echo", gender: "male" },
+  { value: "fable", label: "Fable", gender: "male" },
+  { value: "ash", label: "Ash", gender: "male" },
+];
+
+const GREETING_PERIODS = [
+  { key: "morning" as const, label: "Morning", range: "06:00-11:59", Icon: Sun },
+  { key: "afternoon" as const, label: "Afternoon", range: "12:00-17:59", Icon: Sunset },
+  { key: "evening" as const, label: "Evening", range: "18:00-05:59", Icon: Moon },
+];
 
 interface BoxFormData {
   name: string;
@@ -591,12 +620,212 @@ function VoicemailInbox() {
   );
 }
 
+function GreetingCard({
+  period,
+  box,
+}: {
+  period: typeof GREETING_PERIODS[number];
+  box: VoicemailBox;
+}) {
+  const { toast } = useToast();
+  const [mode, setMode] = useState<"tts" | "upload">("tts");
+  const [ttsText, setTtsText] = useState("");
+  const [playingPeriod, setPlayingPeriod] = useState<string | null>(null);
+  const greetingAudioRef = useRef<HTMLAudioElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const filePath =
+    period.key === "morning" ? box.greetingMorningFilePath :
+    period.key === "afternoon" ? box.greetingAfternoonFilePath :
+    box.greetingEveningFilePath;
+
+  const savedTtsText =
+    period.key === "morning" ? box.greetingMorningTtsText :
+    period.key === "afternoon" ? box.greetingAfternoonTtsText :
+    box.greetingEveningTtsText;
+
+  const generateMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", `/api/voicemail-boxes/${box.id}/generate-greeting`, {
+        period: period.key,
+        textContent: ttsText,
+        voice: box.greetingTtsVoice || "nova",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/voicemail-boxes"] });
+      setTtsText("");
+      toast({ title: "Greeting generated" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const uploadMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const fd = new FormData();
+      fd.append("period", period.key);
+      fd.append("file", file);
+      const res = await fetch(`/api/voicemail-boxes/${box.id}/upload-greeting`, {
+        method: "POST",
+        body: fd,
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || res.statusText);
+      }
+      return res;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/voicemail-boxes"] });
+      toast({ title: "Greeting uploaded" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("DELETE", `/api/voicemail-boxes/${box.id}/greeting/${period.key}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/voicemail-boxes"] });
+      toast({ title: "Greeting deleted" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const togglePlay = () => {
+    if (playingPeriod === period.key) {
+      greetingAudioRef.current?.pause();
+      setPlayingPeriod(null);
+      return;
+    }
+    if (greetingAudioRef.current) {
+      greetingAudioRef.current.pause();
+    }
+    const audio = new Audio(`/api/voicemail-boxes/${box.id}/greeting-audio/${period.key}?t=${Date.now()}`);
+    audio.onended = () => setPlayingPeriod(null);
+    audio.onerror = () => {
+      setPlayingPeriod(null);
+      toast({ title: "Error", description: "Could not play greeting", variant: "destructive" });
+    };
+    greetingAudioRef.current = audio;
+    audio.play();
+    setPlayingPeriod(period.key);
+  };
+
+  const PeriodIcon = period.Icon;
+
+  return (
+    <div className="border rounded-md p-3 space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <PeriodIcon className="h-4 w-4 text-muted-foreground" />
+          <span className="text-sm font-medium">{period.label}</span>
+          <span className="text-xs text-muted-foreground">({period.range})</span>
+        </div>
+        {filePath && (
+          <div className="flex items-center gap-1">
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={togglePlay}
+              data-testid={`button-play-greeting-${period.key}`}
+            >
+              {playingPeriod === period.key ? (
+                <Square className="h-4 w-4" />
+              ) : (
+                <Play className="h-4 w-4" />
+              )}
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="text-destructive"
+              onClick={() => deleteMutation.mutate()}
+              disabled={deleteMutation.isPending}
+              data-testid={`button-delete-greeting-${period.key}`}
+            >
+              {deleteMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Trash2 className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
+        )}
+      </div>
+
+      <Tabs value={mode} onValueChange={(v) => setMode(v as "tts" | "upload")}>
+        <TabsList className="h-7">
+          <TabsTrigger value="tts" className="text-xs px-2 py-0.5" data-testid={`tab-tts-${period.key}`}>TTS</TabsTrigger>
+          <TabsTrigger value="upload" className="text-xs px-2 py-0.5" data-testid={`tab-upload-${period.key}`}>Upload</TabsTrigger>
+        </TabsList>
+        <TabsContent value="tts" className="mt-2 space-y-2">
+          <Textarea
+            value={ttsText}
+            onChange={(e) => setTtsText(e.target.value)}
+            placeholder={savedTtsText || "Enter greeting text..."}
+            rows={2}
+            className="text-sm"
+            data-testid={`textarea-tts-${period.key}`}
+          />
+          <Button
+            size="sm"
+            onClick={() => generateMutation.mutate()}
+            disabled={!ttsText.trim() || generateMutation.isPending}
+            data-testid={`button-generate-greeting-${period.key}`}
+          >
+            {generateMutation.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+            Generate
+          </Button>
+        </TabsContent>
+        <TabsContent value="upload" className="mt-2 space-y-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".wav,.mp3,.ogg"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) uploadMutation.mutate(file);
+              e.target.value = "";
+            }}
+            data-testid={`input-upload-greeting-${period.key}`}
+          />
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploadMutation.isPending}
+            data-testid={`button-upload-greeting-${period.key}`}
+          >
+            {uploadMutation.isPending ? (
+              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+            ) : (
+              <Upload className="h-4 w-4 mr-1" />
+            )}
+            Upload Audio
+          </Button>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
 function VoicemailBoxesManager() {
   const { toast } = useToast();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingBox, setEditingBox] = useState<VoicemailBox | null>(null);
   const [formData, setFormData] = useState<BoxFormData>(defaultBoxForm);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [greetingVoice, setGreetingVoice] = useState("nova");
 
   const { data: boxes = [], isLoading } = useQuery<VoicemailBox[]>({
     queryKey: ["/api/voicemail-boxes"],
@@ -604,6 +833,15 @@ function VoicemailBoxesManager() {
 
   const { data: ivrMessages = [] } = useQuery<any[]>({
     queryKey: ["/api/ivr-messages"],
+  });
+
+  const updateGreetingVoiceMutation = useMutation({
+    mutationFn: async ({ id, voice }: { id: string; voice: string }) => {
+      return apiRequest("PATCH", `/api/voicemail-boxes/${id}/greeting-voice`, { voice });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/voicemail-boxes"] });
+    },
   });
 
   const createMutation = useMutation({
@@ -674,6 +912,7 @@ function VoicemailBoxesManager() {
       pin: box.pin || "",
       isActive: box.isActive,
     });
+    setGreetingVoice(box.greetingTtsVoice || "nova");
     setDialogOpen(true);
   };
 
@@ -811,7 +1050,7 @@ function VoicemailBoxesManager() {
       </Dialog>
 
       <Dialog open={dialogOpen} onOpenChange={(open) => !open && closeDialog()}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>{editingBox ? "Edit Mailbox" : "Create Mailbox"}</DialogTitle>
           </DialogHeader>
@@ -859,6 +1098,57 @@ function VoicemailBoxesManager() {
                 </Select>
               </div>
             </div>
+
+            <div className="space-y-3 border rounded-md p-4">
+              <div>
+                <Label className="text-sm font-semibold">Time-of-Day Greetings</Label>
+                <p className="text-xs text-muted-foreground">Different greetings play based on the time of day the caller reaches the mailbox</p>
+              </div>
+              {editingBox ? (
+                (() => {
+                  const liveBox = boxes.find(b => b.id === editingBox.id) || editingBox;
+                  return (
+                    <>
+                      <div className="space-y-2">
+                        <Label className="text-xs">TTS Voice</Label>
+                        <Select
+                          value={greetingVoice}
+                          onValueChange={(v) => {
+                            setGreetingVoice(v);
+                            if (editingBox) {
+                              updateGreetingVoiceMutation.mutate({ id: editingBox.id, voice: v });
+                            }
+                          }}
+                        >
+                          <SelectTrigger data-testid="select-greeting-voice">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {TTS_VOICES.map((voice) => (
+                              <SelectItem key={voice.value} value={voice.value}>
+                                {voice.label} ({voice.gender})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        {GREETING_PERIODS.map((period) => (
+                          <GreetingCard
+                            key={period.key}
+                            period={period}
+                            box={liveBox}
+                          />
+                        ))}
+                      </div>
+                    </>
+                  );
+                })()
+              ) : (
+                <p className="text-xs text-muted-foreground italic">Save the mailbox first, then add greetings</p>
+              )}
+            </div>
+
             <div className="space-y-2">
               <Label>Max Recording Duration (seconds)</Label>
               <Input
