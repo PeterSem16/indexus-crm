@@ -1064,11 +1064,37 @@ export class QueueEngine extends EventEmitter {
       .where(eq(inboundQueues.isActive, true))
       .orderBy(desc(inboundQueues.priority));
 
+    const now = Date.now();
+
     for (const queue of queues) {
       const waitingCalls = this.getWaitingCallsForQueue(queue.id);
       if (waitingCalls.length === 0) continue;
 
       for (const call of waitingCalls) {
+        const waitTime = (now - call.enteredAt.getTime()) / 1000;
+        if (queue.maxWaitTime > 0 && waitTime > queue.maxWaitTime) {
+          const savedCallerNumber = call.callerNumber;
+          const savedCallerName = call.callerName || "";
+          console.log(`[QueueEngine] Call ${call.id} exceeded maxWaitTime (${Math.floor(waitTime)}s > ${queue.maxWaitTime}s) during assignment, routing to overflow`);
+          this.waitingCalls.delete(call.channelId);
+          await this.stopMohForChannel(call.channelId);
+          await db.update(inboundCallLogs)
+            .set({
+              status: "timeout",
+              completedAt: new Date(),
+              abandonReason: "timeout",
+              waitDurationSeconds: Math.floor(waitTime),
+            })
+            .where(eq(inboundCallLogs.id, call.id));
+          await this.handleOverflow(call.channelId, queue, savedCallerNumber, savedCallerName);
+          this.emit("call-timeout", {
+            callId: call.id,
+            queueId: queue.id,
+            callerNumber: savedCallerNumber,
+          });
+          continue;
+        }
+
         const agent = await this.selectAgent(queue);
         if (!agent) break;
 
