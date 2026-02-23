@@ -4323,6 +4323,9 @@ export default function AgentWorkspacePage() {
   sessionQueueIdsRef.current = sessionInboundQueueIds;
 
   const activeCampaigns = useMemo(() => {
+    if (agentSession.isSessionActive && sessionCampaignIds.length === 0) {
+      return [];
+    }
     return campaigns
       .filter((c) => c.status === "active" || c.status === "paused")
       .filter((c) => sessionCampaignIds.length === 0 || sessionCampaignIds.includes(c.id))
@@ -4333,7 +4336,7 @@ export default function AgentWorkspacePage() {
         status: c.status,
         channel: c.channel || "phone",
       }));
-  }, [campaigns, campaignContactCounts, sessionCampaignIds]);
+  }, [campaigns, campaignContactCounts, sessionCampaignIds, agentSession.isSessionActive]);
 
   useEffect(() => {
     if (agentSession.isSessionActive && !selectedCampaignId && sessionCampaignIds.length > 0) {
