@@ -2628,6 +2628,32 @@ function setupQueueEngineWebSocketEvents(engine: QueueEngine): void {
     }
   });
 
+  engine.on("call-cancelled", async (data) => {
+    console.log(`[QueueEngine] Call cancelled: ${data.callerNumber}, reason: ${data.reason}`);
+    const ws = await getWs();
+    let queueName = data.queueName || "";
+    if (!queueName && data.queueId) {
+      try {
+        const q = await db.select({ name: inboundQueues.name }).from(inboundQueues).where(eq(inboundQueues.id, data.queueId)).limit(1);
+        if (q.length > 0) queueName = q[0].name;
+      } catch {}
+    }
+    const extra = { callerNumber: data.callerNumber, callerName: data.callerName, queueName, queueId: data.queueId, reason: data.reason || "cancelled" };
+    if (data.assignedAgentId) {
+      ws.notifyCallCancelled(data.assignedAgentId, data.callId, extra);
+    }
+    if (data.queueId) {
+      try {
+        const members = await db.select({ userId: queueMembers.userId }).from(queueMembers).where(eq(queueMembers.queueId, data.queueId));
+        for (const m of members) {
+          if (m.userId !== data.assignedAgentId) {
+            ws.notifyCallCancelled(m.userId, data.callId, extra);
+          }
+        }
+      } catch {}
+    }
+  });
+
   engine.on("agent-status-changed", (data) => {
     console.log(`[QueueEngine] Agent ${data.userId} → ${data.status}`);
   });

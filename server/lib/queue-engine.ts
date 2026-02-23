@@ -1663,6 +1663,7 @@ export class QueueEngine extends EventEmitter {
   private async handleChannelDestroyed(channelId: string): Promise<void> {
     this.mohPlaybacks.delete(channelId);
     this.pendingWelcomeCallData.delete(channelId);
+    const assignedCallData = this.assignedCalls.get(channelId);
     this.assignedCalls.delete(channelId);
     this.lastAnnouncementTime.delete(channelId);
     this.announcementPlayingFor.delete(channelId);
@@ -1751,6 +1752,30 @@ export class QueueEngine extends EventEmitter {
     const call = this.waitingCalls.get(channelId);
     if (call) {
       this.handleCallerHangup(channelId);
+      return;
+    }
+
+    if (assignedCallData) {
+      console.log(`[QueueEngine] Caller channel ${channelId} destroyed while assigned to agent ${assignedCallData.agentId} (no pending SIP originate)`);
+      this.updateAgentStatus(assignedCallData.agentId, "available", null);
+      const waitDuration = Math.floor((Date.now() - assignedCallData.call.enteredAt.getTime()) / 1000);
+      await db.update(inboundCallLogs)
+        .set({
+          status: "abandoned",
+          completedAt: new Date(),
+          abandonReason: "caller_hangup",
+          waitDurationSeconds: waitDuration,
+        })
+        .where(eq(inboundCallLogs.id, assignedCallData.call.id));
+      this.emit("call-abandoned", {
+        callId: assignedCallData.call.id,
+        queueId: assignedCallData.queueId,
+        callerNumber: assignedCallData.call.callerNumber,
+        callerName: assignedCallData.call.callerName,
+        queueName: assignedCallData.queue?.name || "",
+        reason: "caller_hangup",
+        assignedAgentId: assignedCallData.agentId,
+      });
     }
   }
 

@@ -5150,7 +5150,7 @@ export default function AgentWorkspacePage() {
       setInboundCalls(prev => {
         const fresh = prev.filter(c => {
           const age = now - c.timestamp;
-          if (age > 120000 && !c.hasSipInvitation) {
+          if (age > 60000 && !c.hasSipInvitation) {
             console.log(`[AgentWS] Auto-removing stale inbound call ${c.callId} (${c.callerNumber}) - ${Math.round(age / 1000)}s old`);
             return false;
           }
@@ -5254,7 +5254,7 @@ export default function AgentWorkspacePage() {
               }
               return prev.filter(c => !directCallIds.includes(c.callId) || c.hasSipInvitation);
             });
-          }, 45000);
+          }, 15000);
         }
 
         if (queueLinkedCalls.length > 0) {
@@ -5270,10 +5270,23 @@ export default function AgentWorkspacePage() {
               const stale = prev.filter(c => queueCallIds.includes(c.callId) && !c.hasSipInvitation);
               if (stale.length > 0) {
                 console.log("[AgentWS] Removing stale queue calls (no WS update):", stale.map(c => `${c.callId} (${c.callerNumber})`));
+                stale.forEach(c => {
+                  if (!cancelledCallIdsRef.current.has(c.callId)) {
+                    cancelledCallIdsRef.current.add(c.callId);
+                    setTimeout(() => cancelledCallIdsRef.current.delete(c.callId), 10000);
+                    const callerDisplay = c.callerName || c.callerNumber || "Neznámy";
+                    const queueDisplay = c.queueName ? ` (${c.queueName})` : "";
+                    toast({
+                      title: "Zmeškaný hovor",
+                      description: `Volajúci ${callerDisplay}${queueDisplay} zavesil`,
+                      variant: "destructive",
+                    });
+                  }
+                });
               }
               return prev.filter(c => !queueCallIds.includes(c.callId) || c.hasSipInvitation);
             });
-          }, 45000);
+          }, 10000);
         }
       }
     }
