@@ -251,3 +251,58 @@ function isAsteriskCompatibleWav(filePath: string): boolean {
 export async function syncSingleAudio(messageId: string): Promise<SyncResult> {
   return syncAudioToAsterisk(messageId);
 }
+
+export async function syncVoicemailGreetingToAsterisk(localFilePath: string, remoteSoundName: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const settings = await getAriSettings();
+    if (!settings || !settings.host || !settings.sshUsername) {
+      return { success: false, error: "SSH credentials not configured in ARI settings" };
+    }
+
+    const absPath = path.resolve(localFilePath);
+    if (!fs.existsSync(absPath)) {
+      return { success: false, error: `Local file not found: ${localFilePath}` };
+    }
+
+    const conn = await connectSSH({
+      host: settings.host,
+      sshPort: settings.sshPort,
+      sshUsername: settings.sshUsername,
+      sshPassword: settings.sshPassword,
+    });
+
+    const remoteSoundsPath = settings.asteriskSoundsPath || "/var/lib/asterisk/sounds/custom";
+    const sftp = await getSFTP(conn);
+    await sftpMkdir(sftp, remoteSoundsPath);
+
+    const ext = path.extname(absPath).toLowerCase();
+    let uploadPath = absPath;
+    let remoteExt = ".wav";
+    const tempFiles: string[] = [];
+
+    if (ext !== ".wav" || !isAsteriskCompatibleWav(absPath)) {
+      const converted = convertToAsteriskWav(absPath);
+      if (converted) {
+        uploadPath = converted;
+        tempFiles.push(converted);
+      } else {
+        remoteExt = ext || ".wav";
+      }
+    }
+
+    const remotePath = `${remoteSoundsPath}/${remoteSoundName}${remoteExt}`;
+    await sftpUpload(sftp, uploadPath, remotePath);
+    console.log(`[AudioSync] Voicemail greeting synced: ${remoteSoundName} → ${remotePath}`);
+
+    conn.end();
+    for (const tmp of tempFiles) {
+      try { fs.unlinkSync(tmp); } catch {}
+    }
+
+    return { success: true };
+  } catch (err) {
+    const errMsg = err instanceof Error ? err.message : String(err);
+    console.error(`[AudioSync] Voicemail greeting sync failed: ${errMsg}`);
+    return { success: false, error: errMsg };
+  }
+}

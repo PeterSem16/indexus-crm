@@ -1097,179 +1097,191 @@ function VoicemailBoxesManager() {
       </Dialog>
 
       <Dialog open={dialogOpen} onOpenChange={(open) => !open && closeDialog()}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-4xl">
           <DialogHeader>
             <DialogTitle>{editingBox ? "Edit Mailbox" : "Create Mailbox"}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
-            <div className="space-y-2">
-              <Label>Name *</Label>
-              <Input
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="Sales Voicemail"
-                data-testid="input-box-name"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Description</Label>
-              <Textarea
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="Voicemail box for sales department"
-                rows={2}
-                data-testid="input-box-description"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Extension</Label>
-                <Input
-                  value={formData.extension}
-                  onChange={(e) => setFormData({ ...formData, extension: e.target.value })}
-                  placeholder="100"
-                  data-testid="input-box-extension"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Country</Label>
-                <Select value={formData.countryCode} onValueChange={(v) => setFormData({ ...formData, countryCode: v })}>
-                  <SelectTrigger data-testid="select-box-country">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {COUNTRIES.map((c) => (
-                      <SelectItem key={c} value={c}>{c}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="space-y-3 border rounded-md p-4">
-              <div>
-                <Label className="text-sm font-semibold">Time-of-Day Greetings</Label>
-                <p className="text-xs text-muted-foreground">Different greetings play based on the time of day the caller reaches the mailbox</p>
-              </div>
-              {editingBox ? (
-                (() => {
-                  const liveBox = boxes.find(b => b.id === editingBox.id) || editingBox;
-                  return (
-                    <>
-                      <div className="space-y-2">
-                        <Label className="text-xs">TTS Voice</Label>
-                        <Select
-                          value={greetingVoice}
-                          onValueChange={(v) => {
-                            setGreetingVoice(v);
-                            if (editingBox) {
-                              updateGreetingVoiceMutation.mutate({ id: editingBox.id, voice: v });
-                            }
-                          }}
-                        >
-                          <SelectTrigger data-testid="select-greeting-voice">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {TTS_VOICES.map((voice) => (
-                              <SelectItem key={voice.value} value={voice.value}>
-                                {voice.label} ({voice.gender})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        {GREETING_PERIODS.map((period) => (
-                          <GreetingCard
-                            key={period.key}
-                            period={period}
-                            box={liveBox}
-                          />
+          <div className="max-h-[70vh] overflow-y-auto pr-1">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">General Settings</h4>
+                <div className="space-y-2">
+                  <Label>Name *</Label>
+                  <Input
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    placeholder="Sales Voicemail"
+                    data-testid="input-box-name"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Description</Label>
+                  <Textarea
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    placeholder="Voicemail box for sales department"
+                    rows={2}
+                    data-testid="input-box-description"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label>Extension</Label>
+                    <Input
+                      value={formData.extension}
+                      onChange={(e) => setFormData({ ...formData, extension: e.target.value })}
+                      placeholder="100"
+                      data-testid="input-box-extension"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Country</Label>
+                    <Select value={formData.countryCode} onValueChange={(v) => setFormData({ ...formData, countryCode: v })}>
+                      <SelectTrigger data-testid="select-box-country">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {COUNTRIES.map((c) => (
+                          <SelectItem key={c} value={c}>{c}</SelectItem>
                         ))}
-                      </div>
-                    </>
-                  );
-                })()
-              ) : (
-                <p className="text-xs text-muted-foreground italic">Save the mailbox first, then add greetings</p>
-              )}
-            </div>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label>Max Duration (s)</Label>
+                    <Input
+                      type="number"
+                      value={formData.maxDurationSeconds}
+                      onChange={(e) => setFormData({ ...formData, maxDurationSeconds: parseInt(e.target.value) || 120 })}
+                      data-testid="input-box-max-duration"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Access PIN</Label>
+                    <Input
+                      value={formData.pin}
+                      onChange={(e) => setFormData({ ...formData, pin: e.target.value })}
+                      placeholder="1234"
+                      type="password"
+                      data-testid="input-box-pin"
+                    />
+                  </div>
+                </div>
 
-            <div className="space-y-2">
-              <Label>Max Recording Duration (seconds)</Label>
-              <Input
-                type="number"
-                value={formData.maxDurationSeconds}
-                onChange={(e) => setFormData({ ...formData, maxDurationSeconds: parseInt(e.target.value) || 120 })}
-                data-testid="input-box-max-duration"
-              />
-            </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <Label>Beep Tone Before Recording</Label>
-                <p className="text-xs text-muted-foreground">Play a pleasant beep sound before the caller starts recording their message</p>
+                <div className="border-t pt-3 space-y-3">
+                  <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Options</h4>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label className="text-sm">Beep Tone</Label>
+                      <p className="text-xs text-muted-foreground">Beep before recording starts</p>
+                    </div>
+                    <Switch
+                      checked={formData.beepToneEnabled}
+                      onCheckedChange={(v) => setFormData({ ...formData, beepToneEnabled: v })}
+                      data-testid="switch-beep-tone"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label className="text-sm">Email Notification</Label>
+                      <p className="text-xs text-muted-foreground">Send email on new voicemail</p>
+                    </div>
+                    <Switch
+                      checked={formData.emailNotification}
+                      onCheckedChange={(v) => setFormData({ ...formData, emailNotification: v })}
+                      data-testid="switch-email-notification"
+                    />
+                  </div>
+                  {formData.emailNotification && (
+                    <div className="space-y-2">
+                      <Label>Notification Emails</Label>
+                      <Input
+                        value={formData.notifyEmails}
+                        onChange={(e) => setFormData({ ...formData, notifyEmails: e.target.value })}
+                        placeholder="admin@example.com, manager@example.com"
+                        data-testid="input-notify-emails"
+                      />
+                      <p className="text-xs text-muted-foreground">Comma-separated</p>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label className="text-sm">Transcription</Label>
+                      <p className="text-xs text-muted-foreground">Auto-transcribe messages</p>
+                    </div>
+                    <Switch
+                      checked={formData.transcriptionEnabled}
+                      onCheckedChange={(v) => setFormData({ ...formData, transcriptionEnabled: v })}
+                      data-testid="switch-transcription"
+                    />
+                  </div>
+                  {editingBox && (
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm">Active</Label>
+                      <Switch
+                        checked={formData.isActive}
+                        onCheckedChange={(v) => setFormData({ ...formData, isActive: v })}
+                        data-testid="switch-active"
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
-              <Switch
-                checked={formData.beepToneEnabled}
-                onCheckedChange={(v) => setFormData({ ...formData, beepToneEnabled: v })}
-                data-testid="switch-beep-tone"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Access PIN</Label>
-              <Input
-                value={formData.pin}
-                onChange={(e) => setFormData({ ...formData, pin: e.target.value })}
-                placeholder="1234"
-                type="password"
-                data-testid="input-box-pin"
-              />
-            </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <Label>Email Notification</Label>
-                <p className="text-xs text-muted-foreground">Send email when new voicemail arrives</p>
+
+              <div className="space-y-4">
+                <div className="space-y-3 border rounded-md p-4">
+                  <div>
+                    <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Time-of-Day Greetings</h4>
+                    <p className="text-xs text-muted-foreground mt-1">Different greetings play based on the time of day</p>
+                  </div>
+                  {editingBox ? (
+                    (() => {
+                      const liveBox = boxes.find(b => b.id === editingBox.id) || editingBox;
+                      return (
+                        <>
+                          <div className="space-y-2">
+                            <Label className="text-xs">TTS Voice</Label>
+                            <Select
+                              value={greetingVoice}
+                              onValueChange={(v) => {
+                                setGreetingVoice(v);
+                                if (editingBox) {
+                                  updateGreetingVoiceMutation.mutate({ id: editingBox.id, voice: v });
+                                }
+                              }}
+                            >
+                              <SelectTrigger data-testid="select-greeting-voice">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {TTS_VOICES.map((voice) => (
+                                  <SelectItem key={voice.value} value={voice.value}>
+                                    {voice.label} ({voice.gender})
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            {GREETING_PERIODS.map((period) => (
+                              <GreetingCard
+                                key={period.key}
+                                period={period}
+                                box={liveBox}
+                              />
+                            ))}
+                          </div>
+                        </>
+                      );
+                    })()
+                  ) : (
+                    <p className="text-xs text-muted-foreground italic">Save the mailbox first, then add greetings</p>
+                  )}
+                </div>
               </div>
-              <Switch
-                checked={formData.emailNotification}
-                onCheckedChange={(v) => setFormData({ ...formData, emailNotification: v })}
-                data-testid="switch-email-notification"
-              />
             </div>
-            {formData.emailNotification && (
-              <div className="space-y-2">
-                <Label>Notification Emails</Label>
-                <Input
-                  value={formData.notifyEmails}
-                  onChange={(e) => setFormData({ ...formData, notifyEmails: e.target.value })}
-                  placeholder="admin@example.com, manager@example.com"
-                  data-testid="input-notify-emails"
-                />
-                <p className="text-xs text-muted-foreground">Comma-separated email addresses</p>
-              </div>
-            )}
-            <div className="flex items-center justify-between">
-              <div>
-                <Label>Transcription</Label>
-                <p className="text-xs text-muted-foreground">Automatically transcribe voicemail messages</p>
-              </div>
-              <Switch
-                checked={formData.transcriptionEnabled}
-                onCheckedChange={(v) => setFormData({ ...formData, transcriptionEnabled: v })}
-                data-testid="switch-transcription"
-              />
-            </div>
-            {editingBox && (
-              <div className="flex items-center justify-between">
-                <Label>Active</Label>
-                <Switch
-                  checked={formData.isActive}
-                  onCheckedChange={(v) => setFormData({ ...formData, isActive: v })}
-                  data-testid="switch-active"
-                />
-              </div>
-            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={closeDialog} data-testid="button-cancel-box">

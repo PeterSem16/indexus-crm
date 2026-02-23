@@ -551,18 +551,19 @@ export class QueueEngine extends EventEmitter {
         await this.ariClient.answerChannel(channelId);
       } catch {}
 
-      const greetingFilePath = this.getTimeBasedGreeting(box);
-      if (greetingFilePath) {
+      const greetingInfo = this.resolveGreetingSoundName(box);
+      if (greetingInfo) {
         try {
-          const soundName = path.basename(greetingFilePath, path.extname(greetingFilePath));
           const pbId = `vm-greeting-${channelId}-${Date.now()}`;
-          console.log(`[QueueEngine] Playing voicemail greeting: sound:custom/${soundName}`);
-          await this.ariClient.playMedia(channelId, `sound:custom/${soundName}`, pbId);
+          console.log(`[QueueEngine] Playing voicemail greeting: sound:custom/${greetingInfo.soundName}`);
+          await this.ariClient.playMedia(channelId, `sound:custom/${greetingInfo.soundName}`, pbId);
           await this.waitForPlaybackFinished(pbId, 60000);
           console.log(`[QueueEngine] Greeting playback finished`);
         } catch (err) {
           console.warn(`[QueueEngine] Greeting playback failed:`, err instanceof Error ? err.message : err);
         }
+      } else {
+        console.log(`[QueueEngine] No greeting configured for box "${box.name}", skipping greeting playback`);
       }
 
       if (box.beepToneEnabled) {
@@ -709,14 +710,38 @@ export class QueueEngine extends EventEmitter {
     return null;
   }
 
+  private resolveGreetingSoundName(box: typeof voicemailBoxes.$inferSelect): { soundName: string } | null {
+    const period = this.getTimeBasedGreetingPeriod();
+
+    if (period === "morning" && box.greetingMorningFilePath) {
+      return { soundName: `vm-greeting-${box.id}-morning` };
+    } else if (period === "afternoon" && box.greetingAfternoonFilePath) {
+      return { soundName: `vm-greeting-${box.id}-afternoon` };
+    } else if (period === "evening" && box.greetingEveningFilePath) {
+      return { soundName: `vm-greeting-${box.id}-evening` };
+    }
+
+    if (box.greetingMorningFilePath) return { soundName: `vm-greeting-${box.id}-morning` };
+    if (box.greetingAfternoonFilePath) return { soundName: `vm-greeting-${box.id}-afternoon` };
+    if (box.greetingEveningFilePath) return { soundName: `vm-greeting-${box.id}-evening` };
+
+    return null;
+  }
+
+  private getTimeBasedGreetingPeriod(): "morning" | "afternoon" | "evening" {
+    const hour = new Date().getHours();
+    if (hour >= 6 && hour < 12) return "morning";
+    if (hour >= 12 && hour < 18) return "afternoon";
+    return "evening";
+  }
+
   private getTimeBasedGreeting(box: typeof voicemailBoxes.$inferSelect): string | null {
-    const now = new Date();
-    const hour = now.getHours();
+    const period = this.getTimeBasedGreetingPeriod();
 
     let filePath: string | null = null;
-    if (hour >= 6 && hour < 12) {
+    if (period === "morning") {
       filePath = box.greetingMorningFilePath;
-    } else if (hour >= 12 && hour < 18) {
+    } else if (period === "afternoon") {
       filePath = box.greetingAfternoonFilePath;
     } else {
       filePath = box.greetingEveningFilePath;

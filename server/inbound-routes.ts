@@ -1985,29 +1985,32 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
         return res.status(403).json({ error: "Admin or manager access required" });
       }
 
-      const updated = await db.update(voicemailBoxes)
-        .set({
+      const updateData: Record<string, any> = {
           name: req.body.name,
           description: req.body.description || null,
           extension: req.body.extension || null,
           countryCode: req.body.countryCode || null,
-          greetingMessageId: req.body.greetingMessageId || null,
-          greetingFilePath: req.body.greetingFilePath || null,
-          greetingMorningFilePath: req.body.greetingMorningFilePath || null,
-          greetingAfternoonFilePath: req.body.greetingAfternoonFilePath || null,
-          greetingEveningFilePath: req.body.greetingEveningFilePath || null,
-          greetingMorningTtsText: req.body.greetingMorningTtsText || null,
-          greetingAfternoonTtsText: req.body.greetingAfternoonTtsText || null,
-          greetingEveningTtsText: req.body.greetingEveningTtsText || null,
-          greetingTtsVoice: req.body.greetingTtsVoice || "nova",
           maxDurationSeconds: parseInt(req.body.maxDurationSeconds) || 120,
+          beepToneEnabled: req.body.beepToneEnabled === true || req.body.beepToneEnabled === "true",
           emailNotification: req.body.emailNotification === true || req.body.emailNotification === "true",
           notifyEmails: req.body.notifyEmails || [],
           transcriptionEnabled: req.body.transcriptionEnabled === true || req.body.transcriptionEnabled === "true",
           pin: req.body.pin || null,
           isActive: req.body.isActive === true || req.body.isActive === "true",
           updatedAt: new Date(),
-        })
+      };
+      if (req.body.greetingMessageId !== undefined) updateData.greetingMessageId = req.body.greetingMessageId || null;
+      if (req.body.greetingFilePath !== undefined) updateData.greetingFilePath = req.body.greetingFilePath || null;
+      if (req.body.greetingMorningFilePath !== undefined) updateData.greetingMorningFilePath = req.body.greetingMorningFilePath || null;
+      if (req.body.greetingAfternoonFilePath !== undefined) updateData.greetingAfternoonFilePath = req.body.greetingAfternoonFilePath || null;
+      if (req.body.greetingEveningFilePath !== undefined) updateData.greetingEveningFilePath = req.body.greetingEveningFilePath || null;
+      if (req.body.greetingMorningTtsText !== undefined) updateData.greetingMorningTtsText = req.body.greetingMorningTtsText || null;
+      if (req.body.greetingAfternoonTtsText !== undefined) updateData.greetingAfternoonTtsText = req.body.greetingAfternoonTtsText || null;
+      if (req.body.greetingEveningTtsText !== undefined) updateData.greetingEveningTtsText = req.body.greetingEveningTtsText || null;
+      if (req.body.greetingTtsVoice !== undefined) updateData.greetingTtsVoice = req.body.greetingTtsVoice || "nova";
+
+      const updated = await db.update(voicemailBoxes)
+        .set(updateData)
         .where(eq(voicemailBoxes.id, req.params.id))
         .returning();
 
@@ -2122,6 +2125,11 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
         .where(eq(voicemailBoxes.id, req.params.id))
         .returning();
 
+      const remoteSoundName = `vm-greeting-${req.params.id}-${period}`;
+      import("./lib/asterisk-audio-sync").then(m => m.syncVoicemailGreetingToAsterisk(relativePath, remoteSoundName)).catch((err) => {
+        console.error(`[VoicemailGreeting] Asterisk sync failed:`, err);
+      });
+
       res.json(updated[0]);
     } catch (error: any) {
       console.error("Error generating voicemail greeting TTS:", error);
@@ -2174,6 +2182,11 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
         .set({ ...fieldMap[period], updatedAt: new Date() })
         .where(eq(voicemailBoxes.id, req.params.id))
         .returning();
+
+      const remoteSoundName = `vm-greeting-${req.params.id}-${period}`;
+      import("./lib/asterisk-audio-sync").then(m => m.syncVoicemailGreetingToAsterisk(relativePath, remoteSoundName)).catch((err) => {
+        console.error(`[VoicemailGreeting] Asterisk sync failed:`, err);
+      });
 
       res.json(updated[0]);
     } catch (error: any) {
