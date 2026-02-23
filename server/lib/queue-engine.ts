@@ -72,6 +72,8 @@ export class QueueEngine extends EventEmitter {
   private roundRobinIndex: Map<string, number> = new Map();
   private wrapUpTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
   private checkInterval: ReturnType<typeof setInterval> | null = null;
+  private lastChannelCheck: number = 0;
+  private cachedLiveChannels: Set<string> | null = null;
   private pendingWelcome: Map<string, { channelId: string; queueId: string }> = new Map();
   private pendingWelcomeCallData: Map<string, { channelId: string; queueId: string; callerNumber: string; callerName: string; customerId: string | null; queueName: string }> = new Map();
   private mohPlaybacks: Map<string, string> = new Map();
@@ -137,6 +139,21 @@ export class QueueEngine extends EventEmitter {
     this.ariClient.on("channel-hangup-request", (event: AriEvent) => {
       if (event.channel) {
         this.handleCallerHangup(event.channel.id);
+      }
+    });
+
+    this.ariClient.on("stasis-end", (event: AriEvent) => {
+      if (event.channel) {
+        const chId = event.channel.id;
+        console.log(`[QueueEngine] StasisEnd for channel ${chId}`);
+        const isWaiting = this.waitingCalls.has(chId);
+        const isAssigned = this.assignedCalls.has(chId);
+        if (isWaiting || isAssigned) {
+          console.log(`[QueueEngine] StasisEnd: caller channel ${chId} left Stasis (waiting=${isWaiting}, assigned=${isAssigned}), cleaning up as abandoned`);
+          this.handleChannelLeftStasis(chId).catch(err => {
+            console.error("[QueueEngine] handleChannelLeftStasis error:", err instanceof Error ? err.message : err);
+          });
+        }
       }
     });
 
@@ -1402,7 +1419,7 @@ export class QueueEngine extends EventEmitter {
             console.log(`[QueueEngine] Agent ${agent.userId} did not answer within 30s, cancelling`);
             this.pendingAgentCalls.delete(agentChannel.id);
             this.assignedCalls.delete(call.channelId);
-            try { this.ariClient.hangupChannel(agentChannel.id, "normal"); } catch {}
+            try { await this.ariClient.hangupChannel(agentChannel.id, "normal"); } catch {}
             this.updateAgentStatus(agent.userId, "available", null);
 
             const totalWait = (Date.now() - call.enteredAt.getTime()) / 1000;
@@ -1595,6 +1612,54 @@ export class QueueEngine extends EventEmitter {
     });
   }
 
+  private async handleChannelLeftStasis(channelId: string): Promise<void> {
+    const waitingCall = this.waitingCalls.get(channelId);
+    const assignedEntry = this.assignedCalls.get(channelId);
+    const call = waitingCall || assignedEntry?.call;
+    if (!call) return;
+
+    const agentId = assignedEntry?.agentId;
+    const queueId = call.queueId;
+
+    this.waitingCalls.delete(channelId);
+    this.assignedCalls.delete(channelId);
+    this.mohPlaybacks.delete(channelId);
+    this.lastAnnouncementTime.delete(channelId);
+    this.announcementPlayingFor.delete(channelId);
+    this.recalculatePositions(queueId);
+
+    if (agentId) {
+      this.updateAgentStatus(agentId, "available", null);
+    }
+
+    for (const [agentChId, pending] of this.pendingAgentCalls.entries()) {
+      if (pending.callerChannelId === channelId) {
+        console.log(`[QueueEngine] StasisEnd cleanup: cancelling pending agent call ${agentChId}`);
+        this.pendingAgentCalls.delete(agentChId);
+        try { await this.ariClient.hangupChannel(agentChId, "normal"); } catch {}
+        if (!agentId) this.updateAgentStatus(pending.agentId, "available", null);
+        break;
+      }
+    }
+
+    const waitDuration = Math.floor((Date.now() - call.enteredAt.getTime()) / 1000);
+    await db.update(inboundCallLogs)
+      .set({ status: "abandoned", completedAt: new Date(), abandonReason: "caller_left_stasis", waitDurationSeconds: waitDuration, assignedAgentId: null })
+      .where(eq(inboundCallLogs.id, call.id));
+
+    console.log(`[QueueEngine] StasisEnd: call ${call.id} marked as abandoned (waited ${waitDuration}s), caller=${call.callerNumber}`);
+
+    this.emit("call-cancelled", {
+      callId: call.id,
+      callerNumber: call.callerNumber,
+      callerName: call.callerName,
+      queueId,
+      queueName: assignedEntry?.queue?.name || "",
+      reason: "caller_left_stasis",
+      assignedAgentId: agentId,
+    });
+  }
+
   private async handleChannelDestroyed(channelId: string): Promise<void> {
     this.mohPlaybacks.delete(channelId);
     this.pendingWelcomeCallData.delete(channelId);
@@ -1653,8 +1718,8 @@ export class QueueEngine extends EventEmitter {
       this.activeBridges.delete(bridge.agentChannelId);
 
       const otherChannelId = channelId === bridge.callerChannelId ? bridge.agentChannelId : bridge.callerChannelId;
-      try { this.ariClient.hangupChannel(otherChannelId, "normal"); } catch {}
-      try { this.ariClient.destroyBridge(bridge.bridgeId); } catch {}
+      try { await this.ariClient.hangupChannel(otherChannelId, "normal"); } catch {}
+      try { await this.ariClient.destroyBridge(bridge.bridgeId); } catch {}
 
       this.agentCompletedCall(bridge.callId, bridge.agentId);
       return;
@@ -1664,7 +1729,7 @@ export class QueueEngine extends EventEmitter {
       if (pending.callerChannelId === channelId) {
         console.log(`[QueueEngine] Caller channel ${channelId} destroyed while agent ${agentChId} is ringing`);
         this.pendingAgentCalls.delete(agentChId);
-        try { this.ariClient.hangupChannel(agentChId, "normal"); } catch {}
+        try { await this.ariClient.hangupChannel(agentChId, "normal"); } catch {}
         this.updateAgentStatus(pending.agentId, "available", null);
         db.update(inboundCallLogs)
           .set({ status: "abandoned", completedAt: new Date(), abandonReason: "caller_hangup" })
@@ -2075,13 +2140,38 @@ export class QueueEngine extends EventEmitter {
       for (const [agentChId, pending] of this.pendingAgentCalls.entries()) {
         if (pending.callerChannelId === channelId) {
           this.pendingAgentCalls.delete(agentChId);
-          try { this.ariClient.hangupChannel(agentChId, "normal"); } catch {}
+          try { await this.ariClient.hangupChannel(agentChId, "normal"); } catch {}
           break;
         }
       }
     }
 
     try { await this.stopMohForChannel(channelId); } catch {}
+
+    let channelAlive = false;
+    try {
+      await this.ariClient.getChannel(channelId);
+      channelAlive = true;
+    } catch {
+      channelAlive = false;
+    }
+
+    if (!channelAlive) {
+      console.log(`[QueueEngine] >>>>>>> OVERFLOW: channel ${channelId} no longer exists (caller hung up), marking as abandoned <<<<<<<`);
+      await db.update(inboundCallLogs)
+        .set({
+          status: "abandoned",
+          completedAt: new Date(),
+          abandonReason: "caller_hangup_before_overflow",
+          waitDurationSeconds: Math.floor(waitSeconds),
+          assignedAgentId: null,
+        })
+        .where(eq(inboundCallLogs.id, callId));
+
+      this.emit("call-timeout", { callId, queueId: queue.id, callerNumber, callerName, assignedAgentId: agentId, queueName: queue.name });
+      this.emit("call-cancelled", { callId, callerNumber, callerName, queueId: queue.id, queueName: queue.name, reason: "caller_hangup" });
+      return;
+    }
 
     await db.update(inboundCallLogs)
       .set({
@@ -2128,7 +2218,42 @@ export class QueueEngine extends EventEmitter {
       console.log(`[QueueEngine] checkTimeouts: waiting=${waitingCount}, assigned=${assignedCount}, pending=${this.pendingAgentCalls.size}`);
     }
 
+    const deadChannels = new Set<string>();
+    const hasTrackedCalls = waitingCount > 0 || assignedCount > 0;
+    if (hasTrackedCalls && (now - this.lastChannelCheck) > 10000) {
+      this.lastChannelCheck = now;
+      try {
+        const liveChannels = await this.ariClient.listChannels();
+        this.cachedLiveChannels = new Set(liveChannels.map(ch => ch.id));
+        for (const chId of this.waitingCalls.keys()) {
+          if (!this.cachedLiveChannels.has(chId)) deadChannels.add(chId);
+        }
+        for (const chId of this.assignedCalls.keys()) {
+          if (!this.cachedLiveChannels.has(chId)) deadChannels.add(chId);
+        }
+        if (deadChannels.size > 0) {
+          console.log(`[QueueEngine] checkTimeouts: found ${deadChannels.size} dead channel(s): ${[...deadChannels].join(", ")}`);
+        }
+      } catch (err) {
+        console.warn(`[QueueEngine] listChannels failed, skipping dead channel check:`, err instanceof Error ? err.message : err);
+      }
+    }
+
     for (const [channelId, call] of this.waitingCalls.entries()) {
+      if (deadChannels.has(channelId)) {
+        console.log(`[QueueEngine] checkTimeouts: WAITING call ${call.id} has dead channel ${channelId}, marking abandoned`);
+        this.waitingCalls.delete(channelId);
+        this.lastAnnouncementTime.delete(channelId);
+        this.announcementPlayingFor.delete(channelId);
+        this.recalculatePositions(call.queueId);
+        const waitTime = (now - call.enteredAt.getTime()) / 1000;
+        await db.update(inboundCallLogs)
+          .set({ status: "abandoned", completedAt: new Date(), abandonReason: "channel_gone", waitDurationSeconds: Math.floor(waitTime), assignedAgentId: null })
+          .where(eq(inboundCallLogs.id, call.id));
+        this.emit("call-cancelled", { callId: call.id, callerNumber: call.callerNumber, callerName: call.callerName, queueId: call.queueId, queueName: "", reason: "channel_gone" });
+        continue;
+      }
+
       if (!queuesCache.has(call.queueId)) {
         const q = await db.select().from(inboundQueues).where(eq(inboundQueues.id, call.queueId)).limit(1);
         if (q[0]) queuesCache.set(call.queueId, q[0]);
@@ -2148,6 +2273,26 @@ export class QueueEngine extends EventEmitter {
 
     for (const [channelId, assigned] of this.assignedCalls.entries()) {
       const { call, queue, agentId } = assigned;
+
+      if (deadChannels.has(channelId)) {
+        console.log(`[QueueEngine] checkTimeouts: ASSIGNED call ${call.id} has dead channel ${channelId}, marking abandoned`);
+        this.assignedCalls.delete(channelId);
+        this.updateAgentStatus(agentId, "available", null);
+        for (const [agentChId, pending] of this.pendingAgentCalls.entries()) {
+          if (pending.callerChannelId === channelId) {
+            this.pendingAgentCalls.delete(agentChId);
+            try { await this.ariClient.hangupChannel(agentChId, "normal"); } catch {}
+            break;
+          }
+        }
+        const waitTime = (now - call.enteredAt.getTime()) / 1000;
+        await db.update(inboundCallLogs)
+          .set({ status: "abandoned", completedAt: new Date(), abandonReason: "channel_gone", waitDurationSeconds: Math.floor(waitTime), assignedAgentId: null })
+          .where(eq(inboundCallLogs.id, call.id));
+        this.emit("call-cancelled", { callId: call.id, callerNumber: call.callerNumber, callerName: call.callerName, queueId: queue.id, queueName: queue.name, reason: "channel_gone", assignedAgentId: agentId });
+        continue;
+      }
+
       if (!queue.maxWaitTime || queue.maxWaitTime <= 0) continue;
 
       const totalWaitTime = (now - call.enteredAt.getTime()) / 1000;

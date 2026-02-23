@@ -1,0 +1,55 @@
+0|indexus-crm  | [QueueEngine] >>>>>>> OVERFLOW COMPLETED for call 80698c8f-d209-4ef6-8afb-cb7253b95aee, action=voicemail <<<<<<<
+0|indexus-crm  | [QueueEngine] Call timeout: 0421948519438
+0|indexus-crm  | 11:36:45 PM [express] GET /api/voicemail-messages 304 in 3ms :: []
+0|indexus-crm  | [QueueEngine] === INCOMING CALL ===
+0|indexus-crm  | [QueueEngine]   Caller: 0421948519438 ()
+0|indexus-crm  | [QueueEngine]   Dialed: 0232399030
+0|indexus-crm  | [QueueEngine]   Channel: 1771889806.13743
+0|indexus-crm  | [QueueEngine]   Channel state: Ring
+0|indexus-crm  | [QueueEngine]   Stasis args: ["0232399030","0421948519438","1771889806.13743"]
+0|indexus-crm  | [QueueEngine]   Dialplan: {"context":"indexus-incoming","exten":"0232399030","priority":5}
+0|indexus-crm  | [QueueEngine] Matched queue: "sk inbound" (id: 0106e99f-6a0f-475a-b22e-99eea1b82f60, strategy: round-robin)
+0|indexus-crm  | [QueueEngine] Playing welcome: sound:custom/uvitanie-pre-slovensku-infolinku (pbId: welcome-1771889806.13743-1771889806614)
+0|indexus-crm  | [QueueEngine] Welcome playing for 1771889806.13743, call will be queued after welcome finishes
+0|indexus-crm  | 11:36:48 PM [express] GET /api/agent/my-queues 304 in 3ms :: [{"id":"0106e99f-6a0f-475a-b22e-99eea1b82f60","name":"sk inbound","description":"","countryCode":"SK","didNumber":"0232399030","strategy":"round-robin","isActive":true,"activeFrom":null,"activeTo":null,"penalty":1,"waiting":0,"activeAgents":2,"activeCalls":0}]
+0|indexus-crm  | 11:36:49 PM [express] GET /api/agent/queue-status/67467ce3-7a44-4f67-a3d3-6a251e2991e5 304 in 3ms
+0|indexus-crm  | 11:36:54 PM [express] GET /api/agent/queue-status/67467ce3-7a44-4f67-a3d3-6a251e2991e5 304 in 3ms
+0|indexus-crm  | [QueueEngine] Welcome playback finished for channel 1771889806.13743, starting MOH and queueing call
+0|indexus-crm  | [QueueEngine] Playing custom MOH: sound:custom/moh-slow-jazz (pbId: moh-1771889806.13743-1771889814731)
+0|indexus-crm  | [QueueEngine WS] Call queued: 0421948519438 in sk inbound (pos: 1)
+0|indexus-crm  | [QueueEngine] Call bfac3678-292c-4531-ae95-0c55a9fd8290 added to queue "sk inbound" at position 1
+0|indexus-crm  | [InboundCallWS] Broadcast to 0 agent connections
+0|indexus-crm  | [QueueEngine] Selecting agent for queue "sk inbound" (0106e99f-6a0f-475a-b22e-99eea1b82f60): 2 DB members
+0|indexus-crm  | [QueueEngine]   Session agents for this queue: 1 (67467ce3-7a44-4f67-a3d3-6a251e2991e5)
+0|indexus-crm  | [QueueEngine]   Skipping agent 62b874a9-d7b5-4432-bf74-8a62c0815218: no active session
+0|indexus-crm  | [QueueEngine]   Total candidate agents (session-filtered): 1
+0|indexus-crm  | [QueueEngine]   Agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5: state=available (penalty: 1)
+0|indexus-crm  | [QueueEngine] Available agents: 1
+0|indexus-crm  | [QueueEngine] Connecting call bfac3678-292c-4531-ae95-0c55a9fd8290 to agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5
+0|indexus-crm  | [QueueEngine] Agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5 status → busy, queueIds: [0106e99f-6a0f-475a-b22e-99eea1b82f60]
+0|indexus-crm  | [QueueEngine] Agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5 → busy
+0|indexus-crm  | [QueueEngine WS] Call assigned: 0421948519438 → agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5
+0|indexus-crm  | [QueueEngine WS]   callId=bfac3678-292c-4531-ae95-0c55a9fd8290, channelId=1771889806.13743, queueId=0106e99f-6a0f-475a-b22e-99eea1b82f60
+0|indexus-crm  | [InboundCallWS] Notifying agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5 of inbound call bfac3678-292c-4531-ae95-0c55a9fd8290 from 0421948519438
+0|indexus-crm  | [InboundCallWS]   Agent connected: false
+0|indexus-crm  | [InboundCallWS]   All connected agents: NONE
+0|indexus-crm  | [QueueEngine] === ORIGINATING CALL TO AGENT ===
+0|indexus-crm  | [QueueEngine]   Agent: System Administrator (ext: 2001)
+0|indexus-crm  | [QueueEngine]   Endpoint: PJSIP/2001
+0|indexus-crm  | [QueueEngine]   Caller channel: 1771889806.13743
+0|indexus-crm  | [QueueEngine]   Call ID: bfac3678-292c-4531-ae95-0c55a9fd8290
+0|indexus-crm  | [ARI] Originating channel: endpoint=PJSIP/2001, app=indexus-inbound, appArgs0|indexus-crm  | [QueueEngine] Fallback: ARI download attempt 3: voicemail-7dc07e77-4684-4518-95f8-62756af8e338-1771889855209
+0|indexus-crm  | [QueueEngine] ARI download attempt 3 failed: ARI download recording failed: 404 {
+0|indexus-crm  |   "message": "Resource not found"
+0|indexus-crm  | }
+0|indexus-crm  | [QueueEngine] Voicemail too short (0s), discarding - caller likely hung up immediately
+0|indexus-crm  | [QueueEngine] >>>>>>> OVERFLOW COMPLETED for call bfac3678-292c-4531-ae95-0c55a9fd8290, action=voicemail <<<<<<<
+0|indexus-crm  | [QueueEngine] Call timeout: 0421948519438
+0|indexus-crm  | 11:37:44 PM [express] GET /api/agent/queue-status/67467ce3-7a44-4f67-a3d3-6a251e2991e5 304 in 4ms
+0|indexus-crm  | 11:37:45 PM [express] GET /api/voicemail-messages 304 in 4ms :: []
+0|indexus-crm  | 11:37:48 PM [express] GET /api/agent/my-queues 304 in 4ms :: [{"id":"0106e99f-6a0f-475a-b22e-99eea1b82f60","name":"sk inbound","description":"","countryCode":"SK","didNumber":"0232399030","strategy":"round-robin","isActive":true,"activeFrom":null,"activeTo":null,"penalty":1,"waiting":0,"activeAgents":2,"activeCalls":0}]
+0|indexus-crm  | 11:37:49 PM [express] GET /api/agent/queue-status/67467ce3-7a44-4f67-a3d3-6a251e2991e5 304 in 3ms
+0|indexus-crm  | 11:37:54 PM [express] GET /api/agent/queue-status/67467ce3-7a44-4f67-a3d3-6a251e2991e5 304 in 3ms
+0|indexus-crm  | 11:37:58 PM [express] GET /api/agent/my-queues 304 in 3ms :: [{"id":"0106e99f-6a0f-475a-b22e-99eea1b82f60","name":"sk inbound","description":"","countryCode":"SK","didNumber":"0232399030","strategy":"round-robin","isActive":true,"activeFrom":null,"activeTo":null,"penalty":1,"waiting":0,"activeAgents":2,"activeCalls":0}]
+0|indexus-crm  | 11:37:59 PM [express] GET /api/agent/queue-status/67467ce3-7a44-4f67-a3d3-6a251e2991e5 304 in 3ms
+0|indexus-crm  | 11:38:00 PM [express] GET /api/agent-sessions/active 304 in 4ms :: {"id":"07073326-1247-44a1-90e9-422a8c71c71e","userId":"67467ce3-7a44-4f67-a3d3-6a251e2991e5","status":"availabl
