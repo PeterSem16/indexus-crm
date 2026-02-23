@@ -78,6 +78,9 @@ export class QueueEngine extends EventEmitter {
   private pendingAgentCalls: Map<string, PendingAgentCall> = new Map();
   private activeBridges: Map<string, { bridgeId: string; callerChannelId: string; agentChannelId: string; callId: string; agentId: string }> = new Map();
   private assignedCalls: Map<string, AssignedCall> = new Map();
+  private isProcessing: boolean = false;
+  private lastAnnouncementTime: Map<string, number> = new Map();
+  private announcementPlayingFor: Set<string> = new Set();
 
   constructor(ariClient: AriClient) {
     super();
@@ -224,9 +227,20 @@ export class QueueEngine extends EventEmitter {
 
   async start(): Promise<void> {
     await this.loadAgentStates();
-    this.checkInterval = setInterval(() => {
-      this.processQueues();
-      this.checkTimeouts();
+    this.checkInterval = setInterval(async () => {
+      if (this.isProcessing) return;
+      this.isProcessing = true;
+      try {
+        await this.processQueues();
+        await this.checkTimeouts();
+      } catch (err) {
+        console.error("[QueueEngine] Interval processing error:", err instanceof Error ? err.message : err);
+      } finally {
+        this.isProcessing = false;
+      }
+      this.processAnnouncements().catch(err => {
+        console.error("[QueueEngine] Announcement processing error:", err instanceof Error ? err.message : err);
+      });
     }, 2000);
     console.log("[QueueEngine] Started");
   }
@@ -1081,6 +1095,13 @@ export class QueueEngine extends EventEmitter {
     return count;
   }
 
+  private recalculatePositions(queueId: string): void {
+    const calls = this.getWaitingCallsForQueue(queueId);
+    for (let i = 0; i < calls.length; i++) {
+      calls[i].position = i + 1;
+    }
+  }
+
   async processQueues(): Promise<void> {
     const queues = await db.select().from(inboundQueues)
       .where(eq(inboundQueues.isActive, true))
@@ -1095,6 +1116,8 @@ export class QueueEngine extends EventEmitter {
         console.log(`[QueueEngine] All agents logged out for queue "${queue.name}", applying noAgents action to ${waitingCalls.length} waiting call(s)`);
         for (const call of waitingCalls) {
           this.waitingCalls.delete(call.channelId);
+          this.lastAnnouncementTime.delete(call.channelId);
+          this.announcementPlayingFor.delete(call.channelId);
           await this.stopMohForChannel(call.channelId);
           const waitTime = (Date.now() - call.enteredAt.getTime()) / 1000;
           await db.update(inboundCallLogs)
@@ -1115,6 +1138,7 @@ export class QueueEngine extends EventEmitter {
         if (!agent) break;
 
         await this.connectCallToAgent(call, agent, queue);
+        this.recalculatePositions(queue.id);
       }
     }
   }
@@ -1377,7 +1401,9 @@ export class QueueEngine extends EventEmitter {
           this.assignedCalls.delete(call.channelId);
           try { this.ariClient.hangupChannel(agentChannel.id, "normal"); } catch {}
           this.updateAgentStatus(agent.userId, "available", null);
+          call.position = this.getQueueSize(queue.id) + 1;
           this.waitingCalls.set(call.channelId, call);
+          this.recalculatePositions(queue.id);
           await db.update(inboundCallLogs)
             .set({ status: "queued", assignedAgentId: null })
             .where(eq(inboundCallLogs.id, call.id));
@@ -1389,7 +1415,9 @@ export class QueueEngine extends EventEmitter {
       console.error(`[QueueEngine] Failed to originate call to agent ${agent.userId}:`, err.message);
       this.updateAgentStatus(agent.userId, "available", null);
       this.assignedCalls.delete(call.channelId);
+      call.position = this.getQueueSize(queue.id) + 1;
       this.waitingCalls.set(call.channelId, call);
+      this.recalculatePositions(queue.id);
       await this.startMohForChannel(call.channelId, queue.id);
       await db.update(inboundCallLogs)
         .set({ status: "queued", assignedAgentId: null })
@@ -1549,6 +1577,8 @@ export class QueueEngine extends EventEmitter {
     this.mohPlaybacks.delete(channelId);
     this.pendingWelcomeCallData.delete(channelId);
     this.assignedCalls.delete(channelId);
+    this.lastAnnouncementTime.delete(channelId);
+    this.announcementPlayingFor.delete(channelId);
     for (const [pbId, info] of this.pendingWelcome.entries()) {
       if (info.channelId === channelId) {
         this.pendingWelcome.delete(pbId);
@@ -1571,9 +1601,10 @@ export class QueueEngine extends EventEmitter {
         queueId: pending.queueId,
         customerId: pending.customerId,
         enteredAt: originalEnteredAt,
-        position: 1,
+        position: this.getQueueSize(pending.queueId) + 1,
       };
       this.waitingCalls.set(pending.callerChannelId, call);
+      this.recalculatePositions(pending.queueId);
       this.startMohForChannel(pending.callerChannelId, pending.queueId);
       this.processQueues();
       return;
@@ -1626,8 +1657,12 @@ export class QueueEngine extends EventEmitter {
     const call = this.waitingCalls.get(channelId);
     if (!call) return;
 
+    const queueIdForRecalc = call.queueId;
     this.mohPlaybacks.delete(channelId);
     this.waitingCalls.delete(channelId);
+    this.lastAnnouncementTime.delete(channelId);
+    this.announcementPlayingFor.delete(channelId);
+    this.recalculatePositions(queueIdForRecalc);
 
     for (const [agentChId, pending] of this.pendingAgentCalls.entries()) {
       if (pending.callerChannelId === channelId) {
@@ -1930,8 +1965,13 @@ export class QueueEngine extends EventEmitter {
             console.log(`[QueueEngine] Overflow: routing to queue ${queue.overflowTarget}`);
             const call = this.waitingCalls.get(channelId);
             if (call) {
+              const oldQueueId = call.queueId;
               this.waitingCalls.delete(channelId);
+              this.lastAnnouncementTime.delete(channelId);
+              this.recalculatePositions(oldQueueId);
               call.queueId = queue.overflowTarget;
+              call.position = this.getQueueSize(queue.overflowTarget) + 1;
+              call.enteredAt = new Date();
               this.waitingCalls.set(channelId, call);
               await this.startMohForChannel(channelId, queue.overflowTarget);
             } else {
@@ -2005,6 +2045,9 @@ export class QueueEngine extends EventEmitter {
         const savedCallerName = call.callerName || "";
         console.log(`[QueueEngine] Call ${call.id} timed out after ${Math.floor(waitTime)}s (maxWaitTime: ${queue.maxWaitTime}s), caller: ${savedCallerNumber}`);
         this.waitingCalls.delete(channelId);
+        this.lastAnnouncementTime.delete(channelId);
+        this.announcementPlayingFor.delete(channelId);
+        this.recalculatePositions(call.queueId);
 
         await this.stopMohForChannel(channelId);
 
@@ -2075,6 +2118,124 @@ export class QueueEngine extends EventEmitter {
           this.assignedCalls.delete(channelId);
         }
       }
+    }
+  }
+
+  private async processAnnouncements(): Promise<void> {
+    const now = Date.now();
+    const queuesCache = new Map<string, InboundQueue>();
+
+    for (const [channelId, call] of this.waitingCalls.entries()) {
+      if (this.announcementPlayingFor.has(channelId)) continue;
+
+      if (!queuesCache.has(call.queueId)) {
+        const q = await db.select().from(inboundQueues).where(eq(inboundQueues.id, call.queueId)).limit(1);
+        if (q[0]) queuesCache.set(call.queueId, q[0]);
+      }
+      const queue = queuesCache.get(call.queueId);
+      if (!queue) continue;
+
+      const wantsPosition = queue.announcePosition === true;
+      const wantsWaitTime = queue.announceWaitTime === true;
+      if (!wantsPosition && !wantsWaitTime) continue;
+
+      const frequency = (queue.announceFrequency || 30) * 1000;
+      const lastAnn = this.lastAnnouncementTime.get(channelId) || 0;
+      if (now - lastAnn < frequency) continue;
+
+      const waitTimeSecs = Math.floor((now - call.enteredAt.getTime()) / 1000);
+      if (waitTimeSecs < 5) continue;
+
+      this.lastAnnouncementTime.set(channelId, now);
+      this.announcementPlayingFor.add(channelId);
+
+      this.playQueueAnnouncement(channelId, call, queue, wantsPosition, wantsWaitTime).catch(err => {
+        console.warn(`[QueueEngine] Announcement failed for ${channelId}:`, err instanceof Error ? err.message : err);
+      }).finally(() => {
+        this.announcementPlayingFor.delete(channelId);
+      });
+    }
+  }
+
+  private isCallStillWaitingInQueue(channelId: string, expectedQueueId: string): boolean {
+    const current = this.waitingCalls.get(channelId);
+    return !!current && current.queueId === expectedQueueId;
+  }
+
+  private async safePlaySound(channelId: string, media: string, queueId: string, label: string): Promise<boolean> {
+    if (!this.isCallStillWaitingInQueue(channelId, queueId)) return false;
+    try {
+      const pbId = `ann-${label}-${channelId}-${Date.now()}`;
+      await this.ariClient.playMedia(channelId, media, pbId);
+      await this.waitForPlaybackFinished(pbId, 10000);
+      return this.isCallStillWaitingInQueue(channelId, queueId);
+    } catch (err) {
+      console.warn(`[QueueEngine] Sound ${label} failed for ${channelId}:`, err instanceof Error ? err.message : err);
+      return this.isCallStillWaitingInQueue(channelId, queueId);
+    }
+  }
+
+  private async playQueueAnnouncement(channelId: string, call: QueuedCall, queue: InboundQueue, announcePos: boolean, announceWait: boolean): Promise<void> {
+    const queueId = queue.id;
+    if (!this.isCallStillWaitingInQueue(channelId, queueId)) return;
+
+    try {
+      await this.stopMohForChannel(channelId);
+    } catch {}
+
+    try {
+      if (announcePos && this.isCallStillWaitingInQueue(channelId, queueId)) {
+        const currentCall = this.waitingCalls.get(channelId);
+        const position = currentCall?.position || call.position;
+
+        if (queue.announcePositionMessageId) {
+          const [msg] = await db.select().from(ivrMessages).where(eq(ivrMessages.id, queue.announcePositionMessageId)).limit(1);
+          if (msg) {
+            const soundName = msg.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+            await this.safePlaySound(channelId, `sound:custom/${soundName}`, queueId, "pos-custom");
+          }
+        } else {
+          const ok1 = await this.safePlaySound(channelId, "sound:queue-youare", queueId, "pos-youare");
+          if (ok1) {
+            const ok2 = await this.safePlaySound(channelId, `number:${position}`, queueId, "pos-num");
+            if (ok2) {
+              const ok3 = await this.safePlaySound(channelId, "sound:queue-callswaiting", queueId, "pos-calls");
+              if (ok3) {
+                await this.safePlaySound(channelId, "sound:queue-thankyou", queueId, "pos-thanks");
+              }
+            }
+          }
+        }
+      }
+
+      if (announceWait && this.isCallStillWaitingInQueue(channelId, queueId)) {
+        const currentCall = this.waitingCalls.get(channelId);
+        const enteredAt = currentCall?.enteredAt || call.enteredAt;
+        const waitMins = Math.max(1, Math.ceil((Date.now() - enteredAt.getTime()) / 60000));
+
+        if (queue.announceWaitTimeMessageId) {
+          const [msg] = await db.select().from(ivrMessages).where(eq(ivrMessages.id, queue.announceWaitTimeMessageId)).limit(1);
+          if (msg) {
+            const soundName = msg.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+            await this.safePlaySound(channelId, `sound:custom/${soundName}`, queueId, "wait-custom");
+          }
+        } else {
+          const ok1 = await this.safePlaySound(channelId, "sound:queue-holdtime", queueId, "wait-hold");
+          if (ok1) {
+            const ok2 = await this.safePlaySound(channelId, `number:${waitMins}`, queueId, "wait-num");
+            if (ok2) {
+              await this.safePlaySound(channelId, "sound:queue-minutes", queueId, "wait-mins");
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.warn(`[QueueEngine] Announcement playback error for ${channelId}:`, err instanceof Error ? err.message : err);
+    }
+
+    const currentCall = this.waitingCalls.get(channelId);
+    if (currentCall) {
+      await this.startMohForChannel(channelId, currentCall.queueId);
     }
   }
 
