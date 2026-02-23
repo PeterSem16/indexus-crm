@@ -5581,3 +5581,55 @@ export const agentQueueStatus = pgTable("agent_queue_status", {
   totalTalkTime: integer("total_talk_time").notNull().default(0), // seconds
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
+
+// Voicemail Boxes - voicemail mailboxes for inbound queues
+export const voicemailBoxes = pgTable("voicemail_boxes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description"),
+  extension: text("extension"), // mailbox extension number
+  countryCode: text("country_code"),
+  greetingMessageId: varchar("greeting_message_id"), // FK to ivr_messages
+  greetingFilePath: text("greeting_file_path"), // direct path to greeting audio
+  maxDurationSeconds: integer("max_duration_seconds").notNull().default(120),
+  emailNotification: boolean("email_notification").notNull().default(false),
+  notifyEmails: text("notify_emails").array().default(sql`'{}'::text[]`),
+  transcriptionEnabled: boolean("transcription_enabled").notNull().default(false),
+  pin: text("pin"), // access PIN for mailbox
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const insertVoicemailBoxSchema = createInsertSchema(voicemailBoxes).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertVoicemailBox = z.infer<typeof insertVoicemailBoxSchema>;
+export type VoicemailBox = typeof voicemailBoxes.$inferSelect;
+
+// Voicemail Messages - individual voicemail recordings
+export const voicemailMessages = pgTable("voicemail_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  boxId: varchar("box_id").notNull().references(() => voicemailBoxes.id, { onDelete: "cascade" }),
+  queueId: varchar("queue_id").references(() => inboundQueues.id),
+  didNumber: text("did_number"),
+  callerNumber: text("caller_number").notNull(),
+  callerName: text("caller_name"),
+  customerId: varchar("customer_id"),
+  recordingPath: text("recording_path"),
+  durationSeconds: integer("duration_seconds").notNull().default(0),
+  status: text("status").notNull().default("unread"), // unread, read, archived, deleted
+  transcriptText: text("transcript_text"),
+  transcriptStatus: text("transcript_status").default("pending"), // pending, processing, completed, failed
+  readAt: timestamp("read_at"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const insertVoicemailMessageSchema = createInsertSchema(voicemailMessages).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertVoicemailMessage = z.infer<typeof insertVoicemailMessageSchema>;
+export type VoicemailMessage = typeof voicemailMessages.$inferSelect;
