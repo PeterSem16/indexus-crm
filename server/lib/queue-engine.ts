@@ -128,7 +128,9 @@ export class QueueEngine extends EventEmitter {
 
     this.ariClient.on("channel-destroyed", (event: AriEvent) => {
       if (event.channel) {
-        this.handleChannelDestroyed(event.channel.id);
+        this.handleChannelDestroyed(event.channel.id).catch(err => {
+          console.error("[QueueEngine] handleChannelDestroyed error:", err instanceof Error ? err.message : err);
+        });
       }
     });
 
@@ -1401,6 +1403,23 @@ export class QueueEngine extends EventEmitter {
           this.assignedCalls.delete(call.channelId);
           try { this.ariClient.hangupChannel(agentChannel.id, "normal"); } catch {}
           this.updateAgentStatus(agent.userId, "available", null);
+
+          const totalWait = (Date.now() - call.enteredAt.getTime()) / 1000;
+          if (queue.maxWaitTime && queue.maxWaitTime > 0 && totalWait > queue.maxWaitTime) {
+            console.log(`[QueueEngine] Call ${call.id} exceeded maxWaitTime (${Math.floor(totalWait)}s > ${queue.maxWaitTime}s) during agent ring timeout, firing overflow directly`);
+            this.waitingCalls.delete(call.channelId);
+            this.lastAnnouncementTime.delete(call.channelId);
+            this.announcementPlayingFor.delete(call.channelId);
+            await this.stopMohForChannel(call.channelId);
+            await db.update(inboundCallLogs)
+              .set({ status: "timeout", completedAt: new Date(), abandonReason: "timeout", waitDurationSeconds: Math.floor(totalWait), assignedAgentId: null })
+              .where(eq(inboundCallLogs.id, call.id));
+            await this.handleOverflow(call.channelId, queue, call.callerNumber, call.callerName || "");
+            this.emit("call-timeout", { callId: call.id, queueId: queue.id, callerNumber: call.callerNumber, callerName: call.callerName, assignedAgentId: agent.userId, queueName: queue.name });
+            this.emit("call-cancelled", { callId: call.id, callerNumber: call.callerNumber, callerName: call.callerName, queueId: queue.id, queueName: queue.name, reason: "timeout" });
+            return;
+          }
+
           call.position = this.getQueueSize(queue.id) + 1;
           this.waitingCalls.set(call.channelId, call);
           this.recalculatePositions(queue.id);
@@ -1408,22 +1427,36 @@ export class QueueEngine extends EventEmitter {
             .set({ status: "queued", assignedAgentId: null })
             .where(eq(inboundCallLogs.id, call.id));
           this.startMohForChannel(call.channelId, queue.id);
-          this.processQueues();
         }
       }, 30000);
     } catch (err: any) {
       console.error(`[QueueEngine] Failed to originate call to agent ${agent.userId}:`, err.message);
       this.updateAgentStatus(agent.userId, "available", null);
       this.assignedCalls.delete(call.channelId);
-      call.position = this.getQueueSize(queue.id) + 1;
-      this.waitingCalls.set(call.channelId, call);
-      this.recalculatePositions(queue.id);
-      await this.startMohForChannel(call.channelId, queue.id);
-      await db.update(inboundCallLogs)
-        .set({ status: "queued", assignedAgentId: null })
-        .where(eq(inboundCallLogs.id, call.id));
-      console.log(`[QueueEngine] Requeued call ${call.id} after originate failure`);
-      this.processQueues();
+
+      const totalWait = (Date.now() - call.enteredAt.getTime()) / 1000;
+      if (queue.maxWaitTime && queue.maxWaitTime > 0 && totalWait > queue.maxWaitTime) {
+        console.log(`[QueueEngine] Call ${call.id} exceeded maxWaitTime (${Math.floor(totalWait)}s) after originate failure, firing overflow`);
+        this.waitingCalls.delete(call.channelId);
+        this.lastAnnouncementTime.delete(call.channelId);
+        this.announcementPlayingFor.delete(call.channelId);
+        await this.stopMohForChannel(call.channelId);
+        await db.update(inboundCallLogs)
+          .set({ status: "timeout", completedAt: new Date(), abandonReason: "timeout", waitDurationSeconds: Math.floor(totalWait), assignedAgentId: null })
+          .where(eq(inboundCallLogs.id, call.id));
+        await this.handleOverflow(call.channelId, queue, call.callerNumber, call.callerName || "");
+        this.emit("call-timeout", { callId: call.id, queueId: queue.id, callerNumber: call.callerNumber, callerName: call.callerName, assignedAgentId: agent.userId, queueName: queue.name });
+        this.emit("call-cancelled", { callId: call.id, callerNumber: call.callerNumber, callerName: call.callerName, queueId: queue.id, queueName: queue.name, reason: "timeout" });
+      } else {
+        call.position = this.getQueueSize(queue.id) + 1;
+        this.waitingCalls.set(call.channelId, call);
+        this.recalculatePositions(queue.id);
+        await this.startMohForChannel(call.channelId, queue.id);
+        await db.update(inboundCallLogs)
+          .set({ status: "queued", assignedAgentId: null })
+          .where(eq(inboundCallLogs.id, call.id));
+        console.log(`[QueueEngine] Requeued call ${call.id} after originate failure`);
+      }
     }
   }
 
@@ -1573,7 +1606,7 @@ export class QueueEngine extends EventEmitter {
     });
   }
 
-  private handleChannelDestroyed(channelId: string): void {
+  private async handleChannelDestroyed(channelId: string): Promise<void> {
     this.mohPlaybacks.delete(channelId);
     this.pendingWelcomeCallData.delete(channelId);
     this.assignedCalls.delete(channelId);
@@ -1593,6 +1626,30 @@ export class QueueEngine extends EventEmitter {
       const assignedCall = this.assignedCalls.get(pending.callerChannelId);
       const originalEnteredAt = assignedCall?.call.enteredAt || pending.enteredAt;
       this.assignedCalls.delete(pending.callerChannelId);
+
+      const totalWait = (Date.now() - originalEnteredAt.getTime()) / 1000;
+      const [queueData] = await db.select().from(inboundQueues).where(eq(inboundQueues.id, pending.queueId)).limit(1);
+      const maxWait = queueData?.maxWaitTime || 0;
+
+      if (maxWait > 0 && totalWait > maxWait) {
+        console.log(`[QueueEngine] Call ${pending.callId} exceeded maxWaitTime (${Math.floor(totalWait)}s > ${maxWait}s) after agent channel destroyed, firing overflow`);
+        this.waitingCalls.delete(pending.callerChannelId);
+        this.lastAnnouncementTime.delete(pending.callerChannelId);
+        this.announcementPlayingFor.delete(pending.callerChannelId);
+        await this.stopMohForChannel(pending.callerChannelId);
+        await db.update(inboundCallLogs)
+          .set({ status: "timeout", completedAt: new Date(), abandonReason: "timeout", waitDurationSeconds: Math.floor(totalWait), assignedAgentId: null })
+          .where(eq(inboundCallLogs.id, pending.callId));
+        if (queueData) {
+          await this.handleOverflow(pending.callerChannelId, queueData, pending.callerNumber, pending.callerName || "");
+        } else {
+          try { await this.ariClient.hangupChannel(pending.callerChannelId, "normal"); } catch {}
+        }
+        this.emit("call-timeout", { callId: pending.callId, queueId: pending.queueId, callerNumber: pending.callerNumber, callerName: pending.callerName, assignedAgentId: pending.agentId, queueName: queueData?.name || pending.queueName });
+        this.emit("call-cancelled", { callId: pending.callId, callerNumber: pending.callerNumber, callerName: pending.callerName, queueId: pending.queueId, queueName: queueData?.name || pending.queueName, reason: "timeout" });
+        return;
+      }
+
       const call: QueuedCall = {
         id: pending.callId,
         channelId: pending.callerChannelId,
@@ -1606,7 +1663,6 @@ export class QueueEngine extends EventEmitter {
       this.waitingCalls.set(pending.callerChannelId, call);
       this.recalculatePositions(pending.queueId);
       this.startMohForChannel(pending.callerChannelId, pending.queueId);
-      this.processQueues();
       return;
     }
 
@@ -2066,57 +2122,69 @@ export class QueueEngine extends EventEmitter {
           callId: call.id,
           queueId: queue.id,
           callerNumber: savedCallerNumber,
+          callerName: savedCallerName,
+          queueName: queue.name,
         });
       }
     }
 
     for (const [channelId, assigned] of this.assignedCalls.entries()) {
       const { call, queue, agentId } = assigned;
-      if (queue.maxWaitTime <= 0) continue;
+      if (!queue.maxWaitTime || queue.maxWaitTime <= 0) continue;
 
       const totalWaitTime = (now - call.enteredAt.getTime()) / 1000;
       if (totalWaitTime > queue.maxWaitTime) {
         const callLog = await db.select().from(inboundCallLogs).where(eq(inboundCallLogs.id, call.id)).limit(1);
-        if (callLog[0] && callLog[0].status === "ringing") {
-          console.log(`[QueueEngine] Assigned call ${call.id} exceeded maxWaitTime (${Math.floor(totalWaitTime)}s > ${queue.maxWaitTime}s) while assigned to agent ${agentId}, routing to overflow`);
+        const dbStatus = callLog[0]?.status;
+        if (dbStatus === "answered" || dbStatus === "completed") {
           this.assignedCalls.delete(channelId);
-          this.updateAgentStatus(agentId, "available", null);
-
-          for (const [agentChId, pending] of this.pendingAgentCalls.entries()) {
-            if (pending.callerChannelId === channelId) {
-              this.pendingAgentCalls.delete(agentChId);
-              try { this.ariClient.hangupChannel(agentChId, "normal"); } catch {}
-              break;
-            }
-          }
-
-          await this.stopMohForChannel(channelId);
-          await db.update(inboundCallLogs)
-            .set({
-              status: "timeout",
-              completedAt: new Date(),
-              abandonReason: "timeout",
-              waitDurationSeconds: Math.floor(totalWaitTime),
-              assignedAgentId: null,
-            })
-            .where(eq(inboundCallLogs.id, call.id));
-
-          await this.handleOverflow(channelId, queue, call.callerNumber, call.callerName || "");
-
-          this.emit("call-timeout", {
-            callId: call.id,
-            queueId: queue.id,
-            callerNumber: call.callerNumber,
-          });
-          this.emit("call-cancelled", {
-            callId: call.id,
-            callerNumber: call.callerNumber,
-            queueId: queue.id,
-            reason: "timeout",
-          });
-        } else {
-          this.assignedCalls.delete(channelId);
+          continue;
         }
+
+        console.log(`[QueueEngine] Assigned call ${call.id} exceeded maxWaitTime (${Math.floor(totalWaitTime)}s > ${queue.maxWaitTime}s) while assigned to agent ${agentId} (dbStatus=${dbStatus}), routing to overflow`);
+        this.assignedCalls.delete(channelId);
+        this.updateAgentStatus(agentId, "available", null);
+
+        for (const [agentChId, pending] of this.pendingAgentCalls.entries()) {
+          if (pending.callerChannelId === channelId) {
+            this.pendingAgentCalls.delete(agentChId);
+            try { this.ariClient.hangupChannel(agentChId, "normal"); } catch {}
+            break;
+          }
+        }
+
+        this.waitingCalls.delete(channelId);
+        this.lastAnnouncementTime.delete(channelId);
+        this.announcementPlayingFor.delete(channelId);
+
+        await this.stopMohForChannel(channelId);
+        await db.update(inboundCallLogs)
+          .set({
+            status: "timeout",
+            completedAt: new Date(),
+            abandonReason: "timeout",
+            waitDurationSeconds: Math.floor(totalWaitTime),
+            assignedAgentId: null,
+          })
+          .where(eq(inboundCallLogs.id, call.id));
+
+        await this.handleOverflow(channelId, queue, call.callerNumber, call.callerName || "");
+
+        this.emit("call-timeout", {
+          callId: call.id,
+          queueId: queue.id,
+          callerNumber: call.callerNumber,
+          callerName: call.callerName,
+          assignedAgentId: agentId,
+        });
+        this.emit("call-cancelled", {
+          callId: call.id,
+          callerNumber: call.callerNumber,
+          callerName: call.callerName,
+          queueId: queue.id,
+          queueName: queue.name,
+          reason: "timeout",
+        });
       }
     }
   }
