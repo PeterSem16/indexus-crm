@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useI18n } from "@/i18n";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -78,13 +79,13 @@ const COUNTRIES = ["SK", "CZ", "HU", "RO", "IT", "DE", "US"];
 
 const DTMF_KEYS = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "#"];
 
-const ACTION_TYPES = [
-  { value: "queue", label: "Queue" },
-  { value: "submenu", label: "Submenu" },
-  { value: "transfer", label: "Transfer" },
-  { value: "hangup", label: "Hangup" },
-  { value: "voicemail", label: "Voicemail" },
-  { value: "repeat", label: "Repeat" },
+const getActionTypes = (im: any) => [
+  { value: "queue", label: im.actionQueue || "Queue" },
+  { value: "submenu", label: im.actionSubmenu || "Submenu" },
+  { value: "transfer", label: im.actionTransfer || "Transfer" },
+  { value: "hangup", label: im.actionHangup || "Hangup" },
+  { value: "voicemail", label: im.actionVoicemail || "Voicemail" },
+  { value: "repeat", label: im.actionRepeat || "Repeat" },
 ];
 
 interface MenuFormData {
@@ -123,6 +124,9 @@ const defaultOption: IvrMenuOption = {
 };
 
 export function IvrMenusTab() {
+  const { t } = useI18n();
+  const im = (t as any).campaigns?.ivrMenus || {};
+  const ACTION_TYPES = getActionTypes(im);
   const { toast } = useToast();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingMenu, setEditingMenu] = useState<IvrMenu | null>(null);
@@ -149,10 +153,10 @@ export function IvrMenusTab() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/ivr-menus"] });
       closeDialog();
-      toast({ title: "IVR menu created successfully" });
+      toast({ title: im.menuCreated || "IVR menu created successfully" });
     },
     onError: (err: any) => {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+      toast({ title: im.error || "Error", description: err.message, variant: "destructive" });
     },
   });
 
@@ -162,10 +166,10 @@ export function IvrMenusTab() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/ivr-menus"] });
       closeDialog();
-      toast({ title: "IVR menu updated successfully" });
+      toast({ title: im.menuUpdated || "IVR menu updated successfully" });
     },
     onError: (err: any) => {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+      toast({ title: im.error || "Error", description: err.message, variant: "destructive" });
     },
   });
 
@@ -173,10 +177,10 @@ export function IvrMenusTab() {
     mutationFn: (id: string) => apiRequest("DELETE", `/api/ivr-menus/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/ivr-menus"] });
-      toast({ title: "IVR menu deleted" });
+      toast({ title: im.menuDeleted || "IVR menu deleted" });
     },
     onError: (err: any) => {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+      toast({ title: im.error || "Error", description: err.message, variant: "destructive" });
     },
   });
 
@@ -215,7 +219,7 @@ export function IvrMenusTab() {
 
   const handleSubmit = () => {
     if (!formData.name.trim()) {
-      toast({ title: "Error", description: "Menu name is required", variant: "destructive" });
+      toast({ title: im.error || "Error", description: im.nameRequired || "Menu name is required", variant: "destructive" });
       return;
     }
 
@@ -294,9 +298,9 @@ export function IvrMenusTab() {
     if (!option.targetId) return null;
     switch (option.action) {
       case "queue":
-        return inboundQueues.find((q) => q.id === option.targetId)?.name || "Unknown queue";
+        return inboundQueues.find((q) => q.id === option.targetId)?.name || (im.unknownQueue || "Unknown queue");
       case "submenu":
-        return menus.find((m) => m.id === option.targetId)?.name || "Unknown menu";
+        return menus.find((m) => m.id === option.targetId)?.name || (im.unknownMenu || "Unknown menu");
       case "transfer":
         return option.targetId;
       default:
@@ -311,15 +315,15 @@ export function IvrMenusTab() {
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
           <h3 className="text-lg font-semibold" data-testid="text-ivr-menus-title">
-            IVR Menus
+            {im.title || "IVR Menus"}
           </h3>
           <p className="text-sm text-muted-foreground">
-            Manage IVR decision trees for inbound call routing
+            {im.description || "Manage IVR decision trees for inbound call routing"}
           </p>
         </div>
         <Button onClick={openCreate} data-testid="btn-create-ivr-menu">
           <Plus className="h-4 w-4 mr-2" />
-          Create Menu
+          {im.createMenu || "Create Menu"}
         </Button>
       </div>
 
@@ -331,10 +335,10 @@ export function IvrMenusTab() {
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12 text-muted-foreground">
             <TreePine className="h-12 w-12 mb-3 opacity-30" />
-            <p>No IVR menus configured yet</p>
+            <p>{im.noMenus || "No IVR menus configured yet"}</p>
             <Button className="mt-4" onClick={openCreate} data-testid="btn-create-first-ivr-menu">
               <Plus className="h-4 w-4 mr-2" />
-              Create First Menu
+              {im.createFirstMenu || "Create First Menu"}
             </Button>
           </CardContent>
         </Card>
@@ -358,15 +362,15 @@ export function IvrMenusTab() {
                         )}
                         <Badge variant="secondary" className="text-xs" data-testid={`badge-options-count-${menu.id}`}>
                           <Hash className="h-3 w-3 mr-1" />
-                          {menu.options?.length || 0} options
+                          {menu.options?.length || 0} {im.options || "options"}
                         </Badge>
                         {getMessageName(menu.promptMessageId) && (
                           <Badge variant="outline" className="text-xs">
-                            Prompt: {getMessageName(menu.promptMessageId)}
+                            {im.promptLabel || "Prompt"}: {getMessageName(menu.promptMessageId)}
                           </Badge>
                         )}
                         {!menu.isActive && (
-                          <Badge variant="destructive" className="text-xs">Inactive</Badge>
+                          <Badge variant="destructive" className="text-xs">{im.inactive || "Inactive"}</Badge>
                         )}
                       </div>
                       {menu.description && (
@@ -390,7 +394,7 @@ export function IvrMenusTab() {
                       variant="ghost"
                       size="icon"
                       onClick={() => {
-                        if (confirm("Delete this IVR menu?")) deleteMutation.mutate(menu.id);
+                        if (confirm(im.confirmDelete || "Delete this IVR menu?")) deleteMutation.mutate(menu.id);
                       }}
                       data-testid={`btn-delete-ivr-menu-${menu.id}`}
                     >
@@ -413,30 +417,30 @@ export function IvrMenusTab() {
       <Dialog open={dialogOpen} onOpenChange={(o) => { if (!o) closeDialog(); }}>
         <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto" data-testid="dialog-ivr-menu-form">
           <DialogHeader>
-            <DialogTitle>{editingMenu ? "Edit IVR Menu" : "Create IVR Menu"}</DialogTitle>
+            <DialogTitle>{editingMenu ? (im.editMenu || "Edit IVR Menu") : (im.createIvrMenu || "Create IVR Menu")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="col-span-2">
-                <Label>Name *</Label>
+                <Label>{im.nameLabel || "Name"} *</Label>
                 <Input
                   value={formData.name}
                   onChange={(e) => setFormData((f) => ({ ...f, name: e.target.value }))}
-                  placeholder="e.g. Main IVR Menu"
+                  placeholder={im.namePlaceholder || "e.g. Main IVR Menu"}
                   data-testid="input-ivr-menu-name"
                 />
               </div>
               <div className="col-span-2">
-                <Label>Description</Label>
+                <Label>{im.descriptionLabel || "Description"}</Label>
                 <Textarea
                   value={formData.description}
                   onChange={(e) => setFormData((f) => ({ ...f, description: e.target.value }))}
-                  placeholder="Describe the menu purpose..."
+                  placeholder={im.descriptionPlaceholder || "Describe the menu purpose..."}
                   data-testid="input-ivr-menu-description"
                 />
               </div>
               <div>
-                <Label>Country</Label>
+                <Label>{im.countryLabel || "Country"}</Label>
                 <Select value={formData.countryCode} onValueChange={(v) => setFormData((f) => ({ ...f, countryCode: v }))}>
                   <SelectTrigger data-testid="select-ivr-menu-country"><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -447,14 +451,14 @@ export function IvrMenusTab() {
                 </Select>
               </div>
               <div>
-                <Label>Prompt Message</Label>
+                <Label>{im.promptMessage || "Prompt Message"}</Label>
                 <Select
                   value={formData.promptMessageId || "none"}
                   onValueChange={(v) => setFormData((f) => ({ ...f, promptMessageId: v === "none" ? "" : v }))}
                 >
-                  <SelectTrigger data-testid="select-prompt-message"><SelectValue placeholder="Select prompt..." /></SelectTrigger>
+                  <SelectTrigger data-testid="select-prompt-message"><SelectValue placeholder={im.selectPrompt || "Select prompt..."} /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">No prompt</SelectItem>
+                    <SelectItem value="none">{im.noPrompt || "No prompt"}</SelectItem>
                     {promptMessages.map((m) => (
                       <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
                     ))}
@@ -462,14 +466,14 @@ export function IvrMenusTab() {
                 </Select>
               </div>
               <div>
-                <Label>Invalid Input Message</Label>
+                <Label>{im.invalidInputMessage || "Invalid Input Message"}</Label>
                 <Select
                   value={formData.invalidMessageId || "none"}
                   onValueChange={(v) => setFormData((f) => ({ ...f, invalidMessageId: v === "none" ? "" : v }))}
                 >
-                  <SelectTrigger data-testid="select-invalid-message"><SelectValue placeholder="Select message..." /></SelectTrigger>
+                  <SelectTrigger data-testid="select-invalid-message"><SelectValue placeholder={im.selectMessage || "Select message..."} /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">No message</SelectItem>
+                    <SelectItem value="none">{im.noMessage || "No message"}</SelectItem>
                     {allActiveMessages.map((m) => (
                       <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
                     ))}
@@ -477,14 +481,14 @@ export function IvrMenusTab() {
                 </Select>
               </div>
               <div>
-                <Label>Timeout Message</Label>
+                <Label>{im.timeoutMessage || "Timeout Message"}</Label>
                 <Select
                   value={formData.timeoutMessageId || "none"}
                   onValueChange={(v) => setFormData((f) => ({ ...f, timeoutMessageId: v === "none" ? "" : v }))}
                 >
-                  <SelectTrigger data-testid="select-timeout-message"><SelectValue placeholder="Select message..." /></SelectTrigger>
+                  <SelectTrigger data-testid="select-timeout-message"><SelectValue placeholder={im.selectMessage || "Select message..."} /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">No message</SelectItem>
+                    <SelectItem value="none">{im.noMessage || "No message"}</SelectItem>
                     {allActiveMessages.map((m) => (
                       <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
                     ))}
@@ -492,7 +496,7 @@ export function IvrMenusTab() {
                 </Select>
               </div>
               <div>
-                <Label>Max Retries</Label>
+                <Label>{im.maxRetries || "Max Retries"}</Label>
                 <Input
                   type="number"
                   min={1}
@@ -503,7 +507,7 @@ export function IvrMenusTab() {
                 />
               </div>
               <div>
-                <Label>Timeout (seconds)</Label>
+                <Label>{im.timeoutSeconds || "Timeout (seconds)"}</Label>
                 <Input
                   type="number"
                   min={3}
@@ -519,7 +523,7 @@ export function IvrMenusTab() {
                   onCheckedChange={(v) => setFormData((f) => ({ ...f, isActive: v }))}
                   data-testid="switch-ivr-menu-active"
                 />
-                <Label>Active</Label>
+                <Label>{im.active || "Active"}</Label>
               </div>
             </div>
 
@@ -527,7 +531,7 @@ export function IvrMenusTab() {
               <div className="flex items-center justify-between mb-3">
                 <h4 className="text-sm font-medium flex items-center gap-2">
                   <Hash className="h-4 w-4" />
-                  DTMF Options
+                  {im.dtmfOptions || "DTMF Options"}
                 </h4>
                 <Button
                   size="sm"
@@ -537,13 +541,13 @@ export function IvrMenusTab() {
                   data-testid="btn-add-dtmf-option"
                 >
                   <Plus className="h-3 w-3 mr-1" />
-                  Add Option
+                  {im.addOption || "Add Option"}
                 </Button>
               </div>
 
               {formData.options.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-4">
-                  No DTMF options configured. Add options for callers to press.
+                  {im.noDtmfOptions || "No DTMF options configured. Add options for callers to press."}
                 </p>
               ) : (
                 <div className="space-y-3">
@@ -569,10 +573,10 @@ export function IvrMenusTab() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={closeDialog} data-testid="btn-cancel-ivr-menu">
-              Cancel
+              {im.cancel || "Cancel"}
             </Button>
             <Button onClick={handleSubmit} disabled={isSaving} data-testid="btn-save-ivr-menu">
-              {editingMenu ? "Update" : "Create"}
+              {editingMenu ? (im.update || "Update") : (im.create || "Create")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -606,6 +610,9 @@ function DtmfOptionRow({
   onRemove: () => void;
   onMove: (dir: "up" | "down") => void;
 }) {
+  const { t } = useI18n();
+  const im = (t as any).campaigns?.ivrMenus || {};
+  const ACTION_TYPES = getActionTypes(im);
   const availableKeys = DTMF_KEYS.filter((k) => !usedKeys.includes(k) || k === option.dtmfKey);
   const needsTarget = ["queue", "submenu", "transfer"].includes(option.action);
   const availableMenus = ivrMenus.filter((m) => m.id !== editingMenuId);
@@ -642,7 +649,7 @@ function DtmfOptionRow({
             <SelectTrigger data-testid={`select-dtmf-key-${index}`}><SelectValue /></SelectTrigger>
             <SelectContent>
               {availableKeys.map((k) => (
-                <SelectItem key={k} value={k}>Key {k}</SelectItem>
+                <SelectItem key={k} value={k}>{im.key || "Key"} {k}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -652,7 +659,7 @@ function DtmfOptionRow({
           <Input
             value={option.label}
             onChange={(e) => onUpdate({ label: e.target.value })}
-            placeholder="Option label (e.g. Sales)"
+            placeholder={im.optionLabelPlaceholder || "Option label (e.g. Sales)"}
             data-testid={`input-option-label-${index}`}
           />
         </div>
@@ -678,9 +685,9 @@ function DtmfOptionRow({
                 value={option.targetId || "none"}
                 onValueChange={(v) => onUpdate({ targetId: v === "none" ? null : v })}
               >
-                <SelectTrigger data-testid={`select-target-queue-${index}`}><SelectValue placeholder="Select queue..." /></SelectTrigger>
+                <SelectTrigger data-testid={`select-target-queue-${index}`}><SelectValue placeholder={im.selectQueue || "Select queue..."} /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">No queue</SelectItem>
+                  <SelectItem value="none">{im.noQueue || "No queue"}</SelectItem>
                   {inboundQueues.filter((q) => q.isActive).map((q) => (
                     <SelectItem key={q.id} value={q.id}>{q.name}</SelectItem>
                   ))}
@@ -692,9 +699,9 @@ function DtmfOptionRow({
                 value={option.targetId || "none"}
                 onValueChange={(v) => onUpdate({ targetId: v === "none" ? null : v })}
               >
-                <SelectTrigger data-testid={`select-target-submenu-${index}`}><SelectValue placeholder="Select menu..." /></SelectTrigger>
+                <SelectTrigger data-testid={`select-target-submenu-${index}`}><SelectValue placeholder={im.selectMenu || "Select menu..."} /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">No menu</SelectItem>
+                  <SelectItem value="none">{im.noMenu || "No menu"}</SelectItem>
                   {availableMenus.map((m) => (
                     <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
                   ))}
@@ -717,9 +724,9 @@ function DtmfOptionRow({
             value={option.announcementId || "none"}
             onValueChange={(v) => onUpdate({ announcementId: v === "none" ? null : v })}
           >
-            <SelectTrigger data-testid={`select-announcement-${index}`}><SelectValue placeholder="Announcement" /></SelectTrigger>
+            <SelectTrigger data-testid={`select-announcement-${index}`}><SelectValue placeholder={im.announcement || "Announcement"} /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="none">No announcement</SelectItem>
+              <SelectItem value="none">{im.noAnnouncement || "No announcement"}</SelectItem>
               {ivrMessages.map((m) => (
                 <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
               ))}
@@ -749,13 +756,15 @@ function MenuTreePreview({
   menus: IvrMenu[];
   inboundQueues: InboundQueue[];
 }) {
+  const { t } = useI18n();
+  const im = (t as any).campaigns?.ivrMenus || {};
   const getTargetLabel = (option: IvrMenuOption) => {
     if (!option.targetId) return null;
     switch (option.action) {
       case "queue":
-        return inboundQueues.find((q) => q.id === option.targetId)?.name || "Unknown";
+        return inboundQueues.find((q) => q.id === option.targetId)?.name || (im.unknown || "Unknown");
       case "submenu":
-        return menus.find((m) => m.id === option.targetId)?.name || "Unknown";
+        return menus.find((m) => m.id === option.targetId)?.name || (im.unknown || "Unknown");
       case "transfer":
         return option.targetId;
       default:
@@ -776,6 +785,7 @@ function MenuTreePreview({
     }
   };
 
+  const ACTION_TYPES = getActionTypes(im);
   const actionLabel = (action: string) => {
     const a = ACTION_TYPES.find((at) => at.value === action);
     return a?.label || action;
@@ -790,7 +800,7 @@ function MenuTreePreview({
         {menu.name}
       </div>
       {sorted.length === 0 ? (
-        <p className="text-xs text-muted-foreground ml-6">No options configured</p>
+        <p className="text-xs text-muted-foreground ml-6">{im.noOptionsConfigured || "No options configured"}</p>
       ) : (
         <div className="ml-6 space-y-1">
           {sorted.map((option, i) => {
@@ -807,7 +817,7 @@ function MenuTreePreview({
                   </Badge>
                 </div>
                 <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />
-                <span className="text-muted-foreground">{option.label || "Untitled"}</span>
+                <span className="text-muted-foreground">{option.label || (im.untitled || "Untitled")}</span>
                 <Badge variant="secondary" className="text-xs gap-1">
                   {getActionIcon(option.action)}
                   {actionLabel(option.action)}

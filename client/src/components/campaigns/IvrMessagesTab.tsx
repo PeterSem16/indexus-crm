@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useI18n } from "@/i18n";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -139,6 +140,8 @@ const defaultFormData: FormData = {
 };
 
 export function IvrMessagesTab() {
+  const { t } = useI18n();
+  const ivr = t.campaigns.ivrMessages;
   const { toast } = useToast();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingMessage, setEditingMessage] = useState<IvrMessage | null>(null);
@@ -179,10 +182,10 @@ export function IvrMessagesTab() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/ivr-messages"] });
       closeDialog();
-      toast({ title: "IVR message created" });
+      toast({ title: ivr.messageCreated });
     },
     onError: (err: any) => {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+      toast({ title: ivr.error, description: err.message, variant: "destructive" });
     },
   });
 
@@ -202,10 +205,10 @@ export function IvrMessagesTab() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/ivr-messages"] });
       closeDialog();
-      toast({ title: "IVR message updated" });
+      toast({ title: ivr.messageUpdated });
     },
     onError: (err: any) => {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+      toast({ title: ivr.error, description: err.message, variant: "destructive" });
     },
   });
 
@@ -214,10 +217,10 @@ export function IvrMessagesTab() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/ivr-messages"] });
       setDeleteConfirmId(null);
-      toast({ title: "IVR message deleted" });
+      toast({ title: ivr.messageDeleted });
     },
     onError: (err: any) => {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+      toast({ title: ivr.error, description: err.message, variant: "destructive" });
     },
   });
 
@@ -229,10 +232,10 @@ export function IvrMessagesTab() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/ivr-messages"] });
       closeDialog();
-      toast({ title: "TTS message generated" });
+      toast({ title: ivr.ttsGenerated });
     },
     onError: (err: any) => {
-      toast({ title: "Error generating TTS", description: err.message, variant: "destructive" });
+      toast({ title: ivr.ttsRegenerateError, description: err.message, variant: "destructive" });
     },
   });
 
@@ -243,10 +246,10 @@ export function IvrMessagesTab() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/ivr-messages"] });
       closeDialog();
-      toast({ title: "Stock hold music added" });
+      toast({ title: ivr.stockMohAdded });
     },
     onError: (err: any) => {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+      toast({ title: ivr.error, description: err.message, variant: "destructive" });
     },
   });
 
@@ -257,10 +260,10 @@ export function IvrMessagesTab() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/ivr-messages"] });
       closeDialog();
-      toast({ title: "TTS regenerated successfully" });
+      toast({ title: ivr.ttsRegenerated });
     },
     onError: (err: any) => {
-      toast({ title: "Error regenerating TTS", description: err.message, variant: "destructive" });
+      toast({ title: ivr.ttsRegenerateError, description: err.message, variant: "destructive" });
     },
   });
 
@@ -271,10 +274,10 @@ export function IvrMessagesTab() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/ivr-messages"] });
       closeDialog();
-      toast({ title: "Stock hold music regenerated" });
+      toast({ title: ivr.stockMohRegenerated });
     },
     onError: (err: any) => {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+      toast({ title: ivr.error, description: err.message, variant: "destructive" });
     },
   });
 
@@ -362,20 +365,20 @@ export function IvrMessagesTab() {
       audio.onerror = () => {
         setPreviewingStockId(null);
         URL.revokeObjectURL(url);
-        toast({ title: "Error", description: "Failed to play audio", variant: "destructive" });
+        toast({ title: ivr.error, description: ivr.failedToPlayAudio, variant: "destructive" });
       };
       await audio.play();
       stockAudioRef.current = audio;
     } catch (error: any) {
       setPreviewingStockId(null);
-      toast({ title: "Error", description: "Failed to preview audio: " + (error.message || "Unknown error"), variant: "destructive" });
+      toast({ title: ivr.error, description: ivr.failedToPreviewAudio + ": " + (error.message || ""), variant: "destructive" });
     }
   };
 
   const handleSubmit = () => {
     if (sourceMode === "stock") {
       if (!selectedStockId) {
-        toast({ title: "Error", description: "Please select a hold music style", variant: "destructive" });
+        toast({ title: ivr.error, description: ivr.selectHoldMusic, variant: "destructive" });
         return;
       }
       if (editingMessage) {
@@ -399,13 +402,13 @@ export function IvrMessagesTab() {
     }
 
     if (!formData.name.trim()) {
-      toast({ title: "Error", description: "Name is required", variant: "destructive" });
+      toast({ title: ivr.error, description: ivr.nameRequired, variant: "destructive" });
       return;
     }
 
     if (sourceMode === "tts") {
       if (!formData.textContent.trim()) {
-        toast({ title: "Error", description: "Text content is required for TTS", variant: "destructive" });
+        toast({ title: ivr.error, description: ivr.textRequired, variant: "destructive" });
         return;
       }
       if (editingMessage) {
@@ -435,7 +438,7 @@ export function IvrMessagesTab() {
     }
 
     if (!editingMessage && !audioFile) {
-      toast({ title: "Error", description: "Please select an audio file", variant: "destructive" });
+      toast({ title: ivr.error, description: ivr.selectAudioFileError, variant: "destructive" });
       return;
     }
 
@@ -471,7 +474,7 @@ export function IvrMessagesTab() {
     audio.onended = () => setPlayingId(null);
     audio.onerror = () => {
       setPlayingId(null);
-      toast({ title: "Error", description: "Failed to play audio", variant: "destructive" });
+      toast({ title: ivr.error, description: ivr.failedToPlayAudio, variant: "destructive" });
     };
     audio.play();
     audioRef.current = audio;
@@ -484,8 +487,8 @@ export function IvrMessagesTab() {
     return true;
   });
 
-  const typeLabel = (type: string) => MESSAGE_TYPES.find((t) => t.value === type)?.label || type;
-  const languageLabel = (lang: string) => LANGUAGES.find((l) => l.value === lang)?.label || lang;
+  const typeLabel = (type: string) => ivr.types[type as keyof typeof ivr.types] || type;
+  const languageLabel = (lang: string) => ivr.languages[lang as keyof typeof ivr.languages] || lang;
 
   const formatFileSize = (bytes: number | null) => {
     if (!bytes) return "—";
@@ -508,43 +511,43 @@ export function IvrMessagesTab() {
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
           <h3 className="text-lg font-semibold" data-testid="text-ivr-messages-title">
-            IVR Messages
+            {ivr.title}
           </h3>
           <p className="text-sm text-muted-foreground">
-            Manage IVR audio messages for call queues
+            {ivr.description}
           </p>
         </div>
         <Button onClick={openCreate} data-testid="btn-create-ivr-message">
           <Plus className="h-4 w-4 mr-2" />
-          Add Message
+          {ivr.addMessage}
         </Button>
       </div>
 
       <div className="flex items-center gap-3 flex-wrap">
         <div className="flex items-center gap-2">
-          <Label className="text-sm text-muted-foreground whitespace-nowrap">Type:</Label>
+          <Label className="text-sm text-muted-foreground whitespace-nowrap">{ivr.filterType}</Label>
           <Select value={filterType} onValueChange={setFilterType}>
             <SelectTrigger className="w-[160px]" data-testid="select-filter-type">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Types</SelectItem>
-              {MESSAGE_TYPES.map((t) => (
-                <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+              <SelectItem value="all">{ivr.allTypes}</SelectItem>
+              {MESSAGE_TYPES.map((mt) => (
+                <SelectItem key={mt.value} value={mt.value}>{typeLabel(mt.value)}</SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
         <div className="flex items-center gap-2">
-          <Label className="text-sm text-muted-foreground whitespace-nowrap">Language:</Label>
+          <Label className="text-sm text-muted-foreground whitespace-nowrap">{ivr.filterLanguage}</Label>
           <Select value={filterLanguage} onValueChange={setFilterLanguage}>
             <SelectTrigger className="w-[140px]" data-testid="select-filter-language">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Languages</SelectItem>
+              <SelectItem value="all">{ivr.allLanguages}</SelectItem>
               {LANGUAGES.map((l) => (
-                <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>
+                <SelectItem key={l.value} value={l.value}>{languageLabel(l.value)}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -559,11 +562,11 @@ export function IvrMessagesTab() {
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12 text-muted-foreground">
             <Volume2 className="h-12 w-12 mb-3 opacity-30" />
-            <p>{messages.length === 0 ? "No IVR messages configured yet" : "No messages match the current filters"}</p>
+            <p>{messages.length === 0 ? ivr.noMessages : ivr.noMessagesFiltered}</p>
             {messages.length === 0 && (
               <Button className="mt-4" onClick={openCreate} data-testid="btn-create-first-ivr">
                 <Plus className="h-4 w-4 mr-2" />
-                Add First Message
+                {ivr.addFirstMessage}
               </Button>
             )}
           </CardContent>
@@ -573,13 +576,13 @@ export function IvrMessagesTab() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Source</TableHead>
-                <TableHead>Language</TableHead>
-                <TableHead>Country</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="w-[120px] text-right">Actions</TableHead>
+                <TableHead>{ivr.name}</TableHead>
+                <TableHead>{ivr.type}</TableHead>
+                <TableHead>{ivr.source}</TableHead>
+                <TableHead>{ivr.language}</TableHead>
+                <TableHead>{ivr.country}</TableHead>
+                <TableHead>{ivr.status}</TableHead>
+                <TableHead className="w-[120px] text-right">{ivr.actions}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -604,11 +607,11 @@ export function IvrMessagesTab() {
                   <TableCell>
                     <Badge variant="secondary" className="text-xs" data-testid={`badge-source-${msg.id}`}>
                       {msg.source === "tts" ? (
-                        <><Mic className="h-3 w-3 mr-1" />TTS</>
+                        <><Mic className="h-3 w-3 mr-1" />{ivr.sources.tts}</>
                       ) : msg.source === "stock" ? (
-                        <><Library className="h-3 w-3 mr-1" />Stock</>
+                        <><Library className="h-3 w-3 mr-1" />{ivr.sources.stock}</>
                       ) : (
-                        <><Upload className="h-3 w-3 mr-1" />Upload</>
+                        <><Upload className="h-3 w-3 mr-1" />{ivr.sources.upload}</>
                       )}
                     </Badge>
                   </TableCell>
@@ -668,22 +671,22 @@ export function IvrMessagesTab() {
       <Dialog open={dialogOpen} onOpenChange={(o) => { if (!o) closeDialog(); }}>
         <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto" data-testid="dialog-ivr-form">
           <DialogHeader>
-            <DialogTitle>{editingMessage ? "Edit IVR Message" : "Create IVR Message"}</DialogTitle>
+            <DialogTitle>{editingMessage ? ivr.editMessage : ivr.createMessage}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label>Name *</Label>
+              <Label>{ivr.name} *</Label>
               <Input
                 value={formData.name}
                 onChange={(e) => setFormData((f) => ({ ...f, name: e.target.value }))}
-                placeholder="e.g. Welcome Greeting SK"
+                placeholder={ivr.namePlaceholder}
                 data-testid="input-ivr-name"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>Type</Label>
+                <Label>{ivr.type}</Label>
                 <Select value={formData.type} onValueChange={(v) => {
                   setFormData((f) => ({ ...f, type: v }));
                   if (v === "hold_music" && !editingMessage) {
@@ -694,19 +697,19 @@ export function IvrMessagesTab() {
                 }}>
                   <SelectTrigger data-testid="select-ivr-type"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {MESSAGE_TYPES.map((t) => (
-                      <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                    {MESSAGE_TYPES.map((mt) => (
+                      <SelectItem key={mt.value} value={mt.value}>{typeLabel(mt.value)}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
               <div>
-                <Label>Language</Label>
+                <Label>{ivr.language}</Label>
                 <Select value={formData.language} onValueChange={(v) => setFormData((f) => ({ ...f, language: v }))}>
                   <SelectTrigger data-testid="select-ivr-language"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {LANGUAGES.map((l) => (
-                      <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>
+                      <SelectItem key={l.value} value={l.value}>{languageLabel(l.value)}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -715,7 +718,7 @@ export function IvrMessagesTab() {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>Country</Label>
+                <Label>{ivr.country}</Label>
                 <Select value={formData.countryCode} onValueChange={(v) => setFormData((f) => ({ ...f, countryCode: v }))}>
                   <SelectTrigger data-testid="select-ivr-country"><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -731,7 +734,7 @@ export function IvrMessagesTab() {
                   onCheckedChange={(v) => setFormData((f) => ({ ...f, isActive: v }))}
                   data-testid="switch-ivr-active"
                 />
-                <Label>Active</Label>
+                <Label>{ivr.active}</Label>
               </div>
             </div>
 
@@ -740,23 +743,23 @@ export function IvrMessagesTab() {
                 {(formData.type === "hold_music" || (editingMessage && editingMessage.source === "stock")) && (
                   <TabsTrigger value="stock" className="flex-1 gap-2" data-testid="tab-stock">
                     <Library className="h-4 w-4" />
-                    Stock Library
+                    {ivr.stockLibrary}
                   </TabsTrigger>
                 )}
                 <TabsTrigger value="upload" className="flex-1 gap-2" data-testid="tab-upload">
                   <Upload className="h-4 w-4" />
-                  Upload Audio
+                  {ivr.uploadAudio}
                 </TabsTrigger>
                 <TabsTrigger value="tts" className="flex-1 gap-2" data-testid="tab-tts">
                   <Mic className="h-4 w-4" />
-                  Text-to-Speech
+                  {ivr.textToSpeech}
                 </TabsTrigger>
               </TabsList>
 
               {(formData.type === "hold_music" || (editingMessage && editingMessage.source === "stock")) && (
                 <TabsContent value="stock" className="space-y-3 mt-3">
                   <p className="text-sm text-muted-foreground">
-                    {editingMessage ? "Select a new hold music style to replace the current one." : "Choose from free built-in hold music styles. Click play to preview before adding."}
+                    {editingMessage ? ivr.stockReplaceHint : ivr.stockSelectHint}
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {stockMohOptions.map((option: any) => (
@@ -793,9 +796,9 @@ export function IvrMessagesTab() {
                                 data-testid={`btn-preview-stock-${option.id}`}
                               >
                                 {previewingStockId === option.id ? (
-                                  <><Square className="h-3 w-3" /> Stop</>
+                                  <><Square className="h-3 w-3" /> {ivr.stop}</>
                                 ) : (
-                                  <><Play className="h-3 w-3" /> Preview</>
+                                  <><Play className="h-3 w-3" /> {ivr.preview}</>
                                 )}
                               </Button>
                             </div>
@@ -806,7 +809,7 @@ export function IvrMessagesTab() {
                   </div>
                   {selectedStockId && (
                     <div>
-                      <Label>Custom Name (optional)</Label>
+                      <Label>{ivr.customName}</Label>
                       <Input
                         value={formData.name}
                         onChange={(e) => setFormData((f) => ({ ...f, name: e.target.value }))}
@@ -820,7 +823,7 @@ export function IvrMessagesTab() {
 
               <TabsContent value="upload" className="space-y-3 mt-3">
                 <div>
-                  <Label>{editingMessage ? "Replace Audio File" : "Audio File (.wav, .mp3, .ogg, .gsm)"}</Label>
+                  <Label>{editingMessage ? ivr.replaceAudioFile : ivr.audioFile}</Label>
                   <div className="mt-2">
                     <input
                       ref={fileInputRef}
@@ -838,7 +841,7 @@ export function IvrMessagesTab() {
                       data-testid="btn-select-file"
                     >
                       <Upload className="h-4 w-4" />
-                      {audioFile ? audioFile.name : editingMessage ? "Select New Audio File" : "Select Audio File"}
+                      {audioFile ? audioFile.name : editingMessage ? ivr.selectNewAudioFile : ivr.selectAudioFile}
                     </Button>
                     {audioFile && (
                       <p className="text-xs text-muted-foreground mt-1">
@@ -851,17 +854,17 @@ export function IvrMessagesTab() {
 
               <TabsContent value="tts" className="space-y-3 mt-3">
                 <div>
-                  <Label>Text Content *</Label>
+                  <Label>{ivr.textContent}</Label>
                   <Textarea
                     value={formData.textContent}
                     onChange={(e) => setFormData((f) => ({ ...f, textContent: e.target.value }))}
-                    placeholder="Enter the text to be converted to speech..."
+                    placeholder={ivr.textPlaceholder}
                     rows={4}
                     data-testid="input-tts-text"
                   />
                 </div>
                 <div>
-                  <Label>Voice</Label>
+                  <Label>{ivr.voice}</Label>
                   <Select value={formData.ttsVoice} onValueChange={(v) => setFormData((f) => ({ ...f, ttsVoice: v }))}>
                     <SelectTrigger data-testid="select-tts-voice"><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -875,29 +878,29 @@ export function IvrMessagesTab() {
                             {recommended.length > 0 && (
                               <>
                                 <SelectItem value="_rec_header" disabled>
-                                  Recommended for {LANGUAGES.find(l => l.value === formData.language)?.label || formData.language}
+                                  {ivr.recommendedFor} {languageLabel(formData.language)}
                                 </SelectItem>
                                 {recommended.map(v => (
                                   <SelectItem key={v.value} value={v.value}>
-                                    {v.label} ({v.gender}) — {v.description}
+                                    {v.label} ({v.gender}) — {ivr.voices[v.value as keyof typeof ivr.voices] || v.description}
                                   </SelectItem>
                                 ))}
                               </>
                             )}
                             <SelectItem value="_female_header" disabled>
-                              Female Voices
+                              {ivr.femaleVoices}
                             </SelectItem>
                             {others.filter(v => v.gender === "female").map(v => (
                               <SelectItem key={v.value} value={v.value}>
-                                {v.label} — {v.description}
+                                {v.label} — {ivr.voices[v.value as keyof typeof ivr.voices] || v.description}
                               </SelectItem>
                             ))}
                             <SelectItem value="_male_header" disabled>
-                              Male Voices
+                              {ivr.maleVoices}
                             </SelectItem>
                             {others.filter(v => v.gender === "male").map(v => (
                               <SelectItem key={v.value} value={v.value}>
-                                {v.label} — {v.description}
+                                {v.label} — {ivr.voices[v.value as keyof typeof ivr.voices] || v.description}
                               </SelectItem>
                             ))}
                           </>
@@ -914,13 +917,13 @@ export function IvrMessagesTab() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={closeDialog} data-testid="btn-cancel-ivr">
-              Cancel
+              {ivr.cancel}
             </Button>
             <Button onClick={handleSubmit} disabled={isSaving} data-testid="btn-save-ivr">
               {(ttsMutation.isPending || regenerateTtsMutation.isPending || stockMohMutation.isPending || regenerateStockMohMutation.isPending) && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              {(ttsMutation.isPending || regenerateTtsMutation.isPending) ? "Generating TTS..." :
-               (stockMohMutation.isPending || regenerateStockMohMutation.isPending) ? "Generating MOH..." :
-               editingMessage ? (sourceMode === "stock" && selectedStockId ? "Regenerate" : sourceMode === "tts" ? "Regenerate TTS" : "Update") : "Create"}
+              {(ttsMutation.isPending || regenerateTtsMutation.isPending) ? ivr.generatingTts :
+               (stockMohMutation.isPending || regenerateStockMohMutation.isPending) ? ivr.generatingMoh :
+               editingMessage ? (sourceMode === "stock" && selectedStockId ? ivr.regenerate : sourceMode === "tts" ? ivr.regenerateTts : ivr.update) : ivr.create}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -929,14 +932,14 @@ export function IvrMessagesTab() {
       <Dialog open={!!deleteConfirmId} onOpenChange={(open) => !open && setDeleteConfirmId(null)}>
         <DialogContent className="sm:max-w-sm" data-testid="dialog-delete-confirm">
           <DialogHeader>
-            <DialogTitle>Delete IVR Message</DialogTitle>
+            <DialogTitle>{ivr.deleteMessage}</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            Are you sure you want to delete this IVR message? This action cannot be undone.
+            {ivr.deleteConfirm}
           </p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteConfirmId(null)} data-testid="btn-cancel-delete">
-              Cancel
+              {ivr.cancel}
             </Button>
             <Button
               variant="destructive"
@@ -944,7 +947,7 @@ export function IvrMessagesTab() {
               disabled={deleteMutation.isPending}
               data-testid="btn-confirm-delete"
             >
-              Delete
+              {ivr.delete}
             </Button>
           </DialogFooter>
         </DialogContent>

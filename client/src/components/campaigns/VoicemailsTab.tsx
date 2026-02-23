@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useI18n } from "@/i18n";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -162,6 +163,8 @@ const defaultBoxForm: BoxFormData = {
 };
 
 export function VoicemailsTab() {
+  const { t } = useI18n();
+  const vm = (t as any).campaigns?.voicemails || {};
   const [activeTab, setActiveTab] = useState("messages");
 
   return (
@@ -170,11 +173,11 @@ export function VoicemailsTab() {
         <TabsList>
           <TabsTrigger value="messages" className="gap-2" data-testid="tab-voicemail-messages">
             <Inbox className="h-4 w-4" />
-            Inbox
+            {vm.inbox || 'Inbox'}
           </TabsTrigger>
           <TabsTrigger value="boxes" className="gap-2" data-testid="tab-voicemail-boxes">
             <Settings className="h-4 w-4" />
-            Mailboxes
+            {vm.mailboxes || 'Mailboxes'}
           </TabsTrigger>
         </TabsList>
       </div>
@@ -189,6 +192,8 @@ export function VoicemailsTab() {
 }
 
 function VoicemailInbox() {
+  const { t } = useI18n();
+  const vm = (t as any).campaigns?.voicemails || {};
   const { toast } = useToast();
   const [filterBox, setFilterBox] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
@@ -246,7 +251,7 @@ function VoicemailInbox() {
       queryClient.invalidateQueries({ queryKey: ["/api/voicemail-messages"] });
       queryClient.invalidateQueries({ queryKey: ["/api/voicemail-stats"] });
       setSelectedIds(new Set());
-      toast({ title: "Messages updated" });
+      toast({ title: vm.messagesUpdated || "Messages updated" });
     },
   });
 
@@ -257,7 +262,7 @@ function VoicemailInbox() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/voicemail-messages"] });
       queryClient.invalidateQueries({ queryKey: ["/api/voicemail-stats"] });
-      toast({ title: "Message deleted" });
+      toast({ title: vm.messageDeleted || "Message deleted" });
     },
   });
 
@@ -274,7 +279,7 @@ function VoicemailInbox() {
     audio.onended = () => setPlayingId(null);
     audio.onerror = () => {
       setPlayingId(null);
-      toast({ title: "Error", description: "Could not play recording", variant: "destructive" });
+      toast({ title: vm.error || "Error", description: vm.couldNotPlayRecording || "Could not play recording", variant: "destructive" });
     };
     audioRef.current = audio;
     audio.play();
@@ -299,7 +304,7 @@ function VoicemailInbox() {
   };
 
   const getBoxName = (boxId: string) => {
-    return boxes.find(b => b.id === boxId)?.name || "Unknown";
+    return boxes.find(b => b.id === boxId)?.name || (vm.unknown || "Unknown");
   };
 
   const formatDuration = (seconds: number) => {
@@ -330,7 +335,7 @@ function VoicemailInbox() {
               </div>
               <div>
                 <p className="text-2xl font-bold">{stats.total}</p>
-                <p className="text-xs text-muted-foreground">Total</p>
+                <p className="text-xs text-muted-foreground">{vm.total || 'Total'}</p>
               </div>
             </CardContent>
           </Card>
@@ -341,7 +346,7 @@ function VoicemailInbox() {
               </div>
               <div>
                 <p className="text-2xl font-bold">{stats.unread}</p>
-                <p className="text-xs text-muted-foreground">Unread</p>
+                <p className="text-xs text-muted-foreground">{vm.unread || 'Unread'}</p>
               </div>
             </CardContent>
           </Card>
@@ -352,7 +357,7 @@ function VoicemailInbox() {
               </div>
               <div>
                 <p className="text-2xl font-bold">{stats.read}</p>
-                <p className="text-xs text-muted-foreground">Read</p>
+                <p className="text-xs text-muted-foreground">{vm.read || 'Read'}</p>
               </div>
             </CardContent>
           </Card>
@@ -363,7 +368,7 @@ function VoicemailInbox() {
               </div>
               <div>
                 <p className="text-2xl font-bold">{stats.archived}</p>
-                <p className="text-xs text-muted-foreground">Archived</p>
+                <p className="text-xs text-muted-foreground">{vm.archived || 'Archived'}</p>
               </div>
             </CardContent>
           </Card>
@@ -377,7 +382,7 @@ function VoicemailInbox() {
               <div className="relative flex-1 max-w-sm">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
-                  placeholder="Search caller..."
+                  placeholder={vm.searchCaller || "Search caller..."}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
@@ -386,10 +391,10 @@ function VoicemailInbox() {
               </div>
               <Select value={filterBox} onValueChange={setFilterBox}>
                 <SelectTrigger className="w-48" data-testid="select-filter-box">
-                  <SelectValue placeholder="All Mailboxes" />
+                  <SelectValue placeholder={vm.allMailboxes || "All Mailboxes"} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Mailboxes</SelectItem>
+                  <SelectItem value="all">{vm.allMailboxes || 'All Mailboxes'}</SelectItem>
                   {boxes.map(box => (
                     <SelectItem key={box.id} value={box.id}>{box.name}</SelectItem>
                   ))}
@@ -397,19 +402,19 @@ function VoicemailInbox() {
               </Select>
               <Select value={filterStatus} onValueChange={setFilterStatus}>
                 <SelectTrigger className="w-36" data-testid="select-filter-status">
-                  <SelectValue placeholder="All Status" />
+                  <SelectValue placeholder={vm.allStatus || "All Status"} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="unread">Unread</SelectItem>
-                  <SelectItem value="read">Read</SelectItem>
-                  <SelectItem value="archived">Archived</SelectItem>
+                  <SelectItem value="all">{vm.allStatus || 'All Status'}</SelectItem>
+                  <SelectItem value="unread">{vm.unread || 'Unread'}</SelectItem>
+                  <SelectItem value="read">{vm.read || 'Read'}</SelectItem>
+                  <SelectItem value="archived">{vm.archived || 'Archived'}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             {selectedIds.size > 0 && (
               <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">{selectedIds.size} selected</span>
+                <span className="text-sm text-muted-foreground">{selectedIds.size} {vm.selected || 'selected'}</span>
                 <Button
                   size="sm"
                   variant="outline"
@@ -417,7 +422,7 @@ function VoicemailInbox() {
                   data-testid="button-batch-read"
                 >
                   <MailOpen className="h-4 w-4 mr-1" />
-                  Mark Read
+                  {vm.markRead || 'Mark Read'}
                 </Button>
                 <Button
                   size="sm"
@@ -426,7 +431,7 @@ function VoicemailInbox() {
                   data-testid="button-batch-archive"
                 >
                   <Archive className="h-4 w-4 mr-1" />
-                  Archive
+                  {vm.archive || 'Archive'}
                 </Button>
               </div>
             )}
@@ -440,8 +445,8 @@ function VoicemailInbox() {
           ) : messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
               <Voicemail className="h-12 w-12 mb-3 opacity-50" />
-              <p className="text-lg font-medium">No voicemail messages</p>
-              <p className="text-sm">Messages will appear here when callers leave voicemails</p>
+              <p className="text-lg font-medium">{vm.noMessages || 'No voicemail messages'}</p>
+              <p className="text-sm">{vm.noMessagesDescription || 'Messages will appear here when callers leave voicemails'}</p>
             </div>
           ) : (
             <Table>
@@ -457,12 +462,12 @@ function VoicemailInbox() {
                     />
                   </TableHead>
                   <TableHead className="w-10"></TableHead>
-                  <TableHead>Caller</TableHead>
-                  <TableHead>Mailbox</TableHead>
-                  <TableHead>Duration</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="w-24">Actions</TableHead>
+                  <TableHead>{vm.caller || 'Caller'}</TableHead>
+                  <TableHead>{vm.mailbox || 'Mailbox'}</TableHead>
+                  <TableHead>{vm.duration || 'Duration'}</TableHead>
+                  <TableHead>{vm.date || 'Date'}</TableHead>
+                  <TableHead>{vm.status || 'Status'}</TableHead>
+                  <TableHead className="w-24">{vm.actions || 'Actions'}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -567,15 +572,15 @@ function VoicemailInbox() {
                           <div className="space-y-3">
                             <div className="grid grid-cols-3 gap-4 text-sm">
                               <div>
-                                <span className="text-muted-foreground">Caller:</span>{" "}
+                                <span className="text-muted-foreground">{vm.caller || 'Caller'}:</span>{" "}
                                 {msg.callerNumber} {msg.callerName && `(${msg.callerName})`}
                               </div>
                               <div>
-                                <span className="text-muted-foreground">DID:</span>{" "}
+                                <span className="text-muted-foreground">{vm.did || 'DID'}:</span>{" "}
                                 {msg.didNumber || "N/A"}
                               </div>
                               <div>
-                                <span className="text-muted-foreground">Duration:</span>{" "}
+                                <span className="text-muted-foreground">{vm.duration || 'Duration'}:</span>{" "}
                                 {formatDuration(msg.durationSeconds)}
                               </div>
                             </div>
@@ -583,7 +588,7 @@ function VoicemailInbox() {
                               <div className="mt-2">
                                 <div className="flex items-center gap-2 mb-1">
                                   <FileText className="h-4 w-4 text-muted-foreground" />
-                                  <span className="text-sm font-medium">Transcript</span>
+                                  <span className="text-sm font-medium">{vm.transcript || 'Transcript'}</span>
                                   {msg.transcriptStatus && (
                                     <Badge variant="outline" className="text-xs">
                                       {msg.transcriptStatus}
@@ -597,7 +602,7 @@ function VoicemailInbox() {
                             )}
                             {!msg.transcriptText && msg.transcriptStatus === "pending" && (
                               <div className="text-sm text-muted-foreground italic">
-                                Transcription pending...
+                                {vm.transcriptionPending || 'Transcription pending...'}
                               </div>
                             )}
                             {msg.recordingPath && (
@@ -632,6 +637,8 @@ function GreetingCard({
   period: typeof GREETING_PERIODS[number];
   box: VoicemailBox;
 }) {
+  const { t } = useI18n();
+  const vm = (t as any).campaigns?.voicemails || {};
   const { toast } = useToast();
   const [mode, setMode] = useState<"tts" | "upload">("tts");
   const [ttsText, setTtsText] = useState("");
@@ -660,10 +667,10 @@ function GreetingCard({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/voicemail-boxes"] });
       setTtsText("");
-      toast({ title: "Greeting generated" });
+      toast({ title: vm.greetingGenerated || "Greeting generated" });
     },
     onError: (err: any) => {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+      toast({ title: vm.error || "Error", description: err.message, variant: "destructive" });
     },
   });
 
@@ -685,10 +692,10 @@ function GreetingCard({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/voicemail-boxes"] });
-      toast({ title: "Greeting uploaded" });
+      toast({ title: vm.greetingUploaded || "Greeting uploaded" });
     },
     onError: (err: any) => {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+      toast({ title: vm.error || "Error", description: err.message, variant: "destructive" });
     },
   });
 
@@ -698,10 +705,10 @@ function GreetingCard({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/voicemail-boxes"] });
-      toast({ title: "Greeting deleted" });
+      toast({ title: vm.greetingDeleted || "Greeting deleted" });
     },
     onError: (err: any) => {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+      toast({ title: vm.error || "Error", description: err.message, variant: "destructive" });
     },
   });
 
@@ -718,7 +725,7 @@ function GreetingCard({
     audio.onended = () => setPlayingPeriod(null);
     audio.onerror = () => {
       setPlayingPeriod(null);
-      toast({ title: "Error", description: "Could not play greeting", variant: "destructive" });
+      toast({ title: vm.error || "Error", description: vm.couldNotPlayGreeting || "Could not play greeting", variant: "destructive" });
     };
     greetingAudioRef.current = audio;
     audio.play();
@@ -739,11 +746,11 @@ function GreetingCard({
           {hasGreeting ? (
             <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-green-500/50 text-green-700 dark:text-green-400">
               <CheckCircle2 className="h-3 w-3 mr-1" />
-              {savedTtsText ? "TTS" : "Uploaded"}
+              {savedTtsText ? "TTS" : (vm.uploaded || 'Uploaded')}
             </Badge>
           ) : (
             <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-muted-foreground">
-              Not set
+              {vm.notSet || 'Not set'}
             </Badge>
           )}
         </div>
@@ -782,7 +789,7 @@ function GreetingCard({
 
       {hasGreeting && savedTtsText && (
         <div className="bg-muted/50 rounded px-3 py-2 text-xs text-muted-foreground italic border border-muted">
-          <span className="font-medium text-foreground/70 not-italic">TTS Text:</span>{" "}
+          <span className="font-medium text-foreground/70 not-italic">{vm.ttsText || 'TTS Text'}:</span>{" "}
           "{savedTtsText}"
         </div>
       )}
@@ -796,13 +803,13 @@ function GreetingCard({
           data-testid={`button-replace-greeting-${period.key}`}
         >
           <Pencil className="h-3 w-3 mr-1" />
-          Replace greeting
+          {vm.replaceGreeting || 'Replace greeting'}
         </Button>
       ) : (
         <>
           {hasGreeting && showReplace && (
             <div className="flex items-center justify-between">
-              <span className="text-xs text-muted-foreground font-medium">Replace greeting:</span>
+              <span className="text-xs text-muted-foreground font-medium">{vm.replaceGreeting || 'Replace greeting'}:</span>
               <Button size="sm" variant="ghost" className="text-xs h-6 px-2" onClick={() => setShowReplace(false)}>
                 <X className="h-3 w-3" />
               </Button>
@@ -817,7 +824,7 @@ function GreetingCard({
               <Textarea
                 value={ttsText}
                 onChange={(e) => setTtsText(e.target.value)}
-                placeholder={savedTtsText || "Enter greeting text..."}
+                placeholder={savedTtsText || vm.enterGreetingText || "Enter greeting text..."}
                 rows={2}
                 className="text-sm"
                 data-testid={`textarea-tts-${period.key}`}
@@ -829,7 +836,7 @@ function GreetingCard({
                 data-testid={`button-generate-greeting-${period.key}`}
               >
                 {generateMutation.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
-                {hasGreeting ? "Regenerate" : "Generate"}
+                {hasGreeting ? (vm.regenerate || 'Regenerate') : (vm.generate || 'Generate')}
               </Button>
             </TabsContent>
             <TabsContent value="upload" className="mt-2 space-y-2">
@@ -857,7 +864,7 @@ function GreetingCard({
                 ) : (
                   <Upload className="h-4 w-4 mr-1" />
                 )}
-                Upload Audio
+                {vm.uploadAudio || 'Upload Audio'}
               </Button>
             </TabsContent>
           </Tabs>
@@ -868,6 +875,8 @@ function GreetingCard({
 }
 
 function VoicemailBoxesManager() {
+  const { t } = useI18n();
+  const vm = (t as any).campaigns?.voicemails || {};
   const { toast } = useToast();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingBox, setEditingBox] = useState<VoicemailBox | null>(null);
@@ -902,10 +911,10 @@ function VoicemailBoxesManager() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/voicemail-boxes"] });
       closeDialog();
-      toast({ title: "Voicemail box created" });
+      toast({ title: vm.boxCreated || "Voicemail box created" });
     },
     onError: (err: any) => {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+      toast({ title: vm.error || "Error", description: err.message, variant: "destructive" });
     },
   });
 
@@ -919,10 +928,10 @@ function VoicemailBoxesManager() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/voicemail-boxes"] });
       closeDialog();
-      toast({ title: "Voicemail box updated" });
+      toast({ title: vm.boxUpdated || "Voicemail box updated" });
     },
     onError: (err: any) => {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+      toast({ title: vm.error || "Error", description: err.message, variant: "destructive" });
     },
   });
 
@@ -933,10 +942,10 @@ function VoicemailBoxesManager() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/voicemail-boxes"] });
       setDeleteConfirmId(null);
-      toast({ title: "Voicemail box deleted" });
+      toast({ title: vm.boxDeleted || "Voicemail box deleted" });
     },
     onError: (err: any) => {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+      toast({ title: vm.error || "Error", description: err.message, variant: "destructive" });
     },
   });
 
@@ -973,7 +982,7 @@ function VoicemailBoxesManager() {
 
   const handleSubmit = () => {
     if (!formData.name.trim()) {
-      toast({ title: "Name is required", variant: "destructive" });
+      toast({ title: vm.nameRequired || "Name is required", variant: "destructive" });
       return;
     }
     if (editingBox) {
@@ -987,12 +996,12 @@ function VoicemailBoxesManager() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-semibold">Voicemail Mailboxes</h3>
-          <p className="text-sm text-muted-foreground">Manage voicemail boxes for inbound queues</p>
+          <h3 className="text-lg font-semibold">{vm.voicemailMailboxes || 'Voicemail Mailboxes'}</h3>
+          <p className="text-sm text-muted-foreground">{vm.manageMailboxes || 'Manage voicemail boxes for inbound queues'}</p>
         </div>
         <Button onClick={openCreate} data-testid="button-create-box">
           <Plus className="h-4 w-4 mr-2" />
-          New Mailbox
+          {vm.newMailbox || 'New Mailbox'}
         </Button>
       </div>
 
@@ -1004,8 +1013,8 @@ function VoicemailBoxesManager() {
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12 text-muted-foreground">
             <Voicemail className="h-12 w-12 mb-3 opacity-50" />
-            <p className="text-lg font-medium">No voicemail boxes</p>
-            <p className="text-sm">Create a mailbox to start receiving voicemails</p>
+            <p className="text-lg font-medium">{vm.noBoxes || 'No voicemail boxes'}</p>
+            <p className="text-sm">{vm.noBoxesDescription || 'Create a mailbox to start receiving voicemails'}</p>
           </CardContent>
         </Card>
       ) : (
@@ -1040,30 +1049,30 @@ function VoicemailBoxesManager() {
                 )}
                 <div className="flex flex-wrap gap-2">
                   {box.extension && (
-                    <Badge variant="outline">Ext: {box.extension}</Badge>
+                    <Badge variant="outline">{vm.ext || 'Ext'}: {box.extension}</Badge>
                   )}
                   {box.countryCode && (
                     <Badge variant="outline">{box.countryCode}</Badge>
                   )}
                   <Badge variant={box.isActive ? "default" : "secondary"}>
-                    {box.isActive ? "Active" : "Inactive"}
+                    {box.isActive ? (vm.active || 'Active') : (vm.inactive || 'Inactive')}
                   </Badge>
                 </div>
                 <div className="text-xs text-muted-foreground space-y-1 pt-1">
                   <div className="flex items-center gap-2">
                     <Clock className="h-3 w-3" />
-                    Max {box.maxDurationSeconds}s
+                    {vm.max || 'Max'} {box.maxDurationSeconds}s
                   </div>
                   {box.emailNotification && (
                     <div className="flex items-center gap-2">
                       <Mail className="h-3 w-3" />
-                      Email notifications
+                      {vm.emailNotifications || 'Email notifications'}
                     </div>
                   )}
                   {box.transcriptionEnabled && (
                     <div className="flex items-center gap-2">
                       <FileText className="h-3 w-3" />
-                      Transcription enabled
+                      {vm.transcriptionEnabled || 'Transcription enabled'}
                     </div>
                   )}
                 </div>
@@ -1076,14 +1085,14 @@ function VoicemailBoxesManager() {
       <Dialog open={deleteConfirmId !== null} onOpenChange={() => setDeleteConfirmId(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete Voicemail Box</DialogTitle>
+            <DialogTitle>{vm.deleteVoicemailBox || 'Delete Voicemail Box'}</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            This will permanently delete the mailbox and all its messages. This action cannot be undone.
+            {vm.deleteConfirmation || 'This will permanently delete the mailbox and all its messages. This action cannot be undone.'}
           </p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteConfirmId(null)} data-testid="button-cancel-delete">
-              Cancel
+              {vm.cancel || 'Cancel'}
             </Button>
             <Button
               variant="destructive"
@@ -1092,7 +1101,7 @@ function VoicemailBoxesManager() {
               data-testid="button-confirm-delete"
             >
               {deleteMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              Delete
+              {vm.delete || 'Delete'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1101,34 +1110,34 @@ function VoicemailBoxesManager() {
       <Dialog open={dialogOpen} onOpenChange={(open) => !open && closeDialog()}>
         <DialogContent className="max-w-4xl">
           <DialogHeader>
-            <DialogTitle>{editingBox ? "Edit Mailbox" : "Create Mailbox"}</DialogTitle>
+            <DialogTitle>{editingBox ? (vm.editMailbox || 'Edit Mailbox') : (vm.createMailbox || 'Create Mailbox')}</DialogTitle>
           </DialogHeader>
           <div className="max-h-[70vh] overflow-y-auto pr-1">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-4">
-                <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">General Settings</h4>
+                <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">{vm.generalSettings || 'General Settings'}</h4>
                 <div className="space-y-2">
-                  <Label>Name *</Label>
+                  <Label>{vm.name || 'Name'} *</Label>
                   <Input
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="Sales Voicemail"
+                    placeholder={vm.salesVoicemailPlaceholder || "Sales Voicemail"}
                     data-testid="input-box-name"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Description</Label>
+                  <Label>{vm.description || 'Description'}</Label>
                   <Textarea
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    placeholder="Voicemail box for sales department"
+                    placeholder={vm.descriptionPlaceholder || "Voicemail box for sales department"}
                     rows={2}
                     data-testid="input-box-description"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">
-                    <Label>Extension</Label>
+                    <Label>{vm.extension || 'Extension'}</Label>
                     <Input
                       value={formData.extension}
                       onChange={(e) => setFormData({ ...formData, extension: e.target.value })}
@@ -1137,7 +1146,7 @@ function VoicemailBoxesManager() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Country</Label>
+                    <Label>{vm.country || 'Country'}</Label>
                     <Select value={formData.countryCode} onValueChange={(v) => setFormData({ ...formData, countryCode: v })}>
                       <SelectTrigger data-testid="select-box-country">
                         <SelectValue />
@@ -1152,7 +1161,7 @@ function VoicemailBoxesManager() {
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">
-                    <Label>Max Duration (s)</Label>
+                    <Label>{vm.maxDuration || 'Max Duration'} (s)</Label>
                     <Input
                       type="number"
                       value={formData.maxDurationSeconds}
@@ -1161,7 +1170,7 @@ function VoicemailBoxesManager() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Access PIN</Label>
+                    <Label>{vm.accessPin || 'Access PIN'}</Label>
                     <Input
                       value={formData.pin}
                       onChange={(e) => setFormData({ ...formData, pin: e.target.value })}
@@ -1173,11 +1182,11 @@ function VoicemailBoxesManager() {
                 </div>
 
                 <div className="border-t pt-3 space-y-3">
-                  <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Options</h4>
+                  <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">{vm.options || 'Options'}</h4>
                   <div className="flex items-center justify-between">
                     <div>
-                      <Label className="text-sm">Beep Tone</Label>
-                      <p className="text-xs text-muted-foreground">Beep before recording starts</p>
+                      <Label className="text-sm">{vm.beepTone || 'Beep Tone'}</Label>
+                      <p className="text-xs text-muted-foreground">{vm.beepToneDescription || 'Beep before recording starts'}</p>
                     </div>
                     <Switch
                       checked={formData.beepToneEnabled}
@@ -1187,8 +1196,8 @@ function VoicemailBoxesManager() {
                   </div>
                   <div className="flex items-center justify-between">
                     <div>
-                      <Label className="text-sm">Email Notification</Label>
-                      <p className="text-xs text-muted-foreground">Send email on new voicemail</p>
+                      <Label className="text-sm">{vm.emailNotification || 'Email Notification'}</Label>
+                      <p className="text-xs text-muted-foreground">{vm.emailNotificationDescription || 'Send email on new voicemail'}</p>
                     </div>
                     <Switch
                       checked={formData.emailNotification}
@@ -1198,20 +1207,20 @@ function VoicemailBoxesManager() {
                   </div>
                   {formData.emailNotification && (
                     <div className="space-y-2">
-                      <Label>Notification Emails</Label>
+                      <Label>{vm.notificationEmails || 'Notification Emails'}</Label>
                       <Input
                         value={formData.notifyEmails}
                         onChange={(e) => setFormData({ ...formData, notifyEmails: e.target.value })}
                         placeholder="admin@example.com, manager@example.com"
                         data-testid="input-notify-emails"
                       />
-                      <p className="text-xs text-muted-foreground">Comma-separated</p>
+                      <p className="text-xs text-muted-foreground">{vm.commaSeparated || 'Comma-separated'}</p>
                     </div>
                   )}
                   <div className="flex items-center justify-between">
                     <div>
-                      <Label className="text-sm">Transcription</Label>
-                      <p className="text-xs text-muted-foreground">Auto-transcribe messages</p>
+                      <Label className="text-sm">{vm.transcription || 'Transcription'}</Label>
+                      <p className="text-xs text-muted-foreground">{vm.autoTranscribeMessages || 'Auto-transcribe messages'}</p>
                     </div>
                     <Switch
                       checked={formData.transcriptionEnabled}
@@ -1221,7 +1230,7 @@ function VoicemailBoxesManager() {
                   </div>
                   {editingBox && (
                     <div className="flex items-center justify-between">
-                      <Label className="text-sm">Active</Label>
+                      <Label className="text-sm">{vm.active || 'Active'}</Label>
                       <Switch
                         checked={formData.isActive}
                         onCheckedChange={(v) => setFormData({ ...formData, isActive: v })}
@@ -1235,8 +1244,8 @@ function VoicemailBoxesManager() {
               <div className="space-y-4">
                 <div className="space-y-3 border rounded-md p-4">
                   <div>
-                    <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Time-of-Day Greetings</h4>
-                    <p className="text-xs text-muted-foreground mt-1">Different greetings play based on the time of day</p>
+                    <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">{vm.timeOfDayGreetings || 'Time-of-Day Greetings'}</h4>
+                    <p className="text-xs text-muted-foreground mt-1">{vm.timeOfDayGreetingsDescription || 'Different greetings play based on the time of day'}</p>
                   </div>
                   {editingBox ? (
                     (() => {
@@ -1244,7 +1253,7 @@ function VoicemailBoxesManager() {
                       return (
                         <>
                           <div className="space-y-2">
-                            <Label className="text-xs">TTS Voice</Label>
+                            <Label className="text-xs">{vm.ttsVoice || 'TTS Voice'}</Label>
                             <Select
                               value={greetingVoice}
                               onValueChange={(v) => {
@@ -1279,7 +1288,7 @@ function VoicemailBoxesManager() {
                       );
                     })()
                   ) : (
-                    <p className="text-xs text-muted-foreground italic">Save the mailbox first, then add greetings</p>
+                    <p className="text-xs text-muted-foreground italic">{vm.saveFirstThenGreetings || 'Save the mailbox first, then add greetings'}</p>
                   )}
                 </div>
               </div>
@@ -1287,7 +1296,7 @@ function VoicemailBoxesManager() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={closeDialog} data-testid="button-cancel-box">
-              Cancel
+              {vm.cancel || 'Cancel'}
             </Button>
             <Button
               onClick={handleSubmit}
@@ -1297,7 +1306,7 @@ function VoicemailBoxesManager() {
               {(createMutation.isPending || updateMutation.isPending) && (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               )}
-              {editingBox ? "Update" : "Create"}
+              {editingBox ? (vm.update || 'Update') : (vm.create || 'Create')}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Loader2, Phone, PhoneIncoming, PhoneMissed, PhoneOff, Clock, Users, BarChart3, TrendingUp, AlertTriangle, CheckCircle2, XCircle, Timer, Download } from "lucide-react";
 import { format } from "date-fns";
 import { sk } from "date-fns/locale";
+import { useI18n } from "@/i18n";
 
 function formatDuration(seconds: number): string {
   if (!seconds) return "0:00";
@@ -28,22 +29,6 @@ function formatDurationLong(seconds: number): string {
   return `${s}s`;
 }
 
-const statusLabels: Record<string, string> = {
-  queued: "Vo fronte",
-  ringing: "Zvoní",
-  answered: "Zodvihnutý",
-  completed: "Dokončený",
-  abandoned: "Zmeškaný",
-  timeout: "Časový limit",
-  overflow: "Presmerovanie",
-};
-
-const abandonReasonLabels: Record<string, string> = {
-  caller_hangup: "Volajúci zavesil",
-  timeout: "Prekročený čas čakania",
-  overflow: "Presmerovanie (preplnenie)",
-};
-
 const statusColors: Record<string, string> = {
   completed: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
   answered: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
@@ -55,6 +40,8 @@ const statusColors: Record<string, string> = {
 };
 
 export function InboundReportsTab() {
+  const { t } = useI18n();
+  const ir = t.campaigns.inboundReports;
   const [selectedQueueId, setSelectedQueueId] = useState<string>("all");
   const [dateFrom, setDateFrom] = useState<string>(() => {
     const d = new Date();
@@ -143,15 +130,15 @@ export function InboundReportsTab() {
   }, [hourlyStats]);
 
   const exportMissedCallsCsv = () => {
-    const headers = ["Dátum", "Číslo volajúceho", "Zákazník", "Fronta", "DID", "Status", "Dôvod", "Čakanie (s)", "Pozícia"];
+    const headers = [ir.csvDate, ir.csvCallerNumber, ir.csvCustomer, ir.csvQueue, ir.csvDid, ir.csvStatus, ir.csvReason, ir.csvWait, ir.csvPosition];
     const rows = missedCalls.map((c: any) => [
       c.enteredQueueAt ? format(new Date(c.enteredQueueAt), "dd.MM.yyyy HH:mm:ss", { locale: sk }) : "",
       c.callerNumber,
       c.customerName || "",
       c.queueName || "",
       c.didNumber || "",
-      statusLabels[c.status] || c.status,
-      abandonReasonLabels[c.abandonReason] || c.abandonReason || "",
+      ir.statuses[c.status as keyof typeof ir.statuses] || c.status,
+      ir.abandonReasons[c.abandonReason as keyof typeof ir.abandonReasons] || c.abandonReason || "",
       c.waitDurationSeconds || 0,
       c.queuePosition || "",
     ]);
@@ -167,7 +154,7 @@ export function InboundReportsTab() {
 
   const exportAllCallsCsv = () => {
     if (!allCallsData?.data) return;
-    const headers = ["Dátum", "Číslo", "Zákazník", "Fronta", "DID", "Agent", "Status", "Čakanie (s)", "Hovor (s)", "Pozícia"];
+    const headers = [ir.csvDate, ir.csvCallerNumber, ir.csvCustomer, ir.csvQueue, ir.csvDid, ir.csvAgent, ir.csvStatus, ir.csvWait, ir.csvTalk, ir.csvPosition];
     const rows = allCallsData.data.map((c: any) => [
       c.enteredQueueAt ? format(new Date(c.enteredQueueAt), "dd.MM.yyyy HH:mm:ss", { locale: sk }) : "",
       c.callerNumber,
@@ -175,7 +162,7 @@ export function InboundReportsTab() {
       c.queueName || "",
       c.didNumber || "",
       c.agentName || "",
-      statusLabels[c.status] || c.status,
+      ir.statuses[c.status as keyof typeof ir.statuses] || c.status,
       c.waitDurationSeconds || 0,
       c.talkDurationSeconds || 0,
       c.queuePosition || "",
@@ -194,13 +181,13 @@ export function InboundReportsTab() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-4">
         <div className="flex items-center gap-2">
-          <label className="text-sm font-medium whitespace-nowrap">Fronta:</label>
+          <label className="text-sm font-medium whitespace-nowrap">{ir.queue}</label>
           <Select value={selectedQueueId} onValueChange={setSelectedQueueId}>
             <SelectTrigger className="w-[220px]" data-testid="select-report-queue">
-              <SelectValue placeholder="Všetky fronty" />
+              <SelectValue placeholder={ir.allQueues} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Všetky fronty</SelectItem>
+              <SelectItem value="all">{ir.allQueues}</SelectItem>
               {queues.map((q: any) => (
                 <SelectItem key={q.id} value={q.id}>{q.name}</SelectItem>
               ))}
@@ -208,11 +195,11 @@ export function InboundReportsTab() {
           </Select>
         </div>
         <div className="flex items-center gap-2">
-          <label className="text-sm font-medium">Od:</label>
+          <label className="text-sm font-medium">{ir.dateFrom}</label>
           <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="w-[160px]" data-testid="input-date-from" />
         </div>
         <div className="flex items-center gap-2">
-          <label className="text-sm font-medium">Do:</label>
+          <label className="text-sm font-medium">{ir.dateTo}</label>
           <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="w-[160px]" data-testid="input-date-to" />
         </div>
       </div>
@@ -221,19 +208,19 @@ export function InboundReportsTab() {
         <TabsList>
           <TabsTrigger value="dashboard" className="gap-2" data-testid="tab-report-dashboard">
             <BarChart3 className="h-4 w-4" />
-            SLA Dashboard
+            {ir.slaDashboard}
           </TabsTrigger>
           <TabsTrigger value="missed" className="gap-2" data-testid="tab-report-missed">
             <PhoneMissed className="h-4 w-4" />
-            Zmeškané hovory
+            {ir.missedCalls}
           </TabsTrigger>
           <TabsTrigger value="all-calls" className="gap-2" data-testid="tab-report-all-calls">
             <Phone className="h-4 w-4" />
-            Všetky hovory
+            {ir.allCalls}
           </TabsTrigger>
           <TabsTrigger value="agents" className="gap-2" data-testid="tab-report-agents">
             <Users className="h-4 w-4" />
-            Agenti
+            {ir.agentPerformance}
           </TabsTrigger>
         </TabsList>
 
@@ -247,7 +234,7 @@ export function InboundReportsTab() {
                   <CardContent className="p-4">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
                       <Phone className="h-4 w-4" />
-                      Celkom hovorov
+                      {ir.totalCalls}
                     </div>
                     <div className="text-2xl font-bold" data-testid="text-total-calls">{summary.totalCalls}</div>
                   </CardContent>
@@ -256,49 +243,49 @@ export function InboundReportsTab() {
                   <CardContent className="p-4">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
                       <CheckCircle2 className="h-4 w-4 text-green-500" />
-                      Zodvihnuté
+                      {ir.answered}
                     </div>
                     <div className="text-2xl font-bold text-green-600" data-testid="text-answered-calls">{summary.answeredCalls}</div>
-                    <div className="text-xs text-muted-foreground">{summary.answerRate}% úspešnosť</div>
+                    <div className="text-xs text-muted-foreground">{summary.answerRate}% {ir.answerRate}</div>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardContent className="p-4">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
                       <XCircle className="h-4 w-4 text-red-500" />
-                      Zmeškané
+                      {ir.missed}
                     </div>
                     <div className="text-2xl font-bold text-red-600" data-testid="text-abandoned-calls">{summary.abandonedCalls}</div>
-                    <div className="text-xs text-muted-foreground">{summary.abandonRate}% zmeškaných</div>
+                    <div className="text-xs text-muted-foreground">{summary.abandonRate}% {ir.abandonRate}</div>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardContent className="p-4">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
                       <TrendingUp className="h-4 w-4 text-blue-500" />
-                      SLA
+                      {ir.sla}
                     </div>
                     <div className={`text-2xl font-bold ${summary.serviceLevel >= 80 ? "text-green-600" : summary.serviceLevel >= 60 ? "text-yellow-600" : "text-red-600"}`} data-testid="text-sla-level">
                       {summary.serviceLevel}%
                     </div>
-                    <div className="text-xs text-muted-foreground">Cieľ: ≤{summary.serviceLevelTarget}s</div>
+                    <div className="text-xs text-muted-foreground">{ir.slaTarget}: ≤{summary.serviceLevelTarget}s</div>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardContent className="p-4">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
                       <Clock className="h-4 w-4" />
-                      Priem. čakanie
+                      {ir.avgWait}
                     </div>
                     <div className="text-2xl font-bold" data-testid="text-avg-wait">{formatDuration(summary.avgWaitTime)}</div>
-                    <div className="text-xs text-muted-foreground">Max: {formatDuration(summary.maxWaitTime)}</div>
+                    <div className="text-xs text-muted-foreground">{ir.maxWait}: {formatDuration(summary.maxWaitTime)}</div>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardContent className="p-4">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
                       <Timer className="h-4 w-4" />
-                      Priem. hovor
+                      {ir.avgTalk}
                     </div>
                     <div className="text-2xl font-bold" data-testid="text-avg-talk">{formatDuration(summary.avgTalkTime)}</div>
                   </CardContent>
@@ -312,8 +299,8 @@ export function InboundReportsTab() {
                       <CardContent className="p-4 flex items-center gap-3">
                         <AlertTriangle className="h-5 w-5 text-orange-500" />
                         <div>
-                          <div className="font-medium">Timeout</div>
-                          <div className="text-sm text-muted-foreground">{summary.timedOutCalls} hovorov prekročilo čas čakania</div>
+                          <div className="font-medium">{ir.timeout}</div>
+                          <div className="text-sm text-muted-foreground">{summary.timedOutCalls} {ir.timeoutCalls}</div>
                         </div>
                       </CardContent>
                     </Card>
@@ -323,8 +310,8 @@ export function InboundReportsTab() {
                       <CardContent className="p-4 flex items-center gap-3">
                         <PhoneOff className="h-5 w-5 text-yellow-500" />
                         <div>
-                          <div className="font-medium">Overflow</div>
-                          <div className="text-sm text-muted-foreground">{summary.overflowedCalls} hovorov presmerovaných</div>
+                          <div className="font-medium">{ir.overflow}</div>
+                          <div className="text-sm text-muted-foreground">{summary.overflowedCalls} {ir.overflowCalls}</div>
                         </div>
                       </CardContent>
                     </Card>
@@ -334,7 +321,7 @@ export function InboundReportsTab() {
 
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-base">Rozdelenie hovorov podľa hodiny</CardTitle>
+                  <CardTitle className="text-base">{ir.hourlyDistribution}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   {hourlyLoading ? (
@@ -349,21 +336,21 @@ export function InboundReportsTab() {
                               <div
                                 className="bg-green-500 rounded-sm h-full transition-all"
                                 style={{ width: `${(h.answered / maxHourlyTotal) * 100}%`, minWidth: h.answered > 0 ? "4px" : "0" }}
-                                title={`Zodvihnuté: ${h.answered}`}
+                                title={`${ir.legendAnswered}: ${h.answered}`}
                               />
                             )}
                             {h.abandoned > 0 && (
                               <div
                                 className="bg-red-500 rounded-sm h-full transition-all"
                                 style={{ width: `${(h.abandoned / maxHourlyTotal) * 100}%`, minWidth: h.abandoned > 0 ? "4px" : "0" }}
-                                title={`Zmeškané: ${h.abandoned}`}
+                                title={`${ir.legendMissed}: ${h.abandoned}`}
                               />
                             )}
                             {(h.total - h.answered - h.abandoned) > 0 && (
                               <div
                                 className="bg-yellow-500 rounded-sm h-full transition-all"
                                 style={{ width: `${((h.total - h.answered - h.abandoned) / maxHourlyTotal) * 100}%`, minWidth: "4px" }}
-                                title={`Ostatné: ${h.total - h.answered - h.abandoned}`}
+                                title={`${ir.legendOther}: ${h.total - h.answered - h.abandoned}`}
                               />
                             )}
                           </div>
@@ -371,9 +358,9 @@ export function InboundReportsTab() {
                         </div>
                       ))}
                       <div className="flex items-center gap-4 mt-3 text-xs text-muted-foreground">
-                        <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-sm bg-green-500" /> Zodvihnuté</div>
-                        <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-sm bg-red-500" /> Zmeškané</div>
-                        <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-sm bg-yellow-500" /> Ostatné</div>
+                        <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-sm bg-green-500" /> {ir.legendAnswered}</div>
+                        <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-sm bg-red-500" /> {ir.legendMissed}</div>
+                        <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-sm bg-yellow-500" /> {ir.legendOther}</div>
                       </div>
                     </div>
                   )}
@@ -381,7 +368,7 @@ export function InboundReportsTab() {
               </Card>
             </>
           ) : (
-            <div className="text-center py-12 text-muted-foreground">Žiadne dáta pre zvolené obdobie</div>
+            <div className="text-center py-12 text-muted-foreground">{ir.noDataForPeriod}</div>
           )}
         </TabsContent>
 
@@ -389,32 +376,32 @@ export function InboundReportsTab() {
           <div className="flex items-center justify-between">
             <h3 className="font-semibold text-lg flex items-center gap-2">
               <PhoneMissed className="h-5 w-5 text-red-500" />
-              Zmeškané hovory ({missedCalls.length})
+              {ir.missedCallsTitle} ({missedCalls.length})
             </h3>
             <Button variant="outline" size="sm" onClick={exportMissedCallsCsv} disabled={missedCalls.length === 0} data-testid="button-export-missed">
               <Download className="h-4 w-4 mr-2" />
-              Export CSV
+              {ir.exportCsv}
             </Button>
           </div>
 
           {missedLoading ? (
             <div className="flex items-center justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
           ) : missedCalls.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">Žiadne zmeškané hovory v zvolenom období</div>
+            <div className="text-center py-12 text-muted-foreground">{ir.noMissedCalls}</div>
           ) : (
             <div className="border rounded-lg overflow-auto max-h-[600px]">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Dátum a čas</TableHead>
-                    <TableHead>Číslo volajúceho</TableHead>
-                    <TableHead>Zákazník</TableHead>
-                    <TableHead>Fronta</TableHead>
-                    <TableHead>DID</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Dôvod</TableHead>
-                    <TableHead>Čakanie</TableHead>
-                    <TableHead>Pozícia</TableHead>
+                    <TableHead>{ir.tableDateTime}</TableHead>
+                    <TableHead>{ir.tableCallerNumber}</TableHead>
+                    <TableHead>{ir.tableCustomer}</TableHead>
+                    <TableHead>{ir.tableQueue}</TableHead>
+                    <TableHead>{ir.tableDid}</TableHead>
+                    <TableHead>{ir.tableStatus}</TableHead>
+                    <TableHead>{ir.tableReason}</TableHead>
+                    <TableHead>{ir.tableWait}</TableHead>
+                    <TableHead>{ir.tablePosition}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -429,10 +416,10 @@ export function InboundReportsTab() {
                       <TableCell className="text-sm font-mono">{call.didNumber || "—"}</TableCell>
                       <TableCell>
                         <Badge variant="outline" className={statusColors[call.status] || ""}>
-                          {statusLabels[call.status] || call.status}
+                          {ir.statuses[call.status as keyof typeof ir.statuses] || call.status}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-sm">{abandonReasonLabels[call.abandonReason] || call.abandonReason || "—"}</TableCell>
+                      <TableCell className="text-sm">{ir.abandonReasons[call.abandonReason as keyof typeof ir.abandonReasons] || call.abandonReason || "—"}</TableCell>
                       <TableCell className="text-sm font-mono">{formatDuration(call.waitDurationSeconds || 0)}</TableCell>
                       <TableCell className="text-sm text-center">{call.queuePosition || "—"}</TableCell>
                     </TableRow>
@@ -447,32 +434,32 @@ export function InboundReportsTab() {
           <div className="flex items-center justify-between">
             <h3 className="font-semibold text-lg flex items-center gap-2">
               <PhoneIncoming className="h-5 w-5 text-blue-500" />
-              Všetky prichádzajúce hovory ({allCallsData?.total || 0})
+              {ir.allCallsTitle} ({allCallsData?.total || 0})
             </h3>
             <Button variant="outline" size="sm" onClick={exportAllCallsCsv} disabled={!allCallsData?.data?.length} data-testid="button-export-all-calls">
               <Download className="h-4 w-4 mr-2" />
-              Export CSV
+              {ir.exportCsv}
             </Button>
           </div>
 
           {allCallsLoading ? (
             <div className="flex items-center justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
           ) : !allCallsData?.data?.length ? (
-            <div className="text-center py-12 text-muted-foreground">Žiadne hovory v zvolenom období</div>
+            <div className="text-center py-12 text-muted-foreground">{ir.noCallsInPeriod}</div>
           ) : (
             <div className="border rounded-lg overflow-auto max-h-[600px]">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Dátum a čas</TableHead>
-                    <TableHead>Číslo volajúceho</TableHead>
-                    <TableHead>Zákazník</TableHead>
-                    <TableHead>Fronta</TableHead>
-                    <TableHead>DID</TableHead>
-                    <TableHead>Agent</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Čakanie</TableHead>
-                    <TableHead>Hovor</TableHead>
+                    <TableHead>{ir.tableDateTime}</TableHead>
+                    <TableHead>{ir.tableCallerNumber}</TableHead>
+                    <TableHead>{ir.tableCustomer}</TableHead>
+                    <TableHead>{ir.tableQueue}</TableHead>
+                    <TableHead>{ir.tableDid}</TableHead>
+                    <TableHead>{ir.tableAgent}</TableHead>
+                    <TableHead>{ir.tableStatus}</TableHead>
+                    <TableHead>{ir.tableWait}</TableHead>
+                    <TableHead>{ir.tableTalk}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -488,7 +475,7 @@ export function InboundReportsTab() {
                       <TableCell className="text-sm">{call.agentName || "—"}</TableCell>
                       <TableCell>
                         <Badge variant="outline" className={statusColors[call.status] || ""}>
-                          {statusLabels[call.status] || call.status}
+                          {ir.statuses[call.status as keyof typeof ir.statuses] || call.status}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-sm font-mono">{formatDuration(call.waitDurationSeconds || 0)}</TableCell>
@@ -504,26 +491,26 @@ export function InboundReportsTab() {
         <TabsContent value="agents" className="space-y-4 mt-4">
           <h3 className="font-semibold text-lg flex items-center gap-2">
             <Users className="h-5 w-5 text-blue-500" />
-            Výkon agentov
+            {ir.agentPerformanceTitle}
           </h3>
 
           {agentsLoading ? (
             <div className="flex items-center justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
           ) : agentStats.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">Žiadne dáta o agentoch v zvolenom období</div>
+            <div className="text-center py-12 text-muted-foreground">{ir.noAgentData}</div>
           ) : (
             <div className="border rounded-lg overflow-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Agent</TableHead>
-                    <TableHead className="text-center">Celkom hovorov</TableHead>
-                    <TableHead className="text-center">Zodvihnuté</TableHead>
-                    <TableHead className="text-center">Zmeškané</TableHead>
-                    <TableHead className="text-center">Úspešnosť</TableHead>
-                    <TableHead className="text-center">Priem. čakanie</TableHead>
-                    <TableHead className="text-center">Priem. hovor</TableHead>
-                    <TableHead className="text-center">Celk. čas hovoru</TableHead>
+                    <TableHead>{ir.tableAgent}</TableHead>
+                    <TableHead className="text-center">{ir.tableTotalCalls}</TableHead>
+                    <TableHead className="text-center">{ir.tableAnswered}</TableHead>
+                    <TableHead className="text-center">{ir.tableMissed}</TableHead>
+                    <TableHead className="text-center">{ir.tableAnswerRate}</TableHead>
+                    <TableHead className="text-center">{ir.tableAvgWait}</TableHead>
+                    <TableHead className="text-center">{ir.tableAvgTalk}</TableHead>
+                    <TableHead className="text-center">{ir.tableTotalTalkTime}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>

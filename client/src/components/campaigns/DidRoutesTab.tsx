@@ -85,15 +85,6 @@ interface UserOption {
   sipExtension?: string;
 }
 
-const ACTION_OPTIONS = [
-  { value: "inbound_queue", label: "Inbound Queue", icon: PhoneIncoming },
-  { value: "ivr_menu", label: "IVR Menu", icon: Menu },
-  { value: "pjsip_user", label: "PJSIP Telefón", icon: User },
-  { value: "transfer", label: "Presmerovanie", icon: PhoneForwarded },
-  { value: "voicemail", label: "Odkazová služba", icon: Voicemail },
-  { value: "hangup", label: "Zavesiť", icon: PhoneOff },
-];
-
 const COUNTRY_OPTIONS = [
   { value: "SK", label: "Slovensko" },
   { value: "CZ", label: "Česko" },
@@ -121,11 +112,21 @@ const emptyForm = (): Partial<DidRoute> => ({
 
 export function DidRoutesTab() {
   const { t } = useI18n();
+  const dr = (t as any).campaigns?.didRoutes || {};
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingRoute, setEditingRoute] = useState<DidRoute | null>(null);
   const [form, setForm] = useState<Partial<DidRoute>>(emptyForm());
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+
+  const ACTION_OPTIONS = [
+    { value: "inbound_queue", label: dr.actionInboundQueue || "Inbound Queue", icon: PhoneIncoming },
+    { value: "ivr_menu", label: dr.actionIvrMenu || "IVR Menu", icon: Menu },
+    { value: "pjsip_user", label: dr.actionPjsipUser || "PJSIP User", icon: User },
+    { value: "transfer", label: dr.actionTransfer || "Transfer", icon: PhoneForwarded },
+    { value: "voicemail", label: dr.actionVoicemail || "Voicemail", icon: Voicemail },
+    { value: "hangup", label: dr.actionHangup || "Hangup", icon: PhoneOff },
+  ];
 
   const { data: routes = [], isLoading } = useQuery<DidRoute[]>({
     queryKey: ["/api/did-routes"],
@@ -152,10 +153,10 @@ export function DidRoutesTab() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/did-routes"] });
       setIsDialogOpen(false);
-      toast({ title: "DID smerovanie vytvorené" });
+      toast({ title: dr.routeCreated || "DID route created" });
     },
     onError: (err: any) => {
-      toast({ title: "Chyba", description: err?.message || "Nepodarilo sa vytvoriť", variant: "destructive" });
+      toast({ title: dr.error || "Error", description: err?.message || (dr.createError || "Failed to create"), variant: "destructive" });
     },
   });
 
@@ -165,10 +166,10 @@ export function DidRoutesTab() {
       queryClient.invalidateQueries({ queryKey: ["/api/did-routes"] });
       setIsDialogOpen(false);
       setEditingRoute(null);
-      toast({ title: "DID smerovanie aktualizované" });
+      toast({ title: dr.routeUpdated || "DID route updated" });
     },
     onError: (err: any) => {
-      toast({ title: "Chyba", description: err?.message || "Nepodarilo sa aktualizovať", variant: "destructive" });
+      toast({ title: dr.error || "Error", description: err?.message || (dr.updateError || "Failed to update"), variant: "destructive" });
     },
   });
 
@@ -177,10 +178,10 @@ export function DidRoutesTab() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/did-routes"] });
       setDeleteConfirm(null);
-      toast({ title: "DID smerovanie vymazané" });
+      toast({ title: dr.routeDeleted || "DID route deleted" });
     },
     onError: (err: any) => {
-      toast({ title: "Chyba", description: err?.message || "Nepodarilo sa vymazať", variant: "destructive" });
+      toast({ title: dr.error || "Error", description: err?.message || (dr.deleteError || "Failed to delete"), variant: "destructive" });
     },
   });
 
@@ -211,7 +212,7 @@ export function DidRoutesTab() {
 
   const handleSave = () => {
     if (!form.didNumber?.trim()) {
-      toast({ title: "Chyba", description: "DID číslo je povinné", variant: "destructive" });
+      toast({ title: dr.error || "Error", description: dr.didNumberRequired || "DID number is required", variant: "destructive" });
       return;
     }
     if (editingRoute) {
@@ -262,26 +263,26 @@ export function DidRoutesTab() {
     <div className="p-6 space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-semibold" data-testid="text-did-routes-title">DID Smerovanie</h3>
+          <h3 className="text-lg font-semibold" data-testid="text-did-routes-title">{dr.title || "DID Routing"}</h3>
           <p className="text-sm text-muted-foreground">
-            Konfigurácia smerovania prichádzajúcich hovorov podľa DID čísla
+            {dr.description || "Configure routing of incoming calls by DID number"}
           </p>
         </div>
         <Button onClick={openCreate} data-testid="button-add-did-route">
           <Plus className="w-4 h-4 mr-2" />
-          Pridať DID
+          {dr.addDid || "Add DID"}
         </Button>
       </div>
 
       {isLoading ? (
-        <div className="text-center py-8 text-muted-foreground">Načítavam...</div>
+        <div className="text-center py-8 text-muted-foreground">{dr.loading || "Loading..."}</div>
       ) : routes.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
             <GitBranch className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-            <p className="text-muted-foreground">Žiadne DID smerovania</p>
+            <p className="text-muted-foreground">{dr.noRoutes || "No DID routes"}</p>
             <p className="text-sm text-muted-foreground mt-1">
-              Pridajte DID číslo a nastavte kam sa majú prichádzajúce hovory smerovať
+              {dr.noRoutesHint || "Add a DID number and configure where incoming calls should be routed"}
             </p>
           </CardContent>
         </Card>
@@ -290,14 +291,14 @@ export function DidRoutesTab() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>DID Číslo</TableHead>
-                <TableHead>Názov</TableHead>
-                <TableHead>Krajina</TableHead>
-                <TableHead>Akcia</TableHead>
-                <TableHead>Cieľ</TableHead>
-                <TableHead>Priorita</TableHead>
-                <TableHead>Stav</TableHead>
-                <TableHead className="text-right">Akcie</TableHead>
+                <TableHead>{dr.didNumber || "DID Number"}</TableHead>
+                <TableHead>{dr.name || "Name"}</TableHead>
+                <TableHead>{dr.countryCode || "Country"}</TableHead>
+                <TableHead>{dr.action || "Action"}</TableHead>
+                <TableHead>{dr.target || "Target"}</TableHead>
+                <TableHead>{dr.priority || "Priority"}</TableHead>
+                <TableHead>{dr.status || "Status"}</TableHead>
+                <TableHead className="text-right">{dr.actions || "Actions"}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -327,7 +328,7 @@ export function DidRoutesTab() {
                     <TableCell>{route.priority}</TableCell>
                     <TableCell>
                       <Badge variant={route.isActive ? "default" : "secondary"} data-testid={`badge-did-status-${route.id}`}>
-                        {route.isActive ? "Aktívne" : "Neaktívne"}
+                        {route.isActive ? (dr.active || "Active") : (dr.inactive || "Inactive")}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
@@ -352,14 +353,14 @@ export function DidRoutesTab() {
         <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle data-testid="text-did-dialog-title">
-              {editingRoute ? "Upraviť DID smerovanie" : "Nové DID smerovanie"}
+              {editingRoute ? (dr.editRoute || "Edit DID Route") : (dr.createRoute || "New DID Route")}
             </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>DID Číslo *</Label>
+                <Label>{dr.didNumberLabel || "DID Number"} *</Label>
                 <Input
                   placeholder="+421212345678"
                   value={form.didNumber || ""}
@@ -368,9 +369,9 @@ export function DidRoutesTab() {
                 />
               </div>
               <div className="space-y-2">
-                <Label>Názov</Label>
+                <Label>{dr.name || "Name"}</Label>
                 <Input
-                  placeholder="Hlavná linka SK"
+                  placeholder={dr.namePlaceholder || "Main line SK"}
                   value={form.name || ""}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                   data-testid="input-did-name"
@@ -380,13 +381,13 @@ export function DidRoutesTab() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Krajina</Label>
+                <Label>{dr.countryCode || "Country"}</Label>
                 <Select value={form.countryCode || "none"} onValueChange={(v) => setForm({ ...form, countryCode: v === "none" ? "" : v })}>
                   <SelectTrigger data-testid="select-did-country">
-                    <SelectValue placeholder="Vyberte krajinu" />
+                    <SelectValue placeholder={dr.selectCountry || "Select country"} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">— Žiadna —</SelectItem>
+                    <SelectItem value="none">{dr.noCountry || "— None —"}</SelectItem>
                     {COUNTRY_OPTIONS.map(c => (
                       <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
                     ))}
@@ -394,7 +395,7 @@ export function DidRoutesTab() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Priorita</Label>
+                <Label>{dr.priority || "Priority"}</Label>
                 <Input
                   type="number"
                   min={0}
@@ -406,7 +407,7 @@ export function DidRoutesTab() {
             </div>
 
             <div className="space-y-2">
-              <Label>Akcia smerovania *</Label>
+              <Label>{dr.routingAction || "Routing Action"} *</Label>
               <Select value={form.action || "hangup"} onValueChange={(v) => setForm({ ...form, action: v })}>
                 <SelectTrigger data-testid="select-did-action">
                   <SelectValue />
@@ -421,10 +422,10 @@ export function DidRoutesTab() {
 
             {form.action === "inbound_queue" && (
               <div className="space-y-2">
-                <Label>Cieľová fronta</Label>
+                <Label>{dr.targetQueue || "Target Queue"}</Label>
                 <Select value={form.targetQueueId || ""} onValueChange={(v) => setForm({ ...form, targetQueueId: v })}>
                   <SelectTrigger data-testid="select-did-target-queue">
-                    <SelectValue placeholder="Vyberte frontu" />
+                    <SelectValue placeholder={dr.selectQueue || "Select queue"} />
                   </SelectTrigger>
                   <SelectContent>
                     {queues.filter(q => q.isActive).map(q => (
@@ -437,10 +438,10 @@ export function DidRoutesTab() {
 
             {form.action === "ivr_menu" && (
               <div className="space-y-2">
-                <Label>IVR Menu</Label>
+                <Label>{dr.targetIvrMenu || "IVR Menu"}</Label>
                 <Select value={form.targetIvrMenuId || ""} onValueChange={(v) => setForm({ ...form, targetIvrMenuId: v })}>
                   <SelectTrigger data-testid="select-did-target-ivr">
-                    <SelectValue placeholder="Vyberte IVR menu" />
+                    <SelectValue placeholder={dr.selectIvrMenu || "Select IVR menu"} />
                   </SelectTrigger>
                   <SelectContent>
                     {ivrMenus.filter((m: any) => m.isActive !== false).map((m: any) => (
@@ -453,10 +454,10 @@ export function DidRoutesTab() {
 
             {form.action === "pjsip_user" && (
               <div className="space-y-2">
-                <Label>PJSIP Používateľ</Label>
+                <Label>{dr.targetPjsipUser || "PJSIP User"}</Label>
                 <Select value={form.targetUserId || ""} onValueChange={(v) => setForm({ ...form, targetUserId: v })}>
                   <SelectTrigger data-testid="select-did-target-user">
-                    <SelectValue placeholder="Vyberte používateľa" />
+                    <SelectValue placeholder={dr.selectUser || "Select user"} />
                   </SelectTrigger>
                   <SelectContent>
                     {users.filter((u: any) => u.sipExtension).map((u: any) => (
@@ -471,9 +472,9 @@ export function DidRoutesTab() {
 
             {form.action === "transfer" && (
               <div className="space-y-2">
-                <Label>Cieľové číslo / klapka</Label>
+                <Label>{dr.targetExtension || "Target number / extension"}</Label>
                 <Input
-                  placeholder="napr. +421900123456 alebo 100"
+                  placeholder={dr.targetExtensionPlaceholder || "e.g. +421900123456 or 100"}
                   value={form.targetExtension || ""}
                   onChange={(e) => setForm({ ...form, targetExtension: e.target.value })}
                   data-testid="input-did-target-extension"
@@ -483,13 +484,13 @@ export function DidRoutesTab() {
 
             {form.action === "voicemail" && (
               <div className="space-y-2">
-                <Label>Schránka odkazovej služby</Label>
+                <Label>{dr.voicemailBox || "Voicemail Box"}</Label>
                 <Select value={form.voicemailBox || "__none__"} onValueChange={(v) => setForm({ ...form, voicemailBox: v === "__none__" ? "" : v })}>
                   <SelectTrigger data-testid="select-did-voicemail-box">
-                    <SelectValue placeholder="Vyberte schránku..." />
+                    <SelectValue placeholder={dr.selectVoicemailBox || "Select voicemail box..."} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="__none__">Žiadna</SelectItem>
+                    <SelectItem value="__none__">{dr.noVoicemailBox || "None"}</SelectItem>
                     {voicemailBoxes.filter((b: any) => b.isActive).map((b: any) => (
                       <SelectItem key={b.id} value={b.id}>
                         {b.name}{b.extension ? ` (${b.extension})` : ""}
@@ -498,15 +499,15 @@ export function DidRoutesTab() {
                   </SelectContent>
                 </Select>
                 {voicemailBoxes.filter((b: any) => b.isActive).length === 0 && (
-                  <p className="text-xs text-yellow-600">Nie su nakonfigurovane ziadne odkazove schranky. Vytvorte ich v zalozke Voicemails.</p>
+                  <p className="text-xs text-yellow-600">{dr.noVoicemailBoxesWarning || "No voicemail boxes configured. Create them in the Voicemails tab."}</p>
                 )}
               </div>
             )}
 
             <div className="space-y-2">
-              <Label>Popis</Label>
+              <Label>{dr.descriptionLabel || "Description"}</Label>
               <Textarea
-                placeholder="Voliteľný popis..."
+                placeholder={dr.descriptionPlaceholder || "Optional description..."}
                 value={form.description || ""}
                 onChange={(e) => setForm({ ...form, description: e.target.value })}
                 rows={2}
@@ -520,16 +521,16 @@ export function DidRoutesTab() {
                 onCheckedChange={(v) => setForm({ ...form, isActive: v })}
                 data-testid="switch-did-active"
               />
-              <Label>Aktívne</Label>
+              <Label>{dr.isActive || "Active"}</Label>
             </div>
           </div>
 
           <DialogFooter>
             <Button variant="outline" onClick={() => { setIsDialogOpen(false); setEditingRoute(null); }} data-testid="button-did-cancel">
-              Zrušiť
+              {dr.cancel || "Cancel"}
             </Button>
             <Button onClick={handleSave} disabled={isPending} data-testid="button-did-save">
-              {isPending ? "Ukladám..." : editingRoute ? "Uložiť" : "Vytvoriť"}
+              {isPending ? (dr.saving || "Saving...") : editingRoute ? (dr.save || "Save") : (dr.create || "Create")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -538,13 +539,13 @@ export function DidRoutesTab() {
       <Dialog open={!!deleteConfirm} onOpenChange={(open) => { if (!open) setDeleteConfirm(null); }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Vymazať DID smerovanie?</DialogTitle>
+            <DialogTitle>{dr.confirmDelete || "Delete DID route?"}</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-muted-foreground">Táto akcia je nezvratná.</p>
+          <p className="text-sm text-muted-foreground">{dr.deleteWarning || "This action cannot be undone."}</p>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteConfirm(null)} data-testid="button-did-delete-cancel">Zrušiť</Button>
+            <Button variant="outline" onClick={() => setDeleteConfirm(null)} data-testid="button-did-delete-cancel">{dr.cancel || "Cancel"}</Button>
             <Button variant="destructive" onClick={() => deleteConfirm && deleteMutation.mutate(deleteConfirm)} data-testid="button-did-delete-confirm">
-              Vymazať
+              {dr.delete || "Delete"}
             </Button>
           </DialogFooter>
         </DialogContent>

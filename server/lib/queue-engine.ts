@@ -843,7 +843,7 @@ export class QueueEngine extends EventEmitter {
   }
 
   private async handleNoAgents(channelId: string, queue: InboundQueue, callerNumber: string, callerName: string): Promise<void> {
-    const action = (queue as any).noAgentsAction || "wait";
+    const action = queue.noAgentsAction || "wait";
     if (action === "wait") return;
 
     try {
@@ -852,7 +852,7 @@ export class QueueEngine extends EventEmitter {
 
     const customerId = await this.lookupCustomer(callerNumber);
 
-    const messageId = (queue as any).noAgentsMessageId;
+    const messageId = queue.noAgentsMessageId;
     if (messageId) {
       try {
         const [msg] = await db.select().from(ivrMessages).where(eq(ivrMessages.id, messageId)).limit(1);
@@ -871,7 +871,7 @@ export class QueueEngine extends EventEmitter {
 
     switch (action) {
       case "voicemail": {
-        const vmBoxId = (queue as any).noAgentsVoicemailBoxId;
+        const vmBoxId = queue.noAgentsVoicemailBoxId;
         if (vmBoxId) {
           const [vmBox] = await db.select().from(voicemailBoxes).where(eq(voicemailBoxes.id, vmBoxId)).limit(1);
           if (vmBox) {
@@ -886,8 +886,8 @@ export class QueueEngine extends EventEmitter {
         await this.ariClient.hangupChannel(channelId, "normal");
         break;
       case "transfer":
-        if ((queue as any).noAgentsTarget) {
-          const target = (queue as any).noAgentsTarget;
+        if (queue.noAgentsTarget) {
+          const target = queue.noAgentsTarget;
           const dialEndpoint = target.includes("/") ? target : `PJSIP/${target}`;
           const ok = await this.transferCallToEndpoint(channelId, dialEndpoint, queue);
           if (!ok) await this.ariClient.hangupChannel(channelId, "normal");
@@ -896,7 +896,7 @@ export class QueueEngine extends EventEmitter {
         }
         break;
       case "queue": {
-        const targetQueueId = (queue as any).noAgentsTarget;
+        const targetQueueId = queue.noAgentsTarget;
         if (targetQueueId) {
           const [targetQueue] = await db.select().from(inboundQueues).where(eq(inboundQueues.id, targetQueueId)).limit(1);
           const targetName = targetQueue?.name || queue.name;
@@ -908,9 +908,9 @@ export class QueueEngine extends EventEmitter {
         break;
       }
       case "user_pjsip":
-        if ((queue as any).noAgentsUserId) {
+        if (queue.noAgentsUserId) {
           const [targetUser] = await db.select({ sipExtension: users.sipExtension, sipEnabled: users.sipEnabled })
-            .from(users).where(eq(users.id, (queue as any).noAgentsUserId)).limit(1);
+            .from(users).where(eq(users.id, queue.noAgentsUserId)).limit(1);
           if (targetUser?.sipEnabled && targetUser.sipExtension) {
             const ok = await this.transferCallToEndpoint(channelId, `PJSIP/${targetUser.sipExtension}`, queue);
             if (!ok) await this.ariClient.hangupChannel(channelId, "normal");
@@ -922,7 +922,7 @@ export class QueueEngine extends EventEmitter {
         }
         break;
       case "announcement": {
-        const annMsgId = (queue as any).noAgentsMessageId;
+        const annMsgId = queue.noAgentsMessageId;
         if (annMsgId) {
           try {
             const [msg] = await db.select().from(ivrMessages).where(eq(ivrMessages.id, annMsgId)).limit(1);
@@ -951,7 +951,7 @@ export class QueueEngine extends EventEmitter {
       return;
     }
 
-    const noAgentsAction = (queue as any).noAgentsAction || "wait";
+    const noAgentsAction = queue.noAgentsAction || "wait";
     if (noAgentsAction !== "wait" && !this.hasAvailableAgents(queue.id)) {
       console.log(`[QueueEngine] No agents logged in for queue "${queue.name}"`);
       await this.handleNoAgents(channel.id, queue, callerNumber, callerName);
@@ -1763,7 +1763,7 @@ export class QueueEngine extends EventEmitter {
           await this.ariClient.hangupChannel(channelId, "normal");
           break;
         case "announcement": {
-          const annMsgId = (queue as any).afterHoursMessageId;
+          const annMsgId = queue.afterHoursMessageId;
           if (annMsgId) {
             try {
               const [msg] = await db.select().from(ivrMessages).where(eq(ivrMessages.id, annMsgId)).limit(1);
@@ -1782,7 +1782,7 @@ export class QueueEngine extends EventEmitter {
         }
         case "voicemail":
         default: {
-          const vmBoxId = (queue as any).afterHoursVoicemailBoxId;
+          const vmBoxId = queue.afterHoursVoicemailBoxId;
           if (vmBoxId) {
             const [vmBox] = await db.select().from(voicemailBoxes).where(eq(voicemailBoxes.id, vmBoxId)).limit(1);
             if (vmBox) {
@@ -1943,7 +1943,7 @@ export class QueueEngine extends EventEmitter {
           }
           break;
         case "announcement": {
-          const annMsgId = (queue as any).overflowMessageId;
+          const annMsgId = queue.overflowMessageId;
           if (annMsgId) {
             try {
               const [msg] = await db.select().from(ivrMessages).where(eq(ivrMessages.id, annMsgId)).limit(1);
@@ -1961,7 +1961,7 @@ export class QueueEngine extends EventEmitter {
           break;
         }
         case "voicemail": {
-          const vmBoxId = (queue as any).overflowVoicemailBoxId;
+          const vmBoxId = queue.overflowVoicemailBoxId;
           if (vmBoxId) {
             const [vmBox] = await db.select().from(voicemailBoxes).where(eq(voicemailBoxes.id, vmBoxId)).limit(1);
             if (vmBox) {
