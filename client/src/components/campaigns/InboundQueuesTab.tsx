@@ -32,12 +32,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import {
   Phone,
   Plus,
   Pencil,
@@ -49,18 +43,14 @@ import {
   UserMinus,
   ChevronDown,
   ChevronUp,
-  Music,
   Volume2,
   Play,
   Square,
   AlertTriangle,
   User,
   UserX,
-  Settings2,
   Megaphone,
   Mail,
-  MessageSquare,
-  HelpCircle,
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -213,26 +203,6 @@ const defaultFormData: FormData = {
   recordCalls: false, isActive: true,
 };
 
-function FieldLabel({ label, help, required }: { label: string; help?: string; required?: boolean }) {
-  return (
-    <div className="flex items-center gap-1.5 mb-1.5">
-      <Label className="text-sm font-medium">
-        {label}
-        {required && <span className="text-destructive ml-0.5">*</span>}
-      </Label>
-      {help && (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <HelpCircle className="h-3.5 w-3.5 text-muted-foreground/50 hover:text-muted-foreground cursor-help transition-colors" />
-          </TooltipTrigger>
-          <TooltipContent side="top" className="max-w-[280px]">
-            <p className="text-xs leading-relaxed">{help}</p>
-          </TooltipContent>
-        </Tooltip>
-      )}
-    </div>
-  );
-}
 
 export function InboundQueuesTab() {
   const { t } = useI18n();
@@ -438,16 +408,15 @@ export function InboundQueuesTab() {
   const sipUsers = allUsers.filter((u: any) => u.sipEnabled || ["agent", "operator"].includes(u.role));
   const pjsipUsers = allUsers.filter((u: any) => u.sipEnabled && u.sipExtension);
 
-  const AudioSelector = ({ label, helpText, value, onChange, messages, description }: {
+  const AudioSelector = ({ label, helpText, value, onChange, messages }: {
     label: string;
     helpText?: string;
     value: string | null;
     onChange: (v: string | null) => void;
     messages: any[];
-    description?: string;
   }) => (
-    <div>
-      <FieldLabel label={label} help={helpText} />
+    <div className="space-y-1.5">
+      <Label className="text-sm">{label}</Label>
       <div className="flex gap-2">
         <Select value={value || "__none__"} onValueChange={v => onChange(v === "__none__" ? null : v)}>
           <SelectTrigger className="flex-1"><SelectValue placeholder={tx.none || "None"} /></SelectTrigger>
@@ -466,12 +435,11 @@ export function InboundQueuesTab() {
           </Button>
         )}
       </div>
-      {description && <p className="text-xs text-muted-foreground mt-1">{description}</p>}
+      {helpText && <p className="text-xs text-muted-foreground">{helpText}</p>}
     </div>
   );
 
   return (
-    <TooltipProvider delayDuration={300}>
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
@@ -607,121 +575,117 @@ export function InboundQueuesTab() {
             </DialogHeader>
 
             <Tabs value={formTab} onValueChange={setFormTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-4">
-                <TabsTrigger value="general" className="flex items-center gap-1.5 text-xs">
-                  <Settings2 className="h-3.5 w-3.5" />
+              <TabsList>
+                <TabsTrigger value="general" data-testid="tab-queue-general">
                   {tx.tabGeneral || "General"}
                 </TabsTrigger>
-                <TabsTrigger value="audio" className="flex items-center gap-1.5 text-xs">
-                  <Volume2 className="h-3.5 w-3.5" />
-                  {tx.tabAudio || "Audio & Announcements"}
+                <TabsTrigger value="audio" data-testid="tab-queue-audio">
+                  {tx.tabAudio || "Audio"}
                 </TabsTrigger>
-                <TabsTrigger value="overflow" className="flex items-center gap-1.5 text-xs">
-                  <AlertTriangle className="h-3.5 w-3.5" />
-                  {tx.tabOverflow || "Overflow & Routing"}
+                <TabsTrigger value="overflow" data-testid="tab-queue-overflow">
+                  {tx.tabOverflow || "Overflow"}
                 </TabsTrigger>
-                <TabsTrigger value="hours" className="flex items-center gap-1.5 text-xs">
-                  <Clock className="h-3.5 w-3.5" />
+                <TabsTrigger value="hours" data-testid="tab-queue-hours">
                   {tx.tabHours || "Business Hours"}
                 </TabsTrigger>
               </TabsList>
 
-              <TabsContent value="general" className="mt-4 space-y-5">
+              <TabsContent value="general" className="mt-6 space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                  <div className="col-span-1 md:col-span-2">
-                    <FieldLabel label={iq.queueName} help={tx.helpName} required />
+                  <div className="col-span-1 md:col-span-2 space-y-1.5">
+                    <Label className="text-sm">{iq.queueName} <span className="text-destructive">*</span></Label>
                     <Input value={formData.name} onChange={e => setFormData(f => ({ ...f, name: e.target.value }))} data-testid="input-queue-name" />
+                    <p className="text-xs text-muted-foreground">{tx.helpName}</p>
                   </div>
-                  <div className="col-span-1 md:col-span-2">
-                    <FieldLabel label={iq.description} help={tx.helpDescription} />
+                  <div className="col-span-1 md:col-span-2 space-y-1.5">
+                    <Label className="text-sm">{iq.description}</Label>
                     <Textarea value={formData.description} onChange={e => setFormData(f => ({ ...f, description: e.target.value }))} data-testid="input-queue-description" />
+                    <p className="text-xs text-muted-foreground">{tx.helpDescription}</p>
                   </div>
-                  <div>
-                    <FieldLabel label={tx.country || t.common.country} help={tx.helpCountry} />
+                  <div className="space-y-1.5">
+                    <Label className="text-sm">{tx.country || t.common.country}</Label>
                     <Select value={formData.countryCode} onValueChange={v => setFormData(f => ({ ...f, countryCode: v }))}>
                       <SelectTrigger data-testid="select-queue-country"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         {COUNTRIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                       </SelectContent>
                     </Select>
+                    <p className="text-xs text-muted-foreground">{tx.helpCountry}</p>
                   </div>
-                  <div>
-                    <FieldLabel label={iq.strategy} help={tx.helpStrategy} />
+                  <div className="space-y-1.5">
+                    <Label className="text-sm">{iq.strategy}</Label>
                     <Select value={formData.strategy} onValueChange={v => setFormData(f => ({ ...f, strategy: v }))}>
                       <SelectTrigger data-testid="select-queue-strategy"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         {STRATEGY_VALUES.map(s => <SelectItem key={s} value={s}>{strategyLabel(s)}</SelectItem>)}
                       </SelectContent>
                     </Select>
+                    <p className="text-xs text-muted-foreground">{tx.helpStrategy}</p>
                   </div>
-                  <div>
-                    <FieldLabel label={iq.priority} help={tx.helpPriority} />
+                  <div className="space-y-1.5">
+                    <Label className="text-sm">{iq.priority}</Label>
                     <Input type="number" min={1} max={10} value={formData.priority} onChange={e => setFormData(f => ({ ...f, priority: parseInt(e.target.value) || 1 }))} data-testid="input-queue-priority" />
+                    <p className="text-xs text-muted-foreground">{tx.helpPriority}</p>
                   </div>
-                  <div>
-                    <FieldLabel label={iq.maxWaitTime} help={tx.helpMaxWaitTime} />
+                  <div className="space-y-1.5">
+                    <Label className="text-sm">{iq.maxWaitTime}</Label>
                     <Input type="number" min={10} value={formData.maxWaitTime} onChange={e => setFormData(f => ({ ...f, maxWaitTime: parseInt(e.target.value) || 300 }))} data-testid="input-max-wait" />
+                    <p className="text-xs text-muted-foreground">{tx.helpMaxWaitTime}</p>
                   </div>
-                  <div>
-                    <FieldLabel label={iq.wrapUpTime} help={tx.helpWrapUpTime} />
+                  <div className="space-y-1.5">
+                    <Label className="text-sm">{iq.wrapUpTime}</Label>
                     <Input type="number" min={0} value={formData.wrapUpTime} onChange={e => setFormData(f => ({ ...f, wrapUpTime: parseInt(e.target.value) || 30 }))} data-testid="input-wrap-up-time" />
+                    <p className="text-xs text-muted-foreground">{tx.helpWrapUpTime}</p>
                   </div>
-                  <div>
-                    <FieldLabel label={iq.maxQueueSize} help={tx.helpMaxQueueSize} />
+                  <div className="space-y-1.5">
+                    <Label className="text-sm">{iq.maxQueueSize}</Label>
                     <Input type="number" min={1} value={formData.maxQueueSize} onChange={e => setFormData(f => ({ ...f, maxQueueSize: parseInt(e.target.value) || 50 }))} data-testid="input-max-size" />
+                    <p className="text-xs text-muted-foreground">{tx.helpMaxQueueSize}</p>
                   </div>
-                  <div>
-                    <FieldLabel label={iq.serviceLevelTarget} help={tx.helpSlaTarget} />
+                  <div className="space-y-1.5">
+                    <Label className="text-sm">{iq.serviceLevelTarget}</Label>
                     <Input type="number" min={1} value={formData.serviceLevelTarget} onChange={e => setFormData(f => ({ ...f, serviceLevelTarget: parseInt(e.target.value) || 20 }))} data-testid="input-sla-target" />
+                    <p className="text-xs text-muted-foreground">{tx.helpSlaTarget}</p>
                   </div>
 
-                  <div className="col-span-1 md:col-span-2 flex flex-wrap gap-6 p-3 rounded-lg bg-muted/30">
-                    <div className="flex items-center gap-2.5">
-                      <Switch checked={formData.recordCalls} onCheckedChange={v => setFormData(f => ({ ...f, recordCalls: v }))} data-testid="switch-queue-record" />
-                      <Label className="text-sm">{tx.recordCalls || "Record Calls"}</Label>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <HelpCircle className="h-3.5 w-3.5 text-muted-foreground/50 hover:text-muted-foreground cursor-help transition-colors" />
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="max-w-[280px]">
-                          <p className="text-xs leading-relaxed">{tx.helpRecordCalls}</p>
-                        </TooltipContent>
-                      </Tooltip>
+                  <div className="col-span-1 md:col-span-2 flex flex-wrap gap-x-8 gap-y-3 py-3 px-4 rounded-lg bg-muted/30">
+                    <div>
+                      <div className="flex items-center gap-2.5">
+                        <Switch checked={formData.recordCalls} onCheckedChange={v => setFormData(f => ({ ...f, recordCalls: v }))} data-testid="switch-queue-record" />
+                        <Label className="text-sm">{tx.recordCalls || "Record Calls"}</Label>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1 ml-11">{tx.helpRecordCalls}</p>
                     </div>
-                    <div className="flex items-center gap-2.5">
-                      <Switch checked={formData.isActive} onCheckedChange={v => setFormData(f => ({ ...f, isActive: v }))} data-testid="switch-queue-active" />
-                      <Label className="text-sm">{tx.isActive || "Active"}</Label>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <HelpCircle className="h-3.5 w-3.5 text-muted-foreground/50 hover:text-muted-foreground cursor-help transition-colors" />
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="max-w-[280px]">
-                          <p className="text-xs leading-relaxed">{tx.helpIsActive}</p>
-                        </TooltipContent>
-                      </Tooltip>
+                    <div>
+                      <div className="flex items-center gap-2.5">
+                        <Switch checked={formData.isActive} onCheckedChange={v => setFormData(f => ({ ...f, isActive: v }))} data-testid="switch-queue-active" />
+                        <Label className="text-sm">{tx.isActive || "Active"}</Label>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1 ml-11">{tx.helpIsActive}</p>
                     </div>
                   </div>
                 </div>
 
-                <div className="col-span-1 md:col-span-2 border-b pb-1 mt-2">
+                <div className="border-b pb-1">
                   <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                     <UserX className="h-4 w-4" />
                     {tx.noAgentsRule || "No Agents Logged In"}
                   </h4>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                  <div>
-                    <FieldLabel label={tx.noAgentsAction || "No Agents Action"} help={tx.helpNoAgentsAction} />
+                  <div className="space-y-1.5">
+                    <Label className="text-sm">{tx.noAgentsAction || "No Agents Action"}</Label>
                     <Select value={formData.noAgentsAction} onValueChange={v => setFormData(f => ({ ...f, noAgentsAction: v }))}>
                       <SelectTrigger data-testid="select-no-agents-action"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         {NO_AGENTS_ACTION_VALUES.map(a => <SelectItem key={a} value={a}>{noAgentsActionLabel(a)}</SelectItem>)}
                       </SelectContent>
                     </Select>
+                    <p className="text-xs text-muted-foreground">{tx.helpNoAgentsAction}</p>
                   </div>
                   {(formData.noAgentsAction === "transfer" || formData.noAgentsAction === "queue") && (
-                    <div>
-                      <FieldLabel label={formData.noAgentsAction === "queue" ? (tx.routeToQueue || "Target Queue") : (tx.transferToNumber || "Transfer Target")} help={tx.helpNoAgentsTarget} />
+                    <div className="space-y-1.5">
+                      <Label className="text-sm">{formData.noAgentsAction === "queue" ? (tx.routeToQueue || "Target Queue") : (tx.transferToNumber || "Transfer Target")}</Label>
                       {formData.noAgentsAction === "queue" ? (
                         <Select value={formData.noAgentsTarget || "__none__"} onValueChange={v => setFormData(f => ({ ...f, noAgentsTarget: v === "__none__" ? "" : v }))}>
                           <SelectTrigger data-testid="select-no-agents-queue"><SelectValue placeholder={tx.none || "None"} /></SelectTrigger>
@@ -735,11 +699,12 @@ export function InboundQueuesTab() {
                       ) : (
                         <Input value={formData.noAgentsTarget} onChange={e => setFormData(f => ({ ...f, noAgentsTarget: e.target.value }))} placeholder={tx.transferToNumber || "Phone number or extension"} data-testid="input-no-agents-target" />
                       )}
+                      <p className="text-xs text-muted-foreground">{tx.helpNoAgentsTarget}</p>
                     </div>
                   )}
                   {formData.noAgentsAction === "user_pjsip" && (
-                    <div>
-                      <FieldLabel label={tx.transferToUser || "Transfer to User"} help={tx.helpNoAgentsUser} />
+                    <div className="space-y-1.5">
+                      <Label className="text-sm">{tx.transferToUser || "Transfer to User"}</Label>
                       <Select value={formData.noAgentsUserId || "__none__"} onValueChange={v => setFormData(f => ({ ...f, noAgentsUserId: v === "__none__" ? null : v }))}>
                         <SelectTrigger data-testid="select-no-agents-user"><SelectValue placeholder={tx.none || "None"} /></SelectTrigger>
                         <SelectContent>
@@ -755,11 +720,12 @@ export function InboundQueuesTab() {
                           ))}
                         </SelectContent>
                       </Select>
+                      <p className="text-xs text-muted-foreground">{tx.helpNoAgentsUser}</p>
                     </div>
                   )}
                   {formData.noAgentsAction === "voicemail" && (
-                    <div>
-                      <FieldLabel label={iq.voicemail} help={tx.helpNoAgentsVoicemail} />
+                    <div className="space-y-1.5">
+                      <Label className="text-sm">{iq.voicemail}</Label>
                       <Select value={formData.noAgentsVoicemailBoxId || "__none__"} onValueChange={v => setFormData(f => ({ ...f, noAgentsVoicemailBoxId: v === "__none__" ? null : v }))}>
                         <SelectTrigger data-testid="select-no-agents-voicemail-box"><SelectValue placeholder={tx.none || "None"} /></SelectTrigger>
                         <SelectContent>
@@ -769,11 +735,12 @@ export function InboundQueuesTab() {
                           ))}
                         </SelectContent>
                       </Select>
+                      <p className="text-xs text-muted-foreground">{tx.helpNoAgentsVoicemail}</p>
                     </div>
                   )}
                   {formData.noAgentsAction === "announcement" && (
-                    <div>
-                      <FieldLabel label={tx.announcementAudio || "Announcement Audio"} help={tx.helpNoAgentsAnnouncement} />
+                    <div className="space-y-1.5">
+                      <Label className="text-sm">{tx.announcementAudio || "Announcement Audio"}</Label>
                       <Select value={formData.noAgentsMessageId || "__none__"} onValueChange={v => setFormData(f => ({ ...f, noAgentsMessageId: v === "__none__" ? null : v }))}>
                         <SelectTrigger data-testid="select-no-agents-announcement"><SelectValue placeholder={tx.none || "None"} /></SelectTrigger>
                         <SelectContent>
@@ -783,22 +750,21 @@ export function InboundQueuesTab() {
                           ))}
                         </SelectContent>
                       </Select>
+                      <p className="text-xs text-muted-foreground">{tx.helpNoAgentsAnnouncement}</p>
                     </div>
                   )}
                   {formData.noAgentsAction !== "announcement" && (
-                    <div>
-                      <AudioSelector
-                        label={tx.noAgentsMessage || "No Agents Message"}
-                        helpText={tx.helpNoAgentsMessage}
-                        value={formData.noAgentsMessageId}
-                        onChange={v => setFormData(f => ({ ...f, noAgentsMessageId: v }))}
-                        messages={ivrMessages.filter((m: any) => m.isActive)}
-                      />
-                    </div>
+                    <AudioSelector
+                      label={tx.noAgentsMessage || "No Agents Message"}
+                      helpText={tx.helpNoAgentsMessage}
+                      value={formData.noAgentsMessageId}
+                      onChange={v => setFormData(f => ({ ...f, noAgentsMessageId: v }))}
+                      messages={ivrMessages.filter((m: any) => m.isActive)}
+                    />
                   )}
                 </div>
 
-                <div className="col-span-1 md:col-span-2 border-b pb-1 mt-2">
+                <div className="border-b pb-1">
                   <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                     <Mail className="h-4 w-4" />
                     {tx.channels || "Channels"}
@@ -806,49 +772,41 @@ export function InboundQueuesTab() {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
                   <div className="space-y-3">
-                    <div className="flex items-center gap-2.5">
-                      <Switch checked={formData.emailEnabled} onCheckedChange={v => setFormData(f => ({ ...f, emailEnabled: v }))} data-testid="switch-email-enabled" />
-                      <Label className="text-sm">{tx.emailEnabled || "Accept Email"}</Label>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <HelpCircle className="h-3.5 w-3.5 text-muted-foreground/50 hover:text-muted-foreground cursor-help transition-colors" />
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="max-w-[280px]">
-                          <p className="text-xs leading-relaxed">{tx.helpEmailEnabled}</p>
-                        </TooltipContent>
-                      </Tooltip>
+                    <div>
+                      <div className="flex items-center gap-2.5">
+                        <Switch checked={formData.emailEnabled} onCheckedChange={v => setFormData(f => ({ ...f, emailEnabled: v }))} data-testid="switch-email-enabled" />
+                        <Label className="text-sm">{tx.emailEnabled || "Accept Email"}</Label>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1 ml-11">{tx.helpEmailEnabled}</p>
                     </div>
                     {formData.emailEnabled && (
-                      <div>
-                        <FieldLabel label={tx.emailAccount || "Email Account ID"} help={tx.helpEmailAccount} />
+                      <div className="space-y-1.5">
+                        <Label className="text-sm">{tx.emailAccount || "Email Account ID"}</Label>
                         <Input value={formData.emailAccountId || ""} onChange={e => setFormData(f => ({ ...f, emailAccountId: e.target.value || null }))} placeholder={tx.emailAccount || "Email account ID"} data-testid="input-email-account" />
+                        <p className="text-xs text-muted-foreground">{tx.helpEmailAccount}</p>
                       </div>
                     )}
                   </div>
                   <div className="space-y-3">
-                    <div className="flex items-center gap-2.5">
-                      <Switch checked={formData.smsEnabled} onCheckedChange={v => setFormData(f => ({ ...f, smsEnabled: v }))} data-testid="switch-sms-enabled" />
-                      <Label className="text-sm">{tx.smsEnabled || "Accept SMS"}</Label>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <HelpCircle className="h-3.5 w-3.5 text-muted-foreground/50 hover:text-muted-foreground cursor-help transition-colors" />
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="max-w-[280px]">
-                          <p className="text-xs leading-relaxed">{tx.helpSmsEnabled}</p>
-                        </TooltipContent>
-                      </Tooltip>
+                    <div>
+                      <div className="flex items-center gap-2.5">
+                        <Switch checked={formData.smsEnabled} onCheckedChange={v => setFormData(f => ({ ...f, smsEnabled: v }))} data-testid="switch-sms-enabled" />
+                        <Label className="text-sm">{tx.smsEnabled || "Accept SMS"}</Label>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1 ml-11">{tx.helpSmsEnabled}</p>
                     </div>
                     {formData.smsEnabled && (
-                      <div>
-                        <FieldLabel label={tx.smsPhone || "SMS Phone Number"} help={tx.helpSmsPhone} />
+                      <div className="space-y-1.5">
+                        <Label className="text-sm">{tx.smsPhone || "SMS Phone Number"}</Label>
                         <Input value={formData.smsPhoneNumber || ""} onChange={e => setFormData(f => ({ ...f, smsPhoneNumber: e.target.value || null }))} placeholder={tx.smsPhone || "Phone number for SMS"} data-testid="input-sms-phone" />
+                        <p className="text-xs text-muted-foreground">{tx.helpSmsPhone}</p>
                       </div>
                     )}
                   </div>
                 </div>
               </TabsContent>
 
-              <TabsContent value="audio" className="mt-4 space-y-5">
+              <TabsContent value="audio" className="mt-6 space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
                   <AudioSelector
                     label={tx.welcomeGreeting || "Welcome Greeting"}
@@ -866,7 +824,7 @@ export function InboundQueuesTab() {
                   />
                 </div>
 
-                <div className="col-span-1 md:col-span-2 border-b pb-1 mt-2">
+                <div className="border-b pb-1">
                   <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                     <Megaphone className="h-4 w-4" />
                     {tx.audioAnnouncements || "Queue Announcements"}
@@ -874,17 +832,12 @@ export function InboundQueuesTab() {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
                   <div className="space-y-3">
-                    <div className="flex items-center gap-2.5">
-                      <Switch checked={formData.announcePosition} onCheckedChange={v => setFormData(f => ({ ...f, announcePosition: v }))} data-testid="switch-announce-position" />
-                      <Label className="text-sm">{iq.announcePosition}</Label>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <HelpCircle className="h-3.5 w-3.5 text-muted-foreground/50 hover:text-muted-foreground cursor-help transition-colors" />
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="max-w-[280px]">
-                          <p className="text-xs leading-relaxed">{tx.helpAnnouncePosition}</p>
-                        </TooltipContent>
-                      </Tooltip>
+                    <div>
+                      <div className="flex items-center gap-2.5">
+                        <Switch checked={formData.announcePosition} onCheckedChange={v => setFormData(f => ({ ...f, announcePosition: v }))} data-testid="switch-announce-position" />
+                        <Label className="text-sm">{iq.announcePosition}</Label>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1 ml-11">{tx.helpAnnouncePosition}</p>
                     </div>
                     {formData.announcePosition && (
                       <AudioSelector
@@ -897,17 +850,12 @@ export function InboundQueuesTab() {
                     )}
                   </div>
                   <div className="space-y-3">
-                    <div className="flex items-center gap-2.5">
-                      <Switch checked={formData.announceWaitTime} onCheckedChange={v => setFormData(f => ({ ...f, announceWaitTime: v }))} data-testid="switch-announce-wait" />
-                      <Label className="text-sm">{iq.announceWaitTime}</Label>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <HelpCircle className="h-3.5 w-3.5 text-muted-foreground/50 hover:text-muted-foreground cursor-help transition-colors" />
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="max-w-[280px]">
-                          <p className="text-xs leading-relaxed">{tx.helpAnnounceWaitTime}</p>
-                        </TooltipContent>
-                      </Tooltip>
+                    <div>
+                      <div className="flex items-center gap-2.5">
+                        <Switch checked={formData.announceWaitTime} onCheckedChange={v => setFormData(f => ({ ...f, announceWaitTime: v }))} data-testid="switch-announce-wait" />
+                        <Label className="text-sm">{iq.announceWaitTime}</Label>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1 ml-11">{tx.helpAnnounceWaitTime}</p>
                     </div>
                     {formData.announceWaitTime && (
                       <AudioSelector
@@ -919,9 +867,10 @@ export function InboundQueuesTab() {
                       />
                     )}
                   </div>
-                  <div>
-                    <FieldLabel label={tx.announceFrequency || "Announce Frequency (sec)"} help={tx.helpAnnounceFrequency} />
+                  <div className="space-y-1.5">
+                    <Label className="text-sm">{tx.announceFrequency || "Announce Frequency (sec)"}</Label>
                     <Input type="number" min={10} max={300} value={formData.announceFrequency} onChange={e => setFormData(f => ({ ...f, announceFrequency: parseInt(e.target.value) || 30 }))} data-testid="input-announce-freq" />
+                    <p className="text-xs text-muted-foreground">{tx.helpAnnounceFrequency}</p>
                   </div>
                 </div>
 
@@ -930,26 +879,28 @@ export function InboundQueuesTab() {
                 </p>
               </TabsContent>
 
-              <TabsContent value="overflow" className="mt-4 space-y-4">
+              <TabsContent value="overflow" className="mt-6 space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                  <div>
-                    <FieldLabel label={iq.overflowAction} help={tx.helpOverflowAction} />
+                  <div className="space-y-1.5">
+                    <Label className="text-sm">{iq.overflowAction}</Label>
                     <Select value={formData.overflowAction} onValueChange={v => setFormData(f => ({ ...f, overflowAction: v }))}>
                       <SelectTrigger data-testid="select-overflow-action"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         {OVERFLOW_ACTION_VALUES.map(a => <SelectItem key={a} value={a}>{overflowActionLabel(a)}</SelectItem>)}
                       </SelectContent>
                     </Select>
+                    <p className="text-xs text-muted-foreground">{tx.helpOverflowAction}</p>
                   </div>
                   {formData.overflowAction === "transfer" && (
-                    <div>
-                      <FieldLabel label={tx.transferToNumber || "Transfer Target"} help={tx.helpOverflowTarget} />
+                    <div className="space-y-1.5">
+                      <Label className="text-sm">{tx.transferToNumber || "Transfer Target"}</Label>
                       <Input value={formData.overflowTarget} onChange={e => setFormData(f => ({ ...f, overflowTarget: e.target.value }))} placeholder={tx.transferToNumber || "Phone number or extension"} data-testid="input-overflow-target" />
+                      <p className="text-xs text-muted-foreground">{tx.helpOverflowTarget}</p>
                     </div>
                   )}
                   {formData.overflowAction === "queue" && (
-                    <div>
-                      <FieldLabel label={tx.routeToQueue || "Target Queue"} help={tx.helpOverflowTarget} />
+                    <div className="space-y-1.5">
+                      <Label className="text-sm">{tx.routeToQueue || "Target Queue"}</Label>
                       <Select value={formData.overflowTarget || "__none__"} onValueChange={v => setFormData(f => ({ ...f, overflowTarget: v === "__none__" ? "" : v }))}>
                         <SelectTrigger data-testid="select-overflow-queue"><SelectValue placeholder={tx.none || "None"} /></SelectTrigger>
                         <SelectContent>
@@ -959,11 +910,12 @@ export function InboundQueuesTab() {
                           ))}
                         </SelectContent>
                       </Select>
+                      <p className="text-xs text-muted-foreground">{tx.helpOverflowTarget}</p>
                     </div>
                   )}
                   {formData.overflowAction === "user_pjsip" && (
-                    <div>
-                      <FieldLabel label={tx.transferToUser || "Transfer to User"} help={tx.helpOverflowUser} />
+                    <div className="space-y-1.5">
+                      <Label className="text-sm">{tx.transferToUser || "Transfer to User"}</Label>
                       <Select value={formData.overflowUserId || "__none__"} onValueChange={v => setFormData(f => ({ ...f, overflowUserId: v === "__none__" ? null : v }))}>
                         <SelectTrigger data-testid="select-overflow-user"><SelectValue placeholder={tx.none || "None"} /></SelectTrigger>
                         <SelectContent>
@@ -979,11 +931,12 @@ export function InboundQueuesTab() {
                           ))}
                         </SelectContent>
                       </Select>
+                      <p className="text-xs text-muted-foreground">{tx.helpOverflowUser}</p>
                     </div>
                   )}
                   {formData.overflowAction === "voicemail" && (
-                    <div>
-                      <FieldLabel label={iq.voicemail} help={tx.helpOverflowVoicemail} />
+                    <div className="space-y-1.5">
+                      <Label className="text-sm">{iq.voicemail}</Label>
                       <Select value={formData.overflowVoicemailBoxId || "__none__"} onValueChange={v => setFormData(f => ({ ...f, overflowVoicemailBoxId: v === "__none__" ? null : v }))}>
                         <SelectTrigger data-testid="select-overflow-voicemail-box"><SelectValue placeholder={tx.none || "None"} /></SelectTrigger>
                         <SelectContent>
@@ -993,11 +946,12 @@ export function InboundQueuesTab() {
                           ))}
                         </SelectContent>
                       </Select>
+                      <p className="text-xs text-muted-foreground">{tx.helpOverflowVoicemail}</p>
                     </div>
                   )}
                   {formData.overflowAction === "announcement" && (
-                    <div>
-                      <FieldLabel label={tx.announcementAudio || "Announcement Audio"} help={tx.helpOverflowAnnouncement} />
+                    <div className="space-y-1.5">
+                      <Label className="text-sm">{tx.announcementAudio || "Announcement Audio"}</Label>
                       <Select value={formData.overflowMessageId || "__none__"} onValueChange={v => setFormData(f => ({ ...f, overflowMessageId: v === "__none__" ? null : v }))}>
                         <SelectTrigger data-testid="select-overflow-announcement"><SelectValue placeholder={tx.none || "None"} /></SelectTrigger>
                         <SelectContent>
@@ -1007,6 +961,7 @@ export function InboundQueuesTab() {
                           ))}
                         </SelectContent>
                       </Select>
+                      <p className="text-xs text-muted-foreground">{tx.helpOverflowAnnouncement}</p>
                     </div>
                   )}
                 </div>
@@ -1021,28 +976,31 @@ export function InboundQueuesTab() {
                 )}
               </TabsContent>
 
-              <TabsContent value="hours" className="mt-4 space-y-4">
+              <TabsContent value="hours" className="mt-6 space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                  <div>
-                    <FieldLabel label={tx.activeFrom || "Active From"} help={tx.helpActiveFrom} />
+                  <div className="space-y-1.5">
+                    <Label className="text-sm">{tx.activeFrom || "Active From"}</Label>
                     <Input type="time" value={formData.activeFrom || ""} onChange={e => setFormData(f => ({ ...f, activeFrom: e.target.value || null }))} data-testid="input-active-from" />
+                    <p className="text-xs text-muted-foreground">{tx.helpActiveFrom}</p>
                   </div>
-                  <div>
-                    <FieldLabel label={tx.activeTo || "Active To"} help={tx.helpActiveTo} />
+                  <div className="space-y-1.5">
+                    <Label className="text-sm">{tx.activeTo || "Active To"}</Label>
                     <Input type="time" value={formData.activeTo || ""} onChange={e => setFormData(f => ({ ...f, activeTo: e.target.value || null }))} data-testid="input-active-to" />
+                    <p className="text-xs text-muted-foreground">{tx.helpActiveTo}</p>
                   </div>
-                  <div>
-                    <FieldLabel label={tx.timezone || "Timezone"} help={tx.helpTimezone} />
+                  <div className="space-y-1.5">
+                    <Label className="text-sm">{tx.timezone || "Timezone"}</Label>
                     <Select value={formData.timezone} onValueChange={v => setFormData(f => ({ ...f, timezone: v }))}>
                       <SelectTrigger data-testid="select-timezone"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         {TIMEZONES.map(tz => <SelectItem key={tz} value={tz}>{tz}</SelectItem>)}
                       </SelectContent>
                     </Select>
+                    <p className="text-xs text-muted-foreground">{tx.helpTimezone}</p>
                   </div>
-                  <div>
-                    <FieldLabel label={tx.activeDays || "Active Days"} help={tx.helpActiveDays} />
-                    <div className="flex gap-1 mt-1 flex-wrap">
+                  <div className="space-y-1.5">
+                    <Label className="text-sm">{tx.activeDays || "Active Days"}</Label>
+                    <div className="flex gap-1 flex-wrap">
                       {DAYS_OF_WEEK.map(day => (
                         <Button
                           key={day.value}
@@ -1063,30 +1021,32 @@ export function InboundQueuesTab() {
                         </Button>
                       ))}
                     </div>
+                    <p className="text-xs text-muted-foreground">{tx.helpActiveDays}</p>
                   </div>
                 </div>
 
                 {(formData.activeFrom || formData.activeTo) && (
                   <>
-                    <div className="col-span-1 md:col-span-2 border-b pb-1 mt-2">
+                    <div className="border-b pb-1">
                       <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                         <Clock className="h-4 w-4" />
                         {tx.afterHoursHandling || "After-Hours Handling"}
                       </h4>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                      <div>
-                        <FieldLabel label={tx.afterHoursAction || "After-Hours Action"} help={tx.helpAfterHoursAction} />
+                      <div className="space-y-1.5">
+                        <Label className="text-sm">{tx.afterHoursAction || "After-Hours Action"}</Label>
                         <Select value={formData.afterHoursAction} onValueChange={v => setFormData(f => ({ ...f, afterHoursAction: v }))}>
                           <SelectTrigger data-testid="select-after-hours-action"><SelectValue /></SelectTrigger>
                           <SelectContent>
                             {AFTER_HOURS_ACTION_VALUES.map(a => <SelectItem key={a} value={a}>{afterHoursActionLabel(a)}</SelectItem>)}
                           </SelectContent>
                         </Select>
+                        <p className="text-xs text-muted-foreground">{tx.helpAfterHoursAction}</p>
                       </div>
                       {(formData.afterHoursAction === "transfer" || formData.afterHoursAction === "queue") && (
-                        <div>
-                          <FieldLabel label={formData.afterHoursAction === "queue" ? (tx.routeToQueue || "Target Queue") : (tx.transferToNumber || "Transfer Target")} help={tx.helpAfterHoursTarget} />
+                        <div className="space-y-1.5">
+                          <Label className="text-sm">{formData.afterHoursAction === "queue" ? (tx.routeToQueue || "Target Queue") : (tx.transferToNumber || "Transfer Target")}</Label>
                           {formData.afterHoursAction === "queue" ? (
                             <Select value={formData.afterHoursTarget || "__none__"} onValueChange={v => setFormData(f => ({ ...f, afterHoursTarget: v === "__none__" ? "" : v }))}>
                               <SelectTrigger data-testid="select-after-hours-queue"><SelectValue placeholder={tx.none || "None"} /></SelectTrigger>
@@ -1100,11 +1060,12 @@ export function InboundQueuesTab() {
                           ) : (
                             <Input value={formData.afterHoursTarget} onChange={e => setFormData(f => ({ ...f, afterHoursTarget: e.target.value }))} placeholder={tx.transferToNumber || "Phone number or extension"} data-testid="input-after-hours-target" />
                           )}
+                          <p className="text-xs text-muted-foreground">{tx.helpAfterHoursTarget}</p>
                         </div>
                       )}
                       {formData.afterHoursAction === "user_pjsip" && (
-                        <div>
-                          <FieldLabel label={tx.transferToUser || "Transfer to User"} help={tx.helpAfterHoursTarget} />
+                        <div className="space-y-1.5">
+                          <Label className="text-sm">{tx.transferToUser || "Transfer to User"}</Label>
                           <Select value={formData.afterHoursTarget || "__none__"} onValueChange={v => setFormData(f => ({ ...f, afterHoursTarget: v === "__none__" ? "" : v }))}>
                             <SelectTrigger data-testid="select-after-hours-user"><SelectValue placeholder={tx.none || "None"} /></SelectTrigger>
                             <SelectContent>
@@ -1120,11 +1081,12 @@ export function InboundQueuesTab() {
                               ))}
                             </SelectContent>
                           </Select>
+                          <p className="text-xs text-muted-foreground">{tx.helpAfterHoursTarget}</p>
                         </div>
                       )}
                       {formData.afterHoursAction === "voicemail" && (
-                        <div>
-                          <FieldLabel label={iq.voicemail} help={tx.helpAfterHoursVoicemail} />
+                        <div className="space-y-1.5">
+                          <Label className="text-sm">{iq.voicemail}</Label>
                           <Select value={formData.afterHoursVoicemailBoxId || "__none__"} onValueChange={v => setFormData(f => ({ ...f, afterHoursVoicemailBoxId: v === "__none__" ? null : v }))}>
                             <SelectTrigger data-testid="select-after-hours-voicemail-box"><SelectValue placeholder={tx.none || "None"} /></SelectTrigger>
                             <SelectContent>
@@ -1134,17 +1096,16 @@ export function InboundQueuesTab() {
                               ))}
                             </SelectContent>
                           </Select>
+                          <p className="text-xs text-muted-foreground">{tx.helpAfterHoursVoicemail}</p>
                         </div>
                       )}
-                      <div>
-                        <AudioSelector
-                          label={tx.afterHoursMessage || "After-Hours Message"}
-                          helpText={tx.helpAfterHoursMessage}
-                          value={formData.afterHoursMessageId}
-                          onChange={v => setFormData(f => ({ ...f, afterHoursMessageId: v }))}
-                          messages={ivrMessages.filter((m: any) => m.isActive)}
-                        />
-                      </div>
+                      <AudioSelector
+                        label={tx.afterHoursMessage || "After-Hours Message"}
+                        helpText={tx.helpAfterHoursMessage}
+                        value={formData.afterHoursMessageId}
+                        onChange={v => setFormData(f => ({ ...f, afterHoursMessageId: v }))}
+                        messages={ivrMessages.filter((m: any) => m.isActive)}
+                      />
                     </div>
                   </>
                 )}
@@ -1169,8 +1130,8 @@ export function InboundQueuesTab() {
               <DialogTitle>{iq.addAgent}</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
-              <div>
-                <FieldLabel label={tx.agent || "Agent"} help={tx.agent || "Select an agent to add to this queue"} />
+              <div className="space-y-1.5">
+                <Label className="text-sm">{tx.agent || "Agent"}</Label>
                 <Select value={newMemberUserId} onValueChange={setNewMemberUserId}>
                   <SelectTrigger data-testid="select-member-user"><SelectValue placeholder={tx.agent || "Select agent..."} /></SelectTrigger>
                   <SelectContent>
@@ -1180,9 +1141,10 @@ export function InboundQueuesTab() {
                   </SelectContent>
                 </Select>
               </div>
-              <div>
-                <FieldLabel label={tx.memberPriority || "Priority"} help={tx.memberPriorityHelp || "Lower value = higher priority (0-10)"} />
+              <div className="space-y-1.5">
+                <Label className="text-sm">{tx.memberPriority || "Priority"}</Label>
                 <Input type="number" min={0} max={10} value={newMemberPenalty} onChange={e => setNewMemberPenalty(parseInt(e.target.value) || 0)} data-testid="input-member-penalty" />
+                <p className="text-xs text-muted-foreground">{tx.memberPriorityHelp || "Lower value = higher priority (0-10)"}</p>
               </div>
             </div>
             <DialogFooter>
@@ -1202,7 +1164,6 @@ export function InboundQueuesTab() {
           </DialogContent>
         </Dialog>
       </div>
-    </TooltipProvider>
   );
 }
 
