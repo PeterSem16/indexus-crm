@@ -6129,14 +6129,14 @@ export default function AgentWorkspacePage() {
       <ScheduledQueuePanel open={scheduledQueueOpen} onOpenChange={setScheduledQueueOpen} onOpenContact={handleOpenScheduledContact} />
 
       <Dialog open={abandonedCallsOpen} onOpenChange={setAbandonedCallsOpen}>
-        <DialogContent className="sm:max-w-2xl max-h-[80vh] flex flex-col">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-2xl max-h-[80vh] flex flex-col overflow-hidden">
+          <DialogHeader className="shrink-0">
             <DialogTitle className="flex items-center gap-2">
               <PhoneOff className="h-5 w-5 text-destructive" />
               {t.agentWorkspace.missedCallsTitle}
             </DialogTitle>
           </DialogHeader>
-          <ScrollArea className="flex-1 min-h-0 max-h-[60vh]">
+          <ScrollArea className="flex-1 min-h-0 overflow-auto" style={{ maxHeight: "calc(80vh - 80px)" }}>
             {abandonedCalls.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                 <CheckCircle className="h-12 w-12 mb-3 text-green-500/50" />
