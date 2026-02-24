@@ -1,7 +1,7 @@
 # INDEXUS CRM
 
 ## Overview
-INDEXUS is a CRM system for cord blood banking companies, offering multi-country support (Slovakia, Czech Republic, Hungary, Romania, Italy, Germany, USA) and role-based access. It includes a dashboard, customer management, user management, and country-based filtering. The system features a medical-grade design with a deep burgundy palette and integrates with a mobile application for field representatives. Key features include comprehensive campaign management, an AI assistant, real-time notifications, and a built-in SIP phone for call center operations.
+INDEXUS is a CRM system designed for cord blood banking companies, providing multi-country support and role-based access. It features a comprehensive dashboard, customer and user management, and country-specific data filtering. The system incorporates a medical-grade design, integrates with a mobile application for field representatives, and includes advanced functionalities such as campaign management, an AI assistant, real-time notifications, and a built-in SIP phone for call center operations. The project aims to streamline operations, enhance customer engagement, and provide robust tools for managing sales, collections, and communications within the cord blood banking industry across various international markets.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
@@ -12,87 +12,79 @@ Preferred communication style: Simple, everyday language.
 - **Framework**: React 18 with TypeScript
 - **Routing**: Wouter
 - **State Management**: TanStack React Query
-- **Styling**: Tailwind CSS with CSS custom properties, shadcn/ui component library
+- **Styling**: Tailwind CSS with CSS custom properties, utilizing shadcn/ui for components
 - **Build Tool**: Vite
-- **UI/UX**: Sidebar-based layout, global country filter, light/dark theme support, reusable components (DataTable, StatsCard).
+- **UI/UX**: Sidebar navigation, global country filter, light/dark theme support, and reusable components like DataTable and StatsCard.
 
 ### Backend
 - **Runtime**: Node.js with Express
 - **Language**: TypeScript (ESM modules)
-- **API Pattern**: RESTful JSON API at `/api/*`
-- **Database ORM**: Drizzle ORM with PostgreSQL dialect
-- **Architecture**: Layered design with separate concerns for app setup, route handling, and database abstraction.
+- **API Pattern**: RESTful JSON API
+- **Database ORM**: Drizzle ORM for PostgreSQL
+- **Architecture**: Layered design separating app setup, route handling, and database interactions.
 
 ### Data Storage
 - **Database**: PostgreSQL
-- **Schema**: Defined using Drizzle ORM, shared between frontend and backend.
-- **Key Tables**: `users`, `customers`, `products`, `invoices`, `collections`, `collaborators`, `visit_events`, `voice_notes`, `notifications`, `call_logs`, `call_recordings`, `campaigns`, `campaign_contacts`, `campaign_templates`, `sip_settings`, `faq_entries`, `executive_summaries`, `scheduled_reports`, `inbound_queues`, `queue_members`, `ivr_messages`, `ivr_menus`, `ivr_menu_options`, `inbound_call_logs`, `agent_queue_status`, `ari_settings`, `did_routes`, `voicemail_boxes`, `voicemail_messages`.
-- **Inbound Queue Fields**: Includes `noAgentsAction/Target/MessageId/VoicemailBoxId/UserId` for "no agents logged in" routing, `emailEnabled/emailAccountId` and `smsEnabled/smsPhoneNumber` for channel toggles.
+- **Schema**: Defined via Drizzle ORM, shared between frontend and backend.
+- **Key Tables**: Comprehensive tables for users, customers, products, invoices, collections, campaigns, call logs, SIP settings, and various inbound call center related entities (e.g., `inbound_queues`, `ivr_menus`, `did_routes`, `voicemail_boxes`).
 
 ### Modules and Features
-- **Collections (Odbery)**: Manages cord blood collections, including client/child info, collection staff, status tracking, and lab results.
-- **External Communication**: Supports email via MS365 and SMS via BulkGate API.
-- **Built-in SIP Phone**: WebRTC-based SIP phone using SIP.js for direct calls from the CRM. Includes call recording via MediaRecorder API (WebM/Opus) with pause/resume capability, visual recording indicators, automatic upload to server, role-based access control, and playback in agent workspace and customer detail views. Manual recording controls available from customer detail pages.
-- **Campaign Management**: Features campaign templates, cloning, operator scripts, contact filtering, bulk actions, CSV export, scheduling, KPI reporting with targets, calendar view, and campaign tracking in recordings.
-- **Call Center Agent Workspace**: Dedicated 3-column layout for call center operators with shift login flow (multi-campaign selection modal with country/date/operator filtering), session time tracking (login to logout), queue management (including scheduled queue), integrated SIP phone, contact cards, modern script viewer, campaign scripts, email/SMS composer (connected to MS365/BulkGate APIs), disposition tracking, persistent communication history with AI-powered sentiment analysis, and FAQ system. Sidebar and header are hidden during active session (fullscreen agent mode via CSS `data-agent-fullscreen`). Campaigns display as compact boxes in left panel. Session stores selected `campaignIds` array. Break exceeded visual indicator shows red pulsing alert when break duration exceeds expected time.
-- **Break Types Management**: Global break type management in Campaigns module "Breaks" tab. Features icon picker (24 Lucide icons), color picker, multi-language name translations (EN/SK/CS/HU/RO/IT/DE via `translations` JSONB), expected duration (visual warning threshold) and max duration settings, active/inactive toggle. Admin API supports `?all=true` to fetch all break types including inactive. `BreakTypesTab` component at `client/src/components/campaigns/BreakTypesTab.tsx`.
-- **NEXUS AI Assistant**: OpenAI GPT-4o powered assistant with multi-language support, role-based data visibility, and integrated chat interface.
-- **Real-time Notification Center**: WebSocket-based push notifications with historical view, rules engine, and various notification types.
-- **File Storage**: Centralized file storage with environment-specific paths for agreements, avatars, contracts, invoices, and email attachments.
-- **Invoice PDF Generation (DOCX Templates)**: Upload Word DOCX templates with `{variable}` placeholders → docxtemplater fills variables → LibreOffice headless converts filled DOCX to PDF. Uses unique user profiles per conversion to prevent lock conflicts. Templates support `{#items}...{/items}` loops and `{{double braces}}` auto-converted to single braces. Preview shows actual PDF in browser via iframe. QR codes (Pay by Square + EPC) injected into DOCX XML before PDF conversion. **Persistent PDF Storage**: PDFs are auto-generated and saved to `invoice-pdfs/` directory on invoice creation (wizard, auto-generate, scheduled). Stored path saved in `pdfPath` field. Download endpoints serve stored PDF first, falling back to on-demand generation. Regenerate endpoint available at `POST /api/invoices/:id/regenerate-pdf`.
-- **Call Recording & Analysis**: Call recording with pause/resume capability, visual recording indicators, AI-powered call transcription using GPT-4o. Features script compliance checking (1-10 score), sentiment analysis, keyword alert detection, quality scoring, full-text transcript search with advanced filters, export capabilities (TXT/JSON formats), and localized call analysis results displayed across all modules including customer detail pages and agent workspace.
-- **Transcript Search Module**: Dedicated search page for call transcripts with filters by sentiment, quality range, date range, campaign, agent. Supports full-text search with locale-aware date formatting, export to TXT/JSON, and multi-language UI.
-- **Executive Summaries**: AI-powered (GPT-4o) generation of executive summaries from collection data. Highlights key trends, anomalies, and KPIs. Supports period filtering (monthly/quarterly/yearly), country filtering, and multi-language generation. Stored in `executive_summaries` table with expandable card UI showing trends, anomalies, and KPI grids.
-- **Inbound Queue System**: Asterisk ARI-integrated inbound call queue management. Features queue creation with routing strategies (round-robin, least-calls, longest-idle, skills-based, random), agent assignment with priority/penalty, overflow actions (voicemail, hangup, transfer), SLA targets, wrap-up time. Queue form includes welcome greeting selector, music on hold selector, announce position/wait time toggles with configurable frequency. ARI settings in Settings > SIP Phone > Asterisk ARI sub-tab.
-- **IVR Audio Management**: Upload audio files (WAV, MP3, OGG, GSM) or generate via OpenAI TTS with voice selection (male: onyx/echo/fable, female: nova/shimmer/alloy) for all supported languages. Types: welcome, hold_music, announcement, position, wait_time, ivr_prompt, overflow. Playback in browser. Located in Campaigns > IVR Audio tab. Component: `client/src/components/campaigns/IvrMessagesTab.tsx`.
-- **IVR Menu Builder**: Visual IVR decision tree builder with DTMF key mapping (0-9, *, #). Options route to: queue, submenu, transfer, hangup, voicemail, or repeat. Supports prompt/invalid/timeout messages, max retries, timeout settings. Visual tree preview. Located in Campaigns > IVR Menu tab. Component: `client/src/components/campaigns/IvrMenusTab.tsx`.
-- **DID Routing**: DID (Direct Inward Dialing) routing configuration for mapping DID phone numbers to destinations. Supports 6 action types: Inbound Queue, IVR Menu, PJSIP User (direct phone), Transfer, Voicemail, Hangup. Each route has country code, priority, active/inactive toggle. Auto-syncs DID number to target inbound queue on create/update/delete. Located in Campaigns > DID Smerovanie tab. Schema: `did_routes` table. API: `/api/did-routes` CRUD. Component: `client/src/components/campaigns/DidRoutesTab.tsx`.
-- **Inbound Call Reports**: Comprehensive inbound call reporting per queue with SLA dashboard (service level %, answer rate, abandon rate, avg/max wait, avg talk time), hourly call distribution chart, detailed missed calls report (with caller, queue, DID, wait time, abandon reason, customer match), full inbound call log with status filtering, and agent performance stats (calls handled, answer rate, avg times, total talk time). All tables exportable to CSV. Inbound calls also appear in customer history timeline with queue metadata. Located in Campaigns > Inbound Reporty tab. API: `/api/inbound-reports/*` endpoints. Component: `client/src/components/campaigns/InboundReportsTab.tsx`.
-- **Voicemail Management**: Voicemail boxes with configurable settings (greeting messages, max duration, email notification, transcription). Message inbox with stats cards (total/unread/read/archived), filtering by mailbox/status/caller, batch operations (mark read, archive), audio playback, expandable detail with transcript. Mailbox CRUD with card-based UI. Located in Campaigns > Inbound > Voicemails tab. Schema: `voicemail_boxes`, `voicemail_messages` tables. API: `/api/voicemail-boxes`, `/api/voicemail-messages`, `/api/voicemail-stats`. Component: `client/src/components/campaigns/VoicemailsTab.tsx`.
-- **Campaign Reports**: Comprehensive per-campaign reporting with 3 report types: Operator Statistics (login/session times including total login time, work/break/call durations, contacts handled), Complete Call List (ring time, talk time, total duration, disposition, status), and Call Analysis (sentiment, quality score, script compliance, key topics, alert keywords). All reports exportable to CSV, XLSX, and sendable via email (MS365) with user selection UI. Accessible from campaign detail page with date range and agent filters. Includes scheduled report system with daily auto-send at configurable time, date range options (yesterday/last 7 days/last 30 days), and recipient user selection. Email sending uses country-specific system MS365 connections.
+- **Collections**: Manages cord blood collection processes, including client/child information, staff, status, and lab results.
+- **External Communication**: Supports email (MS365) and SMS (BulkGate API).
+- **Built-in SIP Phone**: WebRTC-based SIP phone with call recording, role-based access, and playback features.
+- **Campaign Management**: Tools for creating, cloning, and managing campaigns with templates, operator scripts, contact filtering, scheduling, and KPI reporting.
+- **Call Center Agent Workspace**: Dedicated interface for operators with shift management, queue handling, integrated SIP phone, contact cards, script viewer, communication tools, disposition tracking, AI-powered sentiment analysis, and an FAQ system.
+- **Break Types Management**: Configurable global break types for call center agents with multi-language support and duration settings.
+- **NEXUS AI Assistant**: OpenAI GPT-4o powered assistant with multi-language and role-based data visibility.
+- **Real-time Notification Center**: WebSocket-based push notifications with historical view and rules engine.
+- **File Storage**: Centralized storage for various document types (agreements, invoices, email attachments).
+- **Invoice PDF Generation**: Automated PDF generation from DOCX templates using `docxtemplater` and LibreOffice, including QR code injection and persistent storage.
+- **Call Recording & Analysis**: AI-powered (GPT-4o) transcription, script compliance, sentiment analysis, keyword detection, quality scoring, and full-text search with export options.
+- **Transcript Search Module**: Dedicated search interface for call transcripts with advanced filtering.
+- **Executive Summaries**: AI-generated executive summaries from collection data, highlighting trends and KPIs with multi-language support.
+- **Inbound Queue System**: Asterisk ARI-integrated call queue management with various routing strategies, agent assignment, overflow actions, and SLA targets.
+- **IVR Audio Management**: Upload or generate multi-language audio files for IVR prompts using OpenAI TTS.
+- **IVR Menu Builder**: Visual tool for designing IVR decision trees with DTMF mapping and routing options.
+- **DID Routing**: Configuration for mapping DID numbers to various destinations (queues, IVR, users, voicemail).
+- **Inbound Call Reports**: Comprehensive reports on queue performance, SLA, call distribution, missed calls, and agent statistics.
+- **Voicemail Management**: Voicemail box configuration with greeting messages, email notifications, transcription, and an inbox for message management.
+- **Campaign Reports**: Detailed campaign-specific reports including operator statistics, complete call lists, call analysis, and scheduled report delivery.
 
 ### Multi-Language Support (i18n)
-- **Languages**: English (EN), Slovak (SK), Czech (CS), Hungarian (HU), Romanian (RO), Italian (IT), German (DE)
-- **Implementation**: Custom I18nProvider with React Context, localStorage persistence, locale-aware date formatting via date-fns locales.
-- **Coverage**: Complete localization across all modules including call analysis results (83+ keys for sentiments, statuses, filters, and UI labels), campaign management, agent workspace, customer details, invoice management, and transcript search.
+- **Languages**: EN, SK, CS, HU, RO, IT, DE.
+- **Implementation**: Custom I18nProvider with React Context, localStorage persistence, and locale-aware date formatting.
+- **Coverage**: Full localization across all modules, including call analysis and campaign management.
 
 ### Mobile Application (INDEXUS Connect)
 - **Framework**: React Native (Expo)
 - **Purpose**: For field representatives to manage hospital visits, track GPS, and manage visit events.
-- **Features**: Optimistic UI updates for visit status, GPS synchronization, localized names for visit types and places, event cancellation, and multi-language support.
-- **Authentication**: JWT Bearer token authentication for mobile API endpoints.
+- **Features**: Optimistic UI updates, GPS synchronization, localized names, event cancellation, and multi-language support.
+- **Authentication**: JWT Bearer token.
 
 ### Key Design Patterns
-- Shared schema definitions (`@shared/*`).
-- Zod schemas for validation from Drizzle.
+- Shared schema definitions.
+- Zod schemas for validation.
 - Storage interface for database abstraction.
-- React Context for global state (auth, i18n, country filter).
+- React Context for global state.
 - WebSocket for real-time features.
-- SentimentBadge and StatusBadge components accept `labels` prop for multi-language support.
-- Call logs API supports `includeRecordings` parameter for enriched data fetching.
-- Cache-safe query keys using arrays to prevent collision (e.g., `["/api/campaigns", "basic-list"]` for lightweight campaign lists).
+- Reusable UI components with multi-language support.
+- Cache-safe query keys.
 
 ## External Dependencies
 
 ### Database
-- PostgreSQL (via `DATABASE_URL` environment variable).
+- PostgreSQL
 
 ### UI Component Libraries
 - Radix UI primitives
-- Lucide React (icons)
+- Lucide React
 - react-hook-form
 - date-fns
 - embla-carousel-react
 
-### Development Tools
-- Vite
-- esbuild
-- drizzle-kit
-- TypeScript
-
 ### Third-Party Services
-- Microsoft 365 Graph API (for email via MS365)
+- Microsoft 365 Graph API (for email)
 - BulkGate API (for SMS)
-- OpenAI GPT-4o (for NEXUS AI Assistant, call transcription, sentiment analysis, script compliance)
+- OpenAI GPT-4o (for AI Assistant, transcription, sentiment analysis)
 - SIP.js (for WebRTC SIP phone)
-- Jira API (for issue tracking integration)
+- Jira API (for issue tracking)
