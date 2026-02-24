@@ -5384,7 +5384,7 @@ export const inboundQueues = pgTable("inbound_queues", {
   description: text("description"),
   countryCode: text("country_code"), // SK, CZ, HU, etc.
   didNumber: text("did_number"), // DID/phone number routed to this queue
-  strategy: text("strategy").notNull().default("round-robin"), // round-robin, least-calls, longest-idle, skills-based, random
+  strategy: text("strategy").notNull().default("round-robin"), // round-robin, least-calls, longest-idle, skills-based, random, ring-all
   maxWaitTime: integer("max_wait_time").notNull().default(300), // max wait in seconds before overflow
   wrapUpTime: integer("wrap_up_time").notNull().default(30), // wrap-up time after call in seconds
   maxQueueSize: integer("max_queue_size").notNull().default(50), // max callers in queue

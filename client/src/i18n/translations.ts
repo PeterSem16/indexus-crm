@@ -1605,6 +1605,7 @@ export interface Translations {
       longestIdle: string;
       skillsBased: string;
       random: string;
+      ringAll: string;
       maxWaitTime: string;
       wrapUpTime: string;
       maxQueueSize: string;
@@ -5611,6 +5612,7 @@ export const translations: Record<Locale, Translations> = {
         longestIdle: 'Longest Idle',
         skillsBased: 'Skills Based',
         random: 'Random',
+        ringAll: 'Ring All',
         maxWaitTime: 'Max Wait Time',
         wrapUpTime: 'Wrap-Up Time',
         maxQueueSize: 'Max Queue Size',
@@ -9554,6 +9556,7 @@ export const translations: Record<Locale, Translations> = {
         longestIdle: 'Najdlhšie nečinný',
         skillsBased: 'Podľa zručností',
         random: 'Náhodne',
+        ringAll: 'Zvoniť všetkým',
         maxWaitTime: 'Max. čas čakania',
         wrapUpTime: 'Čas na spracovanie',
         maxQueueSize: 'Max. veľkosť fronty',
@@ -13482,6 +13485,7 @@ export const translations: Record<Locale, Translations> = {
         longestIdle: 'Nejdéle nečinný',
         skillsBased: 'Podle dovedností',
         random: 'Náhodně',
+        ringAll: 'Zvonit všem',
         maxWaitTime: 'Max. čas čekání',
         wrapUpTime: 'Čas na zpracování',
         maxQueueSize: 'Max. velikost fronty',
@@ -17373,6 +17377,7 @@ export const translations: Record<Locale, Translations> = {
         longestIdle: 'Leghosszabb tétlenség',
         skillsBased: 'Készség alapú',
         random: 'Véletlenszerű',
+        ringAll: 'Mindenkit hívni',
         maxWaitTime: 'Max. várakozási idő',
         wrapUpTime: 'Feldolgozási idő',
         maxQueueSize: 'Max. sor méret',
@@ -21263,6 +21268,7 @@ export const translations: Record<Locale, Translations> = {
         longestIdle: 'Cel mai lung inactiv',
         skillsBased: 'Bazat pe competențe',
         random: 'Aleatoriu',
+        ringAll: 'Sună pe toți',
         maxWaitTime: 'Timp max. așteptare',
         wrapUpTime: 'Timp de finalizare',
         maxQueueSize: 'Dimensiune max. coadă',
@@ -25154,6 +25160,7 @@ export const translations: Record<Locale, Translations> = {
         longestIdle: 'Più a lungo inattivo',
         skillsBased: 'Basato su competenze',
         random: 'Casuale',
+        ringAll: 'Chiama tutti',
         maxWaitTime: 'Tempo max. attesa',
         wrapUpTime: 'Tempo di chiusura',
         maxQueueSize: 'Dimensione max. coda',
@@ -29045,6 +29052,7 @@ export const translations: Record<Locale, Translations> = {
         longestIdle: 'Längste Leerlaufzeit',
         skillsBased: 'Kompetenzbasiert',
         random: 'Zufällig',
+        ringAll: 'Alle klingeln',
         maxWaitTime: 'Max. Wartezeit',
         wrapUpTime: 'Nachbearbeitungszeit',
         maxQueueSize: 'Max. Warteschlangengröße',

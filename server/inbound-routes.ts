@@ -2572,6 +2572,12 @@ function setupQueueEngineWebSocketEvents(engine: QueueEngine): void {
     });
   });
 
+  engine.on("call-cancelled-for-agent", async (data) => {
+    console.log(`[QueueEngine WS] Ring-all cancel: removing call ${data.callId} from agent ${data.agentId}`);
+    const ws = await getWs();
+    ws.notifyCallCancelled(data.agentId, data.callId, { reason: "answered_by_other" });
+  });
+
   engine.on("call-answered", (data) => {
     console.log(`[QueueEngine] Call answered: ${data.callerNumber} by agent ${data.agentId}`);
   });

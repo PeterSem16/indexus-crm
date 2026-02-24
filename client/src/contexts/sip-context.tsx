@@ -19,6 +19,7 @@ export interface PendingCall {
   customerName?: string;
   leadScore?: number;
   clientStatus?: string;
+  callerIdNumber?: string;
 }
 
 export interface IncomingCall {

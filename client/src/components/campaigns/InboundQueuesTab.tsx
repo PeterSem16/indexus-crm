@@ -116,7 +116,7 @@ interface QueueMemberWithUser {
   callsHandled: number;
 }
 
-const STRATEGY_VALUES = ["round-robin", "least-calls", "longest-idle", "skills-based", "random"] as const;
+const STRATEGY_VALUES = ["round-robin", "least-calls", "longest-idle", "skills-based", "random", "ring-all"] as const;
 const OVERFLOW_ACTION_VALUES = ["voicemail", "hangup", "transfer", "queue", "user_pjsip", "announcement", "ivr"] as const;
 const AFTER_HOURS_ACTION_VALUES = ["voicemail", "hangup", "transfer", "queue", "user_pjsip", "announcement"] as const;
 const NO_AGENTS_ACTION_VALUES = ["wait", "voicemail", "hangup", "transfer", "queue", "user_pjsip", "announcement", "ivr"] as const;
@@ -272,6 +272,7 @@ export function InboundQueuesTab() {
       "longest-idle": iq.longestIdle,
       "skills-based": iq.skillsBased,
       "random": iq.random,
+      "ring-all": iq.ringAll,
     };
     return map[s] || s;
   };

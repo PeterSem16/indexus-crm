@@ -84,6 +84,7 @@ export function SipPhone({
   const [localCustomerName, setLocalCustomerName] = useState(customerName);
   const [localLeadScore, setLocalLeadScore] = useState<number | undefined>(undefined);
   const [localClientStatus, setLocalClientStatus] = useState<string | undefined>(undefined);
+  const [localCallerIdNumber, setLocalCallerIdNumber] = useState<string>("");
   const [callState, setCallStateLocal] = useState<CallState>("idle");
   const [phoneNumber, setPhoneNumber] = useState(initialNumber);
   const [isMutedLocal, setIsMutedLocal] = useState(false);
@@ -697,6 +698,7 @@ export function SipPhone({
       ctxNow.setAutoRecord(true);
       onCallEnd?.(duration, duration > 0 ? "completed" : "failed", inboundCallLogIdRef.current || 0);
       setCurrentCallLogId(null);
+      setLocalCallerIdNumber("");
       activeInboundMetaRef.current = null;
       if (!ctxNow.preventAutoReset) {
         setTimeout(() => {
@@ -871,14 +873,18 @@ export function SipPhone({
         throw new Error("Invalid target URI");
       }
 
-      const inviter = new Inviter(userAgentRef.current, targetUri, {
+      const inviterOptions: any = {
         sessionDescriptionHandlerOptions: {
           constraints: {
             audio: true,
             video: false
           }
         }
-      });
+      };
+      if (localCallerIdNumber) {
+        inviterOptions.extraHeaders = [`X-Campaign-CallerID: ${localCallerIdNumber}`];
+      }
+      const inviter = new Inviter(userAgentRef.current, targetUri, inviterOptions);
 
       sessionRef.current = inviter;
       const callLogId = callLogData.id;
@@ -1027,6 +1033,7 @@ export function SipPhone({
       setLocalCustomerName(callData.customerName);
       setLocalLeadScore(callData.leadScore);
       setLocalClientStatus(callData.clientStatus);
+      setLocalCallerIdNumber(callData.callerIdNumber || "");
       clearPendingCall();
       
       setTimeout(() => {

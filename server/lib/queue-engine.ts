@@ -88,6 +88,7 @@ export class QueueEngine extends EventEmitter {
   private announcementPlayingFor: Set<string> = new Set();
   private overflowInProgress: Set<string> = new Set();
   private agentOriginateCooldown: Map<string, number> = new Map();
+  private ringAllPending: Map<string, { callId: string; agentChannelIds: Map<string, string>; agentIds: Set<string> }> = new Map();
 
   constructor(ariClient: AriClient) {
     super();
@@ -1305,10 +1306,17 @@ export class QueueEngine extends EventEmitter {
 
       for (const call of waitingCalls) {
         if (this.overflowInProgress.has(call.channelId)) continue;
-        const agent = await this.selectAgent(queue);
-        if (!agent) break;
 
-        await this.connectCallToAgent(call, agent, queue);
+        if (queue.strategy === "ring-all") {
+          if (this.ringAllPending.has(call.channelId)) continue;
+          const allAvailable = await this.getAvailableAgents(queue);
+          if (allAvailable.length === 0) break;
+          await this.connectCallToAllAgents(call, allAvailable, queue);
+        } else {
+          const agent = await this.selectAgent(queue);
+          if (!agent) break;
+          await this.connectCallToAgent(call, agent, queue);
+        }
         this.recalculatePositions(queue.id);
       }
     }
@@ -1488,6 +1496,241 @@ export class QueueEngine extends EventEmitter {
   private selectSkillsBased(agents: AgentState[]): AgentState | null {
     if (agents.length === 0) return null;
     return agents.sort((a, b) => a.penalty - b.penalty)[0];
+  }
+
+  private async getAvailableAgents(queue: InboundQueue): Promise<AgentState[]> {
+    const members = await db.select().from(queueMembers)
+      .where(and(eq(queueMembers.queueId, queue.id), eq(queueMembers.isActive, true)));
+
+    const activeSessions = await db.select().from(agentSessions)
+      .where(inArray(agentSessions.status, ["available", "break", "busy"]));
+
+    const sessionAgentIds: string[] = [];
+    for (const session of activeSessions) {
+      const sessionQueueIds: string[] = (session as any).inboundQueueIds || [];
+      if (sessionQueueIds.includes(queue.id)) {
+        sessionAgentIds.push(session.userId);
+      }
+    }
+
+    const memberUserIds = members.map(m => m.userId);
+    const activeSessionUserIds = new Set(activeSessions.map(s => s.userId));
+    const sessionAgentIdSet = new Set(sessionAgentIds);
+    const allAgentIds = [...new Set([...memberUserIds, ...sessionAgentIds])].filter(id =>
+      activeSessionUserIds.has(id) && sessionAgentIdSet.has(id)
+    );
+
+    if (allAgentIds.length === 0) return [];
+
+    const dbStates = await db.select().from(agentQueueStatus)
+      .where(inArray(agentQueueStatus.userId, allAgentIds));
+
+    for (const dbState of dbStates) {
+      const existing = this.agentStates.get(dbState.userId);
+      const memberInfo = members.find(m => m.userId === dbState.userId);
+      const memberQueueIds = members.filter(m => m.userId === dbState.userId).map(m => m.queueId);
+      const sessionQIds = activeSessions
+        .filter(s => s.userId === dbState.userId)
+        .flatMap(s => (s as any).inboundQueueIds || []);
+      const allQueueIds = [...new Set([...memberQueueIds, ...sessionQIds])];
+
+      this.agentStates.set(dbState.userId, {
+        userId: dbState.userId,
+        status: dbState.status as AgentState["status"],
+        currentCallId: dbState.currentCallId,
+        lastCallEndedAt: dbState.lastCallEndedAt,
+        callsHandled: dbState.callsHandled,
+        queueIds: allQueueIds.length > 0 ? allQueueIds : (existing?.queueIds || []),
+        sipExtension: existing?.sipExtension || null,
+        penalty: memberInfo?.penalty ?? existing?.penalty ?? 0,
+      });
+    }
+
+    for (const agentId of allAgentIds) {
+      if (!this.agentStates.has(agentId)) {
+        const session = activeSessions.find(s => s.userId === agentId);
+        if (session) {
+          const sessionStatus = session.status === "available" ? "available" : session.status === "busy" ? "busy" : "break";
+          const sessionQIds: string[] = (session as any).inboundQueueIds || [];
+          const mQIds = members.filter(m => m.userId === agentId).map(m => m.queueId);
+          this.agentStates.set(agentId, {
+            userId: agentId,
+            status: sessionStatus as AgentState["status"],
+            currentCallId: null,
+            lastCallEndedAt: null,
+            callsHandled: 0,
+            queueIds: [...new Set([...mQIds, ...sessionQIds])],
+            sipExtension: null,
+            penalty: 0,
+          });
+        }
+      }
+    }
+
+    const availableAgents: AgentState[] = [];
+    for (const agentId of allAgentIds) {
+      const state = this.agentStates.get(agentId);
+      if (state && state.status === "available") {
+        const cooldownUntil = this.agentOriginateCooldown.get(agentId);
+        if (cooldownUntil && Date.now() < cooldownUntil) continue;
+        if (cooldownUntil) this.agentOriginateCooldown.delete(agentId);
+        const memberInfo = members.find(m => m.userId === agentId);
+        availableAgents.push({ ...state, penalty: memberInfo?.penalty ?? state.penalty ?? 0 });
+      }
+    }
+
+    return availableAgents;
+  }
+
+  private async connectCallToAllAgents(call: QueuedCall, agents: AgentState[], queue: InboundQueue): Promise<void> {
+    console.log(`[QueueEngine] RING-ALL: Notifying ${agents.length} agents for call ${call.id}`);
+
+    this.waitingCalls.delete(call.channelId);
+    const waitDuration = Math.floor((Date.now() - call.enteredAt.getTime()) / 1000);
+
+    await db.update(inboundCallLogs)
+      .set({
+        status: "ringing",
+        waitDurationSeconds: waitDuration,
+      })
+      .where(eq(inboundCallLogs.id, call.id));
+
+    const ringAllState = {
+      callId: call.id,
+      agentChannelIds: new Map<string, string>(),
+      agentIds: new Set<string>(),
+    };
+    this.ringAllPending.set(call.channelId, ringAllState);
+
+    for (const agent of agents) {
+      ringAllState.agentIds.add(agent.userId);
+
+      this.emit("call-assigned", {
+        callId: call.id,
+        channelId: call.channelId,
+        queueId: queue.id,
+        queueName: queue.name,
+        agentId: agent.userId,
+        callerNumber: call.callerNumber,
+        callerName: call.callerName,
+        customerId: call.customerId,
+        waitDuration,
+        recordCalls: queue.recordCalls ?? false,
+        ringAll: true,
+      });
+    }
+
+    this.assignedCalls.set(call.channelId, {
+      call,
+      agentId: agents[0].userId,
+      queueId: queue.id,
+      queue,
+      assignedAt: new Date(),
+    });
+
+    const agentUsers = await db.select({
+      id: users.id,
+      sipExtension: users.sipExtension,
+      sipEnabled: users.sipEnabled,
+      fullName: users.fullName,
+    }).from(users).where(inArray(users.id, agents.map(a => a.userId)));
+
+    const elapsedSoFar = (Date.now() - call.enteredAt.getTime()) / 1000;
+    const maxRing = 30;
+    let ringTimeout = maxRing;
+    if (queue.maxWaitTime && queue.maxWaitTime > 0) {
+      const remaining = queue.maxWaitTime - elapsedSoFar;
+      if (remaining <= 3) {
+        console.log(`[QueueEngine] RING-ALL: Only ${Math.floor(remaining)}s remaining, firing overflow`);
+        this.ringAllPending.delete(call.channelId);
+        await this.fireOverflowForCall(call.channelId, call.id, queue, call.callerNumber, call.callerName || "", elapsedSoFar, agents[0].userId);
+        return;
+      }
+      ringTimeout = Math.min(maxRing, Math.floor(remaining));
+    }
+
+    for (const agentUser of agentUsers) {
+      if (!agentUser.sipEnabled || !agentUser.sipExtension) continue;
+      try {
+        const sipEndpoint = `PJSIP/${agentUser.sipExtension}`;
+        console.log(`[QueueEngine] RING-ALL: Originating to ${agentUser.fullName} (${sipEndpoint})`);
+        const agentChannel = await this.ariClient.originateChannel(
+          sipEndpoint,
+          agentUser.sipExtension,
+          "default",
+          call.callerNumber,
+          `ring-all,${agentUser.id},${call.channelId}`
+        );
+        ringAllState.agentChannelIds.set(agentUser.id, agentChannel.id);
+
+        this.pendingAgentCalls.set(agentChannel.id, {
+          callerChannelId: call.channelId,
+          callId: call.id,
+          agentId: agentUser.id,
+          queueId: queue.id,
+          callerNumber: call.callerNumber,
+          callerName: call.callerName,
+          customerId: call.customerId,
+          waitDuration,
+          queueName: queue.name,
+          enteredAt: call.enteredAt,
+        });
+      } catch (err: any) {
+        console.error(`[QueueEngine] RING-ALL: Failed to originate to ${agentUser.fullName}:`, err.message);
+      }
+    }
+
+    setTimeout(async () => {
+      try {
+        const pending = this.ringAllPending.get(call.channelId);
+        if (!pending) return;
+
+        console.log(`[QueueEngine] RING-ALL: Ring timeout (${ringTimeout}s) for call ${call.id}, cancelling`);
+        await this.cancelRingAll(call.channelId, null);
+
+        const totalWait = (Date.now() - call.enteredAt.getTime()) / 1000;
+        if (queue.maxWaitTime && queue.maxWaitTime > 0 && totalWait >= queue.maxWaitTime - 2) {
+          await this.fireOverflowForCall(call.channelId, call.id, queue, call.callerNumber, call.callerName || "", totalWait, agents[0].userId);
+        } else {
+          call.position = this.getQueueSize(queue.id) + 1;
+          this.waitingCalls.set(call.channelId, call);
+          this.recalculatePositions(queue.id);
+          await db.update(inboundCallLogs)
+            .set({ status: "queued", assignedAgentId: null })
+            .where(eq(inboundCallLogs.id, call.id));
+          await this.startMohForChannel(call.channelId, queue.id);
+        }
+      } catch (err) {
+        console.error(`[QueueEngine] RING-ALL: Error in ring timeout handler:`, err instanceof Error ? err.message : err);
+      }
+    }, ringTimeout * 1000);
+  }
+
+  async cancelRingAll(callerChannelId: string, winnerAgentId: string | null): Promise<void> {
+    const pending = this.ringAllPending.get(callerChannelId);
+    if (!pending) return;
+
+    console.log(`[QueueEngine] RING-ALL: Cancelling ring-all for call ${pending.callId}, winner: ${winnerAgentId || 'none'}`);
+
+    for (const [agentId, agentChannelId] of pending.agentChannelIds.entries()) {
+      if (agentId === winnerAgentId) continue;
+      try {
+        this.pendingAgentCalls.delete(agentChannelId);
+        await this.ariClient.hangupChannel(agentChannelId, "normal");
+      } catch {}
+    }
+
+    for (const agentId of pending.agentIds) {
+      if (agentId === winnerAgentId) continue;
+      this.emit("call-cancelled-for-agent", {
+        callId: pending.callId,
+        agentId,
+        callerChannelId,
+      });
+    }
+
+    this.ringAllPending.delete(callerChannelId);
+    this.assignedCalls.delete(callerChannelId);
   }
 
   private async connectCallToAgent(call: QueuedCall, agent: AgentState, queue: InboundQueue): Promise<void> {
@@ -1709,6 +1952,11 @@ export class QueueEngine extends EventEmitter {
 
     const callerChannelId = callLog[0].ariChannelId;
 
+    if (callerChannelId && this.ringAllPending.has(callerChannelId)) {
+      console.log(`[QueueEngine] RING-ALL: Agent ${agentId} answered first, cancelling other agents`);
+      await this.cancelRingAll(callerChannelId, agentId);
+    }
+
     if (callerChannelId) {
       this.assignedCalls.delete(callerChannelId);
       console.log(`[QueueEngine] Removed assigned call tracking for answered call ${callId}`);
@@ -1810,6 +2058,11 @@ export class QueueEngine extends EventEmitter {
     this.lastAnnouncementTime.delete(channelId);
     this.announcementPlayingFor.delete(channelId);
     this.recalculatePositions(queueId);
+
+    if (this.ringAllPending.has(channelId)) {
+      console.log(`[QueueEngine] StasisEnd: cancelling ring-all for abandoned call`);
+      await this.cancelRingAll(channelId, null);
+    }
 
     if (agentId) {
       this.updateAgentStatus(agentId, "available", null);

@@ -1,0 +1,75 @@
+; /etc/asterisk/extensions-webrtc-indexus.conf
+;
+; WebRTC Indexus outbound + interné klapky
+; trunk selection podľa CALLERID(num)
+;
+
+[globals]
+SIPslovanet_trunk=SIP/SLOVANET-VGW
+SIPdialtelecom_trunk=SIP/cordcenter
+
+[webrtc-indexus]
+
+; =========================================================
+; 1) INTERNÉ KLA P KY 100–999
+; =========================================================
+exten => _[1-9]XX,1,NoOp(WEbrtc-Indexus INTERNAL: ${CALLERID(num)} -> ${EXTEN})
+ same => n,Dial(PJSIP/${EXTEN},30,Tt)
+ same => n,Hangup()
+
+; =========================================================
+; 2) EXTERNÉ - čísla bez + (0X., 421X.) + čokoľvek číslicové
+; =========================================================
+exten => _X!,1,NoOp(WEbrtc-Indexus: caller=${CALLERID(all)} exten=${EXTEN})
+ same => n,Set(OUTNUM=${FILTER(0-9,${EXTEN})})
+ same => n,NoOp(WEbrtc-Indexus normalized OUTNUM=${OUTNUM})
+ same => n,Goto(route,1)
+
+; keď príde +421..., preskoč + a pošli do _X!
+exten => _+X!,1,Goto(webrtc-indexus,${EXTEN:1},1)
+
+; =========================================================
+; 3) ROUTE – rozhodovanie interné vs externé + validácia
+; =========================================================
+exten => route,1,NoOp(WEbrtc-Indexus ROUTE: caller=${CALLERID(num)} OUTNUM=${OUTNUM})
+
+ ; ak je OUTNUM interné (100–999), volaj internú klapku
+ same => n,GotoIf($[${OUTNUM} >= 100 & ${OUTNUM} <= 999]?[webrtc-indexus],${OUTNUM},1)
+
+ ; externé povolíme len ak začína 0 alebo 421
+ same => n,GotoIf($["${OUTNUM:0:1}"="0"]?do_picktrunk)
+ same => n,GotoIf($["${OUTNUM:0:3}"="421"]?do_picktrunk)
+
+ same => n,Playback(invalid)
+ same => n,Hangup()
+
+ same => n(do_picktrunk),Goto(webrtc-indexus,picktrunk,1)
+
+; =========================================================
+; 4) picktrunk – výber trunku podľa klapky (CALLERID(num))
+; =========================================================
+exten => picktrunk,1,NoOp(WEbrtc-Indexus PICKTRUNK: caller=${CALLERID(num)} OUTNUM=${OUTNUM})
+
+ ; SK 2003–2030 -> SLOVANET
+ same => n,GotoIf($[${CALLERID(num)} >= 2003 & ${CALLERID(num)} <= 2030]?dial_slovanet,1)
+
+ ; CZ 2100–2130 -> CORDCENTER
+ same => n,GotoIf($[${CALLERID(num)} >= 2100 & ${CALLERID(num)} <= 2130]?dial_cordcenter,1)
+
+ ; HU 3100–3110 -> SLOVANET
+ same => n,GotoIf($[${CALLERID(num)} >= 3100 & ${CALLERID(num)} <= 3110]?dial_slovanet,1)
+
+ ; fallback: ak volá 2001/2002 alebo čokoľvek mimo rozsahov -> default SLOVANET
+ same => n,NoOp(WEbrtc-Indexus PICKTRUNK: caller not in ranges -> default SLOVANET)
+ same => n,Goto(dial_slovanet,1)
+
+; =========================================================
+; 5) Dial cez trunky
+; =========================================================
+exten => dial_slovanet,1,NoOp(WEbrtc-Indexus DIAL via SLOVANET: ${CALLERID(num)} -> ${OUTNUM})
+ same => n,Dial(${SIPslovanet_trunk}/${OUTNUM},60,Tt)
+ same => n,Hangup()
+
+exten => dial_cordcenter,1,NoOp(WEbrtc-Indexus DIAL via CORDCENTER: ${CALLERID(num)} -> ${OUTNUM})
+ same => n,Dial(${SIPdialtelecom_trunk}/${OUTNUM},60,Tt)
+ same => n,Hangup()

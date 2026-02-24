@@ -4965,6 +4965,7 @@ export default function AgentWorkspacePage() {
         customerName: customerName || undefined,
         campaignId: selectedCampaignId || undefined,
         campaignName: selectedCampaign?.name || undefined,
+        callerIdNumber: (selectedCampaign as any)?.callerIdNumber || undefined,
       });
       setStats((prev) => ({ ...prev, calls: prev.calls + 1 }));
       setTimeline((prev) => [
