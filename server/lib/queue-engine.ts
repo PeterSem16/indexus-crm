@@ -588,6 +588,19 @@ export class QueueEngine extends EventEmitter {
           await this.ariClient.hangupChannel(channel.id, "normal");
           break;
         }
+        case "ivr_menu": {
+          if (route.targetIvrMenuId) {
+            try {
+              await this.ariClient.answerChannel(channel.id);
+            } catch {}
+            console.log(`[QueueEngine] DID route → IVR menu (id: ${route.targetIvrMenuId})`);
+            await this.routeToIvrMenu(channel.id, route.targetIvrMenuId, callerNumber, callerName, null);
+            return;
+          }
+          console.warn(`[QueueEngine] DID route "${route.name}" has ivr_menu action but no targetIvrMenuId, hanging up`);
+          await this.ariClient.hangupChannel(channel.id, "normal");
+          break;
+        }
         case "hangup":
         default:
           await this.ariClient.hangupChannel(channel.id, "normal");
@@ -2621,7 +2634,7 @@ export class QueueEngine extends EventEmitter {
     }
   }
 
-  private async routeToIvrMenu(channelId: string, menuId: string, callerNumber: string, callerName: string, queue: InboundQueue): Promise<void> {
+  private async routeToIvrMenu(channelId: string, menuId: string, callerNumber: string, callerName: string, queue: InboundQueue | null): Promise<void> {
     try {
       const [menu] = await db.select().from(ivrMenus).where(eq(ivrMenus.id, menuId)).limit(1);
       if (!menu) {
@@ -2701,7 +2714,7 @@ export class QueueEngine extends EventEmitter {
     });
   }
 
-  private async executeIvrAction(channelId: string, option: any, callerNumber: string, callerName: string, queue: InboundQueue): Promise<void> {
+  private async executeIvrAction(channelId: string, option: any, callerNumber: string, callerName: string, queue: InboundQueue | null): Promise<void> {
     const actionType = option.action || option.actionType;
     const actionTarget = option.targetId || option.actionTarget;
     switch (actionType) {
@@ -2722,7 +2735,7 @@ export class QueueEngine extends EventEmitter {
       case "transfer": {
         if (actionTarget) {
           const endpoint = actionTarget.includes("/") ? actionTarget : `PJSIP/${actionTarget}`;
-          const ok = await this.transferCallToEndpoint(channelId, endpoint, queue);
+          const ok = await this.transferCallToEndpoint(channelId, endpoint, queue as any);
           if (ok) return;
         }
         break;
@@ -2740,7 +2753,7 @@ export class QueueEngine extends EventEmitter {
           const [vmBox] = await db.select().from(voicemailBoxes).where(eq(voicemailBoxes.id, actionTarget)).limit(1);
           if (vmBox) {
             const customerId = await this.lookupCustomer(callerNumber);
-            await this.sendToVoicemail(channelId, vmBox, callerNumber, callerName, customerId, queue.didNumber || undefined, queue.id);
+            await this.sendToVoicemail(channelId, vmBox, callerNumber, callerName, customerId, queue?.didNumber || undefined, queue?.id);
             return;
           }
         }
