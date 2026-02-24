@@ -498,7 +498,7 @@ function TopBar({
                 data-testid="btn-open-abandoned-calls"
               >
                 <PhoneOff className="h-3.5 w-3.5 text-destructive" />
-                <span className="text-xs hidden xl:inline">Zmeškané</span>
+                <span className="text-xs hidden xl:inline">{t.agentWorkspace.missedLabel}</span>
                 {(abandonedCallsCount || 0) > 0 && (
                   <Badge
                     variant="destructive"
@@ -3739,7 +3739,7 @@ function ScheduledQueuePanel({
   };
 
   const getTypeLabel = (type: string) => {
-    if (type === "callback") return "Spätné volanie";
+    if (type === "callback") return t.agentWorkspace.callbackLabel;
     if (type === "email") return "Email";
     return "SMS";
   };
@@ -3750,19 +3750,19 @@ function ScheduledQueuePanel({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 flex-wrap">
             <CalendarClock className="h-5 w-5 text-primary" />
-            Naplánovaná fronta
+            {t.agentWorkspace.scheduledQueueTitle}
             <Badge variant="secondary" className="text-[10px]" data-testid="badge-scheduled-total">
-              {scheduledItems.length} celkom
+              {scheduledItems.length} {t.agentWorkspace.scheduledTotal}
             </Badge>
             {todayCount > 0 && (
               <Badge variant="secondary" className="text-[10px]" data-testid="badge-scheduled-today">
-                {todayCount} dnes
+                {todayCount} {t.agentWorkspace.scheduledToday}
               </Badge>
             )}
             {overdueCount > 0 && (
               <Badge variant="destructive" className="text-[10px] gap-1" data-testid="badge-scheduled-overdue">
                 <AlertTriangle className="h-3 w-3" />
-                {overdueCount} po termíne
+                {overdueCount} {t.agentWorkspace.scheduledOverdue}
               </Badge>
             )}
           </DialogTitle>
@@ -3788,7 +3788,7 @@ function ScheduledQueuePanel({
                 <MessageSquarePlus className="h-3.5 w-3.5" />
               )}
               <span className="text-xs">
-                {type === "all" ? "Všetko" : type === "callback" ? "Hovory" : type === "email" ? "Emaily" : "SMS"}
+                {type === "all" ? t.agentWorkspace.scheduledAll : type === "callback" ? t.agentWorkspace.scheduledCalls : type === "email" ? t.agentWorkspace.scheduledEmails : t.agentWorkspace.scheduledSms}
               </span>
               <Badge variant="secondary" className="text-[9px] ml-0.5">
                 {type === "all" ? scheduledItems.length : scheduledItems.filter(i => i.type === type).length}
@@ -3805,7 +3805,7 @@ function ScheduledQueuePanel({
           ) : filteredItems.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               <CalendarClock className="h-10 w-10 mx-auto mb-3 opacity-20" />
-              <p className="text-sm">Žiadne naplánované položky</p>
+              <p className="text-sm">{t.agentWorkspace.noScheduledItems}</p>
             </div>
           ) : (
             <div className="space-y-2 pr-2">
@@ -3831,7 +3831,7 @@ function ScheduledQueuePanel({
                               }
                             }}
                           >
-                            {item.contactName || "Neznámy kontakt"}
+                            {item.contactName || t.agentWorkspace.unknownContact}
                           </button>
                           <Badge variant="outline" className="text-[9px]">
                             {getTypeLabel(item.type)}
@@ -3839,7 +3839,7 @@ function ScheduledQueuePanel({
                           {itemOverdue && (
                             <Badge variant="destructive" className="text-[9px] gap-0.5">
                               <AlertTriangle className="h-2.5 w-2.5" />
-                              Po termíne
+                              {t.agentWorkspace.overdueLabel}
                             </Badge>
                           )}
                         </div>
@@ -3892,7 +3892,7 @@ function ScheduledQueuePanel({
                           <Button
                             variant="ghost"
                             size="icon"
-                            title="Odoslať teraz"
+                            title={t.agentWorkspace.sendNow}
                             data-testid={`btn-scheduled-send-${item.id}`}
                             onClick={() => {
                               if (onOpenContact) {
@@ -3907,10 +3907,10 @@ function ScheduledQueuePanel({
                         <Button
                           variant="ghost"
                           size="icon"
-                          title="Preplánovať"
+                          title={t.agentWorkspace.reschedule}
                           data-testid={`btn-scheduled-reschedule-${item.id}`}
                           onClick={() => {
-                            toast({ title: "Preplánovanie", description: `Otvorte kalendár pre preplánovanie...` });
+                            toast({ title: t.agentWorkspace.reschedule, description: t.agentWorkspace.rescheduleCalendar });
                           }}
                         >
                           <RotateCcw className="h-4 w-4 text-muted-foreground" />
@@ -3918,10 +3918,10 @@ function ScheduledQueuePanel({
                         <Button
                           variant="ghost"
                           size="icon"
-                          title="Zrušiť"
+                          title={t.agentWorkspace.cancelItem}
                           data-testid={`btn-scheduled-cancel-${item.id}`}
                           onClick={() => {
-                            toast({ title: "Zrušené", description: `Položka bola zrušená.` });
+                            toast({ title: t.agentWorkspace.cancelItem, description: t.agentWorkspace.itemCancelled });
                           }}
                         >
                           <Trash2 className="h-4 w-4 text-destructive" />
@@ -5102,20 +5102,21 @@ export default function AgentWorkspacePage() {
               if (cancelledNum && c.callerNumber?.replace(/[\s\-\(\)]/g, "") === cancelledNum && c.queueId === (data.queueId || c.queueId)) return false;
               return true;
             }));
+            queryClient.invalidateQueries({ queryKey: ["/api/agent/abandoned-calls"] });
             if (!cancelledCallIdsRef.current.has(data.callId)) {
               cancelledCallIdsRef.current.add(data.callId);
               setTimeout(() => cancelledCallIdsRef.current.delete(data.callId), 10000);
-              const callerDisplay = data.callerName || data.callerNumber || "Neznámy";
+              const callerDisplay = data.callerName || data.callerNumber || "";
               const queueDisplay = data.queueName ? ` (${data.queueName})` : "";
               const reason = data.reason || "caller_hangup";
-              let description = `Volajúci ${callerDisplay}${queueDisplay} zavesil počas čakania`;
+              let description = `${callerDisplay}${queueDisplay} ${t.agentWorkspace.callerHangupDesc}`;
               if (reason === "timeout") {
-                description = `Hovor ${callerDisplay}${queueDisplay} bol presmerovaný po vypršaní čakacej doby`;
+                description = `${callerDisplay}${queueDisplay} ${t.agentWorkspace.redirectedTimeout}`;
               } else if (reason === "no_agents") {
-                description = `Hovor ${callerDisplay}${queueDisplay} bol presmerovaný - žiadni agenti nie sú prihlásení`;
+                description = `${callerDisplay}${queueDisplay} ${t.agentWorkspace.redirectedNoAgents}`;
               }
               toast({
-                title: reason === "caller_hangup" ? "Zmeškaný hovor" : "Hovor presmerovaný",
+                title: reason === "caller_hangup" ? t.agentWorkspace.missedCallToast : t.agentWorkspace.redirectedCallToast,
                 description,
                 variant: "destructive",
               });
@@ -6132,18 +6133,18 @@ export default function AgentWorkspacePage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <PhoneOff className="h-5 w-5 text-destructive" />
-              Zmeškané prichádzajúce hovory
+              {t.agentWorkspace.missedCallsTitle}
             </DialogTitle>
           </DialogHeader>
-          <ScrollArea className="flex-1 max-h-[60vh]">
+          <ScrollArea className="flex-1 min-h-0 max-h-[60vh]">
             {abandonedCalls.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                 <CheckCircle className="h-12 w-12 mb-3 text-green-500/50" />
-                <p className="font-medium">Žiadne zmeškané hovory</p>
-                <p className="text-sm">Všetky hovory boli obslúžené</p>
+                <p className="font-medium">{t.agentWorkspace.noMissedCalls}</p>
+                <p className="text-sm">{t.agentWorkspace.allCallsHandled}</p>
               </div>
             ) : (
-              <div className="space-y-2 p-1">
+              <div className="space-y-2 p-1 pr-3">
                 {abandonedCalls.map((call: any) => {
                   const waitMin = call.waitDurationSeconds ? Math.floor(call.waitDurationSeconds / 60) : 0;
                   const waitSec = call.waitDurationSeconds ? call.waitDurationSeconds % 60 : 0;
@@ -6153,17 +6154,17 @@ export default function AgentWorkspacePage() {
                     const diff = Date.now() - new Date(ts).getTime();
                     if (isNaN(diff) || diff < 0) return "";
                     const mins = Math.floor(diff / 60000);
-                    if (mins < 60) return `pred ${mins} min`;
+                    if (mins < 60) return `${mins} ${t.agentWorkspace.agoMinutes}`;
                     const hrs = Math.floor(mins / 60);
-                    return `pred ${hrs}h ${mins % 60}min`;
+                    return `${hrs}${t.agentWorkspace.agoHours} ${mins % 60}${t.agentWorkspace.agoMinutes}`;
                   })();
                   const missedTime = call.completedAt ? (() => { try { return format(new Date(call.completedAt), "HH:mm"); } catch { return null; } })() : null;
                   const statusLabel = call.status === "abandoned"
-                    ? (call.abandonReason === "caller_hangup" ? "Hovor ukončený zákazníkom" : "Zmeškaný")
-                    : call.status === "timeout" ? "Časový limit"
-                    : call.status === "overflow" ? "Pretečenie"
-                    : call.status === "no_agents" ? "Žiadni agenti"
-                    : "Zmeškaný";
+                    ? (call.abandonReason === "caller_hangup" ? t.agentWorkspace.callerHangup : t.agentWorkspace.missedStatus)
+                    : call.status === "timeout" ? t.agentWorkspace.timeoutStatus
+                    : call.status === "overflow" ? t.agentWorkspace.overflowStatus
+                    : call.status === "no_agents" ? t.agentWorkspace.noAgentsStatus
+                    : t.agentWorkspace.missedStatus;
                   const statusColor = call.status === "abandoned" ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" : "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400";
 
                   const isCalledBack = !!call.calledBack;
@@ -6198,7 +6199,7 @@ export default function AgentWorkspacePage() {
                             {isCalledBack ? (
                               <>
                                 <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                                  Spätne volaný
+                                  {t.agentWorkspace.calledBack}
                                 </Badge>
                                 {call.calledBackByUserName && (
                                   <span className="text-[10px] text-muted-foreground">
@@ -6213,7 +6214,7 @@ export default function AgentWorkspacePage() {
                             )}
                             {call.waitDurationSeconds > 0 && (
                               <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
-                                Čakal vo fronte {waitMin > 0 ? `${waitMin}m ` : ""}{waitSec}s
+                                {t.agentWorkspace.waitedInQueue} {waitMin > 0 ? `${waitMin}m ` : ""}{waitSec}s
                               </Badge>
                             )}
                           </div>
@@ -6233,7 +6234,7 @@ export default function AgentWorkspacePage() {
                       {isCalledBack ? (
                         <Badge variant="outline" className="shrink-0 gap-1 text-green-600 dark:text-green-400 border-green-300 dark:border-green-700">
                           <CheckCircle className="h-3.5 w-3.5" />
-                          Vybavené – {call.calledBackByUserName || ""}
+                          {t.agentWorkspace.handledBy} – {call.calledBackByUserName || ""}
                         </Badge>
                       ) : (
                         <Button
@@ -6281,7 +6282,7 @@ export default function AgentWorkspacePage() {
                           data-testid={`btn-callback-${call.id}`}
                         >
                           <Phone className="h-3.5 w-3.5" />
-                          Zavolať
+                          {t.agentWorkspace.callBackBtn}
                         </Button>
                       )}
                     </div>

@@ -168,6 +168,13 @@ export class QueueEngine extends EventEmitter {
     this.ariClient.on("playback-finished", (event: AriEvent) => {
       this.handlePlaybackFinished(event);
     });
+
+    this.ariClient.on("channel-dtmf", (event: AriEvent) => {
+      if (event.channel && event.digit) {
+        console.log(`[QueueEngine] DTMF received: channel=${event.channel.id}, digit=${event.digit}`);
+        this.emit(`dtmf:${event.channel.id}`, event.digit);
+      }
+    });
   }
 
   private async handlePlaybackFinished(event: AriEvent): Promise<void> {
@@ -2627,9 +2634,9 @@ export class QueueEngine extends EventEmitter {
         .where(eq(ivrMenuOptions.menuId, menuId))
         .orderBy(asc(ivrMenuOptions.sortOrder));
 
-      if (menu.greetingMessageId) {
+      if (menu.promptMessageId) {
         try {
-          const [greetMsg] = await db.select().from(ivrMessages).where(eq(ivrMessages.id, menu.greetingMessageId)).limit(1);
+          const [greetMsg] = await db.select().from(ivrMessages).where(eq(ivrMessages.id, menu.promptMessageId)).limit(1);
           if (greetMsg) {
             const soundName = greetMsg.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
             const pbId = `ivr-greet-${channelId}-${Date.now()}`;
@@ -2648,9 +2655,9 @@ export class QueueEngine extends EventEmitter {
         try {
           const dtmf = await this.waitForDtmf(channelId, timeout);
           if (dtmf) {
-            const matchedOption = options.find(o => o.digit === dtmf);
+            const matchedOption = options.find(o => o.dtmfKey === dtmf);
             if (matchedOption) {
-              console.log(`[QueueEngine] IVR: caller pressed ${dtmf}, routing to ${matchedOption.actionType}:${matchedOption.actionTarget}`);
+              console.log(`[QueueEngine] IVR: caller pressed ${dtmf}, routing to ${matchedOption.action}:${matchedOption.targetId}`);
               await this.executeIvrAction(channelId, matchedOption, callerNumber, callerName, queue);
               return;
             }
@@ -2695,10 +2702,12 @@ export class QueueEngine extends EventEmitter {
   }
 
   private async executeIvrAction(channelId: string, option: any, callerNumber: string, callerName: string, queue: InboundQueue): Promise<void> {
-    switch (option.actionType) {
+    const actionType = option.action || option.actionType;
+    const actionTarget = option.targetId || option.actionTarget;
+    switch (actionType) {
       case "queue": {
-        if (option.actionTarget) {
-          const [targetQueue] = await db.select().from(inboundQueues).where(eq(inboundQueues.id, option.actionTarget)).limit(1);
+        if (actionTarget) {
+          const [targetQueue] = await db.select().from(inboundQueues).where(eq(inboundQueues.id, actionTarget)).limit(1);
           if (targetQueue) {
             const customerId = await this.lookupCustomer(callerNumber);
             await this.addCallToQueue(channelId, targetQueue.id, targetQueue.name, callerNumber, callerName, customerId);
@@ -2709,24 +2718,26 @@ export class QueueEngine extends EventEmitter {
         break;
       }
       case "extension":
-      case "user_pjsip": {
-        if (option.actionTarget) {
-          const endpoint = option.actionTarget.includes("/") ? option.actionTarget : `PJSIP/${option.actionTarget}`;
+      case "user_pjsip":
+      case "transfer": {
+        if (actionTarget) {
+          const endpoint = actionTarget.includes("/") ? actionTarget : `PJSIP/${actionTarget}`;
           const ok = await this.transferCallToEndpoint(channelId, endpoint, queue);
           if (ok) return;
         }
         break;
       }
-      case "ivr_menu": {
-        if (option.actionTarget) {
-          await this.routeToIvrMenu(channelId, option.actionTarget, callerNumber, callerName, queue);
+      case "ivr_menu":
+      case "submenu": {
+        if (actionTarget) {
+          await this.routeToIvrMenu(channelId, actionTarget, callerNumber, callerName, queue);
           return;
         }
         break;
       }
       case "voicemail": {
-        if (option.actionTarget) {
-          const [vmBox] = await db.select().from(voicemailBoxes).where(eq(voicemailBoxes.id, option.actionTarget)).limit(1);
+        if (actionTarget) {
+          const [vmBox] = await db.select().from(voicemailBoxes).where(eq(voicemailBoxes.id, actionTarget)).limit(1);
           if (vmBox) {
             const customerId = await this.lookupCustomer(callerNumber);
             await this.sendToVoicemail(channelId, vmBox, callerNumber, callerName, customerId, queue.didNumber || undefined, queue.id);
@@ -2734,6 +2745,9 @@ export class QueueEngine extends EventEmitter {
           }
         }
         break;
+      }
+      case "repeat": {
+        return;
       }
       case "hangup":
         break;

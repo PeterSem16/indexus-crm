@@ -145,6 +145,10 @@ export function IvrMenusTab() {
     queryKey: ["/api/inbound-queues"],
   });
 
+  const { data: voicemailBoxes = [] } = useQuery<any[]>({
+    queryKey: ["/api/voicemail-boxes"],
+  });
+
   const promptMessages = ivrMessages.filter((m) => m.type === "ivr_prompt" && m.isActive);
   const allActiveMessages = ivrMessages.filter((m) => m.isActive);
 
@@ -561,6 +565,7 @@ export function IvrMenusTab() {
                       inboundQueues={inboundQueues}
                       ivrMenus={menus}
                       ivrMessages={allActiveMessages}
+                      voicemailBoxes={voicemailBoxes}
                       editingMenuId={editingMenu?.id || null}
                       onUpdate={(updates) => updateOption(index, updates)}
                       onRemove={() => removeOption(index)}
@@ -593,6 +598,7 @@ function DtmfOptionRow({
   inboundQueues,
   ivrMenus,
   ivrMessages,
+  voicemailBoxes,
   editingMenuId,
   onUpdate,
   onRemove,
@@ -605,6 +611,7 @@ function DtmfOptionRow({
   inboundQueues: InboundQueue[];
   ivrMenus: IvrMenu[];
   ivrMessages: IvrMessage[];
+  voicemailBoxes: any[];
   editingMenuId: string | null;
   onUpdate: (updates: Partial<IvrMenuOption>) => void;
   onRemove: () => void;
@@ -614,7 +621,7 @@ function DtmfOptionRow({
   const im = (t as any).campaigns?.ivrMenus || {};
   const ACTION_TYPES = getActionTypes(im);
   const availableKeys = DTMF_KEYS.filter((k) => !usedKeys.includes(k) || k === option.dtmfKey);
-  const needsTarget = ["queue", "submenu", "transfer"].includes(option.action);
+  const needsTarget = ["queue", "submenu", "transfer", "voicemail"].includes(option.action);
   const availableMenus = ivrMenus.filter((m) => m.id !== editingMenuId);
 
   return (
@@ -715,6 +722,20 @@ function DtmfOptionRow({
                 placeholder="+421..."
                 data-testid={`input-transfer-number-${index}`}
               />
+            )}
+            {option.action === "voicemail" && (
+              <Select
+                value={option.targetId || "none"}
+                onValueChange={(v) => onUpdate({ targetId: v === "none" ? null : v })}
+              >
+                <SelectTrigger data-testid={`select-target-voicemail-${index}`}><SelectValue placeholder={im.selectVoicemailBox || "Hlasová schránka..."} /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">{im.noVoicemailBox || "Žiadna schránka"}</SelectItem>
+                  {voicemailBoxes.filter((b: any) => b.isActive).map((b: any) => (
+                    <SelectItem key={b.id} value={b.id}>{b.name}{b.extension ? ` (${b.extension})` : ""}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             )}
           </div>
         )}
