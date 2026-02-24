@@ -990,6 +990,34 @@ export class QueueEngine extends EventEmitter {
     return false;
   }
 
+  private async hasLoggedInAgentsDb(queueId: string): Promise<boolean> {
+    try {
+      const activeSessions = await db.select().from(agentSessions)
+        .where(inArray(agentSessions.status, ["available", "break", "busy"]));
+      const members = await db.select().from(queueMembers)
+        .where(and(eq(queueMembers.queueId, queueId), eq(queueMembers.isActive, true)));
+      const memberUserIds = new Set(members.map(m => m.userId));
+      const activeSessionUserIds = new Set(activeSessions.map(s => s.userId));
+      const sessionAgentIdsForQueue = new Set<string>();
+      for (const session of activeSessions) {
+        const sessionQueueIds: string[] = (session as any).inboundQueueIds || [];
+        if (sessionQueueIds.includes(queueId)) {
+          sessionAgentIdsForQueue.add(session.userId);
+        }
+      }
+      const allCandidateIds = [...new Set([...memberUserIds, ...sessionAgentIdsForQueue])];
+      for (const userId of allCandidateIds) {
+        if (activeSessionUserIds.has(userId) && sessionAgentIdsForQueue.has(userId)) {
+          return true;
+        }
+      }
+      return false;
+    } catch (err) {
+      console.warn(`[QueueEngine] hasLoggedInAgentsDb error:`, err instanceof Error ? err.message : err);
+      return this.hasLoggedInAgents(queueId);
+    }
+  }
+
   private async handleNoAgents(channelId: string, queue: InboundQueue, callerNumber: string, callerName: string): Promise<void> {
     const action = queue.noAgentsAction || "wait";
     if (action === "wait") return;
@@ -1100,10 +1128,13 @@ export class QueueEngine extends EventEmitter {
     }
 
     const noAgentsAction = queue.noAgentsAction || "wait";
-    if (noAgentsAction !== "wait" && !this.hasLoggedInAgents(queue.id)) {
-      console.log(`[QueueEngine] No agents logged in for queue "${queue.name}"`);
-      await this.handleNoAgents(channel.id, queue, callerNumber, callerName);
-      return;
+    if (noAgentsAction !== "wait") {
+      const hasAgents = await this.hasLoggedInAgentsDb(queue.id);
+      if (!hasAgents) {
+        console.log(`[QueueEngine] No agents logged in (DB check) for queue "${queue.name}", action: ${noAgentsAction}`);
+        await this.handleNoAgents(channel.id, queue, callerNumber, callerName);
+        return;
+      }
     }
 
     if (this.getQueueSize(queue.id) >= queue.maxQueueSize) {
@@ -1237,8 +1268,9 @@ export class QueueEngine extends EventEmitter {
       if (waitingCalls.length === 0) continue;
 
       const noAgentsAction = queue.noAgentsAction || "wait";
-      if (noAgentsAction !== "wait" && !this.hasLoggedInAgents(queue.id)) {
-        console.log(`[QueueEngine] All agents logged out for queue "${queue.name}", applying noAgents action to ${waitingCalls.length} waiting call(s)`);
+      const noAgentsCheck = noAgentsAction !== "wait" ? !(await this.hasLoggedInAgentsDb(queue.id)) : false;
+      if (noAgentsCheck) {
+        console.log(`[QueueEngine] All agents logged out (DB check) for queue "${queue.name}", applying noAgents action "${noAgentsAction}" to ${waitingCalls.length} waiting call(s)`);
         for (const call of waitingCalls) {
           this.waitingCalls.delete(call.channelId);
           this.lastAnnouncementTime.delete(call.channelId);
@@ -2457,6 +2489,26 @@ export class QueueEngine extends EventEmitter {
 
       const queue = queuesCache.get(call.queueId);
       if (!queue) continue;
+
+      const noAgentsAct = queue.noAgentsAction || "wait";
+      if (noAgentsAct !== "wait") {
+        const hasAgents = await this.hasLoggedInAgentsDb(queue.id);
+        if (!hasAgents) {
+          const waitTime = (now - call.enteredAt.getTime()) / 1000;
+          console.log(`[QueueEngine] checkTimeouts: no agents (DB check) for call ${call.id} in queue "${queue.name}", applying noAgents action "${noAgentsAct}" after ${Math.floor(waitTime)}s`);
+          this.waitingCalls.delete(channelId);
+          this.lastAnnouncementTime.delete(channelId);
+          this.announcementPlayingFor.delete(channelId);
+          this.recalculatePositions(call.queueId);
+          await this.stopMohForChannel(channelId);
+          await db.update(inboundCallLogs)
+            .set({ status: "no_agents", completedAt: new Date(), abandonReason: "no_agents", waitDurationSeconds: Math.floor(waitTime) })
+            .where(eq(inboundCallLogs.id, call.id));
+          await this.handleNoAgents(channelId, queue, call.callerNumber, call.callerName || "");
+          continue;
+        }
+      }
+
       if (!queue.maxWaitTime || queue.maxWaitTime <= 0) continue;
 
       const waitTime = (now - call.enteredAt.getTime()) / 1000;
