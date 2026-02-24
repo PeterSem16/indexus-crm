@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Plus, Pencil, Trash2, Search, Megaphone, PlayCircle, CheckCircle, Clock, XCircle, ExternalLink, FileText, Calendar, LayoutList, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, BarChart3, TrendingUp, Phone, RefreshCw, Users, Mail, MessageSquare, User, Check, Loader2, Shield, Headphones, X, Download, HelpCircle, BookOpen, Type, AlignLeft, ListOrdered, CircleDot, Target, Square, TextCursorInput, Variable, GripVertical, Copy, ArrowUp, ArrowDown, Mic, Coffee, GitBranch, Voicemail } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Megaphone, PlayCircle, CheckCircle, Clock, XCircle, ExternalLink, FileText, Calendar, LayoutList, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, BarChart3, TrendingUp, Phone, RefreshCw, Users, Mail, MessageSquare, User, Check, Loader2, Shield, Headphones, X, Download, HelpCircle, BookOpen, Type, AlignLeft, ListOrdered, CircleDot, Target, Square, TextCursorInput, Variable, GripVertical, Copy, ArrowUp, ArrowDown, Mic, Coffee, GitBranch, Voicemail, Bot } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { TranscriptSearchContent } from "@/pages/transcript-search";
 import { BreakTypesTab } from "@/components/campaigns/BreakTypesTab";
@@ -11,6 +11,7 @@ import { IvrMenusTab } from "@/components/campaigns/IvrMenusTab";
 import { DidRoutesTab } from "@/components/campaigns/DidRoutesTab";
 import { VoicemailsTab } from "@/components/campaigns/VoicemailsTab";
 import { InboundReportsTab } from "@/components/campaigns/InboundReportsTab";
+import { VirtualAgentTab } from "@/components/campaigns/VirtualAgentTab";
 import { useAuth } from "@/contexts/auth-context";
 import { useCountryFilter } from "@/contexts/country-filter-context";
 import { Button } from "@/components/ui/button";
@@ -2066,6 +2067,10 @@ export default function CampaignsPage() {
               <Mic className="h-4 w-4" />
               IVR Audio
             </TabsTrigger>
+            <TabsTrigger value="virtual-agent" className="gap-2" data-testid="tab-virtual-agent">
+              <Bot className="h-4 w-4" />
+              Virtuálny agent
+            </TabsTrigger>
             <TabsTrigger value="inbound-reports" className="gap-2" data-testid="tab-inbound-reports">
               <BarChart3 className="h-4 w-4" />
               Inbound Reporty
@@ -2147,6 +2152,10 @@ export default function CampaignsPage() {
 
         <TabsContent value="ivr-messages" className="flex-1 overflow-auto p-6 mt-0">
           <IvrMessagesTab />
+        </TabsContent>
+
+        <TabsContent value="virtual-agent" className="flex-1 overflow-auto p-6 mt-0">
+          <VirtualAgentTab />
         </TabsContent>
 
         <TabsContent value="inbound-reports" className="flex-1 overflow-auto p-6 mt-0">

@@ -1210,6 +1210,24 @@ export class QueueEngine extends EventEmitter {
         }
         break;
       }
+      case "virtual_agent": {
+        const vaConfigId = (queue as any).noAgentsVirtualAgentId;
+        if (vaConfigId) {
+          console.log(`[QueueEngine] No-agents: routing to virtual agent ${vaConfigId}`);
+          try {
+            const { VirtualAgentEngine } = await import("./virtual-agent");
+            const vaEngine = new VirtualAgentEngine(this.ariClient);
+            await vaEngine.startConversation(channelId, vaConfigId, callerNumber, callerName, customerId, queue.id);
+          } catch (err) {
+            console.error(`[QueueEngine] Virtual agent failed:`, err);
+            await this.ariClient.hangupChannel(channelId, "normal");
+          }
+        } else {
+          console.warn(`[QueueEngine] No-agents virtual_agent action but no config ID, hanging up`);
+          await this.ariClient.hangupChannel(channelId, "normal");
+        }
+        break;
+      }
       default:
         await this.ariClient.hangupChannel(channelId, "normal");
     }
@@ -2682,6 +2700,25 @@ export class QueueEngine extends EventEmitter {
             await this.routeToIvrMenu(channelId, ivrMenuId, callerNumber, callerName, queue);
           } else {
             console.warn(`[QueueEngine] Overflow IVR action but no menu configured, hanging up`);
+            await this.ariClient.hangupChannel(channelId, "normal");
+          }
+          break;
+        }
+        case "virtual_agent": {
+          const vaConfigId = (queue as any).overflowVirtualAgentId;
+          if (vaConfigId) {
+            console.log(`[QueueEngine] Overflow: routing to virtual agent ${vaConfigId}`);
+            try {
+              const customerId = await this.lookupCustomer(callerNumber);
+              const { VirtualAgentEngine } = await import("./virtual-agent");
+              const vaEngine = new VirtualAgentEngine(this.ariClient);
+              await vaEngine.startConversation(channelId, vaConfigId, callerNumber, callerName, customerId, queue.id);
+            } catch (err) {
+              console.error(`[QueueEngine] Virtual agent overflow failed:`, err);
+              await this.ariClient.hangupChannel(channelId, "normal");
+            }
+          } else {
+            console.warn(`[QueueEngine] Overflow virtual_agent action but no config, hanging up`);
             await this.ariClient.hangupChannel(channelId, "normal");
           }
           break;

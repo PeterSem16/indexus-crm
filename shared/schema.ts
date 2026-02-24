@@ -5391,12 +5391,13 @@ export const inboundQueues = pgTable("inbound_queues", {
   priority: integer("priority").notNull().default(1), // queue priority (higher = more important)
   welcomeMessageId: varchar("welcome_message_id"), // IVR welcome message
   holdMusicId: varchar("hold_music_id"), // hold music file
-  overflowAction: text("overflow_action").notNull().default("voicemail"), // voicemail, hangup, transfer, queue, user_pjsip, ivr
+  overflowAction: text("overflow_action").notNull().default("voicemail"), // voicemail, hangup, transfer, queue, user_pjsip, ivr, virtual_agent
   overflowTarget: text("overflow_target"), // target number/queue for overflow
   overflowUserId: varchar("overflow_user_id"), // user ID for user_pjsip overflow action
   overflowVoicemailBoxId: varchar("overflow_voicemail_box_id"), // voicemail box for overflow
   overflowMessageId: varchar("overflow_message_id"), // IVR message for overflow announcement
   overflowIvrMenuId: varchar("overflow_ivr_menu_id"),
+  overflowVirtualAgentId: varchar("overflow_virtual_agent_id"),
   announcePosition: boolean("announce_position").notNull().default(true),
   announceWaitTime: boolean("announce_wait_time").notNull().default(true),
   announceFrequency: integer("announce_frequency").notNull().default(30), // seconds between announcements
@@ -5411,12 +5412,13 @@ export const inboundQueues = pgTable("inbound_queues", {
   afterHoursTarget: text("after_hours_target"), // target queue/number for after-hours routing
   afterHoursMessageId: varchar("after_hours_message_id"), // IVR message to play after hours
   afterHoursVoicemailBoxId: varchar("after_hours_voicemail_box_id"), // voicemail box for after-hours
-  noAgentsAction: text("no_agents_action").notNull().default("wait"), // wait, voicemail, hangup, transfer, queue, user_pjsip, ivr
+  noAgentsAction: text("no_agents_action").notNull().default("wait"), // wait, voicemail, hangup, transfer, queue, user_pjsip, ivr, virtual_agent
   noAgentsTarget: text("no_agents_target"),
   noAgentsMessageId: varchar("no_agents_message_id"),
   noAgentsVoicemailBoxId: varchar("no_agents_voicemail_box_id"),
   noAgentsUserId: varchar("no_agents_user_id"),
   noAgentsIvrMenuId: varchar("no_agents_ivr_menu_id"),
+  noAgentsVirtualAgentId: varchar("no_agents_virtual_agent_id"),
   emailEnabled: boolean("email_enabled").notNull().default(false),
   emailAccountId: text("email_account_id"),
   smsEnabled: boolean("sms_enabled").notNull().default(false),
@@ -5657,3 +5659,56 @@ export const insertVoicemailMessageSchema = createInsertSchema(voicemailMessages
 });
 export type InsertVoicemailMessage = z.infer<typeof insertVoicemailMessageSchema>;
 export type VoicemailMessage = typeof voicemailMessages.$inferSelect;
+
+export const virtualAgentConfigs = pgTable("virtual_agent_configs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  language: text("language").notNull().default("sk"),
+  greetingText: text("greeting_text").notNull().default("Dobrý deň, momentálne nie je dostupný žiadny operátor. Som virtuálny asistent, ako vám môžem pomôcť?"),
+  systemPrompt: text("system_prompt").notNull().default("Si virtuálny asistent spoločnosti zaoberajúcej sa uchovávaním pupočníkovej krvi. Zbieraj informácie od volajúceho: meno, kontakt, dôvod volania. Buď stručný a profesionálny. Odpovedaj v slovenčine."),
+  ttsVoice: text("tts_voice").notNull().default("nova"),
+  maxTurns: integer("max_turns").notNull().default(6),
+  maxRecordingSeconds: integer("max_recording_seconds").notNull().default(30),
+  silenceTimeoutSeconds: integer("silence_timeout_seconds").notNull().default(3),
+  farewellText: text("farewell_text").notNull().default("Ďakujem za informácie. Operátor vás bude kontaktovať. Dovidenia."),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const insertVirtualAgentConfigSchema = createInsertSchema(virtualAgentConfigs).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertVirtualAgentConfig = z.infer<typeof insertVirtualAgentConfigSchema>;
+export type VirtualAgentConfig = typeof virtualAgentConfigs.$inferSelect;
+
+export const virtualAgentConversations = pgTable("virtual_agent_conversations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  configId: varchar("config_id").references(() => virtualAgentConfigs.id),
+  queueId: varchar("queue_id").references(() => inboundQueues.id),
+  callerNumber: text("caller_number").notNull(),
+  callerName: text("caller_name"),
+  customerId: varchar("customer_id"),
+  status: text("status").notNull().default("active"),
+  transcript: text("transcript"),
+  summary: text("summary"),
+  sentiment: text("sentiment"),
+  urgency: text("urgency"),
+  keyTopics: text("key_topics").array().default(sql`'{}'::text[]`),
+  turns: integer("turns").notNull().default(0),
+  durationSeconds: integer("duration_seconds").notNull().default(0),
+  recordingPath: text("recording_path"),
+  callbackRequested: boolean("callback_requested").notNull().default(false),
+  callbackNumber: text("callback_number"),
+  operatorNotified: boolean("operator_notified").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const insertVirtualAgentConversationSchema = createInsertSchema(virtualAgentConversations).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertVirtualAgentConversation = z.infer<typeof insertVirtualAgentConversationSchema>;
+export type VirtualAgentConversation = typeof virtualAgentConversations.$inferSelect;

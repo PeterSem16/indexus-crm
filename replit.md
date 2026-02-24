@@ -49,6 +49,7 @@ Preferred communication style: Simple, everyday language.
 - **Inbound Call Reports**: Comprehensive reports on queue performance, SLA, call distribution, missed calls, and agent statistics.
 - **Voicemail Management**: Voicemail box configuration with greeting messages, email notifications, transcription, and an inbox for message management.
 - **Campaign Reports**: Detailed campaign-specific reports including operator statistics, complete call lists, call analysis, and scheduled report delivery.
+- **AI Virtual Agent**: GPT-4o powered voice bot for handling inbound calls when no operators are available. Features configurable greeting/farewell messages, TTS voice selection, multi-language support, conversation analysis (sentiment, urgency, key topics), callback request detection, and full transcript logging. Integrates as a queue action type for "no agents" and "overflow" scenarios. Config management and conversation logs viewer in the "Virtuálny agent" tab under Campaigns.
 
 ### Multi-Language Support (i18n)
 - **Languages**: EN, SK, CS, HU, RO, IT, DE.

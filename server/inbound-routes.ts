@@ -16,6 +16,8 @@ import {
   didRoutes, insertDidRouteSchema,
   voicemailBoxes, insertVoicemailBoxSchema,
   voicemailMessages, insertVoicemailMessageSchema,
+  virtualAgentConfigs, insertVirtualAgentConfigSchema,
+  virtualAgentConversations,
 } from "@shared/schema";
 import { or, like, ilike } from "drizzle-orm";
 import { AriClient, initializeAriClient, getAriClient, destroyAriClient } from "./lib/ari-client";
@@ -2533,6 +2535,92 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
     } catch (error) {
       console.error("Error fetching voicemail stats:", error);
       res.status(500).json({ error: "Failed to fetch voicemail stats" });
+    }
+  });
+
+  app.get("/api/virtual-agent-configs", requireAuth, async (_req: Request, res: Response) => {
+    try {
+      const configs = await db.select().from(virtualAgentConfigs).orderBy(desc(virtualAgentConfigs.createdAt));
+      res.json(configs);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch virtual agent configs" });
+    }
+  });
+
+  app.get("/api/virtual-agent-configs/:id", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const [config] = await db.select().from(virtualAgentConfigs).where(eq(virtualAgentConfigs.id, req.params.id)).limit(1);
+      if (!config) return res.status(404).json({ error: "Not found" });
+      res.json(config);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch virtual agent config" });
+    }
+  });
+
+  app.post("/api/virtual-agent-configs", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const parsed = insertVirtualAgentConfigSchema.parse(req.body);
+      const [config] = await db.insert(virtualAgentConfigs).values(parsed).returning();
+      res.json(config);
+    } catch (error) {
+      res.status(400).json({ error: "Failed to create virtual agent config" });
+    }
+  });
+
+  app.patch("/api/virtual-agent-configs/:id", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const [updated] = await db.update(virtualAgentConfigs)
+        .set({ ...req.body, updatedAt: new Date() })
+        .where(eq(virtualAgentConfigs.id, req.params.id))
+        .returning();
+      if (!updated) return res.status(404).json({ error: "Not found" });
+      res.json(updated);
+    } catch (error) {
+      res.status(400).json({ error: "Failed to update virtual agent config" });
+    }
+  });
+
+  app.delete("/api/virtual-agent-configs/:id", requireAuth, async (req: Request, res: Response) => {
+    try {
+      await db.delete(virtualAgentConfigs).where(eq(virtualAgentConfigs.id, req.params.id));
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete virtual agent config" });
+    }
+  });
+
+  app.get("/api/virtual-agent-conversations", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const conversations = await db.select().from(virtualAgentConversations)
+        .orderBy(desc(virtualAgentConversations.createdAt))
+        .limit(100);
+      res.json(conversations);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch conversations" });
+    }
+  });
+
+  app.get("/api/virtual-agent-conversations/:id", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const [conversation] = await db.select().from(virtualAgentConversations)
+        .where(eq(virtualAgentConversations.id, req.params.id)).limit(1);
+      if (!conversation) return res.status(404).json({ error: "Not found" });
+      res.json(conversation);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch conversation" });
+    }
+  });
+
+  app.patch("/api/virtual-agent-conversations/:id", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const [updated] = await db.update(virtualAgentConversations)
+        .set(req.body)
+        .where(eq(virtualAgentConversations.id, req.params.id))
+        .returning();
+      if (!updated) return res.status(404).json({ error: "Not found" });
+      res.json(updated);
+    } catch (error) {
+      res.status(400).json({ error: "Failed to update conversation" });
     }
   });
 }

@@ -487,6 +487,27 @@ export class AriClient extends EventEmitter {
     return this.ariRequest("POST", `/channels/${channelId}/record?name=${name}&format=${format}&ifExists=overwrite`);
   }
 
+  async startRecordingAdvanced(channelId: string, options: {
+    name: string;
+    format?: string;
+    maxDurationSeconds?: number;
+    maxSilenceSeconds?: number;
+    beep?: boolean;
+    terminateOn?: string;
+    ifExists?: string;
+  }): Promise<any> {
+    const params = new URLSearchParams({
+      name: options.name,
+      format: options.format || "wav",
+      ifExists: options.ifExists || "overwrite",
+    });
+    if (options.maxDurationSeconds) params.set("maxDurationSeconds", String(options.maxDurationSeconds));
+    if (options.maxSilenceSeconds) params.set("maxSilenceSeconds", String(options.maxSilenceSeconds));
+    if (options.beep !== undefined) params.set("beep", String(options.beep));
+    if (options.terminateOn) params.set("terminateOn", options.terminateOn);
+    return this.ariRequest("POST", `/channels/${channelId}/record?${params}`);
+  }
+
   async stopRecording(recordingName: string): Promise<void> {
     await this.ariRequest("POST", `/recordings/live/${recordingName}/stop`);
   }

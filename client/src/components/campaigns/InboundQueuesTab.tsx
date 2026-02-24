@@ -94,6 +94,8 @@ interface InboundQueue {
   noAgentsVoicemailBoxId: string | null;
   noAgentsUserId: string | null;
   noAgentsIvrMenuId: string | null;
+  noAgentsVirtualAgentId: string | null;
+  overflowVirtualAgentId: string | null;
   emailEnabled: boolean;
   emailAccountId: string | null;
   smsEnabled: boolean;
@@ -117,9 +119,9 @@ interface QueueMemberWithUser {
 }
 
 const STRATEGY_VALUES = ["round-robin", "least-calls", "longest-idle", "skills-based", "random", "ring-all"] as const;
-const OVERFLOW_ACTION_VALUES = ["voicemail", "hangup", "transfer", "queue", "user_pjsip", "announcement", "ivr"] as const;
-const AFTER_HOURS_ACTION_VALUES = ["voicemail", "hangup", "transfer", "queue", "user_pjsip", "announcement"] as const;
-const NO_AGENTS_ACTION_VALUES = ["wait", "voicemail", "hangup", "transfer", "queue", "user_pjsip", "announcement", "ivr"] as const;
+const OVERFLOW_ACTION_VALUES = ["voicemail", "hangup", "transfer", "queue", "user_pjsip", "announcement", "ivr", "virtual_agent"] as const;
+const AFTER_HOURS_ACTION_VALUES = ["voicemail", "hangup", "transfer", "queue", "user_pjsip", "announcement", "virtual_agent"] as const;
+const NO_AGENTS_ACTION_VALUES = ["wait", "voicemail", "hangup", "transfer", "queue", "user_pjsip", "announcement", "ivr", "virtual_agent"] as const;
 
 const DAYS_OF_WEEK = [
   { value: "1", key: "mon" },
@@ -202,7 +204,7 @@ const defaultFormData: FormData = {
   activeFrom: "", activeTo: "", activeDays: ["1", "2", "3", "4", "5"],
   timezone: "Europe/Bratislava", afterHoursAction: "voicemail",
   afterHoursTarget: "", afterHoursMessageId: null, afterHoursVoicemailBoxId: null,
-  noAgentsAction: "wait", noAgentsTarget: "", noAgentsMessageId: null, noAgentsVoicemailBoxId: null, noAgentsUserId: null, noAgentsIvrMenuId: null,
+  noAgentsAction: "wait", noAgentsTarget: "", noAgentsMessageId: null, noAgentsVoicemailBoxId: null, noAgentsUserId: null, noAgentsIvrMenuId: null, noAgentsVirtualAgentId: null, overflowVirtualAgentId: null,
   emailEnabled: false, emailAccountId: null, smsEnabled: false, smsPhoneNumber: null,
   recordCalls: false, isActive: true,
 };
@@ -247,6 +249,12 @@ export function InboundQueuesTab() {
     queryKey: ["/api/ivr-menus"],
   });
 
+  const { data: virtualAgentConfigs = [] } = useQuery<any[]>({
+    queryKey: ["/api/virtual-agent-configs"],
+  });
+
+  const activeVaConfigs = virtualAgentConfigs.filter((c: any) => c.isActive);
+
   const welcomeMessages = ivrMessages.filter((m: any) => m.type === "welcome" && m.isActive);
   const holdMusicMessages = ivrMessages.filter((m: any) => m.type === "hold_music" && m.isActive);
   const announceMessages = ivrMessages.filter((m: any) => ["announcement", "position", "wait_time"].includes(m.type) && m.isActive);
@@ -286,6 +294,7 @@ export function InboundQueuesTab() {
       user_pjsip: tx.transferToUser,
       announcement: tx.playAnnouncement,
       ivr: tx.routeToIvr || "IVR menu",
+      virtual_agent: "Virtuálny agent",
     };
     return map[v] || v;
   };
@@ -391,6 +400,9 @@ export function InboundQueuesTab() {
       noAgentsMessageId: queue.noAgentsMessageId || null,
       noAgentsVoicemailBoxId: queue.noAgentsVoicemailBoxId || null,
       noAgentsUserId: queue.noAgentsUserId || null,
+      noAgentsIvrMenuId: (queue as any).noAgentsIvrMenuId || null,
+      noAgentsVirtualAgentId: (queue as any).noAgentsVirtualAgentId || null,
+      overflowVirtualAgentId: (queue as any).overflowVirtualAgentId || null,
       emailEnabled: queue.emailEnabled ?? false,
       emailAccountId: queue.emailAccountId || null,
       smsEnabled: queue.smsEnabled ?? false,
@@ -778,7 +790,21 @@ export function InboundQueuesTab() {
                       <p className="text-xs text-muted-foreground italic">{tx.helpNoAgentsIvr || "Volajúci bude presmerovaný do IVR menu"}</p>
                     </div>
                   )}
-                  {formData.noAgentsAction !== "announcement" && formData.noAgentsAction !== "ivr" && (
+                  {formData.noAgentsAction === "virtual_agent" && (
+                    <div className="space-y-1">
+                      <Label className="text-sm">Konfigurácia virtuálneho agenta</Label>
+                      <Select value={formData.noAgentsVirtualAgentId || ""} onValueChange={v => setFormData(f => ({ ...f, noAgentsVirtualAgentId: v || null }))}>
+                        <SelectTrigger data-testid="select-no-agents-va"><SelectValue placeholder="Vybrať..." /></SelectTrigger>
+                        <SelectContent>
+                          {activeVaConfigs.map((c: any) => (
+                            <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground italic">AI hlasový bot obslúži volajúceho namiesto operátora</p>
+                    </div>
+                  )}
+                  {formData.noAgentsAction !== "announcement" && formData.noAgentsAction !== "ivr" && formData.noAgentsAction !== "virtual_agent" && (
                     <AudioSelector
                       label={tx.noAgentsMessage}
                       helpText={tx.helpNoAgentsMessage}
@@ -1002,6 +1028,20 @@ export function InboundQueuesTab() {
                         </SelectContent>
                       </Select>
                       <p className="text-xs text-muted-foreground italic">{tx.helpOverflowIvr || "Volajúci bude presmerovaný do IVR menu"}</p>
+                    </div>
+                  )}
+                  {formData.overflowAction === "virtual_agent" && (
+                    <div className="space-y-1">
+                      <Label className="text-sm">Konfigurácia virtuálneho agenta</Label>
+                      <Select value={formData.overflowVirtualAgentId || ""} onValueChange={v => setFormData(f => ({ ...f, overflowVirtualAgentId: v || null }))}>
+                        <SelectTrigger data-testid="select-overflow-va"><SelectValue placeholder="Vybrať..." /></SelectTrigger>
+                        <SelectContent>
+                          {activeVaConfigs.map((c: any) => (
+                            <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground italic">AI hlasový bot obslúži volajúceho pri prekročení kapacity</p>
                     </div>
                   )}
                 </div>
