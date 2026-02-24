@@ -30,6 +30,7 @@ interface VirtualAgentSession {
 export class VirtualAgentEngine {
   private ariClient: AriClient;
   private activeSessions: Map<string, VirtualAgentSession> = new Map();
+  private cachedFarewells: Map<string, string> = new Map();
 
   constructor(ariClient: AriClient) {
     this.ariClient = ariClient;
@@ -119,8 +120,16 @@ export class VirtualAgentEngine {
       return;
     }
 
-    await new Promise(r => setTimeout(r, 500));
+    await new Promise(r => setTimeout(r, 200));
     if (session.channelGone) return;
+
+    const farewellCacheKey = `${config.id}-farewell`;
+    const farewellPromise = !this.cachedFarewells.has(farewellCacheKey)
+      ? this.generateTTS(config.farewellText, config.ttsVoice, session.channelId).then(audio => {
+          if (audio) this.cachedFarewells.set(farewellCacheKey, audio);
+          return audio;
+        })
+      : Promise.resolve(this.cachedFarewells.get(farewellCacheKey)!);
 
     const greetingAudio = await this.generateTTS(config.greetingText, config.ttsVoice, session.channelId);
     if (!greetingAudio || session.channelGone) return;
@@ -141,29 +150,40 @@ export class VirtualAgentEngine {
 
       console.log(`[VirtualAgent] Turn ${session.turnCount}: User said: "${userSpeech.substring(0, 100)}..."`);
 
+      this.playThinkingTone(session.channelId);
+
+      const t0 = Date.now();
       const aiResponse = await this.generateResponse(session, config, userSpeech);
       if (session.channelGone || !aiResponse) break;
 
       session.turns.push({ role: "assistant", content: aiResponse });
       session.turnCount++;
 
-      console.log(`[VirtualAgent] Turn ${session.turnCount}: AI responds: "${aiResponse.substring(0, 100)}..."`);
+      console.log(`[VirtualAgent] Turn ${session.turnCount}: AI responds (${Date.now() - t0}ms): "${aiResponse.substring(0, 100)}..."`);
 
       const responseAudio = await this.generateTTS(aiResponse, config.ttsVoice, session.channelId);
       if (!responseAudio || session.channelGone) break;
+
+      try { await this.ariClient.stopPlayback(`va-think-${session.channelId}`); } catch {}
 
       await this.playAudioFile(session.channelId, responseAudio);
       if (session.channelGone) break;
     }
 
     if (!session.channelGone) {
-      const farewellAudio = await this.generateTTS(config.farewellText, config.ttsVoice, session.channelId);
+      const farewellAudio = await farewellPromise;
       if (farewellAudio && !session.channelGone) {
         await this.playAudioFile(session.channelId, farewellAudio);
       }
-      await new Promise(r => setTimeout(r, 1000));
+      await new Promise(r => setTimeout(r, 500));
       try { await this.ariClient.hangupChannel(session.channelId, "normal"); } catch {}
     }
+  }
+
+  private async playThinkingTone(channelId: string): Promise<void> {
+    try {
+      await this.ariClient.playMedia(channelId, "tone:ring", `va-think-${channelId}`);
+    } catch {}
   }
 
   private async recordAndTranscribe(
@@ -220,31 +240,34 @@ export class VirtualAgentEngine {
 
       if (session.channelGone) return null;
 
-      await new Promise(r => setTimeout(r, 1000));
+      await new Promise(r => setTimeout(r, 300));
 
       let audioBuffer: Buffer | null = null;
 
       try {
-        const { downloadVoicemailRecordingFromAsterisk } = await import("./asterisk-audio-sync");
-        const { DATA_ROOT } = await import("../config/storage-paths");
-        const tmpDir = path.join(DATA_ROOT, "virtual-agent-tmp");
-        if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
-
-        const sftpResult = await downloadVoicemailRecordingFromAsterisk(recordingName, tmpDir);
-        if (sftpResult.success && sftpResult.localPath) {
-          audioBuffer = fs.readFileSync(sftpResult.localPath);
-          try { fs.unlinkSync(sftpResult.localPath); } catch {}
-        }
+        audioBuffer = await this.ariClient.downloadStoredRecording(recordingName);
       } catch {}
 
       if (!audioBuffer) {
-        for (let attempt = 0; attempt < 3; attempt++) {
-          try {
-            await new Promise(r => setTimeout(r, 500 + attempt * 500));
-            audioBuffer = await this.ariClient.downloadStoredRecording(recordingName);
-            break;
-          } catch {}
-        }
+        try {
+          const { downloadVoicemailRecordingFromAsterisk } = await import("./asterisk-audio-sync");
+          const { DATA_ROOT } = await import("../config/storage-paths");
+          const tmpDir = path.join(DATA_ROOT, "virtual-agent-tmp");
+          if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
+
+          const sftpResult = await downloadVoicemailRecordingFromAsterisk(recordingName, tmpDir);
+          if (sftpResult.success && sftpResult.localPath) {
+            audioBuffer = fs.readFileSync(sftpResult.localPath);
+            try { fs.unlinkSync(sftpResult.localPath); } catch {}
+          }
+        } catch {}
+      }
+
+      if (!audioBuffer) {
+        try {
+          await new Promise(r => setTimeout(r, 500));
+          audioBuffer = await this.ariClient.downloadStoredRecording(recordingName);
+        } catch {}
       }
 
       if (!audioBuffer || audioBuffer.length < 1000) {
@@ -289,7 +312,7 @@ export class VirtualAgentEngine {
       const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
         {
           role: "system",
-          content: `${config.systemPrompt}\n\nDôležité pravidlá:\n- Odpovedaj stručne, maximálne 2-3 vety.\n- Volajúci číslo: ${session.callerNumber}\n- Ak volajúci chce spätné volanie, potvrď to.\n- Na konci konverzácie zhrň zozbierané informácie.`
+          content: `${config.systemPrompt}\n\nKRITICKÉ pravidlá:\n- Odpovedaj VEĽMI stručne, maximálne 1-2 krátke vety.\n- Nepoužívaj dlhé vysvetlenia ani opisy.\n- Volajúci číslo: ${session.callerNumber}\n- Ak volajúci chce spätné volanie, potvrď to jednou vetou.\n- Na konci konverzácie zhrň zozbierané informácie stručne.`
         },
       ];
 
@@ -299,9 +322,9 @@ export class VirtualAgentEngine {
       messages.push({ role: "user", content: userSpeech });
 
       const response = await openai.chat.completions.create({
-        model: "gpt-4o",
+        model: "gpt-4o-mini",
         messages,
-        max_tokens: 200,
+        max_tokens: 150,
         temperature: 0.7,
       });
 
@@ -317,6 +340,7 @@ export class VirtualAgentEngine {
     voice: string,
     channelId: string
   ): Promise<string | null> {
+    const t0 = Date.now();
     try {
       const ttsVoice = (voice || "nova") as "nova" | "shimmer" | "alloy" | "coral" | "sage" | "onyx" | "echo" | "fable" | "ash";
       const mp3Response = await openai.audio.speech.create({
@@ -324,6 +348,7 @@ export class VirtualAgentEngine {
         voice: ttsVoice,
         input: text,
         response_format: "mp3",
+        speed: 1.05,
       });
 
       const { DATA_ROOT } = await import("../config/storage-paths");
@@ -339,7 +364,7 @@ export class VirtualAgentEngine {
 
       const { execSync } = await import("child_process");
       try {
-        execSync(`ffmpeg -i "${mp3Path}" -ar 8000 -ac 1 -sample_fmt s16 -acodec pcm_s16le "${wavPath}" -y 2>/dev/null`);
+        execSync(`ffmpeg -i "${mp3Path}" -ar 8000 -ac 1 -sample_fmt s16 -acodec pcm_s16le "${wavPath}" -y 2>/dev/null`, { timeout: 10000 });
       } catch {
         console.warn(`[VirtualAgent] FFmpeg conversion failed, trying direct upload`);
         fs.copyFileSync(mp3Path, wavPath);
@@ -351,7 +376,7 @@ export class VirtualAgentEngine {
         const { syncVoicemailGreetingToAsterisk } = await import("./asterisk-audio-sync");
         const result = await syncVoicemailGreetingToAsterisk(wavPath, fileName);
         if (result.success) {
-          console.log(`[VirtualAgent] Uploaded TTS to Asterisk: ${fileName}`);
+          console.log(`[VirtualAgent] TTS uploaded (${Date.now() - t0}ms): ${fileName}`);
         } else {
           console.warn(`[VirtualAgent] SFTP upload failed: ${result.error}`);
         }
