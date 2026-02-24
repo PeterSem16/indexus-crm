@@ -31,6 +31,7 @@ export interface QueuedCall {
   enteredAt: Date;
   position: number;
   bridgeId?: string;
+  originateFailures?: number;
 }
 
 export interface AgentState {
@@ -84,6 +85,7 @@ export class QueueEngine extends EventEmitter {
   private lastAnnouncementTime: Map<string, number> = new Map();
   private announcementPlayingFor: Set<string> = new Set();
   private overflowInProgress: Set<string> = new Set();
+  private agentOriginateCooldown: Map<string, number> = new Map();
 
   constructor(ariClient: AriClient) {
     super();
@@ -1352,6 +1354,12 @@ export class QueueEngine extends EventEmitter {
       const penalty = memberInfo?.penalty ?? state?.penalty ?? 0;
       console.log(`[QueueEngine]   Agent ${agentId}: state=${state?.status || 'NOT_IN_MEMORY'} (penalty: ${penalty})`);
       if (state && state.status === "available") {
+        const cooldownUntil = this.agentOriginateCooldown.get(agentId);
+        if (cooldownUntil && Date.now() < cooldownUntil) {
+          console.log(`[QueueEngine]   Agent ${agentId}: on originate cooldown for ${Math.ceil((cooldownUntil - Date.now()) / 1000)}s more, skipping`);
+          continue;
+        }
+        if (cooldownUntil) this.agentOriginateCooldown.delete(agentId);
         availableAgents.push({ ...state, penalty });
       }
     }
@@ -1544,13 +1552,17 @@ export class QueueEngine extends EventEmitter {
       }, ringTimeout * 1000);
     } catch (err: any) {
       console.error(`[QueueEngine] Failed to originate call to agent ${agent.userId}:`, err.message);
-      this.updateAgentStatus(agent.userId, "available", null);
       this.assignedCalls.delete(call.channelId);
 
+      call.originateFailures = (call.originateFailures || 0) + 1;
       const totalWait = (Date.now() - call.enteredAt.getTime()) / 1000;
-      console.log(`[QueueEngine] Originate failure: call=${call.id}, totalWait=${Math.floor(totalWait)}s, maxWaitTime=${queue.maxWaitTime}s`);
+      console.log(`[QueueEngine] Originate failure: call=${call.id}, totalWait=${Math.floor(totalWait)}s, maxWaitTime=${queue.maxWaitTime}s, failures=${call.originateFailures}`);
 
-      if (queue.maxWaitTime && queue.maxWaitTime > 0 && totalWait > queue.maxWaitTime) {
+      this.agentOriginateCooldown.set(agent.userId, Date.now() + 5000);
+
+      if ((queue.maxWaitTime && queue.maxWaitTime > 0 && totalWait >= queue.maxWaitTime - 2) || call.originateFailures >= 3) {
+        const reason = call.originateFailures >= 3 ? "max originate failures reached" : "maxWaitTime reached";
+        console.log(`[QueueEngine] Firing overflow after originate failure: ${reason}`);
         await this.fireOverflowForCall(call.channelId, call.id, queue, call.callerNumber, call.callerName || "", totalWait, agent.userId);
       } else {
         call.position = this.getQueueSize(queue.id) + 1;
@@ -1560,8 +1572,10 @@ export class QueueEngine extends EventEmitter {
         await db.update(inboundCallLogs)
           .set({ status: "queued", assignedAgentId: null })
           .where(eq(inboundCallLogs.id, call.id));
-        console.log(`[QueueEngine] Requeued call ${call.id} after originate failure`);
+        console.log(`[QueueEngine] Requeued call ${call.id} after originate failure, will retry after cooldown`);
       }
+
+      this.updateAgentStatus(agent.userId, "available", null);
     }
   }
 
@@ -1780,22 +1794,25 @@ export class QueueEngine extends EventEmitter {
     if (pending) {
       console.log(`[QueueEngine] Agent channel ${channelId} destroyed before answer (agent rejected/unavailable)`);
       this.pendingAgentCalls.delete(channelId);
-      this.updateAgentStatus(pending.agentId, "available", null);
       const assignedCall = this.assignedCalls.get(pending.callerChannelId);
       const originalEnteredAt = assignedCall?.call.enteredAt || pending.enteredAt;
+      const prevFailures = assignedCall?.call.originateFailures || 0;
       this.assignedCalls.delete(pending.callerChannelId);
+
+      this.agentOriginateCooldown.set(pending.agentId, Date.now() + 5000);
 
       const totalWait = (Date.now() - originalEnteredAt.getTime()) / 1000;
       const [queueData] = await db.select().from(inboundQueues).where(eq(inboundQueues.id, pending.queueId)).limit(1);
       const maxWait = queueData?.maxWaitTime || 0;
       console.log(`[QueueEngine] Agent channel destroyed: call=${pending.callId}, totalWait=${Math.floor(totalWait)}s, maxWaitTime=${maxWait}s`);
 
-      if (maxWait > 0 && totalWait > maxWait) {
+      if (maxWait > 0 && totalWait >= maxWait - 2) {
         if (queueData) {
           await this.fireOverflowForCall(pending.callerChannelId, pending.callId, queueData, pending.callerNumber, pending.callerName || "", totalWait, pending.agentId);
         } else {
           try { await this.ariClient.hangupChannel(pending.callerChannelId, "normal"); } catch {}
         }
+        this.updateAgentStatus(pending.agentId, "available", null);
         return;
       }
 
@@ -1808,10 +1825,12 @@ export class QueueEngine extends EventEmitter {
         customerId: pending.customerId,
         enteredAt: originalEnteredAt,
         position: this.getQueueSize(pending.queueId) + 1,
+        originateFailures: prevFailures,
       };
       this.waitingCalls.set(pending.callerChannelId, call);
       this.recalculatePositions(pending.queueId);
-      this.startMohForChannel(pending.callerChannelId, pending.queueId);
+      await this.startMohForChannel(pending.callerChannelId, pending.queueId);
+      this.updateAgentStatus(pending.agentId, "available", null);
       return;
     }
 
