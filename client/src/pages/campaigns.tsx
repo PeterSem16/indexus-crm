@@ -1646,6 +1646,10 @@ function InboundSubTabs() {
             <Voicemail className="h-4 w-4" />
             Voicemails
           </TabsTrigger>
+          <TabsTrigger value="virtual-agent" className="gap-2" data-testid="tab-inbound-virtual-agent">
+            <Bot className="h-4 w-4" />
+            Virtuálny agent
+          </TabsTrigger>
         </TabsList>
       </div>
       <TabsContent value="did-routes" className="flex-1 overflow-auto mt-0">
@@ -1659,6 +1663,9 @@ function InboundSubTabs() {
       </TabsContent>
       <TabsContent value="voicemails" className="flex-1 overflow-auto p-6 mt-0">
         <VoicemailsTab />
+      </TabsContent>
+      <TabsContent value="virtual-agent" className="flex-1 overflow-auto p-6 mt-0">
+        <VirtualAgentTab />
       </TabsContent>
     </Tabs>
   );
@@ -2067,10 +2074,6 @@ export default function CampaignsPage() {
               <Mic className="h-4 w-4" />
               IVR Audio
             </TabsTrigger>
-            <TabsTrigger value="virtual-agent" className="gap-2" data-testid="tab-virtual-agent">
-              <Bot className="h-4 w-4" />
-              Virtuálny agent
-            </TabsTrigger>
             <TabsTrigger value="inbound-reports" className="gap-2" data-testid="tab-inbound-reports">
               <BarChart3 className="h-4 w-4" />
               Inbound Reporty
@@ -2152,10 +2155,6 @@ export default function CampaignsPage() {
 
         <TabsContent value="ivr-messages" className="flex-1 overflow-auto p-6 mt-0">
           <IvrMessagesTab />
-        </TabsContent>
-
-        <TabsContent value="virtual-agent" className="flex-1 overflow-auto p-6 mt-0">
-          <VirtualAgentTab />
         </TabsContent>
 
         <TabsContent value="inbound-reports" className="flex-1 overflow-auto p-6 mt-0">

@@ -2,7 +2,7 @@ import OpenAI from "openai";
 import * as fs from "fs";
 import * as path from "path";
 import { db } from "../db";
-import { virtualAgentConfigs, virtualAgentConversations, customers, communicationMessages, callLogs, users } from "@shared/schema";
+import { virtualAgentConfigs, virtualAgentConversations, customers, communicationMessages, callLogs, users, inboundQueues, ivrMessages } from "@shared/schema";
 import { eq, or, ilike, desc, and, sql } from "drizzle-orm";
 import type { AriClient, AriEvent } from "./ari-client";
 
@@ -45,6 +45,8 @@ export class VirtualAgentEngine {
   private activeSessions: Map<string, VirtualAgentSession> = new Map();
   private cachedFarewells: Map<string, string> = new Map();
   private cachedGreetings: Map<string, string> = new Map();
+  private currentTtsModel: string = "tts-1";
+  private queueMohSoundName: string | null = null;
 
   constructor(ariClient: AriClient) {
     this.ariClient = ariClient;
@@ -268,6 +270,22 @@ export class VirtualAgentEngine {
     config: typeof virtualAgentConfigs.$inferSelect
   ): Promise<void> {
     console.log(`[VirtualAgent] Starting conversation with ${session.callerNumber} (config: ${config.name})`);
+    this.currentTtsModel = (config as any).ttsModel || "tts-1";
+
+    if (session.queueId) {
+      try {
+        const [queue] = await db.select({ holdMusicId: inboundQueues.holdMusicId })
+          .from(inboundQueues).where(eq(inboundQueues.id, session.queueId)).limit(1);
+        if (queue?.holdMusicId) {
+          const [holdMsg] = await db.select({ name: ivrMessages.name })
+            .from(ivrMessages).where(eq(ivrMessages.id, queue.holdMusicId)).limit(1);
+          if (holdMsg) {
+            this.queueMohSoundName = holdMsg.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+            console.log(`[VirtualAgent] Using queue MOH: custom/${this.queueMohSoundName}`);
+          }
+        }
+      } catch {}
+    }
 
     try {
       const chInfo = await this.ariClient.getChannel(session.channelId);
@@ -358,13 +376,25 @@ export class VirtualAgentEngine {
 
   private async playThinkingTone(channelId: string): Promise<void> {
     try {
-      await this.ariClient.startMoh(channelId, "default");
+      if (this.queueMohSoundName) {
+        const pbId = `va-moh-${channelId}-${Date.now()}`;
+        this.mohPlaybackId = pbId;
+        await this.ariClient.playMedia(channelId, `sound:custom/${this.queueMohSoundName}`, pbId);
+      } else {
+        await this.ariClient.startMoh(channelId, "default");
+      }
     } catch {}
   }
 
+  private mohPlaybackId: string | null = null;
+
   private async stopThinkingTone(channelId: string): Promise<void> {
     try {
-      await this.ariClient.stopMoh(channelId);
+      if (this.mohPlaybackId) {
+        try { await this.ariClient.stopPlayback(this.mohPlaybackId); } catch {}
+        this.mohPlaybackId = null;
+      }
+      try { await this.ariClient.stopMoh(channelId); } catch {}
     } catch {}
   }
 
@@ -523,11 +553,15 @@ export class VirtualAgentEngine {
       }
       messages.push({ role: "user", content: userSpeech });
 
+      const gptModel = (config as any).gptModel || "gpt-4o-mini";
+      const gptTemp = parseFloat((config as any).gptTemperature as any) || 0.5;
+      const gptMaxTokens = (config as any).gptMaxTokens || 100;
+
       const response = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
+        model: gptModel,
         messages,
-        max_tokens: 100,
-        temperature: 0.5,
+        max_tokens: gptMaxTokens,
+        temperature: gptTemp,
       });
 
       return response.choices[0]?.message?.content || null;
@@ -548,7 +582,7 @@ export class VirtualAgentEngine {
       const ttsVoice = (voice || "nova") as "nova" | "shimmer" | "alloy" | "coral" | "sage" | "onyx" | "echo" | "fable" | "ash";
       const ttsSpeed = Math.min(Math.max(speed || 1.05, 0.25), 4.0);
       const mp3Response = await openai.audio.speech.create({
-        model: "tts-1",
+        model: (this.currentTtsModel as any) || "tts-1",
         voice: ttsVoice,
         input: text,
         response_format: "pcm",

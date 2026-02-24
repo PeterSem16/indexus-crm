@@ -10,23 +10,24 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
+import { Slider } from "@/components/ui/slider";
 import { useToast } from "@/hooks/use-toast";
-import { Bot, Plus, Pencil, Trash2, Phone, Clock, MessageSquare, AlertTriangle, CheckCircle, ChevronDown, ChevronUp, Loader2, Volume2 } from "lucide-react";
+import { Bot, Plus, Pencil, Trash2, Phone, Clock, MessageSquare, AlertTriangle, CheckCircle, ChevronDown, ChevronUp, Loader2, Volume2, Settings, Cpu, Info, Zap, Mic } from "lucide-react";
 import { format } from "date-fns";
 import type { VirtualAgentConfig, VirtualAgentConversation } from "@shared/schema";
 
 const TTS_VOICES = [
-  { value: "nova", label: "Nova (ženský)" },
-  { value: "shimmer", label: "Shimmer (ženský)" },
-  { value: "alloy", label: "Alloy (neutrálny)" },
-  { value: "coral", label: "Coral (ženský)" },
-  { value: "sage", label: "Sage (ženský)" },
-  { value: "onyx", label: "Onyx (mužský)" },
-  { value: "echo", label: "Echo (mužský)" },
-  { value: "fable", label: "Fable (mužský)" },
-  { value: "ash", label: "Ash (mužský)" },
+  { value: "nova", label: "Nova (ženský)", desc: "Priateľský a teplý ženský hlas" },
+  { value: "shimmer", label: "Shimmer (ženský)", desc: "Jemný a profesionálny ženský hlas" },
+  { value: "alloy", label: "Alloy (neutrálny)", desc: "Vyvážený neutrálny hlas" },
+  { value: "coral", label: "Coral (ženský)", desc: "Energický a jasný ženský hlas" },
+  { value: "sage", label: "Sage (ženský)", desc: "Pokojný a dôveryhodný ženský hlas" },
+  { value: "onyx", label: "Onyx (mužský)", desc: "Hlboký a autoritatívny mužský hlas" },
+  { value: "echo", label: "Echo (mužský)", desc: "Dynamický mužský hlas" },
+  { value: "fable", label: "Fable (mužský)", desc: "Rozprávačský mužský hlas" },
+  { value: "ash", label: "Ash (mužský)", desc: "Kľudný mužský hlas" },
 ];
 
 const LANGUAGES = [
@@ -39,12 +40,29 @@ const LANGUAGES = [
   { value: "it", label: "Taliančina" },
 ];
 
+const GPT_MODELS = [
+  { value: "gpt-4o-mini", label: "GPT-4o Mini", desc: "Najrýchlejší, odporúčaný pre real-time konverzáciu" },
+  { value: "gpt-4o", label: "GPT-4o", desc: "Najkvalitnejší, ale pomalší odozva" },
+  { value: "gpt-4.1-mini", label: "GPT-4.1 Mini", desc: "Nová generácia, rýchly a presný" },
+  { value: "gpt-4.1-nano", label: "GPT-4.1 Nano", desc: "Ultra-rýchly, najnižšia latencia" },
+];
+
+const TTS_MODELS = [
+  { value: "tts-1", label: "TTS-1 (štandard)", desc: "Rýchla syntéza reči, nižšia kvalita" },
+  { value: "tts-1-hd", label: "TTS-1 HD (kvalitný)", desc: "Vyššia kvalita zvuku, pomalšia syntéza" },
+];
+
+function FieldHint({ text }: { text: string }) {
+  return <p className="text-[11px] text-muted-foreground mt-1 leading-tight">{text}</p>;
+}
+
 export function VirtualAgentTab() {
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingConfig, setEditingConfig] = useState<VirtualAgentConfig | null>(null);
   const [expandedConversation, setExpandedConversation] = useState<string | null>(null);
   const [activeView, setActiveView] = useState<"configs" | "conversations">("configs");
+  const [dialogTab, setDialogTab] = useState("general");
 
   const [formData, setFormData] = useState({
     name: "",
@@ -52,10 +70,14 @@ export function VirtualAgentTab() {
     greetingText: "Dobrý deň, momentálne nie je dostupný žiadny operátor. Som virtuálny asistent, ako vám môžem pomôcť?",
     systemPrompt: "Si virtuálny asistent spoločnosti zaoberajúcej sa uchovávaním pupočníkovej krvi. Zbieraj informácie od volajúceho: meno, kontakt, dôvod volania. Buď stručný a profesionálny. Odpovedaj v slovenčine.",
     ttsVoice: "nova",
+    ttsModel: "tts-1",
+    ttsSpeed: "1.05",
+    gptModel: "gpt-4o-mini",
+    gptTemperature: "0.5",
+    gptMaxTokens: 100,
     maxTurns: 6,
     maxRecordingSeconds: 30,
-    silenceTimeoutSeconds: 3,
-    ttsSpeed: "1.05",
+    silenceTimeoutSeconds: 2,
     farewellText: "Ďakujem za informácie. Operátor vás bude kontaktovať. Dovidenia.",
     isActive: true,
   });
@@ -112,13 +134,18 @@ export function VirtualAgentTab() {
       greetingText: "Dobrý deň, momentálne nie je dostupný žiadny operátor. Som virtuálny asistent, ako vám môžem pomôcť?",
       systemPrompt: "Si virtuálny asistent spoločnosti zaoberajúcej sa uchovávaním pupočníkovej krvi. Zbieraj informácie od volajúceho: meno, kontakt, dôvod volania. Buď stručný a profesionálny. Odpovedaj v slovenčine.",
       ttsVoice: "nova",
+      ttsModel: "tts-1",
+      ttsSpeed: "1.05",
+      gptModel: "gpt-4o-mini",
+      gptTemperature: "0.5",
+      gptMaxTokens: 100,
       maxTurns: 6,
       maxRecordingSeconds: 30,
-      silenceTimeoutSeconds: 3,
-      ttsSpeed: "1.05",
+      silenceTimeoutSeconds: 2,
       farewellText: "Ďakujem za informácie. Operátor vás bude kontaktovať. Dovidenia.",
       isActive: true,
     });
+    setDialogTab("general");
   };
 
   const openEdit = (config: VirtualAgentConfig) => {
@@ -129,13 +156,18 @@ export function VirtualAgentTab() {
       greetingText: config.greetingText,
       systemPrompt: config.systemPrompt,
       ttsVoice: config.ttsVoice,
+      ttsModel: (config as any).ttsModel || "tts-1",
+      ttsSpeed: (config as any).ttsSpeed || "1.05",
+      gptModel: (config as any).gptModel || "gpt-4o-mini",
+      gptTemperature: (config as any).gptTemperature || "0.5",
+      gptMaxTokens: (config as any).gptMaxTokens || 100,
       maxTurns: config.maxTurns,
       maxRecordingSeconds: config.maxRecordingSeconds,
       silenceTimeoutSeconds: config.silenceTimeoutSeconds,
-      ttsSpeed: (config as any).ttsSpeed || "1.05",
       farewellText: config.farewellText,
       isActive: config.isActive,
     });
+    setDialogTab("general");
     setIsDialogOpen(true);
   };
 
@@ -220,6 +252,10 @@ export function VirtualAgentTab() {
                   </Badge>
                   <Badge variant="outline">
                     {LANGUAGES.find(l => l.value === config.language)?.label || config.language}
+                  </Badge>
+                  <Badge variant="outline" className="gap-1">
+                    <Cpu className="h-3 w-3" />
+                    {(config as any).gptModel || "gpt-4o-mini"}
                   </Badge>
                   <Badge variant="outline">
                     Max {config.maxTurns} výmen
@@ -320,7 +356,7 @@ export function VirtualAgentTab() {
                               : "bg-blue-100 dark:bg-blue-900 text-foreground"
                           }`}>
                             <span className="font-semibold text-[10px] block mb-0.5">
-                              {isAssistant ? "🤖 Asistent" : "👤 Volajúci"}
+                              {isAssistant ? "Asistent" : "Volajúci"}
                             </span>
                             {line.replace(/^(Asistent|Volajúci):\s*/, "")}
                           </div>
@@ -346,7 +382,7 @@ export function VirtualAgentTab() {
         setIsDialogOpen(open);
         if (!open) { setEditingConfig(null); resetForm(); }
       }}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Bot className="h-5 w-5" />
@@ -357,148 +393,307 @@ export function VirtualAgentTab() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label>Názov</Label>
-                <Input
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="Napr. Hlavný virtuálny agent"
-                  data-testid="input-va-name"
-                />
+          <Tabs value={dialogTab} onValueChange={setDialogTab}>
+            <TabsList className="w-full grid grid-cols-3">
+              <TabsTrigger value="general" className="gap-1.5" data-testid="tab-va-general">
+                <Settings className="h-3.5 w-3.5" />
+                Základné
+              </TabsTrigger>
+              <TabsTrigger value="voice" className="gap-1.5" data-testid="tab-va-voice">
+                <Volume2 className="h-3.5 w-3.5" />
+                Hlas a reč
+              </TabsTrigger>
+              <TabsTrigger value="ai" className="gap-1.5" data-testid="tab-va-ai">
+                <Cpu className="h-3.5 w-3.5" />
+                AI Model
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="general" className="space-y-4 mt-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label>Názov konfigurácie</Label>
+                  <Input
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    placeholder="Napr. Hlavný virtuálny agent"
+                    data-testid="input-va-name"
+                  />
+                  <FieldHint text="Interný identifikátor pre rozlíšenie viacerých agentov." />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Jazyk konverzácie</Label>
+                  <Select value={formData.language} onValueChange={(v) => setFormData({ ...formData, language: v })}>
+                    <SelectTrigger data-testid="select-va-language">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {LANGUAGES.map(l => (
+                        <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FieldHint text="Jazyk pre rozpoznávanie reči (Whisper) aj generovanie odpovedí." />
+                </div>
               </div>
+
               <div className="space-y-1.5">
-                <Label>Jazyk</Label>
-                <Select value={formData.language} onValueChange={(v) => setFormData({ ...formData, language: v })}>
-                  <SelectTrigger data-testid="select-va-language">
+                <Label>Úvodný pozdrav</Label>
+                <Textarea
+                  value={formData.greetingText}
+                  onChange={(e) => setFormData({ ...formData, greetingText: e.target.value })}
+                  rows={3}
+                  data-testid="input-va-greeting"
+                />
+                <FieldHint text="Prvá veta, ktorú agent povie volajúcemu ihneď po zdvihnutí. Vytvára prvý dojem — buďte struční a prívetiví." />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Systémové inštrukcie (prompt)</Label>
+                <Textarea
+                  value={formData.systemPrompt}
+                  onChange={(e) => setFormData({ ...formData, systemPrompt: e.target.value })}
+                  rows={5}
+                  data-testid="input-va-prompt"
+                />
+                <FieldHint text="Hlavné inštrukcie pre AI. Definujú osobnosť, ciele a pravidlá agenta. Čím konkrétnejšie, tým lepšie odpovede. Odporúčanie: uveďte čo má zbierať (meno, kontakt, dôvod hovoru) a ako sa má správať." />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Rozlúčkový text</Label>
+                <Textarea
+                  value={formData.farewellText}
+                  onChange={(e) => setFormData({ ...formData, farewellText: e.target.value })}
+                  rows={2}
+                  data-testid="input-va-farewell"
+                />
+                <FieldHint text="Posledná veta pred ukončením hovoru. Prehráva sa po vyčerpaní max. počtu výmen alebo keď volajúci nemá ďalšie otázky." />
+              </div>
+
+              <Separator />
+
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-1.5">
+                  <Label>Max. počet výmen</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={20}
+                    value={formData.maxTurns}
+                    onChange={(e) => setFormData({ ...formData, maxTurns: parseInt(e.target.value) || 6 })}
+                    data-testid="input-va-max-turns"
+                  />
+                  <FieldHint text="Koľko otázka-odpoveď cyklov prebehne, než agent automaticky ukončí hovor. Typicky 4-8." />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Max. dĺžka nahrávky (s)</Label>
+                  <Input
+                    type="number"
+                    min={5}
+                    max={120}
+                    value={formData.maxRecordingSeconds}
+                    onChange={(e) => setFormData({ ...formData, maxRecordingSeconds: parseInt(e.target.value) || 30 })}
+                    data-testid="input-va-max-rec"
+                  />
+                  <FieldHint text="Maximálna dĺžka jedného vstupu volajúceho v sekundách. Pre bežné odpovede stačí 15-30s." />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Detekcia ticha (s)</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={10}
+                    step={0.5}
+                    value={formData.silenceTimeoutSeconds}
+                    onChange={(e) => setFormData({ ...formData, silenceTimeoutSeconds: parseFloat(e.target.value) || 2 })}
+                    data-testid="input-va-silence"
+                  />
+                  <FieldHint text="Koľko sekúnd ticha ukončí nahrávanie vstupu. Nižšia hodnota = rýchlejšia reakcia, ale môže prerušiť pomalších hovorcov. Odporúčané: 2s." />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 p-3 rounded-lg border bg-muted/30">
+                <Switch
+                  checked={formData.isActive}
+                  onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })}
+                  data-testid="switch-va-active"
+                />
+                <div>
+                  <Label className="cursor-pointer">Aktívny agent</Label>
+                  <p className="text-[11px] text-muted-foreground">Ak je vypnutý, agent nebude prijímať hovory aj keď je priradený ku queue.</p>
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="voice" className="space-y-4 mt-4">
+              <div className="p-3 rounded-lg border bg-blue-50/50 dark:bg-blue-950/20">
+                <div className="flex items-start gap-2">
+                  <Info className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
+                  <p className="text-xs text-blue-700 dark:text-blue-300">
+                    Nastavenia hlasu ovplyvňujú ako znie AI agent. Počas čakania na odpoveď sa prehráva hudba z priradenej Inbound Queue (MOH). Rýchlejší TTS model = kratšia odozva.
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Hlas (OpenAI TTS)</Label>
+                <Select value={formData.ttsVoice} onValueChange={(v) => setFormData({ ...formData, ttsVoice: v })}>
+                  <SelectTrigger data-testid="select-va-voice">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {LANGUAGES.map(l => (
-                      <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>
+                    {TTS_VOICES.map(v => (
+                      <SelectItem key={v.value} value={v.value}>
+                        <div>
+                          <span>{v.label}</span>
+                          <span className="text-[10px] text-muted-foreground ml-2">— {v.desc}</span>
+                        </div>
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                <FieldHint text="Vyberte hlas pre syntézu reči. Každý hlas má iný charakter a tón." />
               </div>
-            </div>
 
-            <div className="space-y-1.5">
-              <Label>Hlas (TTS)</Label>
-              <Select value={formData.ttsVoice} onValueChange={(v) => setFormData({ ...formData, ttsVoice: v })}>
-                <SelectTrigger data-testid="select-va-voice">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {TTS_VOICES.map(v => (
-                    <SelectItem key={v.value} value={v.value}>{v.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label>Úvodný pozdrav</Label>
-              <Textarea
-                value={formData.greetingText}
-                onChange={(e) => setFormData({ ...formData, greetingText: e.target.value })}
-                rows={3}
-                data-testid="input-va-greeting"
-              />
-              <p className="text-xs text-muted-foreground">Text, ktorý agent povie na začiatku hovoru</p>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label>Systémové inštrukcie (prompt)</Label>
-              <Textarea
-                value={formData.systemPrompt}
-                onChange={(e) => setFormData({ ...formData, systemPrompt: e.target.value })}
-                rows={4}
-                data-testid="input-va-prompt"
-              />
-              <p className="text-xs text-muted-foreground">Inštrukcie pre AI, ktoré definujú správanie agenta</p>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label>Rozlúčkový text</Label>
-              <Textarea
-                value={formData.farewellText}
-                onChange={(e) => setFormData({ ...formData, farewellText: e.target.value })}
-                rows={2}
-                data-testid="input-va-farewell"
-              />
-            </div>
-
-            <Separator />
-
-            <div className="grid grid-cols-3 gap-4">
               <div className="space-y-1.5">
-                <Label>Max výmen</Label>
-                <Input
-                  type="number"
-                  min={1}
-                  max={20}
-                  value={formData.maxTurns}
-                  onChange={(e) => setFormData({ ...formData, maxTurns: parseInt(e.target.value) || 6 })}
-                  data-testid="input-va-max-turns"
-                />
+                <Label>TTS Model</Label>
+                <Select value={formData.ttsModel} onValueChange={(v) => setFormData({ ...formData, ttsModel: v })}>
+                  <SelectTrigger data-testid="select-va-tts-model">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TTS_MODELS.map(m => (
+                      <SelectItem key={m.value} value={m.value}>
+                        <div>
+                          <span>{m.label}</span>
+                          <span className="text-[10px] text-muted-foreground ml-2">— {m.desc}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FieldHint text="TTS-1 je rýchlejší a odporúčaný pre real-time konverzáciu. TTS-1 HD má lepšiu kvalitu zvuku, ale pridáva latenciu." />
               </div>
-              <div className="space-y-1.5">
-                <Label>Max nahrávania (s)</Label>
-                <Input
-                  type="number"
-                  min={5}
-                  max={120}
-                  value={formData.maxRecordingSeconds}
-                  onChange={(e) => setFormData({ ...formData, maxRecordingSeconds: parseInt(e.target.value) || 30 })}
-                  data-testid="input-va-max-rec"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Ticho timeout (s)</Label>
-                <Input
-                  type="number"
-                  min={1}
-                  max={10}
-                  value={formData.silenceTimeoutSeconds}
-                  onChange={(e) => setFormData({ ...formData, silenceTimeoutSeconds: parseInt(e.target.value) || 3 })}
-                  data-testid="input-va-silence"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Rýchlosť reči</Label>
-                <Input
-                  type="number"
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label>Rýchlosť reči: {formData.ttsSpeed}x</Label>
+                  <Badge variant="outline" className="text-xs">
+                    {parseFloat(formData.ttsSpeed) < 0.9 ? "Pomalá" : parseFloat(formData.ttsSpeed) > 1.2 ? "Rýchla" : "Normálna"}
+                  </Badge>
+                </div>
+                <Slider
+                  value={[parseFloat(formData.ttsSpeed) || 1.05]}
+                  onValueChange={([v]) => setFormData({ ...formData, ttsSpeed: v.toFixed(2) })}
                   min={0.5}
                   max={2.0}
                   step={0.05}
-                  value={formData.ttsSpeed}
-                  onChange={(e) => setFormData({ ...formData, ttsSpeed: e.target.value || "1.05" })}
-                  data-testid="input-va-tts-speed"
+                  data-testid="slider-va-tts-speed"
                 />
+                <div className="flex justify-between text-[10px] text-muted-foreground">
+                  <span>0.5x (pomalá)</span>
+                  <span>1.0x (normálna)</span>
+                  <span>2.0x (rýchla)</span>
+                </div>
+                <FieldHint text="Rýchlosť prehrávania reči. 1.0 = prirodzená rýchlosť. Zvýšenie na 1.1-1.2 môže zrýchliť dojem odozvy bez straty zrozumiteľnosti." />
               </div>
-            </div>
+            </TabsContent>
 
-            <div className="flex items-center gap-2">
-              <Switch
-                checked={formData.isActive}
-                onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })}
-                data-testid="switch-va-active"
-              />
-              <Label>Aktívny</Label>
-            </div>
+            <TabsContent value="ai" className="space-y-4 mt-4">
+              <div className="p-3 rounded-lg border bg-amber-50/50 dark:bg-amber-950/20">
+                <div className="flex items-start gap-2">
+                  <Zap className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
+                  <p className="text-xs text-amber-700 dark:text-amber-300">
+                    Tieto nastavenia priamo ovplyvňujú rýchlosť a kvalitu odpovedí AI. Pre najnižšiu latenciu použite GPT-4.1 Nano/Mini s nízkymi max tokenmi. Pre komplexnejšie konverzácie GPT-4o.
+                  </p>
+                </div>
+              </div>
 
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Zrušiť</Button>
-              <Button
-                onClick={handleSubmit}
-                disabled={createMutation.isPending || updateMutation.isPending}
-                data-testid="btn-save-va-config"
-              >
-                {(createMutation.isPending || updateMutation.isPending) && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                {editingConfig ? "Uložiť zmeny" : "Vytvoriť"}
-              </Button>
-            </div>
+              <div className="space-y-1.5">
+                <Label>AI Model (GPT)</Label>
+                <Select value={formData.gptModel} onValueChange={(v) => setFormData({ ...formData, gptModel: v })}>
+                  <SelectTrigger data-testid="select-va-gpt-model">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {GPT_MODELS.map(m => (
+                      <SelectItem key={m.value} value={m.value}>
+                        <div className="flex items-center gap-2">
+                          <span>{m.label}</span>
+                          <span className="text-[10px] text-muted-foreground">— {m.desc}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FieldHint text="Model pre generovanie odpovedí. GPT-4o Mini je najlepší pomer rýchlosť/kvalita. GPT-4.1 Nano má najnižšiu latenciu." />
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label>Kreativita (temperature): {formData.gptTemperature}</Label>
+                  <Badge variant="outline" className="text-xs">
+                    {parseFloat(formData.gptTemperature) < 0.3 ? "Konzistentná" : parseFloat(formData.gptTemperature) > 0.7 ? "Kreatívna" : "Vyvážená"}
+                  </Badge>
+                </div>
+                <Slider
+                  value={[parseFloat(formData.gptTemperature) || 0.5]}
+                  onValueChange={([v]) => setFormData({ ...formData, gptTemperature: v.toFixed(1) })}
+                  min={0}
+                  max={1.0}
+                  step={0.1}
+                  data-testid="slider-va-temperature"
+                />
+                <div className="flex justify-between text-[10px] text-muted-foreground">
+                  <span>0.0 (presné)</span>
+                  <span>0.5 (vyvážené)</span>
+                  <span>1.0 (kreatívne)</span>
+                </div>
+                <FieldHint text="Nízka hodnota = konzistentné a predvídateľné odpovede. Vysoká hodnota = rozmanitejšie, ale menej predvídateľné. Pre zákaznícky servis odporúčame 0.3-0.5." />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Max. dĺžka odpovede (tokeny)</Label>
+                <Input
+                  type="number"
+                  min={30}
+                  max={500}
+                  value={formData.gptMaxTokens}
+                  onChange={(e) => setFormData({ ...formData, gptMaxTokens: parseInt(e.target.value) || 100 })}
+                  data-testid="input-va-max-tokens"
+                />
+                <FieldHint text="Maximálny počet tokenov (slov) v jednej odpovedi. Nižšia hodnota = kratšie a rýchlejšie odpovede. 50-80 pre stručné odpovede, 100-150 pre podrobnejšie. Priamo ovplyvňuje latenciu!" />
+              </div>
+
+              <div className="p-3 rounded-lg border bg-muted/30 space-y-2">
+                <p className="text-xs font-medium flex items-center gap-1.5">
+                  <Zap className="h-3.5 w-3.5" />
+                  Odporúčané nastavenia pre najrýchlejšiu odozvu:
+                </p>
+                <ul className="text-[11px] text-muted-foreground space-y-0.5 ml-5 list-disc">
+                  <li>Model: GPT-4o Mini alebo GPT-4.1 Nano</li>
+                  <li>Max tokeny: 60-80</li>
+                  <li>Temperature: 0.3-0.5</li>
+                  <li>TTS Model: TTS-1 (štandard)</li>
+                  <li>Rýchlosť reči: 1.05-1.15x</li>
+                  <li>Detekcia ticha: 2s</li>
+                </ul>
+              </div>
+            </TabsContent>
+          </Tabs>
+
+          <Separator />
+
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Zrušiť</Button>
+            <Button
+              onClick={handleSubmit}
+              disabled={createMutation.isPending || updateMutation.isPending}
+              data-testid="btn-save-va-config"
+            >
+              {(createMutation.isPending || updateMutation.isPending) && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {editingConfig ? "Uložiť zmeny" : "Vytvoriť"}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
