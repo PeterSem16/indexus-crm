@@ -18,6 +18,54 @@ async function getAriSettings() {
   return settings;
 }
 
+let pooledConn: Client | null = null;
+let pooledSftp: any = null;
+let pooledSettings: { host: string; sshPort: number; sshUsername: string; sshPassword: string } | null = null;
+let poolIdleTimer: ReturnType<typeof setTimeout> | null = null;
+const POOL_IDLE_TIMEOUT = 60000;
+
+function resetPoolTimer() {
+  if (poolIdleTimer) clearTimeout(poolIdleTimer);
+  poolIdleTimer = setTimeout(() => {
+    if (pooledConn) {
+      console.log(`[AudioSync] Closing idle pooled SSH connection`);
+      try { pooledConn.end(); } catch {}
+      pooledConn = null;
+      pooledSftp = null;
+      pooledSettings = null;
+    }
+  }, POOL_IDLE_TIMEOUT);
+}
+
+async function getPooledSftp(settings: { host: string; sshPort: number; sshUsername: string; sshPassword: string }): Promise<{ conn: Client; sftp: any }> {
+  if (pooledConn && pooledSftp && pooledSettings &&
+      pooledSettings.host === settings.host && pooledSettings.sshPort === settings.sshPort) {
+    resetPoolTimer();
+    return { conn: pooledConn, sftp: pooledSftp };
+  }
+
+  if (pooledConn) {
+    try { pooledConn.end(); } catch {}
+    pooledConn = null;
+    pooledSftp = null;
+  }
+
+  const t0 = Date.now();
+  const conn = await connectSSH(settings);
+  const sftp = await getSFTP(conn);
+  console.log(`[AudioSync] Pooled SSH connection established in ${Date.now() - t0}ms`);
+
+  conn.on("end", () => { pooledConn = null; pooledSftp = null; pooledSettings = null; });
+  conn.on("close", () => { pooledConn = null; pooledSftp = null; pooledSettings = null; });
+  conn.on("error", () => { pooledConn = null; pooledSftp = null; pooledSettings = null; });
+
+  pooledConn = conn;
+  pooledSftp = sftp;
+  pooledSettings = settings;
+  resetPoolTimer();
+  return { conn, sftp };
+}
+
 function connectSSH(settings: { host: string; sshPort: number; sshUsername: string; sshPassword: string }): Promise<Client> {
   return new Promise((resolve, reject) => {
     const conn = new Client();
@@ -34,7 +82,7 @@ function connectSSH(settings: { host: string; sshPort: number; sshUsername: stri
       port: settings.sshPort,
       username: settings.sshUsername,
       password: settings.sshPassword,
-      readyTimeout: 15000,
+      readyTimeout: 10000,
       tryKeyboard: true,
     });
   });
@@ -311,6 +359,22 @@ export async function syncSingleAudio(messageId: string): Promise<SyncResult> {
   return syncAudioToAsterisk(messageId);
 }
 
+export async function prewarmSftpPool(): Promise<void> {
+  try {
+    const settings = await getAriSettings();
+    if (settings?.host && settings?.sshUsername && settings?.sshPassword) {
+      await getPooledSftp({
+        host: settings.host,
+        sshPort: settings.sshPort || 22,
+        sshUsername: settings.sshUsername,
+        sshPassword: settings.sshPassword,
+      });
+    }
+  } catch (err) {
+    console.warn(`[AudioSync] SFTP pool prewarm failed:`, err instanceof Error ? err.message : err);
+  }
+}
+
 export async function syncVoicemailGreetingToAsterisk(localFilePath: string, remoteSoundName: string): Promise<{ success: boolean; error?: string }> {
   try {
     const settings = await getAriSettings();
@@ -323,7 +387,8 @@ export async function syncVoicemailGreetingToAsterisk(localFilePath: string, rem
       return { success: false, error: `Local file not found: ${localFilePath}` };
     }
 
-    const conn = await connectSSH({
+    const t0 = Date.now();
+    const { sftp } = await getPooledSftp({
       host: settings.host,
       sshPort: settings.sshPort,
       sshUsername: settings.sshUsername,
@@ -331,7 +396,6 @@ export async function syncVoicemailGreetingToAsterisk(localFilePath: string, rem
     });
 
     const remoteSoundsPath = settings.asteriskSoundsPath || "/var/lib/asterisk/sounds/custom";
-    const sftp = await getSFTP(conn);
     await sftpMkdir(sftp, remoteSoundsPath);
 
     const ext = path.extname(absPath).toLowerCase();
@@ -351,9 +415,8 @@ export async function syncVoicemailGreetingToAsterisk(localFilePath: string, rem
 
     const remotePath = `${remoteSoundsPath}/${remoteSoundName}${remoteExt}`;
     await sftpUpload(sftp, uploadPath, remotePath);
-    console.log(`[AudioSync] Voicemail greeting synced: ${remoteSoundName} → ${remotePath}`);
+    console.log(`[AudioSync] TTS uploaded via pooled SFTP (${Date.now() - t0}ms): ${remoteSoundName} → ${remotePath}`);
 
-    conn.end();
     for (const tmp of tempFiles) {
       try { fs.unlinkSync(tmp); } catch {}
     }
@@ -362,6 +425,9 @@ export async function syncVoicemailGreetingToAsterisk(localFilePath: string, rem
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : String(err);
     console.error(`[AudioSync] Voicemail greeting sync failed: ${errMsg}`);
+    pooledConn = null;
+    pooledSftp = null;
+    pooledSettings = null;
     return { success: false, error: errMsg };
   }
 }

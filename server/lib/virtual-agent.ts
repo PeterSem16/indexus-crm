@@ -118,6 +118,8 @@ export class VirtualAgentEngine {
     this.ariClient.on("stasis-end", stasisEndHandler);
     this.ariClient.on("channel-destroyed", channelDestroyedHandler);
 
+    this.prewarmSftpConnection();
+
     try {
       await this.runConversationLoop(session, config);
     } catch (err) {
@@ -316,19 +318,22 @@ export class VirtualAgentEngine {
 
       this.playThinkingTone(session.channelId);
 
-      const t0 = Date.now();
+      const turnStart = Date.now();
       const aiResponse = await this.generateResponse(session, config, userSpeech);
       if (session.channelGone || !aiResponse) break;
+      const gptTime = Date.now() - turnStart;
 
       session.turns.push({ role: "assistant", content: aiResponse });
       session.turnCount++;
 
-      console.log(`[VirtualAgent] Turn ${session.turnCount}: AI responds (${Date.now() - t0}ms): "${aiResponse.substring(0, 100)}..."`);
-
+      const ttsStart = Date.now();
       const responseAudio = await this.generateTTS(aiResponse, config.ttsVoice, session.channelId, configSpeed);
       if (!responseAudio || session.channelGone) break;
+      const ttsTime = Date.now() - ttsStart;
 
-      try { await this.ariClient.stopPlayback(`va-think-${session.channelId}`); } catch {}
+      console.log(`[VirtualAgent] Turn ${session.turnCount}: GPT=${gptTime}ms, TTS+upload=${ttsTime}ms, total=${Date.now() - turnStart}ms: "${aiResponse.substring(0, 80)}"`);
+
+      await this.stopThinkingTone(session.channelId);
 
       await this.playAudioFile(session.channelId, responseAudio);
       if (session.channelGone) break;
@@ -344,9 +349,22 @@ export class VirtualAgentEngine {
     }
   }
 
+  private async prewarmSftpConnection(): Promise<void> {
+    try {
+      const { prewarmSftpPool } = await import("./asterisk-audio-sync");
+      await prewarmSftpPool();
+    } catch {}
+  }
+
   private async playThinkingTone(channelId: string): Promise<void> {
     try {
-      await this.ariClient.playMedia(channelId, "tone:ring", `va-think-${channelId}`);
+      await this.ariClient.startMoh(channelId, "default");
+    } catch {}
+  }
+
+  private async stopThinkingTone(channelId: string): Promise<void> {
+    try {
+      await this.ariClient.stopMoh(channelId);
     } catch {}
   }
 
@@ -404,8 +422,7 @@ export class VirtualAgentEngine {
 
       if (session.channelGone) return null;
 
-      await new Promise(r => setTimeout(r, 300));
-
+      const dlStart = Date.now();
       let audioBuffer: Buffer | null = null;
 
       try {
@@ -429,10 +446,12 @@ export class VirtualAgentEngine {
 
       if (!audioBuffer) {
         try {
-          await new Promise(r => setTimeout(r, 500));
+          await new Promise(r => setTimeout(r, 200));
           audioBuffer = await this.ariClient.downloadStoredRecording(recordingName);
         } catch {}
       }
+
+      console.log(`[VirtualAgent] Recording download: ${Date.now() - dlStart}ms, size: ${audioBuffer?.length || 0}`);
 
       if (!audioBuffer || audioBuffer.length < 1000) {
         console.log(`[VirtualAgent] Recording too small or failed, possibly silence`);
@@ -445,12 +464,14 @@ export class VirtualAgentEngine {
       fs.writeFileSync(tmpPath, audioBuffer);
 
       try {
+        const sttStart = Date.now();
         const transcription = await openai.audio.transcriptions.create({
           file: fs.createReadStream(tmpPath),
           model: "whisper-1",
           language: config.language === "sk" ? "sk" : config.language === "cs" ? "cs" : config.language === "hu" ? "hu" : "en",
           response_format: "text",
         });
+        console.log(`[VirtualAgent] Whisper STT: ${Date.now() - sttStart}ms`);
 
         const text = typeof transcription === "string" ? transcription : (transcription as any).text || "";
         try { fs.unlinkSync(tmpPath); } catch {}
@@ -530,36 +551,46 @@ export class VirtualAgentEngine {
         model: "tts-1",
         voice: ttsVoice,
         input: text,
-        response_format: "mp3",
+        response_format: "pcm",
         speed: ttsSpeed,
       });
+      const ttsApiTime = Date.now() - t0;
 
       const { DATA_ROOT } = await import("../config/storage-paths");
       const ttsDir = path.join(DATA_ROOT, "virtual-agent-tts");
       if (!fs.existsSync(ttsDir)) fs.mkdirSync(ttsDir, { recursive: true });
 
       const fileName = `va-tts-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-      const mp3Path = path.join(ttsDir, `${fileName}.mp3`);
+      const rawPath = path.join(ttsDir, `${fileName}.raw`);
       const wavPath = path.join(ttsDir, `${fileName}.wav`);
 
       const arrayBuffer = await mp3Response.arrayBuffer();
-      fs.writeFileSync(mp3Path, Buffer.from(arrayBuffer));
+      fs.writeFileSync(rawPath, Buffer.from(arrayBuffer));
 
       const { execSync } = await import("child_process");
       try {
-        execSync(`ffmpeg -i "${mp3Path}" -ar 8000 -ac 1 -sample_fmt s16 -acodec pcm_s16le "${wavPath}" -y 2>/dev/null`, { timeout: 10000 });
+        execSync(`ffmpeg -f s16le -ar 24000 -ac 1 -i "${rawPath}" -ar 8000 -ac 1 -acodec pcm_s16le "${wavPath}" -y 2>/dev/null`, { timeout: 5000 });
       } catch {
-        console.warn(`[VirtualAgent] FFmpeg conversion failed, trying direct upload`);
-        fs.copyFileSync(mp3Path, wavPath);
+        try {
+          execSync(`ffmpeg -f s16le -ar 24000 -ac 1 -i "${rawPath}" -ar 8000 -ac 1 "${wavPath}" -y 2>/dev/null`, { timeout: 5000 });
+        } catch {
+          console.warn(`[VirtualAgent] FFmpeg conversion failed`);
+          try { fs.unlinkSync(rawPath); } catch {}
+          return null;
+        }
       }
 
-      try { fs.unlinkSync(mp3Path); } catch {}
+      try { fs.unlinkSync(rawPath); } catch {}
+
+      const convTime = Date.now() - t0 - ttsApiTime;
 
       try {
+        const uploadStart = Date.now();
         const { syncVoicemailGreetingToAsterisk } = await import("./asterisk-audio-sync");
         const result = await syncVoicemailGreetingToAsterisk(wavPath, fileName);
+        const uploadTime = Date.now() - uploadStart;
         if (result.success) {
-          console.log(`[VirtualAgent] TTS uploaded (${Date.now() - t0}ms): ${fileName}`);
+          console.log(`[VirtualAgent] TTS pipeline: api=${ttsApiTime}ms, conv=${convTime}ms, upload=${uploadTime}ms, total=${Date.now() - t0}ms`);
         } else {
           console.warn(`[VirtualAgent] SFTP upload failed: ${result.error}`);
         }
