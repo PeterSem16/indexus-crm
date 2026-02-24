@@ -55,6 +55,7 @@ export function VirtualAgentTab() {
     maxTurns: 6,
     maxRecordingSeconds: 30,
     silenceTimeoutSeconds: 3,
+    ttsSpeed: "1.05",
     farewellText: "Ďakujem za informácie. Operátor vás bude kontaktovať. Dovidenia.",
     isActive: true,
   });
@@ -114,6 +115,7 @@ export function VirtualAgentTab() {
       maxTurns: 6,
       maxRecordingSeconds: 30,
       silenceTimeoutSeconds: 3,
+      ttsSpeed: "1.05",
       farewellText: "Ďakujem za informácie. Operátor vás bude kontaktovať. Dovidenia.",
       isActive: true,
     });
@@ -130,6 +132,7 @@ export function VirtualAgentTab() {
       maxTurns: config.maxTurns,
       maxRecordingSeconds: config.maxRecordingSeconds,
       silenceTimeoutSeconds: config.silenceTimeoutSeconds,
+      ttsSpeed: (config as any).ttsSpeed || "1.05",
       farewellText: config.farewellText,
       isActive: config.isActive,
     });
@@ -460,6 +463,18 @@ export function VirtualAgentTab() {
                   value={formData.silenceTimeoutSeconds}
                   onChange={(e) => setFormData({ ...formData, silenceTimeoutSeconds: parseInt(e.target.value) || 3 })}
                   data-testid="input-va-silence"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Rýchlosť reči</Label>
+                <Input
+                  type="number"
+                  min={0.5}
+                  max={2.0}
+                  step={0.05}
+                  value={formData.ttsSpeed}
+                  onChange={(e) => setFormData({ ...formData, ttsSpeed: e.target.value || "1.05" })}
+                  data-testid="input-va-tts-speed"
                 />
               </div>
             </div>

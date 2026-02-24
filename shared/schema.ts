@@ -5671,6 +5671,7 @@ export const virtualAgentConfigs = pgTable("virtual_agent_configs", {
   maxRecordingSeconds: integer("max_recording_seconds").notNull().default(30),
   silenceTimeoutSeconds: integer("silence_timeout_seconds").notNull().default(3),
   farewellText: text("farewell_text").notNull().default("Ďakujem za informácie. Operátor vás bude kontaktovať. Dovidenia."),
+  ttsSpeed: numeric("tts_speed").notNull().default("1.05"),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),

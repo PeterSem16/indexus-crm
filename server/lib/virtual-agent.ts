@@ -2,8 +2,8 @@ import OpenAI from "openai";
 import * as fs from "fs";
 import * as path from "path";
 import { db } from "../db";
-import { virtualAgentConfigs, virtualAgentConversations, customers } from "@shared/schema";
-import { eq, or, ilike } from "drizzle-orm";
+import { virtualAgentConfigs, virtualAgentConversations, customers, communicationMessages, callLogs, users } from "@shared/schema";
+import { eq, or, ilike, desc, and, sql } from "drizzle-orm";
 import type { AriClient, AriEvent } from "./ari-client";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -11,6 +11,18 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 interface ConversationTurn {
   role: "assistant" | "user";
   content: string;
+}
+
+interface CustomerContext {
+  found: boolean;
+  customerId?: string;
+  name?: string;
+  email?: string;
+  phone?: string;
+  country?: string;
+  lastEmail?: { subject: string; sentBy: string; sentAt: string } | null;
+  lastCall?: { direction: string; calledBy: string; calledAt: string; durationSeconds: number } | null;
+  lastSms?: { direction: string; content: string; sentAt: string; sentBy: string } | null;
 }
 
 interface VirtualAgentSession {
@@ -25,12 +37,14 @@ interface VirtualAgentSession {
   turnCount: number;
   startTime: number;
   channelGone: boolean;
+  customerContext: CustomerContext | null;
 }
 
 export class VirtualAgentEngine {
   private ariClient: AriClient;
   private activeSessions: Map<string, VirtualAgentSession> = new Map();
   private cachedFarewells: Map<string, string> = new Map();
+  private cachedGreetings: Map<string, string> = new Map();
 
   constructor(ariClient: AriClient) {
     this.ariClient = ariClient;
@@ -63,19 +77,31 @@ export class VirtualAgentEngine {
       turns: 0,
     }).returning();
 
+    const customerContext = await this.lookupCustomerByPhone(callerNumber, customerId);
+    const resolvedCustomerId = customerId || customerContext.customerId || null;
+
     const session: VirtualAgentSession = {
       configId: config.id,
       queueId,
       channelId,
       callerNumber,
       callerName,
-      customerId,
+      customerId: resolvedCustomerId,
       conversationId: conversation.id,
       turns: [],
       turnCount: 0,
       startTime: Date.now(),
       channelGone: false,
+      customerContext: customerContext.found ? customerContext : null,
     };
+
+    if (resolvedCustomerId && resolvedCustomerId !== customerId) {
+      try {
+        await db.update(virtualAgentConversations)
+          .set({ customerId: resolvedCustomerId })
+          .where(eq(virtualAgentConversations.id, conversation.id));
+      } catch {}
+    }
 
     this.activeSessions.set(channelId, session);
 
@@ -104,6 +130,137 @@ export class VirtualAgentEngine {
     }
   }
 
+  private async lookupCustomerByPhone(callerNumber: string, existingCustomerId: string | null): Promise<CustomerContext> {
+    try {
+      const normalizedNumbers = this.normalizePhoneVariants(callerNumber);
+
+      let customer: any = null;
+      if (existingCustomerId) {
+        const [c] = await db.select().from(customers).where(eq(customers.id, existingCustomerId)).limit(1);
+        customer = c;
+      }
+
+      if (!customer) {
+        for (const num of normalizedNumbers) {
+          const [c] = await db.select().from(customers).where(or(
+            eq(customers.phone, num),
+            eq(customers.mobile, num),
+            eq(customers.mobile2, num),
+          )).limit(1);
+          if (c) { customer = c; break; }
+        }
+      }
+
+      if (!customer) {
+        console.log(`[VirtualAgent] No customer found for phone ${callerNumber}`);
+        return { found: false };
+      }
+
+      console.log(`[VirtualAgent] Customer found: ${customer.firstName} ${customer.lastName} (${customer.id})`);
+
+      const [lastEmail, lastCall, lastSms] = await Promise.all([
+        db.select({
+          subject: communicationMessages.subject,
+          sentAt: communicationMessages.sentAt,
+          userId: communicationMessages.userId,
+        }).from(communicationMessages)
+          .where(and(
+            eq(communicationMessages.customerId, customer.id),
+            eq(communicationMessages.type, "email"),
+          ))
+          .orderBy(desc(communicationMessages.createdAt))
+          .limit(1),
+
+        db.select({
+          direction: callLogs.direction,
+          userId: callLogs.userId,
+          startedAt: callLogs.startedAt,
+          durationSeconds: callLogs.durationSeconds,
+        }).from(callLogs)
+          .where(eq(callLogs.customerId, customer.id))
+          .orderBy(desc(callLogs.startedAt))
+          .limit(1),
+
+        db.select({
+          direction: communicationMessages.direction,
+          content: communicationMessages.content,
+          sentAt: communicationMessages.sentAt,
+          userId: communicationMessages.userId,
+        }).from(communicationMessages)
+          .where(and(
+            eq(communicationMessages.customerId, customer.id),
+            eq(communicationMessages.type, "sms"),
+          ))
+          .orderBy(desc(communicationMessages.createdAt))
+          .limit(1),
+      ]);
+
+      const userIds = new Set<string>();
+      if (lastEmail[0]?.userId) userIds.add(lastEmail[0].userId);
+      if (lastCall[0]?.userId) userIds.add(lastCall[0].userId);
+      if (lastSms[0]?.userId) userIds.add(lastSms[0].userId);
+
+      const userMap: Record<string, string> = {};
+      if (userIds.size > 0) {
+        const usersList = await db.select({ id: users.id, fullName: users.fullName })
+          .from(users)
+          .where(sql`${users.id} IN (${sql.join([...userIds].map(id => sql`${id}`), sql`, `)})`);
+        for (const u of usersList) {
+          userMap[u.id] = u.fullName;
+        }
+      }
+
+      const formatDate = (d: Date | null | undefined) => d ? new Date(d).toLocaleDateString("sk-SK") + " " + new Date(d).toLocaleTimeString("sk-SK", { hour: "2-digit", minute: "2-digit" }) : "neznámy";
+
+      const ctx: CustomerContext = {
+        found: true,
+        customerId: customer.id,
+        name: `${customer.firstName} ${customer.lastName}`,
+        email: customer.email,
+        phone: customer.phone || customer.mobile || callerNumber,
+        country: customer.country,
+        lastEmail: lastEmail[0] ? {
+          subject: lastEmail[0].subject || "(bez predmetu)",
+          sentBy: userMap[lastEmail[0].userId || ""] || "neznámy",
+          sentAt: formatDate(lastEmail[0].sentAt),
+        } : null,
+        lastCall: lastCall[0] ? {
+          direction: lastCall[0].direction === "inbound" ? "prichádzajúci" : "odchádzajúci",
+          calledBy: userMap[lastCall[0].userId] || "neznámy",
+          calledAt: formatDate(lastCall[0].startedAt),
+          durationSeconds: lastCall[0].durationSeconds || 0,
+        } : null,
+        lastSms: lastSms[0] ? {
+          direction: lastSms[0].direction === "inbound" ? "prichádzajúca" : "odchádzajúca",
+          content: (lastSms[0].content || "").substring(0, 100),
+          sentAt: formatDate(lastSms[0].sentAt),
+          sentBy: userMap[lastSms[0].userId || ""] || "neznámy",
+        } : null,
+      };
+
+      return ctx;
+    } catch (err) {
+      console.error(`[VirtualAgent] Customer lookup error:`, err);
+      return { found: false };
+    }
+  }
+
+  private normalizePhoneVariants(phone: string): string[] {
+    const cleaned = phone.replace(/[\s\-\(\)]/g, "");
+    const variants = [cleaned, phone];
+    if (cleaned.startsWith("+")) {
+      variants.push(cleaned.substring(1));
+      if (cleaned.startsWith("+421")) {
+        variants.push("0" + cleaned.substring(4));
+      }
+    } else if (cleaned.startsWith("00")) {
+      variants.push("+" + cleaned.substring(2));
+    } else if (cleaned.startsWith("0")) {
+      variants.push("+421" + cleaned.substring(1));
+    }
+    return [...new Set(variants)];
+  }
+
   private async runConversationLoop(
     session: VirtualAgentSession,
     config: typeof virtualAgentConfigs.$inferSelect
@@ -123,15 +280,22 @@ export class VirtualAgentEngine {
     await new Promise(r => setTimeout(r, 200));
     if (session.channelGone) return;
 
+    const configSpeed = parseFloat(config.ttsSpeed as any) || 1.05;
+
     const farewellCacheKey = `${config.id}-farewell`;
     const farewellPromise = !this.cachedFarewells.has(farewellCacheKey)
-      ? this.generateTTS(config.farewellText, config.ttsVoice, session.channelId).then(audio => {
+      ? this.generateTTS(config.farewellText, config.ttsVoice, session.channelId, configSpeed).then(audio => {
           if (audio) this.cachedFarewells.set(farewellCacheKey, audio);
           return audio;
         })
       : Promise.resolve(this.cachedFarewells.get(farewellCacheKey)!);
 
-    const greetingAudio = await this.generateTTS(config.greetingText, config.ttsVoice, session.channelId);
+    const greetingCacheKey = `${config.id}-greeting`;
+    let greetingAudio = this.cachedGreetings.get(greetingCacheKey) || null;
+    if (!greetingAudio) {
+      greetingAudio = await this.generateTTS(config.greetingText, config.ttsVoice, session.channelId, configSpeed);
+      if (greetingAudio) this.cachedGreetings.set(greetingCacheKey, greetingAudio);
+    }
     if (!greetingAudio || session.channelGone) return;
 
     await this.playAudioFile(session.channelId, greetingAudio);
@@ -161,7 +325,7 @@ export class VirtualAgentEngine {
 
       console.log(`[VirtualAgent] Turn ${session.turnCount}: AI responds (${Date.now() - t0}ms): "${aiResponse.substring(0, 100)}..."`);
 
-      const responseAudio = await this.generateTTS(aiResponse, config.ttsVoice, session.channelId);
+      const responseAudio = await this.generateTTS(aiResponse, config.ttsVoice, session.channelId, configSpeed);
       if (!responseAudio || session.channelGone) break;
 
       try { await this.ariClient.stopPlayback(`va-think-${session.channelId}`); } catch {}
@@ -197,7 +361,7 @@ export class VirtualAgentEngine {
       await this.ariClient.startRecordingAdvanced(session.channelId, {
         name: recordingName,
         format: "wav",
-        maxSilenceSeconds: config.silenceTimeoutSeconds || 3,
+        maxSilenceSeconds: config.silenceTimeoutSeconds || 2,
         maxDurationSeconds: maxSeconds,
         beep: false,
         terminateOn: "none",
@@ -285,9 +449,10 @@ export class VirtualAgentEngine {
           file: fs.createReadStream(tmpPath),
           model: "whisper-1",
           language: config.language === "sk" ? "sk" : config.language === "cs" ? "cs" : config.language === "hu" ? "hu" : "en",
+          response_format: "text",
         });
 
-        const text = (transcription as any).text || (transcription as unknown as string);
+        const text = typeof transcription === "string" ? transcription : (transcription as any).text || "";
         try { fs.unlinkSync(tmpPath); } catch {}
 
         if (!text || text.trim().length < 2) return null;
@@ -309,10 +474,26 @@ export class VirtualAgentEngine {
     userSpeech: string
   ): Promise<string | null> {
     try {
+      let customerInfo = "";
+      if (session.customerContext?.found) {
+        const ctx = session.customerContext;
+        customerInfo = `\n\n--- INFORMÁCIE O VOLAJÚCOM ---\nMeno: ${ctx.name}\nEmail: ${ctx.email || "neznámy"}\nTelefón: ${ctx.phone}\nKrajina: ${ctx.country || "neznáma"}`;
+        if (ctx.lastEmail) {
+          customerInfo += `\nPosledný email: "${ctx.lastEmail.subject}" - odoslal ${ctx.lastEmail.sentBy} dňa ${ctx.lastEmail.sentAt}`;
+        }
+        if (ctx.lastCall) {
+          customerInfo += `\nPosledný hovor: ${ctx.lastCall.direction} - ${ctx.lastCall.calledBy} dňa ${ctx.lastCall.calledAt} (trvanie ${ctx.lastCall.durationSeconds}s)`;
+        }
+        if (ctx.lastSms) {
+          customerInfo += `\nPosledná SMS: ${ctx.lastSms.direction} - ${ctx.lastSms.sentBy} dňa ${ctx.lastSms.sentAt}: "${ctx.lastSms.content}"`;
+        }
+        customerInfo += `\n--- KONIEC INFORMÁCIÍ ---\nPoužívaj tieto info na personalizáciu konverzácie. Oslovuj klienta menom. Ak sa pýta na posledný kontakt, odpovedz s konkrétnymi údajmi.`;
+      }
+
       const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
         {
           role: "system",
-          content: `${config.systemPrompt}\n\nKRITICKÉ pravidlá:\n- Odpovedaj VEĽMI stručne, maximálne 1-2 krátke vety.\n- Nepoužívaj dlhé vysvetlenia ani opisy.\n- Volajúci číslo: ${session.callerNumber}\n- Ak volajúci chce spätné volanie, potvrď to jednou vetou.\n- Na konci konverzácie zhrň zozbierané informácie stručne.`
+          content: `${config.systemPrompt}\n\nKRITICKÉ pravidlá:\n- Odpovedaj VEĽMI stručne, maximálne 1-2 krátke vety.\n- Nepoužívaj dlhé vysvetlenia ani opisy.\n- Volajúci číslo: ${session.callerNumber}\n- Ak volajúci chce spätné volanie, potvrď to jednou vetou.\n- Na konci konverzácie zhrň zozbierané informácie stručne.${customerInfo}`
         },
       ];
 
@@ -324,8 +505,8 @@ export class VirtualAgentEngine {
       const response = await openai.chat.completions.create({
         model: "gpt-4o-mini",
         messages,
-        max_tokens: 150,
-        temperature: 0.7,
+        max_tokens: 100,
+        temperature: 0.5,
       });
 
       return response.choices[0]?.message?.content || null;
@@ -338,17 +519,19 @@ export class VirtualAgentEngine {
   private async generateTTS(
     text: string,
     voice: string,
-    channelId: string
+    channelId: string,
+    speed?: number
   ): Promise<string | null> {
     const t0 = Date.now();
     try {
       const ttsVoice = (voice || "nova") as "nova" | "shimmer" | "alloy" | "coral" | "sage" | "onyx" | "echo" | "fable" | "ash";
+      const ttsSpeed = Math.min(Math.max(speed || 1.05, 0.25), 4.0);
       const mp3Response = await openai.audio.speech.create({
         model: "tts-1",
         voice: ttsVoice,
         input: text,
         response_format: "mp3",
-        speed: 1.05,
+        speed: ttsSpeed,
       });
 
       const { DATA_ROOT } = await import("../config/storage-paths");
