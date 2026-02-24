@@ -216,8 +216,13 @@ export class QueueEngine extends EventEmitter {
   private async startMohForChannel(channelId: string, queueId: string): Promise<void> {
     try {
       const existingPbId = this.mohPlaybacks.get(channelId);
-      if (existingPbId && existingPbId !== "default-moh") {
-        try { await this.ariClient.stopPlayback(existingPbId); } catch {}
+      if (existingPbId) {
+        this.mohPlaybacks.delete(channelId);
+        if (existingPbId === "default-moh") {
+          try { await this.ariClient.stopMoh(channelId); } catch {}
+        } else {
+          try { await this.ariClient.stopPlayback(existingPbId); } catch {}
+        }
       }
 
       const queue = (await db.select().from(inboundQueues).where(eq(inboundQueues.id, queueId)).limit(1))[0];
@@ -622,8 +627,6 @@ export class QueueEngine extends EventEmitter {
       console.log(`[QueueEngine]   Box: "${box.name}" (id: ${box.id})`);
       console.log(`[QueueEngine]   Caller: ${callerNumber} (${callerName})`);
 
-      try { await this.ariClient.stopMoh(channelId); } catch {}
-
       let channelState = "unknown";
       try {
         const chInfo = await this.ariClient.getChannel(channelId);
@@ -643,7 +646,7 @@ export class QueueEngine extends EventEmitter {
         }
       }
 
-      await new Promise(resolve => setTimeout(resolve, 200));
+      await new Promise(resolve => setTimeout(resolve, 500));
 
       if (channelGone) {
         console.log(`[QueueEngine] VOICEMAIL: channel gone before greeting, aborting`);
@@ -651,14 +654,31 @@ export class QueueEngine extends EventEmitter {
         return;
       }
 
+      try {
+        const chInfo2 = await this.ariClient.getChannel(channelId);
+        console.log(`[QueueEngine] VOICEMAIL: pre-greeting channel check: state=${chInfo2?.state}, id=${channelId}`);
+      } catch (err) {
+        console.log(`[QueueEngine] VOICEMAIL: channel ${channelId} disappeared before greeting, aborting`);
+        return;
+      }
+
       const greetingInfo = this.resolveGreetingSoundName(box);
       if (greetingInfo) {
         try {
           const pbId = `vm-greeting-${channelId}-${Date.now()}`;
-          console.log(`[QueueEngine] Playing voicemail greeting: sound:custom/${greetingInfo.soundName}`);
-          await this.ariClient.playMedia(channelId, `sound:custom/${greetingInfo.soundName}`, pbId);
+          const greetingMedia = `sound:custom/${greetingInfo.soundName}`;
+          console.log(`[QueueEngine] Playing voicemail greeting: ${greetingMedia} (pbId: ${pbId})`);
+          const playResult = await this.ariClient.playMedia(channelId, greetingMedia, pbId);
+          console.log(`[QueueEngine] VOICEMAIL: playMedia returned for greeting, result:`, JSON.stringify(playResult?.id || playResult));
+
+          if (channelGone) {
+            console.log(`[QueueEngine] VOICEMAIL: channel gone immediately after greeting playMedia, aborting`);
+            try { await this.ariClient.hangupChannel(channelId, "normal"); } catch {}
+            return;
+          }
+
           await this.waitForPlaybackFinished(pbId, 60000);
-          console.log(`[QueueEngine] Greeting playback finished`);
+          console.log(`[QueueEngine] Greeting playback finished, channelGone=${channelGone}`);
         } catch (err) {
           console.warn(`[QueueEngine] Greeting playback failed:`, err instanceof Error ? err.message : err);
           if (channelGone) {
@@ -1519,6 +1539,10 @@ export class QueueEngine extends EventEmitter {
 
       setTimeout(async () => {
         try {
+          if (this.overflowInProgress.has(call.channelId)) {
+            console.log(`[QueueEngine] Ring timeout for ${agentChannel.id}: overflow already in progress for caller ${call.channelId}, skipping`);
+            return;
+          }
           const pendingTimeout = this.pendingAgentCalls.get(agentChannel.id);
           if (pendingTimeout) {
             console.log(`[QueueEngine] Agent ${agent.userId} did not answer within ${ringTimeout}s, cancelling`);
@@ -1792,6 +1816,12 @@ export class QueueEngine extends EventEmitter {
 
     const pending = this.pendingAgentCalls.get(channelId);
     if (pending) {
+      if (this.overflowInProgress.has(pending.callerChannelId)) {
+        console.log(`[QueueEngine] Agent channel ${channelId} destroyed but overflow already in progress for caller ${pending.callerChannelId}, skipping`);
+        this.pendingAgentCalls.delete(channelId);
+        this.updateAgentStatus(pending.agentId, "available", null);
+        return;
+      }
       console.log(`[QueueEngine] Agent channel ${channelId} destroyed before answer (agent rejected/unavailable)`);
       this.pendingAgentCalls.delete(channelId);
       const assignedCall = this.assignedCalls.get(pending.callerChannelId);
@@ -2334,7 +2364,8 @@ export class QueueEngine extends EventEmitter {
       }
 
       try { await this.stopMohForChannel(channelId); } catch {}
-      try { await this.ariClient.stopMoh(channelId); } catch {}
+
+      await new Promise(resolve => setTimeout(resolve, 300));
 
       const needsSafetyHangup = queue.overflowAction === "voicemail" || queue.overflowAction === "hangup" || queue.overflowAction === "announcement" || !queue.overflowAction;
 
@@ -2403,6 +2434,7 @@ export class QueueEngine extends EventEmitter {
     }
 
     for (const [channelId, call] of this.waitingCalls.entries()) {
+      if (this.overflowInProgress.has(channelId)) continue;
       if (deadChannels.has(channelId)) {
         console.log(`[QueueEngine] checkTimeouts: WAITING call ${call.id} has dead channel ${channelId}, marking abandoned`);
         this.waitingCalls.delete(channelId);

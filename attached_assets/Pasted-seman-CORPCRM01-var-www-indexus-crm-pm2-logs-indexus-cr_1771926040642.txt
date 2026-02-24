@@ -1,0 +1,179 @@
+seman@CORPCRM01:/var/www/indexus-crm$ pm2 logs indexus-crm | grep "\[QueueEngine\]"
+0|indexus- | [QueueEngine] Failed to originate call to agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5: ARI POST /channels?endpoint=PJSIP%2F2001&extension=2001&context=default&app=indexus-inbound&callerId=0421948519438&appArgs=agent-call%2C67467ce3-7a44-4f67-a3d3-6a251e2991e5%2C1771924740.705 failed: 500 {
+0|indexus- | [QueueEngine] Failed to originate call to agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5: ARI POST /channels?endpoint=PJSIP%2F2001&extension=2001&context=default&app=indexus-inbound&callerId=0421948519438&appArgs=agent-call%2C67467ce3-7a44-4f67-a3d3-6a251e2991e5%2C1771924740.705 failed: 500 {
+0|indexus- | [QueueEngine] Failed to originate call to agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5: ARI POST /channels?endpoint=PJSIP%2F2001&extension=2001&context=default&app=indexus-inbound&callerId=0421948519438&appArgs=agent-call%2C67467ce3-7a44-4f67-a3d3-6a251e2991e5%2C1771924740.705 failed: 500 {
+0|indexus- | [QueueEngine] Failed to originate call to agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5: ARI POST /channels?endpoint=PJSIP%2F2001&extension=2001&context=default&app=indexus-inbound&callerId=0421948519438&appArgs=agent-call%2C67467ce3-7a44-4f67-a3d3-6a251e2991e5%2C1771924740.705 failed: 500 {
+0|indexus- | [QueueEngine] Failed to originate call to agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5: ARI POST /channels?endpoint=PJSIP%2F2001&extension=2001&context=default&app=indexus-inbound&callerId=0421948519438&appArgs=agent-call%2C67467ce3-7a44-4f67-a3d3-6a251e2991e5%2C1771924740.705 failed: 500 {
+0|indexus- | [QueueEngine] Loaded agent 62b874a9-d7b5-4432-bf74-8a62c0815218: available, queues: [0106e99f-6a0f-475a-b22e-99eea1b82f60]
+0|indexus- | [QueueEngine] Loaded agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5: offline, queues: [0106e99f-6a0f-475a-b22e-99eea1b82f60]
+0|indexus- | [QueueEngine] Loaded 2 agent states total
+0|indexus- | [QueueEngine] Started
+0|indexus-crm  | [QueueEngine] Agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5 status → available, queueIds: [0106e99f-6a0f-475a-b22e-99eea1b82f60]
+0|indexus-crm  | [QueueEngine] Agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5 → available
+0|indexus-crm  | [QueueEngine] === INCOMING CALL ===
+0|indexus-crm  | [QueueEngine]   Caller: 0421948519438 ()
+0|indexus-crm  | [QueueEngine]   Dialed: 0232399030
+0|indexus-crm  | [QueueEngine]   Channel: 1771925915.900
+0|indexus-crm  | [QueueEngine]   Channel state: Ring
+0|indexus-crm  | [QueueEngine]   Stasis args: ["0232399030","0421948519438","1771925915.900"]
+0|indexus-crm  | [QueueEngine]   Dialplan: {"context":"indexus-incoming","exten":"0232399030","priority":5}
+0|indexus-crm  | [QueueEngine] Matched queue: "sk inbound" (id: 0106e99f-6a0f-475a-b22e-99eea1b82f60, strategy: round-robin)
+0|indexus-crm  | [QueueEngine] Playing welcome: sound:custom/uvitanie-pre-slovensku-infolinku (pbId: welcome-1771925915.900-1771925915652)
+0|indexus-crm  | [QueueEngine] Welcome playing for 1771925915.900, call will be queued after welcome finishes
+0|indexus-crm  | [QueueEngine] Welcome playback finished for channel 1771925915.900, starting MOH and queueing call
+0|indexus-crm  | [QueueEngine] Playing custom MOH: sound:custom/moh-slow-jazz (pbId: moh-1771925915.900-1771925923787)
+0|indexus-crm  | [QueueEngine] Call e96f49b7-0a56-4781-9a1d-4b90797ee16c added to queue "sk inbound" at position 1
+0|indexus-crm  | [QueueEngine] Selecting agent for queue "sk inbound" (0106e99f-6a0f-475a-b22e-99eea1b82f60): 2 DB members
+0|indexus-crm  | [QueueEngine]   Session agents for this queue: 1 (67467ce3-7a44-4f67-a3d3-6a251e2991e5)
+0|indexus-crm  | [QueueEngine]   Skipping agent 62b874a9-d7b5-4432-bf74-8a62c0815218: no active session
+0|indexus-crm  | [QueueEngine]   Total candidate agents (session-filtered): 1
+0|indexus-crm  | [QueueEngine]   Agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5: state=available (penalty: 1)
+0|indexus-crm  | [QueueEngine] Available agents: 1
+0|indexus-crm  | [QueueEngine] Connecting call e96f49b7-0a56-4781-9a1d-4b90797ee16c to agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5
+0|indexus-crm  | [QueueEngine] Agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5 status → busy, queueIds: [0106e99f-6a0f-475a-b22e-99eea1b82f60]
+0|indexus-crm  | [QueueEngine] Agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5 → busy
+0|indexus-crm  | [QueueEngine] === ORIGINATING CALL TO AGENT ===
+0|indexus-crm  | [QueueEngine]   Agent: System Administrator (ext: 2001)
+0|indexus-crm  | [QueueEngine]   Endpoint: PJSIP/2001
+0|indexus-crm  | [QueueEngine]   Caller channel: 1771925915.900
+0|indexus-crm  | [QueueEngine]   Call ID: e96f49b7-0a56-4781-9a1d-4b90797ee16c
+0|indexus-crm  | [QueueEngine]   Ring timeout: 30s (elapsed: 0s, maxWait: 40s)
+0|indexus-crm  | [QueueEngine] Agent channel created: 1771925923.906 for agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=0, assigned=1, pending=1
+0|indexus-crm  | [QueueEngine] checkTimeouts ASSIGNED: call=e96f49b7-0a56-4781-9a1d-4b90797ee16c, waited=0s/40s, agent=67467ce3-7a44-4f67-a3d3-6a251e2991e5, caller=0421948519438
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=0, assigned=1, pending=1
+0|indexus-crm  | [QueueEngine] checkTimeouts ASSIGNED: call=e96f49b7-0a56-4781-9a1d-4b90797ee16c, waited=2s/40s, agent=67467ce3-7a44-4f67-a3d3-6a251e2991e5, caller=0421948519438
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=0, assigned=1, pending=1
+0|indexus-crm  | [QueueEngine] checkTimeouts ASSIGNED: call=e96f49b7-0a56-4781-9a1d-4b90797ee16c, waited=4s/40s, agent=67467ce3-7a44-4f67-a3d3-6a251e2991e5, caller=0421948519438
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=0, assigned=1, pending=1
+0|indexus-crm  | [QueueEngine] checkTimeouts ASSIGNED: call=e96f49b7-0a56-4781-9a1d-4b90797ee16c, waited=6s/40s, agent=67467ce3-7a44-4f67-a3d3-6a251e2991e5, caller=0421948519438
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=0, assigned=1, pending=1
+0|indexus-crm  | [QueueEngine] checkTimeouts ASSIGNED: call=e96f49b7-0a56-4781-9a1d-4b90797ee16c, waited=8s/40s, agent=67467ce3-7a44-4f67-a3d3-6a251e2991e5, caller=0421948519438
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=0, assigned=1, pending=1
+0|indexus-crm  | [QueueEngine] checkTimeouts ASSIGNED: call=e96f49b7-0a56-4781-9a1d-4b90797ee16c, waited=10s/40s, agent=67467ce3-7a44-4f67-a3d3-6a251e2991e5, caller=0421948519438
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=0, assigned=1, pending=1
+0|indexus-crm  | [QueueEngine] checkTimeouts ASSIGNED: call=e96f49b7-0a56-4781-9a1d-4b90797ee16c, waited=12s/40s, agent=67467ce3-7a44-4f67-a3d3-6a251e2991e5, caller=0421948519438
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=0, assigned=1, pending=1
+0|indexus-crm  | [QueueEngine] checkTimeouts ASSIGNED: call=e96f49b7-0a56-4781-9a1d-4b90797ee16c, waited=14s/40s, agent=67467ce3-7a44-4f67-a3d3-6a251e2991e5, caller=0421948519438
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=0, assigned=1, pending=1
+0|indexus-crm  | [QueueEngine] checkTimeouts ASSIGNED: call=e96f49b7-0a56-4781-9a1d-4b90797ee16c, waited=16s/40s, agent=67467ce3-7a44-4f67-a3d3-6a251e2991e5, caller=0421948519438
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=0, assigned=1, pending=1
+0|indexus-crm  | [QueueEngine] checkTimeouts ASSIGNED: call=e96f49b7-0a56-4781-9a1d-4b90797ee16c, waited=18s/40s, agent=67467ce3-7a44-4f67-a3d3-6a251e2991e5, caller=0421948519438
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=0, assigned=1, pending=1
+0|indexus-crm  | [QueueEngine] checkTimeouts ASSIGNED: call=e96f49b7-0a56-4781-9a1d-4b90797ee16c, waited=20s/40s, agent=67467ce3-7a44-4f67-a3d3-6a251e2991e5, caller=0421948519438
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=0, assigned=1, pending=1
+0|indexus-crm  | [QueueEngine] checkTimeouts ASSIGNED: call=e96f49b7-0a56-4781-9a1d-4b90797ee16c, waited=22s/40s, agent=67467ce3-7a44-4f67-a3d3-6a251e2991e5, caller=0421948519438
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=0, assigned=1, pending=1
+0|indexus-crm  | [QueueEngine] checkTimeouts ASSIGNED: call=e96f49b7-0a56-4781-9a1d-4b90797ee16c, waited=24s/40s, agent=67467ce3-7a44-4f67-a3d3-6a251e2991e5, caller=0421948519438
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=0, assigned=1, pending=1
+0|indexus-crm  | [QueueEngine] checkTimeouts ASSIGNED: call=e96f49b7-0a56-4781-9a1d-4b90797ee16c, waited=26s/40s, agent=67467ce3-7a44-4f67-a3d3-6a251e2991e5, caller=0421948519438
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=0, assigned=1, pending=1
+0|indexus-crm  | [QueueEngine] checkTimeouts ASSIGNED: call=e96f49b7-0a56-4781-9a1d-4b90797ee16c, waited=28s/40s, agent=67467ce3-7a44-4f67-a3d3-6a251e2991e5, caller=0421948519438
+0|indexus-crm  | [QueueEngine] Agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5 did not answer within 30s, cancelling
+0|indexus-crm  | [QueueEngine] Ring timeout: call=e96f49b7-0a56-4781-9a1d-4b90797ee16c, totalWait=30s, maxWaitTime=40s
+0|indexus-crm  | [QueueEngine] Requeuing call e96f49b7-0a56-4781-9a1d-4b90797ee16c (still within maxWaitTime, 9s remaining)
+0|indexus-crm  | [QueueEngine] Stopped MOH for channel 1771925915.900
+0|indexus-crm  | [QueueEngine] Playing custom MOH: sound:custom/moh-slow-jazz (pbId: moh-1771925915.900-1771925953979)
+0|indexus-crm  | [QueueEngine] Agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5 status → available, queueIds: [0106e99f-6a0f-475a-b22e-99eea1b82f60]
+0|indexus-crm  | [QueueEngine] Agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5 → available
+0|indexus-crm  | [QueueEngine] Selecting agent for queue "sk inbound" (0106e99f-6a0f-475a-b22e-99eea1b82f60): 2 DB members
+0|indexus-crm  | [QueueEngine]   Session agents for this queue: 1 (67467ce3-7a44-4f67-a3d3-6a251e2991e5)
+0|indexus-crm  | [QueueEngine]   Skipping agent 62b874a9-d7b5-4432-bf74-8a62c0815218: no active session
+0|indexus-crm  | [QueueEngine]   Total candidate agents (session-filtered): 1
+0|indexus-crm  | [QueueEngine]   Agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5: state=available (penalty: 1)
+0|indexus-crm  | [QueueEngine] Available agents: 1
+0|indexus-crm  | [QueueEngine] Connecting call e96f49b7-0a56-4781-9a1d-4b90797ee16c to agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5
+0|indexus-crm  | [QueueEngine] Agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5 status → busy, queueIds: [0106e99f-6a0f-475a-b22e-99eea1b82f60]
+0|indexus-crm  | [QueueEngine] Agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5 → busy
+0|indexus-crm  | [QueueEngine] === ORIGINATING CALL TO AGENT ===
+0|indexus-crm  | [QueueEngine]   Agent: System Administrator (ext: 2001)
+0|indexus-crm  | [QueueEngine]   Endpoint: PJSIP/2001
+0|indexus-crm  | [QueueEngine]   Caller channel: 1771925915.900
+0|indexus-crm  | [QueueEngine]   Call ID: e96f49b7-0a56-4781-9a1d-4b90797ee16c
+0|indexus-crm  | [QueueEngine]   Ring timeout: 9s (elapsed: 30s, maxWait: 40s)
+0|indexus-crm  | [QueueEngine] Agent channel created: 1771925954.923 for agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5
+0|indexus-crm  | [QueueEngine] Agent channel 1771925954.923 destroyed before answer (agent rejected/unavailable)
+0|indexus-crm  | [QueueEngine] Agent channel destroyed: call=e96f49b7-0a56-4781-9a1d-4b90797ee16c, totalWait=30s, maxWaitTime=40s
+0|indexus-crm  | [QueueEngine] MOH playback finished, restarting (loop) for waiting channel 1771925915.900
+0|indexus-crm  | [QueueEngine] Playing custom MOH: sound:custom/moh-slow-jazz (pbId: moh-1771925915.900-1771925954138)
+0|indexus-crm  | [QueueEngine] Playing custom MOH: sound:custom/moh-slow-jazz (pbId: moh-1771925915.900-1771925954163)
+0|indexus-crm  | [QueueEngine] Agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5 status → available, queueIds: [0106e99f-6a0f-475a-b22e-99eea1b82f60]
+0|indexus-crm  | [QueueEngine] Agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5 → available
+0|indexus-crm  | [QueueEngine] Selecting agent for queue "sk inbound" (0106e99f-6a0f-475a-b22e-99eea1b82f60): 2 DB members
+0|indexus-crm  | [QueueEngine]   Session agents for this queue: 1 (67467ce3-7a44-4f67-a3d3-6a251e2991e5)
+0|indexus-crm  | [QueueEngine]   Skipping agent 62b874a9-d7b5-4432-bf74-8a62c0815218: no active session
+0|indexus-crm  | [QueueEngine]   Total candidate agents (session-filtered): 1
+0|indexus-crm  | [QueueEngine]   Agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5: state=available (penalty: 1)
+0|indexus-crm  | [QueueEngine]   Agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5: on originate cooldown for 5s more, skipping
+0|indexus-crm  | [QueueEngine] Available agents: 0
+0|indexus-crm  | [QueueEngine] No available agents! All agents in memory: 62b874a9-d7b5-4432-bf74-8a62c0815218=available, 67467ce3-7a44-4f67-a3d3-6a251e2991e5=available
+0|indexus-crm  | [QueueEngine] Selecting agent for queue "sk inbound" (0106e99f-6a0f-475a-b22e-99eea1b82f60): 2 DB members
+0|indexus-crm  | [QueueEngine]   Session agents for this queue: 1 (67467ce3-7a44-4f67-a3d3-6a251e2991e5)
+0|indexus-crm  | [QueueEngine]   Skipping agent 62b874a9-d7b5-4432-bf74-8a62c0815218: no active session
+0|indexus-crm  | [QueueEngine]   Total candidate agents (session-filtered): 1
+0|indexus-crm  | [QueueEngine]   Agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5: state=available (penalty: 1)
+0|indexus-crm  | [QueueEngine]   Agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5: on originate cooldown for 5s more, skipping
+0|indexus-crm  | [QueueEngine] Available agents: 0
+0|indexus-crm  | [QueueEngine] No available agents! All agents in memory: 62b874a9-d7b5-4432-bf74-8a62c0815218=available, 67467ce3-7a44-4f67-a3d3-6a251e2991e5=available
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=1, assigned=0, pending=0
+0|indexus-crm  | [QueueEngine] checkTimeouts WAITING: call=e96f49b7-0a56-4781-9a1d-4b90797ee16c, waited=30s/40s, caller=0421948519438
+0|indexus-crm  | [QueueEngine] Selecting agent for queue "sk inbound" (0106e99f-6a0f-475a-b22e-99eea1b82f60): 2 DB members
+0|indexus-crm  | [QueueEngine]   Session agents for this queue: 1 (67467ce3-7a44-4f67-a3d3-6a251e2991e5)
+0|indexus-crm  | [QueueEngine]   Skipping agent 62b874a9-d7b5-4432-bf74-8a62c0815218: no active session
+0|indexus-crm  | [QueueEngine]   Total candidate agents (session-filtered): 1
+0|indexus-crm  | [QueueEngine]   Agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5: state=available (penalty: 1)
+0|indexus-crm  | [QueueEngine]   Agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5: on originate cooldown for 3s more, skipping
+0|indexus-crm  | [QueueEngine] Available agents: 0
+0|indexus-crm  | [QueueEngine] No available agents! All agents in memory: 62b874a9-d7b5-4432-bf74-8a62c0815218=available, 67467ce3-7a44-4f67-a3d3-6a251e2991e5=available
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=1, assigned=0, pending=0
+0|indexus-crm  | [QueueEngine] checkTimeouts WAITING: call=e96f49b7-0a56-4781-9a1d-4b90797ee16c, waited=32s/40s, caller=0421948519438
+0|indexus-crm  | [QueueEngine] Selecting agent for queue "sk inbound" (0106e99f-6a0f-475a-b22e-99eea1b82f60): 2 DB members
+0|indexus-crm  | [QueueEngine]   Session agents for this queue: 1 (67467ce3-7a44-4f67-a3d3-6a251e2991e5)
+0|indexus-crm  | [QueueEngine]   Skipping agent 62b874a9-d7b5-4432-bf74-8a62c0815218: no active session
+0|indexus-crm  | [QueueEngine]   Total candidate agents (session-filtered): 1
+0|indexus-crm  | [QueueEngine]   Agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5: state=available (penalty: 1)
+0|indexus-crm  | [QueueEngine]   Agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5: on originate cooldown for 1s more, skipping
+0|indexus-crm  | [QueueEngine] Available agents: 0
+0|indexus-crm  | [QueueEngine] No available agents! All agents in memory: 62b874a9-d7b5-4432-bf74-8a62c0815218=available, 67467ce3-7a44-4f67-a3d3-6a251e2991e5=available
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=1, assigned=0, pending=0
+0|indexus-crm  | [QueueEngine] checkTimeouts WAITING: call=e96f49b7-0a56-4781-9a1d-4b90797ee16c, waited=34s/40s, caller=0421948519438
+0|indexus-crm  | [QueueEngine] Selecting agent for queue "sk inbound" (0106e99f-6a0f-475a-b22e-99eea1b82f60): 2 DB members
+0|indexus-crm  | [QueueEngine]   Session agents for this queue: 1 (67467ce3-7a44-4f67-a3d3-6a251e2991e5)
+0|indexus-crm  | [QueueEngine]   Skipping agent 62b874a9-d7b5-4432-bf74-8a62c0815218: no active session
+0|indexus-crm  | [QueueEngine]   Total candidate agents (session-filtered): 1
+0|indexus-crm  | [QueueEngine]   Agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5: state=available (penalty: 1)
+0|indexus-crm  | [QueueEngine] Available agents: 1
+0|indexus-crm  | [QueueEngine] Connecting call e96f49b7-0a56-4781-9a1d-4b90797ee16c to agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5
+0|indexus-crm  | [QueueEngine] Agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5 status → busy, queueIds: [0106e99f-6a0f-475a-b22e-99eea1b82f60]
+0|indexus-crm  | [QueueEngine] Agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5 → busy
+0|indexus-crm  | [QueueEngine] === ORIGINATING CALL TO AGENT ===
+0|indexus-crm  | [QueueEngine]   Agent: System Administrator (ext: 2001)
+0|indexus-crm  | [QueueEngine]   Endpoint: PJSIP/2001
+0|indexus-crm  | [QueueEngine]   Caller channel: 1771925915.900
+0|indexus-crm  | [QueueEngine]   Call ID: e96f49b7-0a56-4781-9a1d-4b90797ee16c
+0|indexus-crm  | [QueueEngine]   Ring timeout: 3s (elapsed: 36s, maxWait: 40s)
+0|indexus-crm  | [QueueEngine] Agent channel created: 1771925960.926 for agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=0, assigned=1, pending=1
+0|indexus-crm  | [QueueEngine] checkTimeouts ASSIGNED: call=e96f49b7-0a56-4781-9a1d-4b90797ee16c, waited=36s/40s, agent=67467ce3-7a44-4f67-a3d3-6a251e2991e5, caller=0421948519438
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=0, assigned=1, pending=1
+0|indexus-crm  | [QueueEngine] checkTimeouts ASSIGNED: call=e96f49b7-0a56-4781-9a1d-4b90797ee16c, waited=38s/40s, agent=67467ce3-7a44-4f67-a3d3-6a251e2991e5, caller=0421948519438
+0|indexus-crm  | [QueueEngine] Agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5 did not answer within 3s, cancelling
+0|indexus-crm  | [QueueEngine] Ring timeout: call=e96f49b7-0a56-4781-9a1d-4b90797ee16c, totalWait=39s, maxWaitTime=40s
+0|indexus-crm  | [QueueEngine] maxWaitTime reached or nearly reached (39s >= 38s), firing overflow
+0|indexus-crm  | [QueueEngine] >>>>>>> OVERFLOW FIRING for call e96f49b7-0a56-4781-9a1d-4b90797ee16c, channel=1771925915.900, waited=39s, maxWait=40s, action=voicemail <<<<<<<
+0|indexus-crm  | [QueueEngine] Agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5 status → available, queueIds: [0106e99f-6a0f-475a-b22e-99eea1b82f60]
+0|indexus-crm  | [QueueEngine] Agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5 → available
+0|indexus-crm  | [QueueEngine] Stopped MOH for channel 1771925915.900
+0|indexus-crm  | [QueueEngine] Handling overflow for channel 1771925915.900: action=voicemail, caller=0421948519438
+0|indexus-crm  | [QueueEngine] === SENDING TO VOICEMAIL ===
+0|indexus-crm  | [QueueEngine]   Box: "SK odkaz ked žiadny operátor nie je k dispozícii" (id: 7dc07e77-4684-4518-95f8-62756af8e338)
+0|indexus-crm  | [QueueEngine]   Caller: 0421948519438 ()
+0|indexus-crm  | [QueueEngine] VOICEMAIL: channel 1771925915.900 state=Up
+0|indexus-crm  | [QueueEngine] Playing voicemail greeting: sound:custom/vm-greeting-7dc07e77-4684-4518-95f8-62756af8e338-morning
+0|indexus-crm  | [QueueEngine] StasisEnd for channel 1771925915.900 (overflow in progress, skipping cleanup)
+0|indexus-crm  | [QueueEngine] VOICEMAIL: channel 1771925915.900 left Stasis during voicemail
+0|indexus-crm  | [QueueEngine] Greeting playback finished
+0|indexus-crm  | [QueueEngine] VOICEMAIL: channel gone before beep, aborting
+0|indexus-crm  | [QueueEngine] >>>>>>> OVERFLOW COMPLETED for call e96f49b7-0a56-4781-9a1d-4b90797ee16c, action=voicemail <<<<<<<
+0|indexus-crm  | [QueueEngine] Call timeout: 0421948519438
+0|indexus-crm  | [QueueEngine] Call cancelled: 0421948519438, reason: timeout
