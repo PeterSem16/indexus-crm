@@ -1072,6 +1072,8 @@ export interface Translations {
     deleted: string;
     channel: string;
     selectChannel: string;
+    callerIdNumber: string;
+    callerIdHelp: string;
     defaultTab: string;
     selectDefaultTab: string;
     agentAssigned: string;
@@ -1643,6 +1645,10 @@ export interface Translations {
       transferToNumber: string;
       transferToUser: string;
       playAnnouncement: string;
+      routeToIvr: string;
+      ivrMenu: string;
+      helpNoAgentsIvr: string;
+      helpOverflowIvr: string;
       waitInQueue: string;
       agent: string;
       memberPriority: string;
@@ -5072,6 +5078,8 @@ export const translations: Record<Locale, Translations> = {
       deleted: 'Campaign deleted',
       channel: 'Channel',
       selectChannel: 'Select channel',
+      callerIdNumber: 'Caller ID',
+      callerIdHelp: 'Number displayed to the called party on outgoing calls',
       defaultTab: 'Default Tab',
       selectDefaultTab: 'Select default tab',
       agentAssigned: 'Agent assigned to campaign',
@@ -5643,6 +5651,10 @@ export const translations: Record<Locale, Translations> = {
         transferToNumber: 'Transfer to Number',
         transferToUser: 'Transfer to User (PJSIP Phone)',
         playAnnouncement: 'Play Announcement & Hang up',
+        routeToIvr: 'Route to IVR Menu',
+        ivrMenu: 'IVR Menu',
+        helpNoAgentsIvr: 'Caller will be routed to the IVR menu',
+        helpOverflowIvr: 'Caller will be routed to the IVR menu',
         waitInQueue: 'Wait in Queue',
         agent: 'Agent',
         memberPriority: 'Priority (lower = higher priority)',
@@ -9055,6 +9067,8 @@ export const translations: Record<Locale, Translations> = {
       deleted: 'Kampaň odstránená',
       channel: 'Kanál',
       selectChannel: 'Vyberte kanál',
+      callerIdNumber: 'Caller ID',
+      callerIdHelp: 'Číslo zobrazené volajúcemu pri odchádzajúcich hovoroch',
       defaultTab: 'Predvolená záložka',
       selectDefaultTab: 'Vyberte predvolenú záložku',
       agentAssigned: 'Agent bol priradený ku kampani',
@@ -9580,6 +9594,10 @@ export const translations: Record<Locale, Translations> = {
         transferToNumber: 'Presmerovať na číslo',
         transferToUser: 'Presmerovať na používateľa (PJSIP telefón)',
         playAnnouncement: 'Prehrať oznámenie a zavesiť',
+        routeToIvr: 'Smerovať do IVR menu',
+        ivrMenu: 'IVR menu',
+        helpNoAgentsIvr: 'Volajúci bude presmerovaný do IVR menu',
+        helpOverflowIvr: 'Volajúci bude presmerovaný do IVR menu',
         waitInQueue: 'Čakať vo fronte',
         agent: 'Agent',
         memberPriority: 'Priorita (nižšia = vyššia priorita)',
@@ -12977,6 +12995,8 @@ export const translations: Record<Locale, Translations> = {
       deleted: 'Kampaň odstraněna',
       channel: 'Kanál',
       selectChannel: 'Vyberte kanál',
+      callerIdNumber: 'Caller ID',
+      callerIdHelp: 'Číslo zobrazené volanému u odchozích hovorů',
       defaultTab: 'Výchozí záložka',
       selectDefaultTab: 'Vyberte výchozí záložku',
       agentAssigned: 'Agent přiřazen ke kampani',
@@ -13502,6 +13522,10 @@ export const translations: Record<Locale, Translations> = {
         transferToNumber: 'Přesměrovat na číslo',
         transferToUser: 'Přesměrovat na uživatele (PJSIP telefon)',
         playAnnouncement: 'Přehrát oznámení a zavěsit',
+        routeToIvr: 'Směrovat do IVR menu',
+        ivrMenu: 'IVR menu',
+        helpNoAgentsIvr: 'Volající bude přesměrován do IVR menu',
+        helpOverflowIvr: 'Volající bude přesměrován do IVR menu',
         waitInQueue: 'Čekat ve frontě',
         agent: 'Agent',
         memberPriority: 'Priorita (nižší = vyšší priorita)',
@@ -16862,6 +16886,8 @@ export const translations: Record<Locale, Translations> = {
       deleted: 'Kampány törölve',
       channel: 'Csatorna',
       selectChannel: 'Válasszon csatornát',
+      callerIdNumber: 'Caller ID',
+      callerIdHelp: 'A hívott félnek megjelenő szám kimenő hívásoknál',
       defaultTab: 'Alapértelmezett fül',
       selectDefaultTab: 'Válasszon alapértelmezett fület',
       agentAssigned: 'Ügynök hozzárendelve a kampányhoz',
@@ -17387,6 +17413,10 @@ export const translations: Record<Locale, Translations> = {
         transferToNumber: 'Átirányítás számra',
         transferToUser: 'Átirányítás felhasználóra (PJSIP telefon)',
         playAnnouncement: 'Bejelentés lejátszása és bontás',
+        routeToIvr: 'Irányítás IVR menübe',
+        ivrMenu: 'IVR menü',
+        helpNoAgentsIvr: 'A hívó az IVR menübe lesz irányítva',
+        helpOverflowIvr: 'A hívó az IVR menübe lesz irányítva',
         waitInQueue: 'Várakozás a sorban',
         agent: 'Ügynök',
         memberPriority: 'Prioritás (alacsonyabb = magasabb prioritás)',
@@ -20746,6 +20776,8 @@ export const translations: Record<Locale, Translations> = {
       deleted: 'Campanie ștearsă',
       channel: 'Canal',
       selectChannel: 'Selectați canalul',
+      callerIdNumber: 'Caller ID',
+      callerIdHelp: 'Numărul afișat apelatului la apelurile de ieșire',
       defaultTab: 'Filă implicită',
       selectDefaultTab: 'Selectați fila implicită',
       agentAssigned: 'Agent atribuit campaniei',
@@ -21271,6 +21303,10 @@ export const translations: Record<Locale, Translations> = {
         transferToNumber: 'Transfer la număr',
         transferToUser: 'Transfer la utilizator (telefon PJSIP)',
         playAnnouncement: 'Redare anunț și închidere',
+        routeToIvr: 'Dirijare în meniu IVR',
+        ivrMenu: 'Meniu IVR',
+        helpNoAgentsIvr: 'Apelantul va fi dirijat în meniul IVR',
+        helpOverflowIvr: 'Apelantul va fi dirijat în meniul IVR',
         waitInQueue: 'Așteptare în coadă',
         agent: 'Agent',
         memberPriority: 'Prioritate (mai mică = prioritate mai mare)',
@@ -24631,6 +24667,8 @@ export const translations: Record<Locale, Translations> = {
       deleted: 'Campagna eliminata',
       channel: 'Canale',
       selectChannel: 'Seleziona canale',
+      callerIdNumber: 'Caller ID',
+      callerIdHelp: 'Numero visualizzato dal destinatario nelle chiamate in uscita',
       defaultTab: 'Scheda predefinita',
       selectDefaultTab: 'Seleziona scheda predefinita',
       agentAssigned: 'Agente assegnato alla campagna',
@@ -25156,6 +25194,10 @@ export const translations: Record<Locale, Translations> = {
         transferToNumber: 'Trasferisci a numero',
         transferToUser: 'Trasferisci a utente (telefono PJSIP)',
         playAnnouncement: 'Riproduci annuncio e chiudi',
+        routeToIvr: 'Instrada in menu IVR',
+        ivrMenu: 'Menu IVR',
+        helpNoAgentsIvr: 'Il chiamante sarà instradato nel menu IVR',
+        helpOverflowIvr: 'Il chiamante sarà instradato nel menu IVR',
         waitInQueue: 'Attendi in coda',
         agent: 'Agente',
         memberPriority: 'Priorità (più bassa = priorità più alta)',
@@ -28516,6 +28558,8 @@ export const translations: Record<Locale, Translations> = {
       deleted: 'Kampagne gelöscht',
       channel: 'Kanal',
       selectChannel: 'Kanal auswählen',
+      callerIdNumber: 'Caller ID',
+      callerIdHelp: 'Nummer, die dem Angerufenen bei ausgehenden Anrufen angezeigt wird',
       defaultTab: 'Standard-Tab',
       selectDefaultTab: 'Standard-Tab auswählen',
       agentAssigned: 'Agent der Kampagne zugewiesen',
@@ -29041,6 +29085,10 @@ export const translations: Record<Locale, Translations> = {
         transferToNumber: 'An Nummer weiterleiten',
         transferToUser: 'An Benutzer weiterleiten (PJSIP-Telefon)',
         playAnnouncement: 'Ansage abspielen & auflegen',
+        routeToIvr: 'In IVR-Menü weiterleiten',
+        ivrMenu: 'IVR-Menü',
+        helpNoAgentsIvr: 'Anrufer wird in das IVR-Menü weitergeleitet',
+        helpOverflowIvr: 'Anrufer wird in das IVR-Menü weitergeleitet',
         waitInQueue: 'In Warteschlange warten',
         agent: 'Agent',
         memberPriority: 'Priorität (niedriger = höhere Priorität)',

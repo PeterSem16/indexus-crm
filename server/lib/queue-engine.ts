@@ -15,6 +15,8 @@ import {
   voicemailBoxes,
   voicemailMessages,
   callLogs,
+  ivrMenus,
+  ivrMenuOptions,
   type InboundQueue,
   type QueueMember,
   type InboundCallLog,
@@ -1113,6 +1115,17 @@ export class QueueEngine extends EventEmitter {
           }
         }
         await this.ariClient.hangupChannel(channelId, "normal");
+        break;
+      }
+      case "ivr": {
+        const ivrMenuId = (queue as any).noAgentsIvrMenuId;
+        if (ivrMenuId) {
+          console.log(`[QueueEngine] No-agents: routing to IVR menu ${ivrMenuId}`);
+          await this.routeToIvrMenu(channelId, ivrMenuId, callerNumber, callerName, queue);
+        } else {
+          console.warn(`[QueueEngine] No-agents IVR action but no menu configured, hanging up`);
+          await this.ariClient.hangupChannel(channelId, "normal");
+        }
         break;
       }
       default:
@@ -2328,6 +2341,17 @@ export class QueueEngine extends EventEmitter {
           await this.ariClient.hangupChannel(channelId, "normal");
           break;
         }
+        case "ivr": {
+          const ivrMenuId = (queue as any).overflowIvrMenuId;
+          if (ivrMenuId) {
+            console.log(`[QueueEngine] Overflow: routing to IVR menu ${ivrMenuId}`);
+            await this.routeToIvrMenu(channelId, ivrMenuId, callerNumber, callerName, queue);
+          } else {
+            console.warn(`[QueueEngine] Overflow IVR action but no menu configured, hanging up`);
+            await this.ariClient.hangupChannel(channelId, "normal");
+          }
+          break;
+        }
         default:
           await this.ariClient.hangupChannel(channelId, "normal");
       }
@@ -2335,6 +2359,133 @@ export class QueueEngine extends EventEmitter {
       console.error("[QueueEngine] Overflow handling failed:", err);
       try { await this.ariClient.hangupChannel(channelId, "normal"); } catch {}
     }
+  }
+
+  private async routeToIvrMenu(channelId: string, menuId: string, callerNumber: string, callerName: string, queue: InboundQueue): Promise<void> {
+    try {
+      const [menu] = await db.select().from(ivrMenus).where(eq(ivrMenus.id, menuId)).limit(1);
+      if (!menu) {
+        console.warn(`[QueueEngine] IVR menu ${menuId} not found, hanging up`);
+        await this.ariClient.hangupChannel(channelId, "normal");
+        return;
+      }
+
+      const options = await db.select().from(ivrMenuOptions)
+        .where(eq(ivrMenuOptions.menuId, menuId))
+        .orderBy(asc(ivrMenuOptions.sortOrder));
+
+      if (menu.greetingMessageId) {
+        try {
+          const [greetMsg] = await db.select().from(ivrMessages).where(eq(ivrMessages.id, menu.greetingMessageId)).limit(1);
+          if (greetMsg) {
+            const soundName = greetMsg.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+            const pbId = `ivr-greet-${channelId}-${Date.now()}`;
+            await this.ariClient.playMedia(channelId, `sound:custom/${soundName}`, pbId);
+            await this.waitForPlaybackFinished(pbId, 60000);
+          }
+        } catch (err) {
+          console.warn(`[QueueEngine] IVR greeting playback failed:`, err instanceof Error ? err.message : err);
+        }
+      }
+
+      const maxAttempts = menu.maxRetries || 3;
+      const timeout = (menu.timeout || 5) * 1000;
+
+      for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        try {
+          const dtmf = await this.waitForDtmf(channelId, timeout);
+          if (dtmf) {
+            const matchedOption = options.find(o => o.digit === dtmf);
+            if (matchedOption) {
+              console.log(`[QueueEngine] IVR: caller pressed ${dtmf}, routing to ${matchedOption.actionType}:${matchedOption.actionTarget}`);
+              await this.executeIvrAction(channelId, matchedOption, callerNumber, callerName, queue);
+              return;
+            }
+          }
+
+          if (menu.invalidMessageId) {
+            try {
+              const [invMsg] = await db.select().from(ivrMessages).where(eq(ivrMessages.id, menu.invalidMessageId)).limit(1);
+              if (invMsg) {
+                const soundName = invMsg.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+                const pbId = `ivr-invalid-${channelId}-${Date.now()}`;
+                await this.ariClient.playMedia(channelId, `sound:custom/${soundName}`, pbId);
+                await this.waitForPlaybackFinished(pbId, 60000);
+              }
+            } catch {}
+          }
+        } catch (err) {
+          console.warn(`[QueueEngine] IVR DTMF wait failed:`, err instanceof Error ? err.message : err);
+        }
+      }
+
+      console.log(`[QueueEngine] IVR: max retries reached, hanging up`);
+      await this.ariClient.hangupChannel(channelId, "normal");
+    } catch (err) {
+      console.error(`[QueueEngine] IVR menu routing failed:`, err);
+      try { await this.ariClient.hangupChannel(channelId, "normal"); } catch {}
+    }
+  }
+
+  private async waitForDtmf(channelId: string, timeoutMs: number): Promise<string | null> {
+    return new Promise<string | null>((resolve) => {
+      const timer = setTimeout(() => {
+        this.removeAllListeners(`dtmf:${channelId}`);
+        resolve(null);
+      }, timeoutMs);
+
+      this.once(`dtmf:${channelId}`, (digit: string) => {
+        clearTimeout(timer);
+        resolve(digit);
+      });
+    });
+  }
+
+  private async executeIvrAction(channelId: string, option: any, callerNumber: string, callerName: string, queue: InboundQueue): Promise<void> {
+    switch (option.actionType) {
+      case "queue": {
+        if (option.actionTarget) {
+          const [targetQueue] = await db.select().from(inboundQueues).where(eq(inboundQueues.id, option.actionTarget)).limit(1);
+          if (targetQueue) {
+            const customerId = await this.lookupCustomer(callerNumber);
+            await this.addCallToQueue(channelId, targetQueue.id, targetQueue.name, callerNumber, callerName, customerId);
+            await this.startMohForChannel(channelId, targetQueue.id);
+            return;
+          }
+        }
+        break;
+      }
+      case "extension":
+      case "user_pjsip": {
+        if (option.actionTarget) {
+          const endpoint = option.actionTarget.includes("/") ? option.actionTarget : `PJSIP/${option.actionTarget}`;
+          const ok = await this.transferCallToEndpoint(channelId, endpoint, queue);
+          if (ok) return;
+        }
+        break;
+      }
+      case "ivr_menu": {
+        if (option.actionTarget) {
+          await this.routeToIvrMenu(channelId, option.actionTarget, callerNumber, callerName, queue);
+          return;
+        }
+        break;
+      }
+      case "voicemail": {
+        if (option.actionTarget) {
+          const [vmBox] = await db.select().from(voicemailBoxes).where(eq(voicemailBoxes.id, option.actionTarget)).limit(1);
+          if (vmBox) {
+            const customerId = await this.lookupCustomer(callerNumber);
+            await this.sendToVoicemail(channelId, vmBox, callerNumber, callerName, customerId, queue.didNumber || undefined, queue.id);
+            return;
+          }
+        }
+        break;
+      }
+      case "hangup":
+        break;
+    }
+    await this.ariClient.hangupChannel(channelId, "normal");
   }
 
   private async fireOverflowForCall(channelId: string, callId: string, queue: InboundQueue, callerNumber: string, callerName: string, waitSeconds: number, agentId?: string): Promise<void> {

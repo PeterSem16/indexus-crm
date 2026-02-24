@@ -73,6 +73,7 @@ interface InboundQueue {
   overflowUserId: string | null;
   overflowVoicemailBoxId: string | null;
   overflowMessageId: string | null;
+  overflowIvrMenuId: string | null;
   announcePosition: boolean;
   announceWaitTime: boolean;
   announceFrequency: number;
@@ -92,6 +93,7 @@ interface InboundQueue {
   noAgentsMessageId: string | null;
   noAgentsVoicemailBoxId: string | null;
   noAgentsUserId: string | null;
+  noAgentsIvrMenuId: string | null;
   emailEnabled: boolean;
   emailAccountId: string | null;
   smsEnabled: boolean;
@@ -115,9 +117,9 @@ interface QueueMemberWithUser {
 }
 
 const STRATEGY_VALUES = ["round-robin", "least-calls", "longest-idle", "skills-based", "random"] as const;
-const OVERFLOW_ACTION_VALUES = ["voicemail", "hangup", "transfer", "queue", "user_pjsip", "announcement"] as const;
+const OVERFLOW_ACTION_VALUES = ["voicemail", "hangup", "transfer", "queue", "user_pjsip", "announcement", "ivr"] as const;
 const AFTER_HOURS_ACTION_VALUES = ["voicemail", "hangup", "transfer", "queue", "user_pjsip", "announcement"] as const;
-const NO_AGENTS_ACTION_VALUES = ["wait", "voicemail", "hangup", "transfer", "queue", "user_pjsip", "announcement"] as const;
+const NO_AGENTS_ACTION_VALUES = ["wait", "voicemail", "hangup", "transfer", "queue", "user_pjsip", "announcement", "ivr"] as const;
 
 const DAYS_OF_WEEK = [
   { value: "1", key: "mon" },
@@ -160,6 +162,7 @@ interface FormData {
   overflowUserId: string | null;
   overflowVoicemailBoxId: string | null;
   overflowMessageId: string | null;
+  overflowIvrMenuId: string | null;
   announcePosition: boolean;
   announceWaitTime: boolean;
   announceFrequency: number;
@@ -179,6 +182,7 @@ interface FormData {
   noAgentsMessageId: string | null;
   noAgentsVoicemailBoxId: string | null;
   noAgentsUserId: string | null;
+  noAgentsIvrMenuId: string | null;
   emailEnabled: boolean;
   emailAccountId: string | null;
   smsEnabled: boolean;
@@ -191,14 +195,14 @@ const defaultFormData: FormData = {
   name: "", description: "", countryCode: "SK",
   strategy: "round-robin", maxWaitTime: 300, wrapUpTime: 30,
   maxQueueSize: 50, priority: 1, welcomeMessageId: null, holdMusicId: null,
-  overflowAction: "voicemail", overflowTarget: "", overflowUserId: null, overflowVoicemailBoxId: null, overflowMessageId: null,
+  overflowAction: "voicemail", overflowTarget: "", overflowUserId: null, overflowVoicemailBoxId: null, overflowMessageId: null, overflowIvrMenuId: null,
   announcePosition: true, announceWaitTime: true,
   announceFrequency: 30, announcePositionMessageId: null, announceWaitTimeMessageId: null,
   serviceLevelTarget: 20,
   activeFrom: "", activeTo: "", activeDays: ["1", "2", "3", "4", "5"],
   timezone: "Europe/Bratislava", afterHoursAction: "voicemail",
   afterHoursTarget: "", afterHoursMessageId: null, afterHoursVoicemailBoxId: null,
-  noAgentsAction: "wait", noAgentsTarget: "", noAgentsMessageId: null, noAgentsVoicemailBoxId: null, noAgentsUserId: null,
+  noAgentsAction: "wait", noAgentsTarget: "", noAgentsMessageId: null, noAgentsVoicemailBoxId: null, noAgentsUserId: null, noAgentsIvrMenuId: null,
   emailEnabled: false, emailAccountId: null, smsEnabled: false, smsPhoneNumber: null,
   recordCalls: false, isActive: true,
 };
@@ -239,6 +243,10 @@ export function InboundQueuesTab() {
     queryKey: ["/api/voicemail-boxes"],
   });
 
+  const { data: ivrMenusList = [] } = useQuery<any[]>({
+    queryKey: ["/api/ivr-menus"],
+  });
+
   const welcomeMessages = ivrMessages.filter((m: any) => m.type === "welcome" && m.isActive);
   const holdMusicMessages = ivrMessages.filter((m: any) => m.type === "hold_music" && m.isActive);
   const announceMessages = ivrMessages.filter((m: any) => ["announcement", "position", "wait_time"].includes(m.type) && m.isActive);
@@ -276,6 +284,7 @@ export function InboundQueuesTab() {
       queue: tx.routeToQueue,
       user_pjsip: tx.transferToUser,
       announcement: tx.playAnnouncement,
+      ivr: tx.routeToIvr || "IVR menu",
     };
     return map[v] || v;
   };
@@ -435,7 +444,7 @@ export function InboundQueuesTab() {
           </Button>
         )}
       </div>
-      {helpText && <p className="text-xs text-muted-foreground">{helpText}</p>}
+      {helpText && <p className="text-xs text-muted-foreground/70 italic">{helpText}</p>}
     </div>
   );
 
@@ -595,12 +604,12 @@ export function InboundQueuesTab() {
                   <div className="col-span-1 md:col-span-2 space-y-1.5">
                     <Label className="text-sm">{iq.queueName} <span className="text-destructive">*</span></Label>
                     <Input value={formData.name} onChange={e => setFormData(f => ({ ...f, name: e.target.value }))} data-testid="input-queue-name" />
-                    <p className="text-xs text-muted-foreground">{tx.helpName}</p>
+                    <p className="text-xs text-muted-foreground/70 italic">{tx.helpName}</p>
                   </div>
                   <div className="col-span-1 md:col-span-2 space-y-1.5">
                     <Label className="text-sm">{iq.description}</Label>
                     <Textarea value={formData.description} onChange={e => setFormData(f => ({ ...f, description: e.target.value }))} data-testid="input-queue-description" />
-                    <p className="text-xs text-muted-foreground">{tx.helpDescription}</p>
+                    <p className="text-xs text-muted-foreground/70 italic">{tx.helpDescription}</p>
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-sm">{tx.country}</Label>
@@ -610,7 +619,7 @@ export function InboundQueuesTab() {
                         {COUNTRIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                       </SelectContent>
                     </Select>
-                    <p className="text-xs text-muted-foreground">{tx.helpCountry}</p>
+                    <p className="text-xs text-muted-foreground/70 italic">{tx.helpCountry}</p>
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-sm">{iq.strategy}</Label>
@@ -620,32 +629,32 @@ export function InboundQueuesTab() {
                         {STRATEGY_VALUES.map(s => <SelectItem key={s} value={s}>{strategyLabel(s)}</SelectItem>)}
                       </SelectContent>
                     </Select>
-                    <p className="text-xs text-muted-foreground">{tx.helpStrategy}</p>
+                    <p className="text-xs text-muted-foreground/70 italic">{tx.helpStrategy}</p>
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-sm">{iq.priority}</Label>
                     <Input type="number" min={1} max={10} value={formData.priority} onChange={e => setFormData(f => ({ ...f, priority: parseInt(e.target.value) || 1 }))} data-testid="input-queue-priority" />
-                    <p className="text-xs text-muted-foreground">{tx.helpPriority}</p>
+                    <p className="text-xs text-muted-foreground/70 italic">{tx.helpPriority}</p>
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-sm">{iq.maxWaitTime}</Label>
                     <Input type="number" min={10} value={formData.maxWaitTime} onChange={e => setFormData(f => ({ ...f, maxWaitTime: parseInt(e.target.value) || 300 }))} data-testid="input-max-wait" />
-                    <p className="text-xs text-muted-foreground">{tx.helpMaxWaitTime}</p>
+                    <p className="text-xs text-muted-foreground/70 italic">{tx.helpMaxWaitTime}</p>
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-sm">{iq.wrapUpTime}</Label>
                     <Input type="number" min={0} value={formData.wrapUpTime} onChange={e => setFormData(f => ({ ...f, wrapUpTime: parseInt(e.target.value) || 30 }))} data-testid="input-wrap-up-time" />
-                    <p className="text-xs text-muted-foreground">{tx.helpWrapUpTime}</p>
+                    <p className="text-xs text-muted-foreground/70 italic">{tx.helpWrapUpTime}</p>
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-sm">{iq.maxQueueSize}</Label>
                     <Input type="number" min={1} value={formData.maxQueueSize} onChange={e => setFormData(f => ({ ...f, maxQueueSize: parseInt(e.target.value) || 50 }))} data-testid="input-max-size" />
-                    <p className="text-xs text-muted-foreground">{tx.helpMaxQueueSize}</p>
+                    <p className="text-xs text-muted-foreground/70 italic">{tx.helpMaxQueueSize}</p>
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-sm">{iq.serviceLevelTarget}</Label>
                     <Input type="number" min={1} value={formData.serviceLevelTarget} onChange={e => setFormData(f => ({ ...f, serviceLevelTarget: parseInt(e.target.value) || 20 }))} data-testid="input-sla-target" />
-                    <p className="text-xs text-muted-foreground">{tx.helpSlaTarget}</p>
+                    <p className="text-xs text-muted-foreground/70 italic">{tx.helpSlaTarget}</p>
                   </div>
 
                   <div className="col-span-1 md:col-span-2 flex flex-wrap gap-x-8 gap-y-3 py-3 px-4 rounded-lg bg-muted/30">
@@ -681,7 +690,7 @@ export function InboundQueuesTab() {
                         {NO_AGENTS_ACTION_VALUES.map(a => <SelectItem key={a} value={a}>{noAgentsActionLabel(a)}</SelectItem>)}
                       </SelectContent>
                     </Select>
-                    <p className="text-xs text-muted-foreground">{tx.helpNoAgentsAction}</p>
+                    <p className="text-xs text-muted-foreground/70 italic">{tx.helpNoAgentsAction}</p>
                   </div>
                   {(formData.noAgentsAction === "transfer" || formData.noAgentsAction === "queue") && (
                     <div className="space-y-1.5">
@@ -699,7 +708,7 @@ export function InboundQueuesTab() {
                       ) : (
                         <Input value={formData.noAgentsTarget} onChange={e => setFormData(f => ({ ...f, noAgentsTarget: e.target.value }))} placeholder={tx.transferToNumber} data-testid="input-no-agents-target" />
                       )}
-                      <p className="text-xs text-muted-foreground">{tx.helpNoAgentsTarget}</p>
+                      <p className="text-xs text-muted-foreground/70 italic">{tx.helpNoAgentsTarget}</p>
                     </div>
                   )}
                   {formData.noAgentsAction === "user_pjsip" && (
@@ -720,7 +729,7 @@ export function InboundQueuesTab() {
                           ))}
                         </SelectContent>
                       </Select>
-                      <p className="text-xs text-muted-foreground">{tx.helpNoAgentsUser}</p>
+                      <p className="text-xs text-muted-foreground/70 italic">{tx.helpNoAgentsUser}</p>
                     </div>
                   )}
                   {formData.noAgentsAction === "voicemail" && (
@@ -735,7 +744,7 @@ export function InboundQueuesTab() {
                           ))}
                         </SelectContent>
                       </Select>
-                      <p className="text-xs text-muted-foreground">{tx.helpNoAgentsVoicemail}</p>
+                      <p className="text-xs text-muted-foreground/70 italic">{tx.helpNoAgentsVoicemail}</p>
                     </div>
                   )}
                   {formData.noAgentsAction === "announcement" && (
@@ -750,10 +759,25 @@ export function InboundQueuesTab() {
                           ))}
                         </SelectContent>
                       </Select>
-                      <p className="text-xs text-muted-foreground">{tx.helpNoAgentsAnnouncement}</p>
+                      <p className="text-xs text-muted-foreground/70 italic">{tx.helpNoAgentsAnnouncement}</p>
                     </div>
                   )}
-                  {formData.noAgentsAction !== "announcement" && (
+                  {formData.noAgentsAction === "ivr" && (
+                    <div className="space-y-1.5">
+                      <Label className="text-sm">{tx.ivrMenu || "IVR menu"}</Label>
+                      <Select value={formData.noAgentsIvrMenuId || "__none__"} onValueChange={v => setFormData(f => ({ ...f, noAgentsIvrMenuId: v === "__none__" ? null : v }))}>
+                        <SelectTrigger data-testid="select-no-agents-ivr-menu"><SelectValue placeholder={tx.none} /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__">{tx.none}</SelectItem>
+                          {ivrMenusList.map((m: any) => (
+                            <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground italic">{tx.helpNoAgentsIvr || "Volajúci bude presmerovaný do IVR menu"}</p>
+                    </div>
+                  )}
+                  {formData.noAgentsAction !== "announcement" && formData.noAgentsAction !== "ivr" && (
                     <AudioSelector
                       label={tx.noAgentsMessage}
                       helpText={tx.helpNoAgentsMessage}
@@ -783,7 +807,7 @@ export function InboundQueuesTab() {
                       <div className="space-y-1.5">
                         <Label className="text-sm">{tx.emailAccount}</Label>
                         <Input value={formData.emailAccountId || ""} onChange={e => setFormData(f => ({ ...f, emailAccountId: e.target.value || null }))} placeholder={tx.emailAccount} data-testid="input-email-account" />
-                        <p className="text-xs text-muted-foreground">{tx.helpEmailAccount}</p>
+                        <p className="text-xs text-muted-foreground/70 italic">{tx.helpEmailAccount}</p>
                       </div>
                     )}
                   </div>
@@ -799,7 +823,7 @@ export function InboundQueuesTab() {
                       <div className="space-y-1.5">
                         <Label className="text-sm">{tx.smsPhone}</Label>
                         <Input value={formData.smsPhoneNumber || ""} onChange={e => setFormData(f => ({ ...f, smsPhoneNumber: e.target.value || null }))} placeholder={tx.smsPhone} data-testid="input-sms-phone" />
-                        <p className="text-xs text-muted-foreground">{tx.helpSmsPhone}</p>
+                        <p className="text-xs text-muted-foreground/70 italic">{tx.helpSmsPhone}</p>
                       </div>
                     )}
                   </div>
@@ -870,7 +894,7 @@ export function InboundQueuesTab() {
                   <div className="space-y-1.5">
                     <Label className="text-sm">{tx.announceFrequency}</Label>
                     <Input type="number" min={10} max={300} value={formData.announceFrequency} onChange={e => setFormData(f => ({ ...f, announceFrequency: parseInt(e.target.value) || 30 }))} data-testid="input-announce-freq" />
-                    <p className="text-xs text-muted-foreground">{tx.helpAnnounceFrequency}</p>
+                    <p className="text-xs text-muted-foreground/70 italic">{tx.helpAnnounceFrequency}</p>
                   </div>
                 </div>
 
@@ -889,13 +913,13 @@ export function InboundQueuesTab() {
                         {OVERFLOW_ACTION_VALUES.map(a => <SelectItem key={a} value={a}>{overflowActionLabel(a)}</SelectItem>)}
                       </SelectContent>
                     </Select>
-                    <p className="text-xs text-muted-foreground">{tx.helpOverflowAction}</p>
+                    <p className="text-xs text-muted-foreground/70 italic">{tx.helpOverflowAction}</p>
                   </div>
                   {formData.overflowAction === "transfer" && (
                     <div className="space-y-1.5">
                       <Label className="text-sm">{tx.transferToNumber}</Label>
                       <Input value={formData.overflowTarget} onChange={e => setFormData(f => ({ ...f, overflowTarget: e.target.value }))} placeholder={tx.transferToNumber} data-testid="input-overflow-target" />
-                      <p className="text-xs text-muted-foreground">{tx.helpOverflowTarget}</p>
+                      <p className="text-xs text-muted-foreground/70 italic">{tx.helpOverflowTarget}</p>
                     </div>
                   )}
                   {formData.overflowAction === "queue" && (
@@ -910,7 +934,7 @@ export function InboundQueuesTab() {
                           ))}
                         </SelectContent>
                       </Select>
-                      <p className="text-xs text-muted-foreground">{tx.helpOverflowTarget}</p>
+                      <p className="text-xs text-muted-foreground/70 italic">{tx.helpOverflowTarget}</p>
                     </div>
                   )}
                   {formData.overflowAction === "user_pjsip" && (
@@ -931,7 +955,7 @@ export function InboundQueuesTab() {
                           ))}
                         </SelectContent>
                       </Select>
-                      <p className="text-xs text-muted-foreground">{tx.helpOverflowUser}</p>
+                      <p className="text-xs text-muted-foreground/70 italic">{tx.helpOverflowUser}</p>
                     </div>
                   )}
                   {formData.overflowAction === "voicemail" && (
@@ -946,7 +970,7 @@ export function InboundQueuesTab() {
                           ))}
                         </SelectContent>
                       </Select>
-                      <p className="text-xs text-muted-foreground">{tx.helpOverflowVoicemail}</p>
+                      <p className="text-xs text-muted-foreground/70 italic">{tx.helpOverflowVoicemail}</p>
                     </div>
                   )}
                   {formData.overflowAction === "announcement" && (
@@ -961,7 +985,22 @@ export function InboundQueuesTab() {
                           ))}
                         </SelectContent>
                       </Select>
-                      <p className="text-xs text-muted-foreground">{tx.helpOverflowAnnouncement}</p>
+                      <p className="text-xs text-muted-foreground/70 italic">{tx.helpOverflowAnnouncement}</p>
+                    </div>
+                  )}
+                  {formData.overflowAction === "ivr" && (
+                    <div className="space-y-1.5">
+                      <Label className="text-sm">{tx.ivrMenu || "IVR menu"}</Label>
+                      <Select value={formData.overflowIvrMenuId || "__none__"} onValueChange={v => setFormData(f => ({ ...f, overflowIvrMenuId: v === "__none__" ? null : v }))}>
+                        <SelectTrigger data-testid="select-overflow-ivr-menu"><SelectValue placeholder={tx.none} /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__">{tx.none}</SelectItem>
+                          {ivrMenusList.map((m: any) => (
+                            <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground italic">{tx.helpOverflowIvr || "Volajúci bude presmerovaný do IVR menu"}</p>
                     </div>
                   )}
                 </div>
@@ -981,12 +1020,12 @@ export function InboundQueuesTab() {
                   <div className="space-y-1.5">
                     <Label className="text-sm">{tx.activeFrom}</Label>
                     <Input type="time" value={formData.activeFrom || ""} onChange={e => setFormData(f => ({ ...f, activeFrom: e.target.value || null }))} data-testid="input-active-from" />
-                    <p className="text-xs text-muted-foreground">{tx.helpActiveFrom}</p>
+                    <p className="text-xs text-muted-foreground/70 italic">{tx.helpActiveFrom}</p>
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-sm">{tx.activeTo}</Label>
                     <Input type="time" value={formData.activeTo || ""} onChange={e => setFormData(f => ({ ...f, activeTo: e.target.value || null }))} data-testid="input-active-to" />
-                    <p className="text-xs text-muted-foreground">{tx.helpActiveTo}</p>
+                    <p className="text-xs text-muted-foreground/70 italic">{tx.helpActiveTo}</p>
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-sm">{tx.timezone}</Label>
@@ -996,7 +1035,7 @@ export function InboundQueuesTab() {
                         {TIMEZONES.map(tz => <SelectItem key={tz} value={tz}>{tz}</SelectItem>)}
                       </SelectContent>
                     </Select>
-                    <p className="text-xs text-muted-foreground">{tx.helpTimezone}</p>
+                    <p className="text-xs text-muted-foreground/70 italic">{tx.helpTimezone}</p>
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-sm">{tx.activeDays}</Label>
@@ -1021,7 +1060,7 @@ export function InboundQueuesTab() {
                         </Button>
                       ))}
                     </div>
-                    <p className="text-xs text-muted-foreground">{tx.helpActiveDays}</p>
+                    <p className="text-xs text-muted-foreground/70 italic">{tx.helpActiveDays}</p>
                   </div>
                 </div>
 
@@ -1042,7 +1081,7 @@ export function InboundQueuesTab() {
                             {AFTER_HOURS_ACTION_VALUES.map(a => <SelectItem key={a} value={a}>{afterHoursActionLabel(a)}</SelectItem>)}
                           </SelectContent>
                         </Select>
-                        <p className="text-xs text-muted-foreground">{tx.helpAfterHoursAction}</p>
+                        <p className="text-xs text-muted-foreground/70 italic">{tx.helpAfterHoursAction}</p>
                       </div>
                       {(formData.afterHoursAction === "transfer" || formData.afterHoursAction === "queue") && (
                         <div className="space-y-1.5">
@@ -1060,7 +1099,7 @@ export function InboundQueuesTab() {
                           ) : (
                             <Input value={formData.afterHoursTarget} onChange={e => setFormData(f => ({ ...f, afterHoursTarget: e.target.value }))} placeholder={tx.transferToNumber} data-testid="input-after-hours-target" />
                           )}
-                          <p className="text-xs text-muted-foreground">{tx.helpAfterHoursTarget}</p>
+                          <p className="text-xs text-muted-foreground/70 italic">{tx.helpAfterHoursTarget}</p>
                         </div>
                       )}
                       {formData.afterHoursAction === "user_pjsip" && (
@@ -1081,7 +1120,7 @@ export function InboundQueuesTab() {
                               ))}
                             </SelectContent>
                           </Select>
-                          <p className="text-xs text-muted-foreground">{tx.helpAfterHoursTarget}</p>
+                          <p className="text-xs text-muted-foreground/70 italic">{tx.helpAfterHoursTarget}</p>
                         </div>
                       )}
                       {formData.afterHoursAction === "voicemail" && (
@@ -1096,7 +1135,7 @@ export function InboundQueuesTab() {
                               ))}
                             </SelectContent>
                           </Select>
-                          <p className="text-xs text-muted-foreground">{tx.helpAfterHoursVoicemail}</p>
+                          <p className="text-xs text-muted-foreground/70 italic">{tx.helpAfterHoursVoicemail}</p>
                         </div>
                       )}
                       <AudioSelector
@@ -1144,7 +1183,7 @@ export function InboundQueuesTab() {
               <div className="space-y-1.5">
                 <Label className="text-sm">{tx.memberPriority}</Label>
                 <Input type="number" min={0} max={10} value={newMemberPenalty} onChange={e => setNewMemberPenalty(parseInt(e.target.value) || 0)} data-testid="input-member-penalty" />
-                <p className="text-xs text-muted-foreground">{tx.memberPriorityHelp}</p>
+                <p className="text-xs text-muted-foreground/70 italic">{tx.memberPriorityHelp}</p>
               </div>
             </div>
             <DialogFooter>

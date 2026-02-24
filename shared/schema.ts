@@ -2637,6 +2637,7 @@ export const campaigns = pgTable("campaigns", {
   settings: text("settings"), // JSON string with schedule/settings
   script: text("script"), // Operator script - instructions for call center agents
   defaultActiveTab: text("default_active_tab").default("phone"), // phone, script, email, sms - which tab opens first when agent activates contact
+  callerIdNumber: text("caller_id_number"),
   startDate: timestamp("start_date"),
   endDate: timestamp("end_date"),
   targetContactCount: integer("target_contact_count").default(0),
@@ -2663,6 +2664,7 @@ export const insertCampaignSchema = createInsertSchema(campaigns).omit({
   settings: z.string().optional().nullable(),
   script: z.string().optional().nullable(),
   defaultActiveTab: z.enum(["phone", "script", "email", "sms"]).optional().default("phone"),
+  callerIdNumber: z.string().optional().nullable(),
   startDate: z.string().optional().nullable(),
   endDate: z.string().optional().nullable(),
   targetContactCount: z.number().optional().default(0),
@@ -5389,11 +5391,12 @@ export const inboundQueues = pgTable("inbound_queues", {
   priority: integer("priority").notNull().default(1), // queue priority (higher = more important)
   welcomeMessageId: varchar("welcome_message_id"), // IVR welcome message
   holdMusicId: varchar("hold_music_id"), // hold music file
-  overflowAction: text("overflow_action").notNull().default("voicemail"), // voicemail, hangup, transfer, queue, user_pjsip
+  overflowAction: text("overflow_action").notNull().default("voicemail"), // voicemail, hangup, transfer, queue, user_pjsip, ivr
   overflowTarget: text("overflow_target"), // target number/queue for overflow
   overflowUserId: varchar("overflow_user_id"), // user ID for user_pjsip overflow action
   overflowVoicemailBoxId: varchar("overflow_voicemail_box_id"), // voicemail box for overflow
   overflowMessageId: varchar("overflow_message_id"), // IVR message for overflow announcement
+  overflowIvrMenuId: varchar("overflow_ivr_menu_id"),
   announcePosition: boolean("announce_position").notNull().default(true),
   announceWaitTime: boolean("announce_wait_time").notNull().default(true),
   announceFrequency: integer("announce_frequency").notNull().default(30), // seconds between announcements
@@ -5408,11 +5411,12 @@ export const inboundQueues = pgTable("inbound_queues", {
   afterHoursTarget: text("after_hours_target"), // target queue/number for after-hours routing
   afterHoursMessageId: varchar("after_hours_message_id"), // IVR message to play after hours
   afterHoursVoicemailBoxId: varchar("after_hours_voicemail_box_id"), // voicemail box for after-hours
-  noAgentsAction: text("no_agents_action").notNull().default("wait"), // wait, voicemail, hangup, transfer, queue, user_pjsip
+  noAgentsAction: text("no_agents_action").notNull().default("wait"), // wait, voicemail, hangup, transfer, queue, user_pjsip, ivr
   noAgentsTarget: text("no_agents_target"),
   noAgentsMessageId: varchar("no_agents_message_id"),
   noAgentsVoicemailBoxId: varchar("no_agents_voicemail_box_id"),
   noAgentsUserId: varchar("no_agents_user_id"),
+  noAgentsIvrMenuId: varchar("no_agents_ivr_menu_id"),
   emailEnabled: boolean("email_enabled").notNull().default(false),
   emailAccountId: text("email_account_id"),
   smsEnabled: boolean("sms_enabled").notNull().default(false),

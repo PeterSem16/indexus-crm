@@ -77,6 +77,7 @@ const campaignFormSchema = z.object({
   criteria: z.string().optional(),
   script: z.string().optional(),
   defaultActiveTab: z.enum(["phone", "script", "email", "sms"]).optional().default("phone"),
+  callerIdNumber: z.string().optional().default(""),
 });
 
 type CampaignFormData = z.infer<typeof campaignFormSchema>;
@@ -617,6 +618,7 @@ function CampaignForm({
         criteria: initialData.criteria || "",
         script: initialData.script || "",
         defaultActiveTab: (initialData.defaultActiveTab || "phone") as any,
+        callerIdNumber: initialData.callerIdNumber || "",
       };
     }
     if (templateData) {
@@ -632,6 +634,7 @@ function CampaignForm({
         criteria: templateData.criteria || "",
         script: templateData.script || "",
         defaultActiveTab: "phone" as const,
+        callerIdNumber: "",
       };
     }
     return {
@@ -646,6 +649,7 @@ function CampaignForm({
       criteria: "",
       script: "",
       defaultActiveTab: "phone" as const,
+      callerIdNumber: "",
     };
   };
 
@@ -739,6 +743,19 @@ function CampaignForm({
               </FormItem>
             )}
           />
+
+          {(form.watch("channel") === "phone" || form.watch("channel") === "mixed") && (
+            <div className="space-y-1.5">
+              <Label className="text-sm">{t.campaigns?.callerIdNumber || "Caller ID"}</Label>
+              <Input
+                data-testid="input-caller-id"
+                placeholder="+421..."
+                value={form.watch("callerIdNumber") || ""}
+                onChange={e => form.setValue("callerIdNumber", e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground italic">{t.campaigns?.callerIdHelp || "Číslo zobrazené volajúcemu pri odchádzajúcich hovoroch"}</p>
+            </div>
+          )}
 
           <FormField
             control={form.control}

@@ -6195,9 +6195,16 @@ export default function AgentWorkspacePage() {
                               {call.customerName || call.callerName || call.callerNumber}
                             </span>
                             {isCalledBack ? (
-                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                                Spätne volaný
-                              </Badge>
+                              <>
+                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                                  Spätne volaný
+                                </Badge>
+                                {call.calledBackByUserName && (
+                                  <span className="text-[10px] text-muted-foreground">
+                                    {call.calledBackByUserName}
+                                  </span>
+                                )}
+                              </>
                             ) : (
                               <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${statusColor}`}>
                                 {statusLabel}
@@ -6225,7 +6232,7 @@ export default function AgentWorkspacePage() {
                       {isCalledBack ? (
                         <Badge variant="outline" className="shrink-0 gap-1 text-green-600 dark:text-green-400 border-green-300 dark:border-green-700">
                           <CheckCircle className="h-3.5 w-3.5" />
-                          Vybavené
+                          Vybavené – {call.calledBackByUserName || ""}
                         </Badge>
                       ) : (
                         <Button

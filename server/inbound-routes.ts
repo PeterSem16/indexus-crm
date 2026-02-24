@@ -1,6 +1,6 @@
 import { Express, Request, Response } from "express";
 import { db } from "./db";
-import { eq, and, desc, asc, sql, gte, lte, gt, inArray } from "drizzle-orm";
+import { eq, and, desc, asc, sql, gte, lte, gt, inArray, aliasedTable } from "drizzle-orm";
 import {
   ariSettings, insertAriSettingsSchema,
   inboundQueues, insertInboundQueueSchema,
@@ -1524,19 +1524,22 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
       const hoursBack = parseInt(req.query.hours as string) || 24;
       const since = new Date(Date.now() - hoursBack * 60 * 60 * 1000);
 
+      const calledBackUser = aliasedTable(users, "called_back_user");
       const logs = await db.select({
         log: inboundCallLogs,
         queueName: inboundQueues.name,
         customerFirstName: customers.firstName,
         customerLastName: customers.lastName,
         customerPhone: customers.phone,
+        calledBackByUserName: calledBackUser.fullName,
       })
         .from(inboundCallLogs)
         .leftJoin(inboundQueues, eq(inboundCallLogs.queueId, inboundQueues.id))
         .leftJoin(customers, eq(inboundCallLogs.customerId, customers.id))
+        .leftJoin(calledBackUser, eq(inboundCallLogs.calledBackByUserId, calledBackUser.id))
         .where(and(
           inArray(inboundCallLogs.queueId, queueIds),
-          inArray(inboundCallLogs.status, ["abandoned", "timeout", "overflow"]),
+          inArray(inboundCallLogs.status, ["abandoned", "timeout", "overflow", "no_agents"]),
           gte(inboundCallLogs.enteredQueueAt, since),
         ))
         .orderBy(desc(inboundCallLogs.enteredQueueAt))
@@ -1547,6 +1550,7 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
         queueName: r.queueName,
         customerName: r.customerFirstName && r.customerLastName ? `${r.customerFirstName} ${r.customerLastName}` : null,
         customerPhone: r.customerPhone,
+        calledBackByUserName: r.calledBackByUserName,
       })));
     } catch (error) {
       console.error("Error fetching abandoned calls:", error);
@@ -1567,7 +1571,7 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
         })
         .where(and(
           eq(inboundCallLogs.id, req.params.callId),
-          inArray(inboundCallLogs.status, ["abandoned", "timeout", "overflow"]),
+          inArray(inboundCallLogs.status, ["abandoned", "timeout", "overflow", "no_agents"]),
         ));
 
       res.json({ success: true });
