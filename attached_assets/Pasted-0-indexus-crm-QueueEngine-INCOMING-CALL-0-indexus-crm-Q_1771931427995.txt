@@ -1,0 +1,254 @@
+0|indexus-crm  | [QueueEngine] === INCOMING CALL ===
+0|indexus-crm  | [QueueEngine]   Caller: 0421948519438 ()
+0|indexus-crm  | [QueueEngine]   Dialed: 0232399030
+0|indexus-crm  | [QueueEngine]   Channel: 1771931304.1674
+0|indexus-crm  | [QueueEngine]   Channel state: Ring
+0|indexus-crm  | [QueueEngine]   Stasis args: ["0232399030","0421948519438","1771931304.1674"]
+0|indexus-crm  | [QueueEngine]   Dialplan: {"context":"indexus-incoming","exten":"0232399030","priority":5}
+0|indexus-crm  | [QueueEngine] Matched queue: "sk inbound" (id: 0106e99f-6a0f-475a-b22e-99eea1b82f60, strategy: round-robin)
+0|indexus-crm  | [QueueEngine] Playing welcome: sound:custom/uvitanie-pre-slovensku-infolinku (pbId: welcome-1771931304.1674-1771931304485)
+0|indexus-crm  | [QueueEngine] Welcome playing for 1771931304.1674, call will be queued after welcome finishes
+0|indexus-crm  | [QueueEngine] Welcome playback finished for channel 1771931304.1674, starting MOH and queueing call
+0|indexus-crm  | [QueueEngine] Playing custom MOH: sound:custom/moh-slow-jazz (pbId: moh-1771931304.1674-1771931312602)
+0|indexus-crm  | [QueueEngine WS] Call queued: 0421948519438 in sk inbound (pos: 1)
+0|indexus-crm  | [QueueEngine] Call 075baba2-3a57-4298-9ffa-000acf2c24c2 added to queue "sk inbound" at position 1
+0|indexus-crm  | [QueueEngine] Selecting agent for queue "sk inbound" (0106e99f-6a0f-475a-b22e-99eea1b82f60): 2 DB members
+0|indexus-crm  | [QueueEngine]   Session agents for this queue: 0 (none)
+0|indexus-crm  | [QueueEngine]   Skipping agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5: no active session
+0|indexus-crm  | [QueueEngine]   Skipping agent 62b874a9-d7b5-4432-bf74-8a62c0815218: no active session
+0|indexus-crm  | [QueueEngine]   Total candidate agents (session-filtered): 0
+0|indexus-crm  | [QueueEngine] No agents assigned to queue "sk inbound" via members or sessions
+0|indexus-crm  | [QueueEngine] Selecting agent for queue "sk inbound" (0106e99f-6a0f-475a-b22e-99eea1b82f60): 2 DB members
+0|indexus-crm  | [QueueEngine]   Session agents for this queue: 0 (none)
+0|indexus-crm  | [QueueEngine]   Skipping agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5: no active session
+0|indexus-crm  | [QueueEngine]   Skipping agent 62b874a9-d7b5-4432-bf74-8a62c0815218: no active session
+0|indexus-crm  | [QueueEngine]   Total candidate agents (session-filtered): 0
+0|indexus-crm  | [QueueEngine] No agents assigned to queue "sk inbound" via members or sessions
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=1, assigned=0, pending=0
+0|indexus-crm  | [QueueEngine] checkTimeouts WAITING: call=075baba2-3a57-4298-9ffa-000acf2c24c2, waited=1s/80s, caller=0421948519438
+0|indexus-crm  | [QueueEngine] Selecting agent for queue "sk inbound" (0106e99f-6a0f-475a-b22e-99eea1b82f60): 2 DB members
+0|indexus-crm  | [QueueEngine]   Session agents for this queue: 0 (none)
+0|indexus-crm  | [QueueEngine]   Skipping agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5: no active session
+0|indexus-crm  | [QueueEngine]   Skipping agent 62b874a9-d7b5-4432-bf74-8a62c0815218: no active session
+0|indexus-crm  | [QueueEngine]   Total candidate agents (session-filtered): 0
+0|indexus-crm  | [QueueEngine] No agents assigned to queue "sk inbound" via members or sessions
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=1, assigned=0, pending=0
+0|indexus-crm  | [QueueEngine] checkTimeouts WAITING: call=075baba2-3a57-4298-9ffa-000acf2c24c2, waited=3s/80s, caller=0421948519438
+0|indexus-crm  | [QueueEngine] Selecting agent for queue "sk inbound" (0106e99f-6a0f-475a-b22e-99eea1b82f60): 2 DB members
+0|indexus-crm  | [QueueEngine]   Session agents for this queue: 0 (none)
+0|indexus-crm  | [QueueEngine]   Skipping agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5: no active session
+0|indexus-crm  | [QueueEngine]   Skipping agent 62b874a9-d7b5-4432-bf74-8a62c0815218: no active session
+0|indexus-crm  | [QueueEngine]   Total candidate agents (session-filtered): 0
+0|indexus-crm  | [QueueEngine] No agents assigned to queue "sk inbound" via members or sessions
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=1, assigned=0, pending=0
+0|indexus-crm  | [QueueEngine] checkTimeouts WAITING: call=075baba2-3a57-4298-9ffa-000acf2c24c2, waited=5s/80s, caller=0421948519438
+0|indexus-crm  | [QueueEngine] Selecting agent for queue "sk inbound" (0106e99f-6a0f-475a-b22e-99eea1b82f60): 2 DB members
+0|indexus-crm  | [QueueEngine]   Session agents for this queue: 0 (none)
+0|indexus-crm  | [QueueEngine]   Skipping agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5: no active session
+0|indexus-crm  | [QueueEngine]   Skipping agent 62b874a9-d7b5-4432-bf74-8a62c0815218: no active session
+0|indexus-crm  | [QueueEngine]   Total candidate agents (session-filtered): 0
+0|indexus-crm  | [QueueEngine] No agents assigned to queue "sk inbound" via members or sessions
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=1, assigned=0, pending=0
+0|indexus-crm  | [QueueEngine] checkTimeouts WAITING: call=075baba2-3a57-4298-9ffa-000acf2c24c2, waited=7s/80s, caller=0421948519438
+0|indexus-crm  | [QueueEngine] Selecting agent for queue "sk inbound" (0106e99f-6a0f-475a-b22e-99eea1b82f60): 2 DB members
+0|indexus-crm  | [QueueEngine]   Session agents for this queue: 0 (none)
+0|indexus-crm  | [QueueEngine]   Skipping agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5: no active session
+0|indexus-crm  | [QueueEngine]   Skipping agent 62b874a9-d7b5-4432-bf74-8a62c0815218: no active session
+0|indexus-crm  | [QueueEngine]   Total candidate agents (session-filtered): 0
+0|indexus-crm  | [QueueEngine] No agents assigned to queue "sk inbound" via members or sessions
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=1, assigned=0, pending=0
+0|indexus-crm  | [QueueEngine] checkTimeouts WAITING: call=075baba2-3a57-4298-9ffa-000acf2c24c2, waited=9s/80s, caller=0421948519438
+0|indexus-crm  | [QueueEngine] Selecting agent for queue "sk inbound" (0106e99f-6a0f-475a-b22e-99eea1b82f60): 2 DB members
+0|indexus-crm  | [QueueEngine]   Session agents for this queue: 0 (none)
+0|indexus-crm  | [QueueEngine]   Skipping agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5: no active session
+0|indexus-crm  | [QueueEngine]   Skipping agent 62b874a9-d7b5-4432-bf74-8a62c0815218: no active session
+0|indexus-crm  | [QueueEngine]   Total candidate agents (session-filtered): 0
+0|indexus-crm  | [QueueEngine] No agents assigned to queue "sk inbound" via members or sessions
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=1, assigned=0, pending=0
+0|indexus-crm  | [QueueEngine] checkTimeouts WAITING: call=075baba2-3a57-4298-9ffa-000acf2c24c2, waited=11s/80s, caller=0421948519438
+0|indexus-crm  | [QueueEngine] Selecting agent for queue "sk inbound" (0106e99f-6a0f-475a-b22e-99eea1b82f60): 2 DB members
+0|indexus-crm  | [QueueEngine]   Session agents for this queue: 0 (none)
+0|indexus-crm  | [QueueEngine]   Skipping agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5: no active session
+0|indexus-crm  | [QueueEngine]   Skipping agent 62b874a9-d7b5-4432-bf74-8a62c0815218: no active session
+0|indexus-crm  | [QueueEngine]   Total candidate agents (session-filtered): 0
+0|indexus-crm  | [QueueEngine] No agents assigned to queue "sk inbound" via members or sessions
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=1, assigned=0, pending=0
+0|indexus-crm  | [QueueEngine] checkTimeouts WAITING: call=075baba2-3a57-4298-9ffa-000acf2c24c2, waited=13s/80s, caller=0421948519438
+0|indexus-crm  | [QueueEngine] Selecting agent for queue "sk inbound" (0106e99f-6a0f-475a-b22e-99eea1b82f60): 2 DB members
+0|indexus-crm  | [QueueEngine]   Session agents for this queue: 0 (none)
+0|indexus-crm  | [QueueEngine]   Skipping agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5: no active session
+0|indexus-crm  | [QueueEngine]   Skipping agent 62b874a9-d7b5-4432-bf74-8a62c0815218: no active session
+0|indexus-crm  | [QueueEngine]   Total candidate agents (session-filtered): 0
+0|indexus-crm  | [QueueEngine] No agents assigned to queue "sk inbound" via members or sessions
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=1, assigned=0, pending=0
+0|indexus-crm  | [QueueEngine] checkTimeouts WAITING: call=075baba2-3a57-4298-9ffa-000acf2c24c2, waited=15s/80s, caller=0421948519438
+0|indexus-crm  | [QueueEngine] Selecting agent for queue "sk inbound" (0106e99f-6a0f-475a-b22e-99eea1b82f60): 2 DB members
+0|indexus-crm  | [QueueEngine]   Session agents for this queue: 0 (none)
+0|indexus-crm  | [QueueEngine]   Skipping agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5: no active session
+0|indexus-crm  | [QueueEngine]   Skipping agent 62b874a9-d7b5-4432-bf74-8a62c0815218: no active session
+0|indexus-crm  | [QueueEngine]   Total candidate agents (session-filtered): 0
+0|indexus-crm  | [QueueEngine] No agents assigned to queue "sk inbound" via members or sessions
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=1, assigned=0, pending=0
+0|indexus-crm  | [QueueEngine] checkTimeouts WAITING: call=075baba2-3a57-4298-9ffa-000acf2c24c2, waited=17s/80s, caller=0421948519438
+0|indexus-crm  | [QueueEngine] Selecting agent for queue "sk inbound" (0106e99f-6a0f-475a-b22e-99eea1b82f60): 2 DB members
+0|indexus-crm  | [QueueEngine]   Session agents for this queue: 0 (none)
+0|indexus-crm  | [QueueEngine]   Skipping agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5: no active session
+0|indexus-crm  | [QueueEngine]   Skipping agent 62b874a9-d7b5-4432-bf74-8a62c0815218: no active session
+0|indexus-crm  | [QueueEngine]   Total candidate agents (session-filtered): 0
+0|indexus-crm  | [QueueEngine] No agents assigned to queue "sk inbound" via members or sessions
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=1, assigned=0, pending=0
+0|indexus-crm  | [QueueEngine] checkTimeouts WAITING: call=075baba2-3a57-4298-9ffa-000acf2c24c2, waited=19s/80s, caller=0421948519438
+0|indexus-crm  | [QueueEngine] Selecting agent for queue "sk inbound" (0106e99f-6a0f-475a-b22e-99eea1b82f60): 2 DB members
+0|indexus-crm  | [QueueEngine]   Session agents for this queue: 0 (none)
+0|indexus-crm  | [QueueEngine]   Skipping agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5: no active session
+0|indexus-crm  | [QueueEngine]   Skipping agent 62b874a9-d7b5-4432-bf74-8a62c0815218: no active session
+0|indexus-crm  | [QueueEngine]   Total candidate agents (session-filtered): 0
+0|indexus-crm  | [QueueEngine] No agents assigned to queue "sk inbound" via members or sessions
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=1, assigned=0, pending=0
+0|indexus-crm  | [QueueEngine] checkTimeouts WAITING: call=075baba2-3a57-4298-9ffa-000acf2c24c2, waited=21s/80s, caller=0421948519438
+0|indexus-crm  | [QueueEngine] Selecting agent for queue "sk inbound" (0106e99f-6a0f-475a-b22e-99eea1b82f60): 2 DB members
+0|indexus-crm  | [QueueEngine]   Session agents for this queue: 0 (none)
+0|indexus-crm  | [QueueEngine]   Skipping agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5: no active session
+0|indexus-crm  | [QueueEngine]   Skipping agent 62b874a9-d7b5-4432-bf74-8a62c0815218: no active session
+0|indexus-crm  | [QueueEngine]   Total candidate agents (session-filtered): 0
+0|indexus-crm  | [QueueEngine] No agents assigned to queue "sk inbound" via members or sessions
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=1, assigned=0, pending=0
+0|indexus-crm  | [QueueEngine] checkTimeouts WAITING: call=075baba2-3a57-4298-9ffa-000acf2c24c2, waited=23s/80s, caller=0421948519438
+0|indexus-crm  | [QueueEngine] Selecting agent for queue "sk inbound" (0106e99f-6a0f-475a-b22e-99eea1b82f60): 2 DB members
+0|indexus-crm  | [QueueEngine]   Session agents for this queue: 0 (none)
+0|indexus-crm  | [QueueEngine]   Skipping agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5: no active session
+0|indexus-crm  | [QueueEngine]   Skipping agent 62b874a9-d7b5-4432-bf74-8a62c0815218: no active session
+0|indexus-crm  | [QueueEngine]   Total candidate agents (session-filtered): 0
+0|indexus-crm  | [QueueEngine] No agents assigned to queue "sk inbound" via members or sessions
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=1, assigned=0, pending=0
+0|indexus-crm  | [QueueEngine] checkTimeouts WAITING: call=075baba2-3a57-4298-9ffa-000acf2c24c2, waited=25s/80s, caller=0421948519438
+0|indexus-crm  | [QueueEngine] Selecting agent for queue "sk inbound" (0106e99f-6a0f-475a-b22e-99eea1b82f60): 2 DB members
+0|indexus-crm  | [QueueEngine]   Session agents for this queue: 0 (none)
+0|indexus-crm  | [QueueEngine]   Skipping agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5: no active session
+0|indexus-crm  | [QueueEngine]   Skipping agent 62b874a9-d7b5-4432-bf74-8a62c0815218: no active session
+0|indexus-crm  | [QueueEngine]   Total candidate agents (session-filtered): 0
+0|indexus-crm  | [QueueEngine] No agents assigned to queue "sk inbound" via members or sessions
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=1, assigned=0, pending=0
+0|indexus-crm  | [QueueEngine] checkTimeouts WAITING: call=075baba2-3a57-4298-9ffa-000acf2c24c2, waited=27s/80s, caller=0421948519438
+0|indexus-crm  | [QueueEngine] Selecting agent for queue "sk inbound" (0106e99f-6a0f-475a-b22e-99eea1b82f60): 2 DB members
+0|indexus-crm  | [QueueEngine]   Session agents for this queue: 0 (none)
+0|indexus-crm  | [QueueEngine]   Skipping agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5: no active session
+0|indexus-crm  | [QueueEngine]   Skipping agent 62b874a9-d7b5-4432-bf74-8a62c0815218: no active session
+0|indexus-crm  | [QueueEngine]   Total candidate agents (session-filtered): 0
+0|indexus-crm  | [QueueEngine] No agents assigned to queue "sk inbound" via members or sessions
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=1, assigned=0, pending=0
+0|indexus-crm  | [QueueEngine] checkTimeouts WAITING: call=075baba2-3a57-4298-9ffa-000acf2c24c2, waited=29s/80s, caller=0421948519438
+0|indexus-crm  | [QueueEngine] Selecting agent for queue "sk inbound" (0106e99f-6a0f-475a-b22e-99eea1b82f60): 2 DB members
+0|indexus-crm  | [QueueEngine]   Session agents for this queue: 0 (none)
+0|indexus-crm  | [QueueEngine]   Skipping agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5: no active session
+0|indexus-crm  | [QueueEngine]   Skipping agent 62b874a9-d7b5-4432-bf74-8a62c0815218: no active session
+0|indexus-crm  | [QueueEngine]   Total candidate agents (session-filtered): 0
+0|indexus-crm  | [QueueEngine] No agents assigned to queue "sk inbound" via members or sessions
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=1, assigned=0, pending=0
+0|indexus-crm  | [QueueEngine] checkTimeouts WAITING: call=075baba2-3a57-4298-9ffa-000acf2c24c2, waited=31s/80s, caller=0421948519438
+0|indexus-crm  | [QueueEngine] Selecting agent for queue "sk inbound" (0106e99f-6a0f-475a-b22e-99eea1b82f60): 2 DB members
+0|indexus-crm  | [QueueEngine]   Session agents for this queue: 0 (none)
+0|indexus-crm  | [QueueEngine]   Skipping agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5: no active session
+0|indexus-crm  | [QueueEngine]   Skipping agent 62b874a9-d7b5-4432-bf74-8a62c0815218: no active session
+0|indexus-crm  | [QueueEngine]   Total candidate agents (session-filtered): 0
+0|indexus-crm  | [QueueEngine] No agents assigned to queue "sk inbound" via members or sessions
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=1, assigned=0, pending=0
+0|indexus-crm  | [QueueEngine] checkTimeouts WAITING: call=075baba2-3a57-4298-9ffa-000acf2c24c2, waited=33s/80s, caller=0421948519438
+0|indexus-crm  | [QueueEngine] Selecting agent for queue "sk inbound" (0106e99f-6a0f-475a-b22e-99eea1b82f60): 2 DB members
+0|indexus-crm  | [QueueEngine]   Session agents for this queue: 0 (none)
+0|indexus-crm  | [QueueEngine]   Skipping agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5: no active session
+0|indexus-crm  | [QueueEngine]   Skipping agent 62b874a9-d7b5-4432-bf74-8a62c0815218: no active session
+0|indexus-crm  | [QueueEngine]   Total candidate agents (session-filtered): 0
+0|indexus-crm  | [QueueEngine] No agents assigned to queue "sk inbound" via members or sessions
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=1, assigned=0, pending=0
+0|indexus-crm  | [QueueEngine] checkTimeouts WAITING: call=075baba2-3a57-4298-9ffa-000acf2c24c2, waited=35s/80s, caller=0421948519438
+0|indexus-crm  | [QueueEngine] Selecting agent for queue "sk inbound" (0106e99f-6a0f-475a-b22e-99eea1b82f60): 2 DB members
+0|indexus-crm  | [QueueEngine]   Session agents for this queue: 0 (none)
+0|indexus-crm  | [QueueEngine]   Skipping agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5: no active session
+0|indexus-crm  | [QueueEngine]   Skipping agent 62b874a9-d7b5-4432-bf74-8a62c0815218: no active session
+0|indexus-crm  | [QueueEngine]   Total candidate agents (session-filtered): 0
+0|indexus-crm  | [QueueEngine] No agents assigned to queue "sk inbound" via members or sessions
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=1, assigned=0, pending=0
+0|indexus-crm  | [QueueEngine] checkTimeouts WAITING: call=075baba2-3a57-4298-9ffa-000acf2c24c2, waited=37s/80s, caller=0421948519438
+0|indexus-crm  | [QueueEngine] Selecting agent for queue "sk inbound" (0106e99f-6a0f-475a-b22e-99eea1b82f60): 2 DB members
+0|indexus-crm  | [QueueEngine]   Session agents for this queue: 0 (none)
+0|indexus-crm  | [QueueEngine]   Skipping agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5: no active session
+0|indexus-crm  | [QueueEngine]   Skipping agent 62b874a9-d7b5-4432-bf74-8a62c0815218: no active session
+0|indexus-crm  | [QueueEngine]   Total candidate agents (session-filtered): 0
+0|indexus-crm  | [QueueEngine] No agents assigned to queue "sk inbound" via members or sessions
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=1, assigned=0, pending=0
+0|indexus-crm  | [QueueEngine] checkTimeouts WAITING: call=075baba2-3a57-4298-9ffa-000acf2c24c2, waited=39s/80s, caller=0421948519438
+0|indexus-crm  | [QueueEngine] Selecting agent for queue "sk inbound" (0106e99f-6a0f-475a-b22e-99eea1b82f60): 2 DB members
+0|indexus-crm  | [QueueEngine]   Session agents for this queue: 0 (none)
+0|indexus-crm  | [QueueEngine]   Skipping agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5: no active session
+0|indexus-crm  | [QueueEngine]   Skipping agent 62b874a9-d7b5-4432-bf74-8a62c0815218: no active session
+0|indexus-crm  | [QueueEngine]   Total candidate agents (session-filtered): 0
+0|indexus-crm  | [QueueEngine] No agents assigned to queue "sk inbound" via members or sessions
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=1, assigned=0, pending=0
+0|indexus-crm  | [QueueEngine] checkTimeouts WAITING: call=075baba2-3a57-4298-9ffa-000acf2c24c2, waited=41s/80s, caller=0421948519438
+0|indexus-crm  | [QueueEngine] Selecting agent for queue "sk inbound" (0106e99f-6a0f-475a-b22e-99eea1b82f60): 2 DB members
+0|indexus-crm  | [QueueEngine]   Session agents for this queue: 0 (none)
+0|indexus-crm  | [QueueEngine]   Skipping agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5: no active session
+0|indexus-crm  | [QueueEngine]   Skipping agent 62b874a9-d7b5-4432-bf74-8a62c0815218: no active session
+0|indexus-crm  | [QueueEngine]   Total candidate agents (session-filtered): 0
+0|indexus-crm  | [QueueEngine] No agents assigned to queue "sk inbound" via members or sessions
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=1, assigned=0, pending=0
+0|indexus-crm  | [QueueEngine] checkTimeouts WAITING: call=075baba2-3a57-4298-9ffa-000acf2c24c2, waited=43s/80s, caller=0421948519438
+0|indexus-crm  | [QueueEngine] Selecting agent for queue "sk inbound" (0106e99f-6a0f-475a-b22e-99eea1b82f60): 2 DB members
+0|indexus-crm  | [QueueEngine]   Session agents for this queue: 0 (none)
+0|indexus-crm  | [QueueEngine]   Skipping agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5: no active session
+0|indexus-crm  | [QueueEngine]   Skipping agent 62b874a9-d7b5-4432-bf74-8a62c0815218: no active session
+0|indexus-crm  | [QueueEngine]   Total candidate agents (session-filtered): 0
+0|indexus-crm  | [QueueEngine] No agents assigned to queue "sk inbound" via members or sessions
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=1, assigned=0, pending=0
+0|indexus-crm  | [QueueEngine] checkTimeouts WAITING: call=075baba2-3a57-4298-9ffa-000acf2c24c2, waited=45s/80s, caller=0421948519438
+0|indexus-crm  | [QueueEngine] Selecting agent for queue "sk inbound" (0106e99f-6a0f-475a-b22e-99eea1b82f60): 2 DB members
+0|indexus-crm  | [QueueEngine]   Session agents for this queue: 0 (none)
+0|indexus-crm  | [QueueEngine]   Skipping agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5: no active session
+0|indexus-crm  | [QueueEngine]   Skipping agent 62b874a9-d7b5-4432-bf74-8a62c0815218: no active session
+0|indexus-crm  | [QueueEngine]   Total candidate agents (session-filtered): 0
+0|indexus-crm  | [QueueEngine] No agents assigned to queue "sk inbound" via members or sessions
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=1, assigned=0, pending=0
+0|indexus-crm  | [QueueEngine] checkTimeouts WAITING: call=075baba2-3a57-4298-9ffa-000acf2c24c2, waited=47s/80s, caller=0421948519438
+0|indexus-crm  | [QueueEngine] Selecting agent for queue "sk inbound" (0106e99f-6a0f-475a-b22e-99eea1b82f60): 2 DB members
+0|indexus-crm  | [QueueEngine]   Session agents for this queue: 0 (none)
+0|indexus-crm  | [QueueEngine]   Skipping agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5: no active session
+0|indexus-crm  | [QueueEngine]   Skipping agent 62b874a9-d7b5-4432-bf74-8a62c0815218: no active session
+0|indexus-crm  | [QueueEngine]   Total candidate agents (session-filtered): 0
+0|indexus-crm  | [QueueEngine] No agents assigned to queue "sk inbound" via members or sessions
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=1, assigned=0, pending=0
+0|indexus-crm  | [QueueEngine] checkTimeouts WAITING: call=075baba2-3a57-4298-9ffa-000acf2c24c2, waited=49s/80s, caller=0421948519438
+0|indexus-crm  | [QueueEngine] Selecting agent for queue "sk inbound" (0106e99f-6a0f-475a-b22e-99eea1b82f60): 2 DB members
+0|indexus-crm  | [QueueEngine]   Session agents for this queue: 0 (none)
+0|indexus-crm  | [QueueEngine]   Skipping agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5: no active session
+0|indexus-crm  | [QueueEngine]   Skipping agent 62b874a9-d7b5-4432-bf74-8a62c0815218: no active session
+0|indexus-crm  | [QueueEngine]   Total candidate agents (session-filtered): 0
+0|indexus-crm  | [QueueEngine] No agents assigned to queue "sk inbound" via members or sessions
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=1, assigned=0, pending=0
+0|indexus-crm  | [QueueEngine] checkTimeouts WAITING: call=075baba2-3a57-4298-9ffa-000acf2c24c2, waited=51s/80s, caller=0421948519438
+0|indexus-crm  | [QueueEngine] Selecting agent for queue "sk inbound" (0106e99f-6a0f-475a-b22e-99eea1b82f60): 2 DB members
+0|indexus-crm  | [QueueEngine]   Session agents for this queue: 0 (none)
+0|indexus-crm  | [QueueEngine]   Skipping agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5: no active session
+0|indexus-crm  | [QueueEngine]   Skipping agent 62b874a9-d7b5-4432-bf74-8a62c0815218: no active session
+0|indexus-crm  | [QueueEngine]   Total candidate agents (session-filtered): 0
+0|indexus-crm  | [QueueEngine] No agents assigned to queue "sk inbound" via members or sessions
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=1, assigned=0, pending=0
+0|indexus-crm  | [QueueEngine] checkTimeouts WAITING: call=075baba2-3a57-4298-9ffa-000acf2c24c2, waited=53s/80s, caller=0421948519438
+0|indexus-crm  | [QueueEngine] Selecting agent for queue "sk inbound" (0106e99f-6a0f-475a-b22e-99eea1b82f60): 2 DB members
+0|indexus-crm  | [QueueEngine]   Session agents for this queue: 0 (none)
+0|indexus-crm  | [QueueEngine]   Skipping agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5: no active session
+0|indexus-crm  | [QueueEngine]   Skipping agent 62b874a9-d7b5-4432-bf74-8a62c0815218: no active session
+0|indexus-crm  | [QueueEngine]   Total candidate agents (session-filtered): 0
+0|indexus-crm  | [QueueEngine] No agents assigned to queue "sk inbound" via members or sessions
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=1, assigned=0, pending=0
+0|indexus-crm  | [QueueEngine] checkTimeouts WAITING: call=075baba2-3a57-4298-9ffa-000acf2c24c2, waited=55s/80s, caller=0421948519438
+0|indexus-crm  | [QueueEngine] Selecting agent for queue "sk inbound" (0106e99f-6a0f-475a-b22e-99eea1b82f60): 2 DB members
+0|indexus-crm  | [QueueEngine]   Session agents for this queue: 0 (none)
+0|indexus-crm  | [QueueEngine]   Skipping agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5: no active session
+0|indexus-crm  | [QueueEngine]   Skipping agent 62b874a9-d7b5-4432-bf74-8a62c0815218: no active session
+0|indexus-crm  | [QueueEngine]   Total candidate agents (session-filtered): 0
+0|indexus-crm  | [QueueEngine] No agents assigned to queue "sk inbound" via members or sessions
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=1, assigned=0, pending=0
+0|indexus-crm  | [QueueEngine] checkTimeouts WAITING: call=075baba2-3a57-4298-9ffa-000acf2c24c2, waited=57s/80s, caller=0421948519438
+0|indexus-crm  | [QueueEngine] StasisEnd for channel 1771931304.1674
+0|indexus-crm  | [QueueEngine] Call abandoned: 0421948519438, reason: caller_hangup

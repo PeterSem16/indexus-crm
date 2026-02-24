@@ -272,10 +272,10 @@ export function InboundQueuesTab() {
     const map: Record<string, string> = {
       voicemail: iq.voicemail,
       hangup: iq.hangup,
-      transfer: tx.transferToNumber || "Transfer to Number",
-      queue: tx.routeToQueue || "Route to Queue",
-      user_pjsip: tx.transferToUser || "Transfer to User",
-      announcement: tx.playAnnouncement || "Play Announcement",
+      transfer: tx.transferToNumber,
+      queue: tx.routeToQueue,
+      user_pjsip: tx.transferToUser,
+      announcement: tx.playAnnouncement,
     };
     return map[v] || v;
   };
@@ -283,7 +283,7 @@ export function InboundQueuesTab() {
   const afterHoursActionLabel = (v: string) => overflowActionLabel(v);
 
   const noAgentsActionLabel = (v: string) => {
-    if (v === "wait") return tx.waitInQueue || "Wait in Queue";
+    if (v === "wait") return tx.waitInQueue;
     return overflowActionLabel(v);
   };
 
@@ -419,9 +419,9 @@ export function InboundQueuesTab() {
       <Label className="text-sm">{label}</Label>
       <div className="flex gap-2">
         <Select value={value || "__none__"} onValueChange={v => onChange(v === "__none__" ? null : v)}>
-          <SelectTrigger className="flex-1"><SelectValue placeholder={tx.none || "None"} /></SelectTrigger>
+          <SelectTrigger className="flex-1"><SelectValue placeholder={tx.none} /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="__none__">{tx.none || "None"}</SelectItem>
+            <SelectItem value="__none__">{tx.none}</SelectItem>
             {messages.map((m: any) => (
               <SelectItem key={m.id} value={m.id}>
                 {m.name} ({m.language?.toUpperCase()})
@@ -457,7 +457,7 @@ export function InboundQueuesTab() {
         </div>
 
         {isLoading ? (
-          <div className="text-center py-8 text-muted-foreground">{tx.loading || t.common.loading}</div>
+          <div className="text-center py-8 text-muted-foreground">{tx.loading}</div>
         ) : queues.length === 0 ? (
           <Card>
             <CardContent className="py-12 text-center">
@@ -546,7 +546,7 @@ export function InboundQueuesTab() {
                           {expandedQueue === queue.id ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                         </Button>
                         <Button variant="ghost" size="icon"
-                          onClick={() => { if (confirm(tx.confirmDelete || "Delete this queue?")) deleteMutation.mutate(queue.id); }}
+                          onClick={() => { if (confirm(tx.confirmDelete)) deleteMutation.mutate(queue.id); }}
                           data-testid={`btn-delete-queue-${queue.id}`}
                         >
                           <Trash2 className="h-4 w-4 text-destructive" />
@@ -577,16 +577,16 @@ export function InboundQueuesTab() {
             <Tabs value={formTab} onValueChange={setFormTab} className="w-full">
               <TabsList>
                 <TabsTrigger value="general" data-testid="tab-queue-general">
-                  {tx.tabGeneral || "General"}
+                  {tx.tabGeneral}
                 </TabsTrigger>
                 <TabsTrigger value="audio" data-testid="tab-queue-audio">
-                  {tx.tabAudio || "Audio"}
+                  {tx.tabAudio}
                 </TabsTrigger>
                 <TabsTrigger value="overflow" data-testid="tab-queue-overflow">
-                  {tx.tabOverflow || "Overflow"}
+                  {tx.tabOverflow}
                 </TabsTrigger>
                 <TabsTrigger value="hours" data-testid="tab-queue-hours">
-                  {tx.tabHours || "Business Hours"}
+                  {tx.tabHours}
                 </TabsTrigger>
               </TabsList>
 
@@ -603,7 +603,7 @@ export function InboundQueuesTab() {
                     <p className="text-xs text-muted-foreground">{tx.helpDescription}</p>
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-sm">{tx.country || t.common.country}</Label>
+                    <Label className="text-sm">{tx.country}</Label>
                     <Select value={formData.countryCode} onValueChange={v => setFormData(f => ({ ...f, countryCode: v }))}>
                       <SelectTrigger data-testid="select-queue-country"><SelectValue /></SelectTrigger>
                       <SelectContent>
@@ -652,14 +652,14 @@ export function InboundQueuesTab() {
                     <div>
                       <div className="flex items-center gap-2.5">
                         <Switch checked={formData.recordCalls} onCheckedChange={v => setFormData(f => ({ ...f, recordCalls: v }))} data-testid="switch-queue-record" />
-                        <Label className="text-sm">{tx.recordCalls || "Record Calls"}</Label>
+                        <Label className="text-sm">{tx.recordCalls}</Label>
                       </div>
                       <p className="text-xs text-muted-foreground mt-1 ml-11">{tx.helpRecordCalls}</p>
                     </div>
                     <div>
                       <div className="flex items-center gap-2.5">
                         <Switch checked={formData.isActive} onCheckedChange={v => setFormData(f => ({ ...f, isActive: v }))} data-testid="switch-queue-active" />
-                        <Label className="text-sm">{tx.isActive || "Active"}</Label>
+                        <Label className="text-sm">{tx.isActive}</Label>
                       </div>
                       <p className="text-xs text-muted-foreground mt-1 ml-11">{tx.helpIsActive}</p>
                     </div>
@@ -669,12 +669,12 @@ export function InboundQueuesTab() {
                 <div className="border-b pb-1">
                   <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                     <UserX className="h-4 w-4" />
-                    {tx.noAgentsRule || "No Agents Logged In"}
+                    {tx.noAgentsRule}
                   </h4>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
                   <div className="space-y-1.5">
-                    <Label className="text-sm">{tx.noAgentsAction || "No Agents Action"}</Label>
+                    <Label className="text-sm">{tx.noAgentsAction}</Label>
                     <Select value={formData.noAgentsAction} onValueChange={v => setFormData(f => ({ ...f, noAgentsAction: v }))}>
                       <SelectTrigger data-testid="select-no-agents-action"><SelectValue /></SelectTrigger>
                       <SelectContent>
@@ -685,30 +685,30 @@ export function InboundQueuesTab() {
                   </div>
                   {(formData.noAgentsAction === "transfer" || formData.noAgentsAction === "queue") && (
                     <div className="space-y-1.5">
-                      <Label className="text-sm">{formData.noAgentsAction === "queue" ? (tx.routeToQueue || "Target Queue") : (tx.transferToNumber || "Transfer Target")}</Label>
+                      <Label className="text-sm">{formData.noAgentsAction === "queue" ? tx.routeToQueue : tx.transferToNumber}</Label>
                       {formData.noAgentsAction === "queue" ? (
                         <Select value={formData.noAgentsTarget || "__none__"} onValueChange={v => setFormData(f => ({ ...f, noAgentsTarget: v === "__none__" ? "" : v }))}>
-                          <SelectTrigger data-testid="select-no-agents-queue"><SelectValue placeholder={tx.none || "None"} /></SelectTrigger>
+                          <SelectTrigger data-testid="select-no-agents-queue"><SelectValue placeholder={tx.none} /></SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="__none__">{tx.none || "None"}</SelectItem>
+                            <SelectItem value="__none__">{tx.none}</SelectItem>
                             {queues.filter(q => !editingQueue || q.id !== editingQueue.id).map(q => (
                               <SelectItem key={q.id} value={q.id}>{q.name}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                       ) : (
-                        <Input value={formData.noAgentsTarget} onChange={e => setFormData(f => ({ ...f, noAgentsTarget: e.target.value }))} placeholder={tx.transferToNumber || "Phone number or extension"} data-testid="input-no-agents-target" />
+                        <Input value={formData.noAgentsTarget} onChange={e => setFormData(f => ({ ...f, noAgentsTarget: e.target.value }))} placeholder={tx.transferToNumber} data-testid="input-no-agents-target" />
                       )}
                       <p className="text-xs text-muted-foreground">{tx.helpNoAgentsTarget}</p>
                     </div>
                   )}
                   {formData.noAgentsAction === "user_pjsip" && (
                     <div className="space-y-1.5">
-                      <Label className="text-sm">{tx.transferToUser || "Transfer to User"}</Label>
+                      <Label className="text-sm">{tx.transferToUser}</Label>
                       <Select value={formData.noAgentsUserId || "__none__"} onValueChange={v => setFormData(f => ({ ...f, noAgentsUserId: v === "__none__" ? null : v }))}>
-                        <SelectTrigger data-testid="select-no-agents-user"><SelectValue placeholder={tx.none || "None"} /></SelectTrigger>
+                        <SelectTrigger data-testid="select-no-agents-user"><SelectValue placeholder={tx.none} /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="__none__">{tx.none || "None"}</SelectItem>
+                          <SelectItem value="__none__">{tx.none}</SelectItem>
                           {pjsipUsers.map((u: any) => (
                             <SelectItem key={u.id} value={u.id}>
                               <span className="flex items-center gap-2">
@@ -727,9 +727,9 @@ export function InboundQueuesTab() {
                     <div className="space-y-1.5">
                       <Label className="text-sm">{iq.voicemail}</Label>
                       <Select value={formData.noAgentsVoicemailBoxId || "__none__"} onValueChange={v => setFormData(f => ({ ...f, noAgentsVoicemailBoxId: v === "__none__" ? null : v }))}>
-                        <SelectTrigger data-testid="select-no-agents-voicemail-box"><SelectValue placeholder={tx.none || "None"} /></SelectTrigger>
+                        <SelectTrigger data-testid="select-no-agents-voicemail-box"><SelectValue placeholder={tx.none} /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="__none__">{tx.none || "None"}</SelectItem>
+                          <SelectItem value="__none__">{tx.none}</SelectItem>
                           {voicemailBoxes.filter((b: any) => b.isActive).map((b: any) => (
                             <SelectItem key={b.id} value={b.id}>{b.name}{b.extension ? ` (${b.extension})` : ""}</SelectItem>
                           ))}
@@ -740,11 +740,11 @@ export function InboundQueuesTab() {
                   )}
                   {formData.noAgentsAction === "announcement" && (
                     <div className="space-y-1.5">
-                      <Label className="text-sm">{tx.announcementAudio || "Announcement Audio"}</Label>
+                      <Label className="text-sm">{tx.announcementAudio}</Label>
                       <Select value={formData.noAgentsMessageId || "__none__"} onValueChange={v => setFormData(f => ({ ...f, noAgentsMessageId: v === "__none__" ? null : v }))}>
-                        <SelectTrigger data-testid="select-no-agents-announcement"><SelectValue placeholder={tx.none || "None"} /></SelectTrigger>
+                        <SelectTrigger data-testid="select-no-agents-announcement"><SelectValue placeholder={tx.none} /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="__none__">{tx.none || "None"}</SelectItem>
+                          <SelectItem value="__none__">{tx.none}</SelectItem>
                           {ivrMessages.filter((m: any) => m.type === "announcement" || m.type === "ivr_prompt").map((m: any) => (
                             <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
                           ))}
@@ -755,7 +755,7 @@ export function InboundQueuesTab() {
                   )}
                   {formData.noAgentsAction !== "announcement" && (
                     <AudioSelector
-                      label={tx.noAgentsMessage || "No Agents Message"}
+                      label={tx.noAgentsMessage}
                       helpText={tx.helpNoAgentsMessage}
                       value={formData.noAgentsMessageId}
                       onChange={v => setFormData(f => ({ ...f, noAgentsMessageId: v }))}
@@ -767,7 +767,7 @@ export function InboundQueuesTab() {
                 <div className="border-b pb-1">
                   <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                     <Mail className="h-4 w-4" />
-                    {tx.channels || "Channels"}
+                    {tx.channels}
                   </h4>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
@@ -775,14 +775,14 @@ export function InboundQueuesTab() {
                     <div>
                       <div className="flex items-center gap-2.5">
                         <Switch checked={formData.emailEnabled} onCheckedChange={v => setFormData(f => ({ ...f, emailEnabled: v }))} data-testid="switch-email-enabled" />
-                        <Label className="text-sm">{tx.emailEnabled || "Accept Email"}</Label>
+                        <Label className="text-sm">{tx.emailEnabled}</Label>
                       </div>
                       <p className="text-xs text-muted-foreground mt-1 ml-11">{tx.helpEmailEnabled}</p>
                     </div>
                     {formData.emailEnabled && (
                       <div className="space-y-1.5">
-                        <Label className="text-sm">{tx.emailAccount || "Email Account ID"}</Label>
-                        <Input value={formData.emailAccountId || ""} onChange={e => setFormData(f => ({ ...f, emailAccountId: e.target.value || null }))} placeholder={tx.emailAccount || "Email account ID"} data-testid="input-email-account" />
+                        <Label className="text-sm">{tx.emailAccount}</Label>
+                        <Input value={formData.emailAccountId || ""} onChange={e => setFormData(f => ({ ...f, emailAccountId: e.target.value || null }))} placeholder={tx.emailAccount} data-testid="input-email-account" />
                         <p className="text-xs text-muted-foreground">{tx.helpEmailAccount}</p>
                       </div>
                     )}
@@ -791,14 +791,14 @@ export function InboundQueuesTab() {
                     <div>
                       <div className="flex items-center gap-2.5">
                         <Switch checked={formData.smsEnabled} onCheckedChange={v => setFormData(f => ({ ...f, smsEnabled: v }))} data-testid="switch-sms-enabled" />
-                        <Label className="text-sm">{tx.smsEnabled || "Accept SMS"}</Label>
+                        <Label className="text-sm">{tx.smsEnabled}</Label>
                       </div>
                       <p className="text-xs text-muted-foreground mt-1 ml-11">{tx.helpSmsEnabled}</p>
                     </div>
                     {formData.smsEnabled && (
                       <div className="space-y-1.5">
-                        <Label className="text-sm">{tx.smsPhone || "SMS Phone Number"}</Label>
-                        <Input value={formData.smsPhoneNumber || ""} onChange={e => setFormData(f => ({ ...f, smsPhoneNumber: e.target.value || null }))} placeholder={tx.smsPhone || "Phone number for SMS"} data-testid="input-sms-phone" />
+                        <Label className="text-sm">{tx.smsPhone}</Label>
+                        <Input value={formData.smsPhoneNumber || ""} onChange={e => setFormData(f => ({ ...f, smsPhoneNumber: e.target.value || null }))} placeholder={tx.smsPhone} data-testid="input-sms-phone" />
                         <p className="text-xs text-muted-foreground">{tx.helpSmsPhone}</p>
                       </div>
                     )}
@@ -809,14 +809,14 @@ export function InboundQueuesTab() {
               <TabsContent value="audio" className="mt-6 space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
                   <AudioSelector
-                    label={tx.welcomeGreeting || "Welcome Greeting"}
+                    label={tx.welcomeGreeting}
                     helpText={tx.helpWelcomeMessage}
                     value={formData.welcomeMessageId}
                     onChange={v => setFormData(f => ({ ...f, welcomeMessageId: v }))}
                     messages={welcomeMessages}
                   />
                   <AudioSelector
-                    label={tx.holdMusic || "Music on Hold"}
+                    label={tx.holdMusic}
                     helpText={tx.helpHoldMusic}
                     value={formData.holdMusicId}
                     onChange={v => setFormData(f => ({ ...f, holdMusicId: v }))}
@@ -827,7 +827,7 @@ export function InboundQueuesTab() {
                 <div className="border-b pb-1">
                   <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                     <Megaphone className="h-4 w-4" />
-                    {tx.audioAnnouncements || "Queue Announcements"}
+                    {tx.audioAnnouncements}
                   </h4>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
@@ -841,7 +841,7 @@ export function InboundQueuesTab() {
                     </div>
                     {formData.announcePosition && (
                       <AudioSelector
-                        label={tx.positionMessage || "Position Announcement"}
+                        label={tx.positionMessage}
                         helpText={tx.helpPositionMessage}
                         value={formData.announcePositionMessageId}
                         onChange={v => setFormData(f => ({ ...f, announcePositionMessageId: v }))}
@@ -859,7 +859,7 @@ export function InboundQueuesTab() {
                     </div>
                     {formData.announceWaitTime && (
                       <AudioSelector
-                        label={tx.waitTimeMessage || "Wait Time Announcement"}
+                        label={tx.waitTimeMessage}
                         helpText={tx.helpWaitTimeMessage}
                         value={formData.announceWaitTimeMessageId}
                         onChange={v => setFormData(f => ({ ...f, announceWaitTimeMessageId: v }))}
@@ -868,14 +868,14 @@ export function InboundQueuesTab() {
                     )}
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-sm">{tx.announceFrequency || "Announce Frequency (sec)"}</Label>
+                    <Label className="text-sm">{tx.announceFrequency}</Label>
                     <Input type="number" min={10} max={300} value={formData.announceFrequency} onChange={e => setFormData(f => ({ ...f, announceFrequency: parseInt(e.target.value) || 30 }))} data-testid="input-announce-freq" />
                     <p className="text-xs text-muted-foreground">{tx.helpAnnounceFrequency}</p>
                   </div>
                 </div>
 
                 <p className="text-xs text-muted-foreground border-t pt-3">
-                  {tx.audioNote || "Manage audio files in the IVR Audio tab. Create welcome greetings, hold music, and announcements there."}
+                  {tx.audioNote}
                 </p>
               </TabsContent>
 
@@ -893,18 +893,18 @@ export function InboundQueuesTab() {
                   </div>
                   {formData.overflowAction === "transfer" && (
                     <div className="space-y-1.5">
-                      <Label className="text-sm">{tx.transferToNumber || "Transfer Target"}</Label>
-                      <Input value={formData.overflowTarget} onChange={e => setFormData(f => ({ ...f, overflowTarget: e.target.value }))} placeholder={tx.transferToNumber || "Phone number or extension"} data-testid="input-overflow-target" />
+                      <Label className="text-sm">{tx.transferToNumber}</Label>
+                      <Input value={formData.overflowTarget} onChange={e => setFormData(f => ({ ...f, overflowTarget: e.target.value }))} placeholder={tx.transferToNumber} data-testid="input-overflow-target" />
                       <p className="text-xs text-muted-foreground">{tx.helpOverflowTarget}</p>
                     </div>
                   )}
                   {formData.overflowAction === "queue" && (
                     <div className="space-y-1.5">
-                      <Label className="text-sm">{tx.routeToQueue || "Target Queue"}</Label>
+                      <Label className="text-sm">{tx.routeToQueue}</Label>
                       <Select value={formData.overflowTarget || "__none__"} onValueChange={v => setFormData(f => ({ ...f, overflowTarget: v === "__none__" ? "" : v }))}>
-                        <SelectTrigger data-testid="select-overflow-queue"><SelectValue placeholder={tx.none || "None"} /></SelectTrigger>
+                        <SelectTrigger data-testid="select-overflow-queue"><SelectValue placeholder={tx.none} /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="__none__">{tx.none || "None"}</SelectItem>
+                          <SelectItem value="__none__">{tx.none}</SelectItem>
                           {queues.filter(q => !editingQueue || q.id !== editingQueue.id).map(q => (
                             <SelectItem key={q.id} value={q.id}>{q.name}</SelectItem>
                           ))}
@@ -915,11 +915,11 @@ export function InboundQueuesTab() {
                   )}
                   {formData.overflowAction === "user_pjsip" && (
                     <div className="space-y-1.5">
-                      <Label className="text-sm">{tx.transferToUser || "Transfer to User"}</Label>
+                      <Label className="text-sm">{tx.transferToUser}</Label>
                       <Select value={formData.overflowUserId || "__none__"} onValueChange={v => setFormData(f => ({ ...f, overflowUserId: v === "__none__" ? null : v }))}>
-                        <SelectTrigger data-testid="select-overflow-user"><SelectValue placeholder={tx.none || "None"} /></SelectTrigger>
+                        <SelectTrigger data-testid="select-overflow-user"><SelectValue placeholder={tx.none} /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="__none__">{tx.none || "None"}</SelectItem>
+                          <SelectItem value="__none__">{tx.none}</SelectItem>
                           {pjsipUsers.map((u: any) => (
                             <SelectItem key={u.id} value={u.id}>
                               <span className="flex items-center gap-2">
@@ -938,9 +938,9 @@ export function InboundQueuesTab() {
                     <div className="space-y-1.5">
                       <Label className="text-sm">{iq.voicemail}</Label>
                       <Select value={formData.overflowVoicemailBoxId || "__none__"} onValueChange={v => setFormData(f => ({ ...f, overflowVoicemailBoxId: v === "__none__" ? null : v }))}>
-                        <SelectTrigger data-testid="select-overflow-voicemail-box"><SelectValue placeholder={tx.none || "None"} /></SelectTrigger>
+                        <SelectTrigger data-testid="select-overflow-voicemail-box"><SelectValue placeholder={tx.none} /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="__none__">{tx.none || "None"}</SelectItem>
+                          <SelectItem value="__none__">{tx.none}</SelectItem>
                           {voicemailBoxes.filter((b: any) => b.isActive).map((b: any) => (
                             <SelectItem key={b.id} value={b.id}>{b.name}{b.extension ? ` (${b.extension})` : ""}</SelectItem>
                           ))}
@@ -951,11 +951,11 @@ export function InboundQueuesTab() {
                   )}
                   {formData.overflowAction === "announcement" && (
                     <div className="space-y-1.5">
-                      <Label className="text-sm">{tx.announcementAudio || "Announcement Audio"}</Label>
+                      <Label className="text-sm">{tx.announcementAudio}</Label>
                       <Select value={formData.overflowMessageId || "__none__"} onValueChange={v => setFormData(f => ({ ...f, overflowMessageId: v === "__none__" ? null : v }))}>
-                        <SelectTrigger data-testid="select-overflow-announcement"><SelectValue placeholder={tx.none || "None"} /></SelectTrigger>
+                        <SelectTrigger data-testid="select-overflow-announcement"><SelectValue placeholder={tx.none} /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="__none__">{tx.none || "None"}</SelectItem>
+                          <SelectItem value="__none__">{tx.none}</SelectItem>
                           {ivrMessages.filter((m: any) => m.type === "announcement" || m.type === "ivr_prompt").map((m: any) => (
                             <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
                           ))}
@@ -970,7 +970,7 @@ export function InboundQueuesTab() {
                   <div className="flex items-start gap-2 p-3 bg-yellow-50 dark:bg-yellow-950 rounded-lg border border-yellow-200 dark:border-yellow-800">
                     <AlertTriangle className="h-4 w-4 text-yellow-600 mt-0.5 shrink-0" />
                     <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                      {tx.noSipUsersWarning || "No users have SIP phone configured. Go to User Management to enable SIP and set an extension for users."}
+                      {tx.noSipUsersWarning}
                     </p>
                   </div>
                 )}
@@ -979,17 +979,17 @@ export function InboundQueuesTab() {
               <TabsContent value="hours" className="mt-6 space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
                   <div className="space-y-1.5">
-                    <Label className="text-sm">{tx.activeFrom || "Active From"}</Label>
+                    <Label className="text-sm">{tx.activeFrom}</Label>
                     <Input type="time" value={formData.activeFrom || ""} onChange={e => setFormData(f => ({ ...f, activeFrom: e.target.value || null }))} data-testid="input-active-from" />
                     <p className="text-xs text-muted-foreground">{tx.helpActiveFrom}</p>
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-sm">{tx.activeTo || "Active To"}</Label>
+                    <Label className="text-sm">{tx.activeTo}</Label>
                     <Input type="time" value={formData.activeTo || ""} onChange={e => setFormData(f => ({ ...f, activeTo: e.target.value || null }))} data-testid="input-active-to" />
                     <p className="text-xs text-muted-foreground">{tx.helpActiveTo}</p>
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-sm">{tx.timezone || "Timezone"}</Label>
+                    <Label className="text-sm">{tx.timezone}</Label>
                     <Select value={formData.timezone} onValueChange={v => setFormData(f => ({ ...f, timezone: v }))}>
                       <SelectTrigger data-testid="select-timezone"><SelectValue /></SelectTrigger>
                       <SelectContent>
@@ -999,7 +999,7 @@ export function InboundQueuesTab() {
                     <p className="text-xs text-muted-foreground">{tx.helpTimezone}</p>
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-sm">{tx.activeDays || "Active Days"}</Label>
+                    <Label className="text-sm">{tx.activeDays}</Label>
                     <div className="flex gap-1 flex-wrap">
                       {DAYS_OF_WEEK.map(day => (
                         <Button
@@ -1017,7 +1017,7 @@ export function InboundQueuesTab() {
                           }}
                           data-testid={`btn-day-${day.value}`}
                         >
-                          {day.key}
+                          {(tx as any)[`day${day.key.charAt(0).toUpperCase() + day.key.slice(1)}`] || day.key}
                         </Button>
                       ))}
                     </div>
@@ -1030,12 +1030,12 @@ export function InboundQueuesTab() {
                     <div className="border-b pb-1">
                       <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                         <Clock className="h-4 w-4" />
-                        {tx.afterHoursHandling || "After-Hours Handling"}
+                        {tx.afterHoursHandling}
                       </h4>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
                       <div className="space-y-1.5">
-                        <Label className="text-sm">{tx.afterHoursAction || "After-Hours Action"}</Label>
+                        <Label className="text-sm">{tx.afterHoursAction}</Label>
                         <Select value={formData.afterHoursAction} onValueChange={v => setFormData(f => ({ ...f, afterHoursAction: v }))}>
                           <SelectTrigger data-testid="select-after-hours-action"><SelectValue /></SelectTrigger>
                           <SelectContent>
@@ -1046,30 +1046,30 @@ export function InboundQueuesTab() {
                       </div>
                       {(formData.afterHoursAction === "transfer" || formData.afterHoursAction === "queue") && (
                         <div className="space-y-1.5">
-                          <Label className="text-sm">{formData.afterHoursAction === "queue" ? (tx.routeToQueue || "Target Queue") : (tx.transferToNumber || "Transfer Target")}</Label>
+                          <Label className="text-sm">{formData.afterHoursAction === "queue" ? tx.routeToQueue : tx.transferToNumber}</Label>
                           {formData.afterHoursAction === "queue" ? (
                             <Select value={formData.afterHoursTarget || "__none__"} onValueChange={v => setFormData(f => ({ ...f, afterHoursTarget: v === "__none__" ? "" : v }))}>
-                              <SelectTrigger data-testid="select-after-hours-queue"><SelectValue placeholder={tx.none || "None"} /></SelectTrigger>
+                              <SelectTrigger data-testid="select-after-hours-queue"><SelectValue placeholder={tx.none} /></SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="__none__">{tx.none || "None"}</SelectItem>
+                                <SelectItem value="__none__">{tx.none}</SelectItem>
                                 {queues.filter(q => !editingQueue || q.id !== editingQueue.id).map(q => (
                                   <SelectItem key={q.id} value={q.id}>{q.name}</SelectItem>
                                 ))}
                               </SelectContent>
                             </Select>
                           ) : (
-                            <Input value={formData.afterHoursTarget} onChange={e => setFormData(f => ({ ...f, afterHoursTarget: e.target.value }))} placeholder={tx.transferToNumber || "Phone number or extension"} data-testid="input-after-hours-target" />
+                            <Input value={formData.afterHoursTarget} onChange={e => setFormData(f => ({ ...f, afterHoursTarget: e.target.value }))} placeholder={tx.transferToNumber} data-testid="input-after-hours-target" />
                           )}
                           <p className="text-xs text-muted-foreground">{tx.helpAfterHoursTarget}</p>
                         </div>
                       )}
                       {formData.afterHoursAction === "user_pjsip" && (
                         <div className="space-y-1.5">
-                          <Label className="text-sm">{tx.transferToUser || "Transfer to User"}</Label>
+                          <Label className="text-sm">{tx.transferToUser}</Label>
                           <Select value={formData.afterHoursTarget || "__none__"} onValueChange={v => setFormData(f => ({ ...f, afterHoursTarget: v === "__none__" ? "" : v }))}>
-                            <SelectTrigger data-testid="select-after-hours-user"><SelectValue placeholder={tx.none || "None"} /></SelectTrigger>
+                            <SelectTrigger data-testid="select-after-hours-user"><SelectValue placeholder={tx.none} /></SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="__none__">{tx.none || "None"}</SelectItem>
+                              <SelectItem value="__none__">{tx.none}</SelectItem>
                               {pjsipUsers.map((u: any) => (
                                 <SelectItem key={u.id} value={u.id}>
                                   <span className="flex items-center gap-2">
@@ -1088,9 +1088,9 @@ export function InboundQueuesTab() {
                         <div className="space-y-1.5">
                           <Label className="text-sm">{iq.voicemail}</Label>
                           <Select value={formData.afterHoursVoicemailBoxId || "__none__"} onValueChange={v => setFormData(f => ({ ...f, afterHoursVoicemailBoxId: v === "__none__" ? null : v }))}>
-                            <SelectTrigger data-testid="select-after-hours-voicemail-box"><SelectValue placeholder={tx.none || "None"} /></SelectTrigger>
+                            <SelectTrigger data-testid="select-after-hours-voicemail-box"><SelectValue placeholder={tx.none} /></SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="__none__">{tx.none || "None"}</SelectItem>
+                              <SelectItem value="__none__">{tx.none}</SelectItem>
                               {voicemailBoxes.filter((b: any) => b.isActive).map((b: any) => (
                                 <SelectItem key={b.id} value={b.id}>{b.name}{b.extension ? ` (${b.extension})` : ""}</SelectItem>
                               ))}
@@ -1100,7 +1100,7 @@ export function InboundQueuesTab() {
                         </div>
                       )}
                       <AudioSelector
-                        label={tx.afterHoursMessage || "After-Hours Message"}
+                        label={tx.afterHoursMessage}
                         helpText={tx.helpAfterHoursMessage}
                         value={formData.afterHoursMessageId}
                         onChange={v => setFormData(f => ({ ...f, afterHoursMessageId: v }))}
@@ -1115,10 +1115,10 @@ export function InboundQueuesTab() {
 
             <DialogFooter className="border-t pt-4">
               <Button variant="outline" onClick={() => { setShowCreateDialog(false); setEditingQueue(null); }} data-testid="btn-cancel-queue">
-                {tx.cancel || t.common.cancel}
+                {tx.cancel}
               </Button>
               <Button onClick={handleSubmit} disabled={createMutation.isPending || updateMutation.isPending} data-testid="btn-save-queue">
-                {editingQueue ? (tx.update || "Update") : (tx.create || "Create")}
+                {editingQueue ? tx.update : tx.create}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -1131,9 +1131,9 @@ export function InboundQueuesTab() {
             </DialogHeader>
             <div className="space-y-4">
               <div className="space-y-1.5">
-                <Label className="text-sm">{tx.agent || "Agent"}</Label>
+                <Label className="text-sm">{tx.agent}</Label>
                 <Select value={newMemberUserId} onValueChange={setNewMemberUserId}>
-                  <SelectTrigger data-testid="select-member-user"><SelectValue placeholder={tx.agent || "Select agent..."} /></SelectTrigger>
+                  <SelectTrigger data-testid="select-member-user"><SelectValue placeholder={tx.agent} /></SelectTrigger>
                   <SelectContent>
                     {sipUsers.map((u: any) => (
                       <SelectItem key={u.id} value={u.id}>{u.fullName || u.username}</SelectItem>
@@ -1142,13 +1142,13 @@ export function InboundQueuesTab() {
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label className="text-sm">{tx.memberPriority || "Priority"}</Label>
+                <Label className="text-sm">{tx.memberPriority}</Label>
                 <Input type="number" min={0} max={10} value={newMemberPenalty} onChange={e => setNewMemberPenalty(parseInt(e.target.value) || 0)} data-testid="input-member-penalty" />
-                <p className="text-xs text-muted-foreground">{tx.memberPriorityHelp || "Lower value = higher priority (0-10)"}</p>
+                <p className="text-xs text-muted-foreground">{tx.memberPriorityHelp}</p>
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setShowAddMemberDialog(null)} data-testid="btn-cancel-member">{tx.cancel || t.common.cancel}</Button>
+              <Button variant="outline" onClick={() => setShowAddMemberDialog(null)} data-testid="btn-cancel-member">{tx.cancel}</Button>
               <Button
                 disabled={!newMemberUserId || addMemberMutation.isPending}
                 onClick={() => {
@@ -1214,6 +1214,17 @@ function QueueDetailPanel({ queueId, sipUsers, onAddMember }: {
     }
   };
 
+  const statusLabel = (status: string) => {
+    const map: Record<string, string> = {
+      available: tx.statusAvailable,
+      busy: tx.statusBusy,
+      break: tx.statusBreak,
+      wrap_up: tx.statusWrapUp,
+      offline: tx.statusOffline,
+    };
+    return map[status] || status;
+  };
+
   const changePriority = (memberId: string, currentPenalty: number, delta: number) => {
     const newPenalty = Math.max(0, Math.min(10, currentPenalty + delta));
     if (newPenalty !== currentPenalty) {
@@ -1240,8 +1251,8 @@ function QueueDetailPanel({ queueId, sipUsers, onAddMember }: {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>{tx.agent || "Agent"}</TableHead>
-              <TableHead>{tx.sipExtension || "SIP Extension"}</TableHead>
+              <TableHead>{tx.agent}</TableHead>
+              <TableHead>{tx.sipExtension}</TableHead>
               <TableHead>{iq.agentStatus}</TableHead>
               <TableHead>{iq.priority}</TableHead>
               <TableHead>{iq.callsHandled}</TableHead>
@@ -1263,13 +1274,13 @@ function QueueDetailPanel({ queueId, sipUsers, onAddMember }: {
                       {member.user.sipExtension}
                     </Badge>
                   ) : (
-                    <span className="text-xs text-muted-foreground">{tx.notConfigured || "Not configured"}</span>
+                    <span className="text-xs text-muted-foreground">{tx.notConfigured}</span>
                   )}
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-2">
                     <div className={`h-2 w-2 rounded-full ${statusColor(member.agentStatus)}`} />
-                    <span className="text-sm capitalize">{member.agentStatus}</span>
+                    <span className="text-sm">{statusLabel(member.agentStatus)}</span>
                   </div>
                 </TableCell>
                 <TableCell>
@@ -1300,7 +1311,7 @@ function QueueDetailPanel({ queueId, sipUsers, onAddMember }: {
                 <TableCell>{member.callsHandled}</TableCell>
                 <TableCell>
                   <Button variant="ghost" size="icon"
-                    onClick={() => { if (confirm(tx.confirmRemoveMember || "Remove this agent?")) removeMemberMutation.mutate(member.id); }}
+                    onClick={() => { if (confirm(tx.confirmRemoveMember)) removeMemberMutation.mutate(member.id); }}
                     data-testid={`btn-remove-member-${member.id}`}
                   >
                     <UserMinus className="h-4 w-4 text-destructive" />

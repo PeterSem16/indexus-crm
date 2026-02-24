@@ -6147,13 +6147,22 @@ export default function AgentWorkspacePage() {
                   const waitMin = call.waitDurationSeconds ? Math.floor(call.waitDurationSeconds / 60) : 0;
                   const waitSec = call.waitDurationSeconds ? call.waitDurationSeconds % 60 : 0;
                   const timeAgo = (() => {
-                    const diff = Date.now() - new Date(call.enteredQueueAt || call.createdAt).getTime();
+                    const ts = call.enteredQueueAt || call.completedAt || call.createdAt;
+                    if (!ts) return "";
+                    const diff = Date.now() - new Date(ts).getTime();
+                    if (isNaN(diff) || diff < 0) return "";
                     const mins = Math.floor(diff / 60000);
                     if (mins < 60) return `pred ${mins} min`;
                     const hrs = Math.floor(mins / 60);
                     return `pred ${hrs}h ${mins % 60}min`;
                   })();
-                  const statusLabel = call.status === "abandoned" ? "Zrušený" : call.status === "timeout" ? "Časový limit" : "Pretečenie";
+                  const missedTime = call.completedAt ? (() => { try { return format(new Date(call.completedAt), "HH:mm"); } catch { return null; } })() : null;
+                  const statusLabel = call.status === "abandoned"
+                    ? (call.abandonReason === "caller_hangup" ? "Hovor ukončený zákazníkom" : "Zmeškaný")
+                    : call.status === "timeout" ? "Časový limit"
+                    : call.status === "overflow" ? "Pretečenie"
+                    : call.status === "no_agents" ? "Žiadni agenti"
+                    : "Zmeškaný";
                   const statusColor = call.status === "abandoned" ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" : "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400";
 
                   const isCalledBack = !!call.calledBack;
@@ -6181,7 +6190,7 @@ export default function AgentWorkspacePage() {
                           )}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-medium text-sm truncate">
                               {call.customerName || call.callerName || call.callerNumber}
                             </span>
@@ -6194,6 +6203,11 @@ export default function AgentWorkspacePage() {
                                 {statusLabel}
                               </Badge>
                             )}
+                            {call.waitDurationSeconds > 0 && (
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                                Čakal vo fronte {waitMin > 0 ? `${waitMin}m ` : ""}{waitSec}s
+                              </Badge>
+                            )}
                           </div>
                           <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
                             <span>{call.callerNumber}</span>
@@ -6204,13 +6218,7 @@ export default function AgentWorkspacePage() {
                               </>
                             )}
                             <span className="text-muted-foreground/50">|</span>
-                            <span>{timeAgo}</span>
-                            {call.waitDurationSeconds > 0 && (
-                              <>
-                                <span className="text-muted-foreground/50">|</span>
-                                <span>Čakal {waitMin > 0 ? `${waitMin}m ` : ""}{waitSec}s</span>
-                              </>
-                            )}
+                            <span>{missedTime ? `${missedTime} | ${timeAgo}` : timeAgo}</span>
                           </div>
                         </div>
                       </div>
@@ -6256,9 +6264,8 @@ export default function AgentWorkspacePage() {
                               } catch (e) { console.error("Failed to lookup customer:", e); }
                             }
                             makeCall({
-                              phoneNumber: phoneNum,
-                              customerId: call.customerId || undefined,
-                              customerName: call.customerName || call.callerName || phoneNum,
+                              target: phoneNum,
+                              displayName: call.customerName || call.callerName || phoneNum,
                             });
                             setAbandonedCallsOpen(false);
                           }}

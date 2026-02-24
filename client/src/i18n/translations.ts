@@ -1722,6 +1722,18 @@ export interface Translations {
       helpEmailAccount: string;
       helpSmsEnabled: string;
       helpSmsPhone: string;
+      dayMon: string;
+      dayTue: string;
+      dayWed: string;
+      dayThu: string;
+      dayFri: string;
+      daySat: string;
+      daySun: string;
+      statusAvailable: string;
+      statusBusy: string;
+      statusBreak: string;
+      statusWrapUp: string;
+      statusOffline: string;
     };
     didRoutes: {
       title: string;
@@ -5710,6 +5722,18 @@ export const translations: Record<Locale, Translations> = {
         helpEmailAccount: 'Email account ID used for receiving emails routed to this queue.',
         helpSmsEnabled: 'Allow this queue to receive and process SMS messages.',
         helpSmsPhone: 'Phone number used for receiving SMS messages routed to this queue.',
+        dayMon: 'Mon',
+        dayTue: 'Tue',
+        dayWed: 'Wed',
+        dayThu: 'Thu',
+        dayFri: 'Fri',
+        daySat: 'Sat',
+        daySun: 'Sun',
+        statusAvailable: 'Available',
+        statusBusy: 'Busy',
+        statusBreak: 'Break',
+        statusWrapUp: 'Wrap Up',
+        statusOffline: 'Offline',
       },
       didRoutes: {
         title: 'DID Routing',
@@ -9635,6 +9659,18 @@ export const translations: Record<Locale, Translations> = {
         helpEmailAccount: 'ID emailového účtu pre prijímanie emailov v tejto fronte.',
         helpSmsEnabled: 'Povoliť prijímanie a spracovanie SMS správ v tejto fronte.',
         helpSmsPhone: 'Telefónne číslo pre prijímanie SMS správ v tejto fronte.',
+        dayMon: 'Po',
+        dayTue: 'Ut',
+        dayWed: 'St',
+        dayThu: 'Št',
+        dayFri: 'Pi',
+        daySat: 'So',
+        daySun: 'Ne',
+        statusAvailable: 'Dostupný',
+        statusBusy: 'Zaneprázdnený',
+        statusBreak: 'Prestávka',
+        statusWrapUp: 'Spracovanie',
+        statusOffline: 'Offline',
       },
       didRoutes: {
         title: 'DID Smerovanie',
@@ -13545,6 +13581,18 @@ export const translations: Record<Locale, Translations> = {
         helpEmailAccount: 'ID emailového účtu pro příjem emailů.',
         helpSmsEnabled: 'Povolit příjem SMS v této frontě.',
         helpSmsPhone: 'Telefonní číslo pro příjem SMS.',
+        dayMon: 'Po',
+        dayTue: 'Út',
+        dayWed: 'St',
+        dayThu: 'Čt',
+        dayFri: 'Pá',
+        daySat: 'So',
+        daySun: 'Ne',
+        statusAvailable: 'Dostupný',
+        statusBusy: 'Zaneprázdněn',
+        statusBreak: 'Přestávka',
+        statusWrapUp: 'Zpracování',
+        statusOffline: 'Offline',
       },
       didRoutes: {
         title: 'DID Směrování',
@@ -17418,6 +17466,18 @@ export const translations: Record<Locale, Translations> = {
         helpEmailAccount: 'Email fiók azonosító.',
         helpSmsEnabled: 'SMS fogadás engedélyezése ebben a sorban.',
         helpSmsPhone: 'Telefonszám SMS fogadáshoz.',
+        dayMon: 'Hé',
+        dayTue: 'Ke',
+        dayWed: 'Sze',
+        dayThu: 'Cs',
+        dayFri: 'Pé',
+        daySat: 'Szo',
+        daySun: 'Va',
+        statusAvailable: 'Elérhető',
+        statusBusy: 'Foglalt',
+        statusBreak: 'Szünet',
+        statusWrapUp: 'Feldolgozás',
+        statusOffline: 'Offline',
       },
       didRoutes: {
         title: 'DID Útválasztás',
@@ -21290,6 +21350,18 @@ export const translations: Record<Locale, Translations> = {
         helpEmailAccount: 'ID cont email.',
         helpSmsEnabled: 'Activare primire SMS în această coadă.',
         helpSmsPhone: 'Număr de telefon pentru SMS.',
+        dayMon: 'Lu',
+        dayTue: 'Ma',
+        dayWed: 'Mi',
+        dayThu: 'Jo',
+        dayFri: 'Vi',
+        daySat: 'Sâ',
+        daySun: 'Du',
+        statusAvailable: 'Disponibil',
+        statusBusy: 'Ocupat',
+        statusBreak: 'Pauză',
+        statusWrapUp: 'Finalizare',
+        statusOffline: 'Offline',
       },
       didRoutes: {
         title: 'Rutare DID',
@@ -25163,6 +25235,18 @@ export const translations: Record<Locale, Translations> = {
         helpEmailAccount: 'ID account email.',
         helpSmsEnabled: 'Abilitare ricezione SMS in questa coda.',
         helpSmsPhone: 'Numero di telefono per SMS.',
+        dayMon: 'Lun',
+        dayTue: 'Mar',
+        dayWed: 'Mer',
+        dayThu: 'Gio',
+        dayFri: 'Ven',
+        daySat: 'Sab',
+        daySun: 'Dom',
+        statusAvailable: 'Disponibile',
+        statusBusy: 'Occupato',
+        statusBreak: 'Pausa',
+        statusWrapUp: 'Chiusura',
+        statusOffline: 'Offline',
       },
       didRoutes: {
         title: 'Instradamento DID',
@@ -29036,6 +29120,18 @@ export const translations: Record<Locale, Translations> = {
         helpEmailAccount: 'E-Mail-Konto-ID.',
         helpSmsEnabled: 'SMS-Empfang in dieser Warteschlange aktivieren.',
         helpSmsPhone: 'Telefonnummer für SMS-Empfang.',
+        dayMon: 'Mo',
+        dayTue: 'Di',
+        dayWed: 'Mi',
+        dayThu: 'Do',
+        dayFri: 'Fr',
+        daySat: 'Sa',
+        daySun: 'So',
+        statusAvailable: 'Verfügbar',
+        statusBusy: 'Beschäftigt',
+        statusBreak: 'Pause',
+        statusWrapUp: 'Nachbearbeitung',
+        statusOffline: 'Offline',
       },
       didRoutes: {
         title: 'DID-Routing',
