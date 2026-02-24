@@ -37,6 +37,46 @@ import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { SipSettings, CallLog, User } from "@shared/schema";
 
+function useRegistrationTimer(isRegistered: boolean, isRegistering: boolean) {
+  const [waitingForReg, setWaitingForReg] = useState(false);
+  const [elapsedSec, setElapsedSec] = useState(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const MAX_WAIT = 10;
+
+  const startWaiting = useCallback(() => {
+    setWaitingForReg(true);
+    setElapsedSec(0);
+    if (timerRef.current) clearInterval(timerRef.current);
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    const t0 = Date.now();
+    timerRef.current = setInterval(() => {
+      setElapsedSec(Math.floor((Date.now() - t0) / 1000));
+    }, 500);
+    timeoutRef.current = setTimeout(() => {
+      setWaitingForReg(false);
+      if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+    }, MAX_WAIT * 1000);
+  }, []);
+
+  useEffect(() => {
+    if (waitingForReg && isRegistered) {
+      setWaitingForReg(false);
+      if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+      if (timeoutRef.current) { clearTimeout(timeoutRef.current); timeoutRef.current = null; }
+    }
+  }, [isRegistered, waitingForReg]);
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, []);
+
+  return { waitingForReg, elapsedSec, startWaiting, MAX_WAIT };
+}
+
 export interface SipConfig {
   server: string;
   port?: number;
@@ -77,6 +117,7 @@ export function SipPhone({
 }: SipPhoneProps) {
   const { toast } = useToast();
   const { isRegistered, isRegistering, registrationError, register, unregister, ensureRegistered, userAgentRef, registererRef, pendingCall, clearPendingCall, incomingCall, answeredIncomingSession, clearAnsweredSession, answerIncomingCall, rejectIncomingCall } = useSip();
+  const { waitingForReg: dialWaiting, elapsedSec: dialElapsed, startWaiting: startDialWaiting } = useRegistrationTimer(isRegistered, isRegistering);
   const callContext = useCall();
   const [localCustomerId, setLocalCustomerId] = useState(customerId);
   const [localCampaignId, setLocalCampaignId] = useState(campaignId);
@@ -1032,6 +1073,27 @@ export function SipPhone({
     }
   }, [phoneNumber, sipConfig.server, sipConfig.realm, ensureRegistered, onCallStart, onCallEnd, toast, createCallLogMutation, updateCallLogMutation, userId, currentUser, localCustomerId, localCampaignId, localCustomerName, currentCallLogId, isSipConfigured]);
 
+  const isRegisteredRef = useRef(isRegistered);
+  useEffect(() => { isRegisteredRef.current = isRegistered; }, [isRegistered]);
+
+  const handleDialClick = useCallback(() => {
+    if (!isRegistered) {
+      if (!isRegistering) {
+        register();
+      }
+      startDialWaiting();
+      const checkInterval = setInterval(() => {
+        if (isRegisteredRef.current) {
+          clearInterval(checkInterval);
+          makeCall();
+        }
+      }, 200);
+      setTimeout(() => clearInterval(checkInterval), 10000);
+      return;
+    }
+    makeCall();
+  }, [isRegistered, isRegistering, register, startDialWaiting, makeCall]);
+
   useEffect(() => {
     if (pendingCall && (callState === "idle" || callState === "ended")) {
       if (callState === "ended") {
@@ -1691,12 +1753,19 @@ export function SipPhone({
                 <X className="h-4 w-4" />
               </Button>
               <Button
-                className="h-14 w-14 rounded-full bg-green-600 hover:bg-green-700"
-                onClick={makeCall}
-                disabled={!phoneNumber || !isRegistered || !isSipConfigured}
+                className={`h-14 w-14 rounded-full ${dialWaiting ? "bg-amber-500 hover:bg-amber-600 animate-pulse" : "bg-green-600 hover:bg-green-700"}`}
+                onClick={handleDialClick}
+                disabled={!phoneNumber || !isSipConfigured || dialWaiting}
                 data-testid="button-make-call"
               >
-                <Phone className="h-6 w-6" />
+                {dialWaiting ? (
+                  <div className="flex flex-col items-center">
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    <span className="text-[10px] font-mono">{dialElapsed}s</span>
+                  </div>
+                ) : (
+                  <Phone className="h-6 w-6" />
+                )}
               </Button>
             </>
           ) : (
@@ -1850,9 +1919,9 @@ export function SipPhoneFloating({
   clientStatus
 }: SipPhoneFloatingProps) {
   const { makeCall, isRegistered, isRegistering, register } = useSip();
+  const { waitingForReg, elapsedSec, startWaiting, MAX_WAIT } = useRegistrationTimer(isRegistered, isRegistering);
 
   const handleCall = () => {
-    // Always set pendingCall - system will wait for registration if needed
     makeCall({
       phoneNumber,
       customerId,
@@ -1862,9 +1931,11 @@ export function SipPhoneFloating({
       clientStatus,
     });
     
-    // If not registered yet, trigger registration
     if (!isRegistered && !isRegistering) {
       register();
+    }
+    if (!isRegistered) {
+      startWaiting();
     }
   };
 
@@ -1874,12 +1945,19 @@ export function SipPhoneFloating({
 
   return (
     <Button
-      className="fixed bottom-4 right-4 h-14 w-14 rounded-full shadow-lg z-50"
+      className={`fixed bottom-4 right-4 h-14 w-14 rounded-full shadow-lg z-50 ${waitingForReg ? "animate-pulse" : ""}`}
       onClick={handleCall}
-      disabled={!isRegistered}
+      disabled={waitingForReg}
       data-testid="button-call-floating"
     >
-      <Phone className={`h-6 w-6 ${!isRegistered ? "opacity-50" : ""}`} />
+      {waitingForReg ? (
+        <div className="flex flex-col items-center">
+          <Loader2 className="h-5 w-5 animate-spin" />
+          <span className="text-[10px] font-mono">{elapsedSec}s</span>
+        </div>
+      ) : (
+        <Phone className={`h-6 w-6 ${!isRegistered ? "opacity-50" : ""}`} />
+      )}
     </Button>
   );
 }
@@ -1904,6 +1982,7 @@ export function CallCustomerButton({
   clientStatus
 }: CallCustomerButtonProps) {
   const { makeCall, isRegistered, isRegistering, register } = useSip();
+  const { waitingForReg, elapsedSec, startWaiting } = useRegistrationTimer(isRegistered, isRegistering);
   const { data: authData } = useQuery<{ user: User | null }>({
     queryKey: ["/api/auth/me"],
     queryFn: getQueryFn({ on401: "returnNull" }),
@@ -1916,7 +1995,6 @@ export function CallCustomerButton({
     e.preventDefault();
     e.stopPropagation();
     
-    // Always set pendingCall - the system will wait for registration if needed
     makeCall({
       phoneNumber,
       customerId: typeof customerId === 'number' ? String(customerId) : customerId,
@@ -1926,9 +2004,11 @@ export function CallCustomerButton({
       clientStatus,
     });
     
-    // If not registered yet, trigger registration (call will proceed after registration)
     if (!isRegistered && !isRegistering) {
       register();
+    }
+    if (!isRegistered) {
+      startWaiting();
     }
   };
 
@@ -1943,11 +2023,15 @@ export function CallCustomerButton({
         size="icon"
         variant="ghost"
         onClick={handleCall}
-        disabled={!isRegistered}
+        disabled={waitingForReg}
         data-testid="button-call-customer-icon"
-        title={!isRegistered ? "SIP nie je pripojený" : `Zavolat na ${phoneNumber}`}
+        title={waitingForReg ? `Registrácia SIP... ${elapsedSec}s` : !isRegistered ? "SIP nie je pripojený — kliknutím spustíte registráciu" : `Zavolat na ${phoneNumber}`}
       >
-        <PhoneCall className={`h-4 w-4 ${isRegistered ? "text-primary" : "text-muted-foreground"}`} />
+        {waitingForReg ? (
+          <Loader2 className="h-4 w-4 animate-spin text-primary" />
+        ) : (
+          <PhoneCall className={`h-4 w-4 ${isRegistered ? "text-primary" : "text-muted-foreground"}`} />
+        )}
       </Button>
     );
   }
@@ -1959,12 +2043,21 @@ export function CallCustomerButton({
         size="sm"
         variant="outline"
         onClick={handleCall}
-        disabled={!isRegistered}
+        disabled={waitingForReg}
         data-testid="button-call-customer-small"
         className="gap-1"
       >
-        <PhoneCall className={`h-3 w-3 ${!isRegistered ? "text-muted-foreground" : ""}`} />
-        {isRegistered ? "Zavolat" : "Nepripojený"}
+        {waitingForReg ? (
+          <>
+            <Loader2 className="h-3 w-3 animate-spin" />
+            <span className="font-mono text-xs">{elapsedSec}s</span>
+          </>
+        ) : (
+          <>
+            <PhoneCall className={`h-3 w-3 ${!isRegistered ? "text-muted-foreground" : ""}`} />
+            {isRegistered ? "Zavolať" : "Volať"}
+          </>
+        )}
       </Button>
     );
   }
@@ -1973,12 +2066,21 @@ export function CallCustomerButton({
     <Button
       type="button"
       onClick={handleCall}
-      disabled={!isRegistered}
+      disabled={waitingForReg}
       data-testid="button-call-customer"
       className="gap-2"
     >
-      <PhoneCall className={`h-4 w-4 ${!isRegistered ? "text-muted-foreground" : ""}`} />
-      {isRegistered ? `Zavolat ${phoneNumber}` : "SIP nepripojený"}
+      {waitingForReg ? (
+        <>
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span className="font-mono">{elapsedSec}s — Registrácia SIP...</span>
+        </>
+      ) : (
+        <>
+          <PhoneCall className={`h-4 w-4 ${!isRegistered ? "text-muted-foreground" : ""}`} />
+          {isRegistered ? `Zavolať ${phoneNumber}` : `Volať ${phoneNumber}`}
+        </>
+      )}
     </Button>
   );
 }

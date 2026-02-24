@@ -3944,7 +3944,7 @@ export default function AgentWorkspacePage() {
   const { t, locale } = useI18n();
   const { user } = useAuth();
   const { toast } = useToast();
-  const { makeCall, isRegistered: isSipRegistered, incomingCall: sipIncomingCall, answerIncomingCall, rejectIncomingCall, setIncomingCallWithRef, setAnsweredIncomingSession, incomingCallRef } = useSip();
+  const { makeCall, isRegistered: isSipRegistered, isRegistering: isSipRegistering, register: sipRegister, incomingCall: sipIncomingCall, answerIncomingCall, rejectIncomingCall, setIncomingCallWithRef, setAnsweredIncomingSession, incomingCallRef } = useSip();
   const callContext = useCall();
   const [, setLocation] = useLocation();
   const { open: sidebarOpen, setOpen: setSidebarOpen } = useSidebar();
@@ -6276,9 +6276,12 @@ export default function AgentWorkspacePage() {
                               target: phoneNum,
                               displayName: call.customerName || call.callerName || phoneNum,
                             });
+                            if (!isSipRegistered && !isSipRegistering) {
+                              sipRegister();
+                            }
                             setAbandonedCallsOpen(false);
                           }}
-                          disabled={!isSipRegistered}
+                          disabled={false}
                           data-testid={`btn-callback-${call.id}`}
                         >
                           <Phone className="h-3.5 w-3.5" />
