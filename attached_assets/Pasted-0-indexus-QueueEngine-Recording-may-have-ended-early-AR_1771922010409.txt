@@ -1,0 +1,130 @@
+0|indexus- | [QueueEngine] Recording may have ended early: ARI POST /channels/1771921690.283/record?name=voicemail-7dc07e77-4684-4518-95f8-62756af8e338-1771921751556&format=wav&ifExists=overwrite failed: 404 {
+0|indexus- | [QueueEngine] SFTP download failed: SFTP download failed: No such file
+0|indexus- | [QueueEngine] ARI download attempt 1 failed: ARI download recording failed: 404 {
+0|indexus- | [QueueEngine] ARI download attempt 2 failed: ARI download recording failed: 404 {
+0|indexus- | [QueueEngine] ARI download attempt 3 failed: ARI download recording failed: 404 {
+0|indexus-crm  | [QueueEngine] === INCOMING CALL ===
+0|indexus-crm  | [QueueEngine]   Caller: 0421948519438 ()
+0|indexus-crm  | [QueueEngine]   Dialed: 0232399030
+0|indexus-crm  | [QueueEngine]   Channel: 1771921850.296
+0|indexus-crm  | [QueueEngine]   Channel state: Ring
+0|indexus-crm  | [QueueEngine]   Stasis args: ["0232399030","0421948519438","1771921850.296"]
+0|indexus-crm  | [QueueEngine]   Dialplan: {"context":"indexus-incoming","exten":"0232399030","priority":5}
+0|indexus-crm  | [QueueEngine] Matched queue: "sk inbound" (id: 0106e99f-6a0f-475a-b22e-99eea1b82f60, strategy: round-robin)
+0|indexus-crm  | [QueueEngine] Playing welcome: sound:custom/uvitanie-pre-slovensku-infolinku (pbId: welcome-1771921850.296-1771921850533)
+0|indexus-crm  | [QueueEngine] Welcome playing for 1771921850.296, call will be queued after welcome finishes
+0|indexus-crm  | [QueueEngine] Welcome playback finished for channel 1771921850.296, starting MOH and queueing call
+0|indexus-crm  | [QueueEngine] Playing custom MOH: sound:custom/moh-slow-jazz (pbId: moh-1771921850.296-1771921858651)
+0|indexus-crm  | [QueueEngine] Call 0a955cec-f647-4839-a663-81a7780453a1 added to queue "sk inbound" at position 1
+0|indexus-crm  | [QueueEngine] Selecting agent for queue "sk inbound" (0106e99f-6a0f-475a-b22e-99eea1b82f60): 2 DB members
+0|indexus-crm  | [QueueEngine]   Session agents for this queue: 1 (67467ce3-7a44-4f67-a3d3-6a251e2991e5)
+0|indexus-crm  | [QueueEngine]   Skipping agent 62b874a9-d7b5-4432-bf74-8a62c0815218: no active session
+0|indexus-crm  | [QueueEngine]   Total candidate agents (session-filtered): 1
+0|indexus-crm  | [QueueEngine]   Agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5: state=available (penalty: 1)
+0|indexus-crm  | [QueueEngine] Available agents: 1
+0|indexus-crm  | [QueueEngine] Connecting call 0a955cec-f647-4839-a663-81a7780453a1 to agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5
+0|indexus-crm  | [QueueEngine] Agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5 status → busy, queueIds: [0106e99f-6a0f-475a-b22e-99eea1b82f60]
+0|indexus-crm  | [QueueEngine] Agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5 → busy
+0|indexus-crm  | [QueueEngine] === ORIGINATING CALL TO AGENT ===
+0|indexus-crm  | [QueueEngine]   Agent: System Administrator (ext: 2001)
+0|indexus-crm  | [QueueEngine]   Endpoint: PJSIP/2001
+0|indexus-crm  | [QueueEngine]   Caller channel: 1771921850.296
+0|indexus-crm  | [QueueEngine]   Call ID: 0a955cec-f647-4839-a663-81a7780453a1
+0|indexus-crm  | [QueueEngine]   Ring timeout: 30s (elapsed: 0s, maxWait: 40s)
+0|indexus-crm  | [QueueEngine] Agent channel created: 1771921858.297 for agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=0, assigned=1, pending=1
+0|indexus-crm  | [QueueEngine] checkTimeouts ASSIGNED: call=0a955cec-f647-4839-a663-81a7780453a1, waited=1s/40s, agent=67467ce3-7a44-4f67-a3d3-6a251e2991e5, caller=0421948519438
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=0, assigned=1, pending=1
+0|indexus-crm  | [QueueEngine] checkTimeouts ASSIGNED: call=0a955cec-f647-4839-a663-81a7780453a1, waited=3s/40s, agent=67467ce3-7a44-4f67-a3d3-6a251e2991e5, caller=0421948519438
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=0, assigned=1, pending=1
+0|indexus-crm  | [QueueEngine] checkTimeouts ASSIGNED: call=0a955cec-f647-4839-a663-81a7780453a1, waited=5s/40s, agent=67467ce3-7a44-4f67-a3d3-6a251e2991e5, caller=0421948519438
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=0, assigned=1, pending=1
+0|indexus-crm  | [QueueEngine] checkTimeouts ASSIGNED: call=0a955cec-f647-4839-a663-81a7780453a1, waited=7s/40s, agent=67467ce3-7a44-4f67-a3d3-6a251e2991e5, caller=0421948519438
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=0, assigned=1, pending=1
+0|indexus-crm  | [QueueEngine] checkTimeouts ASSIGNED: call=0a955cec-f647-4839-a663-81a7780453a1, waited=9s/40s, agent=67467ce3-7a44-4f67-a3d3-6a251e2991e5, caller=0421948519438
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=0, assigned=1, pending=1
+0|indexus-crm  | [QueueEngine] checkTimeouts ASSIGNED: call=0a955cec-f647-4839-a663-81a7780453a1, waited=11s/40s, agent=67467ce3-7a44-4f67-a3d3-6a251e2991e5, caller=0421948519438
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=0, assigned=1, pending=1
+0|indexus-crm  | [QueueEngine] checkTimeouts ASSIGNED: call=0a955cec-f647-4839-a663-81a7780453a1, waited=13s/40s, agent=67467ce3-7a44-4f67-a3d3-6a251e2991e5, caller=0421948519438
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=0, assigned=1, pending=1
+0|indexus-crm  | [QueueEngine] checkTimeouts ASSIGNED: call=0a955cec-f647-4839-a663-81a7780453a1, waited=15s/40s, agent=67467ce3-7a44-4f67-a3d3-6a251e2991e5, caller=0421948519438
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=0, assigned=1, pending=1
+0|indexus-crm  | [QueueEngine] checkTimeouts ASSIGNED: call=0a955cec-f647-4839-a663-81a7780453a1, waited=17s/40s, agent=67467ce3-7a44-4f67-a3d3-6a251e2991e5, caller=0421948519438
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=0, assigned=1, pending=1
+0|indexus-crm  | [QueueEngine] checkTimeouts ASSIGNED: call=0a955cec-f647-4839-a663-81a7780453a1, waited=19s/40s, agent=67467ce3-7a44-4f67-a3d3-6a251e2991e5, caller=0421948519438
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=0, assigned=1, pending=1
+0|indexus-crm  | [QueueEngine] checkTimeouts ASSIGNED: call=0a955cec-f647-4839-a663-81a7780453a1, waited=21s/40s, agent=67467ce3-7a44-4f67-a3d3-6a251e2991e5, caller=0421948519438
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=0, assigned=1, pending=1
+0|indexus-crm  | [QueueEngine] checkTimeouts ASSIGNED: call=0a955cec-f647-4839-a663-81a7780453a1, waited=23s/40s, agent=67467ce3-7a44-4f67-a3d3-6a251e2991e5, caller=0421948519438
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=0, assigned=1, pending=1
+0|indexus-crm  | [QueueEngine] checkTimeouts ASSIGNED: call=0a955cec-f647-4839-a663-81a7780453a1, waited=25s/40s, agent=67467ce3-7a44-4f67-a3d3-6a251e2991e5, caller=0421948519438
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=0, assigned=1, pending=1
+0|indexus-crm  | [QueueEngine] checkTimeouts ASSIGNED: call=0a955cec-f647-4839-a663-81a7780453a1, waited=27s/40s, agent=67467ce3-7a44-4f67-a3d3-6a251e2991e5, caller=0421948519438
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=0, assigned=1, pending=1
+0|indexus-crm  | [QueueEngine] checkTimeouts ASSIGNED: call=0a955cec-f647-4839-a663-81a7780453a1, waited=29s/40s, agent=67467ce3-7a44-4f67-a3d3-6a251e2991e5, caller=0421948519438
+0|indexus-crm  | [QueueEngine] Agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5 did not answer within 30s, cancelling
+0|indexus-crm  | [QueueEngine] Ring timeout: call=0a955cec-f647-4839-a663-81a7780453a1, totalWait=30s, maxWaitTime=40s
+0|indexus-crm  | [QueueEngine] Requeuing call 0a955cec-f647-4839-a663-81a7780453a1 (still within maxWaitTime, 9s remaining)
+0|indexus-crm  | [QueueEngine] Agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5 status → available, queueIds: [0106e99f-6a0f-475a-b22e-99eea1b82f60]
+0|indexus-crm  | [QueueEngine] Agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5 → available
+0|indexus-crm  | [QueueEngine] Selecting agent for queue "sk inbound" (0106e99f-6a0f-475a-b22e-99eea1b82f60): 2 DB members
+0|indexus-crm  | [QueueEngine]   Session agents for this queue: 1 (67467ce3-7a44-4f67-a3d3-6a251e2991e5)
+0|indexus-crm  | [QueueEngine]   Skipping agent 62b874a9-d7b5-4432-bf74-8a62c0815218: no active session
+0|indexus-crm  | [QueueEngine]   Total candidate agents (session-filtered): 1
+0|indexus-crm  | [QueueEngine]   Agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5: state=available (penalty: 1)
+0|indexus-crm  | [QueueEngine] Available agents: 1
+0|indexus-crm  | [QueueEngine] Connecting call 0a955cec-f647-4839-a663-81a7780453a1 to agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5
+0|indexus-crm  | [QueueEngine] Agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5 status → busy, queueIds: [0106e99f-6a0f-475a-b22e-99eea1b82f60]
+0|indexus-crm  | [QueueEngine] Agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5 → busy
+0|indexus-crm  | [QueueEngine] === ORIGINATING CALL TO AGENT ===
+0|indexus-crm  | [QueueEngine]   Agent: System Administrator (ext: 2001)
+0|indexus-crm  | [QueueEngine]   Endpoint: PJSIP/2001
+0|indexus-crm  | [QueueEngine]   Caller channel: 1771921850.296
+0|indexus-crm  | [QueueEngine]   Call ID: 0a955cec-f647-4839-a663-81a7780453a1
+0|indexus-crm  | [QueueEngine]   Ring timeout: 9s (elapsed: 30s, maxWait: 40s)
+0|indexus-crm  | [QueueEngine] MOH playback finished, restarting (loop) for assigned channel 1771921850.296
+0|indexus-crm  | [QueueEngine] Playing custom MOH: sound:custom/moh-slow-jazz (pbId: moh-1771921850.296-1771921888828)
+0|indexus-crm  | [QueueEngine] Playing custom MOH: sound:custom/moh-slow-jazz (pbId: moh-1771921850.296-1771921888853)
+0|indexus-crm  | [QueueEngine] Agent channel created: 1771921888.298 for agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=0, assigned=1, pending=1
+0|indexus-crm  | [QueueEngine] checkTimeouts ASSIGNED: call=0a955cec-f647-4839-a663-81a7780453a1, waited=31s/40s, agent=67467ce3-7a44-4f67-a3d3-6a251e2991e5, caller=0421948519438
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=0, assigned=1, pending=1
+0|indexus-crm  | [QueueEngine] checkTimeouts ASSIGNED: call=0a955cec-f647-4839-a663-81a7780453a1, waited=33s/40s, agent=67467ce3-7a44-4f67-a3d3-6a251e2991e5, caller=0421948519438
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=0, assigned=1, pending=1
+0|indexus-crm  | [QueueEngine] checkTimeouts ASSIGNED: call=0a955cec-f647-4839-a663-81a7780453a1, waited=35s/40s, agent=67467ce3-7a44-4f67-a3d3-6a251e2991e5, caller=0421948519438
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=0, assigned=1, pending=1
+0|indexus-crm  | [QueueEngine] checkTimeouts ASSIGNED: call=0a955cec-f647-4839-a663-81a7780453a1, waited=37s/40s, agent=67467ce3-7a44-4f67-a3d3-6a251e2991e5, caller=0421948519438
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=0, assigned=1, pending=1
+0|indexus-crm  | [QueueEngine] checkTimeouts ASSIGNED: call=0a955cec-f647-4839-a663-81a7780453a1, waited=39s/40s, agent=67467ce3-7a44-4f67-a3d3-6a251e2991e5, caller=0421948519438
+0|indexus-crm  | [QueueEngine] Agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5 did not answer within 9s, cancelling
+0|indexus-crm  | [QueueEngine] Ring timeout: call=0a955cec-f647-4839-a663-81a7780453a1, totalWait=39s, maxWaitTime=40s
+0|indexus-crm  | [QueueEngine] maxWaitTime reached or nearly reached (39s >= 38s), firing overflow
+0|indexus-crm  | [QueueEngine] >>>>>>> OVERFLOW FIRING for call 0a955cec-f647-4839-a663-81a7780453a1, channel=1771921850.296, waited=39s, maxWait=40s, action=voicemail <<<<<<<
+0|indexus-crm  | [QueueEngine] Agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5 status → available, queueIds: [0106e99f-6a0f-475a-b22e-99eea1b82f60]
+0|indexus-crm  | [QueueEngine] Agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5 status → available, queueIds: [0106e99f-6a0f-475a-b22e-99eea1b82f60]
+0|indexus-crm  | [QueueEngine] Agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5 → available
+0|indexus-crm  | [QueueEngine] Agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5 → available
+0|indexus-crm  | [QueueEngine] Stopped MOH for channel 1771921850.296
+0|indexus-crm  | [QueueEngine] Handling overflow for channel 1771921850.296: action=voicemail, caller=0421948519438
+0|indexus-crm  | [QueueEngine] === SENDING TO VOICEMAIL ===
+0|indexus-crm  | [QueueEngine]   Box: "SK odkaz ked žiadny operátor nie je k dispozícii" (id: 7dc07e77-4684-4518-95f8-62756af8e338)
+0|indexus-crm  | [QueueEngine]   Caller: 0421948519438 ()
+0|indexus-crm  | [QueueEngine] Playing voicemail greeting: sound:custom/vm-greeting-7dc07e77-4684-4518-95f8-62756af8e338-morning
+0|indexus-crm  | [QueueEngine] StasisEnd for channel 1771921850.296
+0|indexus-crm  | [QueueEngine] Greeting playback failed: ARI POST /channels/1771921850.296/play?media=sound%3Acustom%2Fvm-greeting-7dc07e77-4684-4518-95f8-62756af8e338-morning&playbackId=vm-greeting-1771921850.296-1771921926659 failed: 404 {
+0|indexus-crm  | [QueueEngine] Playing beep tone before recording
+0|indexus-crm  | [QueueEngine] Beep tone playback failed: ARI POST /channels/1771921850.296/play?media=sound%3Abeep&playbackId=vm-beep-1771921850.296-1771921926684 failed: 404 {
+0|indexus-crm  | [QueueEngine] Starting voicemail recording: voicemail-7dc07e77-4684-4518-95f8-62756af8e338-1771921926709 (max 120s)
+0|indexus-crm  | [QueueEngine] Recording may have ended early: ARI POST /channels/1771921850.296/record?name=voicemail-7dc07e77-4684-4518-95f8-62756af8e338-1771921926709&format=wav&ifExists=overwrite failed: 404 {
+0|indexus-crm  | [QueueEngine] Downloading voicemail via SFTP: voicemail-7dc07e77-4684-4518-95f8-62756af8e338-1771921926709
+0|indexus-crm  | [QueueEngine] SFTP download failed: SFTP download failed: No such file
+0|indexus-crm  | [QueueEngine] Fallback: ARI download attempt 1: voicemail-7dc07e77-4684-4518-95f8-62756af8e338-1771921926709
+0|indexus-crm  | [QueueEngine] ARI download attempt 1 failed: ARI download recording failed: 404 {
+0|indexus-crm  | [QueueEngine] Fallback: ARI download attempt 2: voicemail-7dc07e77-4684-4518-95f8-62756af8e338-1771921926709
+0|indexus-crm  | [QueueEngine] ARI download attempt 2 failed: ARI download recording failed: 404 {
+0|indexus-crm  | [QueueEngine] Fallback: ARI download attempt 3: voicemail-7dc07e77-4684-4518-95f8-62756af8e338-1771921926709
+0|indexus-crm  | [QueueEngine] ARI download attempt 3 failed: ARI download recording failed: 404 {
+0|indexus-crm  | [QueueEngine] Voicemail too short (0s), discarding - caller likely hung up immediately
+0|indexus-crm  | [QueueEngine] >>>>>>> OVERFLOW COMPLETED for call 0a955cec-f647-4839-a663-81a7780453a1, action=voicemail <<<<<<<
+0|indexus-crm  | [QueueEngine] Call timeout: 0421948519438
+0|indexus-crm  | [QueueEngine] Call cancelled: 0421948519438, reason: timeout

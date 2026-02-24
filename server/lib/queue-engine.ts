@@ -83,6 +83,7 @@ export class QueueEngine extends EventEmitter {
   private isProcessing: boolean = false;
   private lastAnnouncementTime: Map<string, number> = new Map();
   private announcementPlayingFor: Set<string> = new Set();
+  private overflowInProgress: Set<string> = new Set();
 
   constructor(ariClient: AriClient) {
     super();
@@ -145,7 +146,9 @@ export class QueueEngine extends EventEmitter {
     this.ariClient.on("stasis-end", (event: AriEvent) => {
       if (event.channel) {
         const chId = event.channel.id;
-        console.log(`[QueueEngine] StasisEnd for channel ${chId}`);
+        const isOverflowing = this.overflowInProgress.has(chId);
+        console.log(`[QueueEngine] StasisEnd for channel ${chId}${isOverflowing ? " (overflow in progress, skipping cleanup)" : ""}`);
+        if (isOverflowing) return;
         const isWaiting = this.waitingCalls.has(chId);
         const isAssigned = this.assignedCalls.has(chId);
         if (isWaiting || isAssigned) {
@@ -589,6 +592,22 @@ export class QueueEngine extends EventEmitter {
   }
 
   async sendToVoicemail(channelId: string, box: typeof voicemailBoxes.$inferSelect, callerNumber: string, callerName: string, customerId: string | null, didNumber?: string, queueId?: string): Promise<void> {
+    let channelGone = false;
+    const stasisEndHandler = (event: AriEvent) => {
+      if (event.channel?.id === channelId) {
+        console.log(`[QueueEngine] VOICEMAIL: channel ${channelId} left Stasis during voicemail`);
+        channelGone = true;
+      }
+    };
+    const channelDestroyedHandler = (event: AriEvent) => {
+      if (event.channel?.id === channelId) {
+        console.log(`[QueueEngine] VOICEMAIL: channel ${channelId} destroyed during voicemail`);
+        channelGone = true;
+      }
+    };
+    this.ariClient.on("stasis-end", stasisEndHandler);
+    this.ariClient.on("channel-destroyed", channelDestroyedHandler);
+
     try {
       console.log(`[QueueEngine] === SENDING TO VOICEMAIL ===`);
       console.log(`[QueueEngine]   Box: "${box.name}" (id: ${box.id})`);
@@ -597,6 +616,11 @@ export class QueueEngine extends EventEmitter {
       try {
         await this.ariClient.answerChannel(channelId);
       } catch {}
+
+      if (channelGone) {
+        console.log(`[QueueEngine] VOICEMAIL: channel gone before greeting, aborting`);
+        return;
+      }
 
       const greetingInfo = this.resolveGreetingSoundName(box);
       if (greetingInfo) {
@@ -608,9 +632,18 @@ export class QueueEngine extends EventEmitter {
           console.log(`[QueueEngine] Greeting playback finished`);
         } catch (err) {
           console.warn(`[QueueEngine] Greeting playback failed:`, err instanceof Error ? err.message : err);
+          if (channelGone) {
+            console.log(`[QueueEngine] VOICEMAIL: channel gone during greeting, aborting`);
+            return;
+          }
         }
       } else {
         console.log(`[QueueEngine] No greeting configured for box "${box.name}", skipping greeting playback`);
+      }
+
+      if (channelGone) {
+        console.log(`[QueueEngine] VOICEMAIL: channel gone before beep, aborting`);
+        return;
       }
 
       if (box.beepToneEnabled) {
@@ -622,6 +655,11 @@ export class QueueEngine extends EventEmitter {
         } catch (err) {
           console.warn(`[QueueEngine] Beep tone playback failed:`, err instanceof Error ? err.message : err);
         }
+      }
+
+      if (channelGone) {
+        console.log(`[QueueEngine] VOICEMAIL: channel gone before recording, aborting`);
+        return;
       }
 
       const recordingName = `voicemail-${box.id}-${Date.now()}`;
@@ -639,12 +677,14 @@ export class QueueEngine extends EventEmitter {
           const maxTimer = setTimeout(() => {
             this.ariClient.removeListener("channel-hangup-request", hangupHandler);
             this.ariClient.removeListener("channel-destroyed", destroyHandler);
+            this.ariClient.removeListener("stasis-end", stasisResolveHandler);
             resolve();
           }, (box.maxDurationSeconds || 120) * 1000);
           const hangupHandler = (event: AriEvent) => {
             if (event.channel?.id === channelId) {
               clearTimeout(maxTimer);
               this.ariClient.removeListener("channel-destroyed", destroyHandler);
+              this.ariClient.removeListener("stasis-end", stasisResolveHandler);
               resolve();
             }
           };
@@ -652,11 +692,21 @@ export class QueueEngine extends EventEmitter {
             if (event.channel?.id === channelId) {
               clearTimeout(maxTimer);
               this.ariClient.removeListener("channel-hangup-request", hangupHandler);
+              this.ariClient.removeListener("stasis-end", stasisResolveHandler);
+              resolve();
+            }
+          };
+          const stasisResolveHandler = (event: AriEvent) => {
+            if (event.channel?.id === channelId) {
+              clearTimeout(maxTimer);
+              this.ariClient.removeListener("channel-hangup-request", hangupHandler);
+              this.ariClient.removeListener("channel-destroyed", destroyHandler);
               resolve();
             }
           };
           this.ariClient.on("channel-hangup-request", hangupHandler);
           this.ariClient.on("channel-destroyed", destroyHandler);
+          this.ariClient.on("stasis-end", stasisResolveHandler);
         });
       } catch (err) {
         console.warn(`[QueueEngine] Recording may have ended early:`, err instanceof Error ? err.message : err);
@@ -756,6 +806,9 @@ export class QueueEngine extends EventEmitter {
     } catch (err) {
       console.error(`[QueueEngine] Voicemail handling failed:`, err);
       try { await this.ariClient.hangupChannel(channelId, "normal"); } catch {}
+    } finally {
+      this.ariClient.removeListener("stasis-end", stasisEndHandler);
+      this.ariClient.removeListener("channel-destroyed", channelDestroyedHandler);
     }
   }
 
@@ -1153,6 +1206,7 @@ export class QueueEngine extends EventEmitter {
       }
 
       for (const call of waitingCalls) {
+        if (this.overflowInProgress.has(call.channelId)) continue;
         const agent = await this.selectAgent(queue);
         if (!agent) break;
 
@@ -1675,6 +1729,10 @@ export class QueueEngine extends EventEmitter {
   }
 
   private async handleChannelDestroyed(channelId: string): Promise<void> {
+    if (this.overflowInProgress.has(channelId)) {
+      console.log(`[QueueEngine] Channel ${channelId} destroyed during overflow, skipping cleanup`);
+      return;
+    }
     this.mohPlaybacks.delete(channelId);
     this.pendingWelcomeCallData.delete(channelId);
     const assignedCallData = this.assignedCalls.get(channelId);
@@ -1794,6 +1852,7 @@ export class QueueEngine extends EventEmitter {
   }
 
   private async handleCallerHangup(channelId: string): Promise<void> {
+    if (this.overflowInProgress.has(channelId)) return;
     const call = this.waitingCalls.get(channelId);
     if (!call) return;
 
@@ -2166,85 +2225,92 @@ export class QueueEngine extends EventEmitter {
   }
 
   private async fireOverflowForCall(channelId: string, callId: string, queue: InboundQueue, callerNumber: string, callerName: string, waitSeconds: number, agentId?: string): Promise<void> {
-    console.log(`[QueueEngine] >>>>>>> OVERFLOW FIRING for call ${callId}, channel=${channelId}, waited=${Math.floor(waitSeconds)}s, maxWait=${queue.maxWaitTime}s, action=${queue.overflowAction} <<<<<<<`);
+    if (this.overflowInProgress.has(channelId)) {
+      console.log(`[QueueEngine] >>>>>>> OVERFLOW SKIPPED for call ${callId}, channel=${channelId} - already in progress <<<<<<<`);
+      return;
+    }
+    this.overflowInProgress.add(channelId);
 
-    this.waitingCalls.delete(channelId);
-    this.assignedCalls.delete(channelId);
-    this.lastAnnouncementTime.delete(channelId);
-    this.announcementPlayingFor.delete(channelId);
-    this.recalculatePositions(queue.id);
+    try {
+      console.log(`[QueueEngine] >>>>>>> OVERFLOW FIRING for call ${callId}, channel=${channelId}, waited=${Math.floor(waitSeconds)}s, maxWait=${queue.maxWaitTime}s, action=${queue.overflowAction} <<<<<<<`);
 
-    if (agentId) {
-      this.updateAgentStatus(agentId, "available", null);
-      for (const [agentChId, pending] of this.pendingAgentCalls.entries()) {
-        if (pending.callerChannelId === channelId) {
-          this.pendingAgentCalls.delete(agentChId);
-          try { await this.ariClient.hangupChannel(agentChId, "normal"); } catch {}
-          break;
+      this.waitingCalls.delete(channelId);
+      this.assignedCalls.delete(channelId);
+      this.lastAnnouncementTime.delete(channelId);
+      this.announcementPlayingFor.delete(channelId);
+      this.recalculatePositions(queue.id);
+
+      if (agentId) {
+        this.updateAgentStatus(agentId, "available", null);
+        for (const [agentChId, pending] of this.pendingAgentCalls.entries()) {
+          if (pending.callerChannelId === channelId) {
+            this.pendingAgentCalls.delete(agentChId);
+            try { await this.ariClient.hangupChannel(agentChId, "normal"); } catch {}
+            break;
+          }
         }
       }
-    }
 
-    try { await this.stopMohForChannel(channelId); } catch {}
-
-    let channelAlive = false;
-    try {
-      await this.ariClient.getChannel(channelId);
-      channelAlive = true;
-    } catch {
-      channelAlive = false;
-    }
-
-    if (!channelAlive) {
-      console.log(`[QueueEngine] >>>>>>> OVERFLOW: channel ${channelId} no longer exists (caller hung up), marking as abandoned <<<<<<<`);
       await db.update(inboundCallLogs)
         .set({
-          status: "abandoned",
+          status: "timeout",
           completedAt: new Date(),
-          abandonReason: "caller_hangup_before_overflow",
+          abandonReason: "timeout",
           waitDurationSeconds: Math.floor(waitSeconds),
           assignedAgentId: null,
         })
         .where(eq(inboundCallLogs.id, callId));
 
-      this.emit("call-timeout", { callId, queueId: queue.id, callerNumber, callerName, assignedAgentId: agentId, queueName: queue.name });
-      this.emit("call-cancelled", { callId, callerNumber, callerName, queueId: queue.id, queueName: queue.name, reason: "caller_hangup" });
-      return;
+      let channelAlive = false;
+      try {
+        await this.ariClient.getChannel(channelId);
+        channelAlive = true;
+      } catch {
+        channelAlive = false;
+      }
+
+      if (!channelAlive) {
+        console.log(`[QueueEngine] >>>>>>> OVERFLOW: channel ${channelId} no longer exists (caller hung up), marking as abandoned <<<<<<<`);
+        await db.update(inboundCallLogs)
+          .set({
+            status: "abandoned",
+            abandonReason: "caller_hangup_before_overflow",
+          })
+          .where(eq(inboundCallLogs.id, callId));
+
+        this.emit("call-timeout", { callId, queueId: queue.id, callerNumber, callerName, assignedAgentId: agentId, queueName: queue.name });
+        this.emit("call-cancelled", { callId, callerNumber, callerName, queueId: queue.id, queueName: queue.name, reason: "caller_hangup" });
+        return;
+      }
+
+      try { await this.stopMohForChannel(channelId); } catch {}
+
+      try {
+        await this.handleOverflow(channelId, queue, callerNumber, callerName);
+        console.log(`[QueueEngine] >>>>>>> OVERFLOW COMPLETED for call ${callId}, action=${queue.overflowAction} <<<<<<<`);
+      } catch (err) {
+        console.error(`[QueueEngine] >>>>>>> OVERFLOW FAILED for call ${callId}:`, err instanceof Error ? err.message : err, "<<<<<<<");
+      }
+
+      this.emit("call-timeout", {
+        callId,
+        queueId: queue.id,
+        callerNumber,
+        callerName,
+        assignedAgentId: agentId,
+        queueName: queue.name,
+      });
+      this.emit("call-cancelled", {
+        callId,
+        callerNumber,
+        callerName,
+        queueId: queue.id,
+        queueName: queue.name,
+        reason: "timeout",
+      });
+    } finally {
+      this.overflowInProgress.delete(channelId);
     }
-
-    await db.update(inboundCallLogs)
-      .set({
-        status: "timeout",
-        completedAt: new Date(),
-        abandonReason: "timeout",
-        waitDurationSeconds: Math.floor(waitSeconds),
-        assignedAgentId: null,
-      })
-      .where(eq(inboundCallLogs.id, callId));
-
-    try {
-      await this.handleOverflow(channelId, queue, callerNumber, callerName);
-      console.log(`[QueueEngine] >>>>>>> OVERFLOW COMPLETED for call ${callId}, action=${queue.overflowAction} <<<<<<<`);
-    } catch (err) {
-      console.error(`[QueueEngine] >>>>>>> OVERFLOW FAILED for call ${callId}:`, err instanceof Error ? err.message : err, "<<<<<<<");
-    }
-
-    this.emit("call-timeout", {
-      callId,
-      queueId: queue.id,
-      callerNumber,
-      callerName,
-      assignedAgentId: agentId,
-      queueName: queue.name,
-    });
-    this.emit("call-cancelled", {
-      callId,
-      callerNumber,
-      callerName,
-      queueId: queue.id,
-      queueName: queue.name,
-      reason: "timeout",
-    });
   }
 
   private async checkTimeouts(): Promise<void> {
@@ -2312,6 +2378,7 @@ export class QueueEngine extends EventEmitter {
     }
 
     for (const [channelId, assigned] of this.assignedCalls.entries()) {
+      if (this.overflowInProgress.has(channelId)) continue;
       const { call, queue, agentId } = assigned;
 
       if (deadChannels.has(channelId)) {
@@ -2366,6 +2433,9 @@ export class QueueEngine extends EventEmitter {
 
       for (const callLog of stuckCalls) {
         if (this.waitingCalls.has(callLog.ariChannelId || "") || this.assignedCalls.has(callLog.ariChannelId || "")) {
+          continue;
+        }
+        if (this.overflowInProgress.has(callLog.ariChannelId || "")) {
           continue;
         }
 
