@@ -276,6 +276,9 @@ export class AriClient extends EventEmitter {
       case "StasisEnd":
         this.emit("stasis-end", event);
         break;
+      case "ChannelCreated":
+        this.emit("channel-created", event);
+        break;
       case "ChannelStateChange":
         this.emit("channel-state-change", event);
         break;
@@ -553,6 +556,30 @@ export class AriClient extends EventEmitter {
 
   async setChannelVar(channelId: string, variable: string, value: string): Promise<void> {
     await this.ariRequest("POST", `/channels/${channelId}/variable?variable=${encodeURIComponent(variable)}&value=${encodeURIComponent(value)}`);
+  }
+
+  async getChannelVar(channelId: string, variable: string): Promise<string | null> {
+    try {
+      const result = await this.ariRequest("GET", `/channels/${channelId}/variable?variable=${encodeURIComponent(variable)}`);
+      return result?.value || null;
+    } catch {
+      return null;
+    }
+  }
+
+  async subscribeToEndpoint(tech: string, resource: string): Promise<void> {
+    try {
+      await this.ariRequest("POST", `/applications/${this.config.appName}/subscription?eventSource=endpoint:${tech}/${resource}`);
+      console.log(`[ARI] Subscribed to endpoint ${tech}/${resource}`);
+    } catch (err: any) {
+      console.warn(`[ARI] Failed to subscribe to endpoint ${tech}/${resource}:`, err.message);
+    }
+  }
+
+  async unsubscribeFromEndpoint(tech: string, resource: string): Promise<void> {
+    try {
+      await this.ariRequest("DELETE", `/applications/${this.config.appName}/subscription?eventSource=endpoint:${tech}/${resource}`);
+    } catch {}
   }
 }
 

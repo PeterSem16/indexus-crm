@@ -17363,6 +17363,26 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/sip/set-outbound-callerid", requireAuth, async (req, res) => {
+    try {
+      const { sipExtension, callerIdNumber } = req.body;
+      if (!sipExtension || !callerIdNumber) {
+        return res.status(400).json({ error: "sipExtension and callerIdNumber are required" });
+      }
+
+      const engine = getQueueEngine();
+      if (!engine) {
+        return res.status(503).json({ error: "Queue engine not available" });
+      }
+
+      await engine.setOutboundCallerId(sipExtension, callerIdNumber);
+      res.json({ ok: true, message: `Caller ID ${callerIdNumber} set for extension ${sipExtension}` });
+    } catch (error) {
+      console.error("Failed to set outbound caller ID:", error);
+      res.status(500).json({ error: "Failed to set outbound caller ID" });
+    }
+  });
+
   // ===== Call Logs Routes =====
   
   // Get all call logs (with optional filters)

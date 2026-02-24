@@ -883,6 +883,20 @@ export function SipPhone({
       };
       if (localCallerIdNumber) {
         inviterOptions.extraHeaders = [`X-Campaign-CallerID: ${localCallerIdNumber}`];
+        try {
+          await fetch("/api/sip/set-outbound-callerid", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({
+              sipExtension: sipConfig.username,
+              callerIdNumber: localCallerIdNumber,
+            }),
+          });
+          console.log(`[SIP] Set outbound caller ID ${localCallerIdNumber} for ext ${sipConfig.username}`);
+        } catch (err) {
+          console.warn("[SIP] Failed to set outbound caller ID:", err);
+        }
       }
       const inviter = new Inviter(userAgentRef.current, targetUri, inviterOptions);
 

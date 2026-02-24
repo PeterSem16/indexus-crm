@@ -89,6 +89,8 @@ export class QueueEngine extends EventEmitter {
   private overflowInProgress: Set<string> = new Set();
   private agentOriginateCooldown: Map<string, number> = new Map();
   private ringAllPending: Map<string, { callId: string; agentChannelIds: Map<string, string>; agentIds: Set<string> }> = new Map();
+  private pendingOutboundCallerIds: Map<string, { callerIdNumber: string; expiresAt: number }> = new Map();
+  private subscribedEndpoints: Set<string> = new Set();
 
   constructor(ariClient: AriClient) {
     super();
@@ -175,6 +177,65 @@ export class QueueEngine extends EventEmitter {
         this.emit(`dtmf:${event.channel.id}`, event.digit);
       }
     });
+
+    this.ariClient.on("channel-created", (event: AriEvent) => {
+      if (event.channel) {
+        this.handleOutboundCallerIdInterception(event.channel).catch(err => {
+          console.warn("[QueueEngine] Outbound caller ID interception error:", err instanceof Error ? err.message : err);
+        });
+      }
+    });
+  }
+
+  private async handleOutboundCallerIdInterception(channel: AriChannel): Promise<void> {
+    let extension: string | null = null;
+
+    const nameMatch = (channel.name || "").match(/^PJSIP\/([^-]+)/);
+    if (nameMatch) {
+      const candidate = nameMatch[1];
+      if (this.pendingOutboundCallerIds.has(candidate)) {
+        extension = candidate;
+      }
+    }
+
+    if (!extension && channel.caller?.number) {
+      if (this.pendingOutboundCallerIds.has(channel.caller.number)) {
+        extension = channel.caller.number;
+      }
+    }
+
+    if (!extension) return;
+
+    const pending = this.pendingOutboundCallerIds.get(extension);
+    if (!pending) return;
+
+    if (Date.now() > pending.expiresAt) {
+      this.pendingOutboundCallerIds.delete(extension);
+      return;
+    }
+
+    try {
+      await this.ariClient.setChannelVariable(channel.id, "CALLERID(num)", pending.callerIdNumber);
+      await this.ariClient.setChannelVariable(channel.id, "CALLERID(name)", pending.callerIdNumber);
+      console.log(`[QueueEngine] Set outbound caller ID ${pending.callerIdNumber} on channel ${channel.id} (ext: ${extension}, name: ${channel.name})`);
+    } catch (err) {
+      console.warn(`[QueueEngine] Failed to set caller ID on channel ${channel.id}:`, err instanceof Error ? err.message : err);
+    }
+
+    this.pendingOutboundCallerIds.delete(extension);
+  }
+
+  async setOutboundCallerId(sipExtension: string, callerIdNumber: string): Promise<void> {
+    if (!this.subscribedEndpoints.has(sipExtension)) {
+      await this.ariClient.subscribeToEndpoint("PJSIP", sipExtension);
+      this.subscribedEndpoints.add(sipExtension);
+    }
+
+    this.pendingOutboundCallerIds.set(sipExtension, {
+      callerIdNumber,
+      expiresAt: Date.now() + 30000,
+    });
+    console.log(`[QueueEngine] Pending outbound caller ID set: ext=${sipExtension}, callerId=${callerIdNumber} (expires in 30s)`);
   }
 
   private async handlePlaybackFinished(event: AriEvent): Promise<void> {
