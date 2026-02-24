@@ -675,6 +675,17 @@ function CampaignForm({
           )}
         />
 
+        <div className="space-y-1.5">
+          <Label className="text-sm">{t.campaigns?.callerIdNumber || "Caller ID"}</Label>
+          <Input
+            data-testid="input-caller-id"
+            placeholder="+421..."
+            value={form.watch("callerIdNumber") || ""}
+            onChange={e => form.setValue("callerIdNumber", e.target.value)}
+          />
+          <p className="text-xs text-muted-foreground italic">{t.campaigns?.callerIdHelp || "Číslo zobrazené volajúcemu pri odchádzajúcich hovoroch"}</p>
+        </div>
+
         <FormField
           control={form.control}
           name="description"
@@ -743,19 +754,6 @@ function CampaignForm({
               </FormItem>
             )}
           />
-
-          {(form.watch("channel") === "phone" || form.watch("channel") === "mixed") && (
-            <div className="space-y-1.5">
-              <Label className="text-sm">{t.campaigns?.callerIdNumber || "Caller ID"}</Label>
-              <Input
-                data-testid="input-caller-id"
-                placeholder="+421..."
-                value={form.watch("callerIdNumber") || ""}
-                onChange={e => form.setValue("callerIdNumber", e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground italic">{t.campaigns?.callerIdHelp || "Číslo zobrazené volajúcemu pri odchádzajúcich hovoroch"}</p>
-            </div>
-          )}
 
           <FormField
             control={form.control}
@@ -1930,6 +1928,17 @@ export default function CampaignsPage() {
           </Badge>
         );
       },
+    },
+    {
+      key: "callerIdNumber",
+      header: "Caller ID",
+      cell: (campaign: Campaign) => (
+        campaign.callerIdNumber ? (
+          <span className="text-sm font-mono">{campaign.callerIdNumber}</span>
+        ) : (
+          <span className="text-xs text-muted-foreground italic">—</span>
+        )
+      ),
     },
     {
       key: "status",
