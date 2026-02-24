@@ -367,7 +367,8 @@ export class QueueEngine extends EventEmitter {
 
     const channel = event.channel;
     const stasisArgs = event.args || [];
-    const callerNumber = channel.caller?.number || stasisArgs[1] || "unknown";
+    const rawCallerNumber = channel.caller?.number || stasisArgs[1] || "unknown";
+    const callerNumber = rawCallerNumber.split("@")[0];
     const callerName = channel.caller?.name || "";
     const dialedNumber = channel.dialplan?.exten || stasisArgs[0] || "";
 
@@ -2490,15 +2491,17 @@ export class QueueEngine extends EventEmitter {
         continue;
       }
 
-      if (!queue.maxWaitTime || queue.maxWaitTime <= 0) continue;
+      const [freshQueue] = await db.select().from(inboundQueues).where(eq(inboundQueues.id, queue.id)).limit(1);
+      const maxWait = freshQueue?.maxWaitTime || queue.maxWaitTime || 0;
+      if (!maxWait || maxWait <= 0) continue;
 
       const totalWaitTime = (now - call.enteredAt.getTime()) / 1000;
-      console.log(`[QueueEngine] checkTimeouts ASSIGNED: call=${call.id}, waited=${Math.floor(totalWaitTime)}s/${queue.maxWaitTime}s, agent=${agentId}, caller=${call.callerNumber}`);
+      console.log(`[QueueEngine] checkTimeouts ASSIGNED: call=${call.id}, waited=${Math.floor(totalWaitTime)}s/${maxWait}s, agent=${agentId}, caller=${call.callerNumber}`);
 
-      if (totalWaitTime >= queue.maxWaitTime) {
+      if (totalWaitTime >= maxWait) {
         const callLog = await db.select().from(inboundCallLogs).where(eq(inboundCallLogs.id, call.id)).limit(1);
         const dbStatus = callLog[0]?.status;
-        console.log(`[QueueEngine] checkTimeouts: call ${call.id} EXCEEDED maxWaitTime! totalWait=${Math.floor(totalWaitTime)}s >= maxWait=${queue.maxWaitTime}s, dbStatus=${dbStatus}`);
+        console.log(`[QueueEngine] checkTimeouts: call ${call.id} EXCEEDED maxWaitTime! totalWait=${Math.floor(totalWaitTime)}s >= maxWait=${maxWait}s, dbStatus=${dbStatus}`);
 
         if (dbStatus === "answered" || dbStatus === "completed") {
           console.log(`[QueueEngine] checkTimeouts: call ${call.id} already ${dbStatus}, just cleaning up tracking`);
@@ -2506,7 +2509,8 @@ export class QueueEngine extends EventEmitter {
           continue;
         }
 
-        await this.fireOverflowForCall(channelId, call.id, queue, call.callerNumber, call.callerName || "", totalWaitTime, agentId);
+        const overflowQueue = freshQueue || queue;
+        await this.fireOverflowForCall(channelId, call.id, overflowQueue, call.callerNumber, call.callerName || "", totalWaitTime, agentId);
       }
     }
 

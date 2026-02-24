@@ -5245,22 +5245,13 @@ export default function AgentWorkspacePage() {
         }
 
         if (queueLinkedCalls.length > 0) {
-          console.log("[AgentWS] Queue SIP invite ended (caller hung up), removing calls:", queueLinkedCalls.map(c => `${c.callId} (${c.callerNumber})`));
-          const queueCallIds = new Set(queueLinkedCalls.map(c => c.callId));
-          queueLinkedCalls.forEach(c => {
-            if (!cancelledCallIdsRef.current.has(c.callId)) {
-              cancelledCallIdsRef.current.add(c.callId);
-              setTimeout(() => cancelledCallIdsRef.current.delete(c.callId), 10000);
-              const callerDisplay = c.callerName || c.callerNumber || "Neznámy";
-              const queueDisplay = c.queueName ? ` (${c.queueName})` : "";
-              toast({
-                title: "Zmeškaný hovor",
-                description: `Volajúci ${callerDisplay}${queueDisplay} zavesil`,
-                variant: "destructive",
-              });
+          console.log("[AgentWS] Queue SIP invite ended, unlinking SIP (call still in queue):", queueLinkedCalls.map(c => `${c.callId} (${c.callerNumber})`));
+          setInboundCalls(prev => prev.map(c => {
+            if (queueLinkedCalls.some(ql => ql.callId === c.callId)) {
+              return { ...c, hasSipInvitation: false, sipInvitation: undefined };
             }
-          });
-          setInboundCalls(prev => prev.filter(c => !queueCallIds.has(c.callId)));
+            return c;
+          }));
         }
       }
     }
