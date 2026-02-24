@@ -1,0 +1,66 @@
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=0, assigned=1, pending=1
+0|indexus-crm  | [QueueEngine] checkTimeouts ASSIGNED: call=0d81a919-413f-4997-9b46-e9b69706df8b, waited=4s/40s, agent=67467ce3-7a44-4f67-a3d3-6a251e2991e5, caller=0421948519438
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=0, assigned=1, pending=1
+0|indexus-crm  | [QueueEngine] checkTimeouts ASSIGNED: call=0d81a919-413f-4997-9b46-e9b69706df8b, waited=6s/40s, agent=67467ce3-7a44-4f67-a3d3-6a251e2991e5, caller=0421948519438
+0|indexus-crm  | 8:18:41 AM [express] GET /api/agent/my-queues 200 in 3ms :: [{"id":"0106e99f-6a0f-475a-b22e-99eea1b82f60","name":"sk inbound","description":"","countryCode":"SK","didNumber":"0232399030","strategy":"round-robin","isActive":true,"activeFrom":null,"activeTo":null,"penalty":1,"waiting":0,"activeAgents":2,"activeCalls":1}]
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=0, assigned=1, pending=1
+0|indexus-crm  | [QueueEngine] checkTimeouts ASSIGNED: call=0d81a919-413f-4997-9b46-e9b69706df8b, waited=8s/40s, agent=67467ce3-7a44-4f67-a3d3-6a251e2991e5, caller=0421948519438
+0|indexus-crm  | 8:18:41 AM [express] GET /api/agent/queue-status/67467ce3-7a44-4f67-a3d3-6a251e2991e5 304 in 2ms
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=0, assigned=1, pending=1
+0|indexus-crm  | [QueueEngine] checkTimeouts ASSIGNED: call=0d81a919-413f-4997-9b46-e9b69706df8b, waited=10s/40s, agent=67467ce3-7a44-4f67-a3d3-6a251e2991e5, caller=0421948519438
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=0, assigned=1, pending=1
+0|indexus-crm  | [QueueEngine] checkTimeouts ASSIGNED: call=0d81a919-413f-4997-9b46-e9b69706df8b, waited=12s/40s, agent=67467ce3-7a44-4f67-a3d3-6a251e2991e5, caller=0421948519438
+0|indexus-crm  | 8:18:47 AM [express] GET /api/agent/queue-status/67467ce3-7a44-4f67-a3d3-6a251e2991e5 304 in 2ms
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=0, assigned=1, pending=1
+0|indexus-crm  | [QueueEngine] checkTimeouts ASSIGNED: call=0d81a919-413f-4997-9b46-e9b69706df8b, waited=14s/40s, agent=67467ce3-7a44-4f67-a3d3-6a251e2991e5, caller=0421948519438
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=0, assigned=1, pending=1
+0|indexus-crm  | [QueueEngine] checkTimeouts ASSIGNED: call=0d81a919-413f-4997-9b46-e9b69706df8b, waited=16s/40s, agent=67467ce3-7a44-4f67-a3d3-6a251e2991e5, caller=0421948519438
+0|indexus-crm  | 8:18:49 AM [express] GET /api/voicemail-messages 304 in 2ms :: []
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=0, assigned=1, pending=1
+0|indexus-crm  | [QueueEngine] checkTimeouts ASSIGNED: call=0d81a919-413f-4997-9b46-e9b69706df8b, waited=18s/40s, agent=67467ce3-7a44-4f67-a3d3-6a251e2991e5, caller=0421948519438
+0|indexus-crm  | 8:18:51 AM [express] GET /api/agent/my-queues 304 in 3ms :: [{"id":"0106e99f-6a0f-475a-b22e-99eea1b82f60","name":"sk inbound","description":"","countryCode":"SK","didNumber":"0232399030","strategy":"round-robin","isActive":true,"activeFrom":null,"activeTo":null,"penalty":1,"waiting":0,"activeAgents":2,"activeCalls":1}]
+0|indexus-crm  | 8:18:52 AM [express] GET /api/agent/queue-status/67467ce3-7a44-4f67-a3d3-6a251e2991e5 304 in 3ms
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=0, assigned=1, pending=1
+0|indexus-crm  | [QueueEngine] checkTimeouts ASSIGNED: call=0d81a919-413f-4997-9b46-e9b69706df8b, waited=20s/40s, agent=67467ce3-7a44-4f67-a3d3-6a251e2991e5, caller=0421948519438
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=0, assigned=1, pending=1
+0|indexus-crm  | [QueueEngine] checkTimeouts ASSIGNED: call=0d81a919-413f-4997-9b46-e9b69706df8b, waited=22s/40s, agent=67467ce3-7a44-4f67-a3d3-6a251e2991e5, caller=0421948519438
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=0, assigned=1, pending=1
+0|indexus-crm  | [QueueEngine] checkTimeouts ASSIGNED: call=0d81a919-413f-4997-9b46-e9b69706df8b, waited=24s/40s, agent=67467ce3-7a44-4f67-a3d3-6a251e2991e5, caller=0421948519438
+0|indexus-crm  | 8:18:57 AM [express] GET /api/agent/queue-status/67467ce3-7a44-4f67-a3d3-6a251e2991e5 304 in 2ms
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=0, assigned=1, pending=1
+0|indexus-crm  | [QueueEngine] checkTimeouts ASSIGNED: call=0d81a919-413f-4997-9b46-e9b69706df8b, waited=26s/40s, agent=67467ce3-7a44-4f67-a3d3-6a251e2991e5, caller=0421948519438
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=0, assigned=1, pending=1
+0|indexus-crm  | [QueueEngine] checkTimeouts ASSIGNED: call=0d81a919-413f-4997-9b46-e9b69706df8b, waited=28s/40s, agent=67467ce3-7a44-4f67-a3d3-6a251e2991e5, caller=0421948519438
+0|indexus-crm  | 8:19:01 AM [express] GET /api/agent/my-queues 304 in 3ms :: [{"id":"0106e99f-6a0f-475a-b22e-99eea1b82f60","name":"sk inbound","description":"","countryCode":"SK","didNumber":"0232399030","strategy":"round-robin","isActive":true,"activeFrom":null,"activeTo":null,"penalty":1,"waiting":0,"activeAgents":2,"activeCalls":1}]
+0|indexus-crm  | 8:19:02 AM [express] GET /api/agent/queue-status/67467ce3-7a44-4f67-a3d3-6a251e2991e5 304 in 3ms
+0|indexus-crm  | [QueueEngine] Agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5 did not answer within 30s, cancelling
+0|indexus-crm  | [QueueEngine] 30s ring timeout: call=0d81a919-413f-4997-9b46-e9b69706df8b, totalWait=30s, maxWaitTime=40s
+0|indexus-crm  | [QueueEngine] Requeuing call 0d81a919-413f-4997-9b46-e9b69706df8b (still within maxWaitTime)
+0|indexus-crm  | [QueueEngine] Agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5 status → available, queueIds: [0106e99f-6a0f-475a-b22e-99eea1b82f60]
+0|indexus-crm  | [QueueEngine] Agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5 → available
+0|indexus-crm  | [QueueEngine] Selecting agent for queue "sk inbound" (0106e99f-6a0f-475a-b22e-99eea1b82f60): 2 DB members
+0|indexus-crm  | [QueueEngine]   Session agents for this queue: 1 (67467ce3-7a44-4f67-a3d3-6a251e2991e5)
+0|indexus-crm  | [QueueEngine]   Skipping agent 62b874a9-d7b5-4432-bf74-8a62c0815218: no active session
+0|indexus-crm  | [QueueEngine]   Total candidate agents (session-filtered): 1
+0|indexus-crm  | [QueueEngine]   Agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5: state=available (penalty: 1)
+0|indexus-crm  | [QueueEngine] Available agents: 1
+0|indexus-crm  | [QueueEngine] Connecting call 0d81a919-413f-4997-9b46-e9b69706df8b to agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5
+0|indexus-crm  | [QueueEngine] Agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5 status → busy, queueIds: [0106e99f-6a0f-475a-b22e-99eea1b82f60]
+0|indexus-crm  | [QueueEngine] Agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5 → busy
+0|indexus-crm  | [QueueEngine WS] Call assigned: 0421948519438 → agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5
+0|indexus-crm  | [QueueEngine WS]   callId=0d81a919-413f-4997-9b46-e9b69706df8b, channelId=1771921104.224, queueId=0106e99f-6a0f-475a-b22e-99eea1b82f60
+0|indexus-crm  | [InboundCallWS] Notifying agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5 of inbound call 0d81a919-413f-4997-9b46-e9b69706df8b from 0421948519438
+0|indexus-crm  | [InboundCallWS]   Agent connected: false
+0|indexus-crm  | [InboundCallWS]   All connected agents: NONE
+0|indexus-crm  | [QueueEngine] === ORIGINATING CALL TO AGENT ===
+0|indexus-crm  | [QueueEngine]   Agent: System Administrator (ext: 2001)
+0|indexus-crm  | [QueueEngine]   Endpoint: PJSIP/2001
+0|indexus-crm  | [QueueEngine]   Caller channel: 1771921104.224
+0|indexus-crm  | [QueueEngine]   Call ID: 0d81a919-413f-4997-9b46-e9b69706df8b
+0|indexus-crm  | [ARI] Originating channel: endpoint=PJSIP/2001, app=indexus-inbound, appArgs=agent-call,67467ce3-7a44-4f67-a3d3-6a251e2991e5,1771921104.224, callerId=0421948519438
+0|indexus-crm  | [QueueEngine] MOH playback finished, restarting (loop) for assigned channel 1771921104.224
+0|indexus-crm  | [QueueEngine] Playing custom MOH: sound:custom/moh-slow-jazz (pbId: moh-1771921104.224-1771921143318)
+0|indexus-crm  | [QueueEngine] Playing custom MOH: sound:custom/moh-slow-jazz (pbId: moh-1771921104.224-1771921143342)
+0|indexus-crm  | [QueueEngine] Agent channel created: 1771921143.226 for agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5
+0|indexus-crm  | [QueueEngine] checkTimeouts: waiting=0, assigned=1, pending=1
+0|indexus-crm  | [QueueEngine] checkTimeouts ASSIGNED: call=0d81a919-413f-4997-9b46-e9b69706df8b, waited=30s/40s, agent=67467ce3-7a44-4f67-a3d3-6a251e2991e5, caller=0421948519438

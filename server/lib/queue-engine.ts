@@ -1382,11 +1382,24 @@ export class QueueEngine extends EventEmitter {
     }
 
     const sipEndpoint = `PJSIP/${agentUser.sipExtension}`;
+    const elapsedSoFar = (Date.now() - call.enteredAt.getTime()) / 1000;
+    const maxRing = 30;
+    let ringTimeout = maxRing;
+    if (queue.maxWaitTime && queue.maxWaitTime > 0) {
+      const remaining = queue.maxWaitTime - elapsedSoFar;
+      if (remaining <= 3) {
+        console.log(`[QueueEngine] Only ${Math.floor(remaining)}s remaining of maxWaitTime=${queue.maxWaitTime}s, firing overflow immediately`);
+        await this.fireOverflowForCall(call.channelId, call.id, queue, call.callerNumber, call.callerName || "", elapsedSoFar, agent.userId);
+        return;
+      }
+      ringTimeout = Math.min(maxRing, Math.floor(remaining));
+    }
     console.log(`[QueueEngine] === ORIGINATING CALL TO AGENT ===`);
     console.log(`[QueueEngine]   Agent: ${agentUser.fullName} (ext: ${agentUser.sipExtension})`);
     console.log(`[QueueEngine]   Endpoint: ${sipEndpoint}`);
     console.log(`[QueueEngine]   Caller channel: ${call.channelId}`);
     console.log(`[QueueEngine]   Call ID: ${call.id}`);
+    console.log(`[QueueEngine]   Ring timeout: ${ringTimeout}s (elapsed: ${Math.floor(elapsedSoFar)}s, maxWait: ${queue.maxWaitTime}s)`);
 
     try {
       const agentChannel = await this.ariClient.originateChannel(
@@ -1416,21 +1429,22 @@ export class QueueEngine extends EventEmitter {
         try {
           const pendingTimeout = this.pendingAgentCalls.get(agentChannel.id);
           if (pendingTimeout) {
-            console.log(`[QueueEngine] Agent ${agent.userId} did not answer within 30s, cancelling`);
+            console.log(`[QueueEngine] Agent ${agent.userId} did not answer within ${ringTimeout}s, cancelling`);
             this.pendingAgentCalls.delete(agentChannel.id);
             this.assignedCalls.delete(call.channelId);
             try { await this.ariClient.hangupChannel(agentChannel.id, "normal"); } catch {}
             this.updateAgentStatus(agent.userId, "available", null);
 
             const totalWait = (Date.now() - call.enteredAt.getTime()) / 1000;
-            console.log(`[QueueEngine] 30s ring timeout: call=${call.id}, totalWait=${Math.floor(totalWait)}s, maxWaitTime=${queue.maxWaitTime}s`);
+            console.log(`[QueueEngine] Ring timeout: call=${call.id}, totalWait=${Math.floor(totalWait)}s, maxWaitTime=${queue.maxWaitTime}s`);
 
-            if (queue.maxWaitTime && queue.maxWaitTime > 0 && totalWait > queue.maxWaitTime) {
+            if (queue.maxWaitTime && queue.maxWaitTime > 0 && totalWait >= queue.maxWaitTime - 2) {
+              console.log(`[QueueEngine] maxWaitTime reached or nearly reached (${Math.floor(totalWait)}s >= ${queue.maxWaitTime - 2}s), firing overflow`);
               await this.fireOverflowForCall(call.channelId, call.id, queue, call.callerNumber, call.callerName || "", totalWait, agent.userId);
               return;
             }
 
-            console.log(`[QueueEngine] Requeuing call ${call.id} (still within maxWaitTime)`);
+            console.log(`[QueueEngine] Requeuing call ${call.id} (still within maxWaitTime, ${Math.floor(queue.maxWaitTime - totalWait)}s remaining)`);
             call.position = this.getQueueSize(queue.id) + 1;
             this.waitingCalls.set(call.channelId, call);
             this.recalculatePositions(queue.id);
@@ -1440,9 +1454,9 @@ export class QueueEngine extends EventEmitter {
             this.startMohForChannel(call.channelId, queue.id);
           }
         } catch (err) {
-          console.error(`[QueueEngine] Error in 30s ring timeout handler:`, err instanceof Error ? err.message : err);
+          console.error(`[QueueEngine] Error in ring timeout handler:`, err instanceof Error ? err.message : err);
         }
-      }, 30000);
+      }, ringTimeout * 1000);
     } catch (err: any) {
       console.error(`[QueueEngine] Failed to originate call to agent ${agent.userId}:`, err.message);
       this.updateAgentStatus(agent.userId, "available", null);
@@ -2291,7 +2305,8 @@ export class QueueEngine extends EventEmitter {
       const waitTime = (now - call.enteredAt.getTime()) / 1000;
       console.log(`[QueueEngine] checkTimeouts WAITING: call=${call.id}, waited=${Math.floor(waitTime)}s/${queue.maxWaitTime}s, caller=${call.callerNumber}`);
 
-      if (waitTime > queue.maxWaitTime) {
+      if (waitTime >= queue.maxWaitTime) {
+        console.log(`[QueueEngine] checkTimeouts: WAITING call ${call.id} exceeded maxWaitTime (${Math.floor(waitTime)}s >= ${queue.maxWaitTime}s), firing overflow`);
         await this.fireOverflowForCall(channelId, call.id, queue, call.callerNumber, call.callerName || "", waitTime);
       }
     }
@@ -2323,10 +2338,10 @@ export class QueueEngine extends EventEmitter {
       const totalWaitTime = (now - call.enteredAt.getTime()) / 1000;
       console.log(`[QueueEngine] checkTimeouts ASSIGNED: call=${call.id}, waited=${Math.floor(totalWaitTime)}s/${queue.maxWaitTime}s, agent=${agentId}, caller=${call.callerNumber}`);
 
-      if (totalWaitTime > queue.maxWaitTime) {
+      if (totalWaitTime >= queue.maxWaitTime) {
         const callLog = await db.select().from(inboundCallLogs).where(eq(inboundCallLogs.id, call.id)).limit(1);
         const dbStatus = callLog[0]?.status;
-        console.log(`[QueueEngine] checkTimeouts: call ${call.id} EXCEEDED maxWaitTime! dbStatus=${dbStatus}`);
+        console.log(`[QueueEngine] checkTimeouts: call ${call.id} EXCEEDED maxWaitTime! totalWait=${Math.floor(totalWaitTime)}s >= maxWait=${queue.maxWaitTime}s, dbStatus=${dbStatus}`);
 
         if (dbStatus === "answered" || dbStatus === "completed") {
           console.log(`[QueueEngine] checkTimeouts: call ${call.id} already ${dbStatus}, just cleaning up tracking`);
