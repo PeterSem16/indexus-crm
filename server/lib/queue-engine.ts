@@ -192,12 +192,19 @@ export class QueueEngine extends EventEmitter {
 
     for (const [channelId, mohPbId] of this.mohPlaybacks.entries()) {
       if (mohPbId === playbackId) {
+        if (this.overflowInProgress.has(channelId)) {
+          console.log(`[QueueEngine] MOH playback finished for channel ${channelId} but overflow in progress, NOT restarting`);
+          this.mohPlaybacks.delete(channelId);
+          break;
+        }
         if (this.waitingCalls.has(channelId)) {
           console.log(`[QueueEngine] MOH playback finished, restarting (loop) for waiting channel ${channelId}`);
           await this.startMohForChannel(channelId, this.waitingCalls.get(channelId)!.queueId);
         } else if (this.assignedCalls.has(channelId)) {
           console.log(`[QueueEngine] MOH playback finished, restarting (loop) for assigned channel ${channelId}`);
           await this.startMohForChannel(channelId, this.assignedCalls.get(channelId)!.queueId);
+        } else {
+          this.mohPlaybacks.delete(channelId);
         }
         break;
       }
@@ -613,12 +620,32 @@ export class QueueEngine extends EventEmitter {
       console.log(`[QueueEngine]   Box: "${box.name}" (id: ${box.id})`);
       console.log(`[QueueEngine]   Caller: ${callerNumber} (${callerName})`);
 
+      try { await this.ariClient.stopMoh(channelId); } catch {}
+
+      let channelState = "unknown";
       try {
-        await this.ariClient.answerChannel(channelId);
-      } catch {}
+        const chInfo = await this.ariClient.getChannel(channelId);
+        channelState = chInfo?.state || "unknown";
+        console.log(`[QueueEngine] VOICEMAIL: channel ${channelId} state=${channelState}`);
+      } catch {
+        console.log(`[QueueEngine] VOICEMAIL: channel ${channelId} not found, aborting`);
+        return;
+      }
+
+      if (channelState !== "Up") {
+        try {
+          await this.ariClient.answerChannel(channelId);
+          console.log(`[QueueEngine] VOICEMAIL: answered channel ${channelId}`);
+        } catch (err) {
+          console.warn(`[QueueEngine] VOICEMAIL: answer failed:`, err instanceof Error ? err.message : err);
+        }
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 200));
 
       if (channelGone) {
         console.log(`[QueueEngine] VOICEMAIL: channel gone before greeting, aborting`);
+        try { await this.ariClient.hangupChannel(channelId, "normal"); } catch {}
         return;
       }
 
@@ -634,6 +661,7 @@ export class QueueEngine extends EventEmitter {
           console.warn(`[QueueEngine] Greeting playback failed:`, err instanceof Error ? err.message : err);
           if (channelGone) {
             console.log(`[QueueEngine] VOICEMAIL: channel gone during greeting, aborting`);
+            try { await this.ariClient.hangupChannel(channelId, "normal"); } catch {}
             return;
           }
         }
@@ -643,6 +671,7 @@ export class QueueEngine extends EventEmitter {
 
       if (channelGone) {
         console.log(`[QueueEngine] VOICEMAIL: channel gone before beep, aborting`);
+        try { await this.ariClient.hangupChannel(channelId, "normal"); } catch {}
         return;
       }
 
@@ -659,6 +688,7 @@ export class QueueEngine extends EventEmitter {
 
       if (channelGone) {
         console.log(`[QueueEngine] VOICEMAIL: channel gone before recording, aborting`);
+        try { await this.ariClient.hangupChannel(channelId, "normal"); } catch {}
         return;
       }
 
@@ -1487,7 +1517,6 @@ export class QueueEngine extends EventEmitter {
             this.pendingAgentCalls.delete(agentChannel.id);
             this.assignedCalls.delete(call.channelId);
             try { await this.ariClient.hangupChannel(agentChannel.id, "normal"); } catch {}
-            this.updateAgentStatus(agent.userId, "available", null);
 
             const totalWait = (Date.now() - call.enteredAt.getTime()) / 1000;
             console.log(`[QueueEngine] Ring timeout: call=${call.id}, totalWait=${Math.floor(totalWait)}s, maxWaitTime=${queue.maxWaitTime}s`);
@@ -1499,13 +1528,15 @@ export class QueueEngine extends EventEmitter {
             }
 
             console.log(`[QueueEngine] Requeuing call ${call.id} (still within maxWaitTime, ${Math.floor(queue.maxWaitTime - totalWait)}s remaining)`);
+            await this.stopMohForChannel(call.channelId);
             call.position = this.getQueueSize(queue.id) + 1;
             this.waitingCalls.set(call.channelId, call);
             this.recalculatePositions(queue.id);
             await db.update(inboundCallLogs)
               .set({ status: "queued", assignedAgentId: null })
               .where(eq(inboundCallLogs.id, call.id));
-            this.startMohForChannel(call.channelId, queue.id);
+            await this.startMohForChannel(call.channelId, queue.id);
+            this.updateAgentStatus(agent.userId, "available", null);
           }
         } catch (err) {
           console.error(`[QueueEngine] Error in ring timeout handler:`, err instanceof Error ? err.message : err);
@@ -2284,12 +2315,20 @@ export class QueueEngine extends EventEmitter {
       }
 
       try { await this.stopMohForChannel(channelId); } catch {}
+      try { await this.ariClient.stopMoh(channelId); } catch {}
+
+      const needsSafetyHangup = queue.overflowAction === "voicemail" || queue.overflowAction === "hangup" || queue.overflowAction === "announcement" || !queue.overflowAction;
 
       try {
         await this.handleOverflow(channelId, queue, callerNumber, callerName);
         console.log(`[QueueEngine] >>>>>>> OVERFLOW COMPLETED for call ${callId}, action=${queue.overflowAction} <<<<<<<`);
       } catch (err) {
         console.error(`[QueueEngine] >>>>>>> OVERFLOW FAILED for call ${callId}:`, err instanceof Error ? err.message : err, "<<<<<<<");
+        try { await this.ariClient.hangupChannel(channelId, "normal"); } catch {}
+      }
+
+      if (needsSafetyHangup) {
+        try { await this.ariClient.hangupChannel(channelId, "normal"); } catch {}
       }
 
       this.emit("call-timeout", {
