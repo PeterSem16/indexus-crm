@@ -181,7 +181,7 @@ function CallCard({ call, onAccept, onReject, onDismiss, isFirst }: {
       {!canAccept && (
         <div className="mt-2 text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
           <Clock className="h-3 w-3 animate-spin" />
-          {call.channelId === "sip-webrtc" ? "Čakám na opätovné zvonenie..." : "Čakám na SIP spojenie..."}
+          Pripájam hovor...
         </div>
       )}
     </div>

@@ -5226,67 +5226,41 @@ export default function AgentWorkspacePage() {
         const queueLinkedCalls = linkedCalls.filter(c => c.channelId !== "sip-webrtc");
 
         if (directSipCalls.length > 0) {
-          console.log("[AgentWS] Direct SIP invite ended, keeping popup for retry:", directSipCalls.map(c => `${c.callId} (${c.callerNumber})`));
-          const directCallIds = directSipCalls.map(c => c.callId);
-          setInboundCalls(prev => prev.map(c =>
-            directCallIds.includes(c.callId)
-              ? { ...c, hasSipInvitation: false, sipInvitation: undefined }
-              : c
-          ));
-          setTimeout(() => {
-            setInboundCalls(prev => {
-              const stale = prev.filter(c => directCallIds.includes(c.callId) && !c.hasSipInvitation);
-              if (stale.length > 0) {
-                console.log("[AgentWS] Removing direct SIP calls after grace period:", stale.map(c => `${c.callId} (${c.callerNumber})`));
-                stale.forEach(c => {
-                  if (!cancelledCallIdsRef.current.has(c.callId)) {
-                    cancelledCallIdsRef.current.add(c.callId);
-                    setTimeout(() => cancelledCallIdsRef.current.delete(c.callId), 10000);
-                    const callerDisplay = c.callerName || c.callerNumber || "Neznámy";
-                    const queueDisplay = c.queueName ? ` (${c.queueName})` : "";
-                    toast({
-                      title: "Zmeškaný hovor",
-                      description: `Volajúci ${callerDisplay}${queueDisplay} zavesil`,
-                      variant: "destructive",
-                    });
-                  }
-                });
-              }
-              return prev.filter(c => !directCallIds.includes(c.callId) || c.hasSipInvitation);
-            });
-          }, 15000);
+          console.log("[AgentWS] Direct SIP invite ended, removing calls:", directSipCalls.map(c => `${c.callId} (${c.callerNumber})`));
+          const directCallIds = new Set(directSipCalls.map(c => c.callId));
+          directSipCalls.forEach(c => {
+            if (!cancelledCallIdsRef.current.has(c.callId)) {
+              cancelledCallIdsRef.current.add(c.callId);
+              setTimeout(() => cancelledCallIdsRef.current.delete(c.callId), 10000);
+              const callerDisplay = c.callerName || c.callerNumber || "Neznámy";
+              const queueDisplay = c.queueName ? ` (${c.queueName})` : "";
+              toast({
+                title: "Zmeškaný hovor",
+                description: `Volajúci ${callerDisplay}${queueDisplay} zavesil`,
+                variant: "destructive",
+              });
+            }
+          });
+          setInboundCalls(prev => prev.filter(c => !directCallIds.has(c.callId)));
         }
 
         if (queueLinkedCalls.length > 0) {
-          console.log("[AgentWS] Queue SIP invite ended, unlinking (call still in queue):", queueLinkedCalls.map(c => `${c.callId} (${c.callerNumber})`));
-          const queueCallIds = queueLinkedCalls.map(c => c.callId);
-          setInboundCalls(prev => prev.map(c =>
-            queueCallIds.includes(c.callId)
-              ? { ...c, hasSipInvitation: false, sipInvitation: undefined }
-              : c
-          ));
-          setTimeout(() => {
-            setInboundCalls(prev => {
-              const stale = prev.filter(c => queueCallIds.includes(c.callId) && !c.hasSipInvitation);
-              if (stale.length > 0) {
-                console.log("[AgentWS] Removing stale queue calls (no WS update):", stale.map(c => `${c.callId} (${c.callerNumber})`));
-                stale.forEach(c => {
-                  if (!cancelledCallIdsRef.current.has(c.callId)) {
-                    cancelledCallIdsRef.current.add(c.callId);
-                    setTimeout(() => cancelledCallIdsRef.current.delete(c.callId), 10000);
-                    const callerDisplay = c.callerName || c.callerNumber || "Neznámy";
-                    const queueDisplay = c.queueName ? ` (${c.queueName})` : "";
-                    toast({
-                      title: "Zmeškaný hovor",
-                      description: `Volajúci ${callerDisplay}${queueDisplay} zavesil`,
-                      variant: "destructive",
-                    });
-                  }
-                });
-              }
-              return prev.filter(c => !queueCallIds.includes(c.callId) || c.hasSipInvitation);
-            });
-          }, 10000);
+          console.log("[AgentWS] Queue SIP invite ended (caller hung up), removing calls:", queueLinkedCalls.map(c => `${c.callId} (${c.callerNumber})`));
+          const queueCallIds = new Set(queueLinkedCalls.map(c => c.callId));
+          queueLinkedCalls.forEach(c => {
+            if (!cancelledCallIdsRef.current.has(c.callId)) {
+              cancelledCallIdsRef.current.add(c.callId);
+              setTimeout(() => cancelledCallIdsRef.current.delete(c.callId), 10000);
+              const callerDisplay = c.callerName || c.callerNumber || "Neznámy";
+              const queueDisplay = c.queueName ? ` (${c.queueName})` : "";
+              toast({
+                title: "Zmeškaný hovor",
+                description: `Volajúci ${callerDisplay}${queueDisplay} zavesil`,
+                variant: "destructive",
+              });
+            }
+          });
+          setInboundCalls(prev => prev.filter(c => !queueCallIds.has(c.callId)));
         }
       }
     }
