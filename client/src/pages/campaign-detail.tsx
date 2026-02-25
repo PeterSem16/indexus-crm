@@ -1911,6 +1911,11 @@ export default function CampaignDetailPage() {
   }
 
   const filteredContacts = applyContactFilters(contacts as any, contactFilters);
+  const [contactsPage, setContactsPage] = useState(1);
+  const contactsPerPage = 20;
+  const totalContactPages = Math.max(1, Math.ceil(filteredContacts.length / contactsPerPage));
+  const paginatedContacts = filteredContacts.slice((contactsPage - 1) * contactsPerPage, contactsPage * contactsPerPage);
+  useEffect(() => { setContactsPage(1); }, [contactFilters, contacts]);
 
   const progressPercentage = stats 
     ? ((stats.completedContacts + stats.notInterestedContacts) / Math.max(stats.totalContacts, 1)) * 100
@@ -2443,17 +2448,41 @@ export default function CampaignDetailPage() {
               <RefreshCw className="w-6 h-6 animate-spin" />
             </div>
           ) : (
-            <DataTable
-              columns={contactColumns}
-              data={filteredContacts as EnrichedContact[]}
-              getRowKey={(contact) => contact.id}
-              onRowClick={(contact) => setSelectedContact(contact)}
-              selectable
-              selectedKeys={selectedContacts}
-              onSelectionChange={setSelectedContacts}
-              sortConfig={sortConfig}
-              onSortChange={setSortConfig}
-            />
+            <>
+              <DataTable
+                columns={contactColumns}
+                data={paginatedContacts as EnrichedContact[]}
+                getRowKey={(contact) => contact.id}
+                onRowClick={(contact) => setSelectedContact(contact)}
+                selectable
+                selectedKeys={selectedContacts}
+                onSelectionChange={setSelectedContacts}
+                sortConfig={sortConfig}
+                onSortChange={setSortConfig}
+              />
+              {totalContactPages > 1 && (
+                <div className="flex items-center justify-between pt-3 px-1">
+                  <span className="text-sm text-muted-foreground">
+                    {(contactsPage - 1) * contactsPerPage + 1}–{Math.min(contactsPage * contactsPerPage, filteredContacts.length)} z {filteredContacts.length}
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <Button variant="outline" size="sm" disabled={contactsPage <= 1} onClick={() => setContactsPage(1)} data-testid="btn-contacts-first">
+                      <ChevronLeft className="w-4 h-4" /><ChevronLeft className="w-4 h-4 -ml-2" />
+                    </Button>
+                    <Button variant="outline" size="sm" disabled={contactsPage <= 1} onClick={() => setContactsPage(p => p - 1)} data-testid="btn-contacts-prev">
+                      <ChevronLeft className="w-4 h-4" />
+                    </Button>
+                    <span className="text-sm px-3 font-medium">{contactsPage} / {totalContactPages}</span>
+                    <Button variant="outline" size="sm" disabled={contactsPage >= totalContactPages} onClick={() => setContactsPage(p => p + 1)} data-testid="btn-contacts-next">
+                      <ChevronRight className="w-4 h-4" />
+                    </Button>
+                    <Button variant="outline" size="sm" disabled={contactsPage >= totalContactPages} onClick={() => setContactsPage(totalContactPages)} data-testid="btn-contacts-last">
+                      <ChevronRight className="w-4 h-4" /><ChevronRight className="w-4 h-4 -ml-2" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </TabsContent>
 
