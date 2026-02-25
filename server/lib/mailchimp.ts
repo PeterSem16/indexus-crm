@@ -34,6 +34,8 @@ interface MailchimpContact {
   lastName?: string;
   phone?: string;
   company?: string;
+  city?: string;
+  address?: string;
   tags?: string[];
 }
 
@@ -158,12 +160,42 @@ export async function getCampaignReport(
   };
 }
 
+async function ensureMergeFields(
+  settings: { apiKey: string; serverPrefix: string },
+  listId: string
+): Promise<void> {
+  try {
+    const data = await mailchimpFetch(settings, `/lists/${listId}/merge-fields?count=50`);
+    const existingTags = (data.merge_fields || []).map((f: any) => f.tag);
+    const requiredFields = [
+      { tag: "PHONE", name: "Phone", type: "phone" },
+      { tag: "COMPANY", name: "Company", type: "text" },
+      { tag: "CITY", name: "City", type: "text" },
+      { tag: "ADDRESS", name: "Address", type: "text" },
+    ];
+    for (const field of requiredFields) {
+      if (!existingTags.includes(field.tag)) {
+        try {
+          await mailchimpFetch(settings, `/lists/${listId}/merge-fields`, {
+            method: "POST",
+            body: JSON.stringify({ tag: field.tag, name: field.name, type: field.type }),
+          });
+        } catch (e) {
+        }
+      }
+    }
+  } catch (e) {
+  }
+}
+
 export async function addContactsToList(
   settings: { apiKey: string; serverPrefix: string },
   listId: string,
   contacts: MailchimpContact[],
   tags?: string[]
 ): Promise<{ added: number; updated: number; errors: number }> {
+  await ensureMergeFields(settings, listId);
+
   const members = contacts
     .filter(c => c.email)
     .map(c => ({
@@ -174,6 +206,8 @@ export async function addContactsToList(
         LNAME: c.lastName || "",
         PHONE: c.phone || "",
         COMPANY: c.company || "",
+        CITY: c.city || "",
+        ADDRESS: c.address || "",
       },
       ...(tags && tags.length > 0 ? { tags } : {}),
     }));

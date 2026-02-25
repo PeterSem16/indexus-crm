@@ -9559,7 +9559,7 @@ export async function registerRoutes(
 
       const campaignContactsList = await storage.getCampaignContacts(req.params.id);
 
-      const contacts: { email: string; firstName?: string; lastName?: string; phone?: string; company?: string }[] = [];
+      const contacts: { email: string; firstName?: string; lastName?: string; phone?: string; company?: string; city?: string; address?: string }[] = [];
 
       for (const cc of campaignContactsList) {
         if (cc.contactType === "customer" && cc.customerId) {
@@ -9570,6 +9570,8 @@ export async function registerRoutes(
               firstName: customer.firstName || "",
               lastName: customer.lastName || "",
               phone: customer.phone || customer.mobile || "",
+              city: (customer as any).city || "",
+              address: (customer as any).address || (customer as any).street || "",
             });
           }
         } else if (cc.contactType === "hospital" && cc.hospitalId) {
@@ -9581,6 +9583,8 @@ export async function registerRoutes(
               lastName: "",
               company: hospital.name || "",
               phone: hospital.phone || "",
+              city: (hospital as any).city || "",
+              address: (hospital as any).address || "",
             });
           }
         } else if (cc.contactType === "clinic" && cc.clinicId) {
@@ -9592,6 +9596,8 @@ export async function registerRoutes(
               lastName: "",
               company: clinic.name || "",
               phone: clinic.phone || "",
+              city: (clinic as any).city || "",
+              address: (clinic as any).address || "",
             });
           }
         }

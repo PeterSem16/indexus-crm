@@ -4041,11 +4041,45 @@ function MailchimpSyncSection({ campaignId, campaignName, countryCodes }: { camp
     },
   });
 
+  const { data: campaignContactsData } = useQuery<any>({
+    queryKey: ["/api/campaigns", campaignId, "contacts"],
+    queryFn: async () => {
+      const res = await fetch(`/api/campaigns/${campaignId}/contacts?limit=1&offset=0`);
+      if (!res.ok) return { contacts: [], totalContacts: 0 };
+      return res.json();
+    },
+  });
+  const totalCampaignContacts = campaignContactsData?.totalContacts || 0;
+
   const { data: emailTemplates = [] } = useQuery<MessageTemplate[]>({
     queryKey: ["/api/message-templates"],
   });
 
   const htmlTemplates = emailTemplates.filter(t => t.type === "email");
+
+  const quillRef = useRef<any>(null);
+
+  const mergeVars = [
+    { tag: "*|FNAME|*", label: "Meno", icon: "👤" },
+    { tag: "*|LNAME|*", label: "Priezvisko", icon: "👤" },
+    { tag: "*|EMAIL|*", label: "Email", icon: "✉️" },
+    { tag: "*|PHONE|*", label: "Telefón", icon: "📞" },
+    { tag: "*|COMPANY|*", label: "Firma", icon: "🏢" },
+    { tag: "*|CITY|*", label: "Mesto", icon: "📍" },
+    { tag: "*|ADDRESS|*", label: "Adresa", icon: "🏠" },
+  ];
+
+  const insertMergeVar = (tag: string) => {
+    const editor = quillRef.current?.getEditor?.();
+    if (editor) {
+      const range = editor.getSelection(true);
+      editor.insertText(range.index, tag);
+      editor.setSelection(range.index + tag.length);
+    } else {
+      setEmailHtml(prev => prev + tag);
+    }
+    setContentSaved(false);
+  };
 
   const { data: mcContent } = useQuery<{ html: string; plainText: string }>({
     queryKey: ["/api/campaigns", campaignId, "mailchimp", "content"],
@@ -4370,9 +4404,29 @@ function MailchimpSyncSection({ campaignId, campaignName, countryCodes }: { camp
               </div>
 
               <div className="space-y-2">
-                <Label>Obsah emailu</Label>
+                <div className="flex items-center justify-between">
+                  <Label>Obsah emailu</Label>
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs text-muted-foreground mr-1">Vložiť premennú:</span>
+                    {mergeVars.map(mv => (
+                      <Button
+                        key={mv.tag}
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-6 px-2 text-xs font-mono"
+                        onClick={() => insertMergeVar(mv.tag)}
+                        title={`${mv.label} — ${mv.tag}`}
+                        data-testid={`btn-merge-${mv.tag.replace(/\*\|/g, "").replace(/\|/g, "").toLowerCase()}`}
+                      >
+                        {mv.label}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
                 <div className="border rounded-md" data-testid="mc-email-editor">
                   <ReactQuill
+                    ref={quillRef}
                     theme="snow"
                     value={emailHtml}
                     onChange={(val) => { setEmailHtml(val); setContentSaved(false); }}
@@ -4381,6 +4435,9 @@ function MailchimpSyncSection({ campaignId, campaignName, countryCodes }: { camp
                     style={{ minHeight: '300px' }}
                   />
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  Použite premenné ako <code className="bg-muted px-1 rounded">*|FNAME|*</code>, <code className="bg-muted px-1 rounded">*|LNAME|*</code>, <code className="bg-muted px-1 rounded">*|COMPANY|*</code> pre personalizáciu. Mailchimp ich nahradí údajmi kontaktu.
+                </p>
               </div>
 
               <div className="flex items-center justify-between pt-2">
@@ -4450,30 +4507,67 @@ function MailchimpSyncSection({ campaignId, campaignName, countryCodes }: { camp
         <TabsContent value="sync" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Synchronizácia kontaktov</CardTitle>
+              <CardTitle className="text-base">Import kontaktov z kampane</CardTitle>
+              <CardDescription>
+                Importujte kontakty vygenerované v záložke "Contacts" do Mailchimp audience.
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center gap-4">
-                <div className="text-sm">
-                  <span className="text-muted-foreground">Synchronizované kontakty:</span>{" "}
-                  <span className="font-medium">{syncInfo.syncedContacts || 0}</span>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="p-3 bg-muted/50 rounded-lg text-center">
+                  <p className="text-2xl font-bold">{totalCampaignContacts}</p>
+                  <p className="text-xs text-muted-foreground">Kontaktov v kampani</p>
                 </div>
-                {syncInfo.lastSyncAt && (
-                  <div className="text-sm">
-                    <span className="text-muted-foreground">Posledná synchronizácia:</span>{" "}
-                    <span className="font-medium">{new Date(syncInfo.lastSyncAt).toLocaleString("sk")}</span>
-                  </div>
+                <div className="p-3 bg-muted/50 rounded-lg text-center">
+                  <p className="text-2xl font-bold">{syncInfo.syncedContacts || 0}</p>
+                  <p className="text-xs text-muted-foreground">Synchronizované</p>
+                </div>
+                <div className="p-3 bg-muted/50 rounded-lg text-center">
+                  <p className="text-2xl font-bold">{syncInfo.lastSyncAt ? new Date(syncInfo.lastSyncAt).toLocaleDateString("sk") : "—"}</p>
+                  <p className="text-xs text-muted-foreground">Posledná sync.</p>
+                </div>
+                <div className="p-3 bg-muted/50 rounded-lg text-center">
+                  <p className="text-2xl font-bold">{syncInfo.status === "synced" ? "✓" : "○"}</p>
+                  <p className="text-xs text-muted-foreground">Stav</p>
+                </div>
+              </div>
+
+              {totalCampaignContacts === 0 && (
+                <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200 dark:border-amber-800">
+                  <AlertTriangle className="w-4 h-4 mt-0.5 text-amber-600 flex-shrink-0" />
+                  <p className="text-sm text-amber-700 dark:text-amber-400">
+                    Nemáte žiadne kontakty v kampani. Prejdite na záložku "Contacts" a vygenerujte alebo importujte kontakty.
+                  </p>
+                </div>
+              )}
+
+              <div className="flex items-center gap-3">
+                <Button
+                  onClick={() => syncContactsMutation.mutate()}
+                  disabled={syncContactsMutation.isPending || totalCampaignContacts === 0}
+                  data-testid="btn-sync-mc-contacts"
+                >
+                  {syncContactsMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
+                  {syncInfo.syncedContacts > 0 ? "Aktualizovať kontakty" : "Importovať kontakty"} ({totalCampaignContacts})
+                </Button>
+                {syncInfo.syncedContacts > 0 && totalCampaignContacts > syncInfo.syncedContacts && (
+                  <span className="text-xs text-amber-600">
+                    +{totalCampaignContacts - syncInfo.syncedContacts} nových kontaktov od poslednej synchronizácie
+                  </span>
                 )}
               </div>
-              <Button
-                variant="outline"
-                onClick={() => syncContactsMutation.mutate()}
-                disabled={syncContactsMutation.isPending}
-                data-testid="btn-sync-mc-contacts"
-              >
-                {syncContactsMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
-                Synchronizovať kontakty
-              </Button>
+
+              <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800">
+                <p className="text-sm text-blue-700 dark:text-blue-400 font-medium mb-1">Synchronizované údaje kontaktov:</p>
+                <div className="flex flex-wrap gap-2">
+                  {["FNAME (Meno)", "LNAME (Priezvisko)", "EMAIL", "PHONE (Telefón)", "COMPANY (Firma)", "CITY (Mesto)", "ADDRESS (Adresa)"].map(f => (
+                    <span key={f} className="text-xs bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded font-mono">{f}</span>
+                  ))}
+                </div>
+                <p className="text-xs text-blue-600 dark:text-blue-500 mt-1">
+                  Tieto premenné môžete použiť v emailovom editore pre personalizáciu.
+                </p>
+              </div>
             </CardContent>
           </Card>
 
