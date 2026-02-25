@@ -1399,6 +1399,7 @@ export default function CampaignDetailPage() {
   const [requeueCallbackTo, setRequeueCallbackTo] = useState("");
   const [requeuePage, setRequeuePage] = useState(0);
   const REQUEUE_PAGE_SIZE = 20;
+  const [contactsPage, setContactsPage] = useState(1);
 
   const { data: campaign, isLoading: loadingCampaign } = useQuery<Campaign>({
     queryKey: ["/api/campaigns", campaignId],
@@ -1850,6 +1851,8 @@ export default function CampaignDetailPage() {
     }
   }, [campaign?.script]);
 
+  useEffect(() => { setContactsPage(1); }, [contactFilters, contacts]);
+
   const handleBulkStatusUpdate = (newStatus: string) => {
     if (selectedContacts.size === 0) return;
     bulkUpdateContactsMutation.mutate({ 
@@ -1911,11 +1914,9 @@ export default function CampaignDetailPage() {
   }
 
   const filteredContacts = applyContactFilters(contacts as any, contactFilters);
-  const [contactsPage, setContactsPage] = useState(1);
   const contactsPerPage = 20;
   const totalContactPages = Math.max(1, Math.ceil(filteredContacts.length / contactsPerPage));
   const paginatedContacts = filteredContacts.slice((contactsPage - 1) * contactsPerPage, contactsPage * contactsPerPage);
-  useEffect(() => { setContactsPage(1); }, [contactFilters, contacts]);
 
   const progressPercentage = stats 
     ? ((stats.completedContacts + stats.notInterestedContacts) / Math.max(stats.totalContacts, 1)) * 100
