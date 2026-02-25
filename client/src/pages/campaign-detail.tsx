@@ -4018,6 +4018,10 @@ function MailchimpSyncSection({ campaignId, campaignName, countryCodes }: { camp
   const [contentSaved, setContentSaved] = useState(false);
   const [showSendConfirm, setShowSendConfirm] = useState(false);
   const [mcSubTab, setMcSubTab] = useState<"editor" | "sync" | "stats">("editor");
+  const [showNewAudience, setShowNewAudience] = useState(false);
+  const [newAudienceName, setNewAudienceName] = useState("");
+  const [newAudienceFromEmail, setNewAudienceFromEmail] = useState("");
+  const [newAudienceFromName, setNewAudienceFromName] = useState("");
 
   const { data: syncInfo, isLoading: syncLoading } = useQuery<any>({
     queryKey: ["/api/campaigns", campaignId, "mailchimp", "sync"],
@@ -4059,6 +4063,29 @@ function MailchimpSyncSection({ campaignId, campaignName, countryCodes }: { camp
       setContentSaved(true);
     }
   }, [mcContent]);
+
+  const createAudienceMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/config/mailchimp-settings/${countryCodes[0] || "SK"}/audiences`, {
+        name: newAudienceName,
+        fromEmail: newAudienceFromEmail,
+        fromName: newAudienceFromName,
+      });
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/config/mailchimp-settings", countryCodes[0] || "SK", "audiences"] });
+      setSelectedListId(data.id);
+      setShowNewAudience(false);
+      setNewAudienceName("");
+      setNewAudienceFromEmail("");
+      setNewAudienceFromName("");
+      toast({ title: "Audience vytvorená", description: `${data.name} bola vytvorená v Mailchimp.` });
+    },
+    onError: (err: any) => {
+      toast({ title: "Chyba", description: err.message, variant: "destructive" });
+    },
+  });
 
   const createMutation = useMutation({
     mutationFn: async () => {
@@ -4190,27 +4217,77 @@ function MailchimpSyncSection({ campaignId, campaignName, countryCodes }: { camp
             <Label>Predmet emailu</Label>
             <Input value={subject} onChange={e => setSubject(e.target.value)} placeholder="Predmet emailovej kampane" data-testid="input-mc-subject" />
           </div>
-          {audiences.length > 0 ? (
-            <div className="space-y-2">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
               <Label>Audience (zoznam)</Label>
-              <Select value={selectedListId} onValueChange={setSelectedListId}>
-                <SelectTrigger data-testid="select-mc-audience-campaign">
-                  <SelectValue placeholder="Vyberte audience..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {audiences.map((a: any) => (
-                    <SelectItem key={a.id} value={a.id}>
-                      {a.name} ({a.memberCount} kontaktov)
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Button variant="ghost" size="sm" className="text-xs h-7" onClick={() => setShowNewAudience(!showNewAudience)} data-testid="btn-toggle-new-audience">
+                <Plus className="w-3.5 h-3.5 mr-1" />
+                {showNewAudience ? "Vybrať existujúcu" : "Vytvoriť novú"}
+              </Button>
             </div>
-          ) : (
-            <p className="text-sm text-amber-600">
-              Najprv nastavte Mailchimp v konfigurácia &gt; Email & GSM &gt; Mailchimp pre krajinu {countryCodes[0] || "SK"}.
-            </p>
-          )}
+            {!showNewAudience ? (
+              audiences.length > 0 ? (
+                <Select value={selectedListId} onValueChange={setSelectedListId}>
+                  <SelectTrigger data-testid="select-mc-audience-campaign">
+                    <SelectValue placeholder="Vyberte audience..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {audiences.map((a: any) => (
+                      <SelectItem key={a.id} value={a.id}>
+                        {a.name} ({a.memberCount} kontaktov)
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <p className="text-sm text-amber-600">
+                  Žiadne audience. Vytvorte novú alebo nastavte Mailchimp v konfigurátor &gt; Email & GSM &gt; Mailchimp.
+                </p>
+              )
+            ) : (
+              <div className="space-y-3 p-3 border rounded-lg bg-muted/30">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Názov audience</Label>
+                  <Input
+                    value={newAudienceName}
+                    onChange={e => setNewAudienceName(e.target.value)}
+                    placeholder="Napr. SK Zákazníci"
+                    data-testid="input-new-audience-name"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">From Email</Label>
+                    <Input
+                      value={newAudienceFromEmail}
+                      onChange={e => setNewAudienceFromEmail(e.target.value)}
+                      placeholder="info@firma.sk"
+                      type="email"
+                      data-testid="input-new-audience-email"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">From Name</Label>
+                    <Input
+                      value={newAudienceFromName}
+                      onChange={e => setNewAudienceFromName(e.target.value)}
+                      placeholder="Firma s.r.o."
+                      data-testid="input-new-audience-from-name"
+                    />
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  onClick={() => createAudienceMutation.mutate()}
+                  disabled={createAudienceMutation.isPending || !newAudienceName || !newAudienceFromEmail}
+                  data-testid="btn-create-audience"
+                >
+                  {createAudienceMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  Vytvoriť audience
+                </Button>
+              </div>
+            )}
+          </div>
           <Button
             onClick={() => createMutation.mutate()}
             disabled={createMutation.isPending || !selectedListId}

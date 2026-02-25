@@ -9463,6 +9463,27 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/config/mailchimp-settings/:countryCode/audiences", requireAuth, async (req, res) => {
+    try {
+      const settings = await storage.getMailchimpSettingsByCountry(req.params.countryCode);
+      if (!settings) return res.status(404).json({ error: "No Mailchimp settings for this country" });
+      const { name, fromEmail, fromName } = req.body;
+      if (!name) return res.status(400).json({ error: "Audience name is required" });
+      const newList = await mailchimpApi.createList(
+        { apiKey: settings.apiKey, serverPrefix: settings.serverPrefix },
+        name,
+        "",
+        fromEmail || "",
+        fromName || ""
+      );
+      await logActivity(req.session.user!.id, "mailchimp_audience_created", "mailchimp_settings", settings.id, name);
+      res.json(newList);
+    } catch (error: any) {
+      console.error("Error creating mailchimp audience:", error);
+      res.status(500).json({ error: error.message || "Failed to create audience" });
+    }
+  });
+
   app.get("/api/config/mailchimp-settings/:countryCode/audiences", requireAuth, async (req, res) => {
     try {
       const settings = await storage.getMailchimpSettingsByCountry(req.params.countryCode);

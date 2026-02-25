@@ -203,6 +203,42 @@ export async function getCampaignInfo(
   };
 }
 
+export async function createList(
+  settings: { apiKey: string; serverPrefix: string },
+  name: string,
+  company: string = "",
+  fromEmail: string = "",
+  fromName: string = ""
+): Promise<MailchimpListInfo> {
+  const data = await mailchimpFetch(settings, "/lists", {
+    method: "POST",
+    body: JSON.stringify({
+      name,
+      contact: {
+        company: company || name,
+        address1: "",
+        city: "",
+        state: "",
+        zip: "",
+        country: "SK",
+      },
+      permission_reminder: "You signed up for updates.",
+      campaign_defaults: {
+        from_name: fromName || name,
+        from_email: fromEmail || "noreply@example.com",
+        subject: "",
+        language: "sk",
+      },
+      email_type_option: false,
+    }),
+  });
+  return {
+    id: data.id,
+    name: data.name,
+    memberCount: data.stats?.member_count || 0,
+  };
+}
+
 export async function setCampaignContent(
   settings: { apiKey: string; serverPrefix: string },
   mailchimpCampaignId: string,
