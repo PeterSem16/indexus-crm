@@ -553,7 +553,8 @@ export function CampaignContactsFilter({
 
 export function applyContactFilters(
   contacts: Array<{ 
-    status?: string; 
+    status?: string;
+    contactType?: string;
     customer?: { 
       firstName: string;
       lastName: string;
@@ -574,27 +575,61 @@ export function applyContactFilters(
         salesChannel?: string | null;
         infoSource?: string | null;
       } | null;
-    } 
+    };
+    hospital?: { name?: string; email?: string; phone?: string; countryCode?: string; city?: string; contactPerson?: string } | null;
+    clinic?: { name?: string; email?: string; phone?: string; countryCode?: string; city?: string; doctorName?: string } | null;
   }>,
   filters: CampaignContactFilters
 ): typeof contacts {
   return contacts.filter(contact => {
     const customer = contact.customer;
-    if (!customer) return false;
+    const hospital = (contact as any).hospital;
+    const clinic = (contact as any).clinic;
+    const isHospital = contact.contactType === "hospital";
+    const isClinic = contact.contactType === "clinic";
+
+    if (filters.contactStatus && filters.contactStatus.length > 0 && !filters.contactStatus.includes(contact.status || "")) {
+      return false;
+    }
 
     if (filters.search) {
       const searchLower = filters.search.toLowerCase();
-      const fullName = `${customer.firstName} ${customer.lastName}`.toLowerCase();
-      const email = customer.email?.toLowerCase() || "";
-      const phone = customer.phone?.toLowerCase() || "";
-      const mobile = customer.mobile?.toLowerCase() || "";
-      if (!fullName.includes(searchLower) && 
-          !email.includes(searchLower) && 
-          !phone.includes(searchLower) &&
-          !mobile.includes(searchLower)) {
+      if (isHospital && hospital) {
+        const name = (hospital.name || "").toLowerCase();
+        const email = (hospital.email || "").toLowerCase();
+        const phone = (hospital.phone || "").toLowerCase();
+        const contactPerson = (hospital.contactPerson || "").toLowerCase();
+        if (!name.includes(searchLower) && !email.includes(searchLower) && !phone.includes(searchLower) && !contactPerson.includes(searchLower)) return false;
+      } else if (isClinic && clinic) {
+        const name = (clinic.name || "").toLowerCase();
+        const email = (clinic.email || "").toLowerCase();
+        const phone = (clinic.phone || "").toLowerCase();
+        const doctorName = (clinic.doctorName || "").toLowerCase();
+        if (!name.includes(searchLower) && !email.includes(searchLower) && !phone.includes(searchLower) && !doctorName.includes(searchLower)) return false;
+      } else if (customer) {
+        const fullName = `${customer.firstName} ${customer.lastName}`.toLowerCase();
+        const email = customer.email?.toLowerCase() || "";
+        const phone = customer.phone?.toLowerCase() || "";
+        const mobile = customer.mobile?.toLowerCase() || "";
+        if (!fullName.includes(searchLower) && !email.includes(searchLower) && !phone.includes(searchLower) && !mobile.includes(searchLower)) return false;
+      } else {
         return false;
       }
     }
+
+    if (isHospital || isClinic) {
+      if (filters.country && filters.country.length > 0) {
+        const cc = isHospital ? hospital?.countryCode : clinic?.countryCode;
+        if (!cc || !filters.country.includes(cc)) return false;
+      }
+      if (filters.city) {
+        const cityVal = isHospital ? hospital?.city : clinic?.city;
+        if (!cityVal || !cityVal.toLowerCase().includes(filters.city.toLowerCase())) return false;
+      }
+      return true;
+    }
+
+    if (!customer) return true;
 
     if (filters.country && filters.country.length > 0 && !filters.country.includes(customer.country)) {
       return false;
@@ -617,10 +652,6 @@ export function applyContactFilters(
     }
 
     if (filters.leadStatus && filters.leadStatus.length > 0 && !filters.leadStatus.includes(customer.leadStatus || "")) {
-      return false;
-    }
-
-    if (filters.contactStatus && filters.contactStatus.length > 0 && !filters.contactStatus.includes(contact.status || "")) {
       return false;
     }
 
