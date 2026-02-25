@@ -4026,11 +4026,24 @@ function MailchimpSyncSection({ campaignId, campaignName, countryCodes }: { camp
   const [testLname, setTestLname] = useState("");
   const [testCompany, setTestCompany] = useState("");
   const [testSendMethod, setTestSendMethod] = useState<"ms365" | "mailchimp">("ms365");
-  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(true);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [selectedSegmentId, setSelectedSegmentId] = useState("");
   const [webhookUrl, setWebhookUrl] = useState("");
   const [webhookEvents, setWebhookEvents] = useState({ subscribe: true, unsubscribe: true, campaign: true, cleaned: false, upemail: false });
+  const [verificationCode, setVerificationCode] = useState("");
+  const [verificationSent, setVerificationSent] = useState(false);
+  const [verificationEmail, setVerificationEmail] = useState("");
+  const [verificationMethod, setVerificationMethod] = useState<"email" | "display" | "">("");
+  const [displayedCode, setDisplayedCode] = useState("");
+  const [scheduleDate, setScheduleDate] = useState("");
+  const [showScheduleDialog, setShowScheduleDialog] = useState(false);
+  const [previewText, setPreviewText] = useState("");
+  const [showSettingsEdit, setShowSettingsEdit] = useState(false);
+  const [editFromName, setEditFromName] = useState("");
+  const [editReplyTo, setEditReplyTo] = useState("");
+  const [editSubjectLine, setEditSubjectLine] = useState("");
+  const [mcDetailTab, setMcDetailTab] = useState<"clicks" | "opens" | "bounces" | "unsubs" | "domains" | "sent">("clicks");
 
   const { data: syncInfo, isLoading: syncLoading } = useQuery<any>({
     queryKey: ["/api/campaigns", campaignId, "mailchimp", "sync"],
@@ -4231,18 +4244,184 @@ function MailchimpSyncSection({ campaignId, campaignName, countryCodes }: { camp
     },
   });
 
+  const requestVerificationMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/campaigns/${campaignId}/mailchimp/send-verification`);
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      setVerificationSent(true);
+      setVerificationMethod(data.method);
+      if (data.method === "email") {
+        setVerificationEmail(data.email);
+      } else if (data.method === "display") {
+        setDisplayedCode(data.code);
+      }
+    },
+    onError: (err: any) => {
+      toast({ title: "Chyba", description: err.message, variant: "destructive" });
+    },
+  });
+
   const sendCampaignMutation = useMutation({
     mutationFn: async () => {
-      await apiRequest("POST", `/api/campaigns/${campaignId}/mailchimp/send`);
+      await apiRequest("POST", `/api/campaigns/${campaignId}/mailchimp/send`, { verificationCode });
     },
     onSuccess: () => {
       setShowSendConfirm(false);
+      setVerificationSent(false);
+      setVerificationCode("");
+      setDisplayedCode("");
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "mailchimp", "sync"] });
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "mailchimp", "stats"] });
       toast({ title: "Kampaň odoslaná!", description: "Mailchimp kampaň bola úspešne odoslaná." });
     },
     onError: (err: any) => {
       toast({ title: "Chyba pri odosielaní", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const scheduleMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("POST", `/api/campaigns/${campaignId}/mailchimp/schedule`, { scheduleTime: scheduleDate });
+    },
+    onSuccess: () => {
+      setShowScheduleDialog(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "mailchimp", "sync"] });
+      toast({ title: "Kampaň naplánovaná" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Chyba", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const unscheduleMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("POST", `/api/campaigns/${campaignId}/mailchimp/unschedule`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "mailchimp", "sync"] });
+      toast({ title: "Plánovanie zrušené" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Chyba", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const replicateMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/campaigns/${campaignId}/mailchimp/replicate`);
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Kampaň zduplikovaná v Mailchimp" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Chyba", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const cancelMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("POST", `/api/campaigns/${campaignId}/mailchimp/cancel`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "mailchimp", "sync"] });
+      toast({ title: "Odosielanie zrušené" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Chyba", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const deleteMcCampaignMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("DELETE", `/api/campaigns/${campaignId}/mailchimp`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "mailchimp", "sync"] });
+      toast({ title: "Mailchimp kampaň vymazaná" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Chyba", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const updateSettingsMutation = useMutation({
+    mutationFn: async () => {
+      const body: any = {};
+      if (editSubjectLine) body.subject_line = editSubjectLine;
+      if (editFromName) body.from_name = editFromName;
+      if (editReplyTo) body.reply_to = editReplyTo;
+      if (previewText) body.preview_text = previewText;
+      await apiRequest("PATCH", `/api/campaigns/${campaignId}/mailchimp/settings`, body);
+    },
+    onSuccess: () => {
+      setShowSettingsEdit(false);
+      toast({ title: "Nastavenia aktualizované" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Chyba", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const { data: mcChecklist } = useQuery<any>({
+    queryKey: ["/api/campaigns", campaignId, "mailchimp", "checklist"],
+    enabled: !!syncInfo?.mailchimpCampaignId && syncInfo?.status !== "sent",
+    queryFn: async () => {
+      const res = await fetch(`/api/campaigns/${campaignId}/mailchimp/checklist`);
+      if (!res.ok) return null;
+      return res.json();
+    },
+  });
+
+  const { data: mcClickDetails } = useQuery<any>({
+    queryKey: ["/api/campaigns", campaignId, "mailchimp", "click-details"],
+    enabled: !!syncInfo?.mailchimpCampaignId && syncInfo?.status === "sent" && mcDetailTab === "clicks",
+    queryFn: async () => {
+      const res = await fetch(`/api/campaigns/${campaignId}/mailchimp/click-details`);
+      if (!res.ok) return null;
+      return res.json();
+    },
+  });
+
+  const { data: mcOpenDetails } = useQuery<any>({
+    queryKey: ["/api/campaigns", campaignId, "mailchimp", "open-details"],
+    enabled: !!syncInfo?.mailchimpCampaignId && syncInfo?.status === "sent" && mcDetailTab === "opens",
+    queryFn: async () => {
+      const res = await fetch(`/api/campaigns/${campaignId}/mailchimp/open-details`);
+      if (!res.ok) return null;
+      return res.json();
+    },
+  });
+
+  const { data: mcBounceDetails } = useQuery<any>({
+    queryKey: ["/api/campaigns", campaignId, "mailchimp", "bounce-details"],
+    enabled: !!syncInfo?.mailchimpCampaignId && syncInfo?.status === "sent" && mcDetailTab === "bounces",
+    queryFn: async () => {
+      const res = await fetch(`/api/campaigns/${campaignId}/mailchimp/bounce-details`);
+      if (!res.ok) return null;
+      return res.json();
+    },
+  });
+
+  const { data: mcUnsubDetails } = useQuery<any>({
+    queryKey: ["/api/campaigns", campaignId, "mailchimp", "unsubscribes"],
+    enabled: !!syncInfo?.mailchimpCampaignId && syncInfo?.status === "sent" && mcDetailTab === "unsubs",
+    queryFn: async () => {
+      const res = await fetch(`/api/campaigns/${campaignId}/mailchimp/unsubscribes`);
+      if (!res.ok) return null;
+      return res.json();
+    },
+  });
+
+  const { data: mcDomainPerf } = useQuery<any>({
+    queryKey: ["/api/campaigns", campaignId, "mailchimp", "domain-performance"],
+    enabled: !!syncInfo?.mailchimpCampaignId && syncInfo?.status === "sent" && mcDetailTab === "domains",
+    queryFn: async () => {
+      const res = await fetch(`/api/campaigns/${campaignId}/mailchimp/domain-performance`);
+      if (!res.ok) return null;
+      return res.json();
     },
   });
 
@@ -4829,7 +5008,7 @@ function MailchimpSyncSection({ campaignId, campaignName, countryCodes }: { camp
                   )}
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-4">
                   {(!contentSaved || syncInfo.status === "created") && (
                     <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-950/30 rounded-lg text-sm text-amber-700 dark:text-amber-400">
                       <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
@@ -4839,38 +5018,224 @@ function MailchimpSyncSection({ campaignId, campaignName, countryCodes }: { camp
                       </div>
                     </div>
                   )}
-                  <Button
-                    onClick={() => setShowSendConfirm(true)}
-                    disabled={!contentSaved || syncInfo.syncedContacts === 0}
-                    className="bg-green-600 hover:bg-green-700"
-                    data-testid="btn-mc-send-campaign"
-                  >
-                    <Send className="w-4 h-4 mr-2" />
-                    Odoslať kampaň ({syncInfo.syncedContacts || 0} kontaktov)
-                  </Button>
+
+                  {mcChecklist && (
+                    <div className="p-3 border rounded-lg space-y-2">
+                      <div className="flex items-center gap-2 text-sm font-medium">
+                        <CheckCircle className={`w-4 h-4 ${mcChecklist.isReady ? "text-green-600" : "text-amber-500"}`} />
+                        Checklist ({mcChecklist.isReady ? "pripravené" : "nie je pripravené"})
+                      </div>
+                      {mcChecklist.items?.map((item: any, i: number) => (
+                        <div key={i} className="flex items-start gap-2 text-xs pl-6">
+                          {item.type === "success" ? (
+                            <CheckCircle className="w-3 h-3 mt-0.5 text-green-500 flex-shrink-0" />
+                          ) : (
+                            <AlertCircle className="w-3 h-3 mt-0.5 text-amber-500 flex-shrink-0" />
+                          )}
+                          <div>
+                            <span className="font-medium">{item.heading}</span>
+                            {item.details && <p className="text-muted-foreground">{item.details}</p>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      onClick={() => setShowSendConfirm(true)}
+                      disabled={!contentSaved || syncInfo.syncedContacts === 0}
+                      className="bg-green-600 hover:bg-green-700"
+                      data-testid="btn-mc-send-campaign"
+                    >
+                      <Send className="w-4 h-4 mr-2" />
+                      Odoslať teraz ({syncInfo.syncedContacts || 0})
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowScheduleDialog(true)}
+                      disabled={!contentSaved || syncInfo.syncedContacts === 0}
+                      data-testid="btn-mc-schedule"
+                    >
+                      <Clock className="w-4 h-4 mr-2" />
+                      Naplánovať
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => setShowSettingsEdit(true)} data-testid="btn-mc-edit-settings">
+                      <Settings className="w-4 h-4 mr-2" />
+                      Nastavenia
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => replicateMutation.mutate()} disabled={replicateMutation.isPending} data-testid="btn-mc-replicate">
+                      <Copy className="w-4 h-4 mr-2" />
+                      Duplikovať
+                    </Button>
+                    <Button variant="outline" size="sm" className="text-destructive" onClick={() => {
+                      if (confirm("Naozaj chcete vymazať Mailchimp kampaň? Táto akcia je nevratná.")) {
+                        deleteMcCampaignMutation.mutate();
+                      }
+                    }} data-testid="btn-mc-delete">
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Vymazať
+                    </Button>
+                  </div>
+
+                  {syncInfo.status === "scheduled" && (
+                    <div className="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg text-sm">
+                      <Clock className="w-4 h-4 text-blue-600" />
+                      <span>Kampaň je naplánovaná na odoslanie.</span>
+                      <Button variant="ghost" size="sm" className="ml-auto" onClick={() => unscheduleMutation.mutate()} disabled={unscheduleMutation.isPending}>
+                        Zrušiť plánovanie
+                      </Button>
+                    </div>
+                  )}
                 </div>
               )}
             </CardContent>
           </Card>
 
-          <Dialog open={showSendConfirm} onOpenChange={setShowSendConfirm}>
-            <DialogContent>
+          <Dialog open={showSendConfirm} onOpenChange={(open) => {
+            setShowSendConfirm(open);
+            if (!open) { setVerificationSent(false); setVerificationCode(""); setDisplayedCode(""); }
+          }}>
+            <DialogContent className="max-w-md">
               <DialogHeader>
-                <DialogTitle>Odoslať Mailchimp kampaň?</DialogTitle>
-                <DialogDescription>
-                  Ste si istý, že chcete odoslať túto kampaň? Email bude doručený na <strong>{syncInfo.syncedContacts || 0}</strong> kontaktov. Túto akciu nie je možné vrátiť.
+                <DialogTitle className="flex items-center gap-2 text-destructive">
+                  <AlertTriangle className="w-5 h-5" />
+                  Odoslať Mailchimp kampaň?
+                </DialogTitle>
+                <DialogDescription className="space-y-2">
+                  <p>Email bude doručený na <strong>{syncInfo.syncedContacts || 0}</strong> kontaktov.</p>
+                  <div className="p-3 bg-red-50 dark:bg-red-950/30 rounded-lg border border-red-200 dark:border-red-800 text-sm text-red-700 dark:text-red-400 mt-2">
+                    <p className="font-semibold">Po odoslaní sa začne spracovanie, ktoré sa už nedá zastaviť!</p>
+                    <p className="mt-1">Pre potvrdenie je potrebný overovací kód.</p>
+                  </div>
                 </DialogDescription>
               </DialogHeader>
+
+              {!verificationSent ? (
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={() => setShowSendConfirm(false)}>Zrušiť</Button>
+                  <Button
+                    onClick={() => requestVerificationMutation.mutate()}
+                    disabled={requestVerificationMutation.isPending}
+                    className="bg-amber-600 hover:bg-amber-700"
+                    data-testid="btn-mc-request-code"
+                  >
+                    {requestVerificationMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                    <Shield className="w-4 h-4 mr-2" />
+                    Vyžiadať overovací kód
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {verificationMethod === "email" && (
+                    <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg text-sm">
+                      <p>Overovací kód bol odoslaný na email: <strong>{verificationEmail}</strong></p>
+                      <p className="text-xs text-muted-foreground mt-1">Kód je platný 10 minút.</p>
+                    </div>
+                  )}
+                  {verificationMethod === "display" && (
+                    <div className="p-3 bg-amber-50 dark:bg-amber-950/30 rounded-lg text-sm">
+                      <p className="text-xs text-muted-foreground mb-2">Email nemohol byť odoslaný. Zadajte zobrazený kód:</p>
+                      <div className="text-center py-2 bg-white dark:bg-gray-900 rounded border">
+                        <span className="text-2xl font-bold tracking-[6px] text-primary">{displayedCode}</span>
+                      </div>
+                    </div>
+                  )}
+                  <div className="space-y-2">
+                    <Label>Overovací kód</Label>
+                    <Input
+                      value={verificationCode}
+                      onChange={e => setVerificationCode(e.target.value.toUpperCase())}
+                      placeholder="Zadajte 6-znakový kód"
+                      maxLength={6}
+                      className="text-center text-lg tracking-widest font-mono"
+                      data-testid="input-mc-verification-code"
+                    />
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <Button variant="ghost" size="sm" onClick={() => requestVerificationMutation.mutate()} disabled={requestVerificationMutation.isPending}>
+                      Poslať nový kód
+                    </Button>
+                    <div className="flex gap-2">
+                      <Button variant="outline" onClick={() => setShowSendConfirm(false)}>Zrušiť</Button>
+                      <Button
+                        onClick={() => sendCampaignMutation.mutate()}
+                        disabled={sendCampaignMutation.isPending || verificationCode.length < 4}
+                        className="bg-green-600 hover:bg-green-700"
+                        data-testid="btn-mc-confirm-send"
+                      >
+                        {sendCampaignMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                        Potvrdiť a odoslať
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
+
+          <Dialog open={showScheduleDialog} onOpenChange={setShowScheduleDialog}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Naplánovať odoslanie</DialogTitle>
+                <DialogDescription>
+                  Vyberte dátum a čas, kedy sa má kampaň automaticky odoslať.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <Label>Dátum a čas odoslania (UTC)</Label>
+                  <Input
+                    type="datetime-local"
+                    value={scheduleDate}
+                    onChange={e => setScheduleDate(e.target.value)}
+                    min={new Date().toISOString().slice(0, 16)}
+                    data-testid="input-mc-schedule-date"
+                  />
+                </div>
+              </div>
               <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setShowSendConfirm(false)}>Zrušiť</Button>
+                <Button variant="outline" onClick={() => setShowScheduleDialog(false)}>Zrušiť</Button>
                 <Button
-                  onClick={() => sendCampaignMutation.mutate()}
-                  disabled={sendCampaignMutation.isPending}
-                  className="bg-green-600 hover:bg-green-700"
-                  data-testid="btn-mc-confirm-send"
+                  onClick={() => scheduleMutation.mutate()}
+                  disabled={scheduleMutation.isPending || !scheduleDate}
+                  data-testid="btn-mc-confirm-schedule"
                 >
-                  {sendCampaignMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                  Áno, odoslať
+                  {scheduleMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  Naplánovať
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          <Dialog open={showSettingsEdit} onOpenChange={setShowSettingsEdit}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Upraviť nastavenia kampane</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label className="text-sm">Predmet (Subject Line)</Label>
+                  <Input value={editSubjectLine} onChange={e => setEditSubjectLine(e.target.value)} placeholder="Predmet emailu" data-testid="input-edit-subject" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-sm">Od (From Name)</Label>
+                  <Input value={editFromName} onChange={e => setEditFromName(e.target.value)} placeholder="Meno odosielateľa" data-testid="input-edit-from-name" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-sm">Reply-To email</Label>
+                  <Input value={editReplyTo} onChange={e => setEditReplyTo(e.target.value)} placeholder="reply@firma.sk" data-testid="input-edit-reply-to" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-sm">Preview text</Label>
+                  <Input value={previewText} onChange={e => setPreviewText(e.target.value)} placeholder="Text zobrazený v náhľade emailu" data-testid="input-edit-preview-text" />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setShowSettingsEdit(false)}>Zrušiť</Button>
+                <Button onClick={() => updateSettingsMutation.mutate()} disabled={updateSettingsMutation.isPending}>
+                  {updateSettingsMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  Uložiť
                 </Button>
               </div>
             </DialogContent>
@@ -4879,38 +5244,171 @@ function MailchimpSyncSection({ campaignId, campaignName, countryCodes }: { camp
 
         <TabsContent value="stats" className="space-y-4">
           {mcStats?.stats ? (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <BarChart3 className="w-5 h-5" />
-                  Mailchimp štatistiky
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                  <div className="text-center p-3 rounded-lg bg-muted/50">
-                    <p className="text-2xl font-bold">{mcStats.stats.emailsSent}</p>
-                    <p className="text-xs text-muted-foreground">Odoslaných</p>
+            <>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <BarChart3 className="w-5 h-5" />
+                    Mailchimp štatistiky
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                    <div className="text-center p-3 rounded-lg bg-muted/50">
+                      <p className="text-2xl font-bold">{mcStats.stats.emailsSent}</p>
+                      <p className="text-xs text-muted-foreground">Odoslaných</p>
+                    </div>
+                    <div className="text-center p-3 rounded-lg bg-muted/50">
+                      <p className="text-2xl font-bold">{mcStats.stats.uniqueOpens}</p>
+                      <p className="text-xs text-muted-foreground">Otvorených ({(mcStats.stats.openRate * 100).toFixed(1)}%)</p>
+                    </div>
+                    <div className="text-center p-3 rounded-lg bg-muted/50">
+                      <p className="text-2xl font-bold">{mcStats.stats.uniqueClicks}</p>
+                      <p className="text-xs text-muted-foreground">Kliknutí ({(mcStats.stats.clickRate * 100).toFixed(1)}%)</p>
+                    </div>
+                    <div className="text-center p-3 rounded-lg bg-muted/50">
+                      <p className="text-2xl font-bold">{mcStats.stats.bounces}</p>
+                      <p className="text-xs text-muted-foreground">Bounce</p>
+                    </div>
+                    <div className="text-center p-3 rounded-lg bg-muted/50">
+                      <p className="text-2xl font-bold">{mcStats.stats.unsubscribes}</p>
+                      <p className="text-xs text-muted-foreground">Odhlásených</p>
+                    </div>
                   </div>
-                  <div className="text-center p-3 rounded-lg bg-muted/50">
-                    <p className="text-2xl font-bold">{mcStats.stats.uniqueOpens}</p>
-                    <p className="text-xs text-muted-foreground">Otvorených ({(mcStats.stats.openRate * 100).toFixed(1)}%)</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <div className="flex flex-wrap gap-1">
+                    {(["clicks", "opens", "bounces", "unsubs", "domains"] as const).map(tab => (
+                      <Button
+                        key={tab}
+                        variant={mcDetailTab === tab ? "default" : "ghost"}
+                        size="sm"
+                        className="text-xs h-7"
+                        onClick={() => setMcDetailTab(tab)}
+                        data-testid={`btn-mc-detail-${tab}`}
+                      >
+                        {{ clicks: "Kliknutia", opens: "Otvorenia", bounces: "Bounce", unsubs: "Odhlásenia", domains: "Domény", sent: "Odoslané" }[tab]}
+                      </Button>
+                    ))}
                   </div>
-                  <div className="text-center p-3 rounded-lg bg-muted/50">
-                    <p className="text-2xl font-bold">{mcStats.stats.uniqueClicks}</p>
-                    <p className="text-xs text-muted-foreground">Kliknutí ({(mcStats.stats.clickRate * 100).toFixed(1)}%)</p>
-                  </div>
-                  <div className="text-center p-3 rounded-lg bg-muted/50">
-                    <p className="text-2xl font-bold">{mcStats.stats.bounces}</p>
-                    <p className="text-xs text-muted-foreground">Bounce</p>
-                  </div>
-                  <div className="text-center p-3 rounded-lg bg-muted/50">
-                    <p className="text-2xl font-bold">{mcStats.stats.unsubscribes}</p>
-                    <p className="text-xs text-muted-foreground">Odhlásených</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardHeader>
+                <CardContent>
+                  {mcDetailTab === "clicks" && (
+                    mcClickDetails?.urlsClicked?.length > 0 ? (
+                      <div className="space-y-2">
+                        {mcClickDetails.urlsClicked.map((u: any) => (
+                          <div key={u.id} className="flex items-center justify-between p-2 rounded bg-muted/30 text-sm">
+                            <a href={u.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline truncate max-w-[60%]">{u.url}</a>
+                            <div className="flex gap-4 text-xs text-muted-foreground">
+                              <span>{u.totalClicks} kliknutí</span>
+                              <span>{u.uniqueClicks} unikátnych</span>
+                              <span>{(u.clickPercentage * 100).toFixed(1)}%</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : <p className="text-sm text-muted-foreground">Žiadne kliknutia.</p>
+                  )}
+
+                  {mcDetailTab === "opens" && (
+                    mcOpenDetails?.members?.length > 0 ? (
+                      <div className="space-y-1">
+                        <p className="text-sm text-muted-foreground mb-2">Celkovo otvorení: {mcOpenDetails.totalOpens} ({mcOpenDetails.totalItems} kontaktov)</p>
+                        <div className="max-h-64 overflow-auto">
+                          {mcOpenDetails.members.slice(0, 50).map((m: any, i: number) => (
+                            <div key={i} className="flex items-center justify-between py-1 px-2 text-xs border-b last:border-0">
+                              <span>{m.emailAddress}</span>
+                              <span className="text-muted-foreground">{m.opensCount}x otvorené</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : <p className="text-sm text-muted-foreground">Žiadne otvorenia.</p>
+                  )}
+
+                  {mcDetailTab === "bounces" && (
+                    mcBounceDetails ? (
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-3 gap-3 text-center">
+                          <div className="p-2 rounded bg-red-50 dark:bg-red-950/30">
+                            <p className="text-lg font-bold text-red-600">{mcBounceDetails.hardBounces}</p>
+                            <p className="text-xs text-muted-foreground">Hard bounce</p>
+                          </div>
+                          <div className="p-2 rounded bg-amber-50 dark:bg-amber-950/30">
+                            <p className="text-lg font-bold text-amber-600">{mcBounceDetails.softBounces}</p>
+                            <p className="text-xs text-muted-foreground">Soft bounce</p>
+                          </div>
+                          <div className="p-2 rounded bg-gray-50 dark:bg-gray-950/30">
+                            <p className="text-lg font-bold">{mcBounceDetails.syntaxErrors}</p>
+                            <p className="text-xs text-muted-foreground">Syntax chyby</p>
+                          </div>
+                        </div>
+                        {mcBounceDetails.members?.length > 0 && (
+                          <div className="max-h-48 overflow-auto">
+                            {mcBounceDetails.members.map((m: any, i: number) => (
+                              <div key={i} className="flex items-center justify-between py-1 px-2 text-xs border-b last:border-0">
+                                <span>{m.emailAddress}</span>
+                                <Badge variant={m.type === "hard" ? "destructive" : "secondary"} className="text-[10px] h-4">{m.type}</Badge>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ) : <p className="text-sm text-muted-foreground">Žiadne bounce.</p>
+                  )}
+
+                  {mcDetailTab === "unsubs" && (
+                    mcUnsubDetails?.unsubscribes?.length > 0 ? (
+                      <div className="max-h-48 overflow-auto">
+                        {mcUnsubDetails.unsubscribes.map((u: any, i: number) => (
+                          <div key={i} className="flex items-center justify-between py-1 px-2 text-xs border-b last:border-0">
+                            <span>{u.emailAddress}</span>
+                            <span className="text-muted-foreground">{u.timestamp ? new Date(u.timestamp).toLocaleString("sk") : ""}</span>
+                          </div>
+                        ))}
+                        <p className="text-xs text-muted-foreground mt-2">Celkovo: {mcUnsubDetails.totalItems}</p>
+                      </div>
+                    ) : <p className="text-sm text-muted-foreground">Žiadne odhlásenia.</p>
+                  )}
+
+                  {mcDetailTab === "domains" && (
+                    mcDomainPerf?.domains?.length > 0 ? (
+                      <div className="overflow-auto">
+                        <table className="w-full text-xs">
+                          <thead>
+                            <tr className="border-b text-left">
+                              <th className="py-1 px-2">Doména</th>
+                              <th className="py-1 px-2 text-right">Odoslaných</th>
+                              <th className="py-1 px-2 text-right">Doručených</th>
+                              <th className="py-1 px-2 text-right">Otvorených</th>
+                              <th className="py-1 px-2 text-right">Kliknutí</th>
+                              <th className="py-1 px-2 text-right">Bounce</th>
+                              <th className="py-1 px-2 text-right">Odhlásenía</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {mcDomainPerf.domains.map((d: any) => (
+                              <tr key={d.domain} className="border-b last:border-0">
+                                <td className="py-1 px-2 font-medium">{d.domain}</td>
+                                <td className="py-1 px-2 text-right">{d.emailsSent}</td>
+                                <td className="py-1 px-2 text-right">{d.delivered}</td>
+                                <td className="py-1 px-2 text-right">{d.opens}</td>
+                                <td className="py-1 px-2 text-right">{d.clicks}</td>
+                                <td className="py-1 px-2 text-right">{d.bounces}</td>
+                                <td className="py-1 px-2 text-right">{d.unsubs}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : <p className="text-sm text-muted-foreground">Žiadne dáta o doménach.</p>
+                  )}
+                </CardContent>
+              </Card>
+            </>
           ) : (
             <Card>
               <CardContent className="py-8 text-center text-muted-foreground">

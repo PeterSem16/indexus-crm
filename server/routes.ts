@@ -9921,8 +9921,79 @@ export async function registerRoutes(
     }
   });
 
+  const mcSendVerificationCodes = new Map<string, { code: string; expiresAt: number; campaignId: string; userId: string }>();
+
+  app.post("/api/campaigns/:id/mailchimp/send-verification", requireAuth, async (req, res) => {
+    try {
+      const sync = await storage.getCampaignMailchimpSync(req.params.id);
+      if (!sync || !sync.mailchimpCampaignId) return res.status(400).json({ error: "No Mailchimp campaign linked" });
+
+      const campaign = await storage.getCampaign(req.params.id);
+      if (!campaign) return res.status(404).json({ error: "Campaign not found" });
+
+      const user = await storage.getUser(req.session.user!.id);
+      if (!user || !user.email) return res.status(400).json({ error: "User email not found" });
+
+      const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+      const expiresAt = Date.now() + 10 * 60 * 1000;
+
+      mcSendVerificationCodes.set(`${req.params.id}-${req.session.user!.id}`, {
+        code,
+        expiresAt,
+        campaignId: req.params.id,
+        userId: req.session.user!.id,
+      });
+
+      const settings = await storage.getMailchimpSettingsByCountry((campaign.countryCodes || [])[0] || "SK");
+      const ms365Conn = await storage.getUserMs365Connection(req.session.user!.id);
+
+      if (ms365Conn) {
+        try {
+          const { getValidAccessToken, sendEmail } = await import("./lib/ms365.js");
+          const token = await getValidAccessToken(ms365Conn.accessToken, ms365Conn.tokenExpiresAt, ms365Conn.refreshToken);
+          await sendEmail(token, {
+            to: user.email,
+            subject: `INDEXUS CRM — Overovací kód pre kampaň "${campaign.name}"`,
+            body: `<div style="font-family: Arial, sans-serif; padding: 20px;">
+              <h2 style="color: #722F37;">Overovací kód pre odoslanie kampane</h2>
+              <p>Pre potvrdenie odoslania kampane <strong>"${campaign.name}"</strong> na <strong>${sync.syncedContacts || 0}</strong> kontaktov, zadajte nasledovný kód:</p>
+              <div style="background: #f5f5f5; border: 2px solid #722F37; border-radius: 8px; padding: 20px; text-align: center; margin: 20px 0;">
+                <span style="font-size: 32px; font-weight: bold; letter-spacing: 6px; color: #722F37;">${code}</span>
+              </div>
+              <p style="color: #666; font-size: 12px;">Kód je platný 10 minút. Ak ste o tento kód nežiadali, ignorujte tento email.</p>
+              <p style="color: #666; font-size: 12px;">⚠️ Po odoslaní kampane sa začne spracovanie, ktoré sa už nedá zastaviť.</p>
+            </div>`,
+            isHtml: true,
+          });
+          res.json({ success: true, method: "email", email: user.email.replace(/(.{2})(.*)(@.*)/, "$1***$3") });
+        } catch (emailErr: any) {
+          console.error("Failed to send verification email via MS365:", emailErr);
+          res.json({ success: true, method: "display", code });
+        }
+      } else {
+        res.json({ success: true, method: "display", code });
+      }
+    } catch (error: any) {
+      console.error("Error generating verification code:", error);
+      res.status(500).json({ error: error.message || "Failed to generate verification code" });
+    }
+  });
+
   app.post("/api/campaigns/:id/mailchimp/send", requireAuth, async (req, res) => {
     try {
+      const { verificationCode } = req.body;
+      const key = `${req.params.id}-${req.session.user!.id}`;
+      const stored = mcSendVerificationCodes.get(key);
+      if (!stored) return res.status(400).json({ error: "Najskôr si vyžiadajte overovací kód" });
+      if (Date.now() > stored.expiresAt) {
+        mcSendVerificationCodes.delete(key);
+        return res.status(400).json({ error: "Overovací kód vypršal. Vyžiadajte si nový." });
+      }
+      if (stored.code !== verificationCode?.toUpperCase()) {
+        return res.status(400).json({ error: "Nesprávny overovací kód" });
+      }
+      mcSendVerificationCodes.delete(key);
+
       const sync = await storage.getCampaignMailchimpSync(req.params.id);
       if (!sync || !sync.mailchimpCampaignId) return res.status(400).json({ error: "No Mailchimp campaign linked" });
 
@@ -9943,6 +10014,418 @@ export async function registerRoutes(
     } catch (error: any) {
       console.error("Error sending mailchimp campaign:", error);
       res.status(500).json({ error: error.message || "Failed to send campaign" });
+    }
+  });
+
+  app.post("/api/campaigns/:id/mailchimp/schedule", requireAuth, async (req, res) => {
+    try {
+      const sync = await storage.getCampaignMailchimpSync(req.params.id);
+      if (!sync || !sync.mailchimpCampaignId) return res.status(400).json({ error: "No Mailchimp campaign linked" });
+      const campaign = await storage.getCampaign(req.params.id);
+      if (!campaign) return res.status(404).json({ error: "Campaign not found" });
+      const settings = await storage.getMailchimpSettingsByCountry((campaign.countryCodes || [])[0] || "SK");
+      if (!settings) return res.status(400).json({ error: "No Mailchimp settings" });
+
+      const { scheduleTime, timewarp, batchDelivery } = req.body;
+      if (!scheduleTime) return res.status(400).json({ error: "Schedule time required" });
+
+      await mailchimpApi.scheduleCampaign(
+        { apiKey: settings.apiKey, serverPrefix: settings.serverPrefix },
+        sync.mailchimpCampaignId,
+        scheduleTime,
+        timewarp,
+        batchDelivery
+      );
+      await storage.updateCampaignMailchimpSync(req.params.id, { status: "scheduled" });
+      await logActivity(req.session.user!.id, "mailchimp_campaign_scheduled", "campaign", campaign.id, campaign.name);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to schedule campaign" });
+    }
+  });
+
+  app.post("/api/campaigns/:id/mailchimp/unschedule", requireAuth, async (req, res) => {
+    try {
+      const sync = await storage.getCampaignMailchimpSync(req.params.id);
+      if (!sync || !sync.mailchimpCampaignId) return res.status(400).json({ error: "No Mailchimp campaign linked" });
+      const campaign = await storage.getCampaign(req.params.id);
+      if (!campaign) return res.status(404).json({ error: "Campaign not found" });
+      const settings = await storage.getMailchimpSettingsByCountry((campaign.countryCodes || [])[0] || "SK");
+      if (!settings) return res.status(400).json({ error: "No Mailchimp settings" });
+
+      await mailchimpApi.unscheduleCampaign(
+        { apiKey: settings.apiKey, serverPrefix: settings.serverPrefix },
+        sync.mailchimpCampaignId
+      );
+      await storage.updateCampaignMailchimpSync(req.params.id, { status: "content_set" });
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to unschedule campaign" });
+    }
+  });
+
+  app.post("/api/campaigns/:id/mailchimp/pause", requireAuth, async (req, res) => {
+    try {
+      const sync = await storage.getCampaignMailchimpSync(req.params.id);
+      if (!sync || !sync.mailchimpCampaignId) return res.status(400).json({ error: "No Mailchimp campaign linked" });
+      const campaign = await storage.getCampaign(req.params.id);
+      if (!campaign) return res.status(404).json({ error: "Campaign not found" });
+      const settings = await storage.getMailchimpSettingsByCountry((campaign.countryCodes || [])[0] || "SK");
+      if (!settings) return res.status(400).json({ error: "No Mailchimp settings" });
+
+      await mailchimpApi.pauseCampaign(
+        { apiKey: settings.apiKey, serverPrefix: settings.serverPrefix },
+        sync.mailchimpCampaignId
+      );
+      await storage.updateCampaignMailchimpSync(req.params.id, { status: "paused" });
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to pause campaign" });
+    }
+  });
+
+  app.post("/api/campaigns/:id/mailchimp/resume", requireAuth, async (req, res) => {
+    try {
+      const sync = await storage.getCampaignMailchimpSync(req.params.id);
+      if (!sync || !sync.mailchimpCampaignId) return res.status(400).json({ error: "No Mailchimp campaign linked" });
+      const campaign = await storage.getCampaign(req.params.id);
+      if (!campaign) return res.status(404).json({ error: "Campaign not found" });
+      const settings = await storage.getMailchimpSettingsByCountry((campaign.countryCodes || [])[0] || "SK");
+      if (!settings) return res.status(400).json({ error: "No Mailchimp settings" });
+
+      await mailchimpApi.resumeCampaign(
+        { apiKey: settings.apiKey, serverPrefix: settings.serverPrefix },
+        sync.mailchimpCampaignId
+      );
+      await storage.updateCampaignMailchimpSync(req.params.id, { status: "sent" });
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to resume campaign" });
+    }
+  });
+
+  app.post("/api/campaigns/:id/mailchimp/replicate", requireAuth, async (req, res) => {
+    try {
+      const sync = await storage.getCampaignMailchimpSync(req.params.id);
+      if (!sync || !sync.mailchimpCampaignId) return res.status(400).json({ error: "No Mailchimp campaign linked" });
+      const campaign = await storage.getCampaign(req.params.id);
+      if (!campaign) return res.status(404).json({ error: "Campaign not found" });
+      const settings = await storage.getMailchimpSettingsByCountry((campaign.countryCodes || [])[0] || "SK");
+      if (!settings) return res.status(400).json({ error: "No Mailchimp settings" });
+
+      const newCampaign = await mailchimpApi.replicateCampaign(
+        { apiKey: settings.apiKey, serverPrefix: settings.serverPrefix },
+        sync.mailchimpCampaignId
+      );
+      res.json({ success: true, newCampaign });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to replicate campaign" });
+    }
+  });
+
+  app.post("/api/campaigns/:id/mailchimp/cancel", requireAuth, async (req, res) => {
+    try {
+      const sync = await storage.getCampaignMailchimpSync(req.params.id);
+      if (!sync || !sync.mailchimpCampaignId) return res.status(400).json({ error: "No Mailchimp campaign linked" });
+      const campaign = await storage.getCampaign(req.params.id);
+      if (!campaign) return res.status(404).json({ error: "Campaign not found" });
+      const settings = await storage.getMailchimpSettingsByCountry((campaign.countryCodes || [])[0] || "SK");
+      if (!settings) return res.status(400).json({ error: "No Mailchimp settings" });
+
+      await mailchimpApi.cancelCampaign(
+        { apiKey: settings.apiKey, serverPrefix: settings.serverPrefix },
+        sync.mailchimpCampaignId
+      );
+      await storage.updateCampaignMailchimpSync(req.params.id, { status: "cancelled" });
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to cancel campaign" });
+    }
+  });
+
+  app.delete("/api/campaigns/:id/mailchimp", requireAuth, async (req, res) => {
+    try {
+      const sync = await storage.getCampaignMailchimpSync(req.params.id);
+      if (!sync || !sync.mailchimpCampaignId) return res.status(400).json({ error: "No Mailchimp campaign linked" });
+      const campaign = await storage.getCampaign(req.params.id);
+      if (!campaign) return res.status(404).json({ error: "Campaign not found" });
+      const settings = await storage.getMailchimpSettingsByCountry((campaign.countryCodes || [])[0] || "SK");
+      if (!settings) return res.status(400).json({ error: "No Mailchimp settings" });
+
+      try {
+        await mailchimpApi.deleteCampaign(
+          { apiKey: settings.apiKey, serverPrefix: settings.serverPrefix },
+          sync.mailchimpCampaignId
+        );
+      } catch (delErr: any) {
+        console.log("Mailchimp delete campaign failed (non-blocking):", delErr.message);
+      }
+      await storage.deleteCampaignMailchimpSync(req.params.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to delete campaign" });
+    }
+  });
+
+  app.get("/api/campaigns/:id/mailchimp/checklist", requireAuth, async (req, res) => {
+    try {
+      const sync = await storage.getCampaignMailchimpSync(req.params.id);
+      if (!sync || !sync.mailchimpCampaignId) return res.status(400).json({ error: "No Mailchimp campaign linked" });
+      const campaign = await storage.getCampaign(req.params.id);
+      if (!campaign) return res.status(404).json({ error: "Campaign not found" });
+      const settings = await storage.getMailchimpSettingsByCountry((campaign.countryCodes || [])[0] || "SK");
+      if (!settings) return res.status(400).json({ error: "No Mailchimp settings" });
+
+      const checklist = await mailchimpApi.getCampaignChecklist(
+        { apiKey: settings.apiKey, serverPrefix: settings.serverPrefix },
+        sync.mailchimpCampaignId
+      );
+      res.json(checklist);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to get checklist" });
+    }
+  });
+
+  app.get("/api/campaigns/:id/mailchimp/click-details", requireAuth, async (req, res) => {
+    try {
+      const sync = await storage.getCampaignMailchimpSync(req.params.id);
+      if (!sync || !sync.mailchimpCampaignId) return res.status(400).json({ error: "No Mailchimp campaign linked" });
+      const campaign = await storage.getCampaign(req.params.id);
+      if (!campaign) return res.status(404).json({ error: "Campaign not found" });
+      const settings = await storage.getMailchimpSettingsByCountry((campaign.countryCodes || [])[0] || "SK");
+      if (!settings) return res.status(400).json({ error: "No Mailchimp settings" });
+
+      const data = await mailchimpApi.getClickDetails(
+        { apiKey: settings.apiKey, serverPrefix: settings.serverPrefix },
+        sync.mailchimpCampaignId
+      );
+      res.json(data);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to get click details" });
+    }
+  });
+
+  app.get("/api/campaigns/:id/mailchimp/unsubscribes", requireAuth, async (req, res) => {
+    try {
+      const sync = await storage.getCampaignMailchimpSync(req.params.id);
+      if (!sync || !sync.mailchimpCampaignId) return res.status(400).json({ error: "No Mailchimp campaign linked" });
+      const campaign = await storage.getCampaign(req.params.id);
+      if (!campaign) return res.status(404).json({ error: "Campaign not found" });
+      const settings = await storage.getMailchimpSettingsByCountry((campaign.countryCodes || [])[0] || "SK");
+      if (!settings) return res.status(400).json({ error: "No Mailchimp settings" });
+
+      const data = await mailchimpApi.getUnsubscribes(
+        { apiKey: settings.apiKey, serverPrefix: settings.serverPrefix },
+        sync.mailchimpCampaignId
+      );
+      res.json(data);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to get unsubscribes" });
+    }
+  });
+
+  app.get("/api/campaigns/:id/mailchimp/domain-performance", requireAuth, async (req, res) => {
+    try {
+      const sync = await storage.getCampaignMailchimpSync(req.params.id);
+      if (!sync || !sync.mailchimpCampaignId) return res.status(400).json({ error: "No Mailchimp campaign linked" });
+      const campaign = await storage.getCampaign(req.params.id);
+      if (!campaign) return res.status(404).json({ error: "Campaign not found" });
+      const settings = await storage.getMailchimpSettingsByCountry((campaign.countryCodes || [])[0] || "SK");
+      if (!settings) return res.status(400).json({ error: "No Mailchimp settings" });
+
+      const data = await mailchimpApi.getDomainPerformance(
+        { apiKey: settings.apiKey, serverPrefix: settings.serverPrefix },
+        sync.mailchimpCampaignId
+      );
+      res.json(data);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to get domain performance" });
+    }
+  });
+
+  app.get("/api/campaigns/:id/mailchimp/open-details", requireAuth, async (req, res) => {
+    try {
+      const sync = await storage.getCampaignMailchimpSync(req.params.id);
+      if (!sync || !sync.mailchimpCampaignId) return res.status(400).json({ error: "No Mailchimp campaign linked" });
+      const campaign = await storage.getCampaign(req.params.id);
+      if (!campaign) return res.status(404).json({ error: "Campaign not found" });
+      const settings = await storage.getMailchimpSettingsByCountry((campaign.countryCodes || [])[0] || "SK");
+      if (!settings) return res.status(400).json({ error: "No Mailchimp settings" });
+
+      const data = await mailchimpApi.getCampaignOpenDetails(
+        { apiKey: settings.apiKey, serverPrefix: settings.serverPrefix },
+        sync.mailchimpCampaignId
+      );
+      res.json(data);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to get open details" });
+    }
+  });
+
+  app.get("/api/campaigns/:id/mailchimp/bounce-details", requireAuth, async (req, res) => {
+    try {
+      const sync = await storage.getCampaignMailchimpSync(req.params.id);
+      if (!sync || !sync.mailchimpCampaignId) return res.status(400).json({ error: "No Mailchimp campaign linked" });
+      const campaign = await storage.getCampaign(req.params.id);
+      if (!campaign) return res.status(404).json({ error: "Campaign not found" });
+      const settings = await storage.getMailchimpSettingsByCountry((campaign.countryCodes || [])[0] || "SK");
+      if (!settings) return res.status(400).json({ error: "No Mailchimp settings" });
+
+      const data = await mailchimpApi.getBounceDetails(
+        { apiKey: settings.apiKey, serverPrefix: settings.serverPrefix },
+        sync.mailchimpCampaignId
+      );
+      res.json(data);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to get bounce details" });
+    }
+  });
+
+  app.get("/api/campaigns/:id/mailchimp/sent-to", requireAuth, async (req, res) => {
+    try {
+      const sync = await storage.getCampaignMailchimpSync(req.params.id);
+      if (!sync || !sync.mailchimpCampaignId) return res.status(400).json({ error: "No Mailchimp campaign linked" });
+      const campaign = await storage.getCampaign(req.params.id);
+      if (!campaign) return res.status(404).json({ error: "Campaign not found" });
+      const settings = await storage.getMailchimpSettingsByCountry((campaign.countryCodes || [])[0] || "SK");
+      if (!settings) return res.status(400).json({ error: "No Mailchimp settings" });
+
+      const count = Number(req.query.count) || 100;
+      const offset = Number(req.query.offset) || 0;
+      const data = await mailchimpApi.getSentTo(
+        { apiKey: settings.apiKey, serverPrefix: settings.serverPrefix },
+        sync.mailchimpCampaignId,
+        count,
+        offset
+      );
+      res.json(data);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to get sent-to data" });
+    }
+  });
+
+  app.get("/api/config/mailchimp-settings/:countryCode/audiences/:listId/members", requireAuth, async (req, res) => {
+    try {
+      const settings = await storage.getMailchimpSettingsByCountry(req.params.countryCode);
+      if (!settings) return res.status(404).json({ error: "No Mailchimp settings" });
+      const count = Number(req.query.count) || 25;
+      const offset = Number(req.query.offset) || 0;
+      const status = req.query.status as string | undefined;
+      const data = await mailchimpApi.getListMembers(
+        { apiKey: settings.apiKey, serverPrefix: settings.serverPrefix },
+        req.params.listId,
+        { count, offset, status }
+      );
+      res.json(data);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to get members" });
+    }
+  });
+
+  app.get("/api/config/mailchimp-settings/:countryCode/audiences/:listId/growth-history", requireAuth, async (req, res) => {
+    try {
+      const settings = await storage.getMailchimpSettingsByCountry(req.params.countryCode);
+      if (!settings) return res.status(404).json({ error: "No Mailchimp settings" });
+      const data = await mailchimpApi.getAudienceGrowthHistory(
+        { apiKey: settings.apiKey, serverPrefix: settings.serverPrefix },
+        req.params.listId
+      );
+      res.json(data);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to get growth history" });
+    }
+  });
+
+  app.get("/api/config/mailchimp-settings/:countryCode/audiences/:listId/activity", requireAuth, async (req, res) => {
+    try {
+      const settings = await storage.getMailchimpSettingsByCountry(req.params.countryCode);
+      if (!settings) return res.status(404).json({ error: "No Mailchimp settings" });
+      const data = await mailchimpApi.getListActivity(
+        { apiKey: settings.apiKey, serverPrefix: settings.serverPrefix },
+        req.params.listId
+      );
+      res.json(data);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to get list activity" });
+    }
+  });
+
+  app.get("/api/config/mailchimp-settings/:countryCode/templates", requireAuth, async (req, res) => {
+    try {
+      const settings = await storage.getMailchimpSettingsByCountry(req.params.countryCode);
+      if (!settings) return res.status(404).json({ error: "No Mailchimp settings" });
+      const data = await mailchimpApi.getTemplates(
+        { apiKey: settings.apiKey, serverPrefix: settings.serverPrefix }
+      );
+      res.json(data);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to get templates" });
+    }
+  });
+
+  app.get("/api/config/mailchimp-settings/:countryCode/templates/:templateId/content", requireAuth, async (req, res) => {
+    try {
+      const settings = await storage.getMailchimpSettingsByCountry(req.params.countryCode);
+      if (!settings) return res.status(404).json({ error: "No Mailchimp settings" });
+      const html = await mailchimpApi.getTemplateContent(
+        { apiKey: settings.apiKey, serverPrefix: settings.serverPrefix },
+        Number(req.params.templateId)
+      );
+      res.json({ html });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to get template content" });
+    }
+  });
+
+  app.get("/api/config/mailchimp-settings/:countryCode/automations", requireAuth, async (req, res) => {
+    try {
+      const settings = await storage.getMailchimpSettingsByCountry(req.params.countryCode);
+      if (!settings) return res.status(404).json({ error: "No Mailchimp settings" });
+      const data = await mailchimpApi.getAutomations(
+        { apiKey: settings.apiKey, serverPrefix: settings.serverPrefix }
+      );
+      res.json(data);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to get automations" });
+    }
+  });
+
+  app.patch("/api/campaigns/:id/mailchimp/settings", requireAuth, async (req, res) => {
+    try {
+      const sync = await storage.getCampaignMailchimpSync(req.params.id);
+      if (!sync || !sync.mailchimpCampaignId) return res.status(400).json({ error: "No Mailchimp campaign linked" });
+      const campaign = await storage.getCampaign(req.params.id);
+      if (!campaign) return res.status(404).json({ error: "Campaign not found" });
+      const settings = await storage.getMailchimpSettingsByCountry((campaign.countryCodes || [])[0] || "SK");
+      if (!settings) return res.status(400).json({ error: "No Mailchimp settings" });
+
+      await mailchimpApi.updateCampaignSettings(
+        { apiKey: settings.apiKey, serverPrefix: settings.serverPrefix },
+        sync.mailchimpCampaignId,
+        req.body
+      );
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to update campaign settings" });
+    }
+  });
+
+  app.get("/api/campaigns/:id/mailchimp/info", requireAuth, async (req, res) => {
+    try {
+      const sync = await storage.getCampaignMailchimpSync(req.params.id);
+      if (!sync || !sync.mailchimpCampaignId) return res.status(400).json({ error: "No Mailchimp campaign linked" });
+      const campaign = await storage.getCampaign(req.params.id);
+      if (!campaign) return res.status(404).json({ error: "Campaign not found" });
+      const settings = await storage.getMailchimpSettingsByCountry((campaign.countryCodes || [])[0] || "SK");
+      if (!settings) return res.status(400).json({ error: "No Mailchimp settings" });
+
+      const info = await mailchimpApi.getCampaignInfo(
+        { apiKey: settings.apiKey, serverPrefix: settings.serverPrefix },
+        sync.mailchimpCampaignId
+      );
+      res.json(info);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to get campaign info" });
     }
   });
 

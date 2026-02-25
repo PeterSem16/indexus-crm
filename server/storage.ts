@@ -362,6 +362,7 @@ export interface IStorage {
   getCampaignMailchimpSync(campaignId: string): Promise<CampaignMailchimpSync | undefined>;
   upsertCampaignMailchimpSync(data: InsertCampaignMailchimpSync): Promise<CampaignMailchimpSync>;
   updateCampaignMailchimpSync(campaignId: string, data: Partial<CampaignMailchimpSync>): Promise<CampaignMailchimpSync | undefined>;
+  deleteCampaignMailchimpSync(campaignId: string): Promise<void>;
 
   // Country System Settings
   getAllCountrySystemSettings(): Promise<CountrySystemSettings[]>;
@@ -2259,6 +2260,13 @@ export class DatabaseStorage implements IStorage {
       .where(eq(campaignMailchimpSync.id, existing.id))
       .returning();
     return updated;
+  }
+
+  async deleteCampaignMailchimpSync(campaignId: string): Promise<void> {
+    const existing = await this.getCampaignMailchimpSync(campaignId);
+    if (existing) {
+      await db.delete(campaignMailchimpSync).where(eq(campaignMailchimpSync.id, existing.id));
+    }
   }
 
   // Country System Settings
