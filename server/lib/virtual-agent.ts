@@ -307,6 +307,36 @@ export class VirtualAgentEngine {
     return [...new Set(variants)];
   }
 
+  private getTimeOfDayGreeting(): string {
+    const now = new Date();
+    const hours = now.toLocaleString("sk-SK", { timeZone: "Europe/Bratislava", hour: "numeric", hour12: false });
+    const h = parseInt(hours, 10);
+    if (h >= 5 && h < 12) return "Dobré ráno";
+    if (h >= 12 && h < 18) return "Dobrý deň";
+    if (h >= 18 && h < 22) return "Dobrý večer";
+    return "Dobrý deň";
+  }
+
+  private getTimeOfDayKey(): string {
+    const now = new Date();
+    const hours = now.toLocaleString("sk-SK", { timeZone: "Europe/Bratislava", hour: "numeric", hour12: false });
+    const h = parseInt(hours, 10);
+    if (h >= 5 && h < 12) return "morning";
+    if (h >= 12 && h < 18) return "afternoon";
+    if (h >= 18 && h < 22) return "evening";
+    return "night";
+  }
+
+  private buildDynamicGreeting(templateGreeting: string, session: VirtualAgentSession): string {
+    const timeGreeting = this.getTimeOfDayGreeting();
+    const customerName = session.customerContext?.found ? session.customerContext.name : null;
+
+    if (customerName) {
+      return `${timeGreeting}, ${customerName}. ${templateGreeting}`;
+    }
+    return `${timeGreeting}. ${templateGreeting}`;
+  }
+
   private async runConversationLoop(
     session: VirtualAgentSession,
     config: typeof virtualAgentConfigs.$inferSelect
@@ -352,18 +382,26 @@ export class VirtualAgentEngine {
         })
       : Promise.resolve(this.cachedFarewells.get(farewellCacheKey)!);
 
-    const greetingCacheKey = `${config.id}-greeting`;
-    let greetingAudio = this.cachedGreetings.get(greetingCacheKey) || null;
-    if (!greetingAudio) {
-      greetingAudio = await this.generateTTS(config.greetingText, config.ttsVoice, session.channelId, configSpeed);
-      if (greetingAudio) this.cachedGreetings.set(greetingCacheKey, greetingAudio);
+    const dynamicGreeting = this.buildDynamicGreeting(config.greetingText, session);
+    const isPersonalized = session.customerContext?.found === true;
+
+    let greetingAudio: string | null = null;
+    if (!isPersonalized) {
+      const greetingCacheKey = `${config.id}-greeting-${this.getTimeOfDayKey()}`;
+      greetingAudio = this.cachedGreetings.get(greetingCacheKey) || null;
+      if (!greetingAudio) {
+        greetingAudio = await this.generateTTS(dynamicGreeting, config.ttsVoice, session.channelId, configSpeed);
+        if (greetingAudio) this.cachedGreetings.set(greetingCacheKey, greetingAudio);
+      }
+    } else {
+      greetingAudio = await this.generateTTS(dynamicGreeting, config.ttsVoice, session.channelId, configSpeed);
     }
     if (!greetingAudio || session.channelGone) return;
 
     await this.playAudioFile(session.channelId, greetingAudio);
     if (session.channelGone) return;
 
-    session.turns.push({ role: "assistant", content: config.greetingText });
+    session.turns.push({ role: "assistant", content: dynamicGreeting });
     session.turnCount++;
 
     while (session.turnCount < config.maxTurns * 2 && !session.channelGone) {
@@ -569,10 +607,22 @@ export class VirtualAgentEngine {
       let customerInfo = "";
       if (session.customerContext?.found) {
         const ctx = session.customerContext;
-        customerInfo = `\nVolajúci: ${ctx.name}, tel: ${ctx.phone}${ctx.email ? `, email: ${ctx.email}` : ""}`;
-        if (ctx.lastCall) customerInfo += ` | Posl. hovor: ${ctx.lastCall.calledAt}`;
-        if (ctx.lastEmail) customerInfo += ` | Posl. email: "${ctx.lastEmail.subject}"`;
-        customerInfo += `\nOslovuj klienta menom.`;
+        customerInfo = `\n\n--- ZÁKAZNÍCKE ÚDAJE ---`;
+        customerInfo += `\nMeno: ${ctx.name}`;
+        customerInfo += `\nTelefón: ${ctx.phone}`;
+        if (ctx.email) customerInfo += `\nEmail: ${ctx.email}`;
+        if (ctx.country) customerInfo += `\nKrajina: ${ctx.country}`;
+        if (ctx.lastCall) {
+          customerInfo += `\nPosledný hovor: ${ctx.lastCall.direction} dňa ${ctx.lastCall.calledAt}, realizoval ${ctx.lastCall.calledBy}, trvanie ${ctx.lastCall.durationSeconds}s`;
+        }
+        if (ctx.lastEmail) {
+          customerInfo += `\nPosledný email: "${ctx.lastEmail.subject}" - odoslal ${ctx.lastEmail.sentBy} dňa ${ctx.lastEmail.sentAt}`;
+        }
+        if (ctx.lastSms) {
+          customerInfo += `\nPosledná SMS: ${ctx.lastSms.direction} dňa ${ctx.lastSms.sentAt} od ${ctx.lastSms.sentBy}: "${ctx.lastSms.content}"`;
+        }
+        customerInfo += `\n--- KONIEC ÚDAJOV ---`;
+        customerInfo += `\nOslovuj klienta menom. Ak sa pýta na posledný hovor/email/SMS, odpovedz s konkrétnymi údajmi vrátane mena pracovníka a dátumu.`;
       }
 
       const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
