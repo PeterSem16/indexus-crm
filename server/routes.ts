@@ -9603,10 +9603,19 @@ export async function registerRoutes(
         }
       }
 
+      const uniqueMap = new Map<string, typeof contacts[0]>();
+      for (const c of contacts) {
+        const key = c.email.toLowerCase().trim();
+        if (!uniqueMap.has(key)) {
+          uniqueMap.set(key, c);
+        }
+      }
+      const uniqueContacts = Array.from(uniqueMap.values());
+
       const result = await mailchimpApi.addContactsToList(
         { apiKey: settings.apiKey, serverPrefix: settings.serverPrefix },
         sync.mailchimpListId,
-        contacts,
+        uniqueContacts,
         [campaign.name]
       );
 
