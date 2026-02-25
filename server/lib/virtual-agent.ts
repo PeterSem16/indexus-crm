@@ -80,6 +80,7 @@ interface VirtualAgentSession {
   startTime: number;
   channelGone: boolean;
   customerContext: CustomerContext | null;
+  mohSoundName: string | null;
 }
 
 export class VirtualAgentEngine {
@@ -88,7 +89,6 @@ export class VirtualAgentEngine {
   private cachedFarewells: Map<string, string> = new Map();
   private cachedGreetings: Map<string, string> = new Map();
   private currentTtsModel: string = "tts-1";
-  private queueMohSoundName: string | null = null;
 
   constructor(ariClient: AriClient) {
     this.ariClient = ariClient;
@@ -137,6 +137,7 @@ export class VirtualAgentEngine {
       startTime: Date.now(),
       channelGone: false,
       customerContext: customerContext.found ? customerContext : null,
+      mohSoundName: null,
     };
 
     if (resolvedCustomerId && resolvedCustomerId !== customerId) {
@@ -352,8 +353,8 @@ export class VirtualAgentEngine {
           const [holdMsg] = await db.select({ name: ivrMessages.name })
             .from(ivrMessages).where(eq(ivrMessages.id, queue.holdMusicId)).limit(1);
           if (holdMsg) {
-            this.queueMohSoundName = holdMsg.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-            console.log(`[VirtualAgent] Using queue MOH: custom/${this.queueMohSoundName}`);
+            session.mohSoundName = holdMsg.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+            console.log(`[VirtualAgent] Using queue MOH: custom/${session.mohSoundName}`);
           }
         }
       } catch {}
@@ -414,7 +415,7 @@ export class VirtualAgentEngine {
 
       console.log(`[VirtualAgent] Turn ${session.turnCount}: User said: "${userSpeech.substring(0, 100)}..."`);
 
-      this.playThinkingTone(session.channelId);
+      this.playThinkingTone(session.channelId, session.mohSoundName);
 
       const turnStart = Date.now();
       const aiResponse = await this.generateResponse(session, config, userSpeech);
@@ -453,25 +454,53 @@ export class VirtualAgentEngine {
     } catch {}
   }
 
-  private async playThinkingTone(channelId: string): Promise<void> {
+  private mohLoopActive: Map<string, boolean> = new Map();
+  private mohPlaybackIds: Map<string, string> = new Map();
+
+  private async playThinkingTone(channelId: string, mohSoundName?: string | null): Promise<void> {
     try {
-      if (this.queueMohSoundName) {
-        const pbId = `va-moh-${channelId}-${Date.now()}`;
-        this.mohPlaybackId = pbId;
-        await this.ariClient.playMedia(channelId, `sound:custom/${this.queueMohSoundName}`, pbId);
+      this.mohLoopActive.set(channelId, true);
+      if (mohSoundName) {
+        this.loopCustomMoh(channelId, mohSoundName);
       } else {
         await this.ariClient.startMoh(channelId, "default");
       }
     } catch {}
   }
 
-  private mohPlaybackId: string | null = null;
+  private async loopCustomMoh(channelId: string, soundName: string): Promise<void> {
+    while (this.mohLoopActive.get(channelId)) {
+      const pbId = `va-moh-${channelId}-${Date.now()}`;
+      this.mohPlaybackIds.set(channelId, pbId);
+      try {
+        await this.ariClient.playMedia(channelId, `sound:custom/${soundName}`, pbId);
+        await new Promise<void>((resolve) => {
+          const timeout = setTimeout(() => {
+            this.ariClient.removeListener("playback-finished", handler);
+            resolve();
+          }, 120000);
+          const handler = (event: AriEvent) => {
+            if (event.playback?.id === pbId) {
+              this.ariClient.removeListener("playback-finished", handler);
+              clearTimeout(timeout);
+              resolve();
+            }
+          };
+          this.ariClient.on("playback-finished", handler);
+        });
+      } catch {
+        break;
+      }
+    }
+  }
 
   private async stopThinkingTone(channelId: string): Promise<void> {
+    this.mohLoopActive.set(channelId, false);
     try {
-      if (this.mohPlaybackId) {
-        try { await this.ariClient.stopPlayback(this.mohPlaybackId); } catch {}
-        this.mohPlaybackId = null;
+      const pbId = this.mohPlaybackIds.get(channelId);
+      if (pbId) {
+        try { await this.ariClient.stopPlayback(pbId); } catch {}
+        this.mohPlaybackIds.delete(channelId);
       }
       try { await this.ariClient.stopMoh(channelId); } catch {}
     } catch {}
