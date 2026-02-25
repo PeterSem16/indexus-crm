@@ -86,12 +86,36 @@ export async function getLists(settings: { apiKey: string; serverPrefix: string 
   }));
 }
 
+export async function getListInfo(
+  settings: { apiKey: string; serverPrefix: string },
+  listId: string
+): Promise<{ fromName: string; fromEmail: string }> {
+  try {
+    const data = await mailchimpFetch(settings, `/lists/${listId}?fields=campaign_defaults`);
+    return {
+      fromName: data.campaign_defaults?.from_name || "",
+      fromEmail: data.campaign_defaults?.from_email || "",
+    };
+  } catch {
+    return { fromName: "", fromEmail: "" };
+  }
+}
+
 export async function createCampaign(
   settings: { apiKey: string; serverPrefix: string },
   name: string,
   subject: string,
-  listId: string
+  listId: string,
+  replyTo?: string,
+  fromName?: string
 ): Promise<MailchimpCampaignInfo> {
+  let effectiveReplyTo = replyTo || "";
+  let effectiveFromName = fromName || name;
+  if (!effectiveReplyTo) {
+    const listInfo = await getListInfo(settings, listId);
+    effectiveReplyTo = listInfo.fromEmail || "noreply@example.com";
+    if (!fromName && listInfo.fromName) effectiveFromName = listInfo.fromName;
+  }
   const data = await mailchimpFetch(settings, "/campaigns", {
     method: "POST",
     body: JSON.stringify({
@@ -100,8 +124,8 @@ export async function createCampaign(
       settings: {
         subject_line: subject,
         title: name,
-        from_name: name,
-        reply_to: "",
+        from_name: effectiveFromName,
+        reply_to: effectiveReplyTo,
       },
     }),
   });
