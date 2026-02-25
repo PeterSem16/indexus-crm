@@ -4009,7 +4009,9 @@ export default function CampaignDetailPage() {
 }
 
 function MailchimpSyncSection({ campaignId, campaignName, countryCodes }: { campaignId: string; campaignName: string; countryCodes: string[] }) {
+  const { t } = useI18n();
   const { toast } = useToast();
+  const mc = t.campaigns.mailchimp;
   const [selectedListId, setSelectedListId] = useState("");
   const [subject, setSubject] = useState(campaignName);
   const [emailHtml, setEmailHtml] = useState("");
@@ -4017,7 +4019,7 @@ function MailchimpSyncSection({ campaignId, campaignName, countryCodes }: { camp
   const [showTestEmail, setShowTestEmail] = useState(false);
   const [contentSaved, setContentSaved] = useState(false);
   const [showSendConfirm, setShowSendConfirm] = useState(false);
-  const [mcSubTab, setMcSubTab] = useState<"editor" | "sync" | "stats">("editor");
+  const [mcSubTab, setMcSubTab] = useState<"editor" | "sync" | "stats" | "summary">("summary");
   const [showNewAudience, setShowNewAudience] = useState(false);
   const [newAudienceName, setNewAudienceName] = useState("");
   const [newAudienceFromEmail, setNewAudienceFromEmail] = useState("");
@@ -4465,52 +4467,52 @@ function MailchimpSyncSection({ campaignId, campaignName, countryCodes }: { camp
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Mail className="w-5 h-5" />
-            Vytvoriť Mailchimp kampaň
+            {mc.createTitle}
           </CardTitle>
           <CardDescription>
-            Prepojte túto kampaň s Mailchimp a synchronizujte kontakty.
+            {mc.createDesc}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label>Predmet emailu</Label>
-            <Input value={subject} onChange={e => setSubject(e.target.value)} placeholder="Predmet emailovej kampane" data-testid="input-mc-subject" />
+            <Label>{mc.emailSubject}</Label>
+            <Input value={subject} onChange={e => setSubject(e.target.value)} placeholder={mc.emailSubjectPlaceholder} data-testid="input-mc-subject" />
           </div>
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label>Audience (zoznam)</Label>
+              <Label>{mc.audienceLabel}</Label>
               <Button variant="ghost" size="sm" className="text-xs h-7" onClick={() => setShowNewAudience(!showNewAudience)} data-testid="btn-toggle-new-audience">
                 <Plus className="w-3.5 h-3.5 mr-1" />
-                {showNewAudience ? "Vybrať existujúcu" : "Vytvoriť novú"}
+                {showNewAudience ? mc.selectExisting : mc.createNew}
               </Button>
             </div>
             {!showNewAudience ? (
               audiences.length > 0 ? (
                 <Select value={selectedListId} onValueChange={setSelectedListId}>
                   <SelectTrigger data-testid="select-mc-audience-campaign">
-                    <SelectValue placeholder="Vyberte audience..." />
+                    <SelectValue placeholder={mc.selectAudiencePlaceholder} />
                   </SelectTrigger>
                   <SelectContent>
                     {audiences.map((a: any) => (
                       <SelectItem key={a.id} value={a.id}>
-                        {a.name} ({a.memberCount} kontaktov)
+                        {a.name} ({a.memberCount} {mc.contacts})
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               ) : (
                 <p className="text-sm text-amber-600">
-                  Žiadne audience. Vytvorte novú alebo nastavte Mailchimp v konfigurátor &gt; Email & GSM &gt; Mailchimp.
+                  {mc.noAudiences}
                 </p>
               )
             ) : (
               <div className="space-y-3 p-3 border rounded-lg bg-muted/30">
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Názov audience</Label>
+                  <Label className="text-xs">{mc.audienceName}</Label>
                   <Input
                     value={newAudienceName}
                     onChange={e => setNewAudienceName(e.target.value)}
-                    placeholder="Napr. SK Zákazníci"
+                    placeholder={mc.audienceNamePlaceholder}
                     data-testid="input-new-audience-name"
                   />
                 </div>
@@ -4542,7 +4544,7 @@ function MailchimpSyncSection({ campaignId, campaignName, countryCodes }: { camp
                   data-testid="btn-create-audience"
                 >
                   {createAudienceMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                  Vytvoriť audience
+                  {mc.createAudience}
                 </Button>
               </div>
             )}
@@ -4557,7 +4559,7 @@ function MailchimpSyncSection({ campaignId, campaignName, countryCodes }: { camp
                 data-testid="btn-toggle-advanced"
               >
                 <Settings className="w-3.5 h-3.5 mr-1" />
-                {showAdvanced ? "Skryť rozšírené nastavenia" : "Rozšírené nastavenia"}
+                {showAdvanced ? mc.hideAdvanced : mc.advancedSettings}
                 {(selectedTags.length > 0 || selectedSegmentId || webhookUrl) && (
                   <Badge variant="secondary" className="ml-2 h-4 px-1.5 text-[10px]">
                     {[selectedTags.length > 0, !!selectedSegmentId, !!webhookUrl].filter(Boolean).length}
@@ -4570,9 +4572,9 @@ function MailchimpSyncSection({ campaignId, campaignName, countryCodes }: { camp
                   <div className="space-y-2">
                     <Label className="text-sm font-medium flex items-center gap-1.5">
                       <Tag className="w-3.5 h-3.5" />
-                      Tagy
+                      {mc.tagsLabel}
                     </Label>
-                    <p className="text-xs text-muted-foreground">Odoslať kampaň len kontaktom s vybranými tagmi (voliteľné).</p>
+                    <p className="text-xs text-muted-foreground">{mc.tagsDesc}</p>
                     {listTags.length > 0 ? (
                       <div className="flex flex-wrap gap-1.5">
                         {listTags.map((t: any) => (
@@ -4594,25 +4596,25 @@ function MailchimpSyncSection({ campaignId, campaignName, countryCodes }: { camp
                         ))}
                       </div>
                     ) : (
-                      <p className="text-xs text-muted-foreground italic">Žiadne tagy v audience.</p>
+                      <p className="text-xs text-muted-foreground italic">{mc.noTags}</p>
                     )}
                   </div>
 
                   <div className="space-y-2">
                     <Label className="text-sm font-medium flex items-center gap-1.5">
                       <Filter className="w-3.5 h-3.5" />
-                      Segment
+                      {mc.segmentLabel}
                     </Label>
-                    <p className="text-xs text-muted-foreground">Odoslať kampaň len vybranému segmentu (voliteľné).</p>
+                    <p className="text-xs text-muted-foreground">{mc.segmentDesc}</p>
                     <Select value={selectedSegmentId} onValueChange={setSelectedSegmentId}>
                       <SelectTrigger className="h-8" data-testid="select-mc-segment">
-                        <SelectValue placeholder="Všetci kontakty (bez segmentu)" />
+                        <SelectValue placeholder={mc.allContactsNoSegment} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">Všetci kontakty</SelectItem>
+                        <SelectItem value="all">{mc.allContacts}</SelectItem>
                         {listSegments.map((s: any) => (
                           <SelectItem key={s.id} value={String(s.id)}>
-                            {s.name} ({s.memberCount} kontaktov) — {s.type}
+                            {s.name} ({s.memberCount} {mc.contacts}) — {s.type}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -4622,13 +4624,13 @@ function MailchimpSyncSection({ campaignId, campaignName, countryCodes }: { camp
                   <div className="space-y-2">
                     <Label className="text-sm font-medium flex items-center gap-1.5">
                       <Globe className="w-3.5 h-3.5" />
-                      Webhook
+                      {mc.webhookLabel}
                     </Label>
-                    <p className="text-xs text-muted-foreground">URL pre notifikácie o udalostiach (subscribe, unsubscribe, campaign).</p>
+                    <p className="text-xs text-muted-foreground">{mc.webhookDesc}</p>
                     <Input
                       value={webhookUrl}
                       onChange={e => setWebhookUrl(e.target.value)}
-                      placeholder="https://vasa-domena.sk/webhook/mailchimp"
+                      placeholder={mc.webhookPlaceholder}
                       className="h-8 text-sm"
                       data-testid="input-mc-webhook-url"
                     />
@@ -4649,7 +4651,7 @@ function MailchimpSyncSection({ campaignId, campaignName, countryCodes }: { camp
                     )}
                     {listWebhooks.length > 0 && (
                       <div className="mt-2">
-                        <p className="text-xs text-muted-foreground mb-1">Existujúce webhooky:</p>
+                        <p className="text-xs text-muted-foreground mb-1">{mc.existingWebhooks}</p>
                         {listWebhooks.map((w: any) => (
                           <div key={w.id} className="text-xs bg-muted/50 rounded px-2 py-1 mb-1 flex items-center justify-between">
                             <span className="truncate">{w.url}</span>
@@ -4672,7 +4674,7 @@ function MailchimpSyncSection({ campaignId, campaignName, countryCodes }: { camp
             data-testid="btn-create-mc-campaign"
           >
             {createMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-            Vytvoriť v Mailchimp
+            {mc.createInMailchimp}
           </Button>
         </CardContent>
       </Card>
@@ -4681,10 +4683,13 @@ function MailchimpSyncSection({ campaignId, campaignName, countryCodes }: { camp
 
   const isSent = syncInfo.status === "sent";
   const statusLabels: Record<string, string> = {
-    created: "Vytvorená",
-    synced: "Kontakty synchronizované",
-    content_set: "Obsah nastavený",
-    sent: "Odoslaná",
+    created: mc.statusCreated,
+    synced: mc.statusSynced,
+    content_set: mc.statusContentSet,
+    sent: mc.statusSent,
+    scheduled: mc.statusScheduled,
+    paused: mc.statusPaused,
+    cancelled: mc.statusCancelled,
   };
 
   return (
@@ -4693,8 +4698,8 @@ function MailchimpSyncSection({ campaignId, campaignName, countryCodes }: { camp
         <div className="flex items-center gap-3">
           <Mail className="w-5 h-5" />
           <div>
-            <h3 className="font-semibold">Mailchimp kampaň</h3>
-            <p className="text-xs text-muted-foreground">ID: {syncInfo.mailchimpCampaignId}</p>
+            <h3 className="font-semibold">{mc.campaignTitle}</h3>
+            <p className="text-xs text-muted-foreground">{mc.campaignId}: {syncInfo.mailchimpCampaignId}</p>
           </div>
           <Badge variant={isSent ? "default" : "secondary"} data-testid="badge-mc-sync-status">
             {statusLabels[syncInfo.status] || syncInfo.status}
@@ -4704,26 +4709,117 @@ function MailchimpSyncSection({ campaignId, campaignName, countryCodes }: { camp
 
       <Tabs value={mcSubTab} onValueChange={(v) => setMcSubTab(v as any)}>
         <TabsList>
+          <TabsTrigger value="summary" data-testid="mc-tab-summary">
+            <FileText className="w-4 h-4 mr-2" />
+            {mc.summaryTab}
+          </TabsTrigger>
           <TabsTrigger value="editor" data-testid="mc-tab-editor">
             <FileText className="w-4 h-4 mr-2" />
-            Email editor
+            {mc.editorTab}
           </TabsTrigger>
           <TabsTrigger value="sync" data-testid="mc-tab-sync">
             <Users className="w-4 h-4 mr-2" />
-            Kontakty & Odoslanie
+            {mc.contactsSendTab}
           </TabsTrigger>
           <TabsTrigger value="stats" data-testid="mc-tab-stats">
             <BarChart3 className="w-4 h-4 mr-2" />
-            Štatistiky
+            {mc.statsTab}
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="summary" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <FileText className="w-5 h-5" />
+                {mc.summaryTitle}
+              </CardTitle>
+              <CardDescription>{mc.summaryDesc}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-3">
+                  <div className="flex justify-between items-start border-b pb-2">
+                    <span className="text-sm text-muted-foreground">{mc.summaryName}</span>
+                    <span className="text-sm font-medium text-right">{campaignName}</span>
+                  </div>
+                  <div className="flex justify-between items-start border-b pb-2">
+                    <span className="text-sm text-muted-foreground">{mc.summaryMailchimpId}</span>
+                    <span className="text-xs font-mono bg-muted px-2 py-0.5 rounded">{syncInfo.mailchimpCampaignId}</span>
+                  </div>
+                  <div className="flex justify-between items-start border-b pb-2">
+                    <span className="text-sm text-muted-foreground">{mc.summaryStatus}</span>
+                    <Badge variant={isSent ? "default" : "secondary"}>{statusLabels[syncInfo.status] || syncInfo.status}</Badge>
+                  </div>
+                  <div className="flex justify-between items-start border-b pb-2">
+                    <span className="text-sm text-muted-foreground">{mc.summarySubject}</span>
+                    <span className="text-sm font-medium text-right max-w-[60%] truncate">{subject || "—"}</span>
+                  </div>
+                  <div className="flex justify-between items-start border-b pb-2">
+                    <span className="text-sm text-muted-foreground">{mc.summarySyncedContacts}</span>
+                    <span className="text-sm font-bold">{syncInfo.syncedContacts || 0}</span>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <div className="flex justify-between items-start border-b pb-2">
+                    <span className="text-sm text-muted-foreground">{mc.summaryAudience}</span>
+                    <span className="text-sm font-medium">{syncInfo.mailchimpListId ? syncInfo.mailchimpListId.substring(0, 10) + "..." : "—"}</span>
+                  </div>
+                  <div className="flex justify-between items-start border-b pb-2">
+                    <span className="text-sm text-muted-foreground">{mc.summaryLastSync}</span>
+                    <span className="text-sm">{syncInfo.lastSyncAt ? new Date(syncInfo.lastSyncAt).toLocaleString("sk") : "—"}</span>
+                  </div>
+                  <div className="flex justify-between items-start border-b pb-2">
+                    <span className="text-sm text-muted-foreground">{mc.summaryCreatedAt}</span>
+                    <span className="text-sm">{syncInfo.createdAt ? new Date(syncInfo.createdAt).toLocaleString("sk") : "—"}</span>
+                  </div>
+                  <div className="flex justify-between items-start border-b pb-2">
+                    <span className="text-sm text-muted-foreground">{mc.summaryTags}</span>
+                    <span className="text-sm">{syncInfo.tags?.length > 0 ? syncInfo.tags.join(", ") : mc.summaryNoTags}</span>
+                  </div>
+                  <div className="flex justify-between items-start border-b pb-2">
+                    <span className="text-sm text-muted-foreground">{mc.summarySegment}</span>
+                    <span className="text-sm">{syncInfo.segmentName || mc.summaryNoSegment}</span>
+                  </div>
+                </div>
+              </div>
+              {mcStats?.stats && (
+                <div className="mt-4 pt-4 border-t">
+                  <p className="text-sm font-medium mb-2">{mc.statsTitle}</p>
+                  <div className="grid grid-cols-5 gap-3">
+                    <div className="text-center p-2 rounded-lg bg-muted/50">
+                      <p className="text-lg font-bold">{mcStats.stats.emailsSent}</p>
+                      <p className="text-[10px] text-muted-foreground">{mc.emailsSent}</p>
+                    </div>
+                    <div className="text-center p-2 rounded-lg bg-muted/50">
+                      <p className="text-lg font-bold">{mcStats.stats.uniqueOpens}</p>
+                      <p className="text-[10px] text-muted-foreground">{mc.opened}</p>
+                    </div>
+                    <div className="text-center p-2 rounded-lg bg-muted/50">
+                      <p className="text-lg font-bold">{mcStats.stats.uniqueClicks}</p>
+                      <p className="text-[10px] text-muted-foreground">{mc.clicks}</p>
+                    </div>
+                    <div className="text-center p-2 rounded-lg bg-muted/50">
+                      <p className="text-lg font-bold">{mcStats.stats.bounces}</p>
+                      <p className="text-[10px] text-muted-foreground">{mc.bounces}</p>
+                    </div>
+                    <div className="text-center p-2 rounded-lg bg-muted/50">
+                      <p className="text-lg font-bold">{mcStats.stats.unsubscribes}</p>
+                      <p className="text-[10px] text-muted-foreground">{mc.unsubscribed}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         <TabsContent value="editor" className="space-y-4">
           <Card>
             <CardContent className="pt-6 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Predmet emailu</Label>
+                  <Label>{mc.emailSubject}</Label>
                   <Input
                     value={subject}
                     onChange={e => { setSubject(e.target.value); setContentSaved(false); }}
@@ -4733,10 +4829,10 @@ function MailchimpSyncSection({ campaignId, campaignName, countryCodes }: { camp
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Šablóna</Label>
+                  <Label>{mc.template}</Label>
                   <Select onValueChange={handleSelectTemplate} disabled={isSent || htmlTemplates.length === 0}>
                     <SelectTrigger data-testid="select-mc-template">
-                      <SelectValue placeholder={htmlTemplates.length === 0 ? "Žiadne šablóny" : "Vybrať šablónu..."} />
+                      <SelectValue placeholder={htmlTemplates.length === 0 ? mc.noTemplates : mc.selectTemplate} />
                     </SelectTrigger>
                     <SelectContent>
                       {htmlTemplates.map((t) => (
@@ -4749,9 +4845,9 @@ function MailchimpSyncSection({ campaignId, campaignName, countryCodes }: { camp
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label>Obsah emailu</Label>
+                  <Label>{mc.emailContent}</Label>
                   <div className="flex items-center gap-1">
-                    <span className="text-xs text-muted-foreground mr-1">Vložiť premennú:</span>
+                    <span className="text-xs text-muted-foreground mr-1">{mc.insertVariable}</span>
                     {mergeVars.map(mv => (
                       <Button
                         key={mv.tag}
@@ -4789,7 +4885,7 @@ function MailchimpSyncSection({ campaignId, campaignName, countryCodes }: { camp
                   {contentSaved && (
                     <span className="text-xs text-green-600 flex items-center gap-1">
                       <CheckCircle className="w-3.5 h-3.5" />
-                      Obsah uložený v Mailchimp
+                      {mc.contentSaved}
                     </span>
                   )}
                 </div>
@@ -4802,7 +4898,7 @@ function MailchimpSyncSection({ campaignId, campaignName, countryCodes }: { camp
                     data-testid="btn-mc-toggle-test"
                   >
                     <Send className="w-4 h-4 mr-2" />
-                    Testovací email
+                    {mc.testEmail}
                   </Button>
                   <Button
                     size="sm"
@@ -4811,7 +4907,7 @@ function MailchimpSyncSection({ campaignId, campaignName, countryCodes }: { camp
                     data-testid="btn-mc-save-content"
                   >
                     {saveContentMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                    Uložiť obsah do Mailchimp
+                    {mc.saveToMailchimp}
                   </Button>
                 </div>
               </div>
@@ -4819,7 +4915,7 @@ function MailchimpSyncSection({ campaignId, campaignName, countryCodes }: { camp
               {showTestEmail && (
                 <div className="p-3 bg-muted/50 rounded-lg space-y-3">
                   <div className="flex items-center gap-4">
-                    <p className="text-xs font-medium text-muted-foreground">Spôsob odoslania:</p>
+                    <p className="text-xs font-medium text-muted-foreground">{mc.sendMethod}</p>
                     <div className="flex items-center gap-3">
                       <label className="flex items-center gap-1.5 cursor-pointer">
                         <input
@@ -4830,7 +4926,7 @@ function MailchimpSyncSection({ campaignId, campaignName, countryCodes }: { camp
                           className="w-3.5 h-3.5"
                           data-testid="radio-test-ms365"
                         />
-                        <span className="text-xs font-medium">MS365 (s premennými)</span>
+                        <span className="text-xs font-medium">{mc.ms365Method}</span>
                       </label>
                       <label className="flex items-center gap-1.5 cursor-pointer">
                         <input
@@ -4841,7 +4937,7 @@ function MailchimpSyncSection({ campaignId, campaignName, countryCodes }: { camp
                           className="w-3.5 h-3.5"
                           data-testid="radio-test-mailchimp"
                         />
-                        <span className="text-xs font-medium">Mailchimp test</span>
+                        <span className="text-xs font-medium">{mc.mailchimpMethod}</span>
                       </label>
                     </div>
                   </div>
