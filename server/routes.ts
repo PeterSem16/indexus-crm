@@ -9742,16 +9742,82 @@ export async function registerRoutes(
         return res.status(400).json({ error: "At least one test email is required" });
       }
 
+      if (testMergeFields && Object.keys(testMergeFields).length > 0) {
+        const content = await mailchimpApi.getCampaignContent(
+          { apiKey: settings.apiKey, serverPrefix: settings.serverPrefix },
+          sync.mailchimpCampaignId
+        );
+
+        if (content.html) {
+          let personalizedHtml = content.html;
+          for (const [key, value] of Object.entries(testMergeFields)) {
+            const regex = new RegExp(`\\*\\|${key}\\|\\*`, "g");
+            personalizedHtml = personalizedHtml.replace(regex, value as string);
+          }
+          personalizedHtml = personalizedHtml.replace(/\*\|[A-Z_]+\|\*/g, "");
+
+          const listInfo = await mailchimpApi.getListInfo(
+            { apiKey: settings.apiKey, serverPrefix: settings.serverPrefix },
+            sync.mailchimpListId || ""
+          );
+
+          const campaignInfo = await mailchimpApi.getCampaignInfo(
+            { apiKey: settings.apiKey, serverPrefix: settings.serverPrefix },
+            sync.mailchimpCampaignId
+          );
+
+          let sent = false;
+          try {
+            const user = req.session.user!;
+            const ms365Conn = await storage.getUserMs365Connection(user.id);
+            if (ms365Conn) {
+              const ms365 = await import("./lib/ms365.js");
+              const tokenData = await ms365.getValidAccessToken(
+                ms365Conn.accessToken,
+                ms365Conn.tokenExpiresAt,
+                ms365Conn.refreshToken
+              );
+              if (tokenData) {
+                if (tokenData.refreshed && tokenData.refreshToken) {
+                  await storage.updateUserMs365Connection(user.id, {
+                    accessToken: tokenData.accessToken,
+                    refreshToken: tokenData.refreshToken,
+                    tokenExpiresAt: tokenData.expiresOn,
+                  });
+                }
+                for (const to of testEmails) {
+                  await ms365.sendEmail(
+                    tokenData.accessToken,
+                    [to],
+                    `[TEST] ${campaignInfo.title || campaign.name}`,
+                    personalizedHtml,
+                    true
+                  );
+                }
+                sent = true;
+              }
+            }
+          } catch (ms365Err) {
+            console.log("MS365 send failed, falling back to Mailchimp test:", ms365Err);
+          }
+
+          if (sent) {
+            res.json({ success: true, method: "ms365_personalized" });
+            return;
+          }
+        }
+      }
+
       if (testMergeFields && sync.mailchimpListId) {
         try {
           const testContacts = testEmails.map((email: string) => ({
             email,
-            firstName: testMergeFields.FNAME || "",
-            lastName: testMergeFields.LNAME || "",
-            phone: testMergeFields.PHONE || "",
-            company: testMergeFields.COMPANY || "",
-            city: testMergeFields.CITY || "",
-            address: testMergeFields.ADDRESS || "",
+            firstName: testMergeFields?.FNAME || "",
+            lastName: testMergeFields?.LNAME || "",
+            phone: testMergeFields?.PHONE || "",
+            company: testMergeFields?.COMPANY || "",
+            city: testMergeFields?.CITY || "",
+            address: testMergeFields?.ADDRESS || "",
           }));
           await mailchimpApi.addContactsToList(
             { apiKey: settings.apiKey, serverPrefix: settings.serverPrefix },
@@ -9770,7 +9836,7 @@ export async function registerRoutes(
         testEmails
       );
 
-      res.json({ success: true });
+      res.json({ success: true, method: "mailchimp_test" });
     } catch (error: any) {
       console.error("Error sending mailchimp test email:", error);
       res.status(500).json({ error: error.message || "Failed to send test email" });
