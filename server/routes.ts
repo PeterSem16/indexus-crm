@@ -25,7 +25,8 @@ import {
   insertInstanceVatRateSchema,
   insertContractTemplateSchema, insertContractTemplateVersionSchema, insertContractInstanceSchema,
   insertContractInstanceProductSchema, insertContractParticipantSchema, insertContractSignatureRequestSchema,
-  insertGsmSenderConfigSchema,
+  insertGsmSenderConfigSchema, insertMailchimpSettingsSchema,
+  mailchimpSettings, campaignMailchimpSync, hospitals, clinics,
   insertVisitEventSchema,
   campaignDispositions, insertCampaignDispositionSchema,
   DEFAULT_PHONE_DISPOSITIONS, DEFAULT_EMAIL_DISPOSITIONS, DEFAULT_SMS_DISPOSITIONS, DISPOSITION_NAME_TRANSLATIONS,
@@ -66,6 +67,7 @@ import mammoth from "mammoth";
 import QRCode from "qrcode";
 import { PDFDocument as PDFLibDocument, rgb, degrees, StandardFonts } from "pdf-lib";
 import { notificationService } from "./lib/notification-service";
+import * as mailchimpApi from "./lib/mailchimp";
 import * as XLSX from "xlsx";
 import { STORAGE_PATHS, ensureAllDirectoriesExist, getPublicUrl, getRelativePath, getAbsolutePath, DATA_ROOT } from "./config/storage-paths";
 
@@ -9385,6 +9387,217 @@ export async function registerRoutes(
     }
   });
 
+  // ========== MAILCHIMP SETTINGS ==========
+
+  app.get("/api/config/mailchimp-settings", requireAuth, async (req, res) => {
+    try {
+      const settings = await storage.getAllMailchimpSettings();
+      const masked = settings.map(s => ({
+        ...s,
+        apiKey: s.apiKey ? `${s.apiKey.substring(0, 8)}...${s.apiKey.slice(-4)}` : "",
+      }));
+      res.json(masked);
+    } catch (error) {
+      console.error("Error fetching mailchimp settings:", error);
+      res.status(500).json({ error: "Failed to fetch mailchimp settings" });
+    }
+  });
+
+  app.post("/api/config/mailchimp-settings", requireAuth, async (req, res) => {
+    try {
+      const data = insertMailchimpSettingsSchema.parse(req.body);
+      const result = await storage.upsertMailchimpSettings(data);
+      await logActivity(req.session.user!.id, "upsert", "mailchimp_settings", result.id, undefined, { countryCode: data.countryCode });
+      res.json(result);
+    } catch (error) {
+      console.error("Error saving mailchimp settings:", error);
+      res.status(500).json({ error: "Failed to save mailchimp settings" });
+    }
+  });
+
+  app.delete("/api/config/mailchimp-settings/:countryCode", requireAuth, async (req, res) => {
+    try {
+      const deleted = await storage.deleteMailchimpSettings(req.params.countryCode);
+      if (!deleted) return res.status(404).json({ error: "Settings not found" });
+      await logActivity(req.session.user!.id, "delete", "mailchimp_settings", req.params.countryCode);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting mailchimp settings:", error);
+      res.status(500).json({ error: "Failed to delete mailchimp settings" });
+    }
+  });
+
+  app.post("/api/config/mailchimp-settings/test", requireAuth, async (req, res) => {
+    try {
+      const { apiKey, serverPrefix } = req.body;
+      if (!apiKey || !serverPrefix) return res.status(400).json({ error: "apiKey and serverPrefix required" });
+      const result = await mailchimpApi.testConnection(apiKey, serverPrefix);
+      res.json(result);
+    } catch (error) {
+      console.error("Error testing mailchimp connection:", error);
+      res.status(500).json({ error: "Failed to test connection" });
+    }
+  });
+
+  app.get("/api/config/mailchimp-settings/:countryCode/audiences", requireAuth, async (req, res) => {
+    try {
+      const settings = await storage.getMailchimpSettingsByCountry(req.params.countryCode);
+      if (!settings) return res.status(404).json({ error: "No Mailchimp settings for this country" });
+      const lists = await mailchimpApi.getLists({ apiKey: settings.apiKey, serverPrefix: settings.serverPrefix });
+      res.json(lists);
+    } catch (error) {
+      console.error("Error fetching mailchimp audiences:", error);
+      res.status(500).json({ error: "Failed to fetch audiences" });
+    }
+  });
+
+  // ========== CAMPAIGN MAILCHIMP SYNC ==========
+
+  app.post("/api/campaigns/:id/mailchimp/create", requireAuth, async (req, res) => {
+    try {
+      const campaign = await storage.getCampaign(req.params.id);
+      if (!campaign) return res.status(404).json({ error: "Campaign not found" });
+      if (campaign.channel !== "email") return res.status(400).json({ error: "Only email campaigns can be synced to Mailchimp" });
+
+      const countryCodes = campaign.countryCodes || [];
+      const countryCode = countryCodes[0] || "SK";
+      const settings = await storage.getMailchimpSettingsByCountry(countryCode);
+      if (!settings) return res.status(400).json({ error: `No Mailchimp settings configured for country ${countryCode}` });
+
+      const listId = req.body.listId || settings.defaultAudienceId;
+      if (!listId) return res.status(400).json({ error: "No audience/list selected" });
+
+      const mcCampaign = await mailchimpApi.createCampaign(
+        { apiKey: settings.apiKey, serverPrefix: settings.serverPrefix },
+        campaign.name,
+        req.body.subject || campaign.name,
+        listId
+      );
+
+      const sync = await storage.upsertCampaignMailchimpSync({
+        campaignId: campaign.id,
+        mailchimpCampaignId: mcCampaign.id,
+        mailchimpListId: listId,
+        status: "created",
+        syncedContacts: 0,
+      });
+
+      await logActivity(req.session.user!.id, "mailchimp_campaign_created", "campaign", campaign.id, campaign.name, { mailchimpId: mcCampaign.id });
+      res.json({ sync, mailchimpCampaign: mcCampaign });
+    } catch (error: any) {
+      console.error("Error creating mailchimp campaign:", error);
+      res.status(500).json({ error: error.message || "Failed to create Mailchimp campaign" });
+    }
+  });
+
+  app.post("/api/campaigns/:id/mailchimp/sync-contacts", requireAuth, async (req, res) => {
+    try {
+      const campaign = await storage.getCampaign(req.params.id);
+      if (!campaign) return res.status(404).json({ error: "Campaign not found" });
+
+      const sync = await storage.getCampaignMailchimpSync(req.params.id);
+      if (!sync || !sync.mailchimpListId) return res.status(400).json({ error: "No Mailchimp campaign linked" });
+
+      const countryCodes = campaign.countryCodes || [];
+      const countryCode = countryCodes[0] || "SK";
+      const settings = await storage.getMailchimpSettingsByCountry(countryCode);
+      if (!settings) return res.status(400).json({ error: "No Mailchimp settings for this country" });
+
+      const campaignContactsList = await storage.getCampaignContacts(req.params.id);
+
+      const contacts: { email: string; firstName?: string; lastName?: string; phone?: string; company?: string }[] = [];
+
+      for (const cc of campaignContactsList) {
+        if (cc.contactType === "customer" && cc.customerId) {
+          const customer = await storage.getCustomer(cc.customerId);
+          if (customer?.email) {
+            contacts.push({
+              email: customer.email,
+              firstName: customer.firstName || "",
+              lastName: customer.lastName || "",
+              phone: customer.phone || customer.mobile || "",
+            });
+          }
+        } else if (cc.contactType === "hospital" && cc.hospitalId) {
+          const hospital = await storage.getHospital(cc.hospitalId);
+          if (hospital?.email) {
+            contacts.push({
+              email: hospital.email,
+              firstName: hospital.contactPerson || "",
+              lastName: "",
+              company: hospital.name || "",
+              phone: hospital.phone || "",
+            });
+          }
+        } else if (cc.contactType === "clinic" && cc.clinicId) {
+          const clinic = await storage.getClinic(cc.clinicId);
+          if (clinic?.email) {
+            contacts.push({
+              email: clinic.email,
+              firstName: clinic.doctorName || "",
+              lastName: "",
+              company: clinic.name || "",
+              phone: clinic.phone || "",
+            });
+          }
+        }
+      }
+
+      const result = await mailchimpApi.addContactsToList(
+        { apiKey: settings.apiKey, serverPrefix: settings.serverPrefix },
+        sync.mailchimpListId,
+        contacts,
+        [campaign.name]
+      );
+
+      await storage.updateCampaignMailchimpSync(req.params.id, {
+        status: "synced",
+        syncedContacts: result.added + result.updated,
+        lastSyncAt: new Date(),
+      });
+
+      await logActivity(req.session.user!.id, "mailchimp_contacts_synced", "campaign", campaign.id, campaign.name, { ...result });
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error syncing mailchimp contacts:", error);
+      res.status(500).json({ error: error.message || "Failed to sync contacts" });
+    }
+  });
+
+  app.get("/api/campaigns/:id/mailchimp/stats", requireAuth, async (req, res) => {
+    try {
+      const sync = await storage.getCampaignMailchimpSync(req.params.id);
+      if (!sync || !sync.mailchimpCampaignId) return res.status(404).json({ error: "No Mailchimp campaign linked" });
+
+      const campaign = await storage.getCampaign(req.params.id);
+      if (!campaign) return res.status(404).json({ error: "Campaign not found" });
+
+      const countryCodes = campaign.countryCodes || [];
+      const countryCode = countryCodes[0] || "SK";
+      const settings = await storage.getMailchimpSettingsByCountry(countryCode);
+      if (!settings) return res.status(400).json({ error: "No Mailchimp settings" });
+
+      const stats = await mailchimpApi.getCampaignReport(
+        { apiKey: settings.apiKey, serverPrefix: settings.serverPrefix },
+        sync.mailchimpCampaignId
+      );
+      res.json({ sync, stats });
+    } catch (error: any) {
+      console.error("Error fetching mailchimp stats:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch stats" });
+    }
+  });
+
+  app.get("/api/campaigns/:id/mailchimp/sync", requireAuth, async (req, res) => {
+    try {
+      const sync = await storage.getCampaignMailchimpSync(req.params.id);
+      res.json(sync || null);
+    } catch (error) {
+      console.error("Error fetching campaign mailchimp sync:", error);
+      res.status(500).json({ error: "Failed to fetch sync info" });
+    }
+  });
+
   // ========== COUNTRY SYSTEM SETTINGS ==========
   
   // Get all country system settings
@@ -15843,36 +16056,80 @@ export async function registerRoutes(
         return res.status(404).json({ error: "Campaign not found" });
       }
       
-      // Delete existing contacts
       await storage.deleteCampaignContactsByCampaign(req.params.id);
-      
-      let customers = await storage.getAllCustomers();
-      
-      // Filter by campaign country codes
-      if (campaign.countryCodes && campaign.countryCodes.length > 0) {
-        customers = customers.filter(c => campaign.countryCodes.includes(c.country));
-      }
-      
-      // Apply criteria filtering if exists
+
+      const contactSources: string[] = req.body.contactSources || ["customer"];
+      let criteria: any = null;
       if (campaign.criteria) {
-        try {
-          const criteria = JSON.parse(campaign.criteria);
-          customers = applyCustomerCriteria(customers, criteria);
-        } catch (e) {
-          // Invalid criteria JSON
+        try { criteria = JSON.parse(campaign.criteria); } catch (e) {}
+      }
+
+      const allContactsData: any[] = [];
+
+      if (contactSources.includes("customer")) {
+        let customersList = await storage.getAllCustomers();
+        if (campaign.countryCodes && campaign.countryCodes.length > 0) {
+          customersList = customersList.filter(c => campaign.countryCodes.includes(c.country));
+        }
+        if (criteria) {
+          customersList = applyCustomerCriteria(customersList, criteria);
+        }
+        if (req.body.customerFilters) {
+          customersList = applyGenericFilters(customersList, req.body.customerFilters);
+        }
+        for (const c of customersList) {
+          allContactsData.push({
+            campaignId: req.params.id,
+            customerId: c.id,
+            contactType: "customer",
+            status: "pending" as const,
+            attemptCount: 0,
+            priorityScore: 50,
+          });
+        }
+      }
+
+      if (contactSources.includes("hospital")) {
+        let hospitalsList = await storage.getAllHospitals();
+        if (campaign.countryCodes && campaign.countryCodes.length > 0) {
+          hospitalsList = hospitalsList.filter((h: any) => campaign.countryCodes.includes(h.countryCode));
+        }
+        if (req.body.hospitalFilters) {
+          hospitalsList = applyGenericFilters(hospitalsList, req.body.hospitalFilters);
+        }
+        for (const h of hospitalsList) {
+          allContactsData.push({
+            campaignId: req.params.id,
+            hospitalId: h.id,
+            contactType: "hospital",
+            status: "pending" as const,
+            attemptCount: 0,
+            priorityScore: 50,
+          });
+        }
+      }
+
+      if (contactSources.includes("clinic")) {
+        let clinicsList = await storage.getAllClinics();
+        if (campaign.countryCodes && campaign.countryCodes.length > 0) {
+          clinicsList = clinicsList.filter((c: any) => campaign.countryCodes.includes(c.countryCode));
+        }
+        if (req.body.clinicFilters) {
+          clinicsList = applyGenericFilters(clinicsList, req.body.clinicFilters);
+        }
+        for (const c of clinicsList) {
+          allContactsData.push({
+            campaignId: req.params.id,
+            clinicId: c.id,
+            contactType: "clinic",
+            status: "pending" as const,
+            attemptCount: 0,
+            priorityScore: 50,
+          });
         }
       }
       
-      // Create contacts with default values for required fields
-      const contactsData = customers.map(c => ({
-        campaignId: req.params.id,
-        customerId: c.id,
-        status: "pending" as const,
-        attemptCount: 0,
-        priorityScore: 50, // Default priority
-      }));
-      
-      const contacts = await storage.createCampaignContacts(contactsData);
+      const contacts = allContactsData.length > 0 ? await storage.createCampaignContacts(allContactsData) : [];
       
       await logActivity(
         req.session.user!.id,
@@ -15880,20 +16137,24 @@ export async function registerRoutes(
         "campaign",
         campaign.id,
         campaign.name,
-        { count: contacts.length },
+        { count: contacts.length, sources: contactSources },
         req.ip
       );
       
-      // Log campaign_joined for each customer
-      for (const customer of customers) {
-        await logActivity(
-          req.session.user!.id,
-          "campaign_joined",
-          "customer",
-          customer.id,
-          `${customer.firstName} ${customer.lastName}`,
-          { campaignId: campaign.id, campaignName: campaign.name }
-        );
+      for (const cd of allContactsData) {
+        if (cd.contactType === "customer" && cd.customerId) {
+          const customer = await storage.getCustomer(cd.customerId);
+          if (customer) {
+            await logActivity(
+              req.session.user!.id,
+              "campaign_joined",
+              "customer",
+              customer.id,
+              `${customer.firstName} ${customer.lastName}`,
+              { campaignId: campaign.id, campaignName: campaign.name }
+            );
+          }
+        }
       }
       
       res.json({ count: contacts.length });
@@ -16181,11 +16442,17 @@ export async function registerRoutes(
     try {
       const contacts = await storage.getCampaignContacts(req.params.id);
       
-      // Enrich with customer data
       const enrichedContacts = await Promise.all(
         contacts.map(async (contact) => {
-          const customer = await storage.getCustomer(contact.customerId);
-          return { ...contact, customer };
+          let customer = null, hospital = null, clinic = null;
+          if (contact.contactType === "hospital" && contact.hospitalId) {
+            hospital = await storage.getHospital(contact.hospitalId);
+          } else if (contact.contactType === "clinic" && contact.clinicId) {
+            clinic = await storage.getClinic(contact.clinicId);
+          } else if (contact.customerId) {
+            customer = await storage.getCustomer(contact.customerId);
+          }
+          return { ...contact, customer, hospital, clinic };
         })
       );
       
@@ -27511,6 +27778,25 @@ function evaluateGroup(customer: Customer, group: CriteriaGroup): boolean {
   } else {
     return group.conditions.some(cond => evaluateCondition(customer, cond));
   }
+}
+
+function applyGenericFilters(items: any[], filters: Record<string, any>): any[] {
+  if (!filters || Object.keys(filters).length === 0) return items;
+  return items.filter(item => {
+    for (const [key, value] of Object.entries(filters)) {
+      if (value === undefined || value === null || value === "") continue;
+      const itemValue = item[key];
+      if (itemValue === undefined || itemValue === null) return false;
+      if (Array.isArray(value)) {
+        if (!value.includes(String(itemValue))) return false;
+      } else if (typeof value === "boolean") {
+        if (Boolean(itemValue) !== value) return false;
+      } else {
+        if (!String(itemValue).toLowerCase().includes(String(value).toLowerCase())) return false;
+      }
+    }
+    return true;
+  });
 }
 
 function applyCustomerCriteria(customers: Customer[], criteria: CriteriaGroup[]): Customer[] {

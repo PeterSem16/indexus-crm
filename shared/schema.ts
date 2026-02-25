@@ -2712,7 +2712,10 @@ export type AgentWorkspaceAccess = typeof agentWorkspaceAccess.$inferSelect;
 export const campaignContacts = pgTable("campaign_contacts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   campaignId: varchar("campaign_id").notNull(),
-  customerId: varchar("customer_id").notNull(),
+  customerId: varchar("customer_id"),
+  hospitalId: varchar("hospital_id"),
+  clinicId: varchar("clinic_id"),
+  contactType: text("contact_type").notNull().default("customer"), // customer, hospital, clinic
   status: text("status").notNull().default("pending"), // pending, contacted, completed, failed, no_answer, callback_scheduled, not_interested
   assignedTo: varchar("assigned_to"), // user id
   notes: text("notes"),
@@ -2732,6 +2735,10 @@ export const insertCampaignContactSchema = createInsertSchema(campaignContacts).
   createdAt: true,
   updatedAt: true,
 }).extend({
+  customerId: z.string().optional().nullable(),
+  hospitalId: z.string().optional().nullable(),
+  clinicId: z.string().optional().nullable(),
+  contactType: z.enum(["customer", "hospital", "clinic"]).optional().default("customer"),
   status: z.enum(["pending", "contacted", "completed", "failed", "no_answer", "callback_scheduled", "not_interested"]).optional().default("pending"),
   assignedTo: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
@@ -5717,3 +5724,47 @@ export const insertVirtualAgentConversationSchema = createInsertSchema(virtualAg
 });
 export type InsertVirtualAgentConversation = z.infer<typeof insertVirtualAgentConversationSchema>;
 export type VirtualAgentConversation = typeof virtualAgentConversations.$inferSelect;
+
+// ==================== MAILCHIMP SETTINGS ====================
+// Per-country Mailchimp API configuration
+
+export const mailchimpSettings = pgTable("mailchimp_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  countryCode: varchar("country_code", { length: 10 }).notNull().unique(),
+  apiKey: text("api_key").notNull(),
+  serverPrefix: varchar("server_prefix", { length: 10 }).notNull(),
+  defaultAudienceId: varchar("default_audience_id", { length: 50 }),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const insertMailchimpSettingsSchema = createInsertSchema(mailchimpSettings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertMailchimpSettings = z.infer<typeof insertMailchimpSettingsSchema>;
+export type MailchimpSettings = typeof mailchimpSettings.$inferSelect;
+
+// ==================== CAMPAIGN MAILCHIMP SYNC ====================
+// Tracks Mailchimp campaign synchronization for email campaigns
+
+export const campaignMailchimpSync = pgTable("campaign_mailchimp_sync", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  campaignId: varchar("campaign_id").notNull(),
+  mailchimpCampaignId: varchar("mailchimp_campaign_id"),
+  mailchimpListId: varchar("mailchimp_list_id"),
+  status: text("status").notNull().default("pending"),
+  lastSyncAt: timestamp("last_sync_at"),
+  syncedContacts: integer("synced_contacts").notNull().default(0),
+  errorMessage: text("error_message"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const insertCampaignMailchimpSyncSchema = createInsertSchema(campaignMailchimpSync).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertCampaignMailchimpSync = z.infer<typeof insertCampaignMailchimpSyncSchema>;
+export type CampaignMailchimpSync = typeof campaignMailchimpSync.$inferSelect;

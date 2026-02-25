@@ -32,7 +32,7 @@ Preferred communication style: Simple, everyday language.
 - **Collections**: Manages cord blood collection processes, including client/child information, staff, status, and lab results.
 - **External Communication**: Supports email (MS365) and SMS (BulkGate API).
 - **Built-in SIP Phone**: WebRTC-based SIP phone with call recording, role-based access, and playback features.
-- **Campaign Management**: Tools for creating, cloning, and managing campaigns with templates, operator scripts, contact filtering, scheduling, and KPI reporting.
+- **Campaign Management**: Tools for creating, cloning, and managing campaigns with templates, operator scripts, contact filtering, scheduling, and KPI reporting. **Extended contact sources**: campaigns can target customers, hospitals, and/or clinics with detailed filtering by all fields (name, email, phone, city, region, status, etc.). **Mailchimp integration**: per-country API configuration, automatic Mailchimp campaign creation from email campaigns, contact synchronization with tags, and real-time stats (opens, clicks, bounces, unsubscribes).
 - **Call Center Agent Workspace**: Dedicated interface for operators with shift management, queue handling, integrated SIP phone, contact cards, script viewer, communication tools, disposition tracking, AI-powered sentiment analysis, and an FAQ system.
 - **Break Types Management**: Configurable global break types for call center agents with multi-language support and duration settings.
 - **NEXUS AI Assistant**: OpenAI GPT-4o powered assistant with multi-language and role-based data visibility.
@@ -86,6 +86,7 @@ Preferred communication style: Simple, everyday language.
 ### Third-Party Services
 - Microsoft 365 Graph API (for email)
 - BulkGate API (for SMS)
+- Mailchimp API v3 (for email campaign management, per-country configuration)
 - OpenAI GPT-4o (for AI Assistant, transcription, sentiment analysis)
 - SIP.js (for WebRTC SIP phone)
 - Jira API (for issue tracking)

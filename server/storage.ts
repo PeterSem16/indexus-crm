@@ -134,7 +134,10 @@ import {
   type AgentSession, type InsertAgentSession,
   type AgentSessionActivity, type InsertAgentSessionActivity,
   type AgentBreakType, type InsertAgentBreakType,
-  type AgentBreak, type InsertAgentBreak
+  type AgentBreak, type InsertAgentBreak,
+  mailchimpSettings, type MailchimpSettings, type InsertMailchimpSettings,
+  campaignMailchimpSync, type CampaignMailchimpSync, type InsertCampaignMailchimpSync,
+  hospitals, clinics
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, inArray, sql, desc, and, or, asc, gte, lte, lt, isNull, isNotNull } from "drizzle-orm";
@@ -348,6 +351,17 @@ export interface IStorage {
   getGsmSenderConfigByCountry(countryCode: string): Promise<GsmSenderConfig | undefined>;
   upsertGsmSenderConfig(data: InsertGsmSenderConfig): Promise<GsmSenderConfig>;
   deleteGsmSenderConfig(id: string): Promise<boolean>;
+
+  // Mailchimp Settings
+  getAllMailchimpSettings(): Promise<MailchimpSettings[]>;
+  getMailchimpSettingsByCountry(countryCode: string): Promise<MailchimpSettings | undefined>;
+  upsertMailchimpSettings(data: InsertMailchimpSettings): Promise<MailchimpSettings>;
+  deleteMailchimpSettings(countryCode: string): Promise<boolean>;
+
+  // Campaign Mailchimp Sync
+  getCampaignMailchimpSync(campaignId: string): Promise<CampaignMailchimpSync | undefined>;
+  upsertCampaignMailchimpSync(data: InsertCampaignMailchimpSync): Promise<CampaignMailchimpSync>;
+  updateCampaignMailchimpSync(campaignId: string, data: Partial<CampaignMailchimpSync>): Promise<CampaignMailchimpSync | undefined>;
 
   // Country System Settings
   getAllCountrySystemSettings(): Promise<CountrySystemSettings[]>;
@@ -2184,6 +2198,67 @@ export class DatabaseStorage implements IStorage {
   async deleteGsmSenderConfig(id: string): Promise<boolean> {
     const result = await db.delete(gsmSenderConfigs).where(eq(gsmSenderConfigs.id, id)).returning();
     return result.length > 0;
+  }
+
+  // Mailchimp Settings
+  async getAllMailchimpSettings(): Promise<MailchimpSettings[]> {
+    return db.select().from(mailchimpSettings).orderBy(mailchimpSettings.countryCode);
+  }
+
+  async getMailchimpSettingsByCountry(countryCode: string): Promise<MailchimpSettings | undefined> {
+    const [config] = await db.select().from(mailchimpSettings)
+      .where(eq(mailchimpSettings.countryCode, countryCode));
+    return config || undefined;
+  }
+
+  async upsertMailchimpSettings(data: InsertMailchimpSettings): Promise<MailchimpSettings> {
+    const existing = await this.getMailchimpSettingsByCountry(data.countryCode);
+    if (existing) {
+      const [updated] = await db.update(mailchimpSettings)
+        .set({ ...data, updatedAt: new Date() })
+        .where(eq(mailchimpSettings.id, existing.id))
+        .returning();
+      return updated;
+    }
+    const [created] = await db.insert(mailchimpSettings).values(data).returning();
+    return created;
+  }
+
+  async deleteMailchimpSettings(countryCode: string): Promise<boolean> {
+    const result = await db.delete(mailchimpSettings)
+      .where(eq(mailchimpSettings.countryCode, countryCode))
+      .returning();
+    return result.length > 0;
+  }
+
+  // Campaign Mailchimp Sync
+  async getCampaignMailchimpSync(campaignId: string): Promise<CampaignMailchimpSync | undefined> {
+    const [sync] = await db.select().from(campaignMailchimpSync)
+      .where(eq(campaignMailchimpSync.campaignId, campaignId));
+    return sync || undefined;
+  }
+
+  async upsertCampaignMailchimpSync(data: InsertCampaignMailchimpSync): Promise<CampaignMailchimpSync> {
+    const existing = await this.getCampaignMailchimpSync(data.campaignId);
+    if (existing) {
+      const [updated] = await db.update(campaignMailchimpSync)
+        .set({ ...data, lastSyncAt: new Date() })
+        .where(eq(campaignMailchimpSync.id, existing.id))
+        .returning();
+      return updated;
+    }
+    const [created] = await db.insert(campaignMailchimpSync).values(data).returning();
+    return created;
+  }
+
+  async updateCampaignMailchimpSync(campaignId: string, data: Partial<CampaignMailchimpSync>): Promise<CampaignMailchimpSync | undefined> {
+    const existing = await this.getCampaignMailchimpSync(campaignId);
+    if (!existing) return undefined;
+    const [updated] = await db.update(campaignMailchimpSync)
+      .set(data)
+      .where(eq(campaignMailchimpSync.id, existing.id))
+      .returning();
+    return updated;
   }
 
   // Country System Settings

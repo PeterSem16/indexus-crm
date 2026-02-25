@@ -10640,6 +10640,338 @@ function InflationTab() {
 }
 
 // ============================================
+// MAILCHIMP SETTINGS TAB
+// ============================================
+
+const MC_COUNTRIES = [
+  { code: "SK", name: "Slovensko", flag: "\u{1F1F8}\u{1F1F0}" },
+  { code: "CZ", name: "\u010Cesko", flag: "\u{1F1E8}\u{1F1FF}" },
+  { code: "HU", name: "Ma\u010Farsko", flag: "\u{1F1ED}\u{1F1FA}" },
+  { code: "RO", name: "Rumunsko", flag: "\u{1F1F7}\u{1F1F4}" },
+  { code: "IT", name: "Taliansko", flag: "\u{1F1EE}\u{1F1F9}" },
+  { code: "DE", name: "Nemecko", flag: "\u{1F1E9}\u{1F1EA}" },
+  { code: "US", name: "USA", flag: "\u{1F1FA}\u{1F1F8}" },
+  { code: "CH", name: "\u0160vaj\u010Diarsko", flag: "\u{1F1E8}\u{1F1ED}" },
+];
+
+function MailchimpSettingsTab() {
+  const { toast } = useToast();
+
+  const { data: mcSettings = [], isLoading } = useQuery<any[]>({
+    queryKey: ["/api/config/mailchimp-settings"],
+  });
+
+  const [editingCountry, setEditingCountry] = useState<string | null>(null);
+  const [formData, setFormData] = useState<{ apiKey: string; serverPrefix: string; defaultAudienceId: string; isActive: boolean }>({
+    apiKey: "",
+    serverPrefix: "",
+    defaultAudienceId: "",
+    isActive: true,
+  });
+  const [testResult, setTestResult] = useState<{ success?: boolean; accountName?: string; error?: string } | null>(null);
+  const [testLoading, setTestLoading] = useState(false);
+
+  const [audiences, setAudiences] = useState<{ id: string; name: string; memberCount: number }[]>([]);
+  const [audiencesLoading, setAudiencesLoading] = useState(false);
+
+  const upsertMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const res = await apiRequest("POST", "/api/config/mailchimp-settings", data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/config/mailchimp-settings"] });
+      toast({ title: "Mailchimp nastavenia uložené" });
+      setEditingCountry(null);
+      setTestResult(null);
+    },
+    onError: () => {
+      toast({ title: "Chyba pri ukladaní", variant: "destructive" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (countryCode: string) => {
+      const res = await apiRequest("DELETE", `/api/config/mailchimp-settings/${countryCode}`);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/config/mailchimp-settings"] });
+      toast({ title: "Konfigurácia odstránená" });
+    },
+  });
+
+  const handleTest = async () => {
+    if (!formData.apiKey || !formData.serverPrefix) {
+      toast({ title: "Zadajte API kľúč a server prefix", variant: "destructive" });
+      return;
+    }
+    setTestLoading(true);
+    setTestResult(null);
+    try {
+      const res = await apiRequest("POST", "/api/config/mailchimp-settings/test", {
+        apiKey: formData.apiKey,
+        serverPrefix: formData.serverPrefix,
+      });
+      const result = await res.json();
+      setTestResult(result);
+      if (result.success) {
+        toast({ title: `Pripojenie úspešné: ${result.accountName}` });
+        loadAudiences();
+      }
+    } catch {
+      setTestResult({ success: false, error: "Chyba pripojenia" });
+    }
+    setTestLoading(false);
+  };
+
+  const loadAudiences = async () => {
+    if (!editingCountry) return;
+    setAudiencesLoading(true);
+    try {
+      const res = await fetch(`/api/config/mailchimp-settings/${editingCountry}/audiences`);
+      if (res.ok) {
+        const data = await res.json();
+        setAudiences(data);
+      }
+    } catch {}
+    setAudiencesLoading(false);
+  };
+
+  const handleEdit = (config: any) => {
+    setEditingCountry(config.countryCode);
+    setFormData({
+      apiKey: config.apiKey || "",
+      serverPrefix: config.serverPrefix || "",
+      defaultAudienceId: config.defaultAudienceId || "",
+      isActive: config.isActive !== false,
+    });
+    setTestResult(null);
+    setAudiences([]);
+  };
+
+  const handleAddCountry = (countryCode: string) => {
+    setEditingCountry(countryCode);
+    setFormData({ apiKey: "", serverPrefix: "", defaultAudienceId: "", isActive: true });
+    setTestResult(null);
+    setAudiences([]);
+  };
+
+  const handleSave = () => {
+    if (!editingCountry || !formData.apiKey || !formData.serverPrefix) return;
+    upsertMutation.mutate({
+      countryCode: editingCountry,
+      apiKey: formData.apiKey,
+      serverPrefix: formData.serverPrefix,
+      defaultAudienceId: formData.defaultAudienceId || null,
+      isActive: formData.isActive,
+    });
+  };
+
+  const getConfigForCountry = (countryCode: string) =>
+    mcSettings.find((c: any) => c.countryCode === countryCode);
+
+  const configuredCountries = MC_COUNTRIES.filter(c => getConfigForCountry(c.code));
+  const availableCountries = MC_COUNTRIES.filter(c => !getConfigForCountry(c.code));
+
+  if (isLoading) return <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div>;
+
+  return (
+    <div className="space-y-6">
+      <div className="p-4 border rounded-lg bg-card">
+        <div className="flex items-center gap-3">
+          <Mail className="h-5 w-5 text-muted-foreground" />
+          <div>
+            <h3 className="font-medium">Mailchimp Integrácia</h3>
+            <p className="text-sm text-muted-foreground">
+              Prepojenie s Mailchimp účtom pre každú krajinu. API kľúč nájdete v Mailchimp &gt; Account &gt; Extras &gt; API keys.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {configuredCountries.map(country => {
+        const config = getConfigForCountry(country.code)!;
+        const isEditing = editingCountry === country.code;
+
+        return (
+          <div key={country.code} className="p-4 border rounded-lg">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">{country.flag}</span>
+                <span className="font-medium">{country.name}</span>
+                <Badge variant={config.isActive ? "default" : "secondary"} data-testid={`badge-mc-status-${country.code}`}>
+                  {config.isActive ? "Aktívny" : "Neaktívny"}
+                </Badge>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={() => handleEdit(config)} data-testid={`btn-edit-mc-${country.code}`}>
+                  <Pencil className="h-4 w-4 mr-1" /> Upraviť
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => deleteMutation.mutate(country.code)} data-testid={`btn-delete-mc-${country.code}`}>
+                  <Trash2 className="h-4 w-4 mr-1" /> Odstrániť
+                </Button>
+              </div>
+            </div>
+            {isEditing ? (
+              <div className="space-y-4 mt-4 p-4 bg-muted/50 rounded-lg">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>API Kľúč</Label>
+                    <Input
+                      type="password"
+                      value={formData.apiKey}
+                      onChange={e => setFormData(p => ({ ...p, apiKey: e.target.value }))}
+                      placeholder="xxxxxxxxxx-usXX"
+                      data-testid="input-mc-apikey"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Server Prefix</Label>
+                    <Input
+                      value={formData.serverPrefix}
+                      onChange={e => setFormData(p => ({ ...p, serverPrefix: e.target.value }))}
+                      placeholder="us14"
+                      data-testid="input-mc-server"
+                    />
+                    <p className="text-xs text-muted-foreground">Časť za pomlčkou v API kľúči (napr. us14)</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-4">
+                  <Button variant="outline" size="sm" onClick={handleTest} disabled={testLoading} data-testid="btn-test-mc">
+                    {testLoading ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Zap className="h-4 w-4 mr-1" />}
+                    Test pripojenia
+                  </Button>
+                  {testResult && (
+                    <span className={`text-sm ${testResult.success ? "text-green-600" : "text-red-600"}`}>
+                      {testResult.success ? `Pripojené: ${testResult.accountName}` : testResult.error}
+                    </span>
+                  )}
+                </div>
+                {audiences.length > 0 && (
+                  <div className="space-y-2">
+                    <Label>Predvolená Audience (zoznam)</Label>
+                    <Select value={formData.defaultAudienceId} onValueChange={v => setFormData(p => ({ ...p, defaultAudienceId: v }))}>
+                      <SelectTrigger data-testid="select-mc-audience">
+                        <SelectValue placeholder="Vyberte audience..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {audiences.map(a => (
+                          <SelectItem key={a.id} value={a.id}>
+                            {a.name} ({a.memberCount} kontaktov)
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={formData.isActive}
+                    onCheckedChange={v => setFormData(p => ({ ...p, isActive: v }))}
+                    data-testid="switch-mc-active"
+                  />
+                  <Label>Aktívny</Label>
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={handleSave} disabled={upsertMutation.isPending} data-testid="btn-save-mc">
+                    Uložiť
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => setEditingCountry(null)}>Zrušiť</Button>
+                </div>
+              </div>
+            ) : (
+              <div className="text-sm text-muted-foreground space-y-1">
+                <p>API: {config.apiKey}</p>
+                <p>Server: {config.serverPrefix}</p>
+                {config.defaultAudienceId && <p>Audience: {config.defaultAudienceId}</p>}
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      {availableCountries.length > 0 && (
+        <div className="p-4 border rounded-lg border-dashed">
+          <p className="text-sm text-muted-foreground mb-3">Pridať konfiguráciu pre krajinu:</p>
+          <div className="flex flex-wrap gap-2">
+            {availableCountries.map(c => (
+              <Button key={c.code} variant="outline" size="sm" onClick={() => handleAddCountry(c.code)} data-testid={`btn-add-mc-${c.code}`}>
+                <span className="mr-1">{c.flag}</span> {c.name}
+              </Button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {editingCountry && !getConfigForCountry(editingCountry) && (
+        <div className="p-4 border rounded-lg bg-muted/50 space-y-4">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">{MC_COUNTRIES.find(c => c.code === editingCountry)?.flag}</span>
+            <span className="font-medium">{MC_COUNTRIES.find(c => c.code === editingCountry)?.name}</span>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>API Kľúč</Label>
+              <Input
+                type="password"
+                value={formData.apiKey}
+                onChange={e => setFormData(p => ({ ...p, apiKey: e.target.value }))}
+                placeholder="xxxxxxxxxx-usXX"
+                data-testid="input-mc-apikey-new"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Server Prefix</Label>
+              <Input
+                value={formData.serverPrefix}
+                onChange={e => setFormData(p => ({ ...p, serverPrefix: e.target.value }))}
+                placeholder="us14"
+                data-testid="input-mc-server-new"
+              />
+            </div>
+          </div>
+          <div className="flex items-center gap-4">
+            <Button variant="outline" size="sm" onClick={handleTest} disabled={testLoading} data-testid="btn-test-mc-new">
+              {testLoading ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Zap className="h-4 w-4 mr-1" />}
+              Test pripojenia
+            </Button>
+            {testResult && (
+              <span className={`text-sm ${testResult.success ? "text-green-600" : "text-red-600"}`}>
+                {testResult.success ? `Pripojené: ${testResult.accountName}` : testResult.error}
+              </span>
+            )}
+          </div>
+          {audiences.length > 0 && (
+            <div className="space-y-2">
+              <Label>Predvolená Audience (zoznam)</Label>
+              <Select value={formData.defaultAudienceId} onValueChange={v => setFormData(p => ({ ...p, defaultAudienceId: v }))}>
+                <SelectTrigger data-testid="select-mc-audience-new">
+                  <SelectValue placeholder="Vyberte audience..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {audiences.map(a => (
+                    <SelectItem key={a.id} value={a.id}>
+                      {a.name} ({a.memberCount} kontaktov)
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          <div className="flex gap-2">
+            <Button size="sm" onClick={handleSave} disabled={upsertMutation.isPending || !formData.apiKey} data-testid="btn-save-mc-new">
+              Uložiť
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setEditingCountry(null)}>Zrušiť</Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================
 // GSM SENDER TAB
 // ============================================
 
@@ -17260,6 +17592,10 @@ export default function ConfiguratorPage() {
                     <FileText className="h-4 w-4 mr-2" />
                     Šablóny
                   </TabsTrigger>
+                  <TabsTrigger value="mailchimp" data-testid="subtab-mailchimp">
+                    <Mail className="h-4 w-4 mr-2" />
+                    Mailchimp
+                  </TabsTrigger>
                 </TabsList>
                 <TabsContent value="email">
                   <EmailRouterTab />
@@ -17269,6 +17605,9 @@ export default function ConfiguratorPage() {
                 </TabsContent>
                 <TabsContent value="templates">
                   <MessageTemplatesTab />
+                </TabsContent>
+                <TabsContent value="mailchimp">
+                  <MailchimpSettingsTab />
                 </TabsContent>
               </Tabs>
             </CardContent>

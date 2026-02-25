@@ -13,7 +13,7 @@ import {
   ThumbsUp, ThumbsDown, CalendarPlus, PhoneOff, AlertCircle, XCircle, Zap, Star,
   CircleDot, Info, Heart, Ban, Bell, Send, Target, Flag, Eye, EyeOff,
   Volume2, VolumeX, UserCheck, UserX, Briefcase, Gift, Home, MapPin, Globe, Wand2,
-  Variable,
+  Variable, Building2, Building, Loader2,
   type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -245,7 +245,7 @@ const ICON_MAP: Record<string, LucideIcon> = Object.fromEntries(
   ICON_PICKER_SET.map(i => [i.name, i.icon])
 );
 
-type EnrichedContact = CampaignContact & { customer?: Customer };
+type EnrichedContact = CampaignContact & { customer?: Customer; hospital?: any; clinic?: any };
 
 const STATUS_COLORS: Record<string, string> = {
   draft: "bg-muted text-muted-foreground",
@@ -1507,9 +1507,20 @@ export default function CampaignDetailPage() {
     return stage?.name || stageId;
   };
 
+  const [showGenerateDialog, setShowGenerateDialog] = useState(false);
+  const [contactSources, setContactSources] = useState<string[]>(["customer"]);
+  const [hospitalFilters, setHospitalFilters] = useState<Record<string, any>>({});
+  const [clinicFilters, setClinicFilters] = useState<Record<string, any>>({});
+  const [customerFilters, setCustomerFilters] = useState<Record<string, any>>({});
+
   const generateContactsMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("POST", `/api/campaigns/${campaignId}/generate-contacts`);
+      const res = await apiRequest("POST", `/api/campaigns/${campaignId}/generate-contacts`, {
+        contactSources,
+        hospitalFilters: contactSources.includes("hospital") ? hospitalFilters : undefined,
+        clinicFilters: contactSources.includes("clinic") ? clinicFilters : undefined,
+        customerFilters: contactSources.includes("customer") ? customerFilters : undefined,
+      });
       return await res.json();
     },
     onSuccess: (data: any) => {
@@ -1519,6 +1530,7 @@ export default function CampaignDetailPage() {
       });
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "contacts"] });
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "stats"] });
+      setShowGenerateDialog(false);
     },
     onError: () => {
       toast({
@@ -1858,19 +1870,50 @@ export default function CampaignDetailPage() {
     ? ((stats.completedContacts + stats.notInterestedContacts) / Math.max(stats.totalContacts, 1)) * 100
     : 0;
 
+  const getContactName = (contact: EnrichedContact) => {
+    if (contact.contactType === "hospital" && contact.hospital) return contact.hospital.name || "Nemocnica";
+    if (contact.contactType === "clinic" && contact.clinic) return contact.clinic.name || "Klinika";
+    if (contact.customer) return `${contact.customer.firstName} ${contact.customer.lastName}`;
+    return t.campaigns.detail.unknownContact;
+  };
+
+  const getContactDetail = (contact: EnrichedContact) => {
+    if (contact.contactType === "hospital" && contact.hospital) return contact.hospital.email || contact.hospital.phone || "-";
+    if (contact.contactType === "clinic" && contact.clinic) return contact.clinic.email || contact.clinic.phone || "-";
+    return contact.customer?.phone || contact.customer?.email || "-";
+  };
+
+  const getContactCountry = (contact: EnrichedContact) => {
+    if (contact.contactType === "hospital" && contact.hospital) return contact.hospital.countryCode;
+    if (contact.contactType === "clinic" && contact.clinic) return contact.clinic.countryCode;
+    return contact.customer?.country;
+  };
+
+  const CONTACT_TYPE_LABELS: Record<string, string> = { customer: "Zákazník", hospital: "Nemocnica", clinic: "Klinika" };
+  const CONTACT_TYPE_COLORS: Record<string, string> = {
+    customer: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+    hospital: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
+    clinic: "bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200",
+  };
+
   const contactColumns = [
     {
       key: "customer",
       header: t.campaigns.detail.contacts,
       sortable: true,
-      sortValue: (contact: EnrichedContact) => contact.customer ? `${contact.customer.lastName} ${contact.customer.firstName}` : "",
+      sortValue: (contact: EnrichedContact) => getContactName(contact),
       cell: (contact: EnrichedContact) => (
         <div>
-          <div className="font-medium">
-            {contact.customer ? `${contact.customer.firstName} ${contact.customer.lastName}` : t.campaigns.detail.unknownContact}
+          <div className="font-medium flex items-center gap-2">
+            {getContactName(contact)}
+            {contact.contactType && contact.contactType !== "customer" && (
+              <Badge className={`text-[10px] px-1.5 py-0 ${CONTACT_TYPE_COLORS[contact.contactType] || ""}`}>
+                {CONTACT_TYPE_LABELS[contact.contactType] || contact.contactType}
+              </Badge>
+            )}
           </div>
           <div className="text-sm text-muted-foreground">
-            {contact.customer?.phone || contact.customer?.email || "-"}
+            {getContactDetail(contact)}
           </div>
         </div>
       ),
@@ -1879,9 +1922,9 @@ export default function CampaignDetailPage() {
       key: "country",
       header: t.campaigns.detail.country,
       sortable: true,
-      sortValue: (contact: EnrichedContact) => contact.customer?.country || "",
+      sortValue: (contact: EnrichedContact) => getContactCountry(contact) || "",
       cell: (contact: EnrichedContact) => {
-        const countryCode = contact.customer?.country;
+        const countryCode = getContactCountry(contact);
         if (!countryCode) return <span>-</span>;
         const countryData = COUNTRIES[countryCode as keyof typeof COUNTRIES] as { name: string } | undefined;
         return <span>{countryData?.name || countryCode}</span>;
@@ -2121,6 +2164,12 @@ export default function CampaignDetailPage() {
             <ScrollText className="w-4 h-4 mr-2" />
             {t.campaigns.detail.script}
           </TabsTrigger>
+          {campaign?.channel === "email" && (
+            <TabsTrigger value="mailchimp" data-testid="tab-mailchimp">
+              <Mail className="w-4 h-4 mr-2" />
+              Mailchimp
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
@@ -2325,7 +2374,7 @@ export default function CampaignDetailPage() {
               </Button>
               <Button
                 variant="outline"
-                onClick={() => generateContactsMutation.mutate()}
+                onClick={() => setShowGenerateDialog(true)}
                 disabled={generateContactsMutation.isPending}
                 data-testid="button-generate-contacts"
               >
@@ -3261,6 +3310,12 @@ export default function CampaignDetailPage() {
           )}
         </TabsContent>
 
+        {campaign?.channel === "email" && (
+          <TabsContent value="mailchimp" className="space-y-6">
+            <MailchimpSyncSection campaignId={campaignId!} campaignName={campaign?.name || ""} countryCodes={campaign?.countryCodes || []} />
+          </TabsContent>
+        )}
+
       </Tabs>
 
       <Dialog open={!!selectedContact} onOpenChange={() => setSelectedContact(null)}>
@@ -3833,6 +3888,408 @@ export default function CampaignDetailPage() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={showGenerateDialog} onOpenChange={setShowGenerateDialog}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <RefreshCw className="w-5 h-5" />
+              Generovať kontakty
+            </DialogTitle>
+            <DialogDescription>
+              Vyberte zdroje kontaktov a filtre pre generovanie zoznamu kontaktov kampane.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-3">
+              <Label className="text-sm font-semibold">Zdroje kontaktov</Label>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { value: "customer", label: "Zákazníci", icon: Users },
+                  { value: "hospital", label: "Nemocnice", icon: Building2 },
+                  { value: "clinic", label: "Kliniky / Ambulancie", icon: Building },
+                ].map(src => (
+                  <Badge
+                    key={src.value}
+                    variant={contactSources.includes(src.value) ? "default" : "outline"}
+                    className="cursor-pointer select-none px-3 py-1.5 text-sm"
+                    onClick={() => {
+                      setContactSources(prev =>
+                        prev.includes(src.value)
+                          ? prev.filter(s => s !== src.value)
+                          : [...prev, src.value]
+                      );
+                    }}
+                    data-testid={`source-${src.value}`}
+                  >
+                    <src.icon className="w-3.5 h-3.5 mr-1.5" />
+                    {src.label}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+
+            {contactSources.includes("customer") && (
+              <div className="p-4 border rounded-lg space-y-3">
+                <Label className="text-sm font-semibold flex items-center gap-2">
+                  <Users className="w-4 h-4" /> Filtre zákazníkov
+                </Label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Meno / Priezvisko</Label>
+                    <Input placeholder="Hľadať..." value={customerFilters.lastName || ""} onChange={e => setCustomerFilters(p => ({ ...p, lastName: e.target.value }))} data-testid="filter-customer-name" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Email</Label>
+                    <Input placeholder="email@..." value={customerFilters.email || ""} onChange={e => setCustomerFilters(p => ({ ...p, email: e.target.value }))} data-testid="filter-customer-email" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Telefón</Label>
+                    <Input placeholder="+421..." value={customerFilters.phone || ""} onChange={e => setCustomerFilters(p => ({ ...p, phone: e.target.value }))} data-testid="filter-customer-phone" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Mesto</Label>
+                    <Input placeholder="Bratislava..." value={customerFilters.city || ""} onChange={e => setCustomerFilters(p => ({ ...p, city: e.target.value }))} data-testid="filter-customer-city" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Región</Label>
+                    <Input placeholder="Región..." value={customerFilters.region || ""} onChange={e => setCustomerFilters(p => ({ ...p, region: e.target.value }))} data-testid="filter-customer-region" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Stav klienta</Label>
+                    <Select value={customerFilters.clientStatus || ""} onValueChange={v => setCustomerFilters(p => ({ ...p, clientStatus: v || undefined }))}>
+                      <SelectTrigger data-testid="filter-customer-status"><SelectValue placeholder="Všetky" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="potential">Potenciálny</SelectItem>
+                        <SelectItem value="acquired">Získaný</SelectItem>
+                        <SelectItem value="terminated">Ukončený</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Lead status</Label>
+                    <Select value={customerFilters.leadStatus || ""} onValueChange={v => setCustomerFilters(p => ({ ...p, leadStatus: v || undefined }))}>
+                      <SelectTrigger data-testid="filter-customer-lead"><SelectValue placeholder="Všetky" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="cold">Studený</SelectItem>
+                        <SelectItem value="warm">Teplý</SelectItem>
+                        <SelectItem value="hot">Horúci</SelectItem>
+                        <SelectItem value="qualified">Kvalifikovaný</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Newsletter</Label>
+                    <Select value={customerFilters.newsletter === true ? "yes" : customerFilters.newsletter === false ? "no" : ""} onValueChange={v => setCustomerFilters(p => ({ ...p, newsletter: v === "yes" ? true : v === "no" ? false : undefined }))}>
+                      <SelectTrigger data-testid="filter-customer-newsletter"><SelectValue placeholder="Všetky" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="yes">Prihlásený</SelectItem>
+                        <SelectItem value="no">Neprihlásený</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {contactSources.includes("hospital") && (
+              <div className="p-4 border rounded-lg space-y-3">
+                <Label className="text-sm font-semibold flex items-center gap-2">
+                  <Building2 className="w-4 h-4" /> Filtre nemocníc
+                </Label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Názov</Label>
+                    <Input placeholder="Hľadať..." value={hospitalFilters.name || ""} onChange={e => setHospitalFilters(p => ({ ...p, name: e.target.value }))} data-testid="filter-hospital-name" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Kontaktná osoba</Label>
+                    <Input placeholder="Hľadať..." value={hospitalFilters.contactPerson || ""} onChange={e => setHospitalFilters(p => ({ ...p, contactPerson: e.target.value }))} data-testid="filter-hospital-contact" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Email</Label>
+                    <Input placeholder="email@..." value={hospitalFilters.email || ""} onChange={e => setHospitalFilters(p => ({ ...p, email: e.target.value }))} data-testid="filter-hospital-email" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Telefón</Label>
+                    <Input placeholder="+421..." value={hospitalFilters.phone || ""} onChange={e => setHospitalFilters(p => ({ ...p, phone: e.target.value }))} data-testid="filter-hospital-phone" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Mesto</Label>
+                    <Input placeholder="Bratislava..." value={hospitalFilters.city || ""} onChange={e => setHospitalFilters(p => ({ ...p, city: e.target.value }))} data-testid="filter-hospital-city" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Región</Label>
+                    <Input placeholder="Región..." value={hospitalFilters.region || ""} onChange={e => setHospitalFilters(p => ({ ...p, region: e.target.value }))} data-testid="filter-hospital-region" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Aktívna</Label>
+                    <Select value={hospitalFilters.isActive === true ? "yes" : hospitalFilters.isActive === false ? "no" : ""} onValueChange={v => setHospitalFilters(p => ({ ...p, isActive: v === "yes" ? true : v === "no" ? false : undefined }))}>
+                      <SelectTrigger data-testid="filter-hospital-active"><SelectValue placeholder="Všetky" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="yes">Aktívna</SelectItem>
+                        <SelectItem value="no">Neaktívna</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {contactSources.includes("clinic") && (
+              <div className="p-4 border rounded-lg space-y-3">
+                <Label className="text-sm font-semibold flex items-center gap-2">
+                  <Building className="w-4 h-4" /> Filtre kliník / ambulancií
+                </Label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Názov</Label>
+                    <Input placeholder="Hľadať..." value={clinicFilters.name || ""} onChange={e => setClinicFilters(p => ({ ...p, name: e.target.value }))} data-testid="filter-clinic-name" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Meno lekára</Label>
+                    <Input placeholder="Hľadať..." value={clinicFilters.doctorName || ""} onChange={e => setClinicFilters(p => ({ ...p, doctorName: e.target.value }))} data-testid="filter-clinic-doctor" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Email</Label>
+                    <Input placeholder="email@..." value={clinicFilters.email || ""} onChange={e => setClinicFilters(p => ({ ...p, email: e.target.value }))} data-testid="filter-clinic-email" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Telefón</Label>
+                    <Input placeholder="+421..." value={clinicFilters.phone || ""} onChange={e => setClinicFilters(p => ({ ...p, phone: e.target.value }))} data-testid="filter-clinic-phone" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Mesto</Label>
+                    <Input placeholder="Bratislava..." value={clinicFilters.city || ""} onChange={e => setClinicFilters(p => ({ ...p, city: e.target.value }))} data-testid="filter-clinic-city" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Aktívna</Label>
+                    <Select value={clinicFilters.isActive === true ? "yes" : clinicFilters.isActive === false ? "no" : ""} onValueChange={v => setClinicFilters(p => ({ ...p, isActive: v === "yes" ? true : v === "no" ? false : undefined }))}>
+                      <SelectTrigger data-testid="filter-clinic-active"><SelectValue placeholder="Všetky" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="yes">Aktívna</SelectItem>
+                        <SelectItem value="no">Neaktívna</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {contactSources.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-4">Vyberte aspoň jeden zdroj kontaktov.</p>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-2 pt-4">
+            <Button variant="outline" onClick={() => setShowGenerateDialog(false)}>Zrušiť</Button>
+            <Button
+              onClick={() => generateContactsMutation.mutate()}
+              disabled={generateContactsMutation.isPending || contactSources.length === 0}
+              data-testid="btn-confirm-generate"
+            >
+              {generateContactsMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Generovať kontakty
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+    </div>
+  );
+}
+
+function MailchimpSyncSection({ campaignId, campaignName, countryCodes }: { campaignId: string; campaignName: string; countryCodes: string[] }) {
+  const { toast } = useToast();
+
+  const { data: syncInfo, isLoading: syncLoading } = useQuery<any>({
+    queryKey: ["/api/campaigns", campaignId, "mailchimp", "sync"],
+    queryFn: async () => {
+      const res = await fetch(`/api/campaigns/${campaignId}/mailchimp/sync`);
+      return res.json();
+    },
+  });
+
+  const { data: audiences = [] } = useQuery<any[]>({
+    queryKey: ["/api/config/mailchimp-settings", countryCodes[0] || "SK", "audiences"],
+    enabled: !syncInfo?.mailchimpCampaignId,
+    queryFn: async () => {
+      const res = await fetch(`/api/config/mailchimp-settings/${countryCodes[0] || "SK"}/audiences`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
+  const [selectedListId, setSelectedListId] = useState("");
+  const [subject, setSubject] = useState(campaignName);
+
+  const createMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/campaigns/${campaignId}/mailchimp/create`, {
+        listId: selectedListId,
+        subject,
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "mailchimp", "sync"] });
+      toast({ title: "Mailchimp kampaň vytvorená" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Chyba", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const syncContactsMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/campaigns/${campaignId}/mailchimp/sync-contacts`);
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "mailchimp", "sync"] });
+      toast({ title: "Kontakty synchronizované", description: `Pridané: ${data.added}, Aktualizované: ${data.updated}` });
+    },
+    onError: (err: any) => {
+      toast({ title: "Chyba", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const { data: mcStats } = useQuery<any>({
+    queryKey: ["/api/campaigns", campaignId, "mailchimp", "stats"],
+    enabled: !!syncInfo?.mailchimpCampaignId,
+    queryFn: async () => {
+      const res = await fetch(`/api/campaigns/${campaignId}/mailchimp/stats`);
+      if (!res.ok) return null;
+      return res.json();
+    },
+    refetchInterval: 60000,
+  });
+
+  if (syncLoading) return <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div>;
+
+  return (
+    <div className="space-y-6">
+      {!syncInfo?.mailchimpCampaignId ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Mail className="w-5 h-5" />
+              Vytvoriť Mailchimp kampaň
+            </CardTitle>
+            <CardDescription>
+              Prepojte túto kampaň s Mailchimp a synchronizujte kontakty.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label>Predmet emailu</Label>
+              <Input value={subject} onChange={e => setSubject(e.target.value)} placeholder="Predmet emailovej kampane" data-testid="input-mc-subject" />
+            </div>
+            {audiences.length > 0 ? (
+              <div className="space-y-2">
+                <Label>Audience (zoznam)</Label>
+                <Select value={selectedListId} onValueChange={setSelectedListId}>
+                  <SelectTrigger data-testid="select-mc-audience-campaign">
+                    <SelectValue placeholder="Vyberte audience..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {audiences.map((a: any) => (
+                      <SelectItem key={a.id} value={a.id}>
+                        {a.name} ({a.memberCount} kontaktov)
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : (
+              <p className="text-sm text-amber-600">
+                Najprv nastavte Mailchimp v konfigurácia &gt; Email & GSM &gt; Mailchimp pre krajinu {countryCodes[0] || "SK"}.
+              </p>
+            )}
+            <Button
+              onClick={() => createMutation.mutate()}
+              disabled={createMutation.isPending || !selectedListId}
+              data-testid="btn-create-mc-campaign"
+            >
+              {createMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Vytvoriť v Mailchimp
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Mail className="w-5 h-5" />
+                Mailchimp kampaň
+                <Badge variant="default" data-testid="badge-mc-sync-status">{syncInfo.status}</Badge>
+              </CardTitle>
+              <CardDescription>
+                Mailchimp ID: {syncInfo.mailchimpCampaignId}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center gap-4">
+                <div className="text-sm">
+                  <span className="text-muted-foreground">Synchronizované kontakty:</span>{" "}
+                  <span className="font-medium">{syncInfo.syncedContacts || 0}</span>
+                </div>
+                {syncInfo.lastSyncAt && (
+                  <div className="text-sm">
+                    <span className="text-muted-foreground">Posledná synchronizácia:</span>{" "}
+                    <span className="font-medium">{new Date(syncInfo.lastSyncAt).toLocaleString("sk")}</span>
+                  </div>
+                )}
+              </div>
+              <Button
+                variant="outline"
+                onClick={() => syncContactsMutation.mutate()}
+                disabled={syncContactsMutation.isPending}
+                data-testid="btn-sync-mc-contacts"
+              >
+                {syncContactsMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
+                Synchronizovať kontakty
+              </Button>
+            </CardContent>
+          </Card>
+
+          {mcStats?.stats && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <BarChart3 className="w-5 h-5" />
+                  Mailchimp štatistiky
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="text-center p-3 rounded-lg bg-muted/50">
+                    <p className="text-2xl font-bold">{mcStats.stats.emailsSent}</p>
+                    <p className="text-xs text-muted-foreground">Odoslaných</p>
+                  </div>
+                  <div className="text-center p-3 rounded-lg bg-muted/50">
+                    <p className="text-2xl font-bold">{mcStats.stats.uniqueOpens}</p>
+                    <p className="text-xs text-muted-foreground">Otvorených ({(mcStats.stats.openRate * 100).toFixed(1)}%)</p>
+                  </div>
+                  <div className="text-center p-3 rounded-lg bg-muted/50">
+                    <p className="text-2xl font-bold">{mcStats.stats.uniqueClicks}</p>
+                    <p className="text-xs text-muted-foreground">Kliknutí ({(mcStats.stats.clickRate * 100).toFixed(1)}%)</p>
+                  </div>
+                  <div className="text-center p-3 rounded-lg bg-muted/50">
+                    <p className="text-2xl font-bold">{mcStats.stats.bounces}</p>
+                    <p className="text-xs text-muted-foreground">Bounce</p>
+                  </div>
+                  <div className="text-center p-3 rounded-lg bg-muted/50">
+                    <p className="text-2xl font-bold">{mcStats.stats.unsubscribes}</p>
+                    <p className="text-xs text-muted-foreground">Odhlásených</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </>
+      )}
     </div>
   );
 }
