@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { Plus, Trash2, GripVertical, Users, Building2, Building, Filter } from "lucide-react";
+import { Plus, Trash2, GripVertical, Users, Building2, Building, Filter, Loader2, Hash } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -278,6 +277,8 @@ function EntityCriteriaSection({
   fields,
   config,
   onChange,
+  matchCount,
+  matchLoading,
 }: {
   entityType: string;
   label: string;
@@ -285,6 +286,8 @@ function EntityCriteriaSection({
   fields: typeof CUSTOMER_FIELDS;
   config: ContactSourceConfig;
   onChange: (config: ContactSourceConfig) => void;
+  matchCount?: number;
+  matchLoading?: boolean;
 }) {
   const addGroup = () => {
     onChange({
@@ -306,6 +309,20 @@ function EntityCriteriaSection({
           />
           <Icon className={`w-4 h-4 ${config.enabled ? "text-primary" : "text-muted-foreground"}`} />
           <span className={`font-medium text-sm ${config.enabled ? "" : "text-muted-foreground"}`}>{label}</span>
+          {config.enabled && (
+            <span className="text-xs font-medium">
+              {matchLoading ? (
+                <span className="inline-flex items-center gap-1 text-muted-foreground">
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                </span>
+              ) : matchCount !== undefined ? (
+                <Badge variant="default" className="text-xs px-2 py-0">
+                  <Hash className="w-3 h-3 mr-0.5" />
+                  {matchCount}
+                </Badge>
+              ) : null}
+            </span>
+          )}
         </div>
         {config.enabled && (
           <div className="flex items-center gap-2">
@@ -353,12 +370,20 @@ function EntityCriteriaSection({
   );
 }
 
+export interface PreviewCounts {
+  counts: Record<string, number>;
+  total: number;
+}
+
 interface ContactCriteriaBuilderProps {
   config: ContactGenerateConfig;
   onChange: (config: ContactGenerateConfig) => void;
+  previewCounts?: PreviewCounts | null;
+  previewLoading?: boolean;
 }
 
-export function ContactCriteriaBuilder({ config, onChange }: ContactCriteriaBuilderProps) {
+export function ContactCriteriaBuilder({ config, onChange, previewCounts, previewLoading }: ContactCriteriaBuilderProps) {
+  const anyEnabled = config.customer.enabled || config.hospital.enabled || config.clinic.enabled;
   return (
     <div className="space-y-3">
       <EntityCriteriaSection
@@ -368,6 +393,8 @@ export function ContactCriteriaBuilder({ config, onChange }: ContactCriteriaBuil
         fields={CUSTOMER_FIELDS}
         config={config.customer}
         onChange={customer => onChange({ ...config, customer })}
+        matchCount={previewCounts?.counts?.customer}
+        matchLoading={config.customer.enabled && previewLoading}
       />
       <EntityCriteriaSection
         entityType="hospital"
@@ -376,6 +403,8 @@ export function ContactCriteriaBuilder({ config, onChange }: ContactCriteriaBuil
         fields={HOSPITAL_FIELDS}
         config={config.hospital}
         onChange={hospital => onChange({ ...config, hospital })}
+        matchCount={previewCounts?.counts?.hospital}
+        matchLoading={config.hospital.enabled && previewLoading}
       />
       <EntityCriteriaSection
         entityType="clinic"
@@ -384,7 +413,16 @@ export function ContactCriteriaBuilder({ config, onChange }: ContactCriteriaBuil
         fields={CLINIC_FIELDS}
         config={config.clinic}
         onChange={clinic => onChange({ ...config, clinic })}
+        matchCount={previewCounts?.counts?.clinic}
+        matchLoading={config.clinic.enabled && previewLoading}
       />
+      {anyEnabled && previewCounts && !previewLoading && (
+        <div className="flex items-center justify-center p-2 bg-primary/5 rounded-lg border border-primary/20">
+          <span className="text-sm font-semibold text-primary">
+            Celkom: {previewCounts.total} kontaktov
+          </span>
+        </div>
+      )}
     </div>
   );
 }

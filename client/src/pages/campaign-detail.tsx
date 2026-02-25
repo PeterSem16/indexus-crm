@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useRoute, Link } from "wouter";
 import { useI18n } from "@/i18n";
@@ -23,7 +23,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { DataTable, type SortConfig } from "@/components/data-table";
-import { ContactCriteriaBuilder } from "@/components/contact-criteria-builder";
+import { ContactCriteriaBuilder, type PreviewCounts } from "@/components/contact-criteria-builder";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -1514,6 +1514,46 @@ export default function CampaignDetailPage() {
     hospital: { enabled: false, criteria: [] },
     clinic: { enabled: false, criteria: [] },
   });
+  const [previewCounts, setPreviewCounts] = useState<PreviewCounts | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const previewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const fetchPreviewCounts = useCallback(async (cfg: typeof generateConfig) => {
+    if (!campaignId) return;
+    const contactSources: string[] = [];
+    if (cfg.customer.enabled) contactSources.push("customer");
+    if (cfg.hospital.enabled) contactSources.push("hospital");
+    if (cfg.clinic.enabled) contactSources.push("clinic");
+    if (contactSources.length === 0) {
+      setPreviewCounts(null);
+      setPreviewLoading(false);
+      return;
+    }
+    setPreviewLoading(true);
+    try {
+      const res = await apiRequest("POST", `/api/campaigns/${campaignId}/preview-contacts-count`, {
+        contactSources,
+        customerCriteria: cfg.customer.enabled ? cfg.customer.criteria : undefined,
+        hospitalCriteria: cfg.hospital.enabled ? cfg.hospital.criteria : undefined,
+        clinicCriteria: cfg.clinic.enabled ? cfg.clinic.criteria : undefined,
+      });
+      const data = await res.json();
+      setPreviewCounts(data);
+    } catch {
+      setPreviewCounts(null);
+    } finally {
+      setPreviewLoading(false);
+    }
+  }, [campaignId]);
+
+  useEffect(() => {
+    if (!showGenerateDialog) return;
+    if (previewTimerRef.current) clearTimeout(previewTimerRef.current);
+    previewTimerRef.current = setTimeout(() => {
+      fetchPreviewCounts(generateConfig);
+    }, 400);
+    return () => { if (previewTimerRef.current) clearTimeout(previewTimerRef.current); };
+  }, [generateConfig, showGenerateDialog, fetchPreviewCounts]);
 
   const generateContactsMutation = useMutation({
     mutationFn: async () => {
@@ -3906,7 +3946,12 @@ export default function CampaignDetailPage() {
             </DialogDescription>
           </DialogHeader>
 
-          <ContactCriteriaBuilder config={generateConfig} onChange={setGenerateConfig} />
+          <ContactCriteriaBuilder
+            config={generateConfig}
+            onChange={setGenerateConfig}
+            previewCounts={previewCounts}
+            previewLoading={previewLoading}
+          />
 
           {!generateConfig.customer.enabled && !generateConfig.hospital.enabled && !generateConfig.clinic.enabled && (
             <p className="text-sm text-muted-foreground text-center py-2">Vyberte aspoň jeden zdroj kontaktov.</p>
@@ -3916,11 +3961,11 @@ export default function CampaignDetailPage() {
             <Button variant="outline" onClick={() => setShowGenerateDialog(false)}>Zrušiť</Button>
             <Button
               onClick={() => generateContactsMutation.mutate()}
-              disabled={generateContactsMutation.isPending || (!generateConfig.customer.enabled && !generateConfig.hospital.enabled && !generateConfig.clinic.enabled)}
+              disabled={generateContactsMutation.isPending || (!generateConfig.customer.enabled && !generateConfig.hospital.enabled && !generateConfig.clinic.enabled) || (previewCounts?.total === 0)}
               data-testid="btn-confirm-generate"
             >
               {generateContactsMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              Generovať kontakty
+              Generovať{previewCounts && !previewLoading ? ` (${previewCounts.total})` : ""} kontaktov
             </Button>
           </div>
         </DialogContent>

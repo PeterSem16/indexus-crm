@@ -16049,6 +16049,65 @@ export async function registerRoutes(
   });
 
   // Generate contacts from criteria
+  app.post("/api/campaigns/:id/preview-contacts-count", requireAuth, async (req, res) => {
+    try {
+      const campaign = await storage.getCampaign(req.params.id);
+      if (!campaign) {
+        return res.status(404).json({ error: "Campaign not found" });
+      }
+
+      const contactSources: string[] = req.body.contactSources || ["customer"];
+      let campaignCriteria: any = null;
+      if (campaign.criteria) {
+        try { campaignCriteria = JSON.parse(campaign.criteria); } catch (e) {}
+      }
+
+      const counts: Record<string, number> = {};
+
+      if (contactSources.includes("customer")) {
+        let customersList = await storage.getAllCustomers();
+        if (campaign.countryCodes && campaign.countryCodes.length > 0) {
+          customersList = customersList.filter(c => campaign.countryCodes.includes(c.country));
+        }
+        if (campaignCriteria) {
+          customersList = applyCriteriaGroups(customersList, campaignCriteria);
+        }
+        if (req.body.customerCriteria && Array.isArray(req.body.customerCriteria) && req.body.customerCriteria.length > 0) {
+          customersList = applyCriteriaGroups(customersList, req.body.customerCriteria);
+        }
+        counts.customer = customersList.length;
+      }
+
+      if (contactSources.includes("hospital")) {
+        let hospitalsList = await storage.getAllHospitals();
+        if (campaign.countryCodes && campaign.countryCodes.length > 0) {
+          hospitalsList = hospitalsList.filter((h: any) => campaign.countryCodes.includes(h.countryCode));
+        }
+        if (req.body.hospitalCriteria && Array.isArray(req.body.hospitalCriteria) && req.body.hospitalCriteria.length > 0) {
+          hospitalsList = applyCriteriaGroups(hospitalsList, req.body.hospitalCriteria);
+        }
+        counts.hospital = hospitalsList.length;
+      }
+
+      if (contactSources.includes("clinic")) {
+        let clinicsList = await storage.getAllClinics();
+        if (campaign.countryCodes && campaign.countryCodes.length > 0) {
+          clinicsList = clinicsList.filter((c: any) => campaign.countryCodes.includes(c.countryCode));
+        }
+        if (req.body.clinicCriteria && Array.isArray(req.body.clinicCriteria) && req.body.clinicCriteria.length > 0) {
+          clinicsList = applyCriteriaGroups(clinicsList, req.body.clinicCriteria);
+        }
+        counts.clinic = clinicsList.length;
+      }
+
+      const total = Object.values(counts).reduce((a, b) => a + b, 0);
+      res.json({ counts, total });
+    } catch (error) {
+      console.error("Failed to preview contacts count:", error);
+      res.status(500).json({ error: "Failed to preview contacts count" });
+    }
+  });
+
   app.post("/api/campaigns/:id/generate-contacts", requireAuth, async (req, res) => {
     try {
       const campaign = await storage.getCampaign(req.params.id);
@@ -16135,7 +16194,9 @@ export async function registerRoutes(
         }
       }
       
+      console.log(`[GenerateContacts] Campaign ${req.params.id}: preparing ${allContactsData.length} contacts from sources: ${contactSources.join(", ")}`);
       const contacts = allContactsData.length > 0 ? await storage.createCampaignContacts(allContactsData) : [];
+      console.log(`[GenerateContacts] Campaign ${req.params.id}: created ${contacts.length} contacts in DB`);
       
       await logActivity(
         req.session.user!.id,
