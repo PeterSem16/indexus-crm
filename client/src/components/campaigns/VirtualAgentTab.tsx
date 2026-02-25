@@ -67,8 +67,8 @@ export function VirtualAgentTab() {
   const [formData, setFormData] = useState({
     name: "",
     language: "sk",
-    greetingText: "Dobrý deň, momentálne nie je dostupný žiadny operátor. Som virtuálny asistent, ako vám môžem pomôcť?",
-    systemPrompt: "Si virtuálny asistent spoločnosti zaoberajúcej sa uchovávaním pupočníkovej krvi. Zbieraj informácie od volajúceho: meno, kontakt, dôvod volania. Buď stručný a profesionálny. Odpovedaj v slovenčine.",
+    greetingText: "Momentálne nie je dostupný žiadny operátor. Som virtuálna asistentka, ako vám môžem pomôcť?",
+    systemPrompt: "Si virtuálna asistentka spoločnosti zaoberajúcej sa uchovávaním pupočníkovej krvi. Zbieraj informácie od volajúceho: meno, kontakt, dôvod volania. Buď stručná a profesionálna. Ak je zákazník známy, oslovuj ho menom a využívaj dostupné údaje o posledných hovoroch, emailoch alebo SMS. Odpovedaj v slovenčine.",
     ttsVoice: "nova",
     ttsModel: "tts-1",
     ttsSpeed: "1.05",
@@ -131,8 +131,8 @@ export function VirtualAgentTab() {
     setFormData({
       name: "",
       language: "sk",
-      greetingText: "Dobrý deň, momentálne nie je dostupný žiadny operátor. Som virtuálny asistent, ako vám môžem pomôcť?",
-      systemPrompt: "Si virtuálny asistent spoločnosti zaoberajúcej sa uchovávaním pupočníkovej krvi. Zbieraj informácie od volajúceho: meno, kontakt, dôvod volania. Buď stručný a profesionálny. Odpovedaj v slovenčine.",
+      greetingText: "Momentálne nie je dostupný žiadny operátor. Som virtuálna asistentka, ako vám môžem pomôcť?",
+      systemPrompt: "Si virtuálna asistentka spoločnosti zaoberajúcej sa uchovávaním pupočníkovej krvi. Zbieraj informácie od volajúceho: meno, kontakt, dôvod volania. Buď stručná a profesionálna. Ak je zákazník známy, oslovuj ho menom a využívaj dostupné údaje o posledných hovoroch, emailoch alebo SMS. Odpovedaj v slovenčine.",
       ttsVoice: "nova",
       ttsModel: "tts-1",
       ttsSpeed: "1.05",
@@ -445,7 +445,22 @@ export function VirtualAgentTab() {
                   rows={3}
                   data-testid="input-va-greeting"
                 />
-                <FieldHint text="Prvá veta, ktorú agent povie volajúcemu ihneď po zdvihnutí. Vytvára prvý dojem — buďte struční a prívetiví." />
+                <FieldHint text="Prvá veta, ktorú agent povie volajúcemu ihneď po zdvihnutí. Systém automaticky pridá pozdrav podľa dennej doby a meno zákazníka (ak je známy)." />
+                <div className="mt-2 rounded-md border border-border bg-muted/40 p-3 text-xs space-y-1.5">
+                  <div className="font-medium text-foreground flex items-center gap-1.5"><Info className="h-3.5 w-3.5 text-primary" /> Automatické oslovenie</div>
+                  <p className="text-muted-foreground leading-relaxed">
+                    Systém automaticky pred váš text pridá pozdrav podľa fázy dňa a meno zákazníka ak je nájdený v databáze:
+                  </p>
+                  <div className="space-y-0.5 text-muted-foreground pl-2 border-l-2 border-primary/30">
+                    <div><span className="font-medium text-foreground">Ráno (5-12h):</span> „Dobré ráno, [Meno Priezvisko]. [váš text]"</div>
+                    <div><span className="font-medium text-foreground">Popoludnie (12-18h):</span> „Dobrý deň, [Meno Priezvisko]. [váš text]"</div>
+                    <div><span className="font-medium text-foreground">Večer (18-22h):</span> „Dobrý večer, [Meno Priezvisko]. [váš text]"</div>
+                    <div><span className="font-medium text-foreground">Neznámy volajúci:</span> „Dobrý deň. [váš text]"</div>
+                  </div>
+                  <p className="text-muted-foreground leading-relaxed pt-1">
+                    <span className="font-medium text-foreground">Príklad:</span> Ak zadáte text <span className="italic">„Momentálne nie je dostupný operátor. Som virtuálna asistentka, ako vám môžem pomôcť?"</span> — zákazníkovi sa prehrá: <span className="italic text-foreground">„Dobré ráno, Peter Seman. Momentálne nie je dostupný operátor. Som virtuálna asistentka, ako vám môžem pomôcť?"</span>
+                  </p>
+                </div>
               </div>
 
               <div className="space-y-1.5">
@@ -456,7 +471,23 @@ export function VirtualAgentTab() {
                   rows={5}
                   data-testid="input-va-prompt"
                 />
-                <FieldHint text="Hlavné inštrukcie pre AI. Definujú osobnosť, ciele a pravidlá agenta. Čím konkrétnejšie, tým lepšie odpovede. Odporúčanie: uveďte čo má zbierať (meno, kontakt, dôvod hovoru) a ako sa má správať." />
+                <FieldHint text="Hlavné inštrukcie pre AI. Definujú osobnosť, ciele a pravidlá agenta. Čím konkrétnejšie, tým lepšie odpovede." />
+                <div className="mt-2 rounded-md border border-border bg-muted/40 p-3 text-xs space-y-1.5">
+                  <div className="font-medium text-foreground flex items-center gap-1.5"><Info className="h-3.5 w-3.5 text-primary" /> Prístup k zákazníckym údajom</div>
+                  <p className="text-muted-foreground leading-relaxed">
+                    Ak je volajúci nájdený v databáze zákazníkov (podľa telefónneho čísla), agent automaticky dostane tieto údaje a môže ich použiť v konverzácii:
+                  </p>
+                  <div className="space-y-0.5 text-muted-foreground pl-2 border-l-2 border-primary/30">
+                    <div><span className="font-medium text-foreground">Meno a priezvisko</span> — oslovuje zákazníka menom</div>
+                    <div><span className="font-medium text-foreground">Email a telefón</span> — vie potvrdiť kontaktné údaje</div>
+                    <div><span className="font-medium text-foreground">Posledný hovor</span> — kto volal, kedy, smer, trvanie</div>
+                    <div><span className="font-medium text-foreground">Posledný email</span> — predmet, odosielateľ, dátum</div>
+                    <div><span className="font-medium text-foreground">Posledná SMS</span> — obsah, odosielateľ, dátum</div>
+                  </div>
+                  <p className="text-muted-foreground leading-relaxed pt-1">
+                    <span className="font-medium text-foreground">Príklad:</span> Zákazník sa spýta „Kto mi naposledy volal?" — agent odpovie: <span className="italic text-foreground">„Posledný hovor ste mali s Janou Novákovou dňa 24.2.2026."</span>
+                  </p>
+                </div>
               </div>
 
               <div className="space-y-1.5">
