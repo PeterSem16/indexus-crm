@@ -9737,97 +9737,71 @@ export async function registerRoutes(
       const settings = await storage.getMailchimpSettingsByCountry((campaign.countryCodes || [])[0] || "SK");
       if (!settings) return res.status(400).json({ error: "No Mailchimp settings" });
 
-      const { testEmails, testMergeFields } = req.body;
+      const { testEmails, testMergeFields, sendMethod } = req.body;
       if (!testEmails || !Array.isArray(testEmails) || testEmails.length === 0) {
         return res.status(400).json({ error: "At least one test email is required" });
       }
 
-      if (testMergeFields && Object.keys(testMergeFields).length > 0) {
+      if (sendMethod === "ms365") {
         const content = await mailchimpApi.getCampaignContent(
           { apiKey: settings.apiKey, serverPrefix: settings.serverPrefix },
           sync.mailchimpCampaignId
         );
 
-        if (content.html) {
-          let personalizedHtml = content.html;
+        if (!content.html) {
+          return res.status(400).json({ error: "Žiadny obsah kampane. Najprv uložte obsah do Mailchimp." });
+        }
+
+        let personalizedHtml = content.html;
+        if (testMergeFields) {
           for (const [key, value] of Object.entries(testMergeFields)) {
             const regex = new RegExp(`\\*\\|${key}\\|\\*`, "g");
             personalizedHtml = personalizedHtml.replace(regex, value as string);
           }
-          personalizedHtml = personalizedHtml.replace(/\*\|[A-Z_]+\|\*/g, "");
-
-          const listInfo = await mailchimpApi.getListInfo(
-            { apiKey: settings.apiKey, serverPrefix: settings.serverPrefix },
-            sync.mailchimpListId || ""
-          );
-
-          const campaignInfo = await mailchimpApi.getCampaignInfo(
-            { apiKey: settings.apiKey, serverPrefix: settings.serverPrefix },
-            sync.mailchimpCampaignId
-          );
-
-          let sent = false;
-          try {
-            const user = req.session.user!;
-            const ms365Conn = await storage.getUserMs365Connection(user.id);
-            if (ms365Conn) {
-              const ms365 = await import("./lib/ms365.js");
-              const tokenData = await ms365.getValidAccessToken(
-                ms365Conn.accessToken,
-                ms365Conn.tokenExpiresAt,
-                ms365Conn.refreshToken
-              );
-              if (tokenData) {
-                if (tokenData.refreshed && tokenData.refreshToken) {
-                  await storage.updateUserMs365Connection(user.id, {
-                    accessToken: tokenData.accessToken,
-                    refreshToken: tokenData.refreshToken,
-                    tokenExpiresAt: tokenData.expiresOn,
-                  });
-                }
-                for (const to of testEmails) {
-                  await ms365.sendEmail(
-                    tokenData.accessToken,
-                    [to],
-                    `[TEST] ${campaignInfo.title || campaign.name}`,
-                    personalizedHtml,
-                    true
-                  );
-                }
-                sent = true;
-              }
-            }
-          } catch (ms365Err) {
-            console.log("MS365 send failed, falling back to Mailchimp test:", ms365Err);
-          }
-
-          if (sent) {
-            res.json({ success: true, method: "ms365_personalized" });
-            return;
-          }
         }
-      }
+        personalizedHtml = personalizedHtml.replace(/\*\|[A-Z_]+\|\*/g, "");
 
-      if (testMergeFields && sync.mailchimpListId) {
-        try {
-          const testContacts = testEmails.map((email: string) => ({
-            email,
-            firstName: testMergeFields?.FNAME || "",
-            lastName: testMergeFields?.LNAME || "",
-            phone: testMergeFields?.PHONE || "",
-            company: testMergeFields?.COMPANY || "",
-            city: testMergeFields?.CITY || "",
-            address: testMergeFields?.ADDRESS || "",
-          }));
-          await mailchimpApi.addContactsToList(
-            { apiKey: settings.apiKey, serverPrefix: settings.serverPrefix },
-            sync.mailchimpListId,
-            testContacts,
-            ["test"]
-          );
-        } catch (e) {
-          console.log("Could not add test subscriber merge fields:", e);
+        const campaignInfo = await mailchimpApi.getCampaignInfo(
+          { apiKey: settings.apiKey, serverPrefix: settings.serverPrefix },
+          sync.mailchimpCampaignId
+        );
+
+        const user = req.session.user!;
+        const ms365Conn = await storage.getUserMs365Connection(user.id);
+        if (!ms365Conn) {
+          return res.status(400).json({ error: "Nemáte pripojený MS365 účet. Použite Mailchimp test alebo si pripojte MS365 v nastaveniach." });
         }
+
+        const ms365 = await import("./lib/ms365.js");
+        const tokenData = await ms365.getValidAccessToken(
+          ms365Conn.accessToken,
+          ms365Conn.tokenExpiresAt,
+          ms365Conn.refreshToken
+        );
+        if (!tokenData) {
+          return res.status(400).json({ error: "MS365 token vypršal. Znova sa prihláste do MS365." });
+        }
+
+        if (tokenData.refreshed && tokenData.refreshToken) {
+          await storage.updateUserMs365Connection(user.id, {
+            accessToken: tokenData.accessToken,
+            refreshToken: tokenData.refreshToken,
+            tokenExpiresAt: tokenData.expiresOn,
+          });
+        }
+
+        for (const to of testEmails) {
+          await ms365.sendEmail(
+            tokenData.accessToken,
+            [to],
+            `[TEST] ${campaignInfo.title || campaign.name}`,
+            personalizedHtml,
+            true
+          );
+        }
+
+        res.json({ success: true, method: "ms365_personalized" });
+        return;
       }
 
       await mailchimpApi.sendTestEmail(

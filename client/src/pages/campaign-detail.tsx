@@ -4025,6 +4025,7 @@ function MailchimpSyncSection({ campaignId, campaignName, countryCodes }: { camp
   const [testFname, setTestFname] = useState("");
   const [testLname, setTestLname] = useState("");
   const [testCompany, setTestCompany] = useState("");
+  const [testSendMethod, setTestSendMethod] = useState<"ms365" | "mailchimp">("ms365");
 
   const { data: syncInfo, isLoading: syncLoading } = useQuery<any>({
     queryKey: ["/api/campaigns", campaignId, "mailchimp", "sync"],
@@ -4177,6 +4178,7 @@ function MailchimpSyncSection({ campaignId, campaignName, countryCodes }: { camp
       await apiRequest("POST", `/api/campaigns/${campaignId}/mailchimp/test-email`, {
         testEmails: [testEmail],
         testMergeFields: Object.keys(testMergeFields).length > 0 ? testMergeFields : undefined,
+        sendMethod: testSendMethod,
       });
     },
     onSuccess: () => {
@@ -4477,7 +4479,43 @@ function MailchimpSyncSection({ campaignId, campaignName, countryCodes }: { camp
 
               {showTestEmail && (
                 <div className="p-3 bg-muted/50 rounded-lg space-y-3">
-                  <p className="text-xs font-medium text-muted-foreground">Zadajte testovacie údaje pre overenie premenných v emaile:</p>
+                  <div className="flex items-center gap-4">
+                    <p className="text-xs font-medium text-muted-foreground">Spôsob odoslania:</p>
+                    <div className="flex items-center gap-3">
+                      <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="testSendMethod"
+                          checked={testSendMethod === "ms365"}
+                          onChange={() => setTestSendMethod("ms365")}
+                          className="w-3.5 h-3.5"
+                          data-testid="radio-test-ms365"
+                        />
+                        <span className="text-xs font-medium">MS365 (s premennými)</span>
+                      </label>
+                      <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="testSendMethod"
+                          checked={testSendMethod === "mailchimp"}
+                          onChange={() => setTestSendMethod("mailchimp")}
+                          className="w-3.5 h-3.5"
+                          data-testid="radio-test-mailchimp"
+                        />
+                        <span className="text-xs font-medium">Mailchimp test</span>
+                      </label>
+                    </div>
+                  </div>
+                  {testSendMethod === "ms365" && (
+                    <p className="text-xs text-blue-600 dark:text-blue-400">
+                      Email sa odošle cez váš MS365 účet s nahradenými premennými. Uvidíte skutočné údaje namiesto placeholderov.
+                    </p>
+                  )}
+                  {testSendMethod === "mailchimp" && (
+                    <p className="text-xs text-amber-600 dark:text-amber-400">
+                      Mailchimp testovací email zobrazí premenné ako &lt;&lt; Test First Name &gt;&gt; namiesto reálnych údajov.
+                    </p>
+                  )}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                     <div className="space-y-1">
                       <Label className="text-xs">Email *</Label>
@@ -4489,33 +4527,37 @@ function MailchimpSyncSection({ campaignId, campaignName, countryCodes }: { camp
                         data-testid="input-mc-test-email"
                       />
                     </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">Meno (FNAME)</Label>
-                      <Input
-                        value={testFname}
-                        onChange={e => setTestFname(e.target.value)}
-                        placeholder="Ján"
-                        data-testid="input-mc-test-fname"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">Priezvisko (LNAME)</Label>
-                      <Input
-                        value={testLname}
-                        onChange={e => setTestLname(e.target.value)}
-                        placeholder="Novák"
-                        data-testid="input-mc-test-lname"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">Firma (COMPANY)</Label>
-                      <Input
-                        value={testCompany}
-                        onChange={e => setTestCompany(e.target.value)}
-                        placeholder="Firma s.r.o."
-                        data-testid="input-mc-test-company"
-                      />
-                    </div>
+                    {testSendMethod === "ms365" && (
+                      <>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Meno (FNAME)</Label>
+                          <Input
+                            value={testFname}
+                            onChange={e => setTestFname(e.target.value)}
+                            placeholder="Ján"
+                            data-testid="input-mc-test-fname"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Priezvisko (LNAME)</Label>
+                          <Input
+                            value={testLname}
+                            onChange={e => setTestLname(e.target.value)}
+                            placeholder="Novák"
+                            data-testid="input-mc-test-lname"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Firma (COMPANY)</Label>
+                          <Input
+                            value={testCompany}
+                            onChange={e => setTestCompany(e.target.value)}
+                            placeholder="Firma s.r.o."
+                            data-testid="input-mc-test-company"
+                          />
+                        </div>
+                      </>
+                    )}
                   </div>
                   <div className="flex items-center gap-2">
                     <Button
@@ -4525,11 +4567,8 @@ function MailchimpSyncSection({ campaignId, campaignName, countryCodes }: { camp
                       data-testid="btn-mc-send-test"
                     >
                       {testEmailMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
-                      Odoslať test
+                      Odoslať test ({testSendMethod === "ms365" ? "MS365" : "Mailchimp"})
                     </Button>
-                    <span className="text-xs text-muted-foreground">
-                      Premenné sa nahradia zadanými údajmi v testovacom emaile.
-                    </span>
                   </div>
                 </div>
               )}
