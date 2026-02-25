@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Plus, Pencil, Trash2, Search, Megaphone, PlayCircle, CheckCircle, Clock, XCircle, ExternalLink, FileText, Calendar, LayoutList, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, BarChart3, TrendingUp, Phone, RefreshCw, Users, Mail, MessageSquare, User, Check, Loader2, Shield, Headphones, X, Download, HelpCircle, BookOpen, Type, AlignLeft, ListOrdered, CircleDot, Target, Square, TextCursorInput, Variable, GripVertical, Copy, ArrowUp, ArrowDown, Mic, Coffee, GitBranch, Voicemail, Bot } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Megaphone, PlayCircle, CheckCircle, Clock, XCircle, ExternalLink, FileText, Calendar, LayoutList, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, BarChart3, TrendingUp, Phone, RefreshCw, Users, Mail, MessageSquare, User, Check, Loader2, Shield, Headphones, X, Download, HelpCircle, BookOpen, Type, AlignLeft, ListOrdered, CircleDot, Target, Square, TextCursorInput, Variable, GripVertical, Copy, ArrowUp, ArrowDown, Mic, Coffee, GitBranch, Voicemail, Bot, Filter } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { TranscriptSearchContent } from "@/pages/transcript-search";
 import { BreakTypesTab } from "@/components/campaigns/BreakTypesTab";
@@ -1687,6 +1687,11 @@ export default function CampaignsPage() {
   const [agentsDialogCampaign, setAgentsDialogCampaign] = useState<Campaign | null>(null);
   const [selectedAgentIds, setSelectedAgentIds] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState("campaigns");
+  const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [filterType, setFilterType] = useState<string>("all");
+  const [filterChannel, setFilterChannel] = useState<string>("all");
+  const [filterCreatedBy, setFilterCreatedBy] = useState<string>("all");
+  const [showFilters, setShowFilters] = useState(false);
 
   const { data: campaigns = [], isLoading } = useQuery<Campaign[]>({
     queryKey: ["/api/campaigns"],
@@ -1799,6 +1804,8 @@ export default function CampaignsPage() {
     return users.filter(u => u.role === "admin" || (dialogCallCenterRoleId && u.roleId === dialogCallCenterRoleId));
   }, [users, dialogCallCenterRoleId]);
 
+  const activeFilterCount = [filterStatus, filterType, filterChannel, filterCreatedBy].filter(f => f !== "all").length;
+
   const filteredCampaigns = useMemo(() => {
     return campaigns.filter((campaign) => {
       const matchesSearch = 
@@ -1808,10 +1815,15 @@ export default function CampaignsPage() {
       const matchesCountry = 
         selectedCountries.length === 0 || 
         (campaign.countryCodes && campaign.countryCodes.some(c => selectedCountries.includes(c as any)));
+
+      const matchesStatus = filterStatus === "all" || campaign.status === filterStatus;
+      const matchesType = filterType === "all" || campaign.type === filterType;
+      const matchesChannel = filterChannel === "all" || (campaign.channel || "phone") === filterChannel;
+      const matchesCreatedBy = filterCreatedBy === "all" || campaign.createdBy === filterCreatedBy;
       
-      return matchesSearch && matchesCountry;
+      return matchesSearch && matchesCountry && matchesStatus && matchesType && matchesChannel && matchesCreatedBy;
     });
-  }, [campaigns, search, selectedCountries]);
+  }, [campaigns, search, selectedCountries, filterStatus, filterType, filterChannel, filterCreatedBy]);
 
   const handleSubmit = (data: CampaignFormData) => {
     if (editingCampaign) {
@@ -2083,34 +2095,135 @@ export default function CampaignsPage() {
 
         <TabsContent value="campaigns" className="flex-1 overflow-auto p-6 mt-0">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between gap-4 pb-4 flex-wrap">
-              <div className="relative flex-1 max-w-sm">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  placeholder={t.campaigns.searchPlaceholder}
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="pl-10"
-                  data-testid="input-search-campaigns"
-                />
+            <CardHeader className="pb-4 space-y-3">
+              <div className="flex items-center justify-between gap-4 flex-wrap">
+                <div className="relative flex-1 max-w-sm">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    placeholder={t.campaigns.searchPlaceholder}
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="pl-10"
+                    data-testid="input-search-campaigns"
+                  />
+                </div>
+                <div className="flex gap-2 items-center">
+                  <Button
+                    size="sm"
+                    variant={showFilters ? "default" : "outline"}
+                    onClick={() => setShowFilters(!showFilters)}
+                    data-testid="btn-toggle-campaign-filters"
+                  >
+                    <Filter className="h-4 w-4 mr-2" />
+                    Filtre
+                    {activeFilterCount > 0 && (
+                      <Badge variant="secondary" className="ml-1.5 h-5 w-5 p-0 flex items-center justify-center text-[10px]">
+                        {activeFilterCount}
+                      </Badge>
+                    )}
+                  </Button>
+                  <div className="flex gap-1 border-l pl-2 ml-1">
+                    <Button
+                      size="icon"
+                      variant={viewMode === "list" ? "default" : "ghost"}
+                      onClick={() => setViewMode("list")}
+                      data-testid="button-view-list"
+                    >
+                      <LayoutList className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant={viewMode === "calendar" ? "default" : "ghost"}
+                      onClick={() => setViewMode("calendar")}
+                      data-testid="button-view-calendar"
+                    >
+                      <Calendar className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
               </div>
-              <div className="flex gap-1">
-                <Button
-                  size="icon"
-                  variant={viewMode === "list" ? "default" : "ghost"}
-                  onClick={() => setViewMode("list")}
-                  data-testid="button-view-list"
-                >
-                  <LayoutList className="h-4 w-4" />
-                </Button>
-                <Button
-                  size="icon"
-                  variant={viewMode === "calendar" ? "default" : "ghost"}
-                  onClick={() => setViewMode("calendar")}
-                  data-testid="button-view-calendar"
-                >
-                  <Calendar className="h-4 w-4" />
-                </Button>
+
+              {showFilters && (
+                <div className="flex items-end gap-3 flex-wrap p-3 bg-muted/30 rounded-lg">
+                  <div className="space-y-1 min-w-[140px]">
+                    <Label className="text-xs text-muted-foreground">Status</Label>
+                    <Select value={filterStatus} onValueChange={setFilterStatus}>
+                      <SelectTrigger className="h-8 text-xs" data-testid="select-filter-status">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Všetky</SelectItem>
+                        <SelectItem value="draft">{(t.campaigns.statuses as Record<string, string>).draft || "Draft"}</SelectItem>
+                        <SelectItem value="active">{(t.campaigns.statuses as Record<string, string>).active || "Active"}</SelectItem>
+                        <SelectItem value="paused">{(t.campaigns.statuses as Record<string, string>).paused || "Paused"}</SelectItem>
+                        <SelectItem value="completed">{(t.campaigns.statuses as Record<string, string>).completed || "Completed"}</SelectItem>
+                        <SelectItem value="cancelled">{(t.campaigns.statuses as Record<string, string>).cancelled || "Cancelled"}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1 min-w-[140px]">
+                    <Label className="text-xs text-muted-foreground">{t.campaigns.type}</Label>
+                    <Select value={filterType} onValueChange={setFilterType}>
+                      <SelectTrigger className="h-8 text-xs" data-testid="select-filter-type">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Všetky</SelectItem>
+                        <SelectItem value="marketing">{(t.campaigns.types as Record<string, string>).marketing || "Marketing"}</SelectItem>
+                        <SelectItem value="sales">{(t.campaigns.types as Record<string, string>).sales || "Sales"}</SelectItem>
+                        <SelectItem value="follow_up">{(t.campaigns.types as Record<string, string>).follow_up || "Follow-up"}</SelectItem>
+                        <SelectItem value="retention">{(t.campaigns.types as Record<string, string>).retention || "Retention"}</SelectItem>
+                        <SelectItem value="upsell">{(t.campaigns.types as Record<string, string>).upsell || "Upsell"}</SelectItem>
+                        <SelectItem value="other">{(t.campaigns.types as Record<string, string>).other || "Other"}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1 min-w-[140px]">
+                    <Label className="text-xs text-muted-foreground">{t.campaigns.channel}</Label>
+                    <Select value={filterChannel} onValueChange={setFilterChannel}>
+                      <SelectTrigger className="h-8 text-xs" data-testid="select-filter-channel">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Všetky</SelectItem>
+                        <SelectItem value="phone">{(t.campaigns.channels as Record<string, string>).phone || "Phone"}</SelectItem>
+                        <SelectItem value="email">{(t.campaigns.channels as Record<string, string>).email || "Email"}</SelectItem>
+                        <SelectItem value="sms">{(t.campaigns.channels as Record<string, string>).sms || "SMS"}</SelectItem>
+                        <SelectItem value="mixed">{(t.campaigns.channels as Record<string, string>).mixed || "Mix"}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1 min-w-[160px]">
+                    <Label className="text-xs text-muted-foreground">Vytvoril</Label>
+                    <Select value={filterCreatedBy} onValueChange={setFilterCreatedBy}>
+                      <SelectTrigger className="h-8 text-xs" data-testid="select-filter-createdby">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Všetci</SelectItem>
+                        {users.map(u => (
+                          <SelectItem key={u.id} value={u.id}>{u.fullName}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {activeFilterCount > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 text-xs"
+                      onClick={() => { setFilterStatus("all"); setFilterType("all"); setFilterChannel("all"); setFilterCreatedBy("all"); }}
+                      data-testid="btn-clear-campaign-filters"
+                    >
+                      <X className="h-3.5 w-3.5 mr-1" />
+                      Zrušiť filtre
+                    </Button>
+                  )}
+                </div>
+              )}
+
+              <div className="text-xs text-muted-foreground">
+                {filteredCampaigns.length} z {campaigns.length} kampaní
               </div>
             </CardHeader>
             <CardContent data-tour="campaign-list">
