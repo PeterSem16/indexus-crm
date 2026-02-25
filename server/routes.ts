@@ -9467,14 +9467,23 @@ export async function registerRoutes(
     try {
       const settings = await storage.getMailchimpSettingsByCountry(req.params.countryCode);
       if (!settings) return res.status(404).json({ error: "No Mailchimp settings for this country" });
-      const { name, fromEmail, fromName } = req.body;
+      const { name, fromEmail, fromName, company, address1, city, state, zip } = req.body;
       if (!name) return res.status(400).json({ error: "Audience name is required" });
+      if (!fromEmail) return res.status(400).json({ error: "From email is required" });
+      const countryCode = req.params.countryCode;
       const newList = await mailchimpApi.createList(
         { apiKey: settings.apiKey, serverPrefix: settings.serverPrefix },
-        name,
-        "",
-        fromEmail || "",
-        fromName || ""
+        {
+          name,
+          fromEmail,
+          fromName: fromName || name,
+          company: company || fromName || name,
+          address1: address1 || "N/A",
+          city: city || "Bratislava",
+          state: state || countryCode,
+          zip: zip || "00000",
+          country: countryCode,
+        }
       );
       await logActivity(req.session.user!.id, "mailchimp_audience_created", "mailchimp_settings", settings.id, name);
       res.json(newList);

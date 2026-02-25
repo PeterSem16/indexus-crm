@@ -205,29 +205,36 @@ export async function getCampaignInfo(
 
 export async function createList(
   settings: { apiKey: string; serverPrefix: string },
-  name: string,
-  company: string = "",
-  fromEmail: string = "",
-  fromName: string = ""
+  opts: {
+    name: string;
+    company?: string;
+    fromEmail: string;
+    fromName: string;
+    address1?: string;
+    city?: string;
+    state?: string;
+    zip?: string;
+    country?: string;
+  }
 ): Promise<MailchimpListInfo> {
   const data = await mailchimpFetch(settings, "/lists", {
     method: "POST",
     body: JSON.stringify({
-      name,
+      name: opts.name,
       contact: {
-        company: company || name,
-        address1: "",
-        city: "",
-        state: "",
-        zip: "",
-        country: "SK",
+        company: opts.company || opts.fromName || opts.name,
+        address1: opts.address1 || "N/A",
+        city: opts.city || "Bratislava",
+        state: opts.state || "SK",
+        zip: opts.zip || "00000",
+        country: opts.country || "SK",
       },
-      permission_reminder: "You signed up for updates.",
+      permission_reminder: "You signed up for updates from us.",
       campaign_defaults: {
-        from_name: fromName || name,
-        from_email: fromEmail || "noreply@example.com",
+        from_name: opts.fromName,
+        from_email: opts.fromEmail,
         subject: "",
-        language: "sk",
+        language: (opts.country || "SK").toLowerCase() === "sk" ? "sk" : "en",
       },
       email_type_option: false,
     }),
