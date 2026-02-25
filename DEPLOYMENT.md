@@ -652,6 +652,116 @@ pm2 monit                     # Monitoring
 pm2 reload indexus-crm        # Zero-downtime reload
 ```
 
+### Logovanie Virtuálneho Agenta (AI Voice Bot)
+
+Virtuálny agent loguje detailné časové metriky pre každý krok konverzácie. Tieto logy sú kľúčové pre diagnostiku pomalých odpovedí a ladenie výkonu.
+
+#### Sledovanie v reálnom čase
+
+```bash
+# Všetky VA logy v reálnom čase
+pm2 logs --lines 100 | grep "\[VirtualAgent\]"
+
+# Iba TTS pipeline (časovanie generovania hlasu)
+pm2 logs --lines 100 | grep "\[VirtualAgent\] TTS:"
+
+# Iba celkové časy turnu (GPT + TTS)
+pm2 logs --lines 100 | grep "\[VirtualAgent\] Turn"
+```
+
+#### Uloženie do súboru pre analýzu
+
+```bash
+# Uložiť VA logy do súboru (spustite pred testovacím hovorom)
+pm2 logs --lines 0 | grep "\[VirtualAgent\]" >> /tmp/va-logs.txt
+
+# Po hovore zobraziť výsledky
+cat /tmp/va-logs.txt
+
+# Vyčistiť pred ďalším testom
+> /tmp/va-logs.txt
+```
+
+#### Formát logov a čo sledovať
+
+```
+[VirtualAgent] Customer found: Meno Priezvisko (uuid)          # Identifikácia zákazníka
+[VirtualAgent] Starting conversation with +421... (config: ...)  # Začiatok konverzácie
+[VirtualAgent] Using queue MOH: custom/moh-slow-jazz             # Hudba na pozadí
+[VirtualAgent] TTS: api=961ms, conv=2ms, sftp=193ms, total=1687ms  # TTS pipeline
+[VirtualAgent] Recording download: 655ms, size: 169324           # Stiahnutie nahrávky
+[VirtualAgent] Whisper STT: 1243ms                               # Rozpoznávanie reči
+[VirtualAgent] Turn 3: GPT=987ms, TTS+upload=2752ms, total=3739ms  # Celkový čas turnu
+[VirtualAgent] Conversation uuid finalized: 5 turns, 164s        # Koniec konverzácie
+```
+
+#### Kľúčové metriky a odporúčané hodnoty
+
+| Metrika | Popis | Optimálna hodnota | Pozor ak > |
+|---------|-------|-------------------|-----------|
+| **GPT** | Čas generovania AI odpovede | < 1000ms | 2000ms |
+| **TTS api** | Čas OpenAI Text-to-Speech API | < 800ms | 1500ms |
+| **TTS conv** | Konverzia audio (in-memory) | < 5ms | 50ms |
+| **TTS sftp** | Upload na Asterisk cez SFTP | < 200ms | 500ms |
+| **Whisper STT** | Rozpoznávanie reči | < 1000ms | 2000ms |
+| **Recording download** | Stiahnutie nahrávky z ARI | < 300ms | 1000ms |
+| **Turn total** | Celkový čas odpovede | < 2000ms | 4000ms |
+
+#### Tipy na zrýchlenie ak sú časy vysoké
+
+- **GPT > 2s**: Znížte `Max tokens` na 50-60, použite model `gpt-4.1-nano`
+- **TTS api > 1.5s**: Použite `tts-1` (nie HD), kratšie odpovede = rýchlejšie TTS
+- **SFTP > 500ms**: Skontrolujte sieťovú latenciu medzi CRM a Asterisk serverom
+- **Whisper > 2s**: Normálne pre dlhšie nahrávky, znížte `Silence timeout` na 2s
+- **Recording download > 1s**: Skontrolujte ARI endpoint dostupnosť
+
+### Logovanie Queue Engine (Inbound hovory)
+
+Queue Engine spravuje fronty prichádzajúcich hovorov, prideľovanie agentom a SLA metriky.
+
+#### Sledovanie v reálnom čase
+
+```bash
+# Všetky Queue Engine logy
+pm2 logs --lines 100 | grep "\[QueueEngine\]"
+
+# ARI (Asterisk) pripojenie a udalosti
+pm2 logs --lines 100 | grep "\[ARI\]"
+
+# Inbound hovory - kompletný životný cyklus
+pm2 logs --lines 100 | grep -E "\[QueueEngine\]|\[ARI\]|\[VirtualAgent\]"
+
+# Uložiť inbound logy do súboru
+pm2 logs --lines 0 | grep -E "\[QueueEngine\]|\[ARI\]" >> /tmp/queue-logs.txt
+```
+
+#### Formát Queue logov
+
+```
+[QueueEngine] Loaded agent uuid: available, queues: [queue1, queue2]  # Načítanie agentov
+[QueueEngine] Started                                                   # Engine spustený
+[QueueEngine] Call queued: channel-id → queue-name                     # Hovor zaradený do fronty
+[QueueEngine] Agent assigned: agent-id → channel-id                    # Agent priradený
+[QueueEngine] Call answered: channel-id by agent-id (wait: 12s)        # Hovor zdvihnutý
+[QueueEngine] Call completed: channel-id (duration: 180s)              # Hovor ukončený
+[QueueEngine] No agents available, action: virtual-agent               # Presmerovanie na VA
+[QueueEngine] SLA breach: channel-id waited 65s (target: 60s)         # Prekročenie SLA
+```
+
+#### Sledovanie AudioSync (SFTP upload)
+
+```bash
+# SFTP a audio synchronizácia
+pm2 logs --lines 100 | grep "\[AudioSync\]"
+```
+
+#### Kompletné logovanie pre debugging
+
+```bash
+# Všetko súvisiace s hovormi - uložiť do súboru
+pm2 logs --lines 0 | grep -E "\[VirtualAgent\]|\[QueueEngine\]|\[ARI\]|\[AudioSync\]" >> /tmp/call-debug.txt
+```
+
 ### Aktualizácia Aplikácie
 
 #### Štandardná aktualizácia (odporúčaný postup)
