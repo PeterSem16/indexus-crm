@@ -108,21 +108,39 @@ export async function createCampaign(
   name: string,
   subject: string,
   listId: string,
-  replyTo?: string,
-  fromName?: string
+  opts?: {
+    replyTo?: string;
+    fromName?: string;
+    segmentId?: number;
+    tags?: string[];
+  }
 ): Promise<MailchimpCampaignInfo> {
-  let effectiveReplyTo = replyTo || "";
-  let effectiveFromName = fromName || name;
+  let effectiveReplyTo = opts?.replyTo || "";
+  let effectiveFromName = opts?.fromName || name;
   if (!effectiveReplyTo) {
     const listInfo = await getListInfo(settings, listId);
     effectiveReplyTo = listInfo.fromEmail || "noreply@example.com";
-    if (!fromName && listInfo.fromName) effectiveFromName = listInfo.fromName;
+    if (!opts?.fromName && listInfo.fromName) effectiveFromName = listInfo.fromName;
+  }
+  const recipients: any = { list_id: listId };
+  if (opts?.segmentId) {
+    recipients.segment_opts = { saved_segment_id: opts.segmentId };
+  } else if (opts?.tags && opts.tags.length > 0) {
+    recipients.segment_opts = {
+      match: "all",
+      conditions: [{
+        condition_type: "StaticSegment",
+        field: "static_segment",
+        op: "static_is",
+        value: opts.tags,
+      }],
+    };
   }
   const data = await mailchimpFetch(settings, "/campaigns", {
     method: "POST",
     body: JSON.stringify({
       type: "regular",
-      recipients: { list_id: listId },
+      recipients,
       settings: {
         subject_line: subject,
         title: name,
@@ -244,6 +262,76 @@ export async function getListTags(
 ): Promise<{ id: number; name: string }[]> {
   const data = await mailchimpFetch(settings, `/lists/${listId}/tag-search?count=100`);
   return (data.tags || []).map((t: any) => ({ id: t.id, name: t.name }));
+}
+
+export async function getListSegments(
+  settings: { apiKey: string; serverPrefix: string },
+  listId: string
+): Promise<{ id: number; name: string; memberCount: number; type: string }[]> {
+  const data = await mailchimpFetch(settings, `/lists/${listId}/segments?count=100`);
+  return (data.segments || []).map((s: any) => ({
+    id: s.id,
+    name: s.name,
+    memberCount: s.member_count || 0,
+    type: s.type || "static",
+  }));
+}
+
+export async function createSegment(
+  settings: { apiKey: string; serverPrefix: string },
+  listId: string,
+  name: string,
+  emails?: string[]
+): Promise<{ id: number; name: string; memberCount: number }> {
+  const body: any = { name };
+  if (emails && emails.length > 0) {
+    body.static_segment = emails;
+  }
+  const data = await mailchimpFetch(settings, `/lists/${listId}/segments`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+  return { id: data.id, name: data.name, memberCount: data.member_count || 0 };
+}
+
+export async function getListWebhooks(
+  settings: { apiKey: string; serverPrefix: string },
+  listId: string
+): Promise<{ id: string; url: string; events: Record<string, boolean>; sources: Record<string, boolean> }[]> {
+  const data = await mailchimpFetch(settings, `/lists/${listId}/webhooks`);
+  return (data.webhooks || []).map((w: any) => ({
+    id: w.id,
+    url: w.url,
+    events: w.events || {},
+    sources: w.sources || {},
+  }));
+}
+
+export async function createWebhook(
+  settings: { apiKey: string; serverPrefix: string },
+  listId: string,
+  url: string,
+  events: Record<string, boolean>
+): Promise<{ id: string; url: string }> {
+  const data = await mailchimpFetch(settings, `/lists/${listId}/webhooks`, {
+    method: "POST",
+    body: JSON.stringify({
+      url,
+      events,
+      sources: { user: true, admin: true, api: true },
+    }),
+  });
+  return { id: data.id, url: data.url };
+}
+
+export async function deleteWebhook(
+  settings: { apiKey: string; serverPrefix: string },
+  listId: string,
+  webhookId: string
+): Promise<void> {
+  await mailchimpFetch(settings, `/lists/${listId}/webhooks/${webhookId}`, {
+    method: "DELETE",
+  });
 }
 
 export async function getCampaignInfo(

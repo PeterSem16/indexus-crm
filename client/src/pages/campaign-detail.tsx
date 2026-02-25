@@ -13,7 +13,7 @@ import {
   ThumbsUp, ThumbsDown, CalendarPlus, PhoneOff, AlertCircle, XCircle, Zap, Star,
   CircleDot, Info, Heart, Ban, Bell, Send, Target, Flag, Eye, EyeOff,
   Volume2, VolumeX, UserCheck, UserX, Briefcase, Gift, Home, MapPin, Globe, Wand2,
-  Variable, Building2, Building, Loader2,
+  Variable, Building2, Building, Loader2, Tag,
   type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -4026,6 +4026,11 @@ function MailchimpSyncSection({ campaignId, campaignName, countryCodes }: { camp
   const [testLname, setTestLname] = useState("");
   const [testCompany, setTestCompany] = useState("");
   const [testSendMethod, setTestSendMethod] = useState<"ms365" | "mailchimp">("ms365");
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [selectedSegmentId, setSelectedSegmentId] = useState("");
+  const [webhookUrl, setWebhookUrl] = useState("");
+  const [webhookEvents, setWebhookEvents] = useState({ subscribe: true, unsubscribe: true, campaign: true, cleaned: false, upemail: false });
 
   const { data: syncInfo, isLoading: syncLoading } = useQuery<any>({
     queryKey: ["/api/campaigns", campaignId, "mailchimp", "sync"],
@@ -4040,6 +4045,38 @@ function MailchimpSyncSection({ campaignId, campaignName, countryCodes }: { camp
     enabled: !syncInfo?.mailchimpCampaignId,
     queryFn: async () => {
       const res = await fetch(`/api/config/mailchimp-settings/${countryCodes[0] || "SK"}/audiences`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
+  const countryCode = countryCodes[0] || "SK";
+
+  const { data: listTags = [] } = useQuery<any[]>({
+    queryKey: ["/api/config/mailchimp-settings", countryCode, "audiences", selectedListId, "tags"],
+    enabled: !!selectedListId && !syncInfo?.mailchimpCampaignId,
+    queryFn: async () => {
+      const res = await fetch(`/api/config/mailchimp-settings/${countryCode}/audiences/${selectedListId}/tags`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
+  const { data: listSegments = [] } = useQuery<any[]>({
+    queryKey: ["/api/config/mailchimp-settings", countryCode, "audiences", selectedListId, "segments"],
+    enabled: !!selectedListId && !syncInfo?.mailchimpCampaignId,
+    queryFn: async () => {
+      const res = await fetch(`/api/config/mailchimp-settings/${countryCode}/audiences/${selectedListId}/segments`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
+  const { data: listWebhooks = [] } = useQuery<any[]>({
+    queryKey: ["/api/config/mailchimp-settings", countryCode, "audiences", selectedListId, "webhooks"],
+    enabled: !!selectedListId && !syncInfo?.mailchimpCampaignId,
+    queryFn: async () => {
+      const res = await fetch(`/api/config/mailchimp-settings/${countryCode}/audiences/${selectedListId}/webhooks`);
       if (!res.ok) return [];
       return res.json();
     },
@@ -4122,10 +4159,14 @@ function MailchimpSyncSection({ campaignId, campaignName, countryCodes }: { camp
 
   const createMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("POST", `/api/campaigns/${campaignId}/mailchimp/create`, {
-        listId: selectedListId,
-        subject,
-      });
+      const body: any = { listId: selectedListId, subject };
+      if (selectedSegmentId && selectedSegmentId !== "all") body.segmentId = selectedSegmentId;
+      if (selectedTags.length > 0) body.tags = selectedTags;
+      if (webhookUrl) {
+        body.webhookUrl = webhookUrl;
+        body.webhookEvents = webhookEvents;
+      }
+      const res = await apiRequest("POST", `/api/campaigns/${campaignId}/mailchimp/create`, body);
       return res.json();
     },
     onSuccess: () => {
@@ -4327,6 +4368,125 @@ function MailchimpSyncSection({ campaignId, campaignName, countryCodes }: { camp
               </div>
             )}
           </div>
+          {selectedListId && (
+            <div className="border-t pt-3">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs mb-2"
+                onClick={() => setShowAdvanced(!showAdvanced)}
+                data-testid="btn-toggle-advanced"
+              >
+                <Settings className="w-3.5 h-3.5 mr-1" />
+                {showAdvanced ? "Skryť rozšírené nastavenia" : "Rozšírené nastavenia"}
+                {(selectedTags.length > 0 || selectedSegmentId || webhookUrl) && (
+                  <Badge variant="secondary" className="ml-2 h-4 px-1.5 text-[10px]">
+                    {[selectedTags.length > 0, !!selectedSegmentId, !!webhookUrl].filter(Boolean).length}
+                  </Badge>
+                )}
+              </Button>
+
+              {showAdvanced && (
+                <div className="space-y-4 p-3 border rounded-lg bg-muted/20">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium flex items-center gap-1.5">
+                      <Tag className="w-3.5 h-3.5" />
+                      Tagy
+                    </Label>
+                    <p className="text-xs text-muted-foreground">Odoslať kampaň len kontaktom s vybranými tagmi (voliteľné).</p>
+                    {listTags.length > 0 ? (
+                      <div className="flex flex-wrap gap-1.5">
+                        {listTags.map((t: any) => (
+                          <Button
+                            key={t.name}
+                            type="button"
+                            variant={selectedTags.includes(t.name) ? "default" : "outline"}
+                            size="sm"
+                            className="h-6 text-xs"
+                            onClick={() => {
+                              setSelectedTags(prev =>
+                                prev.includes(t.name) ? prev.filter(x => x !== t.name) : [...prev, t.name]
+                              );
+                            }}
+                            data-testid={`tag-${t.name}`}
+                          >
+                            {t.name}
+                          </Button>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground italic">Žiadne tagy v audience.</p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium flex items-center gap-1.5">
+                      <Filter className="w-3.5 h-3.5" />
+                      Segment
+                    </Label>
+                    <p className="text-xs text-muted-foreground">Odoslať kampaň len vybranému segmentu (voliteľné).</p>
+                    <Select value={selectedSegmentId} onValueChange={setSelectedSegmentId}>
+                      <SelectTrigger className="h-8" data-testid="select-mc-segment">
+                        <SelectValue placeholder="Všetci kontakty (bez segmentu)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Všetci kontakty</SelectItem>
+                        {listSegments.map((s: any) => (
+                          <SelectItem key={s.id} value={String(s.id)}>
+                            {s.name} ({s.memberCount} kontaktov) — {s.type}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium flex items-center gap-1.5">
+                      <Globe className="w-3.5 h-3.5" />
+                      Webhook
+                    </Label>
+                    <p className="text-xs text-muted-foreground">URL pre notifikácie o udalostiach (subscribe, unsubscribe, campaign).</p>
+                    <Input
+                      value={webhookUrl}
+                      onChange={e => setWebhookUrl(e.target.value)}
+                      placeholder="https://vasa-domena.sk/webhook/mailchimp"
+                      className="h-8 text-sm"
+                      data-testid="input-mc-webhook-url"
+                    />
+                    {webhookUrl && (
+                      <div className="flex flex-wrap gap-2 mt-1">
+                        {Object.entries(webhookEvents).map(([key, checked]) => (
+                          <label key={key} className="flex items-center gap-1 text-xs cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={e => setWebhookEvents(prev => ({ ...prev, [key]: e.target.checked }))}
+                              className="w-3 h-3"
+                            />
+                            {key}
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                    {listWebhooks.length > 0 && (
+                      <div className="mt-2">
+                        <p className="text-xs text-muted-foreground mb-1">Existujúce webhooky:</p>
+                        {listWebhooks.map((w: any) => (
+                          <div key={w.id} className="text-xs bg-muted/50 rounded px-2 py-1 mb-1 flex items-center justify-between">
+                            <span className="truncate">{w.url}</span>
+                            <span className="text-muted-foreground ml-2 flex-shrink-0">
+                              {Object.entries(w.events || {}).filter(([_, v]) => v).map(([k]) => k).join(", ")}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           <Button
             onClick={() => createMutation.mutate()}
             disabled={createMutation.isPending || !selectedListId}

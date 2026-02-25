@@ -9505,6 +9505,91 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/config/mailchimp-settings/:countryCode/audiences/:listId/tags", requireAuth, async (req, res) => {
+    try {
+      const settings = await storage.getMailchimpSettingsByCountry(req.params.countryCode);
+      if (!settings) return res.status(404).json({ error: "No Mailchimp settings" });
+      const tags = await mailchimpApi.getListTags({ apiKey: settings.apiKey, serverPrefix: settings.serverPrefix }, req.params.listId);
+      res.json(tags);
+    } catch (error: any) {
+      console.error("Error fetching mailchimp tags:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch tags" });
+    }
+  });
+
+  app.get("/api/config/mailchimp-settings/:countryCode/audiences/:listId/segments", requireAuth, async (req, res) => {
+    try {
+      const settings = await storage.getMailchimpSettingsByCountry(req.params.countryCode);
+      if (!settings) return res.status(404).json({ error: "No Mailchimp settings" });
+      const segments = await mailchimpApi.getListSegments({ apiKey: settings.apiKey, serverPrefix: settings.serverPrefix }, req.params.listId);
+      res.json(segments);
+    } catch (error: any) {
+      console.error("Error fetching mailchimp segments:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch segments" });
+    }
+  });
+
+  app.post("/api/config/mailchimp-settings/:countryCode/audiences/:listId/segments", requireAuth, async (req, res) => {
+    try {
+      const settings = await storage.getMailchimpSettingsByCountry(req.params.countryCode);
+      if (!settings) return res.status(404).json({ error: "No Mailchimp settings" });
+      const { name } = req.body;
+      if (!name) return res.status(400).json({ error: "Segment name is required" });
+      const segment = await mailchimpApi.createSegment({ apiKey: settings.apiKey, serverPrefix: settings.serverPrefix }, req.params.listId, name);
+      res.json(segment);
+    } catch (error: any) {
+      console.error("Error creating segment:", error);
+      res.status(500).json({ error: error.message || "Failed to create segment" });
+    }
+  });
+
+  app.get("/api/config/mailchimp-settings/:countryCode/audiences/:listId/webhooks", requireAuth, async (req, res) => {
+    try {
+      const settings = await storage.getMailchimpSettingsByCountry(req.params.countryCode);
+      if (!settings) return res.status(404).json({ error: "No Mailchimp settings" });
+      const webhooks = await mailchimpApi.getListWebhooks({ apiKey: settings.apiKey, serverPrefix: settings.serverPrefix }, req.params.listId);
+      res.json(webhooks);
+    } catch (error: any) {
+      console.error("Error fetching webhooks:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch webhooks" });
+    }
+  });
+
+  app.post("/api/config/mailchimp-settings/:countryCode/audiences/:listId/webhooks", requireAuth, async (req, res) => {
+    try {
+      const settings = await storage.getMailchimpSettingsByCountry(req.params.countryCode);
+      if (!settings) return res.status(404).json({ error: "No Mailchimp settings" });
+      const { url, events } = req.body;
+      if (!url) return res.status(400).json({ error: "Webhook URL is required" });
+      const webhook = await mailchimpApi.createWebhook(
+        { apiKey: settings.apiKey, serverPrefix: settings.serverPrefix },
+        req.params.listId,
+        url,
+        events || { subscribe: true, unsubscribe: true, campaign: true }
+      );
+      res.json(webhook);
+    } catch (error: any) {
+      console.error("Error creating webhook:", error);
+      res.status(500).json({ error: error.message || "Failed to create webhook" });
+    }
+  });
+
+  app.delete("/api/config/mailchimp-settings/:countryCode/audiences/:listId/webhooks/:webhookId", requireAuth, async (req, res) => {
+    try {
+      const settings = await storage.getMailchimpSettingsByCountry(req.params.countryCode);
+      if (!settings) return res.status(404).json({ error: "No Mailchimp settings" });
+      await mailchimpApi.deleteWebhook(
+        { apiKey: settings.apiKey, serverPrefix: settings.serverPrefix },
+        req.params.listId,
+        req.params.webhookId
+      );
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error deleting webhook:", error);
+      res.status(500).json({ error: error.message || "Failed to delete webhook" });
+    }
+  });
+
   // ========== CAMPAIGN MAILCHIMP SYNC ==========
 
   app.post("/api/campaigns/:id/mailchimp/create", requireAuth, async (req, res) => {
@@ -9521,12 +9606,31 @@ export async function registerRoutes(
       const listId = req.body.listId || settings.defaultAudienceId;
       if (!listId) return res.status(400).json({ error: "No audience/list selected" });
 
+      const { segmentId, tags: campaignTags, webhookUrl, webhookEvents } = req.body;
+
       const mcCampaign = await mailchimpApi.createCampaign(
         { apiKey: settings.apiKey, serverPrefix: settings.serverPrefix },
         campaign.name,
         req.body.subject || campaign.name,
-        listId
+        listId,
+        {
+          segmentId: segmentId ? Number(segmentId) : undefined,
+          tags: campaignTags && campaignTags.length > 0 ? campaignTags : undefined,
+        }
       );
+
+      if (webhookUrl) {
+        try {
+          await mailchimpApi.createWebhook(
+            { apiKey: settings.apiKey, serverPrefix: settings.serverPrefix },
+            listId,
+            webhookUrl,
+            webhookEvents || { subscribe: true, unsubscribe: true, campaign: true }
+          );
+        } catch (whErr: any) {
+          console.log("Webhook creation failed (non-blocking):", whErr.message);
+        }
+      }
 
       const sync = await storage.upsertCampaignMailchimpSync({
         campaignId: campaign.id,
