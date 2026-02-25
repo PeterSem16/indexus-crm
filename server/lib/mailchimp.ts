@@ -202,3 +202,78 @@ export async function getCampaignInfo(
     title: data.settings?.title || "",
   };
 }
+
+export async function setCampaignContent(
+  settings: { apiKey: string; serverPrefix: string },
+  mailchimpCampaignId: string,
+  html: string
+): Promise<void> {
+  await mailchimpFetch(settings, `/campaigns/${mailchimpCampaignId}/content`, {
+    method: "PUT",
+    body: JSON.stringify({ html }),
+  });
+}
+
+export async function getCampaignContent(
+  settings: { apiKey: string; serverPrefix: string },
+  mailchimpCampaignId: string
+): Promise<{ html: string; plainText: string }> {
+  const data = await mailchimpFetch(settings, `/campaigns/${mailchimpCampaignId}/content`);
+  return {
+    html: data.html || "",
+    plainText: data.plain_text || "",
+  };
+}
+
+export async function sendCampaign(
+  settings: { apiKey: string; serverPrefix: string },
+  mailchimpCampaignId: string
+): Promise<void> {
+  const url = `${getBaseUrl(settings.serverPrefix)}/campaigns/${mailchimpCampaignId}/actions/send`;
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: getAuthHeader(settings.apiKey),
+      "Content-Type": "application/json",
+    },
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: response.statusText }));
+    throw new Error(`Mailchimp API error (${response.status}): ${error.detail || error.title || response.statusText}`);
+  }
+}
+
+export async function sendTestEmail(
+  settings: { apiKey: string; serverPrefix: string },
+  mailchimpCampaignId: string,
+  testEmails: string[],
+  sendType: "html" | "plaintext" = "html"
+): Promise<void> {
+  const url = `${getBaseUrl(settings.serverPrefix)}/campaigns/${mailchimpCampaignId}/actions/test`;
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: getAuthHeader(settings.apiKey),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      test_emails: testEmails,
+      send_type: sendType,
+    }),
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: response.statusText }));
+    throw new Error(`Mailchimp API error (${response.status}): ${error.detail || error.title || response.statusText}`);
+  }
+}
+
+export async function updateCampaignSettings(
+  settings: { apiKey: string; serverPrefix: string },
+  mailchimpCampaignId: string,
+  campaignSettings: { subject_line?: string; from_name?: string; reply_to?: string }
+): Promise<void> {
+  await mailchimpFetch(settings, `/campaigns/${mailchimpCampaignId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ settings: campaignSettings }),
+  });
+}

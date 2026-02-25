@@ -201,6 +201,9 @@ import { CampaignContactsFilter, type CampaignContactFilters, applyContactFilter
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from "recharts";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import ReactQuill from "react-quill";
+import "react-quill/dist/quill.snow.css";
+import type { MessageTemplate } from "@shared/schema";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 const ICON_PICKER_SET: { name: string; icon: LucideIcon }[] = [
@@ -4007,6 +4010,14 @@ export default function CampaignDetailPage() {
 
 function MailchimpSyncSection({ campaignId, campaignName, countryCodes }: { campaignId: string; campaignName: string; countryCodes: string[] }) {
   const { toast } = useToast();
+  const [selectedListId, setSelectedListId] = useState("");
+  const [subject, setSubject] = useState(campaignName);
+  const [emailHtml, setEmailHtml] = useState("");
+  const [testEmail, setTestEmail] = useState("");
+  const [showTestEmail, setShowTestEmail] = useState(false);
+  const [contentSaved, setContentSaved] = useState(false);
+  const [showSendConfirm, setShowSendConfirm] = useState(false);
+  const [mcSubTab, setMcSubTab] = useState<"editor" | "sync" | "stats">("editor");
 
   const { data: syncInfo, isLoading: syncLoading } = useQuery<any>({
     queryKey: ["/api/campaigns", campaignId, "mailchimp", "sync"],
@@ -4026,8 +4037,28 @@ function MailchimpSyncSection({ campaignId, campaignName, countryCodes }: { camp
     },
   });
 
-  const [selectedListId, setSelectedListId] = useState("");
-  const [subject, setSubject] = useState(campaignName);
+  const { data: emailTemplates = [] } = useQuery<MessageTemplate[]>({
+    queryKey: ["/api/message-templates"],
+  });
+
+  const htmlTemplates = emailTemplates.filter(t => t.type === "email");
+
+  const { data: mcContent } = useQuery<{ html: string; plainText: string }>({
+    queryKey: ["/api/campaigns", campaignId, "mailchimp", "content"],
+    enabled: !!syncInfo?.mailchimpCampaignId,
+    queryFn: async () => {
+      const res = await fetch(`/api/campaigns/${campaignId}/mailchimp/content`);
+      if (!res.ok) return { html: "", plainText: "" };
+      return res.json();
+    },
+  });
+
+  useEffect(() => {
+    if (mcContent?.html && !emailHtml) {
+      setEmailHtml(mcContent.html);
+      setContentSaved(true);
+    }
+  }, [mcContent]);
 
   const createMutation = useMutation({
     mutationFn: async () => {
@@ -4060,6 +4091,54 @@ function MailchimpSyncSection({ campaignId, campaignName, countryCodes }: { camp
     },
   });
 
+  const saveContentMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("PUT", `/api/campaigns/${campaignId}/mailchimp/content`, {
+        html: emailHtml,
+        subject,
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      setContentSaved(true);
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "mailchimp", "sync"] });
+      toast({ title: "Obsah uložený do Mailchimp" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Chyba", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const testEmailMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("POST", `/api/campaigns/${campaignId}/mailchimp/test-email`, {
+        testEmails: [testEmail],
+      });
+    },
+    onSuccess: () => {
+      toast({ title: "Testovací email odoslaný", description: `Na adresu: ${testEmail}` });
+      setShowTestEmail(false);
+    },
+    onError: (err: any) => {
+      toast({ title: "Chyba", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const sendCampaignMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("POST", `/api/campaigns/${campaignId}/mailchimp/send`);
+    },
+    onSuccess: () => {
+      setShowSendConfirm(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "mailchimp", "sync"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "mailchimp", "stats"] });
+      toast({ title: "Kampaň odoslaná!", description: "Mailchimp kampaň bola úspešne odoslaná." });
+    },
+    onError: (err: any) => {
+      toast({ title: "Chyba pri odosielaní", description: err.message, variant: "destructive" });
+    },
+  });
+
   const { data: mcStats } = useQuery<any>({
     queryKey: ["/api/campaigns", campaignId, "mailchimp", "stats"],
     enabled: !!syncInfo?.mailchimpCampaignId,
@@ -4071,69 +4150,230 @@ function MailchimpSyncSection({ campaignId, campaignName, countryCodes }: { camp
     refetchInterval: 60000,
   });
 
+  const handleSelectTemplate = (templateId: string) => {
+    const template = htmlTemplates.find(t => t.id === templateId);
+    if (template) {
+      setEmailHtml(template.contentHtml || template.content || "");
+      if (template.subject) setSubject(template.subject);
+      setContentSaved(false);
+    }
+  };
+
+  const quillModules = useMemo(() => ({
+    toolbar: [
+      [{ 'header': [1, 2, 3, false] }],
+      ['bold', 'italic', 'underline', 'strike'],
+      [{ 'color': [] }, { 'background': [] }],
+      [{ 'align': [] }],
+      [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+      ['link', 'image'],
+      ['clean']
+    ]
+  }), []);
+
   if (syncLoading) return <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div>;
 
-  return (
-    <div className="space-y-6">
-      {!syncInfo?.mailchimpCampaignId ? (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Mail className="w-5 h-5" />
-              Vytvoriť Mailchimp kampaň
-            </CardTitle>
-            <CardDescription>
-              Prepojte túto kampaň s Mailchimp a synchronizujte kontakty.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
+  if (!syncInfo?.mailchimpCampaignId) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Mail className="w-5 h-5" />
+            Vytvoriť Mailchimp kampaň
+          </CardTitle>
+          <CardDescription>
+            Prepojte túto kampaň s Mailchimp a synchronizujte kontakty.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label>Predmet emailu</Label>
+            <Input value={subject} onChange={e => setSubject(e.target.value)} placeholder="Predmet emailovej kampane" data-testid="input-mc-subject" />
+          </div>
+          {audiences.length > 0 ? (
             <div className="space-y-2">
-              <Label>Predmet emailu</Label>
-              <Input value={subject} onChange={e => setSubject(e.target.value)} placeholder="Predmet emailovej kampane" data-testid="input-mc-subject" />
+              <Label>Audience (zoznam)</Label>
+              <Select value={selectedListId} onValueChange={setSelectedListId}>
+                <SelectTrigger data-testid="select-mc-audience-campaign">
+                  <SelectValue placeholder="Vyberte audience..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {audiences.map((a: any) => (
+                    <SelectItem key={a.id} value={a.id}>
+                      {a.name} ({a.memberCount} kontaktov)
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-            {audiences.length > 0 ? (
-              <div className="space-y-2">
-                <Label>Audience (zoznam)</Label>
-                <Select value={selectedListId} onValueChange={setSelectedListId}>
-                  <SelectTrigger data-testid="select-mc-audience-campaign">
-                    <SelectValue placeholder="Vyberte audience..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {audiences.map((a: any) => (
-                      <SelectItem key={a.id} value={a.id}>
-                        {a.name} ({a.memberCount} kontaktov)
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+          ) : (
+            <p className="text-sm text-amber-600">
+              Najprv nastavte Mailchimp v konfigurácia &gt; Email & GSM &gt; Mailchimp pre krajinu {countryCodes[0] || "SK"}.
+            </p>
+          )}
+          <Button
+            onClick={() => createMutation.mutate()}
+            disabled={createMutation.isPending || !selectedListId}
+            data-testid="btn-create-mc-campaign"
+          >
+            {createMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+            Vytvoriť v Mailchimp
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const isSent = syncInfo.status === "sent";
+  const statusLabels: Record<string, string> = {
+    created: "Vytvorená",
+    synced: "Kontakty synchronizované",
+    content_set: "Obsah nastavený",
+    sent: "Odoslaná",
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Mail className="w-5 h-5" />
+          <div>
+            <h3 className="font-semibold">Mailchimp kampaň</h3>
+            <p className="text-xs text-muted-foreground">ID: {syncInfo.mailchimpCampaignId}</p>
+          </div>
+          <Badge variant={isSent ? "default" : "secondary"} data-testid="badge-mc-sync-status">
+            {statusLabels[syncInfo.status] || syncInfo.status}
+          </Badge>
+        </div>
+      </div>
+
+      <Tabs value={mcSubTab} onValueChange={(v) => setMcSubTab(v as any)}>
+        <TabsList>
+          <TabsTrigger value="editor" data-testid="mc-tab-editor">
+            <FileText className="w-4 h-4 mr-2" />
+            Email editor
+          </TabsTrigger>
+          <TabsTrigger value="sync" data-testid="mc-tab-sync">
+            <Users className="w-4 h-4 mr-2" />
+            Kontakty & Odoslanie
+          </TabsTrigger>
+          <TabsTrigger value="stats" data-testid="mc-tab-stats">
+            <BarChart3 className="w-4 h-4 mr-2" />
+            Štatistiky
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="editor" className="space-y-4">
+          <Card>
+            <CardContent className="pt-6 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Predmet emailu</Label>
+                  <Input
+                    value={subject}
+                    onChange={e => { setSubject(e.target.value); setContentSaved(false); }}
+                    placeholder="Predmet emailovej kampane"
+                    disabled={isSent}
+                    data-testid="input-mc-subject-editor"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Šablóna</Label>
+                  <Select onValueChange={handleSelectTemplate} disabled={isSent || htmlTemplates.length === 0}>
+                    <SelectTrigger data-testid="select-mc-template">
+                      <SelectValue placeholder={htmlTemplates.length === 0 ? "Žiadne šablóny" : "Vybrať šablónu..."} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {htmlTemplates.map((t) => (
+                        <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-            ) : (
-              <p className="text-sm text-amber-600">
-                Najprv nastavte Mailchimp v konfigurácia &gt; Email & GSM &gt; Mailchimp pre krajinu {countryCodes[0] || "SK"}.
-              </p>
-            )}
-            <Button
-              onClick={() => createMutation.mutate()}
-              disabled={createMutation.isPending || !selectedListId}
-              data-testid="btn-create-mc-campaign"
-            >
-              {createMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              Vytvoriť v Mailchimp
-            </Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <>
+
+              <div className="space-y-2">
+                <Label>Obsah emailu</Label>
+                <div className="border rounded-md" data-testid="mc-email-editor">
+                  <ReactQuill
+                    theme="snow"
+                    value={emailHtml}
+                    onChange={(val) => { setEmailHtml(val); setContentSaved(false); }}
+                    modules={quillModules}
+                    readOnly={isSent}
+                    style={{ minHeight: '300px' }}
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-2">
+                <div className="flex items-center gap-2">
+                  {contentSaved && (
+                    <span className="text-xs text-green-600 flex items-center gap-1">
+                      <CheckCircle className="w-3.5 h-3.5" />
+                      Obsah uložený v Mailchimp
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowTestEmail(!showTestEmail)}
+                    disabled={!emailHtml || isSent}
+                    data-testid="btn-mc-toggle-test"
+                  >
+                    <Send className="w-4 h-4 mr-2" />
+                    Testovací email
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => saveContentMutation.mutate()}
+                    disabled={saveContentMutation.isPending || !emailHtml || isSent || contentSaved}
+                    data-testid="btn-mc-save-content"
+                  >
+                    {saveContentMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                    Uložiť obsah do Mailchimp
+                  </Button>
+                </div>
+              </div>
+
+              {showTestEmail && (
+                <div className="flex items-end gap-2 p-3 bg-muted/50 rounded-lg">
+                  <div className="flex-1 space-y-1">
+                    <Label className="text-xs">Testovací email</Label>
+                    <Input
+                      value={testEmail}
+                      onChange={e => setTestEmail(e.target.value)}
+                      placeholder="test@example.com"
+                      type="email"
+                      data-testid="input-mc-test-email"
+                    />
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={() => testEmailMutation.mutate()}
+                    disabled={testEmailMutation.isPending || !testEmail || !contentSaved}
+                    data-testid="btn-mc-send-test"
+                  >
+                    {testEmailMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
+                    Odoslať test
+                  </Button>
+                </div>
+              )}
+              {showTestEmail && !contentSaved && (
+                <p className="text-xs text-amber-600">
+                  Najprv uložte obsah do Mailchimp, aby bol testovací email aktuálny.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="sync" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Mail className="w-5 h-5" />
-                Mailchimp kampaň
-                <Badge variant="default" data-testid="badge-mc-sync-status">{syncInfo.status}</Badge>
-              </CardTitle>
-              <CardDescription>
-                Mailchimp ID: {syncInfo.mailchimpCampaignId}
-              </CardDescription>
+              <CardTitle className="text-base">Synchronizácia kontaktov</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center gap-4">
@@ -4160,16 +4400,86 @@ function MailchimpSyncSection({ campaignId, campaignName, countryCodes }: { camp
             </CardContent>
           </Card>
 
-          {mcStats?.stats && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Odoslanie kampane</CardTitle>
+              <CardDescription>
+                {isSent
+                  ? "Kampaň bola úspešne odoslaná."
+                  : "Po uložení obsahu a synchronizácii kontaktov môžete kampaň odoslať."}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isSent ? (
+                <div className="flex items-center gap-2 text-green-600">
+                  <CheckCircle className="w-5 h-5" />
+                  <span className="font-medium">Kampaň bola odoslaná</span>
+                  {syncInfo.lastSyncAt && (
+                    <span className="text-sm text-muted-foreground ml-2">
+                      ({new Date(syncInfo.lastSyncAt).toLocaleString("sk")})
+                    </span>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {(!contentSaved || syncInfo.status === "created") && (
+                    <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-950/30 rounded-lg text-sm text-amber-700 dark:text-amber-400">
+                      <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                      <div>
+                        {!contentSaved && <p>Uložte obsah emailu do Mailchimp pred odoslaním.</p>}
+                        {syncInfo.status === "created" && <p>Synchronizujte kontakty pred odoslaním kampane.</p>}
+                      </div>
+                    </div>
+                  )}
+                  <Button
+                    onClick={() => setShowSendConfirm(true)}
+                    disabled={!contentSaved || syncInfo.syncedContacts === 0}
+                    className="bg-green-600 hover:bg-green-700"
+                    data-testid="btn-mc-send-campaign"
+                  >
+                    <Send className="w-4 h-4 mr-2" />
+                    Odoslať kampaň ({syncInfo.syncedContacts || 0} kontaktov)
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Dialog open={showSendConfirm} onOpenChange={setShowSendConfirm}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Odoslať Mailchimp kampaň?</DialogTitle>
+                <DialogDescription>
+                  Ste si istý, že chcete odoslať túto kampaň? Email bude doručený na <strong>{syncInfo.syncedContacts || 0}</strong> kontaktov. Túto akciu nie je možné vrátiť.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setShowSendConfirm(false)}>Zrušiť</Button>
+                <Button
+                  onClick={() => sendCampaignMutation.mutate()}
+                  disabled={sendCampaignMutation.isPending}
+                  className="bg-green-600 hover:bg-green-700"
+                  data-testid="btn-mc-confirm-send"
+                >
+                  {sendCampaignMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  Áno, odoslať
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </TabsContent>
+
+        <TabsContent value="stats" className="space-y-4">
+          {mcStats?.stats ? (
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
+                <CardTitle className="flex items-center gap-2 text-base">
                   <BarChart3 className="w-5 h-5" />
                   Mailchimp štatistiky
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                   <div className="text-center p-3 rounded-lg bg-muted/50">
                     <p className="text-2xl font-bold">{mcStats.stats.emailsSent}</p>
                     <p className="text-xs text-muted-foreground">Odoslaných</p>
@@ -4193,9 +4503,16 @@ function MailchimpSyncSection({ campaignId, campaignName, countryCodes }: { camp
                 </div>
               </CardContent>
             </Card>
+          ) : (
+            <Card>
+              <CardContent className="py-8 text-center text-muted-foreground">
+                <BarChart3 className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                <p>Štatistiky budú dostupné po odoslaní kampane.</p>
+              </CardContent>
+            </Card>
           )}
-        </>
-      )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
