@@ -16059,9 +16059,9 @@ export async function registerRoutes(
       await storage.deleteCampaignContactsByCampaign(req.params.id);
 
       const contactSources: string[] = req.body.contactSources || ["customer"];
-      let criteria: any = null;
+      let campaignCriteria: any = null;
       if (campaign.criteria) {
-        try { criteria = JSON.parse(campaign.criteria); } catch (e) {}
+        try { campaignCriteria = JSON.parse(campaign.criteria); } catch (e) {}
       }
 
       const allContactsData: any[] = [];
@@ -16071,10 +16071,12 @@ export async function registerRoutes(
         if (campaign.countryCodes && campaign.countryCodes.length > 0) {
           customersList = customersList.filter(c => campaign.countryCodes.includes(c.country));
         }
-        if (criteria) {
-          customersList = applyCustomerCriteria(customersList, criteria);
+        if (campaignCriteria) {
+          customersList = applyCriteriaGroups(customersList, campaignCriteria);
         }
-        if (req.body.customerFilters) {
+        if (req.body.customerCriteria && Array.isArray(req.body.customerCriteria) && req.body.customerCriteria.length > 0) {
+          customersList = applyCriteriaGroups(customersList, req.body.customerCriteria);
+        } else if (req.body.customerFilters) {
           customersList = applyGenericFilters(customersList, req.body.customerFilters);
         }
         for (const c of customersList) {
@@ -16094,7 +16096,9 @@ export async function registerRoutes(
         if (campaign.countryCodes && campaign.countryCodes.length > 0) {
           hospitalsList = hospitalsList.filter((h: any) => campaign.countryCodes.includes(h.countryCode));
         }
-        if (req.body.hospitalFilters) {
+        if (req.body.hospitalCriteria && Array.isArray(req.body.hospitalCriteria) && req.body.hospitalCriteria.length > 0) {
+          hospitalsList = applyCriteriaGroups(hospitalsList, req.body.hospitalCriteria);
+        } else if (req.body.hospitalFilters) {
           hospitalsList = applyGenericFilters(hospitalsList, req.body.hospitalFilters);
         }
         for (const h of hospitalsList) {
@@ -16114,7 +16118,9 @@ export async function registerRoutes(
         if (campaign.countryCodes && campaign.countryCodes.length > 0) {
           clinicsList = clinicsList.filter((c: any) => campaign.countryCodes.includes(c.countryCode));
         }
-        if (req.body.clinicFilters) {
+        if (req.body.clinicCriteria && Array.isArray(req.body.clinicCriteria) && req.body.clinicCriteria.length > 0) {
+          clinicsList = applyCriteriaGroups(clinicsList, req.body.clinicCriteria);
+        } else if (req.body.clinicFilters) {
           clinicsList = applyGenericFilters(clinicsList, req.body.clinicFilters);
         }
         for (const c of clinicsList) {
@@ -27744,40 +27750,58 @@ interface CriteriaGroup {
   conditions: CriteriaCondition[];
 }
 
-function evaluateCondition(customer: Customer, condition: CriteriaCondition): boolean {
-  const value = customer[condition.field as keyof Customer];
+function evaluateCondition(item: Record<string, any>, condition: CriteriaCondition): boolean {
+  const rawValue = item[condition.field];
   const condValue = condition.value;
-  
+  const strValue = String(rawValue ?? "");
+  const strCondValue = String(condValue);
+
   switch (condition.operator) {
     case "equals":
-      return String(value || "") === String(condValue);
+      if (condValue === "true") return rawValue === true || strValue === "true";
+      if (condValue === "false") return rawValue === false || strValue === "false";
+      return strValue === strCondValue;
     case "notEquals":
-      return String(value || "") !== String(condValue);
+      if (condValue === "true") return rawValue !== true && strValue !== "true";
+      if (condValue === "false") return rawValue !== false && strValue !== "false";
+      return strValue !== strCondValue;
     case "contains":
-      return String(value || "").toLowerCase().includes(String(condValue).toLowerCase());
+      return strValue.toLowerCase().includes(strCondValue.toLowerCase());
+    case "notContains":
+      return !strValue.toLowerCase().includes(strCondValue.toLowerCase());
     case "startsWith":
-      return String(value || "").toLowerCase().startsWith(String(condValue).toLowerCase());
+      return strValue.toLowerCase().startsWith(strCondValue.toLowerCase());
     case "endsWith":
-      return String(value || "").toLowerCase().endsWith(String(condValue).toLowerCase());
-    case "in":
-      const inValues = Array.isArray(condValue) ? condValue : String(condValue).split(",").map(s => s.trim());
-      return inValues.includes(String(value || ""));
-    case "notIn":
-      const notInValues = Array.isArray(condValue) ? condValue : String(condValue).split(",").map(s => s.trim());
-      return !notInValues.includes(String(value || ""));
+      return strValue.toLowerCase().endsWith(strCondValue.toLowerCase());
+    case "isEmpty":
+      return rawValue === null || rawValue === undefined || strValue === "";
+    case "isNotEmpty":
+      return rawValue !== null && rawValue !== undefined && strValue !== "";
+    case "in": {
+      const inValues = Array.isArray(condValue) ? condValue : strCondValue.split(",").map(s => s.trim());
+      return inValues.includes(strValue);
+    }
+    case "notIn": {
+      const notInValues = Array.isArray(condValue) ? condValue : strCondValue.split(",").map(s => s.trim());
+      return !notInValues.includes(strValue);
+    }
     default:
       return true;
   }
 }
 
-function evaluateGroup(customer: Customer, group: CriteriaGroup): boolean {
+function evaluateGroup(item: Record<string, any>, group: CriteriaGroup): boolean {
   if (group.conditions.length === 0) return true;
-  
   if (group.logic === "AND") {
-    return group.conditions.every(cond => evaluateCondition(customer, cond));
+    return group.conditions.every(cond => evaluateCondition(item, cond));
   } else {
-    return group.conditions.some(cond => evaluateCondition(customer, cond));
+    return group.conditions.some(cond => evaluateCondition(item, cond));
   }
+}
+
+function applyCriteriaGroups(items: any[], criteria: CriteriaGroup[]): any[] {
+  if (!Array.isArray(criteria) || criteria.length === 0) return items;
+  return items.filter(item => criteria.every(group => evaluateGroup(item, group)));
 }
 
 function applyGenericFilters(items: any[], filters: Record<string, any>): any[] {
@@ -27800,13 +27824,7 @@ function applyGenericFilters(items: any[], filters: Record<string, any>): any[] 
 }
 
 function applyCustomerCriteria(customers: Customer[], criteria: CriteriaGroup[]): Customer[] {
-  if (!Array.isArray(criteria) || criteria.length === 0) {
-    return customers;
-  }
-  
-  return customers.filter(customer => {
-    return criteria.every(group => evaluateGroup(customer, group));
-  });
+  return applyCriteriaGroups(customers, criteria);
 }
 
 // Automation execution engine

@@ -23,6 +23,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { DataTable, type SortConfig } from "@/components/data-table";
+import { ContactCriteriaBuilder } from "@/components/contact-criteria-builder";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -1508,18 +1509,23 @@ export default function CampaignDetailPage() {
   };
 
   const [showGenerateDialog, setShowGenerateDialog] = useState(false);
-  const [contactSources, setContactSources] = useState<string[]>(["customer"]);
-  const [hospitalFilters, setHospitalFilters] = useState<Record<string, any>>({});
-  const [clinicFilters, setClinicFilters] = useState<Record<string, any>>({});
-  const [customerFilters, setCustomerFilters] = useState<Record<string, any>>({});
+  const [generateConfig, setGenerateConfig] = useState<import("@/components/contact-criteria-builder").ContactGenerateConfig>({
+    customer: { enabled: true, criteria: [] },
+    hospital: { enabled: false, criteria: [] },
+    clinic: { enabled: false, criteria: [] },
+  });
 
   const generateContactsMutation = useMutation({
     mutationFn: async () => {
+      const contactSources: string[] = [];
+      if (generateConfig.customer.enabled) contactSources.push("customer");
+      if (generateConfig.hospital.enabled) contactSources.push("hospital");
+      if (generateConfig.clinic.enabled) contactSources.push("clinic");
       const res = await apiRequest("POST", `/api/campaigns/${campaignId}/generate-contacts`, {
         contactSources,
-        hospitalFilters: contactSources.includes("hospital") ? hospitalFilters : undefined,
-        clinicFilters: contactSources.includes("clinic") ? clinicFilters : undefined,
-        customerFilters: contactSources.includes("customer") ? customerFilters : undefined,
+        customerCriteria: generateConfig.customer.enabled ? generateConfig.customer.criteria : undefined,
+        hospitalCriteria: generateConfig.hospital.enabled ? generateConfig.hospital.criteria : undefined,
+        clinicCriteria: generateConfig.clinic.enabled ? generateConfig.clinic.criteria : undefined,
       });
       return await res.json();
     },
@@ -3892,200 +3898,25 @@ export default function CampaignDetailPage() {
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <RefreshCw className="w-5 h-5" />
+              <Filter className="w-5 h-5" />
               Generovať kontakty
             </DialogTitle>
             <DialogDescription>
-              Vyberte zdroje kontaktov a filtre pre generovanie zoznamu kontaktov kampane.
+              Vyberte zdroje kontaktov a nastavte pokročilé filtre s kombinovaním podmienok (AND/OR).
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
-            <div className="space-y-3">
-              <Label className="text-sm font-semibold">Zdroje kontaktov</Label>
-              <div className="flex flex-wrap gap-2">
-                {[
-                  { value: "customer", label: "Zákazníci", icon: Users },
-                  { value: "hospital", label: "Nemocnice", icon: Building2 },
-                  { value: "clinic", label: "Kliniky / Ambulancie", icon: Building },
-                ].map(src => (
-                  <Badge
-                    key={src.value}
-                    variant={contactSources.includes(src.value) ? "default" : "outline"}
-                    className="cursor-pointer select-none px-3 py-1.5 text-sm"
-                    onClick={() => {
-                      setContactSources(prev =>
-                        prev.includes(src.value)
-                          ? prev.filter(s => s !== src.value)
-                          : [...prev, src.value]
-                      );
-                    }}
-                    data-testid={`source-${src.value}`}
-                  >
-                    <src.icon className="w-3.5 h-3.5 mr-1.5" />
-                    {src.label}
-                  </Badge>
-                ))}
-              </div>
-            </div>
+          <ContactCriteriaBuilder config={generateConfig} onChange={setGenerateConfig} />
 
-            {contactSources.includes("customer") && (
-              <div className="p-4 border rounded-lg space-y-3">
-                <Label className="text-sm font-semibold flex items-center gap-2">
-                  <Users className="w-4 h-4" /> Filtre zákazníkov
-                </Label>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Meno / Priezvisko</Label>
-                    <Input placeholder="Hľadať..." value={customerFilters.lastName || ""} onChange={e => setCustomerFilters(p => ({ ...p, lastName: e.target.value }))} data-testid="filter-customer-name" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Email</Label>
-                    <Input placeholder="email@..." value={customerFilters.email || ""} onChange={e => setCustomerFilters(p => ({ ...p, email: e.target.value }))} data-testid="filter-customer-email" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Telefón</Label>
-                    <Input placeholder="+421..." value={customerFilters.phone || ""} onChange={e => setCustomerFilters(p => ({ ...p, phone: e.target.value }))} data-testid="filter-customer-phone" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Mesto</Label>
-                    <Input placeholder="Bratislava..." value={customerFilters.city || ""} onChange={e => setCustomerFilters(p => ({ ...p, city: e.target.value }))} data-testid="filter-customer-city" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Región</Label>
-                    <Input placeholder="Región..." value={customerFilters.region || ""} onChange={e => setCustomerFilters(p => ({ ...p, region: e.target.value }))} data-testid="filter-customer-region" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Stav klienta</Label>
-                    <Select value={customerFilters.clientStatus || ""} onValueChange={v => setCustomerFilters(p => ({ ...p, clientStatus: v || undefined }))}>
-                      <SelectTrigger data-testid="filter-customer-status"><SelectValue placeholder="Všetky" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="potential">Potenciálny</SelectItem>
-                        <SelectItem value="acquired">Získaný</SelectItem>
-                        <SelectItem value="terminated">Ukončený</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Lead status</Label>
-                    <Select value={customerFilters.leadStatus || ""} onValueChange={v => setCustomerFilters(p => ({ ...p, leadStatus: v || undefined }))}>
-                      <SelectTrigger data-testid="filter-customer-lead"><SelectValue placeholder="Všetky" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="cold">Studený</SelectItem>
-                        <SelectItem value="warm">Teplý</SelectItem>
-                        <SelectItem value="hot">Horúci</SelectItem>
-                        <SelectItem value="qualified">Kvalifikovaný</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Newsletter</Label>
-                    <Select value={customerFilters.newsletter === true ? "yes" : customerFilters.newsletter === false ? "no" : ""} onValueChange={v => setCustomerFilters(p => ({ ...p, newsletter: v === "yes" ? true : v === "no" ? false : undefined }))}>
-                      <SelectTrigger data-testid="filter-customer-newsletter"><SelectValue placeholder="Všetky" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="yes">Prihlásený</SelectItem>
-                        <SelectItem value="no">Neprihlásený</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {contactSources.includes("hospital") && (
-              <div className="p-4 border rounded-lg space-y-3">
-                <Label className="text-sm font-semibold flex items-center gap-2">
-                  <Building2 className="w-4 h-4" /> Filtre nemocníc
-                </Label>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Názov</Label>
-                    <Input placeholder="Hľadať..." value={hospitalFilters.name || ""} onChange={e => setHospitalFilters(p => ({ ...p, name: e.target.value }))} data-testid="filter-hospital-name" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Kontaktná osoba</Label>
-                    <Input placeholder="Hľadať..." value={hospitalFilters.contactPerson || ""} onChange={e => setHospitalFilters(p => ({ ...p, contactPerson: e.target.value }))} data-testid="filter-hospital-contact" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Email</Label>
-                    <Input placeholder="email@..." value={hospitalFilters.email || ""} onChange={e => setHospitalFilters(p => ({ ...p, email: e.target.value }))} data-testid="filter-hospital-email" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Telefón</Label>
-                    <Input placeholder="+421..." value={hospitalFilters.phone || ""} onChange={e => setHospitalFilters(p => ({ ...p, phone: e.target.value }))} data-testid="filter-hospital-phone" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Mesto</Label>
-                    <Input placeholder="Bratislava..." value={hospitalFilters.city || ""} onChange={e => setHospitalFilters(p => ({ ...p, city: e.target.value }))} data-testid="filter-hospital-city" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Región</Label>
-                    <Input placeholder="Región..." value={hospitalFilters.region || ""} onChange={e => setHospitalFilters(p => ({ ...p, region: e.target.value }))} data-testid="filter-hospital-region" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Aktívna</Label>
-                    <Select value={hospitalFilters.isActive === true ? "yes" : hospitalFilters.isActive === false ? "no" : ""} onValueChange={v => setHospitalFilters(p => ({ ...p, isActive: v === "yes" ? true : v === "no" ? false : undefined }))}>
-                      <SelectTrigger data-testid="filter-hospital-active"><SelectValue placeholder="Všetky" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="yes">Aktívna</SelectItem>
-                        <SelectItem value="no">Neaktívna</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {contactSources.includes("clinic") && (
-              <div className="p-4 border rounded-lg space-y-3">
-                <Label className="text-sm font-semibold flex items-center gap-2">
-                  <Building className="w-4 h-4" /> Filtre kliník / ambulancií
-                </Label>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Názov</Label>
-                    <Input placeholder="Hľadať..." value={clinicFilters.name || ""} onChange={e => setClinicFilters(p => ({ ...p, name: e.target.value }))} data-testid="filter-clinic-name" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Meno lekára</Label>
-                    <Input placeholder="Hľadať..." value={clinicFilters.doctorName || ""} onChange={e => setClinicFilters(p => ({ ...p, doctorName: e.target.value }))} data-testid="filter-clinic-doctor" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Email</Label>
-                    <Input placeholder="email@..." value={clinicFilters.email || ""} onChange={e => setClinicFilters(p => ({ ...p, email: e.target.value }))} data-testid="filter-clinic-email" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Telefón</Label>
-                    <Input placeholder="+421..." value={clinicFilters.phone || ""} onChange={e => setClinicFilters(p => ({ ...p, phone: e.target.value }))} data-testid="filter-clinic-phone" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Mesto</Label>
-                    <Input placeholder="Bratislava..." value={clinicFilters.city || ""} onChange={e => setClinicFilters(p => ({ ...p, city: e.target.value }))} data-testid="filter-clinic-city" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Aktívna</Label>
-                    <Select value={clinicFilters.isActive === true ? "yes" : clinicFilters.isActive === false ? "no" : ""} onValueChange={v => setClinicFilters(p => ({ ...p, isActive: v === "yes" ? true : v === "no" ? false : undefined }))}>
-                      <SelectTrigger data-testid="filter-clinic-active"><SelectValue placeholder="Všetky" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="yes">Aktívna</SelectItem>
-                        <SelectItem value="no">Neaktívna</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {contactSources.length === 0 && (
-              <p className="text-sm text-muted-foreground text-center py-4">Vyberte aspoň jeden zdroj kontaktov.</p>
-            )}
-          </div>
+          {!generateConfig.customer.enabled && !generateConfig.hospital.enabled && !generateConfig.clinic.enabled && (
+            <p className="text-sm text-muted-foreground text-center py-2">Vyberte aspoň jeden zdroj kontaktov.</p>
+          )}
 
           <div className="flex justify-end gap-2 pt-4">
             <Button variant="outline" onClick={() => setShowGenerateDialog(false)}>Zrušiť</Button>
             <Button
               onClick={() => generateContactsMutation.mutate()}
-              disabled={generateContactsMutation.isPending || contactSources.length === 0}
+              disabled={generateContactsMutation.isPending || (!generateConfig.customer.enabled && !generateConfig.hospital.enabled && !generateConfig.clinic.enabled)}
               data-testid="btn-confirm-generate"
             >
               {generateContactsMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
