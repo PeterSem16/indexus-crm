@@ -4022,6 +4022,9 @@ function MailchimpSyncSection({ campaignId, campaignName, countryCodes }: { camp
   const [newAudienceName, setNewAudienceName] = useState("");
   const [newAudienceFromEmail, setNewAudienceFromEmail] = useState("");
   const [newAudienceFromName, setNewAudienceFromName] = useState("");
+  const [testFname, setTestFname] = useState("");
+  const [testLname, setTestLname] = useState("");
+  const [testCompany, setTestCompany] = useState("");
 
   const { data: syncInfo, isLoading: syncLoading } = useQuery<any>({
     queryKey: ["/api/campaigns", campaignId, "mailchimp", "sync"],
@@ -4167,8 +4170,13 @@ function MailchimpSyncSection({ campaignId, campaignName, countryCodes }: { camp
 
   const testEmailMutation = useMutation({
     mutationFn: async () => {
+      const testMergeFields: Record<string, string> = {};
+      if (testFname) testMergeFields.FNAME = testFname;
+      if (testLname) testMergeFields.LNAME = testLname;
+      if (testCompany) testMergeFields.COMPANY = testCompany;
       await apiRequest("POST", `/api/campaigns/${campaignId}/mailchimp/test-email`, {
         testEmails: [testEmail],
+        testMergeFields: Object.keys(testMergeFields).length > 0 ? testMergeFields : undefined,
       });
     },
     onSuccess: () => {
@@ -4468,26 +4476,61 @@ function MailchimpSyncSection({ campaignId, campaignName, countryCodes }: { camp
               </div>
 
               {showTestEmail && (
-                <div className="flex items-end gap-2 p-3 bg-muted/50 rounded-lg">
-                  <div className="flex-1 space-y-1">
-                    <Label className="text-xs">Testovací email</Label>
-                    <Input
-                      value={testEmail}
-                      onChange={e => setTestEmail(e.target.value)}
-                      placeholder="test@example.com"
-                      type="email"
-                      data-testid="input-mc-test-email"
-                    />
+                <div className="p-3 bg-muted/50 rounded-lg space-y-3">
+                  <p className="text-xs font-medium text-muted-foreground">Zadajte testovacie údaje pre overenie premenných v emaile:</p>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Email *</Label>
+                      <Input
+                        value={testEmail}
+                        onChange={e => setTestEmail(e.target.value)}
+                        placeholder="test@example.com"
+                        type="email"
+                        data-testid="input-mc-test-email"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Meno (FNAME)</Label>
+                      <Input
+                        value={testFname}
+                        onChange={e => setTestFname(e.target.value)}
+                        placeholder="Ján"
+                        data-testid="input-mc-test-fname"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Priezvisko (LNAME)</Label>
+                      <Input
+                        value={testLname}
+                        onChange={e => setTestLname(e.target.value)}
+                        placeholder="Novák"
+                        data-testid="input-mc-test-lname"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Firma (COMPANY)</Label>
+                      <Input
+                        value={testCompany}
+                        onChange={e => setTestCompany(e.target.value)}
+                        placeholder="Firma s.r.o."
+                        data-testid="input-mc-test-company"
+                      />
+                    </div>
                   </div>
-                  <Button
-                    size="sm"
-                    onClick={() => testEmailMutation.mutate()}
-                    disabled={testEmailMutation.isPending || !testEmail || !contentSaved}
-                    data-testid="btn-mc-send-test"
-                  >
-                    {testEmailMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
-                    Odoslať test
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      onClick={() => testEmailMutation.mutate()}
+                      disabled={testEmailMutation.isPending || !testEmail || !contentSaved}
+                      data-testid="btn-mc-send-test"
+                    >
+                      {testEmailMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
+                      Odoslať test
+                    </Button>
+                    <span className="text-xs text-muted-foreground">
+                      Premenné sa nahradia zadanými údajmi v testovacom emaile.
+                    </span>
+                  </div>
                 </div>
               )}
               {showTestEmail && !contentSaved && (

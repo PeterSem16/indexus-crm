@@ -9737,9 +9737,31 @@ export async function registerRoutes(
       const settings = await storage.getMailchimpSettingsByCountry((campaign.countryCodes || [])[0] || "SK");
       if (!settings) return res.status(400).json({ error: "No Mailchimp settings" });
 
-      const { testEmails } = req.body;
+      const { testEmails, testMergeFields } = req.body;
       if (!testEmails || !Array.isArray(testEmails) || testEmails.length === 0) {
         return res.status(400).json({ error: "At least one test email is required" });
+      }
+
+      if (testMergeFields && sync.mailchimpListId) {
+        try {
+          const testContacts = testEmails.map((email: string) => ({
+            email,
+            firstName: testMergeFields.FNAME || "",
+            lastName: testMergeFields.LNAME || "",
+            phone: testMergeFields.PHONE || "",
+            company: testMergeFields.COMPANY || "",
+            city: testMergeFields.CITY || "",
+            address: testMergeFields.ADDRESS || "",
+          }));
+          await mailchimpApi.addContactsToList(
+            { apiKey: settings.apiKey, serverPrefix: settings.serverPrefix },
+            sync.mailchimpListId,
+            testContacts,
+            ["test"]
+          );
+        } catch (e) {
+          console.log("Could not add test subscriber merge fields:", e);
+        }
       }
 
       await mailchimpApi.sendTestEmail(
