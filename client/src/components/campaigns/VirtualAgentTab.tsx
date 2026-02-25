@@ -14,7 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Slider } from "@/components/ui/slider";
 import { useToast } from "@/hooks/use-toast";
-import { Bot, Plus, Pencil, Trash2, Phone, Clock, MessageSquare, AlertTriangle, CheckCircle, ChevronDown, ChevronUp, Loader2, Volume2, Settings, Cpu, Info, Zap, Mic } from "lucide-react";
+import { Bot, Plus, Pencil, Trash2, Phone, Clock, MessageSquare, AlertTriangle, CheckCircle, ChevronDown, ChevronUp, Loader2, Volume2, Settings, Cpu, Info, Zap, Mic, Globe, RefreshCw, ExternalLink } from "lucide-react";
 import { format } from "date-fns";
 import type { VirtualAgentConfig, VirtualAgentConversation } from "@shared/schema";
 
@@ -79,6 +79,7 @@ export function VirtualAgentTab() {
     maxRecordingSeconds: 30,
     silenceTimeoutSeconds: 2,
     farewellText: "Ďakujem za informácie. Operátor vás bude kontaktovať. Dovidenia.",
+    websiteUrl: "",
     isActive: true,
   });
 
@@ -143,6 +144,7 @@ export function VirtualAgentTab() {
       maxRecordingSeconds: 30,
       silenceTimeoutSeconds: 2,
       farewellText: "Ďakujem za informácie. Operátor vás bude kontaktovať. Dovidenia.",
+      websiteUrl: "",
       isActive: true,
     });
     setDialogTab("general");
@@ -165,6 +167,7 @@ export function VirtualAgentTab() {
       maxRecordingSeconds: config.maxRecordingSeconds,
       silenceTimeoutSeconds: config.silenceTimeoutSeconds,
       farewellText: config.farewellText,
+      websiteUrl: (config as any).websiteUrl || "",
       isActive: config.isActive,
     });
     setDialogTab("general");
@@ -260,6 +263,12 @@ export function VirtualAgentTab() {
                   <Badge variant="outline">
                     Max {config.maxTurns} výmen
                   </Badge>
+                  {(config as any).websiteUrl && (
+                    <Badge variant="outline" className="gap-1">
+                      <Globe className="h-3 w-3" />
+                      Web
+                    </Badge>
+                  )}
                 </div>
                 <p className="text-xs text-muted-foreground line-clamp-2 italic">
                   „{config.greetingText}"
@@ -394,7 +403,7 @@ export function VirtualAgentTab() {
           </DialogHeader>
 
           <Tabs value={dialogTab} onValueChange={setDialogTab}>
-            <TabsList className="w-full grid grid-cols-3">
+            <TabsList className="w-full grid grid-cols-4">
               <TabsTrigger value="general" className="gap-1.5" data-testid="tab-va-general">
                 <Settings className="h-3.5 w-3.5" />
                 Základné
@@ -406,6 +415,10 @@ export function VirtualAgentTab() {
               <TabsTrigger value="ai" className="gap-1.5" data-testid="tab-va-ai">
                 <Cpu className="h-3.5 w-3.5" />
                 AI Model
+              </TabsTrigger>
+              <TabsTrigger value="knowledge" className="gap-1.5" data-testid="tab-va-knowledge">
+                <Globe className="h-3.5 w-3.5" />
+                Znalosti
               </TabsTrigger>
             </TabsList>
 
@@ -708,6 +721,108 @@ export function VirtualAgentTab() {
                   <li>TTS Model: TTS-1 (štandard)</li>
                   <li>Rýchlosť reči: 1.05-1.15x</li>
                   <li>Detekcia ticha: 2s</li>
+                </ul>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="knowledge" className="space-y-4 mt-4">
+              <div className="p-3 rounded-lg border bg-blue-50/50 dark:bg-blue-950/20">
+                <div className="flex items-start gap-2">
+                  <Globe className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
+                  <p className="text-xs text-blue-700 dark:text-blue-300">
+                    Zadajte URL webstránky spoločnosti a agent automaticky načíta obsah (služby, ceny, kontakty atď.) a bude ho používať na zodpovedanie otázok volajúcich. Obsah sa cachuje na 24 hodín.
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>URL webstránky spoločnosti</Label>
+                <div className="flex gap-2">
+                  <Input
+                    value={formData.websiteUrl}
+                    onChange={(e) => setFormData({ ...formData, websiteUrl: e.target.value })}
+                    placeholder="https://www.vasaspolocnost.sk"
+                    data-testid="input-va-website-url"
+                  />
+                  {formData.websiteUrl && (
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="shrink-0"
+                      onClick={() => window.open(formData.websiteUrl, "_blank")}
+                      title="Otvoriť v novom okne"
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+                <FieldHint text="Agent automaticky prehľadá hlavnú stránku a relevantné podstránky (služby, ceny, kontakt, o nás). Obsah sa použije ako znalostná báza pre odpovedanie na otázky." />
+              </div>
+
+              {editingConfig && (editingConfig as any).websiteUrl && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/30">
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium">Stav znalostnej bázy</p>
+                      <p className="text-xs text-muted-foreground">
+                        {(editingConfig as any).websiteLastFetched
+                          ? `Posledná aktualizácia: ${format(new Date((editingConfig as any).websiteLastFetched), "dd.MM.yyyy HH:mm")}`
+                          : "Obsah ešte nebol načítaný"
+                        }
+                      </p>
+                      {(editingConfig as any).websiteContentCache && (
+                        <p className="text-xs text-muted-foreground">
+                          Veľkosť cache: {((editingConfig as any).websiteContentCache.length / 1024).toFixed(1)} KB
+                        </p>
+                      )}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={async () => {
+                        try {
+                          toast({ title: "Načítavam obsah webstránky..." });
+                          const res = await apiRequest("POST", `/api/virtual-agent-configs/${editingConfig.id}/refresh-website`);
+                          const result = await res.json();
+                          if (result.success) {
+                            toast({ title: `Načítané: ${result.pages} stránok, ${(result.chars / 1024).toFixed(1)} KB` });
+                            queryClient.invalidateQueries({ queryKey: ["/api/virtual-agent-configs"] });
+                          } else {
+                            toast({ title: result.error || "Nepodarilo sa načítať", variant: "destructive" });
+                          }
+                        } catch {
+                          toast({ title: "Chyba pri načítaní", variant: "destructive" });
+                        }
+                      }}
+                      data-testid="btn-refresh-website"
+                    >
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Obnoviť teraz
+                    </Button>
+                  </div>
+
+                  {(editingConfig as any).websiteContentCache && (
+                    <div className="space-y-1.5">
+                      <Label>Náhľad načítaného obsahu</Label>
+                      <div className="max-h-[200px] overflow-y-auto p-3 rounded-lg border bg-muted/20 text-xs font-mono whitespace-pre-wrap">
+                        {(editingConfig as any).websiteContentCache.substring(0, 2000)}
+                        {(editingConfig as any).websiteContentCache.length > 2000 && "\n...(skrátené)"}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="rounded-md border border-border bg-muted/40 p-3 text-xs space-y-1.5">
+                <div className="font-medium text-foreground flex items-center gap-1.5">
+                  <Info className="h-3.5 w-3.5 text-primary" /> Ako to funguje
+                </div>
+                <ul className="text-muted-foreground space-y-0.5 ml-5 list-disc">
+                  <li>Agent prehľadá hlavnú stránku a automaticky nájde relevantné podstránky (služby, cenník, kontakt, FAQ atď.)</li>
+                  <li>Extrahovaný text sa uloží ako znalostná báza a cachuje na 24 hodín</li>
+                  <li>Keď sa volajúci opýta na služby, ceny alebo kontakt, agent hľadá odpoveď v texte webstránky</li>
+                  <li>Obsah sa automaticky obnoví po 24 hodinách alebo manuálne tlačidlom „Obnoviť"</li>
+                  <li>Maximálna veľkosť cache je 12 KB — dlhšie texty sa automaticky skrátia</li>
                 </ul>
               </div>
             </TabsContent>

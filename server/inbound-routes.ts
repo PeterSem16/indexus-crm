@@ -2589,6 +2589,16 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
     }
   });
 
+  app.post("/api/virtual-agent-configs/:id/refresh-website", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { refreshWebsiteContent } = await import("./lib/website-scraper");
+      const result = await refreshWebsiteContent(req.params.id);
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to refresh website content" });
+    }
+  });
+
   app.get("/api/virtual-agent-conversations", requireAuth, async (req: Request, res: Response) => {
     try {
       const conversations = await db.select().from(virtualAgentConversations)

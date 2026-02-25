@@ -81,6 +81,7 @@ interface VirtualAgentSession {
   channelGone: boolean;
   customerContext: CustomerContext | null;
   mohSoundName: string | null;
+  websiteContent: string | null;
 }
 
 export class VirtualAgentEngine {
@@ -138,6 +139,7 @@ export class VirtualAgentEngine {
       channelGone: false,
       customerContext: customerContext.found ? customerContext : null,
       mohSoundName: null,
+      websiteContent: null,
     };
 
     if (resolvedCustomerId && resolvedCustomerId !== customerId) {
@@ -358,6 +360,19 @@ export class VirtualAgentEngine {
           }
         }
       } catch {}
+    }
+
+    if ((config as any).websiteUrl) {
+      try {
+        const { getWebsiteContentForConfig } = await import("./website-scraper");
+        const content = await getWebsiteContentForConfig(config.id);
+        if (content) {
+          session.websiteContent = content;
+          console.log(`[VirtualAgent] Website content loaded: ${content.length} chars`);
+        }
+      } catch (err) {
+        console.warn(`[VirtualAgent] Website content load failed:`, err instanceof Error ? err.message : err);
+      }
     }
 
     try {
@@ -654,10 +669,15 @@ export class VirtualAgentEngine {
         customerInfo += `\nOslovuj klienta menom. Ak sa pýta na posledný hovor/email/SMS, odpovedz s konkrétnymi údajmi vrátane mena pracovníka a dátumu.`;
       }
 
+      let websiteInfo = "";
+      if (session.websiteContent) {
+        websiteInfo = `\n\n${session.websiteContent}\n\nAk sa volajúci pýta na služby, ceny, kontakt alebo iné informácie, hľadaj odpoveď v texte webstránky vyššie. Poskytni konkrétne údaje z webstránky.`;
+      }
+
       const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
         {
           role: "system",
-          content: `${config.systemPrompt}\nOdpovedaj VEĽMI stručne, max 1-2 krátke vety. Volajúci: ${session.callerNumber}${customerInfo}`
+          content: `${config.systemPrompt}\nOdpovedaj VEĽMI stručne, max 1-2 krátke vety. Volajúci: ${session.callerNumber}${customerInfo}${websiteInfo}`
         },
       ];
 
