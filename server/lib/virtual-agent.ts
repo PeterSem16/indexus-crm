@@ -421,31 +421,45 @@ export class VirtualAgentEngine {
     session.turnCount++;
 
     while (session.turnCount < config.maxTurns * 2 && !session.channelGone) {
-      const userSpeech = await this.recordAndTranscribe(session, config);
-
-      if (session.channelGone || !userSpeech) break;
-
-      session.turns.push({ role: "user", content: userSpeech });
-      session.turnCount++;
-
-      console.log(`[VirtualAgent] Turn ${session.turnCount}: User said: "${userSpeech.substring(0, 100)}..."`);
+      const recordingResult = await this.recordUserSpeech(session, config);
+      if (session.channelGone || !recordingResult) break;
 
       this.playThinkingTone(session.channelId, session.mohSoundName);
 
       const turnStart = Date.now();
+
+      const userSpeech = await this.transcribeRecording(recordingResult, config);
+      if (session.channelGone || !userSpeech) {
+        await this.stopThinkingTone(session.channelId);
+        break;
+      }
+      const sttTime = Date.now() - turnStart;
+
+      session.turns.push({ role: "user", content: userSpeech });
+      session.turnCount++;
+
+      console.log(`[VirtualAgent] Turn ${session.turnCount}: STT=${sttTime}ms, said: "${userSpeech.substring(0, 100)}..."`);
+
+      const gptStart = Date.now();
       const aiResponse = await this.generateResponse(session, config, userSpeech);
-      if (session.channelGone || !aiResponse) break;
-      const gptTime = Date.now() - turnStart;
+      if (session.channelGone || !aiResponse) {
+        await this.stopThinkingTone(session.channelId);
+        break;
+      }
+      const gptTime = Date.now() - gptStart;
 
       session.turns.push({ role: "assistant", content: aiResponse });
       session.turnCount++;
 
       const ttsStart = Date.now();
       const responseAudio = await this.generateTTS(aiResponse, config.ttsVoice, session.channelId, configSpeed);
-      if (!responseAudio || session.channelGone) break;
+      if (!responseAudio || session.channelGone) {
+        await this.stopThinkingTone(session.channelId);
+        break;
+      }
       const ttsTime = Date.now() - ttsStart;
 
-      console.log(`[VirtualAgent] Turn ${session.turnCount}: GPT=${gptTime}ms, TTS+upload=${ttsTime}ms, total=${Date.now() - turnStart}ms: "${aiResponse.substring(0, 80)}"`);
+      console.log(`[VirtualAgent] Turn ${session.turnCount}: STT=${sttTime}ms, GPT=${gptTime}ms, TTS=${ttsTime}ms, total=${Date.now() - turnStart}ms: "${aiResponse.substring(0, 80)}"`);
 
       await this.stopThinkingTone(session.channelId);
 
@@ -521,10 +535,10 @@ export class VirtualAgentEngine {
     } catch {}
   }
 
-  private async recordAndTranscribe(
+  private async recordUserSpeech(
     session: VirtualAgentSession,
     config: typeof virtualAgentConfigs.$inferSelect
-  ): Promise<string | null> {
+  ): Promise<{ buffer: Buffer; name: string } | null> {
     const recordingName = `va-${session.conversationId}-${session.turnCount}-${Date.now()}`;
     const maxSeconds = config.maxRecordingSeconds || 30;
 
@@ -571,7 +585,7 @@ export class VirtualAgentEngine {
         this.ariClient.on("stasis-end", hangupHandler);
       });
 
-      try { await this.ariClient.stopRecording(recordingName); } catch {}
+      this.ariClient.stopRecording(recordingName).catch(() => {});
 
       if (session.channelGone) return null;
 
@@ -592,52 +606,59 @@ export class VirtualAgentEngine {
           const sftpResult = await downloadVoicemailRecordingFromAsterisk(recordingName, tmpDir);
           if (sftpResult.success && sftpResult.localPath) {
             audioBuffer = fs.readFileSync(sftpResult.localPath);
-            try { fs.unlinkSync(sftpResult.localPath); } catch {}
+            fs.unlink(sftpResult.localPath, () => {});
           }
         } catch {}
       }
 
       if (!audioBuffer) {
         try {
-          await new Promise(r => setTimeout(r, 200));
+          await new Promise(r => setTimeout(r, 100));
           audioBuffer = await this.ariClient.downloadStoredRecording(recordingName);
         } catch {}
       }
 
       console.log(`[VirtualAgent] Recording download: ${Date.now() - dlStart}ms, size: ${audioBuffer?.length || 0}`);
 
+      this.ariClient.deleteStoredRecording(recordingName).catch(() => {});
+
       if (!audioBuffer || audioBuffer.length < 1000) {
         console.log(`[VirtualAgent] Recording too small or failed, possibly silence`);
         return null;
       }
 
-      try { await this.ariClient.deleteStoredRecording(recordingName); } catch {}
-
-      const tmpPath = path.join("/tmp", `${recordingName}.wav`);
-      fs.writeFileSync(tmpPath, audioBuffer);
-
-      try {
-        const sttStart = Date.now();
-        const transcription = await openai.audio.transcriptions.create({
-          file: fs.createReadStream(tmpPath),
-          model: "whisper-1",
-          language: config.language === "sk" ? "sk" : config.language === "cs" ? "cs" : config.language === "hu" ? "hu" : "en",
-          response_format: "text",
-        });
-        console.log(`[VirtualAgent] Whisper STT: ${Date.now() - sttStart}ms`);
-
-        const text = typeof transcription === "string" ? transcription : (transcription as any).text || "";
-        try { fs.unlinkSync(tmpPath); } catch {}
-
-        if (!text || text.trim().length < 2) return null;
-        return text.trim();
-      } catch (err) {
-        console.error(`[VirtualAgent] Transcription failed:`, err);
-        try { fs.unlinkSync(tmpPath); } catch {}
-        return null;
-      }
+      return { buffer: audioBuffer, name: recordingName };
     } catch (err) {
-      console.error(`[VirtualAgent] Record/transcribe error:`, err);
+      console.error(`[VirtualAgent] Recording error:`, err);
+      return null;
+    }
+  }
+
+  private async transcribeRecording(
+    recording: { buffer: Buffer; name: string },
+    config: typeof virtualAgentConfigs.$inferSelect
+  ): Promise<string | null> {
+    const tmpPath = path.join("/tmp", `${recording.name}.wav`);
+    fs.writeFileSync(tmpPath, recording.buffer);
+
+    try {
+      const sttStart = Date.now();
+      const transcription = await openai.audio.transcriptions.create({
+        file: fs.createReadStream(tmpPath),
+        model: "whisper-1",
+        language: config.language === "sk" ? "sk" : config.language === "cs" ? "cs" : config.language === "hu" ? "hu" : "en",
+        response_format: "text",
+      });
+      console.log(`[VirtualAgent] Whisper STT: ${Date.now() - sttStart}ms`);
+
+      const text = typeof transcription === "string" ? transcription : (transcription as any).text || "";
+      fs.unlink(tmpPath, () => {});
+
+      if (!text || text.trim().length < 2) return null;
+      return text.trim();
+    } catch (err) {
+      console.error(`[VirtualAgent] Transcription failed:`, err);
+      fs.unlink(tmpPath, () => {});
       return null;
     }
   }
@@ -690,21 +711,14 @@ export class VirtualAgentEngine {
       const gptTemp = parseFloat((config as any).gptTemperature as any) || 0.5;
       const gptMaxTokens = (config as any).gptMaxTokens || 80;
 
-      const stream = await openai.chat.completions.create({
+      const response = await openai.chat.completions.create({
         model: gptModel,
         messages,
         max_tokens: gptMaxTokens,
         temperature: gptTemp,
-        stream: true,
       });
 
-      let result = "";
-      for await (const chunk of stream) {
-        const delta = chunk.choices[0]?.delta?.content;
-        if (delta) result += delta;
-      }
-
-      return result || null;
+      return response.choices[0]?.message?.content || null;
     } catch (err) {
       console.error(`[VirtualAgent] GPT response error:`, err);
       return null;
