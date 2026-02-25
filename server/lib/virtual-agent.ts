@@ -6,7 +6,7 @@ import { db } from "../db";
 import { virtualAgentConfigs, virtualAgentConversations, customers, communicationMessages, callLogs, users, inboundQueues, ivrMessages } from "@shared/schema";
 import { eq, or, ilike, desc, and, sql } from "drizzle-orm";
 import type { AriClient, AriEvent } from "./ari-client";
-import { syncVoicemailGreetingToAsterisk, prewarmSftpPool } from "./asterisk-audio-sync";
+import { syncVoicemailGreetingToAsterisk, prewarmSftpPool, uploadBufferToAsterisk } from "./asterisk-audio-sync";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -634,22 +634,15 @@ export class VirtualAgentEngine {
       const arrayBuffer = await ttsResponse.arrayBuffer();
       const pcm24k = Buffer.from(arrayBuffer);
 
-      const convStart = Date.now();
       const pcm8k = downsample24kTo8k(pcm24k);
       const wavBuffer = createWavBuffer(pcm8k, 8000);
-      const convTime = Date.now() - convStart;
-
-      const dataRoot = await getDataRoot();
-      const ttsDir = path.join(dataRoot, "virtual-agent-tts");
-      if (!fs.existsSync(ttsDir)) fs.mkdirSync(ttsDir, { recursive: true });
+      const convTime = Date.now() - t0 - ttsApiTime;
 
       const fileName = `va-tts-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-      const wavPath = path.join(ttsDir, `${fileName}.wav`);
-      fs.writeFileSync(wavPath, wavBuffer);
 
       try {
         const uploadStart = Date.now();
-        const result = await syncVoicemailGreetingToAsterisk(wavPath, fileName, true);
+        const result = await uploadBufferToAsterisk(wavBuffer, fileName);
         const uploadTime = Date.now() - uploadStart;
         if (result.success) {
           console.log(`[VirtualAgent] TTS: api=${ttsApiTime}ms, conv=${convTime}ms, sftp=${uploadTime}ms, total=${Date.now() - t0}ms`);
@@ -659,8 +652,6 @@ export class VirtualAgentEngine {
       } catch (err) {
         console.warn(`[VirtualAgent] SFTP upload failed:`, err instanceof Error ? err.message : err);
       }
-
-      try { fs.unlinkSync(wavPath); } catch {}
 
       return fileName;
     } catch (err) {

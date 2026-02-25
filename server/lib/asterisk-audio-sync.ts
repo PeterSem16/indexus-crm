@@ -117,11 +117,19 @@ function sftpMkdir(sftp: any, dirPath: string): Promise<void> {
 
 function sftpUpload(sftp: any, localPath: string, remotePath: string): Promise<void> {
   return new Promise((resolve, reject) => {
-    const readStream = fs.createReadStream(localPath);
+    sftp.fastPut(localPath, remotePath, (err: Error | null) => {
+      if (err) return reject(err);
+      resolve();
+    });
+  });
+}
+
+function sftpUploadBuffer(sftp: any, buffer: Buffer, remotePath: string): Promise<void> {
+  return new Promise((resolve, reject) => {
     const writeStream = sftp.createWriteStream(remotePath);
     writeStream.on("close", () => resolve());
     writeStream.on("error", (err: Error) => reject(err));
-    readStream.pipe(writeStream);
+    writeStream.end(buffer);
   });
 }
 
@@ -385,6 +393,40 @@ export async function prewarmSftpPool(): Promise<void> {
   }
 }
 
+let mkdirDoneForPath: string | null = null;
+
+export async function uploadBufferToAsterisk(wavBuffer: Buffer, remoteSoundName: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const settings = await getAriSettings();
+    if (!settings || !settings.host || !settings.sshUsername) {
+      return { success: false, error: "SSH credentials not configured" };
+    }
+
+    const { sftp } = await getPooledSftp({
+      host: settings.host,
+      sshPort: settings.sshPort,
+      sshUsername: settings.sshUsername,
+      sshPassword: settings.sshPassword,
+    });
+
+    const remoteSoundsPath = settings.asteriskSoundsPath || "/var/lib/asterisk/sounds/custom";
+    if (mkdirDoneForPath !== remoteSoundsPath) {
+      await sftpMkdir(sftp, remoteSoundsPath);
+      mkdirDoneForPath = remoteSoundsPath;
+    }
+
+    const remotePath = `${remoteSoundsPath}/${remoteSoundName}.wav`;
+    await sftpUploadBuffer(sftp, wavBuffer, remotePath);
+    return { success: true };
+  } catch (err) {
+    const errMsg = err instanceof Error ? err.message : String(err);
+    pooledConn = null;
+    pooledSftp = null;
+    pooledSettings = null;
+    return { success: false, error: errMsg };
+  }
+}
+
 export async function syncVoicemailGreetingToAsterisk(localFilePath: string, remoteSoundName: string, skipConversion?: boolean): Promise<{ success: boolean; error?: string }> {
   try {
     const settings = await getAriSettings();
@@ -406,7 +448,10 @@ export async function syncVoicemailGreetingToAsterisk(localFilePath: string, rem
     });
 
     const remoteSoundsPath = settings.asteriskSoundsPath || "/var/lib/asterisk/sounds/custom";
-    await sftpMkdir(sftp, remoteSoundsPath);
+    if (mkdirDoneForPath !== remoteSoundsPath) {
+      await sftpMkdir(sftp, remoteSoundsPath);
+      mkdirDoneForPath = remoteSoundsPath;
+    }
 
     const ext = path.extname(absPath).toLowerCase();
     let uploadPath = absPath;
