@@ -4041,15 +4041,10 @@ function MailchimpSyncSection({ campaignId, campaignName, countryCodes }: { camp
     },
   });
 
-  const { data: campaignContactsData } = useQuery<any>({
-    queryKey: ["/api/campaigns", campaignId, "contacts"],
-    queryFn: async () => {
-      const res = await fetch(`/api/campaigns/${campaignId}/contacts?limit=1&offset=0`);
-      if (!res.ok) return { contacts: [], totalContacts: 0 };
-      return res.json();
-    },
+  const { data: campaignStats } = useQuery<any>({
+    queryKey: ["/api/campaigns", campaignId, "stats"],
   });
-  const totalCampaignContacts = campaignContactsData?.totalContacts || 0;
+  const totalCampaignContacts = campaignStats?.totalContacts || 0;
 
   const { data: emailTemplates = [] } = useQuery<MessageTemplate[]>({
     queryKey: ["/api/message-templates"],
