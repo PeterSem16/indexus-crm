@@ -10661,7 +10661,12 @@ function MailchimpSettingsTab() {
     queryKey: ["/api/config/mailchimp-settings"],
   });
 
+  const { data: envKeyInfo } = useQuery<{ available: boolean; maskedKey?: string; serverPrefix?: string }>({
+    queryKey: ["/api/config/mailchimp-env-key"],
+  });
+
   const [editingCountry, setEditingCountry] = useState<string | null>(null);
+  const [usingEnvKey, setUsingEnvKey] = useState(false);
   const [formData, setFormData] = useState<{ apiKey: string; serverPrefix: string; defaultAudienceId: string; isActive: boolean }>({
     apiKey: "",
     serverPrefix: "",
@@ -10701,8 +10706,17 @@ function MailchimpSettingsTab() {
     },
   });
 
+  const handleUseEnvKey = () => {
+    if (envKeyInfo?.available) {
+      setFormData(p => ({ ...p, apiKey: "__ENV__", serverPrefix: envKeyInfo.serverPrefix || "" }));
+      setUsingEnvKey(true);
+    }
+  };
+
   const handleTest = async () => {
-    if (!formData.apiKey || !formData.serverPrefix) {
+    const apiKey = usingEnvKey ? "__ENV__" : formData.apiKey;
+    const serverPrefix = formData.serverPrefix;
+    if (!apiKey || !serverPrefix) {
       toast({ title: "Zadajte API kľúč a server prefix", variant: "destructive" });
       return;
     }
@@ -10710,8 +10724,8 @@ function MailchimpSettingsTab() {
     setTestResult(null);
     try {
       const res = await apiRequest("POST", "/api/config/mailchimp-settings/test", {
-        apiKey: formData.apiKey,
-        serverPrefix: formData.serverPrefix,
+        apiKey,
+        serverPrefix,
       });
       const result = await res.json();
       setTestResult(result);
@@ -10752,20 +10766,23 @@ function MailchimpSettingsTab() {
 
   const handleAddCountry = (countryCode: string) => {
     setEditingCountry(countryCode);
+    setUsingEnvKey(false);
     setFormData({ apiKey: "", serverPrefix: "", defaultAudienceId: "", isActive: true });
     setTestResult(null);
     setAudiences([]);
   };
 
   const handleSave = () => {
-    if (!editingCountry || !formData.apiKey || !formData.serverPrefix) return;
+    const apiKey = usingEnvKey ? "__ENV__" : formData.apiKey;
+    if (!editingCountry || !apiKey || !formData.serverPrefix) return;
     upsertMutation.mutate({
       countryCode: editingCountry,
-      apiKey: formData.apiKey,
+      apiKey,
       serverPrefix: formData.serverPrefix,
       defaultAudienceId: formData.defaultAudienceId || null,
       isActive: formData.isActive,
     });
+    setUsingEnvKey(false);
   };
 
   const getConfigForCountry = (countryCode: string) =>
@@ -10815,28 +10832,59 @@ function MailchimpSettingsTab() {
             </div>
             {isEditing ? (
               <div className="space-y-4 mt-4 p-4 bg-muted/50 rounded-lg">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>API Kľúč</Label>
-                    <Input
-                      type="password"
-                      value={formData.apiKey}
-                      onChange={e => setFormData(p => ({ ...p, apiKey: e.target.value }))}
-                      placeholder="xxxxxxxxxx-usXX"
-                      data-testid="input-mc-apikey"
-                    />
+                {envKeyInfo?.available && !usingEnvKey && (
+                  <div className="flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800">
+                    <Key className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-blue-700 dark:text-blue-400">MAILCHIMP_API_KEY je dostupný v prostredí</p>
+                      <p className="text-xs text-blue-600 dark:text-blue-500">{envKeyInfo.maskedKey} (prefix: {envKeyInfo.serverPrefix})</p>
+                    </div>
+                    <Button size="sm" variant="outline" onClick={handleUseEnvKey} data-testid="btn-use-env-key">
+                      Použiť ENV kľúč
+                    </Button>
                   </div>
-                  <div className="space-y-2">
-                    <Label>Server Prefix</Label>
-                    <Input
-                      value={formData.serverPrefix}
-                      onChange={e => setFormData(p => ({ ...p, serverPrefix: e.target.value }))}
-                      placeholder="us14"
-                      data-testid="input-mc-server"
-                    />
-                    <p className="text-xs text-muted-foreground">Časť za pomlčkou v API kľúči (napr. us14)</p>
+                )}
+                {usingEnvKey && (
+                  <div className="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-200 dark:border-green-800">
+                    <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-green-700 dark:text-green-400">Používa sa ENV kľúč: {envKeyInfo?.maskedKey}</p>
+                      <p className="text-xs text-green-600 dark:text-green-500">Server prefix: {formData.serverPrefix}</p>
+                    </div>
+                    <Button size="sm" variant="ghost" onClick={() => { setUsingEnvKey(false); setFormData(p => ({ ...p, apiKey: "", serverPrefix: "" })); }} data-testid="btn-clear-env-key">
+                      Zadať manuálne
+                    </Button>
                   </div>
-                </div>
+                )}
+                {!usingEnvKey && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>API Kľúč</Label>
+                      <Input
+                        type="password"
+                        value={formData.apiKey}
+                        onChange={e => {
+                          const val = e.target.value;
+                          const parts = val.split("-");
+                          const prefix = parts.length > 1 ? parts[parts.length - 1] : formData.serverPrefix;
+                          setFormData(p => ({ ...p, apiKey: val, serverPrefix: prefix }));
+                        }}
+                        placeholder="xxxxxxxxxx-usXX"
+                        data-testid="input-mc-apikey"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Server Prefix</Label>
+                      <Input
+                        value={formData.serverPrefix}
+                        onChange={e => setFormData(p => ({ ...p, serverPrefix: e.target.value }))}
+                        placeholder="us5"
+                        data-testid="input-mc-server"
+                      />
+                      <p className="text-xs text-muted-foreground">Automaticky extrahovaný z API kľúča</p>
+                    </div>
+                  </div>
+                )}
                 <div className="flex items-center gap-4">
                   <Button variant="outline" size="sm" onClick={handleTest} disabled={testLoading} data-testid="btn-test-mc">
                     {testLoading ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Zap className="h-4 w-4 mr-1" />}
@@ -10910,27 +10958,59 @@ function MailchimpSettingsTab() {
             <span className="text-lg">{MC_COUNTRIES.find(c => c.code === editingCountry)?.flag}</span>
             <span className="font-medium">{MC_COUNTRIES.find(c => c.code === editingCountry)?.name}</span>
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>API Kľúč</Label>
-              <Input
-                type="password"
-                value={formData.apiKey}
-                onChange={e => setFormData(p => ({ ...p, apiKey: e.target.value }))}
-                placeholder="xxxxxxxxxx-usXX"
-                data-testid="input-mc-apikey-new"
-              />
+          {envKeyInfo?.available && !usingEnvKey && (
+            <div className="flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800">
+              <Key className="h-4 w-4 text-blue-600 flex-shrink-0" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-blue-700 dark:text-blue-400">MAILCHIMP_API_KEY je dostupný v prostredí</p>
+                <p className="text-xs text-blue-600 dark:text-blue-500">{envKeyInfo.maskedKey} (prefix: {envKeyInfo.serverPrefix})</p>
+              </div>
+              <Button size="sm" variant="outline" onClick={handleUseEnvKey} data-testid="btn-use-env-key-new">
+                Použiť ENV kľúč
+              </Button>
             </div>
-            <div className="space-y-2">
-              <Label>Server Prefix</Label>
-              <Input
-                value={formData.serverPrefix}
-                onChange={e => setFormData(p => ({ ...p, serverPrefix: e.target.value }))}
-                placeholder="us14"
-                data-testid="input-mc-server-new"
-              />
+          )}
+          {usingEnvKey && (
+            <div className="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-200 dark:border-green-800">
+              <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-green-700 dark:text-green-400">Používa sa ENV kľúč: {envKeyInfo?.maskedKey}</p>
+                <p className="text-xs text-green-600 dark:text-green-500">Server prefix: {formData.serverPrefix}</p>
+              </div>
+              <Button size="sm" variant="ghost" onClick={() => { setUsingEnvKey(false); setFormData(p => ({ ...p, apiKey: "", serverPrefix: "" })); }}>
+                Zadať manuálne
+              </Button>
             </div>
-          </div>
+          )}
+          {!usingEnvKey && (
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>API Kľúč</Label>
+                <Input
+                  type="password"
+                  value={formData.apiKey}
+                  onChange={e => {
+                    const val = e.target.value;
+                    const parts = val.split("-");
+                    const prefix = parts.length > 1 ? parts[parts.length - 1] : formData.serverPrefix;
+                    setFormData(p => ({ ...p, apiKey: val, serverPrefix: prefix }));
+                  }}
+                  placeholder="xxxxxxxxxx-usXX"
+                  data-testid="input-mc-apikey-new"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Server Prefix</Label>
+                <Input
+                  value={formData.serverPrefix}
+                  onChange={e => setFormData(p => ({ ...p, serverPrefix: e.target.value }))}
+                  placeholder="us5"
+                  data-testid="input-mc-server-new"
+                />
+                <p className="text-xs text-muted-foreground">Automaticky extrahovaný z API kľúča</p>
+              </div>
+            </div>
+          )}
           <div className="flex items-center gap-4">
             <Button variant="outline" size="sm" onClick={handleTest} disabled={testLoading} data-testid="btn-test-mc-new">
               {testLoading ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Zap className="h-4 w-4 mr-1" />}

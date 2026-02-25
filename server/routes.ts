@@ -9405,7 +9405,15 @@ export async function registerRoutes(
 
   app.post("/api/config/mailchimp-settings", requireAuth, async (req, res) => {
     try {
-      const data = insertMailchimpSettingsSchema.parse(req.body);
+      const body = { ...req.body };
+      if (body.apiKey === "__ENV__") {
+        body.apiKey = process.env.MAILCHIMP_API_KEY || "";
+      }
+      if (!body.serverPrefix && body.apiKey) {
+        const parts = body.apiKey.split("-");
+        body.serverPrefix = parts.length > 1 ? parts[parts.length - 1] : "";
+      }
+      const data = insertMailchimpSettingsSchema.parse(body);
       const result = await storage.upsertMailchimpSettings(data);
       await logActivity(req.session.user!.id, "upsert", "mailchimp_settings", result.id, undefined, { countryCode: data.countryCode });
       res.json(result);
@@ -9427,9 +9435,25 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/config/mailchimp-env-key", requireAuth, async (_req, res) => {
+    const envKey = process.env.MAILCHIMP_API_KEY;
+    if (!envKey) return res.json({ available: false });
+    const parts = envKey.split("-");
+    const serverPrefix = parts.length > 1 ? parts[parts.length - 1] : "";
+    res.json({ available: true, maskedKey: `${envKey.substring(0, 8)}...${envKey.slice(-4)}`, serverPrefix });
+  });
+
   app.post("/api/config/mailchimp-settings/test", requireAuth, async (req, res) => {
     try {
-      const { apiKey, serverPrefix } = req.body;
+      let { apiKey, serverPrefix } = req.body;
+      if (apiKey === "__ENV__") {
+        apiKey = process.env.MAILCHIMP_API_KEY;
+        if (!apiKey) return res.status(400).json({ error: "MAILCHIMP_API_KEY not set in environment" });
+      }
+      if (!serverPrefix && apiKey) {
+        const parts = apiKey.split("-");
+        serverPrefix = parts.length > 1 ? parts[parts.length - 1] : "";
+      }
       if (!apiKey || !serverPrefix) return res.status(400).json({ error: "apiKey and serverPrefix required" });
       const result = await mailchimpApi.testConnection(apiKey, serverPrefix);
       res.json(result);
