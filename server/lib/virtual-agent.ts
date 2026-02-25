@@ -1,12 +1,54 @@
 import OpenAI from "openai";
 import * as fs from "fs";
 import * as path from "path";
+import { execSync } from "child_process";
 import { db } from "../db";
 import { virtualAgentConfigs, virtualAgentConversations, customers, communicationMessages, callLogs, users, inboundQueues, ivrMessages } from "@shared/schema";
 import { eq, or, ilike, desc, and, sql } from "drizzle-orm";
 import type { AriClient, AriEvent } from "./ari-client";
+import { syncVoicemailGreetingToAsterisk, prewarmSftpPool } from "./asterisk-audio-sync";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+let _dataRoot: string | null = null;
+async function getDataRoot(): Promise<string> {
+  if (!_dataRoot) {
+    const { DATA_ROOT } = await import("../config/storage-paths");
+    _dataRoot = DATA_ROOT;
+  }
+  return _dataRoot;
+}
+
+function downsample24kTo8k(pcm24k: Buffer): Buffer {
+  const samples24k = new Int16Array(pcm24k.buffer, pcm24k.byteOffset, pcm24k.length / 2);
+  const ratio = 3;
+  const outLen = Math.floor(samples24k.length / ratio);
+  const samples8k = new Int16Array(outLen);
+  for (let i = 0; i < outLen; i++) {
+    samples8k[i] = samples24k[i * ratio];
+  }
+  return Buffer.from(samples8k.buffer);
+}
+
+function createWavBuffer(pcmData: Buffer, sampleRate: number): Buffer {
+  const header = Buffer.alloc(44);
+  const dataSize = pcmData.length;
+  const fileSize = 36 + dataSize;
+  header.write("RIFF", 0);
+  header.writeUInt32LE(fileSize, 4);
+  header.write("WAVE", 8);
+  header.write("fmt ", 12);
+  header.writeUInt32LE(16, 16);
+  header.writeUInt16LE(1, 20);
+  header.writeUInt16LE(1, 22);
+  header.writeUInt32LE(sampleRate, 24);
+  header.writeUInt32LE(sampleRate * 2, 28);
+  header.writeUInt16LE(2, 32);
+  header.writeUInt16LE(16, 34);
+  header.write("data", 36);
+  header.writeUInt32LE(dataSize, 40);
+  return Buffer.concat([header, pcmData]);
+}
 
 interface ConversationTurn {
   role: "assistant" | "user";
@@ -297,7 +339,7 @@ export class VirtualAgentEngine {
       return;
     }
 
-    await new Promise(r => setTimeout(r, 200));
+    await new Promise(r => setTimeout(r, 100));
     if (session.channelGone) return;
 
     const configSpeed = parseFloat(config.ttsSpeed as any) || 1.05;
@@ -362,14 +404,13 @@ export class VirtualAgentEngine {
       if (farewellAudio && !session.channelGone) {
         await this.playAudioFile(session.channelId, farewellAudio);
       }
-      await new Promise(r => setTimeout(r, 500));
+      await new Promise(r => setTimeout(r, 200));
       try { await this.ariClient.hangupChannel(session.channelId, "normal"); } catch {}
     }
   }
 
   private async prewarmSftpConnection(): Promise<void> {
     try {
-      const { prewarmSftpPool } = await import("./asterisk-audio-sync");
       await prewarmSftpPool();
     } catch {}
   }
@@ -462,8 +503,8 @@ export class VirtualAgentEngine {
       if (!audioBuffer) {
         try {
           const { downloadVoicemailRecordingFromAsterisk } = await import("./asterisk-audio-sync");
-          const { DATA_ROOT } = await import("../config/storage-paths");
-          const tmpDir = path.join(DATA_ROOT, "virtual-agent-tmp");
+          const dataRoot = await getDataRoot();
+          const tmpDir = path.join(dataRoot, "virtual-agent-tmp");
           if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
 
           const sftpResult = await downloadVoicemailRecordingFromAsterisk(recordingName, tmpDir);
@@ -528,23 +569,16 @@ export class VirtualAgentEngine {
       let customerInfo = "";
       if (session.customerContext?.found) {
         const ctx = session.customerContext;
-        customerInfo = `\n\n--- INFORMÁCIE O VOLAJÚCOM ---\nMeno: ${ctx.name}\nEmail: ${ctx.email || "neznámy"}\nTelefón: ${ctx.phone}\nKrajina: ${ctx.country || "neznáma"}`;
-        if (ctx.lastEmail) {
-          customerInfo += `\nPosledný email: "${ctx.lastEmail.subject}" - odoslal ${ctx.lastEmail.sentBy} dňa ${ctx.lastEmail.sentAt}`;
-        }
-        if (ctx.lastCall) {
-          customerInfo += `\nPosledný hovor: ${ctx.lastCall.direction} - ${ctx.lastCall.calledBy} dňa ${ctx.lastCall.calledAt} (trvanie ${ctx.lastCall.durationSeconds}s)`;
-        }
-        if (ctx.lastSms) {
-          customerInfo += `\nPosledná SMS: ${ctx.lastSms.direction} - ${ctx.lastSms.sentBy} dňa ${ctx.lastSms.sentAt}: "${ctx.lastSms.content}"`;
-        }
-        customerInfo += `\n--- KONIEC INFORMÁCIÍ ---\nPoužívaj tieto info na personalizáciu konverzácie. Oslovuj klienta menom. Ak sa pýta na posledný kontakt, odpovedz s konkrétnymi údajmi.`;
+        customerInfo = `\nVolajúci: ${ctx.name}, tel: ${ctx.phone}${ctx.email ? `, email: ${ctx.email}` : ""}`;
+        if (ctx.lastCall) customerInfo += ` | Posl. hovor: ${ctx.lastCall.calledAt}`;
+        if (ctx.lastEmail) customerInfo += ` | Posl. email: "${ctx.lastEmail.subject}"`;
+        customerInfo += `\nOslovuj klienta menom.`;
       }
 
       const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
         {
           role: "system",
-          content: `${config.systemPrompt}\n\nKRITICKÉ pravidlá:\n- Odpovedaj VEĽMI stručne, maximálne 1-2 krátke vety.\n- Nepoužívaj dlhé vysvetlenia ani opisy.\n- Volajúci číslo: ${session.callerNumber}\n- Ak volajúci chce spätné volanie, potvrď to jednou vetou.\n- Na konci konverzácie zhrň zozbierané informácie stručne.${customerInfo}`
+          content: `${config.systemPrompt}\nOdpovedaj VEĽMI stručne, max 1-2 krátke vety. Volajúci: ${session.callerNumber}${customerInfo}`
         },
       ];
 
@@ -555,16 +589,23 @@ export class VirtualAgentEngine {
 
       const gptModel = (config as any).gptModel || "gpt-4o-mini";
       const gptTemp = parseFloat((config as any).gptTemperature as any) || 0.5;
-      const gptMaxTokens = (config as any).gptMaxTokens || 100;
+      const gptMaxTokens = (config as any).gptMaxTokens || 80;
 
-      const response = await openai.chat.completions.create({
+      const stream = await openai.chat.completions.create({
         model: gptModel,
         messages,
         max_tokens: gptMaxTokens,
         temperature: gptTemp,
+        stream: true,
       });
 
-      return response.choices[0]?.message?.content || null;
+      let result = "";
+      for await (const chunk of stream) {
+        const delta = chunk.choices[0]?.delta?.content;
+        if (delta) result += delta;
+      }
+
+      return result || null;
     } catch (err) {
       console.error(`[VirtualAgent] GPT response error:`, err);
       return null;
@@ -581,7 +622,7 @@ export class VirtualAgentEngine {
     try {
       const ttsVoice = (voice || "nova") as "nova" | "shimmer" | "alloy" | "coral" | "sage" | "onyx" | "echo" | "fable" | "ash";
       const ttsSpeed = Math.min(Math.max(speed || 1.05, 0.25), 4.0);
-      const mp3Response = await openai.audio.speech.create({
+      const ttsResponse = await openai.audio.speech.create({
         model: (this.currentTtsModel as any) || "tts-1",
         voice: ttsVoice,
         input: text,
@@ -590,41 +631,28 @@ export class VirtualAgentEngine {
       });
       const ttsApiTime = Date.now() - t0;
 
-      const { DATA_ROOT } = await import("../config/storage-paths");
-      const ttsDir = path.join(DATA_ROOT, "virtual-agent-tts");
+      const arrayBuffer = await ttsResponse.arrayBuffer();
+      const pcm24k = Buffer.from(arrayBuffer);
+
+      const convStart = Date.now();
+      const pcm8k = downsample24kTo8k(pcm24k);
+      const wavBuffer = createWavBuffer(pcm8k, 8000);
+      const convTime = Date.now() - convStart;
+
+      const dataRoot = await getDataRoot();
+      const ttsDir = path.join(dataRoot, "virtual-agent-tts");
       if (!fs.existsSync(ttsDir)) fs.mkdirSync(ttsDir, { recursive: true });
 
       const fileName = `va-tts-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-      const rawPath = path.join(ttsDir, `${fileName}.raw`);
       const wavPath = path.join(ttsDir, `${fileName}.wav`);
-
-      const arrayBuffer = await mp3Response.arrayBuffer();
-      fs.writeFileSync(rawPath, Buffer.from(arrayBuffer));
-
-      const { execSync } = await import("child_process");
-      try {
-        execSync(`ffmpeg -f s16le -ar 24000 -ac 1 -i "${rawPath}" -ar 8000 -ac 1 -acodec pcm_s16le "${wavPath}" -y 2>/dev/null`, { timeout: 5000 });
-      } catch {
-        try {
-          execSync(`ffmpeg -f s16le -ar 24000 -ac 1 -i "${rawPath}" -ar 8000 -ac 1 "${wavPath}" -y 2>/dev/null`, { timeout: 5000 });
-        } catch {
-          console.warn(`[VirtualAgent] FFmpeg conversion failed`);
-          try { fs.unlinkSync(rawPath); } catch {}
-          return null;
-        }
-      }
-
-      try { fs.unlinkSync(rawPath); } catch {}
-
-      const convTime = Date.now() - t0 - ttsApiTime;
+      fs.writeFileSync(wavPath, wavBuffer);
 
       try {
         const uploadStart = Date.now();
-        const { syncVoicemailGreetingToAsterisk } = await import("./asterisk-audio-sync");
-        const result = await syncVoicemailGreetingToAsterisk(wavPath, fileName);
+        const result = await syncVoicemailGreetingToAsterisk(wavPath, fileName, true);
         const uploadTime = Date.now() - uploadStart;
         if (result.success) {
-          console.log(`[VirtualAgent] TTS pipeline: api=${ttsApiTime}ms, conv=${convTime}ms, upload=${uploadTime}ms, total=${Date.now() - t0}ms`);
+          console.log(`[VirtualAgent] TTS: api=${ttsApiTime}ms, conv=${convTime}ms, sftp=${uploadTime}ms, total=${Date.now() - t0}ms`);
         } else {
           console.warn(`[VirtualAgent] SFTP upload failed: ${result.error}`);
         }

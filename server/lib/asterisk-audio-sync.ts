@@ -13,8 +13,18 @@ interface SyncResult {
   errors: string[];
 }
 
+let cachedAriSettings: any = null;
+let ariSettingsCacheTime = 0;
+const ARI_SETTINGS_CACHE_TTL = 30000;
+
 async function getAriSettings() {
+  const now = Date.now();
+  if (cachedAriSettings && (now - ariSettingsCacheTime) < ARI_SETTINGS_CACHE_TTL) {
+    return cachedAriSettings;
+  }
   const [settings] = await db.select().from(ariSettings).limit(1);
+  cachedAriSettings = settings;
+  ariSettingsCacheTime = now;
   return settings;
 }
 
@@ -375,7 +385,7 @@ export async function prewarmSftpPool(): Promise<void> {
   }
 }
 
-export async function syncVoicemailGreetingToAsterisk(localFilePath: string, remoteSoundName: string): Promise<{ success: boolean; error?: string }> {
+export async function syncVoicemailGreetingToAsterisk(localFilePath: string, remoteSoundName: string, skipConversion?: boolean): Promise<{ success: boolean; error?: string }> {
   try {
     const settings = await getAriSettings();
     if (!settings || !settings.host || !settings.sshUsername) {
@@ -403,7 +413,7 @@ export async function syncVoicemailGreetingToAsterisk(localFilePath: string, rem
     let remoteExt = ".wav";
     const tempFiles: string[] = [];
 
-    if (ext !== ".wav" || !isAsteriskCompatibleWav(absPath)) {
+    if (!skipConversion && (ext !== ".wav" || !isAsteriskCompatibleWav(absPath))) {
       const converted = convertToAsteriskWav(absPath);
       if (converted) {
         uploadPath = converted;
@@ -415,7 +425,7 @@ export async function syncVoicemailGreetingToAsterisk(localFilePath: string, rem
 
     const remotePath = `${remoteSoundsPath}/${remoteSoundName}${remoteExt}`;
     await sftpUpload(sftp, uploadPath, remotePath);
-    console.log(`[AudioSync] TTS uploaded via pooled SFTP (${Date.now() - t0}ms): ${remoteSoundName} → ${remotePath}`);
+    console.log(`[AudioSync] Uploaded via pooled SFTP (${Date.now() - t0}ms): ${remoteSoundName}`);
 
     for (const tmp of tempFiles) {
       try { fs.unlinkSync(tmp); } catch {}
