@@ -34,6 +34,9 @@ args = "Start application"
 name = "Start application"
 author = "agent"
 
+[workflows.workflow.metadata]
+outputType = "webview"
+
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "npm run dev"
@@ -51,3 +54,5 @@ BULKGATE_WEBHOOK_URL = "https://fc828d39-61cd-41d5-ba8d-20e8af9db227-00-7urdqg8t
 APP_BASE_URL = "https://indexus.cordbloodcenter.com"
 
 [userenv.production]
+
+[userenv.development]
