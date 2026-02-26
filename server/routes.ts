@@ -10429,6 +10429,254 @@ export async function registerRoutes(
     }
   });
 
+  // ========== CAMPAIGN PHASES ==========
+
+  app.get("/api/campaigns/:id/phases", requireAuth, async (req, res) => {
+    try {
+      const phases = await storage.getCampaignPhases(req.params.id);
+      const phasesWithStats = await Promise.all(phases.map(async (phase) => {
+        const contactPhases = await storage.getCampaignContactPhases(phase.id);
+        const total = contactPhases.length;
+        const pending = contactPhases.filter(cp => cp.status === "pending").length;
+        const inProgress = contactPhases.filter(cp => cp.status === "in_progress").length;
+        const completed = contactPhases.filter(cp => cp.status === "completed").length;
+        const skipped = contactPhases.filter(cp => cp.status === "skipped").length;
+        const results: Record<string, number> = {};
+        contactPhases.forEach(cp => {
+          if (cp.result) results[cp.result] = (results[cp.result] || 0) + 1;
+        });
+        return { ...phase, stats: { total, pending, inProgress, completed, skipped, results } };
+      }));
+      res.json(phasesWithStats);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to get campaign phases" });
+    }
+  });
+
+  app.post("/api/campaigns/:id/phases", requireAuth, async (req, res) => {
+    try {
+      const campaign = await storage.getCampaign(req.params.id);
+      if (!campaign) return res.status(404).json({ error: "Campaign not found" });
+      const existingPhases = await storage.getCampaignPhases(req.params.id);
+      const nextNumber = existingPhases.length > 0 ? Math.max(...existingPhases.map(p => p.phaseNumber)) + 1 : 1;
+      const phase = await storage.createCampaignPhase({
+        ...req.body,
+        campaignId: req.params.id,
+        phaseNumber: req.body.phaseNumber || nextNumber,
+      });
+      res.json(phase);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to create campaign phase" });
+    }
+  });
+
+  app.patch("/api/campaigns/:id/phases/:phaseId", requireAuth, async (req, res) => {
+    try {
+      const existing = await storage.getCampaignPhase(req.params.phaseId);
+      if (!existing || existing.campaignId !== req.params.id) return res.status(404).json({ error: "Phase not found" });
+      const phase = await storage.updateCampaignPhase(req.params.phaseId, req.body);
+      if (!phase) return res.status(404).json({ error: "Phase not found" });
+      res.json(phase);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to update phase" });
+    }
+  });
+
+  app.delete("/api/campaigns/:id/phases/:phaseId", requireAuth, async (req, res) => {
+    try {
+      const existing = await storage.getCampaignPhase(req.params.phaseId);
+      if (!existing || existing.campaignId !== req.params.id) return res.status(404).json({ error: "Phase not found" });
+      await storage.deleteCampaignPhase(req.params.phaseId);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to delete phase" });
+    }
+  });
+
+  app.get("/api/campaigns/:id/phases/:phaseId/contacts", requireAuth, async (req, res) => {
+    try {
+      const phaseCheck = await storage.getCampaignPhase(req.params.phaseId);
+      if (!phaseCheck || phaseCheck.campaignId !== req.params.id) return res.status(404).json({ error: "Phase not found" });
+      const contactPhases = await storage.getCampaignContactPhases(req.params.phaseId);
+      const campaignContacts = await storage.getCampaignContacts(req.params.id);
+      const enriched = await Promise.all(contactPhases.map(async (cp) => {
+        const cc = campaignContacts.find(c => c.id === cp.contactId);
+        let contactName = "";
+        let contactEmail = "";
+        let contactPhone = "";
+        if (cc) {
+          if (cc.contactType === "customer" && cc.customerId) {
+            const customer = await storage.getCustomer(cc.customerId);
+            if (customer) {
+              contactName = `${customer.firstName || ""} ${customer.lastName || ""}`.trim();
+              contactEmail = customer.email || "";
+              contactPhone = customer.phone || customer.mobile || "";
+            }
+          } else if (cc.contactType === "hospital" && cc.hospitalId) {
+            const hospital = await storage.getHospital(cc.hospitalId);
+            if (hospital) {
+              contactName = hospital.name || "";
+              contactEmail = hospital.email || "";
+              contactPhone = hospital.phone || "";
+            }
+          } else if (cc.contactType === "clinic" && cc.clinicId) {
+            const clinic = await storage.getClinic(cc.clinicId);
+            if (clinic) {
+              contactName = clinic.name || "";
+              contactEmail = (clinic as any).email || "";
+              contactPhone = (clinic as any).phone || "";
+            }
+          }
+        }
+        return {
+          ...cp,
+          contactType: cc?.contactType || "customer",
+          contactName,
+          contactEmail,
+          contactPhone,
+          dispositionCode: cc?.dispositionCode,
+        };
+      }));
+      res.json(enriched);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to get phase contacts" });
+    }
+  });
+
+  app.get("/api/campaigns/:id/contacts/:contactId/timeline", requireAuth, async (req, res) => {
+    try {
+      const history = await storage.getContactPhaseHistory(req.params.id, req.params.contactId);
+      const phases = await storage.getCampaignPhases(req.params.id);
+      const enriched = history.map(h => {
+        const phase = phases.find(p => p.id === h.phaseId);
+        return { ...h, phaseName: phase?.name, phaseNumber: phase?.phaseNumber, phaseType: phase?.type };
+      });
+      res.json(enriched);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to get contact timeline" });
+    }
+  });
+
+  app.post("/api/campaigns/:id/phases/:phaseId/activate", requireAuth, async (req, res) => {
+    try {
+      const phase = await storage.getCampaignPhase(req.params.phaseId);
+      if (!phase || phase.campaignId !== req.params.id) return res.status(404).json({ error: "Phase not found" });
+      if (phase.status !== "draft") return res.status(400).json({ error: "Only draft phases can be activated" });
+
+      const contactPhases = await storage.getCampaignContactPhases(phase.id);
+      if (contactPhases.length === 0) {
+        const campaignContacts = await storage.getCampaignContacts(req.params.id);
+        if (campaignContacts.length === 0) return res.status(400).json({ error: "No contacts in campaign" });
+        const cpData = campaignContacts.map(cc => ({
+          campaignId: req.params.id,
+          contactId: cc.id,
+          phaseId: phase.id,
+          status: "pending" as const,
+        }));
+        await storage.createCampaignContactPhases(cpData);
+      }
+
+      const updated = await storage.updateCampaignPhase(phase.id, {
+        status: "active",
+        scheduledStartAt: new Date(),
+      });
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to activate phase" });
+    }
+  });
+
+  app.post("/api/campaigns/:id/phases/:phaseId/evaluate", requireAuth, async (req, res) => {
+    try {
+      const phase = await storage.getCampaignPhase(req.params.phaseId);
+      if (!phase || phase.campaignId !== req.params.id) return res.status(404).json({ error: "Phase not found" });
+      if (phase.status !== "active") return res.status(400).json({ error: "Only active phases can be evaluated" });
+
+      const updated = await storage.updateCampaignPhase(phase.id, {
+        status: "evaluating",
+      });
+
+      const contactPhases = await storage.getCampaignContactPhases(phase.id);
+      const campaignContacts = await storage.getCampaignContacts(req.params.id);
+
+      const updatePromises = contactPhases
+        .filter(cp => cp.status === "pending" || cp.status === "in_progress")
+        .map(cp => {
+          const cc = campaignContacts.find(c => c.id === cp.contactId);
+          return storage.updateCampaignContactPhase(cp.id, {
+            status: "completed",
+            result: cc?.dispositionCode || cc?.status || "no_result",
+            completedAt: new Date(),
+          });
+        });
+      await Promise.all(updatePromises);
+
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to evaluate phase" });
+    }
+  });
+
+  app.post("/api/campaigns/:id/phases/:phaseId/transition", requireAuth, async (req, res) => {
+    try {
+      const phase = await storage.getCampaignPhase(req.params.phaseId);
+      if (!phase || phase.campaignId !== req.params.id) return res.status(404).json({ error: "Phase not found" });
+
+      const { targetPhaseId, includeStatuses, excludeStatuses } = req.body;
+      if (!targetPhaseId) return res.status(400).json({ error: "Target phase ID required" });
+
+      const targetPhase = await storage.getCampaignPhase(targetPhaseId);
+      if (!targetPhase || targetPhase.campaignId !== req.params.id) return res.status(404).json({ error: "Target phase not found" });
+
+      const contactPhases = await storage.getCampaignContactPhases(phase.id);
+      const qualifyingContacts = contactPhases.filter(cp => {
+        if (cp.status !== "completed") return false;
+        if (includeStatuses && includeStatuses.length > 0) {
+          return includeStatuses.includes(cp.result);
+        }
+        if (excludeStatuses && excludeStatuses.length > 0) {
+          return !excludeStatuses.includes(cp.result);
+        }
+        return true;
+      });
+
+      const existingTargetPhases = await storage.getCampaignContactPhases(targetPhaseId);
+      const existingContactIds = new Set(existingTargetPhases.map(cp => cp.contactId));
+      const deduped = qualifyingContacts.filter(cp => !existingContactIds.has(cp.contactId));
+
+      const newContactPhases = deduped.map(cp => ({
+        campaignId: req.params.id,
+        contactId: cp.contactId,
+        phaseId: targetPhaseId,
+        status: "pending" as const,
+      }));
+
+      const created = await storage.createCampaignContactPhases(newContactPhases);
+
+      await storage.updateCampaignPhase(phase.id, {
+        status: "completed",
+        completedAt: new Date(),
+        transitionRules: { targetPhaseId, includeStatuses, excludeStatuses },
+      });
+
+      res.json({ transitioned: created.length, total: contactPhases.length });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to transition contacts" });
+    }
+  });
+
+  app.patch("/api/campaigns/:id/phases/:phaseId/contacts/:contactPhaseId", requireAuth, async (req, res) => {
+    try {
+      const phaseCheck = await storage.getCampaignPhase(req.params.phaseId);
+      if (!phaseCheck || phaseCheck.campaignId !== req.params.id) return res.status(404).json({ error: "Phase not found" });
+      const updated = await storage.updateCampaignContactPhase(req.params.contactPhaseId, req.body);
+      if (!updated) return res.status(404).json({ error: "Contact phase not found" });
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to update contact phase" });
+    }
+  });
+
   // ========== COUNTRY SYSTEM SETTINGS ==========
   
   // Get all country system settings

@@ -137,6 +137,8 @@ import {
   type AgentBreak, type InsertAgentBreak,
   mailchimpSettings, type MailchimpSettings, type InsertMailchimpSettings,
   campaignMailchimpSync, type CampaignMailchimpSync, type InsertCampaignMailchimpSync,
+  campaignPhases, type CampaignPhase, type InsertCampaignPhase,
+  campaignContactPhases, type CampaignContactPhase, type InsertCampaignContactPhase,
   hospitals, clinics
 } from "@shared/schema";
 import { db } from "./db";
@@ -363,6 +365,17 @@ export interface IStorage {
   upsertCampaignMailchimpSync(data: InsertCampaignMailchimpSync): Promise<CampaignMailchimpSync>;
   updateCampaignMailchimpSync(campaignId: string, data: Partial<CampaignMailchimpSync>): Promise<CampaignMailchimpSync | undefined>;
   deleteCampaignMailchimpSync(campaignId: string): Promise<void>;
+
+  // Campaign Phases
+  getCampaignPhases(campaignId: string): Promise<CampaignPhase[]>;
+  getCampaignPhase(phaseId: string): Promise<CampaignPhase | undefined>;
+  createCampaignPhase(data: InsertCampaignPhase): Promise<CampaignPhase>;
+  updateCampaignPhase(phaseId: string, data: Partial<CampaignPhase>): Promise<CampaignPhase | undefined>;
+  deleteCampaignPhase(phaseId: string): Promise<boolean>;
+  getCampaignContactPhases(phaseId: string): Promise<CampaignContactPhase[]>;
+  getContactPhaseHistory(campaignId: string, contactId: string): Promise<CampaignContactPhase[]>;
+  createCampaignContactPhases(data: InsertCampaignContactPhase[]): Promise<CampaignContactPhase[]>;
+  updateCampaignContactPhase(id: string, data: Partial<CampaignContactPhase>): Promise<CampaignContactPhase | undefined>;
 
   // Country System Settings
   getAllCountrySystemSettings(): Promise<CountrySystemSettings[]>;
@@ -2267,6 +2280,65 @@ export class DatabaseStorage implements IStorage {
     if (existing) {
       await db.delete(campaignMailchimpSync).where(eq(campaignMailchimpSync.id, existing.id));
     }
+  }
+
+  // Campaign Phases
+  async getCampaignPhases(campaignId: string): Promise<CampaignPhase[]> {
+    return db.select().from(campaignPhases)
+      .where(eq(campaignPhases.campaignId, campaignId))
+      .orderBy(asc(campaignPhases.phaseNumber));
+  }
+
+  async getCampaignPhase(phaseId: string): Promise<CampaignPhase | undefined> {
+    const [phase] = await db.select().from(campaignPhases)
+      .where(eq(campaignPhases.id, phaseId)).limit(1);
+    return phase || undefined;
+  }
+
+  async createCampaignPhase(data: InsertCampaignPhase): Promise<CampaignPhase> {
+    const [phase] = await db.insert(campaignPhases).values(data).returning();
+    return phase;
+  }
+
+  async updateCampaignPhase(phaseId: string, data: Partial<CampaignPhase>): Promise<CampaignPhase | undefined> {
+    const [updated] = await db.update(campaignPhases)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(campaignPhases.id, phaseId))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteCampaignPhase(phaseId: string): Promise<boolean> {
+    await db.delete(campaignContactPhases).where(eq(campaignContactPhases.phaseId, phaseId));
+    const result = await db.delete(campaignPhases).where(eq(campaignPhases.id, phaseId));
+    return true;
+  }
+
+  async getCampaignContactPhases(phaseId: string): Promise<CampaignContactPhase[]> {
+    return db.select().from(campaignContactPhases)
+      .where(eq(campaignContactPhases.phaseId, phaseId));
+  }
+
+  async getContactPhaseHistory(campaignId: string, contactId: string): Promise<CampaignContactPhase[]> {
+    return db.select().from(campaignContactPhases)
+      .where(and(
+        eq(campaignContactPhases.campaignId, campaignId),
+        eq(campaignContactPhases.contactId, contactId)
+      ))
+      .orderBy(asc(campaignContactPhases.enteredAt));
+  }
+
+  async createCampaignContactPhases(data: InsertCampaignContactPhase[]): Promise<CampaignContactPhase[]> {
+    if (data.length === 0) return [];
+    return db.insert(campaignContactPhases).values(data).returning();
+  }
+
+  async updateCampaignContactPhase(id: string, data: Partial<CampaignContactPhase>): Promise<CampaignContactPhase | undefined> {
+    const [updated] = await db.update(campaignContactPhases)
+      .set(data)
+      .where(eq(campaignContactPhases.id, id))
+      .returning();
+    return updated || undefined;
   }
 
   // Country System Settings

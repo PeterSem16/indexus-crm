@@ -13,7 +13,7 @@ import {
   ThumbsUp, ThumbsDown, CalendarPlus, PhoneOff, AlertCircle, XCircle, Zap, Star,
   CircleDot, Info, Heart, Ban, Bell, Send, Target, Flag, Eye, EyeOff,
   Volume2, VolumeX, UserCheck, UserX, Briefcase, Gift, Home, MapPin, Globe, Wand2,
-  Variable, Building2, Building, Loader2, Tag,
+  Variable, Building2, Building, Loader2, Tag, Layers,
   type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { DataTable, type SortConfig } from "@/components/data-table";
 import { ContactCriteriaBuilder, type PreviewCounts } from "@/components/contact-criteria-builder";
+import CampaignPhasesTab from "@/components/campaigns/CampaignPhasesTab";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -2225,6 +2226,10 @@ export default function CampaignDetailPage() {
               Mailchimp
             </TabsTrigger>
           )}
+          <TabsTrigger value="phases" data-testid="tab-phases">
+            <Layers className="w-4 h-4 mr-2" />
+            Fázy
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
@@ -5513,6 +5518,10 @@ function MailchimpSyncSection({ campaignId, campaignName, countryCodes }: { camp
               </CardContent>
             </Card>
           )}
+        </TabsContent>
+
+        <TabsContent value="phases" className="space-y-6">
+          {campaign && <CampaignPhasesTab campaignId={campaign.id} />}
         </TabsContent>
       </Tabs>
     </div>

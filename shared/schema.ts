@@ -5771,3 +5771,74 @@ export const insertCampaignMailchimpSyncSchema = createInsertSchema(campaignMail
 });
 export type InsertCampaignMailchimpSync = z.infer<typeof insertCampaignMailchimpSyncSchema>;
 export type CampaignMailchimpSync = typeof campaignMailchimpSync.$inferSelect;
+
+// ==================== CAMPAIGN PHASES ====================
+
+export const PHASE_STATUSES = ["draft", "active", "completed", "evaluating"] as const;
+export type PhaseStatus = typeof PHASE_STATUSES[number];
+
+export const PHASE_TYPES = ["phone", "email"] as const;
+export type PhaseType = typeof PHASE_TYPES[number];
+
+export const campaignPhases = pgTable("campaign_phases", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  campaignId: varchar("campaign_id").notNull(),
+  phaseNumber: integer("phase_number").notNull().default(1),
+  name: text("name").notNull(),
+  type: text("type").notNull().default("phone"),
+  status: text("status").notNull().default("draft"),
+  scheduledStartAt: timestamp("scheduled_start_at"),
+  evaluationAt: timestamp("evaluation_at"),
+  completedAt: timestamp("completed_at"),
+  mailchimpCampaignId: text("mailchimp_campaign_id"),
+  transitionRules: jsonb("transition_rules"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const insertCampaignPhaseSchema = createInsertSchema(campaignPhases).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  type: z.enum(["phone", "email"]).optional().default("phone"),
+  status: z.enum(["draft", "active", "completed", "evaluating"]).optional().default("draft"),
+  scheduledStartAt: z.string().optional().nullable(),
+  evaluationAt: z.string().optional().nullable(),
+  completedAt: z.string().optional().nullable(),
+  mailchimpCampaignId: z.string().optional().nullable(),
+  transitionRules: z.any().optional().nullable(),
+});
+export type InsertCampaignPhase = z.infer<typeof insertCampaignPhaseSchema>;
+export type CampaignPhase = typeof campaignPhases.$inferSelect;
+
+// ==================== CAMPAIGN CONTACT PHASES ====================
+
+export const CONTACT_PHASE_STATUSES = ["pending", "in_progress", "completed", "skipped"] as const;
+export type ContactPhaseStatus = typeof CONTACT_PHASE_STATUSES[number];
+
+export const campaignContactPhases = pgTable("campaign_contact_phases", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  campaignId: varchar("campaign_id").notNull(),
+  contactId: varchar("contact_id").notNull(),
+  phaseId: varchar("phase_id").notNull(),
+  status: text("status").notNull().default("pending"),
+  result: text("result"),
+  phoneResult: jsonb("phone_result"),
+  emailResult: jsonb("email_result"),
+  enteredAt: timestamp("entered_at").notNull().default(sql`now()`),
+  completedAt: timestamp("completed_at"),
+});
+
+export const insertCampaignContactPhaseSchema = createInsertSchema(campaignContactPhases).omit({
+  id: true,
+  enteredAt: true,
+}).extend({
+  status: z.enum(["pending", "in_progress", "completed", "skipped"]).optional().default("pending"),
+  result: z.string().optional().nullable(),
+  phoneResult: z.any().optional().nullable(),
+  emailResult: z.any().optional().nullable(),
+  completedAt: z.string().optional().nullable(),
+});
+export type InsertCampaignContactPhase = z.infer<typeof insertCampaignContactPhaseSchema>;
+export type CampaignContactPhase = typeof campaignContactPhases.$inferSelect;
