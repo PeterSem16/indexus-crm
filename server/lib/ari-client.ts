@@ -62,6 +62,7 @@ export class AriClient extends EventEmitter {
   private static readonly HEALTH_CHECK_INTERVAL_MS = 60000;
   private static readonly BASE_RECONNECT_DELAY_MS = 5000;
   private static readonly MAX_RECONNECT_DELAY_MS = 60000;
+  private static readonly MAX_RECONNECT_ATTEMPTS = 10;
 
   constructor(config: AriConfig) {
     super();
@@ -238,12 +239,17 @@ export class AriClient extends EventEmitter {
 
   private scheduleReconnect(): void {
     if (this.reconnectTimer || this.intentionalDisconnect) return;
+    if (this.reconnectAttempts >= AriClient.MAX_RECONNECT_ATTEMPTS) {
+      console.warn(`[ARI] Reached max reconnect attempts (${AriClient.MAX_RECONNECT_ATTEMPTS}). Giving up. Reconfigure ARI settings to retry.`);
+      this.emit("max-reconnects-reached");
+      return;
+    }
     const delay = Math.min(
       AriClient.BASE_RECONNECT_DELAY_MS * Math.pow(1.5, this.reconnectAttempts),
       AriClient.MAX_RECONNECT_DELAY_MS,
     );
     this.reconnectAttempts++;
-    console.log(`[ARI] Scheduling reconnect in ${Math.round(delay / 1000)}s (attempt ${this.reconnectAttempts})...`);
+    console.log(`[ARI] Scheduling reconnect in ${Math.round(delay / 1000)}s (attempt ${this.reconnectAttempts}/${AriClient.MAX_RECONNECT_ATTEMPTS})...`);
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
       console.log("[ARI] Attempting reconnect...");
