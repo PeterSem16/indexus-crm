@@ -10459,13 +10459,21 @@ export async function registerRoutes(
       if (!campaign) return res.status(404).json({ error: "Campaign not found" });
       const existingPhases = await storage.getCampaignPhases(req.params.id);
       const nextNumber = existingPhases.length > 0 ? Math.max(...existingPhases.map(p => p.phaseNumber)) + 1 : 1;
-      const phase = await storage.createCampaignPhase({
+      const phaseData: any = {
         ...req.body,
         campaignId: req.params.id,
         phaseNumber: req.body.phaseNumber || nextNumber,
-      });
+      };
+      if (phaseData.evaluationAt) {
+        phaseData.evaluationAt = new Date(phaseData.evaluationAt);
+      }
+      if (phaseData.scheduledStartAt) {
+        phaseData.scheduledStartAt = new Date(phaseData.scheduledStartAt);
+      }
+      const phase = await storage.createCampaignPhase(phaseData);
       res.json(phase);
     } catch (error: any) {
+      console.error("Failed to create campaign phase:", error);
       res.status(500).json({ error: error.message || "Failed to create campaign phase" });
     }
   });
@@ -10474,10 +10482,18 @@ export async function registerRoutes(
     try {
       const existing = await storage.getCampaignPhase(req.params.phaseId);
       if (!existing || existing.campaignId !== req.params.id) return res.status(404).json({ error: "Phase not found" });
-      const phase = await storage.updateCampaignPhase(req.params.phaseId, req.body);
+      const updateData: any = { ...req.body };
+      if (updateData.evaluationAt) {
+        updateData.evaluationAt = new Date(updateData.evaluationAt);
+      }
+      if (updateData.scheduledStartAt) {
+        updateData.scheduledStartAt = new Date(updateData.scheduledStartAt);
+      }
+      const phase = await storage.updateCampaignPhase(req.params.phaseId, updateData);
       if (!phase) return res.status(404).json({ error: "Phase not found" });
       res.json(phase);
     } catch (error: any) {
+      console.error("Failed to update phase:", error);
       res.status(500).json({ error: error.message || "Failed to update phase" });
     }
   });

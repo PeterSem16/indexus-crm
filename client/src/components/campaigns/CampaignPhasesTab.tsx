@@ -182,6 +182,9 @@ export default function CampaignPhasesTab({ campaignId }: { campaignId: string }
       setNewPhaseEvalDate("");
       toast({ title: pt.createPhase, description: "OK" });
     },
+    onError: (err: any) => {
+      toast({ title: "Chyba", description: err.message || "Nepodarilo sa vytvoriť fázu", variant: "destructive" });
+    },
   });
 
   const updatePhaseMutation = useMutation({
@@ -190,6 +193,10 @@ export default function CampaignPhasesTab({ campaignId }: { campaignId: string }
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "phases"] });
       setEditingPhase(null);
+      toast({ title: pt.save, description: "OK" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Chyba", description: err.message || "Nepodarilo sa uložiť fázu", variant: "destructive" });
     },
   });
 
