@@ -6,6 +6,27 @@ import { startAlertEvaluator } from "./alert-evaluator";
 import { startSessionCleanup } from "./session-cleanup";
 import { startScheduledReportRunner } from "./scheduled-report-runner";
 
+const originalExit = process.exit;
+process.exit = function(code?: number) {
+  if (code === 1) {
+    console.error(`[Server] process.exit(1) intercepted, keeping server alive`);
+    return undefined as never;
+  }
+  return originalExit.call(process, code) as never;
+} as typeof process.exit;
+
+process.on('uncaughtException', (err) => {
+  console.error('[Server] Uncaught exception (non-fatal):', err.message);
+});
+
+process.on('unhandledRejection', (reason: any) => {
+  console.error('[Server] Unhandled rejection (non-fatal):', reason?.message || reason);
+});
+
+process.on('SIGHUP', () => {
+  console.error('[Server] Received SIGHUP - ignoring');
+});
+
 const app = express();
 const httpServer = createServer(app);
 
@@ -16,8 +37,10 @@ declare module "http" {
 }
 
 app.use((req, res, next) => {
-  res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
-  res.setHeader("Cross-Origin-Embedder-Policy", "credentialless");
+  if (process.env.NODE_ENV === "production") {
+    res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
+    res.setHeader("Cross-Origin-Embedder-Policy", "credentialless");
+  }
   res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
   next();
 });
@@ -77,8 +100,10 @@ app.use((req, res, next) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
 
-    res.status(status).json({ message });
-    throw err;
+    if (!res.headersSent) {
+      res.status(status).json({ message });
+    }
+    console.error('[Express Error]', status, err.message || err);
   });
 
   // importantly only setup vite in development and after

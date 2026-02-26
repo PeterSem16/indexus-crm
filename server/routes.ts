@@ -2099,7 +2099,7 @@ export async function registerRoutes(
     storage.cleanupExpiredPkceEntries().catch(err => 
       console.error("Error cleaning up expired PKCE entries:", err)
     );
-  }, 60000);
+  }, 10000);
 
   // Track which API keys have been notified to prevent duplicate notifications
   const apiKeyExpirationNotified: Map<string, { threshold: number; date: string }> = new Map();
@@ -28871,7 +28871,7 @@ Guidelines:
 
   setTimeout(() => {
     autoConnectAri().catch(err => console.error("[ARI AutoConnect] Error:", err.message));
-  }, 3000);
+  }, 10000);
 
   return httpServer;
 }

@@ -62,6 +62,13 @@ Preferred communication style: Simple, everyday language.
 - **Features**: Optimistic UI updates, GPS synchronization, localized names, event cancellation, and multi-language support.
 - **Authentication**: JWT Bearer token.
 
+### Process Stability
+- **SIGHUP handling**: The Replit workflow system sends SIGHUP to the Node.js process during normal operation. A handler in `server/index.ts` catches and ignores this signal to prevent unexpected shutdowns.
+- **process.exit(1) override**: Vite's custom error logger in `server/vite.ts` calls `process.exit(1)` on compilation warnings. The override in `server/index.ts` intercepts this to keep the server running.
+- **Startup command**: Uses `node --import tsx` (single-process) instead of `npx tsx` (wrapper+child) for better stability. Configured in `start.sh`.
+- **COOP/COEP headers**: Only applied in production mode to avoid interference with Replit's preview iframe in development.
+- **Email monitoring delay**: 30-second startup delay to let Vite compilation finish before making OpenAI API calls.
+
 ### Key Design Patterns
 - Shared schema definitions.
 - Zod schemas for validation.

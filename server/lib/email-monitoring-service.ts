@@ -194,11 +194,15 @@ let monitoringInterval: NodeJS.Timeout | null = null;
 export function startEmailMonitoring() {
   if (monitoringInterval) return;
   
-  console.log("[EmailMonitor] Starting email monitoring service...");
+  const STARTUP_DELAY = 30000;
+  console.log(`[EmailMonitor] Will start email monitoring in ${STARTUP_DELAY / 1000}s (waiting for server warmup)...`);
   
-  monitoringInterval = setInterval(monitorEmails, CHECK_INTERVAL);
-  
-  setTimeout(monitorEmails, 5000);
+  setTimeout(() => {
+    if (monitoringInterval) return;
+    console.log("[EmailMonitor] Starting email monitoring service...");
+    monitoringInterval = setInterval(monitorEmails, CHECK_INTERVAL);
+    setTimeout(monitorEmails, 5000);
+  }, STARTUP_DELAY);
 }
 
 export function stopEmailMonitoring() {
