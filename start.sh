@@ -1,4 +1,4 @@
 #!/bin/bash
 export NODE_OPTIONS='--max-old-space-size=4096'
-export NODE_ENV=development
+export NODE_ENV=production
 node --import tsx server/index.ts

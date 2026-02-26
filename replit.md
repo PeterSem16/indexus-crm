@@ -63,11 +63,10 @@ Preferred communication style: Simple, everyday language.
 - **Authentication**: JWT Bearer token.
 
 ### Process Stability
+- **Production mode**: Frontend is pre-built (`npx vite build` → `dist/public/`) and served as static files. This eliminates Vite/esbuild at runtime, preventing crashes caused by esbuild's native process dying under large file loads (configurator.tsx 17K+ lines, customers.tsx 8K+ lines). After code changes, run `npx vite build` before restarting.
 - **SIGHUP handling**: The Replit workflow system sends SIGHUP to the Node.js process during normal operation. A handler in `server/index.ts` catches and ignores this signal to prevent unexpected shutdowns.
-- **process.exit(1) override**: Vite's custom error logger in `server/vite.ts` calls `process.exit(1)` on compilation warnings. The override in `server/index.ts` intercepts this to keep the server running.
-- **Startup command**: Uses `node --import tsx` (single-process) instead of `npx tsx` (wrapper+child) for better stability. Configured in `start.sh`.
-- **COOP/COEP headers**: Only applied in production mode to avoid interference with Replit's preview iframe in development.
-- **Email monitoring delay**: 30-second startup delay to let Vite compilation finish before making OpenAI API calls.
+- **Startup command**: Uses `node --import tsx` (single-process) instead of `npx tsx` (wrapper+child) for better stability. Configured in `start.sh` with `NODE_ENV=production`.
+- **Email monitoring delay**: 30-second startup delay before making OpenAI API calls.
 
 ### Key Design Patterns
 - Shared schema definitions.
