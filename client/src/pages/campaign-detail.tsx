@@ -3400,6 +3400,10 @@ export default function CampaignDetailPage() {
           </TabsContent>
         )}
 
+        <TabsContent value="phases" className="space-y-6">
+          {campaign && <CampaignPhasesTab campaignId={campaign.id} />}
+        </TabsContent>
+
       </Tabs>
 
       <Dialog open={!!selectedContact} onOpenChange={() => setSelectedContact(null)}>
@@ -5520,9 +5524,6 @@ function MailchimpSyncSection({ campaignId, campaignName, countryCodes }: { camp
           )}
         </TabsContent>
 
-        <TabsContent value="phases" className="space-y-6">
-          {campaign && <CampaignPhasesTab campaignId={campaign.id} />}
-        </TabsContent>
       </Tabs>
     </div>
   );
