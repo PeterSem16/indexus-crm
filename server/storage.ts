@@ -363,6 +363,8 @@ export interface IStorage {
 
   // Campaign Mailchimp Sync
   getCampaignMailchimpSync(campaignId: string): Promise<CampaignMailchimpSync | undefined>;
+  getCampaignMailchimpSyncByMailchimpId(mailchimpCampaignId: string): Promise<CampaignMailchimpSync | undefined>;
+  getAllCampaignMailchimpSyncs(): Promise<CampaignMailchimpSync[]>;
   upsertCampaignMailchimpSync(data: InsertCampaignMailchimpSync): Promise<CampaignMailchimpSync>;
   updateCampaignMailchimpSync(campaignId: string, data: Partial<CampaignMailchimpSync>): Promise<CampaignMailchimpSync | undefined>;
   deleteCampaignMailchimpSync(campaignId: string): Promise<void>;
@@ -2256,6 +2258,16 @@ export class DatabaseStorage implements IStorage {
     const [sync] = await db.select().from(campaignMailchimpSync)
       .where(eq(campaignMailchimpSync.campaignId, campaignId));
     return sync || undefined;
+  }
+
+  async getCampaignMailchimpSyncByMailchimpId(mailchimpCampaignId: string): Promise<CampaignMailchimpSync | undefined> {
+    const [sync] = await db.select().from(campaignMailchimpSync)
+      .where(eq(campaignMailchimpSync.mailchimpCampaignId, mailchimpCampaignId));
+    return sync || undefined;
+  }
+
+  async getAllCampaignMailchimpSyncs(): Promise<CampaignMailchimpSync[]> {
+    return db.select().from(campaignMailchimpSync);
   }
 
   async upsertCampaignMailchimpSync(data: InsertCampaignMailchimpSync): Promise<CampaignMailchimpSync> {

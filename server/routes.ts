@@ -1289,6 +1289,149 @@ export async function registerRoutes(
     return true;
   };
 
+  // ==================== MAILCHIMP WEBHOOK (PUBLIC - NO AUTH) ====================
+  app.get("/api/webhooks/mailchimp", (req, res) => {
+    res.status(200).send("OK");
+  });
+
+  app.post("/api/webhooks/mailchimp", async (req, res) => {
+    try {
+      const webhookType = req.body?.type;
+      const data = req.body?.data;
+
+      if (!webhookType || !data) {
+        return res.status(200).json({ received: true });
+      }
+
+      const email = data.email?.toLowerCase?.();
+      const mcCampaignId = data.campaign_id;
+
+      if (!email) {
+        return res.status(200).json({ received: true });
+      }
+
+      const actionMap: Record<string, string> = {
+        open: "mailchimp_opened",
+        click: "mailchimp_clicked",
+        cleaned: "mailchimp_bounced",
+        unsub: "mailchimp_unsubscribed",
+      };
+
+      const action = actionMap[webhookType];
+      if (!action) {
+        console.log(`[Mailchimp Webhook] Ignoring event type: ${webhookType}`);
+        return res.status(200).json({ received: true });
+      }
+
+      console.log(`[Mailchimp Webhook] Received ${webhookType} for ${email}, campaign: ${mcCampaignId || "unknown"}`);
+
+      let campaignId: string | null = null;
+      let campaignName: string | null = null;
+
+      if (mcCampaignId) {
+        const sync = await storage.getCampaignMailchimpSyncByMailchimpId(mcCampaignId);
+        if (sync) {
+          campaignId = sync.campaignId;
+          const campaign = await storage.getCampaign(sync.campaignId);
+          if (campaign) campaignName = campaign.name;
+        }
+      }
+
+      if (!campaignId) {
+        const allSyncs = await storage.getAllCampaignMailchimpSyncs();
+        const recentSyncs = allSyncs
+          .sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0))
+          .slice(0, 10);
+
+        for (const sync of recentSyncs) {
+          const contacts = await storage.getCampaignContacts(sync.campaignId);
+          const matchFound = await (async () => {
+            for (const cc of contacts) {
+              let contactEmail: string | null = null;
+              if (cc.contactType === "customer" && cc.customerId) {
+                const cust = await storage.getCustomer(cc.customerId);
+                contactEmail = cust?.email?.toLowerCase() || null;
+              } else if (cc.contactType === "hospital" && cc.hospitalId) {
+                const hosp = await storage.getHospital(cc.hospitalId);
+                contactEmail = hosp?.email?.toLowerCase() || null;
+              } else if (cc.contactType === "clinic" && cc.clinicId) {
+                const clinic = await storage.getClinic(cc.clinicId);
+                contactEmail = clinic?.email?.toLowerCase() || null;
+              } else if (cc.contactType === "collaborator" && cc.collaboratorId) {
+                const collab = await storage.getCollaborator(cc.collaboratorId);
+                contactEmail = collab?.email?.toLowerCase() || null;
+              }
+              if (contactEmail === email) return true;
+            }
+            return false;
+          })();
+          if (matchFound) {
+            campaignId = sync.campaignId;
+            const campaign = await storage.getCampaign(sync.campaignId);
+            if (campaign) campaignName = campaign.name;
+            break;
+          }
+        }
+      }
+
+      if (campaignId) {
+        const contacts = await storage.getCampaignContacts(campaignId);
+        const campaign = campaignName ? { id: campaignId, name: campaignName } : await storage.getCampaign(campaignId);
+
+        const metadata: any = {
+          mailchimpCampaignId: mcCampaignId || null,
+          webhookType,
+          email,
+        };
+        if (webhookType === "click" && data.url) {
+          metadata.url = data.url;
+        }
+        if (webhookType === "cleaned" && data.reason) {
+          metadata.bounceReason = data.reason;
+        }
+
+        let logged = false;
+        for (const cc of contacts) {
+          let contactEmail: string | null = null;
+          if (cc.contactType === "customer" && cc.customerId) {
+            const cust = await storage.getCustomer(cc.customerId);
+            contactEmail = cust?.email?.toLowerCase() || null;
+          } else if (cc.contactType === "hospital" && cc.hospitalId) {
+            const hosp = await storage.getHospital(cc.hospitalId);
+            contactEmail = hosp?.email?.toLowerCase() || null;
+          } else if (cc.contactType === "clinic" && cc.clinicId) {
+            const clinic = await storage.getClinic(cc.clinicId);
+            contactEmail = clinic?.email?.toLowerCase() || null;
+          } else if (cc.contactType === "collaborator" && cc.collaboratorId) {
+            const collab = await storage.getCollaborator(cc.collaboratorId);
+            contactEmail = collab?.email?.toLowerCase() || null;
+          }
+
+          if (contactEmail === email) {
+            await logCampaignTimeline(
+              cc, campaign, "mailchimp", action,
+              undefined, "Mailchimp",
+              { status: webhookType === "cleaned" ? "bounced" : undefined, metadata }
+            );
+            logged = true;
+            console.log(`[Mailchimp Webhook] Logged ${action} for contact ${cc.id} (${email})`);
+            break;
+          }
+        }
+        if (!logged) {
+          console.log(`[Mailchimp Webhook] Campaign ${campaignId} found but no contact matched email ${email}`);
+        }
+      } else {
+        console.log(`[Mailchimp Webhook] No matching campaign found for email ${email}`);
+      }
+
+      res.status(200).json({ received: true });
+    } catch (error) {
+      console.error("[Mailchimp Webhook] Error processing webhook:", error);
+      res.status(200).json({ received: true });
+    }
+  });
+
   // Auth routes
   
   // Check auth method for a user (step 1 of login flow)
@@ -9695,17 +9838,32 @@ export async function registerRoutes(
         }
       );
 
-      if (webhookUrl) {
-        try {
+      const autoWebhookUrl = `${getBaseUrl(req)}/api/webhooks/mailchimp`;
+      const finalWebhookUrl = webhookUrl || autoWebhookUrl;
+      let webhookRegistered = false;
+
+      try {
+        const existingWebhooks = await mailchimpApi.getListWebhooks(
+          { apiKey: settings.apiKey, serverPrefix: settings.serverPrefix },
+          listId
+        );
+        const alreadyExists = existingWebhooks.some(w => w.url === finalWebhookUrl);
+
+        if (!alreadyExists) {
           await mailchimpApi.createWebhook(
             { apiKey: settings.apiKey, serverPrefix: settings.serverPrefix },
             listId,
-            webhookUrl,
-            webhookEvents || { subscribe: true, unsubscribe: true, campaign: true }
+            finalWebhookUrl,
+            webhookEvents || { subscribe: true, unsubscribe: true, campaign: true, cleaned: true }
           );
-        } catch (whErr: any) {
-          console.log("Webhook creation failed (non-blocking):", whErr.message);
+          webhookRegistered = true;
+          console.log(`[Mailchimp] Auto-registered webhook: ${finalWebhookUrl} for list ${listId}`);
+        } else {
+          webhookRegistered = true;
+          console.log(`[Mailchimp] Webhook already exists: ${finalWebhookUrl} for list ${listId}`);
         }
+      } catch (whErr: any) {
+        console.log("[Mailchimp] Webhook auto-registration failed (non-blocking):", whErr.message);
       }
 
       const sync = await storage.upsertCampaignMailchimpSync({
@@ -9716,8 +9874,8 @@ export async function registerRoutes(
         syncedContacts: 0,
       });
 
-      await logActivity(req.session.user!.id, "mailchimp_campaign_created", "campaign", campaign.id, campaign.name, { mailchimpId: mcCampaign.id });
-      res.json({ sync, mailchimpCampaign: mcCampaign });
+      await logActivity(req.session.user!.id, "mailchimp_campaign_created", "campaign", campaign.id, campaign.name, { mailchimpId: mcCampaign.id, webhookRegistered, webhookUrl: finalWebhookUrl });
+      res.json({ sync, mailchimpCampaign: mcCampaign, webhookRegistered, webhookUrl: finalWebhookUrl });
     } catch (error: any) {
       console.error("Error creating mailchimp campaign:", error);
       res.status(500).json({ error: error.message || "Failed to create Mailchimp campaign" });
