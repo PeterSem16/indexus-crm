@@ -25,6 +25,7 @@ import { Progress } from "@/components/ui/progress";
 import { DataTable, type SortConfig } from "@/components/data-table";
 import { ContactCriteriaBuilder, type PreviewCounts } from "@/components/contact-criteria-builder";
 import CampaignPhasesTab from "@/components/campaigns/CampaignPhasesTab";
+import CampaignReportingPhases from "@/components/campaigns/CampaignReportingPhases";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -3181,6 +3182,8 @@ export default function CampaignDetailPage() {
                 })()}
               </CardContent>
             </Card>
+
+          <CampaignReportingPhases campaignId={campaign.id} />
         </TabsContent>
 
         <TabsContent value="script" className="space-y-6">
