@@ -65,9 +65,10 @@ Preferred communication style: Simple, everyday language.
 - **Authentication**: JWT Bearer token.
 
 ### Process Stability
-- **Production mode**: Frontend is pre-built (`npx vite build` → `dist/public/`) and served as static files. This eliminates Vite/esbuild at runtime, preventing crashes caused by esbuild's native process dying under large file loads (configurator.tsx 17K+ lines, customers.tsx 8K+ lines). After code changes, run `npx vite build` before restarting.
+- **Production mode**: Frontend is pre-built (`npx vite build` → `dist/public/`) and served as static files. Server is compiled with esbuild (`script/build-server.ts`) into `dist/index.cjs` (~3.8MB bundle). Full build: `npm run build` (Vite frontend + esbuild server, ~28s). Server-only rebuild: `npx tsx script/build-server.ts` (~2s).
+- **Fast restart**: `start.sh` checks if frontend build exists (`dist/public/index.html`). If yes, only rebuilds the server (~2s). If not, runs full build. Then starts `node dist/index.cjs`. This replaced `node --import tsx server/index.ts` which transpiled 75K+ lines on every restart.
 - **SIGHUP handling**: The Replit workflow system sends SIGHUP to the Node.js process during normal operation. A handler in `server/index.ts` catches and ignores this signal to prevent unexpected shutdowns.
-- **Startup command**: Uses `node --import tsx` (single-process) instead of `npx tsx` (wrapper+child) for better stability. Configured in `start.sh` with `NODE_ENV=production`.
+- **After frontend changes**: Run `npx vite build` to rebuild the frontend, or delete `dist/public/index.html` to force a full rebuild on next restart.
 - **Email monitoring delay**: 30-second startup delay before making OpenAI API calls.
 
 ### Key Design Patterns

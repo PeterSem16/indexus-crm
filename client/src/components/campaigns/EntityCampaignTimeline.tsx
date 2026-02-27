@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { sk } from "date-fns/locale";
-import { useI18n } from "@/lib/i18n";
+import { useI18n } from "@/i18n";
 
 interface EntityCampaignTimelineProps {
   entityType: "customer" | "hospital" | "clinic" | "collaborator";

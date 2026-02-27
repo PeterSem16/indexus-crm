@@ -6,7 +6,10 @@ import { startAlertEvaluator } from "./alert-evaluator";
 import { startSessionCleanup } from "./session-cleanup";
 import { startScheduledReportRunner } from "./scheduled-report-runner";
 
-process.on('SIGHUP', () => {});
+process.on('SIGHUP', () => {
+  console.log('[server] Received SIGHUP, shutting down...');
+  process.exit(0);
+});
 
 const app = express();
 const httpServer = createServer(app);
