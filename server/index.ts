@@ -10,6 +10,14 @@ process.on('SIGHUP', () => {
   console.log('[server] Received SIGHUP, shutting down...');
   process.exit(0);
 });
+process.on('SIGTERM', () => {
+  console.log('[server] Received SIGTERM, shutting down...');
+  process.exit(0);
+});
+process.on('SIGINT', () => {
+  console.log('[server] Received SIGINT, shutting down...');
+  process.exit(0);
+});
 
 const app = express();
 const httpServer = createServer(app);

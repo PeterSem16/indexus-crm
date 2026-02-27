@@ -52,85 +52,110 @@ export function useNotifications() {
     }
   }, [countData]);
 
-  const connect = useCallback(() => {
-    if (!user || wsRef.current?.readyState === WebSocket.OPEN) return;
-
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const wsUrl = `${protocol}//${window.location.host}/ws/notifications?userId=${user.id}`;
-
-    try {
-      const ws = new WebSocket(wsUrl);
-      wsRef.current = ws;
-
-      ws.onopen = () => {
-        setIsConnected(true);
-        reconnectAttempts.current = 0;
-        console.log("[Notifications] WebSocket connected");
-      };
-
-      ws.onmessage = (event) => {
-        try {
-          const message: WebSocketMessage = JSON.parse(event.data);
-          console.log("[Notifications] Received message:", message.type);
-
-          switch (message.type) {
-            case "connected":
-              // Refresh notifications and count on connect
-              queryClient.invalidateQueries({ queryKey: ["/api/notifications?includeRead=true&includeDismissed=false&limit=100"] });
-              queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread-count"] });
-              break;
-            case "notification":
-              queryClient.invalidateQueries({ queryKey: ["/api/notifications?includeRead=true&includeDismissed=false&limit=100"] });
-              queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread-count"] });
-              break;
-            case "unreadCount":
-              setUnreadCount(message.count || 0);
-              break;
-            case "allRead":
-              setUnreadCount(0);
-              queryClient.invalidateQueries({ queryKey: ["/api/notifications?includeRead=true&includeDismissed=false&limit=100"] });
-              break;
-          }
-        } catch (error) {
-          console.error("[Notifications] Error parsing message:", error);
-        }
-      };
-
-      ws.onclose = () => {
-        setIsConnected(false);
-        wsRef.current = null;
-
-        if (reconnectAttempts.current < 5) {
-          const delay = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 30000);
-          reconnectTimeoutRef.current = setTimeout(() => {
-            reconnectAttempts.current++;
-            connect();
-          }, delay);
-        }
-      };
-
-      ws.onerror = (error) => {
-        console.error("[Notifications] WebSocket error:", error);
-      };
-    } catch (error) {
-      console.error("[Notifications] Failed to create WebSocket:", error);
-    }
-  }, [user]);
+  const userIdRef = useRef<string | null>(null);
+  const connectingRef = useRef(false);
 
   useEffect(() => {
-    if (user) {
-      connect();
+    if (!user) {
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+      }
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
+      }
+      userIdRef.current = null;
+      connectingRef.current = false;
+      setIsConnected(false);
+      return;
     }
+
+    if (userIdRef.current === user.id && (wsRef.current?.readyState === WebSocket.OPEN || wsRef.current?.readyState === WebSocket.CONNECTING)) {
+      return;
+    }
+
+    userIdRef.current = user.id;
+
+    function doConnect() {
+      if (connectingRef.current) return;
+      if (wsRef.current?.readyState === WebSocket.OPEN) return;
+      connectingRef.current = true;
+
+      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+      const wsUrl = `${protocol}//${window.location.host}/ws/notifications?userId=${user!.id}`;
+
+      try {
+        const ws = new WebSocket(wsUrl);
+        wsRef.current = ws;
+
+        ws.onopen = () => {
+          connectingRef.current = false;
+          setIsConnected(true);
+          reconnectAttempts.current = 0;
+        };
+
+        ws.onmessage = (event) => {
+          try {
+            const message: WebSocketMessage = JSON.parse(event.data);
+            switch (message.type) {
+              case "connected":
+                queryClient.invalidateQueries({ queryKey: ["/api/notifications?includeRead=true&includeDismissed=false&limit=100"] });
+                queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread-count"] });
+                break;
+              case "notification":
+                queryClient.invalidateQueries({ queryKey: ["/api/notifications?includeRead=true&includeDismissed=false&limit=100"] });
+                queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread-count"] });
+                break;
+              case "unreadCount":
+                setUnreadCount(message.count || 0);
+                break;
+              case "allRead":
+                setUnreadCount(0);
+                queryClient.invalidateQueries({ queryKey: ["/api/notifications?includeRead=true&includeDismissed=false&limit=100"] });
+                break;
+            }
+          } catch (error) {
+            console.error("[Notifications] Error parsing message:", error);
+          }
+        };
+
+        ws.onclose = () => {
+          connectingRef.current = false;
+          setIsConnected(false);
+          wsRef.current = null;
+
+          if (userIdRef.current && reconnectAttempts.current < 5) {
+            const delay = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 30000);
+            reconnectTimeoutRef.current = setTimeout(() => {
+              reconnectAttempts.current++;
+              doConnect();
+            }, delay);
+          }
+        };
+
+        ws.onerror = () => {
+          connectingRef.current = false;
+        };
+      } catch (error) {
+        connectingRef.current = false;
+      }
+    }
+
+    doConnect();
 
     return () => {
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
       }
       if (wsRef.current) {
         wsRef.current.close();
+        wsRef.current = null;
       }
+      connectingRef.current = false;
     };
-  }, [user, connect]);
+  }, [user?.id]);
 
   const markAsReadMutation = useMutation({
     mutationFn: (id: string) => apiRequest("PATCH", `/api/notifications/${id}/read`),
