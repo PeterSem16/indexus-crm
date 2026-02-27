@@ -133,6 +133,8 @@ All other fields are optional. See full schema below.
 
 **Status: 201 Created**
 
+The response returns the **complete lab result object** with all attributes, so you can immediately verify what was stored.
+
 ```json
 {
   "success": true,
@@ -140,7 +142,38 @@ All other fields are optional. See full schema below.
     "id": "generated-uuid",
     "collectionId": "linked-collection-uuid",
     "clientResultId": "LAB-RESULT-12345",
-    "createdAt": "2024-01-15T12:30:00Z"
+    "usability": "usable",
+    "resultsDate": "2024-01-15T10:30:00Z",
+    "labNote": "All parameters within normal range",
+    "cbu": "CBU-2024-001",
+    "collectionFor": "autologous",
+    "processing": "standard",
+    "title": "Dr.",
+    "firstName": "Jana",
+    "surname": "Novakova",
+    "idBirthNumber": "9001011234",
+    "dateOfCollection": "2024-01-10T08:00:00Z",
+    "timeOfCollection": "08:00",
+    "dateOfPrintingResults": "2024-01-15T10:00:00Z",
+    "dateOfSendingResults": "2024-01-15T12:00:00Z",
+    "sterility": "negative",
+    "sterilityType": "aerobic",
+    "status": "completed",
+    "tncCount": "1.2e9",
+    "maxWeight": "150",
+    "volume": "120",
+    "volumeInBag": "100",
+    "volumeInSyringesBagB": "20",
+    "volumeOfCpdInSyr": "5",
+    "umbilicalTissue": "collected",
+    "bagAUsability": "usable",
+    "bagAVolume": "80",
+    "bagATnc": "0.9e9",
+    "bagBUsability": "usable",
+    "bagBVolume": "20",
+    "bagBTnc": "0.3e9",
+    "createdAt": "2024-01-15T12:30:00Z",
+    "updatedAt": "2024-01-15T12:30:00Z"
   },
   "message": "Lab result created successfully"
 }
@@ -334,6 +367,8 @@ Update an existing lab result.
 
 #### Request Body
 
+Only include the fields you want to update. Fields not included in the request body will remain unchanged.
+
 ```json
 {
   "usability": "conditionally_usable",
@@ -346,16 +381,51 @@ Update an existing lab result.
 
 **Status: 200 OK**
 
+The response returns the **complete updated lab result object** with all attributes (including unchanged ones), so you can immediately verify what was changed and what remained the same.
+
 ```json
 {
   "success": true,
   "data": {
     "id": "result-uuid",
+    "collectionId": "collection-uuid",
+    "clientResultId": "LAB-RESULT-12345",
+    "usability": "conditionally_usable",
+    "resultsDate": "2024-01-15T10:30:00Z",
+    "labNote": "Updated after review",
+    "cbu": "CBU-2024-001",
+    "collectionFor": "autologous",
+    "processing": "standard",
+    "firstName": "Jana",
+    "surname": "Novakova",
+    "idBirthNumber": "9001011234",
+    "dateOfCollection": "2024-01-10T08:00:00Z",
+    "timeOfCollection": "08:00",
+    "dateOfPrintingResults": "2024-01-15T10:00:00Z",
+    "dateOfSendingResults": "2024-01-15T12:00:00Z",
+    "sterility": "negative",
+    "status": "under_review",
+    "tncCount": "1.2e9",
+    "maxWeight": "150",
+    "volume": "120",
+    "volumeInBag": "100",
+    "volumeInSyringesBagB": "20",
+    "volumeOfCpdInSyr": "5",
+    "umbilicalTissue": "collected",
+    "bagAUsability": "usable",
+    "bagAVolume": "80",
+    "bagATnc": "0.9e9",
+    "bagBUsability": "usable",
+    "bagBVolume": "20",
+    "bagBTnc": "0.3e9",
+    "createdAt": "2024-01-15T12:30:00Z",
     "updatedAt": "2024-01-16T09:00:00Z"
   },
   "message": "Lab result updated successfully"
 }
 ```
+
+> **Tip:** Compare the response `data` with your request body to quickly see which fields were updated (e.g., `usability` changed from `"usable"` to `"conditionally_usable"`) and which remained unchanged.
 
 ---
 
