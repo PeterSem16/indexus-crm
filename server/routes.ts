@@ -27668,14 +27668,11 @@ Guidelines:
         }
       }
 
+      const created = await storage.getCollectionLabResultById(result.id);
+
       res.status(201).json({
         success: true,
-        data: {
-          id: result.id,
-          collectionId: result.collectionId,
-          clientResultId: clientResultId || null,
-          createdAt: result.createdAt
-        },
+        data: created || result,
         message: "Lab result created successfully"
       });
 
@@ -27953,12 +27950,11 @@ Guidelines:
         }
       }
 
+      const updated = await storage.getCollectionLabResultById(req.params.id);
+
       res.json({
         success: true,
-        data: {
-          id: result?.id,
-          updatedAt: result?.updatedAt
-        },
+        data: updated || result,
         message: "Lab result updated successfully"
       });
 

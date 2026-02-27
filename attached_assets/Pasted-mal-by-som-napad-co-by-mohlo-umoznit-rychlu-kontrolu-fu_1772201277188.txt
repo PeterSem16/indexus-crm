@@ -1,0 +1,104 @@
+mal by som napad co by mohlo umoznit rychlu kontrolu fungovania Indexus API.
+ 
+Naspat do data mi kludne posli cely objekt z Indexus.
+Priklad:
+ 
+Aktualny stav:
+================================================================================
+TIME:    2026-02-27 10:13:40
+METHOD:  PATCH
+URL:     https://indexus.cordbloodcenter.com/api/v1/lab-results/8aa5a20e-e2cc-4463-8a34-94eaa69f7010
+================================================================================
+REQUEST BODY:
+{
+    "resultsDate": "2026-01-28T00:00:00+00:00",
+    "usability": "usable",
+    "status": "12",
+    "firstName": "Valentina Umberta",
+    "surname": "Balsamo",
+    "idBirthNumber": "09.07.1986",
+    "dateOfCollection": "2026-01-26T00:00:00+00:00",
+    "timeOfCollection": "08:41",
+    "dateOfPrintingResults": "2026-02-06T00:00:00+00:00",
+    "dateOfSendingResults": "2026-02-06T00:00:00+00:00",
+    "sterility": "negative",
+    "labNote": "Odber doručený bez sprievodnej dokumentácie.Prepočet Renáčová.Málo krvi matky-1xPLM,1,xPLD,1xKBM. Materiál neoznačený. SL poslaný 4.2.2026 Kontrola sterility -10 IR.",
+    "maxWeight": "60.200000000000003",
+    "volumeInSyringesBagB": "0.0",
+    "volumeOfCpdInSyr": "22.0",
+    "umbilicalTissue": "not_collected",
+    "collectionFor": "autologous",
+    "processing": "standard"
+}
+--------------------------------------------------------------------------------
+RESPONSE STATUS: 200
+RESPONSE BODY:
+{
+    "success": true,
+    "data": {
+        "id": "8aa5a20e-e2cc-4463-8a34-94eaa69f7010",
+        "updatedAt": "2026-02-27T10:13:40.383Z"
+    },
+    "message": "Lab result updated successfully"
+}
+================================================================================
+
+2. Mozna uprava:
+================================================================================
+TIME:    2026-02-27 10:13:40
+METHOD:  PATCH
+URL:     https://indexus.cordbloodcenter.com/api/v1/lab-results/8aa5a20e-e2cc-4463-8a34-94eaa69f7010
+================================================================================
+REQUEST BODY:
+{
+    "resultsDate": "2026-01-28T00:00:00+00:00",
+    "usability": "usable",
+    "status": "12",
+    "firstName": "Valentina Umberta",
+    "surname": "Balsamo",
+    "idBirthNumber": "09.07.1986",
+    "dateOfCollection": "2026-01-26T00:00:00+00:00",
+    "timeOfCollection": "08:41",
+    "dateOfPrintingResults": "2026-02-06T00:00:00+00:00",
+    "dateOfSendingResults": "2026-02-06T00:00:00+00:00",
+    "sterility": "negative",
+    "labNote": "Odber doručený bez sprievodnej dokumentácie.Prepočet Renáčová.Málo krvi matky-1xPLM,1,xPLD,1xKBM. Materiál neoznačený. SL poslaný 4.2.2026 Kontrola sterility -10 IR.",
+    "maxWeight": "60.200000000000003",
+    "volumeInSyringesBagB": "0.0",
+    "volumeOfCpdInSyr": "22.0",
+    "umbilicalTissue": "not_collected",
+    "collectionFor": "autologous",
+    "processing": "standard"
+}
+--------------------------------------------------------------------------------
+RESPONSE STATUS: 200
+RESPONSE BODY:
+{
+    "success": true,
+    "data": {
+        "id": "8aa5a20e-e2cc-4463-8a34-94eaa69f7010",
+        "updatedAt": "2026-02-27T10:13:40.383Z"
+ 
++ pridat ostatne atributy uz u teba aby som hned videl aha toto je zmene aha toto sa nam nezmenilo:
+"resultsDate": "2026-01-28T00:00:00+00:00",
+    "usability": "usable",
+    "status": "12",
+    "firstName": "Valentina Umberta",
+    "surname": "Balsamo",
+    "idBirthNumber": "09.07.1986",
+    "dateOfCollection": "2026-01-26T00:00:00+00:00",
+    "timeOfCollection": "08:41",
+    "dateOfPrintingResults": "2026-02-06T00:00:00+00:00",
+    "dateOfSendingResults": "2026-02-06T00:00:00+00:00",
+    "sterility": "negative",
+    "labNote": "Odber doručený bez sprievodnej dokumentácie.Prepočet Renáčová.Málo krvi matky-1xPLM,1,xPLD,1xKBM. Materiál neoznačený. SL poslaný 4.2.2026 Kontrola sterility -10 IR.",
+    "maxWeight": "60.200000000000003",
+    "volumeInSyringesBagB": "0.0",
+    "volumeOfCpdInSyr": "22.0",
+    "umbilicalTissue": "not_collected",
+    "collectionFor": "autologous",
+    "processing": "standard"
+    },
+    "message": "Lab result updated successfully"
+}
+===============================================================================
