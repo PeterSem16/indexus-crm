@@ -13,7 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import {
   Plus, Phone, Mail, Play, CheckCircle, ArrowRight, Trash2,
-  Clock, Users, BarChart3, Pencil, Eye, ChevronRight, Layers
+  Clock, Users, BarChart3, Pencil, Eye, ChevronRight, Layers, Target, Percent
 } from "lucide-react";
 import type { CampaignPhase, CampaignContactPhase } from "@shared/schema";
 
@@ -66,6 +66,13 @@ const phasesT: Record<string, Record<string, string>> = {
     phase: "Fáza",
     enteredAt: "Vstup do fázy",
     completedAt: "Dokončené",
+    targets: "Ciele",
+    targetCalls: "Cieľ hovorov",
+    targetEmails: "Cieľ emailov",
+    targetConversions: "Cieľ konverzií",
+    targetResponseRate: "Cieľ odozvy (%)",
+    achieved: "Dosiahnuté",
+    noTargets: "Žiadne ciele",
   },
   en: {
     title: "Campaign Phases",
@@ -115,6 +122,13 @@ const phasesT: Record<string, Record<string, string>> = {
     phase: "Phase",
     enteredAt: "Entered Phase",
     completedAt: "Completed",
+    targets: "Targets",
+    targetCalls: "Target Calls",
+    targetEmails: "Target Emails",
+    targetConversions: "Target Conversions",
+    targetResponseRate: "Target Response Rate (%)",
+    achieved: "Achieved",
+    noTargets: "No targets",
   },
 };
 
@@ -150,6 +164,10 @@ export default function CampaignPhasesTab({ campaignId }: { campaignId: string }
   const [newPhaseName, setNewPhaseName] = useState("");
   const [newPhaseType, setNewPhaseType] = useState<"phone" | "email">("phone");
   const [newPhaseEvalDate, setNewPhaseEvalDate] = useState("");
+  const [newTargetCalls, setNewTargetCalls] = useState<string>("");
+  const [newTargetEmails, setNewTargetEmails] = useState<string>("");
+  const [newTargetConversions, setNewTargetConversions] = useState<string>("");
+  const [newTargetResponseRate, setNewTargetResponseRate] = useState<string>("");
   const [transitionTargetId, setTransitionTargetId] = useState("");
   const [transitionInclude, setTransitionInclude] = useState("");
   const [transitionExclude, setTransitionExclude] = useState("");
@@ -180,6 +198,10 @@ export default function CampaignPhasesTab({ campaignId }: { campaignId: string }
       setNewPhaseName("");
       setNewPhaseType("phone");
       setNewPhaseEvalDate("");
+      setNewTargetCalls("");
+      setNewTargetEmails("");
+      setNewTargetConversions("");
+      setNewTargetResponseRate("");
       toast({ title: pt.createPhase, description: "OK" });
     },
     onError: (err: any) => {
@@ -385,6 +407,77 @@ export default function CampaignPhasesTab({ campaignId }: { campaignId: string }
                     </div>
                   )}
 
+                  {(phase.targetCalls || phase.targetEmails || phase.targetConversions || phase.targetResponseRate) ? (
+                    <div className="space-y-2 border-t pt-3">
+                      <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                        <Target className="w-3.5 h-3.5" />
+                        {pt.targets}
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        {phase.targetCalls != null && phase.targetCalls > 0 && (
+                          <div className="space-y-1" data-testid={`target-calls-${phase.id}`}>
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-muted-foreground">{pt.targetCalls}</span>
+                              <span className="font-medium">{phase.stats.completed}/{phase.targetCalls}</span>
+                            </div>
+                            <div className="w-full bg-muted rounded-full h-1.5">
+                              <div
+                                className={`rounded-full h-1.5 transition-all ${phase.stats.completed >= phase.targetCalls ? 'bg-green-500' : 'bg-blue-500'}`}
+                                style={{ width: `${Math.min(100, Math.round((phase.stats.completed / phase.targetCalls) * 100))}%` }}
+                              />
+                            </div>
+                          </div>
+                        )}
+                        {phase.targetEmails != null && phase.targetEmails > 0 && (
+                          <div className="space-y-1" data-testid={`target-emails-${phase.id}`}>
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-muted-foreground">{pt.targetEmails}</span>
+                              <span className="font-medium">{phase.stats.total}/{phase.targetEmails}</span>
+                            </div>
+                            <div className="w-full bg-muted rounded-full h-1.5">
+                              <div
+                                className={`rounded-full h-1.5 transition-all ${phase.stats.total >= phase.targetEmails ? 'bg-green-500' : 'bg-blue-500'}`}
+                                style={{ width: `${Math.min(100, Math.round((phase.stats.total / phase.targetEmails) * 100))}%` }}
+                              />
+                            </div>
+                          </div>
+                        )}
+                        {phase.targetConversions != null && phase.targetConversions > 0 && (
+                          <div className="space-y-1" data-testid={`target-conversions-${phase.id}`}>
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-muted-foreground">{pt.targetConversions}</span>
+                              <span className="font-medium">{phase.stats.completed}/{phase.targetConversions}</span>
+                            </div>
+                            <div className="w-full bg-muted rounded-full h-1.5">
+                              <div
+                                className={`rounded-full h-1.5 transition-all ${phase.stats.completed >= phase.targetConversions ? 'bg-green-500' : 'bg-blue-500'}`}
+                                style={{ width: `${Math.min(100, Math.round((phase.stats.completed / phase.targetConversions) * 100))}%` }}
+                              />
+                            </div>
+                          </div>
+                        )}
+                        {phase.targetResponseRate != null && phase.targetResponseRate > 0 && (
+                          <div className="space-y-1" data-testid={`target-response-rate-${phase.id}`}>
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-muted-foreground">{pt.targetResponseRate}</span>
+                              <span className="font-medium">
+                                {phase.stats.total > 0 ? Math.round((phase.stats.completed / phase.stats.total) * 100) : 0}% / {phase.targetResponseRate}%
+                              </span>
+                            </div>
+                            <div className="w-full bg-muted rounded-full h-1.5">
+                              <div
+                                className={`rounded-full h-1.5 transition-all ${
+                                  (phase.stats.total > 0 ? (phase.stats.completed / phase.stats.total) * 100 : 0) >= phase.targetResponseRate ? 'bg-green-500' : 'bg-orange-500'
+                                }`}
+                                style={{ width: `${Math.min(100, phase.stats.total > 0 ? Math.round(((phase.stats.completed / phase.stats.total) * 100 / phase.targetResponseRate) * 100) : 0)}%` }}
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ) : null}
+
                   <div className="flex flex-wrap gap-1.5 pt-1">
                     {phase.status === "draft" && (
                       <Button size="sm" variant="default" onClick={() => activatePhaseMutation.mutate(phase.id)} data-testid={`button-activate-${phase.id}`}>
@@ -418,6 +511,10 @@ export default function CampaignPhasesTab({ campaignId }: { campaignId: string }
                       setNewPhaseName(phase.name);
                       setNewPhaseType(phase.type as "phone" | "email");
                       setNewPhaseEvalDate(phase.evaluationAt ? new Date(phase.evaluationAt).toISOString().slice(0, 16) : "");
+                      setNewTargetCalls(phase.targetCalls != null ? String(phase.targetCalls) : "");
+                      setNewTargetEmails(phase.targetEmails != null ? String(phase.targetEmails) : "");
+                      setNewTargetConversions(phase.targetConversions != null ? String(phase.targetConversions) : "");
+                      setNewTargetResponseRate(phase.targetResponseRate != null ? String(phase.targetResponseRate) : "");
                     }} data-testid={`button-edit-${phase.id}`}>
                       <Pencil className="w-3.5 h-3.5" />
                     </Button>
@@ -435,7 +532,14 @@ export default function CampaignPhasesTab({ campaignId }: { campaignId: string }
       )}
 
       <Dialog open={showCreateDialog || !!editingPhase} onOpenChange={(open) => {
-        if (!open) { setShowCreateDialog(false); setEditingPhase(null); }
+        if (!open) {
+          setShowCreateDialog(false);
+          setEditingPhase(null);
+          setNewTargetCalls("");
+          setNewTargetEmails("");
+          setNewTargetConversions("");
+          setNewTargetResponseRate("");
+        }
       }}>
         <DialogContent>
           <DialogHeader>
@@ -472,12 +576,71 @@ export default function CampaignPhasesTab({ campaignId }: { campaignId: string }
                 data-testid="input-phase-eval-date"
               />
             </div>
+            <div className="border-t pt-4">
+              <div className="flex items-center gap-1.5 mb-3">
+                <Target className="w-4 h-4 text-muted-foreground" />
+                <Label className="text-sm font-medium">{pt.targets}</Label>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs">{pt.targetCalls}</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    value={newTargetCalls}
+                    onChange={(e) => setNewTargetCalls(e.target.value)}
+                    placeholder="0"
+                    data-testid="input-target-calls"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">{pt.targetEmails}</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    value={newTargetEmails}
+                    onChange={(e) => setNewTargetEmails(e.target.value)}
+                    placeholder="0"
+                    data-testid="input-target-emails"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">{pt.targetConversions}</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    value={newTargetConversions}
+                    onChange={(e) => setNewTargetConversions(e.target.value)}
+                    placeholder="0"
+                    data-testid="input-target-conversions"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">{pt.targetResponseRate}</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={newTargetResponseRate}
+                    onChange={(e) => setNewTargetResponseRate(e.target.value)}
+                    placeholder="0"
+                    data-testid="input-target-response-rate"
+                  />
+                </div>
+              </div>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => { setShowCreateDialog(false); setEditingPhase(null); }}>{pt.cancel}</Button>
             <Button
               onClick={() => {
                 if (!newPhaseName.trim()) return;
+                const targetData = {
+                  targetCalls: newTargetCalls ? parseInt(newTargetCalls) : null,
+                  targetEmails: newTargetEmails ? parseInt(newTargetEmails) : null,
+                  targetConversions: newTargetConversions ? parseInt(newTargetConversions) : null,
+                  targetResponseRate: newTargetResponseRate ? parseInt(newTargetResponseRate) : null,
+                };
                 if (editingPhase) {
                   updatePhaseMutation.mutate({
                     phaseId: editingPhase.id,
@@ -485,6 +648,7 @@ export default function CampaignPhasesTab({ campaignId }: { campaignId: string }
                       name: newPhaseName,
                       type: newPhaseType,
                       evaluationAt: newPhaseEvalDate || null,
+                      ...targetData,
                     }
                   });
                 } else {
@@ -492,6 +656,7 @@ export default function CampaignPhasesTab({ campaignId }: { campaignId: string }
                     name: newPhaseName,
                     type: newPhaseType,
                     evaluationAt: newPhaseEvalDate || null,
+                    ...targetData,
                   });
                 }
               }}

@@ -5796,6 +5796,10 @@ export const campaignPhases = pgTable("campaign_phases", {
   completedAt: timestamp("completed_at"),
   mailchimpCampaignId: text("mailchimp_campaign_id"),
   transitionRules: jsonb("transition_rules"),
+  targetCalls: integer("target_calls"),
+  targetEmails: integer("target_emails"),
+  targetConversions: integer("target_conversions"),
+  targetResponseRate: integer("target_response_rate"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
@@ -5812,6 +5816,10 @@ export const insertCampaignPhaseSchema = createInsertSchema(campaignPhases).omit
   completedAt: z.string().optional().nullable(),
   mailchimpCampaignId: z.string().optional().nullable(),
   transitionRules: z.any().optional().nullable(),
+  targetCalls: z.number().int().min(0).optional().nullable(),
+  targetEmails: z.number().int().min(0).optional().nullable(),
+  targetConversions: z.number().int().min(0).optional().nullable(),
+  targetResponseRate: z.number().int().min(0).max(100).optional().nullable(),
 });
 export type InsertCampaignPhase = z.infer<typeof insertCampaignPhaseSchema>;
 export type CampaignPhase = typeof campaignPhases.$inferSelect;
