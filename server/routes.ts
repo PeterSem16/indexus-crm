@@ -9872,6 +9872,8 @@ export async function registerRoutes(
         mailchimpListId: listId,
         status: "created",
         syncedContacts: 0,
+        webhookUrl: webhookRegistered ? finalWebhookUrl : null,
+        webhookRegistered,
       });
 
       await logActivity(req.session.user!.id, "mailchimp_campaign_created", "campaign", campaign.id, campaign.name, { mailchimpId: mcCampaign.id, webhookRegistered, webhookUrl: finalWebhookUrl });

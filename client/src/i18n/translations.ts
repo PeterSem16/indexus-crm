@@ -1613,6 +1613,11 @@ export interface Translations {
       webhookLabel: string;
       webhookDesc: string;
       webhookPlaceholder: string;
+      webhookAutoEnabled: string;
+      webhookAutoUrl: string;
+      webhookCustomUrl: string;
+      webhookActive: string;
+      webhookInactive: string;
       existingWebhooks: string;
       createInMailchimp: string;
       campaignTitle: string;
@@ -5831,6 +5836,11 @@ export const translations: Record<Locale, Translations> = {
         webhookLabel: 'Webhook',
         webhookDesc: 'URL for event notifications (subscribe, unsubscribe, campaign).',
         webhookPlaceholder: 'https://your-domain.com/webhook/mailchimp',
+        webhookAutoEnabled: 'Automatic webhook',
+        webhookAutoUrl: 'URL will be created automatically',
+        webhookCustomUrl: 'Custom URL (optional)',
+        webhookActive: 'Webhook active',
+        webhookInactive: 'Webhook inactive',
         existingWebhooks: 'Existing webhooks:',
         createInMailchimp: 'Create in Mailchimp',
         campaignTitle: 'Mailchimp Campaign',
@@ -9986,6 +9996,11 @@ export const translations: Record<Locale, Translations> = {
         webhookLabel: 'Webhook',
         webhookDesc: 'URL pre notifikácie o udalostiach.',
         webhookPlaceholder: 'https://vasa-domena.sk/webhook/mailchimp',
+        webhookAutoEnabled: 'Automatický webhook',
+        webhookAutoUrl: 'URL sa vytvorí automaticky',
+        webhookCustomUrl: 'Vlastná URL (voliteľné)',
+        webhookActive: 'Webhook aktívny',
+        webhookInactive: 'Webhook neaktívny',
         existingWebhooks: 'Existujúce webhooky:',
         createInMailchimp: 'Vytvoriť v Mailchimp',
         campaignTitle: 'Mailchimp kampaň',
@@ -14126,6 +14141,11 @@ export const translations: Record<Locale, Translations> = {
         webhookLabel: 'Webhook',
         webhookDesc: 'URL pro notifikace o událostech.',
         webhookPlaceholder: 'https://vase-domena.cz/webhook/mailchimp',
+        webhookAutoEnabled: 'Automatický webhook',
+        webhookAutoUrl: 'URL se vytvoří automaticky',
+        webhookCustomUrl: 'Vlastní URL (volitelné)',
+        webhookActive: 'Webhook aktivní',
+        webhookInactive: 'Webhook neaktivní',
         existingWebhooks: 'Existující webhooky:',
         createInMailchimp: 'Vytvořit v Mailchimp',
         campaignTitle: 'Mailchimp kampaň',
@@ -18229,6 +18249,11 @@ export const translations: Record<Locale, Translations> = {
         webhookLabel: 'Webhook',
         webhookDesc: 'URL az eseményértesítésekhez.',
         webhookPlaceholder: 'https://az-on-domainje.hu/webhook/mailchimp',
+        webhookAutoEnabled: 'Automatikus webhook',
+        webhookAutoUrl: 'URL automatikusan létrejön',
+        webhookCustomUrl: 'Egyéni URL (opcionális)',
+        webhookActive: 'Webhook aktív',
+        webhookInactive: 'Webhook inaktív',
         existingWebhooks: 'Meglévő webhookok:',
         createInMailchimp: 'Létrehozás Mailchimp-ben',
         campaignTitle: 'Mailchimp kampány',
@@ -22331,6 +22356,11 @@ export const translations: Record<Locale, Translations> = {
         webhookLabel: 'Webhook',
         webhookDesc: 'URL pentru notificări de evenimente.',
         webhookPlaceholder: 'https://domeniul-dvs.ro/webhook/mailchimp',
+        webhookAutoEnabled: 'Webhook automat',
+        webhookAutoUrl: 'URL-ul va fi creat automat',
+        webhookCustomUrl: 'URL personalizat (opțional)',
+        webhookActive: 'Webhook activ',
+        webhookInactive: 'Webhook inactiv',
         existingWebhooks: 'Webhook-uri existente:',
         createInMailchimp: 'Creați în Mailchimp',
         campaignTitle: 'Campanie Mailchimp',
@@ -26434,6 +26464,11 @@ export const translations: Record<Locale, Translations> = {
         webhookLabel: 'Webhook',
         webhookDesc: 'URL per le notifiche degli eventi.',
         webhookPlaceholder: 'https://il-tuo-dominio.it/webhook/mailchimp',
+        webhookAutoEnabled: 'Webhook automatico',
+        webhookAutoUrl: "L'URL verrà creato automaticamente",
+        webhookCustomUrl: 'URL personalizzato (opzionale)',
+        webhookActive: 'Webhook attivo',
+        webhookInactive: 'Webhook inattivo',
         existingWebhooks: 'Webhook esistenti:',
         createInMailchimp: 'Crea in Mailchimp',
         campaignTitle: 'Campagna Mailchimp',
@@ -30537,6 +30572,11 @@ export const translations: Record<Locale, Translations> = {
         webhookLabel: 'Webhook',
         webhookDesc: 'URL für Ereignisbenachrichtigungen.',
         webhookPlaceholder: 'https://ihre-domain.de/webhook/mailchimp',
+        webhookAutoEnabled: 'Automatischer Webhook',
+        webhookAutoUrl: 'URL wird automatisch erstellt',
+        webhookCustomUrl: 'Benutzerdefinierte URL (optional)',
+        webhookActive: 'Webhook aktiv',
+        webhookInactive: 'Webhook inaktiv',
         existingWebhooks: 'Bestehende Webhooks:',
         createInMailchimp: 'In Mailchimp erstellen',
         campaignTitle: 'Mailchimp-Kampagne',
