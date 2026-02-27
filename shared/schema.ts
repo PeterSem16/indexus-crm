@@ -2715,7 +2715,8 @@ export const campaignContacts = pgTable("campaign_contacts", {
   customerId: varchar("customer_id"),
   hospitalId: varchar("hospital_id"),
   clinicId: varchar("clinic_id"),
-  contactType: text("contact_type").notNull().default("customer"), // customer, hospital, clinic
+  collaboratorId: varchar("collaborator_id"),
+  contactType: text("contact_type").notNull().default("customer"), // customer, hospital, clinic, collaborator
   status: text("status").notNull().default("pending"), // pending, contacted, completed, failed, no_answer, callback_scheduled, not_interested
   assignedTo: varchar("assigned_to"), // user id
   notes: text("notes"),
@@ -2738,7 +2739,8 @@ export const insertCampaignContactSchema = createInsertSchema(campaignContacts).
   customerId: z.string().optional().nullable(),
   hospitalId: z.string().optional().nullable(),
   clinicId: z.string().optional().nullable(),
-  contactType: z.enum(["customer", "hospital", "clinic"]).optional().default("customer"),
+  collaboratorId: z.string().optional().nullable(),
+  contactType: z.enum(["customer", "hospital", "clinic", "collaborator"]).optional().default("customer"),
   status: z.enum(["pending", "contacted", "completed", "failed", "no_answer", "callback_scheduled", "not_interested"]).optional().default("pending"),
   assignedTo: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
@@ -5842,3 +5844,68 @@ export const insertCampaignContactPhaseSchema = createInsertSchema(campaignConta
 });
 export type InsertCampaignContactPhase = z.infer<typeof insertCampaignContactPhaseSchema>;
 export type CampaignContactPhase = typeof campaignContactPhases.$inferSelect;
+
+// ==================== ENTITY CAMPAIGN TIMELINE ====================
+
+export const CAMPAIGN_TIMELINE_CHANNELS = ["phone", "email", "sms", "mailchimp"] as const;
+export type CampaignTimelineChannel = typeof CAMPAIGN_TIMELINE_CHANNELS[number];
+
+export const CAMPAIGN_TIMELINE_ACTIONS = [
+  "call_made", "call_answered", "call_missed", "call_failed",
+  "email_sent", "email_opened", "email_clicked", "email_bounced",
+  "sms_sent", "sms_delivered", "sms_failed",
+  "mailchimp_sent", "mailchimp_opened", "mailchimp_clicked", "mailchimp_bounced", "mailchimp_unsubscribed",
+  "status_change", "callback_scheduled", "note_added", "disposition_set",
+  "phase_entered", "phase_completed", "phase_skipped",
+  "contact_added", "contact_completed", "contact_requeued",
+] as const;
+export type CampaignTimelineAction = typeof CAMPAIGN_TIMELINE_ACTIONS[number];
+
+export const CAMPAIGN_TIMELINE_ENTITY_TYPES = ["customer", "hospital", "clinic", "collaborator"] as const;
+export type CampaignTimelineEntityType = typeof CAMPAIGN_TIMELINE_ENTITY_TYPES[number];
+
+export const entityCampaignTimeline = pgTable("entity_campaign_timeline", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  entityType: text("entity_type").notNull(),
+  entityId: varchar("entity_id").notNull(),
+  entityName: text("entity_name"),
+  campaignId: varchar("campaign_id").notNull(),
+  campaignName: text("campaign_name"),
+  campaignContactId: varchar("campaign_contact_id"),
+  channel: text("channel").notNull(),
+  action: text("action").notNull(),
+  status: text("status"),
+  previousStatus: text("previous_status"),
+  dispositionCode: text("disposition_code"),
+  phaseId: varchar("phase_id"),
+  phaseName: text("phase_name"),
+  phaseNumber: integer("phase_number"),
+  userId: varchar("user_id"),
+  userName: text("user_name"),
+  notes: text("notes"),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const insertEntityCampaignTimelineSchema = createInsertSchema(entityCampaignTimeline).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  entityType: z.enum(["customer", "hospital", "clinic", "collaborator"]),
+  channel: z.enum(["phone", "email", "sms", "mailchimp"]),
+  entityName: z.string().optional().nullable(),
+  campaignName: z.string().optional().nullable(),
+  campaignContactId: z.string().optional().nullable(),
+  status: z.string().optional().nullable(),
+  previousStatus: z.string().optional().nullable(),
+  dispositionCode: z.string().optional().nullable(),
+  phaseId: z.string().optional().nullable(),
+  phaseName: z.string().optional().nullable(),
+  phaseNumber: z.number().optional().nullable(),
+  userId: z.string().optional().nullable(),
+  userName: z.string().optional().nullable(),
+  notes: z.string().optional().nullable(),
+  metadata: z.any().optional().nullable(),
+});
+export type InsertEntityCampaignTimeline = z.infer<typeof insertEntityCampaignTimelineSchema>;
+export type EntityCampaignTimeline = typeof entityCampaignTimeline.$inferSelect;

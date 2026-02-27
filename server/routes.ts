@@ -30,7 +30,7 @@ import {
   insertVisitEventSchema,
   campaignDispositions, insertCampaignDispositionSchema,
   DEFAULT_PHONE_DISPOSITIONS, DEFAULT_EMAIL_DISPOSITIONS, DEFAULT_SMS_DISPOSITIONS, DISPOSITION_NAME_TRANSLATIONS,
-  callLogs, campaignContacts, campaignContactHistory, campaignContactSessions, campaigns, customers, users,
+  callLogs, campaignContacts, campaignContactHistory, campaignContactSessions, campaigns, customers, users, entityCampaignTimeline,
   collections, executiveSummaries, collectionLabResults,
   agentSessions, agentSessionActivities, agentBreaks, scheduledReports, agentQueueStatus,
   inboundCallLogs, inboundQueues,
@@ -948,6 +948,82 @@ async function logActivity(
     });
   } catch (error) {
     console.error("Failed to log activity:", error);
+  }
+}
+
+async function logCampaignTimeline(
+  campaignContact: any,
+  campaign: any,
+  channel: string,
+  action: string,
+  userId?: string,
+  userName?: string,
+  extra?: {
+    status?: string;
+    previousStatus?: string;
+    dispositionCode?: string;
+    phaseId?: string;
+    phaseName?: string;
+    phaseNumber?: number;
+    notes?: string;
+    metadata?: any;
+  }
+) {
+  try {
+    const entityType = campaignContact.contactType || "customer";
+    let entityId: string | null = null;
+    let entityName: string | null = null;
+
+    if (entityType === "customer" && campaignContact.customerId) {
+      entityId = campaignContact.customerId;
+      try {
+        const cust = await storage.getCustomer(campaignContact.customerId);
+        if (cust) entityName = `${cust.firstName} ${cust.lastName}`;
+      } catch {}
+    } else if (entityType === "hospital" && campaignContact.hospitalId) {
+      entityId = campaignContact.hospitalId;
+      try {
+        const hosp = await storage.getHospital(campaignContact.hospitalId);
+        if (hosp) entityName = (hosp as any).name || (hosp as any).hospitalName || null;
+      } catch {}
+    } else if (entityType === "clinic" && campaignContact.clinicId) {
+      entityId = campaignContact.clinicId;
+      try {
+        const clin = await storage.getClinic(campaignContact.clinicId);
+        if (clin) entityName = (clin as any).name || (clin as any).clinicName || null;
+      } catch {}
+    } else if (entityType === "collaborator" && campaignContact.collaboratorId) {
+      entityId = campaignContact.collaboratorId;
+      try {
+        const collab = await storage.getCollaborator(campaignContact.collaboratorId);
+        if (collab) entityName = `${collab.titleBefore || ""} ${collab.firstName} ${collab.lastName}`.trim();
+      } catch {}
+    }
+
+    if (!entityId) return;
+
+    await storage.createEntityCampaignTimelineEntry({
+      entityType: entityType as any,
+      entityId,
+      entityName,
+      campaignId: campaignContact.campaignId || campaign?.id,
+      campaignName: campaign?.name || null,
+      campaignContactId: campaignContact.id,
+      channel: channel as any,
+      action,
+      status: extra?.status || null,
+      previousStatus: extra?.previousStatus || null,
+      dispositionCode: extra?.dispositionCode || null,
+      phaseId: extra?.phaseId || null,
+      phaseName: extra?.phaseName || null,
+      phaseNumber: extra?.phaseNumber || null,
+      userId: userId || null,
+      userName: userName || null,
+      notes: extra?.notes || null,
+      metadata: extra?.metadata || null,
+    });
+  } catch (error) {
+    console.error("Failed to log campaign timeline:", error);
   }
 }
 
@@ -10010,6 +10086,18 @@ export async function registerRoutes(
 
       await storage.updateCampaignMailchimpSync(req.params.id, { status: "sent" });
       await logActivity(req.session.user!.id, "mailchimp_campaign_sent", "campaign", campaign.id, campaign.name);
+      
+      const mcContacts = await storage.getCampaignContacts(req.params.id);
+      const senderUser = await storage.getUser(req.session.user!.id);
+      const senderName = senderUser?.fullName || senderUser?.username || "Agent";
+      for (const contact of mcContacts) {
+        await logCampaignTimeline(
+          contact, campaign, "mailchimp", "mailchimp_sent",
+          req.session.user!.id, senderName,
+          { status: "sent", metadata: { mailchimpCampaignId: sync.mailchimpCampaignId } }
+        );
+      }
+      
       res.json({ success: true });
     } catch (error: any) {
       console.error("Error sending mailchimp campaign:", error);
@@ -10674,6 +10762,42 @@ export async function registerRoutes(
         completedAt: new Date(),
         transitionRules: { targetPhaseId, includeStatuses, excludeStatuses },
       });
+
+      const campaign = await storage.getCampaign(req.params.id);
+      const transUser = await storage.getUser(req.session.user!.id);
+      const transUserName = transUser?.fullName || transUser?.username || "Agent";
+      
+      for (const cp of created) {
+        const campaignContact = await storage.getCampaignContact(cp.contactId);
+        if (campaignContact) {
+          await logCampaignTimeline(
+            campaignContact, campaign, targetPhase.type || "phone", "phase_entered",
+            req.session.user!.id, transUserName,
+            {
+              phaseId: targetPhaseId,
+              phaseName: targetPhase.name,
+              phaseNumber: targetPhase.phaseNumber,
+              metadata: { fromPhaseId: phase.id, fromPhaseName: phase.name },
+            }
+          );
+        }
+      }
+      
+      for (const cp of qualifyingContacts) {
+        const campaignContact = await storage.getCampaignContact(cp.contactId);
+        if (campaignContact) {
+          await logCampaignTimeline(
+            campaignContact, campaign, phase.type || "phone", "phase_completed",
+            req.session.user!.id, transUserName,
+            {
+              phaseId: phase.id,
+              phaseName: phase.name,
+              phaseNumber: phase.phaseNumber,
+              status: cp.result || "completed",
+            }
+          );
+        }
+      }
 
       res.json({ transitioned: created.length, total: contactPhases.length });
     } catch (error: any) {
@@ -17195,6 +17319,17 @@ export async function registerRoutes(
         counts.clinic = clinicsList.length;
       }
 
+      if (contactSources.includes("collaborator")) {
+        let collaboratorsList = await storage.getAllCollaborators();
+        if (campaign.countryCodes && campaign.countryCodes.length > 0) {
+          collaboratorsList = collaboratorsList.filter((col: any) => campaign.countryCodes.includes(col.countryCode));
+        }
+        if (req.body.collaboratorCriteria && Array.isArray(req.body.collaboratorCriteria) && req.body.collaboratorCriteria.length > 0) {
+          collaboratorsList = applyCriteriaGroups(collaboratorsList, req.body.collaboratorCriteria);
+        }
+        counts.collaborator = collaboratorsList.length;
+      }
+
       const total = Object.values(counts).reduce((a, b) => a + b, 0);
       res.json({ counts, total });
     } catch (error) {
@@ -17289,6 +17424,28 @@ export async function registerRoutes(
         }
       }
       
+      if (contactSources.includes("collaborator")) {
+        let collaboratorsList = await storage.getAllCollaborators();
+        if (campaign.countryCodes && campaign.countryCodes.length > 0) {
+          collaboratorsList = collaboratorsList.filter((col: any) => campaign.countryCodes.includes(col.countryCode));
+        }
+        if (req.body.collaboratorCriteria && Array.isArray(req.body.collaboratorCriteria) && req.body.collaboratorCriteria.length > 0) {
+          collaboratorsList = applyCriteriaGroups(collaboratorsList, req.body.collaboratorCriteria);
+        } else if (req.body.collaboratorFilters) {
+          collaboratorsList = applyGenericFilters(collaboratorsList, req.body.collaboratorFilters);
+        }
+        for (const col of collaboratorsList) {
+          allContactsData.push({
+            campaignId: req.params.id,
+            collaboratorId: col.id,
+            contactType: "collaborator",
+            status: "pending" as const,
+            attemptCount: 0,
+            priorityScore: 50,
+          });
+        }
+      }
+
       console.log(`[GenerateContacts] Campaign ${req.params.id}: preparing ${allContactsData.length} contacts from sources: ${contactSources.join(", ")}`);
       const contacts = allContactsData.length > 0 ? await storage.createCampaignContacts(allContactsData) : [];
       console.log(`[GenerateContacts] Campaign ${req.params.id}: created ${contacts.length} contacts in DB`);
@@ -17303,9 +17460,18 @@ export async function registerRoutes(
         req.ip
       );
       
-      for (const cd of allContactsData) {
-        if (cd.contactType === "customer" && cd.customerId) {
-          const customer = await storage.getCustomer(cd.customerId);
+      const agentUser = await storage.getUser(req.session.user!.id);
+      const agentName = agentUser?.fullName || agentUser?.username || "Agent";
+      
+      for (const contact of contacts) {
+        await logCampaignTimeline(
+          contact, campaign, campaign.channel || "phone", "contact_added",
+          req.session.user!.id, agentName,
+          { status: "pending", metadata: { source: "generate_contacts" } }
+        );
+        
+        if (contact.contactType === "customer" && contact.customerId) {
+          const customer = await storage.getCustomer(contact.customerId);
           if (customer) {
             await logActivity(
               req.session.user!.id,
@@ -17662,6 +17828,10 @@ export async function registerRoutes(
       const customer = await storage.getCustomer(existingContact.customerId);
       const campaign = await storage.getCampaign(existingContact.campaignId);
       
+      const campaignChannel = campaign?.channel || "phone";
+      const agentUser = await storage.getUser(req.session.user!.id);
+      const agentName = agentUser?.fullName || agentUser?.username || "Agent";
+      
       // Log history if status changed
       if (updatePayload.status && updatePayload.status !== previousStatus) {
         await storage.createCampaignContactHistory({
@@ -17673,6 +17843,26 @@ export async function registerRoutes(
           notes: updatePayload.notes || updatePayload.dispositionCode || null,
           metadata: callMeta || undefined,
         });
+        
+        let timelineAction = "status_change";
+        if (callMeta) {
+          timelineAction = updatePayload.status === "no_answer" ? "call_missed" : 
+                           updatePayload.status === "failed" ? "call_failed" : 
+                           updatePayload.status === "completed" ? "contact_completed" :
+                           updatePayload.status === "callback_scheduled" ? "callback_scheduled" : "call_answered";
+        }
+        
+        await logCampaignTimeline(
+          existingContact, campaign, campaignChannel, timelineAction,
+          req.session.user!.id, agentName,
+          {
+            status: updatePayload.status,
+            previousStatus,
+            dispositionCode: updatePayload.dispositionCode || undefined,
+            notes: updatePayload.notes || undefined,
+            metadata: callMeta || { statusChange: true },
+          }
+        );
         
         if (customer) {
           await logActivity(
@@ -17701,6 +17891,12 @@ export async function registerRoutes(
           notes: updatePayload.notes,
         });
         
+        await logCampaignTimeline(
+          existingContact, campaign, campaignChannel, "note_added",
+          req.session.user!.id, agentName,
+          { notes: updatePayload.notes }
+        );
+        
         // Log note to customer activity
         if (customer) {
           await logActivity(
@@ -17719,6 +17915,14 @@ export async function registerRoutes(
         }
       }
       
+      if (updatePayload.dispositionCode && updatePayload.dispositionCode !== existingContact.dispositionCode) {
+        await logCampaignTimeline(
+          existingContact, campaign, campaignChannel, "disposition_set",
+          req.session.user!.id, agentName,
+          { dispositionCode: updatePayload.dispositionCode, status: updatePayload.status || existingContact.status }
+        );
+      }
+      
       res.json(contact);
     } catch (error) {
       console.error("Failed to update campaign contact:", error);
@@ -17733,6 +17937,28 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Failed to fetch contact history:", error);
       res.status(500).json({ error: "Failed to fetch contact history" });
+    }
+  });
+
+  // Entity Campaign Timeline endpoints
+  app.get("/api/entity-campaign-timeline/:entityType/:entityId", requireAuth, async (req, res) => {
+    try {
+      const { entityType, entityId } = req.params;
+      const timeline = await storage.getEntityCampaignTimeline(entityType, entityId);
+      res.json(timeline);
+    } catch (error) {
+      console.error("Failed to fetch entity campaign timeline:", error);
+      res.status(500).json({ error: "Failed to fetch entity campaign timeline" });
+    }
+  });
+
+  app.get("/api/campaigns/:id/timeline", requireAuth, async (req, res) => {
+    try {
+      const timeline = await storage.getEntityCampaignTimelineBycampaign(req.params.id);
+      res.json(timeline);
+    } catch (error) {
+      console.error("Failed to fetch campaign timeline:", error);
+      res.status(500).json({ error: "Failed to fetch campaign timeline" });
     }
   });
 

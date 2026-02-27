@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, Search, User, MapPin, FileText, Award, Gift, Activity, ClipboardList, Upload, Download, Eye, X, Filter, ListChecks, FileEdit, Smartphone, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, ArrowUpDown, ArrowUp, ArrowDown, FileSpreadsheet, RefreshCw, Building2, Clock } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, User, MapPin, FileText, Award, Gift, Activity, ClipboardList, Upload, Download, Eye, X, Filter, ListChecks, FileEdit, Smartphone, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, ArrowUpDown, ArrowUp, ArrowDown, FileSpreadsheet, RefreshCw, Building2, Clock, Target } from "lucide-react";
 import { CollaboratorFormWizard } from "@/components/collaborator-form-wizard";
+import EntityCampaignTimeline from "@/components/campaigns/EntityCampaignTimeline";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -1466,6 +1467,10 @@ function CollaboratorForm({
                 <Activity className="h-4 w-4 mr-2" />
                 {t.collaborators.tabs.history}
               </TabsTrigger>
+              <TabsTrigger value="campaigns" data-testid="form-tab-campaigns">
+                <Target className="h-4 w-4 mr-2" />
+                Kampane
+              </TabsTrigger>
             </>
           )}
         </TabsList>
@@ -1912,6 +1917,10 @@ function CollaboratorForm({
 
             <TabsContent value="history">
               <HistoryTab collaboratorId={collaborator.id} t={t} />
+            </TabsContent>
+
+            <TabsContent value="campaigns">
+              <EntityCampaignTimeline entityType="collaborator" entityId={collaborator.id} entityName={`${collaborator.titleBefore || ""} ${collaborator.firstName} ${collaborator.lastName}`.trim()} />
             </TabsContent>
           </>
         )}

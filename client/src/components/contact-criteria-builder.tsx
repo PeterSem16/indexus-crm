@@ -1,4 +1,4 @@
-import { Plus, Trash2, GripVertical, Users, Building2, Building, Filter, Loader2, Hash } from "lucide-react";
+import { Plus, Trash2, GripVertical, Users, Building2, Building, Filter, Loader2, Hash, UserCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -30,6 +30,7 @@ export interface ContactGenerateConfig {
   customer: ContactSourceConfig;
   hospital: ContactSourceConfig;
   clinic: ContactSourceConfig;
+  collaborator: ContactSourceConfig;
 }
 
 function generateId(): string {
@@ -105,6 +106,27 @@ const CLINIC_FIELDS = [
     { value: "false", label: "Nie" },
   ]},
   { value: "notes", label: "Poznámky", type: "text" },
+];
+
+const COLLABORATOR_FIELDS = [
+  { value: "firstName", label: "Meno", type: "text" },
+  { value: "lastName", label: "Priezvisko", type: "text" },
+  { value: "email", label: "Email", type: "text" },
+  { value: "phone", label: "Telefón", type: "text" },
+  { value: "mobile", label: "Mobil", type: "text" },
+  { value: "countryCode", label: "Krajina", type: "select", options: COUNTRY_OPTIONS },
+  { value: "city", label: "Mesto", type: "text" },
+  { value: "region", label: "Región", type: "text" },
+  { value: "collaboratorType", label: "Typ", type: "select", options: [
+    { value: "doctor", label: "Lekár" },
+    { value: "nurse", label: "Sestra" },
+    { value: "midwife", label: "Pôrodná asistentka" },
+    { value: "other", label: "Iný" },
+  ]},
+  { value: "isActive", label: "Aktívny", type: "select", options: [
+    { value: "true", label: "Áno" },
+    { value: "false", label: "Nie" },
+  ]},
 ];
 
 const OPERATORS = {
@@ -383,7 +405,7 @@ interface ContactCriteriaBuilderProps {
 }
 
 export function ContactCriteriaBuilder({ config, onChange, previewCounts, previewLoading }: ContactCriteriaBuilderProps) {
-  const anyEnabled = config.customer.enabled || config.hospital.enabled || config.clinic.enabled;
+  const anyEnabled = config.customer.enabled || config.hospital.enabled || config.clinic.enabled || config.collaborator.enabled;
   return (
     <div className="space-y-3">
       <EntityCriteriaSection
@@ -416,6 +438,16 @@ export function ContactCriteriaBuilder({ config, onChange, previewCounts, previe
         matchCount={previewCounts?.counts?.clinic}
         matchLoading={config.clinic.enabled && previewLoading}
       />
+      <EntityCriteriaSection
+        entityType="collaborator"
+        label="Spolupracovníci"
+        icon={UserCheck}
+        fields={COLLABORATOR_FIELDS}
+        config={config.collaborator}
+        onChange={collaborator => onChange({ ...config, collaborator })}
+        matchCount={previewCounts?.counts?.collaborator}
+        matchLoading={config.collaborator.enabled && previewLoading}
+      />
       {anyEnabled && previewCounts && !previewLoading && (
         <div className="flex items-center justify-center p-2 bg-primary/5 rounded-lg border border-primary/20">
           <span className="text-sm font-semibold text-primary">
@@ -432,5 +464,6 @@ export function getDefaultContactGenerateConfig(): ContactGenerateConfig {
     customer: { enabled: true, criteria: [] },
     hospital: { enabled: false, criteria: [] },
     clinic: { enabled: false, criteria: [] },
+    collaborator: { enabled: false, criteria: [] },
   };
 }

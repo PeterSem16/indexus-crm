@@ -1,8 +1,9 @@
 import { useState, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, Search, Building2, FileText, Award, Gift, ListChecks, FileEdit, MapPin, Navigation, ExternalLink, Database, Loader2, Globe, Stethoscope, RefreshCw, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Filter, X, Download, FileSpreadsheet } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Building2, FileText, Award, Gift, ListChecks, FileEdit, MapPin, Navigation, ExternalLink, Database, Loader2, Globe, Stethoscope, RefreshCw, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Filter, X, Download, FileSpreadsheet, Target } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { HospitalFormWizard } from "@/components/hospital-form-wizard";
+import EntityCampaignTimeline from "@/components/campaigns/EntityCampaignTimeline";
 import { ClinicFormWizard } from "@/components/clinic-form-wizard";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -195,7 +196,7 @@ function HospitalForm({
     <>
     <form onSubmit={handleSubmit} className="space-y-4">
       <Tabs value={formTab} onValueChange={setFormTab}>
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="basic" data-testid="tab-form-basic">
             <Building2 className="h-4 w-4 mr-2" />
             {t.clinics.steps.basic}
@@ -212,6 +213,12 @@ function HospitalForm({
             <ListChecks className="h-4 w-4 mr-2" />
             {t.clinics.steps.settings}
           </TabsTrigger>
+          {hospital && (
+            <TabsTrigger value="campaigns" data-testid="tab-form-campaigns">
+              <Target className="h-4 w-4 mr-2" />
+              Kampane
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="basic" className="space-y-4 mt-4">
@@ -475,6 +482,12 @@ function HospitalForm({
             </div>
           </div>
         </TabsContent>
+
+        {hospital && (
+          <TabsContent value="campaigns" className="space-y-4 mt-4">
+            <EntityCampaignTimeline entityType="hospital" entityId={hospital.id} entityName={hospital.name} />
+          </TabsContent>
+        )}
       </Tabs>
 
       <div className="flex justify-end gap-2 pt-4 border-t">
@@ -811,6 +824,12 @@ function ClinicForm({
           </Button>
         </div>
       </form>
+
+      {clinic && (
+        <div className="mt-4">
+          <EntityCampaignTimeline entityType="clinic" entityId={clinic.id} entityName={clinic.name} />
+        </div>
+      )}
 
       <Dialog open={showWebsitePreview} onOpenChange={setShowWebsitePreview}>
         <DialogContent className="max-w-4xl max-h-[90vh]">

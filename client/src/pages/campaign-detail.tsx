@@ -1518,6 +1518,7 @@ export default function CampaignDetailPage() {
     customer: { enabled: true, criteria: [] },
     hospital: { enabled: false, criteria: [] },
     clinic: { enabled: false, criteria: [] },
+    collaborator: { enabled: false, criteria: [] },
   });
   const [previewCounts, setPreviewCounts] = useState<PreviewCounts | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -1529,6 +1530,7 @@ export default function CampaignDetailPage() {
     if (cfg.customer.enabled) contactSources.push("customer");
     if (cfg.hospital.enabled) contactSources.push("hospital");
     if (cfg.clinic.enabled) contactSources.push("clinic");
+    if (cfg.collaborator.enabled) contactSources.push("collaborator");
     if (contactSources.length === 0) {
       setPreviewCounts(null);
       setPreviewLoading(false);
@@ -1541,6 +1543,7 @@ export default function CampaignDetailPage() {
         customerCriteria: cfg.customer.enabled ? cfg.customer.criteria : undefined,
         hospitalCriteria: cfg.hospital.enabled ? cfg.hospital.criteria : undefined,
         clinicCriteria: cfg.clinic.enabled ? cfg.clinic.criteria : undefined,
+        collaboratorCriteria: cfg.collaborator.enabled ? cfg.collaborator.criteria : undefined,
       });
       const data = await res.json();
       setPreviewCounts(data);
@@ -1566,11 +1569,13 @@ export default function CampaignDetailPage() {
       if (generateConfig.customer.enabled) contactSources.push("customer");
       if (generateConfig.hospital.enabled) contactSources.push("hospital");
       if (generateConfig.clinic.enabled) contactSources.push("clinic");
+      if (generateConfig.collaborator.enabled) contactSources.push("collaborator");
       const res = await apiRequest("POST", `/api/campaigns/${campaignId}/generate-contacts`, {
         contactSources,
         customerCriteria: generateConfig.customer.enabled ? generateConfig.customer.criteria : undefined,
         hospitalCriteria: generateConfig.hospital.enabled ? generateConfig.hospital.criteria : undefined,
         clinicCriteria: generateConfig.clinic.enabled ? generateConfig.clinic.criteria : undefined,
+        collaboratorCriteria: generateConfig.collaborator.enabled ? generateConfig.collaborator.criteria : undefined,
       });
       return await res.json();
     },

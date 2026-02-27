@@ -139,6 +139,7 @@ import {
   campaignMailchimpSync, type CampaignMailchimpSync, type InsertCampaignMailchimpSync,
   campaignPhases, type CampaignPhase, type InsertCampaignPhase,
   campaignContactPhases, type CampaignContactPhase, type InsertCampaignContactPhase,
+  entityCampaignTimeline, type EntityCampaignTimeline, type InsertEntityCampaignTimeline,
   hospitals, clinics
 } from "@shared/schema";
 import { db } from "./db";
@@ -376,6 +377,11 @@ export interface IStorage {
   getContactPhaseHistory(campaignId: string, contactId: string): Promise<CampaignContactPhase[]>;
   createCampaignContactPhases(data: InsertCampaignContactPhase[]): Promise<CampaignContactPhase[]>;
   updateCampaignContactPhase(id: string, data: Partial<CampaignContactPhase>): Promise<CampaignContactPhase | undefined>;
+
+  // Entity Campaign Timeline
+  getEntityCampaignTimeline(entityType: string, entityId: string): Promise<EntityCampaignTimeline[]>;
+  getEntityCampaignTimelineBycampaign(campaignId: string): Promise<EntityCampaignTimeline[]>;
+  createEntityCampaignTimelineEntry(data: InsertEntityCampaignTimeline): Promise<EntityCampaignTimeline>;
 
   // Country System Settings
   getAllCountrySystemSettings(): Promise<CountrySystemSettings[]>;
@@ -2339,6 +2345,27 @@ export class DatabaseStorage implements IStorage {
       .where(eq(campaignContactPhases.id, id))
       .returning();
     return updated || undefined;
+  }
+
+  // Entity Campaign Timeline
+  async getEntityCampaignTimeline(entityType: string, entityId: string): Promise<EntityCampaignTimeline[]> {
+    return db.select().from(entityCampaignTimeline)
+      .where(and(
+        eq(entityCampaignTimeline.entityType, entityType),
+        eq(entityCampaignTimeline.entityId, entityId)
+      ))
+      .orderBy(desc(entityCampaignTimeline.createdAt));
+  }
+
+  async getEntityCampaignTimelineBycampaign(campaignId: string): Promise<EntityCampaignTimeline[]> {
+    return db.select().from(entityCampaignTimeline)
+      .where(eq(entityCampaignTimeline.campaignId, campaignId))
+      .orderBy(desc(entityCampaignTimeline.createdAt));
+  }
+
+  async createEntityCampaignTimelineEntry(data: InsertEntityCampaignTimeline): Promise<EntityCampaignTimeline> {
+    const [created] = await db.insert(entityCampaignTimeline).values(data).returning();
+    return created;
   }
 
   // Country System Settings

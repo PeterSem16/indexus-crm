@@ -4,6 +4,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Plus, Pencil, Trash2, Search, Eye, Package, FileText, Download, Calculator, MessageSquare, History, Send, Mail, MailOpen, Phone, PhoneCall, PhoneOutgoing, PhoneIncoming, PhoneMissed, Baby, Copy, ListChecks, FileEdit, UserCircle, Clock, PlusCircle, RefreshCw, XCircle, LogIn, LogOut, AlertCircle, CheckCircle2, ArrowRight, Shield, CreditCard, Loader2, Calendar, Globe, Linkedin, Facebook, Twitter, Instagram, Building2, ExternalLink, Sparkles, FileSignature, Receipt, Target, ArrowDownLeft, ArrowUpRight, PenSquare, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, FileSpreadsheet, Filter, X, ChevronDown, ChevronUp, Upload, Mic, MicOff, Pause, Play, Grid3X3, Volume2, PhoneOff, User, Brain, Star, AlertTriangle, Tag, ClipboardList, ShieldCheck, ShieldAlert, ClipboardCheck } from "lucide-react";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
+import EntityCampaignTimeline from "@/components/campaigns/EntityCampaignTimeline";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -7461,7 +7462,7 @@ export default function CustomersPage() {
 
               <Tabs defaultValue="data" className="flex-1 flex flex-col overflow-hidden">
                 <div className="px-6 pt-4 pb-2 border-b bg-background/80 backdrop-blur-sm">
-                  <TabsList className="grid w-full grid-cols-2 h-11">
+                  <TabsList className="grid w-full grid-cols-3 h-11">
                     <TabsTrigger value="data" className="flex items-center gap-2">
                       <FileEdit className="h-4 w-4" />
                       <span className="hidden sm:inline">{t.customers.tabs?.data || "Data"}</span>
@@ -7469,6 +7470,10 @@ export default function CustomersPage() {
                     <TabsTrigger value="history" className="flex items-center gap-2">
                       <History className="h-4 w-4" />
                       <span className="hidden sm:inline">{t.customers.tabs?.history || "History"}</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="campaigns" className="flex items-center gap-2" data-testid="tab-campaigns">
+                      <Target className="h-4 w-4" />
+                      <span className="hidden sm:inline">Kampane</span>
                     </TabsTrigger>
                   </TabsList>
                 </div>
@@ -7484,6 +7489,10 @@ export default function CustomersPage() {
                 
                 <TabsContent value="history" className="flex-1 overflow-y-auto px-6 py-4 m-0">
                   <CustomerHistoryTimeline customerId={editingCustomer.id} customerName={`${editingCustomer.firstName} ${editingCustomer.lastName}`} />
+                </TabsContent>
+                
+                <TabsContent value="campaigns" className="flex-1 overflow-y-auto px-6 py-4 m-0">
+                  <EntityCampaignTimeline entityType="customer" entityId={editingCustomer.id} entityName={`${editingCustomer.firstName} ${editingCustomer.lastName}`} />
                 </TabsContent>
               </Tabs>
             </>
