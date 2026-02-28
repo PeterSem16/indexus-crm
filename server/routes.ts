@@ -32,6 +32,7 @@ import {
   DEFAULT_PHONE_DISPOSITIONS, DEFAULT_EMAIL_DISPOSITIONS, DEFAULT_SMS_DISPOSITIONS, DISPOSITION_NAME_TRANSLATIONS,
   callLogs, campaignContacts, campaignContactHistory, campaignContactSessions, campaigns, customers, users, entityCampaignTimeline,
   collections, executiveSummaries, collectionLabResults,
+  insertSopCategorySchema, insertSopArticleSchema,
   agentSessions, agentSessionActivities, agentBreaks, scheduledReports, agentQueueStatus,
   inboundCallLogs, inboundQueues,
   type SafeUser, type Customer, type Product, type BillingDetails, type ActivityLog, type LeadScoringCriteria,
@@ -29262,6 +29263,195 @@ Guidelines:
     } catch (error) {
       console.error("Error deleting executive summary:", error);
       res.status(500).json({ error: "Failed to delete executive summary" });
+    }
+  });
+
+  // ============================================================
+  // SOP (Standard Operating Procedures) Routes
+  // ============================================================
+
+  app.get("/api/sop/categories", requireAuth, async (req, res) => {
+    try {
+      const countryCode = req.query.countryCode as string | undefined;
+      const categories = await storage.getSopCategories(countryCode);
+      res.json(categories);
+    } catch (error) {
+      console.error("Error fetching SOP categories:", error);
+      res.status(500).json({ error: "Failed to fetch SOP categories" });
+    }
+  });
+
+  app.post("/api/sop/categories", requireAuth, async (req, res) => {
+    try {
+      const parsed = insertSopCategorySchema.parse(req.body);
+      const category = await storage.createSopCategory(parsed);
+      res.status(201).json(category);
+    } catch (error: any) {
+      if (error?.name === "ZodError") return res.status(400).json({ error: "Validation failed", details: error.errors });
+      console.error("Error creating SOP category:", error);
+      res.status(500).json({ error: "Failed to create SOP category" });
+    }
+  });
+
+  app.patch("/api/sop/categories/:id", requireAuth, async (req, res) => {
+    try {
+      const parsed = insertSopCategorySchema.partial().parse(req.body);
+      const updated = await storage.updateSopCategory(req.params.id, parsed);
+      if (!updated) return res.status(404).json({ error: "Category not found" });
+      res.json(updated);
+    } catch (error: any) {
+      if (error?.name === "ZodError") return res.status(400).json({ error: "Validation failed", details: error.errors });
+      console.error("Error updating SOP category:", error);
+      res.status(500).json({ error: "Failed to update SOP category" });
+    }
+  });
+
+  app.delete("/api/sop/categories/:id", requireAuth, async (req, res) => {
+    try {
+      const deleted = await storage.deleteSopCategory(req.params.id);
+      if (!deleted) return res.status(404).json({ error: "Category not found" });
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting SOP category:", error);
+      res.status(500).json({ error: "Failed to delete SOP category" });
+    }
+  });
+
+  app.get("/api/sop/articles", requireAuth, async (req, res) => {
+    try {
+      const filters: any = {};
+      if (req.query.categoryId) filters.categoryId = req.query.categoryId;
+      if (req.query.countryCode) filters.countryCode = req.query.countryCode;
+      if (req.query.search) filters.search = req.query.search;
+      if (req.query.isPublished !== undefined) filters.isPublished = req.query.isPublished === "true";
+      const articles = await storage.getSopArticles(filters);
+      res.json(articles);
+    } catch (error) {
+      console.error("Error fetching SOP articles:", error);
+      res.status(500).json({ error: "Failed to fetch SOP articles" });
+    }
+  });
+
+  app.get("/api/sop/articles/campaign/:campaignId", requireAuth, async (req, res) => {
+    try {
+      const articles = await storage.getSopArticlesByCampaign(req.params.campaignId);
+      res.json(articles);
+    } catch (error) {
+      console.error("Error fetching campaign SOP articles:", error);
+      res.status(500).json({ error: "Failed to fetch campaign SOP articles" });
+    }
+  });
+
+  app.get("/api/sop/articles/:id", requireAuth, async (req, res) => {
+    try {
+      const article = await storage.getSopArticle(req.params.id);
+      if (!article) return res.status(404).json({ error: "Article not found" });
+      res.json(article);
+    } catch (error) {
+      console.error("Error fetching SOP article:", error);
+      res.status(500).json({ error: "Failed to fetch SOP article" });
+    }
+  });
+
+  app.post("/api/sop/articles", requireAuth, async (req, res) => {
+    try {
+      const parsed = insertSopArticleSchema.parse({ ...req.body, createdBy: (req as any).user?.id?.toString() });
+      const article = await storage.createSopArticle(parsed);
+      res.status(201).json(article);
+    } catch (error: any) {
+      if (error?.name === "ZodError") return res.status(400).json({ error: "Validation failed", details: error.errors });
+      console.error("Error creating SOP article:", error);
+      res.status(500).json({ error: "Failed to create SOP article" });
+    }
+  });
+
+  app.patch("/api/sop/articles/:id", requireAuth, async (req, res) => {
+    try {
+      const parsed = insertSopArticleSchema.partial().parse(req.body);
+      const updated = await storage.updateSopArticle(req.params.id, parsed);
+      if (!updated) return res.status(404).json({ error: "Article not found" });
+      res.json(updated);
+    } catch (error: any) {
+      if (error?.name === "ZodError") return res.status(400).json({ error: "Validation failed", details: error.errors });
+      console.error("Error updating SOP article:", error);
+      res.status(500).json({ error: "Failed to update SOP article" });
+    }
+  });
+
+  app.delete("/api/sop/articles/:id", requireAuth, async (req, res) => {
+    try {
+      const deleted = await storage.deleteSopArticle(req.params.id);
+      if (!deleted) return res.status(404).json({ error: "Article not found" });
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting SOP article:", error);
+      res.status(500).json({ error: "Failed to delete SOP article" });
+    }
+  });
+
+  app.post("/api/sop/articles/:id/read", requireAuth, async (req, res) => {
+    try {
+      const userId = (req as any).user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      const read = await storage.markSopArticleRead(req.params.id, userId);
+      res.json(read);
+    } catch (error) {
+      console.error("Error marking SOP article as read:", error);
+      res.status(500).json({ error: "Failed to mark article as read" });
+    }
+  });
+
+  app.get("/api/sop/articles/:id/reads", requireAuth, async (req, res) => {
+    try {
+      const reads = await storage.getSopArticleReads(req.params.id);
+      res.json(reads);
+    } catch (error) {
+      console.error("Error fetching SOP article reads:", error);
+      res.status(500).json({ error: "Failed to fetch article reads" });
+    }
+  });
+
+  app.get("/api/sop/user-reads", requireAuth, async (req, res) => {
+    try {
+      const userId = (req as any).user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      const reads = await storage.getUserSopReads(userId);
+      res.json(reads);
+    } catch (error) {
+      console.error("Error fetching user SOP reads:", error);
+      res.status(500).json({ error: "Failed to fetch user reads" });
+    }
+  });
+
+  app.post("/api/sop/articles/:id/campaigns", requireAuth, async (req, res) => {
+    try {
+      const { campaignId } = req.body;
+      if (!campaignId) return res.status(400).json({ error: "campaignId required" });
+      await storage.linkSopArticleToCampaign(req.params.id, campaignId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error linking SOP article to campaign:", error);
+      res.status(500).json({ error: "Failed to link article to campaign" });
+    }
+  });
+
+  app.delete("/api/sop/articles/:id/campaigns/:campaignId", requireAuth, async (req, res) => {
+    try {
+      await storage.unlinkSopArticleFromCampaign(req.params.id, req.params.campaignId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error unlinking SOP article from campaign:", error);
+      res.status(500).json({ error: "Failed to unlink article from campaign" });
+    }
+  });
+
+  app.get("/api/sop/articles/:id/campaigns", requireAuth, async (req, res) => {
+    try {
+      const campaignIds = await storage.getSopCampaignLinks(req.params.id);
+      res.json(campaignIds);
+    } catch (error) {
+      console.error("Error fetching SOP campaign links:", error);
+      res.status(500).json({ error: "Failed to fetch campaign links" });
     }
   });
 

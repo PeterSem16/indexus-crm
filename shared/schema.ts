@@ -5919,3 +5919,85 @@ export const insertEntityCampaignTimelineSchema = createInsertSchema(entityCampa
 });
 export type InsertEntityCampaignTimeline = z.infer<typeof insertEntityCampaignTimelineSchema>;
 export type EntityCampaignTimeline = typeof entityCampaignTimeline.$inferSelect;
+
+// ============================================================
+// SOP (Standard Operating Procedures) System
+// ============================================================
+
+export const sopCategories = pgTable("sop_categories", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  name: text("name").notNull(),
+  description: text("description"),
+  icon: text("icon"),
+  sortOrder: integer("sort_order").default(0),
+  countryCode: text("country_code"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const insertSopCategorySchema = createInsertSchema(sopCategories).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  name: z.string().min(1),
+  description: z.string().optional().nullable(),
+  icon: z.string().optional().nullable(),
+  sortOrder: z.number().optional().nullable(),
+  countryCode: z.string().optional().nullable(),
+  isActive: z.boolean().optional(),
+});
+export type InsertSopCategory = z.infer<typeof insertSopCategorySchema>;
+export type SopCategory = typeof sopCategories.$inferSelect;
+
+export const sopArticles = pgTable("sop_articles", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  categoryId: varchar("category_id").notNull(),
+  title: text("title").notNull(),
+  content: text("content").notNull(),
+  summary: text("summary"),
+  priority: text("priority").default("normal"),
+  countryCode: text("country_code"),
+  isPublished: boolean("is_published").default(true),
+  isPinned: boolean("is_pinned").default(false),
+  version: integer("version").default(1),
+  tags: text("tags").array(),
+  createdBy: varchar("created_by"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const insertSopArticleSchema = createInsertSchema(sopArticles).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  title: z.string().min(1),
+  content: z.string().min(1),
+  summary: z.string().optional().nullable(),
+  categoryId: z.string().min(1),
+  priority: z.enum(["normal", "high", "critical"]).optional(),
+  countryCode: z.string().optional().nullable(),
+  isPublished: z.boolean().optional(),
+  isPinned: z.boolean().optional(),
+  version: z.number().optional(),
+  tags: z.array(z.string()).optional().nullable(),
+  createdBy: z.string().optional().nullable(),
+});
+export type InsertSopArticle = z.infer<typeof insertSopArticleSchema>;
+export type SopArticle = typeof sopArticles.$inferSelect;
+
+export const sopArticleReads = pgTable("sop_article_reads", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  articleId: varchar("article_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  readAt: timestamp("read_at").notNull().default(sql`now()`),
+});
+
+export type SopArticleRead = typeof sopArticleReads.$inferSelect;
+
+export const sopCampaignArticles = pgTable("sop_campaign_articles", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  articleId: varchar("article_id").notNull(),
+  campaignId: varchar("campaign_id").notNull(),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});

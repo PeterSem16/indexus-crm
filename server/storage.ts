@@ -140,7 +140,11 @@ import {
   campaignPhases, type CampaignPhase, type InsertCampaignPhase,
   campaignContactPhases, type CampaignContactPhase, type InsertCampaignContactPhase,
   entityCampaignTimeline, type EntityCampaignTimeline, type InsertEntityCampaignTimeline,
-  hospitals, clinics
+  hospitals, clinics,
+  sopCategories, sopArticles, sopArticleReads, sopCampaignArticles,
+  type SopCategory, type InsertSopCategory,
+  type SopArticle, type InsertSopArticle,
+  type SopArticleRead, 
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, inArray, sql, desc, and, or, asc, gte, lte, lt, isNull, isNotNull } from "drizzle-orm";
@@ -1059,6 +1063,30 @@ export interface IStorage {
   endAgentBreak(id: string): Promise<AgentBreak | undefined>;
   getActiveAgentBreak(sessionId: string): Promise<AgentBreak | undefined>;
   getAgentBreaks(sessionId: string): Promise<AgentBreak[]>;
+
+  // SOP Categories
+  getSopCategories(countryCode?: string): Promise<SopCategory[]>;
+  createSopCategory(data: InsertSopCategory): Promise<SopCategory>;
+  updateSopCategory(id: string, data: Partial<InsertSopCategory>): Promise<SopCategory | undefined>;
+  deleteSopCategory(id: string): Promise<boolean>;
+
+  // SOP Articles
+  getSopArticles(filters?: { categoryId?: string; countryCode?: string; search?: string; isPublished?: boolean }): Promise<SopArticle[]>;
+  getSopArticle(id: string): Promise<SopArticle | undefined>;
+  createSopArticle(data: InsertSopArticle): Promise<SopArticle>;
+  updateSopArticle(id: string, data: Partial<InsertSopArticle>): Promise<SopArticle | undefined>;
+  deleteSopArticle(id: string): Promise<boolean>;
+  getSopArticlesByCampaign(campaignId: string): Promise<SopArticle[]>;
+
+  // SOP Article Reads
+  markSopArticleRead(articleId: string, userId: string): Promise<SopArticleRead>;
+  getSopArticleReads(articleId: string): Promise<SopArticleRead[]>;
+  getUserSopReads(userId: string): Promise<SopArticleRead[]>;
+
+  // SOP Campaign Links
+  linkSopArticleToCampaign(articleId: string, campaignId: string): Promise<void>;
+  unlinkSopArticleFromCampaign(articleId: string, campaignId: string): Promise<boolean>;
+  getSopCampaignLinks(articleId: string): Promise<string[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -6418,6 +6446,137 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(agentBreaks)
       .where(eq(agentBreaks.sessionId, sessionId))
       .orderBy(desc(agentBreaks.startedAt));
+  }
+
+  // SOP Categories
+  async getSopCategories(countryCode?: string): Promise<SopCategory[]> {
+    const conditions = [];
+    if (countryCode) {
+      conditions.push(or(eq(sopCategories.countryCode, countryCode), isNull(sopCategories.countryCode)));
+    }
+    return db.select().from(sopCategories)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(asc(sopCategories.sortOrder), asc(sopCategories.name));
+  }
+
+  async createSopCategory(data: InsertSopCategory): Promise<SopCategory> {
+    const [category] = await db.insert(sopCategories).values(data).returning();
+    return category;
+  }
+
+  async updateSopCategory(id: string, data: Partial<InsertSopCategory>): Promise<SopCategory | undefined> {
+    const [updated] = await db.update(sopCategories).set(data).where(eq(sopCategories.id, id)).returning();
+    return updated;
+  }
+
+  async deleteSopCategory(id: string): Promise<boolean> {
+    const result = await db.delete(sopCategories).where(eq(sopCategories.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // SOP Articles
+  async getSopArticles(filters?: { categoryId?: string; countryCode?: string; search?: string; isPublished?: boolean }): Promise<SopArticle[]> {
+    const conditions = [];
+    if (filters?.categoryId) conditions.push(eq(sopArticles.categoryId, filters.categoryId));
+    if (filters?.countryCode) conditions.push(or(eq(sopArticles.countryCode, filters.countryCode), isNull(sopArticles.countryCode)));
+    if (filters?.isPublished !== undefined) conditions.push(eq(sopArticles.isPublished, filters.isPublished));
+    if (filters?.search) {
+      const searchPattern = `%${filters.search}%`;
+      conditions.push(or(
+        sql`${sopArticles.title} ILIKE ${searchPattern}`,
+        sql`${sopArticles.content} ILIKE ${searchPattern}`
+      ));
+    }
+    return db.select().from(sopArticles)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(sopArticles.isPinned), desc(sopArticles.updatedAt));
+  }
+
+  async getSopArticle(id: string): Promise<SopArticle | undefined> {
+    const [article] = await db.select().from(sopArticles).where(eq(sopArticles.id, id));
+    return article;
+  }
+
+  async createSopArticle(data: InsertSopArticle): Promise<SopArticle> {
+    const [article] = await db.insert(sopArticles).values(data).returning();
+    return article;
+  }
+
+  async updateSopArticle(id: string, data: Partial<InsertSopArticle>): Promise<SopArticle | undefined> {
+    const [updated] = await db.update(sopArticles)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(sopArticles.id, id)).returning();
+    return updated;
+  }
+
+  async deleteSopArticle(id: string): Promise<boolean> {
+    await db.delete(sopArticleReads).where(eq(sopArticleReads.articleId, id));
+    await db.delete(sopCampaignArticles).where(eq(sopCampaignArticles.articleId, id));
+    const result = await db.delete(sopArticles).where(eq(sopArticles.id, id)).returning();
+    return result.length > 0;
+  }
+
+  async getSopArticlesByCampaign(campaignId: string): Promise<SopArticle[]> {
+    const links = await db.select().from(sopCampaignArticles)
+      .where(eq(sopCampaignArticles.campaignId, campaignId));
+    if (links.length === 0) return [];
+    const articleIds = links.map(l => l.articleId);
+    return db.select().from(sopArticles)
+      .where(and(
+        inArray(sopArticles.id, articleIds),
+        eq(sopArticles.isPublished, true)
+      ))
+      .orderBy(desc(sopArticles.isPinned), desc(sopArticles.updatedAt));
+  }
+
+  // SOP Article Reads
+  async markSopArticleRead(articleId: string, userId: string): Promise<SopArticleRead> {
+    const existing = await db.select().from(sopArticleReads)
+      .where(and(eq(sopArticleReads.articleId, articleId), eq(sopArticleReads.userId, userId)))
+      .limit(1);
+    if (existing.length > 0) {
+      const [updated] = await db.update(sopArticleReads)
+        .set({ readAt: new Date() })
+        .where(eq(sopArticleReads.id, existing[0].id))
+        .returning();
+      return updated;
+    }
+    const [read] = await db.insert(sopArticleReads).values({ articleId, userId }).returning();
+    return read;
+  }
+
+  async getSopArticleReads(articleId: string): Promise<SopArticleRead[]> {
+    return db.select().from(sopArticleReads)
+      .where(eq(sopArticleReads.articleId, articleId))
+      .orderBy(desc(sopArticleReads.readAt));
+  }
+
+  async getUserSopReads(userId: string): Promise<SopArticleRead[]> {
+    return db.select().from(sopArticleReads)
+      .where(eq(sopArticleReads.userId, userId));
+  }
+
+  // SOP Campaign Links
+  async linkSopArticleToCampaign(articleId: string, campaignId: string): Promise<void> {
+    const existing = await db.select().from(sopCampaignArticles)
+      .where(and(eq(sopCampaignArticles.articleId, articleId), eq(sopCampaignArticles.campaignId, campaignId)))
+      .limit(1);
+    if (existing.length === 0) {
+      await db.insert(sopCampaignArticles).values({ articleId, campaignId });
+    }
+  }
+
+  async unlinkSopArticleFromCampaign(articleId: string, campaignId: string): Promise<boolean> {
+    const result = await db.delete(sopCampaignArticles)
+      .where(and(eq(sopCampaignArticles.articleId, articleId), eq(sopCampaignArticles.campaignId, campaignId)))
+      .returning();
+    return result.length > 0;
+  }
+
+  async getSopCampaignLinks(articleId: string): Promise<string[]> {
+    const links = await db.select().from(sopCampaignArticles)
+      .where(eq(sopCampaignArticles.articleId, articleId));
+    return links.map(l => l.campaignId);
   }
 }
 

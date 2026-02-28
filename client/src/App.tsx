@@ -51,6 +51,7 @@ import CollectionsPage from "@/pages/collections";
 import CampaignReportsPage from "@/pages/campaign-reports";
 import CustomerInvoicesPage from "@/pages/customer-invoices";
 import AgentWorkspacePage from "@/pages/agent-workspace";
+import SopManagementPage from "@/pages/sop-management";
 import { AgentSessionProvider } from "@/contexts/agent-session-context";
 import NotFound from "@/pages/not-found";
 import { Loader2 } from "lucide-react";
@@ -225,6 +226,7 @@ function AuthenticatedApp() {
                     <Route path="/email" component={EmailClientPage} />
                     <Route path="/notifications" component={NotificationCenterPage} />
                     <Route path="/mobile-preview" component={MobilePreview} />
+                    <Route path="/sop" component={SopManagementPage} />
                     <Route path="/agent-workspace">
                       <ErrorBoundary>
                         <AgentSessionProvider>

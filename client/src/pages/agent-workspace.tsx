@@ -3,6 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useI18n } from "@/i18n";
 import { useAuth } from "@/contexts/auth-context";
+import { SopPanel } from "@/components/agent/SopPanel";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -1459,7 +1460,7 @@ function CommunicationCanvas({
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [emailOpenedAt, setEmailOpenedAt] = useState<number | null>(null);
   const [smsOpenedAt, setSmsOpenedAt] = useState<number | null>(null);
-  const [phoneSubTab, setPhoneSubTab] = useState<"card" | "details" | "documents" | "history">(externalPhoneSubTab || "card");
+  const [phoneSubTab, setPhoneSubTab] = useState<"card" | "details" | "documents" | "sop" | "history">(externalPhoneSubTab || "card");
   
   useEffect(() => {
     if (externalPhoneSubTab) {
@@ -1939,6 +1940,18 @@ function CommunicationCanvas({
               <FileText className="h-3 w-3" />
               {t.agentWorkspace.customerDocumentsTab}
             </button>
+            <button
+              className={`flex items-center gap-1.5 px-3 py-2 text-[11px] font-medium border-b-2 transition-colors ${
+                phoneSubTab === "sop"
+                  ? "border-amber-500 text-amber-600 dark:text-amber-400"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
+              onClick={() => setPhoneSubTab("sop")}
+              data-testid="subtab-sop"
+            >
+              <BookOpen className="h-3 w-3" />
+              {t.agentWorkspace.sopTab || "SOP"}
+            </button>
           </div>
 
           {(phoneSubTab === "card" || phoneSubTab === "details") && contact && contact.phone && isSipRegistered && onMakeCall && (
@@ -2003,6 +2016,10 @@ function CommunicationCanvas({
 
           {phoneSubTab === "documents" && contact && (
             <CustomerDocumentsPanel customerId={contact.id} />
+          )}
+
+          {phoneSubTab === "sop" && (
+            <SopPanel campaignId={campaign?.id} userId={user?.id?.toString()} />
           )}
 
         </div>

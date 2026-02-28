@@ -2189,6 +2189,7 @@ export interface Translations {
     customerCard: string;
     customerDetail: string;
     customerDocumentsTab: string;
+    sopTab: string;
     addNote: string;
     notePlaceholder: string;
     moreNotes: string;
@@ -6412,6 +6413,7 @@ export const translations: Record<Locale, Translations> = {
       customerCard: 'Customer Card',
       customerDetail: 'Customer Detail',
       customerDocumentsTab: 'Documents',
+      sopTab: 'SOP',
       addNote: 'Add note',
       notePlaceholder: 'Write a note...',
       moreNotes: 'more notes',
@@ -10572,6 +10574,7 @@ export const translations: Record<Locale, Translations> = {
       customerCard: 'Karta zákazníka',
       customerDetail: 'Detail zákazníka',
       customerDocumentsTab: 'Dokumenty',
+      sopTab: 'SOP',
       addNote: 'Pridať poznámku',
       notePlaceholder: 'Napíšte poznámku...',
       moreNotes: 'ďalších poznámok',
@@ -14717,6 +14720,7 @@ export const translations: Record<Locale, Translations> = {
       customerCard: 'Karta zákazníka',
       customerDetail: 'Detail zákazníka',
       customerDocumentsTab: 'Dokumenty',
+      sopTab: 'SOP',
       addNote: 'Přidat poznámku',
       notePlaceholder: 'Napište poznámku...',
       moreNotes: 'dalších poznámek',
@@ -18826,6 +18830,7 @@ export const translations: Record<Locale, Translations> = {
       customerDetail: 'Ügyfél részletek',
       customerDocumentsTab: 'Dokumentumok',
       addNote: 'Jegyzet hozzáadása',
+      sopTab: 'SOP',
       notePlaceholder: 'Írjon jegyzetet...',
       moreNotes: 'további jegyzet',
       noNewVoicemails: 'Nincsenek új üzenetek',
@@ -22933,6 +22938,7 @@ export const translations: Record<Locale, Translations> = {
       customerDetail: 'Detalii client',
       customerDocumentsTab: 'Documente',
       addNote: 'Adăugare notă',
+      sopTab: 'SOP',
       notePlaceholder: 'Scrieți o notă...',
       moreNotes: 'alte note',
       noNewVoicemails: 'Niciun mesaj vocal nou',
@@ -27041,6 +27047,7 @@ export const translations: Record<Locale, Translations> = {
       customerDetail: 'Dettaglio cliente',
       customerDocumentsTab: 'Documenti',
       addNote: 'Aggiungi nota',
+      sopTab: 'SOP',
       notePlaceholder: 'Scrivi una nota...',
       moreNotes: 'altre note',
       noNewVoicemails: 'Nessun nuovo messaggio vocale',
@@ -31149,6 +31156,7 @@ export const translations: Record<Locale, Translations> = {
       customerDetail: 'Kundendetail',
       customerDocumentsTab: 'Dokumente',
       addNote: 'Notiz hinzufügen',
+      sopTab: 'SOP',
       notePlaceholder: 'Notiz schreiben...',
       moreNotes: 'weitere Notizen',
       noNewVoicemails: 'Keine neuen Nachrichten',
