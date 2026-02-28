@@ -115,6 +115,8 @@ import {
   BookOpen,
   ChevronUp,
   Download,
+  ChevronsUpDown,
+  Check,
 } from "lucide-react";
 import {
   Dialog,
@@ -1459,6 +1461,12 @@ function CommunicationCanvas({
   const [selectedDocuments, setSelectedDocuments] = useState<string[]>([]);
   const [emailTemplateCategoryId, setEmailTemplateCategoryId] = useState<string>("");
   const [smsTemplateCategoryId, setSmsTemplateCategoryId] = useState<string>("");
+  const [emailTemplateSearch, setEmailTemplateSearch] = useState("");
+  const [smsTemplateSearch, setSmsTemplateSearch] = useState("");
+  const [emailTemplatePopoverOpen, setEmailTemplatePopoverOpen] = useState(false);
+  const [smsTemplatePopoverOpen, setSmsTemplatePopoverOpen] = useState(false);
+  const [selectedEmailTemplateName, setSelectedEmailTemplateName] = useState("");
+  const [selectedSmsTemplateName, setSelectedSmsTemplateName] = useState("");
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [emailOpenedAt, setEmailOpenedAt] = useState<number | null>(null);
   const [smsOpenedAt, setSmsOpenedAt] = useState<number | null>(null);
@@ -1588,14 +1596,28 @@ function CommunicationCanvas({
   }, [templateCategories, smsTemplates]);
 
   const filteredEmailTemplates = useMemo(() => {
-    if (!emailTemplateCategoryId || emailTemplateCategoryId === "__all__") return emailTemplates;
-    return emailTemplates.filter(t => t.categoryId === emailTemplateCategoryId);
-  }, [emailTemplates, emailTemplateCategoryId]);
+    let list = emailTemplates;
+    if (emailTemplateCategoryId && emailTemplateCategoryId !== "__all__") {
+      list = list.filter(t => t.categoryId === emailTemplateCategoryId);
+    }
+    if (emailTemplateSearch.trim()) {
+      const q = emailTemplateSearch.trim().toLowerCase();
+      list = list.filter(t => t.name.toLowerCase().includes(q));
+    }
+    return list;
+  }, [emailTemplates, emailTemplateCategoryId, emailTemplateSearch]);
 
   const filteredSmsTemplates = useMemo(() => {
-    if (!smsTemplateCategoryId || smsTemplateCategoryId === "__all__") return smsTemplates;
-    return smsTemplates.filter(t => t.categoryId === smsTemplateCategoryId);
-  }, [smsTemplates, smsTemplateCategoryId]);
+    let list = smsTemplates;
+    if (smsTemplateCategoryId && smsTemplateCategoryId !== "__all__") {
+      list = list.filter(t => t.categoryId === smsTemplateCategoryId);
+    }
+    if (smsTemplateSearch.trim()) {
+      const q = smsTemplateSearch.trim().toLowerCase();
+      list = list.filter(t => t.name.toLowerCase().includes(q));
+    }
+    return list;
+  }, [smsTemplates, smsTemplateCategoryId, smsTemplateSearch]);
 
   const { data: customerDocuments = [] } = useQuery<{ id: string; name: string; type: string; url: string }[]>({
     queryKey: ["/api/customers", contact?.id, "documents-for-email"],
@@ -1670,6 +1692,9 @@ function CommunicationCanvas({
       const content = replaceTemplateVars(template.contentHtml || template.content || "");
       setEmailSubject(subject);
       setEmailMessage(content);
+      setSelectedEmailTemplateName(template.name);
+      setEmailTemplateSearch("");
+      setEmailTemplatePopoverOpen(false);
       fetch(`/api/message-templates/${templateId}/use`, { method: "POST", credentials: "include" });
     }
   };
@@ -1679,6 +1704,9 @@ function CommunicationCanvas({
     if (template) {
       const content = replaceTemplateVars(template.content || "");
       setSmsMessage(content);
+      setSelectedSmsTemplateName(template.name);
+      setSmsTemplateSearch("");
+      setSmsTemplatePopoverOpen(false);
       fetch(`/api/message-templates/${templateId}/use`, { method: "POST", credentials: "include" });
     }
   };
@@ -2086,8 +2114,8 @@ function CommunicationCanvas({
                   <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
                     {t.configuration?.messageTemplates || "TEMPLATE"}
                   </Label>
-                  {emailCategoriesWithTemplates.length > 0 ? (
-                    <div className="space-y-1.5">
+                  <div className="space-y-1.5">
+                    {emailCategoriesWithTemplates.length > 0 && (
                       <Select value={emailTemplateCategoryId} onValueChange={(val) => { setEmailTemplateCategoryId(val); }}>
                         <SelectTrigger data-testid="select-email-template-category" className="text-sm">
                           <SelectValue placeholder={t.configuration?.selectCategory || "Select category"} />
@@ -2099,29 +2127,48 @@ function CommunicationCanvas({
                           ))}
                         </SelectContent>
                       </Select>
-                      <Select onValueChange={handleSelectEmailTemplate} disabled={filteredEmailTemplates.length === 0}>
-                        <SelectTrigger data-testid="select-email-template" className="text-sm">
-                          <SelectValue placeholder={filteredEmailTemplates.length === 0 ? (t.konfigurator?.noMessageTemplates || "No templates") : (t.configuration?.selectTemplate || "Select template")} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {filteredEmailTemplates.map((template) => (
-                            <SelectItem key={template.id} value={template.id}>{template.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  ) : (
-                    <Select onValueChange={handleSelectEmailTemplate} disabled={emailTemplates.length === 0}>
-                      <SelectTrigger data-testid="select-email-template" className="text-sm">
-                        <SelectValue placeholder={emailTemplates.length === 0 ? (t.konfigurator?.noMessageTemplates || "No templates") : (t.configuration?.selectTemplate || "Select template")} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {emailTemplates.map((template) => (
-                          <SelectItem key={template.id} value={template.id}>{template.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
+                    )}
+                    <Popover open={emailTemplatePopoverOpen} onOpenChange={setEmailTemplatePopoverOpen}>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" role="combobox" className="w-full justify-between text-sm font-normal h-10" data-testid="select-email-template" disabled={emailTemplates.length === 0}>
+                          <span className="truncate">{selectedEmailTemplateName || (emailTemplates.length === 0 ? (t.konfigurator?.noMessageTemplates || "No templates") : (t.configuration?.selectTemplate || "Select template"))}</span>
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                        <div className="flex items-center border-b px-3 py-2">
+                          <Search className="h-4 w-4 mr-2 shrink-0 opacity-50" />
+                          <input
+                            className="flex h-8 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                            placeholder={t.sop?.searchSop || "Search..."}
+                            value={emailTemplateSearch}
+                            onChange={(e) => setEmailTemplateSearch(e.target.value)}
+                            data-testid="input-search-email-template"
+                          />
+                          {emailTemplateSearch && (
+                            <button onClick={() => setEmailTemplateSearch("")} className="ml-1 opacity-50 hover:opacity-100"><X className="h-3.5 w-3.5" /></button>
+                          )}
+                        </div>
+                        <div className="max-h-[200px] overflow-y-auto">
+                          {filteredEmailTemplates.length === 0 ? (
+                            <p className="text-sm text-muted-foreground text-center py-4">{t.konfigurator?.noMessageTemplates || "No templates"}</p>
+                          ) : (
+                            filteredEmailTemplates.map((template) => (
+                              <button
+                                key={template.id}
+                                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-muted/50 transition-colors"
+                                onClick={() => handleSelectEmailTemplate(template.id)}
+                                data-testid={`email-template-option-${template.id}`}
+                              >
+                                <Check className={`h-4 w-4 shrink-0 ${selectedEmailTemplateName === template.name ? "opacity-100" : "opacity-0"}`} />
+                                <span className="truncate">{template.name}</span>
+                              </button>
+                            ))
+                          )}
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
                 </div>
 
                 <div className="space-y-1.5">
@@ -2274,8 +2321,8 @@ function CommunicationCanvas({
                   <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
                     {t.configuration?.messageTemplates || "TEMPLATE"}
                   </Label>
-                  {smsCategoriesWithTemplates.length > 0 ? (
-                    <div className="space-y-1.5">
+                  <div className="space-y-1.5">
+                    {smsCategoriesWithTemplates.length > 0 && (
                       <Select value={smsTemplateCategoryId} onValueChange={(val) => { setSmsTemplateCategoryId(val); }}>
                         <SelectTrigger data-testid="select-sms-template-category" className="text-sm">
                           <SelectValue placeholder={t.configuration?.selectCategory || "Select category"} />
@@ -2287,29 +2334,48 @@ function CommunicationCanvas({
                           ))}
                         </SelectContent>
                       </Select>
-                      <Select onValueChange={handleSelectSmsTemplate} disabled={filteredSmsTemplates.length === 0}>
-                        <SelectTrigger data-testid="select-sms-template" className="text-sm">
-                          <SelectValue placeholder={filteredSmsTemplates.length === 0 ? (t.konfigurator?.noMessageTemplates || "No templates") : (t.configuration?.selectTemplate || "Select template")} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {filteredSmsTemplates.map((template) => (
-                            <SelectItem key={template.id} value={template.id}>{template.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  ) : (
-                    <Select onValueChange={handleSelectSmsTemplate} disabled={smsTemplates.length === 0}>
-                      <SelectTrigger data-testid="select-sms-template" className="text-sm">
-                        <SelectValue placeholder={smsTemplates.length === 0 ? (t.konfigurator?.noMessageTemplates || "No templates") : (t.configuration?.selectTemplate || "Select template")} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {smsTemplates.map((template) => (
-                          <SelectItem key={template.id} value={template.id}>{template.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
+                    )}
+                    <Popover open={smsTemplatePopoverOpen} onOpenChange={setSmsTemplatePopoverOpen}>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" role="combobox" className="w-full justify-between text-sm font-normal h-10" data-testid="select-sms-template" disabled={smsTemplates.length === 0}>
+                          <span className="truncate">{selectedSmsTemplateName || (smsTemplates.length === 0 ? (t.konfigurator?.noMessageTemplates || "No templates") : (t.configuration?.selectTemplate || "Select template"))}</span>
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                        <div className="flex items-center border-b px-3 py-2">
+                          <Search className="h-4 w-4 mr-2 shrink-0 opacity-50" />
+                          <input
+                            className="flex h-8 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                            placeholder={t.sop?.searchSop || "Search..."}
+                            value={smsTemplateSearch}
+                            onChange={(e) => setSmsTemplateSearch(e.target.value)}
+                            data-testid="input-search-sms-template"
+                          />
+                          {smsTemplateSearch && (
+                            <button onClick={() => setSmsTemplateSearch("")} className="ml-1 opacity-50 hover:opacity-100"><X className="h-3.5 w-3.5" /></button>
+                          )}
+                        </div>
+                        <div className="max-h-[200px] overflow-y-auto">
+                          {filteredSmsTemplates.length === 0 ? (
+                            <p className="text-sm text-muted-foreground text-center py-4">{t.konfigurator?.noMessageTemplates || "No templates"}</p>
+                          ) : (
+                            filteredSmsTemplates.map((template) => (
+                              <button
+                                key={template.id}
+                                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-muted/50 transition-colors"
+                                onClick={() => handleSelectSmsTemplate(template.id)}
+                                data-testid={`sms-template-option-${template.id}`}
+                              >
+                                <Check className={`h-4 w-4 shrink-0 ${selectedSmsTemplateName === template.name ? "opacity-100" : "opacity-0"}`} />
+                                <span className="truncate">{template.name}</span>
+                              </button>
+                            ))
+                          )}
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
                 </div>
 
                 <div className="space-y-1.5">
