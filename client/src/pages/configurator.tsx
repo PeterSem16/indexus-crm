@@ -11471,6 +11471,13 @@ function MessageTemplatesTab() {
   const [templateIsDefault, setTemplateIsDefault] = useState(false);
   const [templateIsActive, setTemplateIsActive] = useState(true);
   
+  // Copy/Translate dialog state
+  const [isCopyDialogOpen, setIsCopyDialogOpen] = useState(false);
+  const [copySourceTemplate, setCopySourceTemplate] = useState<MessageTemplate | null>(null);
+  const [copyTargetLanguage, setCopyTargetLanguage] = useState("");
+  const [copyWithTranslation, setCopyWithTranslation] = useState(true);
+  const [isCopying, setIsCopying] = useState(false);
+
   // Category form state
   const [categoryName, setCategoryName] = useState("");
   const [categoryDescription, setCategoryDescription] = useState("");
@@ -11640,6 +11647,33 @@ function MessageTemplatesTab() {
     setTemplateTags("");
     setTemplateIsDefault(false);
     setTemplateIsActive(true);
+  };
+
+  const openCopyDialog = (template: MessageTemplate) => {
+    setCopySourceTemplate(template);
+    setCopyTargetLanguage("");
+    setCopyWithTranslation(true);
+    setIsCopyDialogOpen(true);
+  };
+
+  const handleCopyTemplate = async () => {
+    if (!copySourceTemplate || !copyTargetLanguage) return;
+    setIsCopying(true);
+    try {
+      const res = await apiRequest("POST", `/api/message-templates/${copySourceTemplate.id}/copy-translate`, {
+        targetLanguage: copyTargetLanguage,
+        translate: copyWithTranslation,
+      });
+      if (!res.ok) throw new Error("Failed to copy template");
+      queryClient.invalidateQueries({ queryKey: ["/api/message-templates"] });
+      toast({ title: copyWithTranslation ? (t.konfigurator?.templateTranslated || "Template translated and copied") : (t.konfigurator?.templateCopied || "Template copied") });
+      setIsCopyDialogOpen(false);
+      setCopySourceTemplate(null);
+    } catch (error) {
+      toast({ title: t.errors?.saveFailed || "Error", variant: "destructive" });
+    } finally {
+      setIsCopying(false);
+    }
   };
 
   const resetCategoryForm = () => {
@@ -11897,6 +11931,9 @@ function MessageTemplatesTab() {
                       </td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-2">
+                          <Button size="icon" variant="ghost" onClick={() => openCopyDialog(template)} title={t.konfigurator?.copyToLanguage || "Copy to language"} data-testid={`button-copy-template-${template.id}`}>
+                            <Copy className="h-4 w-4" />
+                          </Button>
                           <Button size="icon" variant="ghost" onClick={() => openTemplateDialog(template)} data-testid={`button-edit-template-${template.id}`}>
                             <Pencil className="h-4 w-4" />
                           </Button>
@@ -12393,6 +12430,64 @@ function MessageTemplatesTab() {
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               )}
               {t.common.save}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isCopyDialogOpen} onOpenChange={(v) => { setIsCopyDialogOpen(v); if (!v) setCopySourceTemplate(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Copy className="h-4 w-4" />
+              {t.konfigurator?.copyToLanguage || "Copy to language"}
+            </DialogTitle>
+          </DialogHeader>
+          {copySourceTemplate && (
+            <div className="space-y-4">
+              <div className="bg-muted/30 rounded-lg p-3 space-y-1">
+                <p className="text-sm font-medium">{copySourceTemplate.name}</p>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Badge variant="outline" className="text-[10px]">{copySourceTemplate.type.toUpperCase()}</Badge>
+                  <span>{TEMPLATE_LANGUAGES.find(l => l.code === copySourceTemplate.language)?.name || copySourceTemplate.language}</span>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">{t.konfigurator?.targetLanguage || "Target language"}</Label>
+                <div className="grid grid-cols-4 gap-2">
+                  {TEMPLATE_LANGUAGES.filter(l => l.code !== copySourceTemplate.language).map(lang => {
+                    const flags: Record<string, string> = { sk: "🇸🇰", cs: "🇨🇿", en: "🇬🇧", hu: "🇭🇺", ro: "🇷🇴", it: "🇮🇹", de: "🇩🇪" };
+                    return (
+                      <button
+                        key={lang.code}
+                        type="button"
+                        className={`flex flex-col items-center gap-1 p-2 rounded-lg border-2 transition-all ${copyTargetLanguage === lang.code ? "border-primary bg-primary/10" : "border-muted hover:border-muted-foreground/30"}`}
+                        onClick={() => setCopyTargetLanguage(lang.code)}
+                        data-testid={`copy-lang-${lang.code}`}
+                      >
+                        <span className="text-xl">{flags[lang.code] || "🏳️"}</span>
+                        <span className="text-[10px] font-medium">{lang.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between p-3 rounded-lg border">
+                <div className="space-y-0.5">
+                  <Label className="text-sm font-medium">{t.konfigurator?.autoTranslate || "Auto-translate with AI"}</Label>
+                  <p className="text-xs text-muted-foreground">{t.konfigurator?.autoTranslateDesc || "Use OpenAI to translate content to the target language"}</p>
+                </div>
+                <Switch checked={copyWithTranslation} onCheckedChange={setCopyWithTranslation} data-testid="switch-auto-translate" />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCopyDialogOpen(false)}>{t.common?.cancel || "Cancel"}</Button>
+            <Button onClick={handleCopyTemplate} disabled={!copyTargetLanguage || isCopying} data-testid="button-confirm-copy">
+              {isCopying && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {isCopying ? (copyWithTranslation ? (t.konfigurator?.translating || "Translating...") : (t.konfigurator?.copying || "Copying...")) : (copyWithTranslation ? (t.konfigurator?.translateAndCopy || "Translate & Copy") : (t.konfigurator?.copyTemplate || "Copy"))}
             </Button>
           </DialogFooter>
         </DialogContent>

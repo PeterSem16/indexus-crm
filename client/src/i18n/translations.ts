@@ -2538,6 +2538,16 @@ export interface Translations {
     templateCreated: string;
     templateUpdated: string;
     templateDeleted: string;
+    copyToLanguage: string;
+    targetLanguage: string;
+    autoTranslate: string;
+    autoTranslateDesc: string;
+    templateTranslated: string;
+    templateCopied: string;
+    translating: string;
+    copying: string;
+    translateAndCopy: string;
+    copyTemplate: string;
     templateFormDescription: string;
     addLayout: string;
     editLayout: string;

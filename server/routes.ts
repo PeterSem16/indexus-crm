@@ -28800,6 +28800,80 @@ Guidelines:
     }
   });
 
+  app.post("/api/message-templates/:id/copy-translate", requireAuth, async (req, res) => {
+    try {
+      const { targetLanguage, translate } = req.body;
+      if (!targetLanguage) return res.status(400).json({ error: "targetLanguage required" });
+      
+      const source = await storage.getMessageTemplate(req.params.id);
+      if (!source) return res.status(404).json({ error: "Template not found" });
+
+      const LANG_NAMES: Record<string, string> = {
+        sk: "Slovak", cs: "Czech", en: "English", hu: "Hungarian",
+        ro: "Romanian", it: "Italian", de: "German"
+      };
+      const sourceLangName = LANG_NAMES[source.language] || source.language;
+      const targetLangName = LANG_NAMES[targetLanguage] || targetLanguage;
+
+      let name = source.name;
+      let subject = source.subject || "";
+      let content = source.content || "";
+      let contentHtml = source.contentHtml || "";
+
+      if (translate) {
+        const openaiInstance = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+        const prompt = `Translate the following from ${sourceLangName} to ${targetLangName}. Keep all {{variables}} exactly as they are. Keep HTML tags exactly as they are. Return ONLY the translated text, nothing else.`;
+
+        const translateText = async (text: string, isHtml: boolean): Promise<string> => {
+          if (!text || text.trim().length === 0) return text;
+          const completion = await openaiInstance.chat.completions.create({
+            model: "gpt-4o-mini",
+            messages: [
+              { role: "system", content: prompt + (isHtml ? " The text contains HTML markup - preserve all HTML tags exactly." : "") },
+              { role: "user", content: text }
+            ],
+            temperature: 0.3,
+          });
+          return completion.choices[0]?.message?.content || text;
+        };
+
+        const [translatedName, translatedSubject, translatedContent, translatedContentHtml] = await Promise.all([
+          translateText(name, false),
+          subject ? translateText(subject, false) : Promise.resolve(""),
+          translateText(content, false),
+          contentHtml ? translateText(contentHtml, true) : Promise.resolve(""),
+        ]);
+
+        name = translatedName;
+        subject = translatedSubject;
+        content = translatedContent;
+        contentHtml = translatedContentHtml;
+      }
+
+      const newTemplate = await storage.createMessageTemplate({
+        name: name,
+        description: source.description,
+        type: source.type,
+        format: source.format,
+        subject: subject || undefined,
+        content: content,
+        contentHtml: contentHtml || undefined,
+        categoryId: source.categoryId || undefined,
+        language: targetLanguage,
+        tags: source.tags || [],
+        isDefault: false,
+        isActive: source.isActive,
+        createdBy: req.session.user?.id,
+      });
+
+      res.status(201).json(newTemplate);
+    } catch (error) {
+      console.error("Error copying/translating template:", error);
+      res.status(500).json({ error: "Failed to copy template" });
+    }
+  });
+
+
   // Agent Session Management
   app.get("/api/agent-sessions/active", requireAuth, async (req, res) => {
     try {
