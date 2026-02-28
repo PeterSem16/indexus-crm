@@ -270,8 +270,9 @@ export default function SopManagementPage() {
     return u ? `${u.firstName || ""} ${u.lastName || ""}`.trim() || u.username : id;
   };
 
-  const renderCategoryIcon = (iconName: string | null | undefined) => {
-    return <span className="text-lg leading-none">{getEmojiForIcon(iconName)}</span>;
+  const renderCategoryIcon = (iconName: string | null | undefined, size: "sm" | "md" | "lg" = "md") => {
+    const sizeClass = size === "sm" ? "text-base" : size === "lg" ? "text-2xl" : "text-xl";
+    return <span className={`${sizeClass} leading-none select-none`}>{getEmojiForIcon(iconName)}</span>;
   };
 
   return (
@@ -399,28 +400,27 @@ export default function SopManagementPage() {
             {categories.map(cat => {
               const articleCount = articles.filter(a => a.categoryId === cat.id).length;
               return (
-                <Card key={cat.id} className={`${!cat.isActive ? "opacity-50" : ""}`} data-testid={`category-card-${cat.id}`}>
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between">
+                <Card key={cat.id} className={`group transition-all hover:shadow-md ${!cat.isActive ? "opacity-50" : ""}`} data-testid={`category-card-${cat.id}`}>
+                  <CardContent className="p-5">
+                    <div className="flex items-start justify-between mb-3">
                       <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                          {renderCategoryIcon(cat.icon)}
+                        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 shadow-sm border border-primary/10">
+                          {renderCategoryIcon(cat.icon, "lg")}
                         </div>
                         <div>
                           <h3 className="font-semibold text-sm" data-testid={`category-name-${cat.id}`}>{cat.name}</h3>
-                          {cat.description && <p className="text-xs text-muted-foreground">{cat.description}</p>}
+                          {cat.description && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{cat.description}</p>}
                         </div>
                       </div>
-                      <div className="flex gap-1">
+                      <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                         <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => openEditCategory(cat)} data-testid={`btn-edit-cat-${cat.id}`}><Pencil className="h-3.5 w-3.5" /></Button>
                         <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive" onClick={() => { if (articleCount > 0) { toast({ title: t.sop.categoryHasArticles, variant: "destructive" }); return; } if (confirm(t.sop.confirmDeleteCategory)) deleteCategoryMutation.mutate(cat.id); }} data-testid={`btn-delete-cat-${cat.id}`}><Trash2 className="h-3.5 w-3.5" /></Button>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3 mt-3 text-xs text-muted-foreground">
-                      <span>{articleCount} {t.sop.articleCount}</span>
-                      {cat.countryCode && <Badge variant="outline" className="text-[10px] h-4">{COUNTRY_FLAGS[cat.countryCode] || ""} {cat.countryCode}</Badge>}
-                      <span>{t.sop.sortOrder}: {cat.sortOrder}</span>
-                      {!cat.isActive && <Badge variant="secondary" className="text-[10px] h-4">{t.sop.inactive}</Badge>}
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Badge variant="secondary" className="text-[10px] h-5 font-normal">{articleCount} {t.sop.articleCount}</Badge>
+                      {cat.countryCode && <Badge variant="outline" className="text-[10px] h-5">{COUNTRY_FLAGS[cat.countryCode] || ""} {cat.countryCode}</Badge>}
+                      {!cat.isActive && <Badge variant="destructive" className="text-[10px] h-5">{t.sop.inactive}</Badge>}
                     </div>
                   </CardContent>
                 </Card>
@@ -440,9 +440,9 @@ export default function SopManagementPage() {
       <Dialog open={showCategoryDialog} onOpenChange={setShowCategoryDialog}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
-                {renderCategoryIcon(categoryForm.icon)}
+            <DialogTitle className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 shadow-sm border border-primary/10">
+                {renderCategoryIcon(categoryForm.icon, "lg")}
               </div>
               {editingCategory ? t.sop.editCategory : t.sop.newCategory}
             </DialogTitle>
@@ -485,29 +485,31 @@ export default function SopManagementPage() {
             </div>
             <div className="space-y-2">
               <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{t.sop.icon}</Label>
-              <div className="border rounded-lg bg-muted/30 p-2.5 space-y-2 max-h-[320px] overflow-y-auto">
-                {EMOJI_GROUPS.map(group => (
-                  <div key={group.label}>
-                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">{group.label}</p>
-                    <div className="flex flex-wrap gap-1">
-                      {group.emojis.map(emoji => {
-                        const isSelected = categoryForm.icon === emoji;
-                        return (
-                          <button
-                            key={emoji}
-                            type="button"
-                            className={`h-8 w-8 flex items-center justify-center rounded-lg text-base transition-all ${isSelected ? "bg-primary shadow-sm ring-2 ring-primary/50 scale-110" : "hover:bg-muted hover:scale-105"}`}
-                            onClick={() => setCategoryForm(p => ({ ...p, icon: emoji }))}
-                            data-testid={`emoji-pick-${group.label.toLowerCase()}-${group.emojis.indexOf(emoji)}`}
-                          >
-                            {emoji}
-                          </button>
-                        );
-                      })}
+              <ScrollArea className="h-[300px] border rounded-xl bg-muted/20 p-3">
+                <div className="space-y-3">
+                  {EMOJI_GROUPS.map(group => (
+                    <div key={group.label}>
+                      <p className="text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-widest mb-1.5 px-0.5">{group.label}</p>
+                      <div className="flex flex-wrap gap-1">
+                        {group.emojis.map(emoji => {
+                          const isSelected = categoryForm.icon === emoji;
+                          return (
+                            <button
+                              key={emoji}
+                              type="button"
+                              className={`h-9 w-9 flex items-center justify-center rounded-xl text-lg transition-all duration-150 ${isSelected ? "bg-primary/15 ring-2 ring-primary shadow-sm scale-110" : "hover:bg-muted/80 hover:scale-110 active:scale-95"}`}
+                              onClick={() => setCategoryForm(p => ({ ...p, icon: emoji }))}
+                              data-testid={`emoji-pick-${group.label.toLowerCase()}-${group.emojis.indexOf(emoji)}`}
+                            >
+                              {emoji}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              </ScrollArea>
             </div>
           </div>
           <DialogFooter className="mt-2">
