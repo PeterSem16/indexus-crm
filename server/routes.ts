@@ -29270,6 +29270,50 @@ Guidelines:
   // SOP (Standard Operating Procedures) Routes
   // ============================================================
 
+  const uploadSopPdf = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 }, fileFilter: (_req, file, cb) => { cb(null, file.mimetype === 'application/pdf'); } });
+
+  app.post("/api/sop/upload-pdf", requireAuth, uploadSopPdf.single("file"), async (req, res) => {
+    try {
+      if (!req.file) return res.status(400).json({ error: "No PDF file uploaded" });
+      const tmpPath = `/tmp/sop-upload-${Date.now()}.pdf`;
+      const fs = await import("fs");
+      fs.writeFileSync(tmpPath, req.file.buffer);
+      const { execSync } = await import("child_process");
+      let htmlContent = "";
+      try {
+        const text = execSync(`pdftotext -layout "${tmpPath}" -`, { encoding: "utf8", timeout: 30000 });
+        const lines = text.split("\n");
+        let html = "";
+        let inParagraph = false;
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed) {
+            if (inParagraph) { html += "</p>\n"; inParagraph = false; }
+            continue;
+          }
+          const isHeading = trimmed.length < 80 && trimmed === trimmed.toUpperCase() && /[A-Z]/.test(trimmed);
+          if (isHeading) {
+            if (inParagraph) { html += "</p>\n"; inParagraph = false; }
+            html += `<h2>${trimmed}</h2>\n`;
+          } else {
+            if (!inParagraph) { html += "<p>"; inParagraph = true; }
+            else { html += "<br/>"; }
+            html += trimmed;
+          }
+        }
+        if (inParagraph) html += "</p>\n";
+        htmlContent = html;
+      } catch (e) {
+        htmlContent = `<p>${req.file.originalname} - content extraction failed</p>`;
+      }
+      try { fs.unlinkSync(tmpPath); } catch {}
+      res.json({ html: htmlContent, filename: req.file.originalname });
+    } catch (error) {
+      console.error("Error processing SOP PDF:", error);
+      res.status(500).json({ error: "Failed to process PDF" });
+    }
+  });
+
   app.get("/api/sop/categories", requireAuth, async (req, res) => {
     try {
       const countryCode = req.query.countryCode as string | undefined;

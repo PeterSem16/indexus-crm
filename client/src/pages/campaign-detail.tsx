@@ -13,7 +13,7 @@ import {
   ThumbsUp, ThumbsDown, CalendarPlus, PhoneOff, AlertCircle, XCircle, Zap, Star,
   CircleDot, Info, Heart, Ban, Bell, Send, Target, Flag, Eye, EyeOff,
   Volume2, VolumeX, UserCheck, UserX, Briefcase, Gift, Home, MapPin, Globe, Wand2,
-  Variable, Building2, Building, Loader2, Tag, Layers,
+  Variable, Building2, Building, Loader2, Tag, Layers, BookOpen,
   type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -406,6 +406,109 @@ function CampaignDetailsCard({ campaign }: { campaign: Campaign }) {
             ))}
           </div>
         </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function CampaignSopSettingsCard({ campaignId }: { campaignId: string }) {
+  const { t } = useI18n();
+  const { toast } = useToast();
+  const { data: categories = [] } = useQuery<any[]>({ queryKey: ["/api/sop/categories"] });
+  const { data: articles = [] } = useQuery<any[]>({ queryKey: ["/api/sop/articles"] });
+  const { data: linkedArticleIds = [], isLoading } = useQuery<string[]>({
+    queryKey: ["/api/sop/campaign", campaignId, "article-ids"],
+    queryFn: async () => {
+      const res = await fetch(`/api/sop/articles/campaign/${campaignId}`, { credentials: "include" });
+      if (!res.ok) return [];
+      const arts = await res.json();
+      return arts.map((a: any) => a.id);
+    },
+  });
+
+  const linkMutation = useMutation({
+    mutationFn: async ({ articleId, link }: { articleId: string; link: boolean }) => {
+      if (link) await apiRequest("POST", `/api/sop/articles/${articleId}/campaigns`, { campaignId });
+      else await apiRequest("DELETE", `/api/sop/articles/${articleId}/campaigns/${campaignId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/sop/campaign", campaignId, "article-ids"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/sop/articles/campaign", campaignId] });
+    },
+  });
+
+  const toggleCategory = (categoryId: string, link: boolean) => {
+    const catArticles = articles.filter((a: any) => a.categoryId === categoryId && a.isPublished);
+    catArticles.forEach((a: any) => {
+      const isLinked = linkedArticleIds.includes(a.id);
+      if (link && !isLinked) linkMutation.mutate({ articleId: a.id, link: true });
+      if (!link && isLinked) linkMutation.mutate({ articleId: a.id, link: false });
+    });
+    toast({ title: link ? t.sop.campaignLinked : t.sop.campaignUnlinked });
+  };
+
+  const publishedArticles = articles.filter((a: any) => a.isPublished);
+  const activeCategories = categories.filter((c: any) => c.isActive);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <BookOpen className="w-5 h-5" />
+          {t.sop.sopSettings}
+        </CardTitle>
+        <CardDescription>{t.sop.sopSettingsDesc}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="text-sm text-muted-foreground text-center py-4">{t.sop.loading}</div>
+        ) : activeCategories.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-4">{t.sop.noCategories}</p>
+        ) : (
+          <div className="space-y-4">
+            {activeCategories.map((cat: any) => {
+              const catArticles = publishedArticles.filter((a: any) => a.categoryId === cat.id);
+              const linkedCount = catArticles.filter((a: any) => linkedArticleIds.includes(a.id)).length;
+              const allLinked = catArticles.length > 0 && linkedCount === catArticles.length;
+              return (
+                <div key={cat.id} className="border rounded-lg p-3" data-testid={`sop-settings-cat-${cat.id}`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">{cat.icon || "📁"}</span>
+                      <span className="font-medium text-sm">{cat.name}</span>
+                      <Badge variant="outline" className="text-[10px] h-4">{linkedCount}/{catArticles.length}</Badge>
+                    </div>
+                    <div className="flex gap-1">
+                      <Button variant={allLinked ? "destructive" : "outline"} size="sm" className="h-7 text-xs" onClick={() => toggleCategory(cat.id, !allLinked)} data-testid={`sop-toggle-cat-${cat.id}`}>
+                        {allLinked ? t.sop.unlinkCampaign : t.sop.linkCampaign} {t.sop.all}
+                      </Button>
+                    </div>
+                  </div>
+                  {catArticles.length > 0 && (
+                    <div className="space-y-1 ml-7">
+                      {catArticles.map((art: any) => {
+                        const isLinked = linkedArticleIds.includes(art.id);
+                        return (
+                          <label key={art.id} className="flex items-center gap-2 cursor-pointer text-sm py-0.5" data-testid={`sop-toggle-article-${art.id}`}>
+                            <input
+                              type="checkbox"
+                              checked={isLinked}
+                              onChange={() => linkMutation.mutate({ articleId: art.id, link: !isLinked })}
+                              className="rounded border-gray-300"
+                            />
+                            <span className={isLinked ? "font-medium" : "text-muted-foreground"}>{art.title}</span>
+                            {art.priority === "critical" && <Badge variant="destructive" className="text-[9px] h-4">!</Badge>}
+                            {art.priority === "high" && <Badge className="text-[9px] h-4 bg-orange-500">!</Badge>}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </CardContent>
     </Card>
   );
@@ -2560,6 +2663,7 @@ export default function CampaignDetailPage() {
                 </CardContent>
               </Card>
 
+              <CampaignSopSettingsCard campaignId={campaign.id} />
               <AutoModeCard campaign={campaign} />
               <CriteriaCard campaign={campaign} />
             </TabsContent>

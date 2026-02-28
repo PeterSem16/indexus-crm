@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { useI18n } from "@/i18n";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,6 +25,7 @@ interface SopPanelProps {
 }
 
 export function SopPanel({ campaignId, userId }: SopPanelProps) {
+  const { t } = useI18n();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [maximizedArticle, setMaximizedArticle] = useState<SopArticle | null>(null);
@@ -81,20 +83,20 @@ export function SopPanel({ campaignId, userId }: SopPanelProps) {
   const getPriorityBadge = (priority: string | null) => {
     switch (priority) {
       case "critical":
-        return <Badge variant="destructive" className="text-[9px] h-4 px-1 gap-0.5"><AlertCircle className="h-2.5 w-2.5" />CRITICAL</Badge>;
+        return <Badge variant="destructive" className="text-[9px] h-4 px-1 gap-0.5"><AlertCircle className="h-2.5 w-2.5" />{t.sop.priorityCritical}</Badge>;
       case "high":
-        return <Badge className="text-[9px] h-4 px-1 gap-0.5 bg-orange-500 hover:bg-orange-600"><AlertTriangle className="h-2.5 w-2.5" />HIGH</Badge>;
+        return <Badge className="text-[9px] h-4 px-1 gap-0.5 bg-orange-500 hover:bg-orange-600"><AlertTriangle className="h-2.5 w-2.5" />{t.sop.priorityHigh}</Badge>;
       default:
         return null;
     }
   };
 
   const formatDate = (date: string | Date) => {
-    return new Date(date).toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric" });
+    return new Date(date).toLocaleDateString(undefined, { day: "2-digit", month: "2-digit", year: "numeric" });
   };
 
   const getCategoryName = (categoryId: string) => {
-    return categories.find(c => c.id === categoryId)?.name || "Uncategorized";
+    return categories.find(c => c.id === categoryId)?.name || "—";
   };
 
   const handleArticleOpen = (article: SopArticle) => {
@@ -156,15 +158,8 @@ export function SopPanel({ campaignId, userId }: SopPanelProps) {
           </div>
         )}
         <div className="flex justify-end mt-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 text-[10px]"
-            onClick={() => setMaximizedArticle(article)}
-            data-testid={`sop-maximize-${article.id}`}
-          >
-            <Maximize2 className="h-3 w-3 mr-1" />
-            Zväčšiť
+          <Button variant="ghost" size="sm" className="h-6 text-[10px]" onClick={() => setMaximizedArticle(article)} data-testid={`sop-maximize-${article.id}`}>
+            <Maximize2 className="h-3 w-3 mr-1" />{t.sop.enlarge}
           </Button>
         </div>
       </AccordionContent>
@@ -176,35 +171,15 @@ export function SopPanel({ campaignId, userId }: SopPanelProps) {
       <div className="p-2 border-b space-y-2 shrink-0">
         <div className="relative">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-          <Input
-            placeholder="Hľadať v SOP..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="h-7 text-xs pl-7"
-            data-testid="sop-search-input"
-          />
+          <Input placeholder={t.sop.searchSop} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="h-7 text-xs pl-7" data-testid="sop-search-input" />
         </div>
         <div className="flex gap-1 flex-wrap">
-          <Button
-            variant={selectedCategory === null ? "default" : "outline"}
-            size="sm"
-            className="h-5 text-[10px] px-2"
-            onClick={() => setSelectedCategory(null)}
-            data-testid="sop-filter-all"
-          >
-            Všetko
+          <Button variant={selectedCategory === null ? "default" : "outline"} size="sm" className="h-5 text-[10px] px-2" onClick={() => setSelectedCategory(null)} data-testid="sop-filter-all">
+            {t.sop.all}
           </Button>
           {categories.filter(c => c.isActive).map(cat => (
-            <Button
-              key={cat.id}
-              variant={selectedCategory === cat.id ? "default" : "outline"}
-              size="sm"
-              className="h-5 text-[10px] px-2"
-              onClick={() => setSelectedCategory(cat.id)}
-              data-testid={`sop-filter-${cat.id}`}
-            >
-              {cat.icon && <span className="mr-0.5">{cat.icon}</span>}
-              {cat.name}
+            <Button key={cat.id} variant={selectedCategory === cat.id ? "default" : "outline"} size="sm" className="h-5 text-[10px] px-2" onClick={() => setSelectedCategory(cat.id)} data-testid={`sop-filter-${cat.id}`}>
+              {cat.icon && <span className="mr-0.5">{cat.icon}</span>}{cat.name}
             </Button>
           ))}
         </div>
@@ -212,12 +187,12 @@ export function SopPanel({ campaignId, userId }: SopPanelProps) {
 
       <ScrollArea className="flex-1">
         {isLoadingAll ? (
-          <div className="p-4 text-center text-xs text-muted-foreground">Načítavam SOP...</div>
+          <div className="p-4 text-center text-xs text-muted-foreground">{t.sop.loading}</div>
         ) : articles.length === 0 ? (
           <div className="p-8 text-center" data-testid="sop-empty-state">
             <BookOpen className="h-8 w-8 mx-auto text-muted-foreground/40 mb-2" />
-            <p className="text-xs text-muted-foreground">Žiadne SOP články</p>
-            {searchQuery && <p className="text-[10px] text-muted-foreground mt-1">Skúste upraviť vyhľadávanie</p>}
+            <p className="text-xs text-muted-foreground">{t.sop.noSopArticles}</p>
+            {searchQuery && <p className="text-[10px] text-muted-foreground mt-1">{t.sop.tryAdjustSearch}</p>}
           </div>
         ) : (
           <Accordion type="multiple" className="w-full">
@@ -225,7 +200,7 @@ export function SopPanel({ campaignId, userId }: SopPanelProps) {
               <div>
                 <div className="px-3 py-1.5 bg-green-50 dark:bg-green-950/30 border-b">
                   <span className="text-[10px] font-semibold text-green-700 dark:text-green-400 uppercase tracking-wider" data-testid="sop-campaign-section">
-                    SOP pre aktuálnu kampaň
+                    {t.sop.campaignSopSection}
                   </span>
                 </div>
                 {campaignSpecific.map(a => renderArticleItem(a, true))}
@@ -236,7 +211,7 @@ export function SopPanel({ campaignId, userId }: SopPanelProps) {
                 {campaignSpecific.length > 0 && (
                   <div className="px-3 py-1.5 bg-muted/30 border-b">
                     <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider" data-testid="sop-general-section">
-                      Všeobecné SOP
+                      {t.sop.generalSopSection}
                     </span>
                   </div>
                 )}
@@ -259,7 +234,7 @@ export function SopPanel({ campaignId, userId }: SopPanelProps) {
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <span>{getCategoryName(maximizedArticle.categoryId)}</span>
                 <span>•</span>
-                <span>Aktualizované: {formatDate(maximizedArticle.updatedAt)}</span>
+                <span>{t.sop.updatedAt}: {formatDate(maximizedArticle.updatedAt)}</span>
                 {maximizedArticle.version && <><span>•</span><span>v{maximizedArticle.version}</span></>}
               </div>
             )}
