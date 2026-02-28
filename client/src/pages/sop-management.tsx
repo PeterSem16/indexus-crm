@@ -19,37 +19,58 @@ import { Separator } from "@/components/ui/separator";
 import {
   BookOpen, Plus, Pencil, Trash2, FolderOpen, FileText, Pin, Copy,
   AlertCircle, AlertTriangle, EyeOff, Users, Search, Tag, Upload, Loader2,
+  Clipboard, FolderClosed, FileCheck, Bookmark, Heart, Syringe,
+  Phone, Mail, MessageSquare, Shield, Settings, Target, Globe,
+  Star, Lightbulb, BarChart3, Lock, Key, Zap, Bell, Calendar,
+  Thermometer, Baby, Brain, Microscope, Stethoscope, Pill,
+  CircleCheck, CircleX, RefreshCw, ArrowLeftRight, Package,
+  Tags, GraduationCap, Headphones, Clock, Award, Sparkles,
+  type LucideIcon
 } from "lucide-react";
 import TipTapEditor from "@/components/sop/TipTapEditor";
 import type { SopCategory, SopArticle, Campaign } from "@shared/schema";
 
-const EMOJI_GROUPS = [
-  { label: "Office", emojis: ["📋", "📁", "📂", "📄", "📑", "📌", "📎", "📝", "📒", "📓"] },
-  { label: "Medical", emojis: ["🏥", "💉", "🩸", "🧬", "🔬", "💊", "🩺", "🧪", "🫀", "👶"] },
-  { label: "Communication", emojis: ["📞", "📧", "💬", "📱", "☎️", "📨", "🗣️", "💌"] },
-  { label: "Process", emojis: ["⚙️", "🔧", "🔄", "✅", "❌", "⚠️", "🔀", "📊", "📈", "🎯"] },
-  { label: "People", emojis: ["👥", "👤", "🤝", "🧑‍⚕️", "🧑‍💼", "👨‍👩‍👧", "🙋"] },
-  { label: "Other", emojis: ["🌐", "💡", "🔒", "🔑", "⭐", "🏷️", "📦", "🗂️", "🛡️", "🔔"] },
+const ICON_GROUPS: { label: string; icons: { name: string; icon: LucideIcon }[] }[] = [
+  { label: "Office", icons: [
+    { name: "clipboard", icon: Clipboard }, { name: "folder-closed", icon: FolderClosed },
+    { name: "folder-open", icon: FolderOpen }, { name: "file-text", icon: FileText },
+    { name: "file-check", icon: FileCheck }, { name: "bookmark", icon: Bookmark },
+    { name: "book-open", icon: BookOpen }, { name: "tags", icon: Tags },
+    { name: "package", icon: Package },
+  ]},
+  { label: "Medical", icons: [
+    { name: "heart", icon: Heart }, { name: "syringe", icon: Syringe },
+    { name: "baby", icon: Baby }, { name: "brain", icon: Brain },
+    { name: "microscope", icon: Microscope }, { name: "stethoscope", icon: Stethoscope },
+    { name: "pill", icon: Pill }, { name: "thermometer", icon: Thermometer },
+  ]},
+  { label: "Communication", icons: [
+    { name: "phone", icon: Phone }, { name: "mail", icon: Mail },
+    { name: "message-square", icon: MessageSquare }, { name: "headphones", icon: Headphones },
+    { name: "users", icon: Users },
+  ]},
+  { label: "Process", icons: [
+    { name: "settings", icon: Settings }, { name: "target", icon: Target },
+    { name: "bar-chart", icon: BarChart3 }, { name: "circle-check", icon: CircleCheck },
+    { name: "circle-x", icon: CircleX }, { name: "alert-circle", icon: AlertCircle },
+    { name: "refresh-cw", icon: RefreshCw }, { name: "arrow-left-right", icon: ArrowLeftRight },
+    { name: "zap", icon: Zap }, { name: "clock", icon: Clock },
+  ]},
+  { label: "Other", icons: [
+    { name: "globe", icon: Globe }, { name: "star", icon: Star },
+    { name: "lightbulb", icon: Lightbulb }, { name: "lock", icon: Lock },
+    { name: "key", icon: Key }, { name: "shield", icon: Shield },
+    { name: "bell", icon: Bell }, { name: "calendar", icon: Calendar },
+    { name: "award", icon: Award }, { name: "sparkles", icon: Sparkles },
+    { name: "graduation-cap", icon: GraduationCap },
+  ]},
 ];
 
-const ALL_EMOJIS = EMOJI_GROUPS.flatMap(g => g.emojis);
+const ALL_ICONS = ICON_GROUPS.flatMap(g => g.icons);
 
-const LEGACY_ICON_MAP: Record<string, string> = {
-  "clipboard": "📋", "folder-closed": "📁", "folder-open": "📂", "file-text": "📄",
-  "file-check": "📑", "bookmark": "📌", "book-open": "📒", "heart": "❤️",
-  "syringe": "💉", "baby": "👶", "brain": "🧬", "microscope": "🔬",
-  "stethoscope": "🩺", "pill": "💊", "thermometer": "🌡️", "phone": "📞",
-  "mail": "📧", "message-square": "💬", "shield": "🛡️", "settings": "⚙️",
-  "target": "🎯", "globe": "🌐", "star": "⭐", "lightbulb": "💡",
-  "bar-chart": "📊", "lock": "🔒", "key": "🔑", "zap": "⚡",
-  "bell": "🔔", "calendar": "📅", "users": "👥", "alert-circle": "⚠️",
-};
-
-function getEmojiForIcon(iconName: string | null | undefined): string {
-  if (!iconName) return "📁";
-  if (ALL_EMOJIS.includes(iconName)) return iconName;
-  if (LEGACY_ICON_MAP[iconName]) return LEGACY_ICON_MAP[iconName];
-  return "📁";
+function getIconComponent(iconName: string | null | undefined): LucideIcon {
+  if (!iconName) return FolderOpen;
+  return ALL_ICONS.find(i => i.name === iconName)?.icon || FolderOpen;
 }
 
 const COUNTRY_FLAGS: Record<string, string> = {
@@ -261,18 +282,18 @@ export default function SopManagementPage() {
   });
 
   const getCategoryName = (id: string) => categories.find(c => c.id === id)?.name || "—";
-  const getCategoryEmoji = (id: string) => {
+  const getCategoryIcon = (id: string): LucideIcon => {
     const cat = categories.find(c => c.id === id);
-    return getEmojiForIcon(cat?.icon);
+    return getIconComponent(cat?.icon);
   };
   const getUserName = (id: string) => {
     const u = users.find((u: any) => u.id?.toString() === id?.toString());
     return u ? `${u.firstName || ""} ${u.lastName || ""}`.trim() || u.username : id;
   };
 
-  const renderCategoryIcon = (iconName: string | null | undefined, size: "sm" | "md" | "lg" = "md") => {
-    const sizeClass = size === "sm" ? "text-base" : size === "lg" ? "text-2xl" : "text-xl";
-    return <span className={`${sizeClass} leading-none select-none`}>{getEmojiForIcon(iconName)}</span>;
+  const renderCategoryIcon = (iconName: string | null | undefined, sizeClass = "h-5 w-5") => {
+    const IconComp = getIconComponent(iconName);
+    return <IconComp className={sizeClass} />;
   };
 
   return (
@@ -364,7 +385,7 @@ export default function SopManagementPage() {
                             {!article.isPublished && <Badge variant="secondary" className="text-[10px] h-5 gap-0.5"><EyeOff className="h-3 w-3" />{t.sop.hidden}</Badge>}
                           </div>
                           <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                            <span className="flex items-center gap-1"><span className="text-sm">{getCategoryEmoji(article.categoryId)}</span>{getCategoryName(article.categoryId)}</span>
+                            <span className="flex items-center gap-1">{(() => { const CatIcon = getCategoryIcon(article.categoryId); return <CatIcon className="h-3 w-3" />; })()}{getCategoryName(article.categoryId)}</span>
                             {article.countryCode && <Badge variant="outline" className="text-[10px] h-4">{COUNTRY_FLAGS[article.countryCode] || ""} {article.countryCode}</Badge>}
                             <span>v{article.version}</span>
                             <span>{new Date(article.updatedAt).toLocaleDateString()}</span>
@@ -404,8 +425,8 @@ export default function SopManagementPage() {
                   <CardContent className="p-5">
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex items-center gap-3">
-                        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 shadow-sm border border-primary/10">
-                          {renderCategoryIcon(cat.icon, "lg")}
+                        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                          {renderCategoryIcon(cat.icon, "h-5 w-5")}
                         </div>
                         <div>
                           <h3 className="font-semibold text-sm" data-testid={`category-name-${cat.id}`}>{cat.name}</h3>
@@ -441,8 +462,8 @@ export default function SopManagementPage() {
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 shadow-sm border border-primary/10">
-                {renderCategoryIcon(categoryForm.icon, "lg")}
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                {renderCategoryIcon(categoryForm.icon)}
               </div>
               {editingCategory ? t.sop.editCategory : t.sop.newCategory}
             </DialogTitle>
@@ -485,23 +506,24 @@ export default function SopManagementPage() {
             </div>
             <div className="space-y-2">
               <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{t.sop.icon}</Label>
-              <ScrollArea className="h-[300px] border rounded-xl bg-muted/20 p-3">
+              <ScrollArea className="h-[300px] border rounded-lg bg-muted/20 p-3">
                 <div className="space-y-3">
-                  {EMOJI_GROUPS.map(group => (
+                  {ICON_GROUPS.map(group => (
                     <div key={group.label}>
                       <p className="text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-widest mb-1.5 px-0.5">{group.label}</p>
                       <div className="flex flex-wrap gap-1">
-                        {group.emojis.map(emoji => {
-                          const isSelected = categoryForm.icon === emoji;
+                        {group.icons.map(opt => {
+                          const IconComp = opt.icon;
+                          const isSelected = categoryForm.icon === opt.name;
                           return (
                             <button
-                              key={emoji}
+                              key={opt.name}
                               type="button"
-                              className={`h-9 w-9 flex items-center justify-center rounded-xl text-lg transition-all duration-150 ${isSelected ? "bg-primary/15 ring-2 ring-primary shadow-sm scale-110" : "hover:bg-muted/80 hover:scale-110 active:scale-95"}`}
-                              onClick={() => setCategoryForm(p => ({ ...p, icon: emoji }))}
-                              data-testid={`emoji-pick-${group.label.toLowerCase()}-${group.emojis.indexOf(emoji)}`}
+                              className={`h-9 w-9 flex items-center justify-center rounded-lg transition-all ${isSelected ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
+                              onClick={() => setCategoryForm(p => ({ ...p, icon: opt.name }))}
+                              data-testid={`icon-pick-${opt.name}`}
                             >
-                              {emoji}
+                              <IconComp className="h-4 w-4" />
                             </button>
                           );
                         })}
