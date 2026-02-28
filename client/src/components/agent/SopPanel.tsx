@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useI18n } from "@/i18n";
@@ -7,8 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Search, BookOpen, Pin, CheckCircle2, AlertTriangle, AlertCircle, Maximize2, Tag, Clock } from "lucide-react";
+import { Search, BookOpen, Pin, CheckCircle2, AlertTriangle, AlertCircle, Maximize2, Tag, Clock, X, ChevronDown, ChevronUp, FileText } from "lucide-react";
 import type { SopArticle, SopCategory, SopArticleRead } from "@shared/schema";
 
 function sanitizeHtml(html: string): string {
@@ -19,6 +18,58 @@ function sanitizeHtml(html: string): string {
     .replace(/javascript\s*:/gi, "");
 }
 
+function stripHtml(html: string): string {
+  const div = document.createElement("div");
+  div.innerHTML = html;
+  return div.textContent || div.innerText || "";
+}
+
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function highlightText(text: string, query: string): string {
+  if (!query || query.length < 2) return text;
+  const escaped = escapeRegex(query);
+  const regex = new RegExp(`(${escaped})`, "gi");
+  return text.replace(regex, '<mark class="bg-yellow-200 dark:bg-yellow-800 text-foreground rounded-sm px-0.5">$1</mark>');
+}
+
+function getSnippets(text: string, query: string, maxSnippets = 3): string[] {
+  if (!query || query.length < 2) return [];
+  const lower = text.toLowerCase();
+  const qLower = query.toLowerCase();
+  const snippets: string[] = [];
+  let startPos = 0;
+
+  while (snippets.length < maxSnippets) {
+    const idx = lower.indexOf(qLower, startPos);
+    if (idx === -1) break;
+
+    const snippetStart = Math.max(0, idx - 60);
+    const snippetEnd = Math.min(text.length, idx + query.length + 60);
+    let snippet = text.slice(snippetStart, snippetEnd).trim();
+    if (snippetStart > 0) snippet = "..." + snippet;
+    if (snippetEnd < text.length) snippet = snippet + "...";
+
+    snippets.push(snippet);
+    startPos = idx + query.length;
+  }
+
+  return snippets;
+}
+
+interface MatchResult {
+  article: SopArticle;
+  titleMatch: boolean;
+  contentMatch: boolean;
+  summaryMatch: boolean;
+  tagsMatch: boolean;
+  snippets: string[];
+  matchCount: number;
+  isCampaignLinked: boolean;
+}
+
 interface SopPanelProps {
   campaignId?: string;
   userId?: string;
@@ -26,22 +77,32 @@ interface SopPanelProps {
 
 export function SopPanel({ campaignId, userId }: SopPanelProps) {
   const { t } = useI18n();
+  const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [maximizedArticle, setMaximizedArticle] = useState<SopArticle | null>(null);
+  const [expandedResults, setExpandedResults] = useState<Set<string>>(new Set());
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleSearchChange = useCallback((value: string) => {
+    setSearchInput(value);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => setSearchQuery(value), 150);
+  }, []);
+
+  useEffect(() => {
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, []);
 
   const { data: categories = [] } = useQuery<SopCategory[]>({
     queryKey: ["/api/sop/categories"],
   });
 
   const { data: allArticles = [], isLoading: isLoadingAll } = useQuery<SopArticle[]>({
-    queryKey: ["/api/sop/articles", { isPublished: "true", search: searchQuery, categoryId: selectedCategory }],
+    queryKey: ["/api/sop/articles", "published"],
     queryFn: async () => {
-      const params = new URLSearchParams();
-      params.set("isPublished", "true");
-      if (searchQuery) params.set("search", searchQuery);
-      if (selectedCategory) params.set("categoryId", selectedCategory);
-      const res = await fetch(`/api/sop/articles?${params.toString()}`, { credentials: "include" });
+      const res = await fetch(`/api/sop/articles?isPublished=true`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch articles");
       return res.json();
     },
@@ -72,13 +133,94 @@ export function SopPanel({ campaignId, userId }: SopPanelProps) {
     },
   });
 
-  const readArticleIds = new Set(userReads.map(r => r.articleId));
-  const campaignArticleIds = new Set(campaignArticles.map(a => a.id));
+  const readArticleIds = useMemo(() => new Set(userReads.map(r => r.articleId)), [userReads]);
+  const campaignArticleIds = useMemo(() => new Set(campaignArticles.map(a => a.id)), [campaignArticles]);
 
-  const articles = allArticles;
+  const filteredArticles = useMemo(() => {
+    let arts = allArticles;
+    if (selectedCategory) {
+      arts = arts.filter(a => a.categoryId === selectedCategory);
+    }
+    return arts;
+  }, [allArticles, selectedCategory]);
 
-  const campaignSpecific = articles.filter(a => campaignArticleIds.has(a.id));
-  const general = articles.filter(a => !campaignArticleIds.has(a.id));
+  const plainTextCache = useMemo(() => {
+    const cache = new Map<string, string>();
+    for (const article of allArticles) {
+      cache.set(article.id, stripHtml(article.content));
+    }
+    return cache;
+  }, [allArticles]);
+
+  const searchResults = useMemo((): MatchResult[] | null => {
+    const q = searchQuery.trim();
+    if (q.length < 2) return null;
+
+    const qLower = q.toLowerCase();
+
+    const results: MatchResult[] = [];
+
+    for (const article of filteredArticles) {
+      const titleMatch = article.title.toLowerCase().includes(qLower);
+      const plainContent = plainTextCache.get(article.id) || stripHtml(article.content);
+      const contentMatch = plainContent.toLowerCase().includes(qLower);
+      const summaryMatch = article.summary ? article.summary.toLowerCase().includes(qLower) : false;
+      const tagsMatch = article.tags ? article.tags.some(tag => tag.toLowerCase().includes(qLower)) : false;
+
+      if (!titleMatch && !contentMatch && !summaryMatch && !tagsMatch) continue;
+
+      const snippets = contentMatch ? getSnippets(plainContent, q) : [];
+
+      let matchCount = 0;
+      if (titleMatch) matchCount++;
+      if (contentMatch) {
+        const regex = new RegExp(escapeRegex(qLower), "gi");
+        matchCount += (plainContent.match(regex) || []).length;
+      }
+      if (summaryMatch) matchCount++;
+      if (tagsMatch) matchCount++;
+
+      results.push({
+        article,
+        titleMatch,
+        contentMatch,
+        summaryMatch,
+        tagsMatch,
+        snippets,
+        matchCount,
+        isCampaignLinked: campaignArticleIds.has(article.id),
+      });
+    }
+
+    results.sort((a, b) => {
+      if (a.titleMatch !== b.titleMatch) return a.titleMatch ? -1 : 1;
+      return b.matchCount - a.matchCount;
+    });
+
+    return results;
+  }, [searchQuery, filteredArticles, campaignArticleIds, plainTextCache]);
+
+  const toggleExpanded = useCallback((id: string) => {
+    setExpandedResults(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const handleArticleOpen = (article: SopArticle) => {
+    if (!readArticleIds.has(article.id)) {
+      markReadMutation.mutate(article.id);
+    }
+  };
+
+  const clearSearch = () => {
+    setSearchInput("");
+    setSearchQuery("");
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    searchInputRef.current?.focus();
+  };
 
   const getPriorityBadge = (priority: string | null) => {
     switch (priority) {
@@ -99,22 +241,116 @@ export function SopPanel({ campaignId, userId }: SopPanelProps) {
     return categories.find(c => c.id === categoryId)?.name || "—";
   };
 
-  const handleArticleOpen = (article: SopArticle) => {
-    if (!readArticleIds.has(article.id)) {
-      markReadMutation.mutate(article.id);
-    }
+  const isSearching = searchQuery.trim().length >= 2;
+  const totalMatches = searchResults ? searchResults.reduce((sum, r) => sum + r.matchCount, 0) : 0;
+
+  const campaignSpecific = filteredArticles.filter(a => campaignArticleIds.has(a.id));
+  const general = filteredArticles.filter(a => !campaignArticleIds.has(a.id));
+
+  const renderSearchResult = (result: MatchResult) => {
+    const { article, titleMatch, contentMatch, summaryMatch, tagsMatch, snippets, matchCount } = result;
+    const isExpanded = expandedResults.has(article.id);
+
+    return (
+      <div key={article.id} className="border-b last:border-b-0" data-testid={`sop-search-result-${article.id}`}>
+        <button
+          type="button"
+          className="w-full text-left px-3 py-2.5 transition-colors hover:bg-muted/50"
+          onClick={() => { toggleExpanded(article.id); handleArticleOpen(article); }}
+          data-testid={`sop-search-result-toggle-${article.id}`}
+        >
+          <div className="flex items-start gap-2">
+            <FileText className="h-3.5 w-3.5 mt-0.5 shrink-0 text-muted-foreground" />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
+                {article.isPinned && <Pin className="h-3 w-3 text-blue-500 shrink-0" />}
+                {!readArticleIds.has(article.id) && (
+                  <Badge variant="secondary" className="text-[8px] h-3.5 px-1 bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">NEW</Badge>
+                )}
+                {result.isCampaignLinked && (
+                  <Badge variant="outline" className="text-[8px] h-3.5 px-1 border-green-300 text-green-700 dark:text-green-400">CAMPAIGN</Badge>
+                )}
+                {getPriorityBadge(article.priority)}
+                <Badge variant="secondary" className="text-[8px] h-3.5 px-1 ml-auto">{matchCount}×</Badge>
+              </div>
+              <div
+                className="text-xs font-medium leading-tight"
+                dangerouslySetInnerHTML={{ __html: titleMatch ? highlightText(article.title, searchQuery) : article.title }}
+                data-testid={`sop-search-title-${article.id}`}
+              />
+              <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                  <Tag className="h-2.5 w-2.5" />{getCategoryName(article.categoryId)}
+                </span>
+                {titleMatch && <Badge variant="outline" className="text-[7px] h-3 px-1 border-yellow-400 text-yellow-700 dark:text-yellow-300">{t.sop.matchInTitle}</Badge>}
+                {contentMatch && <Badge variant="outline" className="text-[7px] h-3 px-1 border-yellow-400 text-yellow-700 dark:text-yellow-300">{t.sop.matchInContent}</Badge>}
+                {summaryMatch && <Badge variant="outline" className="text-[7px] h-3 px-1 border-yellow-400 text-yellow-700 dark:text-yellow-300">{t.sop.matchInSummary}</Badge>}
+                {tagsMatch && <Badge variant="outline" className="text-[7px] h-3 px-1 border-yellow-400 text-yellow-700 dark:text-yellow-300">{t.sop.matchInTags}</Badge>}
+              </div>
+              {snippets.length > 0 && (
+                <div className="mt-1.5 space-y-1">
+                  {snippets.slice(0, isExpanded ? undefined : 1).map((snippet, i) => (
+                    <div
+                      key={i}
+                      className="text-[11px] text-muted-foreground leading-relaxed bg-muted/40 rounded px-2 py-1"
+                      dangerouslySetInnerHTML={{ __html: highlightText(snippet, searchQuery) }}
+                      data-testid={`sop-search-snippet-${article.id}-${i}`}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="shrink-0 mt-0.5">
+              {isExpanded ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />}
+            </div>
+          </div>
+        </button>
+
+        {isExpanded && (
+          <div className="px-3 pb-3 border-t bg-muted/10">
+            {article.summary && (
+              <p className="text-[11px] text-muted-foreground italic my-2 leading-relaxed"
+                dangerouslySetInnerHTML={{ __html: summaryMatch ? highlightText(article.summary, searchQuery) : article.summary }}
+                data-testid={`sop-search-summary-${article.id}`}
+              />
+            )}
+            <div
+              className="text-xs leading-relaxed prose prose-sm dark:prose-invert max-w-none [&_h1]:text-sm [&_h2]:text-xs [&_h3]:text-xs [&_p]:text-xs [&_li]:text-xs [&_ul]:my-1 [&_ol]:my-1 [&_p]:my-1"
+              dangerouslySetInnerHTML={{ __html: sanitizeHtml(article.content) }}
+              data-testid={`sop-search-content-${article.id}`}
+            />
+            {article.tags && article.tags.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-2 pt-2 border-t">
+                {article.tags.map((tag, i) => (
+                  <Badge key={i} variant="secondary" className="text-[9px] h-4"
+                    dangerouslySetInnerHTML={{ __html: tagsMatch ? highlightText(tag, searchQuery) : tag }}
+                  />
+                ))}
+              </div>
+            )}
+            <div className="flex justify-end mt-2">
+              <Button variant="ghost" size="sm" className="h-6 text-[10px]" onClick={() => setMaximizedArticle(article)} data-testid={`sop-maximize-${article.id}`}>
+                <Maximize2 className="h-3 w-3 mr-1" />{t.sop.enlarge}
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
   };
 
   const renderArticleItem = (article: SopArticle, isCampaignLinked: boolean) => (
-    <AccordionItem key={article.id} value={article.id} className="border-b last:border-b-0">
-      <AccordionTrigger
-        className="px-3 py-2 text-left hover:no-underline hover:bg-muted/50 [&[data-state=open]]:bg-muted/30"
-        onClick={() => handleArticleOpen(article)}
+    <div key={article.id} className="border-b last:border-b-0" data-testid={`sop-article-${article.id}`}>
+      <button
+        type="button"
+        className="w-full text-left px-3 py-2.5 transition-colors hover:bg-muted/50"
+        onClick={() => { toggleExpanded(article.id); handleArticleOpen(article); }}
         data-testid={`sop-article-trigger-${article.id}`}
       >
-        <div className="flex items-start gap-2 flex-1 min-w-0 mr-2">
-          <div className="flex flex-col gap-1 flex-1 min-w-0">
-            <div className="flex items-center gap-1.5 flex-wrap">
+        <div className="flex items-start gap-2">
+          <FileText className="h-3.5 w-3.5 mt-0.5 shrink-0 text-muted-foreground" />
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
               {article.isPinned && <Pin className="h-3 w-3 text-blue-500 shrink-0" />}
               {!readArticleIds.has(article.id) && (
                 <Badge variant="secondary" className="text-[8px] h-3.5 px-1 bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300" data-testid={`sop-new-badge-${article.id}`}>NEW</Badge>
@@ -124,46 +360,50 @@ export function SopPanel({ campaignId, userId }: SopPanelProps) {
               )}
               {getPriorityBadge(article.priority)}
             </div>
-            <span className="text-xs font-medium leading-tight truncate" data-testid={`sop-article-title-${article.id}`}>{article.title}</span>
-            <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+            <span className="text-xs font-medium leading-tight truncate block" data-testid={`sop-article-title-${article.id}`}>{article.title}</span>
+            <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-0.5">
               <span className="flex items-center gap-0.5">
-                <Tag className="h-2.5 w-2.5" />
-                {getCategoryName(article.categoryId)}
+                <Tag className="h-2.5 w-2.5" />{getCategoryName(article.categoryId)}
               </span>
               <span className="flex items-center gap-0.5">
-                <Clock className="h-2.5 w-2.5" />
-                {formatDate(article.updatedAt)}
+                <Clock className="h-2.5 w-2.5" />{formatDate(article.updatedAt)}
               </span>
               {readArticleIds.has(article.id) && (
                 <CheckCircle2 className="h-3 w-3 text-green-500" data-testid={`sop-read-check-${article.id}`} />
               )}
             </div>
           </div>
-        </div>
-      </AccordionTrigger>
-      <AccordionContent className="px-3 pb-3">
-        {article.summary && (
-          <p className="text-[11px] text-muted-foreground italic mb-2 leading-relaxed" data-testid={`sop-article-summary-${article.id}`}>{article.summary}</p>
-        )}
-        <div
-          className="text-xs leading-relaxed prose prose-sm dark:prose-invert max-w-none [&_h1]:text-sm [&_h2]:text-xs [&_h3]:text-xs [&_p]:text-xs [&_li]:text-xs [&_ul]:my-1 [&_ol]:my-1 [&_p]:my-1"
-          dangerouslySetInnerHTML={{ __html: sanitizeHtml(article.content) }}
-          data-testid={`sop-article-content-${article.id}`}
-        />
-        {article.tags && article.tags.length > 0 && (
-          <div className="flex flex-wrap gap-1 mt-2 pt-2 border-t">
-            {article.tags.map((tag, i) => (
-              <Badge key={i} variant="secondary" className="text-[9px] h-4">{tag}</Badge>
-            ))}
+          <div className="shrink-0 mt-0.5">
+            {expandedResults.has(article.id) ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />}
           </div>
-        )}
-        <div className="flex justify-end mt-2">
-          <Button variant="ghost" size="sm" className="h-6 text-[10px]" onClick={() => setMaximizedArticle(article)} data-testid={`sop-maximize-${article.id}`}>
-            <Maximize2 className="h-3 w-3 mr-1" />{t.sop.enlarge}
-          </Button>
         </div>
-      </AccordionContent>
-    </AccordionItem>
+      </button>
+
+      {expandedResults.has(article.id) && (
+        <div className="px-3 pb-3 border-t bg-muted/10">
+          {article.summary && (
+            <p className="text-[11px] text-muted-foreground italic my-2 leading-relaxed" data-testid={`sop-article-summary-${article.id}`}>{article.summary}</p>
+          )}
+          <div
+            className="text-xs leading-relaxed prose prose-sm dark:prose-invert max-w-none [&_h1]:text-sm [&_h2]:text-xs [&_h3]:text-xs [&_p]:text-xs [&_li]:text-xs [&_ul]:my-1 [&_ol]:my-1 [&_p]:my-1"
+            dangerouslySetInnerHTML={{ __html: sanitizeHtml(article.content) }}
+            data-testid={`sop-article-content-${article.id}`}
+          />
+          {article.tags && article.tags.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-2 pt-2 border-t">
+              {article.tags.map((tag, i) => (
+                <Badge key={i} variant="secondary" className="text-[9px] h-4">{tag}</Badge>
+              ))}
+            </div>
+          )}
+          <div className="flex justify-end mt-2">
+            <Button variant="ghost" size="sm" className="h-6 text-[10px]" onClick={() => setMaximizedArticle(article)} data-testid={`sop-maximize-${article.id}`}>
+              <Maximize2 className="h-3 w-3 mr-1" />{t.sop.enlarge}
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 
   return (
@@ -171,8 +411,34 @@ export function SopPanel({ campaignId, userId }: SopPanelProps) {
       <div className="p-2 border-b space-y-2 shrink-0">
         <div className="relative">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-          <Input placeholder={t.sop.searchSop} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="h-7 text-xs pl-7" data-testid="sop-search-input" />
+          <Input
+            ref={searchInputRef}
+            placeholder={t.sop.searchSop}
+            value={searchInput}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            className="h-7 text-xs pl-7 pr-7"
+            data-testid="sop-search-input"
+          />
+          {searchInput && (
+            <button
+              type="button"
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              onClick={clearSearch}
+              data-testid="sop-search-clear"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
+
+        {isSearching && searchResults && (
+          <div className="flex items-center gap-1.5" data-testid="sop-search-status">
+            <Badge variant="secondary" className="text-[10px] h-4 px-1.5">
+              {searchResults.length} · {totalMatches} {t.sop.matchesFound}
+            </Badge>
+          </div>
+        )}
+
         <div className="flex gap-1 flex-wrap">
           <Button variant={selectedCategory === null ? "default" : "outline"} size="sm" className="h-5 text-[10px] px-2" onClick={() => setSelectedCategory(null)} data-testid="sop-filter-all">
             {t.sop.all}
@@ -188,14 +454,28 @@ export function SopPanel({ campaignId, userId }: SopPanelProps) {
       <ScrollArea className="flex-1">
         {isLoadingAll ? (
           <div className="p-4 text-center text-xs text-muted-foreground">{t.sop.loading}</div>
-        ) : articles.length === 0 ? (
+        ) : isSearching && searchResults ? (
+          searchResults.length === 0 ? (
+            <div className="p-8 text-center" data-testid="sop-search-empty">
+              <Search className="h-8 w-8 mx-auto text-muted-foreground/40 mb-2" />
+              <p className="text-xs text-muted-foreground">{t.sop.noSopArticles}</p>
+              <p className="text-[10px] text-muted-foreground mt-1">{t.sop.tryAdjustSearch}</p>
+              <Button variant="ghost" size="sm" className="mt-2 text-xs" onClick={clearSearch} data-testid="sop-search-clear-btn">
+                {t.sop.clearSearch}
+              </Button>
+            </div>
+          ) : (
+            <div data-testid="sop-search-results">
+              {searchResults.map(renderSearchResult)}
+            </div>
+          )
+        ) : filteredArticles.length === 0 ? (
           <div className="p-8 text-center" data-testid="sop-empty-state">
             <BookOpen className="h-8 w-8 mx-auto text-muted-foreground/40 mb-2" />
             <p className="text-xs text-muted-foreground">{t.sop.noSopArticles}</p>
-            {searchQuery && <p className="text-[10px] text-muted-foreground mt-1">{t.sop.tryAdjustSearch}</p>}
           </div>
         ) : (
-          <Accordion type="multiple" className="w-full">
+          <div>
             {campaignSpecific.length > 0 && (
               <div>
                 <div className="px-3 py-1.5 bg-green-50 dark:bg-green-950/30 border-b">
@@ -218,7 +498,7 @@ export function SopPanel({ campaignId, userId }: SopPanelProps) {
                 {general.map(a => renderArticleItem(a, false))}
               </div>
             )}
-          </Accordion>
+          </div>
         )}
       </ScrollArea>
 
@@ -233,9 +513,9 @@ export function SopPanel({ campaignId, userId }: SopPanelProps) {
             {maximizedArticle && (
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <span>{getCategoryName(maximizedArticle.categoryId)}</span>
-                <span>•</span>
+                <span>·</span>
                 <span>{t.sop.updatedAt}: {formatDate(maximizedArticle.updatedAt)}</span>
-                {maximizedArticle.version && <><span>•</span><span>v{maximizedArticle.version}</span></>}
+                {maximizedArticle.version && <><span>·</span><span>v{maximizedArticle.version}</span></>}
               </div>
             )}
           </DialogHeader>

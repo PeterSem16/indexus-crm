@@ -2315,6 +2315,12 @@ export interface Translations {
     generalSopSection: string;
     noSopArticles: string;
     tryAdjustSearch: string;
+    matchesFound: string;
+    matchInTitle: string;
+    matchInContent: string;
+    matchInSummary: string;
+    matchInTags: string;
+    clearSearch: string;
     enlarge: string;
     updatedAt: string;
     loading: string;
@@ -6632,6 +6638,12 @@ export const translations: Record<Locale, Translations> = {
         generalSopSection: 'General SOP',
         noSopArticles: 'No SOP articles',
         tryAdjustSearch: 'Try adjusting your search',
+        matchesFound: 'matches found',
+          matchInTitle: 'Title',
+          matchInContent: 'Content',
+          matchInSummary: 'Summary',
+          matchInTags: 'Tags',
+          clearSearch: 'Clear search',
         enlarge: 'Enlarge',
         updatedAt: 'Updated',
         loading: 'Loading SOP...',
@@ -10886,6 +10898,12 @@ export const translations: Record<Locale, Translations> = {
         generalSopSection: 'Všeobecné SOP',
         noSopArticles: 'Žiadne SOP články',
         tryAdjustSearch: 'Skúste upraviť vyhľadávanie',
+        matchesFound: 'nájdených zhôd',
+          matchInTitle: 'Názov',
+          matchInContent: 'Obsah',
+          matchInSummary: 'Zhrnutie',
+          matchInTags: 'Štítky',
+          clearSearch: 'Vymazať vyhľadávanie',
         enlarge: 'Zväčšiť',
         updatedAt: 'Aktualizované',
         loading: 'Načítavam SOP...',
@@ -15125,6 +15143,12 @@ export const translations: Record<Locale, Translations> = {
         generalSopSection: 'Obecné SOP',
         noSopArticles: 'Žádné SOP články',
         tryAdjustSearch: 'Zkuste upravit vyhledávání',
+        matchesFound: 'nalezených shod',
+          matchInTitle: 'Název',
+          matchInContent: 'Obsah',
+          matchInSummary: 'Shrnutí',
+          matchInTags: 'Štítky',
+          clearSearch: 'Vymazat vyhledávání',
         enlarge: 'Zvětšit',
         updatedAt: 'Aktualizováno',
         loading: 'Načítám SOP...',
@@ -19327,6 +19351,12 @@ export const translations: Record<Locale, Translations> = {
         generalSopSection: 'Általános SOP',
         noSopArticles: 'Nincsenek SOP cikkek',
         tryAdjustSearch: 'Próbálja módosítani a keresést',
+        matchesFound: 'találat',
+          matchInTitle: 'Cím',
+          matchInContent: 'Tartalom',
+          matchInSummary: 'Összefoglalás',
+          matchInTags: 'Címkék',
+          clearSearch: 'Keresés törlése',
         enlarge: 'Nagyítás',
         updatedAt: 'Frissítve',
         loading: 'SOP betöltése...',
@@ -23528,6 +23558,12 @@ export const translations: Record<Locale, Translations> = {
         generalSopSection: 'SOP general',
         noSopArticles: 'Nu există articole SOP',
         tryAdjustSearch: 'Încercați să ajustați căutarea',
+        matchesFound: 'potriviri găsite',
+          matchInTitle: 'Titlu',
+          matchInContent: 'Conținut',
+          matchInSummary: 'Rezumat',
+          matchInTags: 'Etichete',
+          clearSearch: 'Șterge căutarea',
         enlarge: 'Mărire',
         updatedAt: 'Actualizat',
         loading: 'Se încarcă SOP...',
@@ -27730,6 +27766,12 @@ export const translations: Record<Locale, Translations> = {
         generalSopSection: 'SOP generali',
         noSopArticles: 'Nessun articolo SOP',
         tryAdjustSearch: 'Prova a modificare la ricerca',
+        matchesFound: 'corrispondenze trovate',
+          matchInTitle: 'Titolo',
+          matchInContent: 'Contenuto',
+          matchInSummary: 'Riepilogo',
+          matchInTags: 'Tag',
+          clearSearch: 'Cancella ricerca',
         enlarge: 'Ingrandisci',
         updatedAt: 'Aggiornato',
         loading: 'Caricamento SOP...',
@@ -31932,6 +31974,12 @@ export const translations: Record<Locale, Translations> = {
         generalSopSection: 'Allgemeine SOP',
         noSopArticles: 'Keine SOP-Artikel',
         tryAdjustSearch: 'Versuchen Sie die Suche anzupassen',
+        matchesFound: 'Treffer gefunden',
+          matchInTitle: 'Titel',
+          matchInContent: 'Inhalt',
+          matchInSummary: 'Zusammenfassung',
+          matchInTags: 'Tags',
+          clearSearch: 'Suche löschen',
         enlarge: 'Vergrößern',
         updatedAt: 'Aktualisiert',
         loading: 'SOP wird geladen...',
