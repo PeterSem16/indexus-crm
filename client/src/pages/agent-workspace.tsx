@@ -1467,6 +1467,8 @@ function CommunicationCanvas({
   const [smsTemplatePopoverOpen, setSmsTemplatePopoverOpen] = useState(false);
   const [selectedEmailTemplateName, setSelectedEmailTemplateName] = useState("");
   const [selectedSmsTemplateName, setSelectedSmsTemplateName] = useState("");
+  const [emailTemplateLangs, setEmailTemplateLangs] = useState<Set<string>>(new Set());
+  const [smsTemplateLangs, setSmsTemplateLangs] = useState<Set<string>>(new Set());
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [emailOpenedAt, setEmailOpenedAt] = useState<number | null>(null);
   const [smsOpenedAt, setSmsOpenedAt] = useState<number | null>(null);
@@ -1567,23 +1569,40 @@ function CommunicationCanvas({
     enabled: !!contact,
   });
 
-  const { data: emailTemplates = [] } = useQuery<{ id: string; name: string; subject: string | null; content: string; contentHtml: string | null; categoryId: string | null }[]>({
-    queryKey: ["/api/message-templates", "email", language],
+  useEffect(() => {
+    if (language) {
+      setEmailTemplateLangs(new Set([language]));
+      setSmsTemplateLangs(new Set([language]));
+    }
+  }, [language]);
+
+  const { data: allEmailTemplatesRaw = [] } = useQuery<{ id: string; name: string; subject: string | null; content: string; contentHtml: string | null; categoryId: string | null; language: string | null }[]>({
+    queryKey: ["/api/message-templates", "email"],
     queryFn: async () => {
-      const res = await fetch(`/api/message-templates?type=email&isActive=true&language=${language}`, { credentials: "include" });
+      const res = await fetch(`/api/message-templates?type=email&isActive=true`, { credentials: "include" });
       return res.ok ? res.json() : [];
     },
     enabled: !!contact,
   });
 
-  const { data: smsTemplates = [] } = useQuery<{ id: string; name: string; content: string; categoryId: string | null }[]>({
-    queryKey: ["/api/message-templates", "sms", language],
+  const { data: allSmsTemplatesRaw = [] } = useQuery<{ id: string; name: string; content: string; categoryId: string | null; language: string | null }[]>({
+    queryKey: ["/api/message-templates", "sms"],
     queryFn: async () => {
-      const res = await fetch(`/api/message-templates?type=sms&isActive=true&language=${language}`, { credentials: "include" });
+      const res = await fetch(`/api/message-templates?type=sms&isActive=true`, { credentials: "include" });
       return res.ok ? res.json() : [];
     },
     enabled: !!contact,
   });
+
+  const emailTemplates = useMemo(() => {
+    if (emailTemplateLangs.size === 0) return allEmailTemplatesRaw;
+    return allEmailTemplatesRaw.filter(t => !t.language || emailTemplateLangs.has(t.language));
+  }, [allEmailTemplatesRaw, emailTemplateLangs]);
+
+  const smsTemplates = useMemo(() => {
+    if (smsTemplateLangs.size === 0) return allSmsTemplatesRaw;
+    return allSmsTemplatesRaw.filter(t => !t.language || smsTemplateLangs.has(t.language));
+  }, [allSmsTemplatesRaw, smsTemplateLangs]);
 
   const emailCategoriesWithTemplates = useMemo(() => {
     const catIds = new Set(emailTemplates.map(t => t.categoryId).filter(Boolean));
@@ -2114,6 +2133,35 @@ function CommunicationCanvas({
                   <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
                     {t.configuration?.messageTemplates || "TEMPLATE"}
                   </Label>
+                  <div className="flex items-center gap-1 flex-wrap">
+                    {[
+                      { code: "sk", flag: "🇸🇰" },
+                      { code: "cs", flag: "🇨🇿" },
+                      { code: "en", flag: "🇬🇧" },
+                      { code: "hu", flag: "🇭🇺" },
+                      { code: "ro", flag: "🇷🇴" },
+                      { code: "it", flag: "🇮🇹" },
+                      { code: "de", flag: "🇩🇪" },
+                    ].map(({ code, flag }) => (
+                      <button
+                        key={code}
+                        type="button"
+                        className={`text-base px-1 py-0.5 rounded border transition-all ${emailTemplateLangs.has(code) ? "border-primary bg-primary/10 shadow-sm" : "border-transparent opacity-40 hover:opacity-70"}`}
+                        onClick={() => {
+                          setEmailTemplateLangs(prev => {
+                            const next = new Set(prev);
+                            if (next.has(code)) next.delete(code);
+                            else next.add(code);
+                            return next;
+                          });
+                        }}
+                        title={code.toUpperCase()}
+                        data-testid={`email-lang-flag-${code}`}
+                      >
+                        {flag}
+                      </button>
+                    ))}
+                  </div>
                   <div className="space-y-1.5">
                     {emailCategoriesWithTemplates.length > 0 && (
                       <Select value={emailTemplateCategoryId} onValueChange={(val) => { setEmailTemplateCategoryId(val); }}>
@@ -2321,6 +2369,35 @@ function CommunicationCanvas({
                   <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
                     {t.configuration?.messageTemplates || "TEMPLATE"}
                   </Label>
+                  <div className="flex items-center gap-1 flex-wrap">
+                    {[
+                      { code: "sk", flag: "🇸🇰" },
+                      { code: "cs", flag: "🇨🇿" },
+                      { code: "en", flag: "🇬🇧" },
+                      { code: "hu", flag: "🇭🇺" },
+                      { code: "ro", flag: "🇷🇴" },
+                      { code: "it", flag: "🇮🇹" },
+                      { code: "de", flag: "🇩🇪" },
+                    ].map(({ code, flag }) => (
+                      <button
+                        key={code}
+                        type="button"
+                        className={`text-base px-1 py-0.5 rounded border transition-all ${smsTemplateLangs.has(code) ? "border-primary bg-primary/10 shadow-sm" : "border-transparent opacity-40 hover:opacity-70"}`}
+                        onClick={() => {
+                          setSmsTemplateLangs(prev => {
+                            const next = new Set(prev);
+                            if (next.has(code)) next.delete(code);
+                            else next.add(code);
+                            return next;
+                          });
+                        }}
+                        title={code.toUpperCase()}
+                        data-testid={`sms-lang-flag-${code}`}
+                      >
+                        {flag}
+                      </button>
+                    ))}
+                  </div>
                   <div className="space-y-1.5">
                     {smsCategoriesWithTemplates.length > 0 && (
                       <Select value={smsTemplateCategoryId} onValueChange={(val) => { setSmsTemplateCategoryId(val); }}>
