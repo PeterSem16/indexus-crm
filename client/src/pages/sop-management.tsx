@@ -34,11 +34,27 @@ const EMOJI_GROUPS = [
 
 const ALL_EMOJIS = EMOJI_GROUPS.flatMap(g => g.emojis);
 
+const LEGACY_ICON_MAP: Record<string, string> = {
+  "clipboard": "📋", "folder-closed": "📁", "folder-open": "📂", "file-text": "📄",
+  "file-check": "📑", "bookmark": "📌", "book-open": "📒", "heart": "❤️",
+  "syringe": "💉", "baby": "👶", "brain": "🧬", "microscope": "🔬",
+  "stethoscope": "🩺", "pill": "💊", "thermometer": "🌡️", "phone": "📞",
+  "mail": "📧", "message-square": "💬", "shield": "🛡️", "settings": "⚙️",
+  "target": "🎯", "globe": "🌐", "star": "⭐", "lightbulb": "💡",
+  "bar-chart": "📊", "lock": "🔒", "key": "🔑", "zap": "⚡",
+  "bell": "🔔", "calendar": "📅", "users": "👥", "alert-circle": "⚠️",
+};
+
 function getEmojiForIcon(iconName: string | null | undefined): string {
   if (!iconName) return "📁";
   if (ALL_EMOJIS.includes(iconName)) return iconName;
+  if (LEGACY_ICON_MAP[iconName]) return LEGACY_ICON_MAP[iconName];
   return "📁";
 }
+
+const COUNTRY_FLAGS: Record<string, string> = {
+  SK: "🇸🇰", CZ: "🇨🇿", US: "🇬🇧", HU: "🇭🇺", RO: "🇷🇴", IT: "🇮🇹", DE: "🇩🇪", GB: "🇬🇧",
+};
 
 
 export default function SopManagementPage() {
@@ -49,6 +65,7 @@ export default function SopManagementPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterCategory, setFilterCategory] = useState<string | null>(null);
   const [filterPriority, setFilterPriority] = useState<string | null>(null);
+  const [filterCountry, setFilterCountry] = useState<string | null>(null);
 
   const [showCategoryDialog, setShowCategoryDialog] = useState(false);
   const [editingCategory, setEditingCategory] = useState<SopCategory | null>(null);
@@ -238,6 +255,7 @@ export default function SopManagementPage() {
   const filteredArticles = articles.filter(a => {
     if (filterCategory && a.categoryId !== filterCategory) return false;
     if (filterPriority && a.priority !== filterPriority) return false;
+    if (filterCountry && (a.countryCode || "") !== filterCountry) return false;
     if (searchQuery) { const q = searchQuery.toLowerCase(); return a.title.toLowerCase().includes(q) || a.content.toLowerCase().includes(q); }
     return true;
   });
@@ -295,6 +313,18 @@ export default function SopManagementPage() {
                 {categories.map(c => (<SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>))}
               </SelectContent>
             </Select>
+            <Select value={filterCountry || "all"} onValueChange={(v) => setFilterCountry(v === "all" ? null : v)}>
+              <SelectTrigger className="w-[160px]" data-testid="sop-filter-country"><SelectValue placeholder={t.sop.country} /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t.sop.allCountries}</SelectItem>
+                <SelectItem value="SK">🇸🇰 SK</SelectItem>
+                <SelectItem value="CZ">🇨🇿 CZ</SelectItem>
+                <SelectItem value="HU">🇭🇺 HU</SelectItem>
+                <SelectItem value="RO">🇷🇴 RO</SelectItem>
+                <SelectItem value="IT">🇮🇹 IT</SelectItem>
+                <SelectItem value="DE">🇩🇪 DE</SelectItem>
+              </SelectContent>
+            </Select>
             <Select value={filterPriority || "all"} onValueChange={(v) => setFilterPriority(v === "all" ? null : v)}>
               <SelectTrigger className="w-[140px]" data-testid="sop-filter-priority"><SelectValue placeholder={t.sop.filterPriority} /></SelectTrigger>
               <SelectContent>
@@ -334,7 +364,7 @@ export default function SopManagementPage() {
                           </div>
                           <div className="flex items-center gap-3 text-xs text-muted-foreground">
                             <span className="flex items-center gap-1"><span className="text-sm">{getCategoryEmoji(article.categoryId)}</span>{getCategoryName(article.categoryId)}</span>
-                            {article.countryCode && <Badge variant="outline" className="text-[10px] h-4">{article.countryCode}</Badge>}
+                            {article.countryCode && <Badge variant="outline" className="text-[10px] h-4">{COUNTRY_FLAGS[article.countryCode] || ""} {article.countryCode}</Badge>}
                             <span>v{article.version}</span>
                             <span>{new Date(article.updatedAt).toLocaleDateString()}</span>
                             {article.createdBy && <span>{t.sop.author}: {getUserName(article.createdBy)}</span>}
@@ -388,7 +418,7 @@ export default function SopManagementPage() {
                     </div>
                     <div className="flex items-center gap-3 mt-3 text-xs text-muted-foreground">
                       <span>{articleCount} {t.sop.articleCount}</span>
-                      {cat.countryCode && <Badge variant="outline" className="text-[10px] h-4">{cat.countryCode}</Badge>}
+                      {cat.countryCode && <Badge variant="outline" className="text-[10px] h-4">{COUNTRY_FLAGS[cat.countryCode] || ""} {cat.countryCode}</Badge>}
                       <span>{t.sop.sortOrder}: {cat.sortOrder}</span>
                       {!cat.isActive && <Badge variant="secondary" className="text-[10px] h-4">{t.sop.inactive}</Badge>}
                     </div>
@@ -408,27 +438,54 @@ export default function SopManagementPage() {
       </Tabs>
 
       <Dialog open={showCategoryDialog} onOpenChange={setShowCategoryDialog}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
                 {renderCategoryIcon(categoryForm.icon)}
               </div>
               {editingCategory ? t.sop.editCategory : t.sop.newCategory}
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-5">
-            <div className="space-y-2">
-              <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{t.sop.name} *</Label>
-              <Input value={categoryForm.name} onChange={(e) => setCategoryForm(p => ({ ...p, name: e.target.value }))} placeholder={t.sop.categoryNamePlaceholder} className="h-10" data-testid="input-category-name" />
-            </div>
-            <div className="space-y-2">
-              <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{t.sop.description}</Label>
-              <Textarea value={categoryForm.description} onChange={(e) => setCategoryForm(p => ({ ...p, description: e.target.value }))} placeholder={t.sop.categoryDescPlaceholder} rows={2} data-testid="input-category-description" />
+          <div className="grid grid-cols-2 gap-6">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{t.sop.name} *</Label>
+                <Input value={categoryForm.name} onChange={(e) => setCategoryForm(p => ({ ...p, name: e.target.value }))} placeholder={t.sop.categoryNamePlaceholder} className="h-10" data-testid="input-category-name" />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{t.sop.description}</Label>
+                <Textarea value={categoryForm.description} onChange={(e) => setCategoryForm(p => ({ ...p, description: e.target.value }))} placeholder={t.sop.categoryDescPlaceholder} rows={3} data-testid="input-category-description" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{t.sop.country}</Label>
+                  <Select value={categoryForm.countryCode || "all"} onValueChange={(v) => setCategoryForm(p => ({ ...p, countryCode: v === "all" ? "" : v }))}>
+                    <SelectTrigger data-testid="select-category-country"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">{t.sop.allCountries}</SelectItem>
+                      <SelectItem value="SK">🇸🇰 SK</SelectItem>
+                      <SelectItem value="CZ">🇨🇿 CZ</SelectItem>
+                      <SelectItem value="HU">🇭🇺 HU</SelectItem>
+                      <SelectItem value="RO">🇷🇴 RO</SelectItem>
+                      <SelectItem value="IT">🇮🇹 IT</SelectItem>
+                      <SelectItem value="DE">🇩🇪 DE</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{t.sop.sortOrder}</Label>
+                  <Input type="number" value={categoryForm.sortOrder} onChange={(e) => setCategoryForm(p => ({ ...p, sortOrder: parseInt(e.target.value) || 0 }))} data-testid="input-category-order" />
+                </div>
+              </div>
+              <div className="flex items-center gap-2 pt-1">
+                <Switch checked={categoryForm.isActive} onCheckedChange={(v) => setCategoryForm(p => ({ ...p, isActive: v }))} data-testid="switch-category-active" />
+                <Label className="text-sm">{t.sop.active}</Label>
+              </div>
             </div>
             <div className="space-y-2">
               <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{t.sop.icon}</Label>
-              <div className="border rounded-lg bg-muted/30 p-3 space-y-2">
+              <div className="border rounded-lg bg-muted/30 p-2.5 space-y-2 max-h-[320px] overflow-y-auto">
                 {EMOJI_GROUPS.map(group => (
                   <div key={group.label}>
                     <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">{group.label}</p>
@@ -439,7 +496,7 @@ export default function SopManagementPage() {
                           <button
                             key={emoji}
                             type="button"
-                            className={`h-9 w-9 flex items-center justify-center rounded-lg text-lg transition-all ${isSelected ? "bg-primary shadow-sm ring-2 ring-primary/50 scale-110" : "hover:bg-muted hover:scale-105"}`}
+                            className={`h-8 w-8 flex items-center justify-center rounded-lg text-base transition-all ${isSelected ? "bg-primary shadow-sm ring-2 ring-primary/50 scale-110" : "hover:bg-muted hover:scale-105"}`}
                             onClick={() => setCategoryForm(p => ({ ...p, icon: emoji }))}
                             data-testid={`emoji-pick-${group.label.toLowerCase()}-${group.emojis.indexOf(emoji)}`}
                           >
@@ -450,29 +507,6 @@ export default function SopManagementPage() {
                     </div>
                   </div>
                 ))}
-              </div>
-            </div>
-            <div className="grid grid-cols-3 gap-3">
-              <div className="space-y-2">
-                <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{t.sop.sortOrder}</Label>
-                <Input type="number" value={categoryForm.sortOrder} onChange={(e) => setCategoryForm(p => ({ ...p, sortOrder: parseInt(e.target.value) || 0 }))} data-testid="input-category-order" />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{t.sop.country}</Label>
-                <Select value={categoryForm.countryCode || "all"} onValueChange={(v) => setCategoryForm(p => ({ ...p, countryCode: v === "all" ? "" : v }))}>
-                  <SelectTrigger data-testid="select-category-country"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">{t.sop.allCountries}</SelectItem>
-                    <SelectItem value="SK">SK</SelectItem><SelectItem value="CZ">CZ</SelectItem><SelectItem value="HU">HU</SelectItem>
-                    <SelectItem value="RO">RO</SelectItem><SelectItem value="IT">IT</SelectItem><SelectItem value="DE">DE</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2 flex flex-col justify-end">
-                <div className="flex items-center gap-2 h-10">
-                  <Switch checked={categoryForm.isActive} onCheckedChange={(v) => setCategoryForm(p => ({ ...p, isActive: v }))} data-testid="switch-category-active" />
-                  <Label className="text-sm">{t.sop.active}</Label>
-                </div>
               </div>
             </div>
           </div>
@@ -530,8 +564,12 @@ export default function SopManagementPage() {
                   <SelectTrigger data-testid="select-article-country"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">{t.sop.allCountries}</SelectItem>
-                    <SelectItem value="SK">SK</SelectItem><SelectItem value="CZ">CZ</SelectItem><SelectItem value="HU">HU</SelectItem>
-                    <SelectItem value="RO">RO</SelectItem><SelectItem value="IT">IT</SelectItem><SelectItem value="DE">DE</SelectItem>
+                    <SelectItem value="SK">🇸🇰 SK</SelectItem>
+                    <SelectItem value="CZ">🇨🇿 CZ</SelectItem>
+                    <SelectItem value="HU">🇭🇺 HU</SelectItem>
+                    <SelectItem value="RO">🇷🇴 RO</SelectItem>
+                    <SelectItem value="IT">🇮🇹 IT</SelectItem>
+                    <SelectItem value="DE">🇩🇪 DE</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
