@@ -28635,7 +28635,7 @@ Guidelines:
   // POST /api/alert-instances/:id/acknowledge - Acknowledge an alert instance
   app.post("/api/alert-instances/:id/acknowledge", requireAuth, async (req, res) => {
     try {
-      const userId = (req as any).user?.id;
+      const userId = req.session.user?.id;
       if (!userId) {
         return res.status(401).json({ error: "User not authenticated" });
       }
@@ -28653,7 +28653,7 @@ Guidelines:
   // POST /api/alert-instances/:id/resolve - Resolve an alert instance
   app.post("/api/alert-instances/:id/resolve", requireAuth, async (req, res) => {
     try {
-      const userId = (req as any).user?.id;
+      const userId = req.session.user?.id;
       if (!userId) {
         return res.status(401).json({ error: "User not authenticated" });
       }
@@ -28750,7 +28750,7 @@ Guidelines:
 
   app.post("/api/message-templates", requireAuth, requireAdminOrManager, async (req, res) => {
     try {
-      const userId = (req as any).user?.id;
+      const userId = req.session.user?.id;
       const template = await storage.createMessageTemplate({
         ...req.body,
         createdBy: userId,
@@ -28765,7 +28765,7 @@ Guidelines:
 
   app.patch("/api/message-templates/:id", requireAuth, requireAdminOrManager, async (req, res) => {
     try {
-      const userId = (req as any).user?.id;
+      const userId = req.session.user?.id;
       const template = await storage.updateMessageTemplate(req.params.id, {
         ...req.body,
         updatedBy: userId,
@@ -29399,7 +29399,7 @@ Guidelines:
 
   app.post("/api/sop/articles", requireAuth, async (req, res) => {
     try {
-      const parsed = insertSopArticleSchema.parse({ ...req.body, createdBy: (req as any).user?.id?.toString() });
+      const parsed = insertSopArticleSchema.parse({ ...req.body, createdBy: req.session.user?.id?.toString() });
       const article = await storage.createSopArticle(parsed);
       res.status(201).json(article);
     } catch (error: any) {
@@ -29435,7 +29435,7 @@ Guidelines:
 
   app.post("/api/sop/articles/:id/read", requireAuth, async (req, res) => {
     try {
-      const userId = (req as any).user?.id;
+      const userId = req.session.user?.id;
       if (!userId) return res.status(401).json({ error: "Unauthorized" });
       const read = await storage.markSopArticleRead(req.params.id, userId);
       res.json(read);
@@ -29457,7 +29457,7 @@ Guidelines:
 
   app.get("/api/sop/user-reads", requireAuth, async (req, res) => {
     try {
-      const userId = (req as any).user?.id;
+      const userId = req.session.user?.id;
       if (!userId) return res.status(401).json({ error: "Unauthorized" });
       const reads = await storage.getUserSopReads(userId);
       res.json(reads);
