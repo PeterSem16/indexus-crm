@@ -2140,7 +2140,7 @@ function CommunicationCanvas({
                           <Search className="h-4 w-4 mr-2 shrink-0 opacity-50" />
                           <input
                             className="flex h-8 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-                            placeholder={t.sop?.searchSop || "Search..."}
+                            placeholder={t.configuration?.searchTemplate || "Search template..."}
                             value={emailTemplateSearch}
                             onChange={(e) => setEmailTemplateSearch(e.target.value)}
                             data-testid="input-search-email-template"
@@ -2347,7 +2347,7 @@ function CommunicationCanvas({
                           <Search className="h-4 w-4 mr-2 shrink-0 opacity-50" />
                           <input
                             className="flex h-8 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-                            placeholder={t.sop?.searchSop || "Search..."}
+                            placeholder={t.configuration?.searchTemplate || "Search template..."}
                             value={smsTemplateSearch}
                             onChange={(e) => setSmsTemplateSearch(e.target.value)}
                             data-testid="input-search-sms-template"

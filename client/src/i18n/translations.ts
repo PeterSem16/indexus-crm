@@ -1635,6 +1635,7 @@ export interface Translations {
       summaryTab: string;
       template: string;
       selectTemplate: string;
+      searchTemplate: string;
       noTemplates: string;
       emailContent: string;
       insertVariable: string;
@@ -2952,6 +2953,7 @@ export interface Translations {
     selectCategory: string;
     selectLanguage: string;
     selectTemplate: string;
+      searchTemplate: string;
     // Template Categories
     templateCategories: string;
     templateCategoriesDescription: string;
@@ -3486,6 +3488,7 @@ export interface Translations {
     wizardStep4: string;
     selectCustomer: string;
     selectTemplate: string;
+      searchTemplate: string;
     selectBillingCompany: string;
     preview: string;
     next: string;
@@ -5958,6 +5961,7 @@ export const translations: Record<Locale, Translations> = {
         summaryTab: 'Summary',
         template: 'Template',
         selectTemplate: 'Select template...',
+        searchTemplate: 'Search template...',
         noTemplates: 'No templates',
         emailContent: 'Email content',
         insertVariable: 'Insert variable:',
@@ -7290,6 +7294,7 @@ export const translations: Record<Locale, Translations> = {
       selectCategory: 'Select category',
       selectLanguage: 'Select language',
       selectTemplate: 'Select template',
+      searchTemplate: 'Search template',
       // Template Categories
       templateCategories: 'Template Categories',
       templateCategoriesDescription: 'Organize templates into categories',
@@ -7818,6 +7823,7 @@ export const translations: Record<Locale, Translations> = {
       wizardStep4: 'Preview',
       selectCustomer: 'Select Customer',
       selectTemplate: 'Select Template',
+      searchTemplate: 'Search template',
       selectBillingCompany: 'Select Billing Company',
       preview: 'Preview',
       next: 'Next',
@@ -10218,6 +10224,7 @@ export const translations: Record<Locale, Translations> = {
         summaryTab: 'Súhrn',
         template: 'Šablóna',
         selectTemplate: 'Vybrať šablónu...',
+        searchTemplate: 'Hľadať šablónu...',
         noTemplates: 'Žiadne šablóny',
         emailContent: 'Obsah emailu',
         insertVariable: 'Vložiť premennú:',
@@ -11550,6 +11557,7 @@ export const translations: Record<Locale, Translations> = {
       selectCategory: 'Vybrať kategóriu',
       selectLanguage: 'Vybrať jazyk',
       selectTemplate: 'Vybrať šablónu',
+      searchTemplate: 'Hľadať šablónu',
       // Template Categories
       templateCategories: 'Kategórie šablón',
       templateCategoriesDescription: 'Organizácia šablón do kategórií',
@@ -12094,6 +12102,7 @@ export const translations: Record<Locale, Translations> = {
       wizardStep4: 'Náhľad',
       selectCustomer: 'Vybrať zákazníka',
       selectTemplate: 'Vybrať šablónu',
+      searchTemplate: 'Hľadať šablónu',
       selectBillingCompany: 'Vybrať fakturačnú spoločnosť',
       preview: 'Náhľad',
       next: 'Ďalej',
@@ -14463,6 +14472,7 @@ export const translations: Record<Locale, Translations> = {
         summaryTab: 'Souhrn',
         template: 'Šablona',
         selectTemplate: 'Vybrat šablonu...',
+        searchTemplate: 'Hledat šablonu...',
         noTemplates: 'Žádné šablony',
         emailContent: 'Obsah emailu',
         insertVariable: 'Vložit proměnnou:',
@@ -15795,6 +15805,7 @@ export const translations: Record<Locale, Translations> = {
       selectCategory: 'Vybrat kategorii',
       selectLanguage: 'Vybrat jazyk',
       selectTemplate: 'Vybrat šablonu',
+      searchTemplate: 'Hledat šablonu',
       // Template Categories
       templateCategories: 'Kategorie šablon',
       templateCategoriesDescription: 'Organizace šablon do kategorií',
@@ -16302,6 +16313,7 @@ export const translations: Record<Locale, Translations> = {
       wizardStep4: 'Náhled',
       selectCustomer: 'Vybrat zákazníka',
       selectTemplate: 'Vybrat šablonu',
+      searchTemplate: 'Hledat šablonu',
       selectBillingCompany: 'Vybrat fakturační společnost',
       preview: 'Náhled',
       next: 'Další',
@@ -18671,6 +18683,7 @@ export const translations: Record<Locale, Translations> = {
         summaryTab: 'Összefoglalás',
         template: 'Sablon',
         selectTemplate: 'Sablon kiválasztása...',
+        searchTemplate: 'Sablon keresése...',
         noTemplates: 'Nincsenek sablonok',
         emailContent: 'Email tartalom',
         insertVariable: 'Változó beszúrása:',
@@ -20003,6 +20016,7 @@ export const translations: Record<Locale, Translations> = {
       selectCategory: 'Kategória kiválasztása',
       selectLanguage: 'Nyelv kiválasztása',
       selectTemplate: 'Sablon kiválasztása',
+      searchTemplate: 'Sablon keresése',
       // Template Categories
       templateCategories: 'Sablonkategóriák',
       templateCategoriesDescription: 'Sablonok kategóriákba szervezése',
@@ -20510,6 +20524,7 @@ export const translations: Record<Locale, Translations> = {
       wizardStep4: 'Előnézet',
       selectCustomer: 'Ügyfél kiválasztása',
       selectTemplate: 'Sablon kiválasztása',
+      searchTemplate: 'Sablon keresése',
       selectBillingCompany: 'Számlázó cég kiválasztása',
       preview: 'Előnézet',
       next: 'Következő',
@@ -22878,6 +22893,7 @@ export const translations: Record<Locale, Translations> = {
         summaryTab: 'Rezumat',
         template: 'Șablon',
         selectTemplate: 'Selectați șablon...',
+        searchTemplate: 'Căutare șablon...',
         noTemplates: 'Niciun șablon',
         emailContent: 'Conținut email',
         insertVariable: 'Inserați variabilă:',
@@ -24210,6 +24226,7 @@ export const translations: Record<Locale, Translations> = {
       selectCategory: 'Selectează categoria',
       selectLanguage: 'Selectează limba',
       selectTemplate: 'Selectează șablonul',
+      searchTemplate: 'Căutare șablon',
       // Template Categories
       templateCategories: 'Categorii șabloane',
       templateCategoriesDescription: 'Organizarea șabloanelor în categorii',
@@ -24717,6 +24734,7 @@ export const translations: Record<Locale, Translations> = {
       wizardStep4: 'Previzualizare',
       selectCustomer: 'Selectează clientul',
       selectTemplate: 'Selectează șablonul',
+      searchTemplate: 'Căutare șablon',
       selectBillingCompany: 'Selectează compania de facturare',
       preview: 'Previzualizare',
       next: 'Următorul',
@@ -27086,6 +27104,7 @@ export const translations: Record<Locale, Translations> = {
         summaryTab: 'Riepilogo',
         template: 'Modello',
         selectTemplate: 'Seleziona modello...',
+        searchTemplate: 'Cerca modello...',
         noTemplates: 'Nessun modello',
         emailContent: 'Contenuto email',
         insertVariable: 'Inserisci variabile:',
@@ -28418,6 +28437,7 @@ export const translations: Record<Locale, Translations> = {
       selectCategory: 'Seleziona categoria',
       selectLanguage: 'Seleziona lingua',
       selectTemplate: 'Seleziona modello',
+      searchTemplate: 'Cerca modello',
       // Template Categories
       templateCategories: 'Categorie modelli',
       templateCategoriesDescription: 'Organizza i modelli in categorie',
@@ -28925,6 +28945,7 @@ export const translations: Record<Locale, Translations> = {
       wizardStep4: 'Anteprima',
       selectCustomer: 'Seleziona cliente',
       selectTemplate: 'Seleziona modello',
+      searchTemplate: 'Cerca modello',
       selectBillingCompany: 'Seleziona società di fatturazione',
       preview: 'Anteprima',
       next: 'Avanti',
@@ -31294,6 +31315,7 @@ export const translations: Record<Locale, Translations> = {
         summaryTab: 'Zusammenfassung',
         template: 'Vorlage',
         selectTemplate: 'Vorlage auswählen...',
+        searchTemplate: 'Vorlage suchen...',
         noTemplates: 'Keine Vorlagen',
         emailContent: 'E-Mail-Inhalt',
         insertVariable: 'Variable einfügen:',
@@ -32626,6 +32648,7 @@ export const translations: Record<Locale, Translations> = {
       selectCategory: 'Kategorie auswählen',
       selectLanguage: 'Sprache auswählen',
       selectTemplate: 'Vorlage auswählen',
+      searchTemplate: 'Vorlage suchen',
       // Template Categories
       templateCategories: 'Vorlagenkategorien',
       templateCategoriesDescription: 'Vorlagen in Kategorien organisieren',
@@ -33133,6 +33156,7 @@ export const translations: Record<Locale, Translations> = {
       wizardStep4: 'Vorschau',
       selectCustomer: 'Kunde auswählen',
       selectTemplate: 'Vorlage auswählen',
+      searchTemplate: 'Vorlage suchen',
       selectBillingCompany: 'Rechnungsunternehmen auswählen',
       preview: 'Vorschau',
       next: 'Weiter',
