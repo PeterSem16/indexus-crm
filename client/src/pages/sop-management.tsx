@@ -17,54 +17,27 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import {
-  BookOpen, Plus, Pencil, Trash2, FolderOpen, FileText, Pin,
+  BookOpen, Plus, Pencil, Trash2, FolderOpen, FileText, Pin, Copy,
   AlertCircle, AlertTriangle, EyeOff, Users, Search, Tag, Upload, Loader2,
-  Clipboard, FolderClosed, FileCheck, Bookmark, Heart, Syringe,
-  Phone, Mail, MessageSquare, Shield, Settings, Target, Globe,
-  Star, Lightbulb, BarChart3, Lock, Key, Zap, Bell, Calendar,
-  Thermometer, Baby, Brain, Microscope, Stethoscope, Pill,
-  type LucideIcon
 } from "lucide-react";
 import TipTapEditor from "@/components/sop/TipTapEditor";
 import type { SopCategory, SopArticle, Campaign } from "@shared/schema";
 
-const ICON_OPTIONS: { name: string; icon: LucideIcon; label: string }[] = [
-  { name: "clipboard", icon: Clipboard, label: "Clipboard" },
-  { name: "folder-closed", icon: FolderClosed, label: "Folder" },
-  { name: "folder-open", icon: FolderOpen, label: "Folder Open" },
-  { name: "file-text", icon: FileText, label: "Document" },
-  { name: "file-check", icon: FileCheck, label: "File Check" },
-  { name: "bookmark", icon: Bookmark, label: "Bookmark" },
-  { name: "book-open", icon: BookOpen, label: "Book" },
-  { name: "heart", icon: Heart, label: "Heart" },
-  { name: "syringe", icon: Syringe, label: "Syringe" },
-  { name: "baby", icon: Baby, label: "Baby" },
-  { name: "brain", icon: Brain, label: "Brain" },
-  { name: "microscope", icon: Microscope, label: "Microscope" },
-  { name: "stethoscope", icon: Stethoscope, label: "Stethoscope" },
-  { name: "pill", icon: Pill, label: "Pill" },
-  { name: "thermometer", icon: Thermometer, label: "Thermometer" },
-  { name: "phone", icon: Phone, label: "Phone" },
-  { name: "mail", icon: Mail, label: "Mail" },
-  { name: "message-square", icon: MessageSquare, label: "Chat" },
-  { name: "shield", icon: Shield, label: "Shield" },
-  { name: "settings", icon: Settings, label: "Settings" },
-  { name: "target", icon: Target, label: "Target" },
-  { name: "globe", icon: Globe, label: "Globe" },
-  { name: "star", icon: Star, label: "Star" },
-  { name: "lightbulb", icon: Lightbulb, label: "Idea" },
-  { name: "bar-chart", icon: BarChart3, label: "Chart" },
-  { name: "lock", icon: Lock, label: "Lock" },
-  { name: "key", icon: Key, label: "Key" },
-  { name: "zap", icon: Zap, label: "Zap" },
-  { name: "bell", icon: Bell, label: "Bell" },
-  { name: "calendar", icon: Calendar, label: "Calendar" },
-  { name: "users", icon: Users, label: "Users" },
-  { name: "alert-circle", icon: AlertCircle, label: "Alert" },
+const EMOJI_GROUPS = [
+  { label: "Office", emojis: ["📋", "📁", "📂", "📄", "📑", "📌", "📎", "📝", "📒", "📓"] },
+  { label: "Medical", emojis: ["🏥", "💉", "🩸", "🧬", "🔬", "💊", "🩺", "🧪", "🫀", "👶"] },
+  { label: "Communication", emojis: ["📞", "📧", "💬", "📱", "☎️", "📨", "🗣️", "💌"] },
+  { label: "Process", emojis: ["⚙️", "🔧", "🔄", "✅", "❌", "⚠️", "🔀", "📊", "📈", "🎯"] },
+  { label: "People", emojis: ["👥", "👤", "🤝", "🧑‍⚕️", "🧑‍💼", "👨‍👩‍👧", "🙋"] },
+  { label: "Other", emojis: ["🌐", "💡", "🔒", "🔑", "⭐", "🏷️", "📦", "🗂️", "🛡️", "🔔"] },
 ];
 
-function getIconComponent(iconName: string): LucideIcon {
-  return ICON_OPTIONS.find(i => i.name === iconName)?.icon || FolderOpen;
+const ALL_EMOJIS = EMOJI_GROUPS.flatMap(g => g.emojis);
+
+function getEmojiForIcon(iconName: string | null | undefined): string {
+  if (!iconName) return "📁";
+  if (ALL_EMOJIS.includes(iconName)) return iconName;
+  return "📁";
 }
 
 
@@ -96,6 +69,12 @@ export default function SopManagementPage() {
 
   const [uploadingPdf, setUploadingPdf] = useState(false);
   const pdfInputRef = useRef<HTMLInputElement>(null);
+
+  const [showCopyDialog, setShowCopyDialog] = useState(false);
+  const [copySourceArticle, setCopySourceArticle] = useState<SopArticle | null>(null);
+  const [copyTargetCountry, setCopyTargetCountry] = useState("");
+  const [copyWithTranslation, setCopyWithTranslation] = useState(true);
+  const [isCopying, setIsCopying] = useState(false);
 
   const { data: categories = [] } = useQuery<SopCategory[]>({ queryKey: ["/api/sop/categories"] });
   const { data: articles = [], isLoading } = useQuery<SopArticle[]>({ queryKey: ["/api/sop/articles"] });
@@ -200,6 +179,43 @@ export default function SopManagementPage() {
     else createCategoryMutation.mutate(data);
   };
 
+  const COUNTRY_OPTIONS = [
+    { code: "SK", flag: "🇸🇰", name: "Slovenčina" },
+    { code: "CZ", flag: "🇨🇿", name: "Čeština" },
+    { code: "US", flag: "🇬🇧", name: "English" },
+    { code: "HU", flag: "🇭🇺", name: "Magyar" },
+    { code: "RO", flag: "🇷🇴", name: "Română" },
+    { code: "IT", flag: "🇮🇹", name: "Italiano" },
+    { code: "DE", flag: "🇩🇪", name: "Deutsch" },
+  ];
+
+  const openCopyDialog = (article: SopArticle) => {
+    setCopySourceArticle(article);
+    setCopyTargetCountry("");
+    setCopyWithTranslation(true);
+    setShowCopyDialog(true);
+  };
+
+  const handleCopyArticle = async () => {
+    if (!copySourceArticle || !copyTargetCountry) return;
+    setIsCopying(true);
+    try {
+      const res = await apiRequest("POST", `/api/sop/articles/${copySourceArticle.id}/copy-translate`, {
+        targetCountryCode: copyTargetCountry,
+        translate: copyWithTranslation,
+      });
+      if (!res.ok) throw new Error("Failed to copy article");
+      queryClient.invalidateQueries({ queryKey: ["/api/sop/articles"] });
+      toast({ title: copyWithTranslation ? (t.konfigurator?.templateTranslated || "Article translated and copied") : (t.konfigurator?.templateCopied || "Article copied") });
+      setShowCopyDialog(false);
+      setCopySourceArticle(null);
+    } catch (error) {
+      toast({ title: t.errors?.saveFailed || "Error", variant: "destructive" });
+    } finally {
+      setIsCopying(false);
+    }
+  };
+
   const openNewArticle = () => {
     setEditingArticle(null);
     setArticleForm({ title: "", content: "", summary: "", categoryId: categories[0]?.id || "", priority: "normal", countryCode: "", isPublished: true, isPinned: false, tags: "" });
@@ -227,10 +243,9 @@ export default function SopManagementPage() {
   });
 
   const getCategoryName = (id: string) => categories.find(c => c.id === id)?.name || "—";
-  const getCategoryIcon = (id: string) => {
+  const getCategoryEmoji = (id: string) => {
     const cat = categories.find(c => c.id === id);
-    if (!cat?.icon) return FolderOpen;
-    return getIconComponent(cat.icon);
+    return getEmojiForIcon(cat?.icon);
   };
   const getUserName = (id: string) => {
     const u = users.find((u: any) => u.id?.toString() === id?.toString());
@@ -238,8 +253,7 @@ export default function SopManagementPage() {
   };
 
   const renderCategoryIcon = (iconName: string | null | undefined) => {
-    const IconComp = iconName ? getIconComponent(iconName) : FolderOpen;
-    return <IconComp className="h-5 w-5" />;
+    return <span className="text-lg leading-none">{getEmojiForIcon(iconName)}</span>;
   };
 
   return (
@@ -306,7 +320,6 @@ export default function SopManagementPage() {
           ) : (
             <div className="grid gap-3">
               {filteredArticles.map(article => {
-                const CatIcon = getCategoryIcon(article.categoryId);
                 return (
                   <Card key={article.id} className={`${!article.isPublished ? "opacity-60" : ""}`} data-testid={`sop-card-${article.id}`}>
                     <CardContent className="p-4">
@@ -320,7 +333,7 @@ export default function SopManagementPage() {
                             {!article.isPublished && <Badge variant="secondary" className="text-[10px] h-5 gap-0.5"><EyeOff className="h-3 w-3" />{t.sop.hidden}</Badge>}
                           </div>
                           <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                            <span className="flex items-center gap-1"><CatIcon className="h-3 w-3" />{getCategoryName(article.categoryId)}</span>
+                            <span className="flex items-center gap-1"><span className="text-sm">{getCategoryEmoji(article.categoryId)}</span>{getCategoryName(article.categoryId)}</span>
                             {article.countryCode && <Badge variant="outline" className="text-[10px] h-4">{article.countryCode}</Badge>}
                             <span>v{article.version}</span>
                             <span>{new Date(article.updatedAt).toLocaleDateString()}</span>
@@ -334,6 +347,7 @@ export default function SopManagementPage() {
                         <div className="flex items-center gap-1 shrink-0">
                           <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => { setReadsArticleId(article.id); setShowReadsDialog(true); }} title={t.sop.whoRead} data-testid={`btn-reads-${article.id}`}><Users className="h-4 w-4" /></Button>
                           <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => { setLinkingArticleId(article.id); setShowCampaignLinkDialog(true); }} title={t.sop.campaignLink} data-testid={`btn-campaigns-${article.id}`}><Tag className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => openCopyDialog(article)} title={t.konfigurator?.copyToLanguage || "Copy to language"} data-testid={`btn-copy-${article.id}`}><Copy className="h-4 w-4" /></Button>
                           <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => openEditArticle(article)} data-testid={`btn-edit-${article.id}`}><Pencil className="h-4 w-4" /></Button>
                           <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-destructive" onClick={() => { if (confirm(t.sop.confirmDeleteArticle)) deleteArticleMutation.mutate(article.id); }} data-testid={`btn-delete-${article.id}`}><Trash2 className="h-4 w-4" /></Button>
                         </div>
@@ -414,23 +428,28 @@ export default function SopManagementPage() {
             </div>
             <div className="space-y-2">
               <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{t.sop.icon}</Label>
-              <div className="grid grid-cols-8 gap-1.5 p-3 border rounded-lg bg-muted/30">
-                {ICON_OPTIONS.map(opt => {
-                  const IconComp = opt.icon;
-                  const isSelected = categoryForm.icon === opt.name;
-                  return (
-                    <button
-                      key={opt.name}
-                      type="button"
-                      className={`h-9 w-9 flex items-center justify-center rounded-lg transition-all ${isSelected ? "bg-primary text-primary-foreground shadow-sm" : "hover:bg-muted text-muted-foreground hover:text-foreground"}`}
-                      onClick={() => setCategoryForm(p => ({ ...p, icon: opt.name }))}
-                      title={opt.label}
-                      data-testid={`icon-${opt.name}`}
-                    >
-                      <IconComp className="h-4 w-4" />
-                    </button>
-                  );
-                })}
+              <div className="border rounded-lg bg-muted/30 p-3 space-y-2">
+                {EMOJI_GROUPS.map(group => (
+                  <div key={group.label}>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">{group.label}</p>
+                    <div className="flex flex-wrap gap-1">
+                      {group.emojis.map(emoji => {
+                        const isSelected = categoryForm.icon === emoji;
+                        return (
+                          <button
+                            key={emoji}
+                            type="button"
+                            className={`h-9 w-9 flex items-center justify-center rounded-lg text-lg transition-all ${isSelected ? "bg-primary shadow-sm ring-2 ring-primary/50 scale-110" : "hover:bg-muted hover:scale-105"}`}
+                            onClick={() => setCategoryForm(p => ({ ...p, icon: emoji }))}
+                            data-testid={`emoji-pick-${group.label.toLowerCase()}-${group.emojis.indexOf(emoji)}`}
+                          >
+                            {emoji}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
             <div className="grid grid-cols-3 gap-3">
@@ -608,6 +627,63 @@ export default function SopManagementPage() {
               })}
             </div>
           </ScrollArea>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showCopyDialog} onOpenChange={(v) => { setShowCopyDialog(v); if (!v) setCopySourceArticle(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Copy className="h-4 w-4" />
+              {t.konfigurator?.copyToLanguage || "Copy / Translate"}
+            </DialogTitle>
+          </DialogHeader>
+          {copySourceArticle && (
+            <div className="space-y-4">
+              <div className="p-3 rounded-lg bg-muted/50 border">
+                <p className="text-sm font-medium">{copySourceArticle.title}</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {t.sop.country}: {copySourceArticle.countryCode || "—"}
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                  {t.konfigurator?.targetLanguage || "Target language"}
+                </Label>
+                <div className="flex flex-wrap gap-2">
+                  {COUNTRY_OPTIONS.map(opt => (
+                    <button
+                      key={opt.code}
+                      type="button"
+                      className={`h-10 w-10 flex items-center justify-center rounded-lg text-xl transition-all border ${
+                        copyTargetCountry === opt.code
+                          ? "border-primary bg-primary/10 ring-2 ring-primary/30 scale-110"
+                          : "border-muted hover:border-foreground/30 hover:scale-105"
+                      }`}
+                      onClick={() => setCopyTargetCountry(opt.code)}
+                      title={opt.name}
+                      data-testid={`copy-lang-${opt.code}`}
+                    >
+                      {opt.flag}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="flex items-center justify-between p-3 rounded-lg border">
+                <div>
+                  <Label className="text-sm font-medium">{t.konfigurator?.aiTranslation || "AI Translation"}</Label>
+                  <p className="text-xs text-muted-foreground">{t.konfigurator?.aiTranslationDesc || "Automatically translate content using AI"}</p>
+                </div>
+                <Switch checked={copyWithTranslation} onCheckedChange={setCopyWithTranslation} data-testid="switch-copy-translate" />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCopyDialog(false)}>{t.sop.cancel}</Button>
+            <Button onClick={handleCopyArticle} disabled={!copyTargetCountry || isCopying} data-testid="btn-confirm-copy">
+              {isCopying ? <><Loader2 className="h-4 w-4 animate-spin mr-1.5" />{t.konfigurator?.translating || "Translating..."}</> : <><Copy className="h-4 w-4 mr-1.5" />{copyWithTranslation ? (t.konfigurator?.copyAndTranslate || "Copy & Translate") : (t.konfigurator?.copy || "Copy")}</>}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

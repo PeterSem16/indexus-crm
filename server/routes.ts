@@ -29519,6 +29519,75 @@ Guidelines:
     }
   });
 
+
+  app.post("/api/sop/articles/:id/copy-translate", requireAuth, async (req, res) => {
+    try {
+      const { targetCountryCode, translate } = req.body;
+      const VALID_CODES = ["SK", "CZ", "US", "HU", "RO", "IT", "DE", "GB"];
+      if (!targetCountryCode || !VALID_CODES.includes(targetCountryCode)) return res.status(400).json({ error: "Invalid targetCountryCode" });
+
+      const source = await storage.getSopArticle(req.params.id);
+      if (!source) return res.status(404).json({ error: "Article not found" });
+
+      const LANG_NAMES: Record<string, string> = {
+        SK: "Slovak", CZ: "Czech", US: "English", HU: "Hungarian",
+        RO: "Romanian", IT: "Italian", DE: "German", GB: "English"
+      };
+      const sourceLangName = LANG_NAMES[(source.countryCode || "SK").toUpperCase()] || source.countryCode || "Slovak";
+      const targetLangName = LANG_NAMES[targetCountryCode.toUpperCase()] || targetCountryCode;
+
+      let title = source.title;
+      let content = source.content;
+      let summary = source.summary || "";
+
+      if (translate) {
+        const openaiInstance = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+        const prompt = `Translate the following from ${sourceLangName} to ${targetLangName}. Keep all HTML tags exactly as they are. Return ONLY the translated text, nothing else.`;
+
+        const translateText = async (text: string, isHtml: boolean): Promise<string> => {
+          if (!text || text.trim().length === 0) return text;
+          const completion = await openaiInstance.chat.completions.create({
+            model: "gpt-4o-mini",
+            messages: [
+              { role: "system", content: prompt + (isHtml ? " The text contains HTML markup - preserve all HTML tags exactly." : "") },
+              { role: "user", content: text }
+            ],
+            temperature: 0.3,
+          });
+          return completion.choices[0]?.message?.content || text;
+        };
+
+        const [translatedTitle, translatedContent, translatedSummary] = await Promise.all([
+          translateText(title, false),
+          translateText(content, true),
+          summary ? translateText(summary, false) : Promise.resolve(""),
+        ]);
+
+        title = translatedTitle;
+        content = translatedContent;
+        summary = translatedSummary;
+      }
+
+      const newArticle = await storage.createSopArticle({
+        categoryId: source.categoryId,
+        title,
+        content,
+        summary: summary || null,
+        priority: source.priority,
+        countryCode: targetCountryCode,
+        isPublished: source.isPublished,
+        isPinned: false,
+        tags: source.tags || [],
+        createdBy: req.session.user?.id?.toString(),
+      });
+
+      res.status(201).json(newArticle);
+    } catch (error) {
+      console.error("Error copying/translating SOP article:", error);
+      res.status(500).json({ error: "Failed to copy article" });
+    }
+  });
+
   app.get("/api/sop/articles/:id/reads", requireAuth, async (req, res) => {
     try {
       const reads = await storage.getSopArticleReads(req.params.id);
