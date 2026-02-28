@@ -35,6 +35,17 @@ function highlightText(text: string, query: string): string {
   return text.replace(regex, '<mark class="bg-yellow-200 dark:bg-yellow-800 text-foreground rounded-sm px-0.5">$1</mark>');
 }
 
+function highlightHtml(html: string, query: string): string {
+  if (!query || query.length < 2) return html;
+  const escaped = escapeRegex(query);
+  const regex = new RegExp(escaped, "gi");
+  const parts = html.split(/(<[^>]*>)/);
+  return parts.map(part => {
+    if (part.startsWith("<")) return part;
+    return part.replace(regex, '<mark class="bg-yellow-200 dark:bg-yellow-800 text-foreground rounded-sm px-0.5">$&</mark>');
+  }).join("");
+}
+
 function getSnippets(text: string, query: string, maxSnippets = 3): string[] {
   if (!query || query.length < 2) return [];
   const lower = text.toLowerCase();
@@ -316,7 +327,7 @@ export function SopPanel({ campaignId, userId }: SopPanelProps) {
             )}
             <div
               className="text-xs leading-relaxed prose prose-sm dark:prose-invert max-w-none [&_h1]:text-sm [&_h2]:text-xs [&_h3]:text-xs [&_p]:text-xs [&_li]:text-xs [&_ul]:my-1 [&_ol]:my-1 [&_p]:my-1"
-              dangerouslySetInnerHTML={{ __html: sanitizeHtml(article.content) }}
+              dangerouslySetInnerHTML={{ __html: searchQuery ? highlightHtml(sanitizeHtml(article.content), searchQuery) : sanitizeHtml(article.content) }}
               data-testid={`sop-search-content-${article.id}`}
             />
             {article.tags && article.tags.length > 0 && (
@@ -507,7 +518,7 @@ export function SopPanel({ campaignId, userId }: SopPanelProps) {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-base" data-testid="sop-dialog-title">
               <BookOpen className="h-4 w-4" />
-              {maximizedArticle?.title}
+              <span dangerouslySetInnerHTML={{ __html: searchQuery && maximizedArticle?.title ? highlightText(maximizedArticle.title, searchQuery) : (maximizedArticle?.title || "") }} />
               {maximizedArticle?.priority && getPriorityBadge(maximizedArticle.priority)}
             </DialogTitle>
             {maximizedArticle && (
@@ -522,17 +533,21 @@ export function SopPanel({ campaignId, userId }: SopPanelProps) {
           <ScrollArea className="flex-1 mt-2">
             {maximizedArticle?.summary && (
               <div className="bg-muted/30 rounded-md p-3 mb-3">
-                <p className="text-sm italic text-muted-foreground">{maximizedArticle.summary}</p>
+                <p className="text-sm italic text-muted-foreground"
+                  dangerouslySetInnerHTML={{ __html: searchQuery ? highlightText(maximizedArticle.summary, searchQuery) : maximizedArticle.summary }}
+                />
               </div>
             )}
             <div
               className="prose prose-sm dark:prose-invert max-w-none"
-              dangerouslySetInnerHTML={{ __html: sanitizeHtml(maximizedArticle?.content || "") }}
+              dangerouslySetInnerHTML={{ __html: searchQuery ? highlightHtml(sanitizeHtml(maximizedArticle?.content || ""), searchQuery) : sanitizeHtml(maximizedArticle?.content || "") }}
             />
             {maximizedArticle?.tags && maximizedArticle.tags.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mt-4 pt-3 border-t">
                 {maximizedArticle.tags.map((tag, i) => (
-                  <Badge key={i} variant="secondary" className="text-xs">{tag}</Badge>
+                  <Badge key={i} variant="secondary" className="text-xs"
+                    dangerouslySetInnerHTML={{ __html: searchQuery ? highlightText(tag, searchQuery) : tag }}
+                  />
                 ))}
               </div>
             )}
