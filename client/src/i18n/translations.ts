@@ -2288,6 +2288,7 @@ export interface Translations {
     content: string;
     contentHtml: string;
     contentHtmlHint: string;
+    contentPlaceholder: string;
     summary: string;
     summaryPlaceholder: string;
     tags: string;
@@ -6604,6 +6605,7 @@ export const translations: Record<Locale, Translations> = {
         content: 'Content',
         contentHtml: 'Content',
         contentHtmlHint: 'Use the editor toolbar for formatting',
+        contentPlaceholder: 'Start writing your SOP article...',
         summary: 'Summary',
         summaryPlaceholder: 'Brief content description (optional)',
         tags: 'Tags (comma separated)',
@@ -10857,6 +10859,7 @@ export const translations: Record<Locale, Translations> = {
         content: 'Obsah',
         contentHtml: 'Obsah',
         contentHtmlHint: 'Použite panel nástrojov na formátovanie',
+        contentPlaceholder: 'Začnite písať váš SOP článok...',
         summary: 'Zhrnutie',
         summaryPlaceholder: 'Stručný popis obsahu (voliteľné)',
         tags: 'Tagy (oddelené čiarkou)',
@@ -15095,6 +15098,7 @@ export const translations: Record<Locale, Translations> = {
         content: 'Obsah',
         contentHtml: 'Obsah',
         contentHtmlHint: 'Použijte panel nástrojů pro formátování',
+        contentPlaceholder: 'Začněte psát váš SOP článek...',
         summary: 'Shrnutí',
         summaryPlaceholder: 'Stručný popis obsahu (volitelné)',
         tags: 'Štítky (oddělené čárkou)',
@@ -19296,6 +19300,7 @@ export const translations: Record<Locale, Translations> = {
         content: 'Tartalom',
         contentHtml: 'Tartalom',
         contentHtmlHint: 'Használja az eszköztárat a formázáshoz',
+        contentPlaceholder: 'Kezdje el írni az SOP cikket...',
         summary: 'Összefoglalás',
         summaryPlaceholder: 'Rövid tartalom leírás (opcionális)',
         tags: 'Címkék (vesszővel elválasztva)',
@@ -23496,6 +23501,7 @@ export const translations: Record<Locale, Translations> = {
         content: 'Conținut',
         contentHtml: 'Conținut',
         contentHtmlHint: 'Utilizați bara de instrumente pentru formatare',
+        contentPlaceholder: 'Începeți să scrieți articolul SOP...',
         summary: 'Rezumat',
         summaryPlaceholder: 'Descriere scurtă a conținutului (opțional)',
         tags: 'Etichete (separate prin virgulă)',
@@ -27697,6 +27703,7 @@ export const translations: Record<Locale, Translations> = {
         content: 'Contenuto',
         contentHtml: 'Contenuto',
         contentHtmlHint: "Usa la barra degli strumenti per la formattazione",
+        contentPlaceholder: "Inizia a scrivere il tuo articolo SOP...",
         summary: 'Riepilogo',
         summaryPlaceholder: 'Breve descrizione del contenuto (opzionale)',
         tags: 'Tag (separati da virgola)',
@@ -31898,6 +31905,7 @@ export const translations: Record<Locale, Translations> = {
         content: 'Inhalt',
         contentHtml: 'Inhalt',
         contentHtmlHint: 'Verwenden Sie die Symbolleiste zur Formatierung',
+        contentPlaceholder: 'Beginnen Sie Ihren SOP-Artikel zu schreiben...',
         summary: 'Zusammenfassung',
         summaryPlaceholder: 'Kurze Inhaltsbeschreibung (optional)',
         tags: 'Tags (kommagetrennt)',

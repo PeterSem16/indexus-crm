@@ -25,8 +25,7 @@ import {
   Thermometer, Baby, Brain, Microscope, Stethoscope, Pill,
   type LucideIcon
 } from "lucide-react";
-import ReactQuill from "react-quill";
-import "react-quill/dist/quill.snow.css";
+import TipTapEditor from "@/components/sop/TipTapEditor";
 import type { SopCategory, SopArticle, Campaign } from "@shared/schema";
 
 const ICON_OPTIONS: { name: string; icon: LucideIcon; label: string }[] = [
@@ -68,17 +67,6 @@ function getIconComponent(iconName: string): LucideIcon {
   return ICON_OPTIONS.find(i => i.name === iconName)?.icon || FolderOpen;
 }
 
-const quillModules = {
-  toolbar: [
-    [{ header: [1, 2, 3, false] }],
-    ["bold", "italic", "underline", "strike"],
-    [{ list: "ordered" }, { list: "bullet" }],
-    [{ color: [] }, { background: [] }],
-    ["blockquote", "code-block"],
-    ["link"],
-    ["clean"],
-  ],
-};
 
 export default function SopManagementPage() {
   const { user } = useAuth();
@@ -489,7 +477,7 @@ export default function SopManagementPage() {
             </DialogTitle>
           </DialogHeader>
           <div className="flex gap-0 flex-1 min-h-0 overflow-hidden -mx-6 -mb-6">
-            <div className="w-[280px] shrink-0 border-r bg-muted/20 overflow-y-auto p-5 space-y-5">
+            <div className="w-[20%] min-w-[220px] max-w-[280px] shrink-0 border-r bg-muted/20 overflow-y-auto p-4 space-y-4">
               <div className="space-y-2">
                 <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{t.sop.name} *</Label>
                 <Input value={articleForm.title} onChange={(e) => setArticleForm(p => ({ ...p, title: e.target.value }))} placeholder={t.sop.titlePlaceholder} data-testid="input-article-title" />
@@ -564,20 +552,12 @@ export default function SopManagementPage() {
             </div>
 
             <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-              <div className="flex items-center justify-between px-5 py-3 border-b bg-muted/10 shrink-0">
-                <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{t.sop.contentHtml}</Label>
-                <p className="text-[10px] text-muted-foreground">{t.sop.contentHtmlHint}</p>
-              </div>
-              <div className="flex-1 overflow-hidden [&_.ql-container]:border-0 [&_.ql-toolbar]:border-x-0 [&_.ql-toolbar]:border-t-0 [&_.ql-editor]:min-h-full [&_.ql-container]:flex-1 [&_.ql-container]:flex [&_.ql-container]:flex-col flex flex-col">
-                <ReactQuill
-                  theme="snow"
-                  value={articleForm.content}
-                  onChange={(val) => setArticleForm(p => ({ ...p, content: val }))}
-                  modules={quillModules}
-                  className="flex-1 flex flex-col overflow-hidden"
-                  data-testid="editor-article-content"
-                />
-              </div>
+              <TipTapEditor
+                content={articleForm.content}
+                onChange={(val) => setArticleForm(p => ({ ...p, content: val }))}
+                placeholder={t.sop.contentPlaceholder || "Start writing your SOP article..."}
+                className="flex-1 min-h-0 border-0 rounded-none"
+              />
               <div className="flex items-center justify-end gap-2 px-5 py-3 border-t bg-muted/10 shrink-0">
                 <Button variant="outline" onClick={() => setShowArticleDialog(false)}>{t.sop.cancel}</Button>
                 <Button onClick={saveArticle} disabled={!articleForm.title || !articleForm.content || !articleForm.categoryId || createArticleMutation.isPending || updateArticleMutation.isPending} data-testid="btn-save-article">

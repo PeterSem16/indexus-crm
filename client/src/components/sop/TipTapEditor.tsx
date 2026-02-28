@@ -1,0 +1,385 @@
+import { useEditor, EditorContent } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
+import { Underline } from "@tiptap/extension-underline";
+import { TextAlign } from "@tiptap/extension-text-align";
+import { TextStyle } from "@tiptap/extension-text-style";
+import { Color } from "@tiptap/extension-color";
+import { Highlight } from "@tiptap/extension-highlight";
+import { Link } from "@tiptap/extension-link";
+import { Image } from "@tiptap/extension-image";
+import { Table } from "@tiptap/extension-table";
+import { TableRow } from "@tiptap/extension-table-row";
+import { TableCell } from "@tiptap/extension-table-cell";
+import { TableHeader } from "@tiptap/extension-table-header";
+import { Placeholder } from "@tiptap/extension-placeholder";
+import { TaskList } from "@tiptap/extension-task-list";
+import { TaskItem } from "@tiptap/extension-task-item";
+import { Subscript } from "@tiptap/extension-subscript";
+import { Superscript } from "@tiptap/extension-superscript";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
+import {
+  Bold, Italic, Underline as UnderlineIcon, Strikethrough, Code,
+  Heading1, Heading2, Heading3, List, ListOrdered, CheckSquare,
+  Quote, Minus, Undo2, Redo2, AlignLeft, AlignCenter, AlignRight, AlignJustify,
+  Link as LinkIcon, Unlink, ImageIcon, Table as TableIcon,
+  Paintbrush, Highlighter, Type,
+  TableProperties, RowsIcon, Columns3, Trash2,
+  Subscript as SubIcon, Superscript as SupIcon, Code2, Pilcrow,
+  Plus, Minus as MinusIcon,
+  RemoveFormatting
+} from "lucide-react";
+
+interface TipTapEditorProps {
+  content: string;
+  onChange: (html: string) => void;
+  placeholder?: string;
+  className?: string;
+}
+
+const COLORS = [
+  "#000000", "#434343", "#666666", "#999999", "#B7B7B7", "#CCCCCC", "#D9D9D9", "#EFEFEF", "#F3F3F3", "#FFFFFF",
+  "#980000", "#FF0000", "#FF9900", "#FFFF00", "#00FF00", "#00FFFF", "#4A86E8", "#0000FF", "#9900FF", "#FF00FF",
+  "#E6B8AF", "#F4CCCC", "#FCE5CD", "#FFF2CC", "#D9EAD3", "#D0E0E3", "#C9DAF8", "#CFE2F3", "#D9D2E9", "#EAD1DC",
+  "#DD7E6B", "#EA9999", "#F9CB9C", "#FFE599", "#B6D7A8", "#A2C4C9", "#A4C2F4", "#9FC5E8", "#B4A7D6", "#D5A6BD",
+  "#CC4125", "#E06666", "#F6B26B", "#FFD966", "#93C47D", "#76A5AF", "#6D9EEB", "#6FA8DC", "#8E7CC3", "#C27BA0",
+];
+
+function ToolbarButton({ onClick, active, disabled, children, title }: {
+  onClick: () => void; active?: boolean; disabled?: boolean; children: React.ReactNode; title?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      title={title}
+      className={cn(
+        "h-7 w-7 flex items-center justify-center rounded text-xs transition-colors",
+        active ? "bg-primary text-primary-foreground" : "hover:bg-muted text-foreground/80",
+        disabled && "opacity-40 cursor-not-allowed"
+      )}
+      data-testid={`editor-btn-${title?.toLowerCase().replace(/\s+/g, '-') || 'action'}`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function ToolbarDivider() {
+  return <div className="w-px h-5 bg-border mx-0.5" />;
+}
+
+export default function TipTapEditor({ content, onChange, placeholder, className }: TipTapEditorProps) {
+  const [linkUrl, setLinkUrl] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
+  const contentRef = useRef(content);
+
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({
+        heading: { levels: [1, 2, 3] },
+      }),
+      Underline,
+      Subscript,
+      Superscript,
+      TextStyle,
+      Color,
+      Highlight.configure({ multicolor: true }),
+      TextAlign.configure({ types: ["heading", "paragraph"] }),
+      Link.configure({ openOnClick: false, HTMLAttributes: { class: "text-primary underline cursor-pointer" } }),
+      Image.configure({ inline: true, allowBase64: true }),
+      Table.configure({ resizable: true }),
+      TableRow,
+      TableCell,
+      TableHeader,
+      TaskList,
+      TaskItem.configure({ nested: true }),
+      Placeholder.configure({ placeholder: placeholder || "Start writing..." }),
+    ],
+    content: content || "",
+    onUpdate: ({ editor }) => {
+      const html = editor.getHTML();
+      contentRef.current = html;
+      onChange(html);
+    },
+    editorProps: {
+      attributes: {
+        class: "tiptap prose prose-sm dark:prose-invert max-w-none focus:outline-none min-h-full px-5 py-4",
+      },
+    },
+  });
+
+  useEffect(() => {
+    if (editor && content !== contentRef.current) {
+      contentRef.current = content;
+      editor.commands.setContent(content || "", false);
+    }
+  }, [content, editor]);
+
+  const setLink = useCallback(() => {
+    if (!editor || !linkUrl) return;
+    editor.chain().focus().extendMarkRange("link").setLink({ href: linkUrl }).run();
+    setLinkUrl("");
+  }, [editor, linkUrl]);
+
+  const insertImage = useCallback(() => {
+    if (!editor || !imageUrl) return;
+    editor.chain().focus().setImage({ src: imageUrl }).run();
+    setImageUrl("");
+  }, [editor, imageUrl]);
+
+  if (!editor) return null;
+
+  return (
+    <div className={cn("flex flex-col border rounded-lg overflow-hidden bg-background", className)} data-testid="tiptap-editor">
+      <div className="flex flex-wrap items-center gap-0.5 px-2 py-1.5 border-b bg-muted/30 shrink-0">
+        <ToolbarButton onClick={() => editor.chain().focus().undo().run()} disabled={!editor.can().undo()} title="Undo">
+          <Undo2 className="h-3.5 w-3.5" />
+        </ToolbarButton>
+        <ToolbarButton onClick={() => editor.chain().focus().redo().run()} disabled={!editor.can().redo()} title="Redo">
+          <Redo2 className="h-3.5 w-3.5" />
+        </ToolbarButton>
+
+        <ToolbarDivider />
+
+        <Popover>
+          <PopoverTrigger asChild>
+            <button type="button" className="h-7 px-2 flex items-center gap-1 rounded text-xs hover:bg-muted text-foreground/80" title="Paragraph format" data-testid="editor-btn-paragraph-format">
+              <Pilcrow className="h-3.5 w-3.5" />
+              <span className="text-[10px]">
+                {editor.isActive("heading", { level: 1 }) ? "H1" : editor.isActive("heading", { level: 2 }) ? "H2" : editor.isActive("heading", { level: 3 }) ? "H3" : "P"}
+              </span>
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-40 p-1" align="start">
+            <button type="button" className={cn("w-full text-left px-2 py-1.5 rounded text-sm hover:bg-muted", !editor.isActive("heading") && "bg-muted/50")} onClick={() => editor.chain().focus().setParagraph().run()}>
+              Paragraph
+            </button>
+            <button type="button" className={cn("w-full text-left px-2 py-1.5 rounded text-lg font-bold hover:bg-muted", editor.isActive("heading", { level: 1 }) && "bg-muted/50")} onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}>
+              Heading 1
+            </button>
+            <button type="button" className={cn("w-full text-left px-2 py-1.5 rounded text-base font-bold hover:bg-muted", editor.isActive("heading", { level: 2 }) && "bg-muted/50")} onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}>
+              Heading 2
+            </button>
+            <button type="button" className={cn("w-full text-left px-2 py-1.5 rounded text-sm font-bold hover:bg-muted", editor.isActive("heading", { level: 3 }) && "bg-muted/50")} onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}>
+              Heading 3
+            </button>
+          </PopoverContent>
+        </Popover>
+
+        <ToolbarDivider />
+
+        <ToolbarButton onClick={() => editor.chain().focus().toggleBold().run()} active={editor.isActive("bold")} title="Bold">
+          <Bold className="h-3.5 w-3.5" />
+        </ToolbarButton>
+        <ToolbarButton onClick={() => editor.chain().focus().toggleItalic().run()} active={editor.isActive("italic")} title="Italic">
+          <Italic className="h-3.5 w-3.5" />
+        </ToolbarButton>
+        <ToolbarButton onClick={() => editor.chain().focus().toggleUnderline().run()} active={editor.isActive("underline")} title="Underline">
+          <UnderlineIcon className="h-3.5 w-3.5" />
+        </ToolbarButton>
+        <ToolbarButton onClick={() => editor.chain().focus().toggleStrike().run()} active={editor.isActive("strike")} title="Strikethrough">
+          <Strikethrough className="h-3.5 w-3.5" />
+        </ToolbarButton>
+        <ToolbarButton onClick={() => editor.chain().focus().toggleSubscript().run()} active={editor.isActive("subscript")} title="Subscript">
+          <SubIcon className="h-3.5 w-3.5" />
+        </ToolbarButton>
+        <ToolbarButton onClick={() => editor.chain().focus().toggleSuperscript().run()} active={editor.isActive("superscript")} title="Superscript">
+          <SupIcon className="h-3.5 w-3.5" />
+        </ToolbarButton>
+
+        <ToolbarDivider />
+
+        <Popover>
+          <PopoverTrigger asChild>
+            <button type="button" className="h-7 w-7 flex items-center justify-center rounded hover:bg-muted" title="Text color" data-testid="editor-btn-text-color">
+              <div className="flex flex-col items-center">
+                <Type className="h-3 w-3 text-foreground/80" />
+                <div className="h-0.5 w-3.5 rounded-full mt-px" style={{ backgroundColor: editor.getAttributes("textStyle").color || "#000" }} />
+              </div>
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-56 p-2" align="start">
+            <div className="grid grid-cols-10 gap-0.5">
+              {COLORS.map(color => (
+                <button key={color} type="button" className="h-5 w-5 rounded border border-border/50 hover:scale-125 transition-transform" style={{ backgroundColor: color }}
+                  onClick={() => { editor.chain().focus().setColor(color).run(); }} />
+              ))}
+            </div>
+            <button type="button" className="mt-2 text-xs text-muted-foreground hover:text-foreground w-full text-left" onClick={() => editor.chain().focus().unsetColor().run()}>
+              Reset color
+            </button>
+          </PopoverContent>
+        </Popover>
+
+        <Popover>
+          <PopoverTrigger asChild>
+            <button type="button" className={cn("h-7 w-7 flex items-center justify-center rounded hover:bg-muted", editor.isActive("highlight") && "bg-primary text-primary-foreground")} title="Highlight" data-testid="editor-btn-highlight">
+              <Highlighter className="h-3.5 w-3.5" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-56 p-2" align="start">
+            <div className="grid grid-cols-10 gap-0.5">
+              {COLORS.slice(20).map(color => (
+                <button key={color} type="button" className="h-5 w-5 rounded border border-border/50 hover:scale-125 transition-transform" style={{ backgroundColor: color }}
+                  onClick={() => editor.chain().focus().toggleHighlight({ color }).run()} />
+              ))}
+            </div>
+            <button type="button" className="mt-2 text-xs text-muted-foreground hover:text-foreground w-full text-left" onClick={() => editor.chain().focus().unsetHighlight().run()}>
+              Remove highlight
+            </button>
+          </PopoverContent>
+        </Popover>
+
+        <ToolbarDivider />
+
+        <ToolbarButton onClick={() => editor.chain().focus().setTextAlign("left").run()} active={editor.isActive({ textAlign: "left" })} title="Align left">
+          <AlignLeft className="h-3.5 w-3.5" />
+        </ToolbarButton>
+        <ToolbarButton onClick={() => editor.chain().focus().setTextAlign("center").run()} active={editor.isActive({ textAlign: "center" })} title="Align center">
+          <AlignCenter className="h-3.5 w-3.5" />
+        </ToolbarButton>
+        <ToolbarButton onClick={() => editor.chain().focus().setTextAlign("right").run()} active={editor.isActive({ textAlign: "right" })} title="Align right">
+          <AlignRight className="h-3.5 w-3.5" />
+        </ToolbarButton>
+        <ToolbarButton onClick={() => editor.chain().focus().setTextAlign("justify").run()} active={editor.isActive({ textAlign: "justify" })} title="Justify">
+          <AlignJustify className="h-3.5 w-3.5" />
+        </ToolbarButton>
+
+        <ToolbarDivider />
+
+        <ToolbarButton onClick={() => editor.chain().focus().toggleBulletList().run()} active={editor.isActive("bulletList")} title="Bullet list">
+          <List className="h-3.5 w-3.5" />
+        </ToolbarButton>
+        <ToolbarButton onClick={() => editor.chain().focus().toggleOrderedList().run()} active={editor.isActive("orderedList")} title="Numbered list">
+          <ListOrdered className="h-3.5 w-3.5" />
+        </ToolbarButton>
+        <ToolbarButton onClick={() => editor.chain().focus().toggleTaskList().run()} active={editor.isActive("taskList")} title="Task list">
+          <CheckSquare className="h-3.5 w-3.5" />
+        </ToolbarButton>
+
+        <ToolbarDivider />
+
+        <ToolbarButton onClick={() => editor.chain().focus().toggleBlockquote().run()} active={editor.isActive("blockquote")} title="Blockquote">
+          <Quote className="h-3.5 w-3.5" />
+        </ToolbarButton>
+        <ToolbarButton onClick={() => editor.chain().focus().toggleCode().run()} active={editor.isActive("code")} title="Inline code">
+          <Code className="h-3.5 w-3.5" />
+        </ToolbarButton>
+        <ToolbarButton onClick={() => editor.chain().focus().toggleCodeBlock().run()} active={editor.isActive("codeBlock")} title="Code block">
+          <Code2 className="h-3.5 w-3.5" />
+        </ToolbarButton>
+        <ToolbarButton onClick={() => editor.chain().focus().setHorizontalRule().run()} title="Horizontal rule">
+          <Minus className="h-3.5 w-3.5" />
+        </ToolbarButton>
+
+        <ToolbarDivider />
+
+        <Popover>
+          <PopoverTrigger asChild>
+            <button type="button" className={cn("h-7 w-7 flex items-center justify-center rounded hover:bg-muted", editor.isActive("link") && "bg-primary text-primary-foreground")} title="Link" data-testid="editor-btn-link">
+              <LinkIcon className="h-3.5 w-3.5" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-72 p-3" align="start">
+            <div className="space-y-2">
+              <Input placeholder="https://example.com" value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} className="h-8 text-xs" onKeyDown={(e) => e.key === "Enter" && setLink()} data-testid="input-link-url" />
+              <div className="flex gap-1">
+                <Button size="sm" className="h-7 text-xs flex-1" onClick={setLink}>Insert link</Button>
+                {editor.isActive("link") && (
+                  <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => editor.chain().focus().unsetLink().run()}>
+                    <Unlink className="h-3 w-3" />
+                  </Button>
+                )}
+              </div>
+            </div>
+          </PopoverContent>
+        </Popover>
+
+        <Popover>
+          <PopoverTrigger asChild>
+            <button type="button" className="h-7 w-7 flex items-center justify-center rounded hover:bg-muted" title="Insert image" data-testid="editor-btn-image">
+              <ImageIcon className="h-3.5 w-3.5" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-72 p-3" align="start">
+            <div className="space-y-2">
+              <Input placeholder="Image URL" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} className="h-8 text-xs" onKeyDown={(e) => e.key === "Enter" && insertImage()} data-testid="input-image-url" />
+              <Button size="sm" className="h-7 text-xs w-full" onClick={insertImage}>Insert image</Button>
+            </div>
+          </PopoverContent>
+        </Popover>
+
+        <ToolbarDivider />
+
+        <Popover>
+          <PopoverTrigger asChild>
+            <button type="button" className={cn("h-7 w-7 flex items-center justify-center rounded hover:bg-muted", editor.isActive("table") && "bg-primary text-primary-foreground")} title="Table" data-testid="editor-btn-table">
+              <TableIcon className="h-3.5 w-3.5" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-48 p-1" align="start">
+            <div className="space-y-0.5">
+              <button type="button" className="w-full text-left px-2 py-1.5 rounded text-xs hover:bg-muted flex items-center gap-2" onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}>
+                <Plus className="h-3 w-3" /> Insert table (3×3)
+              </button>
+              {editor.isActive("table") && (
+                <>
+                  <Separator />
+                  <button type="button" className="w-full text-left px-2 py-1.5 rounded text-xs hover:bg-muted flex items-center gap-2" onClick={() => editor.chain().focus().addColumnBefore().run()}>
+                    <Columns3 className="h-3 w-3" /> Add column before
+                  </button>
+                  <button type="button" className="w-full text-left px-2 py-1.5 rounded text-xs hover:bg-muted flex items-center gap-2" onClick={() => editor.chain().focus().addColumnAfter().run()}>
+                    <Columns3 className="h-3 w-3" /> Add column after
+                  </button>
+                  <button type="button" className="w-full text-left px-2 py-1.5 rounded text-xs hover:bg-muted flex items-center gap-2" onClick={() => editor.chain().focus().deleteColumn().run()}>
+                    <Columns3 className="h-3 w-3 text-destructive" /> Delete column
+                  </button>
+                  <Separator />
+                  <button type="button" className="w-full text-left px-2 py-1.5 rounded text-xs hover:bg-muted flex items-center gap-2" onClick={() => editor.chain().focus().addRowBefore().run()}>
+                    <RowsIcon className="h-3 w-3" /> Add row before
+                  </button>
+                  <button type="button" className="w-full text-left px-2 py-1.5 rounded text-xs hover:bg-muted flex items-center gap-2" onClick={() => editor.chain().focus().addRowAfter().run()}>
+                    <RowsIcon className="h-3 w-3" /> Add row after
+                  </button>
+                  <button type="button" className="w-full text-left px-2 py-1.5 rounded text-xs hover:bg-muted flex items-center gap-2" onClick={() => editor.chain().focus().deleteRow().run()}>
+                    <RowsIcon className="h-3 w-3 text-destructive" /> Delete row
+                  </button>
+                  <Separator />
+                  <button type="button" className="w-full text-left px-2 py-1.5 rounded text-xs hover:bg-muted flex items-center gap-2" onClick={() => editor.chain().focus().toggleHeaderRow().run()}>
+                    <TableProperties className="h-3 w-3" /> Toggle header row
+                  </button>
+                  <button type="button" className="w-full text-left px-2 py-1.5 rounded text-xs hover:bg-muted flex items-center gap-2" onClick={() => editor.chain().focus().mergeCells().run()}>
+                    <TableProperties className="h-3 w-3" /> Merge cells
+                  </button>
+                  <button type="button" className="w-full text-left px-2 py-1.5 rounded text-xs hover:bg-muted flex items-center gap-2" onClick={() => editor.chain().focus().splitCell().run()}>
+                    <TableProperties className="h-3 w-3" /> Split cell
+                  </button>
+                  <Separator />
+                  <button type="button" className="w-full text-left px-2 py-1.5 rounded text-xs hover:bg-muted flex items-center gap-2 text-destructive" onClick={() => editor.chain().focus().deleteTable().run()}>
+                    <Trash2 className="h-3 w-3" /> Delete table
+                  </button>
+                </>
+              )}
+            </div>
+          </PopoverContent>
+        </Popover>
+
+        <ToolbarDivider />
+
+        <ToolbarButton onClick={() => editor.chain().focus().unsetAllMarks().clearNodes().run()} title="Clear formatting">
+          <RemoveFormatting className="h-3.5 w-3.5" />
+        </ToolbarButton>
+      </div>
+
+      <div className="flex-1 overflow-y-auto" data-testid="tiptap-editor-content">
+        <EditorContent editor={editor} className="min-h-full" />
+      </div>
+    </div>
+  );
+}
