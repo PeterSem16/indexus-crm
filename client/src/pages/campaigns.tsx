@@ -12,6 +12,7 @@ import { DidRoutesTab } from "@/components/campaigns/DidRoutesTab";
 import { VoicemailsTab } from "@/components/campaigns/VoicemailsTab";
 import { InboundReportsTab } from "@/components/campaigns/InboundReportsTab";
 import { VirtualAgentTab } from "@/components/campaigns/VirtualAgentTab";
+import SopManagementPage from "@/pages/sop-management";
 import { useAuth } from "@/contexts/auth-context";
 import { useCountryFilter } from "@/contexts/country-filter-context";
 import { Button } from "@/components/ui/button";
@@ -1650,6 +1651,14 @@ function InboundSubTabs() {
             <Bot className="h-4 w-4" />
             Virtuálny agent
           </TabsTrigger>
+          <TabsTrigger value="ivr-messages" className="gap-2" data-testid="tab-inbound-ivr-messages">
+            <Mic className="h-4 w-4" />
+            IVR Audio
+          </TabsTrigger>
+          <TabsTrigger value="inbound-reports" className="gap-2" data-testid="tab-inbound-reports">
+            <BarChart3 className="h-4 w-4" />
+            Inbound Reporty
+          </TabsTrigger>
         </TabsList>
       </div>
       <TabsContent value="did-routes" className="flex-1 overflow-auto mt-0">
@@ -1666,6 +1675,12 @@ function InboundSubTabs() {
       </TabsContent>
       <TabsContent value="virtual-agent" className="flex-1 overflow-auto p-6 mt-0">
         <VirtualAgentTab />
+      </TabsContent>
+      <TabsContent value="ivr-messages" className="flex-1 overflow-auto p-6 mt-0">
+        <IvrMessagesTab />
+      </TabsContent>
+      <TabsContent value="inbound-reports" className="flex-1 overflow-auto p-6 mt-0">
+        <InboundReportsTab />
       </TabsContent>
     </Tabs>
   );
@@ -2082,13 +2097,9 @@ export default function CampaignsPage() {
               <Phone className="h-4 w-4" />
               Inbound
             </TabsTrigger>
-            <TabsTrigger value="ivr-messages" className="gap-2" data-testid="tab-ivr-messages">
-              <Mic className="h-4 w-4" />
-              IVR Audio
-            </TabsTrigger>
-            <TabsTrigger value="inbound-reports" className="gap-2" data-testid="tab-inbound-reports">
-              <BarChart3 className="h-4 w-4" />
-              Inbound Reporty
+            <TabsTrigger value="sop" className="gap-2" data-testid="tab-sop">
+              <BookOpen className="h-4 w-4" />
+              {t.sop.title}
             </TabsTrigger>
           </TabsList>
         </div>
@@ -2266,12 +2277,8 @@ export default function CampaignsPage() {
           <InboundSubTabs />
         </TabsContent>
 
-        <TabsContent value="ivr-messages" className="flex-1 overflow-auto p-6 mt-0">
-          <IvrMessagesTab />
-        </TabsContent>
-
-        <TabsContent value="inbound-reports" className="flex-1 overflow-auto p-6 mt-0">
-          <InboundReportsTab />
+        <TabsContent value="sop" className="flex-1 overflow-auto mt-0">
+          <SopManagementPage />
         </TabsContent>
       </Tabs>
 

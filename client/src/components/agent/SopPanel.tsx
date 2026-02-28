@@ -179,7 +179,7 @@ export function SopPanel({ campaignId, userId }: SopPanelProps) {
           </Button>
           {categories.filter(c => c.isActive).map(cat => (
             <Button key={cat.id} variant={selectedCategory === cat.id ? "default" : "outline"} size="sm" className="h-5 text-[10px] px-2" onClick={() => setSelectedCategory(cat.id)} data-testid={`sop-filter-${cat.id}`}>
-              {cat.icon && <span className="mr-0.5">{cat.icon}</span>}{cat.name}
+              {cat.name}
             </Button>
           ))}
         </div>

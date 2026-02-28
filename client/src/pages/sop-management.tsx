@@ -15,23 +15,58 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Separator } from "@/components/ui/separator";
 import {
   BookOpen, Plus, Pencil, Trash2, FolderOpen, FileText, Pin,
-  AlertCircle, AlertTriangle, EyeOff, Users, Search, Tag, Upload, Loader2
+  AlertCircle, AlertTriangle, EyeOff, Users, Search, Tag, Upload, Loader2,
+  Clipboard, FolderClosed, FileCheck, Bookmark, Heart, Syringe,
+  Phone, Mail, MessageSquare, Shield, Settings, Target, Globe,
+  Star, Lightbulb, BarChart3, Lock, Key, Zap, Bell, Calendar,
+  Thermometer, Baby, Brain, Microscope, Stethoscope, Pill,
+  type LucideIcon
 } from "lucide-react";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
 import type { SopCategory, SopArticle, Campaign } from "@shared/schema";
 
-const SOP_EMOJI_GROUPS = [
-  { label: "Office", emojis: ["📋", "📁", "📂", "📄", "📑", "📌", "📎", "🗂️", "📝", "✏️", "🖊️", "📒", "📕", "📗", "📘", "📙"] },
-  { label: "Medical", emojis: ["🏥", "💉", "🩸", "🧬", "🔬", "💊", "🩺", "🧪", "❤️", "🫀", "🧠", "👶", "🤰"] },
-  { label: "Communication", emojis: ["📞", "📧", "💬", "📱", "📨", "📩", "✉️", "🗣️", "📢", "📣"] },
-  { label: "Process", emojis: ["⚙️", "🔧", "🔄", "✅", "❌", "⚠️", "🔒", "🔑", "🛡️", "🎯", "📊", "📈", "📉"] },
-  { label: "People", emojis: ["👥", "👤", "🤝", "🧑‍💼", "👨‍⚕️", "👩‍⚕️", "🧑‍🔬", "👨‍💻"] },
-  { label: "Other", emojis: ["🌐", "💡", "⭐", "🏆", "🎓", "📦", "🚀", "💼", "🔔", "🗓️", "⏰", "🌡️"] },
+const ICON_OPTIONS: { name: string; icon: LucideIcon; label: string }[] = [
+  { name: "clipboard", icon: Clipboard, label: "Clipboard" },
+  { name: "folder-closed", icon: FolderClosed, label: "Folder" },
+  { name: "folder-open", icon: FolderOpen, label: "Folder Open" },
+  { name: "file-text", icon: FileText, label: "Document" },
+  { name: "file-check", icon: FileCheck, label: "File Check" },
+  { name: "bookmark", icon: Bookmark, label: "Bookmark" },
+  { name: "book-open", icon: BookOpen, label: "Book" },
+  { name: "heart", icon: Heart, label: "Heart" },
+  { name: "syringe", icon: Syringe, label: "Syringe" },
+  { name: "baby", icon: Baby, label: "Baby" },
+  { name: "brain", icon: Brain, label: "Brain" },
+  { name: "microscope", icon: Microscope, label: "Microscope" },
+  { name: "stethoscope", icon: Stethoscope, label: "Stethoscope" },
+  { name: "pill", icon: Pill, label: "Pill" },
+  { name: "thermometer", icon: Thermometer, label: "Thermometer" },
+  { name: "phone", icon: Phone, label: "Phone" },
+  { name: "mail", icon: Mail, label: "Mail" },
+  { name: "message-square", icon: MessageSquare, label: "Chat" },
+  { name: "shield", icon: Shield, label: "Shield" },
+  { name: "settings", icon: Settings, label: "Settings" },
+  { name: "target", icon: Target, label: "Target" },
+  { name: "globe", icon: Globe, label: "Globe" },
+  { name: "star", icon: Star, label: "Star" },
+  { name: "lightbulb", icon: Lightbulb, label: "Idea" },
+  { name: "bar-chart", icon: BarChart3, label: "Chart" },
+  { name: "lock", icon: Lock, label: "Lock" },
+  { name: "key", icon: Key, label: "Key" },
+  { name: "zap", icon: Zap, label: "Zap" },
+  { name: "bell", icon: Bell, label: "Bell" },
+  { name: "calendar", icon: Calendar, label: "Calendar" },
+  { name: "users", icon: Users, label: "Users" },
+  { name: "alert-circle", icon: AlertCircle, label: "Alert" },
 ];
+
+function getIconComponent(iconName: string): LucideIcon {
+  return ICON_OPTIONS.find(i => i.name === iconName)?.icon || FolderOpen;
+}
 
 const quillModules = {
   toolbar: [
@@ -161,13 +196,13 @@ export default function SopManagementPage() {
 
   const openNewCategory = () => {
     setEditingCategory(null);
-    setCategoryForm({ name: "", description: "", icon: "", sortOrder: 0, countryCode: "", isActive: true });
+    setCategoryForm({ name: "", description: "", icon: "clipboard", sortOrder: 0, countryCode: "", isActive: true });
     setShowCategoryDialog(true);
   };
 
   const openEditCategory = (cat: SopCategory) => {
     setEditingCategory(cat);
-    setCategoryForm({ name: cat.name, description: cat.description || "", icon: cat.icon || "", sortOrder: cat.sortOrder || 0, countryCode: cat.countryCode || "", isActive: cat.isActive ?? true });
+    setCategoryForm({ name: cat.name, description: cat.description || "", icon: cat.icon || "clipboard", sortOrder: cat.sortOrder || 0, countryCode: cat.countryCode || "", isActive: cat.isActive ?? true });
     setShowCategoryDialog(true);
   };
 
@@ -204,16 +239,28 @@ export default function SopManagementPage() {
   });
 
   const getCategoryName = (id: string) => categories.find(c => c.id === id)?.name || "—";
+  const getCategoryIcon = (id: string) => {
+    const cat = categories.find(c => c.id === id);
+    if (!cat?.icon) return FolderOpen;
+    return getIconComponent(cat.icon);
+  };
   const getUserName = (id: string) => {
     const u = users.find((u: any) => u.id?.toString() === id?.toString());
     return u ? `${u.firstName || ""} ${u.lastName || ""}`.trim() || u.username : id;
+  };
+
+  const renderCategoryIcon = (iconName: string | null | undefined) => {
+    const IconComp = iconName ? getIconComponent(iconName) : FolderOpen;
+    return <IconComp className="h-5 w-5" />;
   };
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6" data-testid="sop-management-page">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <BookOpen className="h-6 w-6 text-amber-600" />
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600">
+            <BookOpen className="h-5 w-5" />
+          </div>
           <div>
             <h1 className="text-2xl font-bold" data-testid="sop-page-title">{t.sop.title}</h1>
             <p className="text-sm text-muted-foreground">{t.sop.subtitle}</p>
@@ -243,7 +290,7 @@ export default function SopManagementPage() {
               <SelectTrigger className="w-[180px]" data-testid="sop-filter-category"><SelectValue placeholder={t.sop.category} /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">{t.sop.allCategories}</SelectItem>
-                {categories.map(c => (<SelectItem key={c.id} value={c.id}>{c.icon} {c.name}</SelectItem>))}
+                {categories.map(c => (<SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>))}
               </SelectContent>
             </Select>
             <Select value={filterPriority || "all"} onValueChange={(v) => setFilterPriority(v === "all" ? null : v)}>
@@ -270,40 +317,43 @@ export default function SopManagementPage() {
             </CardContent></Card>
           ) : (
             <div className="grid gap-3">
-              {filteredArticles.map(article => (
-                <Card key={article.id} className={`${!article.isPublished ? "opacity-60" : ""}`} data-testid={`sop-card-${article.id}`}>
-                  <CardContent className="p-4">
-                    <div className="flex items-start gap-4">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1 flex-wrap">
-                          {article.isPinned && <Pin className="h-3.5 w-3.5 text-blue-500" />}
-                          <h3 className="font-semibold text-sm" data-testid={`sop-title-${article.id}`}>{article.title}</h3>
-                          {article.priority === "critical" && <Badge variant="destructive" className="text-[10px] h-5 gap-0.5"><AlertCircle className="h-3 w-3" />{t.sop.priorityCritical}</Badge>}
-                          {article.priority === "high" && <Badge className="text-[10px] h-5 gap-0.5 bg-orange-500"><AlertTriangle className="h-3 w-3" />{t.sop.priorityHigh}</Badge>}
-                          {!article.isPublished && <Badge variant="secondary" className="text-[10px] h-5 gap-0.5"><EyeOff className="h-3 w-3" />{t.sop.hidden}</Badge>}
+              {filteredArticles.map(article => {
+                const CatIcon = getCategoryIcon(article.categoryId);
+                return (
+                  <Card key={article.id} className={`${!article.isPublished ? "opacity-60" : ""}`} data-testid={`sop-card-${article.id}`}>
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
+                            {article.isPinned && <Pin className="h-3.5 w-3.5 text-blue-500" />}
+                            <h3 className="font-semibold text-sm" data-testid={`sop-title-${article.id}`}>{article.title}</h3>
+                            {article.priority === "critical" && <Badge variant="destructive" className="text-[10px] h-5 gap-0.5"><AlertCircle className="h-3 w-3" />{t.sop.priorityCritical}</Badge>}
+                            {article.priority === "high" && <Badge className="text-[10px] h-5 gap-0.5 bg-orange-500"><AlertTriangle className="h-3 w-3" />{t.sop.priorityHigh}</Badge>}
+                            {!article.isPublished && <Badge variant="secondary" className="text-[10px] h-5 gap-0.5"><EyeOff className="h-3 w-3" />{t.sop.hidden}</Badge>}
+                          </div>
+                          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                            <span className="flex items-center gap-1"><CatIcon className="h-3 w-3" />{getCategoryName(article.categoryId)}</span>
+                            {article.countryCode && <Badge variant="outline" className="text-[10px] h-4">{article.countryCode}</Badge>}
+                            <span>v{article.version}</span>
+                            <span>{new Date(article.updatedAt).toLocaleDateString()}</span>
+                            {article.createdBy && <span>{t.sop.author}: {getUserName(article.createdBy)}</span>}
+                          </div>
+                          {article.summary && <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{article.summary}</p>}
+                          {article.tags && article.tags.length > 0 && (
+                            <div className="flex gap-1 mt-1.5 flex-wrap">{article.tags.map((tag, i) => <Badge key={i} variant="secondary" className="text-[9px] h-4">{tag}</Badge>)}</div>
+                          )}
                         </div>
-                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                          <span className="flex items-center gap-1"><FolderOpen className="h-3 w-3" />{getCategoryName(article.categoryId)}</span>
-                          {article.countryCode && <Badge variant="outline" className="text-[10px] h-4">{article.countryCode}</Badge>}
-                          <span>v{article.version}</span>
-                          <span>{new Date(article.updatedAt).toLocaleDateString()}</span>
-                          {article.createdBy && <span>{t.sop.author}: {getUserName(article.createdBy)}</span>}
+                        <div className="flex items-center gap-1 shrink-0">
+                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => { setReadsArticleId(article.id); setShowReadsDialog(true); }} title={t.sop.whoRead} data-testid={`btn-reads-${article.id}`}><Users className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => { setLinkingArticleId(article.id); setShowCampaignLinkDialog(true); }} title={t.sop.campaignLink} data-testid={`btn-campaigns-${article.id}`}><Tag className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => openEditArticle(article)} data-testid={`btn-edit-${article.id}`}><Pencil className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-destructive" onClick={() => { if (confirm(t.sop.confirmDeleteArticle)) deleteArticleMutation.mutate(article.id); }} data-testid={`btn-delete-${article.id}`}><Trash2 className="h-4 w-4" /></Button>
                         </div>
-                        {article.summary && <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{article.summary}</p>}
-                        {article.tags && article.tags.length > 0 && (
-                          <div className="flex gap-1 mt-1.5 flex-wrap">{article.tags.map((tag, i) => <Badge key={i} variant="secondary" className="text-[9px] h-4">{tag}</Badge>)}</div>
-                        )}
                       </div>
-                      <div className="flex items-center gap-1 shrink-0">
-                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => { setReadsArticleId(article.id); setShowReadsDialog(true); }} title={t.sop.whoRead} data-testid={`btn-reads-${article.id}`}><Users className="h-4 w-4" /></Button>
-                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => { setLinkingArticleId(article.id); setShowCampaignLinkDialog(true); }} title={t.sop.campaignLink} data-testid={`btn-campaigns-${article.id}`}><Tag className="h-4 w-4" /></Button>
-                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => openEditArticle(article)} data-testid={`btn-edit-${article.id}`}><Pencil className="h-4 w-4" /></Button>
-                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-destructive" onClick={() => { if (confirm(t.sop.confirmDeleteArticle)) deleteArticleMutation.mutate(article.id); }} data-testid={`btn-delete-${article.id}`}><Trash2 className="h-4 w-4" /></Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           )}
         </TabsContent>
@@ -320,8 +370,10 @@ export default function SopManagementPage() {
                 <Card key={cat.id} className={`${!cat.isActive ? "opacity-50" : ""}`} data-testid={`category-card-${cat.id}`}>
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xl">{cat.icon || "📁"}</span>
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                          {renderCategoryIcon(cat.icon)}
+                        </div>
                         <div>
                           <h3 className="font-semibold text-sm" data-testid={`category-name-${cat.id}`}>{cat.name}</h3>
                           {cat.description && <p className="text-xs text-muted-foreground">{cat.description}</p>}
@@ -354,75 +406,70 @@ export default function SopManagementPage() {
       </Tabs>
 
       <Dialog open={showCategoryDialog} onOpenChange={setShowCategoryDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>{editingCategory ? t.sop.editCategory : t.sop.newCategory}</DialogTitle></DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>{t.sop.name} *</Label>
-              <Input value={categoryForm.name} onChange={(e) => setCategoryForm(p => ({ ...p, name: e.target.value }))} placeholder={t.sop.categoryNamePlaceholder} data-testid="input-category-name" />
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                {renderCategoryIcon(categoryForm.icon)}
+              </div>
+              {editingCategory ? t.sop.editCategory : t.sop.newCategory}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-5">
+            <div className="space-y-2">
+              <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{t.sop.name} *</Label>
+              <Input value={categoryForm.name} onChange={(e) => setCategoryForm(p => ({ ...p, name: e.target.value }))} placeholder={t.sop.categoryNamePlaceholder} className="h-10" data-testid="input-category-name" />
             </div>
-            <div>
-              <Label>{t.sop.description}</Label>
+            <div className="space-y-2">
+              <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{t.sop.description}</Label>
               <Textarea value={categoryForm.description} onChange={(e) => setCategoryForm(p => ({ ...p, description: e.target.value }))} placeholder={t.sop.categoryDescPlaceholder} rows={2} data-testid="input-category-description" />
             </div>
-            <div className="grid grid-cols-3 gap-3">
-              <div>
-                <Label>{t.sop.icon}</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full justify-start text-lg h-10" data-testid="btn-emoji-picker">
-                      {categoryForm.icon || t.sop.selectIcon}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-72 p-2" align="start">
-                    <ScrollArea className="h-[240px]">
-                      {SOP_EMOJI_GROUPS.map(group => (
-                        <div key={group.label} className="mb-2">
-                          <p className="text-[10px] font-semibold text-muted-foreground uppercase mb-1 px-1">{group.label}</p>
-                          <div className="grid grid-cols-8 gap-0.5">
-                            {group.emojis.map(emoji => (
-                              <button
-                                key={emoji}
-                                className={`h-8 w-8 flex items-center justify-center text-lg rounded hover:bg-muted transition-colors ${categoryForm.icon === emoji ? "bg-primary/10 ring-1 ring-primary" : ""}`}
-                                onClick={() => setCategoryForm(p => ({ ...p, icon: emoji }))}
-                                data-testid={`emoji-${emoji}`}
-                              >
-                                {emoji}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      ))}
-                    </ScrollArea>
-                  </PopoverContent>
-                </Popover>
+            <div className="space-y-2">
+              <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{t.sop.icon}</Label>
+              <div className="grid grid-cols-8 gap-1.5 p-3 border rounded-lg bg-muted/30">
+                {ICON_OPTIONS.map(opt => {
+                  const IconComp = opt.icon;
+                  const isSelected = categoryForm.icon === opt.name;
+                  return (
+                    <button
+                      key={opt.name}
+                      type="button"
+                      className={`h-9 w-9 flex items-center justify-center rounded-lg transition-all ${isSelected ? "bg-primary text-primary-foreground shadow-sm" : "hover:bg-muted text-muted-foreground hover:text-foreground"}`}
+                      onClick={() => setCategoryForm(p => ({ ...p, icon: opt.name }))}
+                      title={opt.label}
+                      data-testid={`icon-${opt.name}`}
+                    >
+                      <IconComp className="h-4 w-4" />
+                    </button>
+                  );
+                })}
               </div>
-              <div>
-                <Label>{t.sop.sortOrder}</Label>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="space-y-2">
+                <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{t.sop.sortOrder}</Label>
                 <Input type="number" value={categoryForm.sortOrder} onChange={(e) => setCategoryForm(p => ({ ...p, sortOrder: parseInt(e.target.value) || 0 }))} data-testid="input-category-order" />
               </div>
-              <div>
-                <Label>{t.sop.country}</Label>
+              <div className="space-y-2">
+                <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{t.sop.country}</Label>
                 <Select value={categoryForm.countryCode || "all"} onValueChange={(v) => setCategoryForm(p => ({ ...p, countryCode: v === "all" ? "" : v }))}>
                   <SelectTrigger data-testid="select-category-country"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">{t.sop.allCountries}</SelectItem>
-                    <SelectItem value="SK">SK</SelectItem>
-                    <SelectItem value="CZ">CZ</SelectItem>
-                    <SelectItem value="HU">HU</SelectItem>
-                    <SelectItem value="RO">RO</SelectItem>
-                    <SelectItem value="IT">IT</SelectItem>
-                    <SelectItem value="DE">DE</SelectItem>
+                    <SelectItem value="SK">SK</SelectItem><SelectItem value="CZ">CZ</SelectItem><SelectItem value="HU">HU</SelectItem>
+                    <SelectItem value="RO">RO</SelectItem><SelectItem value="IT">IT</SelectItem><SelectItem value="DE">DE</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Switch checked={categoryForm.isActive} onCheckedChange={(v) => setCategoryForm(p => ({ ...p, isActive: v }))} data-testid="switch-category-active" />
-              <Label>{t.sop.active}</Label>
+              <div className="space-y-2 flex flex-col justify-end">
+                <div className="flex items-center gap-2 h-10">
+                  <Switch checked={categoryForm.isActive} onCheckedChange={(v) => setCategoryForm(p => ({ ...p, isActive: v }))} data-testid="switch-category-active" />
+                  <Label className="text-sm">{t.sop.active}</Label>
+                </div>
+              </div>
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="mt-2">
             <Button variant="outline" onClick={() => setShowCategoryDialog(false)}>{t.sop.cancel}</Button>
             <Button onClick={saveCategory} disabled={!categoryForm.name || createCategoryMutation.isPending || updateCategoryMutation.isPending} data-testid="btn-save-category">
               {editingCategory ? t.sop.save : t.sop.createCategory}
@@ -432,92 +479,113 @@ export default function SopManagementPage() {
       </Dialog>
 
       <Dialog open={showArticleDialog} onOpenChange={setShowArticleDialog}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
-          <DialogHeader><DialogTitle>{editingArticle ? t.sop.editArticle : t.sop.newArticle}</DialogTitle></DialogHeader>
-          <ScrollArea className="flex-1 pr-4">
-            <div className="space-y-4">
-              <div>
-                <Label>{t.sop.name} *</Label>
+        <DialogContent className="max-w-[95vw] w-[1400px] max-h-[92vh] overflow-hidden flex flex-col">
+          <DialogHeader className="shrink-0 pb-3 border-b">
+            <DialogTitle className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600">
+                <FileText className="h-4 w-4" />
+              </div>
+              {editingArticle ? t.sop.editArticle : t.sop.newArticle}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex gap-0 flex-1 min-h-0 overflow-hidden -mx-6 -mb-6">
+            <div className="w-[280px] shrink-0 border-r bg-muted/20 overflow-y-auto p-5 space-y-5">
+              <div className="space-y-2">
+                <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{t.sop.name} *</Label>
                 <Input value={articleForm.title} onChange={(e) => setArticleForm(p => ({ ...p, title: e.target.value }))} placeholder={t.sop.titlePlaceholder} data-testid="input-article-title" />
               </div>
-              <div>
-                <Label>{t.sop.summary}</Label>
-                <Textarea value={articleForm.summary} onChange={(e) => setArticleForm(p => ({ ...p, summary: e.target.value }))} placeholder={t.sop.summaryPlaceholder} rows={2} data-testid="input-article-summary" />
+
+              <Separator />
+
+              <div className="space-y-2">
+                <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{t.sop.category} *</Label>
+                <Select value={articleForm.categoryId} onValueChange={(v) => setArticleForm(p => ({ ...p, categoryId: v }))}>
+                  <SelectTrigger data-testid="select-article-category"><SelectValue placeholder={t.sop.category} /></SelectTrigger>
+                  <SelectContent>{categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
+                </Select>
               </div>
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <Label>{t.sop.category} *</Label>
-                  <Select value={articleForm.categoryId} onValueChange={(v) => setArticleForm(p => ({ ...p, categoryId: v }))}>
-                    <SelectTrigger data-testid="select-article-category"><SelectValue placeholder={t.sop.category} /></SelectTrigger>
-                    <SelectContent>{categories.map(c => <SelectItem key={c.id} value={c.id}>{c.icon} {c.name}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>{t.sop.filterPriority}</Label>
-                  <Select value={articleForm.priority} onValueChange={(v: any) => setArticleForm(p => ({ ...p, priority: v }))}>
-                    <SelectTrigger data-testid="select-article-priority"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="normal">{t.sop.priorityNormal}</SelectItem>
-                      <SelectItem value="high">{t.sop.priorityHigh}</SelectItem>
-                      <SelectItem value="critical">{t.sop.priorityCritical}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>{t.sop.country}</Label>
-                  <Select value={articleForm.countryCode || "all"} onValueChange={(v) => setArticleForm(p => ({ ...p, countryCode: v === "all" ? "" : v }))}>
-                    <SelectTrigger data-testid="select-article-country"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">{t.sop.allCountries}</SelectItem>
-                      <SelectItem value="SK">SK</SelectItem><SelectItem value="CZ">CZ</SelectItem><SelectItem value="HU">HU</SelectItem>
-                      <SelectItem value="RO">RO</SelectItem><SelectItem value="IT">IT</SelectItem><SelectItem value="DE">DE</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+
+              <div className="space-y-2">
+                <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{t.sop.filterPriority}</Label>
+                <Select value={articleForm.priority} onValueChange={(v: any) => setArticleForm(p => ({ ...p, priority: v }))}>
+                  <SelectTrigger data-testid="select-article-priority"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="normal">{t.sop.priorityNormal}</SelectItem>
+                    <SelectItem value="high">{t.sop.priorityHigh}</SelectItem>
+                    <SelectItem value="critical">{t.sop.priorityCritical}</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <Label>{t.sop.contentHtml} *</Label>
-                  <div className="flex items-center gap-2">
-                    <input type="file" ref={pdfInputRef} accept=".pdf" onChange={handlePdfUpload} className="hidden" data-testid="input-pdf-upload" />
-                    <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => pdfInputRef.current?.click()} disabled={uploadingPdf} data-testid="btn-upload-pdf">
-                      {uploadingPdf ? <><Loader2 className="h-3 w-3 animate-spin" />{t.sop.uploading}</> : <><Upload className="h-3 w-3" />{t.sop.uploadPdf}</>}
-                    </Button>
-                  </div>
-                </div>
-                <p className="text-[10px] text-muted-foreground mb-2">{t.sop.contentHtmlHint} | {t.sop.uploadPdfDesc}</p>
-                <div className="border rounded-md [&_.ql-container]:min-h-[200px] [&_.ql-editor]:min-h-[200px]">
-                  <ReactQuill
-                    theme="snow"
-                    value={articleForm.content}
-                    onChange={(val) => setArticleForm(p => ({ ...p, content: val }))}
-                    modules={quillModules}
-                    data-testid="editor-article-content"
-                  />
-                </div>
+
+              <div className="space-y-2">
+                <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{t.sop.country}</Label>
+                <Select value={articleForm.countryCode || "all"} onValueChange={(v) => setArticleForm(p => ({ ...p, countryCode: v === "all" ? "" : v }))}>
+                  <SelectTrigger data-testid="select-article-country"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">{t.sop.allCountries}</SelectItem>
+                    <SelectItem value="SK">SK</SelectItem><SelectItem value="CZ">CZ</SelectItem><SelectItem value="HU">HU</SelectItem>
+                    <SelectItem value="RO">RO</SelectItem><SelectItem value="IT">IT</SelectItem><SelectItem value="DE">DE</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-              <div>
-                <Label>{t.sop.tags}</Label>
-                <Input value={articleForm.tags} onChange={(e) => setArticleForm(p => ({ ...p, tags: e.target.value }))} placeholder={t.sop.tagsPlaceholder} data-testid="input-article-tags" />
+
+              <Separator />
+
+              <div className="space-y-2">
+                <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{t.sop.summary}</Label>
+                <Textarea value={articleForm.summary} onChange={(e) => setArticleForm(p => ({ ...p, summary: e.target.value }))} placeholder={t.sop.summaryPlaceholder} rows={3} className="text-xs" data-testid="input-article-summary" />
               </div>
-              <div className="flex items-center gap-6">
-                <div className="flex items-center gap-2">
+
+              <div className="space-y-2">
+                <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{t.sop.tags}</Label>
+                <Input value={articleForm.tags} onChange={(e) => setArticleForm(p => ({ ...p, tags: e.target.value }))} placeholder={t.sop.tagsPlaceholder} className="text-xs" data-testid="input-article-tags" />
+              </div>
+
+              <Separator />
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm">{t.sop.published}</Label>
                   <Switch checked={articleForm.isPublished} onCheckedChange={(v) => setArticleForm(p => ({ ...p, isPublished: v }))} data-testid="switch-article-published" />
-                  <Label>{t.sop.published}</Label>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm">{t.sop.pinned}</Label>
                   <Switch checked={articleForm.isPinned} onCheckedChange={(v) => setArticleForm(p => ({ ...p, isPinned: v }))} data-testid="switch-article-pinned" />
-                  <Label>{t.sop.pinnedDesc}</Label>
                 </div>
+              </div>
+
+              <div className="pt-2">
+                <input type="file" ref={pdfInputRef} accept=".pdf" onChange={handlePdfUpload} className="hidden" data-testid="input-pdf-upload" />
+                <Button variant="outline" size="sm" className="w-full gap-1.5 text-xs" onClick={() => pdfInputRef.current?.click()} disabled={uploadingPdf} data-testid="btn-upload-pdf">
+                  {uploadingPdf ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />{t.sop.uploading}</> : <><Upload className="h-3.5 w-3.5" />{t.sop.uploadPdf}</>}
+                </Button>
+                <p className="text-[10px] text-muted-foreground mt-1.5">{t.sop.uploadPdfDesc}</p>
               </div>
             </div>
-          </ScrollArea>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowArticleDialog(false)}>{t.sop.cancel}</Button>
-            <Button onClick={saveArticle} disabled={!articleForm.title || !articleForm.content || !articleForm.categoryId || createArticleMutation.isPending || updateArticleMutation.isPending} data-testid="btn-save-article">
-              {editingArticle ? t.sop.saveChanges : t.sop.createArticle}
-            </Button>
-          </DialogFooter>
+
+            <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+              <div className="flex items-center justify-between px-5 py-3 border-b bg-muted/10 shrink-0">
+                <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{t.sop.contentHtml}</Label>
+                <p className="text-[10px] text-muted-foreground">{t.sop.contentHtmlHint}</p>
+              </div>
+              <div className="flex-1 overflow-hidden [&_.ql-container]:border-0 [&_.ql-toolbar]:border-x-0 [&_.ql-toolbar]:border-t-0 [&_.ql-editor]:min-h-full [&_.ql-container]:flex-1 [&_.ql-container]:flex [&_.ql-container]:flex-col flex flex-col">
+                <ReactQuill
+                  theme="snow"
+                  value={articleForm.content}
+                  onChange={(val) => setArticleForm(p => ({ ...p, content: val }))}
+                  modules={quillModules}
+                  className="flex-1 flex flex-col overflow-hidden"
+                  data-testid="editor-article-content"
+                />
+              </div>
+              <div className="flex items-center justify-end gap-2 px-5 py-3 border-t bg-muted/10 shrink-0">
+                <Button variant="outline" onClick={() => setShowArticleDialog(false)}>{t.sop.cancel}</Button>
+                <Button onClick={saveArticle} disabled={!articleForm.title || !articleForm.content || !articleForm.categoryId || createArticleMutation.isPending || updateArticleMutation.isPending} data-testid="btn-save-article">
+                  {editingArticle ? t.sop.saveChanges : t.sop.createArticle}
+                </Button>
+              </div>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 

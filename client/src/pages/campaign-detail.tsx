@@ -474,7 +474,7 @@ function CampaignSopSettingsCard({ campaignId }: { campaignId: string }) {
                 <div key={cat.id} className="border rounded-lg p-3" data-testid={`sop-settings-cat-${cat.id}`}>
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
-                      <span className="text-lg">{cat.icon || "📁"}</span>
+                      <BookOpen className="h-4 w-4 text-primary" />
                       <span className="font-medium text-sm">{cat.name}</span>
                       <Badge variant="outline" className="text-[10px] h-4">{linkedCount}/{catArticles.length}</Badge>
                     </div>
