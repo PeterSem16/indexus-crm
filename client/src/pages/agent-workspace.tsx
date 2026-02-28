@@ -1457,6 +1457,8 @@ function CommunicationCanvas({
   const [smsCcCountry, setSmsCcCountry] = useState("SK");
   const [showSmsCcField, setShowSmsCcField] = useState(false);
   const [selectedDocuments, setSelectedDocuments] = useState<string[]>([]);
+  const [emailTemplateCategoryId, setEmailTemplateCategoryId] = useState<string>("");
+  const [smsTemplateCategoryId, setSmsTemplateCategoryId] = useState<string>("");
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [emailOpenedAt, setEmailOpenedAt] = useState<number | null>(null);
   const [smsOpenedAt, setSmsOpenedAt] = useState<number | null>(null);
@@ -1552,7 +1554,12 @@ function CommunicationCanvas({
     }
   }, [contact, allEmailAccounts, selectedFromAccount]);
 
-  const { data: emailTemplates = [] } = useQuery<{ id: string; name: string; subject: string | null; content: string; contentHtml: string | null }[]>({
+  const { data: templateCategories = [] } = useQuery<{ id: string; name: string; icon: string | null; color: string | null; isActive: boolean }[]>({
+    queryKey: ["/api/template-categories"],
+    enabled: !!contact,
+  });
+
+  const { data: emailTemplates = [] } = useQuery<{ id: string; name: string; subject: string | null; content: string; contentHtml: string | null; categoryId: string | null }[]>({
     queryKey: ["/api/message-templates", "email", language],
     queryFn: async () => {
       const res = await fetch(`/api/message-templates?type=email&isActive=true&language=${language}`, { credentials: "include" });
@@ -1561,7 +1568,7 @@ function CommunicationCanvas({
     enabled: !!contact,
   });
 
-  const { data: smsTemplates = [] } = useQuery<{ id: string; name: string; content: string }[]>({
+  const { data: smsTemplates = [] } = useQuery<{ id: string; name: string; content: string; categoryId: string | null }[]>({
     queryKey: ["/api/message-templates", "sms", language],
     queryFn: async () => {
       const res = await fetch(`/api/message-templates?type=sms&isActive=true&language=${language}`, { credentials: "include" });
@@ -1569,6 +1576,26 @@ function CommunicationCanvas({
     },
     enabled: !!contact,
   });
+
+  const emailCategoriesWithTemplates = useMemo(() => {
+    const catIds = new Set(emailTemplates.map(t => t.categoryId).filter(Boolean));
+    return templateCategories.filter(c => c.isActive && catIds.has(c.id));
+  }, [templateCategories, emailTemplates]);
+
+  const smsCategoriesWithTemplates = useMemo(() => {
+    const catIds = new Set(smsTemplates.map(t => t.categoryId).filter(Boolean));
+    return templateCategories.filter(c => c.isActive && catIds.has(c.id));
+  }, [templateCategories, smsTemplates]);
+
+  const filteredEmailTemplates = useMemo(() => {
+    if (!emailTemplateCategoryId || emailTemplateCategoryId === "__all__") return emailTemplates;
+    return emailTemplates.filter(t => t.categoryId === emailTemplateCategoryId);
+  }, [emailTemplates, emailTemplateCategoryId]);
+
+  const filteredSmsTemplates = useMemo(() => {
+    if (!smsTemplateCategoryId || smsTemplateCategoryId === "__all__") return smsTemplates;
+    return smsTemplates.filter(t => t.categoryId === smsTemplateCategoryId);
+  }, [smsTemplates, smsTemplateCategoryId]);
 
   const { data: customerDocuments = [] } = useQuery<{ id: string; name: string; type: string; url: string }[]>({
     queryKey: ["/api/customers", contact?.id, "documents-for-email"],
@@ -2059,16 +2086,42 @@ function CommunicationCanvas({
                   <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
                     {t.configuration?.messageTemplates || "TEMPLATE"}
                   </Label>
-                  <Select onValueChange={handleSelectEmailTemplate} disabled={emailTemplates.length === 0}>
-                    <SelectTrigger data-testid="select-email-template" className="text-sm">
-                      <SelectValue placeholder={emailTemplates.length === 0 ? (t.konfigurator?.noMessageTemplates || "No templates") : (t.configuration?.selectTemplate || "Select template")} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {emailTemplates.map((template) => (
-                        <SelectItem key={template.id} value={template.id}>{template.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {emailCategoriesWithTemplates.length > 0 ? (
+                    <div className="space-y-1.5">
+                      <Select value={emailTemplateCategoryId} onValueChange={(val) => { setEmailTemplateCategoryId(val); }}>
+                        <SelectTrigger data-testid="select-email-template-category" className="text-sm">
+                          <SelectValue placeholder={t.configuration?.selectCategory || "Select category"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__all__">{t.sop?.all || "All"}</SelectItem>
+                          {emailCategoriesWithTemplates.map((cat) => (
+                            <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Select onValueChange={handleSelectEmailTemplate} disabled={filteredEmailTemplates.length === 0}>
+                        <SelectTrigger data-testid="select-email-template" className="text-sm">
+                          <SelectValue placeholder={filteredEmailTemplates.length === 0 ? (t.konfigurator?.noMessageTemplates || "No templates") : (t.configuration?.selectTemplate || "Select template")} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {filteredEmailTemplates.map((template) => (
+                            <SelectItem key={template.id} value={template.id}>{template.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  ) : (
+                    <Select onValueChange={handleSelectEmailTemplate} disabled={emailTemplates.length === 0}>
+                      <SelectTrigger data-testid="select-email-template" className="text-sm">
+                        <SelectValue placeholder={emailTemplates.length === 0 ? (t.konfigurator?.noMessageTemplates || "No templates") : (t.configuration?.selectTemplate || "Select template")} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {emailTemplates.map((template) => (
+                          <SelectItem key={template.id} value={template.id}>{template.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
 
                 <div className="space-y-1.5">
@@ -2221,16 +2274,42 @@ function CommunicationCanvas({
                   <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
                     {t.configuration?.messageTemplates || "TEMPLATE"}
                   </Label>
-                  <Select onValueChange={handleSelectSmsTemplate} disabled={smsTemplates.length === 0}>
-                    <SelectTrigger data-testid="select-sms-template" className="text-sm">
-                      <SelectValue placeholder={smsTemplates.length === 0 ? (t.konfigurator?.noMessageTemplates || "No templates") : (t.configuration?.selectTemplate || "Select template")} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {smsTemplates.map((template) => (
-                        <SelectItem key={template.id} value={template.id}>{template.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {smsCategoriesWithTemplates.length > 0 ? (
+                    <div className="space-y-1.5">
+                      <Select value={smsTemplateCategoryId} onValueChange={(val) => { setSmsTemplateCategoryId(val); }}>
+                        <SelectTrigger data-testid="select-sms-template-category" className="text-sm">
+                          <SelectValue placeholder={t.configuration?.selectCategory || "Select category"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__all__">{t.sop?.all || "All"}</SelectItem>
+                          {smsCategoriesWithTemplates.map((cat) => (
+                            <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Select onValueChange={handleSelectSmsTemplate} disabled={filteredSmsTemplates.length === 0}>
+                        <SelectTrigger data-testid="select-sms-template" className="text-sm">
+                          <SelectValue placeholder={filteredSmsTemplates.length === 0 ? (t.konfigurator?.noMessageTemplates || "No templates") : (t.configuration?.selectTemplate || "Select template")} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {filteredSmsTemplates.map((template) => (
+                            <SelectItem key={template.id} value={template.id}>{template.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  ) : (
+                    <Select onValueChange={handleSelectSmsTemplate} disabled={smsTemplates.length === 0}>
+                      <SelectTrigger data-testid="select-sms-template" className="text-sm">
+                        <SelectValue placeholder={smsTemplates.length === 0 ? (t.konfigurator?.noMessageTemplates || "No templates") : (t.configuration?.selectTemplate || "Select template")} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {smsTemplates.map((template) => (
+                          <SelectItem key={template.id} value={template.id}>{template.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
 
                 <div className="space-y-1.5">
