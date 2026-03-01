@@ -184,9 +184,30 @@ export default function UsersPage() {
   const [activityLogSortDirection, setActivityLogSortDirection] = useState<'asc' | 'desc'>('desc');
   const ACTIVITY_LOG_PER_PAGE = 15;
 
+  const [filterRole, setFilterRole] = useState<string>("all");
+
   const { data: users = [], isLoading } = useQuery<User[]>({
     queryKey: ["/api/users"],
   });
+
+  const { data: allRoles = [] } = useQuery<Array<{ id: string; name: string; department: string | null; isActive: boolean }>>({
+    queryKey: ["/api/roles"],
+  });
+
+  const roleStats = useMemo(() => {
+    const counts: Record<string, { name: string; count: number }> = {};
+    users.forEach(u => {
+      const roleId = (u as any).roleId;
+      const role = allRoles.find(r => r.id === roleId);
+      const key = role ? role.id : "_none";
+      const name = role ? role.name : (t.users.roles?.user || "User");
+      if (!counts[key]) counts[key] = { name, count: 0 };
+      counts[key].count++;
+    });
+    return Object.entries(counts)
+      .map(([id, { name, count }]) => ({ id, name, count }))
+      .sort((a, b) => b.count - a.count);
+  }, [users, allRoles, t]);
 
   const getDateLocale = () => {
     switch (locale) {
@@ -773,11 +794,13 @@ export default function UsersPage() {
   };
 
   const filteredUsers = useMemo(() => {
-    let result = users.filter(user => 
-      user.fullName.toLowerCase().includes(search.toLowerCase()) ||
-      user.email.toLowerCase().includes(search.toLowerCase()) ||
-      user.username.toLowerCase().includes(search.toLowerCase())
-    );
+    let result = users.filter(user => {
+      const matchesSearch = user.fullName.toLowerCase().includes(search.toLowerCase()) ||
+        user.email.toLowerCase().includes(search.toLowerCase()) ||
+        user.username.toLowerCase().includes(search.toLowerCase());
+      const matchesRole = filterRole === "all" || (user as any).roleId === filterRole || (filterRole === "_none" && !(user as any).roleId);
+      return matchesSearch && matchesRole;
+    });
     
     // Apply sorting
     if (sortConfig && sortConfig.direction) {
@@ -819,10 +842,9 @@ export default function UsersPage() {
     return filteredUsers.slice(start, start + USERS_PER_PAGE);
   }, [filteredUsers, currentPage]);
   
-  // Reset to page 1 when search changes
   useMemo(() => {
     setCurrentPage(1);
-  }, [search]);
+  }, [search, filterRole]);
 
   const columns = [
     {
@@ -1008,6 +1030,34 @@ export default function UsersPage() {
         </TabsList>
 
         <TabsContent value="users" className="space-y-4">
+          <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+            <Card
+              className={`cursor-pointer transition-all hover:shadow-md ${filterRole === "all" ? "ring-2 ring-primary bg-primary/5" : ""}`}
+              onClick={() => setFilterRole("all")}
+              data-testid="role-tile-all"
+            >
+              <CardContent className="p-3 flex flex-col items-center text-center">
+                <Users className="h-5 w-5 text-primary mb-1" />
+                <p className="text-xl font-bold">{users.length}</p>
+                <p className="text-[11px] text-muted-foreground leading-tight">{t.common.all || "All"}</p>
+              </CardContent>
+            </Card>
+            {roleStats.map(rs => (
+              <Card
+                key={rs.id}
+                className={`cursor-pointer transition-all hover:shadow-md ${filterRole === rs.id ? "ring-2 ring-primary bg-primary/5" : ""}`}
+                onClick={() => setFilterRole(filterRole === rs.id ? "all" : rs.id)}
+                data-testid={`role-tile-${rs.id}`}
+              >
+                <CardContent className="p-3 flex flex-col items-center text-center">
+                  <Shield className="h-5 w-5 text-muted-foreground mb-1" />
+                  <p className="text-xl font-bold">{rs.count}</p>
+                  <p className="text-[11px] text-muted-foreground leading-tight truncate w-full">{rs.name}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-4">
@@ -1021,6 +1071,20 @@ export default function UsersPage() {
                     data-testid="input-search-users"
                   />
                 </div>
+                <Select value={filterRole} onValueChange={setFilterRole}>
+                  <SelectTrigger className="w-[200px]" data-testid="select-filter-role">
+                    <SelectValue placeholder={t.users.role} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">{t.activityReports.allRoles || "All roles"}</SelectItem>
+                    {allRoles.filter(r => r.isActive).map(r => (
+                      <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Badge variant="secondary" className="text-xs shrink-0">
+                  {filteredUsers.length} {t.common.of} {users.length}
+                </Badge>
               </div>
             </CardContent>
           </Card>
