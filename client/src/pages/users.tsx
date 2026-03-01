@@ -197,12 +197,20 @@ export default function UsersPage() {
   const roleStats = useMemo(() => {
     const counts: Record<string, { name: string; count: number }> = {};
     users.forEach(u => {
-      const roleId = (u as any).roleId;
-      const role = allRoles.find(r => r.id === roleId);
-      const key = role ? role.id : "_none";
-      const name = role ? role.name : (t.users.roles?.user || "User");
-      if (!counts[key]) counts[key] = { name, count: 0 };
-      counts[key].count++;
+      const userRoleId = u.roleId;
+      if (userRoleId) {
+        const role = allRoles.find(r => r.id === userRoleId);
+        const name = role ? role.name : userRoleId;
+        if (!counts[userRoleId]) counts[userRoleId] = { name, count: 0 };
+        counts[userRoleId].count++;
+      } else {
+        const legacyRole = u.role || "user";
+        const key = `_legacy_${legacyRole}`;
+        const roleNames: Record<string, string> = { admin: t.users.roles?.admin || "Admin", manager: t.users.roles?.manager || "Manager", user: t.users.roles?.user || "User", agent: t.users.roles?.agent || "Agent" };
+        const name = roleNames[legacyRole] || legacyRole;
+        if (!counts[key]) counts[key] = { name, count: 0 };
+        counts[key].count++;
+      }
     });
     return Object.entries(counts)
       .map(([id, { name, count }]) => ({ id, name, count }))
@@ -798,7 +806,15 @@ export default function UsersPage() {
       const matchesSearch = user.fullName.toLowerCase().includes(search.toLowerCase()) ||
         user.email.toLowerCase().includes(search.toLowerCase()) ||
         user.username.toLowerCase().includes(search.toLowerCase());
-      const matchesRole = filterRole === "all" || (user as any).roleId === filterRole || (filterRole === "_none" && !(user as any).roleId);
+      let matchesRole = filterRole === "all";
+      if (!matchesRole) {
+        if (filterRole.startsWith("_legacy_")) {
+          const legacyRole = filterRole.replace("_legacy_", "");
+          matchesRole = !user.roleId && user.role === legacyRole;
+        } else {
+          matchesRole = user.roleId === filterRole;
+        }
+      }
       return matchesSearch && matchesRole;
     });
     
@@ -1077,8 +1093,8 @@ export default function UsersPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">{t.activityReports.allRoles || "All roles"}</SelectItem>
-                    {allRoles.filter(r => r.isActive).map(r => (
-                      <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                    {roleStats.map(rs => (
+                      <SelectItem key={rs.id} value={rs.id}>{rs.name} ({rs.count})</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
