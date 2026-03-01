@@ -5412,7 +5412,7 @@ function MailchimpSyncSection({ campaignId, campaignName, countryCodes }: { camp
                   <div className="flex flex-wrap gap-2">
                     <Button
                       onClick={() => setShowSendConfirm(true)}
-                      disabled={!contentSaved || syncInfo.syncedContacts === 0}
+                      disabled={!contentSaved || syncInfo.syncedContacts === 0 || (mcChecklist && !mcChecklist.isReady)}
                       className="bg-green-600 hover:bg-green-700"
                       data-testid="btn-mc-send-campaign"
                     >
@@ -5479,12 +5479,30 @@ function MailchimpSyncSection({ campaignId, campaignName, countryCodes }: { camp
                 </DialogDescription>
               </DialogHeader>
 
+              {mcChecklist && !mcChecklist.isReady && (
+                <div className="space-y-1.5 p-3 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200 dark:border-amber-800">
+                  <p className="text-sm font-semibold text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
+                    <AlertTriangle className="w-4 h-4" />
+                    Kampaň nie je pripravená (Mailchimp Checklist)
+                  </p>
+                  {mcChecklist.items?.filter((i: any) => i.type === "error" || i.type === "warning").map((item: any, idx: number) => (
+                    <div key={idx} className="text-xs text-amber-700 dark:text-amber-400 flex items-start gap-1.5">
+                      <XCircle className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <span className="font-medium">{item.heading}</span>
+                        {item.details && <span className="text-amber-600 dark:text-amber-500"> — {item.details}</span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               {!verificationSent ? (
                 <div className="flex justify-end gap-2">
                   <Button variant="outline" onClick={() => setShowSendConfirm(false)}>Zrušiť</Button>
                   <Button
                     onClick={() => requestVerificationMutation.mutate()}
-                    disabled={requestVerificationMutation.isPending}
+                    disabled={requestVerificationMutation.isPending || (mcChecklist && !mcChecklist.isReady)}
                     className="bg-amber-600 hover:bg-amber-700"
                     data-testid="btn-mc-request-code"
                   >

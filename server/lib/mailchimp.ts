@@ -426,6 +426,22 @@ export async function getCampaignContent(
   };
 }
 
+export async function getCampaignChecklist(
+  settings: { apiKey: string; serverPrefix: string },
+  mailchimpCampaignId: string
+): Promise<{ isReady: boolean; items: { type: string; id: number; heading: string; details: string }[] }> {
+  const data = await mailchimpFetch(settings, `/campaigns/${mailchimpCampaignId}/send-checklist`);
+  return {
+    isReady: data.is_ready || false,
+    items: (data.items || []).map((item: any) => ({
+      type: item.type,
+      id: item.id,
+      heading: item.heading,
+      details: item.details,
+    })),
+  };
+}
+
 export async function sendCampaign(
   settings: { apiKey: string; serverPrefix: string },
   mailchimpCampaignId: string

@@ -5766,6 +5766,8 @@ export const campaignMailchimpSync = pgTable("campaign_mailchimp_sync", {
   errorMessage: text("error_message"),
   webhookUrl: text("webhook_url"),
   webhookRegistered: boolean("webhook_registered").default(false),
+  selectedTags: text("selected_tags").array(),
+  selectedSegmentId: text("selected_segment_id"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 

@@ -9889,6 +9889,8 @@ export async function registerRoutes(
         syncedContacts: 0,
         webhookUrl: webhookRegistered ? finalWebhookUrl : null,
         webhookRegistered,
+        selectedTags: campaignTags && campaignTags.length > 0 ? campaignTags : null,
+        selectedSegmentId: segmentId || null,
       });
 
       await logActivity(req.session.user!.id, "mailchimp_campaign_created", "campaign", campaign.id, campaign.name, { mailchimpId: mcCampaign.id, webhookRegistered, webhookUrl: finalWebhookUrl });
@@ -9967,11 +9969,18 @@ export async function registerRoutes(
       }
       const uniqueContacts = Array.from(uniqueMap.values());
 
+      const syncTags: string[] = [campaign.name];
+      if (sync.selectedTags && sync.selectedTags.length > 0) {
+        for (const t of sync.selectedTags) {
+          if (!syncTags.includes(t)) syncTags.push(t);
+        }
+      }
+
       const result = await mailchimpApi.addContactsToList(
         { apiKey: settings.apiKey, serverPrefix: settings.serverPrefix },
         sync.mailchimpListId,
         uniqueContacts,
-        [campaign.name]
+        syncTags
       );
 
       await storage.updateCampaignMailchimpSync(req.params.id, {
@@ -10227,6 +10236,28 @@ export async function registerRoutes(
     } catch (error: any) {
       console.error("Error generating verification code:", error);
       res.status(500).json({ error: error.message || "Failed to generate verification code" });
+    }
+  });
+
+  app.get("/api/campaigns/:id/mailchimp/checklist", requireAuth, async (req, res) => {
+    try {
+      const sync = await storage.getCampaignMailchimpSync(req.params.id);
+      if (!sync || !sync.mailchimpCampaignId) return res.status(400).json({ error: "No Mailchimp campaign linked" });
+
+      const campaign = await storage.getCampaign(req.params.id);
+      if (!campaign) return res.status(404).json({ error: "Campaign not found" });
+
+      const settings = await storage.getMailchimpSettingsByCountry((campaign.countryCodes || [])[0] || "SK");
+      if (!settings) return res.status(400).json({ error: "No Mailchimp settings" });
+
+      const checklist = await mailchimpApi.getCampaignChecklist(
+        { apiKey: settings.apiKey, serverPrefix: settings.serverPrefix },
+        sync.mailchimpCampaignId
+      );
+      res.json(checklist);
+    } catch (error: any) {
+      console.error("Error fetching checklist:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch checklist" });
     }
   });
 
