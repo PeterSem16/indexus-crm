@@ -4154,6 +4154,10 @@ function MailchimpSyncSection({ campaignId, campaignName, countryCodes }: { camp
   const [showAdvanced, setShowAdvanced] = useState(true);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [selectedSegmentId, setSelectedSegmentId] = useState("");
+  const [showNewTag, setShowNewTag] = useState(false);
+  const [newTagName, setNewTagName] = useState("");
+  const [showNewSegment, setShowNewSegment] = useState(false);
+  const [newSegmentName, setNewSegmentName] = useState("");
   const [webhookEnabled, setWebhookEnabled] = useState(true);
   const [webhookUrl, setWebhookUrl] = useState("");
   const [webhookEvents, setWebhookEvents] = useState({ subscribe: true, unsubscribe: true, campaign: true, cleaned: true });
@@ -4290,6 +4294,38 @@ function MailchimpSyncSection({ campaignId, campaignName, countryCodes }: { camp
       setNewAudienceFromEmail("");
       setNewAudienceFromName("");
       toast({ title: "Audience vytvorená", description: `${data.name} bola vytvorená v Mailchimp.` });
+    },
+    onError: (err: any) => {
+      toast({ title: "Chyba", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const createTagMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/config/mailchimp-settings/${countryCode}/audiences/${selectedListId}/tags`, { name: newTagName });
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/config/mailchimp-settings", countryCode, "audiences", selectedListId, "tags"] });
+      setNewTagName("");
+      setShowNewTag(false);
+      toast({ title: mc.tagCreated, description: data.name });
+    },
+    onError: (err: any) => {
+      toast({ title: "Chyba", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const createSegmentMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/config/mailchimp-settings/${countryCode}/audiences/${selectedListId}/segments`, { name: newSegmentName });
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/config/mailchimp-settings", countryCode, "audiences", selectedListId, "segments"] });
+      setNewSegmentName("");
+      setShowNewSegment(false);
+      toast({ title: mc.segmentCreated, description: data.name });
     },
     onError: (err: any) => {
       toast({ title: "Chyba", description: err.message, variant: "destructive" });
@@ -4694,11 +4730,44 @@ function MailchimpSyncSection({ campaignId, campaignName, countryCodes }: { camp
               {showAdvanced && (
                 <div className="space-y-4 p-3 border rounded-lg bg-muted/20">
                   <div className="space-y-2">
-                    <Label className="text-sm font-medium flex items-center gap-1.5">
-                      <Tag className="w-3.5 h-3.5" />
-                      {mc.tagsLabel}
-                    </Label>
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-medium flex items-center gap-1.5">
+                        <Tag className="w-3.5 h-3.5" />
+                        {mc.tagsLabel}
+                      </Label>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 text-xs"
+                        onClick={() => setShowNewTag(!showNewTag)}
+                        data-testid="btn-toggle-new-tag"
+                      >
+                        <Plus className="w-3 h-3 mr-1" />
+                        {mc.createTag}
+                      </Button>
+                    </div>
                     <p className="text-xs text-muted-foreground">{mc.tagsDesc}</p>
+                    {showNewTag && (
+                      <div className="flex items-center gap-2">
+                        <Input
+                          value={newTagName}
+                          onChange={e => setNewTagName(e.target.value)}
+                          placeholder={mc.createTagPlaceholder}
+                          className="h-7 text-xs flex-1"
+                          data-testid="input-new-tag-name"
+                          onKeyDown={e => { if (e.key === "Enter" && newTagName.trim()) createTagMutation.mutate(); }}
+                        />
+                        <Button
+                          size="sm"
+                          className="h-7 text-xs"
+                          disabled={!newTagName.trim() || createTagMutation.isPending}
+                          onClick={() => createTagMutation.mutate()}
+                          data-testid="btn-create-tag"
+                        >
+                          {createTagMutation.isPending ? "..." : mc.createTag}
+                        </Button>
+                      </div>
+                    )}
                     {listTags.length > 0 ? (
                       <div className="flex flex-wrap gap-1.5">
                         {listTags.map((t: any) => (
@@ -4725,11 +4794,44 @@ function MailchimpSyncSection({ campaignId, campaignName, countryCodes }: { camp
                   </div>
 
                   <div className="space-y-2">
-                    <Label className="text-sm font-medium flex items-center gap-1.5">
-                      <Filter className="w-3.5 h-3.5" />
-                      {mc.segmentLabel}
-                    </Label>
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-medium flex items-center gap-1.5">
+                        <Filter className="w-3.5 h-3.5" />
+                        {mc.segmentLabel}
+                      </Label>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 text-xs"
+                        onClick={() => setShowNewSegment(!showNewSegment)}
+                        data-testid="btn-toggle-new-segment"
+                      >
+                        <Plus className="w-3 h-3 mr-1" />
+                        {mc.createSegment}
+                      </Button>
+                    </div>
                     <p className="text-xs text-muted-foreground">{mc.segmentDesc}</p>
+                    {showNewSegment && (
+                      <div className="flex items-center gap-2">
+                        <Input
+                          value={newSegmentName}
+                          onChange={e => setNewSegmentName(e.target.value)}
+                          placeholder={mc.createSegmentPlaceholder}
+                          className="h-7 text-xs flex-1"
+                          data-testid="input-new-segment-name"
+                          onKeyDown={e => { if (e.key === "Enter" && newSegmentName.trim()) createSegmentMutation.mutate(); }}
+                        />
+                        <Button
+                          size="sm"
+                          className="h-7 text-xs"
+                          disabled={!newSegmentName.trim() || createSegmentMutation.isPending}
+                          onClick={() => createSegmentMutation.mutate()}
+                          data-testid="btn-create-segment"
+                        >
+                          {createSegmentMutation.isPending ? "..." : mc.createSegment}
+                        </Button>
+                      </div>
+                    )}
                     <Select value={selectedSegmentId} onValueChange={setSelectedSegmentId}>
                       <SelectTrigger className="h-8" data-testid="select-mc-segment">
                         <SelectValue placeholder={mc.allContactsNoSegment} />

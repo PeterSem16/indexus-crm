@@ -9737,6 +9737,20 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/config/mailchimp-settings/:countryCode/audiences/:listId/tags", requireAuth, async (req, res) => {
+    try {
+      const settings = await storage.getMailchimpSettingsByCountry(req.params.countryCode);
+      if (!settings) return res.status(404).json({ error: "No Mailchimp settings" });
+      const { name } = req.body;
+      if (!name) return res.status(400).json({ error: "Tag name is required" });
+      const tag = await mailchimpApi.createTag({ apiKey: settings.apiKey, serverPrefix: settings.serverPrefix }, req.params.listId, name);
+      res.json(tag);
+    } catch (error: any) {
+      console.error("Error creating tag:", error);
+      res.status(500).json({ error: error.message || "Failed to create tag" });
+    }
+  });
+
   app.get("/api/config/mailchimp-settings/:countryCode/audiences/:listId/segments", requireAuth, async (req, res) => {
     try {
       const settings = await storage.getMailchimpSettingsByCountry(req.params.countryCode);

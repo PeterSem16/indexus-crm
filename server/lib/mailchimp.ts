@@ -264,6 +264,18 @@ export async function getListTags(
   return (data.tags || []).map((t: any) => ({ id: t.id, name: t.name }));
 }
 
+export async function createTag(
+  settings: { apiKey: string; serverPrefix: string },
+  listId: string,
+  tagName: string
+): Promise<{ id: number; name: string }> {
+  const data = await mailchimpFetch(settings, `/lists/${listId}/segments`, {
+    method: "POST",
+    body: JSON.stringify({ name: tagName, static_segment: [] }),
+  });
+  return { id: data.id, name: data.name };
+}
+
 export async function getListSegments(
   settings: { apiKey: string; serverPrefix: string },
   listId: string
