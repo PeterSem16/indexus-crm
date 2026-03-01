@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Plus, Pencil, Trash2, UserCheck, UserX, Search, Filter, Users, Activity, Download, Calendar, CalendarIcon, Clock, BarChart3, Shield, LogIn, Monitor, RefreshCw, XCircle, History, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, FileSpreadsheet, Phone, Mail, MessageSquare, List } from "lucide-react";
 import { useI18n } from "@/i18n";
@@ -802,9 +802,6 @@ export default function UsersPage() {
   };
 
   const filteredUsers = useMemo(() => {
-    if (filterRole !== "all") {
-      console.log("[ROLE FILTER DEBUG]", { filterRole, usersCount: users.length, sampleUser: users[0] ? { roleId: users[0].roleId, role: users[0].role, keys: Object.keys(users[0]).filter(k => k.toLowerCase().includes('role')) } : null });
-    }
     let result = users.filter(user => {
       const matchesSearch = user.fullName.toLowerCase().includes(search.toLowerCase()) ||
         user.email.toLowerCase().includes(search.toLowerCase()) ||
@@ -861,7 +858,7 @@ export default function UsersPage() {
     return filteredUsers.slice(start, start + USERS_PER_PAGE);
   }, [filteredUsers, currentPage]);
   
-  useMemo(() => {
+  useEffect(() => {
     setCurrentPage(1);
   }, [search, filterRole]);
 

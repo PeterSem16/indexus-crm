@@ -1653,10 +1653,6 @@ export async function registerRoutes(
   app.get("/api/users", requireAuth, async (req, res) => {
     try {
       const users = await storage.getAllUsers();
-      if (users.length > 0) {
-        console.log("[DEBUG /api/users] sample user keys:", Object.keys(users[0]).join(", "));
-        console.log("[DEBUG /api/users] sample roleId:", users[0].roleId, "role:", users[0].role);
-      }
       res.json(users);
     } catch (error) {
       console.error("Error fetching users:", error);
