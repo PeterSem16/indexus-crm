@@ -461,8 +461,8 @@ interface EnrichedContactPhase extends CampaignContactPhase {
 }
 
 export default function CampaignPhasesTab({ campaignId }: { campaignId: string }) {
-  const { language } = useI18n();
-  const pt = phasesT[language] || phasesT.sk;
+  const { locale } = useI18n();
+  const pt = phasesT[locale] || phasesT.sk;
   const { toast } = useToast();
 
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -592,7 +592,7 @@ export default function CampaignPhasesTab({ campaignId }: { campaignId: string }
 
   const formatDate = (d: string | Date | null | undefined) => {
     if (!d) return "-";
-    return new Date(d).toLocaleDateString(language === "sk" ? "sk-SK" : "en-US", {
+    return new Date(d).toLocaleDateString(locale === "sk" ? "sk-SK" : locale === "cs" ? "cs-CZ" : locale === "hu" ? "hu-HU" : locale === "ro" ? "ro-RO" : locale === "it" ? "it-IT" : locale === "de" ? "de-DE" : "en-US", {
       day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit"
     });
   };

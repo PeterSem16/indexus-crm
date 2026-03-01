@@ -24,8 +24,7 @@ import {
   BarChart3,
   Syringe,
   ArrowDown,
-  Headphones,
-  BookOpen
+  Headphones
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { usePermissions } from "@/contexts/permissions-context";
@@ -98,7 +97,6 @@ export function AppSidebar() {
   ];
   
   const adminNavItems = [
-    { title: t.sop.title, url: "/sop", icon: BookOpen, testId: "sop", moduleKey: "settings" },
     { title: t.nav.users, url: "/users", icon: UserCog, testId: "users", moduleKey: "users" },
     { title: t.nav.settings, url: "/settings", icon: Settings, testId: "settings", moduleKey: "settings" },
     { title: t.nav.konfigurator, url: "/configurator", icon: Cog, testId: "konfigurator", moduleKey: "configurator" },
