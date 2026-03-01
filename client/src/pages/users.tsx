@@ -849,7 +849,7 @@ export default function UsersPage() {
     }
     
     return result;
-  }, [users, search, sortConfig]);
+  }, [users, search, sortConfig, filterRole]);
   
   // Pagination
   const totalPages = Math.ceil(filteredUsers.length / USERS_PER_PAGE);
