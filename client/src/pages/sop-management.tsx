@@ -1,18 +1,18 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/contexts/auth-context";
 import { useToast } from "@/hooks/use-toast";
 import { useI18n } from "@/i18n";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
@@ -25,6 +25,7 @@ import {
   Thermometer, Baby, Brain, Microscope, Stethoscope, Pill,
   CircleCheck, CircleX, RefreshCw, ArrowLeftRight, Package,
   Tags, GraduationCap, Headphones, Clock, Award, Sparkles,
+  HelpCircle, ChevronUp, ChevronDown,
   type LucideIcon
 } from "lucide-react";
 import TipTapEditor from "@/components/sop/TipTapEditor";
@@ -320,6 +321,10 @@ export default function SopManagementPage() {
             <FolderOpen className="h-4 w-4" />
             {t.sop.categories} ({categories.length})
           </TabsTrigger>
+          <TabsTrigger value="faq" className="gap-1.5" data-testid="tab-sop-faq">
+            <HelpCircle className="h-4 w-4" />
+            {t.campaigns.faq.faqTab}
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="articles" className="space-y-4 mt-4">
@@ -455,6 +460,10 @@ export default function SopManagementPage() {
               </CardContent></Card>
             )}
           </div>
+        </TabsContent>
+
+        <TabsContent value="faq" className="space-y-4 mt-4">
+          <FaqTab campaigns={campaigns} />
         </TabsContent>
       </Tabs>
 
@@ -748,6 +757,328 @@ export default function SopManagementPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function FaqTab({ campaigns }: { campaigns: Campaign[] }) {
+  const { toast } = useToast();
+  const { t } = useI18n();
+  const [selectedCampaignId, setSelectedCampaignId] = useState<string>("all");
+  const [faqSearch, setFaqSearch] = useState("");
+  const [editingFaq, setEditingFaq] = useState<{ id: string; question: string; answer: string; category: string; campaignId: string } | null>(null);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const sampleFaqs = useMemo(() => [
+    { id: "faq-1", question: "Čo je pupočníková krv?", answer: "Pupočníková krv je krv, ktorá zostáva v pupočníku a placente po pôrode. Obsahuje kmeňové bunky, ktoré môžu byť použité na liečbu rôznych ochorení vrátane leukémie, lymfómov a metabolických porúch.", category: "Všeobecné", campaignId: "all" },
+    { id: "faq-2", question: "Je odber bolestivý pre matku alebo dieťa?", answer: "Nie, odber pupočníkovej krvi je úplne bezbolestný pre matku aj dieťa. Vykonáva sa až po pôrode a prestrihnutí pupočníka. Neovplyvňuje priebeh pôrodu ani zdravie novorodenca.", category: "Odber", campaignId: "all" },
+    { id: "faq-3", question: "Ako dlho sa dajú kmeňové bunky uchovávať?", answer: "Kmeňové bunky z pupočníkovej krvi je možné uchovávať v kryokonzervácii prakticky neobmedzene dlho. Vedecké štúdie potvrdzujú ich životaschopnosť aj po viac ako 25 rokoch uchovávania pri -196°C v tekutom dusíku.", category: "Uchovávanie", campaignId: "all" },
+    { id: "faq-4", question: "Aké ochorenia sa dajú liečiť kmeňovými bunkami?", answer: "Kmeňové bunky z pupočníkovej krvi sa v súčasnosti používajú na liečbu viac ako 80 ochorení. Patria medzi ne rôzne formy leukémie, lymfómy, ťažké anémie (vrátane kosáčikovitej anémie), metabolické poruchy, imunodeficiencie a niektoré solídne nádory.", category: "Liečba", campaignId: "all" },
+    { id: "faq-5", question: "Aké sú cenové možnosti?", answer: "Cena závisí od zvoleného balíka služieb. Základný balík začína od 990€. Máme k dispozícii aj rozšírené balíky s dlhšou dobou uchovávania a doplnkovými službami. Ponúkame tiež možnosť splátok.", category: "Cena", campaignId: "all" },
+    { id: "faq-6", question: "Kedy sa musím rozhodnúť o odbere?", answer: "Odporúčame rozhodnúť sa do 34. týždňa tehotenstva, aby sme stihli pripraviť všetky potrebné dokumenty a odberový set.", category: "Proces", campaignId: "all" },
+    { id: "faq-7", question: "Čo ak mám cisársky rez?", answer: "Odber pupočníkovej krvi je plne kompatibilný aj s cisárskym rezom. Postup je rovnako bezpečný a bezbolestný.", category: "Odber", campaignId: "all" },
+    { id: "faq-8", question: "Je pupočníková krv kompatibilná medzi súrodencami?", answer: "Áno, medzi súrodencami je 25% pravdepodobnosť plnej HLA zhody a 50% pravdepodobnosť čiastočnej zhody. Pre samotné dieťa je zhoda 100%.", category: "Liečba", campaignId: "all" },
+    { id: "faq-9", question: "Aký je postup po podpísaní zmluvy?", answer: "Po podpísaní zmluvy vám pošleme odberový set s podrobnými inštrukciami. Set prinesiete do pôrodnice. Po pôrode vykoná odber vyškolený personál.", category: "Proces", campaignId: "all" },
+    { id: "faq-10", question: "Čo ak pupočníková krv nie je vhodná na spracovanie?", answer: "V zriedkavých prípadoch (cca 5%) môže byť objem pupočníkovej krvi nedostatočný alebo kvalita nevyhovujúca. V takom prípade vás budeme informovať a ponúkneme alternatívne riešenia.", category: "Všeobecné", campaignId: "all" },
+  ], []);
+
+  const [faqs, setFaqs] = useState(sampleFaqs);
+  const faqCategories = useMemo(() => [...new Set(faqs.map(f => f.category))], [faqs]);
+
+  const filteredFaqs = useMemo(() => {
+    return faqs.filter(f => {
+      if (selectedCampaignId !== "all" && f.campaignId !== "all" && f.campaignId !== selectedCampaignId) return false;
+      if (faqSearch.trim()) {
+        const q = faqSearch.toLowerCase();
+        return f.question.toLowerCase().includes(q) || f.answer.toLowerCase().includes(q) || f.category.toLowerCase().includes(q);
+      }
+      return true;
+    });
+  }, [faqs, selectedCampaignId, faqSearch]);
+
+  const groupedFaqs = useMemo(() => {
+    return faqCategories.map(cat => ({
+      category: cat,
+      items: filteredFaqs.filter(f => f.category === cat),
+    })).filter(g => g.items.length > 0);
+  }, [filteredFaqs, faqCategories]);
+
+  const handleDeleteFaq = (id: string) => {
+    setFaqs(prev => prev.filter(f => f.id !== id));
+    toast({ title: t.campaigns.faq.faqDeleted, description: t.campaigns.faq.faqDeletedDesc });
+  };
+
+  const handleSaveFaq = (faq: { id?: string; question: string; answer: string; category: string; campaignId: string }) => {
+    if (faq.id) {
+      setFaqs(prev => prev.map(f => f.id === faq.id ? { ...f, ...faq, id: f.id } : f));
+      toast({ title: t.campaigns.faq.faqUpdated, description: t.campaigns.faq.faqUpdatedDesc });
+    } else {
+      const newFaq = { ...faq, id: `faq-${Date.now()}` };
+      setFaqs(prev => [...prev, newFaq]);
+      toast({ title: t.campaigns.faq.faqAdded, description: t.campaigns.faq.faqAddedDesc });
+    }
+    setEditingFaq(null);
+    setIsAddDialogOpen(false);
+  };
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between gap-4 pb-4 flex-wrap">
+          <div className="space-y-1">
+            <CardTitle className="flex items-center gap-2">
+              <HelpCircle className="h-5 w-5 text-primary" />
+              {t.campaigns.faq.title}
+            </CardTitle>
+            <CardDescription>{t.campaigns.faq.description}</CardDescription>
+          </div>
+          <Button onClick={() => { setEditingFaq(null); setIsAddDialogOpen(true); }} data-testid="btn-add-faq">
+            <Plus className="h-4 w-4 mr-2" />
+            {t.campaigns.faq.addFaq}
+          </Button>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-3 mb-6 flex-wrap">
+            <div className="relative flex-1 max-w-sm">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder={t.campaigns.faq.searchPlaceholder}
+                value={faqSearch}
+                onChange={(e) => setFaqSearch(e.target.value)}
+                className="pl-10"
+                data-testid="input-faq-campaign-search"
+              />
+            </div>
+            <Select value={selectedCampaignId} onValueChange={setSelectedCampaignId}>
+              <SelectTrigger className="w-[200px]" data-testid="select-faq-campaign">
+                <SelectValue placeholder={t.campaigns.faq.allCampaigns} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t.campaigns.faq.allCampaigns}</SelectItem>
+                {campaigns.map(c => (
+                  <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Badge variant="secondary" className="text-xs">{filteredFaqs.length} {t.campaigns.faq.questionsCount}</Badge>
+          </div>
+
+          {groupedFaqs.length === 0 ? (
+            <div className="text-center py-12">
+              <HelpCircle className="h-12 w-12 mx-auto mb-3 text-muted-foreground/20" />
+              <p className="text-sm text-muted-foreground">
+                {faqSearch ? `${t.campaigns.faq.noFaqsForSearch} "${faqSearch}"` : t.campaigns.faq.noFaqs}
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {groupedFaqs.map((group) => (
+                <div key={group.category}>
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="h-2 w-2 rounded-full bg-primary/60" />
+                    <h3 className="text-sm font-semibold text-foreground">{group.category}</h3>
+                    <Badge variant="outline" className="text-[10px]">{group.items.length}</Badge>
+                  </div>
+                  <div className="space-y-2">
+                    {group.items.map((faq) => {
+                      const isExpanded = expandedId === faq.id;
+                      return (
+                        <Card key={faq.id} data-testid={`faq-manage-item-${faq.id}`}>
+                          <div className="flex items-start gap-3 p-4">
+                            <HelpCircle className="h-4 w-4 text-primary/70 shrink-0 mt-1" />
+                            <div className="flex-1 min-w-0">
+                              <button
+                                onClick={() => setExpandedId(isExpanded ? null : faq.id)}
+                                className="w-full text-left"
+                                data-testid={`btn-faq-expand-${faq.id}`}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <p className="text-sm font-medium text-foreground flex-1">{faq.question}</p>
+                                  {isExpanded ? (
+                                    <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" />
+                                  ) : (
+                                    <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+                                  )}
+                                </div>
+                              </button>
+                              {isExpanded && (
+                                <div className="mt-3 pt-3 border-t">
+                                  <p className="text-sm text-muted-foreground leading-relaxed">{faq.answer}</p>
+                                  <div className="flex items-center gap-2 mt-3 flex-wrap">
+                                    <Badge variant="outline" className="text-[10px]">{faq.category}</Badge>
+                                    <Badge variant="secondary" className="text-[10px]">
+                                      {faq.campaignId === "all" ? t.campaigns.faq.allCampaigns : campaigns.find(c => String(c.id) === faq.campaignId)?.name || "—"}
+                                    </Badge>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => { setEditingFaq(faq); setIsAddDialogOpen(true); }}
+                                data-testid={`btn-faq-edit-${faq.id}`}
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => handleDeleteFaq(faq.id)}
+                                data-testid={`btn-faq-delete-${faq.id}`}
+                              >
+                                <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                              </Button>
+                            </div>
+                          </div>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Dialog open={isAddDialogOpen} onOpenChange={(open) => { setIsAddDialogOpen(open); if (!open) setEditingFaq(null); }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{editingFaq ? t.campaigns.faq.editFaq : t.campaigns.faq.addFaq}</DialogTitle>
+            <DialogDescription>
+              {editingFaq ? t.campaigns.faq.editFaqDesc : t.campaigns.faq.addFaqDesc}
+            </DialogDescription>
+          </DialogHeader>
+          <FaqForm
+            initialData={editingFaq}
+            campaigns={campaigns}
+            categories={faqCategories}
+            onSave={handleSaveFaq}
+            onCancel={() => { setIsAddDialogOpen(false); setEditingFaq(null); }}
+          />
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function FaqForm({
+  initialData,
+  campaigns,
+  categories,
+  onSave,
+  onCancel,
+}: {
+  initialData: { id?: string; question: string; answer: string; category: string; campaignId: string } | null;
+  campaigns: Campaign[];
+  categories: string[];
+  onSave: (faq: { id?: string; question: string; answer: string; category: string; campaignId: string }) => void;
+  onCancel: () => void;
+}) {
+  const { t } = useI18n();
+  const [question, setQuestion] = useState(initialData?.question || "");
+  const [answer, setAnswer] = useState(initialData?.answer || "");
+  const [category, setCategory] = useState(initialData?.category || "");
+  const [newCategory, setNewCategory] = useState("");
+  const [campaignId, setCampaignId] = useState(initialData?.campaignId || "all");
+  const [useNewCategory, setUseNewCategory] = useState(false);
+
+  const handleSubmit = () => {
+    if (!question.trim() || !answer.trim()) return;
+    const finalCategory = useNewCategory ? newCategory.trim() : category;
+    if (!finalCategory) return;
+    onSave({
+      id: initialData?.id,
+      question: question.trim(),
+      answer: answer.trim(),
+      category: finalCategory,
+      campaignId,
+    });
+  };
+
+  return (
+    <div className="space-y-4 pt-2">
+      <div className="space-y-2">
+        <Label>{t.campaigns.faq.question}</Label>
+        <Input
+          value={question}
+          onChange={(e) => setQuestion(e.target.value)}
+          placeholder={t.campaigns.faq.questionPlaceholder}
+          data-testid="input-faq-question"
+        />
+      </div>
+      <div className="space-y-2">
+        <Label>{t.campaigns.faq.answer}</Label>
+        <Textarea
+          value={answer}
+          onChange={(e) => setAnswer(e.target.value)}
+          placeholder={t.campaigns.faq.answerPlaceholder}
+          rows={4}
+          data-testid="input-faq-answer"
+        />
+      </div>
+      <div className="space-y-2">
+        <Label>{t.campaigns.faq.category}</Label>
+        <div className="flex items-center gap-2 flex-wrap">
+          {!useNewCategory ? (
+            <Select value={category} onValueChange={setCategory}>
+              <SelectTrigger className="flex-1" data-testid="select-faq-category">
+                <SelectValue placeholder={t.campaigns.faq.selectCategory} />
+              </SelectTrigger>
+              <SelectContent>
+                {categories.map(cat => (
+                  <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
+            <Input
+              value={newCategory}
+              onChange={(e) => setNewCategory(e.target.value)}
+              placeholder={t.campaigns.faq.newCategoryPlaceholder}
+              className="flex-1"
+              data-testid="input-faq-new-category"
+            />
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setUseNewCategory(!useNewCategory)}
+            data-testid="btn-toggle-new-category"
+          >
+            {useNewCategory ? t.campaigns.faq.existingCategory : t.campaigns.faq.newCategory}
+          </Button>
+        </div>
+      </div>
+      <div className="space-y-2">
+        <Label>{t.campaigns.faq.campaign}</Label>
+        <Select value={campaignId} onValueChange={setCampaignId}>
+          <SelectTrigger data-testid="select-faq-campaign-assign">
+            <SelectValue placeholder={t.campaigns.faq.campaign} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t.campaigns.faq.allCampaigns}</SelectItem>
+            {campaigns.map(c => (
+              <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="flex justify-end gap-2 pt-2">
+        <Button variant="outline" onClick={onCancel} data-testid="btn-faq-cancel">
+          {t.campaigns.faq.cancel}
+        </Button>
+        <Button
+          onClick={handleSubmit}
+          disabled={!question.trim() || !answer.trim() || (!category && !newCategory.trim())}
+          data-testid="btn-faq-save"
+        >
+          {initialData ? t.campaigns.faq.save : t.campaigns.faq.addFaq}
+        </Button>
+      </div>
     </div>
   );
 }
