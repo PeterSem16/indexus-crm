@@ -178,8 +178,8 @@ export default function CampaignPhasesTab({ campaignId }: { campaignId: string }
   const [newTargetConversions, setNewTargetConversions] = useState<string>("");
   const [newTargetResponseRate, setNewTargetResponseRate] = useState<string>("");
   const [transitionTargetId, setTransitionTargetId] = useState("");
-  const [transitionInclude, setTransitionInclude] = useState<Set<string>>(new Set());
-  const [transitionExclude, setTransitionExclude] = useState<Set<string>>(new Set());
+  const [transitionInclude, setTransitionInclude] = useState<string[]>([]);
+  const [transitionExclude, setTransitionExclude] = useState<string[]>([]);
 
   const { data: phases = [], isLoading } = useQuery<PhaseWithStats[]>({
     queryKey: ["/api/campaigns", campaignId, "phases"],
@@ -510,8 +510,8 @@ export default function CampaignPhasesTab({ campaignId }: { campaignId: string }
                       <Button size="sm" variant="outline" onClick={() => {
                         setShowTransitionDialog(phase.id);
                         setTransitionTargetId("");
-                        setTransitionInclude(new Set());
-                        setTransitionExclude(new Set());
+                        setTransitionInclude([]);
+                        setTransitionExclude([]);
                       }} data-testid={`button-transition-${phase.id}`}>
                         <ArrowRight className="w-3.5 h-3.5 mr-1" />
                         {pt.transition}
@@ -687,8 +687,8 @@ export default function CampaignPhasesTab({ campaignId }: { campaignId: string }
       <Dialog open={!!showTransitionDialog} onOpenChange={(open) => {
         if (!open) {
           setShowTransitionDialog(null);
-          setTransitionInclude(new Set());
-          setTransitionExclude(new Set());
+          setTransitionInclude([]);
+          setTransitionExclude([]);
           setTransitionTargetId("");
         }
       }}>
@@ -725,8 +725,8 @@ export default function CampaignPhasesTab({ campaignId }: { campaignId: string }
                   <ScrollArea className="max-h-[140px]">
                     <div className="flex flex-wrap gap-1.5">
                       {dispositions.filter(d => d.isActive).map(d => {
-                        const selected = transitionInclude.has(d.code);
-                        const excluded = transitionExclude.has(d.code);
+                        const selected = transitionInclude.includes(d.code);
+                        const excluded = transitionExclude.includes(d.code);
                         return (
                           <button
                             key={d.id}
@@ -740,15 +740,13 @@ export default function CampaignPhasesTab({ campaignId }: { campaignId: string }
                                   : "border-border bg-background text-foreground hover:bg-accent hover:border-accent-foreground/20"
                             }`}
                             onClick={() => {
-                              setTransitionInclude(prev => {
-                                const next = new Set(prev);
-                                if (next.has(d.code)) next.delete(d.code); else next.add(d.code);
-                                return next;
-                              });
+                              setTransitionInclude(prev =>
+                                prev.includes(d.code) ? prev.filter(c => c !== d.code) : [...prev, d.code]
+                              );
                             }}
                             data-testid={`badge-include-${d.code}`}
                           >
-                            {d.color && <span className={`w-2 h-2 rounded-full`} style={{ backgroundColor: d.color }} />}
+                            {d.color && <span className="w-2 h-2 rounded-full" style={{ backgroundColor: d.color }} />}
                             {d.name}
                             {selected && <CheckCircle className="h-3 w-3 ml-0.5" />}
                           </button>
@@ -764,8 +762,8 @@ export default function CampaignPhasesTab({ campaignId }: { campaignId: string }
                   <ScrollArea className="max-h-[140px]">
                     <div className="flex flex-wrap gap-1.5">
                       {dispositions.filter(d => d.isActive).map(d => {
-                        const selected = transitionExclude.has(d.code);
-                        const included = transitionInclude.has(d.code);
+                        const selected = transitionExclude.includes(d.code);
+                        const included = transitionInclude.includes(d.code);
                         return (
                           <button
                             key={d.id}
@@ -779,15 +777,13 @@ export default function CampaignPhasesTab({ campaignId }: { campaignId: string }
                                   : "border-border bg-background text-foreground hover:bg-accent hover:border-accent-foreground/20"
                             }`}
                             onClick={() => {
-                              setTransitionExclude(prev => {
-                                const next = new Set(prev);
-                                if (next.has(d.code)) next.delete(d.code); else next.add(d.code);
-                                return next;
-                              });
+                              setTransitionExclude(prev =>
+                                prev.includes(d.code) ? prev.filter(c => c !== d.code) : [...prev, d.code]
+                              );
                             }}
                             data-testid={`badge-exclude-${d.code}`}
                           >
-                            {d.color && <span className={`w-2 h-2 rounded-full`} style={{ backgroundColor: d.color }} />}
+                            {d.color && <span className="w-2 h-2 rounded-full" style={{ backgroundColor: d.color }} />}
                             {d.name}
                             {selected && <Trash2 className="h-3 w-3 ml-0.5" />}
                           </button>
@@ -804,8 +800,8 @@ export default function CampaignPhasesTab({ campaignId }: { campaignId: string }
             <Button
               onClick={() => {
                 if (!showTransitionDialog || !transitionTargetId) return;
-                const includeArr = transitionInclude.size > 0 ? Array.from(transitionInclude) : undefined;
-                const excludeArr = transitionExclude.size > 0 ? Array.from(transitionExclude) : undefined;
+                const includeArr = transitionInclude.length > 0 ? transitionInclude : undefined;
+                const excludeArr = transitionExclude.length > 0 ? transitionExclude : undefined;
                 transitionMutation.mutate({
                   phaseId: showTransitionDialog,
                   data: {
