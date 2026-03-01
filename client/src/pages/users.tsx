@@ -802,6 +802,9 @@ export default function UsersPage() {
   };
 
   const filteredUsers = useMemo(() => {
+    if (filterRole !== "all") {
+      console.log("[FILTER-DEBUG] filterRole:", filterRole, "users roleIds:", users.map(u => u.username + "=" + u.roleId));
+    }
     let result = users.filter(user => {
       const matchesSearch = user.fullName.toLowerCase().includes(search.toLowerCase()) ||
         user.email.toLowerCase().includes(search.toLowerCase()) ||

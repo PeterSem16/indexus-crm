@@ -633,22 +633,6 @@ export async function deleteCampaign(
   });
 }
 
-export async function getCampaignChecklist(
-  settings: { apiKey: string; serverPrefix: string },
-  mailchimpCampaignId: string
-): Promise<{ isReady: boolean; items: { type: string; id: number; heading: string; details: string }[] }> {
-  const data = await mailchimpFetch(settings, `/campaigns/${mailchimpCampaignId}/send-checklist`);
-  return {
-    isReady: data.is_ready || false,
-    items: (data.items || []).map((i: any) => ({
-      type: i.type,
-      id: i.id,
-      heading: i.heading,
-      details: i.details,
-    })),
-  };
-}
-
 export async function getEmailActivity(
   settings: { apiKey: string; serverPrefix: string },
   mailchimpCampaignId: string,
