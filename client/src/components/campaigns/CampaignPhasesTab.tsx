@@ -15,7 +15,8 @@ import {
   Plus, Phone, Mail, Play, CheckCircle, ArrowRight, Trash2,
   Clock, Users, BarChart3, Pencil, Eye, ChevronRight, Layers, Target, Percent
 } from "lucide-react";
-import type { CampaignPhase, CampaignContactPhase } from "@shared/schema";
+import type { CampaignPhase, CampaignContactPhase, CampaignDisposition } from "@shared/schema";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 const phasesT: Record<string, Record<string, string>> = {
   sk: {
@@ -51,8 +52,12 @@ const phasesT: Record<string, Record<string, string>> = {
     evaluationDate: "Dátum vyhodnotenia",
     transitionTitle: "Prechod kontaktov do ďalšej fázy",
     targetPhase: "Cieľová fáza",
-    includeStatuses: "Zahrnúť statusy (oddelené čiarkou)",
-    excludeStatuses: "Vylúčiť statusy (oddelené čiarkou)",
+    includeStatuses: "Zahrnúť statusy",
+    excludeStatuses: "Vylúčiť statusy",
+    clickToInclude: "Kliknite na status pre zahrnutie",
+    clickToExclude: "Kliknite na status pre vylúčenie",
+    loadingDispositions: "Načítavam statusy...",
+    noDispositions: "Žiadne dispozície pre túto kampaň",
     transitioned: "presunutých",
     of: "z",
     phaseTimeline: "Timeline kontaktu",
@@ -107,8 +112,12 @@ const phasesT: Record<string, Record<string, string>> = {
     evaluationDate: "Evaluation Date",
     transitionTitle: "Transition contacts to next phase",
     targetPhase: "Target Phase",
-    includeStatuses: "Include statuses (comma separated)",
-    excludeStatuses: "Exclude statuses (comma separated)",
+    includeStatuses: "Include statuses",
+    excludeStatuses: "Exclude statuses",
+    clickToInclude: "Click a status to include",
+    clickToExclude: "Click a status to exclude",
+    loadingDispositions: "Loading statuses...",
+    noDispositions: "No dispositions for this campaign",
     transitioned: "transitioned",
     of: "of",
     phaseTimeline: "Contact Timeline",
@@ -169,8 +178,8 @@ export default function CampaignPhasesTab({ campaignId }: { campaignId: string }
   const [newTargetConversions, setNewTargetConversions] = useState<string>("");
   const [newTargetResponseRate, setNewTargetResponseRate] = useState<string>("");
   const [transitionTargetId, setTransitionTargetId] = useState("");
-  const [transitionInclude, setTransitionInclude] = useState("");
-  const [transitionExclude, setTransitionExclude] = useState("");
+  const [transitionInclude, setTransitionInclude] = useState<Set<string>>(new Set());
+  const [transitionExclude, setTransitionExclude] = useState<Set<string>>(new Set());
 
   const { data: phases = [], isLoading } = useQuery<PhaseWithStats[]>({
     queryKey: ["/api/campaigns", campaignId, "phases"],
@@ -188,6 +197,12 @@ export default function CampaignPhasesTab({ campaignId }: { campaignId: string }
     queryKey: ["/api/campaigns", campaignId, "contacts", viewTimelineContactId, "timeline"],
     queryFn: () => fetch(`/api/campaigns/${campaignId}/contacts/${viewTimelineContactId}/timeline`, { credentials: "include" }).then(r => r.json()),
     enabled: !!viewTimelineContactId,
+  });
+
+  const { data: dispositions = [], isLoading: dispositionsLoading } = useQuery<CampaignDisposition[]>({
+    queryKey: ["/api/campaigns", campaignId, "dispositions"],
+    queryFn: () => fetch(`/api/campaigns/${campaignId}/dispositions`, { credentials: "include" }).then(r => r.json()),
+    enabled: !!showTransitionDialog,
   });
 
   const createPhaseMutation = useMutation({
@@ -495,8 +510,8 @@ export default function CampaignPhasesTab({ campaignId }: { campaignId: string }
                       <Button size="sm" variant="outline" onClick={() => {
                         setShowTransitionDialog(phase.id);
                         setTransitionTargetId("");
-                        setTransitionInclude("");
-                        setTransitionExclude("");
+                        setTransitionInclude(new Set());
+                        setTransitionExclude(new Set());
                       }} data-testid={`button-transition-${phase.id}`}>
                         <ArrowRight className="w-3.5 h-3.5 mr-1" />
                         {pt.transition}
@@ -669,8 +684,15 @@ export default function CampaignPhasesTab({ campaignId }: { campaignId: string }
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!showTransitionDialog} onOpenChange={(open) => { if (!open) setShowTransitionDialog(null); }}>
-        <DialogContent>
+      <Dialog open={!!showTransitionDialog} onOpenChange={(open) => {
+        if (!open) {
+          setShowTransitionDialog(null);
+          setTransitionInclude(new Set());
+          setTransitionExclude(new Set());
+          setTransitionTargetId("");
+        }
+      }}>
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>{pt.transitionTitle}</DialogTitle>
           </DialogHeader>
@@ -690,38 +712,106 @@ export default function CampaignPhasesTab({ campaignId }: { campaignId: string }
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <Label>{pt.includeStatuses}</Label>
-              <Input
-                value={transitionInclude}
-                onChange={(e) => setTransitionInclude(e.target.value)}
-                placeholder="opened, clicked, interested, callback"
-                data-testid="input-include-statuses"
-              />
-            </div>
-            <div>
-              <Label>{pt.excludeStatuses}</Label>
-              <Input
-                value={transitionExclude}
-                onChange={(e) => setTransitionExclude(e.target.value)}
-                placeholder="bounced, unsubscribed, refused"
-                data-testid="input-exclude-statuses"
-              />
-            </div>
+
+            {dispositionsLoading ? (
+              <p className="text-sm text-muted-foreground">{pt.loadingDispositions}</p>
+            ) : dispositions.length === 0 ? (
+              <p className="text-sm text-muted-foreground">{pt.noDispositions}</p>
+            ) : (
+              <>
+                <div>
+                  <Label className="mb-2 block">{pt.includeStatuses}</Label>
+                  <p className="text-xs text-muted-foreground mb-2">{pt.clickToInclude}</p>
+                  <ScrollArea className="max-h-[140px]">
+                    <div className="flex flex-wrap gap-1.5">
+                      {dispositions.filter(d => d.isActive).map(d => {
+                        const selected = transitionInclude.has(d.code);
+                        const excluded = transitionExclude.has(d.code);
+                        return (
+                          <button
+                            key={d.id}
+                            type="button"
+                            disabled={excluded}
+                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium border transition-all ${
+                              selected
+                                ? "bg-green-100 border-green-400 text-green-800 dark:bg-green-900/40 dark:border-green-600 dark:text-green-300"
+                                : excluded
+                                  ? "opacity-30 cursor-not-allowed border-muted bg-muted text-muted-foreground"
+                                  : "border-border bg-background text-foreground hover:bg-accent hover:border-accent-foreground/20"
+                            }`}
+                            onClick={() => {
+                              setTransitionInclude(prev => {
+                                const next = new Set(prev);
+                                if (next.has(d.code)) next.delete(d.code); else next.add(d.code);
+                                return next;
+                              });
+                            }}
+                            data-testid={`badge-include-${d.code}`}
+                          >
+                            {d.color && <span className={`w-2 h-2 rounded-full`} style={{ backgroundColor: d.color }} />}
+                            {d.name}
+                            {selected && <CheckCircle className="h-3 w-3 ml-0.5" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </ScrollArea>
+                </div>
+
+                <div>
+                  <Label className="mb-2 block">{pt.excludeStatuses}</Label>
+                  <p className="text-xs text-muted-foreground mb-2">{pt.clickToExclude}</p>
+                  <ScrollArea className="max-h-[140px]">
+                    <div className="flex flex-wrap gap-1.5">
+                      {dispositions.filter(d => d.isActive).map(d => {
+                        const selected = transitionExclude.has(d.code);
+                        const included = transitionInclude.has(d.code);
+                        return (
+                          <button
+                            key={d.id}
+                            type="button"
+                            disabled={included}
+                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium border transition-all ${
+                              selected
+                                ? "bg-red-100 border-red-400 text-red-800 dark:bg-red-900/40 dark:border-red-600 dark:text-red-300"
+                                : included
+                                  ? "opacity-30 cursor-not-allowed border-muted bg-muted text-muted-foreground"
+                                  : "border-border bg-background text-foreground hover:bg-accent hover:border-accent-foreground/20"
+                            }`}
+                            onClick={() => {
+                              setTransitionExclude(prev => {
+                                const next = new Set(prev);
+                                if (next.has(d.code)) next.delete(d.code); else next.add(d.code);
+                                return next;
+                              });
+                            }}
+                            data-testid={`badge-exclude-${d.code}`}
+                          >
+                            {d.color && <span className={`w-2 h-2 rounded-full`} style={{ backgroundColor: d.color }} />}
+                            {d.name}
+                            {selected && <Trash2 className="h-3 w-3 ml-0.5" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </ScrollArea>
+                </div>
+              </>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowTransitionDialog(null)}>{pt.cancel}</Button>
             <Button
               onClick={() => {
                 if (!showTransitionDialog || !transitionTargetId) return;
-                const includeArr = transitionInclude ? transitionInclude.split(",").map(s => s.trim()).filter(Boolean) : undefined;
-                const excludeArr = transitionExclude ? transitionExclude.split(",").map(s => s.trim()).filter(Boolean) : undefined;
+                const includeArr = transitionInclude.size > 0 ? Array.from(transitionInclude) : undefined;
+                const excludeArr = transitionExclude.size > 0 ? Array.from(transitionExclude) : undefined;
                 transitionMutation.mutate({
                   phaseId: showTransitionDialog,
                   data: {
                     targetPhaseId: transitionTargetId,
-                    includeStatuses: includeArr && includeArr.length > 0 ? includeArr : undefined,
-                    excludeStatuses: excludeArr && excludeArr.length > 0 ? excludeArr : undefined,
+                    includeStatuses: includeArr,
+                    excludeStatuses: excludeArr,
                   }
                 });
               }}
