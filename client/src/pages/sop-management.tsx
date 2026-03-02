@@ -375,9 +375,9 @@ export default function SopManagementPage() {
               <Button onClick={openNewArticle} variant="outline" className="mt-3" data-testid="btn-new-article-empty"><Plus className="h-4 w-4 mr-1" /> {t.sop.createFirstArticle}</Button>
             </CardContent></Card>
           ) : (
-            <div className="grid gap-3">
-              {filteredArticles.map(article => {
-                return (
+            <div className="space-y-4">
+              {(() => {
+                const renderArticleCard = (article: typeof filteredArticles[0]) => (
                   <Card key={article.id} className={`${!article.isPublished ? "opacity-60" : ""}`} data-testid={`sop-card-${article.id}`}>
                     <CardContent className="p-4">
                       <div className="flex items-start gap-4">
@@ -390,11 +390,11 @@ export default function SopManagementPage() {
                             {!article.isPublished && <Badge variant="secondary" className="text-[10px] h-5 gap-0.5"><EyeOff className="h-3 w-3" />{t.sop.hidden}</Badge>}
                           </div>
                           <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                            <span className="flex items-center gap-1">{(() => { const CatIcon = getCategoryIcon(article.categoryId); return <CatIcon className="h-3 w-3" />; })()}{getCategoryName(article.categoryId)}</span>
                             {article.countryCode && <Badge variant="outline" className="text-[10px] h-4">{COUNTRY_FLAGS[article.countryCode] || ""} {article.countryCode}</Badge>}
                             <span>v{article.version}</span>
                             <span>{new Date(article.updatedAt).toLocaleDateString()}</span>
                             {article.createdBy && <span>{t.sop.author}: {getUserName(article.createdBy)}</span>}
+                            {(article.sortOrder ?? 0) > 0 && <span className="text-muted-foreground/60">#{article.sortOrder}</span>}
                           </div>
                           {article.summary && <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{article.summary}</p>}
                           {article.tags && article.tags.length > 0 && (
@@ -412,7 +412,62 @@ export default function SopManagementPage() {
                     </CardContent>
                   </Card>
                 );
-              })}
+
+                const topCats = categories.filter(c => !c.parentId).sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+                const getChildCats = (pid: string) => categories.filter(c => c.parentId === pid).sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+                const getArticlesForCat = (catId: string) => filteredArticles.filter(a => a.categoryId === catId).sort((a, b) => {
+                  if ((a.isPinned ? 1 : 0) !== (b.isPinned ? 1 : 0)) return a.isPinned ? -1 : 1;
+                  return (a.sortOrder || 0) - (b.sortOrder || 0);
+                });
+
+                const assignedCatIds = new Set(filteredArticles.map(a => a.categoryId));
+                const relevantTopCats = topCats.filter(c => {
+                  if (assignedCatIds.has(c.id)) return true;
+                  return getChildCats(c.id).some(ch => assignedCatIds.has(ch.id));
+                });
+
+                return relevantTopCats.map(cat => {
+                  const catArticles = getArticlesForCat(cat.id);
+                  const children = getChildCats(cat.id).filter(ch => assignedCatIds.has(ch.id));
+                  const CatIcon = getCategoryIcon(cat.id);
+
+                  return (
+                    <div key={cat.id} data-testid={`sop-tree-cat-${cat.id}`}>
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                          <CatIcon className="h-4 w-4" />
+                        </div>
+                        <h2 className="text-sm font-semibold">{cat.name}</h2>
+                        <Badge variant="secondary" className="text-[10px] h-5">{catArticles.length + children.reduce((sum, ch) => sum + getArticlesForCat(ch.id).length, 0)}</Badge>
+                        {cat.countryCode && <Badge variant="outline" className="text-[10px] h-4">{COUNTRY_FLAGS[cat.countryCode] || ""} {cat.countryCode}</Badge>}
+                      </div>
+                      {catArticles.length > 0 && (
+                        <div className="grid gap-2 ml-9 mb-3">
+                          {catArticles.map(renderArticleCard)}
+                        </div>
+                      )}
+                      {children.map(child => {
+                        const childArticles = getArticlesForCat(child.id);
+                        const ChildIcon = getCategoryIcon(child.id);
+                        return (
+                          <div key={child.id} className="ml-9 mb-3" data-testid={`sop-tree-subcat-${child.id}`}>
+                            <div className="flex items-center gap-2 mb-2">
+                              <div className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/5 text-primary/70">
+                                <ChildIcon className="h-3.5 w-3.5" />
+                              </div>
+                              <h3 className="text-xs font-semibold text-muted-foreground">↳ {child.name}</h3>
+                              <Badge variant="outline" className="text-[9px] h-4">{childArticles.length}</Badge>
+                            </div>
+                            <div className="grid gap-2 ml-8">
+                              {childArticles.map(renderArticleCard)}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                });
+              })()}
             </div>
           )}
         </TabsContent>
