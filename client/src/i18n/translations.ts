@@ -2347,6 +2347,8 @@ export interface Translations {
     selectArticles: string;
     sopSettings: string;
     sopSettingsDesc: string;
+    parentCategory: string;
+    noParent: string;
   };
   settings: {
     title: string;
@@ -6689,6 +6691,8 @@ export const translations: Record<Locale, Translations> = {
         selectArticles: 'Select SOP articles',
         sopSettings: 'SOP Settings',
         sopSettingsDesc: 'Select which SOP categories and articles should be available to agents in this campaign',
+        parentCategory: 'Parent Category',
+        noParent: 'None (top-level)',
       },
     settings: {
       title: 'Settings',
@@ -10958,6 +10962,8 @@ export const translations: Record<Locale, Translations> = {
         selectArticles: 'Vybrať SOP články',
         sopSettings: 'SOP Nastavenia',
         sopSettingsDesc: 'Vyberte, ktoré SOP kategórie a články majú byť dostupné agentom v tejto kampani',
+        parentCategory: 'Nadradená kategória',
+        noParent: 'Žiadna (najvyššia úroveň)',
       },
     settings: {
       title: 'Nastavenia',
@@ -15212,6 +15218,8 @@ export const translations: Record<Locale, Translations> = {
         selectArticles: 'Vybrat SOP články',
         sopSettings: 'SOP Nastavení',
         sopSettingsDesc: 'Vyberte, které SOP kategorie a články mají být dostupné agentům v této kampani',
+        parentCategory: 'Nadřazená kategorie',
+        noParent: 'Žádná (nejvyšší úroveň)',
       },
     settings: {
       title: 'Nastavení',
@@ -19429,6 +19437,8 @@ export const translations: Record<Locale, Translations> = {
         selectArticles: 'SOP cikkek kiválasztása',
         sopSettings: 'SOP Beállítások',
         sopSettingsDesc: 'Válassza ki, mely SOP kategóriák és cikkek legyenek elérhetőek az ügynökök számára ebben a kampányban',
+        parentCategory: 'Szülő kategória',
+        noParent: 'Nincs (legfelső szint)',
       },
     settings: {
       title: 'Beállítások',
@@ -23645,6 +23655,8 @@ export const translations: Record<Locale, Translations> = {
         selectArticles: 'Selectare articole SOP',
         sopSettings: 'Setări SOP',
         sopSettingsDesc: 'Selectați care categorii și articole SOP să fie disponibile agenților în această campanie',
+        parentCategory: 'Categorie părinte',
+        noParent: 'Fără (nivel superior)',
       },
     settings: {
       title: 'Setări',
@@ -27862,6 +27874,8 @@ export const translations: Record<Locale, Translations> = {
         selectArticles: 'Seleziona articoli SOP',
         sopSettings: 'Impostazioni SOP',
         sopSettingsDesc: 'Seleziona quali categorie e articoli SOP devono essere disponibili per gli agenti in questa campagna',
+        parentCategory: 'Categoria genitore',
+        noParent: 'Nessuna (livello superiore)',
       },
     settings: {
       title: 'Impostazioni',
@@ -32079,6 +32093,8 @@ export const translations: Record<Locale, Translations> = {
         selectArticles: 'SOP-Artikel auswählen',
         sopSettings: 'SOP-Einstellungen',
         sopSettingsDesc: 'Wählen Sie aus, welche SOP-Kategorien und Artikel den Agenten in dieser Kampagne zur Verfügung stehen sollen',
+        parentCategory: 'Übergeordnete Kategorie',
+        noParent: 'Keine (oberste Ebene)',
       },
     settings: {
       title: 'Einstellungen',

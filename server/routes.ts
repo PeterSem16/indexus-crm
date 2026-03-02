@@ -29471,6 +29471,11 @@ Guidelines:
 
   app.delete("/api/sop/categories/:id", requireAuth, async (req, res) => {
     try {
+      const allCategories = await storage.getSopCategories();
+      const hasChildren = allCategories.some(c => c.parentId === req.params.id);
+      if (hasChildren) {
+        return res.status(400).json({ error: "Cannot delete category with subcategories. Remove or reassign subcategories first." });
+      }
       const deleted = await storage.deleteSopCategory(req.params.id);
       if (!deleted) return res.status(404).json({ error: "Category not found" });
       res.json({ success: true });

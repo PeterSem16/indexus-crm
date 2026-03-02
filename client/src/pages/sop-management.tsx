@@ -91,13 +91,13 @@ export default function SopManagementPage() {
 
   const [showCategoryDialog, setShowCategoryDialog] = useState(false);
   const [editingCategory, setEditingCategory] = useState<SopCategory | null>(null);
-  const [categoryForm, setCategoryForm] = useState({ name: "", description: "", icon: "", sortOrder: 0, countryCode: "", isActive: true });
+  const [categoryForm, setCategoryForm] = useState({ name: "", description: "", icon: "", parentId: "" as string, sortOrder: 0, countryCode: "", isActive: true });
 
   const [showArticleDialog, setShowArticleDialog] = useState(false);
   const [editingArticle, setEditingArticle] = useState<SopArticle | null>(null);
   const [articleForm, setArticleForm] = useState({
     title: "", content: "", summary: "", categoryId: "", priority: "normal" as "normal" | "high" | "critical",
-    countryCode: "", isPublished: true, isPinned: false, tags: "" as string,
+    sortOrder: 0, countryCode: "", isPublished: true, isPinned: false, tags: "" as string,
   });
 
   const [showReadsDialog, setShowReadsDialog] = useState(false);
@@ -202,18 +202,18 @@ export default function SopManagementPage() {
 
   const openNewCategory = () => {
     setEditingCategory(null);
-    setCategoryForm({ name: "", description: "", icon: "clipboard", sortOrder: 0, countryCode: "", isActive: true });
+    setCategoryForm({ name: "", description: "", icon: "clipboard", parentId: "", sortOrder: 0, countryCode: "", isActive: true });
     setShowCategoryDialog(true);
   };
 
   const openEditCategory = (cat: SopCategory) => {
     setEditingCategory(cat);
-    setCategoryForm({ name: cat.name, description: cat.description || "", icon: cat.icon || "clipboard", sortOrder: cat.sortOrder || 0, countryCode: cat.countryCode || "", isActive: cat.isActive ?? true });
+    setCategoryForm({ name: cat.name, description: cat.description || "", icon: cat.icon || "clipboard", parentId: cat.parentId || "", sortOrder: cat.sortOrder || 0, countryCode: cat.countryCode || "", isActive: cat.isActive ?? true });
     setShowCategoryDialog(true);
   };
 
   const saveCategory = () => {
-    const data = { ...categoryForm, countryCode: categoryForm.countryCode || null, description: categoryForm.description || null, icon: categoryForm.icon || null };
+    const data = { ...categoryForm, countryCode: categoryForm.countryCode || null, description: categoryForm.description || null, icon: categoryForm.icon || null, parentId: categoryForm.parentId || null };
     if (editingCategory) updateCategoryMutation.mutate({ id: editingCategory.id, data });
     else createCategoryMutation.mutate(data);
   };
@@ -257,13 +257,13 @@ export default function SopManagementPage() {
 
   const openNewArticle = () => {
     setEditingArticle(null);
-    setArticleForm({ title: "", content: "", summary: "", categoryId: categories[0]?.id || "", priority: "normal", countryCode: "", isPublished: true, isPinned: false, tags: "" });
+    setArticleForm({ title: "", content: "", summary: "", categoryId: categories[0]?.id || "", priority: "normal", sortOrder: 0, countryCode: "", isPublished: true, isPinned: false, tags: "" });
     setShowArticleDialog(true);
   };
 
   const openEditArticle = (art: SopArticle) => {
     setEditingArticle(art);
-    setArticleForm({ title: art.title, content: art.content, summary: art.summary || "", categoryId: art.categoryId, priority: (art.priority as any) || "normal", countryCode: art.countryCode || "", isPublished: art.isPublished ?? true, isPinned: art.isPinned ?? false, tags: art.tags?.join(", ") || "" });
+    setArticleForm({ title: art.title, content: art.content, summary: art.summary || "", categoryId: art.categoryId, priority: (art.priority as any) || "normal", sortOrder: art.sortOrder || 0, countryCode: art.countryCode || "", isPublished: art.isPublished ?? true, isPinned: art.isPinned ?? false, tags: art.tags?.join(", ") || "" });
     setShowArticleDialog(true);
   };
 
@@ -422,43 +422,59 @@ export default function SopManagementPage() {
             <p className="text-sm text-muted-foreground">{t.sop.subtitle}</p>
             <Button onClick={openNewCategory} className="gap-1.5" data-testid="btn-new-category"><Plus className="h-4 w-4" />{t.sop.newCategory}</Button>
           </div>
-          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-            {categories.map(cat => {
-              const articleCount = articles.filter(a => a.categoryId === cat.id).length;
-              return (
-                <Card key={cat.id} className={`group transition-all hover:shadow-md ${!cat.isActive ? "opacity-50" : ""}`} data-testid={`category-card-${cat.id}`}>
-                  <CardContent className="p-5">
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                          {renderCategoryIcon(cat.icon, "h-5 w-5")}
+          <div className="space-y-4">
+            {(() => {
+              const topLevel = categories.filter(c => !c.parentId).sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+              const getChildren = (parentId: string) => categories.filter(c => c.parentId === parentId).sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+              const renderCat = (cat: typeof categories[0], isChild = false) => {
+                const articleCount = articles.filter(a => a.categoryId === cat.id).length;
+                const children = getChildren(cat.id);
+                const parentName = cat.parentId ? categories.find(c => c.id === cat.parentId)?.name : null;
+                return (
+                  <div key={cat.id}>
+                    <Card className={`group transition-all hover:shadow-md ${!cat.isActive ? "opacity-50" : ""} ${isChild ? "border-l-4 border-l-primary/20" : ""}`} data-testid={`category-card-${cat.id}`}>
+                      <CardContent className="p-5">
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex items-center gap-3">
+                            <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${isChild ? "bg-primary/5 text-primary/70" : "bg-primary/10 text-primary"}`}>
+                              {renderCategoryIcon(cat.icon, "h-5 w-5")}
+                            </div>
+                            <div>
+                              <h3 className="font-semibold text-sm" data-testid={`category-name-${cat.id}`}>{cat.name}</h3>
+                              {cat.description && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{cat.description}</p>}
+                              {parentName && <p className="text-[10px] text-muted-foreground/70 mt-0.5">↳ {parentName}</p>}
+                            </div>
+                          </div>
+                          <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => openEditCategory(cat)} data-testid={`btn-edit-cat-${cat.id}`}><Pencil className="h-3.5 w-3.5" /></Button>
+                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive" onClick={() => { if (articleCount > 0) { toast({ title: t.sop.categoryHasArticles, variant: "destructive" }); return; } if (confirm(t.sop.confirmDeleteCategory)) deleteCategoryMutation.mutate(cat.id); }} data-testid={`btn-delete-cat-${cat.id}`}><Trash2 className="h-3.5 w-3.5" /></Button>
+                          </div>
                         </div>
-                        <div>
-                          <h3 className="font-semibold text-sm" data-testid={`category-name-${cat.id}`}>{cat.name}</h3>
-                          {cat.description && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{cat.description}</p>}
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <Badge variant="secondary" className="text-[10px] h-5 font-normal">{articleCount} {t.sop.articleCount}</Badge>
+                          {children.length > 0 && <Badge variant="outline" className="text-[10px] h-5">{children.length} sub</Badge>}
+                          {cat.countryCode && <Badge variant="outline" className="text-[10px] h-5">{COUNTRY_FLAGS[cat.countryCode] || ""} {cat.countryCode}</Badge>}
+                          {!cat.isActive && <Badge variant="destructive" className="text-[10px] h-5">{t.sop.inactive}</Badge>}
                         </div>
+                      </CardContent>
+                    </Card>
+                    {children.length > 0 && (
+                      <div className="ml-6 mt-2 space-y-2">
+                        {children.map(child => renderCat(child, true))}
                       </div>
-                      <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => openEditCategory(cat)} data-testid={`btn-edit-cat-${cat.id}`}><Pencil className="h-3.5 w-3.5" /></Button>
-                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive" onClick={() => { if (articleCount > 0) { toast({ title: t.sop.categoryHasArticles, variant: "destructive" }); return; } if (confirm(t.sop.confirmDeleteCategory)) deleteCategoryMutation.mutate(cat.id); }} data-testid={`btn-delete-cat-${cat.id}`}><Trash2 className="h-3.5 w-3.5" /></Button>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <Badge variant="secondary" className="text-[10px] h-5 font-normal">{articleCount} {t.sop.articleCount}</Badge>
-                      {cat.countryCode && <Badge variant="outline" className="text-[10px] h-5">{COUNTRY_FLAGS[cat.countryCode] || ""} {cat.countryCode}</Badge>}
-                      {!cat.isActive && <Badge variant="destructive" className="text-[10px] h-5">{t.sop.inactive}</Badge>}
-                    </div>
-                  </CardContent>
-                </Card>
+                    )}
+                  </div>
+                );
+              };
+              if (categories.length === 0) return (
+                <Card className="col-span-full"><CardContent className="py-12 text-center">
+                  <FolderOpen className="h-12 w-12 mx-auto text-muted-foreground/30 mb-3" />
+                  <p className="text-muted-foreground">{t.sop.noCategories}</p>
+                  <Button onClick={openNewCategory} variant="outline" className="mt-3" data-testid="btn-new-category-empty"><Plus className="h-4 w-4 mr-1" /> {t.sop.createFirstCategory}</Button>
+                </CardContent></Card>
               );
-            })}
-            {categories.length === 0 && (
-              <Card className="col-span-full"><CardContent className="py-12 text-center">
-                <FolderOpen className="h-12 w-12 mx-auto text-muted-foreground/30 mb-3" />
-                <p className="text-muted-foreground">{t.sop.noCategories}</p>
-                <Button onClick={openNewCategory} variant="outline" className="mt-3" data-testid="btn-new-category-empty"><Plus className="h-4 w-4 mr-1" /> {t.sop.createFirstCategory}</Button>
-              </CardContent></Card>
-            )}
+              return <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">{topLevel.map(c => renderCat(c))}</div>;
+            })()}
           </div>
         </TabsContent>
 
@@ -486,6 +502,18 @@ export default function SopManagementPage() {
               <div className="space-y-2">
                 <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{t.sop.description}</Label>
                 <Textarea value={categoryForm.description} onChange={(e) => setCategoryForm(p => ({ ...p, description: e.target.value }))} placeholder={t.sop.categoryDescPlaceholder} rows={3} data-testid="input-category-description" />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{t.sop.parentCategory}</Label>
+                <Select value={categoryForm.parentId || "none"} onValueChange={(v) => setCategoryForm(p => ({ ...p, parentId: v === "none" ? "" : v }))}>
+                  <SelectTrigger data-testid="select-category-parent"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">{t.sop.noParent}</SelectItem>
+                    {categories.filter(c => !c.parentId && c.id !== editingCategory?.id).map(c => (
+                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
@@ -605,6 +633,11 @@ export default function SopManagementPage() {
                     <SelectItem value="DE">🇩🇪 DE</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{t.sop.sortOrder}</Label>
+                <Input type="number" value={articleForm.sortOrder} onChange={(e) => setArticleForm(p => ({ ...p, sortOrder: parseInt(e.target.value) || 0 }))} data-testid="input-article-order" />
               </div>
 
               <Separator />

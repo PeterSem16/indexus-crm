@@ -255,8 +255,28 @@ export function SopPanel({ campaignId, userId }: SopPanelProps) {
   const isSearching = searchQuery.trim().length >= 2;
   const totalMatches = searchResults ? searchResults.reduce((sum, r) => sum + r.matchCount, 0) : 0;
 
-  const campaignSpecific = filteredArticles.filter(a => campaignArticleIds.has(a.id));
-  const general = filteredArticles.filter(a => !campaignArticleIds.has(a.id));
+  const sortByTreeOrder = useCallback((arts: SopArticle[]) => {
+    const catSortMap = new Map<string, number>();
+    const catParentMap = new Map<string, string | null>();
+    categories.forEach(c => {
+      catSortMap.set(c.id, c.sortOrder || 0);
+      catParentMap.set(c.id, c.parentId || null);
+    });
+    const getCatEffectiveSort = (catId: string): number => {
+      const parentId = catParentMap.get(catId);
+      const parentSort = parentId ? (catSortMap.get(parentId) || 0) * 10000 : 0;
+      return parentSort + (catSortMap.get(catId) || 0);
+    };
+    return [...arts].sort((a, b) => {
+      const catA = getCatEffectiveSort(a.categoryId);
+      const catB = getCatEffectiveSort(b.categoryId);
+      if (catA !== catB) return catA - catB;
+      return (a.sortOrder || 0) - (b.sortOrder || 0);
+    });
+  }, [categories]);
+
+  const campaignSpecific = sortByTreeOrder(filteredArticles.filter(a => campaignArticleIds.has(a.id)));
+  const general = sortByTreeOrder(filteredArticles.filter(a => !campaignArticleIds.has(a.id)));
 
   const renderSearchResult = (result: MatchResult) => {
     const { article, titleMatch, contentMatch, summaryMatch, tagsMatch, snippets, matchCount } = result;
@@ -454,11 +474,27 @@ export function SopPanel({ campaignId, userId }: SopPanelProps) {
           <Button variant={selectedCategory === null ? "default" : "outline"} size="sm" className="h-5 text-[10px] px-2" onClick={() => setSelectedCategory(null)} data-testid="sop-filter-all">
             {t.sop.all}
           </Button>
-          {categories.filter(c => c.isActive).map(cat => (
-            <Button key={cat.id} variant={selectedCategory === cat.id ? "default" : "outline"} size="sm" className="h-5 text-[10px] px-2" onClick={() => setSelectedCategory(cat.id)} data-testid={`sop-filter-${cat.id}`}>
-              {cat.name}
-            </Button>
-          ))}
+          {(() => {
+            const active = categories.filter(c => c.isActive).sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+            const topLevel = active.filter(c => !c.parentId);
+            const getChildren = (pid: string) => active.filter(c => c.parentId === pid);
+            const buttons: JSX.Element[] = [];
+            topLevel.forEach(cat => {
+              buttons.push(
+                <Button key={cat.id} variant={selectedCategory === cat.id ? "default" : "outline"} size="sm" className="h-5 text-[10px] px-2 font-semibold" onClick={() => setSelectedCategory(cat.id)} data-testid={`sop-filter-${cat.id}`}>
+                  {cat.name}
+                </Button>
+              );
+              getChildren(cat.id).forEach(child => {
+                buttons.push(
+                  <Button key={child.id} variant={selectedCategory === child.id ? "default" : "outline"} size="sm" className="h-5 text-[10px] px-2 ml-1 opacity-80" onClick={() => setSelectedCategory(child.id)} data-testid={`sop-filter-${child.id}`}>
+                    ↳ {child.name}
+                  </Button>
+                );
+              });
+            });
+            return buttons;
+          })()}
         </div>
       </div>
 

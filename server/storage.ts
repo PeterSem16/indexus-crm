@@ -6489,7 +6489,7 @@ export class DatabaseStorage implements IStorage {
     }
     return db.select().from(sopArticles)
       .where(conditions.length > 0 ? and(...conditions) : undefined)
-      .orderBy(desc(sopArticles.isPinned), desc(sopArticles.updatedAt));
+      .orderBy(desc(sopArticles.isPinned), asc(sopArticles.sortOrder), desc(sopArticles.updatedAt));
   }
 
   async getSopArticle(id: string): Promise<SopArticle | undefined> {
@@ -6526,7 +6526,7 @@ export class DatabaseStorage implements IStorage {
         inArray(sopArticles.id, articleIds),
         eq(sopArticles.isPublished, true)
       ))
-      .orderBy(desc(sopArticles.isPinned), desc(sopArticles.updatedAt));
+      .orderBy(desc(sopArticles.isPinned), asc(sopArticles.sortOrder), desc(sopArticles.updatedAt));
   }
 
   // SOP Article Reads
