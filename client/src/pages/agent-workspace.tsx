@@ -3259,6 +3259,18 @@ function CustomerInfoPanel({
             <>
               <div className={`${isModal ? "p-4" : "p-2"} space-y-2 border-b`}>
                 <div className="flex items-center gap-2">
+                  {!isModal && (
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="shrink-0"
+                      onClick={() => setHistoryMaximized(true)}
+                      data-testid="btn-history-maximize"
+                      title="Maximalizovať históriu"
+                    >
+                      <Maximize2 className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
                   <div className="relative flex-1">
                     <Search className={`absolute left-2.5 top-1/2 -translate-y-1/2 ${isModal ? "h-4 w-4" : "h-3.5 w-3.5"} text-muted-foreground`} />
                     <Input
@@ -3277,17 +3289,6 @@ function CustomerInfoPanel({
                       </button>
                     )}
                   </div>
-                  {!isModal && (
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => setHistoryMaximized(true)}
-                      data-testid="btn-history-maximize"
-                      title="Maximalizovať históriu"
-                    >
-                      <Maximize2 className="h-3.5 w-3.5" />
-                    </Button>
-                  )}
                 </div>
                 <div className="flex gap-1 flex-wrap">
                 {["all", "call", "email", "sms", "disposition"].map((t) => {

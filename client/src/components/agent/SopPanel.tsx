@@ -339,8 +339,13 @@ export function SopPanel({ campaignId, userId }: SopPanelProps) {
 
         {isExpanded && (
           <div className="px-3 pb-3 border-t bg-muted/10">
+            <div className="flex justify-end my-1.5">
+              <Button variant="outline" size="sm" className="h-6 text-[10px] gap-1" onClick={() => setMaximizedArticle(article)} data-testid={`sop-maximize-${article.id}`}>
+                <Maximize2 className="h-3 w-3" />{t.sop.enlarge}
+              </Button>
+            </div>
             {article.summary && (
-              <p className="text-[11px] text-muted-foreground italic my-2 leading-relaxed"
+              <p className="text-[11px] text-muted-foreground italic mb-2 leading-relaxed"
                 dangerouslySetInnerHTML={{ __html: summaryMatch ? highlightText(article.summary, searchQuery) : article.summary }}
                 data-testid={`sop-search-summary-${article.id}`}
               />
@@ -359,11 +364,6 @@ export function SopPanel({ campaignId, userId }: SopPanelProps) {
                 ))}
               </div>
             )}
-            <div className="flex justify-end mt-2">
-              <Button variant="ghost" size="sm" className="h-6 text-[10px]" onClick={() => setMaximizedArticle(article)} data-testid={`sop-maximize-${article.id}`}>
-                <Maximize2 className="h-3 w-3 mr-1" />{t.sop.enlarge}
-              </Button>
-            </div>
           </div>
         )}
       </div>
@@ -412,8 +412,13 @@ export function SopPanel({ campaignId, userId }: SopPanelProps) {
 
       {expandedResults.has(article.id) && (
         <div className="px-3 pb-3 border-t bg-muted/10">
+          <div className="flex justify-end my-1.5">
+            <Button variant="outline" size="sm" className="h-6 text-[10px] gap-1" onClick={() => setMaximizedArticle(article)} data-testid={`sop-maximize-${article.id}`}>
+              <Maximize2 className="h-3 w-3" />{t.sop.enlarge}
+            </Button>
+          </div>
           {article.summary && (
-            <p className="text-[11px] text-muted-foreground italic my-2 leading-relaxed" data-testid={`sop-article-summary-${article.id}`}>{article.summary}</p>
+            <p className="text-[11px] text-muted-foreground italic mb-2 leading-relaxed" data-testid={`sop-article-summary-${article.id}`}>{article.summary}</p>
           )}
           <div
             className="text-xs leading-relaxed prose prose-sm dark:prose-invert max-w-none [&_h1]:text-sm [&_h2]:text-xs [&_h3]:text-xs [&_p]:text-xs [&_li]:text-xs [&_ul]:my-1 [&_ol]:my-1 [&_p]:my-1"
@@ -427,11 +432,6 @@ export function SopPanel({ campaignId, userId }: SopPanelProps) {
               ))}
             </div>
           )}
-          <div className="flex justify-end mt-2">
-            <Button variant="ghost" size="sm" className="h-6 text-[10px]" onClick={() => setMaximizedArticle(article)} data-testid={`sop-maximize-${article.id}`}>
-              <Maximize2 className="h-3 w-3 mr-1" />{t.sop.enlarge}
-            </Button>
-          </div>
         </div>
       )}
     </div>
@@ -550,7 +550,7 @@ export function SopPanel({ campaignId, userId }: SopPanelProps) {
       </ScrollArea>
 
       <Dialog open={!!maximizedArticle} onOpenChange={() => setMaximizedArticle(null)}>
-        <DialogContent className="max-w-3xl max-h-[85vh] overflow-hidden flex flex-col">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-base" data-testid="sop-dialog-title">
               <BookOpen className="h-4 w-4" />
