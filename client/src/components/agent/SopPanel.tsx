@@ -7,8 +7,36 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Search, BookOpen, Pin, CheckCircle2, AlertTriangle, AlertCircle, Maximize2, Tag, Clock, X, ChevronDown, ChevronUp, FileText } from "lucide-react";
+import {
+  Search, BookOpen, Pin, CheckCircle2, AlertTriangle, AlertCircle, Maximize2, Tag, Clock, X, ChevronDown, ChevronUp, ChevronRight, FileText, FolderOpen,
+  Clipboard, FolderClosed, FileCheck, Bookmark, Heart, Syringe,
+  Phone, Mail, MessageSquare, Shield, Settings, Target, Globe,
+  Star, Lightbulb, BarChart3, Lock, Key, Zap, Bell, Calendar,
+  Thermometer, Baby, Brain, Microscope, Stethoscope, Pill,
+  CircleCheck, CircleX, RefreshCw, ArrowLeftRight, Package,
+  Tags, GraduationCap, Headphones, Award, Sparkles,
+  type LucideIcon
+} from "lucide-react";
 import type { SopArticle, SopCategory, SopArticleRead } from "@shared/schema";
+
+const ICON_MAP: Record<string, LucideIcon> = {
+  "clipboard": Clipboard, "folder-closed": FolderClosed, "folder-open": FolderOpen,
+  "file-text": FileText, "file-check": FileCheck, "bookmark": Bookmark, "book-open": BookOpen,
+  "tags": Tags, "package": Package, "heart": Heart, "syringe": Syringe, "baby": Baby,
+  "brain": Brain, "microscope": Microscope, "stethoscope": Stethoscope, "pill": Pill,
+  "thermometer": Thermometer, "phone": Phone, "mail": Mail, "message-square": MessageSquare,
+  "headphones": Headphones, "users": Search, "settings": Settings, "target": Target,
+  "bar-chart": BarChart3, "circle-check": CircleCheck, "circle-x": CircleX,
+  "alert-circle": AlertCircle, "refresh-cw": RefreshCw, "arrow-left-right": ArrowLeftRight,
+  "zap": Zap, "clock": Clock, "globe": Globe, "star": Star, "lightbulb": Lightbulb,
+  "lock": Lock, "key": Key, "shield": Shield, "bell": Bell, "calendar": Calendar,
+  "award": Award, "sparkles": Sparkles, "graduation-cap": GraduationCap,
+};
+
+function getIconComponent(iconName: string | null | undefined): LucideIcon {
+  if (!iconName) return FolderOpen;
+  return ICON_MAP[iconName] || FolderOpen;
+}
 
 function sanitizeHtml(html: string): string {
   return html
@@ -93,6 +121,7 @@ export function SopPanel({ campaignId, userId }: SopPanelProps) {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [maximizedArticle, setMaximizedArticle] = useState<SopArticle | null>(null);
   const [expandedResults, setExpandedResults] = useState<Set<string>>(new Set());
+  const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
   const searchInputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -233,6 +262,15 @@ export function SopPanel({ campaignId, userId }: SopPanelProps) {
     searchInputRef.current?.focus();
   };
 
+  const toggleCategory = useCallback((catId: string) => {
+    setCollapsedCategories(prev => {
+      const next = new Set(prev);
+      if (next.has(catId)) next.delete(catId);
+      else next.add(catId);
+      return next;
+    });
+  }, []);
+
   const getPriorityBadge = (priority: string | null) => {
     switch (priority) {
       case "critical":
@@ -277,6 +315,89 @@ export function SopPanel({ campaignId, userId }: SopPanelProps) {
 
   const campaignSpecific = sortByTreeOrder(filteredArticles.filter(a => campaignArticleIds.has(a.id)));
   const general = sortByTreeOrder(filteredArticles.filter(a => !campaignArticleIds.has(a.id)));
+
+  const renderTreeView = (articles: SopArticle[], isCampaign: boolean) => {
+    const activeCats = categories.filter(c => c.isActive).sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+    const topLevel = activeCats.filter(c => !c.parentId);
+    const getChildren = (pid: string) => activeCats.filter(c => c.parentId === pid).sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+    const getArticlesForCat = (catId: string) => articles.filter(a => a.categoryId === catId).sort((a, b) => {
+      if ((a.isPinned ? 1 : 0) !== (b.isPinned ? 1 : 0)) return a.isPinned ? -1 : 1;
+      return (a.sortOrder || 0) - (b.sortOrder || 0);
+    });
+
+    const assignedCatIds = new Set(articles.map(a => a.categoryId));
+    const relevantTopCats = topLevel.filter(c => {
+      if (assignedCatIds.has(c.id)) return true;
+      return getChildren(c.id).some(ch => assignedCatIds.has(ch.id));
+    });
+
+    const renderCategoryHeader = (cat: SopCategory, isChild: boolean, articleCount: number) => {
+      const CatIcon = getIconComponent(cat.icon);
+      const isCollapsed = collapsedCategories.has(cat.id);
+      return (
+        <button
+          type="button"
+          key={`cat-header-${cat.id}`}
+          className={`w-full flex items-center gap-2 px-3 py-2 transition-colors hover:bg-muted/50 ${isChild ? "pl-7" : ""}`}
+          onClick={() => toggleCategory(cat.id)}
+          data-testid={`sop-tree-cat-${cat.id}`}
+        >
+          <div className={`flex items-center justify-center rounded-md ${isChild ? "h-5 w-5" : "h-6 w-6"} ${isCampaign ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400" : "bg-primary/10 text-primary"}`}>
+            <CatIcon className={isChild ? "h-3 w-3" : "h-3.5 w-3.5"} />
+          </div>
+          <span className={`flex-1 text-left truncate ${isChild ? "text-[11px] font-medium text-muted-foreground" : "text-xs font-semibold"}`}>
+            {isChild && <span className="text-muted-foreground/50 mr-0.5">↳</span>}
+            {cat.name}
+          </span>
+          <Badge variant="secondary" className="text-[9px] h-4 px-1 shrink-0">{articleCount}</Badge>
+          {isCollapsed
+            ? <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
+            : <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
+          }
+        </button>
+      );
+    };
+
+    return (
+      <div>
+        {relevantTopCats.map(cat => {
+          const catArticles = getArticlesForCat(cat.id);
+          const children = getChildren(cat.id).filter(ch => assignedCatIds.has(ch.id));
+          const totalCount = catArticles.length + children.reduce((sum, ch) => sum + getArticlesForCat(ch.id).length, 0);
+          const isCatCollapsed = collapsedCategories.has(cat.id);
+
+          return (
+            <div key={cat.id} className="border-b last:border-b-0" data-testid={`sop-tree-group-${cat.id}`}>
+              {renderCategoryHeader(cat, false, totalCount)}
+              {!isCatCollapsed && (
+                <div>
+                  {catArticles.length > 0 && (
+                    <div className="ml-4 border-l-2 border-primary/10">
+                      {catArticles.map(a => renderArticleItem(a, isCampaign))}
+                    </div>
+                  )}
+                  {children.map(child => {
+                    const childArticles = getArticlesForCat(child.id);
+                    const isChildCollapsed = collapsedCategories.has(child.id);
+                    return (
+                      <div key={child.id} data-testid={`sop-tree-subgroup-${child.id}`}>
+                        {renderCategoryHeader(child, true, childArticles.length)}
+                        {!isChildCollapsed && childArticles.length > 0 && (
+                          <div className="ml-8 border-l-2 border-muted-foreground/10">
+                            {childArticles.map(a => renderArticleItem(a, isCampaign))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
 
   const renderSearchResult = (result: MatchResult) => {
     const { article, titleMatch, contentMatch, summaryMatch, tagsMatch, snippets, matchCount } = result;
@@ -393,9 +514,6 @@ export function SopPanel({ campaignId, userId }: SopPanelProps) {
             </div>
             <span className="text-xs font-medium leading-tight truncate block" data-testid={`sop-article-title-${article.id}`}>{article.title}</span>
             <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-0.5">
-              <span className="flex items-center gap-0.5">
-                <Tag className="h-2.5 w-2.5" />{getCategoryName(article.categoryId)}
-              </span>
               <span className="flex items-center gap-0.5">
                 <Clock className="h-2.5 w-2.5" />{formatDate(article.updatedAt)}
               </span>
@@ -522,15 +640,15 @@ export function SopPanel({ campaignId, userId }: SopPanelProps) {
             <p className="text-xs text-muted-foreground">{t.sop.noSopArticles}</p>
           </div>
         ) : (
-          <div>
+          <div className="py-1">
             {campaignSpecific.length > 0 && (
-              <div>
+              <div className="mb-1">
                 <div className="px-3 py-1.5 bg-green-50 dark:bg-green-950/30 border-b">
                   <span className="text-[10px] font-semibold text-green-700 dark:text-green-400 uppercase tracking-wider" data-testid="sop-campaign-section">
                     {t.sop.campaignSopSection}
                   </span>
                 </div>
-                {campaignSpecific.map(a => renderArticleItem(a, true))}
+                {renderTreeView(campaignSpecific, true)}
               </div>
             )}
             {general.length > 0 && (
@@ -542,7 +660,7 @@ export function SopPanel({ campaignId, userId }: SopPanelProps) {
                     </span>
                   </div>
                 )}
-                {general.map(a => renderArticleItem(a, false))}
+                {renderTreeView(general, false)}
               </div>
             )}
           </div>
