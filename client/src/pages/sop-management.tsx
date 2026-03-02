@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo } from "react";
+import { useState, useRef, useMemo, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/contexts/auth-context";
@@ -89,6 +89,7 @@ export default function SopManagementPage() {
   const [filterPriority, setFilterPriority] = useState<string | null>(null);
   const [filterCountry, setFilterCountry] = useState<string | null>(null);
   const [collapsedCats, setCollapsedCats] = useState<Set<string>>(new Set());
+  const [collapsedCatsInit, setCollapsedCatsInit] = useState(false);
 
   const [showCategoryDialog, setShowCategoryDialog] = useState(false);
   const [editingCategory, setEditingCategory] = useState<SopCategory | null>(null);
@@ -117,6 +118,14 @@ export default function SopManagementPage() {
   const [isCopying, setIsCopying] = useState(false);
 
   const { data: categories = [] } = useQuery<SopCategory[]>({ queryKey: ["/api/sop/categories"] });
+
+  useEffect(() => {
+    if (categories.length > 0 && !collapsedCatsInit) {
+      setCollapsedCats(new Set(categories.map(c => c.id)));
+      setCollapsedCatsInit(true);
+    }
+  }, [categories, collapsedCatsInit]);
+
   const { data: articles = [], isLoading } = useQuery<SopArticle[]>({ queryKey: ["/api/sop/articles"] });
   const { data: campaigns = [] } = useQuery<Campaign[]>({ queryKey: ["/api/campaigns"] });
   const { data: users = [] } = useQuery<any[]>({ queryKey: ["/api/users"] });

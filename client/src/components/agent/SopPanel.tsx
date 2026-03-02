@@ -122,6 +122,7 @@ export function SopPanel({ campaignId, userId }: SopPanelProps) {
   const [maximizedArticle, setMaximizedArticle] = useState<SopArticle | null>(null);
   const [expandedResults, setExpandedResults] = useState<Set<string>>(new Set());
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
+  const [collapsedInitialized, setCollapsedInitialized] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -138,6 +139,13 @@ export function SopPanel({ campaignId, userId }: SopPanelProps) {
   const { data: categories = [] } = useQuery<SopCategory[]>({
     queryKey: ["/api/sop/categories"],
   });
+
+  useEffect(() => {
+    if (categories.length > 0 && !collapsedInitialized) {
+      setCollapsedCategories(new Set(categories.map(c => c.id)));
+      setCollapsedInitialized(true);
+    }
+  }, [categories, collapsedInitialized]);
 
   const { data: allArticles = [], isLoading: isLoadingAll } = useQuery<SopArticle[]>({
     queryKey: ["/api/sop/articles", "published"],
