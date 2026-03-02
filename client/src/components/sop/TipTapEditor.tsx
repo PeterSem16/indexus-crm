@@ -16,6 +16,7 @@ import { TaskList } from "@tiptap/extension-task-list";
 import { TaskItem } from "@tiptap/extension-task-item";
 import { Subscript } from "@tiptap/extension-subscript";
 import { Superscript } from "@tiptap/extension-superscript";
+import { Extension } from "@tiptap/core";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -31,8 +32,72 @@ import {
   TableProperties, RowsIcon, Columns3, Trash2,
   Subscript as SubIcon, Superscript as SupIcon, Code2, Pilcrow,
   Plus, Minus as MinusIcon,
-  RemoveFormatting
+  RemoveFormatting, AArrowUp, AArrowDown, CaseSensitive
 } from "lucide-react";
+
+declare module "@tiptap/core" {
+  interface Commands<ReturnType> {
+    fontSize: {
+      setFontSize: (size: string) => ReturnType;
+      unsetFontSize: () => ReturnType;
+    };
+  }
+}
+
+const FontSize = Extension.create({
+  name: "fontSize",
+  addOptions() {
+    return { types: ["textStyle"] };
+  },
+  addGlobalAttributes() {
+    return [
+      {
+        types: this.options.types,
+        attributes: {
+          fontSize: {
+            default: null,
+            parseHTML: (element) => element.style.fontSize?.replace(/['"]+/g, "") || null,
+            renderHTML: (attributes) => {
+              if (!attributes.fontSize) return {};
+              return { style: `font-size: ${attributes.fontSize}` };
+            },
+          },
+        },
+      },
+    ];
+  },
+  addCommands() {
+    return {
+      setFontSize:
+        (size: string) =>
+        ({ chain }) =>
+          chain().setMark("textStyle", { fontSize: size }).run(),
+      unsetFontSize:
+        () =>
+        ({ chain }) =>
+          chain().setMark("textStyle", { fontSize: null }).removeEmptyTextStyle().run(),
+    };
+  },
+});
+
+const FONT_SIZES = [
+  { label: "8", value: "8px" },
+  { label: "9", value: "9px" },
+  { label: "10", value: "10px" },
+  { label: "11", value: "11px" },
+  { label: "12", value: "12px" },
+  { label: "13", value: "13px" },
+  { label: "14", value: "14px" },
+  { label: "16", value: "16px" },
+  { label: "18", value: "18px" },
+  { label: "20", value: "20px" },
+  { label: "24", value: "24px" },
+  { label: "28", value: "28px" },
+  { label: "32", value: "32px" },
+  { label: "36", value: "36px" },
+  { label: "48", value: "48px" },
+  { label: "64", value: "64px" },
+];
 
 interface TipTapEditorProps {
   content: string;
@@ -82,12 +147,13 @@ export default function TipTapEditor({ content, onChange, placeholder, className
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
-        heading: { levels: [1, 2, 3] },
+        heading: { levels: [1, 2, 3, 4, 5, 6] },
       }),
       Underline,
       Subscript,
       Superscript,
       TextStyle,
+      FontSize,
       Color,
       Highlight.configure({ multicolor: true }),
       TextAlign.configure({ types: ["heading", "paragraph"] }),
@@ -135,6 +201,9 @@ export default function TipTapEditor({ content, onChange, placeholder, className
 
   if (!editor) return null;
 
+  const currentFontSize = editor.getAttributes("textStyle").fontSize || "";
+  const currentFontSizeLabel = FONT_SIZES.find(s => s.value === currentFontSize)?.label || currentFontSize.replace("px", "") || "—";
+
   return (
     <div className={cn("flex flex-col border rounded-lg overflow-hidden bg-background", className)} data-testid="tiptap-editor">
       <div className="flex flex-wrap items-center gap-0.5 px-2 py-1.5 border-b bg-muted/30 shrink-0">
@@ -152,23 +221,63 @@ export default function TipTapEditor({ content, onChange, placeholder, className
             <button type="button" className="h-7 px-2 flex items-center gap-1 rounded text-xs hover:bg-muted text-foreground/80" title="Paragraph format" data-testid="editor-btn-paragraph-format">
               <Pilcrow className="h-3.5 w-3.5" />
               <span className="text-[10px]">
-                {editor.isActive("heading", { level: 1 }) ? "H1" : editor.isActive("heading", { level: 2 }) ? "H2" : editor.isActive("heading", { level: 3 }) ? "H3" : "P"}
+                {editor.isActive("heading", { level: 1 }) ? "H1"
+                  : editor.isActive("heading", { level: 2 }) ? "H2"
+                  : editor.isActive("heading", { level: 3 }) ? "H3"
+                  : editor.isActive("heading", { level: 4 }) ? "H4"
+                  : editor.isActive("heading", { level: 5 }) ? "H5"
+                  : editor.isActive("heading", { level: 6 }) ? "H6"
+                  : "¶"}
               </span>
             </button>
           </PopoverTrigger>
-          <PopoverContent className="w-40 p-1" align="start">
+          <PopoverContent className="w-44 p-1" align="start">
             <button type="button" className={cn("w-full text-left px-2 py-1.5 rounded text-sm hover:bg-muted", !editor.isActive("heading") && "bg-muted/50")} onClick={() => editor.chain().focus().setParagraph().run()}>
               Paragraph
             </button>
-            <button type="button" className={cn("w-full text-left px-2 py-1.5 rounded text-lg font-bold hover:bg-muted", editor.isActive("heading", { level: 1 }) && "bg-muted/50")} onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}>
+            <button type="button" className={cn("w-full text-left px-2 py-1.5 rounded text-xl font-bold hover:bg-muted", editor.isActive("heading", { level: 1 }) && "bg-muted/50")} onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}>
               Heading 1
             </button>
-            <button type="button" className={cn("w-full text-left px-2 py-1.5 rounded text-base font-bold hover:bg-muted", editor.isActive("heading", { level: 2 }) && "bg-muted/50")} onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}>
+            <button type="button" className={cn("w-full text-left px-2 py-1.5 rounded text-lg font-bold hover:bg-muted", editor.isActive("heading", { level: 2 }) && "bg-muted/50")} onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}>
               Heading 2
             </button>
-            <button type="button" className={cn("w-full text-left px-2 py-1.5 rounded text-sm font-bold hover:bg-muted", editor.isActive("heading", { level: 3 }) && "bg-muted/50")} onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}>
+            <button type="button" className={cn("w-full text-left px-2 py-1.5 rounded text-base font-semibold hover:bg-muted", editor.isActive("heading", { level: 3 }) && "bg-muted/50")} onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}>
               Heading 3
             </button>
+            <button type="button" className={cn("w-full text-left px-2 py-1.5 rounded text-sm font-semibold hover:bg-muted", editor.isActive("heading", { level: 4 }) && "bg-muted/50")} onClick={() => editor.chain().focus().toggleHeading({ level: 4 }).run()}>
+              Heading 4
+            </button>
+            <button type="button" className={cn("w-full text-left px-2 py-1.5 rounded text-xs font-semibold hover:bg-muted", editor.isActive("heading", { level: 5 }) && "bg-muted/50")} onClick={() => editor.chain().focus().toggleHeading({ level: 5 }).run()}>
+              Heading 5
+            </button>
+            <button type="button" className={cn("w-full text-left px-2 py-1.5 rounded text-[11px] font-semibold uppercase hover:bg-muted", editor.isActive("heading", { level: 6 }) && "bg-muted/50")} onClick={() => editor.chain().focus().toggleHeading({ level: 6 }).run()}>
+              Heading 6
+            </button>
+          </PopoverContent>
+        </Popover>
+
+        <Popover>
+          <PopoverTrigger asChild>
+            <button type="button" className="h-7 px-2 flex items-center gap-1 rounded text-xs hover:bg-muted text-foreground/80" title="Font size" data-testid="editor-btn-font-size">
+              <CaseSensitive className="h-3.5 w-3.5" />
+              <span className="text-[10px] min-w-[14px] text-center">{currentFontSizeLabel}</span>
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-36 p-1 max-h-60 overflow-y-auto" align="start">
+            <button type="button" className={cn("w-full text-left px-2 py-1 rounded text-xs hover:bg-muted", !currentFontSize && "bg-muted/50")} onClick={() => editor.chain().focus().unsetFontSize().run()}>
+              Default
+            </button>
+            {FONT_SIZES.map(size => (
+              <button
+                key={size.value}
+                type="button"
+                className={cn("w-full text-left px-2 py-1 rounded hover:bg-muted flex items-center justify-between", currentFontSize === size.value && "bg-muted/50")}
+                onClick={() => editor.chain().focus().setFontSize(size.value).run()}
+              >
+                <span style={{ fontSize: Math.min(parseInt(size.label), 20) + "px" }}>{size.label}</span>
+                <span className="text-[10px] text-muted-foreground">{size.value}</span>
+              </button>
+            ))}
           </PopoverContent>
         </Popover>
 
@@ -261,6 +370,12 @@ export default function TipTapEditor({ content, onChange, placeholder, className
         </ToolbarButton>
         <ToolbarButton onClick={() => editor.chain().focus().toggleTaskList().run()} active={editor.isActive("taskList")} title="Task list">
           <CheckSquare className="h-3.5 w-3.5" />
+        </ToolbarButton>
+        <ToolbarButton onClick={() => editor.chain().focus().sinkListItem("listItem").run()} disabled={!editor.can().sinkListItem("listItem")} title="Indent">
+          <span className="text-[10px] font-mono">→</span>
+        </ToolbarButton>
+        <ToolbarButton onClick={() => editor.chain().focus().liftListItem("listItem").run()} disabled={!editor.can().liftListItem("listItem")} title="Outdent">
+          <span className="text-[10px] font-mono">←</span>
         </ToolbarButton>
 
         <ToolbarDivider />
