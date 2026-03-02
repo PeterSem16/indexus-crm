@@ -32,7 +32,8 @@ import {
   TableProperties, RowsIcon, Columns3, Trash2,
   Subscript as SubIcon, Superscript as SupIcon, Code2, Pilcrow,
   Plus, Minus as MinusIcon,
-  RemoveFormatting, AArrowUp, AArrowDown, CaseSensitive
+  RemoveFormatting, AArrowUp, AArrowDown, CaseSensitive,
+  Search, Replace, ReplaceAll, X, ChevronDown, ChevronUp, CaseLower
 } from "lucide-react";
 
 declare module "@tiptap/core" {
@@ -142,6 +143,12 @@ function ToolbarDivider() {
 export default function TipTapEditor({ content, onChange, placeholder, className }: TipTapEditorProps) {
   const [linkUrl, setLinkUrl] = useState("");
   const [imageUrl, setImageUrl] = useState("");
+  const [showFindReplace, setShowFindReplace] = useState(false);
+  const [findText, setFindText] = useState("");
+  const [replaceText, setReplaceText] = useState("");
+  const [matchCase, setMatchCase] = useState(false);
+  const [findResults, setFindResults] = useState<{ count: number; current: number }>({ count: 0, current: 0 });
+  const findInputRef = useRef<HTMLInputElement>(null);
   const contentRef = useRef(content);
 
   const editor = useEditor({
@@ -198,6 +205,64 @@ export default function TipTapEditor({ content, onChange, placeholder, className
     editor.chain().focus().setImage({ src: imageUrl }).run();
     setImageUrl("");
   }, [editor, imageUrl]);
+
+  const getTextContent = useCallback(() => {
+    if (!editor) return "";
+    const div = document.createElement("div");
+    div.innerHTML = editor.getHTML();
+    return div.textContent || div.innerText || "";
+  }, [editor]);
+
+  const findMatches = useCallback((searchStr: string) => {
+    if (!searchStr || !editor) return [];
+    const text = getTextContent();
+    const flags = matchCase ? "g" : "gi";
+    const escaped = searchStr.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const regex = new RegExp(escaped, flags);
+    const matches: number[] = [];
+    let match;
+    while ((match = regex.exec(text)) !== null) {
+      matches.push(match.index);
+    }
+    return matches;
+  }, [editor, matchCase, getTextContent]);
+
+  const updateFindResults = useCallback((searchStr: string) => {
+    const matches = findMatches(searchStr);
+    setFindResults({ count: matches.length, current: matches.length > 0 ? 1 : 0 });
+  }, [findMatches]);
+
+  useEffect(() => {
+    if (showFindReplace && findText.length >= 1) {
+      updateFindResults(findText);
+    } else {
+      setFindResults({ count: 0, current: 0 });
+    }
+  }, [findText, matchCase, showFindReplace, content]);
+
+  const handleFindReplace = useCallback((replaceOne: boolean) => {
+    if (!editor || !findText) return;
+    const html = editor.getHTML();
+    const flags = matchCase ? "" : "i";
+    const escaped = findText.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const regex = new RegExp(escaped, replaceOne ? flags : "g" + flags);
+    const newHtml = html.replace(regex, replaceText);
+    if (newHtml !== html) {
+      editor.commands.setContent(newHtml, true);
+      contentRef.current = newHtml;
+      onChange(newHtml);
+      updateFindResults(findText);
+    }
+  }, [editor, findText, replaceText, matchCase, onChange, updateFindResults]);
+
+  const toggleFindReplace = useCallback(() => {
+    setShowFindReplace(prev => {
+      if (!prev) {
+        setTimeout(() => findInputRef.current?.focus(), 100);
+      }
+      return !prev;
+    });
+  }, []);
 
   if (!editor) return null;
 
@@ -490,7 +555,107 @@ export default function TipTapEditor({ content, onChange, placeholder, className
         <ToolbarButton onClick={() => editor.chain().focus().unsetAllMarks().clearNodes().run()} title="Clear formatting">
           <RemoveFormatting className="h-3.5 w-3.5" />
         </ToolbarButton>
+
+        <ToolbarDivider />
+
+        <ToolbarButton onClick={toggleFindReplace} active={showFindReplace} title="Find & Replace">
+          <Search className="h-3.5 w-3.5" />
+        </ToolbarButton>
       </div>
+
+      {showFindReplace && (
+        <div className="px-3 py-2 border-b bg-muted/20 shrink-0 space-y-2" data-testid="find-replace-panel">
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+              <Input
+                ref={findInputRef}
+                placeholder="Find..."
+                value={findText}
+                onChange={(e) => setFindText(e.target.value)}
+                className="h-7 text-xs pl-7 pr-2"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    updateFindResults(findText);
+                  }
+                  if (e.key === "Escape") {
+                    setShowFindReplace(false);
+                  }
+                }}
+                data-testid="input-find-text"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => setMatchCase(!matchCase)}
+              className={cn(
+                "h-7 w-7 flex items-center justify-center rounded text-xs transition-colors shrink-0",
+                matchCase ? "bg-primary text-primary-foreground" : "hover:bg-muted text-foreground/80 border"
+              )}
+              title="Match case"
+              data-testid="btn-match-case"
+            >
+              <CaseSensitive className="h-3.5 w-3.5" />
+            </button>
+            {findText && (
+              <span className="text-[10px] text-muted-foreground whitespace-nowrap shrink-0">
+                {findResults.count > 0 ? `${findResults.current}/${findResults.count}` : "0"}
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={() => { setShowFindReplace(false); setFindText(""); setReplaceText(""); }}
+              className="h-7 w-7 flex items-center justify-center rounded hover:bg-muted text-muted-foreground shrink-0"
+              title="Close"
+              data-testid="btn-close-find"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <Replace className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+              <Input
+                placeholder="Replace with..."
+                value={replaceText}
+                onChange={(e) => setReplaceText(e.target.value)}
+                className="h-7 text-xs pl-7 pr-2"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleFindReplace(true);
+                  }
+                  if (e.key === "Escape") {
+                    setShowFindReplace(false);
+                  }
+                }}
+                data-testid="input-replace-text"
+              />
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-[10px] px-2 gap-1 shrink-0"
+              onClick={() => handleFindReplace(true)}
+              disabled={!findText || findResults.count === 0}
+              data-testid="btn-replace-one"
+            >
+              Replace
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-[10px] px-2 gap-1 shrink-0"
+              onClick={() => handleFindReplace(false)}
+              disabled={!findText || findResults.count === 0}
+              data-testid="btn-replace-all"
+            >
+              All
+            </Button>
+          </div>
+        </div>
+      )}
 
       <div className="flex-1 overflow-y-auto" data-testid="tiptap-editor-content">
         <EditorContent editor={editor} className="min-h-full" />
