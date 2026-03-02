@@ -25,7 +25,7 @@ import {
   Thermometer, Baby, Brain, Microscope, Stethoscope, Pill,
   CircleCheck, CircleX, RefreshCw, ArrowLeftRight, Package,
   Tags, GraduationCap, Headphones, Clock, Award, Sparkles,
-  HelpCircle, ChevronUp, ChevronDown,
+  HelpCircle, ChevronUp, ChevronDown, ChevronRight,
   type LucideIcon
 } from "lucide-react";
 import TipTapEditor from "@/components/sop/TipTapEditor";
@@ -88,6 +88,7 @@ export default function SopManagementPage() {
   const [filterCategory, setFilterCategory] = useState<string | null>(null);
   const [filterPriority, setFilterPriority] = useState<string | null>(null);
   const [filterCountry, setFilterCountry] = useState<string | null>(null);
+  const [collapsedCats, setCollapsedCats] = useState<Set<string>>(new Set());
 
   const [showCategoryDialog, setShowCategoryDialog] = useState(false);
   const [editingCategory, setEditingCategory] = useState<SopCategory | null>(null);
@@ -426,44 +427,79 @@ export default function SopManagementPage() {
                   return getChildCats(c.id).some(ch => assignedCatIds.has(ch.id));
                 });
 
+                const toggleCat = (id: string) => {
+                  setCollapsedCats(prev => {
+                    const next = new Set(prev);
+                    if (next.has(id)) next.delete(id); else next.add(id);
+                    return next;
+                  });
+                };
+
                 return relevantTopCats.map(cat => {
                   const catArticles = getArticlesForCat(cat.id);
                   const children = getChildCats(cat.id).filter(ch => assignedCatIds.has(ch.id));
                   const CatIcon = getCategoryIcon(cat.id);
+                  const totalCount = catArticles.length + children.reduce((sum, ch) => sum + getArticlesForCat(ch.id).length, 0);
+                  const isCatCollapsed = collapsedCats.has(cat.id);
 
                   return (
-                    <div key={cat.id} data-testid={`sop-tree-cat-${cat.id}`}>
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <div key={cat.id} data-testid={`sop-tree-cat-${cat.id}`} className="border rounded-lg overflow-hidden mb-3">
+                      <button
+                        type="button"
+                        className="w-full flex items-center gap-2.5 px-3 py-2.5 bg-muted/30 hover:bg-muted/50 transition-colors"
+                        onClick={() => toggleCat(cat.id)}
+                        data-testid={`sop-tree-toggle-${cat.id}`}
+                      >
+                        {isCatCollapsed
+                          ? <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                          : <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+                        }
+                        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary shrink-0">
                           <CatIcon className="h-4 w-4" />
                         </div>
-                        <h2 className="text-sm font-semibold">{cat.name}</h2>
-                        <Badge variant="secondary" className="text-[10px] h-5">{catArticles.length + children.reduce((sum, ch) => sum + getArticlesForCat(ch.id).length, 0)}</Badge>
-                        {cat.countryCode && <Badge variant="outline" className="text-[10px] h-4">{COUNTRY_FLAGS[cat.countryCode] || ""} {cat.countryCode}</Badge>}
-                      </div>
-                      {catArticles.length > 0 && (
-                        <div className="grid gap-2 ml-9 mb-3">
-                          {catArticles.map(renderArticleCard)}
+                        <h2 className="text-sm font-semibold flex-1 text-left">{cat.name}</h2>
+                        <Badge variant="secondary" className="text-[10px] h-5 shrink-0">{totalCount}</Badge>
+                        {cat.countryCode && <Badge variant="outline" className="text-[10px] h-4 shrink-0">{COUNTRY_FLAGS[cat.countryCode] || ""} {cat.countryCode}</Badge>}
+                      </button>
+                      {!isCatCollapsed && (
+                        <div className="border-t">
+                          {catArticles.length > 0 && (
+                            <div className="grid gap-2 p-3">
+                              {catArticles.map(renderArticleCard)}
+                            </div>
+                          )}
+                          {children.map(child => {
+                            const childArticles = getArticlesForCat(child.id);
+                            const ChildIcon = getCategoryIcon(child.id);
+                            const isChildCollapsed = collapsedCats.has(child.id);
+                            return (
+                              <div key={child.id} className="border-t" data-testid={`sop-tree-subcat-${child.id}`}>
+                                <button
+                                  type="button"
+                                  className="w-full flex items-center gap-2 px-3 py-2 pl-8 bg-muted/15 hover:bg-muted/30 transition-colors"
+                                  onClick={() => toggleCat(child.id)}
+                                  data-testid={`sop-tree-toggle-${child.id}`}
+                                >
+                                  {isChildCollapsed
+                                    ? <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                                    : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                                  }
+                                  <div className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/5 text-primary/70 shrink-0">
+                                    <ChildIcon className="h-3.5 w-3.5" />
+                                  </div>
+                                  <h3 className="text-xs font-semibold text-muted-foreground flex-1 text-left">↳ {child.name}</h3>
+                                  <Badge variant="outline" className="text-[9px] h-4 shrink-0">{childArticles.length}</Badge>
+                                </button>
+                                {!isChildCollapsed && childArticles.length > 0 && (
+                                  <div className="grid gap-2 p-3 pl-12">
+                                    {childArticles.map(renderArticleCard)}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
                         </div>
                       )}
-                      {children.map(child => {
-                        const childArticles = getArticlesForCat(child.id);
-                        const ChildIcon = getCategoryIcon(child.id);
-                        return (
-                          <div key={child.id} className="ml-9 mb-3" data-testid={`sop-tree-subcat-${child.id}`}>
-                            <div className="flex items-center gap-2 mb-2">
-                              <div className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/5 text-primary/70">
-                                <ChildIcon className="h-3.5 w-3.5" />
-                              </div>
-                              <h3 className="text-xs font-semibold text-muted-foreground">↳ {child.name}</h3>
-                              <Badge variant="outline" className="text-[9px] h-4">{childArticles.length}</Badge>
-                            </div>
-                            <div className="grid gap-2 ml-8">
-                              {childArticles.map(renderArticleCard)}
-                            </div>
-                          </div>
-                        );
-                      })}
                     </div>
                   );
                 });
