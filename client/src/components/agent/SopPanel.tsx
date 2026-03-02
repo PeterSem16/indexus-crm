@@ -550,8 +550,8 @@ export function SopPanel({ campaignId, userId }: SopPanelProps) {
       </ScrollArea>
 
       <Dialog open={!!maximizedArticle} onOpenChange={() => setMaximizedArticle(null)}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
-          <DialogHeader>
+        <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
+          <DialogHeader className="shrink-0">
             <DialogTitle className="flex items-center gap-2 text-base" data-testid="sop-dialog-title">
               <BookOpen className="h-4 w-4" />
               <span dangerouslySetInnerHTML={{ __html: searchQuery && maximizedArticle?.title ? highlightText(maximizedArticle.title, searchQuery) : (maximizedArticle?.title || "") }} />
@@ -566,7 +566,7 @@ export function SopPanel({ campaignId, userId }: SopPanelProps) {
               </div>
             )}
           </DialogHeader>
-          <ScrollArea className="flex-1 mt-2">
+          <div className="flex-1 min-h-0 overflow-y-auto mt-2 pr-1">
             {maximizedArticle?.summary && (
               <div className="bg-muted/30 rounded-md p-3 mb-3">
                 <p className="text-sm italic text-muted-foreground"
@@ -587,7 +587,7 @@ export function SopPanel({ campaignId, userId }: SopPanelProps) {
                 ))}
               </div>
             )}
-          </ScrollArea>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
