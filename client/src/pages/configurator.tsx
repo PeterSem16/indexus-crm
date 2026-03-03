@@ -12554,14 +12554,14 @@ function MessageTemplatesTab() {
       </Dialog>
 
       <Dialog open={isZipImportOpen} onOpenChange={(v) => { if (!zipImporting) { setIsZipImportOpen(v); if (!v) { setZipFile(null); setZipResult(null); setZipProgress(null); } } }}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg overflow-hidden">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Upload className="h-4 w-4" />
               {(t.konfigurator as any).importMsgZip || "Import from ZIP"}
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="space-y-4 overflow-hidden">
             <p className="text-sm text-muted-foreground">{(t.konfigurator as any).importMsgZipDesc || "Upload a ZIP file containing .msg (Outlook) email templates"}</p>
 
             <div className="space-y-2">
@@ -12589,15 +12589,15 @@ function MessageTemplatesTab() {
               <Label className="text-sm font-medium">ZIP</Label>
               <input ref={zipFileRef} type="file" accept=".zip" onChange={(e) => setZipFile(e.target.files?.[0] || null)} className="hidden" data-testid="zip-file-input" />
               <div
-                className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 transition-colors"
+                className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 transition-colors overflow-hidden"
                 onClick={() => zipFileRef.current?.click()}
                 data-testid="zip-drop-zone"
               >
                 {zipFile ? (
-                  <div className="flex items-center justify-center gap-2">
-                    <FileText className="h-5 w-5 text-primary" />
-                    <span className="text-sm font-medium">{zipFile.name}</span>
-                    <span className="text-xs text-muted-foreground">({(zipFile.size / 1024 / 1024).toFixed(1)} MB)</span>
+                  <div className="flex items-center justify-center gap-2 min-w-0">
+                    <FileText className="h-5 w-5 text-primary shrink-0" />
+                    <span className="text-sm font-medium truncate">{zipFile.name}</span>
+                    <span className="text-xs text-muted-foreground shrink-0">({(zipFile.size / 1024 / 1024).toFixed(1)} MB)</span>
                   </div>
                 ) : (
                   <div className="space-y-1">
@@ -12621,7 +12621,7 @@ function MessageTemplatesTab() {
             )}
 
             {zipResult && (
-              <div className={`rounded-lg p-3 space-y-1 ${zipResult.errors > 0 ? "bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-800" : "bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800"}`}>
+              <div className={`rounded-lg p-3 space-y-1 overflow-hidden ${zipResult.errors > 0 ? "bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-800" : "bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800"}`}>
                 <div className="flex items-center gap-2">
                   {zipResult.errors > 0 ? <AlertTriangle className="h-4 w-4 text-orange-600" /> : <CheckCircle2 className="h-4 w-4 text-green-600" />}
                   <span className="text-sm font-medium">{zipResult.created}/{zipResult.total} templates imported</span>
@@ -12636,9 +12636,9 @@ function MessageTemplatesTab() {
                 {zipResult.templates && zipResult.templates.length > 0 && (
                   <div className="mt-2 max-h-32 overflow-y-auto text-xs text-muted-foreground space-y-0.5">
                     {zipResult.templates.map((tpl: any, i: number) => (
-                      <p key={i} className="flex items-center gap-1">
+                      <p key={i} className="flex items-center gap-1 min-w-0">
                         <Check className="h-3 w-3 text-green-600 shrink-0" />
-                        <span className="truncate">{tpl.name}</span>
+                        <span className="truncate flex-1 min-w-0">{tpl.name}</span>
                         {tpl.detectedVariables?.length > 0 && <Badge variant="outline" className="text-[9px] h-3.5 ml-auto shrink-0">{tpl.detectedVariables.length} vars</Badge>}
                       </p>
                     ))}
