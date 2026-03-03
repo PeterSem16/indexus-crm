@@ -31,33 +31,33 @@ import {
 import TipTapEditor from "@/components/sop/TipTapEditor";
 import type { SopCategory, SopArticle, Campaign } from "@shared/schema";
 
-const ICON_GROUPS: { label: string; icons: { name: string; icon: LucideIcon }[] }[] = [
-  { label: "Office", icons: [
+const ICON_GROUPS: { labelKey: string; fallback: string; icons: { name: string; icon: LucideIcon }[] }[] = [
+  { labelKey: "iconGroupOffice", fallback: "Office", icons: [
     { name: "clipboard", icon: Clipboard }, { name: "folder-closed", icon: FolderClosed },
     { name: "folder-open", icon: FolderOpen }, { name: "file-text", icon: FileText },
     { name: "file-check", icon: FileCheck }, { name: "bookmark", icon: Bookmark },
     { name: "book-open", icon: BookOpen }, { name: "tags", icon: Tags },
     { name: "package", icon: Package },
   ]},
-  { label: "Medical", icons: [
+  { labelKey: "iconGroupMedical", fallback: "Medical", icons: [
     { name: "heart", icon: Heart }, { name: "syringe", icon: Syringe },
     { name: "baby", icon: Baby }, { name: "brain", icon: Brain },
     { name: "microscope", icon: Microscope }, { name: "stethoscope", icon: Stethoscope },
     { name: "pill", icon: Pill }, { name: "thermometer", icon: Thermometer },
   ]},
-  { label: "Communication", icons: [
+  { labelKey: "iconGroupCommunication", fallback: "Communication", icons: [
     { name: "phone", icon: Phone }, { name: "mail", icon: Mail },
     { name: "message-square", icon: MessageSquare }, { name: "headphones", icon: Headphones },
     { name: "users", icon: Users },
   ]},
-  { label: "Process", icons: [
+  { labelKey: "iconGroupProcess", fallback: "Process", icons: [
     { name: "settings", icon: Settings }, { name: "target", icon: Target },
     { name: "bar-chart", icon: BarChart3 }, { name: "circle-check", icon: CircleCheck },
     { name: "circle-x", icon: CircleX }, { name: "alert-circle", icon: AlertCircle },
     { name: "refresh-cw", icon: RefreshCw }, { name: "arrow-left-right", icon: ArrowLeftRight },
     { name: "zap", icon: Zap }, { name: "clock", icon: Clock },
   ]},
-  { label: "Other", icons: [
+  { labelKey: "iconGroupOther", fallback: "Other", icons: [
     { name: "globe", icon: Globe }, { name: "star", icon: Star },
     { name: "lightbulb", icon: Lightbulb }, { name: "lock", icon: Lock },
     { name: "key", icon: Key }, { name: "shield", icon: Shield },
@@ -255,7 +255,7 @@ export default function SopManagementPage() {
       });
       if (!res.ok) throw new Error("Failed to copy article");
       queryClient.invalidateQueries({ queryKey: ["/api/sop/articles"] });
-      toast({ title: copyWithTranslation ? (t.konfigurator?.templateTranslated || "Article translated and copied") : (t.konfigurator?.templateCopied || "Article copied") });
+      toast({ title: copyWithTranslation ? (t.sop?.translatedSuccess || "Article translated and copied") : (t.sop?.copiedSuccess || "Article copied") });
       setShowCopyDialog(false);
       setCopySourceArticle(null);
     } catch (error) {
@@ -414,7 +414,7 @@ export default function SopManagementPage() {
                         <div className="flex items-center gap-1 shrink-0">
                           <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => { setReadsArticleId(article.id); setShowReadsDialog(true); }} title={t.sop.whoRead} data-testid={`btn-reads-${article.id}`}><Users className="h-4 w-4" /></Button>
                           <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => { setLinkingArticleId(article.id); setShowCampaignLinkDialog(true); }} title={t.sop.campaignLink} data-testid={`btn-campaigns-${article.id}`}><Tag className="h-4 w-4" /></Button>
-                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => openCopyDialog(article)} title={t.konfigurator?.copyToLanguage || "Copy to language"} data-testid={`btn-copy-${article.id}`}><Copy className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => openCopyDialog(article)} title={t.sop?.copyTranslate || "Copy to language"} data-testid={`btn-copy-${article.id}`}><Copy className="h-4 w-4" /></Button>
                           <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => openEditArticle(article)} data-testid={`btn-edit-${article.id}`}><Pencil className="h-4 w-4" /></Button>
                           <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-destructive" onClick={() => { if (confirm(t.sop.confirmDeleteArticle)) deleteArticleMutation.mutate(article.id); }} data-testid={`btn-delete-${article.id}`}><Trash2 className="h-4 w-4" /></Button>
                         </div>
@@ -646,8 +646,8 @@ export default function SopManagementPage() {
               <ScrollArea className="h-[300px] border rounded-lg bg-muted/20 p-3">
                 <div className="space-y-3">
                   {ICON_GROUPS.map(group => (
-                    <div key={group.label}>
-                      <p className="text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-widest mb-1.5 px-0.5">{group.label}</p>
+                    <div key={group.labelKey}>
+                      <p className="text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-widest mb-1.5 px-0.5">{(t.sop as any)?.[group.labelKey] || group.fallback}</p>
                       <div className="flex flex-wrap gap-1">
                         {group.icons.map(opt => {
                           const IconComp = opt.icon;
@@ -839,7 +839,7 @@ export default function SopManagementPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Copy className="h-4 w-4" />
-              {t.konfigurator?.copyToLanguage || "Copy / Translate"}
+              {t.sop?.copyTranslate || "Copy / Translate"}
             </DialogTitle>
           </DialogHeader>
           {copySourceArticle && (
@@ -852,7 +852,7 @@ export default function SopManagementPage() {
               </div>
               <div className="space-y-2">
                 <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                  {t.konfigurator?.targetLanguage || "Target language"}
+                  {t.sop?.targetLanguage || "Target language"}
                 </Label>
                 <div className="flex flex-wrap gap-2">
                   {COUNTRY_OPTIONS.map(opt => (
@@ -875,8 +875,8 @@ export default function SopManagementPage() {
               </div>
               <div className="flex items-center justify-between p-3 rounded-lg border">
                 <div>
-                  <Label className="text-sm font-medium">{t.konfigurator?.aiTranslation || "AI Translation"}</Label>
-                  <p className="text-xs text-muted-foreground">{t.konfigurator?.aiTranslationDesc || "Automatically translate content using AI"}</p>
+                  <Label className="text-sm font-medium">{t.sop?.aiTranslation || "AI Translation"}</Label>
+                  <p className="text-xs text-muted-foreground">{t.sop?.aiTranslationDesc || "Automatically translate content using AI"}</p>
                 </div>
                 <Switch checked={copyWithTranslation} onCheckedChange={setCopyWithTranslation} data-testid="switch-copy-translate" />
               </div>
@@ -885,7 +885,7 @@ export default function SopManagementPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowCopyDialog(false)}>{t.sop.cancel}</Button>
             <Button onClick={handleCopyArticle} disabled={!copyTargetCountry || isCopying} data-testid="btn-confirm-copy">
-              {isCopying ? <><Loader2 className="h-4 w-4 animate-spin mr-1.5" />{t.konfigurator?.translating || "Translating..."}</> : <><Copy className="h-4 w-4 mr-1.5" />{copyWithTranslation ? (t.konfigurator?.copyAndTranslate || "Copy & Translate") : (t.konfigurator?.copy || "Copy")}</>}
+              {isCopying ? <><Loader2 className="h-4 w-4 animate-spin mr-1.5" />{t.sop?.translating || "Translating..."}</> : <><Copy className="h-4 w-4 mr-1.5" />{copyWithTranslation ? (t.sop?.copyAndTranslate || "Copy & Translate") : (t.sop?.copyOnly || "Copy")}</>}
             </Button>
           </DialogFooter>
         </DialogContent>

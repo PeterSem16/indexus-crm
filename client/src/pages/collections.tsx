@@ -302,12 +302,13 @@ export default function CollectionsPage() {
   const sprievodnyFileRef = useRef<HTMLInputElement>(null);
   const sprievodnyProgressRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  const sp = t.collections?.sprievodny;
   const UPLOAD_STEPS = [
-    { label: "Nahrávanie PDF...", icon: "📄" },
-    { label: "Konverzia na obrázok...", icon: "🖼️" },
-    { label: "AI analýza dokumentu...", icon: "🤖" },
-    { label: "Čítanie čiarových kódov...", icon: "📊" },
-    { label: "Extrahovanie údajov...", icon: "📋" },
+    { label: sp?.step1 || "Uploading PDF...", icon: "📄" },
+    { label: sp?.step2 || "Converting to image...", icon: "🖼️" },
+    { label: sp?.step3 || "AI document analysis...", icon: "🤖" },
+    { label: sp?.step4 || "Reading barcodes...", icon: "📊" },
+    { label: sp?.step5 || "Extracting data...", icon: "📋" },
   ];
 
   const handleSprievodnyUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -345,9 +346,9 @@ export default function CollectionsPage() {
       setSprievodnyUploadProgress(100);
       setSprievodnyUploadStep(4);
       queryClient.invalidateQueries({ queryKey: ["/api/collections", collectionId, "sprievodny-list"] });
-      toast({ title: "Sprievodný list úspešne analyzovaný" });
+      toast({ title: sp?.analyzed || "Accompanying document analyzed" });
     } catch (err: any) {
-      toast({ title: err?.message || "Chyba pri analýze PDF", variant: "destructive" });
+      toast({ title: err?.message || "PDF analysis error", variant: "destructive" });
     } finally {
       if (sprievodnyProgressRef.current) clearInterval(sprievodnyProgressRef.current);
       setTimeout(() => {
@@ -380,7 +381,7 @@ export default function CollectionsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/collections", collectionId, "sprievodny-list"] });
-      toast({ title: "Sprievodný list vymazaný" });
+      toast({ title: sp?.deleted || "Accompanying document deleted" });
     },
   });
 
@@ -1428,7 +1429,7 @@ export default function CollectionsPage() {
                 </TabsTrigger>
                 <TabsTrigger value="sprievodny" data-testid="tab-sprievodny">
                   <ScanLine className="h-4 w-4 mr-2" />
-                  {t.collections?.sprievodnyList || "Sprievodný list"}
+                  {sp?.title || t.collections?.sprievodnyList || "Accompanying Document"}
                 </TabsTrigger>
               </TabsList>
 
@@ -1470,7 +1471,7 @@ export default function CollectionsPage() {
                             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-pulse" />
                           </div>
                           <div className="flex justify-between text-xs text-muted-foreground">
-                            <span>Krok {sprievodnyUploadStep + 1} z {UPLOAD_STEPS.length}</span>
+                            <span>{sp?.stepLabel || "Step"} {sprievodnyUploadStep + 1} {sp?.stepOf || "of"} {UPLOAD_STEPS.length}</span>
                             <span>{Math.round(sprievodnyUploadProgress)}%</span>
                           </div>
                         </div>
@@ -1495,11 +1496,11 @@ export default function CollectionsPage() {
                           <ScanLine className="h-8 w-8 text-muted-foreground" />
                         </div>
                         <div>
-                          <h3 className="text-lg font-semibold" data-testid="text-sprievodny-empty">Sprievodný list</h3>
-                          <p className="text-sm text-muted-foreground mt-1">Nahrajte PDF súbor sprievodného listu pre OCR analýzu</p>
+                          <h3 className="text-lg font-semibold" data-testid="text-sprievodny-empty">{sp?.title || "Accompanying Document"}</h3>
+                          <p className="text-sm text-muted-foreground mt-1">{sp?.uploadTitle || "Upload PDF file for OCR analysis"}</p>
                         </div>
                         <Button onClick={() => sprievodnyFileRef.current?.click()} data-testid="button-upload-sprievodny">
-                          <Upload className="h-4 w-4 mr-2" />Nahrať PDF
+                          <Upload className="h-4 w-4 mr-2" />{sp?.uploadButton || "Upload PDF"}
                         </Button>
                       </>
                     )}
@@ -1532,83 +1533,83 @@ export default function CollectionsPage() {
                   const confBadge = (key: string) => {
                     const c = fieldConf[key];
                     if (c === "high") return null;
-                    if (c === "medium") return <Badge variant="outline" className="text-[9px] h-4 px-1 bg-yellow-50 text-yellow-700 border-yellow-300 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-700 ml-1">neisté</Badge>;
-                    return <Badge variant="outline" className="text-[9px] h-4 px-1 bg-red-50 text-red-700 border-red-300 dark:bg-red-900/30 dark:text-red-400 dark:border-red-700 ml-1">nepresné</Badge>;
+                    if (c === "medium") return <Badge variant="outline" className="text-[9px] h-4 px-1 bg-yellow-50 text-yellow-700 border-yellow-300 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-700 ml-1">{sp?.uncertain || "uncertain"}</Badge>;
+                    return <Badge variant="outline" className="text-[9px] h-4 px-1 bg-red-50 text-red-700 border-red-300 dark:bg-red-900/30 dark:text-red-400 dark:border-red-700 ml-1">{sp?.imprecise || "imprecise"}</Badge>;
                   };
 
                   const fieldSections = [
-                    { title: "Údaje rodičky", color: "blue", icon: <div className="h-3 w-3 rounded-full bg-blue-500" />, fields: [
-                      { key: "motherSurname", label: "Priezvisko" },
-                      { key: "motherFirstName", label: "Meno" },
-                      { key: "motherBirthNumber", label: "Rodné číslo" },
-                      { key: "motherAddress", label: "Adresa" },
-                      { key: "motherIdNumber", label: "Číslo OP" },
+                    { title: sp?.sectionMother || "Mother's data", color: "blue", icon: <div className="h-3 w-3 rounded-full bg-blue-500" />, fields: [
+                      { key: "motherSurname", label: sp?.surname || "Surname" },
+                      { key: "motherFirstName", label: sp?.firstName || "First name" },
+                      { key: "motherBirthNumber", label: sp?.birthNumber || "Birth number" },
+                      { key: "motherAddress", label: sp?.address || "Address" },
+                      { key: "motherIdNumber", label: sp?.idCardNumber || "ID card number" },
                     ]},
-                    { title: "Kontakty", color: "red", icon: <div className="h-3 w-3 rounded-full bg-red-500" />, fields: [
-                      { key: "phone1", label: "Telefón 1" },
-                      { key: "phone2", label: "Telefón 2" },
-                      { key: "email", label: "Email" },
+                    { title: sp?.sectionContacts || "Contacts", color: "red", icon: <div className="h-3 w-3 rounded-full bg-red-500" />, fields: [
+                      { key: "phone1", label: sp?.phone1 || "Phone 1" },
+                      { key: "phone2", label: sp?.phone2 || "Phone 2" },
+                      { key: "email", label: sp?.email || "Email" },
                     ]},
-                    { title: "Výber darcu", color: "default", icon: <Users className="h-4 w-4" />, fields: [
-                      { key: "donorSelection", label: "Výber darcu" },
+                    { title: sp?.sectionDonor || "Donor selection", color: "default", icon: <Users className="h-4 w-4" />, fields: [
+                      { key: "donorSelection", label: sp?.donorSelection || "Donor selection" },
                     ]},
-                    { title: "Odber a identifikácia", color: "green", icon: <Syringe className="h-4 w-4" />, fields: [
-                      { key: "collectionType", label: "Typ odberu" },
-                      { key: "collectionDateText", label: "Dátum odberu" },
-                      { key: "collectionTime", label: "Čas odberu" },
-                      { key: "contractNumber", label: "Číslo zmluvy" },
-                      { key: "sampleId", label: "Číslo vzorky" },
-                      { key: "bagId", label: "ID vaku" },
-                      { key: "numberOfBags", label: "Počet vakov" },
-                      { key: "cordBloodVolume", label: "Objem pupočníkovej krvi (ml)" },
-                      { key: "cordClampTime", label: "Čas klemnutia pupočníka" },
-                      { key: "placentaWeight", label: "Hmotnosť placenty (g)" },
+                    { title: sp?.sectionCollection || "Collection & identification", color: "green", icon: <Syringe className="h-4 w-4" />, fields: [
+                      { key: "collectionType", label: sp?.collectionType || "Collection type" },
+                      { key: "collectionDateText", label: sp?.collectionDate || "Collection date" },
+                      { key: "collectionTime", label: sp?.collectionTime || "Collection time" },
+                      { key: "contractNumber", label: sp?.contractNumber || "Contract number" },
+                      { key: "sampleId", label: sp?.sampleId || "Sample ID" },
+                      { key: "bagId", label: sp?.bagId || "Bag ID" },
+                      { key: "numberOfBags", label: sp?.numberOfBags || "Number of bags" },
+                      { key: "cordBloodVolume", label: sp?.cordBloodVolume || "Cord blood volume (ml)" },
+                      { key: "cordClampTime", label: sp?.cordClampTime || "Cord clamping time" },
+                      { key: "placentaWeight", label: sp?.placentaWeight || "Placenta weight (g)" },
                     ]},
-                    { title: "Novorodenec", color: "default", icon: <Baby className="h-4 w-4" />, fields: [
-                      { key: "childSurname", label: "Priezvisko" },
-                      { key: "childFirstName", label: "Meno" },
-                      { key: "childGender", label: "Pohlavie" },
-                      { key: "childBirthNumber", label: "Rodné číslo dieťaťa" },
-                      { key: "birthDate", label: "Dátum narodenia" },
-                      { key: "birthTime", label: "Čas narodenia" },
-                      { key: "birthWeight", label: "Hmotnosť (g)" },
-                      { key: "birthLength", label: "Dĺžka (cm)" },
-                      { key: "gestationalAge", label: "Gestačný vek (týždne)" },
-                      { key: "apgar1", label: "APGAR 1 min" },
-                      { key: "apgar5", label: "APGAR 5 min" },
-                      { key: "apgar10", label: "APGAR 10 min" },
+                    { title: sp?.sectionNewborn || "Newborn", color: "default", icon: <Baby className="h-4 w-4" />, fields: [
+                      { key: "childSurname", label: sp?.childSurname || "Surname" },
+                      { key: "childFirstName", label: sp?.childFirstName || "First name" },
+                      { key: "childGender", label: sp?.childGender || "Gender" },
+                      { key: "childBirthNumber", label: sp?.childBirthNumber || "Child birth number" },
+                      { key: "birthDate", label: sp?.birthDate || "Date of birth" },
+                      { key: "birthTime", label: sp?.birthTime || "Time of birth" },
+                      { key: "birthWeight", label: sp?.birthWeight || "Weight (g)" },
+                      { key: "birthLength", label: sp?.birthLength || "Length (cm)" },
+                      { key: "gestationalAge", label: sp?.gestationalAge || "Gestational age (weeks)" },
+                      { key: "apgar1", label: sp?.apgar1 || "APGAR 1 min" },
+                      { key: "apgar5", label: sp?.apgar5 || "APGAR 5 min" },
+                      { key: "apgar10", label: sp?.apgar10 || "APGAR 10 min" },
                     ]},
-                    { title: "Pôrod a krv", color: "default", icon: <Heart className="h-4 w-4" />, fields: [
-                      { key: "bloodGroup", label: "Krvná skupina" },
-                      { key: "rhFactor", label: "Rh faktor" },
-                      { key: "deliveryType", label: "Typ pôrodu" },
-                      { key: "deliveryComplications", label: "Komplikácie pôrodu" },
+                    { title: sp?.sectionBirth || "Birth & blood", color: "default", icon: <Heart className="h-4 w-4" />, fields: [
+                      { key: "bloodGroup", label: sp?.bloodGroup || "Blood group" },
+                      { key: "rhFactor", label: sp?.rhFactor || "Rh factor" },
+                      { key: "deliveryType", label: sp?.deliveryType || "Delivery type" },
+                      { key: "deliveryComplications", label: sp?.deliveryComplications || "Delivery complications" },
                     ]},
-                    { title: "Zdravotná anamnéza", color: "default", icon: <Stethoscope className="h-4 w-4" />, fields: [
-                      { key: "antibiotics", label: "Antibiotiká" },
-                      { key: "infections", label: "Infekcie" },
-                      { key: "previousPregnancies", label: "Predchádzajúce tehotenstvá" },
+                    { title: sp?.sectionMedical || "Medical history", color: "default", icon: <Stethoscope className="h-4 w-4" />, fields: [
+                      { key: "antibiotics", label: sp?.antibiotics || "Antibiotics" },
+                      { key: "infections", label: sp?.infections || "Infections" },
+                      { key: "previousPregnancies", label: sp?.previousPregnancies || "Previous pregnancies" },
                     ]},
-                    { title: "Personál a nemocnica", color: "default", icon: <Building className="h-4 w-4" />, fields: [
-                      { key: "collectorName", label: "Odberový pracovník" },
-                      { key: "assistantName", label: "Asistujúci pracovník" },
-                      { key: "hospitalName", label: "Nemocnica / Pôrodnica" },
-                      { key: "hospitalDepartment", label: "Oddelenie" },
+                    { title: sp?.sectionPersonnel || "Personnel & hospital", color: "default", icon: <Building className="h-4 w-4" />, fields: [
+                      { key: "collectorName", label: sp?.collectorName || "Collection worker" },
+                      { key: "assistantName", label: sp?.assistantName || "Assistant worker" },
+                      { key: "hospitalName", label: sp?.hospitalName || "Hospital / Maternity" },
+                      { key: "hospitalDepartment", label: sp?.hospitalDepartment || "Department" },
                     ]},
-                    { title: "Laboratórium a transport", color: "default", icon: <Microscope className="h-4 w-4" />, fields: [
-                      { key: "maternalBloodSample", label: "Odber krvi matky" },
-                      { key: "labTests", label: "Laboratórne vyšetrenia" },
-                      { key: "transportConditions", label: "Podmienky transportu" },
+                    { title: sp?.sectionLab || "Laboratory & transport", color: "default", icon: <Microscope className="h-4 w-4" />, fields: [
+                      { key: "maternalBloodSample", label: sp?.maternalBloodSample || "Maternal blood sample" },
+                      { key: "labTests", label: sp?.labTests || "Laboratory tests" },
+                      { key: "transportConditions", label: sp?.transportConditions || "Transport conditions" },
                     ]},
-                    { title: "Overenie a podpisy", color: "default", icon: <FileText className="h-4 w-4" />, fields: [
-                      { key: "motherSignature", label: "Podpis rodičky" },
-                      { key: "doctorSignature", label: "Podpis lekára/pracovníka" },
-                      { key: "consentSigned", label: "Súhlas podpísaný" },
-                      { key: "notes", label: "Poznámky" },
+                    { title: sp?.sectionSignatures || "Verification & signatures", color: "default", icon: <FileText className="h-4 w-4" />, fields: [
+                      { key: "motherSignature", label: sp?.motherSignature || "Mother's signature" },
+                      { key: "doctorSignature", label: sp?.doctorSignature || "Doctor/worker signature" },
+                      { key: "consentSigned", label: sp?.consentSigned || "Consent signed" },
+                      { key: "notes", label: sp?.notes || "Notes" },
                     ]},
-                    { title: "Čiarový kód / QR kód", color: "green", icon: <ScanLine className="h-4 w-4" />, fields: [
-                      { key: "barcodeValue", label: "Čiarový kód (hodnota)" },
-                      { key: "qrCodeValue", label: "QR kód (hodnota)" },
+                    { title: sp?.sectionBarcode || "Barcode / QR code", color: "green", icon: <ScanLine className="h-4 w-4" />, fields: [
+                      { key: "barcodeValue", label: sp?.barcodeValue || "Barcode (value)" },
+                      { key: "qrCodeValue", label: sp?.qrCodeValue || "QR code (value)" },
                     ]},
                   ];
 
@@ -1640,7 +1641,7 @@ export default function CollectionsPage() {
                               <span className="text-2xl animate-bounce">{UPLOAD_STEPS[sprievodnyUploadStep]?.icon}</span>
                             </div>
                             <div className="flex-1">
-                              <h4 className="font-semibold text-sm">Opätovná analýza dokumentu</h4>
+                              <h4 className="font-semibold text-sm">{sp?.reanalyzing || "Re-analyzing document"}</h4>
                               <p className="text-xs text-muted-foreground">{UPLOAD_STEPS[sprievodnyUploadStep]?.label}</p>
                             </div>
                             <span className="text-lg font-bold text-primary">{Math.round(sprievodnyUploadProgress)}%</span>
@@ -1667,17 +1668,17 @@ export default function CollectionsPage() {
                               <AlertTriangle className="h-6 w-6 text-red-600 dark:text-red-400" />
                             </div>
                             <div className="flex-1">
-                              <h4 className="font-bold text-red-700 dark:text-red-300 text-base">NESÚLAD ÚDAJOV — Sprievodný list sa nezhoduje!</h4>
+                              <h4 className="font-bold text-red-700 dark:text-red-300 text-base">{sp?.nameMismatch || "DATA MISMATCH — Accompanying document does not match!"}</h4>
                               <p className="text-sm text-red-600/90 dark:text-red-400/90 mt-1">
-                                Meno a priezvisko v sprievodnom liste sa nezhodujú s údajmi klienta v odberovom zázname.
+                                {sp?.nameMismatchDesc || "The name in the accompanying document does not match the client data in the collection record."}
                               </p>
                               <div className="mt-3 grid grid-cols-2 gap-3">
                                 <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-3">
-                                  <p className="text-[10px] font-semibold uppercase tracking-wider text-red-500/70 mb-1">Odberový záznam</p>
+                                  <p className="text-[10px] font-semibold uppercase tracking-wider text-red-500/70 mb-1">{sp?.collectionRecord || "Collection record"}</p>
                                   <p className="font-semibold text-sm">{formData.clientFirstName} {formData.clientLastName}</p>
                                 </div>
                                 <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-3">
-                                  <p className="text-[10px] font-semibold uppercase tracking-wider text-red-500/70 mb-1">Sprievodný list (OCR)</p>
+                                  <p className="text-[10px] font-semibold uppercase tracking-wider text-red-500/70 mb-1">{sp?.ocrDocument || "Accompanying document (OCR)"}</p>
                                   <p className="font-semibold text-sm">{allValues.motherFirstName || (sprievodnyData as any).motherFirstName} {allValues.motherSurname || (sprievodnyData as any).motherSurname}</p>
                                 </div>
                               </div>
@@ -1693,9 +1694,9 @@ export default function CollectionsPage() {
                               <Check className="h-5 w-5 text-green-600 dark:text-green-400" />
                             </div>
                             <div>
-                              <h4 className="font-bold text-green-700 dark:text-green-300 text-sm">ÚDAJE ZHODNÉ — Sprievodný list je v súlade s odberovým záznamom</h4>
+                              <h4 className="font-bold text-green-700 dark:text-green-300 text-sm">{sp?.nameMatch || "DATA MATCH — Accompanying document matches the collection record"}</h4>
                               <p className="text-xs text-green-600/80 dark:text-green-400/70 mt-0.5">
-                                {formData.clientFirstName} {formData.clientLastName} — meno a priezvisko sú zhodné
+                                {formData.clientFirstName} {formData.clientLastName} — {sp?.nameMatchDesc || "first and last name match"}
                               </p>
                             </div>
                           </div>
@@ -1705,24 +1706,24 @@ export default function CollectionsPage() {
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-2">
                           <Badge variant={sprievodnyData.ocrConfidence === "high" ? "default" : sprievodnyData.ocrConfidence === "medium" ? "secondary" : "destructive"} data-testid="badge-ocr-confidence">
-                            OCR: {sprievodnyData.ocrConfidence === "high" ? "Vysoká presnosť" : sprievodnyData.ocrConfidence === "medium" ? "Stredná presnosť" : "Nízka presnosť"}
+                            OCR: {sprievodnyData.ocrConfidence === "high" ? (sp?.ocrHigh || "High accuracy") : sprievodnyData.ocrConfidence === "medium" ? (sp?.ocrMedium || "Medium accuracy") : (sp?.ocrLow || "Low accuracy")}
                           </Badge>
                           {sprievodnyData.pdfFilename && <span className="text-xs text-muted-foreground">{sprievodnyData.pdfFilename}</span>}
                           <span className="text-[10px] text-muted-foreground/60">
-                            <span className="inline-block w-2 h-2 rounded-full bg-yellow-400 mr-1" />neisté
-                            <span className="inline-block w-2 h-2 rounded-full bg-red-400 ml-2 mr-1" />nepresné
+                            <span className="inline-block w-2 h-2 rounded-full bg-yellow-400 mr-1" />{sp?.uncertain || "uncertain"}
+                            <span className="inline-block w-2 h-2 rounded-full bg-red-400 ml-2 mr-1" />{sp?.imprecise || "imprecise"}
                           </span>
                         </div>
                         <div className="flex gap-2">
                           <Button variant="outline" size="sm" onClick={() => { setSprievodnyEditMode(!sprievodnyEditMode); if (sprievodnyEditMode) setSprievodnyHighlightField(null); }} data-testid="button-edit-sprievodny">
                             <Pencil className="h-3.5 w-3.5 mr-1" />
-                            {sprievodnyEditMode ? "Zrušiť" : "Upraviť"}
+                            {sprievodnyEditMode ? (sp?.cancel || "Cancel") : (sp?.edit || "Edit")}
                           </Button>
                           <Button variant="outline" size="sm" disabled={sprievodnyUploading} onClick={() => sprievodnyFileRef.current?.click()} data-testid="button-reupload-sprievodny">
                             {sprievodnyUploading ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Upload className="h-3.5 w-3.5 mr-1" />}
-                            Znovu nahrať
+                            {sp?.reupload || "Re-upload"}
                           </Button>
-                          <Button variant="destructive" size="sm" onClick={() => { if (confirm("Naozaj vymazať sprievodný list?")) sprievodnyDeleteMutation.mutate(); }} data-testid="button-delete-sprievodny">
+                          <Button variant="destructive" size="sm" onClick={() => { if (confirm(sp?.confirmDelete || "Delete accompanying document?")) sprievodnyDeleteMutation.mutate(); }} data-testid="button-delete-sprievodny">
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                         </div>
@@ -1734,7 +1735,7 @@ export default function CollectionsPage() {
                             <div className="relative w-full h-full overflow-auto">
                               <img
                                 src={`/api/collections/${collectionId}/sprievodny-list/image?t=${Date.now()}`}
-                                alt="Sprievodný list"
+                                alt={sp?.title || "Accompanying document"}
                                 className="w-full"
                                 style={{ display: "block" }}
                                 data-testid="sprievodny-pdf-image"
