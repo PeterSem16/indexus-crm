@@ -27514,8 +27514,9 @@ Guidelines:
   I) LABORATORY: Laboratórne vyšetrenia, Odber krvi matky, Podmienky transportu
   J) SIGNATURES & CONSENT: Podpis rodičky, Podpis lekára, Súhlas podpísaný
   K) NOTES: Poznámky, any additional text
+    L) BARCODES & QR CODES: Scan for ANY barcode (1D) or QR code (2D) visible on the document. Read and decode their values. Common barcode types: Code128, Code39, EAN-13, Interleaved 2of5. These may encode sample IDs, contract numbers, patient identifiers, or tracking codes.
 
-  Read EVERY checkbox, circle, tick mark, stamp, and handwritten annotation.
+    Read EVERY checkbox, circle, tick mark, stamp, and handwritten annotation.
   For numbers: be precise about digits, verify against context (weights in grams, lengths in cm).
   For dates: use DD.MM.YYYY format if visible.
   For phone numbers: include country code if present.`
@@ -27576,7 +27577,9 @@ Guidelines:
       "motherSignature": { "value": "yes/no - is mother signature present", "confidence": "...", "position": {...} },
       "doctorSignature": { "value": "yes/no - is doctor/worker signature present", "confidence": "...", "position": {...} },
       "consentSigned": { "value": "yes/no - is consent/súhlas signed", "confidence": "...", "position": {...} },
-      "notes": { "value": "any additional notes, stamps, annotations", "confidence": "...", "position": {...} }
+      "notes": { "value": "any additional notes, stamps, annotations", "confidence": "...", "position": {...} },
+        "barcodeValue": { "value": "decoded value of any 1D barcode found on the document, or null if none", "confidence": "...", "position": {...} },
+        "qrCodeValue": { "value": "decoded value/data of any QR code found on the document, or null if none", "confidence": "...", "position": {...} }
   },
   "overallConfidence": "high|medium|low",
   "additionalFields": [
@@ -27703,7 +27706,9 @@ Return ONLY the JSON object.`
           doctorSignature: fieldValues.doctorSignature || null,
           consentSigned: fieldValues.consentSigned || null,
           notes: fieldValues.notes || null,
-        rawOcrText: JSON.stringify({ fields: fieldValues, additionalFields, allFieldValues: fieldValues }),
+            barcodeValue: fieldValues.barcodeValue || null,
+            qrCodeValue: fieldValues.qrCodeValue || null,
+          rawOcrText: JSON.stringify({ fields: fieldValues, additionalFields, allFieldValues: fieldValues }),
         pdfFilename: req.file.originalname,
         ocrConfidence: extractedData.overallConfidence || "medium",
         fieldConfidences: JSON.stringify(fieldConfidences),
@@ -27743,7 +27748,7 @@ Return ONLY the JSON object.`
         return res.status(404).json({ error: "Sprievodny list not found" });
       }
       
-      const allowedFields = ["motherSurname", "motherFirstName", "motherBirthNumber", "motherAddress", "motherIdNumber", "email", "phone1", "phone2", "donorSelection", "collectionType", "collectionDateText", "collectionTime", "contractNumber", "sampleId", "bagId", "numberOfBags", "cordBloodVolume", "cordClampTime", "placentaWeight", "childSurname", "childFirstName", "childGender", "childBirthNumber", "birthDate", "birthTime", "birthWeight", "birthLength", "gestationalAge", "apgar1", "apgar5", "apgar10", "bloodGroup", "rhFactor", "deliveryType", "deliveryComplications", "antibiotics", "infections", "previousPregnancies", "collectorName", "assistantName", "hospitalName", "hospitalDepartment", "maternalBloodSample", "labTests", "transportConditions", "motherSignature", "doctorSignature", "consentSigned", "notes"];
+      const allowedFields = ["motherSurname", "motherFirstName", "motherBirthNumber", "motherAddress", "motherIdNumber", "email", "phone1", "phone2", "donorSelection", "collectionType", "collectionDateText", "collectionTime", "contractNumber", "sampleId", "bagId", "numberOfBags", "cordBloodVolume", "cordClampTime", "placentaWeight", "childSurname", "childFirstName", "childGender", "childBirthNumber", "birthDate", "birthTime", "birthWeight", "birthLength", "gestationalAge", "apgar1", "apgar5", "apgar10", "bloodGroup", "rhFactor", "deliveryType", "deliveryComplications", "antibiotics", "infections", "previousPregnancies", "collectorName", "assistantName", "hospitalName", "hospitalDepartment", "maternalBloodSample", "labTests", "transportConditions", "motherSignature", "doctorSignature", "consentSigned", "notes", "barcodeValue", "qrCodeValue"];
       const sanitized: Record<string, any> = {};
       for (const key of allowedFields) {
         if (key in req.body) sanitized[key] = req.body[key];

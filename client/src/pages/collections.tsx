@@ -283,7 +283,7 @@ export default function CollectionsPage() {
   useEffect(() => {
     if (sprievodnyData) {
       const editableFields: Record<string, string> = {};
-      const allKeys = ["motherSurname", "motherFirstName", "motherBirthNumber", "motherAddress", "motherIdNumber", "email", "phone1", "phone2", "donorSelection", "collectionType", "collectionDateText", "collectionTime", "contractNumber", "sampleId", "bagId", "numberOfBags", "cordBloodVolume", "cordClampTime", "placentaWeight", "childSurname", "childFirstName", "childGender", "childBirthNumber", "birthDate", "birthTime", "birthWeight", "birthLength", "gestationalAge", "apgar1", "apgar5", "apgar10", "bloodGroup", "rhFactor", "deliveryType", "deliveryComplications", "antibiotics", "infections", "previousPregnancies", "collectorName", "assistantName", "hospitalName", "hospitalDepartment", "maternalBloodSample", "labTests", "transportConditions", "motherSignature", "doctorSignature", "consentSigned", "notes"];
+      const allKeys = ["motherSurname", "motherFirstName", "motherBirthNumber", "motherAddress", "motherIdNumber", "email", "phone1", "phone2", "donorSelection", "collectionType", "collectionDateText", "collectionTime", "contractNumber", "sampleId", "bagId", "numberOfBags", "cordBloodVolume", "cordClampTime", "placentaWeight", "childSurname", "childFirstName", "childGender", "childBirthNumber", "birthDate", "birthTime", "birthWeight", "birthLength", "gestationalAge", "apgar1", "apgar5", "apgar10", "bloodGroup", "rhFactor", "deliveryType", "deliveryComplications", "antibiotics", "infections", "previousPregnancies", "collectorName", "assistantName", "hospitalName", "hospitalDepartment", "maternalBloodSample", "labTests", "transportConditions", "motherSignature", "doctorSignature", "consentSigned", "notes", "barcodeValue", "qrCodeValue"];
       allKeys.forEach(k => { editableFields[k] = (sprievodnyData as any)[k] || ""; });
       try {
         const rawOcr = JSON.parse(sprievodnyData.rawOcrText || "{}");
@@ -1534,6 +1534,10 @@ export default function CollectionsPage() {
                       { key: "doctorSignature", label: "Podpis lekára/pracovníka" },
                       { key: "consentSigned", label: "Súhlas podpísaný" },
                       { key: "notes", label: "Poznámky" },
+                    ]},
+                    { title: "Čiarový kód / QR kód", color: "green", icon: <ScanLine className="h-4 w-4" />, fields: [
+                      { key: "barcodeValue", label: "Čiarový kód (hodnota)" },
+                      { key: "qrCodeValue", label: "QR kód (hodnota)" },
                     ]},
                   ];
 

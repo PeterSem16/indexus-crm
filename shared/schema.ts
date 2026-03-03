@@ -4847,6 +4847,8 @@ export const collectionSprievodnyList = pgTable("collection_sprievodny_list", {
   doctorSignature: text("doctor_signature"),
   consentSigned: text("consent_signed"),
   notes: text("notes"),
+  barcodeValue: text("barcode_value"),
+  qrCodeValue: text("qr_code_value"),
   rawOcrText: text("raw_ocr_text"),
   pdfFilename: text("pdf_filename"),
   ocrConfidence: text("ocr_confidence"),
