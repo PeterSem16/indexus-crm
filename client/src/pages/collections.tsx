@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useI18n } from "@/i18n";
 import { useCountryFilter } from "@/contexts/country-filter-context";
@@ -288,7 +288,7 @@ export default function CollectionsPage() {
   }, [sprievodnyData]);
 
   const [sprievodnyUploading, setSprievodnyUploading] = useState(false);
-  const sprievodnyFileRef = useState<HTMLInputElement | null>(null);
+  const sprievodnyFileRef = useRef<HTMLInputElement>(null);
 
   const handleSprievodnyUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -1413,26 +1413,33 @@ export default function CollectionsPage() {
                       <h3 className="text-lg font-semibold" data-testid="text-sprievodny-empty">Sprievodný list</h3>
                       <p className="text-sm text-muted-foreground mt-1">Nahrajte PDF súbor sprievodného listu pre OCR analýzu</p>
                     </div>
-                    <div className="relative">
-                      <input
-                        type="file"
-                        accept="application/pdf"
-                        onChange={handleSprievodnyUpload}
-                        className="absolute inset-0 opacity-0 cursor-pointer"
-                        disabled={sprievodnyUploading}
-                        data-testid="input-sprievodny-upload"
-                      />
-                      <Button disabled={sprievodnyUploading} data-testid="button-upload-sprievodny">
-                        {sprievodnyUploading ? (
-                          <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Analyzujem dokument...</>
-                        ) : (
-                          <><Upload className="h-4 w-4 mr-2" />Nahrať PDF</>
-                        )}
-                      </Button>
-                    </div>
+                    <input
+                      ref={sprievodnyFileRef}
+                      type="file"
+                      accept="application/pdf"
+                      onChange={handleSprievodnyUpload}
+                      className="hidden"
+                      disabled={sprievodnyUploading}
+                      data-testid="input-sprievodny-upload"
+                    />
+                    <Button onClick={() => sprievodnyFileRef.current?.click()} disabled={sprievodnyUploading} data-testid="button-upload-sprievodny">
+                      {sprievodnyUploading ? (
+                        <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Analyzujem dokument...</>
+                      ) : (
+                        <><Upload className="h-4 w-4 mr-2" />Nahrať PDF</>
+                      )}
+                    </Button>
                   </div>
                 ) : (
                   <div className="space-y-4" data-testid="sprievodny-list-data">
+                    <input
+                      ref={sprievodnyFileRef}
+                      type="file"
+                      accept="application/pdf"
+                      onChange={handleSprievodnyUpload}
+                      className="hidden"
+                      disabled={sprievodnyUploading}
+                    />
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <Badge variant={sprievodnyData.ocrConfidence === "high" ? "default" : sprievodnyData.ocrConfidence === "medium" ? "secondary" : "destructive"} data-testid="badge-ocr-confidence">
@@ -1447,20 +1454,10 @@ export default function CollectionsPage() {
                           <Pencil className="h-3.5 w-3.5 mr-1" />
                           {sprievodnyEditMode ? "Zrušiť" : "Upraviť"}
                         </Button>
-                        <div className="relative">
-                          <input
-                            type="file"
-                            accept="application/pdf"
-                            onChange={handleSprievodnyUpload}
-                            className="absolute inset-0 opacity-0 cursor-pointer"
-                            disabled={sprievodnyUploading}
-                            data-testid="input-sprievodny-reupload"
-                          />
-                          <Button variant="outline" size="sm" disabled={sprievodnyUploading} data-testid="button-reupload-sprievodny">
-                            {sprievodnyUploading ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Upload className="h-3.5 w-3.5 mr-1" />}
-                            Znovu nahrať
-                          </Button>
-                        </div>
+                        <Button variant="outline" size="sm" disabled={sprievodnyUploading} onClick={() => sprievodnyFileRef.current?.click()} data-testid="button-reupload-sprievodny">
+                          {sprievodnyUploading ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Upload className="h-3.5 w-3.5 mr-1" />}
+                          Znovu nahrať
+                        </Button>
                         <Button variant="destructive" size="sm" onClick={() => { if (confirm("Naozaj vymazať sprievodný list?")) sprievodnyDeleteMutation.mutate(); }} data-testid="button-delete-sprievodny">
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
