@@ -27421,19 +27421,39 @@ Guidelines:
     }
   });
 
+  // Serve sprievodny list image
+  app.get("/api/collections/:id/sprievodny-list/image", requireAuth, async (req, res) => {
+    try {
+      const results = await db.select().from(collectionSprievodnyList)
+        .where(eq(collectionSprievodnyList.collectionId, req.params.id));
+      const record = results[0];
+      if (!record?.imagePath) return res.status(404).json({ error: "No image" });
+      const fs = await import("fs");
+      const imgPath = record.imagePath;
+      if (!fs.existsSync(imgPath)) return res.status(404).json({ error: "Image file not found" });
+      res.setHeader("Content-Type", "image/png");
+      res.setHeader("Cache-Control", "public, max-age=3600");
+      fs.createReadStream(imgPath).pipe(res);
+    } catch (error) {
+      console.error("Error serving sprievodny image:", error);
+      res.status(500).json({ error: "Failed to serve image" });
+    }
+  });
+
   // Upload and OCR sprievodny list PDF
   app.post("/api/collections/:id/sprievodny-list/upload", requireAuth, uploadSprievodnyPdf.single("file"), async (req, res) => {
     try {
       if (!req.file) return res.status(400).json({ error: "No PDF file uploaded" });
       
       const fs = await import("fs");
+      const path = await import("path");
       const { execSync } = await import("child_process");
-      const tmpPdf = `/tmp/sprievodny-${Date.now()}.pdf`;
-      const tmpImg = `/tmp/sprievodny-${Date.now()}`;
+      const ts = Date.now();
+      const tmpPdf = `/tmp/sprievodny-${ts}.pdf`;
+      const tmpImg = `/tmp/sprievodny-${ts}`;
       
       fs.writeFileSync(tmpPdf, req.file.buffer);
       
-      // Convert PDF to image
       try {
         execSync(`pdftoppm -png -r 300 -singlefile "${tmpPdf}" "${tmpImg}"`, { timeout: 30000 });
       } catch (e) {
@@ -27447,9 +27467,12 @@ Guidelines:
         return res.status(500).json({ error: "Image conversion failed" });
       }
       
-      // Read image as base64
       const imageBuffer = fs.readFileSync(imgPath);
       const base64Image = imageBuffer.toString("base64");
+      
+      // Save image permanently
+      const permanentImgPath = path.join(process.cwd(), "uploads", "sprievodny", `${req.params.id}-${ts}.png`);
+      fs.copyFileSync(imgPath, permanentImgPath);
       
       // Clean up temp files
       try { fs.unlinkSync(tmpPdf); } catch {}
@@ -27459,45 +27482,79 @@ Guidelines:
         return res.status(500).json({ error: "OpenAI API key not configured" });
       }
       
-      // Use GPT-4o Vision to extract data from the form
       const response = await openai.chat.completions.create({
         model: "gpt-4o",
-        max_tokens: 2000,
+        max_tokens: 4000,
         messages: [
           {
             role: "system",
-            content: `You are an OCR specialist analyzing a Slovak cord blood collection accompanying document (Sprievodný list). Extract ONLY the following fields from the form. Focus especially on the blue-bordered section (mother's personal data) and the red/orange-bordered section (phone contacts). Return a valid JSON object with these exact keys. For handwritten text, do your best to read it accurately. If a field is empty or unreadable, use null.`
+            content: `You are an expert OCR specialist analyzing a Slovak cord blood collection accompanying document (Sprievodný list). This is a scanned medical form with both printed and handwritten text. Your job is to:
+1. Extract ALL readable fields from the document
+2. Rate your confidence for EACH field individually (high/medium/low)
+3. Provide approximate bounding box positions for each field as percentages of the image dimensions (x%, y%, width%, height%)
+
+The document typically has sections:
+- Blue bordered section: Mother's personal data (Priezvisko, Meno, Rodné číslo)
+- Red/orange bordered section: Phone contacts (Telefón 1, Telefón 2)  
+- Collection type checkboxes (STANDARD, PREMIUM, TKANIVO PUPOČNÍKA, TKANIVO PLACENTY)
+- Newborn data (gender, weight, length, gestational age, APGAR scores)
+- Collection worker and hospital info
+- Various other fields that may be present
+
+Be thorough - extract EVERY field you can identify, even partially readable ones.
+For handwritten text, do your best to read it. If partially readable, provide what you can read and mark confidence as low.`
           },
           {
             role: "user",
             content: [
               {
                 type: "text",
-                text: `Analyze this scanned form and extract all data into JSON format with these keys:
+                text: `Analyze this scanned medical form thoroughly. Return a JSON object with exactly this structure:
 {
-  "motherSurname": "Priezvisko rodičky (from blue-bordered section)",
-  "motherFirstName": "Meno rodičky (from blue-bordered section)", 
-  "motherBirthNumber": "Rodné číslo (from blue-bordered section)",
-  "phone1": "Telefón 1 (from red/orange-bordered section)",
-  "phone2": "Telefón 2 (from red/orange-bordered section)",
-  "collectionType": "STANDARD/PREMIUM/TKANIVO PUPOČNÍKA/TKANIVO PLACENTY (which checkbox is marked)",
-  "collectionDateText": "Dátum DD/MM/RRRR",
-  "collectionTime": "Čas",
-  "childSurname": "Priezvisko novorodenca",
-  "childFirstName": "Meno novorodenca",
-  "childGender": "mužské/ženské (which is marked)",
-  "birthWeight": "Pôrodná hmotnosť in grams",
-  "birthLength": "Pôrodná dĺžka in cm",
-  "gestationalAge": "Gestačný vek in weeks",
-  "apgar1": "APGAR 1 min",
-  "apgar5": "APGAR 5 min", 
-  "apgar10": "APGAR 10 min",
-  "bloodGroup": "Krvná skupina rodičky",
-  "collectorName": "Výber darcu a odber vykonal pracovník - full name",
-  "hospitalName": "Pôrodnica - Názov a adresa",
-  "ocrConfidence": "high/medium/low - your confidence in the OCR accuracy"
+  "fields": {
+    "motherSurname": { "value": "extracted value or null", "confidence": "high|medium|low", "position": { "x": 0, "y": 0, "w": 0, "h": 0 } },
+    "motherFirstName": { "value": "...", "confidence": "...", "position": { "x": %, "y": %, "w": %, "h": % } },
+    "motherBirthNumber": { "value": "...", "confidence": "...", "position": { "x": %, "y": %, "w": %, "h": % } },
+    "motherAddress": { "value": "full address if visible", "confidence": "...", "position": { "x": %, "y": %, "w": %, "h": % } },
+    "motherIdNumber": { "value": "ID card number if visible", "confidence": "...", "position": { "x": %, "y": %, "w": %, "h": % } },
+    "phone1": { "value": "...", "confidence": "...", "position": {...} },
+    "phone2": { "value": "...", "confidence": "...", "position": {...} },
+    "email": { "value": "email if visible", "confidence": "...", "position": {...} },
+    "collectionType": { "value": "which checkbox is marked", "confidence": "...", "position": {...} },
+    "collectionDateText": { "value": "DD/MM/YYYY or DD.MM.YYYY", "confidence": "...", "position": {...} },
+    "collectionTime": { "value": "HH:MM", "confidence": "...", "position": {...} },
+    "childSurname": { "value": "...", "confidence": "...", "position": {...} },
+    "childFirstName": { "value": "...", "confidence": "...", "position": {...} },
+    "childGender": { "value": "mužské/ženské", "confidence": "...", "position": {...} },
+    "childBirthNumber": { "value": "child birth number if visible", "confidence": "...", "position": {...} },
+    "birthWeight": { "value": "grams", "confidence": "...", "position": {...} },
+    "birthLength": { "value": "cm", "confidence": "...", "position": {...} },
+    "gestationalAge": { "value": "weeks", "confidence": "...", "position": {...} },
+    "apgar1": { "value": "score", "confidence": "...", "position": {...} },
+    "apgar5": { "value": "score", "confidence": "...", "position": {...} },
+    "apgar10": { "value": "score", "confidence": "...", "position": {...} },
+    "bloodGroup": { "value": "blood group", "confidence": "...", "position": {...} },
+    "rhFactor": { "value": "Rh+ or Rh-", "confidence": "...", "position": {...} },
+    "collectorName": { "value": "full name of collection worker", "confidence": "...", "position": {...} },
+    "hospitalName": { "value": "hospital name and address", "confidence": "...", "position": {...} },
+    "deliveryType": { "value": "spontánny/cisársky rez if visible", "confidence": "...", "position": {...} },
+    "placentaWeight": { "value": "grams if visible", "confidence": "...", "position": {...} },
+    "cordBloodVolume": { "value": "ml if visible", "confidence": "...", "position": {...} },
+    "sampleId": { "value": "sample/barcode ID if visible", "confidence": "...", "position": {...} },
+    "contractNumber": { "value": "contract number if visible", "confidence": "...", "position": {...} },
+    "notes": { "value": "any additional notes on the form", "confidence": "...", "position": {...} },
+    "motherSignature": { "value": "yes/no - is signature present", "confidence": "...", "position": {...} },
+    "doctorSignature": { "value": "yes/no - is doctor/worker signature present", "confidence": "...", "position": {...} }
+  },
+  "overallConfidence": "high|medium|low",
+  "additionalFields": [
+    { "label": "any other field label found", "value": "its value", "confidence": "high|medium|low", "position": { "x": %, "y": %, "w": %, "h": % } }
+  ]
 }
-Return ONLY the JSON object, nothing else.`
+
+IMPORTANT for positions: x,y = top-left corner as percentage of image width/height (0-100). w,h = width/height as percentage. These should approximate where the HANDWRITTEN/FILLED value is on the form, not the label.
+If a field is not present on the form at all, set value to null and confidence to "low".
+Return ONLY the JSON object.`
               },
               {
                 type: "image_url",
@@ -27521,43 +27578,84 @@ Return ONLY the JSON object, nothing else.`
         return res.status(500).json({ error: "Failed to parse OCR results" });
       }
       
-      // Check if record already exists
-      const existing = await db.select().from(collectionSprievodnyList)
-        .where(eq(collectionSprievodnyList.collectionId, req.params.id));
+      const fields = extractedData.fields || {};
+      const fieldConfidences: Record<string, string> = {};
+      const fieldPositions: Record<string, { x: number; y: number; w: number; h: number }> = {};
+      const fieldValues: Record<string, string | null> = {};
       
-      const record = {
+      for (const [key, data] of Object.entries(fields)) {
+        const fd = data as any;
+        fieldValues[key] = fd?.value || null;
+        fieldConfidences[key] = fd?.confidence || "low";
+        if (fd?.position) {
+          fieldPositions[key] = {
+            x: Number(fd.position.x) || 0,
+            y: Number(fd.position.y) || 0,
+            w: Number(fd.position.w) || 0,
+            h: Number(fd.position.h) || 0,
+          };
+        }
+      }
+      
+      // Handle additional fields
+      const additionalFields = extractedData.additionalFields || [];
+      for (const af of additionalFields) {
+        const safeKey = `additional_${af.label?.replace(/\s+/g, '_').toLowerCase() || 'unknown'}`;
+        fieldValues[safeKey] = af.value || null;
+        fieldConfidences[safeKey] = af.confidence || "low";
+        if (af.position) {
+          fieldPositions[safeKey] = {
+            x: Number(af.position.x) || 0,
+            y: Number(af.position.y) || 0,
+            w: Number(af.position.w) || 0,
+            h: Number(af.position.h) || 0,
+          };
+        }
+      }
+      
+      // Delete old image if exists
+      const existingRec = await db.select().from(collectionSprievodnyList)
+        .where(eq(collectionSprievodnyList.collectionId, req.params.id));
+      if (existingRec[0]?.imagePath) {
+        try { fs.unlinkSync(existingRec[0].imagePath); } catch {}
+      }
+      
+      const record: any = {
         collectionId: req.params.id,
-        motherSurname: extractedData.motherSurname || null,
-        motherFirstName: extractedData.motherFirstName || null,
-        motherBirthNumber: extractedData.motherBirthNumber || null,
-        phone1: extractedData.phone1 || null,
-        phone2: extractedData.phone2 || null,
-        collectionType: extractedData.collectionType || null,
-        collectionDateText: extractedData.collectionDateText || null,
-        collectionTime: extractedData.collectionTime || null,
-        childSurname: extractedData.childSurname || null,
-        childFirstName: extractedData.childFirstName || null,
-        childGender: extractedData.childGender || null,
-        birthWeight: extractedData.birthWeight || null,
-        birthLength: extractedData.birthLength || null,
-        gestationalAge: extractedData.gestationalAge || null,
-        apgar1: extractedData.apgar1 || null,
-        apgar5: extractedData.apgar5 || null,
-        apgar10: extractedData.apgar10 || null,
-        bloodGroup: extractedData.bloodGroup || null,
-        collectorName: extractedData.collectorName || null,
-        hospitalName: extractedData.hospitalName || null,
-        rawOcrText: aiContent,
+        motherSurname: fieldValues.motherSurname || null,
+        motherFirstName: fieldValues.motherFirstName || null,
+        motherBirthNumber: fieldValues.motherBirthNumber || null,
+        phone1: fieldValues.phone1 || null,
+        phone2: fieldValues.phone2 || null,
+        collectionType: fieldValues.collectionType || null,
+        collectionDateText: fieldValues.collectionDateText || null,
+        collectionTime: fieldValues.collectionTime || null,
+        childSurname: fieldValues.childSurname || null,
+        childFirstName: fieldValues.childFirstName || null,
+        childGender: fieldValues.childGender || null,
+        birthWeight: fieldValues.birthWeight || null,
+        birthLength: fieldValues.birthLength || null,
+        gestationalAge: fieldValues.gestationalAge || null,
+        apgar1: fieldValues.apgar1 || null,
+        apgar5: fieldValues.apgar5 || null,
+        apgar10: fieldValues.apgar10 || null,
+        bloodGroup: fieldValues.bloodGroup || null,
+        collectorName: fieldValues.collectorName || null,
+        hospitalName: fieldValues.hospitalName || null,
+        rawOcrText: JSON.stringify({ fields: fieldValues, additionalFields, allFieldValues: fieldValues }),
         pdfFilename: req.file.originalname,
-        ocrConfidence: extractedData.ocrConfidence || "medium",
+        ocrConfidence: extractedData.overallConfidence || "medium",
+        fieldConfidences: JSON.stringify(fieldConfidences),
+        fieldPositions: JSON.stringify(fieldPositions),
+        imagePath: permanentImgPath,
         updatedAt: new Date(),
       };
       
       let result;
-      if (existing.length > 0) {
+      if (existingRec.length > 0) {
         const updated = await db.update(collectionSprievodnyList)
           .set(record)
-          .where(eq(collectionSprievodnyList.id, existing[0].id))
+          .where(eq(collectionSprievodnyList.id, existingRec[0].id))
           .returning();
         result = updated[0];
       } else {
@@ -27605,6 +27703,12 @@ Return ONLY the JSON object, nothing else.`
   // Delete sprievodny list
   app.delete("/api/collections/:id/sprievodny-list", requireAuth, async (req, res) => {
     try {
+      const existing = await db.select().from(collectionSprievodnyList)
+        .where(eq(collectionSprievodnyList.collectionId, req.params.id));
+      if (existing[0]?.imagePath) {
+        const fs = await import("fs");
+        try { fs.unlinkSync(existing[0].imagePath); } catch {}
+      }
       await db.delete(collectionSprievodnyList)
         .where(eq(collectionSprievodnyList.collectionId, req.params.id));
       res.json({ success: true });

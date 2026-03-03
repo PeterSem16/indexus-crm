@@ -277,12 +277,20 @@ export default function CollectionsPage() {
 
   const [sprievodnyEditing, setSprievodnyEditing] = useState<Record<string, string>>({});
   const [sprievodnyEditMode, setSprievodnyEditMode] = useState(false);
+  const [sprievodnyHighlightField, setSprievodnyHighlightField] = useState<string | null>(null);
 
   useEffect(() => {
     if (sprievodnyData) {
       const editableFields: Record<string, string> = {};
-      const keys = ["motherSurname", "motherFirstName", "motherBirthNumber", "phone1", "phone2", "collectionType", "collectionDateText", "collectionTime", "childSurname", "childFirstName", "childGender", "birthWeight", "birthLength", "gestationalAge", "apgar1", "apgar5", "apgar10", "bloodGroup", "collectorName", "hospitalName"] as const;
-      keys.forEach(k => { editableFields[k] = (sprievodnyData as any)[k] || ""; });
+      const allKeys = ["motherSurname", "motherFirstName", "motherBirthNumber", "motherAddress", "motherIdNumber", "phone1", "phone2", "email", "collectionType", "collectionDateText", "collectionTime", "childSurname", "childFirstName", "childGender", "childBirthNumber", "birthWeight", "birthLength", "gestationalAge", "apgar1", "apgar5", "apgar10", "bloodGroup", "rhFactor", "collectorName", "hospitalName", "deliveryType", "placentaWeight", "cordBloodVolume", "sampleId", "contractNumber", "notes", "motherSignature", "doctorSignature"];
+      allKeys.forEach(k => { editableFields[k] = (sprievodnyData as any)[k] || ""; });
+      try {
+        const rawOcr = JSON.parse(sprievodnyData.rawOcrText || "{}");
+        const allFieldValues = rawOcr.allFieldValues || rawOcr.fields || {};
+        for (const [k, v] of Object.entries(allFieldValues)) {
+          if (v && !editableFields[k]) editableFields[k] = v as string;
+        }
+      } catch {}
       setSprievodnyEditing(editableFields);
     }
   }, [sprievodnyData]);
@@ -1424,196 +1432,235 @@ export default function CollectionsPage() {
                     />
                     <Button onClick={() => sprievodnyFileRef.current?.click()} disabled={sprievodnyUploading} data-testid="button-upload-sprievodny">
                       {sprievodnyUploading ? (
-                        <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Analyzujem dokument...</>
+                        <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Analyzujem dokument (môže trvať 15-30s)...</>
                       ) : (
                         <><Upload className="h-4 w-4 mr-2" />Nahrať PDF</>
                       )}
                     </Button>
                   </div>
-                ) : (
-                  <div className="space-y-4" data-testid="sprievodny-list-data">
-                    <input
-                      ref={sprievodnyFileRef}
-                      type="file"
-                      accept="application/pdf"
-                      onChange={handleSprievodnyUpload}
-                      className="hidden"
-                      disabled={sprievodnyUploading}
-                    />
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Badge variant={sprievodnyData.ocrConfidence === "high" ? "default" : sprievodnyData.ocrConfidence === "medium" ? "secondary" : "destructive"} data-testid="badge-ocr-confidence">
-                          OCR: {sprievodnyData.ocrConfidence === "high" ? "Vysoká presnosť" : sprievodnyData.ocrConfidence === "medium" ? "Stredná presnosť" : "Nízka presnosť"}
-                        </Badge>
-                        {sprievodnyData.pdfFilename && (
-                          <span className="text-xs text-muted-foreground">{sprievodnyData.pdfFilename}</span>
+                ) : (() => {
+                  const fieldConf: Record<string, string> = (() => { try { return JSON.parse(sprievodnyData.fieldConfidences || "{}"); } catch { return {}; } })();
+                  const fieldPos: Record<string, { x: number; y: number; w: number; h: number }> = (() => { try { return JSON.parse(sprievodnyData.fieldPositions || "{}"); } catch { return {}; } })();
+                  const allValues: Record<string, string | null> = (() => {
+                    try {
+                      const raw = JSON.parse(sprievodnyData.rawOcrText || "{}");
+                      return raw.allFieldValues || raw.fields || {};
+                    } catch { return {}; }
+                  })();
+
+                  const confColor = (key: string) => {
+                    const c = fieldConf[key];
+                    if (c === "high") return "";
+                    if (c === "medium") return "ring-2 ring-yellow-400 dark:ring-yellow-600";
+                    return "ring-2 ring-red-400 dark:ring-red-600";
+                  };
+                  const confBadge = (key: string) => {
+                    const c = fieldConf[key];
+                    if (c === "high") return null;
+                    if (c === "medium") return <Badge variant="outline" className="text-[9px] h-4 px-1 bg-yellow-50 text-yellow-700 border-yellow-300 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-700 ml-1">neisté</Badge>;
+                    return <Badge variant="outline" className="text-[9px] h-4 px-1 bg-red-50 text-red-700 border-red-300 dark:bg-red-900/30 dark:text-red-400 dark:border-red-700 ml-1">nepresné</Badge>;
+                  };
+
+                  const fieldSections = [
+                    { title: "Údaje rodičky", color: "blue", icon: <div className="h-3 w-3 rounded-full bg-blue-500" />, fields: [
+                      { key: "motherSurname", label: "Priezvisko" },
+                      { key: "motherFirstName", label: "Meno" },
+                      { key: "motherBirthNumber", label: "Rodné číslo" },
+                      { key: "motherAddress", label: "Adresa" },
+                      { key: "motherIdNumber", label: "Číslo OP" },
+                    ]},
+                    { title: "Kontakty", color: "red", icon: <div className="h-3 w-3 rounded-full bg-red-500" />, fields: [
+                      { key: "phone1", label: "Telefón 1" },
+                      { key: "phone2", label: "Telefón 2" },
+                      { key: "email", label: "Email" },
+                    ]},
+                    { title: "Odber", color: "default", icon: <Syringe className="h-4 w-4" />, fields: [
+                      { key: "collectionType", label: "Typ odberu" },
+                      { key: "collectionDateText", label: "Dátum" },
+                      { key: "collectionTime", label: "Čas" },
+                      { key: "sampleId", label: "Číslo vzorky" },
+                      { key: "contractNumber", label: "Číslo zmluvy" },
+                      { key: "bloodGroup", label: "Krvná skupina" },
+                      { key: "rhFactor", label: "Rh faktor" },
+                      { key: "deliveryType", label: "Typ pôrodu" },
+                      { key: "cordBloodVolume", label: "Objem pupočníkovej krvi (ml)" },
+                      { key: "placentaWeight", label: "Hmotnosť placenty (g)" },
+                      { key: "collectorName", label: "Odberový pracovník" },
+                      { key: "hospitalName", label: "Pôrodnica" },
+                    ]},
+                    { title: "Novorodenec", color: "default", icon: <Baby className="h-4 w-4" />, fields: [
+                      { key: "childSurname", label: "Priezvisko" },
+                      { key: "childFirstName", label: "Meno" },
+                      { key: "childGender", label: "Pohlavie" },
+                      { key: "childBirthNumber", label: "Rodné číslo dieťaťa" },
+                      { key: "birthWeight", label: "Hmotnosť (g)" },
+                      { key: "birthLength", label: "Dĺžka (cm)" },
+                      { key: "gestationalAge", label: "Gestačný vek (týždne)" },
+                      { key: "apgar1", label: "APGAR 1 min" },
+                      { key: "apgar5", label: "APGAR 5 min" },
+                      { key: "apgar10", label: "APGAR 10 min" },
+                    ]},
+                    { title: "Overenie", color: "default", icon: <FileText className="h-4 w-4" />, fields: [
+                      { key: "motherSignature", label: "Podpis rodičky" },
+                      { key: "doctorSignature", label: "Podpis lekára/pracovníka" },
+                      { key: "notes", label: "Poznámky" },
+                    ]},
+                  ];
+
+                  return (
+                    <div data-testid="sprievodny-list-data">
+                      <input
+                        ref={sprievodnyFileRef}
+                        type="file"
+                        accept="application/pdf"
+                        onChange={handleSprievodnyUpload}
+                        className="hidden"
+                        disabled={sprievodnyUploading}
+                      />
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <Badge variant={sprievodnyData.ocrConfidence === "high" ? "default" : sprievodnyData.ocrConfidence === "medium" ? "secondary" : "destructive"} data-testid="badge-ocr-confidence">
+                            OCR: {sprievodnyData.ocrConfidence === "high" ? "Vysoká presnosť" : sprievodnyData.ocrConfidence === "medium" ? "Stredná presnosť" : "Nízka presnosť"}
+                          </Badge>
+                          {sprievodnyData.pdfFilename && <span className="text-xs text-muted-foreground">{sprievodnyData.pdfFilename}</span>}
+                          <span className="text-[10px] text-muted-foreground/60">
+                            <span className="inline-block w-2 h-2 rounded-full bg-yellow-400 mr-1" />neisté
+                            <span className="inline-block w-2 h-2 rounded-full bg-red-400 ml-2 mr-1" />nepresné
+                          </span>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button variant="outline" size="sm" onClick={() => { setSprievodnyEditMode(!sprievodnyEditMode); if (sprievodnyEditMode) setSprievodnyHighlightField(null); }} data-testid="button-edit-sprievodny">
+                            <Pencil className="h-3.5 w-3.5 mr-1" />
+                            {sprievodnyEditMode ? "Zrušiť" : "Upraviť"}
+                          </Button>
+                          <Button variant="outline" size="sm" disabled={sprievodnyUploading} onClick={() => sprievodnyFileRef.current?.click()} data-testid="button-reupload-sprievodny">
+                            {sprievodnyUploading ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Upload className="h-3.5 w-3.5 mr-1" />}
+                            Znovu nahrať
+                          </Button>
+                          <Button variant="destructive" size="sm" onClick={() => { if (confirm("Naozaj vymazať sprievodný list?")) sprievodnyDeleteMutation.mutate(); }} data-testid="button-delete-sprievodny">
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-4" style={{ minHeight: 600 }}>
+                        {sprievodnyData.imagePath && (
+                          <div className="w-[50%] shrink-0 border rounded-lg overflow-hidden bg-muted/20 relative" data-testid="sprievodny-pdf-viewer">
+                            <div className="relative w-full h-full overflow-auto">
+                              <img
+                                src={`/api/collections/${collectionId}/sprievodny-list/image?t=${Date.now()}`}
+                                alt="Sprievodný list"
+                                className="w-full"
+                                style={{ display: "block" }}
+                                data-testid="sprievodny-pdf-image"
+                              />
+                              {sprievodnyHighlightField && fieldPos[sprievodnyHighlightField] && (() => {
+                                const pos = fieldPos[sprievodnyHighlightField];
+                                return (
+                                  <div
+                                    className="absolute border-2 border-primary bg-primary/15 rounded transition-all duration-300 animate-pulse pointer-events-none"
+                                    style={{
+                                      left: `${pos.x}%`,
+                                      top: `${pos.y}%`,
+                                      width: `${pos.w}%`,
+                                      height: `${pos.h}%`,
+                                    }}
+                                    data-testid="sprievodny-highlight-overlay"
+                                  />
+                                );
+                              })()}
+                              {!sprievodnyHighlightField && !sprievodnyEditMode && Object.entries(fieldPos).map(([key, pos]) => {
+                                const conf = fieldConf[key];
+                                if (conf === "high" || !pos.w) return null;
+                                return (
+                                  <div
+                                    key={key}
+                                    className={`absolute rounded pointer-events-none ${conf === "medium" ? "border border-yellow-400/50 bg-yellow-400/10" : "border border-red-400/50 bg-red-400/10"}`}
+                                    style={{
+                                      left: `${pos.x}%`,
+                                      top: `${pos.y}%`,
+                                      width: `${pos.w}%`,
+                                      height: `${pos.h}%`,
+                                    }}
+                                  />
+                                );
+                              })}
+                            </div>
+                          </div>
                         )}
-                      </div>
-                      <div className="flex gap-2">
-                        <Button variant="outline" size="sm" onClick={() => setSprievodnyEditMode(!sprievodnyEditMode)} data-testid="button-edit-sprievodny">
-                          <Pencil className="h-3.5 w-3.5 mr-1" />
-                          {sprievodnyEditMode ? "Zrušiť" : "Upraviť"}
-                        </Button>
-                        <Button variant="outline" size="sm" disabled={sprievodnyUploading} onClick={() => sprievodnyFileRef.current?.click()} data-testid="button-reupload-sprievodny">
-                          {sprievodnyUploading ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Upload className="h-3.5 w-3.5 mr-1" />}
-                          Znovu nahrať
-                        </Button>
-                        <Button variant="destructive" size="sm" onClick={() => { if (confirm("Naozaj vymazať sprievodný list?")) sprievodnyDeleteMutation.mutate(); }} data-testid="button-delete-sprievodny">
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
+
+                        <div className={`${sprievodnyData.imagePath ? "w-[50%]" : "w-full"} overflow-y-auto space-y-3`} style={{ maxHeight: 600 }}>
+                          {fieldSections.map(section => {
+                            const visibleFields = section.fields.filter(f => {
+                              const val = allValues[f.key] ?? (sprievodnyData as any)[f.key];
+                              return val && val !== "null" && val !== "no" && val !== "";
+                            });
+                            if (visibleFields.length === 0 && !sprievodnyEditMode) return null;
+                            const displayFields = sprievodnyEditMode ? section.fields : visibleFields;
+                            return (
+                              <Card key={section.title} className={section.color === "blue" ? "border-blue-200 dark:border-blue-800" : section.color === "red" ? "border-red-200 dark:border-red-800" : ""}>
+                                <CardHeader className="py-2 px-3">
+                                  <CardTitle className="text-xs flex items-center gap-1.5">{section.icon} {section.title}</CardTitle>
+                                </CardHeader>
+                                <CardContent className="px-3 pb-3">
+                                  <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                                    {displayFields.map(({ key, label }) => {
+                                      const val = allValues[key] ?? (sprievodnyData as any)[key] ?? "";
+                                      const displayVal = val === "null" ? "" : val;
+                                      return (
+                                        <div
+                                          key={key}
+                                          className={`space-y-0.5 rounded-md px-1.5 py-1 cursor-pointer transition-all ${sprievodnyHighlightField === key ? "bg-primary/10 ring-2 ring-primary" : "hover:bg-muted/50"} ${!sprievodnyEditMode && fieldConf[key] && fieldConf[key] !== "high" ? confColor(key) : ""}`}
+                                          onClick={() => {
+                                            setSprievodnyHighlightField(sprievodnyHighlightField === key ? null : key);
+                                          }}
+                                          data-testid={`field-sprievodny-${key}`}
+                                        >
+                                          <div className="flex items-center gap-1">
+                                            <Label className="text-[10px] text-muted-foreground cursor-pointer">{label}</Label>
+                                            {confBadge(key)}
+                                          </div>
+                                          {sprievodnyEditMode ? (
+                                            <Input
+                                              value={sprievodnyEditing[key] || ""}
+                                              onChange={(e) => setSprievodnyEditing(prev => ({ ...prev, [key]: e.target.value }))}
+                                              className={`h-7 text-xs ${confColor(key)}`}
+                                              onFocus={() => setSprievodnyHighlightField(key)}
+                                              data-testid={`input-sprievodny-${key}`}
+                                            />
+                                          ) : (
+                                            <p className="text-sm font-medium leading-tight" data-testid={`text-sprievodny-${key}`}>{displayVal || "—"}</p>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            );
+                          })}
+
+                          {sprievodnyEditMode && (
+                            <div className="flex justify-end gap-2 pt-2 sticky bottom-0 bg-background pb-2">
+                              <Button variant="outline" size="sm" onClick={() => { setSprievodnyEditMode(false); setSprievodnyHighlightField(null); }} data-testid="button-cancel-sprievodny">
+                                Zrušiť
+                              </Button>
+                              <Button
+                                size="sm"
+                                onClick={() => sprievodnyUpdateMutation.mutate(sprievodnyEditing)}
+                                disabled={sprievodnyUpdateMutation.isPending}
+                                data-testid="button-save-sprievodny"
+                              >
+                                {sprievodnyUpdateMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
+                                Uložiť zmeny
+                              </Button>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <Card className="border-blue-200 dark:border-blue-800">
-                        <CardHeader className="py-3 px-4">
-                          <CardTitle className="text-sm flex items-center gap-2">
-                            <div className="h-3 w-3 rounded-full bg-blue-500" />
-                            Údaje rodičky
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent className="px-4 pb-4 space-y-3">
-                          {[
-                            { key: "motherSurname", label: "Priezvisko" },
-                            { key: "motherFirstName", label: "Meno" },
-                            { key: "motherBirthNumber", label: "Rodné číslo" },
-                          ].map(({ key, label }) => (
-                            <div key={key} className="space-y-1">
-                              <Label className="text-xs text-muted-foreground">{label}</Label>
-                              {sprievodnyEditMode ? (
-                                <Input
-                                  value={sprievodnyEditing[key] || ""}
-                                  onChange={(e) => setSprievodnyEditing(prev => ({ ...prev, [key]: e.target.value }))}
-                                  className="h-8 text-sm"
-                                  data-testid={`input-sprievodny-${key}`}
-                                />
-                              ) : (
-                                <p className="text-sm font-medium" data-testid={`text-sprievodny-${key}`}>{(sprievodnyData as any)[key] || "—"}</p>
-                              )}
-                            </div>
-                          ))}
-                        </CardContent>
-                      </Card>
-
-                      <Card className="border-red-200 dark:border-red-800">
-                        <CardHeader className="py-3 px-4">
-                          <CardTitle className="text-sm flex items-center gap-2">
-                            <div className="h-3 w-3 rounded-full bg-red-500" />
-                            Telefonické kontakty
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent className="px-4 pb-4 space-y-3">
-                          {[
-                            { key: "phone1", label: "Telefón 1" },
-                            { key: "phone2", label: "Telefón 2" },
-                          ].map(({ key, label }) => (
-                            <div key={key} className="space-y-1">
-                              <Label className="text-xs text-muted-foreground">{label}</Label>
-                              {sprievodnyEditMode ? (
-                                <Input
-                                  value={sprievodnyEditing[key] || ""}
-                                  onChange={(e) => setSprievodnyEditing(prev => ({ ...prev, [key]: e.target.value }))}
-                                  className="h-8 text-sm"
-                                  data-testid={`input-sprievodny-${key}`}
-                                />
-                              ) : (
-                                <div className="flex items-center gap-2">
-                                  <Phone className="h-3.5 w-3.5 text-muted-foreground" />
-                                  <p className="text-sm font-medium" data-testid={`text-sprievodny-${key}`}>{(sprievodnyData as any)[key] || "—"}</p>
-                                </div>
-                              )}
-                            </div>
-                          ))}
-                        </CardContent>
-                      </Card>
-
-                      <Card>
-                        <CardHeader className="py-3 px-4">
-                          <CardTitle className="text-sm flex items-center gap-2">
-                            <Syringe className="h-4 w-4" />
-                            Informácie o odbere
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent className="px-4 pb-4 space-y-3">
-                          {[
-                            { key: "collectionType", label: "Typ odberu" },
-                            { key: "collectionDateText", label: "Dátum" },
-                            { key: "collectionTime", label: "Čas" },
-                            { key: "bloodGroup", label: "Krvná skupina" },
-                            { key: "collectorName", label: "Odberový pracovník" },
-                            { key: "hospitalName", label: "Pôrodnica" },
-                          ].map(({ key, label }) => (
-                            <div key={key} className="space-y-1">
-                              <Label className="text-xs text-muted-foreground">{label}</Label>
-                              {sprievodnyEditMode ? (
-                                <Input
-                                  value={sprievodnyEditing[key] || ""}
-                                  onChange={(e) => setSprievodnyEditing(prev => ({ ...prev, [key]: e.target.value }))}
-                                  className="h-8 text-sm"
-                                  data-testid={`input-sprievodny-${key}`}
-                                />
-                              ) : (
-                                <p className="text-sm font-medium" data-testid={`text-sprievodny-${key}`}>{(sprievodnyData as any)[key] || "—"}</p>
-                              )}
-                            </div>
-                          ))}
-                        </CardContent>
-                      </Card>
-
-                      <Card>
-                        <CardHeader className="py-3 px-4">
-                          <CardTitle className="text-sm flex items-center gap-2">
-                            <Baby className="h-4 w-4" />
-                            Údaje novorodenca
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent className="px-4 pb-4 space-y-3">
-                          {[
-                            { key: "childSurname", label: "Priezvisko" },
-                            { key: "childFirstName", label: "Meno" },
-                            { key: "childGender", label: "Pohlavie" },
-                            { key: "birthWeight", label: "Hmotnosť (g)" },
-                            { key: "birthLength", label: "Dĺžka (cm)" },
-                            { key: "gestationalAge", label: "Gestačný vek" },
-                            { key: "apgar1", label: "APGAR 1 min" },
-                            { key: "apgar5", label: "APGAR 5 min" },
-                            { key: "apgar10", label: "APGAR 10 min" },
-                          ].map(({ key, label }) => (
-                            <div key={key} className="space-y-1">
-                              <Label className="text-xs text-muted-foreground">{label}</Label>
-                              {sprievodnyEditMode ? (
-                                <Input
-                                  value={sprievodnyEditing[key] || ""}
-                                  onChange={(e) => setSprievodnyEditing(prev => ({ ...prev, [key]: e.target.value }))}
-                                  className="h-8 text-sm"
-                                  data-testid={`input-sprievodny-${key}`}
-                                />
-                              ) : (
-                                <p className="text-sm font-medium" data-testid={`text-sprievodny-${key}`}>{(sprievodnyData as any)[key] || "—"}</p>
-                              )}
-                            </div>
-                          ))}
-                        </CardContent>
-                      </Card>
-                    </div>
-
-                    {sprievodnyEditMode && (
-                      <div className="flex justify-end gap-2 pt-2">
-                        <Button variant="outline" onClick={() => setSprievodnyEditMode(false)} data-testid="button-cancel-sprievodny">
-                          Zrušiť
-                        </Button>
-                        <Button
-                          onClick={() => sprievodnyUpdateMutation.mutate(sprievodnyEditing)}
-                          disabled={sprievodnyUpdateMutation.isPending}
-                          data-testid="button-save-sprievodny"
-                        >
-                          {sprievodnyUpdateMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
-                          Uložiť zmeny
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                )}
+                  );
+                })()}
               </TabsContent>
             </Tabs>
 

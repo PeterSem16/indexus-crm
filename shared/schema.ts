@@ -4821,6 +4821,9 @@ export const collectionSprievodnyList = pgTable("collection_sprievodny_list", {
   rawOcrText: text("raw_ocr_text"),
   pdfFilename: text("pdf_filename"),
   ocrConfidence: text("ocr_confidence"),
+  fieldConfidences: text("field_confidences"),
+  fieldPositions: text("field_positions"),
+  imagePath: text("image_path"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
