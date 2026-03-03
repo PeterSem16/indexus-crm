@@ -11582,7 +11582,6 @@ function MessageTemplatesTab() {
     mutationFn: async (id: string) => {
       const res = await apiRequest("DELETE", `/api/message-templates/${id}`);
       if (!res.ok) throw new Error("Failed to delete template");
-      return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/message-templates"] });

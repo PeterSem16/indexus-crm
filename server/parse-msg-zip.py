@@ -14,15 +14,30 @@ except ImportError:
     sys.exit(1)
 
 VARIABLE_PATTERNS = [
-    (r'\b(?:meno|jméno|name|meno a priezvisko|jméno a příjmení|ime|nome|név|nume|vorname)\b', '{{customer_first_name}}'),
-    (r'\b(?:priezvisko|příjmení|surname|last.?name|nachname|cognome|vezetéknév|numele)\b', '{{customer_last_name}}'),
-    (r'\b(?:meno a priezvisko|jméno a příjmení|full.?name|celé jméno)\b', '{{customer_name}}'),
-    (r'\b(?:rodné číslo|birth.?number|születési szám|cod numeric)\b', '{{birth_number}}'),
+    (r'\b(?:meno a priezvisko|jméno a příjmení|full.?name|celé jméno|celé meno)\b', '{{customer_name}}'),
+    (r'\b(?:meno|jméno|name|ime|nome|név|nume|vorname|first.?name|krstné meno|křestní jméno)\b', '{{customer_first_name}}'),
+    (r'\b(?:priezvisko|příjmení|surname|last.?name|nachname|cognome|vezetéknév|numele de familie)\b', '{{customer_last_name}}'),
+    (r'\b(?:rodné číslo|birth.?number|születési szám|cod numeric personal)\b', '{{birth_number}}'),
     (r'\b(?:číslo zmluvy|číslo smlouvy|contract.?number|vertragsnummer|numero contratto|szerződésszám|număr contract)\b', '{{contract_number}}'),
-    (r'\b(?:dátum narodenia|datum narození|date.?of.?birth|születési dátum|data nașterii)\b', '{{date_of_birth}}'),
-    (r'\b(?:telefón|telefon|phone|telefono|telefon|telefon)\b', '{{phone}}'),
-    (r'\b(?:e-?mail|email)\b', '{{email}}'),
-    (r'\b(?:adresa|address|indirizzo|cím|adresă|adresse)\b', '{{address}}'),
+    (r'\b(?:dátum narodenia|datum narození|date.?of.?birth|születési dátum|data nașterii|geburtsdatum)\b', '{{date_of_birth}}'),
+    (r'\b(?:telefón|telefon|phone|telefono|telefon|telefon|tel\.?č|číslo telefónu)\b', '{{phone}}'),
+    (r'\b(?:e[\-‑]?mail(?:ov[áa])?(?:\s+adresa)?)\b', '{{email}}'),
+    (r'\b(?:adresa|address|indirizzo|cím|adresă|adresse|bydlisko|bydliště)\b', '{{address}}'),
+    (r'\b(?:ičo|ič|ico|id.?number|identifikačné číslo)\b', '{{company_id}}'),
+    (r'\b(?:dátum|datum|date|dátum registrácie|datum registrace)\b', '{{date}}'),
+]
+
+SALUTATION_PATTERNS = [
+    (r'(Vážen[áý]\s+pan[ie]?\s+)', r'\1{{customer_name}}, '),
+    (r'(Vážen[áý]\s+)', r'\1{{customer_name}}, '),
+    (r'(Dobrý deň,?\s*)', r'\1{{customer_name}}, '),
+    (r'(Dobrý den,?\s*)', r'\1{{customer_name}}, '),
+    (r'(Ahoj,?\s*)', r'\1{{customer_name}}, '),
+    (r'(Dear\s+)', r'\1{{customer_name}}, '),
+    (r'(Sehr geehrte[r]?\s+)', r'\1{{customer_name}}, '),
+    (r'(Gentile\s+)', r'\1{{customer_name}}, '),
+    (r'(Tisztelt\s+)', r'\1{{customer_name}}, '),
+    (r'(Stimate?\s+)', r'\1{{customer_name}}, '),
 ]
 
 def detect_variables(text):
@@ -34,6 +49,23 @@ def detect_variables(text):
         if re.search(pattern, text_lower, re.IGNORECASE):
             found.add(var_name)
     return list(found)
+
+
+def insert_salutation_variables(html_content):
+    if not html_content:
+        return html_content
+    for pattern, replacement in SALUTATION_PATTERNS:
+        if re.search(pattern, html_content):
+            html_content = re.sub(pattern, replacement, html_content, count=1)
+            break
+    return html_content
+
+
+def extract_font_size(style_str):
+    m = re.search(r'font-size\s*:\s*([^;"\'>]+)', style_str or '')
+    if m:
+        return m.group(1).strip()
+    return None
 
 
 def clean_html(html_content):
@@ -64,7 +96,26 @@ def clean_html(html_content):
         html_content = body_match.group(1)
 
     html_content = re.sub(r'\s*class="Mso[^"]*"', '', html_content)
-    html_content = re.sub(r'\s*mso-[^;"\']+;?', '', html_content)
+
+    def clean_style_attr(match):
+        full = match.group(0)
+        style_content = match.group(1)
+        keep_props = []
+        props = re.split(r';', style_content)
+        for prop in props:
+            prop = prop.strip()
+            if not prop:
+                continue
+            if re.match(r'mso-', prop, re.IGNORECASE):
+                continue
+            if re.match(r'tab-stops', prop, re.IGNORECASE):
+                continue
+            keep_props.append(prop)
+        if keep_props:
+            return f' style="{"; ".join(keep_props)}"'
+        return ''
+
+    html_content = re.sub(r'\s*style="([^"]*)"', clean_style_attr, html_content)
 
     html_content = re.sub(r'<style[^>]*>.*?</style>', '', html_content, flags=re.DOTALL | re.IGNORECASE)
 
@@ -123,7 +174,11 @@ def process_zip(zip_path):
                             html_parts.append('<p>&nbsp;</p>')
                     html_body = '\n'.join(html_parts)
 
+                html_body = insert_salutation_variables(html_body)
+
                 detected_vars = detect_variables(plain_body or html_body)
+                if '{{customer_name}}' in html_body and '{{customer_name}}' not in detected_vars:
+                    detected_vars.append('{{customer_name}}')
 
                 attachments_data = []
                 for att in msg.attachments:

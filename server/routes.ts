@@ -29393,7 +29393,7 @@ Return ONLY the JSON object.`
       const allowedBase = path.resolve(process.cwd(), "uploads", "template-attachments");
       const result = attachments.map((att: any) => {
         try {
-          const absPath = path.resolve(process.cwd(), att.filePath);
+          const absPath = path.resolve(process.cwd(), att.filePath.replace(/^\//, ""));
           if (!absPath.startsWith(allowedBase)) return { fileName: att.fileName, error: "Invalid path" };
           if (!fs.existsSync(absPath)) return { fileName: att.fileName, mimeType: att.mimeType, size: att.size, error: "File not found" };
           const data = fs.readFileSync(absPath);
