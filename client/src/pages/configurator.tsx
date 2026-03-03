@@ -25,7 +25,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Pencil, Trash2, FileText, Settings, Layout, Loader2, Palette, Package, Search, Shield, Copy, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Eye, EyeOff, Lock, Unlock, Check, Hash, Info, X, DollarSign, Percent, Calculator, CreditCard, TrendingUp, Bell, CheckCircle2, XCircle, Key, AlertTriangle, Upload, FileDown, Edit, Save, Download, ArrowUpDown } from "lucide-react";
+import { Plus, Pencil, Trash2, FileText, Settings, Layout, Loader2, Palette, Package, Search, Shield, Copy, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Eye, EyeOff, Lock, Unlock, Check, Hash, Info, X, DollarSign, Percent, Calculator, CreditCard, TrendingUp, Bell, CheckCircle2, XCircle, Key, AlertTriangle, Upload, FileDown, Edit, Save, Download, ArrowUpDown, Paperclip } from "lucide-react";
 import { COUNTRIES, CURRENCIES, getCurrencySymbol } from "@shared/schema";
 import { InvoiceDesigner, InvoiceDesignerConfig } from "@/components/invoice-designer";
 import { ContractTemplatesManager } from "@/components/contract-templates-manager";
@@ -11964,10 +11964,18 @@ function MessageTemplatesTab() {
                         </div>
                       </td>
                       <td className="px-4 py-3">
-                        <Badge variant={template.type === "email" ? "default" : "secondary"}>
-                          {template.type === "email" ? <Mail className="h-3 w-3 mr-1" /> : <Smartphone className="h-3 w-3 mr-1" />}
-                          {template.type === "email" ? t.konfigurator.typeEmail : t.konfigurator.typeSms}
-                        </Badge>
+                        <div className="flex items-center gap-1.5">
+                          <Badge variant={template.type === "email" ? "default" : "secondary"}>
+                            {template.type === "email" ? <Mail className="h-3 w-3 mr-1" /> : <Smartphone className="h-3 w-3 mr-1" />}
+                            {template.type === "email" ? t.konfigurator.typeEmail : t.konfigurator.typeSms}
+                          </Badge>
+                          {(template as any).attachments?.length > 0 && (
+                            <Badge variant="outline" className="text-[9px] h-5 gap-0.5" title={`${(template as any).attachments.length} attachment(s)`}>
+                              <Paperclip className="h-2.5 w-2.5" />
+                              {(template as any).attachments.length}
+                            </Badge>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-sm">
                         {getCategoryName(template.categoryId)}

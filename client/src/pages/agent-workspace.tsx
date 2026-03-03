@@ -1453,6 +1453,7 @@ function CommunicationCanvas({
   const [selectedPhones, setSelectedPhones] = useState<string[]>([]);
   const [selectedFromAccount, setSelectedFromAccount] = useState<string>("");
   const [emailAttachment, setEmailAttachment] = useState<File | null>(null);
+  const [templateAttachments, setTemplateAttachments] = useState<{fileName: string; mimeType: string; size: number; contentBase64: string}[]>([]);
   const [emailCc, setEmailCc] = useState("");
   const [showCcField, setShowCcField] = useState(false);
   const [smsCc, setSmsCc] = useState("");
@@ -1489,6 +1490,7 @@ function CommunicationCanvas({
     setSmsMessage("");
     setSelectedFromAccount("");
     setEmailAttachment(null);
+    setTemplateAttachments([]);
     setEmailCc("");
     setShowCcField(false);
     setSmsCc("");
@@ -1715,6 +1717,18 @@ function CommunicationCanvas({
       setEmailTemplateSearch("");
       setEmailTemplatePopoverOpen(false);
       fetch(`/api/message-templates/${templateId}/use`, { method: "POST", credentials: "include" });
+      
+      if ((template as any).attachments?.length > 0) {
+        fetch(`/api/message-templates/${templateId}/attachments`, { credentials: "include" })
+          .then(r => r.json())
+          .then((atts: any[]) => {
+            const valid = atts.filter((a: any) => a.contentBase64 && !a.error);
+            setTemplateAttachments(valid);
+          })
+          .catch(() => setTemplateAttachments([]));
+      } else {
+        setTemplateAttachments([]);
+      }
     }
   };
 
@@ -1745,6 +1759,9 @@ function CommunicationCanvas({
       const base64 = btoa(new Uint8Array(fileBuffer).reduce((data, byte) => data + String.fromCharCode(byte), ''));
       pcAttachments.push({ name: emailAttachment.name, contentType: emailAttachment.type || 'application/octet-stream', contentBase64: base64 });
     }
+    for (const ta of templateAttachments) {
+      pcAttachments.push({ name: ta.fileName, contentType: ta.mimeType, contentBase64: ta.contentBase64 });
+    }
     const compositionDurationSeconds = emailOpenedAt ? Math.round((Date.now() - emailOpenedAt) / 1000) : null;
     onSendEmail({
       to: selectedEmails,
@@ -1760,6 +1777,7 @@ function CommunicationCanvas({
     setEmailMessage("");
     setSelectedEmails([]);
     setEmailAttachment(null);
+    setTemplateAttachments([]);
     setEmailCc("");
     setShowCcField(false);
     setSelectedDocuments([]);
@@ -2209,7 +2227,8 @@ function CommunicationCanvas({
                                 data-testid={`email-template-option-${template.id}`}
                               >
                                 <Check className={`h-4 w-4 shrink-0 ${selectedEmailTemplateName === template.name ? "opacity-100" : "opacity-0"}`} />
-                                <span className="truncate">{template.name}</span>
+                                <span className="truncate flex-1">{template.name}</span>
+                                {(template as any).attachments?.length > 0 && <Paperclip className="h-3 w-3 text-muted-foreground shrink-0" />}
                               </button>
                             ))
                           )}
@@ -2290,6 +2309,29 @@ function CommunicationCanvas({
                   )}
                 </div>
 
+                {templateAttachments.length > 0 && (
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+                      <Paperclip className="h-3 w-3" />
+                      {t.customers?.details?.templateAttachments || "TEMPLATE ATTACHMENTS"} ({templateAttachments.length})
+                    </Label>
+                    <div className="space-y-1">
+                      {templateAttachments.map((ta, idx) => (
+                        <div key={idx} className="flex items-center gap-2 p-1.5 border rounded-md bg-blue-50/50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800">
+                          <FileIcon className="w-3.5 h-3.5 text-blue-600 flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[11px] font-medium truncate" data-testid={`template-att-name-${idx}`}>{ta.fileName}</p>
+                            <p className="text-[9px] text-muted-foreground">{(ta.size / 1024).toFixed(1)} KB</p>
+                          </div>
+                          <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => setTemplateAttachments(prev => prev.filter((_, i) => i !== idx))} data-testid={`btn-remove-tpl-att-${idx}`}>
+                            <X className="h-2.5 w-2.5" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {customerDocuments.length > 0 && (
                   <div className="space-y-1.5">
                     <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
@@ -2339,7 +2381,7 @@ function CommunicationCanvas({
                   </div>
                 </div>
                 <div className="flex justify-end gap-2 pt-1">
-                  <Button variant="outline" size="sm" onClick={() => { setEmailSubject(""); setEmailMessage(""); setSelectedEmails([]); setEmailAttachment(null); setEmailCc(""); setShowCcField(false); setSelectedDocuments([]); }} data-testid="button-cancel-email">
+                  <Button variant="outline" size="sm" onClick={() => { setEmailSubject(""); setEmailMessage(""); setSelectedEmails([]); setEmailAttachment(null); setTemplateAttachments([]); setEmailCc(""); setShowCcField(false); setSelectedDocuments([]); }} data-testid="button-cancel-email">
                     {t.common?.cancel || "Cancel"}
                   </Button>
                   <Button onClick={handleSendEmail} disabled={selectedEmails.length === 0 || !emailSubject || !emailMessage || isSendingEmail} data-testid="btn-send-email">

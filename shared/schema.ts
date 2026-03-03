@@ -5210,6 +5210,9 @@ export const messageTemplates = pgTable("message_templates", {
   
   // Status
   isActive: boolean("is_active").default(true),
+
+  // Attachments metadata: [{fileName, filePath, mimeType, size}]
+  attachments: jsonb("attachments").$type<{fileName: string; filePath: string; mimeType: string; size: number}[]>(),
   
   // Audit
   createdBy: varchar("created_by").references(() => users.id),

@@ -29177,8 +29177,9 @@ Return ONLY the JSON object.`
   app.post("/api/message-templates", requireAuth, requireAdminOrManager, async (req, res) => {
     try {
       const userId = req.session.user?.id;
+      const { attachments: _stripAtt, ...safeBody } = req.body;
       const template = await storage.createMessageTemplate({
-        ...req.body,
+        ...safeBody,
         createdBy: userId,
         updatedBy: userId,
       });
@@ -29192,8 +29193,9 @@ Return ONLY the JSON object.`
   app.patch("/api/message-templates/:id", requireAuth, requireAdminOrManager, async (req, res) => {
     try {
       const userId = req.session.user?.id;
+      const { attachments: _stripAtt2, ...safeBody2 } = req.body;
       const template = await storage.updateMessageTemplate(req.params.id, {
-        ...req.body,
+        ...safeBody2,
         updatedBy: userId,
       });
       if (!template) {
@@ -29334,9 +29336,23 @@ Return ONLY the JSON object.`
       const created: any[] = [];
       const errors: any[] = [];
 
+      const attachmentDir = path.join(process.cwd(), "uploads", "template-attachments");
+      if (!fs.existsSync(attachmentDir)) fs.mkdirSync(attachmentDir, { recursive: true });
+
       for (const tpl of templates) {
         if (tpl.error) { errors.push({ fileName: tpl.fileName, error: tpl.error }); continue; }
         try {
+          const savedAttachments: { fileName: string; filePath: string; mimeType: string; size: number }[] = [];
+          if (tpl.attachments?.length) {
+            for (const att of tpl.attachments) {
+              if (att.isInline) continue;
+              const safeFileName = `${Date.now()}-${Math.random().toString(36).slice(2,8)}-${att.fileName.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+              const diskPath = path.join(attachmentDir, safeFileName);
+              fs.writeFileSync(diskPath, Buffer.from(att.data, "base64"));
+              savedAttachments.push({ fileName: att.fileName, filePath: `/uploads/template-attachments/${safeFileName}`, mimeType: att.mimeType, size: att.size });
+            }
+          }
+
           const newTemplate = await storage.createMessageTemplate({
             name: tpl.name,
             description: tpl.subject !== tpl.name ? tpl.subject : null,
@@ -29351,8 +29367,9 @@ Return ONLY the JSON object.`
             isDefault: false,
             isActive: true,
             createdBy: req.session.user?.id,
+            attachments: savedAttachments.length > 0 ? savedAttachments : null,
           });
-          created.push({ id: newTemplate.id, name: tpl.name, fileName: tpl.fileName, attachmentCount: tpl.attachmentCount || 0, detectedVariables: tpl.detectedVariables });
+          created.push({ id: newTemplate.id, name: tpl.name, fileName: tpl.fileName, attachmentCount: savedAttachments.length, detectedVariables: tpl.detectedVariables });
         } catch (err: any) {
           errors.push({ fileName: tpl.fileName, error: err.message });
         }
@@ -29367,6 +29384,27 @@ Return ONLY the JSON object.`
     }
   });
 
+
+  app.get("/api/message-templates/:id/attachments", requireAuth, async (req, res) => {
+    try {
+      const template = await storage.getMessageTemplate(req.params.id);
+      if (!template) return res.status(404).json({ error: "Template not found" });
+      const attachments = (template as any).attachments || [];
+      const allowedBase = path.resolve(process.cwd(), "uploads", "template-attachments");
+      const result = attachments.map((att: any) => {
+        try {
+          const absPath = path.resolve(process.cwd(), att.filePath);
+          if (!absPath.startsWith(allowedBase)) return { fileName: att.fileName, error: "Invalid path" };
+          if (!fs.existsSync(absPath)) return { fileName: att.fileName, mimeType: att.mimeType, size: att.size, error: "File not found" };
+          const data = fs.readFileSync(absPath);
+          return { fileName: att.fileName, mimeType: att.mimeType, size: att.size, contentBase64: data.toString("base64") };
+        } catch { return { fileName: att.fileName, error: "Read error" }; }
+      });
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
   // Agent Session Management
   app.get("/api/agent-sessions/active", requireAuth, async (req, res) => {
     try {
