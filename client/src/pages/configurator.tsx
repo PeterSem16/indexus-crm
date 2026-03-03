@@ -11452,6 +11452,11 @@ function MessageTemplatesTab() {
   const [filterType, setFilterType] = useState<"all" | "email" | "sms">("all");
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [filterLanguage, setFilterLanguage] = useState<string>("all");
+
+  // Bulk selection & pagination
+  const [selectedTemplateIds, setSelectedTemplateIds] = useState<Set<string>>(new Set());
+  const [msgTemplatePage, setMsgTemplatePage] = useState(1);
+  const MSG_PAGE_SIZE = 20;
   
   // Template form state
   const [templateName, setTemplateName] = useState("");
@@ -11861,6 +11866,49 @@ function MessageTemplatesTab() {
     return true;
   });
 
+  const msgTotalPages = Math.max(1, Math.ceil(filteredTemplates.length / MSG_PAGE_SIZE));
+  const safeMsgPage = Math.min(msgTemplatePage, msgTotalPages);
+  const paginatedMsgTemplates = filteredTemplates.slice((safeMsgPage - 1) * MSG_PAGE_SIZE, safeMsgPage * MSG_PAGE_SIZE);
+
+  const allPageSelected = paginatedMsgTemplates.length > 0 && paginatedMsgTemplates.every(t => selectedTemplateIds.has(t.id));
+
+  const toggleSelectTemplate = (id: string) => {
+    setSelectedTemplateIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAllPage = () => {
+    setSelectedTemplateIds(prev => {
+      const next = new Set(prev);
+      if (allPageSelected) {
+        paginatedMsgTemplates.forEach(t => next.delete(t.id));
+      } else {
+        paginatedMsgTemplates.forEach(t => next.add(t.id));
+      }
+      return next;
+    });
+  };
+
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      for (const id of ids) {
+        const res = await apiRequest("DELETE", `/api/message-templates/${id}`);
+        if (!res.ok) throw new Error("Failed to delete template");
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/message-templates"] });
+      setSelectedTemplateIds(new Set());
+      toast({ title: t.konfigurator.templateDeleted });
+    },
+    onError: () => {
+      toast({ title: t.errors.deleteFailed, variant: "destructive" });
+    },
+  });
+
   const getCategoryName = (categoryId?: string) => {
     if (!categoryId) return "—";
     const category = categories.find(c => c.id === categoryId);
@@ -11884,7 +11932,7 @@ function MessageTemplatesTab() {
         <TabsContent value="templates" className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex flex-wrap items-center gap-2">
-              <Select value={filterType} onValueChange={(v) => setFilterType(v as "all" | "email" | "sms")}>
+              <Select value={filterType} onValueChange={(v) => { setFilterType(v as "all" | "email" | "sms"); setMsgTemplatePage(1); }}>
                 <SelectTrigger className="w-32" data-testid="select-filter-type">
                   <SelectValue placeholder={t.konfigurator.templateType} />
                 </SelectTrigger>
@@ -11894,7 +11942,7 @@ function MessageTemplatesTab() {
                   <SelectItem value="sms">{t.konfigurator.typeSms}</SelectItem>
                 </SelectContent>
               </Select>
-              <Select value={filterCategory} onValueChange={setFilterCategory}>
+              <Select value={filterCategory} onValueChange={(v) => { setFilterCategory(v); setMsgTemplatePage(1); }}>
                 <SelectTrigger className="w-40" data-testid="select-filter-category">
                   <SelectValue placeholder={t.konfigurator.templateCategory} />
                 </SelectTrigger>
@@ -11905,7 +11953,7 @@ function MessageTemplatesTab() {
                   ))}
                 </SelectContent>
               </Select>
-              <Select value={filterLanguage} onValueChange={setFilterLanguage}>
+              <Select value={filterLanguage} onValueChange={(v) => { setFilterLanguage(v); setMsgTemplatePage(1); }}>
                 <SelectTrigger className="w-36" data-testid="select-filter-language">
                   <SelectValue placeholder={t.konfigurator.templateLanguage} />
                 </SelectTrigger>
@@ -11929,6 +11977,29 @@ function MessageTemplatesTab() {
             </div>
           </div>
 
+          {selectedTemplateIds.size > 0 && (
+            <div className="flex items-center gap-3 p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
+              <span className="text-sm font-medium">{selectedTemplateIds.size} {t.common?.selected || "selected"}</span>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => {
+                  if (confirm(`${t.konfigurator?.confirmDeleteTemplates || "Delete"} ${selectedTemplateIds.size} templates?`)) {
+                    bulkDeleteMutation.mutate(Array.from(selectedTemplateIds));
+                  }
+                }}
+                disabled={bulkDeleteMutation.isPending}
+                data-testid="button-bulk-delete-templates"
+              >
+                {bulkDeleteMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
+                {t.common?.delete || "Delete"}
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => setSelectedTemplateIds(new Set())} data-testid="button-clear-selection">
+                {t.common?.cancel || "Cancel"}
+              </Button>
+            </div>
+          )}
+
           {templatesLoading ? (
             <div className="flex items-center justify-center p-8">
               <Loader2 className="h-6 w-6 animate-spin" />
@@ -11938,22 +12009,29 @@ function MessageTemplatesTab() {
               {t.konfigurator.noMessageTemplates}
             </div>
           ) : (
+            <>
             <div className="border rounded-lg overflow-hidden">
               <table className="w-full">
                 <thead className="bg-muted/50">
                   <tr>
+                    <th className="px-3 py-3 w-10">
+                      <Checkbox checked={allPageSelected} onCheckedChange={toggleSelectAllPage} data-testid="checkbox-select-all-templates" />
+                    </th>
                     <th className="px-4 py-3 text-left text-sm font-medium">{t.konfigurator.templateName}</th>
                     <th className="px-4 py-3 text-left text-sm font-medium">{t.konfigurator.templateType}</th>
                     <th className="px-4 py-3 text-left text-sm font-medium">{t.konfigurator.templateCategory}</th>
                     <th className="px-4 py-3 text-left text-sm font-medium">{t.konfigurator.templateLanguage}</th>
                     <th className="px-4 py-3 text-center text-sm font-medium">{t.konfigurator.templateIsDefault}</th>
                     <th className="px-4 py-3 text-center text-sm font-medium">{t.konfigurator.templateUsageCount}</th>
-                    <th className="px-4 py-3 text-right text-sm font-medium">Akcie</th>
+                    <th className="px-4 py-3 text-right text-sm font-medium">{t.common?.actions || "Actions"}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {filteredTemplates.map((template) => (
-                    <tr key={template.id} className={`hover-elevate ${!template.isActive ? 'opacity-50' : ''}`}>
+                  {paginatedMsgTemplates.map((template) => (
+                    <tr key={template.id} className={`hover-elevate ${!template.isActive ? 'opacity-50' : ''} ${selectedTemplateIds.has(template.id) ? 'bg-primary/5' : ''}`}>
+                      <td className="px-3 py-3">
+                        <Checkbox checked={selectedTemplateIds.has(template.id)} onCheckedChange={() => toggleSelectTemplate(template.id)} data-testid={`checkbox-template-${template.id}`} />
+                      </td>
                       <td className="px-4 py-3">
                         <div>
                           <span className="font-medium">{template.name}</span>
@@ -12006,6 +12084,22 @@ function MessageTemplatesTab() {
                 </tbody>
               </table>
             </div>
+            {msgTotalPages > 1 && (
+              <div className="flex items-center justify-between pt-3">
+                <span className="text-sm text-muted-foreground">
+                  {t.common?.page || "Page"} {safeMsgPage} / {msgTotalPages} ({filteredTemplates.length} {t.common?.results || "results"})
+                </span>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" disabled={safeMsgPage <= 1} onClick={() => setMsgTemplatePage(safeMsgPage - 1)} data-testid="button-msg-prev-page">
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <Button variant="outline" size="sm" disabled={safeMsgPage >= msgTotalPages} onClick={() => setMsgTemplatePage(safeMsgPage + 1)} data-testid="button-msg-next-page">
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+            </>
           )}
         </TabsContent>
 
