@@ -27490,25 +27490,35 @@ Guidelines:
       
       const response = await openai.chat.completions.create({
         model: "gpt-4o",
-        max_tokens: 4000,
+        max_tokens: 8000,
         messages: [
           {
             role: "system",
-            content: `You are an expert OCR specialist analyzing a Slovak cord blood collection accompanying document (Sprievodný list). This is a scanned medical form with both printed and handwritten text. Your job is to:
-1. Extract ALL readable fields from the document
-2. Rate your confidence for EACH field individually (high/medium/low)
-3. Provide approximate bounding box positions for each field as percentages of the image dimensions (x%, y%, width%, height%)
+            content: `You are an ULTRA-PRECISE OCR specialist analyzing a Slovak cord blood banking collection form (Sprievodný list / Accompanying Document). This is a scanned medical form with both PRINTED and HANDWRITTEN text.
 
-The document typically has sections:
-- Blue bordered section: Mother's personal data (Priezvisko, Meno, Rodné číslo)
-- Red/orange bordered section: Phone contacts (Telefón 1, Telefón 2)  
-- Collection type checkboxes (STANDARD, PREMIUM, TKANIVO PUPOČNÍKA, TKANIVO PLACENTY)
-- Newborn data (gender, weight, length, gestational age, APGAR scores)
-- Collection worker and hospital info
-- Various other fields that may be present
+  CRITICAL INSTRUCTIONS for maximum accuracy:
+  1. Extract EVERY SINGLE readable field - leave NO field unread
+  2. For handwritten text: zoom in mentally, consider letter shapes carefully, compare with context
+  3. Rate confidence for EACH field: "high" (clearly readable), "medium" (mostly readable with minor uncertainty), "low" (partially readable or guessed)
+  4. Provide PRECISE bounding box positions as percentages of image dimensions
 
-Be thorough - extract EVERY field you can identify, even partially readable ones.
-For handwritten text, do your best to read it. If partially readable, provide what you can read and mark confidence as low.`
+  The document has these typical sections (extract ALL of them):
+  A) MOTHER'S DATA (often blue-bordered): Priezvisko, Meno, Rodné číslo, Adresa, Číslo OP, Telefón 1, Telefón 2, Email
+  B) DONOR SELECTION (Výber darcu): checkboxes or text indicating donor type
+  C) COLLECTION TYPE: checkboxes (STANDARD, PREMIUM, TKANIVO PUPOČNÍKA, TKANIVO PLACENTY)
+  D) COLLECTION DETAILS: Dátum odberu, Čas odberu, Číslo zmluvy, Číslo vzorky, ID vaku, Objem pupočníkovej krvi, Hmotnosť placenty, Čas klemnutia pupočníka, Počet vakov
+  E) NEWBORN DATA: Priezvisko, Meno, Pohlavie, Rodné číslo, Dátum narodenia, Čas narodenia, Hmotnosť, Dĺžka, Gestačný vek, APGAR 1/5/10 min
+  F) BIRTH DETAILS: Krvná skupina, Rh faktor, Typ pôrodu, Komplikácie pôrodu
+  G) MEDICAL HISTORY: Antibiotiká, Infekcie, Predchádzajúce tehotenstvá
+  H) PERSONNEL: Odberový pracovník, Asistujúci pracovník, Nemocnica, Oddelenie
+  I) LABORATORY: Laboratórne vyšetrenia, Odber krvi matky, Podmienky transportu
+  J) SIGNATURES & CONSENT: Podpis rodičky, Podpis lekára, Súhlas podpísaný
+  K) NOTES: Poznámky, any additional text
+
+  Read EVERY checkbox, circle, tick mark, stamp, and handwritten annotation.
+  For numbers: be precise about digits, verify against context (weights in grams, lengths in cm).
+  For dates: use DD.MM.YYYY format if visible.
+  For phone numbers: include country code if present.`
           },
           {
             role: "user",
@@ -27518,39 +27528,55 @@ For handwritten text, do your best to read it. If partially readable, provide wh
                 text: `Analyze this scanned medical form thoroughly. Return a JSON object with exactly this structure:
 {
   "fields": {
-    "motherSurname": { "value": "extracted value or null", "confidence": "high|medium|low", "position": { "x": 0, "y": 0, "w": 0, "h": 0 } },
-    "motherFirstName": { "value": "...", "confidence": "...", "position": { "x": %, "y": %, "w": %, "h": % } },
-    "motherBirthNumber": { "value": "...", "confidence": "...", "position": { "x": %, "y": %, "w": %, "h": % } },
-    "motherAddress": { "value": "full address if visible", "confidence": "...", "position": { "x": %, "y": %, "w": %, "h": % } },
-    "motherIdNumber": { "value": "ID card number if visible", "confidence": "...", "position": { "x": %, "y": %, "w": %, "h": % } },
-    "phone1": { "value": "...", "confidence": "...", "position": {...} },
-    "phone2": { "value": "...", "confidence": "...", "position": {...} },
-    "email": { "value": "email if visible", "confidence": "...", "position": {...} },
-    "collectionType": { "value": "which checkbox is marked", "confidence": "...", "position": {...} },
-    "collectionDateText": { "value": "DD/MM/YYYY or DD.MM.YYYY", "confidence": "...", "position": {...} },
-    "collectionTime": { "value": "HH:MM", "confidence": "...", "position": {...} },
-    "childSurname": { "value": "...", "confidence": "...", "position": {...} },
-    "childFirstName": { "value": "...", "confidence": "...", "position": {...} },
-    "childGender": { "value": "mužské/ženské", "confidence": "...", "position": {...} },
-    "childBirthNumber": { "value": "child birth number if visible", "confidence": "...", "position": {...} },
-    "birthWeight": { "value": "grams", "confidence": "...", "position": {...} },
-    "birthLength": { "value": "cm", "confidence": "...", "position": {...} },
-    "gestationalAge": { "value": "weeks", "confidence": "...", "position": {...} },
-    "apgar1": { "value": "score", "confidence": "...", "position": {...} },
-    "apgar5": { "value": "score", "confidence": "...", "position": {...} },
-    "apgar10": { "value": "score", "confidence": "...", "position": {...} },
-    "bloodGroup": { "value": "blood group", "confidence": "...", "position": {...} },
-    "rhFactor": { "value": "Rh+ or Rh-", "confidence": "...", "position": {...} },
-    "collectorName": { "value": "full name of collection worker", "confidence": "...", "position": {...} },
-    "hospitalName": { "value": "hospital name and address", "confidence": "...", "position": {...} },
-    "deliveryType": { "value": "spontánny/cisársky rez if visible", "confidence": "...", "position": {...} },
-    "placentaWeight": { "value": "grams if visible", "confidence": "...", "position": {...} },
-    "cordBloodVolume": { "value": "ml if visible", "confidence": "...", "position": {...} },
-    "sampleId": { "value": "sample/barcode ID if visible", "confidence": "...", "position": {...} },
-    "contractNumber": { "value": "contract number if visible", "confidence": "...", "position": {...} },
-    "notes": { "value": "any additional notes on the form", "confidence": "...", "position": {...} },
-    "motherSignature": { "value": "yes/no - is signature present", "confidence": "...", "position": {...} },
-    "doctorSignature": { "value": "yes/no - is doctor/worker signature present", "confidence": "...", "position": {...} }
+    "motherSurname": { "value": "extracted or null", "confidence": "high|medium|low", "position": { "x": %, "y": %, "w": %, "h": % } },
+      "motherFirstName": { "value": "...", "confidence": "...", "position": {...} },
+      "motherBirthNumber": { "value": "rodné číslo format XXXXXX/XXXX", "confidence": "...", "position": {...} },
+      "motherAddress": { "value": "full address", "confidence": "...", "position": {...} },
+      "motherIdNumber": { "value": "ID card number", "confidence": "...", "position": {...} },
+      "email": { "value": "email address", "confidence": "...", "position": {...} },
+      "phone1": { "value": "phone with country code", "confidence": "...", "position": {...} },
+      "phone2": { "value": "second phone", "confidence": "...", "position": {...} },
+      "donorSelection": { "value": "donor type/selection text or checkbox result", "confidence": "...", "position": {...} },
+      "collectionType": { "value": "which checkbox: STANDARD/PREMIUM/TKANIVO PUPOČNÍKA/TKANIVO PLACENTY", "confidence": "...", "position": {...} },
+      "collectionDateText": { "value": "DD.MM.YYYY", "confidence": "...", "position": {...} },
+      "collectionTime": { "value": "HH:MM", "confidence": "...", "position": {...} },
+      "contractNumber": { "value": "contract/zmluva number", "confidence": "...", "position": {...} },
+      "sampleId": { "value": "sample/barcode/vzorka ID", "confidence": "...", "position": {...} },
+      "bagId": { "value": "bag/vak ID number", "confidence": "...", "position": {...} },
+      "numberOfBags": { "value": "number of collection bags", "confidence": "...", "position": {...} },
+      "cordBloodVolume": { "value": "ml", "confidence": "...", "position": {...} },
+      "cordClampTime": { "value": "time of cord clamping HH:MM or duration", "confidence": "...", "position": {...} },
+      "placentaWeight": { "value": "grams", "confidence": "...", "position": {...} },
+      "childSurname": { "value": "newborn surname", "confidence": "...", "position": {...} },
+      "childFirstName": { "value": "newborn first name", "confidence": "...", "position": {...} },
+      "childGender": { "value": "mužské/ženské or M/Ž", "confidence": "...", "position": {...} },
+      "childBirthNumber": { "value": "child rodné číslo", "confidence": "...", "position": {...} },
+      "birthDate": { "value": "DD.MM.YYYY date of birth", "confidence": "...", "position": {...} },
+      "birthTime": { "value": "HH:MM time of birth", "confidence": "...", "position": {...} },
+      "birthWeight": { "value": "grams", "confidence": "...", "position": {...} },
+      "birthLength": { "value": "cm", "confidence": "...", "position": {...} },
+      "gestationalAge": { "value": "weeks + days if available", "confidence": "...", "position": {...} },
+      "apgar1": { "value": "APGAR score at 1 min", "confidence": "...", "position": {...} },
+      "apgar5": { "value": "APGAR score at 5 min", "confidence": "...", "position": {...} },
+      "apgar10": { "value": "APGAR score at 10 min", "confidence": "...", "position": {...} },
+      "bloodGroup": { "value": "A/B/AB/0", "confidence": "...", "position": {...} },
+      "rhFactor": { "value": "Rh+ or Rh- or pozitívny/negatívny", "confidence": "...", "position": {...} },
+      "deliveryType": { "value": "spontánny/cisársky rez/vákuum/kliešte", "confidence": "...", "position": {...} },
+      "deliveryComplications": { "value": "any complications noted", "confidence": "...", "position": {...} },
+      "antibiotics": { "value": "antibiotics given yes/no and which", "confidence": "...", "position": {...} },
+      "infections": { "value": "any infections noted", "confidence": "...", "position": {...} },
+      "previousPregnancies": { "value": "number or details of previous pregnancies", "confidence": "...", "position": {...} },
+      "collectorName": { "value": "name of collection worker", "confidence": "...", "position": {...} },
+      "assistantName": { "value": "assisting worker name", "confidence": "...", "position": {...} },
+      "hospitalName": { "value": "hospital name", "confidence": "...", "position": {...} },
+      "hospitalDepartment": { "value": "department/ward name", "confidence": "...", "position": {...} },
+      "maternalBloodSample": { "value": "maternal blood sample taken yes/no", "confidence": "...", "position": {...} },
+      "labTests": { "value": "laboratory tests requested/results", "confidence": "...", "position": {...} },
+      "transportConditions": { "value": "transport temperature/conditions", "confidence": "...", "position": {...} },
+      "motherSignature": { "value": "yes/no - is mother signature present", "confidence": "...", "position": {...} },
+      "doctorSignature": { "value": "yes/no - is doctor/worker signature present", "confidence": "...", "position": {...} },
+      "consentSigned": { "value": "yes/no - is consent/súhlas signed", "confidence": "...", "position": {...} },
+      "notes": { "value": "any additional notes, stamps, annotations", "confidence": "...", "position": {...} }
   },
   "overallConfidence": "high|medium|low",
   "additionalFields": [
@@ -27629,25 +27655,54 @@ Return ONLY the JSON object.`
       const record: any = {
         collectionId: req.params.id,
         motherSurname: fieldValues.motherSurname || null,
-        motherFirstName: fieldValues.motherFirstName || null,
-        motherBirthNumber: fieldValues.motherBirthNumber || null,
-        phone1: fieldValues.phone1 || null,
-        phone2: fieldValues.phone2 || null,
-        collectionType: fieldValues.collectionType || null,
-        collectionDateText: fieldValues.collectionDateText || null,
-        collectionTime: fieldValues.collectionTime || null,
-        childSurname: fieldValues.childSurname || null,
-        childFirstName: fieldValues.childFirstName || null,
-        childGender: fieldValues.childGender || null,
-        birthWeight: fieldValues.birthWeight || null,
-        birthLength: fieldValues.birthLength || null,
-        gestationalAge: fieldValues.gestationalAge || null,
-        apgar1: fieldValues.apgar1 || null,
-        apgar5: fieldValues.apgar5 || null,
-        apgar10: fieldValues.apgar10 || null,
-        bloodGroup: fieldValues.bloodGroup || null,
-        collectorName: fieldValues.collectorName || null,
-        hospitalName: fieldValues.hospitalName || null,
+          motherFirstName: fieldValues.motherFirstName || null,
+          motherBirthNumber: fieldValues.motherBirthNumber || null,
+          motherAddress: fieldValues.motherAddress || null,
+          motherIdNumber: fieldValues.motherIdNumber || null,
+          email: fieldValues.email || null,
+          phone1: fieldValues.phone1 || null,
+          phone2: fieldValues.phone2 || null,
+          donorSelection: fieldValues.donorSelection || null,
+          collectionType: fieldValues.collectionType || null,
+          collectionDateText: fieldValues.collectionDateText || null,
+          collectionTime: fieldValues.collectionTime || null,
+          contractNumber: fieldValues.contractNumber || null,
+          sampleId: fieldValues.sampleId || null,
+          bagId: fieldValues.bagId || null,
+          numberOfBags: fieldValues.numberOfBags || null,
+          cordBloodVolume: fieldValues.cordBloodVolume || null,
+          cordClampTime: fieldValues.cordClampTime || null,
+          placentaWeight: fieldValues.placentaWeight || null,
+          childSurname: fieldValues.childSurname || null,
+          childFirstName: fieldValues.childFirstName || null,
+          childGender: fieldValues.childGender || null,
+          childBirthNumber: fieldValues.childBirthNumber || null,
+          birthDate: fieldValues.birthDate || null,
+          birthTime: fieldValues.birthTime || null,
+          birthWeight: fieldValues.birthWeight || null,
+          birthLength: fieldValues.birthLength || null,
+          gestationalAge: fieldValues.gestationalAge || null,
+          apgar1: fieldValues.apgar1 || null,
+          apgar5: fieldValues.apgar5 || null,
+          apgar10: fieldValues.apgar10 || null,
+          bloodGroup: fieldValues.bloodGroup || null,
+          rhFactor: fieldValues.rhFactor || null,
+          deliveryType: fieldValues.deliveryType || null,
+          deliveryComplications: fieldValues.deliveryComplications || null,
+          antibiotics: fieldValues.antibiotics || null,
+          infections: fieldValues.infections || null,
+          previousPregnancies: fieldValues.previousPregnancies || null,
+          collectorName: fieldValues.collectorName || null,
+          assistantName: fieldValues.assistantName || null,
+          hospitalName: fieldValues.hospitalName || null,
+          hospitalDepartment: fieldValues.hospitalDepartment || null,
+          maternalBloodSample: fieldValues.maternalBloodSample || null,
+          labTests: fieldValues.labTests || null,
+          transportConditions: fieldValues.transportConditions || null,
+          motherSignature: fieldValues.motherSignature || null,
+          doctorSignature: fieldValues.doctorSignature || null,
+          consentSigned: fieldValues.consentSigned || null,
+          notes: fieldValues.notes || null,
         rawOcrText: JSON.stringify({ fields: fieldValues, additionalFields, allFieldValues: fieldValues }),
         pdfFilename: req.file.originalname,
         ocrConfidence: extractedData.overallConfidence || "medium",
@@ -27688,7 +27743,7 @@ Return ONLY the JSON object.`
         return res.status(404).json({ error: "Sprievodny list not found" });
       }
       
-      const allowedFields = ["motherSurname", "motherFirstName", "motherBirthNumber", "phone1", "phone2", "collectionType", "collectionDateText", "collectionTime", "childSurname", "childFirstName", "childGender", "birthWeight", "birthLength", "gestationalAge", "apgar1", "apgar5", "apgar10", "bloodGroup", "collectorName", "hospitalName"];
+      const allowedFields = ["motherSurname", "motherFirstName", "motherBirthNumber", "motherAddress", "motherIdNumber", "email", "phone1", "phone2", "donorSelection", "collectionType", "collectionDateText", "collectionTime", "contractNumber", "sampleId", "bagId", "numberOfBags", "cordBloodVolume", "cordClampTime", "placentaWeight", "childSurname", "childFirstName", "childGender", "childBirthNumber", "birthDate", "birthTime", "birthWeight", "birthLength", "gestationalAge", "apgar1", "apgar5", "apgar10", "bloodGroup", "rhFactor", "deliveryType", "deliveryComplications", "antibiotics", "infections", "previousPregnancies", "collectorName", "assistantName", "hospitalName", "hospitalDepartment", "maternalBloodSample", "labTests", "transportConditions", "motherSignature", "doctorSignature", "consentSigned", "notes"];
       const sanitized: Record<string, any> = {};
       for (const key of allowedFields) {
         if (key in req.body) sanitized[key] = req.body[key];

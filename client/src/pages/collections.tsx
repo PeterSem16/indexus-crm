@@ -22,7 +22,8 @@ import {
   FileText, FlaskConical, AlertCircle, ArrowLeft, ArrowRight, Check, Baby, 
   Users, Clock, LayoutDashboard, List, TrendingUp, Globe, Activity, ChevronLeft, ChevronRight, Download,
   Loader2, RefreshCw, ChevronDown, BarChart3, Target, Sparkles, AlertTriangle,
-  ArrowUpRight, ArrowDownRight, Minus, Info, HelpCircle, TrendingDown, Upload, ScanLine, Phone, Pencil
+  ArrowUpRight, ArrowDownRight, Minus, Info, HelpCircle, TrendingDown, Upload, ScanLine, Phone, Pencil,
+  Heart, Stethoscope, Microscope, Building
 } from "lucide-react";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, LineChart, Line } from "recharts";
 import { Link, useLocation, useRoute } from "wouter";
@@ -282,7 +283,7 @@ export default function CollectionsPage() {
   useEffect(() => {
     if (sprievodnyData) {
       const editableFields: Record<string, string> = {};
-      const allKeys = ["motherSurname", "motherFirstName", "motherBirthNumber", "motherAddress", "motherIdNumber", "phone1", "phone2", "email", "collectionType", "collectionDateText", "collectionTime", "childSurname", "childFirstName", "childGender", "childBirthNumber", "birthWeight", "birthLength", "gestationalAge", "apgar1", "apgar5", "apgar10", "bloodGroup", "rhFactor", "collectorName", "hospitalName", "deliveryType", "placentaWeight", "cordBloodVolume", "sampleId", "contractNumber", "notes", "motherSignature", "doctorSignature"];
+      const allKeys = ["motherSurname", "motherFirstName", "motherBirthNumber", "motherAddress", "motherIdNumber", "email", "phone1", "phone2", "donorSelection", "collectionType", "collectionDateText", "collectionTime", "contractNumber", "sampleId", "bagId", "numberOfBags", "cordBloodVolume", "cordClampTime", "placentaWeight", "childSurname", "childFirstName", "childGender", "childBirthNumber", "birthDate", "birthTime", "birthWeight", "birthLength", "gestationalAge", "apgar1", "apgar5", "apgar10", "bloodGroup", "rhFactor", "deliveryType", "deliveryComplications", "antibiotics", "infections", "previousPregnancies", "collectorName", "assistantName", "hospitalName", "hospitalDepartment", "maternalBloodSample", "labTests", "transportConditions", "motherSignature", "doctorSignature", "consentSigned", "notes"];
       allKeys.forEach(k => { editableFields[k] = (sprievodnyData as any)[k] || ""; });
       try {
         const rawOcr = JSON.parse(sprievodnyData.rawOcrText || "{}");
@@ -1477,25 +1478,28 @@ export default function CollectionsPage() {
                       { key: "phone2", label: "Telefón 2" },
                       { key: "email", label: "Email" },
                     ]},
-                    { title: "Odber", color: "default", icon: <Syringe className="h-4 w-4" />, fields: [
+                    { title: "Výber darcu", color: "default", icon: <Users className="h-4 w-4" />, fields: [
+                      { key: "donorSelection", label: "Výber darcu" },
+                    ]},
+                    { title: "Odber a identifikácia", color: "green", icon: <Syringe className="h-4 w-4" />, fields: [
                       { key: "collectionType", label: "Typ odberu" },
-                      { key: "collectionDateText", label: "Dátum" },
-                      { key: "collectionTime", label: "Čas" },
-                      { key: "sampleId", label: "Číslo vzorky" },
+                      { key: "collectionDateText", label: "Dátum odberu" },
+                      { key: "collectionTime", label: "Čas odberu" },
                       { key: "contractNumber", label: "Číslo zmluvy" },
-                      { key: "bloodGroup", label: "Krvná skupina" },
-                      { key: "rhFactor", label: "Rh faktor" },
-                      { key: "deliveryType", label: "Typ pôrodu" },
+                      { key: "sampleId", label: "Číslo vzorky" },
+                      { key: "bagId", label: "ID vaku" },
+                      { key: "numberOfBags", label: "Počet vakov" },
                       { key: "cordBloodVolume", label: "Objem pupočníkovej krvi (ml)" },
+                      { key: "cordClampTime", label: "Čas klemnutia pupočníka" },
                       { key: "placentaWeight", label: "Hmotnosť placenty (g)" },
-                      { key: "collectorName", label: "Odberový pracovník" },
-                      { key: "hospitalName", label: "Pôrodnica" },
                     ]},
                     { title: "Novorodenec", color: "default", icon: <Baby className="h-4 w-4" />, fields: [
                       { key: "childSurname", label: "Priezvisko" },
                       { key: "childFirstName", label: "Meno" },
                       { key: "childGender", label: "Pohlavie" },
                       { key: "childBirthNumber", label: "Rodné číslo dieťaťa" },
+                      { key: "birthDate", label: "Dátum narodenia" },
+                      { key: "birthTime", label: "Čas narodenia" },
                       { key: "birthWeight", label: "Hmotnosť (g)" },
                       { key: "birthLength", label: "Dĺžka (cm)" },
                       { key: "gestationalAge", label: "Gestačný vek (týždne)" },
@@ -1503,9 +1507,32 @@ export default function CollectionsPage() {
                       { key: "apgar5", label: "APGAR 5 min" },
                       { key: "apgar10", label: "APGAR 10 min" },
                     ]},
-                    { title: "Overenie", color: "default", icon: <FileText className="h-4 w-4" />, fields: [
+                    { title: "Pôrod a krv", color: "default", icon: <Heart className="h-4 w-4" />, fields: [
+                      { key: "bloodGroup", label: "Krvná skupina" },
+                      { key: "rhFactor", label: "Rh faktor" },
+                      { key: "deliveryType", label: "Typ pôrodu" },
+                      { key: "deliveryComplications", label: "Komplikácie pôrodu" },
+                    ]},
+                    { title: "Zdravotná anamnéza", color: "default", icon: <Stethoscope className="h-4 w-4" />, fields: [
+                      { key: "antibiotics", label: "Antibiotiká" },
+                      { key: "infections", label: "Infekcie" },
+                      { key: "previousPregnancies", label: "Predchádzajúce tehotenstvá" },
+                    ]},
+                    { title: "Personál a nemocnica", color: "default", icon: <Building className="h-4 w-4" />, fields: [
+                      { key: "collectorName", label: "Odberový pracovník" },
+                      { key: "assistantName", label: "Asistujúci pracovník" },
+                      { key: "hospitalName", label: "Nemocnica / Pôrodnica" },
+                      { key: "hospitalDepartment", label: "Oddelenie" },
+                    ]},
+                    { title: "Laboratórium a transport", color: "default", icon: <Microscope className="h-4 w-4" />, fields: [
+                      { key: "maternalBloodSample", label: "Odber krvi matky" },
+                      { key: "labTests", label: "Laboratórne vyšetrenia" },
+                      { key: "transportConditions", label: "Podmienky transportu" },
+                    ]},
+                    { title: "Overenie a podpisy", color: "default", icon: <FileText className="h-4 w-4" />, fields: [
                       { key: "motherSignature", label: "Podpis rodičky" },
                       { key: "doctorSignature", label: "Podpis lekára/pracovníka" },
+                      { key: "consentSigned", label: "Súhlas podpísaný" },
                       { key: "notes", label: "Poznámky" },
                     ]},
                   ];
@@ -1596,12 +1623,12 @@ export default function CollectionsPage() {
                           {fieldSections.map(section => {
                             const visibleFields = section.fields.filter(f => {
                               const val = allValues[f.key] ?? (sprievodnyData as any)[f.key];
-                              return val && val !== "null" && val !== "no" && val !== "";
+                              return val && val !== "null" && val !== "";
                             });
                             if (visibleFields.length === 0 && !sprievodnyEditMode) return null;
                             const displayFields = sprievodnyEditMode ? section.fields : visibleFields;
                             return (
-                              <Card key={section.title} className={section.color === "blue" ? "border-blue-200 dark:border-blue-800" : section.color === "red" ? "border-red-200 dark:border-red-800" : ""}>
+                              <Card key={section.title} className={section.color === "blue" ? "border-blue-200 dark:border-blue-800" : section.color === "red" ? "border-red-200 dark:border-red-800" : section.color === "green" ? "border-green-200 dark:border-green-800" : ""}>
                                 <CardHeader className="py-2 px-3">
                                   <CardTitle className="text-xs flex items-center gap-1.5">{section.icon} {section.title}</CardTitle>
                                 </CardHeader>
