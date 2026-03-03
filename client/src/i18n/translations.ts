@@ -2990,6 +2990,7 @@ export interface Translations {
     templateTags: string;
     templateIsDefault: string;
     templateIsActive: string;
+    templateAttachments: string;
     templateUsageCount: string;
     noMessageTemplates: string;
     typeEmail: string;
@@ -7464,6 +7465,8 @@ export const translations: Record<Locale, Translations> = {
       templateTags: 'Tags',
       templateIsDefault: 'Default',
       templateIsActive: 'Active',
+      templateAttachments: 'Attachments',
+      preview: 'Preview',
       templateUsageCount: 'Usage Count',
       noMessageTemplates: 'No templates defined yet',
       typeEmail: 'Email',
@@ -11860,6 +11863,8 @@ export const translations: Record<Locale, Translations> = {
       templateTags: 'Tagy',
       templateIsDefault: 'Predvolená',
       templateIsActive: 'Aktívna',
+      templateAttachments: 'Prílohy',
+      preview: 'Náhľad',
       templateUsageCount: 'Počet použití',
       noMessageTemplates: 'Zatiaľ nie sú definované žiadne šablóny',
       typeEmail: 'Email',
@@ -16241,6 +16246,8 @@ export const translations: Record<Locale, Translations> = {
       templateTags: 'Tagy',
       templateIsDefault: 'Výchozí',
       templateIsActive: 'Aktivní',
+      templateAttachments: 'Přílohy',
+      preview: 'Náhled',
       templateUsageCount: 'Počet použití',
       noMessageTemplates: 'Zatím nejsou definovány žádné šablony',
       typeEmail: 'Email',
@@ -20585,6 +20592,8 @@ export const translations: Record<Locale, Translations> = {
       templateTags: 'Címkék',
       templateIsDefault: 'Alapértelmezett',
       templateIsActive: 'Aktív',
+      templateAttachments: 'Mellékletek',
+      preview: 'Előnézet',
       templateUsageCount: 'Használatok száma',
       noMessageTemplates: 'Még nincsenek sablonok definiálva',
       typeEmail: 'Email',
@@ -24928,6 +24937,8 @@ export const translations: Record<Locale, Translations> = {
       templateTags: 'Etichete',
       templateIsDefault: 'Implicit',
       templateIsActive: 'Activ',
+      templateAttachments: 'Atașamente',
+      preview: 'Previzualizare',
       templateUsageCount: 'Număr utilizări',
       noMessageTemplates: 'Nu există șabloane definite',
       typeEmail: 'Email',
@@ -29272,6 +29283,8 @@ export const translations: Record<Locale, Translations> = {
       templateTags: 'Tag',
       templateIsDefault: 'Predefinito',
       templateIsActive: 'Attivo',
+      templateAttachments: 'Allegati',
+      preview: 'Anteprima',
       templateUsageCount: 'Conteggio utilizzi',
       noMessageTemplates: 'Nessun modello definito',
       typeEmail: 'Email',
@@ -33616,6 +33629,8 @@ export const translations: Record<Locale, Translations> = {
       templateTags: 'Tags',
       templateIsDefault: 'Standard',
       templateIsActive: 'Aktiv',
+      templateAttachments: 'Anhänge',
+      preview: 'Vorschau',
       templateUsageCount: 'Nutzungsanzahl',
       noMessageTemplates: 'Noch keine Vorlagen definiert',
       typeEmail: 'E-Mail',

@@ -12290,6 +12290,83 @@ function MessageTemplatesTab() {
               )}
             </div>
 
+            {editingTemplate && (editingTemplate as any).attachments?.length > 0 && (
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1.5">
+                  <Paperclip className="h-3.5 w-3.5" />
+                  {t.konfigurator.templateAttachments || "Attachments"} ({(editingTemplate as any).attachments.length})
+                </Label>
+                <div className="border rounded-md divide-y">
+                  {(editingTemplate as any).attachments.map((att: any, idx: number) => {
+                    const fetchAttBlob = async () => {
+                      const res = await fetch(`/api/message-templates/${editingTemplate.id}/attachments`, { credentials: "include" });
+                      if (!res.ok) throw new Error("Failed to fetch");
+                      const data = await res.json();
+                      const match = data[idx];
+                      if (!match?.contentBase64) throw new Error("No content");
+                      const byteChars = atob(match.contentBase64);
+                      const byteArr = new Uint8Array(byteChars.length);
+                      for (let i = 0; i < byteChars.length; i++) byteArr[i] = byteChars.charCodeAt(i);
+                      return new Blob([byteArr], { type: att.mimeType || "application/octet-stream" });
+                    };
+                    return (
+                    <div key={idx} className="flex items-center gap-3 px-3 py-2 text-sm">
+                      <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <span className="truncate flex-1 min-w-0">{att.fileName}</span>
+                      <span className="text-xs text-muted-foreground shrink-0">
+                        {att.size < 1024 ? `${att.size} B` : att.size < 1048576 ? `${(att.size / 1024).toFixed(1)} KB` : `${(att.size / 1048576).toFixed(1)} MB`}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 shrink-0"
+                        onClick={async () => {
+                          try {
+                            const blob = await fetchAttBlob();
+                            const url = URL.createObjectURL(blob);
+                            if (att.mimeType === "application/pdf" || att.mimeType?.startsWith("image/")) {
+                              window.open(url, "_blank");
+                              setTimeout(() => URL.revokeObjectURL(url), 60000);
+                            } else {
+                              const a = document.createElement("a");
+                              a.href = url; a.download = att.fileName; a.click();
+                              URL.revokeObjectURL(url);
+                            }
+                          } catch {
+                            toast({ title: t.errors?.saveFailed || "Error", variant: "destructive" });
+                          }
+                        }}
+                        data-testid={`btn-preview-attachment-${idx}`}
+                      >
+                        <Eye className="h-3.5 w-3.5 mr-1" />
+                        {t.konfigurator.preview || "Preview"}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 shrink-0"
+                        onClick={async () => {
+                          try {
+                            const blob = await fetchAttBlob();
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement("a");
+                            a.href = url; a.download = att.fileName; a.click();
+                            URL.revokeObjectURL(url);
+                          } catch {
+                            toast({ title: t.errors?.saveFailed || "Error", variant: "destructive" });
+                          }
+                        }}
+                        data-testid={`btn-download-attachment-${idx}`}
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             <div className="flex items-center gap-6">
               <div className="flex items-center gap-2">
                 <Switch

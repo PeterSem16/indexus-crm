@@ -49,13 +49,11 @@ def clean_html(html_content):
         else:
             html_content = html_content.decode('utf-8', errors='replace')
 
-    html_content = re.sub(r'<style[^>]*>.*?</style>', '', html_content, flags=re.DOTALL | re.IGNORECASE)
-    html_content = re.sub(r'<xml[^>]*>.*?</xml>', '', html_content, flags=re.DOTALL | re.IGNORECASE)
     html_content = re.sub(r'<!--\[if.*?\]>.*?<!\[endif\]-->', '', html_content, flags=re.DOTALL)
     html_content = re.sub(r'<!--.*?-->', '', html_content, flags=re.DOTALL)
-    html_content = re.sub(r'\s*mso-[^;"]+;?', '', html_content)
-    html_content = re.sub(r'\s*class="Mso[^"]*"', '', html_content)
-    html_content = re.sub(r'<o:p>.*?</o:p>', '', html_content, flags=re.DOTALL)
+    html_content = re.sub(r'<xml[^>]*>.*?</xml>', '', html_content, flags=re.DOTALL | re.IGNORECASE)
+    html_content = re.sub(r'<o:p>\s*</o:p>', '', html_content, flags=re.DOTALL)
+    html_content = re.sub(r'<o:p>(.*?)</o:p>', r'\1', html_content, flags=re.DOTALL)
     html_content = re.sub(r'</?o:[^>]+>', '', html_content)
     html_content = re.sub(r'</?v:[^>]+>', '', html_content)
     html_content = re.sub(r'</?w:[^>]+>', '', html_content)
@@ -65,10 +63,26 @@ def clean_html(html_content):
     if body_match:
         html_content = body_match.group(1)
 
-    html_content = re.sub(r'\n\s*\n', '\n', html_content)
+    html_content = re.sub(r'\s*class="Mso[^"]*"', '', html_content)
+    html_content = re.sub(r'\s*mso-[^;"\']+;?', '', html_content)
+
+    html_content = re.sub(r'<style[^>]*>.*?</style>', '', html_content, flags=re.DOTALL | re.IGNORECASE)
+
+    html_content = re.sub(r'\n\s*\n\s*\n', '\n\n', html_content)
     html_content = html_content.strip()
 
     return html_content
+
+
+def extract_number_prefix(filename):
+    basename = os.path.splitext(os.path.basename(filename))[0]
+    m = re.match(r'^template[_\s]*(\d+)[_\s]*[-_]\s*(.*)', basename, re.IGNORECASE)
+    if m:
+        return m.group(1), m.group(2).strip(' -_')
+    m = re.match(r'^(\d+)[_\s.\-]+(.+)', basename)
+    if m:
+        return m.group(1), m.group(2).strip(' -_')
+    return None, basename
 
 
 def process_zip(zip_path):
@@ -89,7 +103,7 @@ def process_zip(zip_path):
             try:
                 msg = extract_msg.Message(tmp_path)
 
-                subject = msg.subject or os.path.splitext(os.path.basename(name))[0]
+                subject = msg.subject or ""
 
                 html_body = ""
                 plain_body = msg.body or ""
@@ -97,6 +111,17 @@ def process_zip(zip_path):
                 if msg.htmlBody:
                     raw_html = msg.htmlBody
                     html_body = clean_html(raw_html)
+
+                if not html_body and plain_body:
+                    lines = plain_body.split('\n')
+                    html_parts = []
+                    for line in lines:
+                        escaped = line.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+                        if escaped.strip():
+                            html_parts.append(f'<p>{escaped}</p>')
+                        else:
+                            html_parts.append('<p>&nbsp;</p>')
+                    html_body = '\n'.join(html_parts)
 
                 detected_vars = detect_variables(plain_body or html_body)
 
@@ -140,15 +165,24 @@ def process_zip(zip_path):
                     except Exception as att_err:
                         pass
 
-                template_name = subject
-                template_name = re.sub(r'^template_\d+_', '', template_name, flags=re.IGNORECASE)
-                template_name = template_name.strip(' -_')
-                if not template_name:
+                num_prefix, name_part = extract_number_prefix(name)
+                if subject:
+                    if num_prefix:
+                        template_name = f"{num_prefix} - {subject}"
+                    else:
+                        template_name = subject
+                else:
+                    if num_prefix:
+                        template_name = f"{num_prefix} - {name_part}"
+                    else:
+                        template_name = name_part
+
+                if not template_name.strip():
                     template_name = os.path.splitext(os.path.basename(name))[0]
 
                 results.append({
                     "fileName": name,
-                    "subject": subject,
+                    "subject": subject or template_name,
                     "name": template_name,
                     "htmlBody": html_body,
                     "plainBody": plain_body,
