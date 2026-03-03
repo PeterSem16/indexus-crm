@@ -297,30 +297,64 @@ export default function CollectionsPage() {
   }, [sprievodnyData]);
 
   const [sprievodnyUploading, setSprievodnyUploading] = useState(false);
+  const [sprievodnyUploadStep, setSprievodnyUploadStep] = useState(0);
+  const [sprievodnyUploadProgress, setSprievodnyUploadProgress] = useState(0);
   const sprievodnyFileRef = useRef<HTMLInputElement>(null);
+  const sprievodnyProgressRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const UPLOAD_STEPS = [
+    { label: "Nahrávanie PDF...", icon: "📄" },
+    { label: "Konverzia na obrázok...", icon: "🖼️" },
+    { label: "AI analýza dokumentu...", icon: "🤖" },
+    { label: "Čítanie čiarových kódov...", icon: "📊" },
+    { label: "Extrahovanie údajov...", icon: "📋" },
+  ];
 
   const handleSprievodnyUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !collectionId) return;
     setSprievodnyUploading(true);
+    setSprievodnyUploadStep(0);
+    setSprievodnyUploadProgress(0);
+
+    let step = 0;
+    sprievodnyProgressRef.current = setInterval(() => {
+      setSprievodnyUploadProgress(prev => {
+        const stepTargets = [15, 30, 85, 92, 98];
+        const target = stepTargets[step] || 98;
+        if (prev >= target - 2 && step < 4) {
+          step++;
+          setSprievodnyUploadStep(step);
+        }
+        return Math.min(prev + (target - prev) * 0.08 + 0.3, target);
+      });
+    }, 200);
+
     try {
-      const formData = new FormData();
-      formData.append("file", file);
+      const fd = new FormData();
+      fd.append("file", file);
       const res = await fetch(`/api/collections/${collectionId}/sprievodny-list/upload`, {
         method: "POST",
-        body: formData,
+        body: fd,
         credentials: "include",
       });
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
         throw new Error(errData.error || "Upload failed");
       }
+      setSprievodnyUploadProgress(100);
+      setSprievodnyUploadStep(4);
       queryClient.invalidateQueries({ queryKey: ["/api/collections", collectionId, "sprievodny-list"] });
-      toast({ title: "Sprievodný list analyzovaný" });
+      toast({ title: "Sprievodný list úspešne analyzovaný" });
     } catch (err: any) {
       toast({ title: err?.message || "Chyba pri analýze PDF", variant: "destructive" });
     } finally {
-      setSprievodnyUploading(false);
+      if (sprievodnyProgressRef.current) clearInterval(sprievodnyProgressRef.current);
+      setTimeout(() => {
+        setSprievodnyUploading(false);
+        setSprievodnyUploadStep(0);
+        setSprievodnyUploadProgress(0);
+      }, 600);
       e.target.value = "";
     }
   };
@@ -1418,13 +1452,57 @@ export default function CollectionsPage() {
                   </div>
                 ) : !sprievodnyData ? (
                   <div className="flex flex-col items-center justify-center py-16 text-center space-y-4">
-                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted">
-                      <ScanLine className="h-8 w-8 text-muted-foreground" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-semibold" data-testid="text-sprievodny-empty">Sprievodný list</h3>
-                      <p className="text-sm text-muted-foreground mt-1">Nahrajte PDF súbor sprievodného listu pre OCR analýzu</p>
-                    </div>
+                    {sprievodnyUploading ? (
+                      <div className="w-full max-w-lg space-y-6 px-4" data-testid="sprievodny-upload-progress">
+                        <div className="flex h-20 w-20 mx-auto items-center justify-center rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20">
+                          <span className="text-4xl animate-bounce">{UPLOAD_STEPS[sprievodnyUploadStep]?.icon}</span>
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-semibold">Analýza sprievodného listu</h3>
+                          <p className="text-sm text-muted-foreground mt-1">{UPLOAD_STEPS[sprievodnyUploadStep]?.label}</p>
+                        </div>
+                        <div className="space-y-3">
+                          <div className="relative h-3 w-full rounded-full bg-muted overflow-hidden">
+                            <div
+                              className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-primary via-primary to-primary/80 transition-all duration-300 ease-out"
+                              style={{ width: `${sprievodnyUploadProgress}%` }}
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-pulse" />
+                          </div>
+                          <div className="flex justify-between text-xs text-muted-foreground">
+                            <span>Krok {sprievodnyUploadStep + 1} z {UPLOAD_STEPS.length}</span>
+                            <span>{Math.round(sprievodnyUploadProgress)}%</span>
+                          </div>
+                        </div>
+                        <div className="flex flex-col gap-1.5 mt-2">
+                          {UPLOAD_STEPS.map((s, i) => (
+                            <div key={i} className={`flex items-center gap-2 text-xs transition-all duration-300 ${i < sprievodnyUploadStep ? "text-green-600 dark:text-green-400" : i === sprievodnyUploadStep ? "text-primary font-medium" : "text-muted-foreground/50"}`}>
+                              {i < sprievodnyUploadStep ? (
+                                <Check className="h-3.5 w-3.5" />
+                              ) : i === sprievodnyUploadStep ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <div className="h-3.5 w-3.5 rounded-full border border-current" />
+                              )}
+                              <span>{s.icon} {s.label.replace("...", "")}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted">
+                          <ScanLine className="h-8 w-8 text-muted-foreground" />
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-semibold" data-testid="text-sprievodny-empty">Sprievodný list</h3>
+                          <p className="text-sm text-muted-foreground mt-1">Nahrajte PDF súbor sprievodného listu pre OCR analýzu</p>
+                        </div>
+                        <Button onClick={() => sprievodnyFileRef.current?.click()} data-testid="button-upload-sprievodny">
+                          <Upload className="h-4 w-4 mr-2" />Nahrať PDF
+                        </Button>
+                      </>
+                    )}
                     <input
                       ref={sprievodnyFileRef}
                       type="file"
@@ -1434,13 +1512,6 @@ export default function CollectionsPage() {
                       disabled={sprievodnyUploading}
                       data-testid="input-sprievodny-upload"
                     />
-                    <Button onClick={() => sprievodnyFileRef.current?.click()} disabled={sprievodnyUploading} data-testid="button-upload-sprievodny">
-                      {sprievodnyUploading ? (
-                        <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Analyzujem dokument (môže trvať 15-30s)...</>
-                      ) : (
-                        <><Upload className="h-4 w-4 mr-2" />Nahrať PDF</>
-                      )}
-                    </Button>
                   </div>
                 ) : (() => {
                   const fieldConf: Record<string, string> = (() => { try { return JSON.parse(sprievodnyData.fieldConfidences || "{}"); } catch { return {}; } })();
@@ -1541,6 +1612,16 @@ export default function CollectionsPage() {
                     ]},
                   ];
 
+                  const normalize = (s: string) => (s || "").trim().toLowerCase().replace(/\s+/g, " ");
+                  const ocrFirstName = normalize(allValues.motherFirstName || (sprievodnyData as any).motherFirstName || "");
+                  const ocrSurname = normalize(allValues.motherSurname || (sprievodnyData as any).motherSurname || "");
+                  const collFirstName = normalize(formData.clientFirstName || "");
+                  const collLastName = normalize(formData.clientLastName || "");
+                  const hasOcrName = ocrFirstName || ocrSurname;
+                  const hasCollName = collFirstName || collLastName;
+                  const nameMatch = hasOcrName && hasCollName && ocrFirstName === collFirstName && ocrSurname === collLastName;
+                  const nameMismatch = hasOcrName && hasCollName && !nameMatch;
+
                   return (
                     <div data-testid="sprievodny-list-data">
                       <input
@@ -1551,6 +1632,76 @@ export default function CollectionsPage() {
                         className="hidden"
                         disabled={sprievodnyUploading}
                       />
+
+                      {sprievodnyUploading && (
+                        <div className="mb-4 rounded-xl border-2 border-primary/30 bg-gradient-to-r from-primary/5 via-primary/10 to-primary/5 p-5" data-testid="sprievodny-reupload-progress">
+                          <div className="flex items-center gap-4 mb-3">
+                            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/15 border border-primary/20">
+                              <span className="text-2xl animate-bounce">{UPLOAD_STEPS[sprievodnyUploadStep]?.icon}</span>
+                            </div>
+                            <div className="flex-1">
+                              <h4 className="font-semibold text-sm">Opätovná analýza dokumentu</h4>
+                              <p className="text-xs text-muted-foreground">{UPLOAD_STEPS[sprievodnyUploadStep]?.label}</p>
+                            </div>
+                            <span className="text-lg font-bold text-primary">{Math.round(sprievodnyUploadProgress)}%</span>
+                          </div>
+                          <div className="relative h-2.5 w-full rounded-full bg-muted overflow-hidden">
+                            <div className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-primary via-primary to-primary/80 transition-all duration-300 ease-out" style={{ width: `${sprievodnyUploadProgress}%` }} />
+                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-pulse" />
+                          </div>
+                          <div className="flex gap-3 mt-3">
+                            {UPLOAD_STEPS.map((s, i) => (
+                              <div key={i} className={`flex items-center gap-1 text-[10px] ${i < sprievodnyUploadStep ? "text-green-600 dark:text-green-400" : i === sprievodnyUploadStep ? "text-primary font-semibold" : "text-muted-foreground/40"}`}>
+                                {i < sprievodnyUploadStep ? <Check className="h-3 w-3" /> : i === sprievodnyUploadStep ? <Loader2 className="h-3 w-3 animate-spin" /> : <div className="h-3 w-3 rounded-full border border-current" />}
+                                {s.label.replace("...", "")}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {nameMismatch && (
+                        <div className="mb-4 rounded-xl border-2 border-red-500 bg-gradient-to-r from-red-500/15 via-red-500/10 to-red-500/5 dark:from-red-900/40 dark:via-red-900/20 dark:to-red-900/10 p-4 shadow-lg shadow-red-500/10" data-testid="sprievodny-name-mismatch">
+                          <div className="flex items-start gap-3">
+                            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-red-500/20 border-2 border-red-500/40">
+                              <AlertTriangle className="h-6 w-6 text-red-600 dark:text-red-400" />
+                            </div>
+                            <div className="flex-1">
+                              <h4 className="font-bold text-red-700 dark:text-red-300 text-base">NESÚLAD ÚDAJOV — Sprievodný list sa nezhoduje!</h4>
+                              <p className="text-sm text-red-600/90 dark:text-red-400/90 mt-1">
+                                Meno a priezvisko v sprievodnom liste sa nezhodujú s údajmi klienta v odberovom zázname.
+                              </p>
+                              <div className="mt-3 grid grid-cols-2 gap-3">
+                                <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-3">
+                                  <p className="text-[10px] font-semibold uppercase tracking-wider text-red-500/70 mb-1">Odberový záznam</p>
+                                  <p className="font-semibold text-sm">{formData.clientFirstName} {formData.clientLastName}</p>
+                                </div>
+                                <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-3">
+                                  <p className="text-[10px] font-semibold uppercase tracking-wider text-red-500/70 mb-1">Sprievodný list (OCR)</p>
+                                  <p className="font-semibold text-sm">{allValues.motherFirstName || (sprievodnyData as any).motherFirstName} {allValues.motherSurname || (sprievodnyData as any).motherSurname}</p>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {nameMatch && (
+                        <div className="mb-4 rounded-xl border-2 border-green-500 bg-gradient-to-r from-green-500/10 via-green-500/5 to-green-500/10 dark:from-green-900/30 dark:via-green-900/15 dark:to-green-900/10 p-3.5 shadow-sm" data-testid="sprievodny-name-match">
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-500/20 border-2 border-green-500/40">
+                              <Check className="h-5 w-5 text-green-600 dark:text-green-400" />
+                            </div>
+                            <div>
+                              <h4 className="font-bold text-green-700 dark:text-green-300 text-sm">ÚDAJE ZHODNÉ — Sprievodný list je v súlade s odberovým záznamom</h4>
+                              <p className="text-xs text-green-600/80 dark:text-green-400/70 mt-0.5">
+                                {formData.clientFirstName} {formData.clientLastName} — meno a priezvisko sú zhodné
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-2">
                           <Badge variant={sprievodnyData.ocrConfidence === "high" ? "default" : sprievodnyData.ocrConfidence === "medium" ? "secondary" : "destructive"} data-testid="badge-ocr-confidence">
