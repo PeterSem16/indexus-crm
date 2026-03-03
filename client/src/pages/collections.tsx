@@ -310,11 +310,14 @@ export default function CollectionsPage() {
         body: formData,
         credentials: "include",
       });
-      if (!res.ok) throw new Error("Upload failed");
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || "Upload failed");
+      }
       queryClient.invalidateQueries({ queryKey: ["/api/collections", collectionId, "sprievodny-list"] });
       toast({ title: "Sprievodný list analyzovaný" });
-    } catch (err) {
-      toast({ title: "Chyba pri analýze PDF", variant: "destructive" });
+    } catch (err: any) {
+      toast({ title: err?.message || "Chyba pri analýze PDF", variant: "destructive" });
     } finally {
       setSprievodnyUploading(false);
       e.target.value = "";

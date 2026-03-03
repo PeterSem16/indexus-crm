@@ -27455,10 +27455,16 @@ Guidelines:
       fs.writeFileSync(tmpPdf, req.file.buffer);
       
       try {
+        try { execSync("which pdftoppm", { stdio: "pipe" }); } catch {
+          try { fs.unlinkSync(tmpPdf); } catch {}
+          console.error("[Sprievodny] pdftoppm not found. Requires poppler-utils.");
+          return res.status(500).json({ error: "pdftoppm chyba - na Ubuntu treba: sudo apt-get poppler-utils" });
+        }
         execSync(`pdftoppm -png -r 300 -singlefile "${tmpPdf}" "${tmpImg}"`, { timeout: 30000 });
-      } catch (e) {
+      } catch (e: any) {
         try { fs.unlinkSync(tmpPdf); } catch {}
-        return res.status(500).json({ error: "Failed to convert PDF to image" });
+        console.error("[Sprievodny] pdftoppm conversion failed:", e?.message || e);
+        return res.status(500).json({ error: "Konverzia PDF zlyhala. Overte ze mate nainstalovane poppler-utils" });
       }
       
       const imgPath = `${tmpImg}.png`;
