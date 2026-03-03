@@ -27584,8 +27584,14 @@ Return ONLY the JSON object, nothing else.`
         return res.status(404).json({ error: "Sprievodny list not found" });
       }
       
+      const allowedFields = ["motherSurname", "motherFirstName", "motherBirthNumber", "phone1", "phone2", "collectionType", "collectionDateText", "collectionTime", "childSurname", "childFirstName", "childGender", "birthWeight", "birthLength", "gestationalAge", "apgar1", "apgar5", "apgar10", "bloodGroup", "collectorName", "hospitalName"];
+      const sanitized: Record<string, any> = {};
+      for (const key of allowedFields) {
+        if (key in req.body) sanitized[key] = req.body[key];
+      }
+      
       const updated = await db.update(collectionSprievodnyList)
-        .set({ ...req.body, updatedAt: new Date() })
+        .set({ ...sanitized, updatedAt: new Date() })
         .where(eq(collectionSprievodnyList.id, existing[0].id))
         .returning();
       
