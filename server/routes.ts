@@ -31,7 +31,7 @@ import {
   campaignDispositions, insertCampaignDispositionSchema,
   DEFAULT_PHONE_DISPOSITIONS, DEFAULT_EMAIL_DISPOSITIONS, DEFAULT_SMS_DISPOSITIONS, DISPOSITION_NAME_TRANSLATIONS,
   callLogs, campaignContacts, campaignContactHistory, campaignContactSessions, campaigns, customers, users, entityCampaignTimeline,
-  collections, executiveSummaries, collectionLabResults,
+  collections, executiveSummaries, collectionLabResults, collectionSprievodnyList,
   insertSopCategorySchema, insertSopArticleSchema,
   agentSessions, agentSessionActivities, agentBreaks, scheduledReports, agentQueueStatus,
   inboundCallLogs, inboundQueues,
@@ -27400,6 +27400,211 @@ Guidelines:
     } catch (error) {
       console.error("Error saving lab results:", error);
       res.status(500).json({ error: "Failed to save lab results" });
+    }
+  });
+
+  // ============================================================
+  // Sprievodný list (Accompanying Document) Routes
+  // ============================================================
+
+  const uploadSprievodnyPdf = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 }, fileFilter: (_req, file, cb) => { cb(null, file.mimetype === 'application/pdf'); } });
+
+  // Get sprievodny list for a collection
+  app.get("/api/collections/:id/sprievodny-list", requireAuth, async (req, res) => {
+    try {
+      const results = await db.select().from(collectionSprievodnyList)
+        .where(eq(collectionSprievodnyList.collectionId, req.params.id));
+      res.json(results[0] || null);
+    } catch (error) {
+      console.error("Error fetching sprievodny list:", error);
+      res.status(500).json({ error: "Failed to fetch sprievodny list" });
+    }
+  });
+
+  // Upload and OCR sprievodny list PDF
+  app.post("/api/collections/:id/sprievodny-list/upload", requireAuth, uploadSprievodnyPdf.single("file"), async (req, res) => {
+    try {
+      if (!req.file) return res.status(400).json({ error: "No PDF file uploaded" });
+      
+      const fs = await import("fs");
+      const { execSync } = await import("child_process");
+      const tmpPdf = `/tmp/sprievodny-${Date.now()}.pdf`;
+      const tmpImg = `/tmp/sprievodny-${Date.now()}`;
+      
+      fs.writeFileSync(tmpPdf, req.file.buffer);
+      
+      // Convert PDF to image
+      try {
+        execSync(`pdftoppm -png -r 300 -singlefile "${tmpPdf}" "${tmpImg}"`, { timeout: 30000 });
+      } catch (e) {
+        try { fs.unlinkSync(tmpPdf); } catch {}
+        return res.status(500).json({ error: "Failed to convert PDF to image" });
+      }
+      
+      const imgPath = `${tmpImg}.png`;
+      if (!fs.existsSync(imgPath)) {
+        try { fs.unlinkSync(tmpPdf); } catch {}
+        return res.status(500).json({ error: "Image conversion failed" });
+      }
+      
+      // Read image as base64
+      const imageBuffer = fs.readFileSync(imgPath);
+      const base64Image = imageBuffer.toString("base64");
+      
+      // Clean up temp files
+      try { fs.unlinkSync(tmpPdf); } catch {}
+      try { fs.unlinkSync(imgPath); } catch {}
+      
+      if (!process.env.OPENAI_API_KEY) {
+        return res.status(500).json({ error: "OpenAI API key not configured" });
+      }
+      
+      // Use GPT-4o Vision to extract data from the form
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o",
+        max_tokens: 2000,
+        messages: [
+          {
+            role: "system",
+            content: `You are an OCR specialist analyzing a Slovak cord blood collection accompanying document (Sprievodný list). Extract ONLY the following fields from the form. Focus especially on the blue-bordered section (mother's personal data) and the red/orange-bordered section (phone contacts). Return a valid JSON object with these exact keys. For handwritten text, do your best to read it accurately. If a field is empty or unreadable, use null.`
+          },
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: `Analyze this scanned form and extract all data into JSON format with these keys:
+{
+  "motherSurname": "Priezvisko rodičky (from blue-bordered section)",
+  "motherFirstName": "Meno rodičky (from blue-bordered section)", 
+  "motherBirthNumber": "Rodné číslo (from blue-bordered section)",
+  "phone1": "Telefón 1 (from red/orange-bordered section)",
+  "phone2": "Telefón 2 (from red/orange-bordered section)",
+  "collectionType": "STANDARD/PREMIUM/TKANIVO PUPOČNÍKA/TKANIVO PLACENTY (which checkbox is marked)",
+  "collectionDateText": "Dátum DD/MM/RRRR",
+  "collectionTime": "Čas",
+  "childSurname": "Priezvisko novorodenca",
+  "childFirstName": "Meno novorodenca",
+  "childGender": "mužské/ženské (which is marked)",
+  "birthWeight": "Pôrodná hmotnosť in grams",
+  "birthLength": "Pôrodná dĺžka in cm",
+  "gestationalAge": "Gestačný vek in weeks",
+  "apgar1": "APGAR 1 min",
+  "apgar5": "APGAR 5 min", 
+  "apgar10": "APGAR 10 min",
+  "bloodGroup": "Krvná skupina rodičky",
+  "collectorName": "Výber darcu a odber vykonal pracovník - full name",
+  "hospitalName": "Pôrodnica - Názov a adresa",
+  "ocrConfidence": "high/medium/low - your confidence in the OCR accuracy"
+}
+Return ONLY the JSON object, nothing else.`
+              },
+              {
+                type: "image_url",
+                image_url: {
+                  url: `data:image/png;base64,${base64Image}`,
+                  detail: "high"
+                }
+              }
+            ]
+          }
+        ]
+      });
+      
+      const aiContent = response.choices[0]?.message?.content || "{}";
+      let extractedData: any = {};
+      try {
+        const cleaned = aiContent.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+        extractedData = JSON.parse(cleaned);
+      } catch (e) {
+        console.error("Failed to parse AI OCR response:", aiContent);
+        return res.status(500).json({ error: "Failed to parse OCR results" });
+      }
+      
+      // Check if record already exists
+      const existing = await db.select().from(collectionSprievodnyList)
+        .where(eq(collectionSprievodnyList.collectionId, req.params.id));
+      
+      const record = {
+        collectionId: req.params.id,
+        motherSurname: extractedData.motherSurname || null,
+        motherFirstName: extractedData.motherFirstName || null,
+        motherBirthNumber: extractedData.motherBirthNumber || null,
+        phone1: extractedData.phone1 || null,
+        phone2: extractedData.phone2 || null,
+        collectionType: extractedData.collectionType || null,
+        collectionDateText: extractedData.collectionDateText || null,
+        collectionTime: extractedData.collectionTime || null,
+        childSurname: extractedData.childSurname || null,
+        childFirstName: extractedData.childFirstName || null,
+        childGender: extractedData.childGender || null,
+        birthWeight: extractedData.birthWeight || null,
+        birthLength: extractedData.birthLength || null,
+        gestationalAge: extractedData.gestationalAge || null,
+        apgar1: extractedData.apgar1 || null,
+        apgar5: extractedData.apgar5 || null,
+        apgar10: extractedData.apgar10 || null,
+        bloodGroup: extractedData.bloodGroup || null,
+        collectorName: extractedData.collectorName || null,
+        hospitalName: extractedData.hospitalName || null,
+        rawOcrText: aiContent,
+        pdfFilename: req.file.originalname,
+        ocrConfidence: extractedData.ocrConfidence || "medium",
+        updatedAt: new Date(),
+      };
+      
+      let result;
+      if (existing.length > 0) {
+        const updated = await db.update(collectionSprievodnyList)
+          .set(record)
+          .where(eq(collectionSprievodnyList.id, existing[0].id))
+          .returning();
+        result = updated[0];
+      } else {
+        const inserted = await db.insert(collectionSprievodnyList)
+          .values(record)
+          .returning();
+        result = inserted[0];
+      }
+      
+      res.json(result);
+    } catch (error) {
+      console.error("Error processing sprievodny list:", error);
+      res.status(500).json({ error: "Failed to process sprievodny list" });
+    }
+  });
+
+  // Update sprievodny list data manually
+  app.patch("/api/collections/:id/sprievodny-list", requireAuth, async (req, res) => {
+    try {
+      const existing = await db.select().from(collectionSprievodnyList)
+        .where(eq(collectionSprievodnyList.collectionId, req.params.id));
+      
+      if (existing.length === 0) {
+        return res.status(404).json({ error: "Sprievodny list not found" });
+      }
+      
+      const updated = await db.update(collectionSprievodnyList)
+        .set({ ...req.body, updatedAt: new Date() })
+        .where(eq(collectionSprievodnyList.id, existing[0].id))
+        .returning();
+      
+      res.json(updated[0]);
+    } catch (error) {
+      console.error("Error updating sprievodny list:", error);
+      res.status(500).json({ error: "Failed to update sprievodny list" });
+    }
+  });
+
+  // Delete sprievodny list
+  app.delete("/api/collections/:id/sprievodny-list", requireAuth, async (req, res) => {
+    try {
+      await db.delete(collectionSprievodnyList)
+        .where(eq(collectionSprievodnyList.collectionId, req.params.id));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting sprievodny list:", error);
+      res.status(500).json({ error: "Failed to delete sprievodny list" });
     }
   });
 

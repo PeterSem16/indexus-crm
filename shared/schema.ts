@@ -4795,6 +4795,42 @@ export const insertCollectionSchema = createInsertSchema(collections).omit({
 export type InsertCollection = z.infer<typeof insertCollectionSchema>;
 export type Collection = typeof collections.$inferSelect;
 
+export const collectionSprievodnyList = pgTable("collection_sprievodny_list", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  collectionId: varchar("collection_id").notNull(),
+  motherSurname: text("mother_surname"),
+  motherFirstName: text("mother_first_name"),
+  motherBirthNumber: text("mother_birth_number"),
+  phone1: text("phone1"),
+  phone2: text("phone2"),
+  collectionType: text("collection_type"),
+  collectionDateText: text("collection_date_text"),
+  collectionTime: text("collection_time"),
+  childSurname: text("child_surname"),
+  childFirstName: text("child_first_name"),
+  childGender: text("child_gender"),
+  birthWeight: text("birth_weight"),
+  birthLength: text("birth_length"),
+  gestationalAge: text("gestational_age"),
+  apgar1: text("apgar1"),
+  apgar5: text("apgar5"),
+  apgar10: text("apgar10"),
+  bloodGroup: text("blood_group"),
+  collectorName: text("collector_name"),
+  hospitalName: text("hospital_name"),
+  rawOcrText: text("raw_ocr_text"),
+  pdfFilename: text("pdf_filename"),
+  ocrConfidence: text("ocr_confidence"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const insertCollectionSprievodnyListSchema = createInsertSchema(collectionSprievodnyList).omit({
+  id: true, createdAt: true, updatedAt: true,
+});
+export type InsertCollectionSprievodnyList = z.infer<typeof insertCollectionSprievodnyListSchema>;
+export type CollectionSprievodnyList = typeof collectionSprievodnyList.$inferSelect;
+
 // Collection Lab Results - detailed laboratory results
 export const collectionLabResults = pgTable("collection_lab_results", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

@@ -31,47 +31,28 @@ import {
 import TipTapEditor from "@/components/sop/TipTapEditor";
 import type { SopCategory, SopArticle, Campaign } from "@shared/schema";
 
-const ICON_GROUPS: { label: string; icons: { name: string; icon: LucideIcon }[] }[] = [
-  { label: "Office", icons: [
-    { name: "clipboard", icon: Clipboard }, { name: "folder-closed", icon: FolderClosed },
-    { name: "folder-open", icon: FolderOpen }, { name: "file-text", icon: FileText },
-    { name: "file-check", icon: FileCheck }, { name: "bookmark", icon: Bookmark },
-    { name: "book-open", icon: BookOpen }, { name: "tags", icon: Tags },
-    { name: "package", icon: Package },
-  ]},
-  { label: "Medical", icons: [
-    { name: "heart", icon: Heart }, { name: "syringe", icon: Syringe },
-    { name: "baby", icon: Baby }, { name: "brain", icon: Brain },
-    { name: "microscope", icon: Microscope }, { name: "stethoscope", icon: Stethoscope },
-    { name: "pill", icon: Pill }, { name: "thermometer", icon: Thermometer },
-  ]},
-  { label: "Communication", icons: [
-    { name: "phone", icon: Phone }, { name: "mail", icon: Mail },
-    { name: "message-square", icon: MessageSquare }, { name: "headphones", icon: Headphones },
-    { name: "users", icon: Users },
-  ]},
-  { label: "Process", icons: [
-    { name: "settings", icon: Settings }, { name: "target", icon: Target },
-    { name: "bar-chart", icon: BarChart3 }, { name: "circle-check", icon: CircleCheck },
-    { name: "circle-x", icon: CircleX }, { name: "alert-circle", icon: AlertCircle },
-    { name: "refresh-cw", icon: RefreshCw }, { name: "arrow-left-right", icon: ArrowLeftRight },
-    { name: "zap", icon: Zap }, { name: "clock", icon: Clock },
-  ]},
-  { label: "Other", icons: [
-    { name: "globe", icon: Globe }, { name: "star", icon: Star },
-    { name: "lightbulb", icon: Lightbulb }, { name: "lock", icon: Lock },
-    { name: "key", icon: Key }, { name: "shield", icon: Shield },
-    { name: "bell", icon: Bell }, { name: "calendar", icon: Calendar },
-    { name: "award", icon: Award }, { name: "sparkles", icon: Sparkles },
-    { name: "graduation-cap", icon: GraduationCap },
-  ]},
+const EMOJI_GROUPS: { label: string; emojis: string[] }[] = [
+  { label: "Office", emojis: ["📋", "📁", "📂", "📄", "📑", "📌", "📎", "📝", "🗂️", "📒", "📓", "📔", "📕", "📖"] },
+  { label: "Medical", emojis: ["🏥", "💉", "🩸", "🧬", "🔬", "💊", "🩺", "🫀", "🧪", "👶", "🧠", "🌡️", "❤️", "🫁"] },
+  { label: "Communication", emojis: ["📞", "📧", "💬", "📱", "🎧", "👥", "📨", "✉️", "💌", "🔔", "📢", "🗣️"] },
+  { label: "Process", emojis: ["⚙️", "🔧", "🔄", "✅", "❌", "⚠️", "🎯", "📊", "📈", "⚡", "🕐", "🔁", "🛠️", "📉"] },
+  { label: "People", emojis: ["👤", "👥", "🤝", "👩‍⚕️", "👨‍⚕️", "👩‍💼", "👨‍💼", "🧑‍🔬", "👪", "🤰"] },
+  { label: "Other", emojis: ["🌐", "💡", "🔒", "🔑", "⭐", "🛡️", "🏆", "✨", "🎓", "📅", "🗓️", "💎", "🚀", "🏷️"] },
 ];
 
-const ALL_ICONS = ICON_GROUPS.flatMap(g => g.icons);
+function isEmoji(str: string | null | undefined): boolean {
+  if (!str) return false;
+  return /\p{Emoji}/u.test(str) && str.length <= 4;
+}
 
-function getIconComponent(iconName: string | null | undefined): LucideIcon {
-  if (!iconName) return FolderOpen;
-  return ALL_ICONS.find(i => i.name === iconName)?.icon || FolderOpen;
+function renderCategoryIconOrEmoji(icon: string | null | undefined, sizeClass = "h-5 w-5"): JSX.Element {
+  if (!icon) return <FolderOpen className={sizeClass} />;
+  if (isEmoji(icon)) return <span className="text-base leading-none">{icon}</span>;
+  const found = [Clipboard, FolderClosed, FolderOpen, FileText, FileCheck, Bookmark, BookOpen, Tags, Package, Heart, Syringe, Baby, Brain, Microscope, Stethoscope, Pill, Thermometer, Phone, Mail, MessageSquare, Headphones, Users, Settings, Target, BarChart3, CircleCheck, CircleX, AlertCircle, RefreshCw, ArrowLeftRight, Zap, Clock, Globe, Star, Lightbulb, Lock, Key, Shield, Bell, Calendar, Award, Sparkles, GraduationCap];
+  const names = ["clipboard", "folder-closed", "folder-open", "file-text", "file-check", "bookmark", "book-open", "tags", "package", "heart", "syringe", "baby", "brain", "microscope", "stethoscope", "pill", "thermometer", "phone", "mail", "message-square", "headphones", "users", "settings", "target", "bar-chart", "circle-check", "circle-x", "alert-circle", "refresh-cw", "arrow-left-right", "zap", "clock", "globe", "star", "lightbulb", "lock", "key", "shield", "bell", "calendar", "award", "sparkles", "graduation-cap"];
+  const idx = names.indexOf(icon);
+  const IconComp = idx >= 0 ? found[idx] : FolderOpen;
+  return <IconComp className={sizeClass} />;
 }
 
 const COUNTRY_FLAGS: Record<string, string> = {
@@ -293,18 +274,13 @@ export default function SopManagementPage() {
   });
 
   const getCategoryName = (id: string) => categories.find(c => c.id === id)?.name || "—";
-  const getCategoryIcon = (id: string): LucideIcon => {
+  const getCategoryIconStr = (id: string): string | null => {
     const cat = categories.find(c => c.id === id);
-    return getIconComponent(cat?.icon);
+    return cat?.icon || null;
   };
   const getUserName = (id: string) => {
     const u = users.find((u: any) => u.id?.toString() === id?.toString());
     return u ? `${u.firstName || ""} ${u.lastName || ""}`.trim() || u.username : id;
-  };
-
-  const renderCategoryIcon = (iconName: string | null | undefined, sizeClass = "h-5 w-5") => {
-    const IconComp = getIconComponent(iconName);
-    return <IconComp className={sizeClass} />;
   };
 
   return (
