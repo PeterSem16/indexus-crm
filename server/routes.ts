@@ -29300,6 +29300,73 @@ Return ONLY the JSON object.`
   });
 
 
+
+  const uploadMsgZip = multer({ storage: multer.diskStorage({ destination: (_req, _file, cb) => { const dir = path.join(process.cwd(), "uploads", "temp"); if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true }); cb(null, dir); }, filename: (_req, _file, cb) => cb(null, `msg-zip-${Date.now()}.zip`) }), limits: { fileSize: 100 * 1024 * 1024 }, fileFilter: (_req, file, cb) => { if (file.mimetype === "application/zip" || file.mimetype === "application/x-zip-compressed" || file.originalname.endsWith(".zip")) cb(null, true); else cb(new Error("Only ZIP files allowed")); } });
+
+  app.post("/api/message-templates/import-zip", requireAuth, requireAdminOrManager, uploadMsgZip.single("file"), async (req, res) => {
+    const zipPath = (req as any).file?.path;
+    try {
+      const categoryId = req.body.categoryId || null;
+      const language = req.body.language || "sk";
+      if (!zipPath) return res.status(400).json({ error: "No file uploaded" });
+
+      const { spawn } = await import("child_process");
+      const scriptPath = path.join(process.cwd(), "server", "parse-msg-zip.py");
+
+      const result = await new Promise<any>((resolve, reject) => {
+        const proc = spawn("python3", [scriptPath, zipPath]);
+        let stdout = "";
+        let stderr = "";
+        proc.stdout.on("data", (d: Buffer) => { stdout += d.toString(); });
+        proc.stderr.on("data", (d: Buffer) => { stderr += d.toString(); });
+        proc.on("close", (code: number) => {
+          if (code !== 0) return reject(new Error(stderr || `Process exited with code ${code}`));
+          const lines = stdout.trim().split("\n");
+          const lastLine = lines[lines.length - 1];
+          try { resolve(JSON.parse(lastLine)); } catch { reject(new Error("Invalid JSON output from parser")); }
+        });
+        proc.on("error", reject);
+      });
+
+      if (result.error) return res.status(500).json({ error: result.error });
+
+      const templates = result.result || [];
+      const created: any[] = [];
+      const errors: any[] = [];
+
+      for (const tpl of templates) {
+        if (tpl.error) { errors.push({ fileName: tpl.fileName, error: tpl.error }); continue; }
+        try {
+          const newTemplate = await storage.createMessageTemplate({
+            name: tpl.name,
+            description: tpl.subject !== tpl.name ? tpl.subject : null,
+            type: "email",
+            format: tpl.htmlBody ? "html" : "text",
+            subject: tpl.subject || tpl.name,
+            content: tpl.plainBody || "",
+            contentHtml: tpl.htmlBody || null,
+            categoryId: categoryId,
+            language: language,
+            tags: tpl.detectedVariables || [],
+            isDefault: false,
+            isActive: true,
+            createdBy: req.session.user?.id,
+          });
+          created.push({ id: newTemplate.id, name: tpl.name, fileName: tpl.fileName, attachmentCount: tpl.attachmentCount || 0, detectedVariables: tpl.detectedVariables });
+        } catch (err: any) {
+          errors.push({ fileName: tpl.fileName, error: err.message });
+        }
+      }
+
+      res.json({ total: templates.length, created: created.length, errors: errors.length, templates: created, errorDetails: errors });
+    } catch (error: any) {
+      console.error("Error importing MSG ZIP:", error);
+      res.status(500).json({ error: error.message || "Failed to import templates" });
+    } finally {
+      if (zipPath) try { fs.unlinkSync(zipPath); } catch {}
+    }
+  });
+
   // Agent Session Management
   app.get("/api/agent-sessions/active", requireAuth, async (req, res) => {
     try {

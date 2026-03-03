@@ -11478,6 +11478,16 @@ function MessageTemplatesTab() {
   const [copyWithTranslation, setCopyWithTranslation] = useState(true);
   const [isCopying, setIsCopying] = useState(false);
 
+  // ZIP Import state
+  const [isZipImportOpen, setIsZipImportOpen] = useState(false);
+  const [zipFile, setZipFile] = useState<File | null>(null);
+  const [zipCategoryId, setZipCategoryId] = useState("");
+  const [zipLanguage, setZipLanguage] = useState("sk");
+  const [zipImporting, setZipImporting] = useState(false);
+  const [zipProgress, setZipProgress] = useState<{ phase: string; detail?: string } | null>(null);
+  const [zipResult, setZipResult] = useState<{ total: number; created: number; errors: number; templates?: any[]; errorDetails?: any[] } | null>(null);
+  const zipFileRef = useRef<HTMLInputElement>(null);
+
   // Category form state
   const [categoryName, setCategoryName] = useState("");
   const [categoryDescription, setCategoryDescription] = useState("");
@@ -11685,6 +11695,42 @@ function MessageTemplatesTab() {
     setCategoryPriority(0);
   };
 
+  const handleZipImport = async () => {
+    if (!zipFile) return;
+    setZipImporting(true);
+    setZipProgress({ phase: (t.konfigurator as any).importMsgZipParsing || "Parsing MSG files..." });
+    setZipResult(null);
+    try {
+      const formData = new FormData();
+      formData.append("file", zipFile);
+      if (zipCategoryId) formData.append("categoryId", zipCategoryId);
+      formData.append("language", zipLanguage);
+      
+      setZipProgress({ phase: (t.konfigurator as any).importMsgZipCreating || "Creating templates..." });
+      
+      const res = await fetch("/api/message-templates/import-zip", {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      });
+      
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Unknown error" }));
+        throw new Error(err.error || "Import failed");
+      }
+      
+      const data = await res.json();
+      setZipResult(data);
+      queryClient.invalidateQueries({ queryKey: ["/api/message-templates"] });
+      toast({ title: `${(t.konfigurator as any).importMsgZipSuccess || "Templates imported"}: ${data.created}/${data.total}` });
+    } catch (err: any) {
+      toast({ title: (t.konfigurator as any).importMsgZipError || "Import failed", description: err.message, variant: "destructive" });
+    } finally {
+      setZipImporting(false);
+      setZipProgress(null);
+    }
+  };
+
   const openTemplateDialog = (template?: MessageTemplate) => {
     if (template) {
       setEditingTemplate(template);
@@ -11872,10 +11918,16 @@ function MessageTemplatesTab() {
                 </SelectContent>
               </Select>
             </div>
-            <Button onClick={() => openTemplateDialog()} data-testid="button-add-template">
-              <Plus className="h-4 w-4 mr-2" />
-              {t.konfigurator.addMessageTemplate}
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => { setIsZipImportOpen(true); setZipFile(null); setZipResult(null); setZipProgress(null); }} data-testid="button-import-zip">
+                <Upload className="h-4 w-4 mr-2" />
+                {(t.konfigurator as any).importMsgZipBtn || "Import ZIP"}
+              </Button>
+              <Button onClick={() => openTemplateDialog()} data-testid="button-add-template">
+                <Plus className="h-4 w-4 mr-2" />
+                {t.konfigurator.addMessageTemplate}
+              </Button>
+            </div>
           </div>
 
           {templatesLoading ? (
@@ -12488,6 +12540,110 @@ function MessageTemplatesTab() {
             <Button onClick={handleCopyTemplate} disabled={!copyTargetLanguage || isCopying} data-testid="button-confirm-copy">
               {isCopying && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               {isCopying ? (copyWithTranslation ? (t.konfigurator?.translating || "Translating...") : (t.konfigurator?.copying || "Copying...")) : (copyWithTranslation ? (t.konfigurator?.translateAndCopy || "Translate & Copy") : (t.konfigurator?.copyTemplate || "Copy"))}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isZipImportOpen} onOpenChange={(v) => { if (!zipImporting) { setIsZipImportOpen(v); if (!v) { setZipFile(null); setZipResult(null); setZipProgress(null); } } }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Upload className="h-4 w-4" />
+              {(t.konfigurator as any).importMsgZip || "Import from ZIP"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">{(t.konfigurator as any).importMsgZipDesc || "Upload a ZIP file containing .msg (Outlook) email templates"}</p>
+
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">{(t.konfigurator as any).importMsgZipSelectCategory || "Select target category"}</Label>
+              <Select value={zipCategoryId || "_none"} onValueChange={(v) => setZipCategoryId(v === "_none" ? "" : v)}>
+                <SelectTrigger data-testid="zip-select-category"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none">—</SelectItem>
+                  {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">{(t.konfigurator as any).importMsgZipSelectLanguage || "Select language"}</Label>
+              <Select value={zipLanguage} onValueChange={setZipLanguage}>
+                <SelectTrigger data-testid="zip-select-language"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {TEMPLATE_LANGUAGES.map(lang => <SelectItem key={lang.code} value={lang.code}>{lang.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">ZIP</Label>
+              <input ref={zipFileRef} type="file" accept=".zip" onChange={(e) => setZipFile(e.target.files?.[0] || null)} className="hidden" data-testid="zip-file-input" />
+              <div
+                className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 transition-colors"
+                onClick={() => zipFileRef.current?.click()}
+                data-testid="zip-drop-zone"
+              >
+                {zipFile ? (
+                  <div className="flex items-center justify-center gap-2">
+                    <FileText className="h-5 w-5 text-primary" />
+                    <span className="text-sm font-medium">{zipFile.name}</span>
+                    <span className="text-xs text-muted-foreground">({(zipFile.size / 1024 / 1024).toFixed(1)} MB)</span>
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    <Upload className="h-8 w-8 mx-auto text-muted-foreground/50" />
+                    <p className="text-sm text-muted-foreground">Click to select ZIP file</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {zipImporting && zipProgress && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                  <span className="text-sm">{zipProgress.phase}</span>
+                </div>
+                <div className="h-2 bg-muted rounded-full overflow-hidden">
+                  <div className="h-full bg-primary rounded-full animate-pulse w-2/3" />
+                </div>
+              </div>
+            )}
+
+            {zipResult && (
+              <div className={`rounded-lg p-3 space-y-1 ${zipResult.errors > 0 ? "bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-800" : "bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800"}`}>
+                <div className="flex items-center gap-2">
+                  {zipResult.errors > 0 ? <AlertTriangle className="h-4 w-4 text-orange-600" /> : <CheckCircle2 className="h-4 w-4 text-green-600" />}
+                  <span className="text-sm font-medium">{zipResult.created}/{zipResult.total} templates imported</span>
+                </div>
+                {zipResult.errorDetails && zipResult.errorDetails.length > 0 && (
+                  <div className="mt-2 text-xs text-muted-foreground space-y-0.5">
+                    {zipResult.errorDetails.map((e: any, i: number) => (
+                      <p key={i} className="text-red-600 dark:text-red-400">• {e.fileName}: {e.error}</p>
+                    ))}
+                  </div>
+                )}
+                {zipResult.templates && zipResult.templates.length > 0 && (
+                  <div className="mt-2 max-h-32 overflow-y-auto text-xs text-muted-foreground space-y-0.5">
+                    {zipResult.templates.map((tpl: any, i: number) => (
+                      <p key={i} className="flex items-center gap-1">
+                        <Check className="h-3 w-3 text-green-600 shrink-0" />
+                        <span className="truncate">{tpl.name}</span>
+                        {tpl.detectedVariables?.length > 0 && <Badge variant="outline" className="text-[9px] h-3.5 ml-auto shrink-0">{tpl.detectedVariables.length} vars</Badge>}
+                      </p>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsZipImportOpen(false)} disabled={zipImporting}>{t.common?.cancel || "Cancel"}</Button>
+            <Button onClick={handleZipImport} disabled={!zipFile || zipImporting} data-testid="button-start-zip-import">
+              {zipImporting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {zipImporting ? ((t.konfigurator as any).importMsgZipProgress || "Importing...") : ((t.konfigurator as any).importMsgZipBtn || "Import ZIP")}
             </Button>
           </DialogFooter>
         </DialogContent>
