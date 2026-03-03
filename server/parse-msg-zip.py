@@ -13,31 +13,33 @@ except ImportError:
     print(json.dumps({"error": "extract_msg not installed"}))
     sys.exit(1)
 
+FULL_NAME_VAR = '{{customer.firstName}} {{customer.lastName}}'
+
 VARIABLE_PATTERNS = [
-    (r'\b(?:meno a priezvisko|jméno a příjmení|full.?name|celé jméno|celé meno)\b', '{{customer_name}}'),
-    (r'\b(?:meno|jméno|name|ime|nome|név|nume|vorname|first.?name|krstné meno|křestní jméno)\b', '{{customer_first_name}}'),
-    (r'\b(?:priezvisko|příjmení|surname|last.?name|nachname|cognome|vezetéknév|numele de familie)\b', '{{customer_last_name}}'),
-    (r'\b(?:rodné číslo|birth.?number|születési szám|cod numeric personal)\b', '{{birth_number}}'),
-    (r'\b(?:číslo zmluvy|číslo smlouvy|contract.?number|vertragsnummer|numero contratto|szerződésszám|număr contract)\b', '{{contract_number}}'),
-    (r'\b(?:dátum narodenia|datum narození|date.?of.?birth|születési dátum|data nașterii|geburtsdatum)\b', '{{date_of_birth}}'),
-    (r'\b(?:telefón|telefon|phone|telefono|telefon|telefon|tel\.?č|číslo telefónu)\b', '{{phone}}'),
-    (r'\b(?:e[\-‑]?mail(?:ov[áa])?(?:\s+adresa)?)\b', '{{email}}'),
-    (r'\b(?:adresa|address|indirizzo|cím|adresă|adresse|bydlisko|bydliště)\b', '{{address}}'),
-    (r'\b(?:ičo|ič|ico|id.?number|identifikačné číslo)\b', '{{company_id}}'),
-    (r'\b(?:dátum|datum|date|dátum registrácie|datum registrace)\b', '{{date}}'),
+    (r'\b(?:meno a priezvisko|jméno a příjmení|full.?name|celé jméno|celé meno)\b', FULL_NAME_VAR),
+    (r'\b(?:meno|jméno|name|ime|nome|név|nume|vorname|first.?name|krstné meno|křestní jméno)\b', '{{customer.firstName}}'),
+    (r'\b(?:priezvisko|příjmení|surname|last.?name|nachname|cognome|vezetéknév|numele de familie)\b', '{{customer.lastName}}'),
+    (r'\b(?:rodné číslo|birth.?number|születési szám|cod numeric personal)\b', '{{customer.birthNumber}}'),
+    (r'\b(?:číslo zmluvy|číslo smlouvy|contract.?number|vertragsnummer|numero contratto|szerződésszám|număr contract)\b', '{{contract.contractNumber}}'),
+    (r'\b(?:dátum narodenia|datum narození|date.?of.?birth|születési dátum|data nașterii|geburtsdatum)\b', '{{customer.dateOfBirth}}'),
+    (r'\b(?:telefón|telefon|phone|telefono|telefon|telefon|tel\.?č|číslo telefónu)\b', '{{customer.phone}}'),
+    (r'\b(?:e[\-‑]?mail(?:ov[áa])?(?:\s+adresa)?)\b', '{{customer.email}}'),
+    (r'\b(?:adresa|address|indirizzo|cím|adresă|adresse|bydlisko|bydliště)\b', '{{customer.address}}'),
+    (r'\b(?:ičo|ič|ico|id.?number|identifikačné číslo)\b', '{{company.companyId}}'),
+    (r'\b(?:dátum registrácie|datum registrace|registration.?date)\b', '{{contract.registrationDate}}'),
 ]
 
 SALUTATION_PATTERNS = [
-    (r'(Vážen[áý]\s+pan[ie]?\s+)', r'\1{{customer_name}}, '),
-    (r'(Vážen[áý]\s+)', r'\1{{customer_name}}, '),
-    (r'(Dobrý deň,?\s*)', r'\1{{customer_name}}, '),
-    (r'(Dobrý den,?\s*)', r'\1{{customer_name}}, '),
-    (r'(Ahoj,?\s*)', r'\1{{customer_name}}, '),
-    (r'(Dear\s+)', r'\1{{customer_name}}, '),
-    (r'(Sehr geehrte[r]?\s+)', r'\1{{customer_name}}, '),
-    (r'(Gentile\s+)', r'\1{{customer_name}}, '),
-    (r'(Tisztelt\s+)', r'\1{{customer_name}}, '),
-    (r'(Stimate?\s+)', r'\1{{customer_name}}, '),
+    (r'(Vážen[áý]\s+pan[ie]?\s+)', r'\1' + FULL_NAME_VAR + ', '),
+    (r'(Vážen[áý]\s+)', r'\1' + FULL_NAME_VAR + ', '),
+    (r'(Dobrý deň,?\s*)', r'\1' + FULL_NAME_VAR + ', '),
+    (r'(Dobrý den,?\s*)', r'\1' + FULL_NAME_VAR + ', '),
+    (r'(Ahoj,?\s*)', r'\1' + FULL_NAME_VAR + ', '),
+    (r'(Dear\s+)', r'\1' + FULL_NAME_VAR + ', '),
+    (r'(Sehr geehrte[r]?\s+)', r'\1' + FULL_NAME_VAR + ', '),
+    (r'(Gentile\s+)', r'\1' + FULL_NAME_VAR + ', '),
+    (r'(Tisztelt\s+)', r'\1' + FULL_NAME_VAR + ', '),
+    (r'(Stimate?\s+)', r'\1' + FULL_NAME_VAR + ', '),
 ]
 
 def detect_variables(text):
@@ -177,8 +179,10 @@ def process_zip(zip_path):
                 html_body = insert_salutation_variables(html_body)
 
                 detected_vars = detect_variables(plain_body or html_body)
-                if '{{customer_name}}' in html_body and '{{customer_name}}' not in detected_vars:
-                    detected_vars.append('{{customer_name}}')
+                if '{{customer.firstName}}' in html_body and '{{customer.firstName}}' not in detected_vars:
+                    detected_vars.append('{{customer.firstName}}')
+                if '{{customer.lastName}}' in html_body and '{{customer.lastName}}' not in detected_vars:
+                    detected_vars.append('{{customer.lastName}}')
 
                 attachments_data = []
                 for att in msg.attachments:
