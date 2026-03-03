@@ -2305,6 +2305,8 @@ export interface Translations {
     active: string;
     icon: string;
     selectIcon: string;
+    selectEmoji: string;
+    emojiGroupPeople: string;
     name: string;
     namePlaceholder: string;
     description: string;
@@ -3001,6 +3003,8 @@ export interface Translations {
     categoryDescription: string;
     categoryIcon: string;
     selectIcon: string;
+    selectEmoji: string;
+    emojiGroupPeople: string;
     selectEmailTags: string;
     order: string;
     company: string;
@@ -6760,6 +6764,8 @@ export const translations: Record<Locale, Translations> = {
         active: 'Active',
         icon: 'Icon',
         selectIcon: 'Select icon',
+        selectEmoji: 'Emoji',
+        emojiGroupPeople: 'People',
         name: 'Name',
         namePlaceholder: 'e.g. Collection Procedures',
         description: 'Description',
@@ -7463,6 +7469,8 @@ export const translations: Record<Locale, Translations> = {
       selectIcon: 'Select icon',
       selectEmailTags: 'Select email tags',
       order: 'Order',
+      selectEmoji: 'Emoji',
+      emojiGroupPeople: 'People',
       company: 'Company',
       system: 'System',
       categoryColor: 'Color',
@@ -11146,6 +11154,8 @@ export const translations: Record<Locale, Translations> = {
         namePlaceholder: 'Napr. Odberové postupy',
         description: 'Popis',
         descriptionPlaceholder: 'Stručný popis kategórie',
+        selectEmoji: 'Emoji',
+        emojiGroupPeople: 'Ľudia',
         version: 'Verzia',
         author: 'Autor',
         whoRead: 'Kto prečítal',
@@ -11847,6 +11857,8 @@ export const translations: Record<Locale, Translations> = {
       order: 'Objednávka',
       company: 'Spoločnosť',
       system: 'Systém',
+      selectEmoji: 'Emoji',
+      emojiGroupPeople: 'Ľudia',
       categoryColor: 'Farba',
       categoryPriority: 'Priorita',
       categoryCreated: 'Kategória bola úspešne vytvorená',
@@ -15513,6 +15525,8 @@ export const translations: Record<Locale, Translations> = {
         namePlaceholder: 'Např. Odběrové postupy',
         description: 'Popis',
         descriptionPlaceholder: 'Stručný popis kategorie',
+        selectEmoji: 'Emoji',
+        emojiGroupPeople: 'Lidé',
         version: 'Verze',
         author: 'Autor',
         whoRead: 'Kdo přečetl',
@@ -16214,6 +16228,8 @@ export const translations: Record<Locale, Translations> = {
       order: 'Objednávka',
       company: 'Společnost',
       system: 'Systém',
+      selectEmoji: 'Emoji',
+      emojiGroupPeople: 'Lidé',
       categoryColor: 'Barva',
       categoryPriority: 'Priorita',
       categoryCreated: 'Kategorie byla úspěšně vytvořena',
@@ -19843,6 +19859,8 @@ export const translations: Record<Locale, Translations> = {
         namePlaceholder: 'Pl. Vérvételi eljárások',
         description: 'Leírás',
         descriptionPlaceholder: 'Rövid kategória leírás',
+        selectEmoji: 'Emoji',
+        emojiGroupPeople: 'Emberek',
         version: 'Verzió',
         author: 'Szerző',
         whoRead: 'Ki olvasta el',
@@ -20544,6 +20562,8 @@ export const translations: Record<Locale, Translations> = {
       order: 'Megrendelés',
       company: 'Cég',
       system: 'Rendszer',
+      selectEmoji: 'Emoji',
+      emojiGroupPeople: 'Emberek',
       categoryColor: 'Szín',
       categoryPriority: 'Prioritás',
       categoryCreated: 'Kategória sikeresen létrehozva',
@@ -24172,6 +24192,8 @@ export const translations: Record<Locale, Translations> = {
         namePlaceholder: 'Ex. Proceduri de recoltare',
         description: 'Descriere',
         descriptionPlaceholder: 'Descriere scurtă a categoriei',
+        selectEmoji: 'Emoji',
+        emojiGroupPeople: 'Persoane',
         version: 'Versiune',
         author: 'Autor',
         whoRead: 'Cine a citit',
@@ -24873,6 +24895,8 @@ export const translations: Record<Locale, Translations> = {
       order: 'Comandă',
       company: 'Companie',
       system: 'Sistem',
+      selectEmoji: 'Emoji',
+      emojiGroupPeople: 'Persoane',
       categoryColor: 'Culoare',
       categoryPriority: 'Prioritate',
       categoryCreated: 'Categorie creată cu succes',
@@ -28502,6 +28526,8 @@ export const translations: Record<Locale, Translations> = {
         namePlaceholder: 'Es. Procedure di prelievo',
         description: 'Descrizione',
         descriptionPlaceholder: 'Breve descrizione della categoria',
+        selectEmoji: 'Emoji',
+        emojiGroupPeople: 'Persone',
         version: 'Versione',
         author: 'Autore',
         whoRead: 'Chi ha letto',
@@ -29203,6 +29229,8 @@ export const translations: Record<Locale, Translations> = {
       order: 'Ordine',
       company: 'Azienda',
       system: 'Sistema',
+      selectEmoji: 'Emoji',
+      emojiGroupPeople: 'Persone',
       categoryColor: 'Colore',
       categoryPriority: 'Priorità',
       categoryCreated: 'Categoria creata con successo',
@@ -32832,6 +32860,8 @@ export const translations: Record<Locale, Translations> = {
         namePlaceholder: 'Z.B. Entnahmeverfahren',
         description: 'Beschreibung',
         descriptionPlaceholder: 'Kurze Kategoriebeschreibung',
+        selectEmoji: 'Emoji',
+        emojiGroupPeople: 'Personen',
         version: 'Version',
         author: 'Autor',
         whoRead: 'Wer hat gelesen',
@@ -33533,6 +33563,8 @@ export const translations: Record<Locale, Translations> = {
       order: 'Bestellung',
       company: 'Unternehmen',
       system: 'System',
+      selectEmoji: 'Emoji',
+      emojiGroupPeople: 'Personen',
       categoryColor: 'Farbe',
       categoryPriority: 'Priorität',
       categoryCreated: 'Kategorie erfolgreich erstellt',

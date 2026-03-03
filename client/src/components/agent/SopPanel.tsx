@@ -33,6 +33,11 @@ const ICON_MAP: Record<string, LucideIcon> = {
   "award": Award, "sparkles": Sparkles, "graduation-cap": GraduationCap,
 };
 
+function isEmojiIcon(str: string | null | undefined): boolean {
+  if (!str) return false;
+  return /\p{Emoji}/u.test(str) && !ICON_MAP[str];
+}
+
 function getIconComponent(iconName: string | null | undefined): LucideIcon {
   if (!iconName) return FolderOpen;
   return ICON_MAP[iconName] || FolderOpen;
@@ -351,7 +356,9 @@ export function SopPanel({ campaignId, userId }: SopPanelProps) {
           data-testid={`sop-tree-cat-${cat.id}`}
         >
           <div className={`flex items-center justify-center rounded-md ${isChild ? "h-5 w-5" : "h-6 w-6"} ${isCampaign ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400" : "bg-primary/10 text-primary"}`}>
-            <CatIcon className={isChild ? "h-3 w-3" : "h-3.5 w-3.5"} />
+            {isEmojiIcon(cat.icon)
+              ? <span className={isChild ? "text-xs leading-none" : "text-sm leading-none"}>{cat.icon}</span>
+              : <CatIcon className={isChild ? "h-3 w-3" : "h-3.5 w-3.5"} />}
           </div>
           <span className={`flex-1 text-left truncate ${isChild ? "text-[11px] font-medium text-muted-foreground" : "text-xs font-semibold"}`}>
             {isChild && <span className="text-muted-foreground/50 mr-0.5">↳</span>}

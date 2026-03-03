@@ -69,6 +69,20 @@ const ICON_GROUPS: { labelKey: string; fallback: string; icons: { name: string; 
 
 const ALL_ICONS = ICON_GROUPS.flatMap(g => g.icons);
 
+const EMOJI_GROUPS: { labelKey: string; fallback: string; emojis: string[] }[] = [
+  { labelKey: "iconGroupOffice", fallback: "Office", emojis: ["📋", "📁", "📂", "📄", "📑", "📌", "📎", "🗂️", "🗃️", "📝", "✏️", "📐"] },
+  { labelKey: "iconGroupMedical", fallback: "Medical", emojis: ["🏥", "💉", "🩸", "🧬", "🔬", "💊", "🩺", "🧪", "❤️", "🫀", "🧠", "👶"] },
+  { labelKey: "iconGroupCommunication", fallback: "Communication", emojis: ["📞", "📧", "💬", "📱", "📨", "📩", "🔔", "📣", "💌", "🗣️"] },
+  { labelKey: "iconGroupProcess", fallback: "Process", emojis: ["⚙️", "🔧", "🔄", "✅", "❌", "⚠️", "🎯", "📊", "📈", "🔀", "⏱️", "🔁"] },
+  { labelKey: "emojiGroupPeople", fallback: "People", emojis: ["👥", "👤", "🤝", "👨‍⚕️", "👩‍⚕️", "🧑‍💼", "👨‍💻", "🏆", "🎓", "💪"] },
+  { labelKey: "iconGroupOther", fallback: "Other", emojis: ["🌐", "💡", "🔒", "🔑", "⭐", "🛡️", "📅", "🏷️", "✨", "🎪", "🚀", "💎"] },
+];
+
+function isEmoji(str: string | null | undefined): boolean {
+  if (!str) return false;
+  return /\p{Emoji}/u.test(str) && !ALL_ICONS.some(i => i.name === str);
+}
+
 function getIconComponent(iconName: string | null | undefined): LucideIcon {
   if (!iconName) return FolderOpen;
   return ALL_ICONS.find(i => i.name === iconName)?.icon || FolderOpen;
@@ -303,6 +317,7 @@ export default function SopManagementPage() {
   };
 
   const renderCategoryIcon = (iconName: string | null | undefined, sizeClass = "h-5 w-5") => {
+    if (isEmoji(iconName)) return <span className={sizeClass === "h-5 w-5" ? "text-lg leading-none" : "text-xl leading-none"}>{iconName}</span>;
     const IconComp = getIconComponent(iconName);
     return <IconComp className={sizeClass} />;
   };
@@ -643,32 +658,55 @@ export default function SopManagementPage() {
             </div>
             <div className="space-y-2">
               <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{t.sop.icon}</Label>
-              <ScrollArea className="h-[300px] border rounded-lg bg-muted/20 p-3">
-                <div className="space-y-3">
-                  {ICON_GROUPS.map(group => (
-                    <div key={group.labelKey}>
-                      <p className="text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-widest mb-1.5 px-0.5">{(t.sop as any)?.[group.labelKey] || group.fallback}</p>
-                      <div className="flex flex-wrap gap-1">
-                        {group.icons.map(opt => {
-                          const IconComp = opt.icon;
-                          const isSelected = categoryForm.icon === opt.name;
-                          return (
-                            <button
-                              key={opt.name}
-                              type="button"
-                              className={`h-9 w-9 flex items-center justify-center rounded-lg transition-all ${isSelected ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
-                              onClick={() => setCategoryForm(p => ({ ...p, icon: opt.name }))}
-                              data-testid={`icon-pick-${opt.name}`}
-                            >
-                              <IconComp className="h-4 w-4" />
-                            </button>
-                          );
-                        })}
-                      </div>
+              <Tabs defaultValue={isEmoji(categoryForm.icon) ? "emoji" : "icons"} className="w-full">
+                <TabsList className="w-full grid grid-cols-2 h-8">
+                  <TabsTrigger value="icons" className="text-xs h-6">{t.sop.selectIcon || "Icons"}</TabsTrigger>
+                  <TabsTrigger value="emoji" className="text-xs h-6">{(t.sop as any).selectEmoji || "Emoji"}</TabsTrigger>
+                </TabsList>
+                <TabsContent value="icons" className="mt-2">
+                  <ScrollArea className="h-[260px] border rounded-lg bg-muted/20 p-3">
+                    <div className="space-y-3">
+                      {ICON_GROUPS.map(group => (
+                        <div key={group.labelKey}>
+                          <p className="text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-widest mb-1.5 px-0.5">{(t.sop as any)?.[group.labelKey] || group.fallback}</p>
+                          <div className="flex flex-wrap gap-1">
+                            {group.icons.map(opt => {
+                              const IconComp = opt.icon;
+                              const sel = categoryForm.icon === opt.name;
+                              return (
+                                <button key={opt.name} type="button" className={`h-9 w-9 flex items-center justify-center rounded-lg transition-all ${sel ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`} onClick={() => setCategoryForm(p => ({ ...p, icon: opt.name }))} data-testid={`icon-pick-${opt.name}`}>
+                                  <IconComp className="h-4 w-4" />
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              </ScrollArea>
+                  </ScrollArea>
+                </TabsContent>
+                <TabsContent value="emoji" className="mt-2">
+                  <ScrollArea className="h-[260px] border rounded-lg bg-muted/20 p-3">
+                    <div className="space-y-3">
+                      {EMOJI_GROUPS.map(group => (
+                        <div key={group.labelKey}>
+                          <p className="text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-widest mb-1.5 px-0.5">{(t.sop as any)?.[group.labelKey] || group.fallback}</p>
+                          <div className="flex flex-wrap gap-1">
+                            {group.emojis.map(em => {
+                              const sel = categoryForm.icon === em;
+                              return (
+                                <button key={em} type="button" className={`h-9 w-9 flex items-center justify-center rounded-lg transition-all text-lg ${sel ? "bg-primary shadow-sm ring-2 ring-primary ring-offset-1" : "hover:bg-muted"}`} onClick={() => setCategoryForm(p => ({ ...p, icon: em }))} data-testid={`emoji-pick-${em}`}>
+                                  {em}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </TabsContent>
+              </Tabs>
             </div>
           </div>
           <DialogFooter className="mt-2">
