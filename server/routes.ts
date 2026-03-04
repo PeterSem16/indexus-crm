@@ -29355,12 +29355,24 @@ Return ONLY the JSON object.`
 
       function toStr(raw: any): string {
         if (!raw) return "";
-        let s: string;
-        if (typeof raw === "string") { s = raw; }
-        else if (raw instanceof Uint8Array || raw instanceof Buffer) { s = Buffer.from(raw).toString("utf-8"); }
-        else if (raw instanceof ArrayBuffer) { s = Buffer.from(raw).toString("utf-8"); }
-        else { s = String(raw); }
-        return s.replace(/\x00/g, "");
+        if (typeof raw === "string") return raw.replace(/\x00/g, "");
+        let buf: Buffer;
+        if (raw instanceof Uint8Array || raw instanceof Buffer) { buf = Buffer.from(raw); }
+        else if (raw instanceof ArrayBuffer) { buf = Buffer.from(raw); }
+        else { return String(raw).replace(/\x00/g, ""); }
+        if (buf.length >= 2) {
+          if (buf[0] === 0xFF && buf[1] === 0xFE) return buf.toString("utf16le").replace(/\x00/g, "");
+          if (buf[0] === 0xFE && buf[1] === 0xFF) {
+            const swapped = Buffer.alloc(buf.length);
+            for (let i = 0; i < buf.length - 1; i += 2) { swapped[i] = buf[i + 1]; swapped[i + 1] = buf[i]; }
+            return swapped.toString("utf16le").replace(/\x00/g, "");
+          }
+          let nullCount = 0;
+          const check = Math.min(buf.length, 200);
+          for (let i = 0; i < check; i++) { if (buf[i] === 0) nullCount++; }
+          if (nullCount > check * 0.2) return buf.toString("utf16le").replace(/\x00/g, "");
+        }
+        return buf.toString("utf-8").replace(/\x00/g, "");
       }
 
       function cleanHtml(raw: any): string {
