@@ -29394,15 +29394,16 @@ Return ONLY the JSON object.`
         if (!decompressRTF) return "";
         try {
           const rtfBuf = decompressRTF(rawBuf);
-          const rtfStr = rtfBuf.toString("ascii");
+          const rtfStr = rtfBuf.toString("utf-8");
           if (deEncapsulateSync) {
             try {
               const result = deEncapsulateSync(rtfStr);
-              if (result.html) return result.html;
-              if (result.text) return result.text.split("\n").map((l: string) => `<p>${l.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}</p>`).join("\n");
+              if (result.html && isReadableText(result.html.replace(/<[^>]*>/g, ""))) return result.html;
+              if (result.text && isReadableText(result.text)) return result.text.split("\n").map((l: string) => `<p>${l.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}</p>`).join("\n");
             } catch {}
           }
-          let text = rtfStr.replace(/\\par\b/g, "\n").replace(/\\\w+\s?/g, "").replace(/[{}]/g, "");
+          const hexDecoded = rtfStr.replace(/\\'([0-9a-f]{2})/gi, (_: string, hex: string) => String.fromCharCode(parseInt(hex, 16)));
+          let text = hexDecoded.replace(/\\par\b/g, "\n").replace(/\{\\[^{}]*\}/g, "").replace(/\\\w+\s?/g, "").replace(/[{}]/g, "").trim();
           if (isReadableText(text)) return text.split("\n").map((l: string) => `<p>${l.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}</p>`).join("\n");
         } catch {}
         return "";
@@ -29423,10 +29424,15 @@ Return ONLY the JSON object.`
         if (bodyMatch) html = bodyMatch[1];
         html = html.replace(/\s*class="Mso[^"]*"/g, "");
         html = html.replace(/\s*style="([^"]*)"/g, (_m: string, s: string) => {
+          if (typeof s !== "string") return _m;
           const kept = s.split(";").filter((p: string) => p.trim() && !/^mso-/i.test(p.trim()) && !/^tab-stops/i.test(p.trim())).join("; ").trim();
           return kept ? ` style="${kept}"` : "";
         });
-        html = html.replace(/<style[^>]*>.*?<\/style>/gis, "");
+        html = html.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, (styleBlock: string) => {
+          const cleaned = styleBlock.replace(/mso-[^;:]+:[^;]+;?/gi, "").replace(/tab-stops[^;]+;?/gi, "");
+          if (cleaned.replace(/<\/?style[^>]*>/gi, "").trim().length < 10) return "";
+          return cleaned;
+        });
         html = html.replace(/\n\s*\n\s*\n/g, "\n\n");
         return html.trim();
       }
@@ -29525,9 +29531,14 @@ Return ONLY the JSON object.`
               const ext = path.extname(attName).toLowerCase();
               const mimeType = MIME_MAP[ext] || "application/octet-stream";
 
-              if (isInline && [".png", ".jpg", ".jpeg", ".gif"].includes(ext) && att.content) {
+              const isImage = [".png", ".jpg", ".jpeg", ".gif", ".bmp", ".tiff", ".tif", ".webp"].includes(ext);
+              if (isInline && isImage && att.content) {
                 const dataUri = `data:${mimeType};base64,${Buffer.from(att.content).toString("base64")}`;
                 if (contentId) htmlBody = htmlBody.replace(new RegExp(`cid:${contentId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, "g"), dataUri);
+                const safeFileName = `${Date.now()}-${Math.random().toString(36).slice(2,8)}-${attName.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+                const diskPath = path.join(attachmentDir, safeFileName);
+                fs.writeFileSync(diskPath, Buffer.from(att.content));
+                savedAttachments.push({ fileName: attName, filePath: `uploads/template-attachments/${safeFileName}`, mimeType, size: att.content.length });
               } else if (att.content && att.content.length > 0) {
                 const safeFileName = `${Date.now()}-${Math.random().toString(36).slice(2,8)}-${attName.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
                 const diskPath = path.join(attachmentDir, safeFileName);
