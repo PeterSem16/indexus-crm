@@ -29531,14 +29531,9 @@ Return ONLY the JSON object.`
               const ext = path.extname(attName).toLowerCase();
               const mimeType = MIME_MAP[ext] || "application/octet-stream";
 
-              const isImage = [".png", ".jpg", ".jpeg", ".gif", ".bmp", ".tiff", ".tif", ".webp"].includes(ext);
-              if (isInline && isImage && att.content) {
+              if (isInline && [".png", ".jpg", ".jpeg", ".gif", ".bmp", ".tiff", ".tif", ".webp"].includes(ext) && att.content) {
                 const dataUri = `data:${mimeType};base64,${Buffer.from(att.content).toString("base64")}`;
                 if (contentId) htmlBody = htmlBody.replace(new RegExp(`cid:${contentId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, "g"), dataUri);
-                const safeFileName = `${Date.now()}-${Math.random().toString(36).slice(2,8)}-${attName.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
-                const diskPath = path.join(attachmentDir, safeFileName);
-                fs.writeFileSync(diskPath, Buffer.from(att.content));
-                savedAttachments.push({ fileName: attName, filePath: `uploads/template-attachments/${safeFileName}`, mimeType, size: att.content.length });
               } else if (att.content && att.content.length > 0) {
                 const safeFileName = `${Date.now()}-${Math.random().toString(36).slice(2,8)}-${attName.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
                 const diskPath = path.join(attachmentDir, safeFileName);
