@@ -29355,12 +29355,12 @@ Return ONLY the JSON object.`
 
       function toStr(raw: any): string {
         if (!raw) return "";
-        if (typeof raw === "string") return raw;
-        if (raw instanceof Uint8Array || raw instanceof Buffer) {
-          return Buffer.from(raw).toString("utf-8");
-        }
-        if (raw instanceof ArrayBuffer) return Buffer.from(raw).toString("utf-8");
-        return String(raw);
+        let s: string;
+        if (typeof raw === "string") { s = raw; }
+        else if (raw instanceof Uint8Array || raw instanceof Buffer) { s = Buffer.from(raw).toString("utf-8"); }
+        else if (raw instanceof ArrayBuffer) { s = Buffer.from(raw).toString("utf-8"); }
+        else { s = String(raw); }
+        return s.replace(/\x00/g, "");
       }
 
       function cleanHtml(raw: any): string {
