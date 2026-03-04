@@ -29312,70 +29312,185 @@ Return ONLY the JSON object.`
       const language = req.body.language || "sk";
       if (!zipPath) return res.status(400).json({ error: "No file uploaded" });
 
-      const { spawn } = await import("child_process");
-      const scriptPath = path.join(process.cwd(), "server", "parse-msg-zip.py");
+      const AdmZip = (await import("adm-zip")).default;
+      const MsgReader = (await import("msgreader")).default;
 
-      const result = await new Promise<any>((resolve, reject) => {
-        const proc = spawn("python3", [scriptPath, zipPath]);
-        let stdout = "";
-        let stderr = "";
-        proc.stdout.on("data", (d: Buffer) => { stdout += d.toString(); });
-        proc.stderr.on("data", (d: Buffer) => { stderr += d.toString(); });
-        proc.on("close", (code: number) => {
-          if (code !== 0) return reject(new Error(stderr || `Process exited with code ${code}`));
-          const lines = stdout.trim().split("\n");
-          const lastLine = lines[lines.length - 1];
-          try { resolve(JSON.parse(lastLine)); } catch { reject(new Error("Invalid JSON output from parser")); }
+      const FULL_NAME_VAR = "{{customer.firstName}} {{customer.lastName}}";
+      const SALUTATION_RX: [RegExp, string][] = [
+        [/Vážen[áý]\s+pan[ie]?\s+/i, `$&${FULL_NAME_VAR}, `],
+        [/Vážen[áý]\s+/i, `$&${FULL_NAME_VAR}, `],
+        [/Dobrý deň,?\s*/i, `$&${FULL_NAME_VAR}, `],
+        [/Dobrý den,?\s*/i, `$&${FULL_NAME_VAR}, `],
+        [/Ahoj,?\s*/i, `$&${FULL_NAME_VAR}, `],
+        [/Dear\s+/i, `$&${FULL_NAME_VAR}, `],
+        [/Sehr geehrte[r]?\s+/i, `$&${FULL_NAME_VAR}, `],
+        [/Gentile\s+/i, `$&${FULL_NAME_VAR}, `],
+        [/Tisztelt\s+/i, `$&${FULL_NAME_VAR}, `],
+        [/Stimate?\s+/i, `$&${FULL_NAME_VAR}, `],
+      ];
+      const VAR_PATTERNS: [RegExp, string][] = [
+        [/\b(?:meno a priezvisko|jméno a příjmení|full.?name|celé jméno|celé meno)\b/i, FULL_NAME_VAR],
+        [/\b(?:meno|jméno|name|ime|nome|név|nume|vorname|first.?name|krstné meno|křestní jméno)\b/i, "{{customer.firstName}}"],
+        [/\b(?:priezvisko|příjmení|surname|last.?name|nachname|cognome|vezetéknév|numele de familie)\b/i, "{{customer.lastName}}"],
+        [/\b(?:rodné číslo|birth.?number|születési szám|cod numeric personal)\b/i, "{{customer.birthNumber}}"],
+        [/\b(?:číslo zmluvy|číslo smlouvy|contract.?number|vertragsnummer|numero contratto|szerződésszám|număr contract)\b/i, "{{contract.contractNumber}}"],
+        [/\b(?:dátum narodenia|datum narození|date.?of.?birth|születési dátum|data nașterii|geburtsdatum)\b/i, "{{customer.dateOfBirth}}"],
+        [/\b(?:telefón|telefon|phone|telefono|tel\.?č|číslo telefónu)\b/i, "{{customer.phone}}"],
+        [/\b(?:e[\-‑]?mail(?:ov[áa])?(?:\s+adresa)?)\b/i, "{{customer.email}}"],
+        [/\b(?:adresa|address|indirizzo|cím|adresă|adresse|bydlisko|bydliště)\b/i, "{{customer.address}}"],
+        [/\b(?:ičo|ič|ico|id.?number|identifikačné číslo)\b/i, "{{company.companyId}}"],
+        [/\b(?:dátum registrácie|datum registrace|registration.?date)\b/i, "{{contract.registrationDate}}"],
+      ];
+
+      const MIME_MAP: Record<string, string> = {
+        ".pdf": "application/pdf", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+        ".gif": "image/gif", ".doc": "application/msword",
+        ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        ".xls": "application/vnd.ms-excel",
+        ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      };
+
+      function cleanHtml(raw: string | Buffer): string {
+        let html = typeof raw === "string" ? raw : (() => {
+          for (const enc of ["utf-8", "latin1"] as const) { try { return raw.toString(enc); } catch {} }
+          return raw.toString("utf-8");
+        })();
+        html = html.replace(/<!--\[if.*?\]>.*?<!\[endif\]-->/gs, "");
+        html = html.replace(/<!--.*?-->/gs, "");
+        html = html.replace(/<xml[^>]*>.*?<\/xml>/gis, "");
+        html = html.replace(/<o:p>\s*<\/o:p>/gi, "");
+        html = html.replace(/<o:p>(.*?)<\/o:p>/gi, "$1");
+        html = html.replace(/<\/?o:[^>]+>/g, "");
+        html = html.replace(/<\/?v:[^>]+>/g, "");
+        html = html.replace(/<\/?w:[^>]+>/g, "");
+        html = html.replace(/\s*xmlns:[a-z]+="[^"]*"/g, "");
+        const bodyMatch = html.match(/<body[^>]*>(.*?)<\/body>/is);
+        if (bodyMatch) html = bodyMatch[1];
+        html = html.replace(/\s*class="Mso[^"]*"/g, "");
+        html = html.replace(/\s*style="([^"]*)"/g, (_m: string, s: string) => {
+          const kept = s.split(";").filter((p: string) => p.trim() && !/^mso-/i.test(p.trim()) && !/^tab-stops/i.test(p.trim())).join("; ").trim();
+          return kept ? ` style="${kept}"` : "";
         });
-        proc.on("error", reject);
-      });
+        html = html.replace(/<style[^>]*>.*?<\/style>/gis, "");
+        html = html.replace(/\n\s*\n\s*\n/g, "\n\n");
+        return html.trim();
+      }
 
-      if (result.error) return res.status(500).json({ error: result.error });
+      function extractNumberPrefix(filename: string): [string | null, string] {
+        const base = path.basename(filename, path.extname(filename));
+        let m = base.match(/^template[_\s]*(\d+)[_\s]*[-_]\s*(.*)/i);
+        if (m) return [m[1], m[2].trim().replace(/^[-_ ]+|[-_ ]+$/g, "")];
+        m = base.match(/^(\d+)[_\s.\-]+(.+)/);
+        if (m) return [m[1], m[2].trim().replace(/^[-_ ]+|[-_ ]+$/g, "")];
+        return [null, base];
+      }
 
-      const templates = result.result || [];
+      function detectVars(text: string): string[] {
+        const found = new Set<string>();
+        for (const [rx, v] of VAR_PATTERNS) { if (rx.test(text)) found.add(v); }
+        return Array.from(found);
+      }
+
+      function insertSalutation(html: string): string {
+        for (const [rx, repl] of SALUTATION_RX) {
+          if (rx.test(html)) { html = html.replace(rx, repl); break; }
+        }
+        return html;
+      }
+
+      const zip = new AdmZip(zipPath);
+      const entries = zip.getEntries().filter((e: any) => !e.isDirectory && e.entryName.toLowerCase().endsWith(".msg") && !e.entryName.startsWith("__MACOSX"));
+      const total = entries.length;
+
       const created: any[] = [];
       const errors: any[] = [];
-
       const attachmentDir = path.join(process.cwd(), "uploads", "template-attachments");
       if (!fs.existsSync(attachmentDir)) fs.mkdirSync(attachmentDir, { recursive: true });
 
-      for (const tpl of templates) {
-        if (tpl.error) { errors.push({ fileName: tpl.fileName, error: tpl.error }); continue; }
+      for (const entry of entries) {
         try {
-          const savedAttachments: { fileName: string; filePath: string; mimeType: string; size: number }[] = [];
-          if (tpl.attachments?.length) {
-            for (const att of tpl.attachments) {
-              if (att.isInline) continue;
-              const safeFileName = `${Date.now()}-${Math.random().toString(36).slice(2,8)}-${att.fileName.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
-              const diskPath = path.join(attachmentDir, safeFileName);
-              fs.writeFileSync(diskPath, Buffer.from(att.data, "base64"));
-              savedAttachments.push({ fileName: att.fileName, filePath: `/uploads/template-attachments/${safeFileName}`, mimeType: att.mimeType, size: att.size });
-            }
+          const msgBuf = entry.getData();
+          const reader = new MsgReader(msgBuf);
+          const fileData = reader.getFileData();
+
+          const subject = fileData.subject || "";
+          let htmlBody = "";
+          let plainBody = fileData.body || "";
+
+          if (fileData.compressedRtf || (fileData as any).bodyHtml || (fileData as any).htmlBody) {
+            const rawHtml = (fileData as any).bodyHtml || (fileData as any).htmlBody || "";
+            if (rawHtml) htmlBody = cleanHtml(rawHtml);
           }
 
+          if (!htmlBody && plainBody) {
+            htmlBody = plainBody.split("\n").map((line: string) => {
+              const escaped = line.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+              return escaped.trim() ? `<p>${escaped}</p>` : "<p>&nbsp;</p>";
+            }).join("\n");
+          }
+
+          htmlBody = insertSalutation(htmlBody);
+
+          const detectedVars = detectVars(plainBody || htmlBody);
+          if (htmlBody.includes("{{customer.firstName}}") && !detectedVars.includes("{{customer.firstName}}")) detectedVars.push("{{customer.firstName}}");
+          if (htmlBody.includes("{{customer.lastName}}") && !detectedVars.includes("{{customer.lastName}}")) detectedVars.push("{{customer.lastName}}");
+
+          const savedAttachments: { fileName: string; filePath: string; mimeType: string; size: number }[] = [];
+          const attCount = fileData.attachments?.length || 0;
+          for (let ai = 0; ai < attCount; ai++) {
+            try {
+              const att = reader.getAttachment(ai);
+              if (!att) continue;
+              const attName = att.fileName || fileData.attachments[ai]?.name || `attachment_${ai}`;
+              const contentId = (fileData.attachments[ai] as any)?.pidContentId || (fileData.attachments[ai] as any)?.contentId || null;
+              const isInline = !!contentId;
+              const ext = path.extname(attName).toLowerCase();
+              const mimeType = MIME_MAP[ext] || "application/octet-stream";
+
+              if (isInline && [".png", ".jpg", ".jpeg", ".gif"].includes(ext) && att.content) {
+                const dataUri = `data:${mimeType};base64,${Buffer.from(att.content).toString("base64")}`;
+                if (contentId) htmlBody = htmlBody.replace(new RegExp(`cid:${contentId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, "g"), dataUri);
+              } else if (att.content && att.content.length > 0) {
+                const safeFileName = `${Date.now()}-${Math.random().toString(36).slice(2,8)}-${attName.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+                const diskPath = path.join(attachmentDir, safeFileName);
+                fs.writeFileSync(diskPath, Buffer.from(att.content));
+                savedAttachments.push({ fileName: attName, filePath: `uploads/template-attachments/${safeFileName}`, mimeType, size: att.content.length });
+              }
+            } catch {}
+          }
+
+          const [numPrefix, namePart] = extractNumberPrefix(entry.entryName);
+          let templateName: string;
+          if (subject) {
+            templateName = numPrefix ? `${numPrefix} - ${subject}` : subject;
+          } else {
+            templateName = numPrefix ? `${numPrefix} - ${namePart}` : namePart;
+          }
+          if (!templateName.trim()) templateName = path.basename(entry.entryName, ".msg");
+
           const newTemplate = await storage.createMessageTemplate({
-            name: tpl.name,
-            description: tpl.subject !== tpl.name ? tpl.subject : null,
+            name: templateName,
+            description: subject && subject !== templateName ? subject : null,
             type: "email",
-            format: tpl.htmlBody ? "html" : "text",
-            subject: tpl.subject || tpl.name,
-            content: tpl.plainBody || "",
-            contentHtml: tpl.htmlBody || null,
+            format: htmlBody ? "html" : "text",
+            subject: subject || templateName,
+            content: plainBody || "",
+            contentHtml: htmlBody || null,
             categoryId: categoryId,
             language: language,
-            tags: tpl.detectedVariables || [],
+            tags: detectedVars,
             isDefault: false,
             isActive: true,
             createdBy: req.session.user?.id,
             attachments: savedAttachments.length > 0 ? savedAttachments : null,
           });
-          created.push({ id: newTemplate.id, name: tpl.name, fileName: tpl.fileName, attachmentCount: savedAttachments.length, detectedVariables: tpl.detectedVariables });
+          created.push({ id: newTemplate.id, name: templateName, fileName: entry.entryName, attachmentCount: savedAttachments.length, detectedVariables: detectedVars });
         } catch (err: any) {
-          errors.push({ fileName: tpl.fileName, error: err.message });
+          errors.push({ fileName: entry.entryName, error: err.message });
         }
       }
 
-      res.json({ total: templates.length, created: created.length, errors: errors.length, templates: created, errorDetails: errors });
+      res.json({ total, created: created.length, errors: errors.length, templates: created, errorDetails: errors });
     } catch (error: any) {
       console.error("Error importing MSG ZIP:", error);
       res.status(500).json({ error: error.message || "Failed to import templates" });

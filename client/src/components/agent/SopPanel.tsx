@@ -432,10 +432,10 @@ export function SopPanel({ campaignId, userId }: SopPanelProps) {
               <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
                 {article.isPinned && <Pin className="h-3 w-3 text-blue-500 shrink-0" />}
                 {!readArticleIds.has(article.id) && (
-                  <Badge variant="secondary" className="text-[8px] h-3.5 px-1 bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">{t.sop?.newBadge || "NEW"}</Badge>
+                  <Badge variant="secondary" className="text-[8px] h-3.5 px-1 bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">{t.sop.newBadge}</Badge>
                 )}
                 {result.isCampaignLinked && (
-                  <Badge variant="outline" className="text-[8px] h-3.5 px-1 border-green-300 text-green-700 dark:text-green-400">{t.sop?.campaignBadge || "CAMPAIGN"}</Badge>
+                  <Badge variant="outline" className="text-[8px] h-3.5 px-1 border-green-300 text-green-700 dark:text-green-400">{t.sop.campaignBadge}</Badge>
                 )}
                 {getPriorityBadge(article.priority)}
                 <Badge variant="secondary" className="text-[8px] h-3.5 px-1 ml-auto">{matchCount}×</Badge>
@@ -520,10 +520,10 @@ export function SopPanel({ campaignId, userId }: SopPanelProps) {
             <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
               {article.isPinned && <Pin className="h-3 w-3 text-blue-500 shrink-0" />}
               {!readArticleIds.has(article.id) && (
-                <Badge variant="secondary" className="text-[8px] h-3.5 px-1 bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300" data-testid={`sop-new-badge-${article.id}`}>{t.sop?.newBadge || "NEW"}</Badge>
+                <Badge variant="secondary" className="text-[8px] h-3.5 px-1 bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300" data-testid={`sop-new-badge-${article.id}`}>{t.sop.newBadge}</Badge>
               )}
               {isCampaignLinked && (
-                <Badge variant="outline" className="text-[8px] h-3.5 px-1 border-green-300 text-green-700 dark:text-green-400" data-testid={`sop-campaign-badge-${article.id}`}>{t.sop?.campaignBadge || "CAMPAIGN"}</Badge>
+                <Badge variant="outline" className="text-[8px] h-3.5 px-1 border-green-300 text-green-700 dark:text-green-400" data-testid={`sop-campaign-badge-${article.id}`}>{t.sop.campaignBadge}</Badge>
               )}
               {getPriorityBadge(article.priority)}
             </div>

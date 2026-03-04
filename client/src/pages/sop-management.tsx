@@ -269,7 +269,7 @@ export default function SopManagementPage() {
       });
       if (!res.ok) throw new Error("Failed to copy article");
       queryClient.invalidateQueries({ queryKey: ["/api/sop/articles"] });
-      toast({ title: copyWithTranslation ? (t.sop?.translatedSuccess || "Article translated and copied") : (t.sop?.copiedSuccess || "Article copied") });
+      toast({ title: copyWithTranslation ? t.sop.translatedSuccess : t.sop.copiedSuccess });
       setShowCopyDialog(false);
       setCopySourceArticle(null);
     } catch (error) {
@@ -429,7 +429,7 @@ export default function SopManagementPage() {
                         <div className="flex items-center gap-1 shrink-0">
                           <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => { setReadsArticleId(article.id); setShowReadsDialog(true); }} title={t.sop.whoRead} data-testid={`btn-reads-${article.id}`}><Users className="h-4 w-4" /></Button>
                           <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => { setLinkingArticleId(article.id); setShowCampaignLinkDialog(true); }} title={t.sop.campaignLink} data-testid={`btn-campaigns-${article.id}`}><Tag className="h-4 w-4" /></Button>
-                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => openCopyDialog(article)} title={t.sop?.copyTranslate || "Copy to language"} data-testid={`btn-copy-${article.id}`}><Copy className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => openCopyDialog(article)} title={t.sop.copyTranslate} data-testid={`btn-copy-${article.id}`}><Copy className="h-4 w-4" /></Button>
                           <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => openEditArticle(article)} data-testid={`btn-edit-${article.id}`}><Pencil className="h-4 w-4" /></Button>
                           <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-destructive" onClick={() => { if (confirm(t.sop.confirmDeleteArticle)) deleteArticleMutation.mutate(article.id); }} data-testid={`btn-delete-${article.id}`}><Trash2 className="h-4 w-4" /></Button>
                         </div>
@@ -660,15 +660,15 @@ export default function SopManagementPage() {
               <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{t.sop.icon}</Label>
               <Tabs defaultValue={isEmoji(categoryForm.icon) ? "emoji" : "icons"} className="w-full">
                 <TabsList className="w-full grid grid-cols-2 h-8">
-                  <TabsTrigger value="icons" className="text-xs h-6">{t.sop.selectIcon || "Icons"}</TabsTrigger>
-                  <TabsTrigger value="emoji" className="text-xs h-6">{(t.sop as any).selectEmoji || "Emoji"}</TabsTrigger>
+                  <TabsTrigger value="icons" className="text-xs h-6">{t.sop.selectIcon}</TabsTrigger>
+                  <TabsTrigger value="emoji" className="text-xs h-6">{t.sop.selectEmoji}</TabsTrigger>
                 </TabsList>
                 <TabsContent value="icons" className="mt-2">
                   <ScrollArea className="h-[260px] border rounded-lg bg-muted/20 p-3">
                     <div className="space-y-3">
                       {ICON_GROUPS.map(group => (
                         <div key={group.labelKey}>
-                          <p className="text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-widest mb-1.5 px-0.5">{(t.sop as any)?.[group.labelKey] || group.fallback}</p>
+                          <p className="text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-widest mb-1.5 px-0.5">{(t.sop as any)[group.labelKey] || group.fallback}</p>
                           <div className="flex flex-wrap gap-1">
                             {group.icons.map(opt => {
                               const IconComp = opt.icon;
@@ -690,7 +690,7 @@ export default function SopManagementPage() {
                     <div className="space-y-3">
                       {EMOJI_GROUPS.map(group => (
                         <div key={group.labelKey}>
-                          <p className="text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-widest mb-1.5 px-0.5">{(t.sop as any)?.[group.labelKey] || group.fallback}</p>
+                          <p className="text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-widest mb-1.5 px-0.5">{(t.sop as any)[group.labelKey] || group.fallback}</p>
                           <div className="flex flex-wrap gap-1">
                             {group.emojis.map(em => {
                               const sel = categoryForm.icon === em;
@@ -877,7 +877,7 @@ export default function SopManagementPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Copy className="h-4 w-4" />
-              {t.sop?.copyTranslate || "Copy / Translate"}
+              {t.sop.copyTranslate}
             </DialogTitle>
           </DialogHeader>
           {copySourceArticle && (
@@ -890,7 +890,7 @@ export default function SopManagementPage() {
               </div>
               <div className="space-y-2">
                 <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                  {t.sop?.targetLanguage || "Target language"}
+                  {t.sop.targetLanguage}
                 </Label>
                 <div className="flex flex-wrap gap-2">
                   {COUNTRY_OPTIONS.map(opt => (
@@ -913,8 +913,8 @@ export default function SopManagementPage() {
               </div>
               <div className="flex items-center justify-between p-3 rounded-lg border">
                 <div>
-                  <Label className="text-sm font-medium">{t.sop?.aiTranslation || "AI Translation"}</Label>
-                  <p className="text-xs text-muted-foreground">{t.sop?.aiTranslationDesc || "Automatically translate content using AI"}</p>
+                  <Label className="text-sm font-medium">{t.sop.aiTranslation}</Label>
+                  <p className="text-xs text-muted-foreground">{t.sop.aiTranslationDesc}</p>
                 </div>
                 <Switch checked={copyWithTranslation} onCheckedChange={setCopyWithTranslation} data-testid="switch-copy-translate" />
               </div>
@@ -923,7 +923,7 @@ export default function SopManagementPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowCopyDialog(false)}>{t.sop.cancel}</Button>
             <Button onClick={handleCopyArticle} disabled={!copyTargetCountry || isCopying} data-testid="btn-confirm-copy">
-              {isCopying ? <><Loader2 className="h-4 w-4 animate-spin mr-1.5" />{t.sop?.translating || "Translating..."}</> : <><Copy className="h-4 w-4 mr-1.5" />{copyWithTranslation ? (t.sop?.copyAndTranslate || "Copy & Translate") : (t.sop?.copyOnly || "Copy")}</>}
+              {isCopying ? <><Loader2 className="h-4 w-4 animate-spin mr-1.5" />{t.sop.translating}</> : <><Copy className="h-4 w-4 mr-1.5" />{copyWithTranslation ? t.sop.copyAndTranslate : t.sop.copyOnly}</>}
             </Button>
           </DialogFooter>
         </DialogContent>
