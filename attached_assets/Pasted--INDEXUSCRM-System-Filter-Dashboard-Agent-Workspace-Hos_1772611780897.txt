@@ -1,0 +1,214 @@
+
+INDEXUSCRM System
+Filter
+
+    Dashboard
+    Agent Workspace
+    Hospitals & Clinics
+    Campaigns
+    Pipeline
+
+    Users
+    Settings
+    Configurator
+
+System Administrator
+admin
+v1.0.0
+
+Configurator
+
+Configure services, invoice templates, and layouts
+Email & GSM Router
+Konfigurácia pravidiel pre spracovanie emailov a SMS správ
+	Template Name	Template Type	Category	Language	Default	Usage Count	Actions
+	
+Email informativo v1.0
+	
+Email
+	Marketing templates	Italiano		0	
+	
+Grazie sms
+	
+SMS
+	—	Italiano		2	
+	
+Grazie tuti
+	
+Email
+	Marketing templates	Italiano		2	
+	
+Informačný emial v1.0
+	
+Email
+	Marketing templates	Slovenčina		40	
+	
+Podakovanie za dôveru
+	
+SMS
+	Marketing templates	Slovenčina		23	
+
+Import from ZIP
+
+Upload a ZIP file containing .msg (Outlook) email templates
+Select target category
+Select language
+ZIP
+template_50_Kérelem a „Szü­lő nő hozzájárulása a CBU kiadásához” fizikai dokumentum módosítására.zip(30.9 MB)
+0/78 templates imported
+
+• template_50_Kérelem a „Szü­lő nő hozzájárulása a CBU kiadásához” fizikai dokumentum módosítására.msg: O is not a constructor
+
+• template_51_emlékeztető 2 az eredeti dokumentum postai elküldése template_22 – „Ügyfél hozzájárulása a transzplantátum kiadásához kezelés céljából”.msg: O is not a constructor
+
+• template_64_az ügyfél visszavonja érdeklődését a CBU kiadása iránt.msg: O is not a constructor
+
+• template_65_Tájékoztatás a LAB részére – kérelem a CBU kezelés céljából történő kiadására a(z) xxxxxxxxxxxxxxxxxxxxxx számú szerződéshez.msg: O is not a constructor
+
+• template_66_a kezeléshez szükséges transplantátum kiadásának szándékáról szóló információ megerősítése.msg: O is not a constructor
+
+• template_67_tájékoztatás a LAB számára a „szülő nő hozzájárulása a CBU kiadásához” dokumentum beérkezéséről.msg: O is not a constructor
+
+• template_83_Melléklet a tárolási díj számlázásának módosításáról a(z) xxxxxxxxxxxxxxxxxx számú szerződéshez.msg: O is not a constructor
+
+• template_87_Belső feladat Melléklet a fizetési feltételek módosításáról a(z) xxxxxxxxxxxxxxxxxx számú szerződéshez.msg: O is not a constructor
+
+• template_91_Emlékeztető Melléklet a fizetési feltételek módosításáról a(z) xxxxxxxxxxxxxxxxxx számú szerződéshez.msg: O is not a constructor
+
+• template_95_Melléklet a fizetési feltételek módosításáról a(z) xxxxxxxxxxxxxxxxxx számú szerződéshez.msg: O is not a constructor
+
+• template_99_Visszaigazolás a kézbesítésről Melléklet a fizetési feltételek módosításáról a(z) xxxxxxxxxxxxxxxxxx számú szerződéshez.msg: O is not a constructor
+
+• template_103_Kérelem a fizetési feltételek módosítására a(z) xxxxxxxxxxxxxxxxxx számú szerződéshez.msg: O is not a constructor
+
+• template_107_Hibásan kitöltött dokumentum Melléklet a fizetési feltételek módosításáról a(z) xxxxxxxxxxxxxxxxxx számú szerződéshez.msg: O is not a constructor
+
+• template_111_Emlékeztető Melléklet a fizetési feltételek módosításáról a(z) xxxxxxxxxxxxxxxxxx számú szerződéshez.msg: O is not a constructor
+
+• template_119_A tárolt transzplantátum fotódokumentációja.msg: O is not a constructor
+
+• template_123_Kérelem a transzplantátum tárolásáról szóló igazolásra (fotódokumentáció).msg: O is not a constructor
+
+• template_127_Kérelem tájékoztatásra az adott diagnózis kezelésével kapcsolatban.msg: O is not a constructor
+
+• template_131_Kérelem az ügyféladatok módosítására az ügyféladatbázisban reakció telefonos kérésre.msg: O is not a constructor
+
+• template_135_Kérelem az ügyféladatok módosítására az ügyféladatbázisban reakció írásos kérelemre.msg: O is not a constructor
+
+• template_139_Belső tájékoztatás az ügyfél adatainak módosításáról az adatbázisban (küldve a könyvelés részére).msg: O is not a constructor
+
+• template_143_Kérelem az aktuális számla ügyfél részére történő megküldésére reakció telefonos vagy írásos kérésre.msg: O is not a constructor
+
+• template_147_Az ügyfél kérelme a számlázás elektronikus formára történő módosítására reakció telefonos vagy írásos kérésre.msg: O is not a constructor
+
+• template_151_Belső tájékoztatás a számlázás elektronikus formára történő módosításáról reakció telefonos vagy írásos kérésre.msg: O is not a constructor
+
+• template_155_Írásos megerősítés a CBU kezelés céljából történő kiadására vonatkozó kérelemhez.msg: O is not a constructor
+
+• template_163_Kérelem áthelyezésre más szöveti intézménybe – ANYA_sDNS.msg: O is not a constructor
+
+• template_179_Kérelem a kitöltött dokumentum POSTAI úton történő megküldésére a szerződéshez.msg: O is not a constructor
+
+• template_183_Emlékeztető kérelem a kitöltött dokumentum postai úton történő megküldésére.msg: O is not a constructor
+
+• template_187_A be nem érkezett áthelyezési kérelem formális lezárása.msg: O is not a constructor
+
+• template_191_Tájékoztatás a lab részére kérelem a transzplantátum más szöveti intézménybe történő áthelyezésére.msg: O is not a constructor
+
+• template_195_Emlékeztető a lab részére kérelem a transzplantátum más szöveti intézménybe történő áthelyezésére a szerződéshez.msg: O is not a constructor
+
+• template_199_Kérelem ALÁÍRÁSRA a transzplantátum más SZI történő áthelyezésére.msg: O is not a constructor
+
+• template_204_Kérelem információ vagy dokumentum megküldésére a(z) xxxxxxxxxx számú szerződéshez.msg: O is not a constructor
+
+• template_208_Visszaigazolás a számlák elektronikus formában történő küldésére irányuló kérelemről a szerződéshez.msg: O is not a constructor
+
+• template_212_Visszaigazolás az ügyféladatok módosításáról a szerződéshez.msg: O is not a constructor
+
+• template_216_GYIK válasz az ügyfél kérdésére.msg: O is not a constructor
+
+• template_220_Visszaigazolás a GYIK-on kívüli kérdés beérkezéséről.msg: O is not a constructor
+
+• template_224_Email a felettes részére új ügyfélkérdés a(z) xxxxxxxxxxxxxx számú szerződéshez.msg: O is not a constructor
+
+• template_228_Az ügyfél kérelmének reklamációjának beérkezésének visszaigazolása.msg: O is not a constructor
+
+• template_232_Válasz az ügyfél kérelmére a szerződéshez.msg: O is not a constructor
+
+• template_236_Visszaigazolás az aláírt melléklet beérkezéséről a szerződéshez.msg: O is not a constructor
+
+• template_244_Info lab SÜRGŐS visszaigazolás az áthelyezés végrehajtásáról a szerződéshez.msg: O is not a constructor
+
+• template_248_Visszaigazolás a transzplantátum áthelyezésének elutasításáról.msg: O is not a constructor
+
+• template_252_Info lab kérelem tájékoztatásra az áthelyezés új időpontjáról.msg: O is not a constructor
+
+• template_256_Tájékoztatás az áthelyezésre kiválasztott intézmény megfelelőségének hiányáról.msg: O is not a constructor
+
+• template_260_EMLÉKEZTETŐ az áthelyezésre kiválasztott intézmény megfelelőségének hiányáról.msg: O is not a constructor
+
+• template_264_Tájékoztatás az áthelyezési kérelem lezárásáról.msg: O is not a constructor
+
+• template_268_Tájékoztatás a tárolás folytatásáról.msg: O is not a constructor
+
+• template_272_Az ügyfél más TZ-t választ az áthelyezéshez.msg: O is not a constructor
+
+• template_276_Postai úton megküldött hiányos dokumentum az áthelyezéshez.msg: O is not a constructor
+
+• template_280_Info lab az áthelyezési kérelem TÖRLÉSE a(z) xxxxxxxxx számú szerződéshez.msg: O is not a constructor
+
+• template_284_CBC AG_űrlap a(z) xxxxxxxxxxxxx számú szerződés felmondásához.msg: O is not a constructor
+
+• template_288_Visszaigazolás a felmondás beérkezéséről.msg: O is not a constructor
+
+• template_292_Kérelem a transzplantátum megsemmisítésének igazolására.msg: O is not a constructor
+
+• template_296_Melléklet a felmondás visszavonásáról a(z) xxxxxx számú szerződéshez.msg: O is not a constructor
+
+• template_300_Visszaigazolás a felmondás visszavonásának beérkezéséről.msg: O is not a constructor
+
+• template_304_Tájékoztatás a szerződés megszűnéséről a felmondási idő letelte után.msg: O is not a constructor
+
+• template_308_A szerződés megszűnése és tájékoztatás a megsemmisítésről.msg: O is not a constructor
+
+• template_312_Kérelem a tárolóhelyiségek meglátogatására – AZONOSÍTOTT ügyfél az IS CBC rendszerben.msg: O is not a constructor
+
+• template_316_Kérelem a tárolóhelyiségek meglátogatására – nem azonosított ügyfél.msg: O is not a constructor
+
+• template_320_Emlékeztető kérelem a tárolóhelyiségek meglátogatására.msg: O is not a constructor
+
+• template_324_Az ügyfél kérelmének lezárása – tárolóhelyiségek látogatása.msg: O is not a constructor
+
+• template_328_A személyes látogatás időpontjának lemondása.msg: O is not a constructor
+
+• template_332_Info lab CBU ellenőrzése személyes látogatás előtt.msg: O is not a constructor
+
+• template_336_EMLÉKEZTETŐ_lab CBU ellenőrzése személyes látogatás előtt.msg: O is not a constructor
+
+• template_340_A tárolóhelyiségek látogatása – időpontok.msg: O is not a constructor
+
+• template_344_Emlékeztető_A tárolóhelyiségek látogatása – időpontok.msg: O is not a constructor
+
+• template_348_A kérelem törlése_A tárolóhelyiségek látogatása.msg: O is not a constructor
+
+• template_352_A személyes látogatás időpontjának visszaigazolása.msg: O is not a constructor
+
+• template_356_Tájékoztatás a tárolóhelyiségek személyes látogatásának lehetséges időpontjairól.msg: O is not a constructor
+
+• template_360_Belső információ a személyes látogatás megerősített időpontjáról.msg: O is not a constructor
+
+• template_42_A „Szü­lő nő hozzájárulása az egység kiadásához” dokumentum elküldése az ügyfélnek (1.1.3).msg: O is not a constructor
+
+• template_43_A „CBU kiadási kérelem” dokumentum elküldése az egészségügyi intézménynek.msg: O is not a constructor
+
+• template_44_Emlékeztető e-mail 2 a be nem érkezett „Egységkiadási kérelem” dokumentumhoz.msg: O is not a constructor
+
+• template_45_emlékeztető 1 az eredeti dokumentum postai elküldése template_21 – „Ügyfél hozzájárulása a transzplantátum kiadásához kezelés céljából”.msg: O is not a constructor
+
+• template_46_Emlékeztető e-mail 1 a be nem érkezett „Szü­lő nő hozzájárulása az egység kiadásához” dokumentumhoz az ügyfél számára (1.1.3).msg: O is not a constructor
+
+• template_47_Emlékeztető e-mail 1 a be nem érkezett „Egységkiadási kérelem” dokumentumhoz.msg: O is not a constructor
+
+• template_48_Emlékeztető e-mail 2 a be nem érkezett „Szü­lő nő hozzájárulása az egység kiadásához” dokumentumhoz az ügyfél számára (1.1.3).msg: O is not a constructor
+
+• template_49_Kérelem a „Szü­lő nő hozzájárulása a CBU kiadásához” dokumentum módosítására.msg: O is not a constructor

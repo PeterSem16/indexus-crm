@@ -1,6 +1,4 @@
 import express, { type Express, type Request, type Response, type NextFunction } from "express";
-import * as MsgReaderPkg from "msgreader";
-import * as AdmZipPkg from "adm-zip";
 import { registerInboundRoutes, autoConnectAri } from "./inbound-routes";
 import { getQueueEngine } from "./lib/queue-engine";
 import { createServer, type Server } from "http";
@@ -29314,8 +29312,11 @@ Return ONLY the JSON object.`
       const language = req.body.language || "sk";
       if (!zipPath) return res.status(400).json({ error: "No file uploaded" });
 
-      const AdmZip = (AdmZipPkg as any).default || AdmZipPkg;
-      const MsgReader = (MsgReaderPkg as any).default || MsgReaderPkg;
+      const _rq: any = (typeof require === "function") ? require : eval("require");
+      const _azm = _rq("adm" + "-zip");
+      const AdmZip = _azm.default || _azm;
+      const _mrm = _rq("msg" + "reader");
+      const MsgReader = _mrm.default || _mrm;
 
       const FULL_NAME_VAR = "{{customer.firstName}} {{customer.lastName}}";
       const SALUTATION_RX: [RegExp, string][] = [
