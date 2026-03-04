@@ -29317,6 +29317,10 @@ Return ONLY the JSON object.`
       const AdmZip = _azm.default || _azm;
       const _mrm = _rq("msg" + "reader");
       const MsgReader = _mrm.default || _mrm;
+      let decompressRTF: ((buf: Buffer) => Buffer) | null = null;
+      let deEncapsulateSync: ((rtf: string) => { mode: string; text?: string; html?: string }) | null = null;
+      try { decompressRTF = _rq("@kenjiuno/decompressrtf").decompressRTF; } catch {}
+      try { deEncapsulateSync = _rq("rtf-stream-parser").deEncapsulateSync; } catch {}
 
       const FULL_NAME_VAR = "{{customer.firstName}} {{customer.lastName}}";
       const SALUTATION_RX: [RegExp, string][] = [
@@ -29373,6 +29377,35 @@ Return ONLY the JSON object.`
           if (nullCount > check * 0.2) return buf.toString("utf16le").replace(/\x00/g, "");
         }
         return buf.toString("utf-8").replace(/\x00/g, "");
+      }
+
+      function isReadableText(s: string): boolean {
+        if (!s || s.length < 3) return false;
+        let printable = 0;
+        const len = Math.min(s.length, 500);
+        for (let i = 0; i < len; i++) {
+          const c = s.charCodeAt(i);
+          if ((c >= 0x20 && c <= 0x7E) || (c >= 0xA0 && c <= 0x024F) || c === 0x0A || c === 0x0D || c === 0x09) printable++;
+        }
+        return (printable / len) > 0.7;
+      }
+
+      function tryDecompressRtf(rawBuf: Buffer): string {
+        if (!decompressRTF) return "";
+        try {
+          const rtfBuf = decompressRTF(rawBuf);
+          const rtfStr = rtfBuf.toString("ascii");
+          if (deEncapsulateSync) {
+            try {
+              const result = deEncapsulateSync(rtfStr);
+              if (result.html) return result.html;
+              if (result.text) return result.text.split("\n").map((l: string) => `<p>${l.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}</p>`).join("\n");
+            } catch {}
+          }
+          let text = rtfStr.replace(/\\par\b/g, "\n").replace(/\\\w+\s?/g, "").replace(/[{}]/g, "");
+          if (isReadableText(text)) return text.split("\n").map((l: string) => `<p>${l.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}</p>`).join("\n");
+        } catch {}
+        return "";
       }
 
       function cleanHtml(raw: any): string {
@@ -29437,11 +29470,43 @@ Return ONLY the JSON object.`
 
           const subject = toStr(fileData.subject);
           let htmlBody = "";
-          let plainBody = toStr(fileData.body);
+          const rawBody = fileData.body;
+          let plainBody = "";
 
-          if (fileData.compressedRtf || (fileData as any).bodyHtml || (fileData as any).htmlBody) {
-            const rawHtml = (fileData as any).bodyHtml || (fileData as any).htmlBody || "";
-            if (rawHtml) htmlBody = cleanHtml(rawHtml);
+          const rawHtml = (fileData as any).bodyHtml || (fileData as any).htmlBody || "";
+          if (rawHtml) {
+            const decoded = toStr(rawHtml);
+            if (isReadableText(decoded)) htmlBody = cleanHtml(decoded);
+          }
+
+          if (!htmlBody && rawBody) {
+            if (typeof rawBody === "string") {
+              plainBody = rawBody;
+            } else if (rawBody instanceof Uint8Array || rawBody instanceof Buffer || rawBody instanceof ArrayBuffer) {
+              const bodyBuf = Buffer.from(rawBody as any);
+              const asUtf8 = bodyBuf.toString("utf-8").replace(/\x00/g, "");
+              if (isReadableText(asUtf8)) {
+                plainBody = asUtf8;
+              } else {
+                const asUtf16 = bodyBuf.toString("utf16le").replace(/\x00/g, "");
+                if (isReadableText(asUtf16)) {
+                  plainBody = asUtf16;
+                } else {
+                  const fromRtf = tryDecompressRtf(bodyBuf);
+                  if (fromRtf) htmlBody = cleanHtml(fromRtf);
+                }
+              }
+            } else {
+              plainBody = String(rawBody);
+            }
+          }
+
+          if (!htmlBody && !plainBody && rawBody) {
+            const bodyBuf = Buffer.from(rawBody instanceof ArrayBuffer || rawBody instanceof Uint8Array ? rawBody : []);
+            if (bodyBuf.length > 0) {
+              const fromRtf = tryDecompressRtf(bodyBuf);
+              if (fromRtf) htmlBody = cleanHtml(fromRtf);
+            }
           }
 
           if (!htmlBody && plainBody) {

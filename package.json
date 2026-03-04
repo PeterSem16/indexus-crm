@@ -19,6 +19,7 @@
     "@harbour-enterprises/superdoc": "^1.2.1",
     "@hookform/resolvers": "^3.10.0",
     "@jridgewell/trace-mapping": "^0.3.25",
+    "@kenjiuno/decompressrtf": "^0.1.4",
     "@microsoft/microsoft-graph-client": "^3.0.7",
     "@pnp/nodejs-commonjs": "^2.15.0",
     "@pnp/sp": "^4.18.0",
