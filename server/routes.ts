@@ -29478,26 +29478,29 @@ Return ONLY the JSON object.`
           let htmlBody = "";
           let plainBody = "";
 
-          // 1) Try bodyHtml (MAPI property 0x1013)
+          // 1) Try bodyHtml (MAPI 0x1013) — prefer HTML with full formatting
           if (fileData.bodyHtml) {
-            const decoded = toStr(fileData.bodyHtml);
-            if (isReadableText(decoded)) htmlBody = cleanHtml(decoded);
+            const rawHtml = toStr(fileData.bodyHtml);
+            if (rawHtml && rawHtml.length > 10) htmlBody = cleanHtml(rawHtml);
           }
 
-          // 2) Try compressedRtf (MAPI property 0x1009) — decompress and de-encapsulate HTML
+          // 2) Try plain text body (MAPI 0x1000) — original msgreader behavior
+          const rawBody = fileData.body;
+          if (typeof rawBody === "string" && rawBody.length > 0) {
+            plainBody = rawBody;
+          } else if (rawBody && typeof rawBody !== "string") {
+            const decoded = toStr(rawBody);
+            if (isReadableText(decoded)) plainBody = decoded;
+          }
+
+          // 3) If no HTML yet, try compressed RTF (MAPI 0x1009)
           if (!htmlBody && fileData.compressedRtf) {
             const rtfRaw = fileData.compressedRtf;
-            const rtfBuf = rtfRaw instanceof Uint8Array || rtfRaw instanceof Buffer ? Buffer.from(rtfRaw) : (rtfRaw instanceof ArrayBuffer ? Buffer.from(rtfRaw) : null);
+            const rtfBuf = (rtfRaw instanceof Uint8Array || rtfRaw instanceof Buffer) ? Buffer.from(rtfRaw) : (rtfRaw instanceof ArrayBuffer ? Buffer.from(rtfRaw) : null);
             if (rtfBuf) {
               const fromRtf = tryDecompressRtf(rtfBuf);
-              if (fromRtf && isReadableText(fromRtf)) htmlBody = cleanHtml(fromRtf);
+              if (fromRtf) htmlBody = cleanHtml(fromRtf);
             }
-          }
-
-          // 3) Try plain text body (MAPI property 0x1000)
-          if (fileData.body) {
-            const bodyStr = toStr(fileData.body);
-            if (isReadableText(bodyStr)) plainBody = bodyStr;
           }
 
           // 4) Convert plain text to HTML if no HTML found
@@ -29506,11 +29509,6 @@ Return ONLY the JSON object.`
               const escaped = line.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
               return escaped.trim() ? `<p>${escaped}</p>` : "<p>&nbsp;</p>";
             }).join("\n");
-          }
-
-          // 5) Last resort: if we have nothing, use subject as content
-          if (!htmlBody && !plainBody) {
-            htmlBody = `<p>${(subject || "Template content unavailable").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</p>`;
           }
 
           htmlBody = insertSalutation(htmlBody);
