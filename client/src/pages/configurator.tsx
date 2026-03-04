@@ -11712,11 +11712,15 @@ function MessageTemplatesTab() {
       
       setZipProgress({ phase: (t.konfigurator as any).importMsgZipCreating || "Creating templates..." });
       
+      const abortCtrl = new AbortController();
+      const uploadTimeout = setTimeout(() => abortCtrl.abort(), 600000);
       const res = await fetch("/api/message-templates/import-zip", {
         method: "POST",
         body: formData,
         credentials: "include",
+        signal: abortCtrl.signal,
       });
+      clearTimeout(uploadTimeout);
       
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Unknown error" }));

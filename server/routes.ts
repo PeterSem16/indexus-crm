@@ -29303,9 +29303,9 @@ Return ONLY the JSON object.`
 
 
 
-  const uploadMsgZip = multer({ storage: multer.diskStorage({ destination: (_req, _file, cb) => { const dir = path.join(process.cwd(), "uploads", "temp"); if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true }); cb(null, dir); }, filename: (_req, _file, cb) => cb(null, `msg-zip-${Date.now()}.zip`) }), limits: { fileSize: 100 * 1024 * 1024 }, fileFilter: (_req, file, cb) => { if (file.mimetype === "application/zip" || file.mimetype === "application/x-zip-compressed" || file.originalname.endsWith(".zip")) cb(null, true); else cb(new Error("Only ZIP files allowed")); } });
+  const uploadMsgZip = multer({ storage: multer.diskStorage({ destination: (_req, _file, cb) => { const dir = path.join(process.cwd(), "uploads", "temp"); if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true }); cb(null, dir); }, filename: (_req, _file, cb) => cb(null, `msg-zip-${Date.now()}.zip`) }), limits: { fileSize: 250 * 1024 * 1024 }, fileFilter: (_req, file, cb) => { if (file.mimetype === "application/zip" || file.mimetype === "application/x-zip-compressed" || file.originalname.endsWith(".zip")) cb(null, true); else cb(new Error("Only ZIP files allowed")); } });
 
-  app.post("/api/message-templates/import-zip", requireAuth, requireAdminOrManager, uploadMsgZip.single("file"), async (req, res) => {
+  app.post("/api/message-templates/import-zip", requireAuth, requireAdminOrManager, (req, res, next) => { req.setTimeout(600000); res.setTimeout(600000); next(); }, uploadMsgZip.single("file"), async (req, res) => {
     const zipPath = (req as any).file?.path;
     try {
       const categoryId = req.body.categoryId || null;
