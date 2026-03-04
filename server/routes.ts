@@ -29353,11 +29353,18 @@ Return ONLY the JSON object.`
         ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       };
 
-      function cleanHtml(raw: string | Buffer): string {
-        let html = typeof raw === "string" ? raw : (() => {
-          for (const enc of ["utf-8", "latin1"] as const) { try { return raw.toString(enc); } catch {} }
-          return raw.toString("utf-8");
-        })();
+      function toStr(raw: any): string {
+        if (!raw) return "";
+        if (typeof raw === "string") return raw;
+        if (raw instanceof Uint8Array || raw instanceof Buffer) {
+          return Buffer.from(raw).toString("utf-8");
+        }
+        if (raw instanceof ArrayBuffer) return Buffer.from(raw).toString("utf-8");
+        return String(raw);
+      }
+
+      function cleanHtml(raw: any): string {
+        let html = toStr(raw);
         html = html.replace(/<!--\[if.*?\]>.*?<!\[endif\]-->/gs, "");
         html = html.replace(/<!--.*?-->/gs, "");
         html = html.replace(/<xml[^>]*>.*?<\/xml>/gis, "");
@@ -29416,9 +29423,9 @@ Return ONLY the JSON object.`
           const reader = new MsgReader(msgBuf);
           const fileData = reader.getFileData();
 
-          const subject = fileData.subject || "";
+          const subject = toStr(fileData.subject);
           let htmlBody = "";
-          let plainBody = fileData.body || "";
+          let plainBody = toStr(fileData.body);
 
           if (fileData.compressedRtf || (fileData as any).bodyHtml || (fileData as any).htmlBody) {
             const rawHtml = (fileData as any).bodyHtml || (fileData as any).htmlBody || "";

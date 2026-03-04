@@ -1,0 +1,39 @@
+57/78 templates imported
+
+• template_50_Kérelem a „Szü­lő nő hozzájárulása a CBU kiadásához” fizikai dokumentum módosítására.msg: o.split is not a function
+
+• template_51_emlékeztető 2 az eredeti dokumentum postai elküldése template_22 – „Ügyfél hozzájárulása a transzplantátum kiadásához kezelés céljából”.msg: o.split is not a function
+
+• template_64_az ügyfél visszavonja érdeklődését a CBU kiadása iránt.msg: o.split is not a function
+
+• template_65_Tájékoztatás a LAB részére – kérelem a CBU kezelés céljából történő kiadására a(z) xxxxxxxxxxxxxxxxxxxxxx számú szerződéshez.msg: o.split is not a function
+
+• template_66_a kezeléshez szükséges transplantátum kiadásának szándékáról szóló információ megerősítése.msg: o.split is not a function
+
+• template_67_tájékoztatás a LAB számára a „szülő nő hozzájárulása a CBU kiadásához” dokumentum beérkezéséről.msg: o.split is not a function
+
+• template_83_Melléklet a tárolási díj számlázásának módosításáról a(z) xxxxxxxxxxxxxxxxxx számú szerződéshez.msg: o.split is not a function
+
+• template_87_Belső feladat Melléklet a fizetési feltételek módosításáról a(z) xxxxxxxxxxxxxxxxxx számú szerződéshez.msg: o.split is not a function
+
+• template_91_Emlékeztető Melléklet a fizetési feltételek módosításáról a(z) xxxxxxxxxxxxxxxxxx számú szerződéshez.msg: o.split is not a function
+
+• template_95_Melléklet a fizetési feltételek módosításáról a(z) xxxxxxxxxxxxxxxxxx számú szerződéshez.msg: o.split is not a function
+
+• template_99_Visszaigazolás a kézbesítésről Melléklet a fizetési feltételek módosításáról a(z) xxxxxxxxxxxxxxxxxx számú szerződéshez.msg: o.split is not a function
+
+• template_103_Kérelem a fizetési feltételek módosítására a(z) xxxxxxxxxxxxxxxxxx számú szerződéshez.msg: o.split is not a function
+
+• template_107_Hibásan kitöltött dokumentum Melléklet a fizetési feltételek módosításáról a(z) xxxxxxxxxxxxxxxxxx számú szerződéshez.msg: o.split is not a function
+
+• template_111_Emlékeztető Melléklet a fizetési feltételek módosításáról a(z) xxxxxxxxxxxxxxxxxx számú szerződéshez.msg: o.split is not a function
+
+• template_42_A „Szü­lő nő hozzájárulása az egység kiadásához” dokumentum elküldése az ügyfélnek (1.1.3).msg: o.split is not a function
+
+• template_44_Emlékeztető e-mail 2 a be nem érkezett „Egységkiadási kérelem” dokumentumhoz.msg: o.split is not a function
+
+• template_45_emlékeztető 1 az eredeti dokumentum postai elküldése template_21 – „Ügyfél hozzájárulása a transzplantátum kiadásához kezelés céljából”.msg: o.split is not a function
+
+• template_46_Emlékeztető e-mail 1 a be nem érkezett „Szü­lő nő hozzájárulása az egység kiadásához” dokumentumhoz az ügyfél számára (1.1.3).msg: o.split is not a function
+
+• template_47_Emlékeztető e-mail 1 a be nem érkezett „Egységkia
