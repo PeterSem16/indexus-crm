@@ -29470,50 +29470,41 @@ Return ONLY the JSON object.`
 
           const subject = toStr(fileData.subject);
           let htmlBody = "";
-          const rawBody = fileData.body;
           let plainBody = "";
 
-          const rawHtml = (fileData as any).bodyHtml || (fileData as any).htmlBody || "";
-          if (rawHtml) {
-            const decoded = toStr(rawHtml);
+          // 1) Try bodyHtml (MAPI property 0x1013)
+          if (fileData.bodyHtml) {
+            const decoded = toStr(fileData.bodyHtml);
             if (isReadableText(decoded)) htmlBody = cleanHtml(decoded);
           }
 
-          if (!htmlBody && rawBody) {
-            if (typeof rawBody === "string") {
-              plainBody = rawBody;
-            } else if (rawBody instanceof Uint8Array || rawBody instanceof Buffer || rawBody instanceof ArrayBuffer) {
-              const bodyBuf = Buffer.from(rawBody as any);
-              const asUtf8 = bodyBuf.toString("utf-8").replace(/\x00/g, "");
-              if (isReadableText(asUtf8)) {
-                plainBody = asUtf8;
-              } else {
-                const asUtf16 = bodyBuf.toString("utf16le").replace(/\x00/g, "");
-                if (isReadableText(asUtf16)) {
-                  plainBody = asUtf16;
-                } else {
-                  const fromRtf = tryDecompressRtf(bodyBuf);
-                  if (fromRtf) htmlBody = cleanHtml(fromRtf);
-                }
-              }
-            } else {
-              plainBody = String(rawBody);
+          // 2) Try compressedRtf (MAPI property 0x1009) — decompress and de-encapsulate HTML
+          if (!htmlBody && fileData.compressedRtf) {
+            const rtfRaw = fileData.compressedRtf;
+            const rtfBuf = rtfRaw instanceof Uint8Array || rtfRaw instanceof Buffer ? Buffer.from(rtfRaw) : (rtfRaw instanceof ArrayBuffer ? Buffer.from(rtfRaw) : null);
+            if (rtfBuf) {
+              const fromRtf = tryDecompressRtf(rtfBuf);
+              if (fromRtf && isReadableText(fromRtf)) htmlBody = cleanHtml(fromRtf);
             }
           }
 
-          if (!htmlBody && !plainBody && rawBody) {
-            const bodyBuf = Buffer.from(rawBody instanceof ArrayBuffer || rawBody instanceof Uint8Array ? rawBody : []);
-            if (bodyBuf.length > 0) {
-              const fromRtf = tryDecompressRtf(bodyBuf);
-              if (fromRtf) htmlBody = cleanHtml(fromRtf);
-            }
+          // 3) Try plain text body (MAPI property 0x1000)
+          if (fileData.body) {
+            const bodyStr = toStr(fileData.body);
+            if (isReadableText(bodyStr)) plainBody = bodyStr;
           }
 
+          // 4) Convert plain text to HTML if no HTML found
           if (!htmlBody && plainBody) {
             htmlBody = plainBody.split("\n").map((line: string) => {
               const escaped = line.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
               return escaped.trim() ? `<p>${escaped}</p>` : "<p>&nbsp;</p>";
             }).join("\n");
+          }
+
+          // 5) Last resort: if we have nothing, use subject as content
+          if (!htmlBody && !plainBody) {
+            htmlBody = `<p>${(subject || "Template content unavailable").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</p>`;
           }
 
           htmlBody = insertSalutation(htmlBody);
