@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, TextInput, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, TextInput, ActivityIndicator, Vibration } from 'react-native';
 import { useState, useEffect, useCallback } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -6,7 +6,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from '@/hooks/useTranslation';
 import { Colors, Spacing, FontSizes } from '@/constants/colors';
 import { api } from '@/lib/api';
-import { getCallHistory, saveCallToHistory, CallHistoryEntry } from '@/lib/callHistory';
+import { getCallHistory, saveCallToHistory, updateCallDuration, CallHistoryEntry } from '@/lib/callHistory';
+import { useSipStore } from '@/stores/sipStore';
 
 type PhoneTab = 'keypad' | 'contacts' | 'recent';
 
@@ -26,6 +27,43 @@ export default function PhoneScreen() {
   const [contactsLoading, setContactsLoading] = useState(false);
   const [recentCalls, setRecentCalls] = useState<CallHistoryEntry[]>([]);
   const [recentLoading, setRecentLoading] = useState(false);
+  const [showInCallDialpad, setShowInCallDialpad] = useState(false);
+  const [currentCallHistoryId, setCurrentCallHistoryId] = useState<string | null>(null);
+
+  const {
+    registrationState, callState, callInfo, isConnecting,
+    connect, disconnect, makeCall, answerCall, rejectCall,
+    hangup, toggleMute, toggleHold, sendDtmf,
+  } = useSipStore();
+
+  useEffect(() => {
+    if (registrationState === 'unregistered' || registrationState === 'error') {
+      connect().catch(() => {});
+    }
+  }, []);
+
+  useEffect(() => {
+    if (registrationState === 'error') {
+      const retryTimer = setTimeout(() => {
+        connect().catch(() => {});
+      }, 5000);
+      return () => clearTimeout(retryTimer);
+    }
+  }, [registrationState]);
+
+  useEffect(() => {
+    if (callState === 'ringing' && callInfo.direction === 'inbound') {
+      Vibration.vibrate([0, 500, 200, 500], true);
+    }
+  }, [callState, callInfo.direction]);
+
+  useEffect(() => {
+    if (callState === 'idle' && currentCallHistoryId) {
+      updateCallDuration(currentCallHistoryId, callInfo.duration, 'completed').catch(() => {});
+      setCurrentCallHistoryId(null);
+      loadRecentCalls();
+    }
+  }, [callState]);
 
   const loadRecentCalls = useCallback(async () => {
     setRecentLoading(true);
@@ -71,32 +109,43 @@ export default function PhoneScreen() {
   }, [contactSearch, activeTab, searchContacts]);
 
   const handleKeyPress = (key: string) => {
-    setDialNumber(prev => prev + key);
+    if (callState === 'active' || callState === 'on_hold') {
+      sendDtmf(key);
+    } else {
+      setDialNumber(prev => prev + key);
+    }
   };
 
   const handleBackspace = () => {
     setDialNumber(prev => prev.slice(0, -1));
   };
 
-  const handleCall = async (number?: string) => {
-    const phoneNumber = number || dialNumber;
+  const initiateCall = async (phoneNumber: string, contactName?: string, contactId?: string) => {
     if (!phoneNumber) return;
 
-    await saveCallToHistory({
+    const historyId = await saveCallToHistory({
       phoneNumber,
       direction: 'outbound',
       duration: 0,
       status: 'initiated',
-      contactName: null,
-      contactId: null,
+      contactName: contactName || null,
+      contactId: contactId || null,
     });
+    setCurrentCallHistoryId(historyId);
+
+    const success = await makeCall(phoneNumber);
+    if (!success) {
+      await updateCallDuration(historyId, 0, 'failed');
+      setCurrentCallHistoryId(null);
+    }
 
     try {
       await api.post('/api/mobile/call-log', {
         phoneNumber,
         direction: 'outbound',
         duration: 0,
-        status: 'initiated',
+        status: success ? 'initiated' : 'failed',
+        customerId: contactId,
       });
     } catch (error) {
       console.error('Failed to log call:', error);
@@ -105,31 +154,27 @@ export default function PhoneScreen() {
     loadRecentCalls();
   };
 
-  const handleContactCall = async (contact: CrmContact) => {
+  const handleCall = () => initiateCall(dialNumber);
+
+  const handleContactCall = (contact: CrmContact) => {
     if (!contact.phone) return;
+    initiateCall(contact.phone, contact.name, contact.id);
+  };
 
-    await saveCallToHistory({
-      phoneNumber: contact.phone,
-      direction: 'outbound',
-      duration: 0,
-      status: 'initiated',
-      contactName: contact.name,
-      contactId: contact.id,
-    });
+  const handleHangup = () => {
+    hangup();
+    setShowInCallDialpad(false);
+  };
 
-    try {
-      await api.post('/api/mobile/call-log', {
-        phoneNumber: contact.phone,
-        direction: 'outbound',
-        duration: 0,
-        status: 'initiated',
-        customerId: contact.id,
-      });
-    } catch (error) {
-      console.error('Failed to log call:', error);
-    }
+  const handleAnswer = () => {
+    answerCall();
+    Vibration.cancel();
+  };
 
-    loadRecentCalls();
+  const handleReject = () => {
+    rejectCall();
+    Vibration.cancel();
+    setShowInCallDialpad(false);
   };
 
   const formatDuration = (seconds: number): string => {
@@ -154,6 +199,144 @@ export default function PhoneScreen() {
     ['7', '8', '9'],
     ['*', '0', '#'],
   ];
+
+  const hasActiveCall = callState !== 'idle' && callState !== 'ended';
+
+  const renderActiveCall = () => (
+    <View style={styles.activeCallContainer}>
+      <LinearGradient
+        colors={['#1a1a2e', '#16213e', '#0f3460']}
+        style={styles.activeCallGradient}
+      >
+        <SafeAreaView edges={['top', 'bottom']} style={styles.activeCallSafe}>
+          <View style={styles.activeCallHeader}>
+            <Text style={styles.activeCallStatus}>
+              {callState === 'connecting' ? translations.phone.connecting :
+               callState === 'ringing' ? (callInfo.direction === 'inbound' ? translations.phone.incoming : translations.phone.calling) :
+               callState === 'on_hold' ? translations.phone.onHold :
+               translations.phone.connected}
+            </Text>
+          </View>
+
+          <View style={styles.activeCallCenter}>
+            <View style={styles.activeCallAvatar}>
+              <Ionicons name="person" size={48} color="rgba(255,255,255,0.7)" />
+            </View>
+            <Text style={styles.activeCallNumber}>{callInfo.phoneNumber}</Text>
+            {(callState === 'active' || callState === 'on_hold') && (
+              <Text style={styles.activeCallDuration}>{formatDuration(callInfo.duration)}</Text>
+            )}
+            {callState === 'connecting' && (
+              <ActivityIndicator size="small" color="rgba(255,255,255,0.6)" style={{ marginTop: 8 }} />
+            )}
+          </View>
+
+          {showInCallDialpad && (callState === 'active' || callState === 'on_hold') && (
+            <View style={styles.inCallDialpadGrid}>
+              {keypadKeys.map((row, rowIndex) => (
+                <View key={rowIndex} style={styles.inCallDialpadRow}>
+                  {row.map((key) => (
+                    <TouchableOpacity
+                      key={key}
+                      style={styles.inCallDialpadKey}
+                      onPress={() => handleKeyPress(key)}
+                      activeOpacity={0.6}
+                    >
+                      <Text style={styles.inCallDialpadKeyText}>{key}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              ))}
+            </View>
+          )}
+
+          <View style={styles.activeCallControls}>
+            {callState === 'ringing' && callInfo.direction === 'inbound' ? (
+              <View style={styles.incomingControls}>
+                <TouchableOpacity style={styles.rejectButton} onPress={handleReject} activeOpacity={0.7}>
+                  <Ionicons name="close" size={32} color={Colors.white} />
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.answerButton} onPress={handleAnswer} activeOpacity={0.7}>
+                  <Ionicons name="call" size={32} color={Colors.white} />
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <>
+                {(callState === 'active' || callState === 'on_hold') && (
+                  <View style={styles.callActionRow}>
+                    <TouchableOpacity
+                      style={[styles.callActionBtn, callInfo.isMuted && styles.callActionBtnActive]}
+                      onPress={toggleMute}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name={callInfo.isMuted ? 'mic-off' : 'mic'} size={24} color={Colors.white} />
+                      <Text style={styles.callActionLabel}>
+                        {callInfo.isMuted ? translations.phone.unmute : translations.phone.mute}
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[styles.callActionBtn, callInfo.isOnHold && styles.callActionBtnActive]}
+                      onPress={toggleHold}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name={callInfo.isOnHold ? 'play' : 'pause'} size={24} color={Colors.white} />
+                      <Text style={styles.callActionLabel}>
+                        {callInfo.isOnHold ? translations.phone.unhold : translations.phone.hold}
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[styles.callActionBtn, showInCallDialpad && styles.callActionBtnActive]}
+                      onPress={() => setShowInCallDialpad(!showInCallDialpad)}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name="keypad" size={24} color={Colors.white} />
+                      <Text style={styles.callActionLabel}>{translations.phone.dialpad}</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                <TouchableOpacity style={styles.hangupButton} onPress={handleHangup} activeOpacity={0.7}>
+                  <Ionicons name="call" size={32} color={Colors.white} style={{ transform: [{ rotate: '135deg' }] }} />
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        </SafeAreaView>
+      </LinearGradient>
+    </View>
+  );
+
+  const renderRegistrationBadge = () => {
+    if (registrationState === 'registered') return null;
+
+    return (
+      <TouchableOpacity
+        style={[
+          styles.regBadge,
+          registrationState === 'error' ? styles.regBadgeError : styles.regBadgeWarn,
+        ]}
+        onPress={() => connect()}
+        activeOpacity={0.7}
+      >
+        {isConnecting ? (
+          <ActivityIndicator size="small" color={Colors.white} />
+        ) : (
+          <Ionicons
+            name={registrationState === 'error' ? 'alert-circle' : 'sync'}
+            size={16}
+            color={Colors.white}
+          />
+        )}
+        <Text style={styles.regBadgeText}>
+          {registrationState === 'error' ? translations.phone.sipNotConfigured :
+           isConnecting ? translations.phone.connecting :
+           translations.phone.webrtcDisabled}
+        </Text>
+      </TouchableOpacity>
+    );
+  };
 
   const renderKeypad = () => (
     <View style={styles.keypadContainer}>
@@ -186,9 +369,9 @@ export default function PhoneScreen() {
       </View>
 
       <TouchableOpacity
-        style={[styles.callButton, !dialNumber && styles.callButtonDisabled]}
-        onPress={() => handleCall()}
-        disabled={!dialNumber}
+        style={[styles.callButton, (!dialNumber || registrationState !== 'registered') && styles.callButtonDisabled]}
+        onPress={handleCall}
+        disabled={!dialNumber || registrationState !== 'registered'}
         activeOpacity={0.7}
       >
         <Ionicons name="call" size={28} color={Colors.white} />
@@ -235,7 +418,7 @@ export default function PhoneScreen() {
             <TouchableOpacity
               style={styles.contactItem}
               onPress={() => handleContactCall(item)}
-              disabled={!item.phone}
+              disabled={!item.phone || registrationState !== 'registered'}
               activeOpacity={0.7}
             >
               <View style={styles.contactAvatar}>
@@ -316,6 +499,10 @@ export default function PhoneScreen() {
     </View>
   );
 
+  if (hasActiveCall) {
+    return renderActiveCall();
+  }
+
   return (
     <View style={styles.container}>
       <LinearGradient
@@ -325,9 +512,14 @@ export default function PhoneScreen() {
         <SafeAreaView edges={['top']}>
           <View style={styles.header}>
             <Text style={styles.headerTitle}>{translations.phone.title}</Text>
+            {registrationState === 'registered' && (
+              <View style={styles.regDot} />
+            )}
           </View>
         </SafeAreaView>
       </LinearGradient>
+
+      {renderRegistrationBadge()}
 
       <View style={styles.tabBar}>
         {(['keypad', 'contacts', 'recent'] as PhoneTab[]).map((tab) => (
@@ -371,11 +563,38 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   headerTitle: {
     fontSize: FontSizes.xxl,
     fontWeight: '700',
     color: Colors.white,
+  },
+  regDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: Colors.success,
+  },
+  regBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs + 2,
+  },
+  regBadgeError: {
+    backgroundColor: Colors.error,
+  },
+  regBadgeWarn: {
+    backgroundColor: Colors.warning,
+  },
+  regBadgeText: {
+    color: Colors.white,
+    fontSize: FontSizes.sm,
+    fontWeight: '500',
   },
   tabBar: {
     flexDirection: 'row',
@@ -578,5 +797,127 @@ const styles = StyleSheet.create({
   recentTime: {
     fontSize: FontSizes.sm,
     color: Colors.textSecondary,
+  },
+  activeCallContainer: {
+    flex: 1,
+  },
+  activeCallGradient: {
+    flex: 1,
+  },
+  activeCallSafe: {
+    flex: 1,
+    justifyContent: 'space-between',
+  },
+  activeCallHeader: {
+    alignItems: 'center',
+    paddingTop: Spacing.xl,
+  },
+  activeCallStatus: {
+    fontSize: FontSizes.md,
+    color: 'rgba(255,255,255,0.7)',
+    fontWeight: '500',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  activeCallCenter: {
+    alignItems: 'center',
+    flex: 1,
+    justifyContent: 'center',
+  },
+  activeCallAvatar: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: Spacing.lg,
+  },
+  activeCallNumber: {
+    fontSize: FontSizes.xxl,
+    fontWeight: '600',
+    color: Colors.white,
+    letterSpacing: 1,
+  },
+  activeCallDuration: {
+    fontSize: FontSizes.xl,
+    color: 'rgba(255,255,255,0.6)',
+    marginTop: Spacing.sm,
+    fontVariant: ['tabular-nums'],
+  },
+  activeCallControls: {
+    paddingHorizontal: Spacing.xl,
+    paddingBottom: Spacing.xxl,
+    alignItems: 'center',
+  },
+  callActionRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: Spacing.xl + 8,
+    marginBottom: Spacing.xl,
+  },
+  callActionBtn: {
+    alignItems: 'center',
+    gap: 6,
+    width: 64,
+  },
+  callActionBtnActive: {
+    opacity: 1,
+  },
+  callActionLabel: {
+    fontSize: FontSizes.xs,
+    color: 'rgba(255,255,255,0.7)',
+    textAlign: 'center',
+  },
+  hangupButton: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: Colors.error,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  incomingControls: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 64,
+  },
+  rejectButton: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: Colors.error,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  answerButton: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: Colors.success,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  inCallDialpadGrid: {
+    paddingHorizontal: Spacing.xxl,
+    paddingBottom: Spacing.md,
+  },
+  inCallDialpadRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: Spacing.sm,
+  },
+  inCallDialpadKey: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  inCallDialpadKeyText: {
+    fontSize: 22,
+    fontWeight: '400',
+    color: Colors.white,
   },
 });

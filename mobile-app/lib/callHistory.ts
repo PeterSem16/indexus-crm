@@ -18,7 +18,7 @@ export async function saveCallToHistory(entry: {
   status: string;
   contactName: string | null;
   contactId: string | null;
-}): Promise<void> {
+}): Promise<string> {
   return new Promise((resolve, reject) => {
     const database = getDatabase();
     const id = `call_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -31,7 +31,7 @@ export async function saveCallToHistory(entry: {
         );
       },
       (error) => reject(error),
-      () => resolve()
+      () => resolve(id)
     );
   });
 }
