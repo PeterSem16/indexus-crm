@@ -94,6 +94,22 @@ type TranslationKeys = {
     unhold: string;
     speaker: string;
     dialpad: string;
+    recording: string;
+    uploadingRecording: string;
+    callAnalysis: string;
+    loadingAnalysis: string;
+    analysisProcessing: string;
+    analysisFailed: string;
+    sentimentPositive: string;
+    sentimentNegative: string;
+    sentimentAngry: string;
+    sentimentNeutral: string;
+    quality: string;
+    summary: string;
+    keyTopics: string;
+    actionItems: string;
+    alerts: string;
+    transcription: string;
   };
   visits: {
     title: string;
@@ -381,6 +397,22 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       unhold: 'Pokracovat',
       speaker: 'Reproduktor',
       dialpad: 'Klavesnica',
+      recording: 'Nahravanie',
+      uploadingRecording: 'Nahravanie sa uklada...',
+      callAnalysis: 'Analyza hovoru',
+      loadingAnalysis: 'Nacitavam analyzu...',
+      analysisProcessing: 'Analyza sa spracuvava...',
+      analysisFailed: 'Analyza zlyhala',
+      sentimentPositive: 'Pozitivny',
+      sentimentNegative: 'Negativny',
+      sentimentAngry: 'Nahnevany',
+      sentimentNeutral: 'Neutralny',
+      quality: 'Kvalita',
+      summary: 'Zhrnutie',
+      keyTopics: 'Hlavne temy',
+      actionItems: 'Ulohy',
+      alerts: 'Upozornenia',
+      transcription: 'Prepis hovoru',
     },
     visits: {
       title: 'Navstevy',
@@ -666,6 +698,22 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       unhold: 'Pokracovat',
       speaker: 'Reproduktor',
       dialpad: 'Klavesnice',
+      recording: 'Nahravani',
+      uploadingRecording: 'Nahravka se uklada...',
+      callAnalysis: 'Analyza hovoru',
+      loadingAnalysis: 'Nacitam analyzu...',
+      analysisProcessing: 'Analyza se zpracovava...',
+      analysisFailed: 'Analyza selhala',
+      sentimentPositive: 'Pozitivni',
+      sentimentNegative: 'Negativni',
+      sentimentAngry: 'Rozhnevany',
+      sentimentNeutral: 'Neutralni',
+      quality: 'Kvalita',
+      summary: 'Shrnutie',
+      keyTopics: 'Hlavni temata',
+      actionItems: 'Ukoly',
+      alerts: 'Upozorneni',
+      transcription: 'Prepis hovoru',
     },
     visits: {
       title: 'Navstevy',
@@ -951,6 +999,22 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       unhold: 'Folytatas',
       speaker: 'Hangszoro',
       dialpad: 'Billentyuzet',
+      recording: 'Felvetel',
+      uploadingRecording: 'Felvetel feltoltese...',
+      callAnalysis: 'Hivas elemzes',
+      loadingAnalysis: 'Elemzes betoltese...',
+      analysisProcessing: 'Elemzes feldolgozas alatt...',
+      analysisFailed: 'Elemzes sikertelen',
+      sentimentPositive: 'Pozitiv',
+      sentimentNegative: 'Negativ',
+      sentimentAngry: 'Duhos',
+      sentimentNeutral: 'Semleges',
+      quality: 'Minoseg',
+      summary: 'Osszefoglalas',
+      keyTopics: 'Fo temak',
+      actionItems: 'Feladatok',
+      alerts: 'Figyelmeztetesek',
+      transcription: 'Hivas atiras',
     },
     visits: {
       title: 'Latogatasok',
@@ -1236,6 +1300,22 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       unhold: 'Fortsetzen',
       speaker: 'Lautsprecher',
       dialpad: 'Tastatur',
+      recording: 'Aufnahme',
+      uploadingRecording: 'Aufnahme wird hochgeladen...',
+      callAnalysis: 'Anrufanalyse',
+      loadingAnalysis: 'Analyse wird geladen...',
+      analysisProcessing: 'Analyse wird verarbeitet...',
+      analysisFailed: 'Analyse fehlgeschlagen',
+      sentimentPositive: 'Positiv',
+      sentimentNegative: 'Negativ',
+      sentimentAngry: 'Veraergert',
+      sentimentNeutral: 'Neutral',
+      quality: 'Qualitaet',
+      summary: 'Zusammenfassung',
+      keyTopics: 'Hauptthemen',
+      actionItems: 'Aufgaben',
+      alerts: 'Warnungen',
+      transcription: 'Transkription',
     },
     visits: {
       title: 'Besuche',
@@ -1521,6 +1601,22 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       unhold: 'Riprendi',
       speaker: 'Altoparlante',
       dialpad: 'Tastiera',
+      recording: 'Registrazione',
+      uploadingRecording: 'Caricamento registrazione...',
+      callAnalysis: 'Analisi chiamata',
+      loadingAnalysis: 'Caricamento analisi...',
+      analysisProcessing: 'Analisi in elaborazione...',
+      analysisFailed: 'Analisi fallita',
+      sentimentPositive: 'Positivo',
+      sentimentNegative: 'Negativo',
+      sentimentAngry: 'Arrabbiato',
+      sentimentNeutral: 'Neutrale',
+      quality: 'Qualita',
+      summary: 'Riepilogo',
+      keyTopics: 'Argomenti principali',
+      actionItems: 'Azioni',
+      alerts: 'Avvisi',
+      transcription: 'Trascrizione',
     },
     visits: {
       title: 'Visite',
@@ -1806,6 +1902,22 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       unhold: 'Reluare',
       speaker: 'Difuzor',
       dialpad: 'Tastatura',
+      recording: 'Inregistrare',
+      uploadingRecording: 'Se incarca inregistrarea...',
+      callAnalysis: 'Analiza apelului',
+      loadingAnalysis: 'Se incarca analiza...',
+      analysisProcessing: 'Analiza se proceseaza...',
+      analysisFailed: 'Analiza a esuat',
+      sentimentPositive: 'Pozitiv',
+      sentimentNegative: 'Negativ',
+      sentimentAngry: 'Furios',
+      sentimentNeutral: 'Neutru',
+      quality: 'Calitate',
+      summary: 'Rezumat',
+      keyTopics: 'Subiecte principale',
+      actionItems: 'Sarcini',
+      alerts: 'Alerte',
+      transcription: 'Transcriere',
     },
     visits: {
       title: 'Vizite',
@@ -2091,6 +2203,22 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       unhold: 'Resume',
       speaker: 'Speaker',
       dialpad: 'Dialpad',
+      recording: 'Recording',
+      uploadingRecording: 'Uploading recording...',
+      callAnalysis: 'Call Analysis',
+      loadingAnalysis: 'Loading analysis...',
+      analysisProcessing: 'Analysis is processing...',
+      analysisFailed: 'Analysis failed',
+      sentimentPositive: 'Positive',
+      sentimentNegative: 'Negative',
+      sentimentAngry: 'Angry',
+      sentimentNeutral: 'Neutral',
+      quality: 'Quality',
+      summary: 'Summary',
+      keyTopics: 'Key Topics',
+      actionItems: 'Action Items',
+      alerts: 'Alerts',
+      transcription: 'Transcription',
     },
     visits: {
       title: 'Visits',

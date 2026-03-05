@@ -12296,6 +12296,28 @@ export async function registerRoutes(
   
   const MOBILE_JWT_SECRET = process.env.SESSION_SECRET;
   const MOBILE_JWT_EXPIRES_IN = "30d"; // Mobile tokens valid for 30 days
+
+  const mobileRecordingStorage = multer.diskStorage({
+    destination: (req, file, cb) => {
+      cb(null, STORAGE_PATHS.callRecordings);
+    },
+    filename: (req, file, cb) => {
+      const ext = file.mimetype === "audio/mp4" || file.mimetype === "audio/m4a" ? "m4a" : file.mimetype === "audio/ogg" ? "ogg" : "webm";
+      const filename = `mobile_upload_${Date.now()}.${ext}`;
+      cb(null, filename);
+    },
+  });
+  const uploadMobileRecording = multer({
+    storage: mobileRecordingStorage,
+    limits: { fileSize: 100 * 1024 * 1024 },
+    fileFilter: (req, file, cb) => {
+      if (file.mimetype.startsWith("audio/")) {
+        cb(null, true);
+      } else {
+        cb(new Error("Invalid file type. Only audio files are allowed."));
+      }
+    },
+  });
   
   if (!MOBILE_JWT_SECRET) {
     console.warn("[Mobile API] Warning: SESSION_SECRET not set, mobile API will reject all requests");
@@ -13050,6 +13072,125 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Mobile call log error:", error);
       res.status(500).json({ error: "Failed to create call log" });
+    }
+  });
+
+  app.post("/api/mobile/call-recording", uploadMobileRecording.single("recording"), async (req, res) => {
+    try {
+      const tokenData = await getMobileCollaboratorFromToken(req);
+      if (!tokenData) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      if (!req.file) return res.status(400).json({ error: "No recording file uploaded" });
+
+      const { callLogId, phoneNumber, direction, durationSeconds, customerName, customerId, agentName } = req.body;
+      if (!callLogId) return res.status(400).json({ error: "callLogId is required" });
+
+      const collaborator = await storage.getCollaborator(tokenData.collaboratorId);
+      if (!collaborator) {
+        return res.status(404).json({ error: "Collaborator not found" });
+      }
+
+      if (!collaborator.mobileCallRecording) {
+        try {
+          const fsSync = await import("fs");
+          fsSync.unlinkSync(req.file.path);
+        } catch (e) {}
+        return res.status(403).json({ error: "Call recording is not enabled for this collaborator" });
+      }
+
+      const sanitizeFn = (s: string) => (s || "").replace(/[^a-zA-Z0-9áčďéíľĺňóôŕšťúýžÁČĎÉÍĽĹŇÓÔŔŠŤÚÝŽ_-]/g, "_").substring(0, 50);
+      const now = new Date();
+      const dateStr = now.toISOString().slice(0, 10).replace(/-/g, "");
+      const timeStr = now.toISOString().slice(11, 19).replace(/:/g, "");
+      const agentDisplay = agentName || `${collaborator.firstName}_${collaborator.lastName}`;
+      const extForRename = req.file.mimetype === "audio/ogg" ? "ogg" : req.file.mimetype === "audio/mp4" || req.file.mimetype === "audio/m4a" ? "m4a" : "webm";
+      const correctFilename = `mobile_${sanitizeFn(customerName || "neznamy_klient")}_${dateStr}_${timeStr}_${sanitizeFn(agentDisplay)}.${extForRename}`;
+
+      if (req.file.filename !== correctFilename) {
+        const oldPath = req.file.path;
+        const newPath = path.join(path.dirname(oldPath), correctFilename);
+        try {
+          const fsSync = await import("fs");
+          fsSync.renameSync(oldPath, newPath);
+          req.file.filename = correctFilename;
+          req.file.path = newPath;
+        } catch (e) {
+          console.warn("[MobileRecording] Could not rename file:", e);
+        }
+      }
+
+      const recordingData = {
+        callLogId: String(callLogId),
+        userId: collaborator.id,
+        customerId: customerId || null,
+        campaignId: null,
+        filename: req.file.filename,
+        filePath: req.file.path,
+        mimeType: req.file.mimetype,
+        fileSizeBytes: req.file.size,
+        durationSeconds: durationSeconds ? parseInt(durationSeconds) : null,
+        customerName: customerName || null,
+        agentName: agentDisplay,
+        campaignName: null,
+        phoneNumber: phoneNumber || null,
+        analysisStatus: "pending",
+        direction: direction || "outbound",
+        inboundQueueId: null,
+        inboundQueueName: null,
+      };
+
+      const [recording] = await db.insert(callRecordings).values(recordingData).returning();
+
+      if (process.env.OPENAI_API_KEY) {
+        processCallRecordingAnalysis(recording.id, req.file.path).catch(err => {
+          console.error(`[MobileRecording] Background analysis failed:`, err.message);
+        });
+      }
+
+      console.log(`[MobileRecording] Recording uploaded: ${recording.id} by collaborator ${collaborator.id}`);
+      res.status(201).json(recording);
+    } catch (error: any) {
+      console.error("Mobile call recording upload error:", error);
+      res.status(500).json({ error: error.message || "Failed to upload recording" });
+    }
+  });
+
+  app.get("/api/mobile/call-recording/:callLogId/analysis", async (req, res) => {
+    try {
+      const tokenData = await getMobileCollaboratorFromToken(req);
+      if (!tokenData) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { callLogId } = req.params;
+      const recordings = await db.select().from(callRecordings).where(eq(callRecordings.callLogId, callLogId));
+
+      if (recordings.length === 0) {
+        return res.status(404).json({ error: "No recording found for this call" });
+      }
+
+      const recording = recordings[0];
+      res.json({
+        id: recording.id,
+        analysisStatus: recording.analysisStatus,
+        transcriptionText: recording.transcriptionText,
+        sentiment: recording.sentiment,
+        qualityScore: recording.qualityScore,
+        summary: recording.summary,
+        keyTopics: recording.keyTopics,
+        actionItems: recording.actionItems,
+        alertKeywords: recording.alertKeywords,
+        complianceNotes: recording.complianceNotes,
+        scriptComplianceScore: recording.scriptComplianceScore,
+        durationSeconds: recording.durationSeconds,
+        analyzedAt: recording.analyzedAt,
+        createdAt: recording.createdAt,
+      });
+    } catch (error: any) {
+      console.error("Mobile call recording analysis error:", error);
+      res.status(500).json({ error: error.message || "Failed to get analysis" });
     }
   });
 

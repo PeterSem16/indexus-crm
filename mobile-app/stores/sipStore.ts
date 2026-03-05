@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { mobileSipEngine, SipRegistrationState, SipCallState, SipCallInfo } from '@/lib/sip';
+import { mobileAudioRecorder, RecordingState } from '@/lib/audioRecorder';
 
 interface SipStoreState {
   registrationState: SipRegistrationState;
@@ -7,6 +8,8 @@ interface SipStoreState {
   callInfo: SipCallInfo;
   isConnecting: boolean;
   error: string | null;
+  recordingState: RecordingState;
+  callRecordingEnabled: boolean;
 
   connect: () => Promise<boolean>;
   disconnect: () => Promise<void>;
@@ -18,9 +21,23 @@ interface SipStoreState {
   toggleHold: () => Promise<void>;
   sendDtmf: (tone: string) => void;
   clearError: () => void;
+  startRecording: () => Promise<void>;
+  stopAndUploadRecording: (params: {
+    callLogId: string;
+    phoneNumber: string;
+    direction: string;
+    durationSeconds: number;
+    collaboratorName: string;
+    customerName?: string;
+    customerId?: string;
+  }) => Promise<any>;
 }
 
 export const useSipStore = create<SipStoreState>((set, get) => {
+  mobileAudioRecorder.setOnStateChange((state) => {
+    set({ recordingState: state });
+  });
+
   mobileSipEngine.setEventCallback((event, data) => {
     switch (event) {
       case 'registrationStateChanged':
@@ -63,6 +80,8 @@ export const useSipStore = create<SipStoreState>((set, get) => {
     },
     isConnecting: false,
     error: null,
+    recordingState: 'idle',
+    callRecordingEnabled: false,
 
     connect: async () => {
       set({ isConnecting: true, error: null });
@@ -70,6 +89,10 @@ export const useSipStore = create<SipStoreState>((set, get) => {
       set({ isConnecting: false });
       if (!success) {
         set({ error: 'SIP connection failed' });
+      }
+      const creds = mobileSipEngine.getCredentials();
+      if (creds) {
+        set({ callRecordingEnabled: creds.callRecording });
       }
       return success;
     },
@@ -107,5 +130,14 @@ export const useSipStore = create<SipStoreState>((set, get) => {
     },
 
     clearError: () => set({ error: null }),
+
+    startRecording: async () => {
+      await mobileAudioRecorder.startRecording();
+    },
+
+    stopAndUploadRecording: async (params) => {
+      await mobileAudioRecorder.stopRecording();
+      return mobileAudioRecorder.uploadRecording(params);
+    },
   };
 });

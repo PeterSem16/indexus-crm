@@ -1,5 +1,5 @@
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, TextInput, ActivityIndicator, Vibration } from 'react-native';
-import { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, TextInput, ActivityIndicator, Vibration, ScrollView, Modal } from 'react-native';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -18,6 +18,23 @@ interface CrmContact {
   email: string | null;
 }
 
+interface CallAnalysis {
+  id: string;
+  analysisStatus: string;
+  transcriptionText: string | null;
+  sentiment: string | null;
+  qualityScore: number | null;
+  summary: string | null;
+  keyTopics: string[] | null;
+  actionItems: string[] | null;
+  alertKeywords: string[] | null;
+  complianceNotes: string | null;
+  scriptComplianceScore: number | null;
+  durationSeconds: number | null;
+  analyzedAt: string | null;
+  createdAt: string;
+}
+
 export default function PhoneScreen() {
   const { translations } = useTranslation();
   const [activeTab, setActiveTab] = useState<PhoneTab>('keypad');
@@ -29,11 +46,19 @@ export default function PhoneScreen() {
   const [recentLoading, setRecentLoading] = useState(false);
   const [showInCallDialpad, setShowInCallDialpad] = useState(false);
   const [currentCallHistoryId, setCurrentCallHistoryId] = useState<string | null>(null);
+  const [currentCallLogId, setCurrentCallLogId] = useState<string | null>(null);
+  const [currentContactName, setCurrentContactName] = useState<string | undefined>(undefined);
+  const [currentCustomerId, setCurrentCustomerId] = useState<string | undefined>(undefined);
+  const [analysisModal, setAnalysisModal] = useState<CallAnalysis | null>(null);
+  const [analysisLoading, setAnalysisLoading] = useState(false);
+  const recordingStartedRef = useRef(false);
 
   const {
     registrationState, callState, callInfo, isConnecting,
+    recordingState, callRecordingEnabled,
     connect, disconnect, makeCall, answerCall, rejectCall,
     hangup, toggleMute, toggleHold, sendDtmf,
+    startRecording, stopAndUploadRecording,
   } = useSipStore();
 
   useEffect(() => {
@@ -58,9 +83,35 @@ export default function PhoneScreen() {
   }, [callState, callInfo.direction]);
 
   useEffect(() => {
+    if (callState === 'active' && callRecordingEnabled && !recordingStartedRef.current) {
+      recordingStartedRef.current = true;
+      startRecording().catch(() => {});
+    }
+  }, [callState, callRecordingEnabled]);
+
+  useEffect(() => {
     if (callState === 'idle' && currentCallHistoryId) {
       updateCallDuration(currentCallHistoryId, callInfo.duration, 'completed').catch(() => {});
+
+      if (recordingStartedRef.current && currentCallLogId) {
+        recordingStartedRef.current = false;
+        stopAndUploadRecording({
+          callLogId: currentCallLogId,
+          phoneNumber: callInfo.phoneNumber || '',
+          direction: callInfo.direction || 'outbound',
+          durationSeconds: callInfo.duration || 0,
+          collaboratorName: 'Mobile Agent',
+          customerName: currentContactName,
+          customerId: currentCustomerId,
+        }).catch(() => {});
+      } else {
+        recordingStartedRef.current = false;
+      }
+
       setCurrentCallHistoryId(null);
+      setCurrentCallLogId(null);
+      setCurrentContactName(undefined);
+      setCurrentCustomerId(undefined);
       loadRecentCalls();
     }
   }, [callState]);
@@ -123,6 +174,9 @@ export default function PhoneScreen() {
   const initiateCall = async (phoneNumber: string, contactName?: string, contactId?: string) => {
     if (!phoneNumber) return;
 
+    setCurrentContactName(contactName);
+    setCurrentCustomerId(contactId);
+
     const historyId = await saveCallToHistory({
       phoneNumber,
       direction: 'outbound',
@@ -137,16 +191,21 @@ export default function PhoneScreen() {
     if (!success) {
       await updateCallDuration(historyId, 0, 'failed');
       setCurrentCallHistoryId(null);
+      setCurrentContactName(undefined);
+      setCurrentCustomerId(undefined);
     }
 
     try {
-      await api.post('/api/mobile/call-log', {
+      const callLog = await api.post<{ id: string }>('/api/mobile/call-log', {
         phoneNumber,
         direction: 'outbound',
         duration: 0,
         status: success ? 'initiated' : 'failed',
         customerId: contactId,
       });
+      if (callLog?.id) {
+        setCurrentCallLogId(callLog.id);
+      }
     } catch (error) {
       console.error('Failed to log call:', error);
     }
@@ -175,6 +234,36 @@ export default function PhoneScreen() {
     rejectCall();
     Vibration.cancel();
     setShowInCallDialpad(false);
+  };
+
+  const fetchCallAnalysis = async (callLogId: string) => {
+    setAnalysisLoading(true);
+    try {
+      const analysis = await api.get<CallAnalysis>(`/api/mobile/call-recording/${callLogId}/analysis`);
+      setAnalysisModal(analysis);
+    } catch (error: any) {
+      console.error('Failed to fetch call analysis:', error);
+    } finally {
+      setAnalysisLoading(false);
+    }
+  };
+
+  const getSentimentColor = (sentiment: string | null): string => {
+    switch (sentiment) {
+      case 'positive': return Colors.success;
+      case 'negative': return Colors.error;
+      case 'angry': return '#ff3333';
+      default: return Colors.info;
+    }
+  };
+
+  const getSentimentLabel = (sentiment: string | null): string => {
+    switch (sentiment) {
+      case 'positive': return translations.phone.sentimentPositive;
+      case 'negative': return translations.phone.sentimentNegative;
+      case 'angry': return translations.phone.sentimentAngry;
+      default: return translations.phone.sentimentNeutral;
+    }
   };
 
   const formatDuration = (seconds: number): string => {
@@ -228,6 +317,18 @@ export default function PhoneScreen() {
             )}
             {callState === 'connecting' && (
               <ActivityIndicator size="small" color="rgba(255,255,255,0.6)" style={{ marginTop: 8 }} />
+            )}
+            {recordingState === 'recording' && (
+              <View style={styles.recordingIndicator}>
+                <View style={styles.recordingDot} />
+                <Text style={styles.recordingText}>{translations.phone.recording}</Text>
+              </View>
+            )}
+            {recordingState === 'uploading' && (
+              <View style={styles.recordingIndicator}>
+                <ActivityIndicator size="small" color="#ff4444" />
+                <Text style={styles.recordingText}>{translations.phone.uploadingRecording}</Text>
+              </View>
             )}
           </View>
 
@@ -548,6 +649,110 @@ export default function PhoneScreen() {
         {activeTab === 'contacts' && renderContacts()}
         {activeTab === 'recent' && renderRecent()}
       </View>
+
+      <Modal
+        visible={analysisModal !== null || analysisLoading}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => { setAnalysisModal(null); setAnalysisLoading(false); }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>{translations.phone.callAnalysis}</Text>
+              <TouchableOpacity onPress={() => { setAnalysisModal(null); setAnalysisLoading(false); }}>
+                <Ionicons name="close" size={24} color={Colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            {analysisLoading ? (
+              <View style={styles.modalLoading}>
+                <ActivityIndicator size="large" color={Colors.primary} />
+                <Text style={styles.modalLoadingText}>{translations.phone.loadingAnalysis}</Text>
+              </View>
+            ) : analysisModal ? (
+              <ScrollView style={styles.modalScroll} showsVerticalScrollIndicator={false}>
+                {analysisModal.analysisStatus === 'processing' ? (
+                  <View style={styles.analysisPending}>
+                    <ActivityIndicator size="small" color={Colors.primary} />
+                    <Text style={styles.analysisPendingText}>{translations.phone.analysisProcessing}</Text>
+                  </View>
+                ) : analysisModal.analysisStatus === 'failed' ? (
+                  <View style={styles.analysisPending}>
+                    <Ionicons name="alert-circle" size={24} color={Colors.error} />
+                    <Text style={styles.analysisPendingText}>{translations.phone.analysisFailed}</Text>
+                  </View>
+                ) : (
+                  <>
+                    <View style={styles.analysisRow}>
+                      <View style={[styles.sentimentBadge, { backgroundColor: getSentimentColor(analysisModal.sentiment) }]}>
+                        <Text style={styles.sentimentText}>{getSentimentLabel(analysisModal.sentiment)}</Text>
+                      </View>
+                      {analysisModal.qualityScore !== null && (
+                        <View style={styles.qualityBadge}>
+                          <Text style={styles.qualityLabel}>{translations.phone.quality}</Text>
+                          <Text style={styles.qualityScore}>{analysisModal.qualityScore}/10</Text>
+                        </View>
+                      )}
+                    </View>
+
+                    {analysisModal.summary && (
+                      <View style={styles.analysisSection}>
+                        <Text style={styles.analysisSectionTitle}>{translations.phone.summary}</Text>
+                        <Text style={styles.analysisSectionText}>{analysisModal.summary}</Text>
+                      </View>
+                    )}
+
+                    {analysisModal.keyTopics && analysisModal.keyTopics.length > 0 && (
+                      <View style={styles.analysisSection}>
+                        <Text style={styles.analysisSectionTitle}>{translations.phone.keyTopics}</Text>
+                        {analysisModal.keyTopics.map((topic, i) => (
+                          <View key={i} style={styles.topicItem}>
+                            <View style={styles.topicDot} />
+                            <Text style={styles.topicText}>{topic}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    )}
+
+                    {analysisModal.actionItems && analysisModal.actionItems.length > 0 && (
+                      <View style={styles.analysisSection}>
+                        <Text style={styles.analysisSectionTitle}>{translations.phone.actionItems}</Text>
+                        {analysisModal.actionItems.map((item, i) => (
+                          <View key={i} style={styles.topicItem}>
+                            <Ionicons name="checkbox-outline" size={14} color={Colors.primary} />
+                            <Text style={styles.topicText}>{item}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    )}
+
+                    {analysisModal.alertKeywords && analysisModal.alertKeywords.length > 0 && (
+                      <View style={styles.analysisSection}>
+                        <Text style={[styles.analysisSectionTitle, { color: Colors.error }]}>{translations.phone.alerts}</Text>
+                        <View style={styles.alertRow}>
+                          {analysisModal.alertKeywords.map((kw, i) => (
+                            <View key={i} style={styles.alertBadge}>
+                              <Text style={styles.alertBadgeText}>{kw}</Text>
+                            </View>
+                          ))}
+                        </View>
+                      </View>
+                    )}
+
+                    {analysisModal.transcriptionText && (
+                      <View style={styles.analysisSection}>
+                        <Text style={styles.analysisSectionTitle}>{translations.phone.transcription}</Text>
+                        <Text style={styles.transcriptionText}>{analysisModal.transcriptionText}</Text>
+                      </View>
+                    )}
+                  </>
+                )}
+              </ScrollView>
+            ) : null}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -919,5 +1124,165 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '400',
     color: Colors.white,
+  },
+  recordingIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,68,68,0.2)',
+  },
+  recordingDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#ff4444',
+  },
+  recordingText: {
+    fontSize: FontSizes.sm,
+    color: '#ff4444',
+    fontWeight: '500',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: Colors.white,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '85%',
+    paddingBottom: Spacing.xxl,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: Colors.border,
+  },
+  modalTitle: {
+    fontSize: FontSizes.lg,
+    fontWeight: '600',
+    color: Colors.text,
+  },
+  modalLoading: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: Spacing.xxl,
+    gap: Spacing.md,
+  },
+  modalLoadingText: {
+    fontSize: FontSizes.md,
+    color: Colors.textSecondary,
+  },
+  modalScroll: {
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.md,
+  },
+  analysisPending: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: Spacing.xl,
+    gap: Spacing.sm,
+  },
+  analysisPendingText: {
+    fontSize: FontSizes.md,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+  },
+  analysisRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    marginBottom: Spacing.lg,
+  },
+  sentimentBadge: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  sentimentText: {
+    fontSize: FontSizes.sm,
+    fontWeight: '600',
+    color: Colors.white,
+  },
+  qualityBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: Colors.surface,
+  },
+  qualityLabel: {
+    fontSize: FontSizes.sm,
+    color: Colors.textSecondary,
+  },
+  qualityScore: {
+    fontSize: FontSizes.sm,
+    fontWeight: '700',
+    color: Colors.text,
+  },
+  analysisSection: {
+    marginBottom: Spacing.lg,
+  },
+  analysisSectionTitle: {
+    fontSize: FontSizes.md,
+    fontWeight: '600',
+    color: Colors.text,
+    marginBottom: Spacing.sm,
+  },
+  analysisSectionText: {
+    fontSize: FontSizes.md,
+    color: Colors.textSecondary,
+    lineHeight: 22,
+  },
+  topicItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    marginBottom: 4,
+  },
+  topicDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Colors.primary,
+    marginTop: 7,
+  },
+  topicText: {
+    fontSize: FontSizes.md,
+    color: Colors.textSecondary,
+    flex: 1,
+  },
+  alertRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  alertBadge: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 3,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255,0,0,0.1)',
+  },
+  alertBadgeText: {
+    fontSize: FontSizes.xs,
+    color: Colors.error,
+    fontWeight: '500',
+  },
+  transcriptionText: {
+    fontSize: FontSizes.sm,
+    color: Colors.textSecondary,
+    lineHeight: 20,
+    fontStyle: 'italic',
   },
 });

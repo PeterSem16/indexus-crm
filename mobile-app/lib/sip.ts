@@ -51,6 +51,10 @@ class MobileSipEngine {
   get isRegistered(): boolean { return this._registrationState === 'registered'; }
   get hasActiveCall(): boolean { return this._callState !== 'idle' && this._callState !== 'ended'; }
 
+  getCredentials(): SipCredentials | null {
+    return this.credentials;
+  }
+
   setEventCallback(cb: SipEventCallback) {
     this.eventCallback = cb;
   }
