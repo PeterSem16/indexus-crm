@@ -12043,19 +12043,17 @@ export async function registerRoutes(
   // Set mobile app credentials for collaborator
   app.put("/api/collaborators/:id/mobile-credentials", requireAuth, async (req, res) => {
     try {
-      const { mobileAppEnabled, mobileUsername, mobilePassword } = req.body;
+      const { mobileAppEnabled, mobileUsername, mobilePassword, mobileWebrtcEnabled, mobileSipExtensionId, mobileCallRecording } = req.body;
       
       if (typeof mobileAppEnabled !== 'boolean') {
         return res.status(400).json({ error: "mobileAppEnabled is required" });
       }
       
-      // Get old collaborator to compare changes
       const oldCollaborator = await storage.getCollaborator(req.params.id);
       if (!oldCollaborator) {
         return res.status(404).json({ error: "Collaborator not found" });
       }
       
-      // Check if username is already taken by another collaborator
       if (mobileUsername && mobileAppEnabled) {
         const existing = await storage.getCollaboratorByMobileUsername(mobileUsername);
         if (existing && existing.id !== req.params.id) {
@@ -12072,8 +12070,37 @@ export async function registerRoutes(
       if (!collaborator) {
         return res.status(404).json({ error: "Collaborator not found" });
       }
+
+      const webrtcUpdate: any = {};
+      if (typeof mobileWebrtcEnabled === 'boolean') {
+        webrtcUpdate.mobileWebrtcEnabled = mobileWebrtcEnabled;
+      }
+      if (typeof mobileCallRecording === 'boolean') {
+        webrtcUpdate.mobileCallRecording = mobileCallRecording;
+      }
+      if (mobileSipExtensionId !== undefined) {
+        webrtcUpdate.mobileSipExtensionId = mobileSipExtensionId || null;
+      }
+      if (Object.keys(webrtcUpdate).length > 0) {
+        await storage.updateCollaborator(req.params.id, webrtcUpdate);
+      }
+
+      if (mobileSipExtensionId && mobileSipExtensionId !== oldCollaborator.mobileSipExtensionId) {
+        const ext = await storage.getSipExtensionById(mobileSipExtensionId);
+        if (!ext) {
+          return res.status(400).json({ error: "SIP extension not found" });
+        }
+        if (ext.assignedToUserId || (ext.assignedToCollaboratorId && ext.assignedToCollaboratorId !== req.params.id)) {
+          return res.status(400).json({ error: "SIP extension already assigned" });
+        }
+        if (oldCollaborator.mobileSipExtensionId) {
+          await storage.unassignSipExtensionFromCollaborator(oldCollaborator.mobileSipExtensionId);
+        }
+        await storage.assignSipExtensionToCollaborator(mobileSipExtensionId, req.params.id);
+      } else if (!mobileSipExtensionId && oldCollaborator.mobileSipExtensionId) {
+        await storage.unassignSipExtensionFromCollaborator(oldCollaborator.mobileSipExtensionId);
+      }
       
-      // Only log if something actually changed
       const enabledChanged = oldCollaborator.mobileAppEnabled !== mobileAppEnabled;
       const usernameChanged = oldCollaborator.mobileUsername !== mobileUsername;
       const passwordChanged = !!mobilePassword;
@@ -12939,6 +12966,133 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Report generation error:", error);
       res.status(500).json({ error: "Failed to generate report" });
+    }
+  });
+
+  app.get("/api/mobile/sip/credentials", async (req, res) => {
+    try {
+      const tokenData = await getMobileCollaboratorFromToken(req);
+      if (!tokenData) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const collaborator = await storage.getCollaborator(tokenData.collaboratorId);
+      if (!collaborator || !collaborator.mobileAppEnabled || !collaborator.mobileWebrtcEnabled) {
+        return res.status(403).json({ error: "WebRTC not enabled" });
+      }
+
+      if (!collaborator.mobileSipExtensionId) {
+        return res.status(404).json({ error: "No SIP extension assigned" });
+      }
+
+      const sipSettings = await storage.getSipSettings();
+      if (!sipSettings) {
+        return res.status(500).json({ error: "SIP settings not configured" });
+      }
+
+      const ext = await storage.getSipExtensionByCollaboratorId(collaborator.id);
+      if (!ext) {
+        return res.status(404).json({ error: "SIP extension not found" });
+      }
+
+      const password = decryptSipPassword(ext.sipPasswordHash);
+      res.json({
+        server: sipSettings.sipServer,
+        port: sipSettings.sipPort || 8089,
+        transport: "wss",
+        extension: ext.extension,
+        username: ext.sipUsername,
+        password,
+        callRecording: collaborator.mobileCallRecording,
+      });
+    } catch (error) {
+      console.error("Mobile SIP credentials error:", error);
+      res.status(500).json({ error: "Failed to get SIP credentials" });
+    }
+  });
+
+  app.post("/api/mobile/call-log", async (req, res) => {
+    try {
+      const tokenData = await getMobileCollaboratorFromToken(req);
+      if (!tokenData) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { phoneNumber, direction, duration, status, customerId, notes } = req.body;
+      if (!phoneNumber || !direction) {
+        return res.status(400).json({ error: "phoneNumber and direction required" });
+      }
+
+      const collaborator = await storage.getCollaborator(tokenData.collaboratorId);
+      if (!collaborator) {
+        return res.status(404).json({ error: "Collaborator not found" });
+      }
+
+      const ext = await storage.getSipExtensionByCollaboratorId(collaborator.id);
+
+      const callLog = await storage.createCallLog({
+        userId: collaborator.id,
+        customerId: customerId || null,
+        campaignId: null,
+        campaignContactId: null,
+        direction: direction || "outbound",
+        phoneNumber,
+        duration: duration || 0,
+        status: status || "completed",
+        notes: notes || null,
+        recordingUrl: null,
+        extensionUsed: ext?.extension || null,
+        sipCallId: null,
+        callerIdName: `${collaborator.firstName} ${collaborator.lastName}`,
+        callerIdNumber: ext?.extension || null,
+      });
+      res.json(callLog);
+    } catch (error) {
+      console.error("Mobile call log error:", error);
+      res.status(500).json({ error: "Failed to create call log" });
+    }
+  });
+
+  app.get("/api/mobile/contacts", async (req, res) => {
+    try {
+      const tokenData = await getMobileCollaboratorFromToken(req);
+      if (!tokenData) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const search = (req.query.search as string || "").toLowerCase().trim();
+      const collaborator = await storage.getCollaborator(tokenData.collaboratorId);
+      if (!collaborator) {
+        return res.status(404).json({ error: "Collaborator not found" });
+      }
+
+      const countryCodes = collaborator.countryCodes && collaborator.countryCodes.length > 0
+        ? collaborator.countryCodes
+        : [collaborator.countryCode].filter(Boolean);
+
+      const customers = await storage.getCustomersByCountry(countryCodes as string[]);
+
+      let filtered = customers;
+      if (search) {
+        filtered = customers.filter(c => {
+          const fullName = `${c.motherFirstName || ""} ${c.motherLastName || ""}`.toLowerCase();
+          const phone = (c.motherPhone || "").toLowerCase();
+          const email = (c.motherEmail || "").toLowerCase();
+          return fullName.includes(search) || phone.includes(search) || email.includes(search);
+        });
+      }
+
+      const results = filtered.slice(0, 50).map(c => ({
+        id: c.id,
+        name: `${c.motherFirstName || ""} ${c.motherLastName || ""}`.trim(),
+        phone: c.motherPhone || null,
+        email: c.motherEmail || null,
+      }));
+
+      res.json(results);
+    } catch (error) {
+      console.error("Mobile contacts search error:", error);
+      res.status(500).json({ error: "Failed to search contacts" });
     }
   });
 
@@ -19095,6 +19249,56 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Failed to unassign SIP extension:", error);
       res.status(500).json({ error: "Failed to unassign SIP extension" });
+    }
+  });
+
+  app.get("/api/sip-extensions/available-for-mobile", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user;
+      if (!user || (user.role !== "admin" && user.role !== "manager")) {
+        return res.status(403).json({ error: "Only admins/managers" });
+      }
+      const countryCode = req.query.countryCode as string;
+      if (!countryCode) {
+        return res.status(400).json({ error: "countryCode required" });
+      }
+      const extensions = await storage.getAvailableSipExtensionsForMobile(countryCode);
+      res.json(extensions);
+    } catch (error) {
+      console.error("Failed to get available mobile SIP extensions:", error);
+      res.status(500).json({ error: "Failed to get available extensions" });
+    }
+  });
+
+  app.post("/api/sip-extensions/:id/assign-mobile", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user;
+      if (!user || (user.role !== "admin" && user.role !== "manager")) {
+        return res.status(403).json({ error: "Only admins/managers can assign extensions" });
+      }
+      const { collaboratorId } = req.body;
+      if (!collaboratorId) {
+        return res.status(400).json({ error: "collaboratorId required" });
+      }
+      const extension = await storage.assignSipExtensionToCollaborator(req.params.id, collaboratorId);
+      res.json(extension);
+    } catch (error) {
+      console.error("Failed to assign mobile SIP extension:", error);
+      res.status(500).json({ error: "Failed to assign extension" });
+    }
+  });
+
+  app.post("/api/sip-extensions/:id/unassign-mobile", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user;
+      if (!user || (user.role !== "admin" && user.role !== "manager")) {
+        return res.status(403).json({ error: "Only admins/managers can unassign extensions" });
+      }
+      const extension = await storage.unassignSipExtensionFromCollaborator(req.params.id);
+      res.json(extension);
+    } catch (error) {
+      console.error("Failed to unassign mobile SIP extension:", error);
+      res.status(500).json({ error: "Failed to unassign extension" });
     }
   });
 

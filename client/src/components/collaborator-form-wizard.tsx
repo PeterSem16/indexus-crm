@@ -2042,6 +2042,9 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
     mobileUsername: initialData?.mobileUsername ?? "",
     mobilePassword: "",
     mobilePasswordConfirm: "",
+    mobileWebrtcEnabled: initialData?.mobileWebrtcEnabled ?? false,
+    mobileSipExtensionId: initialData?.mobileSipExtensionId ?? "",
+    mobileCallRecording: initialData?.mobileCallRecording ?? true,
   });
 
   const [formData, setFormData] = useState<CollaboratorFormData>(() =>
@@ -2152,6 +2155,16 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
     queryKey: ["/api/hospitals"],
   });
 
+  const { data: availableSipExtensions = [] } = useQuery<any[]>({
+    queryKey: ["/api/sip-extensions/available-for-mobile", formData.countryCode],
+    queryFn: async () => {
+      const res = await fetch(`/api/sip-extensions/available-for-mobile?countryCode=${formData.countryCode}`);
+      if (!res.ok) throw new Error("Failed to fetch SIP extensions");
+      return res.json();
+    },
+    enabled: !!formData.countryCode && mobileCredentials.mobileWebrtcEnabled,
+  });
+
   // Get representative role IDs
   const representativeRoleIds = roles
     .filter(r => r.name.toLowerCase().includes("representative") || r.name.toLowerCase().includes("reprezentant") || r.name.toLowerCase().includes("representant"))
@@ -2235,7 +2248,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
       
       // Save mobile credentials if enabled or if previously enabled
       if (mobileCredentials.mobileAppEnabled || initialData?.mobileAppEnabled) {
-        const mobileData: { mobileAppEnabled: boolean; mobileUsername?: string; mobilePassword?: string } = {
+        const mobileData: any = {
           mobileAppEnabled: mobileCredentials.mobileAppEnabled,
         };
         
@@ -2244,6 +2257,13 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
           if (mobileCredentials.mobilePassword) {
             mobileData.mobilePassword = mobileCredentials.mobilePassword;
           }
+          mobileData.mobileWebrtcEnabled = mobileCredentials.mobileWebrtcEnabled;
+          mobileData.mobileSipExtensionId = mobileCredentials.mobileSipExtensionId || null;
+          mobileData.mobileCallRecording = mobileCredentials.mobileCallRecording;
+        } else {
+          mobileData.mobileWebrtcEnabled = false;
+          mobileData.mobileSipExtensionId = null;
+          mobileData.mobileCallRecording = true;
         }
         
         await apiRequest("PUT", `/api/collaborators/${collaboratorId}/mobile-credentials`, mobileData);
@@ -3051,6 +3071,68 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
                       )}
                     </div>
                   )}
+
+                  <div className="mt-6 pt-6 border-t border-muted">
+                    <div className="flex items-center gap-3 p-4 rounded-lg bg-muted/30 mb-4">
+                      <Phone className="h-5 w-5 text-muted-foreground" />
+                      <div>
+                        <h4 className="font-medium text-sm">{t.collaborators.mobileApp.webrtcTitle}</h4>
+                        <p className="text-xs text-muted-foreground">{t.collaborators.mobileApp.webrtcDescription}</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div className="flex items-center space-x-2">
+                        <Switch
+                          checked={mobileCredentials.mobileWebrtcEnabled}
+                          onCheckedChange={(checked) => setMobileCredentials({ ...mobileCredentials, mobileWebrtcEnabled: checked })}
+                          data-testid="wizard-switch-webrtc-enabled"
+                        />
+                        <Label>{t.collaborators.mobileApp.webrtcEnabled}</Label>
+                      </div>
+
+                      {mobileCredentials.mobileWebrtcEnabled && (
+                        <div className="space-y-4 pl-8 border-l-2 border-muted">
+                          <div className="space-y-2">
+                            <Label>{t.collaborators.mobileApp.sipExtension}</Label>
+                            <Select
+                              value={mobileCredentials.mobileSipExtensionId || ""}
+                              onValueChange={(value) => setMobileCredentials({ ...mobileCredentials, mobileSipExtensionId: value === "__none__" ? "" : value })}
+                            >
+                              <SelectTrigger data-testid="wizard-select-sip-extension">
+                                <SelectValue placeholder={t.collaborators.mobileApp.sipExtensionPlaceholder} />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="__none__">{t.collaborators.mobileApp.sipExtensionNone}</SelectItem>
+                                {initialData?.mobileSipExtensionId && !availableSipExtensions.find((e: any) => e.id === initialData.mobileSipExtensionId) && (
+                                  <SelectItem value={initialData.mobileSipExtensionId}>
+                                    {t.collaborators.mobileApp.assignedExtension}
+                                  </SelectItem>
+                                )}
+                                {availableSipExtensions.map((ext: any) => (
+                                  <SelectItem key={ext.id} value={ext.id}>
+                                    {ext.extension} ({ext.sipUsername})
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div className="flex items-center space-x-2">
+                            <Switch
+                              checked={mobileCredentials.mobileCallRecording}
+                              onCheckedChange={(checked) => setMobileCredentials({ ...mobileCredentials, mobileCallRecording: checked })}
+                              data-testid="wizard-switch-call-recording"
+                            />
+                            <div>
+                              <Label>{t.collaborators.mobileApp.callRecording}</Label>
+                              <p className="text-xs text-muted-foreground">{t.collaborators.mobileApp.callRecordingDesc}</p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               )}
             </div>

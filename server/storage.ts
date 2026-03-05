@@ -697,9 +697,14 @@ export interface IStorage {
   // SIP Extensions
   getSipExtensionsByCountry(countryCode: string): Promise<SipExtension[]>;
   getAvailableSipExtensions(countryCode: string): Promise<SipExtension[]>;
+  getSipExtensionById(id: string): Promise<SipExtension | undefined>;
   getSipExtensionByExtension(extension: string): Promise<SipExtension | undefined>;
   assignSipExtension(extensionId: string, userId: string): Promise<SipExtension | undefined>;
   unassignSipExtension(extensionId: string): Promise<SipExtension | undefined>;
+  getAvailableSipExtensionsForMobile(countryCode: string): Promise<SipExtension[]>;
+  assignSipExtensionToCollaborator(extensionId: string, collaboratorId: string): Promise<SipExtension | undefined>;
+  unassignSipExtensionFromCollaborator(extensionId: string): Promise<SipExtension | undefined>;
+  getSipExtensionByCollaboratorId(collaboratorId: string): Promise<SipExtension | undefined>;
   createSipExtension(data: InsertSipExtension): Promise<SipExtension>;
   getSipExtensionPassword(extensionId: string): Promise<string | undefined>;
 
@@ -4047,6 +4052,12 @@ export class DatabaseStorage implements IStorage {
       .orderBy(sipExtensions.extension);
   }
 
+  async getSipExtensionById(id: string): Promise<SipExtension | undefined> {
+    const [ext] = await db.select().from(sipExtensions)
+      .where(eq(sipExtensions.id, id));
+    return ext || undefined;
+  }
+
   async getSipExtensionByExtension(extension: string): Promise<SipExtension | undefined> {
     const [ext] = await db.select().from(sipExtensions)
       .where(eq(sipExtensions.extension, extension));
@@ -4075,6 +4086,48 @@ export class DatabaseStorage implements IStorage {
       .where(eq(sipExtensions.id, extensionId))
       .returning();
     return updated || undefined;
+  }
+
+  async getAvailableSipExtensionsForMobile(countryCode: string): Promise<SipExtension[]> {
+    return db.select().from(sipExtensions)
+      .where(and(
+        eq(sipExtensions.countryCode, countryCode),
+        isNull(sipExtensions.assignedToUserId),
+        isNull(sipExtensions.assignedToCollaboratorId)
+      ))
+      .orderBy(sipExtensions.extension);
+  }
+
+  async assignSipExtensionToCollaborator(extensionId: string, collaboratorId: string): Promise<SipExtension | undefined> {
+    const [updated] = await db.update(sipExtensions)
+      .set({
+        assignedToCollaboratorId: collaboratorId,
+        assignmentType: "mobile",
+        assignedAt: new Date(),
+        updatedAt: new Date()
+      })
+      .where(eq(sipExtensions.id, extensionId))
+      .returning();
+    return updated || undefined;
+  }
+
+  async unassignSipExtensionFromCollaborator(extensionId: string): Promise<SipExtension | undefined> {
+    const [updated] = await db.update(sipExtensions)
+      .set({
+        assignedToCollaboratorId: null,
+        assignmentType: "crm",
+        assignedAt: null,
+        updatedAt: new Date()
+      })
+      .where(eq(sipExtensions.id, extensionId))
+      .returning();
+    return updated || undefined;
+  }
+
+  async getSipExtensionByCollaboratorId(collaboratorId: string): Promise<SipExtension | undefined> {
+    const [ext] = await db.select().from(sipExtensions)
+      .where(eq(sipExtensions.assignedToCollaboratorId, collaboratorId));
+    return ext || undefined;
   }
 
   async createSipExtension(data: InsertSipExtension): Promise<SipExtension> {

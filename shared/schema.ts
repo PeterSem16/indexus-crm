@@ -1843,9 +1843,12 @@ export const collaborators = pgTable("collaborators", {
   mobileAppEnabled: boolean("mobile_app_enabled").notNull().default(false),
   mobileUsername: text("mobile_username"),
   mobilePasswordHash: text("mobile_password_hash"),
-  canEditHospitals: boolean("can_edit_hospitals").notNull().default(false), // Permission to add/edit hospitals
+  canEditHospitals: boolean("can_edit_hospitals").notNull().default(false),
   lastMobileLogin: timestamp("last_mobile_login"),
-  mobileLastActiveAt: timestamp("mobile_last_active_at"), // Updated on every mobile API request
+  mobileLastActiveAt: timestamp("mobile_last_active_at"),
+  mobileWebrtcEnabled: boolean("mobile_webrtc_enabled").notNull().default(false),
+  mobileSipExtensionId: varchar("mobile_sip_extension_id"),
+  mobileCallRecording: boolean("mobile_call_recording").notNull().default(true),
   
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
@@ -3151,7 +3154,9 @@ export const sipExtensions = pgTable("sip_extensions", {
   extension: text("extension").notNull().unique(), // e.g. 2003
   sipUsername: text("sip_username").notNull(), // usually same as extension
   sipPasswordHash: text("sip_password_hash").notNull(), // encrypted password
-  assignedToUserId: varchar("assigned_to_user_id"), // null if available
+  assignedToUserId: varchar("assigned_to_user_id"),
+  assignedToCollaboratorId: varchar("assigned_to_collaborator_id"),
+  assignmentType: text("assignment_type").default("crm"),
   assignedAt: timestamp("assigned_at"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
