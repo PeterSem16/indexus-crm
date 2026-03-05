@@ -14,6 +14,7 @@
 10. [Nastavenia a profil](#10-nastavenia-a-profil)
 11. [Technické špecifikácie](#11-technické-špecifikácie)
 12. [Riešenie problémov](#12-riešenie-problémov)
+13. [Android App Build Process](#13-android-app-build-process-kompilácia-na-ubuntu-serveri)
 
 ---
 
@@ -405,6 +406,256 @@ Mobilná aplikácia komunikuje so serverom cez REST API:
 
 ---
 
+## 13. Android App Build Process (Kompilácia na Ubuntu serveri)
+
+### Prehľad
+
+INDEXUS Connect Android aplikácia je postavená na **React Native + Expo** frameworku. Zdrojový kód sa nachádza v priečinku `mobile-app/` v INDEXUS CRM repozitári. Kompilácia prebieha lokálne na Ubuntu serveri pomocou EAS CLI (Expo Application Services).
+
+**Aktuálna verzia:** 1.1.12 (versionCode 14)
+**Balíček:** `com.cordbloodcenter.indexusconnect`
+
+### 13.1 Požiadavky na server
+
+| Požiadavka | Minimum | Odporúčané |
+|-----------|---------|------------|
+| OS | Ubuntu 20.04 | Ubuntu 22.04 / 24.04 |
+| RAM | 8 GB | 16 GB |
+| Voľné miesto na disku | 20 GB | 30 GB |
+| Node.js | v18+ | v20+ |
+| Prístup | sudo práva | sudo práva |
+
+### 13.2 Prvotné nastavenie (jednorazovo)
+
+#### Krok 1: Inštalácia Android SDK
+
+```bash
+cd mobile-app
+chmod +x scripts/setup-android-sdk.sh
+./scripts/setup-android-sdk.sh
+```
+
+Tento skript automaticky nainštaluje:
+- OpenJDK 17
+- Android SDK (command-line tools)
+- Android Build Tools 34.0.0
+- Android Platform 34 (API level 34)
+- Android NDK 26.1.10909125
+- Nakonfiguruje premenné prostredia
+
+#### Krok 2: Načítanie premenných prostredia
+
+Po dokončení inštalácie:
+
+```bash
+source ~/.indexus-android-env
+```
+
+Alebo otvorte nový terminál (premenné sa načítajú automaticky).
+
+**Overenie inštalácie:**
+
+```bash
+echo $ANDROID_HOME        # Mal by ukazovať na ~/android-sdk
+java -version             # Mal by zobraziť Java 17
+$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --list | head -20
+```
+
+#### Krok 3: Inštalácia závislostí projektu
+
+```bash
+cd mobile-app
+npm install
+```
+
+#### Krok 4: Inštalácia EAS CLI (ak ešte nie je)
+
+```bash
+npm install -g eas-cli
+eas login    # Prihláste sa Expo účtom
+```
+
+### 13.3 Kompilácia APK (pre testovanie a priamu inštaláciu)
+
+```bash
+cd mobile-app
+chmod +x build-android.sh
+./build-android.sh preview
+```
+
+Tento príkaz:
+1. Spustí `npx eas build --platform android --profile preview --local`
+2. Kompiluje aplikáciu lokálne na serveri (trvá cca 10-20 minút)
+3. Výstupný APK súbor uloží do priečinka `builds/`
+4. Súbor sa nazýva: `indexus-connect-v{VERSION}-{TIMESTAMP}.apk`
+
+### 13.4 Kompilácia AAB (pre Google Play Store)
+
+```bash
+./build-android.sh production
+```
+
+Výstup: `.aab` súbor v priečinku `builds/`, pripravený na nahratie do Google Play Console.
+
+### 13.5 Nasadenie APK na produkčný server
+
+Po úspešnej kompilácii spustite deploy skript:
+
+```bash
+chmod +x deploy-apk.sh
+./deploy-apk.sh
+```
+
+Tento skript:
+1. Nájde najnovší APK v priečinku `builds/`
+2. Skopíruje ho do `/var/www/indexus-crm/data/mobil-app/indexus-connect.apk`
+3. Prepíše predchádzajúci APK súbor
+
+**Výsledok:** APK je dostupný na stiahnutie na adrese:
+`https://indexus.cordbloodcenter.com/mobile-app/indexus-connect.apk`
+
+### 13.6 Nginx konfigurácia (jednorazovo)
+
+Pridajte do Nginx konfigurácie (ak ešte nie je nastavené):
+
+```nginx
+location /mobile-app/ {
+    alias /var/www/indexus-crm/data/mobile-app/;
+    add_header Content-Disposition 'attachment';
+
+    types {
+        application/vnd.android.package-archive apk;
+        application/octet-stream ipa;
+    }
+}
+```
+
+Po úprave reštartujte Nginx:
+
+```bash
+sudo systemctl reload nginx
+```
+
+### 13.7 OTA aktualizácie (bez novej kompilácie)
+
+Pre zmeny v JavaScript kóde (bez natívnych zmien) môžete využiť Over-The-Air aktualizácie:
+
+```bash
+cd mobile-app
+eas update --branch preview --message "Popis zmien"
+```
+
+Aplikácia si aktualizáciu stiahne automaticky pri ďalšom spustení.
+
+### 13.8 Prehľad príkazov
+
+| Akcia | Príkaz |
+|-------|--------|
+| Nastavenie Android SDK | `./scripts/setup-android-sdk.sh` |
+| Načítanie env premenných | `source ~/.indexus-android-env` |
+| Inštalácia závislostí | `cd mobile-app && npm install` |
+| Kompilácia APK (testovanie) | `./build-android.sh preview` |
+| Kompilácia AAB (Play Store) | `./build-android.sh production` |
+| Nasadenie APK | `./deploy-apk.sh` |
+| OTA aktualizácia | `eas update --branch preview` |
+
+### 13.9 Adresárová štruktúra
+
+```
+mobile-app/
+├── app/                          # Expo Router obrazovky
+│   ├── (auth)/                   # Prihlasovacia obrazovka
+│   ├── (tabs)/                   # Hlavné záložky (Dashboard, Visits, Map, Profile)
+│   ├── visit/                    # Detail návštevy
+│   └── hospital/                 # Detail nemocnice
+├── components/                   # Znovupoužiteľné UI komponenty
+├── lib/                          # API klient, auth, databáza, sync, GPS, audio
+├── stores/                       # Zustand state management
+├── hooks/                        # Custom React hooks
+├── i18n/                         # Preklady (7 jazykov)
+├── assets/                       # Ikony, splash screen, obrázky
+├── scripts/
+│   └── setup-android-sdk.sh      # Skript na inštaláciu Android SDK
+├── builds/                       # Výstupné APK/AAB súbory
+├── build-android.sh              # Hlavný build skript
+├── deploy-apk.sh                 # Skript na nasadenie APK
+├── app.json                      # Expo konfigurácia
+├── eas.json                      # EAS build profily
+├── package.json                  # Node.js závislosti
+└── tsconfig.json                 # TypeScript konfigurácia
+```
+
+### 13.10 Riešenie problémov pri kompilácii
+
+#### "ANDROID_HOME is not set"
+
+```bash
+source ~/.indexus-android-env
+```
+
+#### "Java version too low"
+
+```bash
+sudo update-alternatives --config java
+# Vyberte Java 17
+```
+
+#### Build zlyhá s NDK chybami
+
+```bash
+$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "ndk;26.1.10909125"
+```
+
+#### Gradle — nedostatok pamäte
+
+Pridajte do `~/.gradle/gradle.properties`:
+
+```
+org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=512m
+org.gradle.daemon=false
+```
+
+#### sdkmanager not found
+
+```bash
+# Skontrolujte cestu
+ls -la $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager
+
+# Ak neexistuje, spustite setup znova
+rm -rf ~/android-sdk/cmdline-tools
+./scripts/setup-android-sdk.sh
+```
+
+### 13.11 Porovnanie: Lokálna vs Cloud kompilácia
+
+| Aspekt | Lokálna kompilácia | Cloud (EAS) |
+|--------|-------------------|-------------|
+| Rýchlosť | Závisí od servera (10-20 min) | Stabilne ~15 min |
+| Cena | Zadarmo | Free tier: 30 buildov/mesiac |
+| Súkromie | Kód zostáva na vašom serveri | Kód sa nahrá na Expo |
+| Závislosti | Vyžaduje Android SDK | Žiadne |
+| Spoľahlivosť | Závisí od nastavenia | Spravované Expo |
+
+### 13.12 Zvýšenie verzie pred buildom
+
+Pred vytvorením nového buildu aktualizujte verziu v `mobile-app/app.json`:
+
+```json
+{
+  "expo": {
+    "version": "1.1.13",
+    "android": {
+      "versionCode": 15
+    }
+  }
+}
+```
+
+- `version` — viditeľná verzia pre používateľov (semver)
+- `versionCode` — interné číslo (musí sa vždy zvýšiť pre Play Store)
+
+---
+
 ## Kontakt na podporu
 
 **Technická podpora:**
@@ -416,5 +667,5 @@ Mobilná aplikácia komunikuje so serverom cez REST API:
 
 ---
 
-*Dokumentácia INDEXUS Connect v1.0*
-*Posledná aktualizácia: Január 2026*
+*Dokumentácia INDEXUS Connect v1.1*
+*Posledná aktualizácia: Marec 2026*
