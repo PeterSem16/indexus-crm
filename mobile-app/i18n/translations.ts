@@ -65,6 +65,35 @@ type TranslationKeys = {
     map: string;
     reports: string;
     profile: string;
+    phone: string;
+  };
+  phone: {
+    title: string;
+    keypad: string;
+    contacts: string;
+    recent: string;
+    call: string;
+    endCall: string;
+    calling: string;
+    incoming: string;
+    noRecentCalls: string;
+    noContacts: string;
+    searchContacts: string;
+    duration: string;
+    outbound: string;
+    inbound: string;
+    missed: string;
+    sipNotConfigured: string;
+    webrtcDisabled: string;
+    connecting: string;
+    connected: string;
+    onHold: string;
+    mute: string;
+    unmute: string;
+    hold: string;
+    unhold: string;
+    speaker: string;
+    dialpad: string;
   };
   visits: {
     title: string;
@@ -323,6 +352,35 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       map: 'Mapa',
       reports: 'Reporty',
       profile: 'Profil',
+      phone: 'Telefon',
+    },
+    phone: {
+      title: 'Telefon',
+      keypad: 'Klavesnica',
+      contacts: 'Kontakty',
+      recent: 'Posledne',
+      call: 'Volat',
+      endCall: 'Ukoncit',
+      calling: 'Vola sa...',
+      incoming: 'Prichadzajuci hovor',
+      noRecentCalls: 'Ziadne posledne hovory',
+      noContacts: 'Ziadne kontakty',
+      searchContacts: 'Hladat kontakty...',
+      duration: 'Trvanie',
+      outbound: 'Odchadzajuci',
+      inbound: 'Prichadzajuci',
+      missed: 'Zmeskany',
+      sipNotConfigured: 'SIP klapka nie je nastavena',
+      webrtcDisabled: 'WebRTC telefon nie je povoleny',
+      connecting: 'Pripajanie...',
+      connected: 'Pripojeny',
+      onHold: 'Podrzany',
+      mute: 'Stlmit',
+      unmute: 'Zapnut mikrofon',
+      hold: 'Podrzat',
+      unhold: 'Pokracovat',
+      speaker: 'Reproduktor',
+      dialpad: 'Klavesnica',
     },
     visits: {
       title: 'Navstevy',
@@ -579,6 +637,35 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       map: 'Mapa',
       reports: 'Reporty',
       profile: 'Profil',
+      phone: 'Telefon',
+    },
+    phone: {
+      title: 'Telefon',
+      keypad: 'Klavesnice',
+      contacts: 'Kontakty',
+      recent: 'Posledni',
+      call: 'Volat',
+      endCall: 'Ukoncit',
+      calling: 'Vola se...',
+      incoming: 'Prichozi hovor',
+      noRecentCalls: 'Zadne posledni hovory',
+      noContacts: 'Zadne kontakty',
+      searchContacts: 'Hledat kontakty...',
+      duration: 'Trvani',
+      outbound: 'Odchozi',
+      inbound: 'Prichozi',
+      missed: 'Zmeskany',
+      sipNotConfigured: 'SIP klapka neni nastavena',
+      webrtcDisabled: 'WebRTC telefon neni povolen',
+      connecting: 'Pripojovani...',
+      connected: 'Pripojeno',
+      onHold: 'Podrzeno',
+      mute: 'Ztlumit',
+      unmute: 'Zapnout mikrofon',
+      hold: 'Podrzet',
+      unhold: 'Pokracovat',
+      speaker: 'Reproduktor',
+      dialpad: 'Klavesnice',
     },
     visits: {
       title: 'Navstevy',
@@ -835,6 +922,35 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       map: 'Terkep',
       reports: 'Jelentes',
       profile: 'Profil',
+      phone: 'Telefon',
+    },
+    phone: {
+      title: 'Telefon',
+      keypad: 'Billentyuzet',
+      contacts: 'Kapcsolatok',
+      recent: 'Legutobbi',
+      call: 'Hivas',
+      endCall: 'Befejez',
+      calling: 'Hivas...',
+      incoming: 'Bejovo hivas',
+      noRecentCalls: 'Nincsenek legutobbi hivasok',
+      noContacts: 'Nincsenek kapcsolatok',
+      searchContacts: 'Kapcsolatok keresese...',
+      duration: 'Idotartam',
+      outbound: 'Kimeno',
+      inbound: 'Bejovo',
+      missed: 'Nem fogadott',
+      sipNotConfigured: 'SIP mellek nincs beallitva',
+      webrtcDisabled: 'WebRTC telefon nincs engedelyezve',
+      connecting: 'Csatlakozas...',
+      connected: 'Csatlakozva',
+      onHold: 'Tartasban',
+      mute: 'Nemitas',
+      unmute: 'Mikrofon be',
+      hold: 'Tartasba',
+      unhold: 'Folytatas',
+      speaker: 'Hangszoro',
+      dialpad: 'Billentyuzet',
     },
     visits: {
       title: 'Latogatasok',
@@ -1091,6 +1207,35 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       map: 'Karte',
       reports: 'Berichte',
       profile: 'Profil',
+      phone: 'Telefon',
+    },
+    phone: {
+      title: 'Telefon',
+      keypad: 'Tastatur',
+      contacts: 'Kontakte',
+      recent: 'Letzte',
+      call: 'Anrufen',
+      endCall: 'Beenden',
+      calling: 'Anruf...',
+      incoming: 'Eingehender Anruf',
+      noRecentCalls: 'Keine letzten Anrufe',
+      noContacts: 'Keine Kontakte',
+      searchContacts: 'Kontakte suchen...',
+      duration: 'Dauer',
+      outbound: 'Ausgehend',
+      inbound: 'Eingehend',
+      missed: 'Verpasst',
+      sipNotConfigured: 'SIP Nebenstelle nicht konfiguriert',
+      webrtcDisabled: 'WebRTC Telefon nicht aktiviert',
+      connecting: 'Verbinde...',
+      connected: 'Verbunden',
+      onHold: 'Gehalten',
+      mute: 'Stumm',
+      unmute: 'Mikrofon ein',
+      hold: 'Halten',
+      unhold: 'Fortsetzen',
+      speaker: 'Lautsprecher',
+      dialpad: 'Tastatur',
     },
     visits: {
       title: 'Besuche',
@@ -1347,6 +1492,35 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       map: 'Mappa',
       reports: 'Report',
       profile: 'Profilo',
+      phone: 'Telefono',
+    },
+    phone: {
+      title: 'Telefono',
+      keypad: 'Tastiera',
+      contacts: 'Contatti',
+      recent: 'Recenti',
+      call: 'Chiama',
+      endCall: 'Termina',
+      calling: 'Chiamata...',
+      incoming: 'Chiamata in arrivo',
+      noRecentCalls: 'Nessuna chiamata recente',
+      noContacts: 'Nessun contatto',
+      searchContacts: 'Cerca contatti...',
+      duration: 'Durata',
+      outbound: 'In uscita',
+      inbound: 'In arrivo',
+      missed: 'Persa',
+      sipNotConfigured: 'Interno SIP non configurato',
+      webrtcDisabled: 'Telefono WebRTC non abilitato',
+      connecting: 'Connessione...',
+      connected: 'Connesso',
+      onHold: 'In attesa',
+      mute: 'Muto',
+      unmute: 'Attiva microfono',
+      hold: 'Attesa',
+      unhold: 'Riprendi',
+      speaker: 'Altoparlante',
+      dialpad: 'Tastiera',
     },
     visits: {
       title: 'Visite',
@@ -1603,6 +1777,35 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       map: 'Harta',
       reports: 'Rapoarte',
       profile: 'Profil',
+      phone: 'Telefon',
+    },
+    phone: {
+      title: 'Telefon',
+      keypad: 'Tastatura',
+      contacts: 'Contacte',
+      recent: 'Recente',
+      call: 'Apeleaza',
+      endCall: 'Incheie',
+      calling: 'Se apeleaza...',
+      incoming: 'Apel primit',
+      noRecentCalls: 'Niciun apel recent',
+      noContacts: 'Niciun contact',
+      searchContacts: 'Cauta contacte...',
+      duration: 'Durata',
+      outbound: 'Efectuat',
+      inbound: 'Primit',
+      missed: 'Pierdut',
+      sipNotConfigured: 'Extensia SIP nu este configurata',
+      webrtcDisabled: 'Telefonul WebRTC nu este activat',
+      connecting: 'Se conecteaza...',
+      connected: 'Conectat',
+      onHold: 'In asteptare',
+      mute: 'Dezactivare',
+      unmute: 'Activare microfon',
+      hold: 'Pauza',
+      unhold: 'Reluare',
+      speaker: 'Difuzor',
+      dialpad: 'Tastatura',
     },
     visits: {
       title: 'Vizite',
@@ -1859,6 +2062,35 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       map: 'Map',
       reports: 'Reports',
       profile: 'Profile',
+      phone: 'Phone',
+    },
+    phone: {
+      title: 'Phone',
+      keypad: 'Keypad',
+      contacts: 'Contacts',
+      recent: 'Recent',
+      call: 'Call',
+      endCall: 'End Call',
+      calling: 'Calling...',
+      incoming: 'Incoming Call',
+      noRecentCalls: 'No recent calls',
+      noContacts: 'No contacts',
+      searchContacts: 'Search contacts...',
+      duration: 'Duration',
+      outbound: 'Outbound',
+      inbound: 'Inbound',
+      missed: 'Missed',
+      sipNotConfigured: 'SIP extension not configured',
+      webrtcDisabled: 'WebRTC phone not enabled',
+      connecting: 'Connecting...',
+      connected: 'Connected',
+      onHold: 'On Hold',
+      mute: 'Mute',
+      unmute: 'Unmute',
+      hold: 'Hold',
+      unhold: 'Resume',
+      speaker: 'Speaker',
+      dialpad: 'Dialpad',
     },
     visits: {
       title: 'Visits',

@@ -102,6 +102,20 @@ function initializeDatabase(database: SQLite.SQLiteDatabase): void {
     tx.executeSql('CREATE INDEX IF NOT EXISTS idx_visits_scheduled ON visit_events(scheduled_start)');
     tx.executeSql('CREATE INDEX IF NOT EXISTS idx_sync_queue_entity ON sync_queue(entity_type, entity_id)');
     tx.executeSql('CREATE INDEX IF NOT EXISTS idx_gps_tracks_visit ON gps_tracks(visit_event_id)');
+
+    tx.executeSql(`
+      CREATE TABLE IF NOT EXISTS call_history (
+        id TEXT PRIMARY KEY,
+        phone_number TEXT NOT NULL,
+        direction TEXT NOT NULL,
+        duration INTEGER DEFAULT 0,
+        status TEXT DEFAULT 'completed',
+        contact_name TEXT,
+        contact_id TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    tx.executeSql('CREATE INDEX IF NOT EXISTS idx_call_history_date ON call_history(created_at DESC)');
   });
 }
 
@@ -460,6 +474,7 @@ export async function clearDatabase(): Promise<void> {
         tx.executeSql('DELETE FROM voice_notes');
         tx.executeSql('DELETE FROM sync_queue');
         tx.executeSql('DELETE FROM gps_tracks');
+        tx.executeSql('DELETE FROM call_history');
       },
       (error) => reject(error),
       () => resolve()
