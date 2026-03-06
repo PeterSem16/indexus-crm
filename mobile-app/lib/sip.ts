@@ -1,5 +1,23 @@
 import { api } from './api';
 import { API_BASE_URL } from '@/constants/config';
+import {
+  RTCPeerConnection,
+  RTCSessionDescription,
+  RTCIceCandidate,
+  mediaDevices,
+  MediaStream,
+  MediaStreamTrack,
+} from 'react-native-webrtc';
+
+if (typeof globalThis !== 'undefined') {
+  (globalThis as any).RTCPeerConnection = RTCPeerConnection;
+  (globalThis as any).RTCSessionDescription = RTCSessionDescription;
+  (globalThis as any).RTCIceCandidate = RTCIceCandidate;
+  (globalThis as any).navigator = (globalThis as any).navigator || {};
+  (globalThis as any).navigator.mediaDevices = mediaDevices;
+  (globalThis as any).MediaStream = MediaStream;
+  (globalThis as any).MediaStreamTrack = MediaStreamTrack;
+}
 
 export interface SipCredentials {
   server: string;
