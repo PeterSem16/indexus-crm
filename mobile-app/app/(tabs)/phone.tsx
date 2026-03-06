@@ -52,6 +52,11 @@ export default function PhoneScreen() {
   const [analysisModal, setAnalysisModal] = useState<CallAnalysis | null>(null);
   const [analysisLoading, setAnalysisLoading] = useState(false);
   const recordingStartedRef = useRef(false);
+  const [debugLog, setDebugLog] = useState<string[]>(['PhoneScreen mounted']);
+
+  const addDebug = useCallback((msg: string) => {
+    setDebugLog(prev => [...prev.slice(-9), `${new Date().toLocaleTimeString()}: ${msg}`]);
+  }, []);
 
   const {
     registrationState, callState, callInfo, isConnecting,
@@ -62,8 +67,10 @@ export default function PhoneScreen() {
   } = useSipStore();
 
   useEffect(() => {
+    addDebug(`regState=${registrationState}, isConnecting=${isConnecting}`);
     if (registrationState === 'unregistered' || registrationState === 'error') {
-      connect().catch(() => {});
+      addDebug('Calling connect()...');
+      connect().then(ok => addDebug(`connect() returned ${ok}`)).catch(e => addDebug(`connect() error: ${e?.message || e}`));
     }
   }, []);
 
@@ -410,32 +417,45 @@ export default function PhoneScreen() {
   );
 
   const renderRegistrationBadge = () => {
-    if (registrationState === 'registered') return null;
-
     return (
-      <TouchableOpacity
-        style={[
-          styles.regBadge,
-          registrationState === 'error' ? styles.regBadgeError : styles.regBadgeWarn,
-        ]}
-        onPress={() => connect()}
-        activeOpacity={0.7}
-      >
-        {isConnecting ? (
-          <ActivityIndicator size="small" color={Colors.white} />
-        ) : (
-          <Ionicons
-            name={registrationState === 'error' ? 'alert-circle' : 'sync'}
-            size={16}
-            color={Colors.white}
-          />
+      <View>
+        {registrationState !== 'registered' && (
+          <TouchableOpacity
+            style={[
+              styles.regBadge,
+              registrationState === 'error' ? styles.regBadgeError : styles.regBadgeWarn,
+            ]}
+            onPress={() => {
+              addDebug('Manual connect tap');
+              connect().then(ok => addDebug(`Manual connect returned ${ok}`)).catch(e => addDebug(`Manual error: ${e?.message || e}`));
+            }}
+            activeOpacity={0.7}
+          >
+            {isConnecting ? (
+              <ActivityIndicator size="small" color={Colors.white} />
+            ) : (
+              <Ionicons
+                name={registrationState === 'error' ? 'alert-circle' : 'sync'}
+                size={16}
+                color={Colors.white}
+              />
+            )}
+            <Text style={styles.regBadgeText}>
+              {registrationState === 'error' ? translations.phone.sipNotConfigured :
+               isConnecting ? translations.phone.connecting :
+               translations.phone.webrtcDisabled}
+            </Text>
+          </TouchableOpacity>
         )}
-        <Text style={styles.regBadgeText}>
-          {registrationState === 'error' ? translations.phone.sipNotConfigured :
-           isConnecting ? translations.phone.connecting :
-           translations.phone.webrtcDisabled}
-        </Text>
-      </TouchableOpacity>
+        <View style={{ backgroundColor: '#1a1a2e', padding: 8, marginHorizontal: 16, marginTop: 4, borderRadius: 8 }}>
+          <Text style={{ color: '#00ff00', fontSize: 10, fontFamily: 'monospace' }}>
+            DEBUG v1.2.3 | state={registrationState} | connecting={String(isConnecting)}
+          </Text>
+          {debugLog.map((line, i) => (
+            <Text key={i} style={{ color: '#aaffaa', fontSize: 9, fontFamily: 'monospace' }}>{line}</Text>
+          ))}
+        </View>
+      </View>
     );
   };
 
