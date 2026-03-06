@@ -12995,25 +12995,32 @@ export async function registerRoutes(
     try {
       const tokenData = await getMobileCollaboratorFromToken(req);
       if (!tokenData) {
+        console.log("[MobileSIP API] Unauthorized - no valid token");
         return res.status(401).json({ error: "Unauthorized" });
       }
 
+      console.log("[MobileSIP API] Fetching credentials for collaborator:", tokenData.collaboratorId);
       const collaborator = await storage.getCollaborator(tokenData.collaboratorId);
       if (!collaborator || !collaborator.mobileAppEnabled || !collaborator.mobileWebrtcEnabled) {
+        console.log("[MobileSIP API] WebRTC not enabled. mobileAppEnabled:", collaborator?.mobileAppEnabled, "mobileWebrtcEnabled:", collaborator?.mobileWebrtcEnabled);
         return res.status(403).json({ error: "WebRTC not enabled" });
       }
 
       if (!collaborator.mobileSipExtensionId) {
+        console.log("[MobileSIP API] No mobileSipExtensionId on collaborator");
         return res.status(404).json({ error: "No SIP extension assigned" });
       }
 
+      console.log("[MobileSIP API] mobileSipExtensionId:", collaborator.mobileSipExtensionId);
       const sipSettings = await storage.getSipSettings();
       if (!sipSettings) {
+        console.log("[MobileSIP API] SIP settings not found in DB");
         return res.status(500).json({ error: "SIP settings not configured" });
       }
 
       const ext = await storage.getSipExtensionByCollaboratorId(collaborator.id);
       if (!ext) {
+        console.log("[MobileSIP API] SIP extension not found by collaboratorId:", collaborator.id, "(mobileSipExtensionId:", collaborator.mobileSipExtensionId, ")");
         return res.status(404).json({ error: "SIP extension not found" });
       }
 

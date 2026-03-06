@@ -80,19 +80,30 @@ class MobileSipEngine {
 
   async fetchCredentials(): Promise<SipCredentials | null> {
     try {
+      console.log('[MobileSIP] Fetching credentials from:', api.baseUrl + '/api/mobile/sip/credentials');
       const creds = await api.get<SipCredentials>('/api/mobile/sip/credentials');
+      console.log('[MobileSIP] Credentials received:', JSON.stringify({
+        server: creds.server,
+        port: creds.port,
+        extension: creds.extension,
+        username: creds.username,
+        callRecording: creds.callRecording,
+        hasPassword: !!creds.password,
+      }));
       this.credentials = creds;
       return creds;
-    } catch (error) {
-      console.error('[MobileSIP] Failed to fetch credentials:', error);
+    } catch (error: any) {
+      console.error('[MobileSIP] Failed to fetch credentials:', error?.message || error);
       return null;
     }
   }
 
   async connect(): Promise<boolean> {
     if (!this.credentials) {
+      console.log('[MobileSIP] No credentials cached, fetching...');
       const creds = await this.fetchCredentials();
       if (!creds) {
+        console.error('[MobileSIP] No credentials available, setting state to error');
         this.setRegistrationState('error');
         return false;
       }
