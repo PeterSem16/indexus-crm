@@ -498,16 +498,49 @@ class MobileSipEngine {
   private setupRemoteAudio(session: any) {
     try {
       const sdh = session.sessionDescriptionHandler;
-      if (!sdh?.peerConnection) return;
+      if (!sdh?.peerConnection) {
+        this.emit('debug', 'setupRemoteAudio: no peerConnection');
+        return;
+      }
 
-      const pc = sdh.peerConnection as RTCPeerConnection;
-      pc.getReceivers().forEach((receiver: any) => {
-        if (receiver?.track?.kind === 'audio') {
-          console.log('[MobileSIP] Remote audio track received');
+      const pc = sdh.peerConnection as any;
+
+      const receivers = pc.getReceivers ? pc.getReceivers() : [];
+      this.emit('debug', `Remote receivers: ${receivers.length}`);
+      receivers.forEach((receiver: any) => {
+        if (receiver?.track) {
+          this.emit('debug', `Remote track: kind=${receiver.track.kind} enabled=${receiver.track.enabled} readyState=${receiver.track.readyState}`);
+          receiver.track.enabled = true;
         }
       });
-    } catch (error) {
-      console.error('[MobileSIP] Setup remote audio error:', error);
+
+      const senders = pc.getSenders ? pc.getSenders() : [];
+      this.emit('debug', `Local senders: ${senders.length}`);
+      senders.forEach((sender: any) => {
+        if (sender?.track) {
+          this.emit('debug', `Local track: kind=${sender.track.kind} enabled=${sender.track.enabled} readyState=${sender.track.readyState}`);
+          sender.track.enabled = true;
+        }
+      });
+
+      pc.ontrack = (event: any) => {
+        this.emit('debug', `ontrack fired: ${event?.track?.kind}`);
+        if (event?.track) {
+          event.track.enabled = true;
+        }
+      };
+
+      const remoteStreams = pc.getRemoteStreams ? pc.getRemoteStreams() : [];
+      this.emit('debug', `Remote streams: ${remoteStreams.length}`);
+      remoteStreams.forEach((stream: any) => {
+        this.emit('debug', `Stream tracks: ${stream?.getTracks()?.length}`);
+        stream?.getTracks()?.forEach((track: any) => {
+          track.enabled = true;
+        });
+      });
+
+    } catch (error: any) {
+      this.emit('debug', `setupRemoteAudio error: ${error?.message}`);
     }
   }
 
