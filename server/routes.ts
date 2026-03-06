@@ -13018,11 +13018,20 @@ export async function registerRoutes(
         return res.status(500).json({ error: "SIP settings not configured" });
       }
 
-      const ext = await storage.getSipExtensionByCollaboratorId(collaborator.id);
+      let ext = await storage.getSipExtensionByCollaboratorId(collaborator.id);
+      if (!ext && collaborator.mobileSipExtensionId) {
+        console.log("[MobileSIP API] Extension not found by collaboratorId, trying by extensionId:", collaborator.mobileSipExtensionId);
+        ext = await storage.getSipExtensionById(collaborator.mobileSipExtensionId);
+        if (ext) {
+          console.log("[MobileSIP API] Found extension by ID, fixing assignedToCollaboratorId...");
+          await storage.assignSipExtensionToCollaborator(ext.id, collaborator.id);
+        }
+      }
       if (!ext) {
-        console.log("[MobileSIP API] SIP extension not found by collaboratorId:", collaborator.id, "(mobileSipExtensionId:", collaborator.mobileSipExtensionId, ")");
+        console.log("[MobileSIP API] SIP extension not found by collaboratorId:", collaborator.id, "nor by extensionId:", collaborator.mobileSipExtensionId);
         return res.status(404).json({ error: "SIP extension not found" });
       }
+      console.log("[MobileSIP API] Found extension:", ext.extension, "username:", ext.sipUsername);
 
       const password = decryptSipPassword(ext.sipPasswordHash);
       res.json({
