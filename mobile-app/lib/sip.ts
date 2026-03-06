@@ -210,9 +210,14 @@ class MobileSipEngine {
         }
       });
 
+      this.emit('debug', `Creds: ext=${this.credentials!.extension} user=${this.credentials!.username} srv=${this.credentials!.server} pwd=${this.credentials!.password ? this.credentials!.password.substring(0, 3) + '***' : 'EMPTY'}`);
       this.emit('debug', 'Sending REGISTER...');
-      await this.registerer.register();
-      this.emit('debug', 'REGISTER sent OK');
+      try {
+        await this.registerer.register();
+        this.emit('debug', 'REGISTER sent OK');
+      } catch (regError: any) {
+        this.emit('debug', `REGISTER error: ${regError?.message || regError}`);
+      }
       return true;
     } catch (error: any) {
       console.error('[MobileSIP] Connection failed:', error?.message || error);

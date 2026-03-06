@@ -449,7 +449,7 @@ export default function PhoneScreen() {
         )}
         <ScrollView style={{ backgroundColor: '#1a1a2e', padding: 8, marginHorizontal: 16, marginTop: 4, borderRadius: 8, maxHeight: 200 }}>
           <Text style={{ color: '#00ff00', fontSize: 10, fontFamily: 'monospace' }}>
-            DEBUG v1.2.5 | state={registrationState} | connecting={String(isConnecting)}
+            DEBUG v1.2.6 | state={registrationState} | connecting={String(isConnecting)}
           </Text>
           {debugLog.map((line, i) => (
             <Text key={i} style={{ color: '#aaffaa', fontSize: 9, fontFamily: 'monospace' }}>{line}</Text>
