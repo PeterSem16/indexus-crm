@@ -699,6 +699,7 @@ export interface IStorage {
   getAvailableSipExtensions(countryCode: string): Promise<SipExtension[]>;
   getSipExtensionById(id: string): Promise<SipExtension | undefined>;
   getSipExtensionByExtension(extension: string): Promise<SipExtension | undefined>;
+  updateSipExtension(extensionId: string, data: Partial<InsertSipExtension>): Promise<SipExtension | undefined>;
   assignSipExtension(extensionId: string, userId: string): Promise<SipExtension | undefined>;
   unassignSipExtension(extensionId: string): Promise<SipExtension | undefined>;
   getAvailableSipExtensionsForMobile(countryCode: string): Promise<SipExtension[]>;
@@ -4062,6 +4063,14 @@ export class DatabaseStorage implements IStorage {
     const [ext] = await db.select().from(sipExtensions)
       .where(eq(sipExtensions.extension, extension));
     return ext || undefined;
+  }
+
+  async updateSipExtension(extensionId: string, data: Partial<InsertSipExtension>): Promise<SipExtension | undefined> {
+    const [updated] = await db.update(sipExtensions)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(sipExtensions.id, extensionId))
+      .returning();
+    return updated || undefined;
   }
 
   async assignSipExtension(extensionId: string, userId: string): Promise<SipExtension | undefined> {
