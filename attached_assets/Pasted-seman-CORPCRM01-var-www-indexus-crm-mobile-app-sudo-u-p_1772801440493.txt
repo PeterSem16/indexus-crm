@@ -1,0 +1,55 @@
+seman@CORPCRM01:/var/www/indexus-crm/mobile-app$ sudo -u postgres psql -d indexus_crm -c "SELECT extension, sip_username, substring(sip_password_hash from 1 for 20) as pwd_start FROM sip_extensions WHERE extension = '2009';"
+ extension | sip_username |      pwd_start
+-----------+--------------+----------------------
+ 2009      | 2009         | SIP:dtxYcE7IBtDqFYnq
+(1 row)
+
+seman@CORPCRM01:/var/www/indexus-crm/mobile-app$ cd /var/www/indexus-crm && node -e "
+const crypto = require('crypto');
+const secret = process.env.SESSION_SECRET;
+if (!secret) { console.log('SESSION_SECRET not set!'); process.exit(1); }
+const key = crypto.scryptSync(secret, 'oauth-token-salt', 32);
+const { Pool } = require('pg');
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+pool.query(\"SELECT sip_password_hash FROM sip_extensions WHERE extension = '2009'\").then(r => {
+  const hash = r.rows[0]?.sip_password_hash;
+  console.log('Stored value starts with:', hash?.substring(0, 10));
+  if (hash && hash.startsWith('SIP:')) {
+    const enc = hash.substring(4);
+    const combined = Buffer.from(enc, 'base64');
+    const iv = combined.subarray(0, 16);
+    const authTag = combined.subarray(16, 32);
+    const encrypted = combined.subarray(32);
+    const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
+    decipher.setAuthTag(authTag);
+    let decrypted = decipher.update(encrypted);
+    decrypted = Buffer.concat([decrypted, decipher.final()]);
+    console.log('Decrypted password:', decrypted.toString('utf8'));
+    console.log('Expected password: sk2009!Indexus');
+    console.log('Match:', decrypted.toString('utf8') === 'sk2009!Indexus');
+  } else {
+    console.log('Raw password (not encrypted):', hash);
+  }
+  pool.end();
+}).catch(e => { console.error(e); pool.end(); });
+"
+-bash: !secret: event not found
+node:internal/errors:541
+      throw error;
+      ^
+
+TypeError [ERR_INVALID_ARG_TYPE]: The "password" argument must be of type string or an instance of ArrayBuffer, Buffer, TypedArray, or DataView. Received undefined
+    at check (node:internal/crypto/scrypt:83:14)
+    at Object.scryptSync (node:internal/crypto/scrypt:66:13)
+    at [eval]:4:20
+    at [eval]:28:4
+    at runScriptInThisContext (node:internal/vm:209:10)
+    at node:internal/process/execution:118:14
+    at [eval]-wrapper:6:24
+    at runScript (node:internal/process/execution:101:62)
+    at evalScript (node:internal/process/execution:133:3)
+    at node:internal/main/eval_string:51:3 {
+  code: 'ERR_INVALID_ARG_TYPE'
+}
+
+Node.js v20.20.0
