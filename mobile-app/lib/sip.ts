@@ -180,14 +180,24 @@ class MobileSipEngine {
         },
       };
 
-      console.log('[MobileSIP] Starting UserAgent...');
+      this.ua.transport.onConnect = () => {
+        this.emit('debug', 'Transport: WebSocket CONNECTED');
+      };
+      this.ua.transport.onDisconnect = (err: any) => {
+        this.emit('debug', `Transport: WebSocket DISCONNECTED ${err?.message || ''}`);
+      };
+      this.ua.transport.stateChange.addListener((state: any) => {
+        this.emit('debug', `Transport state: ${state}`);
+      });
+
+      this.emit('debug', 'Starting UserAgent...');
       await this.ua.start();
-      console.log('[MobileSIP] UserAgent started, creating Registerer...');
+      this.emit('debug', `UA started, transport.state=${this.ua.transport.state}`);
 
       this.registerer = new Registerer(this.ua);
 
       this.registerer.stateChange.addListener((state: any) => {
-        console.log('[MobileSIP] Registerer state changed:', state);
+        this.emit('debug', `Registerer state: ${state}`);
         switch (state) {
           case RegistererState.Registered:
             this.setRegistrationState('registered');
@@ -200,9 +210,9 @@ class MobileSipEngine {
         }
       });
 
-      console.log('[MobileSIP] Sending REGISTER...');
+      this.emit('debug', 'Sending REGISTER...');
       await this.registerer.register();
-      console.log('[MobileSIP] REGISTER sent successfully');
+      this.emit('debug', 'REGISTER sent OK');
       return true;
     } catch (error: any) {
       console.error('[MobileSIP] Connection failed:', error?.message || error);

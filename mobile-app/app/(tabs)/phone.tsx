@@ -60,7 +60,7 @@ export default function PhoneScreen() {
 
   const {
     registrationState, callState, callInfo, isConnecting,
-    recordingState, callRecordingEnabled,
+    recordingState, callRecordingEnabled, debugMessages,
     connect, disconnect, makeCall, answerCall, rejectCall,
     hangup, toggleMute, toggleHold, sendDtmf,
     startRecording, stopAndUploadRecording,
@@ -447,14 +447,17 @@ export default function PhoneScreen() {
             </Text>
           </TouchableOpacity>
         )}
-        <View style={{ backgroundColor: '#1a1a2e', padding: 8, marginHorizontal: 16, marginTop: 4, borderRadius: 8 }}>
+        <ScrollView style={{ backgroundColor: '#1a1a2e', padding: 8, marginHorizontal: 16, marginTop: 4, borderRadius: 8, maxHeight: 200 }}>
           <Text style={{ color: '#00ff00', fontSize: 10, fontFamily: 'monospace' }}>
-            DEBUG v1.2.3 | state={registrationState} | connecting={String(isConnecting)}
+            DEBUG v1.2.5 | state={registrationState} | connecting={String(isConnecting)}
           </Text>
           {debugLog.map((line, i) => (
             <Text key={i} style={{ color: '#aaffaa', fontSize: 9, fontFamily: 'monospace' }}>{line}</Text>
           ))}
-        </View>
+          {debugMessages.map((line, i) => (
+            <Text key={`sip-${i}`} style={{ color: '#ffaa00', fontSize: 9, fontFamily: 'monospace' }}>{line}</Text>
+          ))}
+        </ScrollView>
       </View>
     );
   };

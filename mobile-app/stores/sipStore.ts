@@ -10,6 +10,7 @@ interface SipStoreState {
   error: string | null;
   recordingState: RecordingState;
   callRecordingEnabled: boolean;
+  debugMessages: string[];
 
   connect: () => Promise<boolean>;
   disconnect: () => Promise<void>;
@@ -63,6 +64,11 @@ export const useSipStore = create<SipStoreState>((set, get) => {
           },
         });
         break;
+      case 'debug':
+        set(state => ({
+          debugMessages: [...state.debugMessages.slice(-19), `${new Date().toLocaleTimeString()}: ${data}`],
+        }));
+        break;
     }
   });
 
@@ -82,6 +88,7 @@ export const useSipStore = create<SipStoreState>((set, get) => {
     error: null,
     recordingState: 'idle',
     callRecordingEnabled: false,
+    debugMessages: [],
 
     connect: async () => {
       set({ isConnecting: true, error: null });
