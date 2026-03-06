@@ -1,0 +1,67 @@
+nlining is insignificant. Inlining works best for functions with parameters of functional types
+w: file:///var/www/indexus-crm/mobile-app/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/tracing/ExpoTrace.kt:50:1 Expected performance impact from inlining is insignificant. Inlining works best for functions with parameters of functional types
+w: file:///var/www/indexus-crm/mobile-app/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/tracing/ExpoTrace.kt:56:1 Expected performance impact from inlining is insignificant. Inlining works best for functions with parameters of functional types
+w: file:///var/www/indexus-crm/mobile-app/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/Either.kt:76:12 Parameter 'type' is never used
+w: file:///var/www/indexus-crm/mobile-app/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/Either.kt:79:12 Parameter 'type' is never used
+w: file:///var/www/indexus-crm/mobile-app/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/Either.kt:82:11 Parameter 'type' is never used
+w: file:///var/www/indexus-crm/mobile-app/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/Either.kt:85:11 Parameter 'type' is never used
+w: file:///var/www/indexus-crm/mobile-app/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/Either.kt:99:12 Parameter 'type' is never used
+w: file:///var/www/indexus-crm/mobile-app/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/Either.kt:102:11 Parameter 'type' is never used
+w: file:///var/www/indexus-crm/mobile-app/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/Either.kt:114:12 Parameter 'type' is never used
+w: file:///var/www/indexus-crm/mobile-app/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/Either.kt:117:11 Parameter 'type' is never used
+w: file:///var/www/indexus-crm/mobile-app/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/JSTypeConverterHelper.kt:44:17 'get(String!): Any?' is deprecated. Deprecated in Java
+w: file:///var/www/indexus-crm/mobile-app/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/TypeConverterProvider.kt:175:46 'newInstance(): T!' is deprecated. Deprecated in Java
+
+> Task :app:createBundleReleaseJsAndAssets FAILED
+Error: Unable to resolve module expo-sharing from /var/www/indexus-crm/mobile-app/app/(tabs)/reports.tsx: expo-sharing could not be found within the project or in these directories:
+  node_modules
+  ../node_modules
+   5 | import { LinearGradient } from 'expo-linear-gradient';
+   6 | import * as FileSystem from 'expo-file-system';
+>  7 | import * as Sharing from 'expo-sharing';
+     |                           ^
+   8 | import { useTranslation } from '@/hooks/useTranslation';
+   9 | import { useAuthStore } from '@/stores/authStore';
+  10 | import { Colors, Spacing, FontSizes } from '@/constants/colors';
+Error: Unable to resolve module expo-sharing from /var/www/indexus-crm/mobile-app/app/(tabs)/reports.tsx: expo-sharing could not be found within the project or in these directories:
+  node_modules
+  ../node_modules
+   5 | import { LinearGradient } from 'expo-linear-gradient';
+   6 | import * as FileSystem from 'expo-file-system';
+>  7 | import * as Sharing from 'expo-sharing';
+     |                           ^
+   8 | import { useTranslation } from '@/hooks/useTranslation';
+   9 | import { useAuthStore } from '@/stores/authStore';
+  10 | import { Colors, Spacing, FontSizes } from '@/constants/colors';
+    at ModuleResolver.resolveDependency (/var/www/indexus-crm/mobile-app/node_modules/metro/src/node-haste/DependencyGraph/ModuleResolution.js:139:15)
+    at DependencyGraph.resolveDependency (/var/www/indexus-crm/mobile-app/node_modules/metro/src/node-haste/DependencyGraph.js:232:43)
+    at /var/www/indexus-crm/mobile-app/node_modules/metro/src/lib/transformHelpers.js:156:21
+    at resolveDependencies (/var/www/indexus-crm/mobile-app/node_modules/metro/src/DeltaBundler/buildSubgraph.js:42:25)
+    at visit (/var/www/indexus-crm/mobile-app/node_modules/metro/src/DeltaBundler/buildSubgraph.js:83:30)
+    at async Promise.all (index 8)
+    at async visit (/var/www/indexus-crm/mobile-app/node_modules/metro/src/DeltaBundler/buildSubgraph.js:92:5)
+    at async Promise.all (index 0)
+    at async visit (/var/www/indexus-crm/mobile-app/node_modules/metro/src/DeltaBundler/buildSubgraph.js:92:5)
+    at async Promise.all (index 1)
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':app:createBundleReleaseJsAndAssets'.
+> Process 'command 'node'' finished with non-zero exit value 1
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/8.3/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+
+BUILD FAILED in 27s
+454 actionable tasks: 449 executed, 5 up-to-date
+seman@CORPCRM01:/var/www/indexus-crm/mobile-app/android$
