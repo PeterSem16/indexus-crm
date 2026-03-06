@@ -1,22 +1,30 @@
 import { api } from './api';
 import { API_BASE_URL } from '@/constants/config';
-import {
-  RTCPeerConnection,
-  RTCSessionDescription,
-  RTCIceCandidate,
-  mediaDevices,
-  MediaStream,
-  MediaStreamTrack,
-} from 'react-native-webrtc';
 
-if (typeof globalThis !== 'undefined') {
-  (globalThis as any).RTCPeerConnection = RTCPeerConnection;
-  (globalThis as any).RTCSessionDescription = RTCSessionDescription;
-  (globalThis as any).RTCIceCandidate = RTCIceCandidate;
-  (globalThis as any).navigator = (globalThis as any).navigator || {};
-  (globalThis as any).navigator.mediaDevices = mediaDevices;
-  (globalThis as any).MediaStream = MediaStream;
-  (globalThis as any).MediaStreamTrack = MediaStreamTrack;
+let webrtcInitialized = false;
+
+async function initWebRTC(): Promise<boolean> {
+  if (webrtcInitialized) return true;
+  try {
+    console.log('[MobileSIP] Initializing WebRTC polyfills...');
+    const webrtc = await import('react-native-webrtc');
+    console.log('[MobileSIP] react-native-webrtc imported, keys:', Object.keys(webrtc).join(', '));
+
+    (globalThis as any).RTCPeerConnection = webrtc.RTCPeerConnection;
+    (globalThis as any).RTCSessionDescription = webrtc.RTCSessionDescription;
+    (globalThis as any).RTCIceCandidate = webrtc.RTCIceCandidate;
+    (globalThis as any).navigator = (globalThis as any).navigator || {};
+    (globalThis as any).navigator.mediaDevices = webrtc.mediaDevices;
+    (globalThis as any).MediaStream = webrtc.MediaStream;
+    (globalThis as any).MediaStreamTrack = webrtc.MediaStreamTrack;
+
+    webrtcInitialized = true;
+    console.log('[MobileSIP] WebRTC polyfills initialized successfully');
+    return true;
+  } catch (error: any) {
+    console.error('[MobileSIP] Failed to initialize WebRTC:', error?.message || error);
+    return false;
+  }
 }
 
 export interface SipCredentials {
@@ -118,6 +126,15 @@ class MobileSipEngine {
   }
 
   async connect(): Promise<boolean> {
+    console.log('[MobileSIP] connect() called');
+
+    const webrtcReady = await initWebRTC();
+    if (!webrtcReady) {
+      console.error('[MobileSIP] WebRTC initialization failed, cannot connect');
+      this.setRegistrationState('error');
+      return false;
+    }
+
     if (!this.credentials) {
       console.log('[MobileSIP] No credentials cached, fetching...');
       const creds = await this.fetchCredentials();
