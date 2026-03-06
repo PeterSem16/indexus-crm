@@ -10,16 +10,30 @@ async function initWebRTC(): Promise<boolean> {
     const webrtc = await import('react-native-webrtc');
     console.log('[MobileSIP] react-native-webrtc imported, keys:', Object.keys(webrtc).join(', '));
 
-    (globalThis as any).RTCPeerConnection = webrtc.RTCPeerConnection;
-    (globalThis as any).RTCSessionDescription = webrtc.RTCSessionDescription;
-    (globalThis as any).RTCIceCandidate = webrtc.RTCIceCandidate;
-    (globalThis as any).navigator = (globalThis as any).navigator || {};
-    (globalThis as any).navigator.mediaDevices = webrtc.mediaDevices;
-    (globalThis as any).MediaStream = webrtc.MediaStream;
-    (globalThis as any).MediaStreamTrack = webrtc.MediaStreamTrack;
+    if (typeof webrtc.registerGlobals === 'function') {
+      webrtc.registerGlobals();
+      console.log('[MobileSIP] registerGlobals() called');
+    } else {
+      (globalThis as any).RTCPeerConnection = webrtc.RTCPeerConnection;
+      (globalThis as any).RTCSessionDescription = webrtc.RTCSessionDescription;
+      (globalThis as any).RTCIceCandidate = webrtc.RTCIceCandidate;
+      (globalThis as any).MediaStream = webrtc.MediaStream;
+      (globalThis as any).MediaStreamTrack = webrtc.MediaStreamTrack;
+      (globalThis as any).RTCView = webrtc.RTCView;
+      (globalThis as any).navigator = (globalThis as any).navigator || {};
+      (globalThis as any).navigator.mediaDevices = webrtc.mediaDevices;
+    }
+
+    if (!(globalThis as any).MediaStream) {
+      (globalThis as any).MediaStream = webrtc.MediaStream;
+    }
+    if (!(globalThis as any).navigator?.mediaDevices) {
+      (globalThis as any).navigator = (globalThis as any).navigator || {};
+      (globalThis as any).navigator.mediaDevices = webrtc.mediaDevices;
+    }
 
     webrtcInitialized = true;
-    console.log('[MobileSIP] WebRTC polyfills initialized successfully');
+    console.log('[MobileSIP] WebRTC polyfills initialized. MediaStream:', typeof (globalThis as any).MediaStream, 'getUserMedia:', typeof (globalThis as any).navigator?.mediaDevices?.getUserMedia);
     return true;
   } catch (error: any) {
     console.error('[MobileSIP] Failed to initialize WebRTC:', error?.message || error);
