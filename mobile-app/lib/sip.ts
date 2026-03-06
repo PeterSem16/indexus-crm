@@ -495,8 +495,31 @@ class MobileSipEngine {
     });
   }
 
+  private async startAudioSession(speaker: boolean = false) {
+    try {
+      const InCallManager = (await import('react-native-incall-manager')).default;
+      InCallManager.start({ media: 'audio' });
+      InCallManager.setForceSpeakerphoneOn(speaker);
+      this.emit('debug', `InCallManager started, speaker=${speaker}`);
+    } catch (e: any) {
+      this.emit('debug', `InCallManager start error: ${e?.message}`);
+    }
+  }
+
+  private async stopAudioSession() {
+    try {
+      const InCallManager = (await import('react-native-incall-manager')).default;
+      InCallManager.stop();
+      this.emit('debug', 'InCallManager stopped');
+    } catch (e: any) {
+      this.emit('debug', `InCallManager stop error: ${e?.message}`);
+    }
+  }
+
   private setupRemoteAudio(session: any) {
     try {
+      this.startAudioSession(this._callInfo.isSpeaker);
+
       const sdh = session.sessionDescriptionHandler;
       if (!sdh?.peerConnection) {
         this.emit('debug', 'setupRemoteAudio: no peerConnection');
@@ -563,6 +586,7 @@ class MobileSipEngine {
 
   private cleanupSession() {
     this.stopCallTimer();
+    this.stopAudioSession();
     const finalDuration = this._callInfo.duration;
     const phoneNumber = this._callInfo.phoneNumber;
     const direction = this._callInfo.direction;
