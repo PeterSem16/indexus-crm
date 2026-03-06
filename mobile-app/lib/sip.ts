@@ -1,4 +1,5 @@
 import { api } from './api';
+import { API_BASE_URL } from '@/constants/config';
 
 export interface SipCredentials {
   server: string;
@@ -120,10 +121,14 @@ class MobileSipEngine {
         throw new Error('Invalid SIP URI');
       }
 
+      const apiHost = API_BASE_URL.replace(/^https?:\/\//, '');
+      const wsServer = `wss://${apiHost}/wss-asterisk/`;
+      console.log('[MobileSIP] Connecting to WebSocket:', wsServer);
+
       this.ua = new UserAgent({
         uri,
         transportOptions: {
-          server: `wss://${this.credentials!.server}:${this.credentials!.port}/ws`,
+          server: wsServer,
         },
         authorizationUsername: this.credentials!.username,
         authorizationPassword: this.credentials!.password,
