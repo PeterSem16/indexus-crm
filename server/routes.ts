@@ -13035,8 +13035,8 @@ export async function registerRoutes(
 
       const password = decryptSipPassword(ext.sipPasswordHash);
       res.json({
-        server: sipSettings.sipServer,
-        port: sipSettings.sipPort || 8089,
+        server: (sipSettings as any).sipServer || sipSettings.server,
+        port: (sipSettings as any).sipPort || sipSettings.wsPort || 8089,
         transport: "wss",
         extension: ext.extension,
         username: ext.sipUsername,
