@@ -113,10 +113,14 @@ class MobileSipEngine {
     try {
       this.setRegistrationState('registering');
 
+      console.log('[MobileSIP] Importing sip.js module...');
       this.sipModule = await import('sip.js');
       const { UserAgent, Registerer, RegistererState } = this.sipModule;
+      console.log('[MobileSIP] sip.js imported successfully');
 
-      const uri = UserAgent.makeURI(`sip:${this.credentials!.extension}@${this.credentials!.server}`);
+      const sipUri = `sip:${this.credentials!.extension}@${this.credentials!.server}`;
+      console.log('[MobileSIP] Creating URI:', sipUri);
+      const uri = UserAgent.makeURI(sipUri);
       if (!uri) {
         throw new Error('Invalid SIP URI');
       }
@@ -132,7 +136,7 @@ class MobileSipEngine {
         },
         authorizationUsername: this.credentials!.username,
         authorizationPassword: this.credentials!.password,
-        logLevel: 'warn',
+        logLevel: 'debug',
       });
 
       this.ua.delegate = {
@@ -141,11 +145,14 @@ class MobileSipEngine {
         },
       };
 
+      console.log('[MobileSIP] Starting UserAgent...');
       await this.ua.start();
+      console.log('[MobileSIP] UserAgent started, creating Registerer...');
 
       this.registerer = new Registerer(this.ua);
 
       this.registerer.stateChange.addListener((state: any) => {
+        console.log('[MobileSIP] Registerer state changed:', state);
         switch (state) {
           case RegistererState.Registered:
             this.setRegistrationState('registered');
@@ -158,10 +165,13 @@ class MobileSipEngine {
         }
       });
 
+      console.log('[MobileSIP] Sending REGISTER...');
       await this.registerer.register();
+      console.log('[MobileSIP] REGISTER sent successfully');
       return true;
-    } catch (error) {
-      console.error('[MobileSIP] Connection failed:', error);
+    } catch (error: any) {
+      console.error('[MobileSIP] Connection failed:', error?.message || error);
+      console.error('[MobileSIP] Error stack:', error?.stack);
       this.setRegistrationState('error');
       return false;
     }
