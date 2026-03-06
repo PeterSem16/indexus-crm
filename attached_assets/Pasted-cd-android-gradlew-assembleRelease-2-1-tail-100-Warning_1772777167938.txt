@@ -1,0 +1,114 @@
+cd android
+./gradlew assembleRelease 2>&1 | tail -100
+Warning! Your git working tree is dirty.
+It's recommended to commit all your changes before proceeding, so you can revert the changes made by this command if necessary.
+
+✔ Would you like to proceed? … yes
+
+✔ Cleared android code
+✔ Created native directory
+› Using current versions instead of recommended react-native@0.73.6.
+✔ Updated package.json
+» android: userInterfaceStyle: Install expo-system-ui in your project to enable this feature.
+✔ Finished prebuild
+w: file:///var/www/indexus-crm/mobile-app/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/SearchBarManager.kt:100:22 Parameter 'view' is never used
+w: file:///var/www/indexus-crm/mobile-app/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/SearchBarManager.kt:100:43 Parameter 'placeholder' is never used
+w: file:///var/www/indexus-crm/mobile-app/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/SearchBarView.kt:147:43 Parameter 'flag' is never used
+w: file:///var/www/indexus-crm/mobile-app/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/events/HeaderHeightChangeEvent.kt:5:44 'RCTEventEmitter' is deprecated. Deprecated in Java
+w: file:///var/www/indexus-crm/mobile-app/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/events/HeaderHeightChangeEvent.kt:10:5 'constructor Event<T : Event<(raw) Event<*>>!>(Int)' is deprecated. Deprecated in Java
+w: file:///var/www/indexus-crm/mobile-app/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/events/HeaderHeightChangeEvent.kt:17:44 'RCTEventEmitter' is deprecated. Deprecated in Java
+w: file:///var/www/indexus-crm/mobile-app/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/events/HeaderHeightChangeEvent.kt:20:25 'receiveEvent(Int, String!, WritableMap?): Unit' is deprecated. Deprecated in Java
+w: file:///var/www/indexus-crm/mobile-app/node_modules/react-native-screens/android/src/paper/java/com/swmansion/rnscreens/FabricEnabledViewGroup.kt:5:37 'FabricViewStateManager' is deprecated. Deprecated in Java
+w: file:///var/www/indexus-crm/mobile-app/node_modules/react-native-screens/android/src/paper/java/com/swmansion/rnscreens/FabricEnabledViewGroup.kt:9:48 'FabricViewStateManager' is deprecated. Deprecated in Java
+w: file:///var/www/indexus-crm/mobile-app/node_modules/react-native-screens/android/src/paper/java/com/swmansion/rnscreens/FabricEnabledViewGroup.kt:11:42 Parameter 'width' is never used
+w: file:///var/www/indexus-crm/mobile-app/node_modules/react-native-screens/android/src/paper/java/com/swmansion/rnscreens/FabricEnabledViewGroup.kt:11:54 Parameter 'height' is never used
+
+> Task :expo-modules-core:compileReleaseKotlin
+w: file:///var/www/indexus-crm/mobile-app/node_modules/expo-modules-core/android/src/main/java/expo/modules/core/utilities/EmulatorUtilities.kt:30:13 'SERIAL: String!' is deprecated. Deprecated in Java
+w: file:///var/www/indexus-crm/mobile-app/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/AppContext.kt:151:13 Variable 'catalystInstance' is never used
+w: file:///var/www/indexus-crm/mobile-app/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/ExpoModulesHelper.kt:11:21 'newInstance(): T!' is deprecated. Deprecated in Java
+w: file:///var/www/indexus-crm/mobile-app/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/Promise.kt:72:18 This declaration overrides deprecated member but not marked as deprecated itself. This deprecation won't be inherited in future releases. Please add @Deprecated annotation or suppress. See https://youtrack.jetbrains.com/issue/KT-47902 for details
+w: file:///var/www/indexus-crm/mobile-app/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/Utils.kt:8:3 Expected performance impact from inlining is insignificant. Inlining works best for functions with parameters of functional types
+w: file:///var/www/indexus-crm/mobile-app/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/activityresult/ActivityResultsManager.kt:51:24 Parameter 'activity' is never used
+w: file:///var/www/indexus-crm/mobile-app/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/activityresult/AppContextActivityResultRegistry.kt:119:51 'getParcelableExtra(String!): T?' is deprecated. Deprecated in Java
+w: file:///var/www/indexus-crm/mobile-app/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/activityresult/AppContextActivityResultRegistry.kt:186:26 'getParcelable(String?): T?' is deprecated. Deprecated in Java
+w: file:///var/www/indexus-crm/mobile-app/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/activityresult/AppContextActivityResultRegistry.kt:277:83 'getParcelable(String?): T?' is deprecated. Deprecated in Java
+w: file:///var/www/indexus-crm/mobile-app/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/activityresult/DataPersistor.kt:67:20 'getSerializable(String?): Serializable?' is deprecated. Deprecated in Java
+w: file:///var/www/indexus-crm/mobile-app/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/activityresult/DataPersistor.kt:85:26 'getSerializable(String?): Serializable?' is deprecated. Deprecated in Java
+w: file:///var/www/indexus-crm/mobile-app/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/devtools/cdp/CdpNetworkTypes.kt:186:54 Parameter 'request' is never used
+w: file:///var/www/indexus-crm/mobile-app/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/devtools/cdp/CdpNetworkTypes.kt:210:54 Parameter 'request' is never used
+w: file:///var/www/indexus-crm/mobile-app/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/devtools/cdp/CdpNetworkTypes.kt:230:15 Parameter 'now' is never used
+w: file:///var/www/indexus-crm/mobile-app/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/devtools/cdp/CdpNetworkTypes.kt:230:54 Parameter 'request' is never used
+w: file:///var/www/indexus-crm/mobile-app/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/events/KModuleEventEmitterWrapper.kt:90:7 'constructor Event<T : Event<(raw) Event<*>>!>(Int)' is deprecated. Deprecated in Java
+w: file:///var/www/indexus-crm/mobile-app/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/jni/JavaScriptObject.kt:90:33 Parameter 'null' is never used
+w: file:///var/www/indexus-crm/mobile-app/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/jni/JavaScriptObject.kt:91:34 Parameter 'null' is never used
+w: file:///var/www/indexus-crm/mobile-app/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/jni/JavaScriptObject.kt:132:5 Parameter 'null' is never used
+w: file:///var/www/indexus-crm/mobile-app/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/sharedobjects/SharedObjectRegistry.kt:54:35 Destructured parameter 'js' is never used
+w: file:///var/www/indexus-crm/mobile-app/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/tracing/ExpoTrace.kt:33:1 Expected performance impact from inlining is insignificant. Inlining works best for functions with parameters of functional types
+w: file:///var/www/indexus-crm/mobile-app/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/tracing/ExpoTrace.kt:40:1 Expected performance impact from inlining is insignificant. Inlining works best for functions with parameters of functional types
+w: file:///var/www/indexus-crm/mobile-app/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/tracing/ExpoTrace.kt:50:1 Expected performance impact from inlining is insignificant. Inlining works best for functions with parameters of functional types
+w: file:///var/www/indexus-crm/mobile-app/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/tracing/ExpoTrace.kt:56:1 Expected performance impact from inlining is insignificant. Inlining works best for functions with parameters of functional types
+w: file:///var/www/indexus-crm/mobile-app/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/Either.kt:76:12 Parameter 'type' is never used
+w: file:///var/www/indexus-crm/mobile-app/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/Either.kt:79:12 Parameter 'type' is never used
+w: file:///var/www/indexus-crm/mobile-app/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/Either.kt:82:11 Parameter 'type' is never used
+w: file:///var/www/indexus-crm/mobile-app/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/Either.kt:85:11 Parameter 'type' is never used
+w: file:///var/www/indexus-crm/mobile-app/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/Either.kt:99:12 Parameter 'type' is never used
+w: file:///var/www/indexus-crm/mobile-app/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/Either.kt:102:11 Parameter 'type' is never used
+w: file:///var/www/indexus-crm/mobile-app/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/Either.kt:114:12 Parameter 'type' is never used
+w: file:///var/www/indexus-crm/mobile-app/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/Either.kt:117:11 Parameter 'type' is never used
+w: file:///var/www/indexus-crm/mobile-app/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/JSTypeConverterHelper.kt:44:17 'get(String!): Any?' is deprecated. Deprecated in Java
+w: file:///var/www/indexus-crm/mobile-app/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/types/TypeConverterProvider.kt:175:46 'newInstance(): T!' is deprecated. Deprecated in Java
+
+> Task :app:createBundleReleaseJsAndAssets FAILED
+Error: Unable to resolve module expo-sharing from /var/www/indexus-crm/mobile-app/app/(tabs)/reports.tsx: expo-sharing could not be found within the project or in these directories:
+  node_modules
+  ../node_modules
+   5 | import { LinearGradient } from 'expo-linear-gradient';
+   6 | import * as FileSystem from 'expo-file-system';
+>  7 | import * as Sharing from 'expo-sharing';
+     |                           ^
+   8 | import { useTranslation } from '@/hooks/useTranslation';
+   9 | import { useAuthStore } from '@/stores/authStore';
+  10 | import { Colors, Spacing, FontSizes } from '@/constants/colors';
+Error: Unable to resolve module expo-sharing from /var/www/indexus-crm/mobile-app/app/(tabs)/reports.tsx: expo-sharing could not be found within the project or in these directories:
+  node_modules
+  ../node_modules
+   5 | import { LinearGradient } from 'expo-linear-gradient';
+   6 | import * as FileSystem from 'expo-file-system';
+>  7 | import * as Sharing from 'expo-sharing';
+     |                           ^
+   8 | import { useTranslation } from '@/hooks/useTranslation';
+   9 | import { useAuthStore } from '@/stores/authStore';
+  10 | import { Colors, Spacing, FontSizes } from '@/constants/colors';
+    at ModuleResolver.resolveDependency (/var/www/indexus-crm/mobile-app/node_modules/metro/src/node-haste/DependencyGraph/ModuleResolution.js:139:15)
+    at DependencyGraph.resolveDependency (/var/www/indexus-crm/mobile-app/node_modules/metro/src/node-haste/DependencyGraph.js:232:43)
+    at /var/www/indexus-crm/mobile-app/node_modules/metro/src/lib/transformHelpers.js:156:21
+    at resolveDependencies (/var/www/indexus-crm/mobile-app/node_modules/metro/src/DeltaBundler/buildSubgraph.js:42:25)
+    at visit (/var/www/indexus-crm/mobile-app/node_modules/metro/src/DeltaBundler/buildSubgraph.js:83:30)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async Promise.all (index 8)
+    at async visit (/var/www/indexus-crm/mobile-app/node_modules/metro/src/DeltaBundler/buildSubgraph.js:92:5)
+    at async Promise.all (index 0)
+    at async visit (/var/www/indexus-crm/mobile-app/node_modules/metro/src/DeltaBundler/buildSubgraph.js:92:5)
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':app:createBundleReleaseJsAndAssets'.
+> Process 'command 'node'' finished with non-zero exit value 1
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/8.3/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+
+BUILD FAILED in 46s
+454 actionable tasks: 449 executed, 5 up-to-date
+seman@CORPCRM01:/var/www/indexus-crm/mobile-app/android$
