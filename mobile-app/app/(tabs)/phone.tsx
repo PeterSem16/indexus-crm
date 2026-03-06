@@ -54,7 +54,7 @@ export default function PhoneScreen() {
   const recordingStartedRef = useRef(false);
   const {
     registrationState, callState, callInfo, isConnecting,
-    recordingState, callRecordingEnabled,
+    recordingState, callRecordingEnabled, debugMessages,
     connect, disconnect, makeCall, answerCall, rejectCall,
     hangup, toggleMute, toggleHold, sendDtmf,
     startRecording, stopAndUploadRecording,
@@ -417,10 +417,7 @@ export default function PhoneScreen() {
               styles.regBadge,
               registrationState === 'error' ? styles.regBadgeError : styles.regBadgeWarn,
             ]}
-            onPress={() => {
-              addDebug('Manual connect tap');
-              connect().then(ok => addDebug(`Manual connect returned ${ok}`)).catch(e => addDebug(`Manual error: ${e?.message || e}`));
-            }}
+            onPress={() => connect()}
             activeOpacity={0.7}
           >
             {isConnecting ? (
@@ -441,11 +438,8 @@ export default function PhoneScreen() {
         )}
         <ScrollView style={{ backgroundColor: '#1a1a2e', padding: 8, marginHorizontal: 16, marginTop: 4, borderRadius: 8, maxHeight: 200 }}>
           <Text style={{ color: '#00ff00', fontSize: 10, fontFamily: 'monospace' }}>
-            DEBUG v1.2.6 | state={registrationState} | connecting={String(isConnecting)}
+            DEBUG v1.2.7 | state={registrationState} | call={callState} | connecting={String(isConnecting)}
           </Text>
-          {debugLog.map((line, i) => (
-            <Text key={i} style={{ color: '#aaffaa', fontSize: 9, fontFamily: 'monospace' }}>{line}</Text>
-          ))}
           {debugMessages.map((line, i) => (
             <Text key={`sip-${i}`} style={{ color: '#ffaa00', fontSize: 9, fontFamily: 'monospace' }}>{line}</Text>
           ))}

@@ -247,20 +247,27 @@ class MobileSipEngine {
   }
 
   async makeCall(phoneNumber: string): Promise<boolean> {
+    this.emit('debug', `makeCall(${phoneNumber}) ua=${!!this.ua} registered=${this.isRegistered} regState=${this._registrationState}`);
     if (!this.ua || !this.isRegistered) {
-      console.error('[MobileSIP] Not registered, cannot make call');
+      this.emit('debug', `Cannot call: ua=${!!this.ua} isRegistered=${this.isRegistered}`);
       return false;
     }
 
     try {
       if (!this.sipModule) this.sipModule = await import('sip.js');
       const { Inviter, UserAgent: UA } = this.sipModule;
-      const target = UA.makeURI(`sip:${phoneNumber}@${this.credentials!.server}`);
+      const targetUri = `sip:${phoneNumber}@${this.credentials!.server}`;
+      this.emit('debug', `INVITE target: ${targetUri}`);
+      const target = UA.makeURI(targetUri);
       if (!target) {
         throw new Error('Invalid target URI');
       }
 
-      const inviter = new Inviter(this.ua, target);
+      const inviter = new Inviter(this.ua, target, {
+        sessionDescriptionHandlerOptions: {
+          constraints: { audio: true, video: false },
+        },
+      });
       this.currentSession = inviter;
 
       this.updateCallInfo({
@@ -277,10 +284,12 @@ class MobileSipEngine {
 
       this.setupSessionListeners(inviter);
 
+      this.emit('debug', 'Sending INVITE...');
       await inviter.invite();
+      this.emit('debug', 'INVITE sent OK');
       return true;
-    } catch (error) {
-      console.error('[MobileSIP] Failed to make call:', error);
+    } catch (error: any) {
+      this.emit('debug', `makeCall error: ${error?.message || error}`);
       this.setCallState('idle');
       return false;
     }
