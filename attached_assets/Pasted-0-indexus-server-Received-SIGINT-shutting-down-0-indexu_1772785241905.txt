@@ -1,0 +1,37 @@
+0|indexus- | [server] Received SIGINT, shutting down...
+0|indexus- | [Storage] Data root: /var/www/indexus-crm/data
+0|indexus- | [Storage] All directories initialized
+0|indexus- | Notification WebSocket server initialized on /ws/notifications
+0|indexus- | Inbound call WebSocket server initialized on /ws/inbound-calls
+0|indexus- | [EmailMonitor] Will start email monitoring in 30s (waiting for server warmup)...
+0|indexus- | [Startup] Cleaned up 1 stale user sessions
+0|indexus- | [Chat] WebSocket server initialized on path /ws/chat
+0|indexus- | [ExchangeRates] Scheduled update in 940 minutes (at midnight)
+0|indexus- | 8:19:30 AM [express] serving on port 5000
+0|indexus- | [AlertEvaluator] Starting alert evaluator with 60000ms interval
+0|indexus- | [SessionCleanup] Starting session cleanup with 60min timeout
+0|indexus- | 8:19:30 AM [scheduler] Scheduled report runner started (checking every 60s)
+
+0|indexus-crm  | [ARI AutoConnect] Connecting to Asterisk at 10.9.33.2:8088 (app: indexus-inbound)...
+0|indexus-crm  | [ARI] Testing connection to: http://10.9.33.2:8088
+0|indexus-crm  | [ARI] /httpstatus returned: 200
+0|indexus-crm  | [ARI] Testing ARI endpoint: http://10.9.33.2:8088/ari/asterisk/info
+0|indexus-crm  | [ARI] Basic auth response: 200
+0|indexus-crm  | [QueueEngine] Loaded agent 62b874a9-d7b5-4432-bf74-8a62c0815218: offline, queues: [0106e99f-6a0f-475a-b22e-99eea1b82f60]
+0|indexus-crm  | [QueueEngine] Loaded agent 5a8e126d-f542-4431-ade4-9e645c194bba: offline, queues: []
+0|indexus-crm  | [QueueEngine] Loaded agent 67467ce3-7a44-4f67-a3d3-6a251e2991e5: offline, queues: [0106e99f-6a0f-475a-b22e-99eea1b82f60]
+0|indexus-crm  | [QueueEngine] Loaded 3 agent states total
+0|indexus-crm  | [QueueEngine] Started
+0|indexus-crm  | [ARI AutoConnect] Successfully connected to Asterisk and started queue engine
+0|indexus-crm  | [ARI] WebSocket connected to Asterisk
+0|indexus-crm  | [REQUEST] POST /api/auth/heartbeat | session: 67467ce3-7a44-4f67-a3d3-6a251e2991e5 | body-keys:
+0|indexus-crm  | 8:19:51 AM [express] POST /api/auth/heartbeat 403 in 6ms :: {"error":"session_terminated","message":"Your session was terminated by an administrator"}
+0|indexus-crm  | [REQUEST] POST /api/auth/logout | session: none | body-keys:
+0|indexus-crm  | 8:19:51 AM [express] POST /api/auth/logout 200 in 2ms :: {"message":"Logged out successfully"}
+0|indexus-crm  | [REQUEST] POST /api/auth/heartbeat | session: none | body-keys:
+0|indexus-crm  | 8:19:51 AM [express] POST /api/auth/heartbeat 401 in 1ms :: {"error":"Not authenticated"}
+0|indexus-crm  | 8:19:51 AM [express] GET /api/sip-settings 401 in 19ms :: {"error":"Unauthorized"}
+0|indexus-crm  | 8:19:51 AM [express] GET /api/auth/me 401 in 41ms :: {"user":null}
+0|indexus-crm  | 8:19:52 AM [express] GET /api/sip-settings 401 in 2ms :: {"error":"Unauthorized"}
+0|indexus-crm  | 8:19:52 AM [express] GET /api/auth/me 401 in 2ms :: {"user":null}
+0|indexus-crm  | 8:19:59 AM [express] GET /api/mobile/visit-events 304 in 20ms :: [{"id":"398b9ae9-2da4-41f6
