@@ -52,25 +52,17 @@ export default function PhoneScreen() {
   const [analysisModal, setAnalysisModal] = useState<CallAnalysis | null>(null);
   const [analysisLoading, setAnalysisLoading] = useState(false);
   const recordingStartedRef = useRef(false);
-  const [debugLog, setDebugLog] = useState<string[]>(['PhoneScreen mounted']);
-
-  const addDebug = useCallback((msg: string) => {
-    setDebugLog(prev => [...prev.slice(-9), `${new Date().toLocaleTimeString()}: ${msg}`]);
-  }, []);
-
   const {
     registrationState, callState, callInfo, isConnecting,
-    recordingState, callRecordingEnabled, debugMessages,
+    recordingState, callRecordingEnabled,
     connect, disconnect, makeCall, answerCall, rejectCall,
     hangup, toggleMute, toggleHold, sendDtmf,
     startRecording, stopAndUploadRecording,
   } = useSipStore();
 
   useEffect(() => {
-    addDebug(`regState=${registrationState}, isConnecting=${isConnecting}`);
     if (registrationState === 'unregistered' || registrationState === 'error') {
-      addDebug('Calling connect()...');
-      connect().then(ok => addDebug(`connect() returned ${ok}`)).catch(e => addDebug(`connect() error: ${e?.message || e}`));
+      connect().catch(() => {});
     }
   }, []);
 
