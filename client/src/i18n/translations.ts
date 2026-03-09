@@ -4271,7 +4271,7 @@ export const translations: Record<Locale, Translations> = {
       records: 'records',
       online: 'Online',
       offline: 'Offline',
-      indexusConnect: 'INDEXUS Connect',
+      indexusConnect: 'Activity',
       copy: 'Copy',
     },
     advancedFilters: {
@@ -8756,7 +8756,7 @@ export const translations: Record<Locale, Translations> = {
       records: 'záznamov',
       online: 'Online',
       offline: 'Offline',
-      indexusConnect: 'INDEXUS Connect',
+      indexusConnect: 'Aktivita',
       copy: 'Kopírovať',
     },
     advancedFilters: {
@@ -13204,7 +13204,7 @@ export const translations: Record<Locale, Translations> = {
       records: 'záznamů',
       online: 'Online',
       offline: 'Offline',
-      indexusConnect: 'INDEXUS Connect',
+      indexusConnect: 'Aktivita',
       copy: 'Kopírovat',
     },
     advancedFilters: {
@@ -17584,7 +17584,7 @@ export const translations: Record<Locale, Translations> = {
       records: 'rekord',
       online: 'Online',
       offline: 'Offline',
-      indexusConnect: 'INDEXUS Connect',
+      indexusConnect: 'Aktivitás',
       copy: 'Másolás',
     },
     advancedFilters: {
@@ -21963,7 +21963,7 @@ export const translations: Record<Locale, Translations> = {
       records: 'inregistrari',
       online: 'Online',
       offline: 'Offline',
-      indexusConnect: 'INDEXUS Connect',
+      indexusConnect: 'Activitate',
       copy: 'Copiază',
     },
     advancedFilters: {
@@ -26343,7 +26343,7 @@ export const translations: Record<Locale, Translations> = {
       records: 'record',
       online: 'Online',
       offline: 'Offline',
-      indexusConnect: 'INDEXUS Connect',
+      indexusConnect: 'Attività',
       copy: 'Copia',
     },
     advancedFilters: {
@@ -30723,7 +30723,7 @@ export const translations: Record<Locale, Translations> = {
       records: 'Datensätze',
       online: 'Online',
       offline: 'Offline',
-      indexusConnect: 'INDEXUS Connect',
+      indexusConnect: 'Aktivität',
       copy: 'Kopieren',
     },
     advancedFilters: {

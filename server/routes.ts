@@ -13078,7 +13078,7 @@ export async function registerRoutes(
         campaignContactId: null,
         direction: direction || "outbound",
         phoneNumber,
-        duration: duration || 0,
+        durationSeconds: duration || 0,
         status: status || "completed",
         notes: notes || null,
         recordingUrl: null,
@@ -13091,6 +13091,35 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Mobile call log error:", error);
       res.status(500).json({ error: "Failed to create call log" });
+    }
+  });
+
+  app.post("/api/mobile/call-log/:id/duration", async (req, res) => {
+    try {
+      const tokenData = await getMobileCollaboratorFromToken(req);
+      if (!tokenData) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { duration } = req.body;
+      if (typeof duration !== 'number') {
+        return res.status(400).json({ error: "duration (number) required" });
+      }
+
+      const callLogId = req.params.id;
+      const result = await db.update(callLogs)
+        .set({ durationSeconds: duration, status: 'completed', endedAt: new Date() })
+        .where(and(eq(callLogs.id, callLogId), eq(callLogs.userId, tokenData.collaboratorId)))
+        .returning({ id: callLogs.id });
+
+      if (result.length === 0) {
+        return res.status(404).json({ error: "Call log not found" });
+      }
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Mobile call log duration update error:", error);
+      res.status(500).json({ error: "Failed to update call log duration" });
     }
   });
 

@@ -101,6 +101,9 @@ export default function PhoneScreen() {
   const [recordingLoadingId, setRecordingLoadingId] = useState<string | null>(null);
   const [playingRecordingId, setPlayingRecordingId] = useState<string | null>(null);
   const currentSoundRef = useRef<any>(null);
+  const lastDurationRef = useRef(0);
+  const [hospitalSearch, setHospitalSearch] = useState('');
+  const [clinicSearch, setClinicSearch] = useState('');
 
   const {
     registrationState, callState, callInfo, isConnecting,
@@ -139,8 +142,23 @@ export default function PhoneScreen() {
   }, [callState, callRecordingEnabled]);
 
   useEffect(() => {
+    if (callInfo.duration > 0) {
+      lastDurationRef.current = callInfo.duration;
+    }
+  }, [callInfo.duration]);
+
+  useEffect(() => {
     if (callState === 'idle' && currentCallHistoryId) {
-      updateCallDuration(currentCallHistoryId, callInfo.duration, 'completed').catch(() => {});
+      const finalDuration = lastDurationRef.current || callInfo.duration;
+      updateCallDuration(currentCallHistoryId, finalDuration, 'completed').catch(() => {});
+
+      if (currentCallLogId) {
+        api.post(`/api/mobile/call-log/${currentCallLogId}/duration`, {
+          duration: finalDuration,
+        }).catch(() => {});
+      }
+
+      lastDurationRef.current = 0;
 
       if (recordingStartedRef.current && currentCallLogId) {
         recordingStartedRef.current = false;
@@ -148,7 +166,7 @@ export default function PhoneScreen() {
           callLogId: currentCallLogId,
           phoneNumber: callInfo.phoneNumber || '',
           direction: callInfo.direction || 'outbound',
-          durationSeconds: callInfo.duration || 0,
+          durationSeconds: finalDuration,
           collaboratorName: 'Mobile Agent',
           customerName: currentContactName,
           customerId: currentCustomerId,
@@ -739,20 +757,48 @@ export default function PhoneScreen() {
     </View>
   );
 
+  const filteredHospitals = hospitalContacts.filter(h => {
+    if (!hospitalSearch || hospitalSearch.length < 2) return true;
+    const q = hospitalSearch.toLowerCase();
+    return (h.name?.toLowerCase().includes(q) || h.city?.toLowerCase().includes(q) || h.contactPerson?.toLowerCase().includes(q) || h.phone?.toLowerCase().includes(q));
+  });
+
+  const filteredClinics = clinicContacts.filter(c => {
+    if (!clinicSearch || clinicSearch.length < 2) return true;
+    const q = clinicSearch.toLowerCase();
+    return (c.name?.toLowerCase().includes(q) || c.doctorName?.toLowerCase().includes(q) || c.city?.toLowerCase().includes(q) || c.phone?.toLowerCase().includes(q));
+  });
+
   const renderHospitals = () => (
     <View style={styles.contactsContainer}>
+      <View style={styles.searchBar}>
+        <Ionicons name="search" size={20} color={Colors.textSecondary} />
+        <TextInput
+          style={styles.searchInput}
+          placeholder={translations.phone.searchContacts}
+          placeholderTextColor={Colors.textSecondary}
+          value={hospitalSearch}
+          onChangeText={setHospitalSearch}
+          data-testid="input-hospital-search"
+        />
+        {hospitalSearch.length > 0 && (
+          <TouchableOpacity onPress={() => setHospitalSearch('')} data-testid="button-clear-hospital-search">
+            <Ionicons name="close-circle" size={20} color={Colors.textSecondary} />
+          </TouchableOpacity>
+        )}
+      </View>
       {facilitiesLoading ? (
         <View style={styles.centerContent}>
           <ActivityIndicator size="large" color={Colors.primary} />
         </View>
-      ) : hospitalContacts.length === 0 ? (
+      ) : filteredHospitals.length === 0 ? (
         <View style={styles.centerContent}>
           <Ionicons name="business-outline" size={48} color={Colors.textSecondary} />
           <Text style={styles.emptyText}>{translations.phone.noHospitals}</Text>
         </View>
       ) : (
         <FlatList
-          data={hospitalContacts}
+          data={filteredHospitals}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
             <TouchableOpacity
@@ -791,18 +837,34 @@ export default function PhoneScreen() {
 
   const renderClinics = () => (
     <View style={styles.contactsContainer}>
+      <View style={styles.searchBar}>
+        <Ionicons name="search" size={20} color={Colors.textSecondary} />
+        <TextInput
+          style={styles.searchInput}
+          placeholder={translations.phone.searchContacts}
+          placeholderTextColor={Colors.textSecondary}
+          value={clinicSearch}
+          onChangeText={setClinicSearch}
+          data-testid="input-clinic-search"
+        />
+        {clinicSearch.length > 0 && (
+          <TouchableOpacity onPress={() => setClinicSearch('')} data-testid="button-clear-clinic-search">
+            <Ionicons name="close-circle" size={20} color={Colors.textSecondary} />
+          </TouchableOpacity>
+        )}
+      </View>
       {facilitiesLoading ? (
         <View style={styles.centerContent}>
           <ActivityIndicator size="large" color={Colors.primary} />
         </View>
-      ) : clinicContacts.length === 0 ? (
+      ) : filteredClinics.length === 0 ? (
         <View style={styles.centerContent}>
           <Ionicons name="medkit-outline" size={48} color={Colors.textSecondary} />
           <Text style={styles.emptyText}>{translations.phone.noClinics}</Text>
         </View>
       ) : (
         <FlatList
-          data={clinicContacts}
+          data={filteredClinics}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
             <TouchableOpacity
@@ -1025,6 +1087,7 @@ export default function PhoneScreen() {
         <SafeAreaView edges={['top']}>
           <View style={styles.header}>
             <Text style={styles.headerTitle}>{translations.phone.title}</Text>
+            <View style={{ flex: 1 }} />
             {registrationState === 'registered' && (
               <View style={styles.regDot} />
             )}
