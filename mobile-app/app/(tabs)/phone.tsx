@@ -9,6 +9,30 @@ import { api } from '@/lib/api';
 import { getCallHistory, saveCallToHistory, updateCallDuration, updateCallLogId, CallHistoryEntry } from '@/lib/callHistory';
 import { useSipStore } from '@/stores/sipStore';
 
+interface ServerCallHistoryEntry {
+  id: string;
+  phoneNumber: string;
+  direction: string;
+  status: string;
+  startedAt: string;
+  endedAt: string | null;
+  durationSeconds: number | null;
+  contactName: string | null;
+  customerId: string | null;
+  notes: string | null;
+}
+
+interface PersonalContact {
+  id: string;
+  collaboratorId: string;
+  name: string;
+  phone: string;
+  type: string;
+  linkedEntityType: string | null;
+  linkedEntityId: string | null;
+  createdAt: string;
+}
+
 type PhoneTab = 'keypad' | 'contacts' | 'recent';
 
 interface CrmContact {
@@ -104,6 +128,12 @@ export default function PhoneScreen() {
   const lastDurationRef = useRef(0);
   const [hospitalSearch, setHospitalSearch] = useState('');
   const [clinicSearch, setClinicSearch] = useState('');
+  const [recentSearch, setRecentSearch] = useState('');
+
+  const [saveContactModal, setSaveContactModal] = useState<{ phone: string } | null>(null);
+  const [saveContactName, setSaveContactName] = useState('');
+  const [saveContactLoading, setSaveContactLoading] = useState(false);
+  const [personalContacts, setPersonalContacts] = useState<PersonalContact[]>([]);
 
   const {
     registrationState, callState, callInfo, isConnecting,
@@ -179,27 +209,63 @@ export default function PhoneScreen() {
       setCurrentCallLogId(null);
       setCurrentContactName(undefined);
       setCurrentCustomerId(undefined);
+      setDialNumber('');
       loadRecentCalls();
     }
   }, [callState]);
 
-  const loadRecentCalls = useCallback(async () => {
+  const loadRecentCalls = useCallback(async (search?: string) => {
     setRecentLoading(true);
     try {
-      const history = await getCallHistory(50);
-      setRecentCalls(history);
+      const searchParam = search !== undefined ? search : recentSearch;
+      const serverHistory = await api.get<ServerCallHistoryEntry[]>(
+        `/api/mobile/call-history?limit=100${searchParam ? `&search=${encodeURIComponent(searchParam)}` : ''}`
+      );
+      const mapped: CallHistoryEntry[] = serverHistory.map(h => ({
+        id: h.id,
+        phoneNumber: h.phoneNumber,
+        direction: h.direction,
+        duration: h.durationSeconds || 0,
+        status: h.status,
+        contactName: h.contactName,
+        contactId: h.customerId,
+        callLogId: h.id,
+        createdAt: h.startedAt,
+      }));
+      setRecentCalls(mapped);
     } catch (error) {
+      try {
+        const history = await getCallHistory(50);
+        setRecentCalls(history);
+      } catch {}
       console.error('Failed to load call history:', error);
     } finally {
       setRecentLoading(false);
     }
+  }, [recentSearch]);
+
+  const loadPersonalContacts = useCallback(async () => {
+    try {
+      const contacts = await api.get<PersonalContact[]>('/api/mobile/contacts-personal');
+      setPersonalContacts(contacts);
+    } catch {}
   }, []);
 
   useEffect(() => {
     if (activeTab === 'recent') {
       loadRecentCalls();
+      loadPersonalContacts();
     }
-  }, [activeTab, loadRecentCalls]);
+  }, [activeTab]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (activeTab === 'recent') {
+        loadRecentCalls(recentSearch);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [recentSearch]);
 
   const loadFacilities = useCallback(async () => {
     setFacilitiesLoading(true);
@@ -897,8 +963,48 @@ export default function PhoneScreen() {
     </View>
   );
 
+  const getContactNameForPhone = useCallback((phone: string) => {
+    const personal = personalContacts.find(c => c.phone === phone || phone.includes(c.phone) || c.phone.includes(phone));
+    return personal?.name || null;
+  }, [personalContacts]);
+
+  const handleSaveContact = async () => {
+    if (!saveContactModal || !saveContactName.trim()) return;
+    setSaveContactLoading(true);
+    try {
+      await api.post('/api/mobile/contacts-personal', {
+        name: saveContactName.trim(),
+        phone: saveContactModal.phone,
+        type: 'personal',
+      });
+      await loadPersonalContacts();
+      setSaveContactModal(null);
+      setSaveContactName('');
+    } catch (error) {
+      console.error('Failed to save contact:', error);
+    } finally {
+      setSaveContactLoading(false);
+    }
+  };
+
   const renderRecent = () => (
     <View style={styles.recentContainer}>
+      <View style={styles.searchContainer}>
+        <Ionicons name="search" size={18} color={Colors.textSecondary} style={styles.searchIcon} />
+        <TextInput
+          style={styles.searchInput}
+          placeholder={translations.phone.searchCalls || "Search calls..."}
+          placeholderTextColor={Colors.textSecondary}
+          value={recentSearch}
+          onChangeText={setRecentSearch}
+          data-testid="input-recent-search"
+        />
+        {recentSearch.length > 0 && (
+          <TouchableOpacity onPress={() => setRecentSearch('')} data-testid="button-clear-recent-search">
+            <Ionicons name="close-circle" size={18} color={Colors.textSecondary} />
+          </TouchableOpacity>
+        )}
+      </View>
       {recentLoading ? (
         <View style={styles.centerContent}>
           <ActivityIndicator size="large" color={Colors.primary} />
@@ -940,9 +1046,9 @@ export default function PhoneScreen() {
                   </View>
                   <View style={styles.recentInfo}>
                     <Text style={styles.recentName}>
-                      {item.contactName || item.phoneNumber}
+                      {item.contactName || getContactNameForPhone(item.phoneNumber) || item.phoneNumber}
                     </Text>
-                    {item.contactName && (
+                    {(item.contactName || getContactNameForPhone(item.phoneNumber)) && (
                       <Text style={styles.recentNumber}>{item.phoneNumber}</Text>
                     )}
                     <Text style={styles.recentMeta}>
@@ -998,6 +1104,23 @@ export default function PhoneScreen() {
                           {translations.phone.call}
                         </Text>
                       </TouchableOpacity>
+
+                      {!item.contactName && !getContactNameForPhone(item.phoneNumber) && (
+                        <TouchableOpacity
+                          style={styles.recentActionBtn}
+                          onPress={() => {
+                            setSaveContactName('');
+                            setSaveContactModal({ phone: item.phoneNumber });
+                          }}
+                          activeOpacity={0.7}
+                          data-testid={`button-save-contact-${item.id}`}
+                        >
+                          <Ionicons name="person-add" size={16} color={Colors.primary} />
+                          <Text style={[styles.recentActionText, { color: Colors.primary }]}>
+                            {translations.phone.saveContact || "Save Contact"}
+                          </Text>
+                        </TouchableOpacity>
+                      )}
 
                       {item.callLogId && (
                         <>
@@ -1216,6 +1339,53 @@ export default function PhoneScreen() {
           </View>
         </View>
       </Modal>
+
+      <Modal
+        visible={saveContactModal !== null}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setSaveContactModal(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { maxHeight: 280 }]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>{translations.phone.saveContact || "Save Contact"}</Text>
+              <TouchableOpacity onPress={() => setSaveContactModal(null)} data-testid="button-close-save-contact">
+                <Ionicons name="close" size={24} color={Colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={{ color: Colors.textSecondary, marginBottom: 8, fontSize: FontSizes.sm }}>
+              {saveContactModal?.phone}
+            </Text>
+
+            <TextInput
+              style={[styles.searchInput, { borderWidth: 1, borderColor: Colors.border, borderRadius: 8, paddingHorizontal: 12, marginBottom: 16 }]}
+              placeholder={translations.phone.contactName || "Contact name"}
+              placeholderTextColor={Colors.textSecondary}
+              value={saveContactName}
+              onChangeText={setSaveContactName}
+              autoFocus
+              data-testid="input-save-contact-name"
+            />
+
+            <TouchableOpacity
+              style={[styles.callButton, { backgroundColor: Colors.primary, paddingVertical: 12, borderRadius: 8, opacity: saveContactName.trim() ? 1 : 0.5 }]}
+              onPress={handleSaveContact}
+              disabled={!saveContactName.trim() || saveContactLoading}
+              data-testid="button-confirm-save-contact"
+            >
+              {saveContactLoading ? (
+                <ActivityIndicator size="small" color={Colors.white} />
+              ) : (
+                <Text style={{ color: Colors.white, fontWeight: '600', textAlign: 'center', fontSize: FontSizes.md }}>
+                  {translations.phone.save || "Save"}
+                </Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -1403,6 +1573,21 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     height: 44,
     gap: 8,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.surface,
+    marginHorizontal: Spacing.md,
+    marginTop: Spacing.sm,
+    marginBottom: Spacing.xs,
+    paddingHorizontal: Spacing.md,
+    borderRadius: 12,
+    height: 44,
+    gap: 8,
+  },
+  searchIcon: {
+    marginRight: 4,
   },
   searchInput: {
     flex: 1,

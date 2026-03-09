@@ -121,6 +121,10 @@ type TranslationKeys = {
     reconnecting: string;
     doctor: string;
     contactPerson: string;
+    searchCalls: string;
+    saveContact: string;
+    contactName: string;
+    save: string;
   };
   visits: {
     title: string;
@@ -297,6 +301,8 @@ type TranslationKeys = {
     hospitalActivityDesc: string;
     visitHours: string;
     visitHoursDesc: string;
+    callHistory: string;
+    callHistoryDesc: string;
     download: string;
     downloading: string;
     downloadSuccess: string;
@@ -435,6 +441,10 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       reconnecting: 'Opätovné pripájanie...',
       doctor: 'Lekar',
       contactPerson: 'Kontaktna osoba',
+      searchCalls: 'Hladat hovory...',
+      saveContact: 'Ulozit kontakt',
+      contactName: 'Meno kontaktu',
+      save: 'Ulozit',
     },
     visits: {
       title: 'Navstevy',
@@ -611,6 +621,8 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       hospitalActivityDesc: 'Pocet navstev v jednotlivych nemocniciach',
       visitHours: 'Odpracovane hodiny',
       visitHoursDesc: 'Celkovy cas straveny na navstevach',
+      callHistory: 'Historia hovorov',
+      callHistoryDesc: 'Exportujte historiu hovorov s detailmi o trvani, smere a kontaktoch.',
       download: 'Stiahnut',
       downloading: 'Stahuje sa...',
       downloadSuccess: 'Report bol uspesne stiahnuty',
@@ -747,6 +759,10 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       reconnecting: 'Opatovne pripojovani...',
       doctor: 'Lekar',
       contactPerson: 'Kontaktni osoba',
+      searchCalls: 'Hledat hovory...',
+      saveContact: 'Ulozit kontakt',
+      contactName: 'Jmeno kontaktu',
+      save: 'Ulozit',
     },
     visits: {
       title: 'Navstevy',
@@ -923,6 +939,8 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       hospitalActivityDesc: 'Pocet navstev v jednotlivych nemocnicich',
       visitHours: 'Odpracovane hodiny',
       visitHoursDesc: 'Celkovy cas straveny na navstevach',
+      callHistory: 'Historie hovoru',
+      callHistoryDesc: 'Exportujte historii hovoru s detaily o trvani, smeru a kontaktech.',
       download: 'Stahnout',
       downloading: 'Stahuje se...',
       downloadSuccess: 'Report byl uspesne stazen',
@@ -1059,6 +1077,10 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       reconnecting: 'Ujracsatlakozas...',
       doctor: 'Orvos',
       contactPerson: 'Kapcsolattarto',
+      searchCalls: 'Hivasok keresese...',
+      saveContact: 'Kontakt mentese',
+      contactName: 'Kontakt neve',
+      save: 'Mentes',
     },
     visits: {
       title: 'Latogatasok',
@@ -1235,6 +1257,8 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       hospitalActivityDesc: 'Latogatasok szama korhazankent',
       visitHours: 'Ledolgozott orak',
       visitHoursDesc: 'Latogatasokra forditott osszes ido',
+      callHistory: 'Hivastortenet',
+      callHistoryDesc: 'Exportalja a hivastortenetet az idotartam, irany es kapcsolat reszleteivel.',
       download: 'Letoltes',
       downloading: 'Letoltes...',
       downloadSuccess: 'A jelentes sikeresen letoltve',
@@ -1371,6 +1395,10 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       reconnecting: 'Verbindung wird wiederhergestellt...',
       doctor: 'Arzt',
       contactPerson: 'Kontaktperson',
+      searchCalls: 'Anrufe suchen...',
+      saveContact: 'Kontakt speichern',
+      contactName: 'Kontaktname',
+      save: 'Speichern',
     },
     visits: {
       title: 'Besuche',
@@ -1547,6 +1575,8 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       hospitalActivityDesc: 'Anzahl der Besuche pro Krankenhaus',
       visitHours: 'Arbeitsstunden',
       visitHoursDesc: 'Gesamte fur Besuche aufgewendete Zeit',
+      callHistory: 'Anrufverlauf',
+      callHistoryDesc: 'Exportieren Sie Ihren Anrufverlauf mit Details zu Dauer, Richtung und Kontakten.',
       download: 'Herunterladen',
       downloading: 'Wird heruntergeladen...',
       downloadSuccess: 'Bericht erfolgreich heruntergeladen',
@@ -1683,6 +1713,10 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       reconnecting: 'Riconnessione...',
       doctor: 'Medico',
       contactPerson: 'Contatto',
+      searchCalls: 'Cerca chiamate...',
+      saveContact: 'Salva contatto',
+      contactName: 'Nome contatto',
+      save: 'Salva',
     },
     visits: {
       title: 'Visite',
@@ -1859,6 +1893,8 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       hospitalActivityDesc: 'Numero di visite per ospedale',
       visitHours: 'Ore lavorate',
       visitHoursDesc: 'Tempo totale dedicato alle visite',
+      callHistory: 'Cronologia chiamate',
+      callHistoryDesc: 'Esporta la cronologia delle chiamate con dettagli su durata, direzione e contatti.',
       download: 'Scarica',
       downloading: 'Download in corso...',
       downloadSuccess: 'Report scaricato con successo',
@@ -1995,6 +2031,10 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       reconnecting: 'Reconectare...',
       doctor: 'Medic',
       contactPerson: 'Persoana de contact',
+      searchCalls: 'Cauta apeluri...',
+      saveContact: 'Salveaza contact',
+      contactName: 'Nume contact',
+      save: 'Salveaza',
     },
     visits: {
       title: 'Vizite',
@@ -2171,6 +2211,8 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       hospitalActivityDesc: 'Numarul de vizite pentru fiecare spital',
       visitHours: 'Ore lucrate',
       visitHoursDesc: 'Timp total petrecut in vizite',
+      callHistory: 'Istoric apeluri',
+      callHistoryDesc: 'Exportati istoricul apelurilor cu detalii despre durata, directie si contacte.',
       download: 'Descarca',
       downloading: 'Se descarca...',
       downloadSuccess: 'Raportul a fost descarcat cu succes',
@@ -2307,6 +2349,10 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       reconnecting: 'Reconnecting...',
       doctor: 'Doctor',
       contactPerson: 'Contact person',
+      searchCalls: 'Search calls...',
+      saveContact: 'Save Contact',
+      contactName: 'Contact name',
+      save: 'Save',
     },
     visits: {
       title: 'Visits',
@@ -2483,6 +2529,8 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       hospitalActivityDesc: 'Number of visits per hospital',
       visitHours: 'Work Hours',
       visitHoursDesc: 'Total time spent on visits',
+      callHistory: 'Call History',
+      callHistoryDesc: 'Export your call history with details including duration, direction, and contact information.',
       download: 'Download',
       downloading: 'Downloading...',
       downloadSuccess: 'Report downloaded successfully',

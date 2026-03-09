@@ -10,7 +10,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { Colors, Spacing, FontSizes } from '@/constants/colors';
 import { API_BASE_URL } from '@/constants/config';
 
-type ReportType = 'monthly_summary' | 'hospital_activity' | 'visit_hours';
+type ReportType = 'monthly_summary' | 'hospital_activity' | 'visit_hours' | 'call_history';
 type PeriodType = 'this_month' | 'last_month' | 'last_3_months';
 
 interface ReportCardProps {
@@ -98,14 +98,15 @@ export default function ReportsScreen() {
     setLoadingReport(reportType);
 
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/mobile/reports/${reportType}?period=${period}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      const url = reportType === 'call_history'
+        ? `${API_BASE_URL}/api/mobile/call-history/export?period=${period}`
+        : `${API_BASE_URL}/api/mobile/reports/${reportType}?period=${period}`;
+
+      const response = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
       if (!response.ok) {
         throw new Error('Failed to generate report');
@@ -181,6 +182,15 @@ export default function ReportsScreen() {
           reportType="visit_hours"
           onDownload={handleDownload}
           isLoading={loadingReport === 'visit_hours'}
+        />
+
+        <ReportCard
+          title={translations.reports.callHistory || "Call History"}
+          description={translations.reports.callHistoryDesc || "Export your call history with details including duration, direction, and contact information."}
+          icon="call-outline"
+          reportType="call_history"
+          onDownload={handleDownload}
+          isLoading={loadingReport === 'call_history'}
         />
 
         <View style={styles.spacer} />

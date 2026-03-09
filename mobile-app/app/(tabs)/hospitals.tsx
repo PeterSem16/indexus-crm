@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useHospitals, Hospital } from '@/hooks/useHospitals';
+import { useSipStore } from '@/stores/sipStore';
 import { Colors, Spacing, FontSizes } from '@/constants/colors';
 
 export default function HospitalsScreen() {
@@ -42,8 +43,14 @@ export default function HospitalsScreen() {
     }
   };
 
-  const callHospital = (phone: string) => {
-    Linking.openURL(`tel:${phone}`);
+  const { registrationState, makeCall } = useSipStore();
+
+  const callHospital = (phone: string, name?: string) => {
+    if (registrationState === 'registered') {
+      makeCall(phone);
+    } else {
+      Linking.openURL(`tel:${phone}`);
+    }
   };
 
   const filteredHospitals = useMemo(() => {

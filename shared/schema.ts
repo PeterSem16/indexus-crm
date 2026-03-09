@@ -6085,3 +6085,22 @@ export const sopCampaignArticles = pgTable("sop_campaign_articles", {
   campaignId: varchar("campaign_id").notNull(),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
+
+export const mobileContacts = pgTable("mobile_contacts", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  collaboratorId: varchar("collaborator_id").notNull(),
+  name: text("name").notNull(),
+  phone: text("phone").notNull(),
+  type: text("type").notNull().default("personal"),
+  linkedEntityType: text("linked_entity_type"),
+  linkedEntityId: varchar("linked_entity_id"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const insertMobileContactSchema = createInsertSchema(mobileContacts).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type MobileContact = typeof mobileContacts.$inferSelect;
+export type InsertMobileContact = z.infer<typeof insertMobileContactSchema>;

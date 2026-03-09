@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useHospitals } from '@/hooks/useHospitals';
+import { useSipStore } from '@/stores/sipStore';
 import { Colors, Spacing, FontSizes } from '@/constants/colors';
 
 export default function HospitalDetailScreen() {
@@ -37,9 +38,15 @@ export default function HospitalDetailScreen() {
     }
   };
 
+  const { registrationState, makeCall } = useSipStore();
+
   const callHospital = () => {
     if (hospital?.phone) {
-      Linking.openURL(`tel:${hospital.phone}`);
+      if (registrationState === 'registered') {
+        makeCall(hospital.phone);
+      } else {
+        Linking.openURL(`tel:${hospital.phone}`);
+      }
     }
   };
 

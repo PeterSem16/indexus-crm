@@ -30,7 +30,7 @@ import {
   insertVisitEventSchema, visitEvents,
   campaignDispositions, insertCampaignDispositionSchema,
   DEFAULT_PHONE_DISPOSITIONS, DEFAULT_EMAIL_DISPOSITIONS, DEFAULT_SMS_DISPOSITIONS, DISPOSITION_NAME_TRANSLATIONS,
-  callLogs, campaignContacts, campaignContactHistory, campaignContactSessions, campaigns, customers, users, entityCampaignTimeline,
+  callLogs, campaignContacts, campaignContactHistory, campaignContactSessions, campaigns, customers, users, entityCampaignTimeline, mobileContacts,
   collections, executiveSummaries, collectionLabResults, collectionSprievodnyList,
   insertSopCategorySchema, insertSopArticleSchema,
   agentSessions, agentSessionActivities, agentBreaks, scheduledReports, agentQueueStatus,
@@ -13239,6 +13239,196 @@ export async function registerRoutes(
     } catch (error: any) {
       console.error("Mobile call recording analysis error:", error);
       res.status(500).json({ error: error.message || "Failed to get analysis" });
+    }
+  });
+
+  app.get("/api/mobile/call-history", async (req, res) => {
+    try {
+      const tokenData = await getMobileCollaboratorFromToken(req);
+      if (!tokenData) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const search = (req.query.search as string || "").trim().toLowerCase();
+      const limit = Math.min(parseInt(req.query.limit as string) || 100, 500);
+      const offset = parseInt(req.query.offset as string) || 0;
+
+      const conditions = [eq(callLogs.userId, tokenData.collaboratorId)];
+      if (search) {
+        conditions.push(
+          or(
+            sql`LOWER(${callLogs.phoneNumber}) LIKE ${'%' + search + '%'}`,
+            sql`LOWER(${callLogs.notes}) LIKE ${'%' + search + '%'}`,
+            sql`LOWER(${callLogs.metadata}) LIKE ${'%' + search + '%'}`
+          )!
+        );
+      }
+
+      const filtered = await db.select().from(callLogs)
+        .where(and(...conditions))
+        .orderBy(desc(callLogs.startedAt))
+        .limit(limit)
+        .offset(offset);
+
+      const results = filtered.map(r => {
+        let contactName = null;
+        if (r.metadata) {
+          try {
+            const meta = JSON.parse(r.metadata);
+            contactName = meta.contactName || meta.customerName || null;
+          } catch {}
+        }
+        return {
+          id: r.id,
+          phoneNumber: r.phoneNumber,
+          direction: r.direction,
+          status: r.status,
+          startedAt: r.startedAt,
+          endedAt: r.endedAt,
+          durationSeconds: r.durationSeconds,
+          contactName,
+          customerId: r.customerId,
+          notes: r.notes,
+        };
+      });
+
+      res.json(results);
+    } catch (error) {
+      console.error("Mobile call history error:", error);
+      res.status(500).json({ error: "Failed to fetch call history" });
+    }
+  });
+
+  app.get("/api/mobile/call-history/export", async (req, res) => {
+    try {
+      const tokenData = await getMobileCollaboratorFromToken(req);
+      if (!tokenData) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const period = (req.query.period as string) || "this_month";
+      let startDate = new Date();
+      if (period === "this_month") {
+        startDate = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+      } else if (period === "last_month") {
+        startDate = new Date(startDate.getFullYear(), startDate.getMonth() - 1, 1);
+      } else if (period === "last_3_months") {
+        startDate = new Date(startDate.getFullYear(), startDate.getMonth() - 3, 1);
+      } else if (period === "week") {
+        startDate.setDate(startDate.getDate() - 7);
+      } else if (period === "month") {
+        startDate.setMonth(startDate.getMonth() - 1);
+      } else if (period === "quarter") {
+        startDate.setMonth(startDate.getMonth() - 3);
+      } else if (period === "year") {
+        startDate.setFullYear(startDate.getFullYear() - 1);
+      } else {
+        startDate = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+      }
+
+      const rows = await db.select().from(callLogs)
+        .where(and(
+          eq(callLogs.userId, tokenData.collaboratorId),
+          gte(callLogs.startedAt, startDate)
+        ))
+        .orderBy(desc(callLogs.startedAt));
+
+      const escapeCsv = (val: string) => {
+        let s = (val || "").replace(/,/g, " ").replace(/\n/g, " ").replace(/\r/g, "");
+        if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+        return s;
+      };
+      const csvHeader = "Date,Time,Phone Number,Direction,Status,Duration (s),Contact Name,Notes\n";
+      const csvRows = rows.map(r => {
+        let contactName = "";
+        if (r.metadata) {
+          try {
+            const meta = JSON.parse(r.metadata);
+            contactName = meta.contactName || meta.customerName || "";
+          } catch {}
+        }
+        const date = r.startedAt ? new Date(r.startedAt).toISOString().slice(0, 10) : "";
+        const time = r.startedAt ? new Date(r.startedAt).toISOString().slice(11, 19) : "";
+        return `${date},${time},${escapeCsv(r.phoneNumber)},${r.direction},${r.status},${r.durationSeconds || 0},${escapeCsv(contactName)},${escapeCsv(r.notes || "")}`;
+      }).join("\n");
+
+      res.setHeader("Content-Type", "text/csv");
+      res.setHeader("Content-Disposition", `attachment; filename=call_history_${period}.csv`);
+      res.send(csvHeader + csvRows);
+    } catch (error) {
+      console.error("Mobile call history export error:", error);
+      res.status(500).json({ error: "Failed to export call history" });
+    }
+  });
+
+  app.get("/api/mobile/contacts-personal", async (req, res) => {
+    try {
+      const tokenData = await getMobileCollaboratorFromToken(req);
+      if (!tokenData) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const rows = await db.select().from(mobileContacts)
+        .where(eq(mobileContacts.collaboratorId, tokenData.collaboratorId))
+        .orderBy(desc(mobileContacts.createdAt));
+
+      res.json(rows);
+    } catch (error) {
+      console.error("Mobile personal contacts error:", error);
+      res.status(500).json({ error: "Failed to fetch personal contacts" });
+    }
+  });
+
+  app.post("/api/mobile/contacts-personal", async (req, res) => {
+    try {
+      const tokenData = await getMobileCollaboratorFromToken(req);
+      if (!tokenData) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { name, phone, type, linkedEntityType, linkedEntityId } = req.body;
+      if (!name || !phone) {
+        return res.status(400).json({ error: "name and phone are required" });
+      }
+
+      const [contact] = await db.insert(mobileContacts).values({
+        collaboratorId: tokenData.collaboratorId,
+        name,
+        phone,
+        type: type || "personal",
+        linkedEntityType: linkedEntityType || null,
+        linkedEntityId: linkedEntityId || null,
+      }).returning();
+
+      res.status(201).json(contact);
+    } catch (error) {
+      console.error("Mobile personal contact create error:", error);
+      res.status(500).json({ error: "Failed to create contact" });
+    }
+  });
+
+  app.delete("/api/mobile/contacts-personal/:id", async (req, res) => {
+    try {
+      const tokenData = await getMobileCollaboratorFromToken(req);
+      if (!tokenData) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const result = await db.delete(mobileContacts)
+        .where(and(
+          eq(mobileContacts.id, req.params.id),
+          eq(mobileContacts.collaboratorId, tokenData.collaboratorId)
+        ))
+        .returning({ id: mobileContacts.id });
+
+      if (result.length === 0) {
+        return res.status(404).json({ error: "Contact not found" });
+      }
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Mobile personal contact delete error:", error);
+      res.status(500).json({ error: "Failed to delete contact" });
     }
   });
 
