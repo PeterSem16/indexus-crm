@@ -615,19 +615,6 @@ export default function PhoneScreen() {
     );
   };
 
-  const renderDebugPanel = () => {
-    if (debugMessages.length === 0) return null;
-    return (
-      <View style={{ backgroundColor: '#1a1a2e', padding: 6, marginHorizontal: 16, marginBottom: 4, borderRadius: 6, maxHeight: 100 }}>
-        <Text style={{ color: '#00ff00', fontSize: 9, fontFamily: 'monospace' }}>
-          v1.2.11 | {registrationState} | call={callState}
-        </Text>
-        {debugMessages.slice(-5).map((line, i) => (
-          <Text key={`sip-${i}`} style={{ color: '#ffaa00', fontSize: 8, fontFamily: 'monospace' }} numberOfLines={1}>{line}</Text>
-        ))}
-      </View>
-    );
-  };
 
   const renderKeypad = () => (
     <View style={styles.keypadContainer}>
@@ -1125,8 +1112,6 @@ export default function PhoneScreen() {
         {activeTab === 'contacts' && renderContacts()}
         {activeTab === 'recent' && renderRecent()}
       </View>
-
-      {renderDebugPanel()}
 
       <Modal
         visible={analysisModal !== null || analysisLoading}

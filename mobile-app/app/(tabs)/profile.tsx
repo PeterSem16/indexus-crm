@@ -7,6 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useSyncStore } from '@/stores/syncStore';
+import { useSipStore } from '@/stores/sipStore';
 import { Colors, Spacing, FontSizes } from '@/constants/colors';
 import { SUPPORTED_LANGUAGES, SupportedLanguage } from '@/constants/config';
 import Constants from 'expo-constants';
@@ -20,7 +21,9 @@ export default function ProfileScreen() {
   const notificationsEnabled = useSettingsStore((state) => state.notificationsEnabled);
   const setNotificationsEnabled = useSettingsStore((state) => state.setNotificationsEnabled);
   const { lastSyncAt, pendingCount, isOnline } = useSyncStore();
+  const { registrationState, debugMessages } = useSipStore();
   const [showLanguagePicker, setShowLanguagePicker] = useState(false);
+  const [showPhoneLog, setShowPhoneLog] = useState(false);
 
   const handleLogout = () => {
     Alert.alert(
@@ -174,6 +177,26 @@ export default function ProfileScreen() {
               <Text style={styles.activeText}>{translations.common.active}</Text>
             </View>
           </View>
+
+          <View style={styles.divider} />
+
+          <TouchableOpacity
+            style={styles.settingsItem}
+            onPress={() => setShowPhoneLog(true)}
+            testID="button-phone-log"
+          >
+            <View style={styles.settingsIconContainer}>
+              <Ionicons name="call" size={20} color={Colors.primary} />
+            </View>
+            <View style={styles.settingsContent}>
+              <Text style={styles.settingsLabel}>Phone Log</Text>
+              <Text style={styles.settingsDescription}>SIP: {registrationState}</Text>
+            </View>
+            <View style={styles.settingsValueContainer}>
+              <View style={[styles.onlineIndicator, { backgroundColor: registrationState === 'registered' ? Colors.success : Colors.warning }]} />
+              <Ionicons name="chevron-forward" size={20} color={Colors.textSecondary} />
+            </View>
+          </TouchableOpacity>
         </View>
 
         <TouchableOpacity 
@@ -194,6 +217,41 @@ export default function ProfileScreen() {
 
         <View style={styles.footerSpace} />
       </ScrollView>
+
+      <Modal
+        visible={showPhoneLog}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowPhoneLog(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Phone Log</Text>
+              <TouchableOpacity
+                onPress={() => setShowPhoneLog(false)}
+                style={styles.modalCloseButton}
+                testID="button-close-phone-log"
+              >
+                <Ionicons name="close" size={24} color={Colors.text} />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.phoneLogStatus}>
+              <View style={[styles.onlineIndicator, { backgroundColor: registrationState === 'registered' ? Colors.success : Colors.warning }]} />
+              <Text style={styles.phoneLogStatusText}>SIP: {registrationState}</Text>
+            </View>
+            <ScrollView style={styles.phoneLogContainer} contentContainerStyle={styles.phoneLogContent}>
+              {debugMessages.length === 0 ? (
+                <Text style={styles.phoneLogEmpty}>No SIP log entries yet</Text>
+              ) : (
+                debugMessages.map((line, i) => (
+                  <Text key={`log-${i}`} style={styles.phoneLogLine} selectable>{line}</Text>
+                ))
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
       <Modal
         visible={showLanguagePicker}
@@ -566,5 +624,41 @@ const styles = StyleSheet.create({
   languageNameSelected: {
     fontWeight: '600',
     color: Colors.primary,
+  },
+  phoneLogStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  phoneLogStatusText: {
+    fontSize: FontSizes.sm,
+    fontWeight: '600',
+    color: Colors.text,
+  },
+  phoneLogContainer: {
+    flex: 1,
+    minHeight: 300,
+  },
+  phoneLogContent: {
+    padding: Spacing.md,
+  },
+  phoneLogLine: {
+    fontSize: 11,
+    fontFamily: 'monospace',
+    color: '#ffaa00',
+    backgroundColor: '#1a1a2e',
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+    marginBottom: 1,
+  },
+  phoneLogEmpty: {
+    fontSize: FontSizes.sm,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    marginTop: Spacing.xl,
   },
 });
