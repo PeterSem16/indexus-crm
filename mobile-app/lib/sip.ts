@@ -66,6 +66,10 @@ export interface SipCallInfo {
 
 type SipEventCallback = (event: string, data?: any) => void;
 
+const KEEPALIVE_INTERVAL = 25000;
+const RECONNECT_DELAY = 3000;
+const MAX_RECONNECT_ATTEMPTS = 10;
+
 class MobileSipEngine {
   private ua: any = null;
   private registerer: any = null;
@@ -85,6 +89,12 @@ class MobileSipEngine {
     isOnHold: false,
     isSpeaker: false,
   };
+
+  private keepaliveTimer: ReturnType<typeof setInterval> | null = null;
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private reconnectAttempts: number = 0;
+  private intentionalDisconnect: boolean = false;
+  private isRingbackPlaying: boolean = false;
 
   get registrationState(): SipRegistrationState { return this._registrationState; }
   get callState(): SipCallState { return this._callState; }
@@ -112,6 +122,12 @@ class MobileSipEngine {
   private setCallState(state: SipCallState) {
     this._callState = state;
     this.emit('callStateChanged', { state, callInfo: this.callInfo });
+
+    if (state === 'connecting' && this._callInfo.direction === 'outbound') {
+      this.startRingback();
+    } else if (state === 'active' || state === 'idle' || state === 'ended') {
+      this.stopRingback();
+    }
   }
 
   private updateCallInfo(updates: Partial<SipCallInfo>) {
@@ -141,6 +157,8 @@ class MobileSipEngine {
 
   async connect(): Promise<boolean> {
     console.log('[MobileSIP] connect() called');
+    this.intentionalDisconnect = false;
+    this.reconnectAttempts = 0;
 
     const webrtcReady = await initWebRTC();
     if (!webrtcReady) {
@@ -196,9 +214,13 @@ class MobileSipEngine {
 
       this.ua.transport.onConnect = () => {
         this.emit('debug', 'Transport: WebSocket CONNECTED');
+        this.reconnectAttempts = 0;
       };
       this.ua.transport.onDisconnect = (err: any) => {
         this.emit('debug', `Transport: WebSocket DISCONNECTED ${err?.message || ''}`);
+        if (!this.intentionalDisconnect) {
+          this.scheduleReconnect();
+        }
       };
       this.ua.transport.stateChange.addListener((state: any) => {
         this.emit('debug', `Transport state: ${state}`);
@@ -208,16 +230,24 @@ class MobileSipEngine {
       await this.ua.start();
       this.emit('debug', `UA started, transport.state=${this.ua.transport.state}`);
 
-      this.registerer = new Registerer(this.ua);
+      this.registerer = new Registerer(this.ua, {
+        expires: 120,
+      });
 
       this.registerer.stateChange.addListener((state: any) => {
         this.emit('debug', `Registerer state: ${state}`);
         switch (state) {
           case RegistererState.Registered:
             this.setRegistrationState('registered');
+            this.reconnectAttempts = 0;
             break;
           case RegistererState.Unregistered:
-            this.setRegistrationState('unregistered');
+            if (!this.intentionalDisconnect) {
+              this.setRegistrationState('unregistered');
+              this.scheduleReconnect();
+            } else {
+              this.setRegistrationState('unregistered');
+            }
             break;
           default:
             break;
@@ -232,6 +262,8 @@ class MobileSipEngine {
       } catch (regError: any) {
         this.emit('debug', `REGISTER error: ${regError?.message || regError}`);
       }
+
+      this.startKeepalive();
       return true;
     } catch (error: any) {
       console.error('[MobileSIP] Connection failed:', error?.message || error);
@@ -241,7 +273,144 @@ class MobileSipEngine {
     }
   }
 
+  private scheduleReconnect() {
+    if (this.intentionalDisconnect || this.hasActiveCall) return;
+    if (this.reconnectTimer) return;
+    if (this.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+      this.emit('debug', `Max reconnect attempts (${MAX_RECONNECT_ATTEMPTS}) reached`);
+      this.setRegistrationState('error');
+      return;
+    }
+
+    this.reconnectAttempts++;
+    const delay = Math.min(RECONNECT_DELAY * this.reconnectAttempts, 30000);
+    this.emit('debug', `Scheduling reconnect attempt ${this.reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS} in ${delay}ms`);
+
+    this.reconnectTimer = setTimeout(async () => {
+      this.reconnectTimer = null;
+      if (this.intentionalDisconnect) return;
+
+      this.emit('debug', `Reconnect attempt ${this.reconnectAttempts}...`);
+      try {
+        if (this.ua) {
+          try {
+            const transportState = this.ua.transport?.state;
+            if (transportState === 'Disconnected' || transportState === 'Disconnecting') {
+              await this.ua.reconnect();
+              this.emit('debug', 'UA reconnected');
+            }
+            if (this.registerer) {
+              await this.registerer.register();
+              this.emit('debug', 'Re-REGISTER sent after reconnect');
+            }
+          } catch (e: any) {
+            this.emit('debug', `Reconnect via UA failed: ${e?.message}, doing full connect`);
+            await this.fullReconnect();
+          }
+        } else {
+          await this.fullReconnect();
+        }
+      } catch (err: any) {
+        this.emit('debug', `Reconnect failed: ${err?.message}`);
+        this.scheduleReconnect();
+      }
+    }, delay);
+  }
+
+  private async fullReconnect() {
+    try {
+      if (this.registerer) {
+        try { await this.registerer.unregister(); } catch (_) {}
+        this.registerer = null;
+      }
+      if (this.ua) {
+        try { await this.ua.stop(); } catch (_) {}
+        this.ua = null;
+      }
+    } catch (_) {}
+    await this.connect();
+  }
+
+  private startKeepalive() {
+    this.stopKeepalive();
+    this.keepaliveTimer = setInterval(() => {
+      if (this.intentionalDisconnect) {
+        this.stopKeepalive();
+        return;
+      }
+
+      if (!this.ua || !this.registerer) {
+        this.emit('debug', 'Keepalive: no UA/registerer, triggering reconnect');
+        this.scheduleReconnect();
+        return;
+      }
+
+      const transportState = this.ua.transport?.state;
+      if (transportState !== 'Connected') {
+        this.emit('debug', `Keepalive: transport=${transportState}, triggering reconnect`);
+        this.scheduleReconnect();
+        return;
+      }
+
+      if (this._registrationState !== 'registered' && this._registrationState !== 'registering') {
+        this.emit('debug', 'Keepalive: not registered, sending REGISTER...');
+        try {
+          this.registerer.register().catch((e: any) => {
+            this.emit('debug', `Keepalive re-register error: ${e?.message}`);
+          });
+        } catch (e: any) {
+          this.emit('debug', `Keepalive register call error: ${e?.message}`);
+        }
+      }
+    }, KEEPALIVE_INTERVAL);
+  }
+
+  private stopKeepalive() {
+    if (this.keepaliveTimer) {
+      clearInterval(this.keepaliveTimer);
+      this.keepaliveTimer = null;
+    }
+  }
+
+  async ensureRegistered(): Promise<boolean> {
+    if (this.isRegistered && this.ua?.transport?.state === 'Connected') {
+      return true;
+    }
+
+    this.emit('debug', 'ensureRegistered: not ready, attempting reconnect...');
+
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+
+    try {
+      if (this.ua && this.registerer) {
+        const transportState = this.ua.transport?.state;
+        if (transportState === 'Connected') {
+          await this.registerer.register();
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          if (this.isRegistered) return true;
+        }
+      }
+
+      this.reconnectAttempts = 0;
+      await this.fullReconnect();
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      return this.isRegistered;
+    } catch (e: any) {
+      this.emit('debug', `ensureRegistered failed: ${e?.message}`);
+      return false;
+    }
+  }
+
   async disconnect(): Promise<void> {
+    this.intentionalDisconnect = true;
+    this.stopKeepalive();
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
     try {
       if (this.currentSession) {
         this.hangup();
@@ -262,8 +431,18 @@ class MobileSipEngine {
 
   async makeCall(phoneNumber: string): Promise<boolean> {
     this.emit('debug', `makeCall(${phoneNumber}) ua=${!!this.ua} registered=${this.isRegistered} regState=${this._registrationState}`);
-    if (!this.ua || !this.isRegistered) {
-      this.emit('debug', `Cannot call: ua=${!!this.ua} isRegistered=${this.isRegistered}`);
+
+    if (!this.isRegistered) {
+      this.emit('debug', 'Not registered, calling ensureRegistered...');
+      const ready = await this.ensureRegistered();
+      if (!ready) {
+        this.emit('debug', 'ensureRegistered failed, cannot make call');
+        return false;
+      }
+    }
+
+    if (!this.ua) {
+      this.emit('debug', 'Cannot call: no UA');
       return false;
     }
 
@@ -497,6 +676,30 @@ class MobileSipEngine {
     });
   }
 
+  private async startRingback() {
+    if (this.isRingbackPlaying) return;
+    try {
+      const InCallManager = (await import('react-native-incall-manager')).default;
+      InCallManager.startRingback('_BUNDLE_');
+      this.isRingbackPlaying = true;
+      this.emit('debug', 'Ringback tone started');
+    } catch (e: any) {
+      this.emit('debug', `Ringback start error: ${e?.message}`);
+    }
+  }
+
+  private async stopRingback() {
+    if (!this.isRingbackPlaying) return;
+    try {
+      const InCallManager = (await import('react-native-incall-manager')).default;
+      InCallManager.stopRingback();
+      this.isRingbackPlaying = false;
+      this.emit('debug', 'Ringback tone stopped');
+    } catch (e: any) {
+      this.emit('debug', `Ringback stop error: ${e?.message}`);
+    }
+  }
+
   private async startAudioSession(speaker: boolean = false) {
     try {
       const InCallManager = (await import('react-native-incall-manager')).default;
@@ -588,6 +791,7 @@ class MobileSipEngine {
 
   private cleanupSession() {
     this.stopCallTimer();
+    this.stopRingback();
     this.stopAudioSession();
     const finalDuration = this._callInfo.duration;
     const phoneNumber = this._callInfo.phoneNumber;

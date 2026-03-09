@@ -6,7 +6,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from '@/hooks/useTranslation';
 import { Colors, Spacing, FontSizes } from '@/constants/colors';
 import { api } from '@/lib/api';
-import { getCallHistory, saveCallToHistory, updateCallDuration, CallHistoryEntry } from '@/lib/callHistory';
+import { getCallHistory, saveCallToHistory, updateCallDuration, updateCallLogId, CallHistoryEntry } from '@/lib/callHistory';
 import { useSipStore } from '@/stores/sipStore';
 
 type PhoneTab = 'keypad' | 'contacts' | 'recent';
@@ -16,6 +16,42 @@ interface CrmContact {
   name: string;
   phone: string | null;
   email: string | null;
+}
+
+interface HospitalContact {
+  id: string;
+  name: string;
+  fullName: string | null;
+  phone: string | null;
+  email: string | null;
+  city: string | null;
+  contactPerson: string | null;
+  countryCode: string;
+}
+
+interface ClinicContact {
+  id: string;
+  name: string;
+  doctorName: string | null;
+  phone: string | null;
+  email: string | null;
+  address: string | null;
+  city: string | null;
+  countryCode: string;
+}
+
+interface RecordingInfo {
+  id: string;
+  callLogId: string;
+  durationSeconds: number | null;
+  phoneNumber: string | null;
+  customerName: string | null;
+  agentName: string | null;
+  analysisStatus: string | null;
+  sentiment: string | null;
+  qualityScore: number | null;
+  summary: string | null;
+  createdAt: string;
 }
 
 interface CallAnalysis {
@@ -35,6 +71,8 @@ interface CallAnalysis {
   createdAt: string;
 }
 
+type ContactSection = 'customers' | 'hospitals' | 'clinics';
+
 export default function PhoneScreen() {
   const { translations } = useTranslation();
   const [activeTab, setActiveTab] = useState<PhoneTab>('keypad');
@@ -52,6 +90,18 @@ export default function PhoneScreen() {
   const [analysisModal, setAnalysisModal] = useState<CallAnalysis | null>(null);
   const [analysisLoading, setAnalysisLoading] = useState(false);
   const recordingStartedRef = useRef(false);
+
+  const [hospitalContacts, setHospitalContacts] = useState<HospitalContact[]>([]);
+  const [clinicContacts, setClinicContacts] = useState<ClinicContact[]>([]);
+  const [facilitiesLoading, setFacilitiesLoading] = useState(false);
+  const [activeContactSection, setActiveContactSection] = useState<ContactSection>('customers');
+
+  const [expandedCallId, setExpandedCallId] = useState<string | null>(null);
+  const [recordingInfo, setRecordingInfo] = useState<Record<string, RecordingInfo | null>>({});
+  const [recordingLoadingId, setRecordingLoadingId] = useState<string | null>(null);
+  const [playingRecordingId, setPlayingRecordingId] = useState<string | null>(null);
+  const currentSoundRef = useRef<any>(null);
+
   const {
     registrationState, callState, callInfo, isConnecting,
     recordingState, callRecordingEnabled, debugMessages,
@@ -133,6 +183,30 @@ export default function PhoneScreen() {
     }
   }, [activeTab, loadRecentCalls]);
 
+  const loadFacilities = useCallback(async () => {
+    setFacilitiesLoading(true);
+    try {
+      const [hospitals, clinics] = await Promise.all([
+        api.get<HospitalContact[]>('/api/mobile/hospitals-contacts'),
+        api.get<ClinicContact[]>('/api/mobile/clinics'),
+      ]);
+      setHospitalContacts(hospitals);
+      setClinicContacts(clinics);
+    } catch (error) {
+      console.error('Failed to load facilities:', error);
+    } finally {
+      setFacilitiesLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'contacts' && (activeContactSection === 'hospitals' || activeContactSection === 'clinics')) {
+      if (hospitalContacts.length === 0 && clinicContacts.length === 0) {
+        loadFacilities();
+      }
+    }
+  }, [activeTab, activeContactSection]);
+
   const searchContacts = useCallback(async (search: string) => {
     if (!search || search.length < 2) {
       setContacts([]);
@@ -151,12 +225,12 @@ export default function PhoneScreen() {
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      if (activeTab === 'contacts') {
+      if (activeTab === 'contacts' && activeContactSection === 'customers') {
         searchContacts(contactSearch);
       }
     }, 300);
     return () => clearTimeout(timer);
-  }, [contactSearch, activeTab, searchContacts]);
+  }, [contactSearch, activeTab, activeContactSection, searchContacts]);
 
   const handleKeyPress = (key: string) => {
     if (callState === 'active' || callState === 'on_hold') {
@@ -204,6 +278,7 @@ export default function PhoneScreen() {
       });
       if (callLog?.id) {
         setCurrentCallLogId(callLog.id);
+        await updateCallLogId(historyId, callLog.id);
       }
     } catch (error) {
       console.error('Failed to log call:', error);
@@ -217,6 +292,16 @@ export default function PhoneScreen() {
   const handleContactCall = (contact: CrmContact) => {
     if (!contact.phone) return;
     initiateCall(contact.phone, contact.name, contact.id);
+  };
+
+  const handleHospitalCall = (hospital: HospitalContact) => {
+    if (!hospital.phone) return;
+    initiateCall(hospital.phone, hospital.name);
+  };
+
+  const handleClinicCall = (clinic: ClinicContact) => {
+    if (!clinic.phone) return;
+    initiateCall(clinic.phone, clinic.name);
   };
 
   const handleHangup = () => {
@@ -244,6 +329,71 @@ export default function PhoneScreen() {
       console.error('Failed to fetch call analysis:', error);
     } finally {
       setAnalysisLoading(false);
+    }
+  };
+
+  const fetchRecordingInfo = async (callLogId: string) => {
+    if (recordingInfo[callLogId] !== undefined) return;
+    setRecordingLoadingId(callLogId);
+    try {
+      const info = await api.get<RecordingInfo>(`/api/mobile/call-recordings/by-call-log/${callLogId}`);
+      setRecordingInfo(prev => ({ ...prev, [callLogId]: info }));
+    } catch (error: any) {
+      setRecordingInfo(prev => ({ ...prev, [callLogId]: null }));
+    } finally {
+      setRecordingLoadingId(null);
+    }
+  };
+
+  const handleExpandCall = (item: CallHistoryEntry) => {
+    if (expandedCallId === item.id) {
+      setExpandedCallId(null);
+      return;
+    }
+    setExpandedCallId(item.id);
+    if (item.callLogId) {
+      fetchRecordingInfo(item.callLogId);
+    }
+  };
+
+  const stopCurrentPlayback = async () => {
+    if (currentSoundRef.current) {
+      try {
+        await currentSoundRef.current.stopAsync();
+        await currentSoundRef.current.unloadAsync();
+      } catch (_) {}
+      currentSoundRef.current = null;
+    }
+    setPlayingRecordingId(null);
+  };
+
+  const handlePlayRecording = async (recording: RecordingInfo) => {
+    try {
+      if (playingRecordingId === recording.id) {
+        await stopCurrentPlayback();
+        return;
+      }
+      await stopCurrentPlayback();
+      setPlayingRecordingId(recording.id);
+      const { Audio } = await import('expo-av');
+      const token = await api.getToken();
+      const streamUrl = `${api.baseUrl}/api/mobile/call-recordings/${recording.id}/stream`;
+      const { sound } = await Audio.Sound.createAsync(
+        { uri: streamUrl, headers: { Authorization: `Bearer ${token}` } },
+        { shouldPlay: true }
+      );
+      currentSoundRef.current = sound;
+      sound.setOnPlaybackStatusUpdate((status: any) => {
+        if (status.didJustFinish) {
+          setPlayingRecordingId(null);
+          sound.unloadAsync();
+          currentSoundRef.current = null;
+        }
+      });
+    } catch (error) {
+      console.error('Failed to play recording:', error);
+      setPlayingRecordingId(null);
+      currentSoundRef.current = null;
     }
   };
 
@@ -279,6 +429,14 @@ export default function PhoneScreen() {
       return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
     return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+  };
+
+  const formatDateTime = (timestamp: string): string => {
+    const date = new Date(timestamp);
+    return date.toLocaleString([], {
+      day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit',
+    });
   };
 
   const keypadKeys = [
@@ -432,6 +590,7 @@ export default function PhoneScreen() {
         <Text style={styles.regBadgeText}>
           {registrationState === 'error' ? translations.phone.sipNotConfigured :
            isConnecting ? translations.phone.connecting :
+           registrationState === 'registering' ? translations.phone.reconnecting :
            translations.phone.webrtcDisabled}
         </Text>
       </TouchableOpacity>
@@ -493,7 +652,29 @@ export default function PhoneScreen() {
     </View>
   );
 
-  const renderContacts = () => (
+  const renderContactSectionTabs = () => (
+    <View style={styles.contactSectionTabs}>
+      {(['customers', 'hospitals', 'clinics'] as ContactSection[]).map((section) => (
+        <TouchableOpacity
+          key={section}
+          style={[styles.contactSectionTab, activeContactSection === section && styles.contactSectionTabActive]}
+          onPress={() => setActiveContactSection(section)}
+          activeOpacity={0.7}
+        >
+          <Ionicons
+            name={section === 'customers' ? 'people' : section === 'hospitals' ? 'business' : 'medkit'}
+            size={16}
+            color={activeContactSection === section ? Colors.primary : Colors.textSecondary}
+          />
+          <Text style={[styles.contactSectionTabText, activeContactSection === section && styles.contactSectionTabTextActive]}>
+            {translations.phone[section]}
+          </Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
+
+  const renderCustomerSearch = () => (
     <View style={styles.contactsContainer}>
       <View style={styles.searchBar}>
         <Ionicons name="search" size={20} color={Colors.textSecondary} />
@@ -503,9 +684,10 @@ export default function PhoneScreen() {
           placeholderTextColor={Colors.textSecondary}
           value={contactSearch}
           onChangeText={setContactSearch}
+          data-testid="input-contact-search"
         />
         {contactSearch.length > 0 && (
-          <TouchableOpacity onPress={() => setContactSearch('')}>
+          <TouchableOpacity onPress={() => setContactSearch('')} data-testid="button-clear-search">
             <Ionicons name="close-circle" size={20} color={Colors.textSecondary} />
           </TouchableOpacity>
         )}
@@ -534,6 +716,7 @@ export default function PhoneScreen() {
               onPress={() => handleContactCall(item)}
               disabled={!item.phone || registrationState !== 'registered'}
               activeOpacity={0.7}
+              data-testid={`contact-customer-${item.id}`}
             >
               <View style={styles.contactAvatar}>
                 <Text style={styles.contactAvatarText}>
@@ -556,6 +739,115 @@ export default function PhoneScreen() {
     </View>
   );
 
+  const renderHospitals = () => (
+    <View style={styles.contactsContainer}>
+      {facilitiesLoading ? (
+        <View style={styles.centerContent}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+        </View>
+      ) : hospitalContacts.length === 0 ? (
+        <View style={styles.centerContent}>
+          <Ionicons name="business-outline" size={48} color={Colors.textSecondary} />
+          <Text style={styles.emptyText}>{translations.phone.noHospitals}</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={hospitalContacts}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={styles.contactItem}
+              onPress={() => handleHospitalCall(item)}
+              disabled={!item.phone || registrationState !== 'registered'}
+              activeOpacity={0.7}
+              data-testid={`contact-hospital-${item.id}`}
+            >
+              <View style={[styles.contactAvatar, { backgroundColor: '#2196F3' }]}>
+                <Ionicons name="business" size={20} color={Colors.white} />
+              </View>
+              <View style={styles.contactInfo}>
+                <Text style={styles.contactName} numberOfLines={1}>{item.name}</Text>
+                {item.city && (
+                  <Text style={styles.contactPhone}>{item.city} · {item.countryCode}</Text>
+                )}
+                {item.contactPerson && (
+                  <Text style={styles.contactMeta}>
+                    {translations.phone.contactPerson}: {item.contactPerson}
+                  </Text>
+                )}
+                {item.phone && <Text style={styles.contactPhone}>{item.phone}</Text>}
+              </View>
+              {item.phone && (
+                <View style={styles.contactCallBtn}>
+                  <Ionicons name="call" size={20} color={Colors.success} />
+                </View>
+              )}
+            </TouchableOpacity>
+          )}
+        />
+      )}
+    </View>
+  );
+
+  const renderClinics = () => (
+    <View style={styles.contactsContainer}>
+      {facilitiesLoading ? (
+        <View style={styles.centerContent}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+        </View>
+      ) : clinicContacts.length === 0 ? (
+        <View style={styles.centerContent}>
+          <Ionicons name="medkit-outline" size={48} color={Colors.textSecondary} />
+          <Text style={styles.emptyText}>{translations.phone.noClinics}</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={clinicContacts}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={styles.contactItem}
+              onPress={() => handleClinicCall(item)}
+              disabled={!item.phone || registrationState !== 'registered'}
+              activeOpacity={0.7}
+              data-testid={`contact-clinic-${item.id}`}
+            >
+              <View style={[styles.contactAvatar, { backgroundColor: '#4CAF50' }]}>
+                <Ionicons name="medkit" size={20} color={Colors.white} />
+              </View>
+              <View style={styles.contactInfo}>
+                <Text style={styles.contactName} numberOfLines={1}>{item.name}</Text>
+                {item.doctorName && (
+                  <Text style={styles.contactMeta}>
+                    {translations.phone.doctor}: {item.doctorName}
+                  </Text>
+                )}
+                {item.city && (
+                  <Text style={styles.contactPhone}>{item.city} · {item.countryCode}</Text>
+                )}
+                {item.phone && <Text style={styles.contactPhone}>{item.phone}</Text>}
+              </View>
+              {item.phone && (
+                <View style={styles.contactCallBtn}>
+                  <Ionicons name="call" size={20} color={Colors.success} />
+                </View>
+              )}
+            </TouchableOpacity>
+          )}
+        />
+      )}
+    </View>
+  );
+
+  const renderContacts = () => (
+    <View style={styles.contactsContainer}>
+      {renderContactSectionTabs()}
+      {activeContactSection === 'customers' && renderCustomerSearch()}
+      {activeContactSection === 'hospitals' && renderHospitals()}
+      {activeContactSection === 'clinics' && renderClinics()}
+    </View>
+  );
+
   const renderRecent = () => (
     <View style={styles.recentContainer}>
       {recentLoading ? (
@@ -571,43 +863,150 @@ export default function PhoneScreen() {
         <FlatList
           data={recentCalls}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={styles.recentItem}
-              onPress={() => {
-                setDialNumber(item.phoneNumber);
-                setActiveTab('keypad');
-              }}
-              activeOpacity={0.7}
-            >
-              <View style={styles.recentIcon}>
-                <Ionicons
-                  name={
-                    item.status === 'missed' ? 'call-outline' :
-                    item.direction === 'outbound' ? 'arrow-up' : 'arrow-down'
-                  }
-                  size={18}
-                  color={
-                    item.status === 'missed' ? Colors.error :
-                    item.direction === 'outbound' ? Colors.info : Colors.success
-                  }
-                />
-              </View>
-              <View style={styles.recentInfo}>
-                <Text style={styles.recentName}>
-                  {item.contactName || item.phoneNumber}
-                </Text>
-                {item.contactName && (
-                  <Text style={styles.recentNumber}>{item.phoneNumber}</Text>
+          renderItem={({ item }) => {
+            const isExpanded = expandedCallId === item.id;
+            const recording = item.callLogId ? recordingInfo[item.callLogId] : undefined;
+            const isLoadingRecording = recordingLoadingId === item.callLogId;
+
+            return (
+              <View>
+                <TouchableOpacity
+                  style={styles.recentItem}
+                  onPress={() => handleExpandCall(item)}
+                  activeOpacity={0.7}
+                  data-testid={`recent-call-${item.id}`}
+                >
+                  <View style={styles.recentIcon}>
+                    <Ionicons
+                      name={
+                        item.status === 'missed' ? 'call-outline' :
+                        item.direction === 'outbound' ? 'arrow-up' : 'arrow-down'
+                      }
+                      size={18}
+                      color={
+                        item.status === 'missed' ? Colors.error :
+                        item.direction === 'outbound' ? Colors.info : Colors.success
+                      }
+                    />
+                  </View>
+                  <View style={styles.recentInfo}>
+                    <Text style={styles.recentName}>
+                      {item.contactName || item.phoneNumber}
+                    </Text>
+                    {item.contactName && (
+                      <Text style={styles.recentNumber}>{item.phoneNumber}</Text>
+                    )}
+                    <Text style={styles.recentMeta}>
+                      {translations.phone[item.direction as 'outbound' | 'inbound']}
+                      {item.duration > 0 ? ` · ${formatDuration(item.duration)}` : ''}
+                    </Text>
+                  </View>
+                  <View style={styles.recentRight}>
+                    <Text style={styles.recentTime}>{formatTime(item.createdAt)}</Text>
+                    <Ionicons
+                      name={isExpanded ? 'chevron-up' : 'chevron-down'}
+                      size={16}
+                      color={Colors.textSecondary}
+                    />
+                  </View>
+                </TouchableOpacity>
+
+                {isExpanded && (
+                  <View style={styles.recentExpanded}>
+                    <View style={styles.recentDetailRow}>
+                      <Ionicons name="calendar-outline" size={14} color={Colors.textSecondary} />
+                      <Text style={styles.recentDetailText}>{formatDateTime(item.createdAt)}</Text>
+                    </View>
+                    <View style={styles.recentDetailRow}>
+                      <Ionicons name="time-outline" size={14} color={Colors.textSecondary} />
+                      <Text style={styles.recentDetailText}>
+                        {translations.phone.duration}: {formatDuration(item.duration)}
+                      </Text>
+                    </View>
+                    <View style={styles.recentDetailRow}>
+                      <Ionicons
+                        name={item.direction === 'outbound' ? 'arrow-up-circle-outline' : 'arrow-down-circle-outline'}
+                        size={14}
+                        color={Colors.textSecondary}
+                      />
+                      <Text style={styles.recentDetailText}>
+                        {translations.phone[item.direction as 'outbound' | 'inbound']}
+                      </Text>
+                    </View>
+
+                    <View style={styles.recentActions}>
+                      <TouchableOpacity
+                        style={styles.recentActionBtn}
+                        onPress={() => {
+                          setDialNumber(item.phoneNumber);
+                          setActiveTab('keypad');
+                        }}
+                        activeOpacity={0.7}
+                        data-testid={`button-redial-${item.id}`}
+                      >
+                        <Ionicons name="call" size={16} color={Colors.success} />
+                        <Text style={[styles.recentActionText, { color: Colors.success }]}>
+                          {translations.phone.call}
+                        </Text>
+                      </TouchableOpacity>
+
+                      {item.callLogId && (
+                        <>
+                          {isLoadingRecording ? (
+                            <ActivityIndicator size="small" color={Colors.primary} style={{ marginLeft: 12 }} />
+                          ) : recording ? (
+                            <TouchableOpacity
+                              style={styles.recentActionBtn}
+                              onPress={() => handlePlayRecording(recording)}
+                              activeOpacity={0.7}
+                              data-testid={`button-play-recording-${item.id}`}
+                            >
+                              <Ionicons
+                                name={playingRecordingId === recording.id ? 'stop-circle' : 'play-circle'}
+                                size={16}
+                                color={Colors.primary}
+                              />
+                              <Text style={[styles.recentActionText, { color: Colors.primary }]}>
+                                {translations.phone.playRecording}
+                              </Text>
+                            </TouchableOpacity>
+                          ) : recording === null ? (
+                            <View style={styles.recentActionBtn}>
+                              <Ionicons name="mic-off-outline" size={14} color={Colors.textSecondary} />
+                              <Text style={[styles.recentActionText, { color: Colors.textSecondary }]}>
+                                {translations.phone.noRecording}
+                              </Text>
+                            </View>
+                          ) : null}
+
+                          {recording && (
+                            <TouchableOpacity
+                              style={styles.recentActionBtn}
+                              onPress={() => fetchCallAnalysis(item.callLogId!)}
+                              activeOpacity={0.7}
+                              data-testid={`button-analysis-${item.id}`}
+                            >
+                              <Ionicons name="analytics" size={16} color={Colors.info} />
+                              <Text style={[styles.recentActionText, { color: Colors.info }]}>
+                                {translations.phone.callAnalysis}
+                              </Text>
+                            </TouchableOpacity>
+                          )}
+                        </>
+                      )}
+                    </View>
+
+                    {recording && recording.summary && (
+                      <View style={styles.recentSummary}>
+                        <Text style={styles.recentSummaryTitle}>{translations.phone.summary}</Text>
+                        <Text style={styles.recentSummaryText} numberOfLines={3}>{recording.summary}</Text>
+                      </View>
+                    )}
+                  </View>
                 )}
-                <Text style={styles.recentMeta}>
-                  {translations.phone[item.direction as 'outbound' | 'inbound']}
-                  {item.duration > 0 ? ` · ${formatDuration(item.duration)}` : ''}
-                </Text>
               </View>
-              <Text style={styles.recentTime}>{formatTime(item.createdAt)}</Text>
-            </TouchableOpacity>
-          )}
+            );
+          }}
         />
       )}
     </View>
@@ -641,6 +1040,7 @@ export default function PhoneScreen() {
             key={tab}
             style={[styles.tab, activeTab === tab && styles.tabActive]}
             onPress={() => setActiveTab(tab)}
+            data-testid={`tab-${tab}`}
           >
             <Ionicons
               name={
@@ -675,7 +1075,7 @@ export default function PhoneScreen() {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>{translations.phone.callAnalysis}</Text>
-              <TouchableOpacity onPress={() => { setAnalysisModal(null); setAnalysisLoading(false); }}>
+              <TouchableOpacity onPress={() => { setAnalysisModal(null); setAnalysisLoading(false); }} data-testid="button-close-analysis">
                 <Ionicons name="close" size={24} color={Colors.text} />
               </TouchableOpacity>
             </View>
@@ -912,6 +1312,40 @@ const styles = StyleSheet.create({
   contactsContainer: {
     flex: 1,
   },
+  contactSectionTabs: {
+    flexDirection: 'row',
+    backgroundColor: Colors.surface,
+    marginHorizontal: Spacing.md,
+    marginTop: Spacing.sm,
+    borderRadius: 10,
+    padding: 3,
+  },
+  contactSectionTab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: Spacing.xs + 2,
+    gap: 4,
+    borderRadius: 8,
+  },
+  contactSectionTabActive: {
+    backgroundColor: Colors.white,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  contactSectionTabText: {
+    fontSize: FontSizes.xs,
+    color: Colors.textSecondary,
+    fontWeight: '500',
+  },
+  contactSectionTabTextActive: {
+    color: Colors.primary,
+    fontWeight: '600',
+  },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -973,6 +1407,12 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     marginTop: 2,
   },
+  contactMeta: {
+    fontSize: FontSizes.xs,
+    color: Colors.textSecondary,
+    marginTop: 1,
+    fontStyle: 'italic',
+  },
   contactCallBtn: {
     padding: Spacing.sm,
   },
@@ -1014,9 +1454,69 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     marginTop: 2,
   },
+  recentRight: {
+    alignItems: 'flex-end',
+    gap: 4,
+  },
   recentTime: {
     fontSize: FontSizes.sm,
     color: Colors.textSecondary,
+  },
+  recentExpanded: {
+    backgroundColor: Colors.surface,
+    paddingHorizontal: Spacing.md + 36 + Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: Colors.border,
+  },
+  recentDetailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
+  recentDetailText: {
+    fontSize: FontSizes.sm,
+    color: Colors.textSecondary,
+  },
+  recentActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginTop: Spacing.sm,
+    paddingTop: Spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: Colors.border,
+  },
+  recentActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    backgroundColor: Colors.white,
+  },
+  recentActionText: {
+    fontSize: FontSizes.xs,
+    fontWeight: '500',
+  },
+  recentSummary: {
+    marginTop: Spacing.sm,
+    paddingTop: Spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: Colors.border,
+  },
+  recentSummaryTitle: {
+    fontSize: FontSizes.xs,
+    fontWeight: '600',
+    color: Colors.text,
+    marginBottom: 2,
+  },
+  recentSummaryText: {
+    fontSize: FontSizes.xs,
+    color: Colors.textSecondary,
+    lineHeight: 16,
   },
   activeCallContainer: {
     flex: 1,

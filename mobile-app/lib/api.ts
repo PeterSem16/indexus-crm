@@ -8,7 +8,7 @@ class ApiClient {
     this.baseUrl = API_BASE_URL;
   }
 
-  private async getToken(): Promise<string | null> {
+  async getToken(): Promise<string | null> {
     try {
       return await SecureStore.getItemAsync(TOKEN_KEY);
     } catch {

@@ -12424,7 +12424,10 @@ export async function registerRoutes(
         return res.status(401).json({ error: "Unauthorized" });
       }
       
-      const hospitals = await storage.getHospitalsByCountry([collaborator.countryCode]);
+      const countryCodes = collaborator.countryCodes && collaborator.countryCodes.length > 0
+        ? collaborator.countryCodes
+        : [collaborator.countryCode].filter(Boolean);
+      const hospitals = await storage.getHospitalsByCountry(countryCodes as string[]);
       res.json(hospitals);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch hospitals" });
@@ -13250,6 +13253,163 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Mobile contacts search error:", error);
       res.status(500).json({ error: "Failed to search contacts" });
+    }
+  });
+
+  app.get("/api/mobile/clinics", async (req, res) => {
+    try {
+      const tokenData = await getMobileCollaboratorFromToken(req);
+      if (!tokenData) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const collaborator = await storage.getCollaborator(tokenData.collaboratorId);
+      if (!collaborator) {
+        return res.status(404).json({ error: "Collaborator not found" });
+      }
+
+      const countryCodes = collaborator.countryCodes && collaborator.countryCodes.length > 0
+        ? collaborator.countryCodes
+        : [collaborator.countryCode].filter(Boolean);
+
+      const allClinics = await storage.getClinicsByCountry(countryCodes as string[]);
+      const activeClinics = allClinics.filter(c => c.isActive);
+
+      res.json(activeClinics.map(c => ({
+        id: c.id,
+        name: c.name,
+        doctorName: c.doctorName,
+        phone: c.phone,
+        email: c.email,
+        address: c.address,
+        city: c.city,
+        countryCode: c.countryCode,
+      })));
+    } catch (error) {
+      console.error("Mobile clinics error:", error);
+      res.status(500).json({ error: "Failed to fetch clinics" });
+    }
+  });
+
+  app.get("/api/mobile/hospitals-contacts", async (req, res) => {
+    try {
+      const tokenData = await getMobileCollaboratorFromToken(req);
+      if (!tokenData) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const collaborator = await storage.getCollaborator(tokenData.collaboratorId);
+      if (!collaborator) {
+        return res.status(404).json({ error: "Collaborator not found" });
+      }
+
+      const countryCodes = collaborator.countryCodes && collaborator.countryCodes.length > 0
+        ? collaborator.countryCodes
+        : [collaborator.countryCode].filter(Boolean);
+
+      const allHospitals = await storage.getHospitalsByCountry(countryCodes as string[]);
+      const activeHospitals = allHospitals.filter(h => h.isActive);
+
+      res.json(activeHospitals.map(h => ({
+        id: h.id,
+        name: h.name,
+        fullName: h.fullName,
+        phone: h.phone,
+        email: h.email,
+        city: h.city,
+        contactPerson: h.contactPerson,
+        countryCode: h.countryCode,
+      })));
+    } catch (error) {
+      console.error("Mobile hospitals contacts error:", error);
+      res.status(500).json({ error: "Failed to fetch hospitals" });
+    }
+  });
+
+  app.get("/api/mobile/call-recordings/by-call-log/:callLogId", async (req, res) => {
+    try {
+      const tokenData = await getMobileCollaboratorFromToken(req);
+      if (!tokenData) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { callLogId } = req.params;
+      const recordings = await db.select().from(callRecordings).where(eq(callRecordings.callLogId, callLogId));
+
+      if (recordings.length === 0) {
+        return res.status(404).json({ error: "No recording found" });
+      }
+
+      const recording = recordings[0];
+      if (recording.userId !== tokenData.collaboratorId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      res.json({
+        id: recording.id,
+        callLogId: recording.callLogId,
+        durationSeconds: recording.durationSeconds,
+        phoneNumber: recording.phoneNumber,
+        customerName: recording.customerName,
+        agentName: recording.agentName,
+        analysisStatus: recording.analysisStatus,
+        sentiment: recording.sentiment,
+        qualityScore: recording.qualityScore,
+        summary: recording.summary,
+        createdAt: recording.createdAt,
+      });
+    } catch (error) {
+      console.error("Mobile recording lookup error:", error);
+      res.status(500).json({ error: "Failed to fetch recording" });
+    }
+  });
+
+  app.get("/api/mobile/call-recordings/:id/stream", async (req, res) => {
+    try {
+      const tokenData = await getMobileCollaboratorFromToken(req);
+      if (!tokenData) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const [recording] = await db.select().from(callRecordings).where(eq(callRecordings.id, req.params.id));
+      if (!recording) return res.status(404).json({ error: "Recording not found" });
+
+      if (recording.userId !== tokenData.collaboratorId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      const filePath = recording.filePath;
+      if (!fs.existsSync(filePath)) {
+        return res.status(404).json({ error: "Recording file not found on disk" });
+      }
+
+      const stat = fs.statSync(filePath);
+      const fileSize = stat.size;
+      const range = req.headers.range;
+
+      if (range) {
+        const parts = range.replace(/bytes=/, "").split("-");
+        const start = parseInt(parts[0], 10);
+        const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+        const chunkSize = end - start + 1;
+        const file = fs.createReadStream(filePath, { start, end });
+        res.writeHead(206, {
+          "Content-Range": `bytes ${start}-${end}/${fileSize}`,
+          "Accept-Ranges": "bytes",
+          "Content-Length": chunkSize,
+          "Content-Type": recording.mimeType || "audio/webm",
+        });
+        file.pipe(res);
+      } else {
+        res.writeHead(200, {
+          "Content-Length": fileSize,
+          "Content-Type": recording.mimeType || "audio/webm",
+        });
+        fs.createReadStream(filePath).pipe(res);
+      }
+    } catch (error) {
+      console.error("Mobile recording stream error:", error);
+      res.status(500).json({ error: "Failed to stream recording" });
     }
   });
 

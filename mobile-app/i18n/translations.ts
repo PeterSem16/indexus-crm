@@ -110,6 +110,17 @@ type TranslationKeys = {
     actionItems: string;
     alerts: string;
     transcription: string;
+    hospitals: string;
+    clinics: string;
+    customers: string;
+    noHospitals: string;
+    noClinics: string;
+    playRecording: string;
+    noRecording: string;
+    callDetails: string;
+    reconnecting: string;
+    doctor: string;
+    contactPerson: string;
   };
   visits: {
     title: string;
@@ -413,6 +424,17 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       actionItems: 'Ulohy',
       alerts: 'Upozornenia',
       transcription: 'Prepis hovoru',
+      hospitals: 'Nemocnice',
+      clinics: 'Kliniky',
+      customers: 'Zakaznici',
+      noHospitals: 'Ziadne nemocnice',
+      noClinics: 'Ziadne kliniky',
+      playRecording: 'Prehrat nahravku',
+      noRecording: 'Ziadna nahravka',
+      callDetails: 'Detail hovoru',
+      reconnecting: 'Opätovné pripájanie...',
+      doctor: 'Lekar',
+      contactPerson: 'Kontaktna osoba',
     },
     visits: {
       title: 'Navstevy',
@@ -714,6 +736,17 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       actionItems: 'Ukoly',
       alerts: 'Upozorneni',
       transcription: 'Prepis hovoru',
+      hospitals: 'Nemocnice',
+      clinics: 'Kliniky',
+      customers: 'Zakaznici',
+      noHospitals: 'Zadne nemocnice',
+      noClinics: 'Zadne kliniky',
+      playRecording: 'Prehrat nahravku',
+      noRecording: 'Zadna nahravka',
+      callDetails: 'Detail hovoru',
+      reconnecting: 'Opatovne pripojovani...',
+      doctor: 'Lekar',
+      contactPerson: 'Kontaktni osoba',
     },
     visits: {
       title: 'Navstevy',
@@ -1015,6 +1048,17 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       actionItems: 'Feladatok',
       alerts: 'Figyelmeztetesek',
       transcription: 'Hivas atiras',
+      hospitals: 'Korhazak',
+      clinics: 'Klinikak',
+      customers: 'Ugyfelek',
+      noHospitals: 'Nincsenek korhazak',
+      noClinics: 'Nincsenek klinikak',
+      playRecording: 'Felvetel lejatszasa',
+      noRecording: 'Nincs felvetel',
+      callDetails: 'Hivas reszletei',
+      reconnecting: 'Ujracsatlakozas...',
+      doctor: 'Orvos',
+      contactPerson: 'Kapcsolattarto',
     },
     visits: {
       title: 'Latogatasok',
@@ -1316,6 +1360,17 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       actionItems: 'Aufgaben',
       alerts: 'Warnungen',
       transcription: 'Transkription',
+      hospitals: 'Krankenhauser',
+      clinics: 'Kliniken',
+      customers: 'Kunden',
+      noHospitals: 'Keine Krankenhauser',
+      noClinics: 'Keine Kliniken',
+      playRecording: 'Aufnahme abspielen',
+      noRecording: 'Keine Aufnahme',
+      callDetails: 'Anrufdetails',
+      reconnecting: 'Verbindung wird wiederhergestellt...',
+      doctor: 'Arzt',
+      contactPerson: 'Kontaktperson',
     },
     visits: {
       title: 'Besuche',
@@ -1617,6 +1672,17 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       actionItems: 'Azioni',
       alerts: 'Avvisi',
       transcription: 'Trascrizione',
+      hospitals: 'Ospedali',
+      clinics: 'Cliniche',
+      customers: 'Clienti',
+      noHospitals: 'Nessun ospedale',
+      noClinics: 'Nessuna clinica',
+      playRecording: 'Riproduci registrazione',
+      noRecording: 'Nessuna registrazione',
+      callDetails: 'Dettagli chiamata',
+      reconnecting: 'Riconnessione...',
+      doctor: 'Medico',
+      contactPerson: 'Contatto',
     },
     visits: {
       title: 'Visite',
@@ -1918,6 +1984,17 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       actionItems: 'Sarcini',
       alerts: 'Alerte',
       transcription: 'Transcriere',
+      hospitals: 'Spitale',
+      clinics: 'Clinici',
+      customers: 'Clienti',
+      noHospitals: 'Niciun spital',
+      noClinics: 'Nicio clinica',
+      playRecording: 'Reda inregistrarea',
+      noRecording: 'Nicio inregistrare',
+      callDetails: 'Detalii apel',
+      reconnecting: 'Reconectare...',
+      doctor: 'Medic',
+      contactPerson: 'Persoana de contact',
     },
     visits: {
       title: 'Vizite',
@@ -2219,6 +2296,17 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       actionItems: 'Action Items',
       alerts: 'Alerts',
       transcription: 'Transcription',
+      hospitals: 'Hospitals',
+      clinics: 'Clinics',
+      customers: 'Customers',
+      noHospitals: 'No hospitals',
+      noClinics: 'No clinics',
+      playRecording: 'Play recording',
+      noRecording: 'No recording',
+      callDetails: 'Call details',
+      reconnecting: 'Reconnecting...',
+      doctor: 'Doctor',
+      contactPerson: 'Contact person',
     },
     visits: {
       title: 'Visits',
