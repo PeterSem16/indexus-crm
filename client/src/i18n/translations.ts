@@ -1053,6 +1053,31 @@ export interface Translations {
       callRecordingDesc: string;
       assignedExtension: string;
     };
+    connectDescription: string;
+    connectTab: {
+      totalCalls: string;
+      totalDuration: string;
+      totalVisits: string;
+      completedVisits: string;
+      callsTab: string;
+      visitsTab: string;
+      noCalls: string;
+      noVisits: string;
+      noData: string;
+      play: string;
+      pause: string;
+      statusCompleted: string;
+      statusAnswered: string;
+      statusInitiated: string;
+      statusRinging: string;
+      statusInProgress: string;
+      statusScheduled: string;
+      statusFailed: string;
+      statusNoAnswer: string;
+      statusBusy: string;
+      statusCancelled: string;
+      statusNotRealized: string;
+    };
     expiredAgreement: string;
   };
   campaigns: {
@@ -5532,6 +5557,31 @@ export const translations: Record<Locale, Translations> = {
         callRecordingDesc: 'Record all calls made via the mobile app',
         assignedExtension: 'Assigned extension',
       },
+      connectDescription: 'Call history, visits and activities from INDEXUS Connect',
+      connectTab: {
+        totalCalls: 'Calls',
+        totalDuration: 'Call Time',
+        totalVisits: 'Visits',
+        completedVisits: 'Completed',
+        callsTab: 'Calls',
+        visitsTab: 'Visits',
+        noCalls: 'No calls recorded yet',
+        noVisits: 'No visits recorded yet',
+        noData: 'No INDEXUS Connect activity found',
+        play: 'Play',
+        pause: 'Pause',
+        statusCompleted: 'Completed',
+        statusAnswered: 'Answered',
+        statusInitiated: 'Initiated',
+        statusRinging: 'Ringing',
+        statusInProgress: 'In Progress',
+        statusScheduled: 'Scheduled',
+        statusFailed: 'Failed',
+        statusNoAnswer: 'No Answer',
+        statusBusy: 'Busy',
+        statusCancelled: 'Cancelled',
+        statusNotRealized: 'Not Realized',
+      },
       expiredAgreement: 'Expired Agreement',
     },
     campaigns: {
@@ -9985,6 +10035,31 @@ export const translations: Record<Locale, Translations> = {
         callRecordingDesc: 'Nahrávať všetky hovory uskutočnené cez mobilnú aplikáciu',
         assignedExtension: 'Priradená klapka',
       },
+      connectDescription: 'História hovorov, návštev a aktivít z INDEXUS Connect',
+      connectTab: {
+        totalCalls: 'Hovory',
+        totalDuration: 'Čas hovorov',
+        totalVisits: 'Návštevy',
+        completedVisits: 'Dokončené',
+        callsTab: 'Hovory',
+        visitsTab: 'Návštevy',
+        noCalls: 'Zatiaľ žiadne hovory',
+        noVisits: 'Zatiaľ žiadne návštevy',
+        noData: 'Žiadna aktivita z INDEXUS Connect',
+        play: 'Prehrať',
+        pause: 'Pauza',
+        statusCompleted: 'Dokončený',
+        statusAnswered: 'Prijatý',
+        statusInitiated: 'Začatý',
+        statusRinging: 'Zvoní',
+        statusInProgress: 'Prebieha',
+        statusScheduled: 'Naplánovaný',
+        statusFailed: 'Neúspešný',
+        statusNoAnswer: 'Bez odpovede',
+        statusBusy: 'Obsadené',
+        statusCancelled: 'Zrušený',
+        statusNotRealized: 'Nerealizovaný',
+      },
       expiredAgreement: 'Vypršaná zmluva',
     },
     campaigns: {
@@ -14377,6 +14452,31 @@ export const translations: Record<Locale, Translations> = {
         callRecordingDesc: 'Nahrávat všechny hovory uskutečněné přes mobilní aplikaci',
         assignedExtension: 'Přiřazená klapka',
       },
+      connectDescription: 'Historie hovorů, návštěv a aktivit z INDEXUS Connect',
+      connectTab: {
+        totalCalls: 'Hovory',
+        totalDuration: 'Čas hovorů',
+        totalVisits: 'Návštěvy',
+        completedVisits: 'Dokončené',
+        callsTab: 'Hovory',
+        visitsTab: 'Návštěvy',
+        noCalls: 'Zatím žádné hovory',
+        noVisits: 'Zatím žádné návštěvy',
+        noData: 'Žádná aktivita z INDEXUS Connect',
+        play: 'Přehrát',
+        pause: 'Pauza',
+        statusCompleted: 'Dokončený',
+        statusAnswered: 'Přijatý',
+        statusInitiated: 'Zahájený',
+        statusRinging: 'Zvoní',
+        statusInProgress: 'Probíhá',
+        statusScheduled: 'Naplánovaný',
+        statusFailed: 'Neúspěšný',
+        statusNoAnswer: 'Bez odpovědi',
+        statusBusy: 'Obsazeno',
+        statusCancelled: 'Zrušený',
+        statusNotRealized: 'Nerealizovaný',
+      },
       expiredAgreement: 'Vypršená smlouva',
     },
     campaigns: {
@@ -18732,6 +18832,31 @@ export const translations: Record<Locale, Translations> = {
         callRecordingDesc: 'Az összes mobilalkalmazáson keresztüli hívás rögzítése',
         assignedExtension: 'Hozzárendelt mellék',
       },
+      connectDescription: 'Hívástörténet, látogatások és tevékenységek az INDEXUS Connectből',
+      connectTab: {
+        totalCalls: 'Hívások',
+        totalDuration: 'Hívásidő',
+        totalVisits: 'Látogatások',
+        completedVisits: 'Befejezett',
+        callsTab: 'Hívások',
+        visitsTab: 'Látogatások',
+        noCalls: 'Még nincsenek rögzített hívások',
+        noVisits: 'Még nincsenek rögzített látogatások',
+        noData: 'Nincs INDEXUS Connect tevékenység',
+        play: 'Lejátszás',
+        pause: 'Szünet',
+        statusCompleted: 'Befejezett',
+        statusAnswered: 'Fogadott',
+        statusInitiated: 'Kezdeményezett',
+        statusRinging: 'Csörög',
+        statusInProgress: 'Folyamatban',
+        statusScheduled: 'Ütemezett',
+        statusFailed: 'Sikertelen',
+        statusNoAnswer: 'Nem válaszolt',
+        statusBusy: 'Foglalt',
+        statusCancelled: 'Törölve',
+        statusNotRealized: 'Nem valósult meg',
+      },
       expiredAgreement: 'Lejárt szerződés',
     },
     campaigns: {
@@ -23085,6 +23210,31 @@ export const translations: Record<Locale, Translations> = {
         callRecording: 'Înregistrarea apelurilor',
         callRecordingDesc: 'Înregistrați toate apelurile efectuate prin aplicația mobilă',
         assignedExtension: 'Extensie atribuită',
+      },
+      connectDescription: 'Istoricul apelurilor, vizitelor și activităților din INDEXUS Connect',
+      connectTab: {
+        totalCalls: 'Apeluri',
+        totalDuration: 'Timp apeluri',
+        totalVisits: 'Vizite',
+        completedVisits: 'Finalizate',
+        callsTab: 'Apeluri',
+        visitsTab: 'Vizite',
+        noCalls: 'Nu există apeluri înregistrate',
+        noVisits: 'Nu există vizite înregistrate',
+        noData: 'Nu există activitate INDEXUS Connect',
+        play: 'Redare',
+        pause: 'Pauză',
+        statusCompleted: 'Finalizat',
+        statusAnswered: 'Răspuns',
+        statusInitiated: 'Inițiat',
+        statusRinging: 'Sună',
+        statusInProgress: 'În curs',
+        statusScheduled: 'Programat',
+        statusFailed: 'Eșuat',
+        statusNoAnswer: 'Fără răspuns',
+        statusBusy: 'Ocupat',
+        statusCancelled: 'Anulat',
+        statusNotRealized: 'Nerealizat',
       },
       expiredAgreement: 'Contract expirat',
     },
@@ -27441,6 +27591,31 @@ export const translations: Record<Locale, Translations> = {
         callRecordingDesc: "Registra tutte le chiamate effettuate tramite l'app mobile",
         assignedExtension: 'Interno assegnato',
       },
+      connectDescription: "Cronologia chiamate, visite e attività da INDEXUS Connect",
+      connectTab: {
+        totalCalls: 'Chiamate',
+        totalDuration: 'Tempo chiamate',
+        totalVisits: 'Visite',
+        completedVisits: 'Completate',
+        callsTab: 'Chiamate',
+        visitsTab: 'Visite',
+        noCalls: 'Nessuna chiamata registrata',
+        noVisits: 'Nessuna visita registrata',
+        noData: 'Nessuna attività INDEXUS Connect',
+        play: 'Riproduci',
+        pause: 'Pausa',
+        statusCompleted: 'Completato',
+        statusAnswered: 'Risposto',
+        statusInitiated: 'Avviato',
+        statusRinging: 'Squilla',
+        statusInProgress: 'In corso',
+        statusScheduled: 'Programmato',
+        statusFailed: 'Fallito',
+        statusNoAnswer: 'Nessuna risposta',
+        statusBusy: 'Occupato',
+        statusCancelled: 'Annullato',
+        statusNotRealized: 'Non realizzato',
+      },
       expiredAgreement: 'Contratto scaduto',
     },
     campaigns: {
@@ -31795,6 +31970,31 @@ export const translations: Record<Locale, Translations> = {
         callRecording: 'Anrufaufzeichnung',
         callRecordingDesc: 'Alle über die mobile App getätigten Anrufe aufzeichnen',
         assignedExtension: 'Zugewiesene Nebenstelle',
+      },
+      connectDescription: 'Anrufverlauf, Besuche und Aktivitäten aus INDEXUS Connect',
+      connectTab: {
+        totalCalls: 'Anrufe',
+        totalDuration: 'Anrufzeit',
+        totalVisits: 'Besuche',
+        completedVisits: 'Abgeschlossen',
+        callsTab: 'Anrufe',
+        visitsTab: 'Besuche',
+        noCalls: 'Noch keine Anrufe aufgezeichnet',
+        noVisits: 'Noch keine Besuche aufgezeichnet',
+        noData: 'Keine INDEXUS Connect Aktivität gefunden',
+        play: 'Abspielen',
+        pause: 'Pause',
+        statusCompleted: 'Abgeschlossen',
+        statusAnswered: 'Beantwortet',
+        statusInitiated: 'Initiiert',
+        statusRinging: 'Klingelt',
+        statusInProgress: 'In Bearbeitung',
+        statusScheduled: 'Geplant',
+        statusFailed: 'Fehlgeschlagen',
+        statusNoAnswer: 'Keine Antwort',
+        statusBusy: 'Besetzt',
+        statusCancelled: 'Abgebrochen',
+        statusNotRealized: 'Nicht realisiert',
       },
       expiredAgreement: 'Abgelaufener Vertrag',
     },

@@ -27,7 +27,7 @@ import {
   insertContractInstanceProductSchema, insertContractParticipantSchema, insertContractSignatureRequestSchema,
   insertGsmSenderConfigSchema, insertMailchimpSettingsSchema,
   mailchimpSettings, campaignMailchimpSync, hospitals, clinics,
-  insertVisitEventSchema,
+  insertVisitEventSchema, visitEvents,
   campaignDispositions, insertCampaignDispositionSchema,
   DEFAULT_PHONE_DISPOSITIONS, DEFAULT_EMAIL_DISPOSITIONS, DEFAULT_SMS_DISPOSITIONS, DISPOSITION_NAME_TRANSLATIONS,
   callLogs, campaignContacts, campaignContactHistory, campaignContactSessions, campaigns, customers, users, entityCampaignTimeline,
@@ -19456,6 +19456,112 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Failed to unassign mobile SIP extension:", error);
       res.status(500).json({ error: "Failed to unassign extension" });
+    }
+  });
+
+  app.get("/api/collaborators/:id/connect-activity", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user;
+      if (!user) return res.status(401).json({ error: "Not authenticated" });
+      const isPrivileged = ["admin", "manager"].includes(user.role);
+      if (!isPrivileged) {
+        return res.status(403).json({ error: "Only admins and managers can view collaborator activity" });
+      }
+      const collaboratorId = req.params.id;
+      const limit = parseInt(req.query.limit as string) || 50;
+      const offset = parseInt(req.query.offset as string) || 0;
+      const type = req.query.type as string;
+
+      const collaborator = await storage.getCollaborator(collaboratorId);
+      if (!collaborator) return res.status(404).json({ error: "Collaborator not found" });
+
+      const results: any = { collaboratorId, collaboratorName: `${collaborator.firstName} ${collaborator.lastName}` };
+
+      if (!type || type === "calls") {
+        const calls = await db.select().from(callLogs)
+          .where(eq(callLogs.userId, collaboratorId))
+          .orderBy(desc(callLogs.startedAt))
+          .limit(limit)
+          .offset(offset);
+
+        const callLogIds = calls.map(c => c.id).filter(Boolean);
+        let recordings: any[] = [];
+        if (callLogIds.length > 0) {
+          recordings = await db.select().from(callRecordings)
+            .where(inArray(callRecordings.callLogId, callLogIds));
+        }
+
+        const recordingMap = new Map<string, any[]>();
+        for (const r of recordings) {
+          const existing = recordingMap.get(r.callLogId) || [];
+          existing.push(r);
+          recordingMap.set(r.callLogId, existing);
+        }
+
+        results.calls = calls.map(c => ({
+          ...c,
+          recordings: recordingMap.get(c.id) || [],
+        }));
+
+        if (!type) {
+          const [countResult] = await db.select({ count: count() }).from(callLogs)
+            .where(eq(callLogs.userId, collaboratorId));
+          results.totalCalls = countResult?.count || 0;
+        }
+      }
+
+      if (!type || type === "visits") {
+        const visits = await db.select().from(visitEvents)
+          .where(eq(visitEvents.collaboratorId, collaboratorId))
+          .orderBy(desc(visitEvents.startTime))
+          .limit(limit)
+          .offset(offset);
+
+        const hospitalIds = visits.map(v => v.hospitalId).filter(Boolean) as string[];
+        let hospitalMap = new Map<string, string>();
+        if (hospitalIds.length > 0) {
+          const hospitalRecords = await db.select({ id: hospitals.id, name: hospitals.name }).from(hospitals)
+            .where(inArray(hospitals.id, hospitalIds));
+          for (const h of hospitalRecords) {
+            hospitalMap.set(h.id, h.name);
+          }
+        }
+
+        results.visits = visits.map(v => ({
+          ...v,
+          hospitalName: v.hospitalId ? hospitalMap.get(v.hospitalId) || null : null,
+        }));
+
+        if (!type) {
+          const [countResult] = await db.select({ count: count() }).from(visitEvents)
+            .where(eq(visitEvents.collaboratorId, collaboratorId));
+          results.totalVisits = countResult?.count || 0;
+        }
+      }
+
+      if (!type || type === "stats") {
+        const [callStats] = await db.select({
+          totalCalls: count(),
+          totalDuration: sql<number>`COALESCE(SUM(${callLogs.durationSeconds}), 0)`,
+        }).from(callLogs).where(eq(callLogs.userId, collaboratorId));
+
+        const [visitStats] = await db.select({
+          totalVisits: count(),
+          completedVisits: sql<number>`COUNT(*) FILTER (WHERE ${visitEvents.status} = 'completed')`,
+        }).from(visitEvents).where(eq(visitEvents.collaboratorId, collaboratorId));
+
+        results.stats = {
+          totalCalls: callStats?.totalCalls || 0,
+          totalCallDuration: callStats?.totalDuration || 0,
+          totalVisits: visitStats?.totalVisits || 0,
+          completedVisits: visitStats?.completedVisits || 0,
+        };
+      }
+
+      res.json(results);
+    } catch (error) {
+      console.error("Failed to fetch collaborator connect activity:", error);
+      res.status(500).json({ error: "Failed to fetch activity" });
     }
   });
 

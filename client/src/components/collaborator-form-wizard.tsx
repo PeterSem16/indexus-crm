@@ -19,9 +19,9 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { COUNTRIES } from "@shared/schema";
+import { COUNTRIES, VISIT_SUBJECTS, VISIT_PLACE_OPTIONS } from "@shared/schema";
 import type { Collaborator, Hospital, SafeUser, HealthInsurance, Role } from "@shared/schema";
-import { ChevronLeft, ChevronRight, Check, User, Phone, CreditCard, Building2, Smartphone, MapPin, FileText, History, Plus, Pencil, Trash2, Clock, Activity, Upload, Download, Eye, ChevronDown, ChevronUp, Copy, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Check, User, Phone, CreditCard, Building2, Smartphone, MapPin, FileText, History, Plus, Pencil, Trash2, Clock, Activity, Upload, Download, Eye, ChevronDown, ChevronUp, Copy, X, Wifi, Play, Pause, PhoneCall, PhoneIncoming, PhoneOutgoing, PhoneMissed, Calendar, BarChart3 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -144,6 +144,7 @@ const WIZARD_STEPS = [
   { id: "banking", icon: CreditCard },
   { id: "agreements", icon: FileText },
   { id: "history", icon: History },
+  { id: "connect", icon: Wifi },
   { id: "mobile", icon: Smartphone },
 ];
 
@@ -1816,6 +1817,289 @@ interface ActivityLog {
   createdAt: Date;
 }
 
+function ConnectActivityTab({ collaboratorId, locale, t }: { collaboratorId: string; locale: string; t: any }) {
+  const [activeTab, setActiveTab] = useState<"calls" | "visits" | "stats">("calls");
+  const [playingId, setPlayingId] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const { data: activity, isLoading } = useQuery<any>({
+    queryKey: ["/api/collaborators", collaboratorId, "connect-activity"],
+    queryFn: async () => {
+      const res = await fetch(`/api/collaborators/${collaboratorId}/connect-activity?limit=100`, {
+        credentials: "include"
+      });
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: !!collaboratorId,
+  });
+
+  const formatDuration = (seconds: number) => {
+    if (!seconds) return "0:00";
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${s.toString().padStart(2, "0")}`;
+  };
+
+  const formatDate = (dateStr: string | null) => {
+    if (!dateStr) return "-";
+    try {
+      const d = new Date(dateStr);
+      return d.toLocaleDateString(locale === "sk" ? "sk-SK" : locale === "cs" ? "cs-CZ" : locale === "hu" ? "hu-HU" : locale === "ro" ? "ro-RO" : locale === "it" ? "it-IT" : locale === "de" ? "de-DE" : "en-US", {
+        day: "2-digit", month: "2-digit", year: "numeric",
+        hour: "2-digit", minute: "2-digit"
+      });
+    } catch { return dateStr; }
+  };
+
+  const getVisitSubject = (code: string | null) => {
+    if (!code) return "-";
+    const subject = VISIT_SUBJECTS.find(s => s.code === code);
+    if (!subject) return code;
+    return (subject as any)[locale] || subject.en;
+  };
+
+  const getVisitPlace = (code: string | null) => {
+    if (!code) return "-";
+    const place = VISIT_PLACE_OPTIONS.find(p => p.code === code);
+    if (!place) return code;
+    return (place as any)[locale] || place.en;
+  };
+
+  const getStatusBadge = (status: string) => {
+    const variants: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
+      completed: "default", answered: "default",
+      initiated: "secondary", ringing: "secondary", in_progress: "secondary", scheduled: "secondary",
+      failed: "destructive", no_answer: "destructive", busy: "destructive", cancelled: "destructive",
+      not_realized: "destructive",
+    };
+    const labels: Record<string, string> = {
+      completed: t.collaborators.connectTab?.statusCompleted || "Completed",
+      answered: t.collaborators.connectTab?.statusAnswered || "Answered",
+      initiated: t.collaborators.connectTab?.statusInitiated || "Initiated",
+      ringing: t.collaborators.connectTab?.statusRinging || "Ringing",
+      in_progress: t.collaborators.connectTab?.statusInProgress || "In Progress",
+      scheduled: t.collaborators.connectTab?.statusScheduled || "Scheduled",
+      failed: t.collaborators.connectTab?.statusFailed || "Failed",
+      no_answer: t.collaborators.connectTab?.statusNoAnswer || "No Answer",
+      busy: t.collaborators.connectTab?.statusBusy || "Busy",
+      cancelled: t.collaborators.connectTab?.statusCancelled || "Cancelled",
+      not_realized: t.collaborators.connectTab?.statusNotRealized || "Not Realized",
+    };
+    return (
+      <Badge variant={variants[status] || "outline"} data-testid={`badge-call-status-${status}`}>
+        {labels[status] || status}
+      </Badge>
+    );
+  };
+
+  const playRecording = (recordingId: string) => {
+    if (playingId === recordingId) {
+      audioRef.current?.pause();
+      setPlayingId(null);
+      return;
+    }
+    if (audioRef.current) {
+      audioRef.current.pause();
+    }
+    const audio = new Audio(`/api/call-recordings/${recordingId}/stream`);
+    audio.onended = () => setPlayingId(null);
+    audio.play();
+    audioRef.current = audio;
+    setPlayingId(recordingId);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
+  }, []);
+
+  const formatTotalDuration = (seconds: number) => {
+    if (!seconds) return "0h 0m";
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    return h > 0 ? `${h}h ${m}m` : `${m}m`;
+  };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-20 w-full" />
+        <Skeleton className="h-12 w-full" />
+        <Skeleton className="h-12 w-full" />
+        <Skeleton className="h-12 w-full" />
+      </div>
+    );
+  }
+
+  if (!activity) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 text-center">
+        <Wifi className="h-12 w-12 text-muted-foreground mb-4" />
+        <p className="text-muted-foreground">{t.collaborators.connectTab?.noData || "No INDEXUS Connect activity found"}</p>
+      </div>
+    );
+  }
+
+  const stats = activity.stats || {};
+  const calls = activity.calls || [];
+  const visits = activity.visits || [];
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="rounded-lg border p-3 text-center" data-testid="stat-total-calls">
+          <PhoneCall className="h-5 w-5 mx-auto mb-1 text-blue-500" />
+          <div className="text-2xl font-bold">{stats.totalCalls || 0}</div>
+          <div className="text-xs text-muted-foreground">{t.collaborators.connectTab?.totalCalls || "Calls"}</div>
+        </div>
+        <div className="rounded-lg border p-3 text-center" data-testid="stat-call-duration">
+          <Clock className="h-5 w-5 mx-auto mb-1 text-green-500" />
+          <div className="text-2xl font-bold">{formatTotalDuration(stats.totalCallDuration || 0)}</div>
+          <div className="text-xs text-muted-foreground">{t.collaborators.connectTab?.totalDuration || "Call Time"}</div>
+        </div>
+        <div className="rounded-lg border p-3 text-center" data-testid="stat-total-visits">
+          <MapPin className="h-5 w-5 mx-auto mb-1 text-orange-500" />
+          <div className="text-2xl font-bold">{stats.totalVisits || 0}</div>
+          <div className="text-xs text-muted-foreground">{t.collaborators.connectTab?.totalVisits || "Visits"}</div>
+        </div>
+        <div className="rounded-lg border p-3 text-center" data-testid="stat-completed-visits">
+          <Check className="h-5 w-5 mx-auto mb-1 text-emerald-500" />
+          <div className="text-2xl font-bold">{stats.completedVisits || 0}</div>
+          <div className="text-xs text-muted-foreground">{t.collaborators.connectTab?.completedVisits || "Completed"}</div>
+        </div>
+      </div>
+
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
+        <TabsList className="w-full">
+          <TabsTrigger value="calls" className="flex-1" data-testid="tab-connect-calls">
+            <Phone className="h-4 w-4 mr-1" />
+            {t.collaborators.connectTab?.callsTab || "Calls"} ({calls.length})
+          </TabsTrigger>
+          <TabsTrigger value="visits" className="flex-1" data-testid="tab-connect-visits">
+            <MapPin className="h-4 w-4 mr-1" />
+            {t.collaborators.connectTab?.visitsTab || "Visits"} ({visits.length})
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="calls" className="mt-3">
+          {calls.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <Phone className="h-8 w-8 mx-auto mb-2 opacity-50" />
+              <p>{t.collaborators.connectTab?.noCalls || "No calls recorded yet"}</p>
+            </div>
+          ) : (
+            <div className="space-y-2 max-h-[500px] overflow-y-auto">
+              {calls.map((call: any) => (
+                <div key={call.id} className="rounded-lg border p-3 space-y-2" data-testid={`call-log-${call.id}`}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      {call.direction === "inbound" ? (
+                        <PhoneIncoming className="h-4 w-4 text-blue-500" />
+                      ) : (
+                        <PhoneOutgoing className="h-4 w-4 text-green-500" />
+                      )}
+                      <span className="font-medium" data-testid={`call-phone-${call.id}`}>{call.phoneNumber}</span>
+                      {getStatusBadge(call.status)}
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Clock className="h-3 w-3" />
+                      <span>{formatDuration(call.durationSeconds || 0)}</span>
+                    </div>
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {formatDate(call.startedAt)}
+                    {call.callerIdName && <span className="ml-2">({call.callerIdName})</span>}
+                  </div>
+                  {call.notes && (
+                    <div className="text-xs text-muted-foreground italic">{call.notes}</div>
+                  )}
+                  {call.recordings && call.recordings.length > 0 && (
+                    <div className="flex flex-wrap gap-1 pt-1">
+                      {call.recordings.map((rec: any) => (
+                        <Button
+                          key={rec.id}
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs gap-1"
+                          onClick={() => playRecording(rec.id)}
+                          data-testid={`btn-play-recording-${rec.id}`}
+                        >
+                          {playingId === rec.id ? (
+                            <Pause className="h-3 w-3" />
+                          ) : (
+                            <Play className="h-3 w-3" />
+                          )}
+                          {playingId === rec.id
+                            ? (t.collaborators.connectTab?.pause || "Pause")
+                            : (t.collaborators.connectTab?.play || "Play")}
+                          {rec.sentiment && (
+                            <Badge variant="outline" className="ml-1 text-[10px] h-4">
+                              {rec.sentiment}
+                            </Badge>
+                          )}
+                        </Button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="visits" className="mt-3">
+          {visits.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <MapPin className="h-8 w-8 mx-auto mb-2 opacity-50" />
+              <p>{t.collaborators.connectTab?.noVisits || "No visits recorded yet"}</p>
+            </div>
+          ) : (
+            <div className="space-y-2 max-h-[500px] overflow-y-auto">
+              {visits.map((visit: any) => (
+                <div key={visit.id} className="rounded-lg border p-3 space-y-1" data-testid={`visit-log-${visit.id}`}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4 text-orange-500" />
+                      <span className="font-medium text-sm">{getVisitSubject(visit.subject || visit.visitType)}</span>
+                      {getStatusBadge(visit.status || "scheduled")}
+                    </div>
+                  </div>
+                  <div className="text-xs text-muted-foreground flex flex-wrap gap-x-4 gap-y-1">
+                    <span>{formatDate(visit.startTime)}</span>
+                    {visit.hospitalName && (
+                      <span className="flex items-center gap-1">
+                        <Building2 className="h-3 w-3" />
+                        {visit.hospitalName}
+                      </span>
+                    )}
+                    {visit.place && (
+                      <span className="flex items-center gap-1">
+                        <MapPin className="h-3 w-3" />
+                        {getVisitPlace(visit.place)}
+                      </span>
+                    )}
+                  </div>
+                  {visit.locationAddress && (
+                    <div className="text-xs text-muted-foreground">{visit.locationAddress}</div>
+                  )}
+                  {visit.remark && (
+                    <div className="text-xs text-muted-foreground italic mt-1">{visit.remark}</div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
 function HistoryTabContent({ collaboratorId, t }: { collaboratorId: string; t: any }) {
   const { data: activityLogs = [], isLoading } = useQuery<ActivityLog[]>({
     queryKey: ["/api/activity-logs", "collaborator", collaboratorId],
@@ -2020,7 +2304,7 @@ function HistoryTabContent({ collaboratorId, t }: { collaboratorId: string; t: a
 }
 
 export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: CollaboratorFormWizardProps) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { toast } = useToast();
   const { isHidden, isReadonly } = useModuleFieldPermissions("collaborators");
   
@@ -2028,7 +2312,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
   
   const wizardSteps = isEditMode 
     ? WIZARD_STEPS 
-    : WIZARD_STEPS.filter(step => step.id !== "history");
+    : WIZARD_STEPS.filter(step => step.id !== "history" && step.id !== "connect");
   
   const [currentStep, setCurrentStep] = useState(0);
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
@@ -2381,6 +2665,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
       companyAddress: t.collaborators.tabs.companyAndAddresses,
       agreements: t.collaborators.tabs.agreements,
       history: t.collaborators.tabs.history,
+      connect: t.common.indexusConnect,
       mobile: steps.mobile,
     };
     return stepTitles[stepId] || stepId;
@@ -2395,6 +2680,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
       companyAddress: t.collaborators.companyAddressesDescription,
       agreements: t.collaborators.agreementsDescription,
       history: t.collaborators.historyDescription,
+      connect: t.collaborators.connectDescription || "Call history, visits and activities from INDEXUS Connect",
       mobile: steps.mobileDesc,
     };
     return stepDescs[stepId] || "";
@@ -3002,6 +3288,16 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
           />
         );
       
+      case "connect":
+        return initialData ? (
+          <ConnectActivityTab collaboratorId={initialData.id} locale={locale} t={t} />
+        ) : (
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <Wifi className="h-12 w-12 text-muted-foreground mb-4" />
+            <p className="text-muted-foreground">{t.wizard.completePreviousSteps}</p>
+          </div>
+        );
+
       case "history":
         return initialData ? (
           <HistoryTabContent collaboratorId={initialData.id} t={t} />
