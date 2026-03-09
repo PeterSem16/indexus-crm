@@ -1029,7 +1029,8 @@ export default function PhoneScreen() {
 
   const getContactNameForPhone = useCallback((phone: string) => {
     const personal = personalContacts.find(c => c.phone === phone || phone.includes(c.phone) || c.phone.includes(phone));
-    return personal?.name || null;
+    if (!personal) return null;
+    return `${personal.name}${personal.lastName ? ' ' + personal.lastName : ''}`.trim();
   }, [personalContacts]);
 
   const handleSaveContact = async () => {
@@ -1414,7 +1415,7 @@ export default function PhoneScreen() {
         onRequestClose={() => setSaveContactModal(null)}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { maxHeight: 520 }]}>
+          <View style={[styles.modalContent, { maxHeight: '75%' }]}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>{translations.phone.saveContact || "Save Contact"}</Text>
               <TouchableOpacity onPress={() => setSaveContactModal(null)} data-testid="button-close-save-contact">
@@ -1422,27 +1423,37 @@ export default function PhoneScreen() {
               </TouchableOpacity>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false} style={{ marginBottom: 12 }}>
-              <Text style={styles.saveContactLabel}>{translations.phone.firstName || "First name"} *</Text>
-              <TextInput
-                style={styles.saveContactInput}
-                placeholder={translations.phone.firstName || "First name"}
-                placeholderTextColor={Colors.textSecondary}
-                value={saveContactForm.firstName}
-                onChangeText={(v) => setSaveContactForm(f => ({ ...f, firstName: v }))}
-                autoFocus
-                data-testid="input-save-contact-firstname"
-              />
-
-              <Text style={styles.saveContactLabel}>{translations.phone.lastName || "Last name"}</Text>
-              <TextInput
-                style={styles.saveContactInput}
-                placeholder={translations.phone.lastName || "Last name"}
-                placeholderTextColor={Colors.textSecondary}
-                value={saveContactForm.lastName}
-                onChangeText={(v) => setSaveContactForm(f => ({ ...f, lastName: v }))}
-                data-testid="input-save-contact-lastname"
-              />
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              style={{ paddingHorizontal: Spacing.lg }}
+              contentContainerStyle={{ paddingBottom: Spacing.md }}
+              keyboardShouldPersistTaps="handled"
+            >
+              <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.saveContactLabel}>{translations.phone.firstName || "First name"} *</Text>
+                  <TextInput
+                    style={styles.saveContactInput}
+                    placeholder={translations.phone.firstName || "First name"}
+                    placeholderTextColor={Colors.textSecondary}
+                    value={saveContactForm.firstName}
+                    onChangeText={(v) => setSaveContactForm(f => ({ ...f, firstName: v }))}
+                    autoFocus
+                    data-testid="input-save-contact-firstname"
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.saveContactLabel}>{translations.phone.lastName || "Last name"}</Text>
+                  <TextInput
+                    style={styles.saveContactInput}
+                    placeholder={translations.phone.lastName || "Last name"}
+                    placeholderTextColor={Colors.textSecondary}
+                    value={saveContactForm.lastName}
+                    onChangeText={(v) => setSaveContactForm(f => ({ ...f, lastName: v }))}
+                    data-testid="input-save-contact-lastname"
+                  />
+                </View>
+              </View>
 
               <Text style={styles.saveContactLabel}>{translations.phone.phoneNumber || "Phone"} *</Text>
               <TextInput
@@ -1469,7 +1480,7 @@ export default function PhoneScreen() {
 
               <Text style={styles.saveContactLabel}>{translations.phone.notesLabel || "Notes"}</Text>
               <TextInput
-                style={[styles.saveContactInput, { height: 70, textAlignVertical: 'top' }]}
+                style={[styles.saveContactInput, { height: 60, textAlignVertical: 'top' }]}
                 placeholder={translations.phone.notesLabel || "Notes"}
                 placeholderTextColor={Colors.textSecondary}
                 value={saveContactForm.notes}
@@ -1479,20 +1490,22 @@ export default function PhoneScreen() {
               />
             </ScrollView>
 
-            <TouchableOpacity
-              style={[styles.saveContactButton, { opacity: (saveContactForm.firstName.trim() && saveContactForm.phone.trim()) ? 1 : 0.5 }]}
-              onPress={handleSaveContact}
-              disabled={!saveContactForm.firstName.trim() || !saveContactForm.phone.trim() || saveContactLoading}
-              data-testid="button-confirm-save-contact"
-            >
-              {saveContactLoading ? (
-                <ActivityIndicator size="small" color={Colors.white} />
-              ) : (
-                <Text style={{ color: Colors.white, fontWeight: '600', textAlign: 'center', fontSize: FontSizes.md }}>
-                  {translations.phone.save || "Save"}
-                </Text>
-              )}
-            </TouchableOpacity>
+            <View style={{ paddingHorizontal: Spacing.lg, paddingBottom: Spacing.md }}>
+              <TouchableOpacity
+                style={[styles.saveContactButton, { opacity: (saveContactForm.firstName.trim() && saveContactForm.phone.trim()) ? 1 : 0.5 }]}
+                onPress={handleSaveContact}
+                disabled={!saveContactForm.firstName.trim() || !saveContactForm.phone.trim() || saveContactLoading}
+                data-testid="button-confirm-save-contact"
+              >
+                {saveContactLoading ? (
+                  <ActivityIndicator size="small" color={Colors.white} />
+                ) : (
+                  <Text style={{ color: Colors.white, fontWeight: '600', textAlign: 'center', fontSize: FontSizes.md }}>
+                    {translations.phone.save || "Save"}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>

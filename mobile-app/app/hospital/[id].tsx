@@ -38,17 +38,14 @@ export default function HospitalDetailScreen() {
     }
   };
 
-  const { registrationState, makeCall, connect } = useSipStore();
+  const { registrationState, makeCall } = useSipStore();
 
-  const callHospital = async () => {
+  const callHospital = () => {
     if (hospital?.phone) {
       if (registrationState === 'registered') {
         makeCall(hospital.phone);
       } else {
-        try {
-          await connect();
-        } catch {}
-        router.push({ pathname: '/(tabs)/phone', params: { dialNumber: hospital.phone } });
+        Linking.openURL(`tel:${hospital.phone}`);
       }
     }
   };

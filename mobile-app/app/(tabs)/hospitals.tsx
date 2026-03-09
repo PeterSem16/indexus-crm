@@ -43,16 +43,13 @@ export default function HospitalsScreen() {
     }
   };
 
-  const { registrationState, makeCall, connect } = useSipStore();
+  const { registrationState, makeCall } = useSipStore();
 
-  const callHospital = async (phone: string, name?: string) => {
+  const callHospital = (phone: string, name?: string) => {
     if (registrationState === 'registered') {
       makeCall(phone);
     } else {
-      try {
-        await connect();
-      } catch {}
-      router.push({ pathname: '/(tabs)/phone', params: { dialNumber: phone } });
+      Linking.openURL(`tel:${phone}`);
     }
   };
 

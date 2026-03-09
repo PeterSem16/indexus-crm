@@ -98,34 +98,30 @@ export default function ReportsScreen() {
     setLoadingReport(reportType);
 
     try {
-      const url = reportType === 'call_history'
-        ? `${API_BASE_URL}/api/mobile/call-history/export?period=${period}`
-        : `${API_BASE_URL}/api/mobile/reports/${reportType}?period=${period}`;
+      const endpoint = reportType === 'call_history'
+        ? `/api/mobile/call-history/export?period=${period}`
+        : `/api/mobile/reports/${reportType}?period=${period}`;
 
-      const response = await fetch(url, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to generate report');
-      }
-
-      // Get CSV content as text (React Native compatible)
-      const csvContent = await response.text();
-      
       const filename = `${reportType}_${period}_${Date.now()}.csv`;
       const fileUri = `${FileSystem.documentDirectory}${filename}`;
-      
-      // Write CSV content directly as UTF-8 text
-      await FileSystem.writeAsStringAsync(fileUri, csvContent, {
-        encoding: FileSystem.EncodingType.UTF8,
-      });
+
+      const downloadResult = await FileSystem.downloadAsync(
+        `${API_BASE_URL}${endpoint}`,
+        fileUri,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (downloadResult.status !== 200) {
+        throw new Error(`Server returned ${downloadResult.status}`);
+      }
 
       const canShare = await Sharing.isAvailableAsync();
       if (canShare) {
-        await Sharing.shareAsync(fileUri, {
+        await Sharing.shareAsync(downloadResult.uri, {
           mimeType: 'text/csv',
           dialogTitle: translations.reports.shareReport,
         });
