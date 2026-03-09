@@ -268,6 +268,8 @@ class MobileSipEngine {
     }
 
     try {
+      await this.startAudioSession(false);
+
       if (!this.sipModule) this.sipModule = await import('sip.js');
       const { Inviter, UserAgent: UA } = this.sipModule;
       const targetUri = `sip:${phoneNumber}@${this.credentials!.server}`;

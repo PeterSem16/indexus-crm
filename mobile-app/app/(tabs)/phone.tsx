@@ -409,41 +409,45 @@ export default function PhoneScreen() {
   );
 
   const renderRegistrationBadge = () => {
+    if (registrationState === 'registered') return null;
+
     return (
-      <View>
-        {registrationState !== 'registered' && (
-          <TouchableOpacity
-            style={[
-              styles.regBadge,
-              registrationState === 'error' ? styles.regBadgeError : styles.regBadgeWarn,
-            ]}
-            onPress={() => connect()}
-            activeOpacity={0.7}
-          >
-            {isConnecting ? (
-              <ActivityIndicator size="small" color={Colors.white} />
-            ) : (
-              <Ionicons
-                name={registrationState === 'error' ? 'alert-circle' : 'sync'}
-                size={16}
-                color={Colors.white}
-              />
-            )}
-            <Text style={styles.regBadgeText}>
-              {registrationState === 'error' ? translations.phone.sipNotConfigured :
-               isConnecting ? translations.phone.connecting :
-               translations.phone.webrtcDisabled}
-            </Text>
-          </TouchableOpacity>
+      <TouchableOpacity
+        style={[
+          styles.regBadge,
+          registrationState === 'error' ? styles.regBadgeError : styles.regBadgeWarn,
+        ]}
+        onPress={() => connect()}
+        activeOpacity={0.7}
+      >
+        {isConnecting ? (
+          <ActivityIndicator size="small" color={Colors.white} />
+        ) : (
+          <Ionicons
+            name={registrationState === 'error' ? 'alert-circle' : 'sync'}
+            size={16}
+            color={Colors.white}
+          />
         )}
-        <ScrollView style={{ backgroundColor: '#1a1a2e', padding: 8, marginHorizontal: 16, marginTop: 4, borderRadius: 8, maxHeight: 200 }}>
-          <Text style={{ color: '#00ff00', fontSize: 10, fontFamily: 'monospace' }}>
-            DEBUG v1.2.10 | state={registrationState} | call={callState}
-          </Text>
-          {debugMessages.map((line, i) => (
-            <Text key={`sip-${i}`} style={{ color: '#ffaa00', fontSize: 9, fontFamily: 'monospace' }}>{line}</Text>
-          ))}
-        </ScrollView>
+        <Text style={styles.regBadgeText}>
+          {registrationState === 'error' ? translations.phone.sipNotConfigured :
+           isConnecting ? translations.phone.connecting :
+           translations.phone.webrtcDisabled}
+        </Text>
+      </TouchableOpacity>
+    );
+  };
+
+  const renderDebugPanel = () => {
+    if (debugMessages.length === 0) return null;
+    return (
+      <View style={{ backgroundColor: '#1a1a2e', padding: 6, marginHorizontal: 16, marginBottom: 4, borderRadius: 6, maxHeight: 100 }}>
+        <Text style={{ color: '#00ff00', fontSize: 9, fontFamily: 'monospace' }}>
+          v1.2.11 | {registrationState} | call={callState}
+        </Text>
+        {debugMessages.slice(-5).map((line, i) => (
+          <Text key={`sip-${i}`} style={{ color: '#ffaa00', fontSize: 8, fontFamily: 'monospace' }} numberOfLines={1}>{line}</Text>
+        ))}
       </View>
     );
   };
@@ -658,6 +662,8 @@ export default function PhoneScreen() {
         {activeTab === 'contacts' && renderContacts()}
         {activeTab === 'recent' && renderRecent()}
       </View>
+
+      {renderDebugPanel()}
 
       <Modal
         visible={analysisModal !== null || analysisLoading}
