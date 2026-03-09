@@ -17,6 +17,7 @@ export interface AuthUser {
   firstName: string;
   lastName: string;
   countryCode: string;
+  avatarUrl?: string | null;
 }
 
 export async function login(username: string, password: string): Promise<LoginResponse> {

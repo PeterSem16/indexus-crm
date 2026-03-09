@@ -5,10 +5,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
+import * as SecureStore from 'expo-secure-store';
 import { useTranslation } from '@/hooks/useTranslation';
-import { useAuthStore } from '@/stores/authStore';
 import { Colors, Spacing, FontSizes } from '@/constants/colors';
-import { API_BASE_URL } from '@/constants/config';
+import { API_BASE_URL, TOKEN_KEY } from '@/constants/config';
 
 type ReportType = 'monthly_summary' | 'hospital_activity' | 'visit_hours' | 'call_history';
 type PeriodType = 'this_month' | 'last_month' | 'last_3_months';
@@ -86,18 +86,19 @@ function ReportCard({ title, description, icon, reportType, onDownload, isLoadin
 
 export default function ReportsScreen() {
   const { translations } = useTranslation();
-  const { token } = useAuthStore();
   const [loadingReport, setLoadingReport] = useState<ReportType | null>(null);
 
   const handleDownload = async (reportType: ReportType, period: PeriodType) => {
-    if (!token) {
-      Alert.alert(translations.common.error, translations.reports.downloadError);
-      return;
-    }
-
     setLoadingReport(reportType);
 
     try {
+      const token = await SecureStore.getItemAsync(TOKEN_KEY);
+      if (!token) {
+        Alert.alert(translations.common.error, translations.reports.downloadError);
+        setLoadingReport(null);
+        return;
+      }
+
       const endpoint = reportType === 'call_history'
         ? `/api/mobile/call-history/export?period=${period}`
         : `/api/mobile/reports/${reportType}?period=${period}`;

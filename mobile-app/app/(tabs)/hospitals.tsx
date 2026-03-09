@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, FlatList, Pressable, ActivityIndicator, Linking, Platform, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, FlatList, Pressable, TouchableOpacity, ActivityIndicator, Linking, Platform, RefreshControl } from 'react-native';
 import { useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -93,27 +93,23 @@ export default function HospitalsScreen() {
         </View>
         <View style={styles.actionButtons}>
           {item.phone && (
-            <Pressable 
+            <TouchableOpacity 
               style={styles.actionButton}
-              onPress={(e) => {
-                e.stopPropagation();
-                callHospital(item.phone!);
-              }}
-              android_ripple={{ color: Colors.border }}
+              onPress={() => callHospital(item.phone!)}
+              activeOpacity={0.6}
+              data-testid={`button-call-hospital-${item.id}`}
             >
               <Ionicons name="call" size={18} color={Colors.primary} />
-            </Pressable>
+            </TouchableOpacity>
           )}
-          <Pressable 
+          <TouchableOpacity 
             style={styles.actionButton}
-            onPress={(e) => {
-              e.stopPropagation();
-              openMap(item);
-            }}
-            android_ripple={{ color: Colors.border }}
+            onPress={() => openMap(item)}
+            activeOpacity={0.6}
+            data-testid={`button-map-hospital-${item.id}`}
           >
             <Ionicons name="navigate" size={18} color={Colors.primary} />
-          </Pressable>
+          </TouchableOpacity>
           <Ionicons name="chevron-forward" size={18} color={Colors.textSecondary} />
         </View>
       </Card>

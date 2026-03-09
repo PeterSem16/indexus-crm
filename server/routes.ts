@@ -30,7 +30,7 @@ import {
   insertVisitEventSchema, visitEvents,
   campaignDispositions, insertCampaignDispositionSchema,
   DEFAULT_PHONE_DISPOSITIONS, DEFAULT_EMAIL_DISPOSITIONS, DEFAULT_SMS_DISPOSITIONS, DISPOSITION_NAME_TRANSLATIONS,
-  callLogs, campaignContacts, campaignContactHistory, campaignContactSessions, campaigns, customers, users, entityCampaignTimeline, mobileContacts,
+  callLogs, campaignContacts, campaignContactHistory, campaignContactSessions, campaigns, customers, users, entityCampaignTimeline, mobileContacts, collaborators,
   collections, executiveSummaries, collectionLabResults, collectionSprievodnyList,
   insertSopCategorySchema, insertSopArticleSchema,
   agentSessions, agentSessionActivities, agentBreaks, scheduledReports, agentQueueStatus,
@@ -12041,6 +12041,30 @@ export async function registerRoutes(
   });
 
   // Set mobile app credentials for collaborator
+  app.post("/api/collaborators/:id/avatar", requireAuth, uploadAvatar.single("avatar"), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+      
+      const avatarUrl = `/uploads/avatars/${req.file.filename}`;
+      const updated = await db.update(collaborators)
+        .set({ avatarUrl, updatedAt: new Date() })
+        .where(eq(collaborators.id, req.params.id))
+        .returning();
+      
+      if (updated.length === 0) {
+        fs.unlinkSync(req.file.path);
+        return res.status(404).json({ error: "Collaborator not found" });
+      }
+      
+      res.json({ avatarUrl });
+    } catch (error) {
+      console.error("Error uploading collaborator avatar:", error);
+      res.status(500).json({ error: "Failed to upload avatar" });
+    }
+  });
+
   app.put("/api/collaborators/:id/mobile-credentials", requireAuth, async (req, res) => {
     try {
       const { mobileAppEnabled, mobileUsername, mobilePassword, mobileWebrtcEnabled, mobileSipExtensionId, mobileCallRecording } = req.body;
@@ -13407,6 +13431,43 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Mobile personal contact create error:", error);
       res.status(500).json({ error: "Failed to create contact" });
+    }
+  });
+
+  app.put("/api/mobile/contacts-personal/:id", async (req, res) => {
+    try {
+      const tokenData = await getMobileCollaboratorFromToken(req);
+      if (!tokenData) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { name, lastName, phone, email, notes } = req.body;
+      if (!name || !phone) {
+        return res.status(400).json({ error: "Name and phone are required" });
+      }
+
+      const result = await db.update(mobileContacts)
+        .set({
+          name,
+          lastName: lastName || null,
+          phone,
+          email: email || null,
+          notes: notes || null,
+        })
+        .where(and(
+          eq(mobileContacts.id, req.params.id),
+          eq(mobileContacts.collaboratorId, tokenData.collaboratorId)
+        ))
+        .returning();
+
+      if (result.length === 0) {
+        return res.status(404).json({ error: "Contact not found" });
+      }
+
+      res.json(result[0]);
+    } catch (error) {
+      console.error("Mobile personal contact update error:", error);
+      res.status(500).json({ error: "Failed to update contact" });
     }
   });
 

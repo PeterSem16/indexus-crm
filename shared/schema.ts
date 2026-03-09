@@ -1849,6 +1849,7 @@ export const collaborators = pgTable("collaborators", {
   mobileWebrtcEnabled: boolean("mobile_webrtc_enabled").notNull().default(false),
   mobileSipExtensionId: varchar("mobile_sip_extension_id"),
   mobileCallRecording: boolean("mobile_call_recording").notNull().default(true),
+  avatarUrl: text("avatar_url"),
   
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),

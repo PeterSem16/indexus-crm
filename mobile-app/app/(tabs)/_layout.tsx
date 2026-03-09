@@ -61,20 +61,20 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="map"
-        options={{
-          title: translations.navigation.map,
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="map" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
         name="phone"
         options={{
           title: translations.navigation.phone,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="call" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="map"
+        options={{
+          title: translations.navigation.map,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="map" size={size} color={color} />
           ),
         }}
       />

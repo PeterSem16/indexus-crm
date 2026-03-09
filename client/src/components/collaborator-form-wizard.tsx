@@ -2330,6 +2330,8 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
     mobileSipExtensionId: initialData?.mobileSipExtensionId ?? "",
     mobileCallRecording: initialData?.mobileCallRecording ?? true,
   });
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(initialData?.avatarUrl || null);
+  const [avatarUploading, setAvatarUploading] = useState(false);
 
   const [formData, setFormData] = useState<CollaboratorFormData>(() =>
     initialData
@@ -2684,6 +2686,29 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
       mobile: steps.mobileDesc,
     };
     return stepDescs[stepId] || "";
+  };
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !initialData?.id) return;
+    setAvatarUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("avatar", file);
+      const res = await fetch(`/api/collaborators/${initialData.id}/avatar`, {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAvatarUrl(data.avatarUrl);
+      }
+    } catch (err) {
+      console.error("Avatar upload failed:", err);
+    } finally {
+      setAvatarUploading(false);
+    }
   };
 
   const renderStepContent = () => {
@@ -3311,6 +3336,28 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
       case "mobile":
         return (
           <div className="space-y-6">
+            {initialData?.id && (
+              <div className="flex items-center gap-4 p-4 rounded-lg bg-muted/50">
+                <div className="relative">
+                  {avatarUrl ? (
+                    <img src={avatarUrl} alt="Avatar" className="w-16 h-16 rounded-full object-cover border-2 border-muted" />
+                  ) : (
+                    <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center border-2 border-muted">
+                      <User className="h-8 w-8 text-primary/60" />
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-medium text-sm">Avatar</h4>
+                  <p className="text-xs text-muted-foreground mb-2">JPEG, PNG, max 2MB</p>
+                  <label className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-primary text-primary-foreground cursor-pointer hover:bg-primary/90">
+                    {avatarUploading ? "..." : (avatarUrl ? "Change" : "Upload")}
+                    <input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} disabled={avatarUploading} />
+                  </label>
+                </div>
+              </div>
+            )}
+
             <div className="flex items-center gap-3 p-4 rounded-lg bg-muted/50">
               <Smartphone className="h-6 w-6 text-muted-foreground" />
               <div>

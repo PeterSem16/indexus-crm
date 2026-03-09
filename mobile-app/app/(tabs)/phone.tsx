@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, TextInput, ActivityIndicator, Vibration, ScrollView, Modal } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, TextInput, ActivityIndicator, Vibration, ScrollView, Modal, Linking } from 'react-native';
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
@@ -135,7 +135,7 @@ export default function PhoneScreen() {
   const [clinicSearch, setClinicSearch] = useState('');
   const [recentSearch, setRecentSearch] = useState('');
 
-  const [saveContactModal, setSaveContactModal] = useState<{ phone: string } | null>(null);
+  const [saveContactModal, setSaveContactModal] = useState<{ phone: string; editId?: string } | null>(null);
   const [saveContactForm, setSaveContactForm] = useState({ firstName: '', lastName: '', phone: '', email: '', notes: '' });
   const [saveContactLoading, setSaveContactLoading] = useState(false);
   const [personalContacts, setPersonalContacts] = useState<PersonalContact[]>([]);
@@ -834,22 +834,18 @@ export default function PhoneScreen() {
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => {
             const isPersonal = item.id.startsWith('personal-');
+            const personalId = isPersonal ? item.id.replace('personal-', '') : null;
+            const personalContact = personalId ? personalContacts.find(c => c.id === personalId) : null;
             return (
-              <TouchableOpacity
-                style={styles.contactItem}
-                onPress={() => handleContactCall(item)}
-                disabled={!item.phone || registrationState !== 'registered'}
-                activeOpacity={0.7}
-                data-testid={`contact-customer-${item.id}`}
-              >
+              <View style={styles.contactItem} data-testid={`contact-customer-${item.id}`}>
                 <View style={[styles.contactAvatar, isPersonal && { backgroundColor: Colors.info + '20' }]}>
                   <Text style={[styles.contactAvatarText, isPersonal && { color: Colors.info }]}>
                     {item.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
                   </Text>
                 </View>
-                <View style={styles.contactInfo}>
+                <View style={[styles.contactInfo, { flex: 1 }]}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Text style={styles.contactName}>{item.name}</Text>
+                    <Text style={styles.contactName} numberOfLines={1}>{item.name}</Text>
                     {isPersonal && (
                       <View style={{ backgroundColor: Colors.info + '20', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4 }}>
                         <Text style={{ fontSize: 10, color: Colors.info, fontWeight: '600' }}>
@@ -861,12 +857,49 @@ export default function PhoneScreen() {
                   {item.phone && <Text style={styles.contactPhone}>{item.phone}</Text>}
                   {item.email && <Text style={[styles.contactPhone, { fontSize: FontSizes.xs }]}>{item.email}</Text>}
                 </View>
-                {item.phone && (
-                  <View style={styles.contactCallBtn}>
-                    <Ionicons name="call" size={20} color={Colors.success} />
-                  </View>
-                )}
-              </TouchableOpacity>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  {item.phone && (
+                    <TouchableOpacity
+                      style={styles.contactActionBtn}
+                      onPress={() => handleContactCall(item)}
+                      activeOpacity={0.6}
+                      data-testid={`button-call-${item.id}`}
+                    >
+                      <Ionicons name="call" size={18} color={Colors.success} />
+                    </TouchableOpacity>
+                  )}
+                  {item.email && (
+                    <TouchableOpacity
+                      style={styles.contactActionBtn}
+                      onPress={() => Linking.openURL(`mailto:${item.email}`)}
+                      activeOpacity={0.6}
+                      data-testid={`button-email-${item.id}`}
+                    >
+                      <Ionicons name="mail" size={18} color={Colors.primary} />
+                    </TouchableOpacity>
+                  )}
+                  {isPersonal && personalContact && (
+                    <>
+                      <TouchableOpacity
+                        style={styles.contactActionBtn}
+                        onPress={() => handleEditContact(personalContact)}
+                        activeOpacity={0.6}
+                        data-testid={`button-edit-${item.id}`}
+                      >
+                        <Ionicons name="create-outline" size={18} color={Colors.textSecondary} />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.contactActionBtn}
+                        onPress={() => handleDeleteContact(personalContact.id)}
+                        activeOpacity={0.6}
+                        data-testid={`button-delete-${item.id}`}
+                      >
+                        <Ionicons name="trash-outline" size={16} color={Colors.error} />
+                      </TouchableOpacity>
+                    </>
+                  )}
+                </View>
+              </View>
             );
           }}
         />
@@ -1037,14 +1070,19 @@ export default function PhoneScreen() {
     if (!saveContactModal || !saveContactForm.firstName.trim() || !saveContactForm.phone.trim()) return;
     setSaveContactLoading(true);
     try {
-      await api.post('/api/mobile/contacts-personal', {
+      const payload = {
         name: saveContactForm.firstName.trim(),
         lastName: saveContactForm.lastName.trim() || null,
         phone: saveContactForm.phone.trim(),
         email: saveContactForm.email.trim() || null,
         notes: saveContactForm.notes.trim() || null,
         type: 'personal',
-      });
+      };
+      if (saveContactModal.editId) {
+        await api.put(`/api/mobile/contacts-personal/${saveContactModal.editId}`, payload);
+      } else {
+        await api.post('/api/mobile/contacts-personal', payload);
+      }
       await loadPersonalContacts();
       setSaveContactModal(null);
       setSaveContactForm({ firstName: '', lastName: '', phone: '', email: '', notes: '' });
@@ -1053,6 +1091,26 @@ export default function PhoneScreen() {
     } finally {
       setSaveContactLoading(false);
     }
+  };
+
+  const handleDeleteContact = async (contactId: string) => {
+    try {
+      await api.delete(`/api/mobile/contacts-personal/${contactId}`);
+      await loadPersonalContacts();
+    } catch (error) {
+      console.error('Failed to delete contact:', error);
+    }
+  };
+
+  const handleEditContact = (contact: PersonalContact) => {
+    setSaveContactForm({
+      firstName: contact.name,
+      lastName: contact.lastName || '',
+      phone: contact.phone,
+      email: contact.email || '',
+      notes: contact.notes || '',
+    });
+    setSaveContactModal({ phone: contact.phone, editId: contact.id });
   };
 
   const renderRecent = () => (
@@ -1417,7 +1475,7 @@ export default function PhoneScreen() {
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { maxHeight: '75%' }]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>{translations.phone.saveContact || "Save Contact"}</Text>
+              <Text style={styles.modalTitle}>{saveContactModal?.editId ? (translations.phone.editContact || "Edit Contact") : (translations.phone.saveContact || "Save Contact")}</Text>
               <TouchableOpacity onPress={() => setSaveContactModal(null)} data-testid="button-close-save-contact">
                 <Ionicons name="close" size={24} color={Colors.text} />
               </TouchableOpacity>
@@ -1771,6 +1829,11 @@ const styles = StyleSheet.create({
   },
   contactCallBtn: {
     padding: Spacing.sm,
+  },
+  contactActionBtn: {
+    padding: 6,
+    borderRadius: 16,
+    backgroundColor: Colors.surface,
   },
   recentContainer: {
     flex: 1,

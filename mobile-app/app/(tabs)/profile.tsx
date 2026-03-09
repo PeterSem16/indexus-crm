@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Switch, Modal } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Switch, Modal, Image } from 'react-native';
 import { useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,6 +10,7 @@ import { useSyncStore } from '@/stores/syncStore';
 import { useSipStore } from '@/stores/sipStore';
 import { Colors, Spacing, FontSizes } from '@/constants/colors';
 import { SUPPORTED_LANGUAGES, SupportedLanguage } from '@/constants/config';
+import { API_BASE_URL } from '@/constants/config';
 import Constants from 'expo-constants';
 
 const APP_VERSION = Constants.expoConfig?.version || '1.1.0';
@@ -69,9 +70,16 @@ export default function ProfileScreen() {
           
           <View style={styles.profileSection}>
             <View style={styles.avatarContainer}>
-              <Text style={styles.avatarText}>
-                {user?.firstName?.[0]}{user?.lastName?.[0]}
-              </Text>
+              {user?.avatarUrl ? (
+                <Image
+                  source={{ uri: `${API_BASE_URL}${user.avatarUrl}` }}
+                  style={styles.avatarImage}
+                />
+              ) : (
+                <Text style={styles.avatarText}>
+                  {user?.firstName?.[0]}{user?.lastName?.[0]}
+                </Text>
+              )}
             </View>
             <Text style={styles.userName}>{user?.firstName} {user?.lastName}</Text>
             <View style={styles.countryBadge}>
@@ -348,6 +356,11 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: 'rgba(255, 255, 255, 0.3)',
     marginBottom: Spacing.md,
+  },
+  avatarImage: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
   },
   avatarText: {
     color: Colors.white,

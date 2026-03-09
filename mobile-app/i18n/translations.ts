@@ -132,6 +132,8 @@ type TranslationKeys = {
     notesLabel: string;
     personal: string;
     addContact: string;
+    editContact: string;
+    deleteContact: string;
   };
   visits: {
     title: string;
@@ -459,6 +461,8 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       notesLabel: 'Poznamka',
       personal: 'Osobny',
       addContact: 'Pridat kontakt',
+      editContact: 'Upravit kontakt',
+      deleteContact: 'Vymazat kontakt',
     },
     visits: {
       title: 'Navstevy',
@@ -784,6 +788,8 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       notesLabel: 'Poznamka',
       personal: 'Osobni',
       addContact: 'Pridat kontakt',
+      editContact: 'Upravit kontakt',
+      deleteContact: 'Smazat kontakt',
     },
     visits: {
       title: 'Navstevy',
@@ -1109,6 +1115,8 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       notesLabel: 'Megjegyzes',
       personal: 'Szemelyes',
       addContact: 'Kontakt hozzaadasa',
+      editContact: 'Kontakt szerkesztese',
+      deleteContact: 'Kontakt torlese',
     },
     visits: {
       title: 'Latogatasok',
@@ -1434,6 +1442,8 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       notesLabel: 'Notiz',
       personal: 'Personlich',
       addContact: 'Kontakt hinzufugen',
+      editContact: 'Kontakt bearbeiten',
+      deleteContact: 'Kontakt loschen',
     },
     visits: {
       title: 'Besuche',
@@ -1759,6 +1769,8 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       notesLabel: 'Note',
       personal: 'Personale',
       addContact: 'Aggiungi contatto',
+      editContact: 'Modifica contatto',
+      deleteContact: 'Elimina contatto',
     },
     visits: {
       title: 'Visite',
@@ -2084,6 +2096,8 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       notesLabel: 'Notite',
       personal: 'Personal',
       addContact: 'Adauga contact',
+      editContact: 'Editeaza contact',
+      deleteContact: 'Sterge contact',
     },
     visits: {
       title: 'Vizite',
@@ -2409,6 +2423,8 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       notesLabel: 'Notes',
       personal: 'Personal',
       addContact: 'Add Contact',
+      editContact: 'Edit Contact',
+      deleteContact: 'Delete Contact',
     },
     visits: {
       title: 'Visits',
