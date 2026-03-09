@@ -125,6 +125,13 @@ type TranslationKeys = {
     saveContact: string;
     contactName: string;
     save: string;
+    firstName: string;
+    lastName: string;
+    phoneNumber: string;
+    email: string;
+    notesLabel: string;
+    personal: string;
+    addContact: string;
   };
   visits: {
     title: string;
@@ -445,6 +452,13 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       saveContact: 'Ulozit kontakt',
       contactName: 'Meno kontaktu',
       save: 'Ulozit',
+      firstName: 'Meno',
+      lastName: 'Priezvisko',
+      phoneNumber: 'Telefonne cislo',
+      email: 'Email',
+      notesLabel: 'Poznamka',
+      personal: 'Osobny',
+      addContact: 'Pridat kontakt',
     },
     visits: {
       title: 'Navstevy',
@@ -763,6 +777,13 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       saveContact: 'Ulozit kontakt',
       contactName: 'Jmeno kontaktu',
       save: 'Ulozit',
+      firstName: 'Jmeno',
+      lastName: 'Prijmeni',
+      phoneNumber: 'Telefonni cislo',
+      email: 'Email',
+      notesLabel: 'Poznamka',
+      personal: 'Osobni',
+      addContact: 'Pridat kontakt',
     },
     visits: {
       title: 'Navstevy',
@@ -1081,6 +1102,13 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       saveContact: 'Kontakt mentese',
       contactName: 'Kontakt neve',
       save: 'Mentes',
+      firstName: 'Keresztnev',
+      lastName: 'Vezeteknev',
+      phoneNumber: 'Telefonszam',
+      email: 'Email',
+      notesLabel: 'Megjegyzes',
+      personal: 'Szemelyes',
+      addContact: 'Kontakt hozzaadasa',
     },
     visits: {
       title: 'Latogatasok',
@@ -1399,6 +1427,13 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       saveContact: 'Kontakt speichern',
       contactName: 'Kontaktname',
       save: 'Speichern',
+      firstName: 'Vorname',
+      lastName: 'Nachname',
+      phoneNumber: 'Telefonnummer',
+      email: 'E-Mail',
+      notesLabel: 'Notiz',
+      personal: 'Personlich',
+      addContact: 'Kontakt hinzufugen',
     },
     visits: {
       title: 'Besuche',
@@ -1717,6 +1752,13 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       saveContact: 'Salva contatto',
       contactName: 'Nome contatto',
       save: 'Salva',
+      firstName: 'Nome',
+      lastName: 'Cognome',
+      phoneNumber: 'Numero di telefono',
+      email: 'Email',
+      notesLabel: 'Note',
+      personal: 'Personale',
+      addContact: 'Aggiungi contatto',
     },
     visits: {
       title: 'Visite',
@@ -2035,6 +2077,13 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       saveContact: 'Salveaza contact',
       contactName: 'Nume contact',
       save: 'Salveaza',
+      firstName: 'Prenume',
+      lastName: 'Nume de familie',
+      phoneNumber: 'Numar de telefon',
+      email: 'Email',
+      notesLabel: 'Notite',
+      personal: 'Personal',
+      addContact: 'Adauga contact',
     },
     visits: {
       title: 'Vizite',
@@ -2353,6 +2402,13 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       saveContact: 'Save Contact',
       contactName: 'Contact name',
       save: 'Save',
+      firstName: 'First name',
+      lastName: 'Last name',
+      phoneNumber: 'Phone number',
+      email: 'Email',
+      notesLabel: 'Notes',
+      personal: 'Personal',
+      addContact: 'Add Contact',
     },
     visits: {
       title: 'Visits',

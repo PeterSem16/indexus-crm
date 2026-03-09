@@ -13386,7 +13386,7 @@ export async function registerRoutes(
         return res.status(401).json({ error: "Unauthorized" });
       }
 
-      const { name, phone, type, linkedEntityType, linkedEntityId } = req.body;
+      const { name, lastName, phone, email, notes, type, linkedEntityType, linkedEntityId } = req.body;
       if (!name || !phone) {
         return res.status(400).json({ error: "name and phone are required" });
       }
@@ -13394,7 +13394,10 @@ export async function registerRoutes(
       const [contact] = await db.insert(mobileContacts).values({
         collaboratorId: tokenData.collaboratorId,
         name,
+        lastName: lastName || null,
         phone,
+        email: email || null,
+        notes: notes || null,
         type: type || "personal",
         linkedEntityType: linkedEntityType || null,
         linkedEntityId: linkedEntityId || null,

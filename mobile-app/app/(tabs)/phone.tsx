@@ -1,6 +1,7 @@
 import { View, Text, StyleSheet, TouchableOpacity, FlatList, TextInput, ActivityIndicator, Vibration, ScrollView, Modal } from 'react-native';
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -26,7 +27,10 @@ interface PersonalContact {
   id: string;
   collaboratorId: string;
   name: string;
+  lastName: string | null;
   phone: string;
+  email: string | null;
+  notes: string | null;
   type: string;
   linkedEntityType: string | null;
   linkedEntityId: string | null;
@@ -99,6 +103,7 @@ type ContactSection = 'customers' | 'hospitals' | 'clinics';
 
 export default function PhoneScreen() {
   const { translations } = useTranslation();
+  const params = useLocalSearchParams<{ dialNumber?: string }>();
   const [activeTab, setActiveTab] = useState<PhoneTab>('keypad');
   const [dialNumber, setDialNumber] = useState('');
   const [contacts, setContacts] = useState<CrmContact[]>([]);
@@ -131,7 +136,7 @@ export default function PhoneScreen() {
   const [recentSearch, setRecentSearch] = useState('');
 
   const [saveContactModal, setSaveContactModal] = useState<{ phone: string } | null>(null);
-  const [saveContactName, setSaveContactName] = useState('');
+  const [saveContactForm, setSaveContactForm] = useState({ firstName: '', lastName: '', phone: '', email: '', notes: '' });
   const [saveContactLoading, setSaveContactLoading] = useState(false);
   const [personalContacts, setPersonalContacts] = useState<PersonalContact[]>([]);
 
@@ -284,9 +289,21 @@ export default function PhoneScreen() {
   }, []);
 
   useEffect(() => {
+    if (params.dialNumber) {
+      setDialNumber(params.dialNumber);
+      setActiveTab('keypad');
+    }
+  }, [params.dialNumber]);
+
+  useEffect(() => {
     if (activeTab === 'contacts' && (activeContactSection === 'hospitals' || activeContactSection === 'clinics')) {
       if (hospitalContacts.length === 0 && clinicContacts.length === 0) {
         loadFacilities();
+      }
+    }
+    if (activeTab === 'contacts' && activeContactSection === 'customers') {
+      if (personalContacts.length === 0) {
+        loadPersonalContacts();
       }
     }
   }, [activeTab, activeContactSection]);
@@ -745,6 +762,25 @@ export default function PhoneScreen() {
     </View>
   );
 
+  const filteredPersonalContacts = useMemo(() => {
+    if (!contactSearch || contactSearch.length < 2) return personalContacts;
+    const q = contactSearch.toLowerCase();
+    return personalContacts.filter(c => {
+      const fullName = `${c.name} ${c.lastName || ''}`.toLowerCase();
+      return fullName.includes(q) || c.phone.toLowerCase().includes(q) || (c.email || '').toLowerCase().includes(q);
+    });
+  }, [personalContacts, contactSearch]);
+
+  const allCustomerContacts: CrmContact[] = useMemo(() => {
+    const personalAsCrm: CrmContact[] = filteredPersonalContacts.map(p => ({
+      id: `personal-${p.id}`,
+      name: `${p.name}${p.lastName ? ' ' + p.lastName : ''}`,
+      phone: p.phone,
+      email: p.email,
+    }));
+    return [...personalAsCrm, ...contacts];
+  }, [filteredPersonalContacts, contacts]);
+
   const renderCustomerSearch = () => (
     <View style={styles.contactsContainer}>
       <View style={styles.searchBar}>
@@ -764,11 +800,26 @@ export default function PhoneScreen() {
         )}
       </View>
 
+      <TouchableOpacity
+        style={styles.addContactBtn}
+        onPress={() => {
+          setSaveContactForm({ firstName: '', lastName: '', phone: '', email: '', notes: '' });
+          setSaveContactModal({ phone: '' });
+        }}
+        activeOpacity={0.7}
+        data-testid="button-add-new-contact"
+      >
+        <Ionicons name="person-add" size={18} color={Colors.primary} />
+        <Text style={{ color: Colors.primary, fontWeight: '600', fontSize: FontSizes.sm }}>
+          {translations.phone.addContact || "Add Contact"}
+        </Text>
+      </TouchableOpacity>
+
       {contactsLoading ? (
         <View style={styles.centerContent}>
           <ActivityIndicator size="large" color={Colors.primary} />
         </View>
-      ) : contacts.length === 0 ? (
+      ) : allCustomerContacts.length === 0 ? (
         <View style={styles.centerContent}>
           <Ionicons name="people-outline" size={48} color={Colors.textSecondary} />
           <Text style={styles.emptyText}>
@@ -779,32 +830,45 @@ export default function PhoneScreen() {
         </View>
       ) : (
         <FlatList
-          data={contacts}
+          data={allCustomerContacts}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={styles.contactItem}
-              onPress={() => handleContactCall(item)}
-              disabled={!item.phone || registrationState !== 'registered'}
-              activeOpacity={0.7}
-              data-testid={`contact-customer-${item.id}`}
-            >
-              <View style={styles.contactAvatar}>
-                <Text style={styles.contactAvatarText}>
-                  {item.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
-                </Text>
-              </View>
-              <View style={styles.contactInfo}>
-                <Text style={styles.contactName}>{item.name}</Text>
-                {item.phone && <Text style={styles.contactPhone}>{item.phone}</Text>}
-              </View>
-              {item.phone && (
-                <View style={styles.contactCallBtn}>
-                  <Ionicons name="call" size={20} color={Colors.success} />
+          renderItem={({ item }) => {
+            const isPersonal = item.id.startsWith('personal-');
+            return (
+              <TouchableOpacity
+                style={styles.contactItem}
+                onPress={() => handleContactCall(item)}
+                disabled={!item.phone || registrationState !== 'registered'}
+                activeOpacity={0.7}
+                data-testid={`contact-customer-${item.id}`}
+              >
+                <View style={[styles.contactAvatar, isPersonal && { backgroundColor: Colors.info + '20' }]}>
+                  <Text style={[styles.contactAvatarText, isPersonal && { color: Colors.info }]}>
+                    {item.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                  </Text>
                 </View>
-              )}
-            </TouchableOpacity>
-          )}
+                <View style={styles.contactInfo}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Text style={styles.contactName}>{item.name}</Text>
+                    {isPersonal && (
+                      <View style={{ backgroundColor: Colors.info + '20', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4 }}>
+                        <Text style={{ fontSize: 10, color: Colors.info, fontWeight: '600' }}>
+                          {translations.phone.personal || "Personal"}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                  {item.phone && <Text style={styles.contactPhone}>{item.phone}</Text>}
+                  {item.email && <Text style={[styles.contactPhone, { fontSize: FontSizes.xs }]}>{item.email}</Text>}
+                </View>
+                {item.phone && (
+                  <View style={styles.contactCallBtn}>
+                    <Ionicons name="call" size={20} color={Colors.success} />
+                  </View>
+                )}
+              </TouchableOpacity>
+            );
+          }}
         />
       )}
     </View>
@@ -969,17 +1033,20 @@ export default function PhoneScreen() {
   }, [personalContacts]);
 
   const handleSaveContact = async () => {
-    if (!saveContactModal || !saveContactName.trim()) return;
+    if (!saveContactModal || !saveContactForm.firstName.trim() || !saveContactForm.phone.trim()) return;
     setSaveContactLoading(true);
     try {
       await api.post('/api/mobile/contacts-personal', {
-        name: saveContactName.trim(),
-        phone: saveContactModal.phone,
+        name: saveContactForm.firstName.trim(),
+        lastName: saveContactForm.lastName.trim() || null,
+        phone: saveContactForm.phone.trim(),
+        email: saveContactForm.email.trim() || null,
+        notes: saveContactForm.notes.trim() || null,
         type: 'personal',
       });
       await loadPersonalContacts();
       setSaveContactModal(null);
-      setSaveContactName('');
+      setSaveContactForm({ firstName: '', lastName: '', phone: '', email: '', notes: '' });
     } catch (error) {
       console.error('Failed to save contact:', error);
     } finally {
@@ -1109,7 +1176,7 @@ export default function PhoneScreen() {
                         <TouchableOpacity
                           style={styles.recentActionBtn}
                           onPress={() => {
-                            setSaveContactName('');
+                            setSaveContactForm({ firstName: '', lastName: '', phone: item.phoneNumber, email: '', notes: '' });
                             setSaveContactModal({ phone: item.phoneNumber });
                           }}
                           activeOpacity={0.7}
@@ -1347,7 +1414,7 @@ export default function PhoneScreen() {
         onRequestClose={() => setSaveContactModal(null)}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { maxHeight: 280 }]}>
+          <View style={[styles.modalContent, { maxHeight: 520 }]}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>{translations.phone.saveContact || "Save Contact"}</Text>
               <TouchableOpacity onPress={() => setSaveContactModal(null)} data-testid="button-close-save-contact">
@@ -1355,24 +1422,67 @@ export default function PhoneScreen() {
               </TouchableOpacity>
             </View>
 
-            <Text style={{ color: Colors.textSecondary, marginBottom: 8, fontSize: FontSizes.sm }}>
-              {saveContactModal?.phone}
-            </Text>
+            <ScrollView showsVerticalScrollIndicator={false} style={{ marginBottom: 12 }}>
+              <Text style={styles.saveContactLabel}>{translations.phone.firstName || "First name"} *</Text>
+              <TextInput
+                style={styles.saveContactInput}
+                placeholder={translations.phone.firstName || "First name"}
+                placeholderTextColor={Colors.textSecondary}
+                value={saveContactForm.firstName}
+                onChangeText={(v) => setSaveContactForm(f => ({ ...f, firstName: v }))}
+                autoFocus
+                data-testid="input-save-contact-firstname"
+              />
 
-            <TextInput
-              style={[styles.searchInput, { borderWidth: 1, borderColor: Colors.border, borderRadius: 8, paddingHorizontal: 12, marginBottom: 16 }]}
-              placeholder={translations.phone.contactName || "Contact name"}
-              placeholderTextColor={Colors.textSecondary}
-              value={saveContactName}
-              onChangeText={setSaveContactName}
-              autoFocus
-              data-testid="input-save-contact-name"
-            />
+              <Text style={styles.saveContactLabel}>{translations.phone.lastName || "Last name"}</Text>
+              <TextInput
+                style={styles.saveContactInput}
+                placeholder={translations.phone.lastName || "Last name"}
+                placeholderTextColor={Colors.textSecondary}
+                value={saveContactForm.lastName}
+                onChangeText={(v) => setSaveContactForm(f => ({ ...f, lastName: v }))}
+                data-testid="input-save-contact-lastname"
+              />
+
+              <Text style={styles.saveContactLabel}>{translations.phone.phoneNumber || "Phone"} *</Text>
+              <TextInput
+                style={styles.saveContactInput}
+                placeholder={translations.phone.phoneNumber || "Phone number"}
+                placeholderTextColor={Colors.textSecondary}
+                value={saveContactForm.phone}
+                onChangeText={(v) => setSaveContactForm(f => ({ ...f, phone: v }))}
+                keyboardType="phone-pad"
+                data-testid="input-save-contact-phone"
+              />
+
+              <Text style={styles.saveContactLabel}>{translations.phone.email || "Email"}</Text>
+              <TextInput
+                style={styles.saveContactInput}
+                placeholder={translations.phone.email || "Email"}
+                placeholderTextColor={Colors.textSecondary}
+                value={saveContactForm.email}
+                onChangeText={(v) => setSaveContactForm(f => ({ ...f, email: v }))}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                data-testid="input-save-contact-email"
+              />
+
+              <Text style={styles.saveContactLabel}>{translations.phone.notesLabel || "Notes"}</Text>
+              <TextInput
+                style={[styles.saveContactInput, { height: 70, textAlignVertical: 'top' }]}
+                placeholder={translations.phone.notesLabel || "Notes"}
+                placeholderTextColor={Colors.textSecondary}
+                value={saveContactForm.notes}
+                onChangeText={(v) => setSaveContactForm(f => ({ ...f, notes: v }))}
+                multiline
+                data-testid="input-save-contact-notes"
+              />
+            </ScrollView>
 
             <TouchableOpacity
-              style={[styles.callButton, { backgroundColor: Colors.primary, paddingVertical: 12, borderRadius: 8, opacity: saveContactName.trim() ? 1 : 0.5 }]}
+              style={[styles.saveContactButton, { opacity: (saveContactForm.firstName.trim() && saveContactForm.phone.trim()) ? 1 : 0.5 }]}
               onPress={handleSaveContact}
-              disabled={!saveContactName.trim() || saveContactLoading}
+              disabled={!saveContactForm.firstName.trim() || !saveContactForm.phone.trim() || saveContactLoading}
               data-testid="button-confirm-save-contact"
             >
               {saveContactLoading ? (
@@ -1933,6 +2043,44 @@ const styles = StyleSheet.create({
   modalScroll: {
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.md,
+  },
+  saveContactLabel: {
+    fontSize: FontSizes.sm,
+    color: Colors.textSecondary,
+    fontWeight: '500',
+    marginBottom: 4,
+    marginTop: 10,
+  },
+  saveContactInput: {
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: FontSizes.md,
+    color: Colors.text,
+    backgroundColor: Colors.surface,
+  },
+  saveContactButton: {
+    backgroundColor: Colors.primary,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addContactBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    marginHorizontal: Spacing.md,
+    marginBottom: Spacing.xs,
+    backgroundColor: Colors.primary + '10',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.primary + '30',
+    borderStyle: 'dashed',
   },
   analysisPending: {
     alignItems: 'center',
