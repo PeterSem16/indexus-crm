@@ -1,0 +1,42 @@
+Mar 11 09:26:08 CORPCRM01 systemd[1]: Starting apache2.service - The Apache HTTP Server...
+Mar 11 09:26:08 CORPCRM01 apachectl[855427]: AH00558: apache2: Could not reliably determine the server's fully qualified domain name, using 10.1.2.111. Set the 'ServerName' directive globally to suppress this message
+Mar 11 09:26:08 CORPCRM01 apachectl[855427]: (98)Address already in use: AH00072: make_sock: could not bind to address [::]:80
+Mar 11 09:26:08 CORPCRM01 apachectl[855427]: (98)Address already in use: AH00072: make_sock: could not bind to address 0.0.0.0:80
+Mar 11 09:26:08 CORPCRM01 apachectl[855427]: no listening sockets available, shutting down
+Mar 11 09:26:08 CORPCRM01 apachectl[855427]: AH00015: Unable to open logs
+Mar 11 09:26:08 CORPCRM01 systemd[1]: apache2.service: Control process exited, code=exited, status=1/FAILURE
+Mar 11 09:26:08 CORPCRM01 systemd[1]: apache2.service: Failed with result 'exit-code'.
+Mar 11 09:26:08 CORPCRM01 systemd[1]: Failed to start apache2.service - The Apache HTTP Server.
+Scanning processes...
+Scanning candidates...
+Scanning linux images...
+
+Pending kernel upgrade!
+Running kernel version:
+  6.8.0-90-generic
+Diagnostics:
+  The currently running kernel version is not the expected kernel version 6.8.0-101-generic.
+
+Restarting the system to load the new kernel will not be handled automatically, so you should consider rebooting.
+
+Restarting services...
+
+Service restarts being deferred:
+ /etc/needrestart/restart.d/dbus.service
+ systemctl restart getty@tty1.service
+ systemctl restart systemd-logind.service
+ systemctl restart unattended-upgrades.service
+
+No containers need to be restarted.
+
+User sessions running outdated binaries:
+ seman @ session #10: PM2 v6.0.14: Go[22260,22545]
+ seman @ session #37: adb[105624]
+ seman @ user manager service: systemd[9320]
+
+No VM guests are running outdated hypervisor (qemu) binaries on this host.
+Enabling conf adminer.
+To activate the new configuration, you need to run:
+  systemctl reload apache2
+Job for apache2.service failed because the control process exited with error code.
+See "systemctl status apache2.service" and "journalctl -xeu apache2.service" for details.
