@@ -919,8 +919,17 @@ export function SipPhone({
           constraints: {
             audio: true,
             video: false
-          }
-        }
+          },
+          iceGatheringTimeout: 1500,
+        },
+        sessionDescriptionHandlerFactoryOptions: {
+          iceGatheringTimeout: 1500,
+          peerConnectionConfiguration: {
+            iceServers: [],
+            bundlePolicy: "max-bundle",
+            rtcpMuxPolicy: "require",
+          },
+        },
       };
       if (localCallerIdNumber) {
         inviterOptions.extraHeaders = [`X-Campaign-CallerID: ${localCallerIdNumber}`];

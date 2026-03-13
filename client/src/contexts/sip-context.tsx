@@ -117,8 +117,17 @@ export function SipProvider({ children }: { children: ReactNode }) {
       const invitation = currentIncoming.invitation;
       await invitation.accept({
         sessionDescriptionHandlerOptions: {
-          constraints: { audio: true, video: false }
-        }
+          constraints: { audio: true, video: false },
+          iceGatheringTimeout: 1500,
+        },
+        sessionDescriptionHandlerFactoryOptions: {
+          iceGatheringTimeout: 1500,
+          peerConnectionConfiguration: {
+            iceServers: [],
+            bundlePolicy: "max-bundle",
+            rtcpMuxPolicy: "require",
+          },
+        },
       });
       invitation._inboundCallerNumber = callerNumber;
       invitation._inboundCallerName = callerName;
@@ -345,6 +354,14 @@ export function SipProvider({ children }: { children: ReactNode }) {
         noResponseTimeout: 60,
         gracefulShutdown: false,
         sendInitialProvisionalResponse: true,
+        sessionDescriptionHandlerFactoryOptions: {
+          iceGatheringTimeout: 1500,
+          peerConnectionConfiguration: {
+            iceServers: [],
+            bundlePolicy: "max-bundle",
+            rtcpMuxPolicy: "require",
+          },
+        },
       };
 
       const userAgent = new UserAgent(userAgentOptions);
