@@ -240,6 +240,33 @@ function convertToAsteriskWav(inputPath: string): string | null {
   }
 }
 
+function convertWavToSlin(wavPath: string): string | null {
+  const ffmpeg = getFfmpegPath();
+  if (!ffmpeg) return null;
+
+  const dir = path.dirname(wavPath);
+  const baseName = path.basename(wavPath, path.extname(wavPath));
+  const outputPath = path.join(dir, `${baseName}.slin`);
+
+  try {
+    execSync(
+      `${ffmpeg} -y -i ${JSON.stringify(wavPath)} -ar 8000 -ac 1 -f s16le ${JSON.stringify(outputPath)}`,
+      { timeout: 30000, stdio: "pipe" }
+    );
+    console.log(`[AudioSync] Converted ${path.basename(wavPath)} → SLIN 8kHz mono`);
+    return outputPath;
+  } catch (err) {
+    console.error(`[AudioSync] SLIN conversion failed for ${wavPath}: ${err instanceof Error ? err.message : err}`);
+    return null;
+  }
+}
+
+function wavBufferToSlin(wavBuffer: Buffer): Buffer {
+  const headerSize = 44;
+  if (wavBuffer.length <= headerSize) return wavBuffer;
+  return wavBuffer.subarray(headerSize);
+}
+
 export async function syncAudioToAsterisk(messageId?: string): Promise<SyncResult> {
   const settings = await getAriSettings();
   console.log(`[AudioSync] Settings loaded: host=${settings?.host || 'null'}, sshUsername=${settings?.sshUsername || 'null'}, sshPort=${settings?.sshPort || 'null'}, asteriskSoundsPath=${settings?.asteriskSoundsPath || 'null'}, sshPassword=${settings?.sshPassword ? '***SET***' : 'EMPTY'}`);
@@ -336,6 +363,15 @@ export async function syncAudioToAsterisk(messageId?: string): Promise<SyncResul
       if (!getFfmpegPath() && ext !== ".wav") {
         errors.push(`${msg.name}: uploaded as ${ext} without conversion (ffmpeg not found). Install: sudo apt install ffmpeg`);
       }
+
+      const slinPath = convertWavToSlin(uploadPath);
+      if (slinPath) {
+        const remoteSlinPath = `${remoteSoundsPath}/${soundName}.slin`;
+        await sftpUpload(sftp, slinPath, remoteSlinPath);
+        console.log(`[AudioSync] Uploaded SLIN ${msg.name} → ${remoteSlinPath}`);
+        tempFiles.push(slinPath);
+      }
+
       synced++;
     } catch (err) {
       const errMsg = `${msg.name}: ${err instanceof Error ? err.message : err}`;
@@ -417,6 +453,13 @@ export async function uploadBufferToAsterisk(wavBuffer: Buffer, remoteSoundName:
 
     const remotePath = `${remoteSoundsPath}/${remoteSoundName}.wav`;
     await sftpUploadBuffer(sftp, wavBuffer, remotePath);
+
+    const slinBuffer = wavBufferToSlin(wavBuffer);
+    if (slinBuffer.length > 0) {
+      const remoteSlinPath = `${remoteSoundsPath}/${remoteSoundName}.slin`;
+      await sftpUploadBuffer(sftp, slinBuffer, remoteSlinPath);
+    }
+
     return { success: true };
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : String(err);
@@ -471,6 +514,14 @@ export async function syncVoicemailGreetingToAsterisk(localFilePath: string, rem
     const remotePath = `${remoteSoundsPath}/${remoteSoundName}${remoteExt}`;
     await sftpUpload(sftp, uploadPath, remotePath);
     console.log(`[AudioSync] Uploaded via pooled SFTP (${Date.now() - t0}ms): ${remoteSoundName}`);
+
+    const slinPath = convertWavToSlin(uploadPath);
+    if (slinPath) {
+      const remoteSlinPath = `${remoteSoundsPath}/${remoteSoundName}.slin`;
+      await sftpUpload(sftp, slinPath, remoteSlinPath);
+      console.log(`[AudioSync] Uploaded SLIN via pooled SFTP: ${remoteSoundName}`);
+      tempFiles.push(slinPath);
+    }
 
     for (const tmp of tempFiles) {
       try { fs.unlinkSync(tmp); } catch {}
