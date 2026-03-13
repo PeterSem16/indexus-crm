@@ -52,11 +52,11 @@ interface SipContextType {
 
 const SipContext = createContext<SipContextType | undefined>(undefined);
 
-const REGISTER_EXPIRES = 120;
-const RE_REGISTER_INTERVAL = 45_000;
+const REGISTER_EXPIRES = 90;
+const RE_REGISTER_INTERVAL = 30_000;
 const RECONNECT_BASE_DELAY = 1_000;
-const RECONNECT_MAX_DELAY = 30_000;
-const KEEPALIVE_INTERVAL = 25_000;
+const RECONNECT_MAX_DELAY = 15_000;
+const KEEPALIVE_INTERVAL = 15_000;
 const ENSURE_REGISTERED_TIMEOUT = 8_000;
 
 export function SipProvider({ children }: { children: ReactNode }) {
@@ -338,8 +338,8 @@ export function SipProvider({ children }: { children: ReactNode }) {
       const wsProtocol = sipSettings!.transport === "ws" ? "ws" : "wss";
       const transportOptions = {
         server: `${wsProtocol}://${serverHost}:${serverPort}${wsPath}`,
-        keepAliveInterval: 30,
-        connectionTimeout: 10,
+        keepAliveInterval: 10,
+        connectionTimeout: 15,
         traceSip: false,
       };
 
