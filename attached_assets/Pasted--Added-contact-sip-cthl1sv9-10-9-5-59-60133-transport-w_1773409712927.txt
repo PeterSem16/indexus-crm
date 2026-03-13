@@ -1,0 +1,33 @@
+- Added contact 'sip:cthl1sv9@10.9.5.59:60133;transport=ws;x-ast-orig-host=8vt7ah8s0vsf.invalid:0' to AOR '2001' with expiration of 300 seconds
+  == Endpoint 2001 is now Reachable
+    -- Contact 2001/sip:cthl1sv9@10.9.5.59:60133;transport=ws;x-ast-orig-host=8vt7ah8s0vsf.invalid:0 is now Reachable.  RTT: 26.310 msec
+    -- Executing [+421948519438@webrtc-indexus:1] NoOp("PJSIP/2001-00000000", "WebRTC outbound PLUS caller=2001 dest=+421948519438") in new stack
+    -- Executing [+421948519438@webrtc-indexus:2] Set("PJSIP/2001-00000000", "OUTNUM=421948519438") in new stack
+    -- Executing [+421948519438@webrtc-indexus:3] Goto("PJSIP/2001-00000000", "indexus-outbound,421948519438,1") in new stack
+    -- Goto (indexus-outbound,421948519438,1)
+    -- Executing [421948519438@indexus-outbound:1] NoOp("PJSIP/2001-00000000", "Indexus outbound caller=2001 dest=421948519438") in new stack
+    -- Executing [421948519438@indexus-outbound:2] GotoIf("PJSIP/2001-00000000", "0?route-cz,421948519438,1") in new stack
+    -- Executing [421948519438@indexus-outbound:3] GotoIf("PJSIP/2001-00000000", "0?route-hu,421948519438,1") in new stack
+    -- Executing [421948519438@indexus-outbound:4] GotoIf("PJSIP/2001-00000000", "0?route-ro,421948519438,1") in new stack
+    -- Executing [421948519438@indexus-outbound:5] GotoIf("PJSIP/2001-00000000", "1?route-sk,421948519438,1") in new stack
+    -- Goto (route-sk,421948519438,1)
+    -- Executing [421948519438@route-sk:1] NoOp("PJSIP/2001-00000000", "Route via SK legacy server caller=2001 dest=421948519438") in new stack
+    -- Executing [421948519438@route-sk:2] Set("PJSIP/2001-00000000", "OUTNUM=421948519438") in new stack
+    -- Executing [421948519438@route-sk:3] ExecIf("PJSIP/2001-00000000", "1?Set(OUTNUM=0948519438)") in new stack
+    -- Executing [421948519438@route-sk:4] NoOp("PJSIP/2001-00000000", "Normalized SK outbound number=0948519438") in new stack
+    -- Executing [421948519438@route-sk:5] Dial("PJSIP/2001-00000000", "PJSIP/0948519438@trunk-sk-endpoint,60") in new stack
+    -- Called PJSIP/0948519438@trunk-sk-endpoint
+    -- PJSIP/trunk-sk-endpoint-00000001 is ringing
+    -- PJSIP/trunk-sk-endpoint-00000001 is ringing
+       > 0x7c105806bb20 -- Strict RTP learning after remote address set to: 10.9.33.2:10882
+    -- PJSIP/trunk-sk-endpoint-00000001 is making progress passing it to PJSIP/2001-00000000
+       > 0x7c10580a10b0 -- Strict RTP learning after remote address set to: 10.9.5.73:61149
+       > 0x7c10580a10b0 -- Strict RTP learning after ICE completion
+    -- PJSIP/trunk-sk-endpoint-00000001 answered PJSIP/2001-00000000
+    -- Channel PJSIP/trunk-sk-endpoint-00000001 joined 'simple_bridge' basic-bridge <dc5501f5-c0c4-4963-bbf0-012faa8c729b>
+    -- Channel PJSIP/2001-00000000 joined 'simple_bridge' basic-bridge <dc5501f5-c0c4-4963-bbf0-012faa8c729b>
+       > 0x7c10580a10b0 -- Strict RTP learning after remote address set to: 10.9.5.73:61149
+       > 0x7c10580a10b0 -- Strict RTP switching to RTP target address 10.9.5.73:61149 as source
+       > 0x7c10580a10b0 -- Strict RTP learning complete - Locking on source address 10.9.5.73:61149
+       > 0x7c105806bb20 -- Strict RTP switching to RTP target address 10.9.33.2:10882 as source
+       > 0x7c105806bb20 -- Strict RTP learning complete - Locking on source address 10.9.33.2:10882
