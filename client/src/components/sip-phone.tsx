@@ -37,6 +37,19 @@ import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { SipSettings, CallLog, User } from "@shared/schema";
 
+function filterSdpCandidates(description: RTCSessionDescriptionInit): Promise<RTCSessionDescriptionInit> {
+  if (!description.sdp) return Promise.resolve(description);
+  const lines = description.sdp.split(/\r?\n/);
+  const filtered = lines.filter(line => {
+    if (!line.startsWith("a=candidate:")) return true;
+    const ipMatch = line.match(/a=candidate:\S+ \d+ \S+ \d+ (\S+)/);
+    if (!ipMatch) return true;
+    const ip = ipMatch[1];
+    return ip.startsWith("10.") || ip.startsWith("172.") || ip === "0.0.0.0";
+  });
+  return Promise.resolve({ ...description, sdp: filtered.join("\r\n") });
+}
+
 function useRegistrationTimer(isRegistered: boolean, isRegistering: boolean) {
   const [waitingForReg, setWaitingForReg] = useState(false);
   const [elapsedSec, setElapsedSec] = useState(0);
@@ -921,6 +934,7 @@ export function SipPhone({
             video: false
           },
           iceGatheringTimeout: 1500,
+          modifiers: [filterSdpCandidates],
         },
         sessionDescriptionHandlerFactoryOptions: {
           iceGatheringTimeout: 1500,

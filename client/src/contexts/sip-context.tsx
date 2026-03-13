@@ -2,6 +2,19 @@ import { createContext, useContext, useState, useEffect, useRef, useCallback, ty
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "./auth-context";
 
+function filterSdpCandidates(description: RTCSessionDescriptionInit): Promise<RTCSessionDescriptionInit> {
+  if (!description.sdp) return Promise.resolve(description);
+  const lines = description.sdp.split(/\r?\n/);
+  const filtered = lines.filter(line => {
+    if (!line.startsWith("a=candidate:")) return true;
+    const ipMatch = line.match(/a=candidate:\S+ \d+ \S+ \d+ (\S+)/);
+    if (!ipMatch) return true;
+    const ip = ipMatch[1];
+    return ip.startsWith("10.") || ip.startsWith("172.") || ip === "0.0.0.0";
+  });
+  return Promise.resolve({ ...description, sdp: filtered.join("\r\n") });
+}
+
 interface SipSettingsData {
   server?: string;
   port?: number;
@@ -119,6 +132,7 @@ export function SipProvider({ children }: { children: ReactNode }) {
         sessionDescriptionHandlerOptions: {
           constraints: { audio: true, video: false },
           iceGatheringTimeout: 1500,
+          modifiers: [filterSdpCandidates],
         },
         sessionDescriptionHandlerFactoryOptions: {
           iceGatheringTimeout: 1500,
