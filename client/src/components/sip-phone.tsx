@@ -50,6 +50,12 @@ function filterSdpCandidates(description: RTCSessionDescriptionInit): Promise<RT
   return Promise.resolve({ ...description, sdp: filtered.join("\r\n") });
 }
 
+function forceDtlsActive(description: RTCSessionDescriptionInit): Promise<RTCSessionDescriptionInit> {
+  if (!description.sdp) return Promise.resolve(description);
+  const sdp = description.sdp.replace(/a=setup:actpass/g, "a=setup:active");
+  return Promise.resolve({ ...description, sdp });
+}
+
 function useRegistrationTimer(isRegistered: boolean, isRegistering: boolean) {
   const [waitingForReg, setWaitingForReg] = useState(false);
   const [elapsedSec, setElapsedSec] = useState(0);
@@ -934,7 +940,7 @@ export function SipPhone({
             video: false
           },
           iceGatheringTimeout: 1500,
-          modifiers: [filterSdpCandidates],
+          modifiers: [filterSdpCandidates, forceDtlsActive],
         },
         sessionDescriptionHandlerFactoryOptions: {
           iceGatheringTimeout: 1500,
