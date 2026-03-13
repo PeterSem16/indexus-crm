@@ -1,0 +1,259 @@
+
+Fri Mar 13 2026 13:53:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | Configuration: index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · allowLegacyNotifications: false index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · authorizationHa1: "" index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · authorizationPassword: NOT SHOWN index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · authorizationUsername: "2001" index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · delegate: {} index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · contactName: "" index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · contactParams: {"transport":"ws"} index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · displayName: "2001" index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · forceRport: false index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · gracefulShutdown: false index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · hackAllowUnregisteredOptionTags: false index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · hackIpInContact: false index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · hackViaTcp: false index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · instanceId: "" index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · instanceIdAlwaysAdded: false index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · logBuiltinEnabled: true index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · logConfiguration: true index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · logConnector: undefined index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · logLevel: "log" index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · noAnswerTimeout: 60 index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · preloadedRouteSet: [] index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · reconnectionAttempts: 0 index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · reconnectionDelay: 1 index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · sendInitialProvisionalResponse: true index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · sessionDescriptionHandlerFactory: (t,a)=>{n===void 0&&(n=KEe());const r={iceGatheringTimeout:a?.iceGatheringTimeout!==void 0?a?.iceGatheringTimeout:5e3,peerConnectionConfiguration:Object.assign(Object.assign({},WEe()),a?.peerConnectionConfiguration)},i=t.userAgent.getLogger("sip.SessionDescriptionHandler");return new up(i,n,r)} index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · sessionDescriptionHandlerFactoryOptions: {"iceGatheringTimeout":1500,"peerConnectionConfiguration":{"iceServers":[],"bundlePolicy":"max-bundle","rtcpMuxPolicy":"require"}} index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · sipExtension100rel: "Unsupported" index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · sipExtensionReplaces: "Unsupported" index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · sipExtensionExtraSupported: [] index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · sipjsId: "jlrlt" index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · transportConstructor: DD index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · transportOptions: {"server":"wss://mediagtw.cordbloodcenter.com:8089/ws","keepAliveInterval":10,"connectionTimeout":15,"traceSip":false} index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · uri: sip:2001@asterisk index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · userAgentString: "SIP.js/0.21.1" index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · viaHost: "jt5ss24ot5mj.invalid" index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · noResponseTimeout: 60 index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | The user agent option "reconnectionDelay" as has apparently been specified and has been deprecated. It will no longer be available starting with SIP.js release 0.16.0. Please update accordingly. index-DeJ9HxQd.js:86:61578
+Fri Mar 13 2026 13:53:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | The user agent option "reconnectionAttempts" as has apparently been specified and has been deprecated. It will no longer be available starting with SIP.js release 0.16.0. Please update accordingly. index-DeJ9HxQd.js:86:61578
+Fri Mar 13 2026 13:53:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | Starting sip:2001@asterisk index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | Transitioned from Stopped to Started index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:00 GMT+0100 (Central European Standard Time) | sip.Transport | Connecting wss://mediagtw.cordbloodcenter.com:8089/ws index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:00 GMT+0100 (Central European Standard Time) | sip.Transport | Transitioned from Disconnected to Connecting index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:00 GMT+0100 (Central European Standard Time) | sip.Transport | WebSocket opened wss://mediagtw.cordbloodcenter.com:8089/ws index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:00 GMT+0100 (Central European Standard Time) | sip.Transport | Transitioned from Connecting to Connected index-DeJ9HxQd.js:86:61612
+[SIP] Transport connected index-DeJ9HxQd.js:55:3584
+[SIP] UserAgent started index-DeJ9HxQd.js:55:3828
+Fri Mar 13 2026 13:53:00 GMT+0100 (Central European Standard Time) | sip.Registerer | Configuration: index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:00 GMT+0100 (Central European Standard Time) | sip.Registerer | · expires: 90 index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:00 GMT+0100 (Central European Standard Time) | sip.Registerer | · extraContactHeaderParams: [] index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:00 GMT+0100 (Central European Standard Time) | sip.Registerer | · extraHeaders: ["X-CRM-Client: indexus"] index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:00 GMT+0100 (Central European Standard Time) | sip.Registerer | · logConfiguration: true index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:00 GMT+0100 (Central European Standard Time) | sip.Registerer | · instanceId: "64f3de58-cc63-4476-86a1-8b1eb44b5bd9" index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:00 GMT+0100 (Central European Standard Time) | sip.Registerer | · params: {} index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:00 GMT+0100 (Central European Standard Time) | sip.Registerer | · regId: 1 index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:00 GMT+0100 (Central European Standard Time) | sip.Registerer | · registrar: sip:asterisk index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:00 GMT+0100 (Central European Standard Time) | sip.Registerer | · refreshFrequency: 90 index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:00 GMT+0100 (Central European Standard Time) | sip.Registerer | Waiting toggled to true index-DeJ9HxQd.js:86:61612
+[SIP] Initial REGISTER sent index-DeJ9HxQd.js:55:4209
+Fri Mar 13 2026 13:53:01 GMT+0100 (Central European Standard Time) | sip.Registerer | Registration transitioned to state Registered index-DeJ9HxQd.js:86:61612
+[SIP] Registerer state: Registered index-DeJ9HxQd.js:55:4013
+Fri Mar 13 2026 13:53:01 GMT+0100 (Central European Standard Time) | sip.Registerer | Waiting toggled to false index-DeJ9HxQd.js:86:61612
+[SIP] ensureRegistered: already registered and connected index-DeJ9HxQd.js:55:4530
+Fri Mar 13 2026 13:53:26 GMT+0100 (Central European Standard Time) | sip.Inviter | Inviter.invite index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:26 GMT+0100 (Central European Standard Time) | sip.Inviter | Session jlrlt101sifmgnc7dg52c72u88gj9g transitioned to state Establishing index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:26 GMT+0100 (Central European Standard Time) | sip.Inviter | Inviter.onTrying index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:26 GMT+0100 (Central European Standard Time) | sip.invite-dialog | INVITE dialog jlrlt101sifmgnc7dg52c72u88gj9gb0b3e7cf-da29-4550-984c-35bada8d7010 constructed index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:26 GMT+0100 (Central European Standard Time) | sip.Inviter | Inviter.onProgress index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:27 GMT+0100 (Central European Standard Time) | sip.Inviter | Inviter.onProgress index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:29 GMT+0100 (Central European Standard Time) | sip.Inviter | Inviter.onAccept index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:29 GMT+0100 (Central European Standard Time) | sip.invite-dialog | INVITE dialog jlrlt101sifmgnc7dg52c72u88gj9gb0b3e7cf-da29-4550-984c-35bada8d7010 sending ACK request index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:29 GMT+0100 (Central European Standard Time) | sip.Inviter | Session jlrlt101sifmgnc7dg52c72u88gj9g transitioned to state Established index-DeJ9HxQd.js:86:61612
+[SIP-INBOUND] setupAudio called, session state: Established index-DeJ9HxQd.js:129:22544
+[SIP-INBOUND] setupAudio: PC state: new senders: 1 receivers: 1 index-DeJ9HxQd.js:129:22841
+[SIP] Remote audio track found in existing receivers index-DeJ9HxQd.js:129:23332
+[SIP] Periodic re-registration... index-DeJ9HxQd.js:55:201
+Fri Mar 13 2026 13:53:30 GMT+0100 (Central European Standard Time) | sip.Registerer | Waiting toggled to true index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:30 GMT+0100 (Central European Standard Time) | sip.Registerer | Waiting toggled to false index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:52 GMT+0100 (Central European Standard Time) | sip.invite-dialog | INVITE dialog jlrlt101sifmgnc7dg52c72u88gj9gb0b3e7cf-da29-4550-984c-35bada8d7010 received BYE request index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:52 GMT+0100 (Central European Standard Time) | sip.Inviter | Session.onByeRequest index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:52 GMT+0100 (Central European Standard Time) | sip.Inviter | Session jlrlt101sifmgnc7dg52c72u88gj9g transitioned to state Terminated index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:52 GMT+0100 (Central European Standard Time) | sip.Inviter | Session jlrlt101sifmgnc7dg52c72u88gj9g in state Terminated is being disposed index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:52 GMT+0100 (Central European Standard Time) | sip.invite-dialog | INVITE dialog jlrlt101sifmgnc7dg52c72u88gj9gb0b3e7cf-da29-4550-984c-35bada8d7010 destroyed index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:59 GMT+0100 (Central European Standard Time) | sip.Registerer | Waiting toggled to true index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:59 GMT+0100 (Central European Standard Time) | sip.UserAgent | Stopping sip:2001@asterisk index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:59 GMT+0100 (Central European Standard Time) | sip.UserAgent | Dispose of transport index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:59 GMT+0100 (Central European Standard Time) | sip.Transport | Disconnecting wss://mediagtw.cordbloodcenter.com:8089/ws index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:59 GMT+0100 (Central European Standard Time) | sip.Transport | Transitioned from Connected to Disconnecting index-DeJ9HxQd.js:86:61612
+[SIP] Transport disconnected <empty string> index-DeJ9HxQd.js:55:3674
+Fri Mar 13 2026 13:53:59 GMT+0100 (Central European Standard Time) | sip.UserAgent | Dispose of core index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:59 GMT+0100 (Central European Standard Time) | sip.UserAgent | Transitioned from Started to Stopped index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:59 GMT+0100 (Central European Standard Time) | sip.Transport | WebSocket closed wss://mediagtw.cordbloodcenter.com:8089/ws (code: 1000) index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:53:59 GMT+0100 (Central European Standard Time) | sip.Transport | Transitioned from Disconnecting to Disconnected index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:54:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | Configuration: index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:54:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · allowLegacyNotifications: false index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:54:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · authorizationHa1: "" index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:54:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · authorizationPassword: NOT SHOWN index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:54:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · authorizationUsername: "2001" index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:54:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · delegate: {} index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:54:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · contactName: "" index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:54:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · contactParams: {"transport":"ws"} index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:54:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · displayName: "2001" index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:54:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · forceRport: false index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:54:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · gracefulShutdown: false index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:54:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · hackAllowUnregisteredOptionTags: false index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:54:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · hackIpInContact: false index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:54:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · hackViaTcp: false index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:54:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · instanceId: "" index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:54:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · instanceIdAlwaysAdded: false index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:54:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · logBuiltinEnabled: true index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:54:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · logConfiguration: true index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:54:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · logConnector: undefined index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:54:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · logLevel: "log" index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:54:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · noAnswerTimeout: 60 index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:54:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · preloadedRouteSet: [] index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:54:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · reconnectionAttempts: 0 index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:54:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · reconnectionDelay: 1 index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:54:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · sendInitialProvisionalResponse: true index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:54:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · sessionDescriptionHandlerFactory: (t,a)=>{n===void 0&&(n=KEe());const r={iceGatheringTimeout:a?.iceGatheringTimeout!==void 0?a?.iceGatheringTimeout:5e3,peerConnectionConfiguration:Object.assign(Object.assign({},WEe()),a?.peerConnectionConfiguration)},i=t.userAgent.getLogger("sip.SessionDescriptionHandler");return new up(i,n,r)} index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:54:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · sessionDescriptionHandlerFactoryOptions: {"iceGatheringTimeout":1500,"peerConnectionConfiguration":{"iceServers":[],"bundlePolicy":"max-bundle","rtcpMuxPolicy":"require"}} index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:54:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · sipExtension100rel: "Unsupported" index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:54:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · sipExtensionReplaces: "Unsupported" index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:54:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · sipExtensionExtraSupported: [] index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:54:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · sipjsId: "5pppm" index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:54:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · transportConstructor: DD index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:54:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · transportOptions: {"server":"wss://mediagtw.cordbloodcenter.com:8089/ws","keepAliveInterval":10,"connectionTimeout":15,"traceSip":false} index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:54:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · uri: sip:2001@asterisk index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:54:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · userAgentString: "SIP.js/0.21.1" index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:54:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · viaHost: "e2g8tovf6tam.invalid" index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:54:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | · noResponseTimeout: 60 index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:54:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | The user agent option "reconnectionDelay" as has apparently been specified and has been deprecated. It will no longer be available starting with SIP.js release 0.16.0. Please update accordingly. index-DeJ9HxQd.js:86:61578
+Fri Mar 13 2026 13:54:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | The user agent option "reconnectionAttempts" as has apparently been specified and has been deprecated. It will no longer be available starting with SIP.js release 0.16.0. Please update accordingly. index-DeJ9HxQd.js:86:61578
+Fri Mar 13 2026 13:54:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | Starting sip:2001@asterisk index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:54:00 GMT+0100 (Central European Standard Time) | sip.UserAgent | Transitioned from Stopped to Started index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:54:00 GMT+0100 (Central European Standard Time) | sip.Transport | Connecting wss://mediagtw.cordbloodcenter.com:8089/ws index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:54:00 GMT+0100 (Central European Standard Time) | sip.Transport | Transitioned from Disconnected to Connecting index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:54:00 GMT+0100 (Central European Standard Time) | sip.Transport | WebSocket opened wss://mediagtw.cordbloodcenter.com:8089/ws index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:54:00 GMT+0100 (Central European Standard Time) | sip.Transport | Transitioned from Connecting to Connected index-DeJ9HxQd.js:86:61612
+[SIP] Transport connected index-DeJ9HxQd.js:55:3584
+[SIP] UserAgent started index-DeJ9HxQd.js:55:3828
+Fri Mar 13 2026 13:54:00 GMT+0100 (Central European Standard Time) | sip.Registerer | Configuration: index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:54:00 GMT+0100 (Central European Standard Time) | sip.Registerer | · expires: 90 index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:54:00 GMT+0100 (Central European Standard Time) | sip.Registerer | · extraContactHeaderParams: [] index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:54:00 GMT+0100 (Central European Standard Time) | sip.Registerer | · extraHeaders: ["X-CRM-Client: indexus"] index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:54:00 GMT+0100 (Central European Standard Time) | sip.Registerer | · logConfiguration: true index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:54:00 GMT+0100 (Central European Standard Time) | sip.Registerer | · instanceId: "703fcccb-d13d-4385-a3c2-35370b8870f9" index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:54:00 GMT+0100 (Central European Standard Time) | sip.Registerer | · params: {} index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:54:00 GMT+0100 (Central European Standard Time) | sip.Registerer | · regId: 1 index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:54:00 GMT+0100 (Central European Standard Time) | sip.Registerer | · registrar: sip:asterisk index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:54:00 GMT+0100 (Central European Standard Time) | sip.Registerer | · refreshFrequency: 90 index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:54:00 GMT+0100 (Central European Standard Time) | sip.Registerer | Waiting toggled to true index-DeJ9HxQd.js:86:61612
+[SIP] Initial REGISTER sent index-DeJ9HxQd.js:55:4209
+Fri Mar 13 2026 13:54:00 GMT+0100 (Central European Standard Time) | sip.Registerer | Registration transitioned to state Registered index-DeJ9HxQd.js:86:61612
+[SIP] Registerer state: Registered index-DeJ9HxQd.js:55:4013
+Fri Mar 13 2026 13:54:00 GMT+0100 (Central European Standard Time) | sip.Registerer | Waiting toggled to false index-DeJ9HxQd.js:86:61612
+[SIP] ensureRegistered: already registered and connected index-DeJ9HxQd.js:55:4530
+Fri Mar 13 2026 13:54:07 GMT+0100 (Central European Standard Time) | sip.Inviter | Inviter.invite index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:54:07 GMT+0100 (Central European Standard Time) | sip.Inviter | Session 5pppm5lmff0f9080oksjtajpuochc5 transitioned to state Establishing index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:54:08 GMT+0100 (Central European Standard Time) | sip.Inviter | Inviter.onTrying index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:54:08 GMT+0100 (Central European Standard Time) | sip.invite-dialog | INVITE dialog 5pppm5lmff0f9080oksjtajpuochc5f3885b15-d8a7-4fcb-b86e-114cc0350456 constructed index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:54:08 GMT+0100 (Central European Standard Time) | sip.Inviter | Inviter.onProgress index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:54:10 GMT+0100 (Central European Standard Time) | sip.Inviter | Inviter.onProgress index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:54:12 GMT+0100 (Central European Standard Time) | sip.Inviter | Inviter.onAccept index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:54:12 GMT+0100 (Central European Standard Time) | sip.invite-dialog | INVITE dialog 5pppm5lmff0f9080oksjtajpuochc5f3885b15-d8a7-4fcb-b86e-114cc0350456 sending ACK request index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:54:12 GMT+0100 (Central European Standard Time) | sip.Inviter | Session 5pppm5lmff0f9080oksjtajpuochc5 transitioned to state Established index-DeJ9HxQd.js:86:61612
+[SIP-INBOUND] setupAudio called, session state: Established index-DeJ9HxQd.js:129:22544
+[SIP-INBOUND] setupAudio: PC state: new senders: 1 receivers: 1 index-DeJ9HxQd.js:129:22841
+[SIP] Remote audio track found in existing receivers index-DeJ9HxQd.js:129:23332
+[SIP] Periodic re-registration... index-DeJ9HxQd.js:55:201
+Fri Mar 13 2026 13:54:30 GMT+0100 (Central European Standard Time) | sip.Registerer | Waiting toggled to true index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:54:30 GMT+0100 (Central European Standard Time) | sip.Registerer | Waiting toggled to false index-DeJ9HxQd.js:86:61612
+[SIP-INBOUND] endCall called, session state: Established index-DeJ9HxQd.js:129:24062
+[SIP-INBOUND] Sending BYE to end call index-DeJ9HxQd.js:129:24204
+Fri Mar 13 2026 13:54:33 GMT+0100 (Central European Standard Time) | sip.invite-dialog | INVITE dialog 5pppm5lmff0f9080oksjtajpuochc5f3885b15-d8a7-4fcb-b86e-114cc0350456 sending BYE request index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:54:33 GMT+0100 (Central European Standard Time) | sip.invite-dialog | INVITE dialog 5pppm5lmff0f9080oksjtajpuochc5f3885b15-d8a7-4fcb-b86e-114cc0350456 destroyed index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:54:33 GMT+0100 (Central European Standard Time) | sip.Inviter | Session 5pppm5lmff0f9080oksjtajpuochc5 transitioned to state Terminated index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:54:33 GMT+0100 (Central European Standard Time) | sip.Inviter | Session 5pppm5lmff0f9080oksjtajpuochc5 in state Terminated is being disposed index-DeJ9HxQd.js:86:61612
+[SIP] Periodic re-registration... index-DeJ9HxQd.js:55:201
+Fri Mar 13 2026 13:55:00 GMT+0100 (Central European Standard Time) | sip.Registerer | Waiting toggled to true index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:55:00 GMT+0100 (Central European Standard Time) | sip.Registerer | Waiting toggled to false index-DeJ9HxQd.js:86:61612
+[SIP] Periodic re-registration... index-DeJ9HxQd.js:55:201
+Fri Mar 13 2026 13:55:30 GMT+0100 (Central European Standard Time) | sip.Registerer | Waiting toggled to true index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:55:30 GMT+0100 (Central European Standard Time) | sip.Registerer | Waiting toggled to false index-DeJ9HxQd.js:86:61612
+[SIP] ensureRegistered: already registered and connected index-DeJ9HxQd.js:55:4530
+Fri Mar 13 2026 13:55:41 GMT+0100 (Central European Standard Time) | sip.Inviter | Inviter.invite index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:55:41 GMT+0100 (Central European Standard Time) | sip.Inviter | Session 5pppmbp4vet63fsrgafsm2tnrcq28q transitioned to state Establishing index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:55:41 GMT+0100 (Central European Standard Time) | sip.Inviter | Inviter.onTrying index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:55:42 GMT+0100 (Central European Standard Time) | sip.invite-dialog | INVITE dialog 5pppmbp4vet63fsrgafsm2tnrcq28qaad2f33e-aed5-4912-8903-f3ae0b5ce651 constructed index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:55:42 GMT+0100 (Central European Standard Time) | sip.Inviter | Inviter.onProgress index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:55:43 GMT+0100 (Central European Standard Time) | sip.Inviter | Inviter.onProgress index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:55:47 GMT+0100 (Central European Standard Time) | sip.Inviter | Inviter.onAccept index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:55:47 GMT+0100 (Central European Standard Time) | sip.invite-dialog | INVITE dialog 5pppmbp4vet63fsrgafsm2tnrcq28qaad2f33e-aed5-4912-8903-f3ae0b5ce651 sending ACK request index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:55:47 GMT+0100 (Central European Standard Time) | sip.Inviter | Session 5pppmbp4vet63fsrgafsm2tnrcq28q transitioned to state Established index-DeJ9HxQd.js:86:61612
+[SIP-INBOUND] setupAudio called, session state: Established index-DeJ9HxQd.js:129:22544
+[SIP-INBOUND] setupAudio: PC state: new senders: 1 receivers: 1 index-DeJ9HxQd.js:129:22841
+[SIP] Remote audio track found in existing receivers index-DeJ9HxQd.js:129:23332
+[SIP] Periodic re-registration... index-DeJ9HxQd.js:55:201
+Fri Mar 13 2026 13:56:00 GMT+0100 (Central European Standard Time) | sip.Registerer | Waiting toggled to true index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:56:00 GMT+0100 (Central European Standard Time) | sip.Registerer | Waiting toggled to false index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:56:12 GMT+0100 (Central European Standard Time) | sip.invite-dialog | INVITE dialog 5pppmbp4vet63fsrgafsm2tnrcq28qaad2f33e-aed5-4912-8903-f3ae0b5ce651 received BYE request index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:56:12 GMT+0100 (Central European Standard Time) | sip.Inviter | Session.onByeRequest index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:56:12 GMT+0100 (Central European Standard Time) | sip.Inviter | Session 5pppmbp4vet63fsrgafsm2tnrcq28q transitioned to state Terminated index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:56:12 GMT+0100 (Central European Standard Time) | sip.Inviter | Session 5pppmbp4vet63fsrgafsm2tnrcq28q in state Terminated is being disposed index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:56:12 GMT+0100 (Central European Standard Time) | sip.invite-dialog | INVITE dialog 5pppmbp4vet63fsrgafsm2tnrcq28qaad2f33e-aed5-4912-8903-f3ae0b5ce651 destroyed index-DeJ9HxQd.js:86:61612
+[SIP] Periodic re-registration... index-DeJ9HxQd.js:55:201
+Fri Mar 13 2026 13:56:30 GMT+0100 (Central European Standard Time) | sip.Registerer | Waiting toggled to true index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:56:30 GMT+0100 (Central European Standard Time) | sip.Registerer | Waiting toggled to false index-DeJ9HxQd.js:86:61612
+[SIP] Periodic re-registration... index-DeJ9HxQd.js:55:201
+Fri Mar 13 2026 13:57:00 GMT+0100 (Central European Standard Time) | sip.Registerer | Waiting toggled to true index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:57:00 GMT+0100 (Central European Standard Time) | sip.Registerer | Waiting toggled to false index-DeJ9HxQd.js:86:61612
+[SIP] Periodic re-registration... index-DeJ9HxQd.js:55:201
+Fri Mar 13 2026 13:57:30 GMT+0100 (Central European Standard Time) | sip.Registerer | Waiting toggled to true index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:57:30 GMT+0100 (Central European Standard Time) | sip.Registerer | Waiting toggled to false index-DeJ9HxQd.js:86:61612
+[SIP] Periodic re-registration... index-DeJ9HxQd.js:55:201
+Fri Mar 13 2026 13:58:00 GMT+0100 (Central European Standard Time) | sip.Registerer | Waiting toggled to true index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:58:00 GMT+0100 (Central European Standard Time) | sip.Registerer | Waiting toggled to false index-DeJ9HxQd.js:86:61612
+[SIP] ensureRegistered: already registered and connected index-DeJ9HxQd.js:55:4530
+Fri Mar 13 2026 13:58:04 GMT+0100 (Central European Standard Time) | sip.Inviter | Inviter.invite index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:58:04 GMT+0100 (Central European Standard Time) | sip.Inviter | Session 5pppmsk7j9oe60elre5tvs5t40vm80 transitioned to state Establishing index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:58:04 GMT+0100 (Central European Standard Time) | sip.Inviter | Inviter.onTrying index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:58:04 GMT+0100 (Central European Standard Time) | sip.invite-dialog | INVITE dialog 5pppmsk7j9oe60elre5tvs5t40vm80d81dbc6d-32c3-4627-bad6-cb22920727ff constructed index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:58:04 GMT+0100 (Central European Standard Time) | sip.Inviter | Inviter.onProgress index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:58:06 GMT+0100 (Central European Standard Time) | sip.Inviter | Inviter.onProgress index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:58:08 GMT+0100 (Central European Standard Time) | sip.Inviter | Inviter.onAccept index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:58:08 GMT+0100 (Central European Standard Time) | sip.invite-dialog | INVITE dialog 5pppmsk7j9oe60elre5tvs5t40vm80d81dbc6d-32c3-4627-bad6-cb22920727ff sending ACK request index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:58:08 GMT+0100 (Central European Standard Time) | sip.Inviter | Session 5pppmsk7j9oe60elre5tvs5t40vm80 transitioned to state Established index-DeJ9HxQd.js:86:61612
+[SIP-INBOUND] setupAudio called, session state: Established index-DeJ9HxQd.js:129:22544
+[SIP-INBOUND] setupAudio: PC state: new senders: 1 receivers: 1 index-DeJ9HxQd.js:129:22841
+[SIP] Remote audio track found in existing receivers index-DeJ9HxQd.js:129:23332
+Fri Mar 13 2026 13:58:29 GMT+0100 (Central European Standard Time) | sip.invite-dialog | INVITE dialog 5pppmsk7j9oe60elre5tvs5t40vm80d81dbc6d-32c3-4627-bad6-cb22920727ff received BYE request index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:58:29 GMT+0100 (Central European Standard Time) | sip.Inviter | Session.onByeRequest index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:58:29 GMT+0100 (Central European Standard Time) | sip.Inviter | Session 5pppmsk7j9oe60elre5tvs5t40vm80 transitioned to state Terminated index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:58:29 GMT+0100 (Central European Standard Time) | sip.Inviter | Session 5pppmsk7j9oe60elre5tvs5t40vm80 in state Terminated is being disposed index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:58:29 GMT+0100 (Central European Standard Time) | sip.invite-dialog | INVITE dialog 5pppmsk7j9oe60elre5tvs5t40vm80d81dbc6d-32c3-4627-bad6-cb22920727ff destroyed index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:58:29 GMT+0100 (Central European Standard Time) | sip.Registerer | Registration expired index-DeJ9HxQd.js:86:61578
+Fri Mar 13 2026 13:58:29 GMT+0100 (Central European Standard Time) | sip.Registerer | Registration transitioned to state Unregistered index-DeJ9HxQd.js:86:61612
+[SIP] Registerer state: Unregistered index-DeJ9HxQd.js:55:4013
+[SIP] Scheduling reconnect attempt 1 in 1000ms index-DeJ9HxQd.js:55:897
+[SIP] Periodic re-registration... index-DeJ9HxQd.js:55:201
+Fri Mar 13 2026 13:58:30 GMT+0100 (Central European Standard Time) | sip.Registerer | Waiting toggled to true index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:58:30 GMT+0100 (Central European Standard Time) | sip.Registerer | Waiting toggled to false index-DeJ9HxQd.js:86:61612
+[SIP] Immediate reconnect: sending REGISTER... index-DeJ9HxQd.js:55:561
+Fri Mar 13 2026 13:58:30 GMT+0100 (Central European Standard Time) | sip.Registerer | Waiting toggled to true index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 13:58:31 GMT+0100 (Central European Standard Time) | sip.Registerer | Waiting toggled to false index-DeJ9HxQd.js:86:61612
+ 
+S pozdravom
+ 
+Peter Seman
+IT Manager&Consultant
+Cord Blood Center Group
+ 
+Adresa: Gallayova 11, 84102 Bratislava
+Mobil:   +421 948 519 438
+E-mail:  seman@cordbloodcenter.com
+Web:    www.cordbloodcenter.com
+ 
+
+ 
