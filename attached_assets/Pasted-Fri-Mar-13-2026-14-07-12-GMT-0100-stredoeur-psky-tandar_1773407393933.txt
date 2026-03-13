@@ -1,0 +1,93 @@
+Fri Mar 13 2026 14:07:12 GMT+0100 (stredoeurópsky štandardný čas) | sip.UserAgent | Configuration: index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 14:07:12 GMT+0100 (stredoeurópsky štandardný čas) | sip.UserAgent | · allowLegacyNotifications: false index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 14:07:12 GMT+0100 (stredoeurópsky štandardný čas) | sip.UserAgent | · authorizationHa1: "" index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 14:07:12 GMT+0100 (stredoeurópsky štandardný čas) | sip.UserAgent | · authorizationPassword: NOT SHOWN index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 14:07:12 GMT+0100 (stredoeurópsky štandardný čas) | sip.UserAgent | · authorizationUsername: "2001" index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 14:07:12 GMT+0100 (stredoeurópsky štandardný čas) | sip.UserAgent | · delegate: {} index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 14:07:12 GMT+0100 (stredoeurópsky štandardný čas) | sip.UserAgent | · contactName: "" index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 14:07:12 GMT+0100 (stredoeurópsky štandardný čas) | sip.UserAgent | · contactParams: {"transport":"ws"} index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 14:07:12 GMT+0100 (stredoeurópsky štandardný čas) | sip.UserAgent | · displayName: "2001" index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 14:07:12 GMT+0100 (stredoeurópsky štandardný čas) | sip.UserAgent | · forceRport: false index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 14:07:12 GMT+0100 (stredoeurópsky štandardný čas) | sip.UserAgent | · gracefulShutdown: false index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 14:07:12 GMT+0100 (stredoeurópsky štandardný čas) | sip.UserAgent | · hackAllowUnregisteredOptionTags: false index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 14:07:12 GMT+0100 (stredoeurópsky štandardný čas) | sip.UserAgent | · hackIpInContact: false index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 14:07:12 GMT+0100 (stredoeurópsky štandardný čas) | sip.UserAgent | · hackViaTcp: false index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 14:07:12 GMT+0100 (stredoeurópsky štandardný čas) | sip.UserAgent | · instanceId: "" index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 14:07:12 GMT+0100 (stredoeurópsky štandardný čas) | sip.UserAgent | · instanceIdAlwaysAdded: false index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 14:07:12 GMT+0100 (stredoeurópsky štandardný čas) | sip.UserAgent | · logBuiltinEnabled: true index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 14:07:12 GMT+0100 (stredoeurópsky štandardný čas) | sip.UserAgent | · logConfiguration: true index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 14:07:12 GMT+0100 (stredoeurópsky štandardný čas) | sip.UserAgent | · logConnector: undefined index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 14:07:12 GMT+0100 (stredoeurópsky štandardný čas) | sip.UserAgent | · logLevel: "log" index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 14:07:12 GMT+0100 (stredoeurópsky štandardný čas) | sip.UserAgent | · noAnswerTimeout: 60 index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 14:07:12 GMT+0100 (stredoeurópsky štandardný čas) | sip.UserAgent | · preloadedRouteSet: [] index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 14:07:12 GMT+0100 (stredoeurópsky štandardný čas) | sip.UserAgent | · reconnectionAttempts: 0 index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 14:07:12 GMT+0100 (stredoeurópsky štandardný čas) | sip.UserAgent | · reconnectionDelay: 1 index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 14:07:12 GMT+0100 (stredoeurópsky štandardný čas) | sip.UserAgent | · sendInitialProvisionalResponse: true index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 14:07:12 GMT+0100 (stredoeurópsky štandardný čas) | sip.UserAgent | · sessionDescriptionHandlerFactory: (t,a)=>{n===void 0&&(n=KEe());const r={iceGatheringTimeout:a?.iceGatheringTimeout!==void 0?a?.iceGatheringTimeout:5e3,peerConnectionConfiguration:Object.assign(Object.assign({},WEe()),a?.peerConnectionConfiguration)},i=t.userAgent.getLogger("sip.SessionDescriptionHandler");return new up(i,n,r)} index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 14:07:12 GMT+0100 (stredoeurópsky štandardný čas) | sip.UserAgent | · sessionDescriptionHandlerFactoryOptions: {"iceGatheringTimeout":1500,"peerConnectionConfiguration":{"iceServers":[],"bundlePolicy":"max-bundle","rtcpMuxPolicy":"require"}} index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 14:07:12 GMT+0100 (stredoeurópsky štandardný čas) | sip.UserAgent | · sipExtension100rel: "Unsupported" index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 14:07:12 GMT+0100 (stredoeurópsky štandardný čas) | sip.UserAgent | · sipExtensionReplaces: "Unsupported" index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 14:07:12 GMT+0100 (stredoeurópsky štandardný čas) | sip.UserAgent | · sipExtensionExtraSupported: [] index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 14:07:12 GMT+0100 (stredoeurópsky štandardný čas) | sip.UserAgent | · sipjsId: "i60u8" index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 14:07:12 GMT+0100 (stredoeurópsky štandardný čas) | sip.UserAgent | · transportConstructor: DD index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 14:07:12 GMT+0100 (stredoeurópsky štandardný čas) | sip.UserAgent | · transportOptions: {"server":"wss://mediagtw.cordbloodcenter.com:8089/ws","keepAliveInterval":10,"connectionTimeout":15,"traceSip":false} index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 14:07:12 GMT+0100 (stredoeurópsky štandardný čas) | sip.UserAgent | · uri: sip:2001@asterisk index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 14:07:12 GMT+0100 (stredoeurópsky štandardný čas) | sip.UserAgent | · userAgentString: "SIP.js/0.21.1" index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 14:07:12 GMT+0100 (stredoeurópsky štandardný čas) | sip.UserAgent | · viaHost: "dqim9vt1f55l.invalid" index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 14:07:12 GMT+0100 (stredoeurópsky štandardný čas) | sip.UserAgent | · noResponseTimeout: 60 index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 14:07:12 GMT+0100 (stredoeurópsky štandardný čas) | sip.UserAgent | Starting sip:2001@asterisk index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 14:07:12 GMT+0100 (stredoeurópsky štandardný čas) | sip.UserAgent | Transitioned from Stopped to Started index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 14:07:12 GMT+0100 (stredoeurópsky štandardný čas) | sip.Transport | Connecting wss://mediagtw.cordbloodcenter.com:8089/ws index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 14:07:12 GMT+0100 (stredoeurópsky štandardný čas) | sip.Transport | Transitioned from Disconnected to Connecting index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 14:07:12 GMT+0100 (stredoeurópsky štandardný čas) | sip.Transport | WebSocket opened wss://mediagtw.cordbloodcenter.com:8089/ws index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 14:07:12 GMT+0100 (stredoeurópsky štandardný čas) | sip.Transport | Transitioned from Connecting to Connected index-DeJ9HxQd.js:86:61612
+[SIP] Transport connected index-DeJ9HxQd.js:55:3584
+[SIP] UserAgent started index-DeJ9HxQd.js:55:3828
+Fri Mar 13 2026 14:07:12 GMT+0100 (stredoeurópsky štandardný čas) | sip.Registerer | Configuration: index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 14:07:12 GMT+0100 (stredoeurópsky štandardný čas) | sip.Registerer | · expires: 90 index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 14:07:12 GMT+0100 (stredoeurópsky štandardný čas) | sip.Registerer | · extraContactHeaderParams: [] index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 14:07:12 GMT+0100 (stredoeurópsky štandardný čas) | sip.Registerer | · extraHeaders: ["X-CRM-Client: indexus"] index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 14:07:12 GMT+0100 (stredoeurópsky štandardný čas) | sip.Registerer | · logConfiguration: true index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 14:07:12 GMT+0100 (stredoeurópsky štandardný čas) | sip.Registerer | · instanceId: "2c421208-4009-4b61-bc27-16461be698e5" index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 14:07:12 GMT+0100 (stredoeurópsky štandardný čas) | sip.Registerer | · params: {} index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 14:07:12 GMT+0100 (stredoeurópsky štandardný čas) | sip.Registerer | · regId: 1 index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 14:07:12 GMT+0100 (stredoeurópsky štandardný čas) | sip.Registerer | · registrar: sip:asterisk index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 14:07:12 GMT+0100 (stredoeurópsky štandardný čas) | sip.Registerer | · refreshFrequency: 90 index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 14:07:12 GMT+0100 (stredoeurópsky štandardný čas) | sip.Registerer | Waiting toggled to true index-DeJ9HxQd.js:86:61612
+[SIP] Initial REGISTER sent index-DeJ9HxQd.js:55:4209
+Fri Mar 13 2026 14:07:12 GMT+0100 (stredoeurópsky štandardný čas) | sip.Registerer | Registration transitioned to state Registered index-DeJ9HxQd.js:86:61612
+[SIP] Registerer state: Registered index-DeJ9HxQd.js:55:4013
+Fri Mar 13 2026 14:07:12 GMT+0100 (stredoeurópsky štandardný čas) | sip.Registerer | Waiting toggled to false index-DeJ9HxQd.js:86:61612
+[SIP] Periodic re-registration... index-DeJ9HxQd.js:55:201
+Fri Mar 13 2026 14:07:42 GMT+0100 (stredoeurópsky štandardný čas) | sip.Registerer | Waiting toggled to true index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 14:07:42 GMT+0100 (stredoeurópsky štandardný čas) | sip.Registerer | Waiting toggled to false index-DeJ9HxQd.js:86:61612
+[SIP] Periodic re-registration... index-DeJ9HxQd.js:55:201
+Fri Mar 13 2026 14:08:12 GMT+0100 (stredoeurópsky štandardný čas) | sip.Registerer | Waiting toggled to true index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 14:08:12 GMT+0100 (stredoeurópsky štandardný čas) | sip.Registerer | Waiting toggled to false index-DeJ9HxQd.js:86:61612
+[SIP] Periodic re-registration... index-DeJ9HxQd.js:55:201
+Fri Mar 13 2026 14:08:42 GMT+0100 (stredoeurópsky štandardný čas) | sip.Registerer | Waiting toggled to true index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 14:08:42 GMT+0100 (stredoeurópsky štandardný čas) | sip.Registerer | Waiting toggled to false index-DeJ9HxQd.js:86:61612
+[SIP] ensureRegistered: already registered and connected index-DeJ9HxQd.js:55:4530
+Fri Mar 13 2026 14:09:06 GMT+0100 (stredoeurópsky štandardný čas) | sip.Inviter | Inviter.invite index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 14:09:08 GMT+0100 (stredoeurópsky štandardný čas) | sip.Inviter | Session i60u8jpamhvsevdhtr1qtn68bdoq08 transitioned to state Establishing index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 14:09:08 GMT+0100 (stredoeurópsky štandardný čas) | sip.Inviter | Inviter.onTrying index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 14:09:08 GMT+0100 (stredoeurópsky štandardný čas) | sip.invite-dialog | INVITE dialog i60u8jpamhvsevdhtr1qtn68bdoq08d7c9b967-24ce-440d-9e87-2910caa7f495 constructed index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 14:09:08 GMT+0100 (stredoeurópsky štandardný čas) | sip.Inviter | Inviter.onProgress index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 14:09:09 GMT+0100 (stredoeurópsky štandardný čas) | sip.Inviter | Inviter.onProgress index-DeJ9HxQd.js:86:61612
+[SIP] Periodic re-registration... index-DeJ9HxQd.js:55:201
+Fri Mar 13 2026 14:09:12 GMT+0100 (stredoeurópsky štandardný čas) | sip.Registerer | Waiting toggled to true index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 14:09:12 GMT+0100 (stredoeurópsky štandardný čas) | sip.Registerer | Waiting toggled to false index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 14:09:14 GMT+0100 (stredoeurópsky štandardný čas) | sip.Inviter | Inviter.onAccept index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 14:09:14 GMT+0100 (stredoeurópsky štandardný čas) | sip.invite-dialog | INVITE dialog i60u8jpamhvsevdhtr1qtn68bdoq08d7c9b967-24ce-440d-9e87-2910caa7f495 sending ACK request index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 14:09:14 GMT+0100 (stredoeurópsky štandardný čas) | sip.Inviter | Session i60u8jpamhvsevdhtr1qtn68bdoq08 transitioned to state Established index-DeJ9HxQd.js:86:61612
+[SIP-INBOUND] setupAudio called, session state: Established index-DeJ9HxQd.js:129:22544
+[SIP-INBOUND] setupAudio: PC state: new senders: 1 receivers: 1 index-DeJ9HxQd.js:129:22841
+[SIP] Remote audio track found in existing receivers index-DeJ9HxQd.js:129:23332
+Fri Mar 13 2026 14:09:41 GMT+0100 (stredoeurópsky štandardný čas) | sip.invite-dialog | INVITE dialog i60u8jpamhvsevdhtr1qtn68bdoq08d7c9b967-24ce-440d-9e87-2910caa7f495 received BYE request index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 14:09:41 GMT+0100 (stredoeurópsky štandardný čas) | sip.Inviter | Session.onByeRequest index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 14:09:41 GMT+0100 (stredoeurópsky štandardný čas) | sip.Inviter | Session i60u8jpamhvsevdhtr1qtn68bdoq08 transitioned to state Terminated index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 14:09:41 GMT+0100 (stredoeurópsky štandardný čas) | sip.Inviter | Session i60u8jpamhvsevdhtr1qtn68bdoq08 in state Terminated is being disposed index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 14:09:41 GMT+0100 (stredoeurópsky štandardný čas) | sip.invite-dialog | INVITE dialog i60u8jpamhvsevdhtr1qtn68bdoq08d7c9b967-24ce-440d-9e87-2910caa7f495 destroyed index-DeJ9HxQd.js:86:61612
+[SIP] Periodic re-registration... index-DeJ9HxQd.js:55:201
+Fri Mar 13 2026 14:09:42 GMT+0100 (stredoeurópsky štandardný čas) | sip.Registerer | Waiting toggled to true index-DeJ9HxQd.js:86:61612
+Fri Mar 13 2026 14:09:42 GMT+0100 (stredoeurópsky štandardný čas) | sip.Registerer | Waiting toggled to false index-DeJ9HxQd.js:86:61612
