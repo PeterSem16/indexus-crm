@@ -15,6 +15,14 @@ function filterSdpCandidates(description: RTCSessionDescriptionInit): Promise<RT
   return Promise.resolve({ ...description, sdp: filtered.join("\r\n") });
 }
 
+function forceDtlsActive(description: RTCSessionDescriptionInit): Promise<RTCSessionDescriptionInit> {
+  if (!description.sdp) return Promise.resolve(description);
+  const sdp = description.sdp
+    .replace(/a=setup:actpass/g, "a=setup:active")
+    .replace(/a=setup:passive/g, "a=setup:active");
+  return Promise.resolve({ ...description, sdp });
+}
+
 interface SipSettingsData {
   server?: string;
   port?: number;
@@ -132,7 +140,7 @@ export function SipProvider({ children }: { children: ReactNode }) {
         sessionDescriptionHandlerOptions: {
           constraints: { audio: true, video: false },
           iceGatheringTimeout: 1500,
-          modifiers: [filterSdpCandidates],
+          modifiers: [filterSdpCandidates, forceDtlsActive],
         },
         sessionDescriptionHandlerFactoryOptions: {
           iceGatheringTimeout: 1500,

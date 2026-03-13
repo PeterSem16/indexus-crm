@@ -52,7 +52,9 @@ function filterSdpCandidates(description: RTCSessionDescriptionInit): Promise<RT
 
 function forceDtlsActive(description: RTCSessionDescriptionInit): Promise<RTCSessionDescriptionInit> {
   if (!description.sdp) return Promise.resolve(description);
-  const sdp = description.sdp.replace(/a=setup:actpass/g, "a=setup:active");
+  const sdp = description.sdp
+    .replace(/a=setup:actpass/g, "a=setup:active")
+    .replace(/a=setup:passive/g, "a=setup:active");
   return Promise.resolve({ ...description, sdp });
 }
 
