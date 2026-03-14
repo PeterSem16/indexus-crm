@@ -112,7 +112,9 @@ interface EmailEditorProps {
   showAttachments?: boolean;
   className?: string;
   onAiSuggest?: () => void;
+  onAiSummary?: () => void;
   aiLoading?: boolean;
+  aiSummaryLoading?: boolean;
 }
 
 export default function EmailEditor({
@@ -126,7 +128,9 @@ export default function EmailEditor({
   showAttachments = true,
   className,
   onAiSuggest,
+  onAiSummary,
   aiLoading,
+  aiSummaryLoading,
 }: EmailEditorProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [linkUrl, setLinkUrl] = useState("");
@@ -489,22 +493,39 @@ export default function EmailEditor({
           </>
         )}
 
-        {onAiSuggest && (
+        {(onAiSuggest || onAiSummary) && (
           <>
             <Separator orientation="vertical" className="h-5 mx-0.5" />
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-7 gap-1 text-xs px-2 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/30"
-              onClick={onAiSuggest}
-              disabled={aiLoading}
-              title="AI návrh odpovede"
-              data-testid="button-ai-suggest"
-            >
-              {aiLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-              AI
-            </Button>
+            {onAiSuggest && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 gap-1 text-xs px-2 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/30"
+                onClick={onAiSuggest}
+                disabled={aiLoading}
+                title="Generovať odpoveď pomocou AI"
+                data-testid="button-ai-suggest"
+              >
+                {aiLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                Generovať odpoveď
+              </Button>
+            )}
+            {onAiSummary && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 gap-1 text-xs px-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30"
+                onClick={onAiSummary}
+                disabled={aiSummaryLoading}
+                title="Zhrnutie emailovej konverzácie"
+                data-testid="button-ai-summary"
+              >
+                {aiSummaryLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                Zhrnutie
+              </Button>
+            )}
           </>
         )}
       </div>

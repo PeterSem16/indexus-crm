@@ -106,6 +106,10 @@ import {
   Users,
   ChevronDown,
   ChevronUp,
+  Maximize2,
+  Minimize2,
+  FileText,
+  Sparkles,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import EmailEditor, { EmailRecipientInput } from "@/components/nexus/email-editor";
@@ -458,7 +462,12 @@ export default function EmailClientPage() {
   const [replyMode, setReplyMode] = useState<"reply" | "replyAll" | "forward" | null>(null);
   const [replyFieldsExpanded, setReplyFieldsExpanded] = useState(false);
   const [aiSuggestLoading, setAiSuggestLoading] = useState(false);
+  const [aiSummaryLoading, setAiSummaryLoading] = useState(false);
   const [aiSuggestCounter, setAiSuggestCounter] = useState(0);
+  const [aiModalOpen, setAiModalOpen] = useState(false);
+  const [aiModalContent, setAiModalContent] = useState("");
+  const [aiModalType, setAiModalType] = useState<"reply" | "summary">("reply");
+  const [detailFullscreen, setDetailFullscreen] = useState(false);
   const [signatureDialogOpen, setSignatureDialogOpen] = useState(false);
   const [page, setPage] = useState(0);
   const pageSize = 200;
@@ -1088,6 +1097,13 @@ export default function EmailClientPage() {
   }, [activeTab]);
 
   useEffect(() => {
+    setReplyMode(null);
+    setReplyFieldsExpanded(false);
+    setDetailFullscreen(false);
+    setComposeData(prev => ({ ...prev, to: "", cc: "", bcc: "", subject: "", body: "", replyTo: "" }));
+  }, [selectedEmail?.id]);
+
+  useEffect(() => {
     if (selectedChatId && chatsData) {
       const chat = chatsData.find(c => c.id === selectedChatId);
       _setSelectedChat(chat || null);
@@ -1272,15 +1288,49 @@ export default function EmailClientPage() {
       });
       const data = await res.json();
       if (data.suggestion) {
-        setComposeData(prev => ({ ...prev, body: data.suggestion }));
-        setAiSuggestCounter(prev => prev + 1);
-        setReplyMode(prev => prev || "reply");
+        setAiModalContent(data.suggestion);
+        setAiModalType("reply");
+        setAiModalOpen(true);
       }
     } catch (err) {
       toast({ title: "Chyba", description: "Nepodarilo sa vygenerovať AI návrh", variant: "destructive" });
     } finally {
       setAiSuggestLoading(false);
     }
+  };
+
+  const handleAiSummary = async () => {
+    if (!selectedEmail || !emailDetail) return;
+    setAiSummaryLoading(true);
+    try {
+      const res = await apiRequest("POST", `/api/users/${user?.id}/ms365-ai-summary`, {
+        emailSubject: emailDetail.subject || "",
+        emailBody: emailDetail.body?.content || emailDetail.bodyPreview || "",
+        emailFrom: emailDetail.from?.emailAddress?.name || emailDetail.from?.emailAddress?.address || "",
+        language: "sk",
+      });
+      const data = await res.json();
+      if (data.summary) {
+        setAiModalContent(data.summary);
+        setAiModalType("summary");
+        setAiModalOpen(true);
+      }
+    } catch (err) {
+      toast({ title: "Chyba", description: "Nepodarilo sa vygenerovať zhrnutie", variant: "destructive" });
+    } finally {
+      setAiSummaryLoading(false);
+    }
+  };
+
+  const handleAiModalInsert = () => {
+    setComposeData(prev => {
+      const existing = prev.body.replace(/<p><br><\/p>/g, "").trim();
+      const newBody = existing ? `${existing}<br>${aiModalContent}` : aiModalContent;
+      return { ...prev, body: newBody };
+    });
+    setAiSuggestCounter(prev => prev + 1);
+    setReplyMode(prev => prev || "reply");
+    setAiModalOpen(false);
   };
 
   const openSignatureEditor = () => {
@@ -1826,7 +1876,7 @@ export default function EmailClientPage() {
                 )}
               </CardContent>
             </Card>
-            <Card className="transition-all duration-300 flex-1 min-w-0">
+            <Card className={`transition-all duration-300 ${detailFullscreen ? "fixed inset-0 z-50 rounded-none" : "flex-1 min-w-0"}`}>
               <CardContent className="p-0 h-full">
                 {renderEmailDetail()}
               </CardContent>
@@ -2154,6 +2204,38 @@ export default function EmailClientPage() {
       </Dialog>
 
       {renderEmailModal()}
+
+      <Dialog open={aiModalOpen} onOpenChange={setAiModalOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col" data-testid="ai-modal">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-purple-500" />
+              {aiModalType === "reply" ? "AI Generovať odpoveď" : "AI Zhrnutie konverzácie"}
+            </DialogTitle>
+            <DialogDescription>
+              {aiModalType === "reply" ? "Skontrolujte a upravte navrhovanú odpoveď pred vložením." : "Skontrolujte a upravte zhrnutie pred vložením do odpovede."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-auto min-h-0">
+            <div
+              contentEditable
+              className="min-h-[200px] p-4 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring prose dark:prose-invert max-w-none text-sm"
+              dangerouslySetInnerHTML={{ __html: aiModalContent }}
+              onBlur={(e) => setAiModalContent(e.currentTarget.innerHTML)}
+              data-testid="ai-modal-editor"
+            />
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setAiModalOpen(false)} data-testid="ai-modal-cancel">
+              Zavrieť
+            </Button>
+            <Button onClick={handleAiModalInsert} data-testid="ai-modal-insert">
+              <Plus className="h-4 w-4 mr-2" />
+              Pridať do odpovede
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 
@@ -2196,6 +2278,9 @@ export default function EmailClientPage() {
               </Button>
               <Button variant="ghost" size="icon" onClick={() => deleteEmailMutation.mutate(emailDetail.id)} data-testid="button-delete">
                 <Trash2 className="h-4 w-4" />
+              </Button>
+              <Button variant="ghost" size="icon" onClick={() => setDetailFullscreen(f => !f)} data-testid="button-fullscreen" title={detailFullscreen ? "Zmenšiť" : "Maximalizovať"}>
+                {detailFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
               </Button>
             </div>
           </div>
@@ -2433,7 +2518,9 @@ export default function EmailClientPage() {
               onAttachmentsChange={setAttachments}
               showAttachments={true}
               onAiSuggest={handleAiSuggestReply}
+              onAiSummary={handleAiSummary}
               aiLoading={aiSuggestLoading}
+              aiSummaryLoading={aiSummaryLoading}
             />
             <div className="flex justify-end">
               <Button onClick={replyMode === "forward" ? handleForward : handleReply} disabled={replyMutation.isPending || forwardMutation.isPending} data-testid="button-send-reply">
@@ -2441,6 +2528,18 @@ export default function EmailClientPage() {
                 <Send className="h-4 w-4 mr-2" />
                 Odoslať
               </Button>
+            </div>
+            <div className="mt-3 pt-3 border-t">
+              <p className="text-xs text-muted-foreground mb-2">
+                {format(new Date(emailDetail.receivedDateTime), "d. MMMM yyyy, HH:mm")}, {emailDetail.from?.emailAddress?.name || emailDetail.from?.emailAddress?.address} napísal(a):
+              </p>
+              <div className="pl-3 border-l-2 border-muted-foreground/30">
+                {emailDetail.body?.contentType === "html" ? (
+                  <div className="prose dark:prose-invert max-w-none text-sm opacity-70 overflow-hidden [&_img]:max-w-full [&_img]:h-auto [&_table]:table-fixed [&_table]:w-full [&_td]:break-words [&_a]:break-all [&_*]:max-w-full" style={{ overflowWrap: "break-word", wordBreak: "break-word" }} dangerouslySetInnerHTML={{ __html: processHtmlForImages(emailDetail.body.content, emailDetail.id, emailDetail.attachmentsList) }} />
+                ) : (
+                  <pre className="whitespace-pre-wrap font-sans text-sm opacity-70" style={{ overflowWrap: "break-word", wordBreak: "break-word" }}>{emailDetail.body?.content || emailDetail.bodyPreview}</pre>
+                )}
+              </div>
             </div>
           </div>
         ) : (

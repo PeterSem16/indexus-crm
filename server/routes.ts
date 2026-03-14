@@ -4589,6 +4589,48 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/users/:userId/ms365-ai-summary", requireAuth, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { emailSubject, emailBody, emailFrom, language } = req.body;
+
+      if (!emailBody && !emailSubject) {
+        return res.status(400).json({ error: "Email content is required" });
+      }
+
+      const lang = language || "sk";
+      const langNames: Record<string, string> = {
+        sk: "slovenčina", cs: "čeština", en: "English", de: "Deutsch",
+        hu: "magyar", ro: "română", it: "italiano",
+      };
+      const langName = langNames[lang] || "slovenčina";
+
+      const plainBody = (emailBody || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().substring(0, 5000);
+
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "system",
+            content: `Ste profesionálny asistent. Vytvorte stručné zhrnutie celej emailovej konverzácie v jazyku ${langName}. Zhrnutie by malo obsahovať: hlavné body diskusie, kto čo požadoval/navrhol, aké boli závery alebo otvorené otázky. Formátujte ako HTML s <p> tagmi a prípadne <ul>/<li> pre kľúčové body. Buďte struční ale informatívni.`,
+          },
+          {
+            role: "user",
+            content: `Od: ${emailFrom || "neznámy"}\nPredmet: ${emailSubject || "(bez predmetu)"}\n\nObsah emailovej konverzácie:\n${plainBody}`,
+          },
+        ],
+        temperature: 0.5,
+        max_tokens: 1500,
+      });
+
+      const summary = response.choices[0]?.message?.content || "";
+      res.json({ summary });
+    } catch (error) {
+      console.error("[AI Summary] Error:", error);
+      res.status(500).json({ error: "Failed to generate AI summary" });
+    }
+  });
+
   // Delete email
   app.patch("/api/users/:userId/ms365-email/:emailId/read-status", requireAuth, async (req, res) => {
     try {
