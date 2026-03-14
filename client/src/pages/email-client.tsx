@@ -1556,32 +1556,36 @@ export default function EmailClientPage() {
                                   onDoubleClick={() => { setSelectedEmail(email); setModalEmail(email); }}
                                   data-testid={`search-email-item-${email.id}`}
                                 >
-                                  <div className="flex items-start gap-2">
+                                  <div style={{ display: "flex", alignItems: "flex-start", gap: "8px", overflow: "hidden", width: "100%" }}>
                                     {emailPrefs.unreadIndicator && (
-                                      <span className={`h-2 w-2 rounded-full shrink-0 mt-1.5 ${!email.isRead ? "bg-blue-500" : "bg-transparent"}`} />
+                                      <span className={`${!email.isRead ? "bg-blue-500" : "bg-transparent"}`} style={{ height: 8, width: 8, borderRadius: "50%", marginTop: 6, flexShrink: 0 }} />
                                     )}
                                     {emailPrefs.showSenderInitials && (
-                                      <div className="h-9 w-9 rounded-full bg-gradient-to-br from-muted to-muted-foreground/20 flex items-center justify-center text-[11px] font-bold text-muted-foreground shrink-0">
+                                      <div style={{ height: 36, width: 36, minWidth: 36, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, flexShrink: 0 }} className="bg-gradient-to-br from-muted to-muted-foreground/20 text-muted-foreground">
                                         {(email.from?.emailAddress?.name || email.from?.emailAddress?.address || "?").substring(0, 2).toUpperCase()}
                                       </div>
                                     )}
-                                    <div className="flex-1 min-w-0">
-                                      <div className="flex items-baseline justify-between gap-2">
-                                        <span className={`text-[13px] leading-tight truncate ${!email.isRead && emailPrefs.highlightUnread ? "font-bold" : "font-medium"}`}>
+                                    <div style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
+                                      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
+                                        <span className={`${!email.isRead && emailPrefs.highlightUnread ? "font-bold" : "font-medium"}`} style={{ fontSize: 13, lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
                                           {email.from?.emailAddress?.name || email.from?.emailAddress?.address || "Neznámy"}
                                         </span>
-                                        <span className="text-[11px] text-muted-foreground whitespace-nowrap shrink-0">
+                                        <span style={{ fontSize: 11, whiteSpace: "nowrap", flexShrink: 0 }} className="text-muted-foreground">
                                           {format(new Date(email.receivedDateTime), "d.M. HH:mm")}
                                         </span>
                                       </div>
-                                      <div className="flex items-center gap-1 mt-0.5 overflow-hidden">
-                                        <p className={`text-xs leading-tight flex-1 min-w-0 truncate ${!email.isRead && emailPrefs.highlightUnread ? "font-semibold" : "text-muted-foreground"}`}>
+                                      <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 2, overflow: "hidden" }}>
+                                        <p className={`${!email.isRead && emailPrefs.highlightUnread ? "font-semibold" : "text-muted-foreground"}`} style={{ fontSize: 12, lineHeight: 1.2, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", margin: 0 }}>
                                           {email.subject || "(Bez predmetu)"}
                                         </p>
-                                        {emailPrefs.previewAttachmentIcons && email.hasAttachments && <Paperclip className="h-3.5 w-3.5 text-muted-foreground/70 shrink-0" />}
+                                        {emailPrefs.previewAttachmentIcons && email.hasAttachments && <Paperclip className="text-muted-foreground/70" style={{ height: 14, width: 14, flexShrink: 0 }} />}
                                       </div>
                                       {emailPrefs.previewLines > 0 && email.bodyPreview && (
-                                        <p className={`text-[11px] text-muted-foreground mt-0.5 leading-relaxed overflow-hidden ${emailPrefs.previewLines === 1 ? "truncate" : ""}`} style={emailPrefs.previewLines > 1 ? { display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as const, overflow: "hidden", wordBreak: "break-word" } : undefined}>{email.bodyPreview}</p>
+                                        emailPrefs.previewLines === 1 ? (
+                                          <p style={{ fontSize: 11, marginTop: 2, lineHeight: 1.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", margin: "2px 0 0" }} className="text-muted-foreground">{email.bodyPreview}</p>
+                                        ) : (
+                                          <p style={{ fontSize: 11, marginTop: 2, lineHeight: 1.5, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as const, wordBreak: "break-word", margin: "2px 0 0" }} className="text-muted-foreground">{email.bodyPreview}</p>
+                                        )
                                       )}
                                     </div>
                                   </div>
@@ -1635,43 +1639,44 @@ export default function EmailClientPage() {
                           >
                             {!email.isRead ? <Eye className="h-3.5 w-3.5 text-muted-foreground" /> : <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />}
                           </button>
-                          <div className="flex items-start gap-2">
+                          <div style={{ display: "flex", alignItems: "flex-start", gap: "8px", overflow: "hidden", width: "100%" }}>
                             {emailPrefs.unreadIndicator && (
-                              <span className={`h-2 w-2 rounded-full mt-1.5 shrink-0 ${!email.isRead ? "bg-blue-500" : "bg-transparent"}`} />
+                              <span className={`shrink-0 ${!email.isRead ? "bg-blue-500" : "bg-transparent"}`} style={{ height: 8, width: 8, borderRadius: "50%", marginTop: 6, flexShrink: 0 }} />
                             )}
                             {emailPrefs.showSenderInitials && (
-                              <div className="h-9 w-9 rounded-full bg-gradient-to-br from-muted to-muted-foreground/20 flex items-center justify-center text-[11px] font-bold text-muted-foreground shrink-0">
+                              <div style={{ height: 36, width: 36, minWidth: 36, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, flexShrink: 0 }} className="bg-gradient-to-br from-muted to-muted-foreground/20 text-muted-foreground">
                                 {(email.from?.emailAddress?.name || email.from?.emailAddress?.address || "?").substring(0, 2).toUpperCase()}
                               </div>
                             )}
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-baseline justify-between gap-2">
-                                <span className={`text-[13px] leading-tight truncate ${!email.isRead && emailPrefs.highlightUnread ? "font-bold" : "font-medium"}`}>
+                            <div style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
+                              <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
+                                <span className={`${!email.isRead && emailPrefs.highlightUnread ? "font-bold" : "font-medium"}`} style={{ fontSize: 13, lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
                                   {email.from?.emailAddress?.name || email.from?.emailAddress?.address || "Neznámy"}
                                 </span>
-                                <span className="text-[11px] text-muted-foreground whitespace-nowrap shrink-0">
+                                <span style={{ fontSize: 11, whiteSpace: "nowrap", flexShrink: 0 }} className="text-muted-foreground">
                                   {format(new Date(email.receivedDateTime), "d.M. HH:mm")}
                                 </span>
                               </div>
-                              <div className="flex items-center gap-1 mt-0.5 overflow-hidden">
-                                <p className={`text-xs leading-tight flex-1 min-w-0 truncate ${!email.isRead && emailPrefs.highlightUnread ? "font-semibold" : "text-muted-foreground"}`}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 2, overflow: "hidden" }}>
+                                <p className={`${!email.isRead && emailPrefs.highlightUnread ? "font-semibold" : "text-muted-foreground"}`} style={{ fontSize: 12, lineHeight: 1.2, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", margin: 0 }}>
                                   {email.subject || "(Bez predmetu)"}
                                 </p>
-                                <div className="flex items-center gap-1 shrink-0">
-                                  {email.hasAttachments && <Paperclip className="h-3.5 w-3.5 text-muted-foreground/70" />}
-                                  {selectedMailbox === "all" && acctColor && (
-                                    <span
-                                      className="h-5 w-5 rounded-full flex items-center justify-center shrink-0"
-                                      style={{ backgroundColor: acctColor }}
-                                      title={mailboxes.find(m => m.email === email._mailboxEmail)?.displayName || email._mailboxEmail}
-                                    >
-                                      <AccountIcon iconKey={accountConfigs[email._mailboxEmail!]?.icon || "mail"} className="h-3 w-3 text-white" />
-                                    </span>
-                                  )}
-                                </div>
+                                {email.hasAttachments && <Paperclip className="text-muted-foreground/70" style={{ height: 14, width: 14, flexShrink: 0 }} />}
+                                {selectedMailbox === "all" && acctColor && (
+                                  <span
+                                    style={{ height: 20, width: 20, minWidth: 20, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: acctColor, flexShrink: 0 }}
+                                    title={mailboxes.find(m => m.email === email._mailboxEmail)?.displayName || email._mailboxEmail}
+                                  >
+                                    <AccountIcon iconKey={accountConfigs[email._mailboxEmail!]?.icon || "mail"} className="h-3 w-3 text-white" />
+                                  </span>
+                                )}
                               </div>
                               {emailPrefs.previewLines > 0 && email.bodyPreview && (
-                                <p className={`text-[11px] text-muted-foreground mt-0.5 leading-relaxed overflow-hidden ${emailPrefs.previewLines === 1 ? "truncate" : ""}`} style={emailPrefs.previewLines > 1 ? { display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as const, overflow: "hidden", wordBreak: "break-word" } : undefined}>{email.bodyPreview}</p>
+                                emailPrefs.previewLines === 1 ? (
+                                  <p style={{ fontSize: 11, marginTop: 2, lineHeight: 1.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", margin: "2px 0 0" }} className="text-muted-foreground">{email.bodyPreview}</p>
+                                ) : (
+                                  <p style={{ fontSize: 11, marginTop: 2, lineHeight: 1.5, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as const, wordBreak: "break-word", margin: "2px 0 0" }} className="text-muted-foreground">{email.bodyPreview}</p>
+                                )
                               )}
                               {emailPrefs.showTags && getEmailTags(email.id).length > 0 && (
                                 <div className="flex items-center gap-1 mt-0.5 flex-wrap">
