@@ -2476,17 +2476,15 @@ export default function EmailClientPage() {
                 : "max-w-3xl w-[90vw] max-h-[85vh]"
             )}>
               <DialogHeader className="px-4 py-3 border-b shrink-0">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between pr-8">
                   <DialogTitle className="text-base">
                     {replyMode === "reply" && "Odpoveď"}
                     {replyMode === "replyAll" && "Odpoveď všetkým"}
                     {replyMode === "forward" && "Preposlať"}
                   </DialogTitle>
-                  <div className="flex items-center gap-1">
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setReplyModalFullscreen(f => !f)} title={replyModalFullscreen ? "Zmenšiť" : "Na celú obrazovku"}>
-                      {replyModalFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-                    </Button>
-                  </div>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setReplyModalFullscreen(f => !f)} title={replyModalFullscreen ? "Zmenšiť" : "Na celú obrazovku"}>
+                    {replyModalFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+                  </Button>
                 </div>
                 <DialogDescription className="sr-only">
                   {replyMode === "reply" ? "Odpoveď na email" : replyMode === "replyAll" ? "Odpoveď všetkým" : "Preposlať email"}
