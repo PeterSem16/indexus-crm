@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/tooltip";
 import {
   Mail,
+  MailOpen,
   RefreshCw,
   Reply,
   ReplyAll,
@@ -72,6 +73,10 @@ import {
   Eye,
   EyeOff,
   CircleDashed,
+  Star,
+  CalendarDays,
+  CalendarRange,
+  FilterX,
 } from "lucide-react";
 import Editor from "react-simple-wysiwyg";
 
@@ -127,6 +132,27 @@ export default function EmailClientPage() {
   const [smsFilter, setSmsFilter] = useState<SmsFilter>("all");
   const [taskFilter, setTaskFilter] = useState<TaskFilter>("all");
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
+
+  const [emailFilters, setEmailFilters] = useState({
+    unreadOnly: false,
+    hasAttachments: false,
+    important: false,
+    today: false,
+    thisWeek: false,
+  });
+  const [modalEmail, setModalEmail] = useState<EmailMessage | null>(null);
+
+  const toggleEmailFilter = (key: keyof typeof emailFilters) => {
+    setEmailFilters(prev => {
+      const next = { ...prev, [key]: !prev[key] };
+      if (key === "today" && next.today) next.thisWeek = false;
+      if (key === "thisWeek" && next.thisWeek) next.today = false;
+      return next;
+    });
+    setLocalPage(0);
+  };
+
+  const activeFilterCount = Object.values(emailFilters).filter(Boolean).length;
 
   const [attachments, setAttachments] = useState<File[]>([]);
   const [composeData, setComposeData] = useState({ to: "", cc: "", bcc: "", subject: "", body: "" });
@@ -412,8 +438,28 @@ export default function EmailClientPage() {
 
   const currentFolderName = folders.find(f => f.id === selectedFolderId)?.displayName || "Email";
 
-  const emailsPage = emails.slice(localPage * localPageSize, (localPage + 1) * localPageSize);
-  const totalEmailPages = Math.ceil(emails.length / localPageSize);
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const weekStart = new Date(todayStart);
+  weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1);
+
+  const filteredEmails = emails.filter(email => {
+    if (emailFilters.unreadOnly && email.isRead) return false;
+    if (emailFilters.hasAttachments && !email.hasAttachments) return false;
+    if (emailFilters.important && email.importance !== "high") return false;
+    if (emailFilters.today) {
+      const d = new Date(email.receivedDateTime);
+      if (d < todayStart) return false;
+    }
+    if (emailFilters.thisWeek) {
+      const d = new Date(email.receivedDateTime);
+      if (d < weekStart) return false;
+    }
+    return true;
+  });
+
+  const emailsPage = filteredEmails.slice(localPage * localPageSize, (localPage + 1) * localPageSize);
+  const totalEmailPages = Math.ceil(filteredEmails.length / localPageSize);
 
   const smsPage = filteredSms.slice(localPage * localPageSize, (localPage + 1) * localPageSize);
   const totalSmsPages = Math.ceil(filteredSms.length / localPageSize);
@@ -682,28 +728,116 @@ export default function EmailClientPage() {
         {activeTab === "email" && (
           <>
             <Card className="transition-all duration-300 w-[30%] min-w-[320px] max-w-[420px] shrink-0">
-              <CardHeader className="py-2 px-3 space-y-1 border-b">
+              <CardHeader className="py-1.5 px-3 space-y-0 border-b">
                 <div className="flex items-center justify-between gap-1">
                   <div className="flex items-center gap-2">
                     <Mail className="h-4 w-4 text-blue-600" />
                     <span className="text-sm font-semibold">{isSearching ? `Výsledky: "${debouncedSearchQuery}"` : currentFolderName}</span>
-                    {!isSearching && <Badge variant="secondary" className="text-[10px]">{emails.length}</Badge>}
+                    {!isSearching && (
+                      <Badge variant="secondary" className="text-[10px]">
+                        {activeFilterCount > 0 ? `${filteredEmails.length}/${emails.length}` : emails.length}
+                      </Badge>
+                    )}
                     {isSearching && searchResults && (
                       <Badge variant="secondary" className="text-[10px]">{searchResults.reduce((acc, r) => acc + r.emails.length, 0)}</Badge>
                     )}
                   </div>
                   {!isSearching && (
                     <div className="flex items-center gap-0.5">
-                      <Button variant="ghost" size="icon" className="h-7 w-7" disabled={localPage === 0} onClick={() => setLocalPage(p => p - 1)} data-testid="button-page-prev">
+                      <Button variant="ghost" size="icon" className="h-6 w-6" disabled={localPage === 0} onClick={() => setLocalPage(p => p - 1)} data-testid="button-page-prev">
                         <ChevronLeft className="h-3.5 w-3.5" />
                       </Button>
-                      <span className="text-[11px] min-w-[40px] text-center text-muted-foreground">{totalEmailPages > 0 ? `${localPage + 1}/${totalEmailPages}` : "0/0"}</span>
-                      <Button variant="ghost" size="icon" className="h-7 w-7" disabled={localPage >= totalEmailPages - 1} onClick={() => setLocalPage(p => p + 1)} data-testid="button-page-next">
+                      <span className="text-[10px] min-w-[36px] text-center text-muted-foreground tabular-nums">{totalEmailPages > 0 ? `${localPage + 1}/${totalEmailPages}` : "0/0"}</span>
+                      <Button variant="ghost" size="icon" className="h-6 w-6" disabled={localPage >= totalEmailPages - 1} onClick={() => setLocalPage(p => p + 1)} data-testid="button-page-next">
                         <ChevronRight className="h-3.5 w-3.5" />
                       </Button>
                     </div>
                   )}
                 </div>
+                {!isSearching && (
+                  <TooltipProvider delayDuration={200}>
+                    <div className="flex items-center gap-0.5 pt-1 border-t mt-1">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            onClick={() => toggleEmailFilter("unreadOnly")}
+                            className={`p-1.5 rounded-md transition-all ${emailFilters.unreadOnly ? "bg-blue-100 dark:bg-blue-900/40 text-blue-600" : "text-muted-foreground hover:text-foreground hover:bg-accent/50"}`}
+                            data-testid="filter-unread"
+                          >
+                            <MailOpen className="h-3.5 w-3.5" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" className="text-xs">Neprečítané</TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            onClick={() => toggleEmailFilter("hasAttachments")}
+                            className={`p-1.5 rounded-md transition-all ${emailFilters.hasAttachments ? "bg-blue-100 dark:bg-blue-900/40 text-blue-600" : "text-muted-foreground hover:text-foreground hover:bg-accent/50"}`}
+                            data-testid="filter-attachments"
+                          >
+                            <Paperclip className="h-3.5 w-3.5" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" className="text-xs">S prílohami</TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            onClick={() => toggleEmailFilter("important")}
+                            className={`p-1.5 rounded-md transition-all ${emailFilters.important ? "bg-amber-100 dark:bg-amber-900/40 text-amber-600" : "text-muted-foreground hover:text-foreground hover:bg-accent/50"}`}
+                            data-testid="filter-important"
+                          >
+                            <Star className="h-3.5 w-3.5" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" className="text-xs">Dôležité</TooltipContent>
+                      </Tooltip>
+                      <div className="w-px h-4 bg-border mx-0.5" />
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            onClick={() => toggleEmailFilter("today")}
+                            className={`p-1.5 rounded-md transition-all ${emailFilters.today ? "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600" : "text-muted-foreground hover:text-foreground hover:bg-accent/50"}`}
+                            data-testid="filter-today"
+                          >
+                            <CalendarDays className="h-3.5 w-3.5" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" className="text-xs">Dnes</TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            onClick={() => toggleEmailFilter("thisWeek")}
+                            className={`p-1.5 rounded-md transition-all ${emailFilters.thisWeek ? "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600" : "text-muted-foreground hover:text-foreground hover:bg-accent/50"}`}
+                            data-testid="filter-this-week"
+                          >
+                            <CalendarRange className="h-3.5 w-3.5" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" className="text-xs">Tento týždeň</TooltipContent>
+                      </Tooltip>
+                      {activeFilterCount > 0 && (
+                        <>
+                          <div className="w-px h-4 bg-border mx-0.5" />
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button
+                                onClick={() => setEmailFilters({ unreadOnly: false, hasAttachments: false, important: false, today: false, thisWeek: false })}
+                                className="p-1.5 rounded-md text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-all"
+                                data-testid="filter-clear"
+                              >
+                                <FilterX className="h-3.5 w-3.5" />
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom" className="text-xs">Zrušiť filtre ({activeFilterCount})</TooltipContent>
+                          </Tooltip>
+                        </>
+                      )}
+                    </div>
+                  </TooltipProvider>
+                )}
               </CardHeader>
               <CardContent className="p-0">
                 {isSearching ? (
@@ -732,6 +866,7 @@ export default function EmailClientPage() {
                                     selectedEmail?.id === email.id ? "bg-accent" : ""
                                   } ${!email.isRead ? "font-medium" : ""}`}
                                   onClick={() => setSelectedEmail(email)}
+                                  onDoubleClick={() => { setSelectedEmail(email); setModalEmail(email); }}
                                   data-testid={`search-email-item-${email.id}`}
                                 >
                                   <div className="flex items-start gap-2.5">
@@ -781,6 +916,7 @@ export default function EmailClientPage() {
                             selectedEmail?.id === email.id ? "bg-accent" : ""
                           } ${!email.isRead ? "font-medium" : ""}`}
                           onClick={() => setSelectedEmail(email)}
+                          onDoubleClick={() => { setSelectedEmail(email); setModalEmail(email); }}
                           data-testid={`email-item-${email.id}`}
                         >
                           <button
@@ -1112,6 +1248,8 @@ export default function EmailClientPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {renderEmailModal()}
     </div>
   );
 
@@ -1432,6 +1570,167 @@ export default function EmailClientPage() {
           </div>
         </ScrollArea>
       </div>
+    );
+  }
+
+  function renderEmailModal() {
+    if (!modalEmail) return null;
+
+    const detail = emailDetail?.id === modalEmail.id ? emailDetail : modalEmail;
+
+    return (
+      <Dialog open={!!modalEmail} onOpenChange={(open) => { if (!open) setModalEmail(null); }}>
+        <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col p-0 gap-0" data-testid="email-modal">
+          <div className="px-5 py-4 border-b space-y-3 shrink-0">
+            <div className="flex items-start justify-between gap-4">
+              <h2 className="text-lg font-semibold flex-1 min-w-0 pr-8">{detail.subject || "(Bez predmetu)"}</h2>
+              <div className="flex items-center gap-1 shrink-0">
+                <TooltipProvider delayDuration={200}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setReplyMode("reply"); setComposeData({ ...composeData, body: "" }); setModalEmail(null); }} data-testid="modal-reply">
+                        <Reply className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Odpovedať</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setReplyMode("replyAll"); setComposeData({ ...composeData, body: "" }); setModalEmail(null); }} data-testid="modal-reply-all">
+                        <ReplyAll className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Odpovedať všetkým</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setReplyMode("forward"); setComposeData({ to: "", cc: "", bcc: "", subject: `Fwd: ${detail.subject}`, body: "" }); setModalEmail(null); }} data-testid="modal-forward">
+                        <Forward className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Preposlať</TooltipContent>
+                  </Tooltip>
+                  <div className="w-px h-5 bg-border mx-0.5" />
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost" size="icon" className="h-8 w-8"
+                        onClick={() => {
+                          toggleReadMutation.mutate({ emailId: detail.id, isRead: !detail.isRead });
+                          setModalEmail(prev => prev ? { ...prev, isRead: !prev.isRead } : null);
+                        }}
+                        disabled={toggleReadMutation.isPending}
+                        data-testid="modal-toggle-read"
+                      >
+                        {detail.isRead ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>{detail.isRead ? "Označiť ako neprečítané" : "Označiť ako prečítané"}</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { deleteEmailMutation.mutate(detail.id); setModalEmail(null); }} data-testid="modal-delete">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Zmazať</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+            </div>
+            <div className="text-sm space-y-0.5">
+              <p>
+                <span className="text-muted-foreground">Od:</span>{" "}
+                <span className="font-medium">{detail.from?.emailAddress?.name}</span>{" "}
+                <span className="text-muted-foreground">&lt;{detail.from?.emailAddress?.address}&gt;</span>
+              </p>
+              <p>
+                <span className="text-muted-foreground">Komu:</span>{" "}
+                {detail.toRecipients?.map(r => r.emailAddress?.address).join(", ")}
+              </p>
+              {detail.ccRecipients && detail.ccRecipients.length > 0 && (
+                <p>
+                  <span className="text-muted-foreground">Cc:</span>{" "}
+                  {detail.ccRecipients.map(r => r.emailAddress?.address).join(", ")}
+                </p>
+              )}
+              <div className="flex items-center gap-3 mt-1">
+                <span className="text-xs text-muted-foreground">
+                  {format(new Date(detail.receivedDateTime), "d. MMMM yyyy, HH:mm")}
+                </span>
+                {detail.hasAttachments && (
+                  <Badge variant="outline" className="text-[10px] gap-1 h-5">
+                    <Paperclip className="h-3 w-3" />Prílohy
+                  </Badge>
+                )}
+                {detail.importance === "high" && (
+                  <Badge variant="outline" className="text-[10px] gap-1 h-5 border-amber-400 text-amber-600">
+                    <Star className="h-3 w-3" />Dôležité
+                  </Badge>
+                )}
+                <Badge variant={detail.isRead ? "secondary" : "default"} className="text-[10px] h-5">
+                  {detail.isRead ? "Prečítané" : "Neprečítané"}
+                </Badge>
+              </div>
+            </div>
+
+            {detail.linkedCustomer && (
+              <Link
+                href={`/customers?view=${detail.linkedCustomer.id}`}
+                className="flex items-center gap-2 p-2 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-md hover:bg-green-100 dark:hover:bg-green-900 transition-colors cursor-pointer"
+                onClick={() => setModalEmail(null)}
+                data-testid="modal-link-customer"
+              >
+                <UserCheck className="h-4 w-4 text-green-600 dark:text-green-400" />
+                <span className="text-sm text-green-700 dark:text-green-300">
+                  {detail.linkedCustomer.firstName} {detail.linkedCustomer.lastName}
+                </span>
+                <span className="text-sm text-green-600 dark:text-green-400">({detail.linkedCustomer.email})</span>
+              </Link>
+            )}
+
+            {(detail as any).aiAnalysis && (detail as any).aiAnalysis.alertLevel !== "none" && (
+              <div
+                className={`flex items-start gap-3 p-3 rounded-md border ${
+                  (detail as any).aiAnalysis.alertLevel === "critical"
+                    ? "bg-red-50 dark:bg-red-950 border-red-300 dark:border-red-800"
+                    : "bg-amber-50 dark:bg-amber-950 border-amber-300 dark:border-amber-800"
+                }`}
+              >
+                {(detail as any).aiAnalysis.alertLevel === "critical" ? (
+                  <ShieldAlert className="h-5 w-5 text-red-600 dark:text-red-400 shrink-0" />
+                ) : (
+                  <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0" />
+                )}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-semibold">
+                      {(detail as any).aiAnalysis.alertLevel === "critical" ? "Kritické upozornenie" : "Upozornenie"}
+                    </span>
+                    {(detail as any).aiAnalysis.hasAngryTone && (
+                      <Badge variant="outline" className="text-xs border-orange-400 text-orange-600">
+                        <Flame className="h-3 w-3 mr-1" />Nahnevaný
+                      </Badge>
+                    )}
+                    {(detail as any).aiAnalysis.wantsToCancel && (
+                      <Badge variant="outline" className="text-xs border-red-500 text-red-600">Zrušenie</Badge>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+          <ScrollArea className="flex-1 min-h-0">
+            <div className="p-5">
+              {detail.body?.contentType === "html" ? (
+                <div className="prose dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: detail.body.content }} />
+              ) : (
+                <pre className="whitespace-pre-wrap font-sans text-sm">{detail.body?.content || detail.bodyPreview}</pre>
+              )}
+            </div>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
     );
   }
 }
