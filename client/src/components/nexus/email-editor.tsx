@@ -176,7 +176,8 @@ export default function EmailEditor({
     if (editor && !initializedRef.current) {
       initializedRef.current = true;
       let content = initialContent || "";
-      if (signatureHtml) {
+      const alreadyHasSignature = content.indexOf('<div class="email-signature"') !== -1;
+      if (signatureHtml && !alreadyHasSignature) {
         const spacer = "<p><br></p><p><br></p><p><br></p>";
         content = content + spacer + '<div class="email-signature">' + signatureHtml + "</div>";
       }
