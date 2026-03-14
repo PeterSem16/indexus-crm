@@ -6,7 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { Link } from "wouter";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -31,7 +31,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuCheckboxItem,
-  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -84,6 +83,7 @@ import {
   ArrowDown,
   Eye,
   EyeOff,
+  CircleDashed,
 } from "lucide-react";
 import Editor from "react-simple-wysiwyg";
 
@@ -96,9 +96,10 @@ import type {
   Task,
   ChatConversation,
   SmsMessage,
-  UnifiedMessage,
   ColumnConfig,
-  SidebarChannel,
+  NexusTab,
+  TaskFilter,
+  SmsFilter,
 } from "@/components/nexus/nexus-types";
 import { typeColors } from "@/components/nexus/nexus-types";
 
@@ -122,93 +123,46 @@ const priorityIcons: Record<string, React.ReactNode> = {
 
 const statusIcons: Record<string, React.ReactNode> = {
   pending: <Clock className="h-3 w-3 text-slate-400" />,
-  in_progress: <Loader2 className="h-3 w-3 text-blue-500 animate-spin" />,
+  in_progress: <CircleDashed className="h-3 w-3 text-blue-500" />,
   completed: <CheckCircle2 className="h-3 w-3 text-emerald-500" />,
   cancelled: <XCircle className="h-3 w-3 text-red-500" />,
 };
-
-function getChannelInfo(channel: SidebarChannel, folders?: MailFolder[]): { title: string; icon: React.ReactNode } {
-  switch (channel) {
-    case "all": return { title: "Všetka komunikácia", icon: <Inbox className="h-4 w-4" /> };
-    case "unread": return { title: "Neprečítané", icon: <MailOpen className="h-4 w-4" /> };
-    case "email-inbox": return { title: "Doručená pošta", icon: <Inbox className="h-4 w-4 text-blue-600" /> };
-    case "sms-all": return { title: "Všetky SMS", icon: <MessageSquare className="h-4 w-4 text-cyan-600" /> };
-    case "sms-inbound": return { title: "Prijaté SMS", icon: <MessageSquare className="h-4 w-4 text-cyan-600" /> };
-    case "sms-outbound": return { title: "Odoslané SMS", icon: <MessageSquare className="h-4 w-4 text-emerald-600" /> };
-    case "tasks": return { title: "Úlohy", icon: <ListTodo className="h-4 w-4 text-emerald-600" /> };
-    case "chats": return { title: "Interné chaty", icon: <MessagesSquare className="h-4 w-4 text-violet-600" /> };
-    default: {
-      if (channel.startsWith("email-folder-") && folders) {
-        const folderId = channel.replace("email-folder-", "");
-        const folder = folders.find(f => f.id === folderId);
-        return { title: folder?.displayName || "Email priečinok", icon: <Mail className="h-4 w-4 text-blue-600" /> };
-      }
-      return { title: "Správy", icon: <Inbox className="h-4 w-4" /> };
-    }
-  }
-}
 
 export default function EmailClientPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [activeTab, setActiveTab] = useState<NexusTab>("email");
   const [selectedMailbox, setSelectedMailbox] = useState<string>("personal");
-  const [selectedChannel, setSelectedChannel] = useState<SidebarChannel>("all");
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [selectedEmail, setSelectedEmail] = useState<EmailMessage | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  const [selectedChat, setSelectedChat] = useState<ChatConversation | null>(null);
+  const [selectedChat, _setSelectedChat] = useState<ChatConversation | null>(null);
   const [selectedSms, setSelectedSms] = useState<SmsMessage | null>(null);
   const [composeOpen, setComposeOpen] = useState(false);
   const [replyMode, setReplyMode] = useState<"reply" | "replyAll" | "forward" | null>(null);
   const [signatureDialogOpen, setSignatureDialogOpen] = useState(false);
   const [page, setPage] = useState(0);
   const pageSize = 200;
-  const [expandedMessage, setExpandedMessage] = useState<UnifiedMessage | null>(null);
   const [accumulatedEmails, setAccumulatedEmails] = useState<EmailMessage[]>([]);
   const [serverTotalCount, setServerTotalCount] = useState(0);
 
-  const [columns, setColumns] = useState<ColumnConfig[]>(() => {
-    const saved = localStorage.getItem("nexus-email-columns");
-    return saved ? JSON.parse(saved) : defaultColumns;
-  });
+  const [smsFilter, setSmsFilter] = useState<SmsFilter>("all");
+  const [taskFilter, setTaskFilter] = useState<TaskFilter>("all");
+  const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
+
+  const [columns, setColumns] = useState<ColumnConfig[]>(defaultColumns);
 
   const [attachments, setAttachments] = useState<File[]>([]);
-
-  const [composeData, setComposeData] = useState({
-    to: "",
-    cc: "",
-    bcc: "",
-    subject: "",
-    body: "",
-  });
-
+  const [composeData, setComposeData] = useState({ to: "", cc: "", bcc: "", subject: "", body: "" });
   const [signatureHtml, setSignatureHtml] = useState("");
   const [signatureActive, setSignatureActive] = useState(true);
-
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [searchMailbox, setSearchMailbox] = useState<string>("all");
-
-  const [filterUnreadOnly, setFilterUnreadOnly] = useState(false);
-  const [filterHasAttachment, setFilterHasAttachment] = useState(false);
-  const [filterDateFrom, setFilterDateFrom] = useState<Date | undefined>(undefined);
-  const [filterDateTo, setFilterDateTo] = useState<Date | undefined>(undefined);
-  const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
   const [localPage, setLocalPage] = useState(0);
   const localPageSize = 25;
-
-  const [channelRefreshToken, setChannelRefreshToken] = useState(0);
-
-  const handleChannelSelect = (channel: SidebarChannel) => {
-    if (channel === selectedChannel) {
-      setChannelRefreshToken(t => t + 1);
-      setPage(0);
-      setAccumulatedEmails([]);
-      setServerTotalCount(0);
-    }
-    setSelectedChannel(channel);
-  };
 
   const [isSidebarHidden, setIsSidebarHidden] = useState(() => {
     const saved = localStorage.getItem("nexus-sidebar-hidden");
@@ -231,24 +185,33 @@ export default function EmailClientPage() {
     enabled: !!user?.id && !!selectedMailbox,
   });
 
-  const emailFolderId = (() => {
-    if (selectedChannel === "email-inbox" || selectedChannel === "all" || selectedChannel === "unread") {
-      return foldersData?.inboxId || null;
+  useEffect(() => {
+    if (foldersData?.inboxId && !selectedFolderId) {
+      setSelectedFolderId(foldersData.inboxId);
     }
-    if (selectedChannel.startsWith("email-folder-")) {
-      return selectedChannel.replace("email-folder-", "");
-    }
-    return null;
-  })();
+  }, [foldersData?.inboxId, selectedFolderId]);
 
-  const shouldFetchEmails = selectedChannel === "all" || selectedChannel === "unread" || selectedChannel === "email-inbox" || selectedChannel.startsWith("email-folder-");
+  const handleSelectFolder = (folderId: string) => {
+    if (folderId === selectedFolderId) {
+      setPage(0);
+      setAccumulatedEmails([]);
+      setServerTotalCount(0);
+      refetchMessages();
+    } else {
+      setSelectedFolderId(folderId);
+      setPage(0);
+      setAccumulatedEmails([]);
+      setServerTotalCount(0);
+      setSelectedEmail(null);
+    }
+  };
 
   const { data: messagesData, isLoading: messagesLoading, isFetching: messagesFetching, refetch: refetchMessages } = useQuery<{ connected: boolean; emails: EmailMessage[]; totalCount: number }>({
-    queryKey: ["/api/users", user?.id, "ms365-folder-messages", emailFolderId, selectedMailbox, page, selectedChannel, channelRefreshToken],
+    queryKey: ["/api/users", user?.id, "ms365-folder-messages", selectedFolderId, selectedMailbox, page],
     queryFn: () => {
-      return fetch(`/api/users/${user?.id}/ms365-folder-messages/${emailFolderId}?mailbox=${selectedMailbox}&top=${pageSize}&skip=${page * pageSize}`).then(r => r.json());
+      return fetch(`/api/users/${user?.id}/ms365-folder-messages/${selectedFolderId}?mailbox=${selectedMailbox}&top=${pageSize}&skip=${page * pageSize}`).then(r => r.json());
     },
-    enabled: !!user?.id && !!emailFolderId && shouldFetchEmails,
+    enabled: !!user?.id && !!selectedFolderId && activeTab === "email",
   });
 
   useEffect(() => {
@@ -266,29 +229,18 @@ export default function EmailClientPage() {
     }
   }, [messagesData, page]);
 
-  useEffect(() => {
-    setPage(0);
-    setAccumulatedEmails([]);
-    setServerTotalCount(0);
-    setSelectedEmail(null);
-    setSelectedTask(null);
-    setSelectedChat(null);
-    setSelectedSms(null);
-  }, [selectedChannel, selectedMailbox]);
-
   const { data: tasksData, isLoading: tasksLoading, refetch: refetchTasks } = useQuery<Task[]>({
     queryKey: ["/api/tasks", user?.id],
     queryFn: () => fetch(`/api/tasks?assignedUserId=${user?.id}`).then(r => r.json()),
     enabled: !!user?.id,
   });
 
-  const { data: chatsData, isLoading: chatsLoading, refetch: refetchChats } = useQuery<any[]>({
+  const { data: chatsData, isLoading: chatsLoading, refetch: refetchChats } = useQuery<ChatConversation[]>({
     queryKey: ["/api/users", user?.id, "chat-conversations"],
     queryFn: async () => {
       const response = await fetch(`/api/users/${user?.id}/chat-messages`);
       const messages = await response.json();
       const conversations = new Map<string, ChatConversation>();
-
       for (const msg of (messages || [])) {
         const partnerId = msg.senderId === user?.id ? msg.receiverId : msg.senderId;
         const existing = conversations.get(partnerId);
@@ -329,16 +281,13 @@ export default function EmailClientPage() {
   });
 
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
-
   const { data: searchResults, isLoading: searchLoading } = useQuery<{ emails: EmailMessage[]; mailbox: string }[]>({
     queryKey: ["/api/users", user?.id, "ms365-search-emails", debouncedSearchQuery, searchMailbox],
     queryFn: async () => {
       if (!debouncedSearchQuery || debouncedSearchQuery.trim().length < 2) return [];
-
       const mailboxesToSearch = searchMailbox === "all"
         ? mailboxes.map(m => m.type === "personal" ? "personal" : m.email)
         : [searchMailbox];
-
       const results: { emails: EmailMessage[]; mailbox: string }[] = [];
       for (const mbx of mailboxesToSearch) {
         try {
@@ -362,8 +311,6 @@ export default function EmailClientPage() {
       setDebouncedSearchQuery(searchQuery.trim());
       setIsSearching(true);
       setSelectedEmail(null);
-      setSelectedTask(null);
-      setSelectedChat(null);
     }
   };
 
@@ -440,7 +387,6 @@ export default function EmailClientPage() {
     onSuccess: (_data, variables) => {
       toast({
         title: variables.isRead ? "Označené ako prečítané" : "Označené ako neprečítané",
-        description: variables.isRead ? "Správa bola označená ako prečítaná" : "Správa bola označená ako neprečítaná",
       });
       setAccumulatedEmails(prev => prev.map(e =>
         e.id === variables.emailId ? { ...e, isRead: variables.isRead } : e
@@ -473,181 +419,55 @@ export default function EmailClientPage() {
   const folders = foldersData?.folders || [];
   const emails = accumulatedEmails;
   const totalCount = serverTotalCount;
-
   const visibleColumns = columns.filter(c => c.visible).sort((a, b) => a.order - b.order);
-
   const totalUnreadEmails = folders.find(f => f.wellKnownName === "inbox" || f.displayName === "Inbox")?.unreadItemCount || 0;
 
-  const unifiedMessages: UnifiedMessage[] = [];
+  const smsInboundUnread = smsData?.filter(s => s.direction === "inbound" && s.deliveryStatus !== "read")?.length || 0;
+  const pendingTasks = tasksData?.filter(t => t.status === "pending")?.length || 0;
+  const unreadChats = chatsData?.reduce((acc, c) => acc + (c.unreadCount || 0), 0) || 0;
 
-  const showEmails = selectedChannel === "all" || selectedChannel === "unread" || selectedChannel === "email-inbox" || selectedChannel.startsWith("email-folder-");
-  const showTasks = selectedChannel === "all" || selectedChannel === "unread" || selectedChannel === "tasks";
-  const showChats = selectedChannel === "all" || selectedChannel === "unread" || selectedChannel === "chats";
-  const showSms = selectedChannel === "all" || selectedChannel === "unread" || selectedChannel.startsWith("sms");
-
-  if (showEmails) {
-    for (const email of emails) {
-      if (selectedChannel === "unread" && email.isRead) continue;
-      unifiedMessages.push({
-        id: `email-${email.id}`,
-        type: "email",
-        title: email.subject || "(Bez predmetu)",
-        preview: email.bodyPreview || "",
-        timestamp: email.receivedDateTime,
-        isUnread: !email.isRead,
-        from: email.from?.emailAddress?.name || email.from?.emailAddress?.address || "Neznámy",
-        hasAttachments: email.hasAttachments,
-        priority: email.importance,
-        originalData: email,
-      });
-    }
-  }
-
-  if (showTasks && tasksData) {
-    for (const task of tasksData) {
-      const isTaskUnread = task.status === "pending";
-      if (selectedChannel === "unread" && !isTaskUnread) continue;
-      unifiedMessages.push({
-        id: `task-${task.id}`,
-        type: "task",
-        title: task.title,
-        preview: task.description || "",
-        timestamp: task.updatedAt || task.createdAt,
-        isUnread: isTaskUnread,
-        priority: task.priority,
-        status: task.status,
-        originalData: task,
-      });
-    }
-  }
-
-  if (showChats && chatsData) {
-    for (const chat of chatsData) {
-      const isChatUnread = chat.unreadCount > 0;
-      if (selectedChannel === "unread" && !isChatUnread) continue;
-      unifiedMessages.push({
-        id: `chat-${chat.id}`,
-        type: "chat",
-        title: chat.participantName || "Konverzácia",
-        preview: chat.lastMessage || "",
-        timestamp: chat.lastMessageAt,
-        isUnread: isChatUnread,
-        originalData: chat,
-      });
-    }
-  }
-
-  if (showSms && smsData) {
-    for (const sms of smsData) {
-      if (selectedChannel === "sms-inbound" && sms.direction !== "inbound") continue;
-      if (selectedChannel === "sms-outbound" && sms.direction !== "outbound") continue;
-
-      const isSmsUnread = sms.direction === "inbound" && sms.deliveryStatus !== "read";
-      if (selectedChannel === "unread" && !isSmsUnread) continue;
-
-      const customerName = sms.customer
-        ? `${sms.customer.firstName} ${sms.customer.lastName}`
-        : (sms.direction === "inbound" ? sms.senderPhone : sms.recipientPhone) || "Neznámy";
-
-      unifiedMessages.push({
-        id: `sms-${sms.id}`,
-        type: "sms",
-        title: sms.direction === "inbound" ? `SMS od ${customerName}` : `SMS pre ${customerName}`,
-        preview: sms.content || "",
-        timestamp: sms.sentAt || sms.createdAt,
-        isUnread: isSmsUnread,
-        direction: sms.direction,
-        from: customerName,
-        originalData: sms,
-        aiAlertLevel: sms.aiAlertLevel,
-        aiHasAngryTone: sms.aiHasAngryTone,
-        aiWantsToCancel: sms.aiWantsToCancel,
-      });
-    }
-  }
-
-  let filteredMessages = unifiedMessages.filter(msg => {
-    if (filterUnreadOnly && !msg.isUnread) return false;
-    if (filterHasAttachment && !msg.hasAttachments) return false;
-    if (filterDateFrom) {
-      const msgDate = new Date(msg.timestamp);
-      const fromDate = new Date(filterDateFrom);
-      fromDate.setHours(0, 0, 0, 0);
-      if (msgDate < fromDate) return false;
-    }
-    if (filterDateTo) {
-      const msgDate = new Date(msg.timestamp);
-      const toDate = new Date(filterDateTo);
-      toDate.setHours(23, 59, 59, 999);
-      if (msgDate > toDate) return false;
-    }
+  const filteredSms = (smsData || []).filter(sms => {
+    if (smsFilter === "inbound") return sms.direction === "inbound";
+    if (smsFilter === "outbound") return sms.direction === "outbound";
     return true;
   });
 
-  filteredMessages.sort((a, b) => {
-    const timeA = new Date(a.timestamp).getTime();
-    const timeB = new Date(b.timestamp).getTime();
-    return sortOrder === "newest" ? timeB - timeA : timeA - timeB;
+  const filteredTasks = (tasksData || []).filter(task => {
+    if (taskFilter === "all") return true;
+    return task.status === taskFilter;
   });
 
-  const totalFilteredMessages = filteredMessages.length;
-  const totalLocalPages = Math.ceil(totalFilteredMessages / localPageSize);
-  const paginatedMessages = filteredMessages.slice(localPage * localPageSize, (localPage + 1) * localPageSize);
+  const currentFolderName = folders.find(f => f.id === selectedFolderId)?.displayName || "Email";
+
+  const emailsPage = emails.slice(localPage * localPageSize, (localPage + 1) * localPageSize);
+  const totalEmailPages = Math.ceil(emails.length / localPageSize);
+
+  const smsPage = filteredSms.slice(localPage * localPageSize, (localPage + 1) * localPageSize);
+  const totalSmsPages = Math.ceil(filteredSms.length / localPageSize);
+
+  const tasksPage = filteredTasks.slice(localPage * localPageSize, (localPage + 1) * localPageSize);
+  const totalTaskPages = Math.ceil(filteredTasks.length / localPageSize);
 
   useEffect(() => {
     setLocalPage(0);
-  }, [filterUnreadOnly, filterHasAttachment, filterDateFrom, filterDateTo, sortOrder, selectedChannel]);
+  }, [activeTab, selectedFolderId, smsFilter, taskFilter]);
 
-  const handleSendEmail = () => {
-    const toList = composeData.to.split(",").map(e => e.trim()).filter(Boolean);
-    const ccList = composeData.cc ? composeData.cc.split(",").map(e => e.trim()).filter(Boolean) : [];
-    const bccList = composeData.bcc ? composeData.bcc.split(",").map(e => e.trim()).filter(Boolean) : [];
+  useEffect(() => {
+    setSelectedEmail(null);
+    setSelectedTask(null);
+    _setSelectedChat(null);
+    setSelectedChatId(null);
+    setSelectedSms(null);
+  }, [activeTab]);
 
-    if (toList.length === 0) {
-      toast({ title: "Chyba", description: "Zadajte príjemcu", variant: "destructive" });
-      return;
+  useEffect(() => {
+    if (selectedChatId && chatsData) {
+      const chat = chatsData.find(c => c.id === selectedChatId);
+      _setSelectedChat(chat || null);
+    } else {
+      _setSelectedChat(null);
     }
-
-    sendEmailMutation.mutate({
-      to: toList,
-      cc: ccList,
-      bcc: bccList,
-      subject: composeData.subject,
-      body: composeData.body,
-      mailboxEmail: selectedMailbox,
-    });
-  };
-
-  const handleReply = () => {
-    if (!selectedEmail) return;
-    replyMutation.mutate({
-      emailId: selectedEmail.id,
-      body: composeData.body,
-      replyAll: replyMode === "replyAll",
-      mailboxEmail: selectedMailbox,
-    });
-  };
-
-  const handleForward = () => {
-    if (!selectedEmail) return;
-    const toList = composeData.to.split(",").map(e => e.trim()).filter(Boolean);
-    if (toList.length === 0) {
-      toast({ title: "Chyba", description: "Zadajte príjemcu", variant: "destructive" });
-      return;
-    }
-    forwardMutation.mutate({
-      emailId: selectedEmail.id,
-      to: toList,
-      body: composeData.body,
-      mailboxEmail: selectedMailbox,
-    });
-  };
-
-  const openSignatureEditor = () => {
-    setSignatureHtml(signatureData?.htmlContent || "");
-    setSignatureActive(signatureData?.isActive !== false);
-    setSignatureDialogOpen(true);
-  };
+  }, [selectedChatId, chatsData]);
 
   const toggleColumn = (columnId: string) => {
     const newColumns = columns.map(c =>
@@ -666,29 +486,60 @@ export default function EmailClientPage() {
     setAttachments(prev => prev.filter((_, i) => i !== index));
   };
 
-  const selectUnifiedMessage = (msg: UnifiedMessage) => {
-    setSelectedEmail(null);
-    setSelectedTask(null);
-    setSelectedChat(null);
-    setSelectedSms(null);
-
-    if (msg.type === "email") {
-      setSelectedEmail(msg.originalData as EmailMessage);
-    } else if (msg.type === "task") {
-      setSelectedTask(msg.originalData as Task);
-    } else if (msg.type === "chat") {
-      setSelectedChat(msg.originalData as ChatConversation);
-    } else if (msg.type === "sms") {
-      setSelectedSms(msg.originalData as SmsMessage);
+  const handleSendEmail = () => {
+    const toList = composeData.to.split(",").map(e => e.trim()).filter(Boolean);
+    const ccList = composeData.cc ? composeData.cc.split(",").map(e => e.trim()).filter(Boolean) : [];
+    const bccList = composeData.bcc ? composeData.bcc.split(",").map(e => e.trim()).filter(Boolean) : [];
+    if (toList.length === 0) {
+      toast({ title: "Chyba", description: "Zadajte príjemcu", variant: "destructive" });
+      return;
     }
+    sendEmailMutation.mutate({
+      to: toList, cc: ccList, bcc: bccList,
+      subject: composeData.subject, body: composeData.body,
+      mailboxEmail: selectedMailbox,
+    });
   };
 
-  const getTypeIcon = (type: "email" | "task" | "chat" | "sms") => {
-    switch (type) {
-      case "email": return <Mail className="h-4 w-4" />;
-      case "task": return <ListTodo className="h-4 w-4" />;
-      case "chat": return <MessagesSquare className="h-4 w-4" />;
-      case "sms": return <MessageSquare className="h-4 w-4" />;
+  const handleReply = () => {
+    if (!selectedEmail) return;
+    replyMutation.mutate({
+      emailId: selectedEmail.id, body: composeData.body,
+      replyAll: replyMode === "replyAll", mailboxEmail: selectedMailbox,
+    });
+  };
+
+  const handleForward = () => {
+    if (!selectedEmail) return;
+    const toList = composeData.to.split(",").map(e => e.trim()).filter(Boolean);
+    if (toList.length === 0) {
+      toast({ title: "Chyba", description: "Zadajte príjemcu", variant: "destructive" });
+      return;
+    }
+    forwardMutation.mutate({
+      emailId: selectedEmail.id, to: toList,
+      body: composeData.body, mailboxEmail: selectedMailbox,
+    });
+  };
+
+  const openSignatureEditor = () => {
+    setSignatureHtml(signatureData?.htmlContent || "");
+    setSignatureActive(signatureData?.isActive !== false);
+    setSignatureDialogOpen(true);
+  };
+
+  const handleRefresh = () => {
+    if (activeTab === "email") {
+      setPage(0);
+      setAccumulatedEmails([]);
+      refetchFolders();
+      refetchMessages();
+    } else if (activeTab === "sms") {
+      refetchSms();
+    } else if (activeTab === "tasks") {
+      refetchTasks();
+    } else if (activeTab === "chats") {
+      refetchChats();
     }
   };
 
@@ -727,7 +578,12 @@ export default function EmailClientPage() {
     );
   }
 
-  const channelInfo = getChannelInfo(selectedChannel, folders);
+  const tabConfig: { key: NexusTab; label: string; icon: React.ReactNode; badge?: number; badgeColor?: string }[] = [
+    { key: "email", label: "Email", icon: <Mail className="h-4 w-4" />, badge: totalUnreadEmails > 0 ? totalUnreadEmails : undefined, badgeColor: "bg-blue-500" },
+    { key: "sms", label: "SMS", icon: <MessageSquare className="h-4 w-4" />, badge: smsInboundUnread > 0 ? smsInboundUnread : undefined, badgeColor: "bg-cyan-500" },
+    { key: "tasks", label: "Úlohy", icon: <ListTodo className="h-4 w-4" />, badge: pendingTasks > 0 ? pendingTasks : undefined, badgeColor: "bg-amber-500" },
+    { key: "chats", label: "Chaty", icon: <MessagesSquare className="h-4 w-4" />, badge: unreadChats > 0 ? unreadChats : undefined, badgeColor: "bg-violet-500" },
+  ];
 
   return (
     <div className="space-y-3">
@@ -737,101 +593,101 @@ export default function EmailClientPage() {
             <Network className="h-5 w-5 text-primary-foreground" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-              NEXUS
-              <Badge variant="outline" className="text-xs font-normal">Komunikačné centrum</Badge>
-            </h1>
+            <h1 className="text-2xl font-bold tracking-tight">NEXUS</h1>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Select value={selectedMailbox} onValueChange={(v) => { setSelectedMailbox(v); setSelectedChannel("all"); setSelectedEmail(null); setPage(0); setAccumulatedEmails([]); setChannelRefreshToken(t => t + 1); }}>
-            <SelectTrigger className="w-56" data-testid="select-mailbox">
-              <SelectValue placeholder="Vyberte schránku" />
-            </SelectTrigger>
-            <SelectContent>
-              {mailboxes.map((mb) => (
-                <SelectItem key={mb.id} value={mb.type === "personal" ? "personal" : mb.email}>
-                  <div className="flex items-center gap-2">
-                    {mb.type === "personal" ? <User className="h-4 w-4" /> : <Mail className="h-4 w-4" />}
-                    <span>{mb.displayName || mb.email}</span>
-                    {mb.isDefault && <Badge variant="secondary" className="text-xs">Predvolená</Badge>}
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {activeTab === "email" && (
+            <Select value={selectedMailbox} onValueChange={(v) => { setSelectedMailbox(v); setSelectedFolderId(null); setSelectedEmail(null); setPage(0); setAccumulatedEmails([]); }}>
+              <SelectTrigger className="w-56" data-testid="select-mailbox">
+                <SelectValue placeholder="Vyberte schránku" />
+              </SelectTrigger>
+              <SelectContent>
+                {mailboxes.map((mb) => (
+                  <SelectItem key={mb.id} value={mb.type === "personal" ? "personal" : mb.email}>
+                    <div className="flex items-center gap-2">
+                      {mb.type === "personal" ? <User className="h-4 w-4" /> : <Mail className="h-4 w-4" />}
+                      <span>{mb.displayName || mb.email}</span>
+                      {mb.isDefault && <Badge variant="secondary" className="text-xs">Predvolená</Badge>}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
 
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="icon" data-testid="button-columns">
-                <Columns3 className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuLabel>Viditeľné stĺpce</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {columns.map((col) => (
-                <DropdownMenuCheckboxItem
-                  key={col.id}
-                  checked={col.visible}
-                  onCheckedChange={() => toggleColumn(col.id)}
-                >
-                  {col.label}
-                </DropdownMenuCheckboxItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          <Button variant="outline" size="icon" onClick={() => { setPage(0); setAccumulatedEmails([]); refetchFolders(); refetchMessages(); refetchTasks(); refetchChats(); refetchSms(); }} data-testid="button-refresh">
+          <Button variant="outline" size="icon" onClick={handleRefresh} data-testid="button-refresh">
             <RefreshCw className="h-4 w-4" />
           </Button>
-          <Button variant="outline" size="icon" onClick={openSignatureEditor} data-testid="button-signature">
-            <Settings className="h-4 w-4" />
-          </Button>
-          <Button onClick={() => { setComposeOpen(true); setReplyMode(null); setComposeData({ to: "", cc: "", bcc: "", subject: "", body: "" }); setAttachments([]); }} data-testid="button-compose">
-            <PenSquare className="h-4 w-4 mr-2" />
-            Nová správa
-          </Button>
-        </div>
-      </div>
-
-      <Card className="p-3">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 flex-1">
-            <Search className="h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Hľadať vo všetkých správach..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-              className="flex-1"
-              data-testid="input-search"
-            />
-          </div>
-          <Button onClick={handleSearch} disabled={searchQuery.trim().length < 2} data-testid="button-search">
-            <Search className="h-4 w-4 mr-2" />
-            Hľadať
-          </Button>
-          {isSearching && (
-            <Button variant="outline" onClick={clearSearch} data-testid="button-clear-search">
-              <X className="h-4 w-4 mr-2" />
-              Zrušiť
+          {activeTab === "email" && (
+            <Button variant="outline" size="icon" onClick={openSignatureEditor} data-testid="button-signature">
+              <Settings className="h-4 w-4" />
+            </Button>
+          )}
+          {activeTab === "email" && (
+            <Button onClick={() => { setComposeOpen(true); setReplyMode(null); setComposeData({ to: "", cc: "", bcc: "", subject: "", body: "" }); setAttachments([]); }} data-testid="button-compose">
+              <PenSquare className="h-4 w-4 mr-2" />
+              Nová správa
             </Button>
           )}
         </div>
-      </Card>
+      </div>
 
-      <div className="flex gap-2 h-[calc(100vh-260px)] transition-all duration-300">
+      <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-lg border" data-testid="nexus-tabs">
+        {tabConfig.map(tab => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
+              activeTab === tab.key
+                ? "bg-background shadow-sm text-foreground"
+                : "text-muted-foreground hover:text-foreground hover:bg-background/50"
+            }`}
+            data-testid={`tab-${tab.key}`}
+          >
+            <span className={activeTab === tab.key ? typeColors[tab.key].accent : ""}>{tab.icon}</span>
+            <span>{tab.label}</span>
+            {tab.badge !== undefined && tab.badge > 0 && (
+              <Badge className={`${tab.badgeColor} text-white text-[10px] h-5 min-w-[20px] px-1.5`}>
+                {tab.badge}
+              </Badge>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === "email" && (
+        <Card className="p-3">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 flex-1">
+              <Search className="h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Hľadať vo všetkých emailoch..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                className="flex-1"
+                data-testid="input-search"
+              />
+            </div>
+            <Button onClick={handleSearch} disabled={searchQuery.trim().length < 2} data-testid="button-search">
+              <Search className="h-4 w-4 mr-2" />
+              Hľadať
+            </Button>
+            {isSearching && (
+              <Button variant="outline" onClick={clearSearch} data-testid="button-clear-search">
+                <X className="h-4 w-4 mr-2" />
+                Zrušiť
+              </Button>
+            )}
+          </div>
+        </Card>
+      )}
+
+      <div className="flex gap-2 h-[calc(100vh-280px)] transition-all duration-300">
         {isSidebarHidden && (
           <div className="flex flex-col items-center pt-2 shrink-0">
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => setIsSidebarHidden(false)}
-              data-testid="button-show-sidebar"
-              title="Zobraziť kanály"
-            >
+            <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setIsSidebarHidden(false)} data-testid="button-show-sidebar">
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
@@ -839,602 +695,380 @@ export default function EmailClientPage() {
 
         {!isSidebarHidden && (
           <NexusSidebar
-            selectedChannel={selectedChannel}
-            onSelectChannel={handleChannelSelect}
+            activeTab={activeTab}
+            selectedFolderId={selectedFolderId}
+            onSelectFolder={handleSelectFolder}
             folders={folders}
             foldersLoading={foldersLoading}
+            smsFilter={smsFilter}
+            onSmsFilterChange={setSmsFilter}
+            taskFilter={taskFilter}
+            onTaskFilterChange={setTaskFilter}
             smsData={smsData}
             tasksData={tasksData}
             chatsData={chatsData}
             totalUnreadEmails={totalUnreadEmails}
+            selectedChatId={selectedChatId}
+            onSelectChat={setSelectedChatId}
             onHide={() => setIsSidebarHidden(true)}
           />
         )}
 
-        <Card className="transition-all duration-300 w-[30%] min-w-[320px] max-w-[420px] shrink-0">
-          <CardHeader className="py-2 px-3 space-y-1 border-b">
-            <div className="flex items-center justify-between gap-1">
-              <div className="flex items-center gap-2">
-                {channelInfo.icon}
-                <span className="text-sm font-semibold">{channelInfo.title}</span>
-                <Badge variant="secondary" className="text-[10px]">{totalFilteredMessages}</Badge>
-              </div>
-              <div className="flex items-center gap-0.5">
-                <Button variant="ghost" size="icon" className="h-7 w-7" disabled={localPage === 0} onClick={() => setLocalPage(p => p - 1)} data-testid="button-page-prev">
-                  <ChevronLeft className="h-3.5 w-3.5" />
-                </Button>
-                <span className="text-[11px] min-w-[40px] text-center text-muted-foreground">{totalLocalPages > 0 ? `${localPage + 1}/${totalLocalPages}` : "0/0"}</span>
-                <Button variant="ghost" size="icon" className="h-7 w-7" disabled={localPage >= totalLocalPages - 1} onClick={() => setLocalPage(p => p + 1)} data-testid="button-page-next">
-                  <ChevronRight className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-1 flex-wrap">
-              <Button
-                variant={filterUnreadOnly ? "default" : "outline"}
-                size="sm"
-                className="text-[11px] h-7 gap-0.5"
-                onClick={() => setFilterUnreadOnly(!filterUnreadOnly)}
-                data-testid="filter-unread"
-              >
-                <MailOpen className="h-3 w-3" />
-                Neprečítané
-              </Button>
-
-              <Button
-                variant={filterHasAttachment ? "default" : "outline"}
-                size="sm"
-                className="text-[11px] h-7 gap-0.5"
-                onClick={() => setFilterHasAttachment(!filterHasAttachment)}
-                data-testid="filter-attachment"
-              >
-                <Paperclip className="h-3 w-3" />
-                Prílohy
-              </Button>
-
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className={`text-[11px] h-7 gap-0.5 ${filterDateFrom || filterDateTo ? "border-primary" : ""}`} data-testid="filter-date">
-                    <CalendarIcon className="h-3 w-3" />
-                    {filterDateFrom || filterDateTo ? (
-                      <>
-                        {filterDateFrom ? format(filterDateFrom, "d.M.") : "..."} - {filterDateTo ? format(filterDateTo, "d.M.") : "..."}
-                      </>
-                    ) : "Dátum"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-3" align="start">
-                  <div className="space-y-3">
-                    <div className="space-y-1">
-                      <label className="text-xs font-medium">Od</label>
-                      <input
-                        type="date"
-                        className="w-full px-2 py-1 text-sm border rounded"
-                        value={filterDateFrom ? format(filterDateFrom, "yyyy-MM-dd") : ""}
-                        onChange={(e) => setFilterDateFrom(e.target.value ? new Date(e.target.value) : undefined)}
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-xs font-medium">Do</label>
-                      <input
-                        type="date"
-                        className="w-full px-2 py-1 text-sm border rounded"
-                        value={filterDateTo ? format(filterDateTo, "yyyy-MM-dd") : ""}
-                        onChange={(e) => setFilterDateTo(e.target.value ? new Date(e.target.value) : undefined)}
-                      />
-                    </div>
-                    {(filterDateFrom || filterDateTo) && (
-                      <Button variant="ghost" size="sm" className="w-full h-7 text-xs" onClick={() => { setFilterDateFrom(undefined); setFilterDateTo(undefined); }}>
-                        Vymazať
-                      </Button>
+        {activeTab === "email" && (
+          <>
+            <Card className="transition-all duration-300 w-[30%] min-w-[320px] max-w-[420px] shrink-0">
+              <CardHeader className="py-2 px-3 space-y-1 border-b">
+                <div className="flex items-center justify-between gap-1">
+                  <div className="flex items-center gap-2">
+                    <Mail className="h-4 w-4 text-blue-600" />
+                    <span className="text-sm font-semibold">{isSearching ? `Výsledky: "${debouncedSearchQuery}"` : currentFolderName}</span>
+                    {!isSearching && <Badge variant="secondary" className="text-[10px]">{emails.length}</Badge>}
+                    {isSearching && searchResults && (
+                      <Badge variant="secondary" className="text-[10px]">{searchResults.reduce((acc, r) => acc + r.emails.length, 0)}</Badge>
                     )}
                   </div>
-                </PopoverContent>
-              </Popover>
-
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-[11px] h-7 gap-0.5"
-                onClick={() => setSortOrder(sortOrder === "newest" ? "oldest" : "newest")}
-                data-testid="sort-toggle"
-              >
-                {sortOrder === "newest" ? <ArrowDown className="h-3 w-3" /> : <ArrowUp className="h-3 w-3" />}
-                {sortOrder === "newest" ? "Najnovšie" : "Najstaršie"}
-              </Button>
-
-              {(filterUnreadOnly || filterHasAttachment || filterDateFrom || filterDateTo) && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-[11px] h-7 text-muted-foreground"
-                  onClick={() => {
-                    setFilterUnreadOnly(false);
-                    setFilterHasAttachment(false);
-                    setFilterDateFrom(undefined);
-                    setFilterDateTo(undefined);
-                  }}
-                  data-testid="clear-filters"
-                >
-                  <X className="h-3 w-3 mr-1" />
-                  Vymazať
-                </Button>
-              )}
-            </div>
-          </CardHeader>
-          <CardContent className="p-0">
-            {(messagesLoading || tasksLoading || chatsLoading || smsLoading) ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-5 w-5 animate-spin" />
-              </div>
-            ) : paginatedMessages.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                <Network className="h-8 w-8 mb-2 opacity-50" />
-                <span className="text-sm">{filterUnreadOnly || filterHasAttachment || filterDateFrom || filterDateTo ? "Žiadne správy zodpovedajú filtrom" : "Žiadne správy"}</span>
-              </div>
-            ) : (
-              <ScrollArea className="h-[calc(100vh-380px)]">
-                <div className="divide-y">
-                  {paginatedMessages.map((msg) => (
-                    <div
-                      key={msg.id}
-                      className={`relative group w-full text-left px-3 py-2.5 transition-all hover:bg-accent/50 cursor-pointer ${
-                        (selectedEmail?.id && msg.id === `email-${selectedEmail.id}`) ||
-                        (selectedTask?.id && msg.id === `task-${selectedTask.id}`) ||
-                        (selectedChat?.id && msg.id === `chat-${selectedChat.id}`) ||
-                        (selectedSms?.id && msg.id === `sms-${selectedSms.id}`)
-                          ? "bg-accent" : ""
-                      } ${msg.isUnread ? "font-medium" : ""}`}
-                      onClick={() => selectUnifiedMessage(msg)}
-                      onDoubleClick={() => { selectUnifiedMessage(msg); setExpandedMessage(msg); }}
-                      title="Dvojklik pre zväčšený náhľad"
-                      data-testid={`message-item-${msg.id}`}
-                    >
-                      {msg.type === "email" && (
-                        <button
-                          className="absolute top-1.5 right-1.5 p-1 rounded-md opacity-0 group-hover:opacity-100 hover:bg-background/80 transition-all z-10"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            const email = msg.originalData as EmailMessage;
-                            toggleReadMutation.mutate({ emailId: email.id, isRead: msg.isUnread });
-                          }}
-                          title={msg.isUnread ? "Označiť ako prečítané" : "Označiť ako neprečítané"}
-                          data-testid={`toggle-read-${msg.id}`}
-                        >
-                          {msg.isUnread ? <Eye className="h-3.5 w-3.5 text-muted-foreground" /> : <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />}
-                        </button>
-                      )}
-                      <div className="flex items-start gap-2.5">
-                        <div className="flex flex-col items-center gap-1 mt-1 shrink-0">
-                          <span className={`h-2 w-2 rounded-full shrink-0 ${msg.isUnread ? typeColors[msg.type].dot : "bg-transparent"}`} />
-                        </div>
-                        {visibleColumns.find(c => c.id === "type") && (
-                          <div className={`p-1.5 rounded-md ${typeColors[msg.type].bg} mt-0.5 shrink-0`}>
-                            {getTypeIcon(msg.type)}
-                          </div>
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between gap-1">
-                            {visibleColumns.find(c => c.id === "from") && (
-                              <span className={`text-sm truncate ${msg.isUnread ? "font-bold" : ""}`}>
-                                {msg.from || msg.title}
-                              </span>
-                            )}
-                            <div className="flex items-center gap-1 shrink-0">
-                              {visibleColumns.find(c => c.id === "attachments") && msg.hasAttachments && (
-                                <Paperclip className="h-3 w-3 text-muted-foreground" />
+                  {!isSearching && (
+                    <div className="flex items-center gap-0.5">
+                      <Button variant="ghost" size="icon" className="h-7 w-7" disabled={localPage === 0} onClick={() => setLocalPage(p => p - 1)} data-testid="button-page-prev">
+                        <ChevronLeft className="h-3.5 w-3.5" />
+                      </Button>
+                      <span className="text-[11px] min-w-[40px] text-center text-muted-foreground">{totalEmailPages > 0 ? `${localPage + 1}/${totalEmailPages}` : "0/0"}</span>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" disabled={localPage >= totalEmailPages - 1} onClick={() => setLocalPage(p => p + 1)} data-testid="button-page-next">
+                        <ChevronRight className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="p-0">
+                {isSearching ? (
+                  searchLoading ? (
+                    <div className="flex items-center justify-center py-8"><Loader2 className="h-5 w-5 animate-spin" /></div>
+                  ) : !searchResults || searchResults.every(r => r.emails.length === 0) ? (
+                    <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                      <Search className="h-8 w-8 mb-2 opacity-50" />
+                      <span className="text-sm">Žiadne výsledky pre "{debouncedSearchQuery}"</span>
+                    </div>
+                  ) : (
+                    <ScrollArea className="h-[calc(100vh-380px)]">
+                      <div className="divide-y">
+                        {searchResults.map((result) => (
+                          result.emails.length > 0 && (
+                            <div key={result.mailbox}>
+                              {searchResults.length > 1 && (
+                                <div className="px-3 py-1 bg-muted/50 border-b">
+                                  <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{result.mailbox}</span>
+                                </div>
                               )}
-                              {visibleColumns.find(c => c.id === "date") && (
-                                <span className="text-[11px] text-muted-foreground whitespace-nowrap">
-                                  {format(new Date(msg.timestamp), "d.M. HH:mm")}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          {visibleColumns.find(c => c.id === "subject") && (
-                            <p className={`text-xs truncate ${msg.isUnread ? "font-semibold" : "text-muted-foreground"}`}>
-                              {msg.title}
-                            </p>
-                          )}
-                          {visibleColumns.find(c => c.id === "preview") && (
-                            <p className="text-[11px] text-muted-foreground truncate">{msg.preview}</p>
-                          )}
-                          {(msg.type === "task" || (msg.type === "sms" && msg.aiAlertLevel && msg.aiAlertLevel !== "none")) && (
-                            <div className="flex items-center gap-1 mt-0.5 flex-wrap">
-                              {msg.type === "task" && msg.priority && (
-                                <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 gap-0.5">
-                                  {priorityIcons[msg.priority]}
-                                  {msg.priority}
-                                </Badge>
-                              )}
-                              {msg.type === "task" && msg.status && (
-                                <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 gap-0.5">
-                                  {statusIcons[msg.status]}
-                                  {msg.status}
-                                </Badge>
-                              )}
-                              {msg.type === "sms" && msg.aiAlertLevel && msg.aiAlertLevel !== "none" && (
-                                <Badge
-                                  variant="outline"
-                                  className={`text-[10px] px-1 py-0 h-4 gap-0.5 ${
-                                    msg.aiAlertLevel === "critical"
-                                      ? "border-red-500 text-red-600 bg-red-50 dark:bg-red-950"
-                                      : "border-amber-500 text-amber-600 bg-amber-50 dark:bg-amber-950"
-                                  }`}
+                              {result.emails.map(email => (
+                                <div
+                                  key={email.id}
+                                  className={`relative group w-full text-left px-3 py-2.5 transition-all hover:bg-accent/50 cursor-pointer ${
+                                    selectedEmail?.id === email.id ? "bg-accent" : ""
+                                  } ${!email.isRead ? "font-medium" : ""}`}
+                                  onClick={() => setSelectedEmail(email)}
+                                  data-testid={`search-email-item-${email.id}`}
                                 >
-                                  {msg.aiAlertLevel === "critical" ? <ShieldAlert className="h-3 w-3" /> : <AlertTriangle className="h-3 w-3" />}
-                                  {msg.aiHasAngryTone && "Nahnevaný"}
-                                  {msg.aiWantsToCancel && "Zrušenie"}
-                                  {!msg.aiHasAngryTone && !msg.aiWantsToCancel && (msg.aiAlertLevel === "critical" ? "Kritické" : "Upozornenie")}
-                                </Badge>
-                              )}
+                                  <div className="flex items-start gap-2.5">
+                                    <span className={`h-2 w-2 rounded-full shrink-0 mt-2 ${!email.isRead ? "bg-blue-500" : "bg-transparent"}`} />
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center justify-between gap-1">
+                                        <span className={`text-sm truncate ${!email.isRead ? "font-bold" : ""}`}>
+                                          {email.from?.emailAddress?.name || email.from?.emailAddress?.address || "Neznámy"}
+                                        </span>
+                                        <div className="flex items-center gap-1 shrink-0">
+                                          {email.hasAttachments && <Paperclip className="h-3 w-3 text-muted-foreground" />}
+                                          <span className="text-[11px] text-muted-foreground whitespace-nowrap">
+                                            {format(new Date(email.receivedDateTime), "d.M. HH:mm")}
+                                          </span>
+                                        </div>
+                                      </div>
+                                      <p className={`text-xs truncate ${!email.isRead ? "font-semibold" : "text-muted-foreground"}`}>
+                                        {email.subject || "(Bez predmetu)"}
+                                      </p>
+                                      <p className="text-[11px] text-muted-foreground truncate">{email.bodyPreview}</p>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
                             </div>
-                          )}
-                        </div>
+                          )
+                        ))}
                       </div>
-                    </div>
-                  ))}
-                  {totalCount > emails.length && shouldFetchEmails && (
-                    <div className="p-3 text-center">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="text-xs gap-1"
-                        onClick={() => setPage(p => p + 1)}
-                        disabled={messagesFetching}
-                        data-testid="button-load-more"
-                      >
-                        {messagesFetching && <Loader2 className="h-3 w-3 animate-spin" />}
-                        Načítať ďalšie ({emails.length} z {totalCount})
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              </ScrollArea>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="transition-all duration-300 flex-1 min-w-0">
-          <CardContent className="p-0 h-full">
-            {detailLoading ? (
-              <div className="flex items-center justify-center h-full">
-                <Loader2 className="h-6 w-6 animate-spin" />
-              </div>
-            ) : emailDetail && selectedEmail ? (
-              <div className="flex flex-col h-full">
-                <div className="p-4 border-b space-y-2">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <Badge className={`${typeColors.email.bg} ${typeColors.email.text}`}>
-                        <Mail className="h-3 w-3 mr-1" />Email
-                      </Badge>
-                      <h2 className="text-lg font-semibold">{emailDetail.subject || "(Bez predmetu)"}</h2>
-                    </div>
-                    <div className="flex items-center gap-1 shrink-0">
-                      <Button variant="ghost" size="icon" onClick={() => { setReplyMode("reply"); setComposeData({ ...composeData, body: "" }); }} data-testid="button-reply">
-                        <Reply className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => { setReplyMode("replyAll"); setComposeData({ ...composeData, body: "" }); }} data-testid="button-reply-all">
-                        <ReplyAll className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => { setReplyMode("forward"); setComposeData({ to: "", cc: "", bcc: "", subject: `Fwd: ${emailDetail.subject}`, body: "" }); }} data-testid="button-forward">
-                        <Forward className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => toggleReadMutation.mutate({ emailId: emailDetail.id, isRead: !emailDetail.isRead })}
-                        disabled={toggleReadMutation.isPending}
-                        title={emailDetail.isRead ? "Označiť ako neprečítané" : "Označiť ako prečítané"}
-                        data-testid="button-toggle-read"
-                      >
-                        {emailDetail.isRead ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => deleteEmailMutation.mutate(emailDetail.id)} data-testid="button-delete">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
+                    </ScrollArea>
+                  )
+                ) : messagesLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-5 w-5 animate-spin" />
                   </div>
-                  <div className="text-sm">
-                    <p><span className="text-muted-foreground">Od:</span> {emailDetail.from?.emailAddress?.name} &lt;{emailDetail.from?.emailAddress?.address}&gt;</p>
-                    <p><span className="text-muted-foreground">Komu:</span> {emailDetail.toRecipients?.map(r => r.emailAddress?.address).join(", ")}</p>
-                    <p className="text-muted-foreground text-xs mt-1">
-                      {format(new Date(emailDetail.receivedDateTime), "d. MMMM yyyy, HH:mm")}
-                    </p>
-                  </div>
-
-                  {emailDetail.linkedCustomer && (
-                    <Link
-                      href={`/customers?view=${emailDetail.linkedCustomer.id}`}
-                      className="flex items-center gap-2 mt-2 p-2 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-md hover:bg-green-100 dark:hover:bg-green-900 transition-colors cursor-pointer"
-                      data-testid="link-customer-detail"
-                    >
-                      <UserCheck className="h-4 w-4 text-green-600 dark:text-green-400" />
-                      <span className="text-sm text-green-700 dark:text-green-300">Priradené k zákazníkovi:</span>
-                      <span className="text-sm font-medium text-green-700 dark:text-green-300">
-                        {emailDetail.linkedCustomer.firstName} {emailDetail.linkedCustomer.lastName}
-                      </span>
-                      <span className="text-sm text-green-600 dark:text-green-400">({emailDetail.linkedCustomer.email})</span>
-                    </Link>
-                  )}
-
-                  {(emailDetail as any).aiAnalysis && (emailDetail as any).aiAnalysis.alertLevel !== "none" && (
-                    <div
-                      className={`flex items-start gap-3 mt-2 p-3 rounded-md border ${
-                        (emailDetail as any).aiAnalysis.alertLevel === "critical"
-                          ? "bg-red-50 dark:bg-red-950 border-red-300 dark:border-red-800"
-                          : "bg-amber-50 dark:bg-amber-950 border-amber-300 dark:border-amber-800"
-                      }`}
-                      data-testid="ai-analysis-alert"
-                    >
-                      {(emailDetail as any).aiAnalysis.alertLevel === "critical" ? (
-                        <ShieldAlert className="h-5 w-5 text-red-600 dark:text-red-400 shrink-0" />
-                      ) : (
-                        <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0" />
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-sm font-semibold">
-                            {(emailDetail as any).aiAnalysis.alertLevel === "critical" ? "Kritické upozornenie" : "Upozornenie"}
-                          </span>
-                          {(emailDetail as any).aiAnalysis.hasAngryTone && (
-                            <Badge variant="outline" className="text-xs border-orange-400 text-orange-600">
-                              <Flame className="h-3 w-3 mr-1" />Nahnevaný
-                            </Badge>
-                          )}
-                          {(emailDetail as any).aiAnalysis.wantsToCancel && (
-                            <Badge variant="outline" className="text-xs border-red-500 text-red-600">Zrušenie zmluvy</Badge>
-                          )}
-                          {(emailDetail as any).aiAnalysis.wantsConsent && (
-                            <Badge variant="outline" className="text-xs border-green-500 text-green-600">Súhlas</Badge>
-                          )}
-                        </div>
-                        {(emailDetail as any).aiAnalysis.pipelineActionTaken && (
-                          <div className="mt-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-200 dark:border-blue-800">
-                            <div className="flex items-center gap-2">
-                              <Zap className="h-4 w-4 text-blue-600" />
-                              <span className="text-sm font-medium text-blue-700">
-                                Presun do: {(emailDetail as any).aiAnalysis.pipelineStageName}
-                              </span>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {replyMode ? (
-                  <div className="flex-1 p-4 space-y-4 overflow-auto">
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-medium">
-                        {replyMode === "reply" && "Odpoveď"}
-                        {replyMode === "replyAll" && "Odpoveď všetkým"}
-                        {replyMode === "forward" && "Preposlať"}
-                      </h3>
-                      <Button variant="ghost" size="icon" onClick={() => setReplyMode(null)}>
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    {replyMode === "forward" && (
-                      <Input
-                        placeholder="Komu"
-                        value={composeData.to}
-                        onChange={(e) => setComposeData({ ...composeData, to: e.target.value })}
-                        data-testid="input-forward-to"
-                      />
-                    )}
-                    <div className="border rounded-md">
-                      <Editor
-                        value={composeData.body}
-                        onChange={(e) => setComposeData({ ...composeData, body: e.target.value })}
-                        style={{ minHeight: "150px" }}
-                        data-testid="editor-reply-body"
-                      />
-                    </div>
-                    <div className="flex justify-end">
-                      <Button
-                        onClick={replyMode === "forward" ? handleForward : handleReply}
-                        disabled={replyMutation.isPending || forwardMutation.isPending}
-                        data-testid="button-send-reply"
-                      >
-                        {(replyMutation.isPending || forwardMutation.isPending) && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                        <Send className="h-4 w-4 mr-2" />
-                        Odoslať
-                      </Button>
-                    </div>
+                ) : emailsPage.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                    <Mail className="h-8 w-8 mb-2 opacity-50" />
+                    <span className="text-sm">Žiadne emaily</span>
                   </div>
                 ) : (
-                  <ScrollArea className="flex-1">
-                    <div className="p-4">
-                      {emailDetail.body?.contentType === "html" ? (
+                  <ScrollArea className="h-[calc(100vh-380px)]">
+                    <div className="divide-y">
+                      {emailsPage.map((email) => (
                         <div
-                          className="prose dark:prose-invert max-w-none"
-                          dangerouslySetInnerHTML={{ __html: emailDetail.body.content }}
-                        />
-                      ) : (
-                        <pre className="whitespace-pre-wrap font-sans text-sm">
-                          {emailDetail.body?.content || emailDetail.bodyPreview}
-                        </pre>
+                          key={email.id}
+                          className={`relative group w-full text-left px-3 py-2.5 transition-all hover:bg-accent/50 cursor-pointer ${
+                            selectedEmail?.id === email.id ? "bg-accent" : ""
+                          } ${!email.isRead ? "font-medium" : ""}`}
+                          onClick={() => setSelectedEmail(email)}
+                          data-testid={`email-item-${email.id}`}
+                        >
+                          <button
+                            className="absolute top-1.5 right-1.5 p-1 rounded-md opacity-0 group-hover:opacity-100 hover:bg-background/80 transition-all z-10"
+                            onClick={(e) => { e.stopPropagation(); toggleReadMutation.mutate({ emailId: email.id, isRead: !email.isRead }); }}
+                            title={email.isRead ? "Označiť ako neprečítané" : "Označiť ako prečítané"}
+                            data-testid={`toggle-read-${email.id}`}
+                          >
+                            {!email.isRead ? <Eye className="h-3.5 w-3.5 text-muted-foreground" /> : <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />}
+                          </button>
+                          <div className="flex items-start gap-2.5">
+                            <span className={`h-2 w-2 rounded-full shrink-0 mt-2 ${!email.isRead ? "bg-blue-500" : "bg-transparent"}`} />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between gap-1">
+                                <span className={`text-sm truncate ${!email.isRead ? "font-bold" : ""}`}>
+                                  {email.from?.emailAddress?.name || email.from?.emailAddress?.address || "Neznámy"}
+                                </span>
+                                <div className="flex items-center gap-1 shrink-0">
+                                  {email.hasAttachments && <Paperclip className="h-3 w-3 text-muted-foreground" />}
+                                  <span className="text-[11px] text-muted-foreground whitespace-nowrap">
+                                    {format(new Date(email.receivedDateTime), "d.M. HH:mm")}
+                                  </span>
+                                </div>
+                              </div>
+                              <p className={`text-xs truncate ${!email.isRead ? "font-semibold" : "text-muted-foreground"}`}>
+                                {email.subject || "(Bez predmetu)"}
+                              </p>
+                              <p className="text-[11px] text-muted-foreground truncate">{email.bodyPreview}</p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                      {totalCount > emails.length && (
+                        <div className="p-3 text-center">
+                          <Button variant="outline" size="sm" className="text-xs gap-1" onClick={() => setPage(p => p + 1)} disabled={messagesFetching} data-testid="button-load-more">
+                            {messagesFetching && <Loader2 className="h-3 w-3 animate-spin" />}
+                            Načítať ďalšie ({emails.length} z {totalCount})
+                          </Button>
+                        </div>
                       )}
                     </div>
                   </ScrollArea>
                 )}
-              </div>
-            ) : selectedTask ? (
-              <div className="flex flex-col h-full">
-                <div className="p-4 border-b space-y-2">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <Badge className={`${typeColors.task.bg} ${typeColors.task.text}`}>
-                        <ListTodo className="h-3 w-3 mr-1" />Úloha
-                      </Badge>
-                      <h2 className="text-lg font-semibold">{selectedTask.title}</h2>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {selectedTask.priority && (
-                        <Badge variant="outline" className="gap-1">
-                          {priorityIcons[selectedTask.priority]}
-                          {selectedTask.priority}
-                        </Badge>
-                      )}
-                      <Badge variant="outline" className="gap-1">
-                        {statusIcons[selectedTask.status]}
-                        {selectedTask.status}
-                      </Badge>
-                    </div>
-                  </div>
-                  {selectedTask.dueDate && (
-                    <p className="text-sm text-muted-foreground flex items-center gap-1">
-                      <Clock className="h-4 w-4" />
-                      Termín: {format(new Date(selectedTask.dueDate), "d. MMMM yyyy")}
-                    </p>
-                  )}
-                </div>
-                <ScrollArea className="flex-1">
-                  <div className="p-4">
-                    <p className="text-sm whitespace-pre-wrap">{selectedTask.description || "Bez popisu"}</p>
-                  </div>
-                </ScrollArea>
-              </div>
-            ) : selectedChat ? (
-              <div className="flex flex-col h-full">
-                <div className="p-4 border-b">
+              </CardContent>
+            </Card>
+            <Card className="transition-all duration-300 flex-1 min-w-0">
+              <CardContent className="p-0 h-full">
+                {renderEmailDetail()}
+              </CardContent>
+            </Card>
+          </>
+        )}
+
+        {activeTab === "sms" && (
+          <>
+            <Card className="transition-all duration-300 w-[30%] min-w-[320px] max-w-[420px] shrink-0">
+              <CardHeader className="py-2 px-3 border-b">
+                <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Badge className={`${typeColors.chat.bg} ${typeColors.chat.text}`}>
-                      <MessagesSquare className="h-3 w-3 mr-1" />Chat
-                    </Badge>
-                    <h2 className="text-lg font-semibold">{selectedChat.participantName}</h2>
+                    <MessageSquare className="h-4 w-4 text-cyan-600" />
+                    <span className="text-sm font-semibold">{smsFilter === "all" ? "Všetky SMS" : smsFilter === "inbound" ? "Prijaté SMS" : "Odoslané SMS"}</span>
+                    <Badge variant="secondary" className="text-[10px]">{filteredSms.length}</Badge>
+                  </div>
+                  <div className="flex items-center gap-0.5">
+                    <Button variant="ghost" size="icon" className="h-7 w-7" disabled={localPage === 0} onClick={() => setLocalPage(p => p - 1)} data-testid="sms-page-prev">
+                      <ChevronLeft className="h-3.5 w-3.5" />
+                    </Button>
+                    <span className="text-[11px] min-w-[40px] text-center text-muted-foreground">{totalSmsPages > 0 ? `${localPage + 1}/${totalSmsPages}` : "0/0"}</span>
+                    <Button variant="ghost" size="icon" className="h-7 w-7" disabled={localPage >= totalSmsPages - 1} onClick={() => setLocalPage(p => p + 1)} data-testid="sms-page-next">
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </Button>
                   </div>
                 </div>
-                <ScrollArea className="flex-1">
-                  <div className="p-4">
-                    <p className="text-sm text-muted-foreground">Posledná správa:</p>
-                    <p className="text-sm mt-1">{selectedChat.lastMessage}</p>
+              </CardHeader>
+              <CardContent className="p-0">
+                {smsLoading ? (
+                  <div className="flex items-center justify-center py-8"><Loader2 className="h-5 w-5 animate-spin" /></div>
+                ) : smsPage.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                    <MessageSquare className="h-8 w-8 mb-2 opacity-50" />
+                    <span className="text-sm">Žiadne SMS</span>
                   </div>
-                </ScrollArea>
-              </div>
-            ) : selectedSms ? (
-              <div className="flex flex-col h-full">
-                <div className="p-4 border-b space-y-2">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <Badge className={`${typeColors.sms.bg} ${typeColors.sms.text}`}>
-                        <MessageSquare className="h-3 w-3 mr-1" />
-                        {selectedSms.direction === "inbound" ? "Prijatá SMS" : "Odoslaná SMS"}
-                      </Badge>
-                      <h2 className="text-lg font-semibold">
-                        {selectedSms.customer
-                          ? `${selectedSms.customer.firstName} ${selectedSms.customer.lastName}`
-                          : (selectedSms.direction === "inbound" ? selectedSms.senderPhone : selectedSms.recipientPhone)}
-                      </h2>
+                ) : (
+                  <ScrollArea className="h-[calc(100vh-360px)]">
+                    <div className="divide-y">
+                      {smsPage.map(sms => {
+                        const customerName = sms.customer
+                          ? `${sms.customer.firstName} ${sms.customer.lastName}`
+                          : (sms.direction === "inbound" ? sms.senderPhone : sms.recipientPhone) || "Neznámy";
+                        const isUnread = sms.direction === "inbound" && sms.deliveryStatus !== "read";
+                        return (
+                          <div
+                            key={sms.id}
+                            className={`w-full text-left px-3 py-2.5 transition-all hover:bg-accent/50 cursor-pointer ${
+                              selectedSms?.id === sms.id ? "bg-accent" : ""
+                            } ${isUnread ? "font-medium" : ""}`}
+                            onClick={() => { setSelectedSms(sms); setSelectedEmail(null); setSelectedTask(null); setSelectedChat(null); }}
+                            data-testid={`sms-item-${sms.id}`}
+                          >
+                            <div className="flex items-start gap-2.5">
+                              <span className={`h-2 w-2 rounded-full shrink-0 mt-2 ${isUnread ? "bg-cyan-500" : "bg-transparent"}`} />
+                              <div className={`p-1 rounded-md ${sms.direction === "inbound" ? "bg-cyan-50 dark:bg-cyan-950/30" : "bg-emerald-50 dark:bg-emerald-950/30"} shrink-0`}>
+                                {sms.direction === "inbound" ? <ArrowDown className="h-3.5 w-3.5 text-cyan-600" /> : <ArrowUp className="h-3.5 w-3.5 text-emerald-600" />}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between gap-1">
+                                  <span className={`text-sm truncate ${isUnread ? "font-bold" : ""}`}>{customerName}</span>
+                                  <span className="text-[11px] text-muted-foreground whitespace-nowrap">
+                                    {format(new Date(sms.sentAt || sms.createdAt), "d.M. HH:mm")}
+                                  </span>
+                                </div>
+                                <p className="text-[11px] text-muted-foreground truncate">{sms.content}</p>
+                                {sms.aiAlertLevel && sms.aiAlertLevel !== "none" && (
+                                  <Badge variant="outline" className={`mt-0.5 text-[10px] px-1 py-0 h-4 ${
+                                    sms.aiAlertLevel === "critical" ? "border-red-500 text-red-600" : "border-amber-500 text-amber-600"
+                                  }`}>
+                                    {sms.aiAlertLevel === "critical" ? <ShieldAlert className="h-3 w-3 mr-0.5" /> : <AlertTriangle className="h-3 w-3 mr-0.5" />}
+                                    {sms.aiHasAngryTone && "Nahnevaný"}
+                                    {sms.aiWantsToCancel && "Zrušenie"}
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
-                    <div className="flex items-center gap-2">
-                      {selectedSms.direction === "inbound" ? (
-                        <Badge variant="outline" className="gap-1 text-cyan-600 border-cyan-400">
-                          <ArrowRight className="h-3 w-3 rotate-180" />
-                          Prijatá
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline" className="gap-1 text-emerald-600 border-emerald-400">
-                          <ArrowRight className="h-3 w-3" />
-                          Odoslaná
-                        </Badge>
-                      )}
-                      {selectedSms.deliveryStatus && (
-                        <Badge variant="outline" className="text-xs">{selectedSms.deliveryStatus}</Badge>
-                      )}
-                    </div>
-                  </div>
-                  <div className="text-sm">
-                    <p>
-                      <span className="text-muted-foreground">
-                        {selectedSms.direction === "inbound" ? "Od:" : "Pre:"}
-                      </span>{" "}
-                      {selectedSms.direction === "inbound" ? selectedSms.senderPhone : selectedSms.recipientPhone}
-                    </p>
-                    <p className="text-muted-foreground text-xs mt-1">
-                      {format(new Date(selectedSms.sentAt || selectedSms.createdAt), "d. MMMM yyyy, HH:mm")}
-                    </p>
-                  </div>
+                  </ScrollArea>
+                )}
+              </CardContent>
+            </Card>
+            <Card className="transition-all duration-300 flex-1 min-w-0">
+              <CardContent className="p-0 h-full">
+                {renderSmsDetail()}
+              </CardContent>
+            </Card>
+          </>
+        )}
 
-                  {selectedSms.customer?.id && (
-                    <Link
-                      href={`/customers?view=${selectedSms.customer.id}`}
-                      className="flex items-center gap-2 mt-2 p-2 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-md hover:bg-green-100 dark:hover:bg-green-900 transition-colors cursor-pointer"
-                      data-testid="sms-link-customer-detail"
-                    >
-                      <UserCheck className="h-4 w-4 text-green-600 dark:text-green-400" />
-                      <span className="text-sm text-green-700 dark:text-green-300">Priradené k zákazníkovi:</span>
-                      <span className="text-sm font-medium text-green-700 dark:text-green-300">
-                        {selectedSms.customer.firstName} {selectedSms.customer.lastName}
-                      </span>
-                    </Link>
-                  )}
-
-                  {selectedSms.aiAnalyzed && selectedSms.aiAlertLevel && selectedSms.aiAlertLevel !== "none" && (
-                    <div
-                      className={`flex items-start gap-3 mt-3 p-3 rounded-md border ${
-                        selectedSms.aiAlertLevel === "critical"
-                          ? "bg-red-50 dark:bg-red-950 border-red-300 dark:border-red-800"
-                          : "bg-amber-50 dark:bg-amber-950 border-amber-300 dark:border-amber-800"
-                      }`}
-                      data-testid="sms-ai-analysis-alert"
-                    >
-                      {selectedSms.aiAlertLevel === "critical" ? (
-                        <ShieldAlert className="h-5 w-5 text-red-600 dark:text-red-400 shrink-0" />
-                      ) : (
-                        <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0" />
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-sm font-semibold">
-                            {selectedSms.aiAlertLevel === "critical" ? "Kritické upozornenie" : "Upozornenie"}
-                          </span>
-                          {selectedSms.aiHasAngryTone && (
-                            <Badge variant="outline" className="text-xs border-orange-400 text-orange-600">
-                              <Flame className="h-3 w-3 mr-1" />Nahnevaný
-                            </Badge>
-                          )}
-                          {selectedSms.aiHasRudeExpressions && (
-                            <Badge variant="outline" className="text-xs border-purple-400 text-purple-600">Hrubé výrazy</Badge>
-                          )}
-                          {selectedSms.aiWantsToCancel && (
-                            <Badge variant="outline" className="text-xs border-red-500 text-red-600">Zrušenie zmluvy</Badge>
-                          )}
-                          {selectedSms.aiWantsConsent && (
-                            <Badge variant="outline" className="text-xs border-green-500 text-green-600">Súhlas</Badge>
-                          )}
-                          {selectedSms.aiDoesNotAcceptContract && (
-                            <Badge variant="outline" className="text-xs border-red-500 text-red-600">Odmietnutie zmluvy</Badge>
-                          )}
+        {activeTab === "tasks" && (
+          <>
+            <Card className="transition-all duration-300 w-[30%] min-w-[320px] max-w-[420px] shrink-0">
+              <CardHeader className="py-2 px-3 border-b">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <ListTodo className="h-4 w-4 text-amber-600" />
+                    <span className="text-sm font-semibold">{taskFilter === "all" ? "Všetky úlohy" : taskFilter === "pending" ? "Čakajúce" : taskFilter === "in_progress" ? "Rozpracované" : taskFilter === "completed" ? "Dokončené" : "Zrušené"}</span>
+                    <Badge variant="secondary" className="text-[10px]">{filteredTasks.length}</Badge>
+                  </div>
+                  <div className="flex items-center gap-0.5">
+                    <Button variant="ghost" size="icon" className="h-7 w-7" disabled={localPage === 0} onClick={() => setLocalPage(p => p - 1)} data-testid="task-page-prev">
+                      <ChevronLeft className="h-3.5 w-3.5" />
+                    </Button>
+                    <span className="text-[11px] min-w-[40px] text-center text-muted-foreground">{totalTaskPages > 0 ? `${localPage + 1}/${totalTaskPages}` : "0/0"}</span>
+                    <Button variant="ghost" size="icon" className="h-7 w-7" disabled={localPage >= totalTaskPages - 1} onClick={() => setLocalPage(p => p + 1)} data-testid="task-page-next">
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="p-0">
+                {tasksLoading ? (
+                  <div className="flex items-center justify-center py-8"><Loader2 className="h-5 w-5 animate-spin" /></div>
+                ) : tasksPage.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                    <ListTodo className="h-8 w-8 mb-2 opacity-50" />
+                    <span className="text-sm">Žiadne úlohy</span>
+                  </div>
+                ) : (
+                  <ScrollArea className="h-[calc(100vh-360px)]">
+                    <div className="divide-y">
+                      {tasksPage.map(task => (
+                        <div
+                          key={task.id}
+                          className={`w-full text-left px-3 py-2.5 transition-all hover:bg-accent/50 cursor-pointer ${
+                            selectedTask?.id === task.id ? "bg-accent" : ""
+                          } ${task.status === "pending" ? "font-medium" : ""}`}
+                          onClick={() => { setSelectedTask(task); setSelectedEmail(null); setSelectedSms(null); setSelectedChat(null); }}
+                          data-testid={`task-item-${task.id}`}
+                        >
+                          <div className="flex items-start gap-2.5">
+                            <span className="mt-1 shrink-0">{statusIcons[task.status]}</span>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between gap-1">
+                                <span className="text-sm truncate font-medium">{task.title}</span>
+                                <span className="text-[11px] text-muted-foreground whitespace-nowrap">
+                                  {format(new Date(task.updatedAt || task.createdAt), "d.M. HH:mm")}
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-muted-foreground truncate">{task.description || "Bez popisu"}</p>
+                              <div className="flex items-center gap-1 mt-0.5">
+                                {task.priority && (
+                                  <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 gap-0.5">
+                                    {priorityIcons[task.priority]}
+                                    {task.priority}
+                                  </Badge>
+                                )}
+                                {task.dueDate && (
+                                  <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 gap-0.5">
+                                    <Clock className="h-3 w-3" />
+                                    {format(new Date(task.dueDate), "d.M.")}
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          </div>
                         </div>
-                        {selectedSms.aiAnalysisNote && (
-                          <p className="text-xs text-muted-foreground mt-1">{selectedSms.aiAnalysisNote}</p>
-                        )}
+                      ))}
+                    </div>
+                  </ScrollArea>
+                )}
+              </CardContent>
+            </Card>
+            <Card className="transition-all duration-300 flex-1 min-w-0">
+              <CardContent className="p-0 h-full">
+                {renderTaskDetail()}
+              </CardContent>
+            </Card>
+          </>
+        )}
+
+        {activeTab === "chats" && (
+          <>
+            <Card className="transition-all duration-300 flex-1 min-w-0">
+              <CardContent className="p-0 h-full">
+                {selectedChat ? (
+                  <div className="flex flex-col h-full">
+                    <div className="p-4 border-b">
+                      <div className="flex items-center gap-2">
+                        <Badge className={`${typeColors.chat.bg} ${typeColors.chat.text}`}>
+                          <MessagesSquare className="h-3 w-3 mr-1" />Chat
+                        </Badge>
+                        <h2 className="text-lg font-semibold">{selectedChat.participantName}</h2>
                       </div>
                     </div>
-                  )}
-                </div>
-                <ScrollArea className="flex-1">
-                  <div className="p-4">
-                    <div className={`p-4 rounded-lg ${selectedSms.direction === "inbound" ? "bg-cyan-50 dark:bg-cyan-950/30" : "bg-slate-50 dark:bg-slate-900"}`}>
-                      <p className="text-sm whitespace-pre-wrap">{selectedSms.content}</p>
-                    </div>
+                    <ScrollArea className="flex-1">
+                      <div className="p-4">
+                        <p className="text-sm text-muted-foreground">Posledná správa:</p>
+                        <p className="text-sm mt-1">{selectedChat.lastMessage}</p>
+                      </div>
+                    </ScrollArea>
                   </div>
-                </ScrollArea>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-                <Network className="h-12 w-12 mb-4 opacity-50" />
-                <p className="font-medium">NEXUS</p>
-                <p className="text-sm">Vyberte správu pre zobrazenie detailu</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                    <MessagesSquare className="h-12 w-12 mb-4 opacity-50" />
+                    <p className="font-medium">Interné chaty</p>
+                    <p className="text-sm">Vyberte konverzáciu v postrannom paneli</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </>
+        )}
       </div>
 
       <Dialog open={composeOpen} onOpenChange={setComposeOpen}>
@@ -1449,41 +1083,15 @@ export default function EmailClientPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <Input
-              placeholder="Komu (viac adries oddeľte čiarkou)"
-              value={composeData.to}
-              onChange={(e) => setComposeData({ ...composeData, to: e.target.value })}
-              data-testid="input-compose-to"
-            />
+            <Input placeholder="Komu (viac adries oddeľte čiarkou)" value={composeData.to} onChange={(e) => setComposeData({ ...composeData, to: e.target.value })} data-testid="input-compose-to" />
             <div className="grid grid-cols-2 gap-2">
-              <Input
-                placeholder="Cc"
-                value={composeData.cc}
-                onChange={(e) => setComposeData({ ...composeData, cc: e.target.value })}
-                data-testid="input-compose-cc"
-              />
-              <Input
-                placeholder="Bcc"
-                value={composeData.bcc}
-                onChange={(e) => setComposeData({ ...composeData, bcc: e.target.value })}
-                data-testid="input-compose-bcc"
-              />
+              <Input placeholder="Cc" value={composeData.cc} onChange={(e) => setComposeData({ ...composeData, cc: e.target.value })} data-testid="input-compose-cc" />
+              <Input placeholder="Bcc" value={composeData.bcc} onChange={(e) => setComposeData({ ...composeData, bcc: e.target.value })} data-testid="input-compose-bcc" />
             </div>
-            <Input
-              placeholder="Predmet"
-              value={composeData.subject}
-              onChange={(e) => setComposeData({ ...composeData, subject: e.target.value })}
-              data-testid="input-compose-subject"
-            />
+            <Input placeholder="Predmet" value={composeData.subject} onChange={(e) => setComposeData({ ...composeData, subject: e.target.value })} data-testid="input-compose-subject" />
             <div className="border rounded-md">
-              <Editor
-                value={composeData.body}
-                onChange={(e) => setComposeData({ ...composeData, body: e.target.value })}
-                style={{ minHeight: "200px" }}
-                data-testid="editor-compose-body"
-              />
+              <Editor value={composeData.body} onChange={(e) => setComposeData({ ...composeData, body: e.target.value })} style={{ minHeight: "200px" }} data-testid="editor-compose-body" />
             </div>
-
             <div className="space-y-2">
               <input type="file" ref={fileInputRef} onChange={handleFileSelect} multiple className="hidden" />
               <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} data-testid="button-add-attachment">
@@ -1539,126 +1147,326 @@ export default function EmailClientPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
 
-      <Dialog open={!!expandedMessage} onOpenChange={(open) => { if (!open) setExpandedMessage(null); }}>
-        <DialogContent className="sm:max-w-[900px] h-[85vh] flex flex-col p-0 gap-0" data-testid="dialog-expanded-message">
-          <DialogHeader className="p-4 pb-3 border-b">
-            <DialogTitle className="flex items-center gap-3">
-              {expandedMessage && (
-                <>
-                  <div className={`p-2 rounded ${typeColors[expandedMessage.type]?.bg || ""}`}>
-                    {getTypeIcon(expandedMessage.type)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-base font-semibold truncate">{expandedMessage.title}</p>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      {expandedMessage.from && (
-                        <span className="text-xs text-muted-foreground">{expandedMessage.from}</span>
-                      )}
-                      <span className="text-xs text-muted-foreground">
-                        {format(new Date(expandedMessage.timestamp), "d. MMMM yyyy, HH:mm")}
+  function renderEmailDetail() {
+    if (detailLoading) {
+      return <div className="flex items-center justify-center h-full"><Loader2 className="h-6 w-6 animate-spin" /></div>;
+    }
+    if (!emailDetail || !selectedEmail) {
+      return (
+        <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+          <Mail className="h-12 w-12 mb-4 opacity-50" />
+          <p className="font-medium">Email</p>
+          <p className="text-sm">Vyberte email pre zobrazenie detailu</p>
+        </div>
+      );
+    }
+    return (
+      <div className="flex flex-col h-full">
+        <div className="p-4 border-b space-y-2">
+          <div className="flex items-start justify-between gap-4">
+            <h2 className="text-lg font-semibold flex-1 min-w-0">{emailDetail.subject || "(Bez predmetu)"}</h2>
+            <div className="flex items-center gap-1 shrink-0">
+              <Button variant="ghost" size="icon" onClick={() => { setReplyMode("reply"); setComposeData({ ...composeData, body: "" }); }} data-testid="button-reply">
+                <Reply className="h-4 w-4" />
+              </Button>
+              <Button variant="ghost" size="icon" onClick={() => { setReplyMode("replyAll"); setComposeData({ ...composeData, body: "" }); }} data-testid="button-reply-all">
+                <ReplyAll className="h-4 w-4" />
+              </Button>
+              <Button variant="ghost" size="icon" onClick={() => { setReplyMode("forward"); setComposeData({ to: "", cc: "", bcc: "", subject: `Fwd: ${emailDetail.subject}`, body: "" }); }} data-testid="button-forward">
+                <Forward className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost" size="icon"
+                onClick={() => toggleReadMutation.mutate({ emailId: emailDetail.id, isRead: !emailDetail.isRead })}
+                disabled={toggleReadMutation.isPending}
+                title={emailDetail.isRead ? "Označiť ako neprečítané" : "Označiť ako prečítané"}
+                data-testid="button-toggle-read"
+              >
+                {emailDetail.isRead ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </Button>
+              <Button variant="ghost" size="icon" onClick={() => deleteEmailMutation.mutate(emailDetail.id)} data-testid="button-delete">
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+          <div className="text-sm">
+            <p><span className="text-muted-foreground">Od:</span> {emailDetail.from?.emailAddress?.name} &lt;{emailDetail.from?.emailAddress?.address}&gt;</p>
+            <p><span className="text-muted-foreground">Komu:</span> {emailDetail.toRecipients?.map(r => r.emailAddress?.address).join(", ")}</p>
+            <p className="text-muted-foreground text-xs mt-1">
+              {format(new Date(emailDetail.receivedDateTime), "d. MMMM yyyy, HH:mm")}
+            </p>
+          </div>
+
+          {emailDetail.linkedCustomer && (
+            <Link
+              href={`/customers?view=${emailDetail.linkedCustomer.id}`}
+              className="flex items-center gap-2 mt-2 p-2 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-md hover:bg-green-100 dark:hover:bg-green-900 transition-colors cursor-pointer"
+              data-testid="link-customer-detail"
+            >
+              <UserCheck className="h-4 w-4 text-green-600 dark:text-green-400" />
+              <span className="text-sm text-green-700 dark:text-green-300">Priradené k zákazníkovi:</span>
+              <span className="text-sm font-medium text-green-700 dark:text-green-300">
+                {emailDetail.linkedCustomer.firstName} {emailDetail.linkedCustomer.lastName}
+              </span>
+              <span className="text-sm text-green-600 dark:text-green-400">({emailDetail.linkedCustomer.email})</span>
+            </Link>
+          )}
+
+          {(emailDetail as any).aiAnalysis && (emailDetail as any).aiAnalysis.alertLevel !== "none" && (
+            <div
+              className={`flex items-start gap-3 mt-2 p-3 rounded-md border ${
+                (emailDetail as any).aiAnalysis.alertLevel === "critical"
+                  ? "bg-red-50 dark:bg-red-950 border-red-300 dark:border-red-800"
+                  : "bg-amber-50 dark:bg-amber-950 border-amber-300 dark:border-amber-800"
+              }`}
+              data-testid="ai-analysis-alert"
+            >
+              {(emailDetail as any).aiAnalysis.alertLevel === "critical" ? (
+                <ShieldAlert className="h-5 w-5 text-red-600 dark:text-red-400 shrink-0" />
+              ) : (
+                <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0" />
+              )}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm font-semibold">
+                    {(emailDetail as any).aiAnalysis.alertLevel === "critical" ? "Kritické upozornenie" : "Upozornenie"}
+                  </span>
+                  {(emailDetail as any).aiAnalysis.hasAngryTone && (
+                    <Badge variant="outline" className="text-xs border-orange-400 text-orange-600">
+                      <Flame className="h-3 w-3 mr-1" />Nahnevaný
+                    </Badge>
+                  )}
+                  {(emailDetail as any).aiAnalysis.wantsToCancel && (
+                    <Badge variant="outline" className="text-xs border-red-500 text-red-600">Zrušenie zmluvy</Badge>
+                  )}
+                  {(emailDetail as any).aiAnalysis.wantsConsent && (
+                    <Badge variant="outline" className="text-xs border-green-500 text-green-600">Súhlas</Badge>
+                  )}
+                </div>
+                {(emailDetail as any).aiAnalysis.pipelineActionTaken && (
+                  <div className="mt-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-200 dark:border-blue-800">
+                    <div className="flex items-center gap-2">
+                      <Zap className="h-4 w-4 text-blue-600" />
+                      <span className="text-sm font-medium text-blue-700">
+                        Presun do: {(emailDetail as any).aiAnalysis.pipelineStageName}
                       </span>
                     </div>
                   </div>
-                </>
-              )}
-            </DialogTitle>
-            <DialogDescription className="sr-only">Detail správy</DialogDescription>
-          </DialogHeader>
-          <div className="flex-1 overflow-auto p-4">
-            {expandedMessage?.type === "email" && emailDetail ? (
-              <div className="space-y-4">
-                <div className="text-sm space-y-1">
-                  <p><span className="text-muted-foreground">Od:</span> {emailDetail.from?.emailAddress?.name} &lt;{emailDetail.from?.emailAddress?.address}&gt;</p>
-                  <p><span className="text-muted-foreground">Komu:</span> {emailDetail.toRecipients?.map((r: any) => r.emailAddress?.address).join(", ")}</p>
-                  {(emailDetail as any).ccRecipients?.length > 0 && (
-                    <p><span className="text-muted-foreground">Kópia:</span> {(emailDetail as any).ccRecipients?.map((r: any) => r.emailAddress?.address).join(", ")}</p>
-                  )}
-                </div>
-                {emailDetail.hasAttachments && (emailDetail as any).attachments?.length > 0 && (
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <Paperclip className="h-4 w-4 text-muted-foreground" />
-                    {(emailDetail as any).attachments?.map((att: any, i: number) => (
-                      <Badge key={i} variant="outline" className="gap-1">
-                        <FileText className="h-3 w-3" />
-                        {att.name}
-                      </Badge>
-                    ))}
-                  </div>
                 )}
-                <div
-                  className="prose prose-sm dark:prose-invert max-w-none"
-                  dangerouslySetInnerHTML={{ __html: emailDetail.body?.content || "" }}
-                />
               </div>
-            ) : expandedMessage?.type === "task" && selectedTask ? (
-              <div className="space-y-4">
+            </div>
+          )}
+        </div>
+
+        {replyMode ? (
+          <div className="flex-1 p-4 space-y-4 overflow-auto">
+            <div className="flex items-center justify-between">
+              <h3 className="font-medium">
+                {replyMode === "reply" && "Odpoveď"}
+                {replyMode === "replyAll" && "Odpoveď všetkým"}
+                {replyMode === "forward" && "Preposlať"}
+              </h3>
+              <Button variant="ghost" size="icon" onClick={() => setReplyMode(null)}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            {replyMode === "forward" && (
+              <Input placeholder="Komu" value={composeData.to} onChange={(e) => setComposeData({ ...composeData, to: e.target.value })} data-testid="input-forward-to" />
+            )}
+            <div className="border rounded-md">
+              <Editor value={composeData.body} onChange={(e) => setComposeData({ ...composeData, body: e.target.value })} style={{ minHeight: "150px" }} data-testid="editor-reply-body" />
+            </div>
+            <div className="flex justify-end">
+              <Button onClick={replyMode === "forward" ? handleForward : handleReply} disabled={replyMutation.isPending || forwardMutation.isPending} data-testid="button-send-reply">
+                {(replyMutation.isPending || forwardMutation.isPending) && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                <Send className="h-4 w-4 mr-2" />
+                Odoslať
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <ScrollArea className="flex-1">
+            <div className="p-4">
+              {emailDetail.body?.contentType === "html" ? (
+                <div className="prose dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: emailDetail.body.content }} />
+              ) : (
+                <pre className="whitespace-pre-wrap font-sans text-sm">{emailDetail.body?.content || emailDetail.bodyPreview}</pre>
+              )}
+            </div>
+          </ScrollArea>
+        )}
+      </div>
+    );
+  }
+
+  function renderSmsDetail() {
+    if (!selectedSms) {
+      return (
+        <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+          <MessageSquare className="h-12 w-12 mb-4 opacity-50" />
+          <p className="font-medium">SMS</p>
+          <p className="text-sm">Vyberte SMS pre zobrazenie detailu</p>
+        </div>
+      );
+    }
+    return (
+      <div className="flex flex-col h-full">
+        <div className="p-4 border-b space-y-2">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Badge className={`${typeColors.sms.bg} ${typeColors.sms.text}`}>
+                <MessageSquare className="h-3 w-3 mr-1" />
+                {selectedSms.direction === "inbound" ? "Prijatá SMS" : "Odoslaná SMS"}
+              </Badge>
+              <h2 className="text-lg font-semibold">
+                {selectedSms.customer
+                  ? `${selectedSms.customer.firstName} ${selectedSms.customer.lastName}`
+                  : (selectedSms.direction === "inbound" ? selectedSms.senderPhone : selectedSms.recipientPhone)}
+              </h2>
+            </div>
+            <div className="flex items-center gap-2">
+              {selectedSms.direction === "inbound" ? (
+                <Badge variant="outline" className="gap-1 text-cyan-600 border-cyan-400">
+                  <ArrowRight className="h-3 w-3 rotate-180" />Prijatá
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="gap-1 text-emerald-600 border-emerald-400">
+                  <ArrowRight className="h-3 w-3" />Odoslaná
+                </Badge>
+              )}
+              {selectedSms.deliveryStatus && (
+                <Badge variant="outline" className="text-xs">{selectedSms.deliveryStatus}</Badge>
+              )}
+            </div>
+          </div>
+          <div className="text-sm">
+            <p>
+              <span className="text-muted-foreground">{selectedSms.direction === "inbound" ? "Od:" : "Pre:"}</span>{" "}
+              {selectedSms.direction === "inbound" ? selectedSms.senderPhone : selectedSms.recipientPhone}
+            </p>
+            <p className="text-muted-foreground text-xs mt-1">
+              {format(new Date(selectedSms.sentAt || selectedSms.createdAt), "d. MMMM yyyy, HH:mm")}
+            </p>
+          </div>
+
+          {selectedSms.customer?.id && (
+            <Link
+              href={`/customers?view=${selectedSms.customer.id}`}
+              className="flex items-center gap-2 mt-2 p-2 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-md hover:bg-green-100 dark:hover:bg-green-900 transition-colors cursor-pointer"
+              data-testid="sms-link-customer-detail"
+            >
+              <UserCheck className="h-4 w-4 text-green-600 dark:text-green-400" />
+              <span className="text-sm text-green-700 dark:text-green-300">Priradené k zákazníkovi:</span>
+              <span className="text-sm font-medium text-green-700 dark:text-green-300">
+                {selectedSms.customer.firstName} {selectedSms.customer.lastName}
+              </span>
+            </Link>
+          )}
+
+          {selectedSms.aiAnalyzed && selectedSms.aiAlertLevel && selectedSms.aiAlertLevel !== "none" && (
+            <div
+              className={`flex items-start gap-3 mt-3 p-3 rounded-md border ${
+                selectedSms.aiAlertLevel === "critical"
+                  ? "bg-red-50 dark:bg-red-950 border-red-300 dark:border-red-800"
+                  : "bg-amber-50 dark:bg-amber-950 border-amber-300 dark:border-amber-800"
+              }`}
+              data-testid="sms-ai-analysis-alert"
+            >
+              {selectedSms.aiAlertLevel === "critical" ? (
+                <ShieldAlert className="h-5 w-5 text-red-600 dark:text-red-400 shrink-0" />
+              ) : (
+                <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0" />
+              )}
+              <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  {selectedTask.priority && (
-                    <Badge variant="outline" className="gap-1">
-                      {priorityIcons[selectedTask.priority]}
-                      {selectedTask.priority}
+                  <span className="text-sm font-semibold">
+                    {selectedSms.aiAlertLevel === "critical" ? "Kritické upozornenie" : "Upozornenie"}
+                  </span>
+                  {selectedSms.aiHasAngryTone && (
+                    <Badge variant="outline" className="text-xs border-orange-400 text-orange-600">
+                      <Flame className="h-3 w-3 mr-1" />Nahnevaný
                     </Badge>
                   )}
-                  <Badge variant="outline" className="gap-1">
-                    {statusIcons[selectedTask.status]}
-                    {selectedTask.status}
-                  </Badge>
+                  {selectedSms.aiHasRudeExpressions && (
+                    <Badge variant="outline" className="text-xs border-purple-400 text-purple-600">Hrubé výrazy</Badge>
+                  )}
+                  {selectedSms.aiWantsToCancel && (
+                    <Badge variant="outline" className="text-xs border-red-500 text-red-600">Zrušenie zmluvy</Badge>
+                  )}
+                  {selectedSms.aiWantsConsent && (
+                    <Badge variant="outline" className="text-xs border-green-500 text-green-600">Súhlas</Badge>
+                  )}
+                  {selectedSms.aiDoesNotAcceptContract && (
+                    <Badge variant="outline" className="text-xs border-red-500 text-red-600">Odmietnutie zmluvy</Badge>
+                  )}
                 </div>
-                {selectedTask.dueDate && (
-                  <p className="text-sm text-muted-foreground">
-                    Termín: {format(new Date(selectedTask.dueDate), "d. MMMM yyyy")}
-                  </p>
-                )}
-                <p className="text-sm whitespace-pre-wrap">{selectedTask.description || "Bez popisu"}</p>
-              </div>
-            ) : expandedMessage?.type === "chat" && selectedChat ? (
-              <div className="space-y-4">
-                <p className="text-sm font-medium">{selectedChat.participantName}</p>
-                <p className="text-sm">{selectedChat.lastMessage}</p>
-              </div>
-            ) : expandedMessage?.type === "sms" ? (
-              <div className="space-y-4">
-                <p className="text-sm whitespace-pre-wrap">{expandedMessage.preview}</p>
-                {expandedMessage.aiAlertLevel && expandedMessage.aiAlertLevel !== "none" && (
-                  <Badge variant="outline" className={`gap-1 ${
-                    expandedMessage.aiAlertLevel === "critical"
-                      ? "border-red-500 text-red-600"
-                      : "border-amber-500 text-amber-600"
-                  }`}>
-                    {expandedMessage.aiAlertLevel === "critical" ? <ShieldAlert className="h-3 w-3" /> : <AlertTriangle className="h-3 w-3" />}
-                    {expandedMessage.aiHasAngryTone && "Nahnevaný tón"}
-                    {expandedMessage.aiWantsToCancel && "Chce zrušiť"}
-                  </Badge>
+                {selectedSms.aiAnalysisNote && (
+                  <p className="text-xs text-muted-foreground mt-1">{selectedSms.aiAnalysisNote}</p>
                 )}
               </div>
-            ) : (
-              <div className="flex items-center justify-center h-full text-muted-foreground">
-                <Loader2 className="h-5 w-5 animate-spin mr-2" />
-                Načítavam...
-              </div>
-            )}
+            </div>
+          )}
+        </div>
+        <ScrollArea className="flex-1">
+          <div className="p-4">
+            <div className={`p-4 rounded-lg ${selectedSms.direction === "inbound" ? "bg-cyan-50 dark:bg-cyan-950/30" : "bg-slate-50 dark:bg-slate-900"}`}>
+              <p className="text-sm whitespace-pre-wrap">{selectedSms.content}</p>
+            </div>
           </div>
-          <div className="p-3 border-t flex items-center justify-between gap-2">
-            {expandedMessage?.type === "email" && (
-              <div className="flex items-center gap-1">
-                <Button variant="outline" size="sm" onClick={() => { setReplyMode("reply"); setComposeOpen(true); setExpandedMessage(null); }} data-testid="button-expanded-reply">
-                  <Reply className="h-4 w-4 mr-1" />Odpovedať
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => { setReplyMode("replyAll"); setComposeOpen(true); setExpandedMessage(null); }} data-testid="button-expanded-reply-all">
-                  <ReplyAll className="h-4 w-4 mr-1" />Odpovedať všetkým
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => { setReplyMode("forward"); setComposeData({ to: "", cc: "", bcc: "", subject: `Fwd: ${expandedMessage?.title}`, body: "" }); setComposeOpen(true); setExpandedMessage(null); }} data-testid="button-expanded-forward">
-                  <Forward className="h-4 w-4 mr-1" />Preposlať
-                </Button>
-              </div>
-            )}
-            <Button variant="outline" size="sm" onClick={() => setExpandedMessage(null)} data-testid="button-expanded-close">
-              Zavrieť
-            </Button>
+        </ScrollArea>
+      </div>
+    );
+  }
+
+  function renderTaskDetail() {
+    if (!selectedTask) {
+      return (
+        <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+          <ListTodo className="h-12 w-12 mb-4 opacity-50" />
+          <p className="font-medium">Úlohy</p>
+          <p className="text-sm">Vyberte úlohu pre zobrazenie detailu</p>
+        </div>
+      );
+    }
+    return (
+      <div className="flex flex-col h-full">
+        <div className="p-4 border-b space-y-2">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Badge className={`${typeColors.task.bg} ${typeColors.task.text}`}>
+                <ListTodo className="h-3 w-3 mr-1" />Úloha
+              </Badge>
+              <h2 className="text-lg font-semibold">{selectedTask.title}</h2>
+            </div>
+            <div className="flex items-center gap-2">
+              {selectedTask.priority && (
+                <Badge variant="outline" className="gap-1">
+                  {priorityIcons[selectedTask.priority]}
+                  {selectedTask.priority}
+                </Badge>
+              )}
+              <Badge variant="outline" className="gap-1">
+                {statusIcons[selectedTask.status]}
+                {selectedTask.status}
+              </Badge>
+            </div>
           </div>
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
+          {selectedTask.dueDate && (
+            <p className="text-sm text-muted-foreground flex items-center gap-1">
+              <Clock className="h-4 w-4" />
+              Termín: {format(new Date(selectedTask.dueDate), "d. MMMM yyyy")}
+            </p>
+          )}
+        </div>
+        <ScrollArea className="flex-1">
+          <div className="p-4">
+            <p className="text-sm whitespace-pre-wrap">{selectedTask.description || "Bez popisu"}</p>
+          </div>
+        </ScrollArea>
+      </div>
+    );
+  }
 }
