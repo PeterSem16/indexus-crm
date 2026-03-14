@@ -464,6 +464,7 @@ export default function EmailClientPage() {
   const [selectedChat, _setSelectedChat] = useState<ChatConversation | null>(null);
   const [selectedSms, setSelectedSms] = useState<SmsMessage | null>(null);
   const [composeOpen, setComposeOpen] = useState(false);
+  const [composeFullscreen, setComposeFullscreen] = useState(false);
   const [replyMode, setReplyMode] = useState<"reply" | "replyAll" | "forward" | null>(null);
   const [replyFieldsExpanded, setReplyFieldsExpanded] = useState(false);
   const [aiSuggestLoading, setAiSuggestLoading] = useState(false);
@@ -931,6 +932,7 @@ export default function EmailClientPage() {
     onSuccess: () => {
       completeSendProgress(true);
       setComposeOpen(false);
+      setComposeFullscreen(false);
       setComposeData({ to: "", cc: "", bcc: "", subject: "", body: "", importance: "normal", tagId: null, replyTo: "" });
       setAttachments([]);
       refetchMessages();
@@ -2276,18 +2278,28 @@ export default function EmailClientPage() {
         )}
       </div>
 
-      <Dialog open={composeOpen} onOpenChange={setComposeOpen}>
-        <DialogContent className="max-w-3xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <PenSquare className="h-5 w-5" />
-              Nová správa
-            </DialogTitle>
-            <DialogDescription>
+      <Dialog open={composeOpen} onOpenChange={(open) => { setComposeOpen(open); if (!open) setComposeFullscreen(false); }}>
+        <DialogContent className={cn(
+          "flex flex-col gap-0 p-0",
+          composeFullscreen
+            ? "max-w-[100vw] w-[100vw] h-[100vh] max-h-[100vh] rounded-none"
+            : "max-w-3xl w-[90vw] max-h-[85vh]"
+        )}>
+          <DialogHeader className="px-4 py-3 border-b shrink-0">
+            <div className="flex items-center justify-between pr-8">
+              <DialogTitle className="flex items-center gap-2">
+                <PenSquare className="h-5 w-5" />
+                Nová správa
+              </DialogTitle>
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setComposeFullscreen(f => !f)} title={composeFullscreen ? "Zmenšiť" : "Na celú obrazovku"}>
+                {composeFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+              </Button>
+            </div>
+            <DialogDescription className="text-xs">
               Odoslať z: {mailboxes.find(m => (m.type === "personal" ? "personal" : m.email) === effectiveMailbox)?.email || effectiveMailbox}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-3">
+          <div className="flex-1 overflow-auto p-4 space-y-3">
             <EmailRecipientInput
               placeholder="Komu (viac adries oddeľte čiarkou)"
               value={composeData.to}
@@ -2306,7 +2318,7 @@ export default function EmailClientPage() {
               onChange={(html) => setComposeData(prev => ({ ...prev, body: html }))}
               signatureHtml={getSignatureForCompose()}
               placeholder="Napíšte správu..."
-              minHeight="200px"
+              minHeight={composeFullscreen ? "400px" : "200px"}
               attachments={attachments}
               onAttachmentsChange={setAttachments}
               data-testid="editor-compose-body"
@@ -2346,7 +2358,7 @@ export default function EmailClientPage() {
               </div>
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="px-4 py-3 border-t shrink-0">
             <Button variant="outline" onClick={() => setComposeOpen(false)}>Zrušiť</Button>
             <Button onClick={handleSendEmail} disabled={sendEmailMutation.isPending} data-testid="button-send-compose">
               {sendEmailMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
