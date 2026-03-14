@@ -1346,17 +1346,15 @@ export default function EmailClientPage() {
   };
 
   const handleAiModalInsert = () => {
-    setComposeData(prev => {
-      let existing = prev.body;
-      const sigIndex = existing.indexOf('<div class="email-signature"');
-      if (sigIndex !== -1) {
-        existing = existing.substring(0, sigIndex);
-      }
-      existing = existing.replace(/<p><br><\/p>/g, "").trim();
-      const newBody = existing ? `${existing}<br>${aiModalContent}` : aiModalContent;
-      return { ...prev, body: newBody };
-    });
-    setAiSuggestCounter(prev => prev + 1);
+    const signatureForMailbox = getSignatureForCompose();
+    const sigBlock = signatureForMailbox
+      ? '<p><br></p><p><br></p><p><br></p><div class="email-signature">' + signatureForMailbox + '</div>'
+      : '';
+    const newBody = aiModalContent + sigBlock;
+    setComposeData(prev => ({ ...prev, body: newBody }));
+    setTimeout(() => {
+      setAiSuggestCounter(prev => prev + 1);
+    }, 0);
     setReplyMode(prev => prev || "reply");
     setAiModalOpen(false);
   };
