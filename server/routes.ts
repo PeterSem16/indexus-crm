@@ -4562,9 +4562,11 @@ export async function registerRoutes(
       const lang = language || "sk";
       const langNames: Record<string, string> = {
         sk: "slovenčina", cs: "čeština", en: "English", de: "Deutsch",
-        hu: "magyar", ro: "română", it: "italiano",
+        hu: "magyar", ro: "română", it: "italiano", pl: "polski", fr: "français", es: "español",
       };
-      const langName = langNames[lang] || "slovenčina";
+      const langInstruction = lang === "auto"
+        ? "Odpoveď napíšte v rovnakom jazyku, v akom je napísaný pôvodný email."
+        : `Napíšte návrh odpovede na email v jazyku ${langNames[lang] || lang}.`;
 
       const plainBody = (emailBody || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().substring(0, 3000);
 
@@ -4573,7 +4575,7 @@ export async function registerRoutes(
         messages: [
           {
             role: "system",
-            content: `Ste profesionálny asistent pre emailovú komunikáciu v spoločnosti zaoberajúcej sa bankou pupočníkovej krvi. Napíšte návrh odpovede na email v jazyku ${langName}. Odpoveď musí byť zdvorilá, profesionálna a stručná. Nepoužívajte pozdrav ani podpis - to sa pridá automaticky. Odpoveď píšte ako HTML (použite <p> tagy pre odstavce). Ak je to komerčný/spam email, navrhnite krátku zdvorilostnú odpoveď alebo prázdnu odpoveď.`,
+            content: `Ste profesionálny asistent pre emailovú komunikáciu v spoločnosti zaoberajúcej sa bankou pupočníkovej krvi. ${langInstruction} Odpoveď musí byť zdvorilá, profesionálna a stručná. Nepoužívajte pozdrav ani podpis - to sa pridá automaticky. Odpoveď píšte ako HTML (použite <p> tagy pre odstavce). Ak je to komerčný/spam email, navrhnite krátku zdvorilostnú odpoveď alebo prázdnu odpoveď.`,
           },
           {
             role: "user",
@@ -4605,9 +4607,11 @@ export async function registerRoutes(
       const lang = language || "sk";
       const langNames: Record<string, string> = {
         sk: "slovenčina", cs: "čeština", en: "English", de: "Deutsch",
-        hu: "magyar", ro: "română", it: "italiano",
+        hu: "magyar", ro: "română", it: "italiano", pl: "polski", fr: "français", es: "español",
       };
-      const langName = langNames[lang] || "slovenčina";
+      const langInstruction = lang === "auto"
+        ? "Zhrnutie napíšte v rovnakom jazyku, v akom je napísaná emailová konverzácia."
+        : `Vytvorte stručné zhrnutie celej emailovej konverzácie v jazyku ${langNames[lang] || lang}.`;
 
       const plainBody = (emailBody || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().substring(0, 5000);
 
@@ -4616,7 +4620,7 @@ export async function registerRoutes(
         messages: [
           {
             role: "system",
-            content: `Ste profesionálny asistent. Vytvorte stručné zhrnutie celej emailovej konverzácie v jazyku ${langName}. Zhrnutie by malo obsahovať: hlavné body diskusie, kto čo požadoval/navrhol, aké boli závery alebo otvorené otázky. Formátujte ako HTML s <p> tagmi a prípadne <ul>/<li> pre kľúčové body. Buďte struční ale informatívni.`,
+            content: `Ste profesionálny asistent. ${langInstruction} Zhrnutie by malo obsahovať: hlavné body diskusie, kto čo požadoval/navrhol, aké boli závery alebo otvorené otázky. Formátujte ako HTML s <p> tagmi a prípadne <ul>/<li> pre kľúčové body. Buďte struční ale informatívni.`,
           },
           {
             role: "user",

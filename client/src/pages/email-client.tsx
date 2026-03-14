@@ -515,7 +515,7 @@ export default function EmailClientPage() {
 
   const [emailPrefs, setEmailPrefs] = useState(() => {
     const saved = localStorage.getItem("nexus-email-prefs");
-    return saved ? JSON.parse(saved) : {
+    const defaults = {
       showAccountIcons: true,
       highlightUnread: true,
       unreadIndicator: true,
@@ -529,7 +529,11 @@ export default function EmailClientPage() {
       autoLoadImages: true,
       showSenderInitials: true,
       groupByDate: false,
+      aiEnabled: true,
+      aiLanguageMode: "email" as "email" | "user",
+      aiUserLanguage: "sk",
     };
+    return saved ? { ...defaults, ...JSON.parse(saved) } : defaults;
   });
 
   const updateEmailPref = (key: string, value: any) => {
@@ -1304,15 +1308,21 @@ export default function EmailClientPage() {
     });
   };
 
+  const getAiLanguage = () => {
+    if (emailPrefs.aiLanguageMode === "user") return emailPrefs.aiUserLanguage || "sk";
+    return "auto";
+  };
+
   const handleAiSuggestReply = async () => {
-    if (!selectedEmail || !emailDetail) return;
+    if (!selectedEmail || !emailDetail || !emailPrefs.aiEnabled) return;
     setAiSuggestLoading(true);
     try {
+      const lang = getAiLanguage();
       const res = await apiRequest("POST", `/api/users/${user?.id}/ms365-ai-suggest-reply`, {
         emailSubject: emailDetail.subject || "",
         emailBody: emailDetail.body?.content || emailDetail.bodyPreview || "",
         emailFrom: emailDetail.from?.emailAddress?.name || emailDetail.from?.emailAddress?.address || "",
-        language: "sk",
+        language: lang,
       });
       const data = await res.json();
       if (data.suggestion) {
@@ -1328,14 +1338,15 @@ export default function EmailClientPage() {
   };
 
   const handleAiSummary = async () => {
-    if (!selectedEmail || !emailDetail) return;
+    if (!selectedEmail || !emailDetail || !emailPrefs.aiEnabled) return;
     setAiSummaryLoading(true);
     try {
+      const lang = getAiLanguage();
       const res = await apiRequest("POST", `/api/users/${user?.id}/ms365-ai-summary`, {
         emailSubject: emailDetail.subject || "",
         emailBody: emailDetail.body?.content || emailDetail.bodyPreview || "",
         emailFrom: emailDetail.from?.emailAddress?.name || emailDetail.from?.emailAddress?.address || "",
-        language: "sk",
+        language: lang,
       });
       const data = await res.json();
       if (data.summary) {
@@ -2246,12 +2257,13 @@ export default function EmailClientPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="flex-1 overflow-auto min-h-0">
-            <div
-              contentEditable
-              className="min-h-[200px] p-4 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring prose dark:prose-invert max-w-none text-sm"
-              dangerouslySetInnerHTML={{ __html: aiModalContent }}
-              onBlur={(e) => setAiModalContent(e.currentTarget.innerHTML)}
-              data-testid="ai-modal-editor"
+            <EmailEditor
+              key={`ai-modal-${aiModalType}-${aiModalOpen}`}
+              initialContent={aiModalContent}
+              onChange={(html) => setAiModalContent(html)}
+              placeholder="Upravte AI obsah..."
+              minHeight="200px"
+              showAttachments={false}
             />
           </div>
           <DialogFooter className="gap-2 sm:gap-0">
@@ -2305,15 +2317,17 @@ export default function EmailClientPage() {
               >
                 {emailDetail.isRead ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </Button>
-              <Button
-                variant="ghost" size="icon"
-                onClick={handleAiSummary}
-                disabled={aiSummaryLoading}
-                title="Súhrn emailu"
-                data-testid="button-email-summary"
-              >
-                {aiSummaryLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4 text-blue-500" />}
-              </Button>
+              {emailPrefs.aiEnabled && (
+                <Button
+                  variant="ghost" size="icon"
+                  onClick={handleAiSummary}
+                  disabled={aiSummaryLoading}
+                  title="Súhrn emailu"
+                  data-testid="button-email-summary"
+                >
+                  {aiSummaryLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4 text-blue-500" />}
+                </Button>
+              )}
               <Button variant="ghost" size="icon" onClick={() => deleteEmailMutation.mutate(emailDetail.id)} data-testid="button-delete">
                 <Trash2 className="h-4 w-4" />
               </Button>
@@ -2444,7 +2458,7 @@ export default function EmailClientPage() {
           </div>
         </div>
 
-        {emailDetail.attachmentsList && emailDetail.attachmentsList.filter((a: any) => !a.isInline).length > 0 && (
+        {emailPrefs.attachmentsBeforeContent && emailDetail.attachmentsList && emailDetail.attachmentsList.filter((a: any) => !a.isInline).length > 0 && (
           <div className="px-4 py-2 border-t">
             <p className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1">
               <Paperclip className="h-3 w-3" />
@@ -2574,8 +2588,8 @@ export default function EmailClientPage() {
                   attachments={attachments}
                   onAttachmentsChange={setAttachments}
                   showAttachments={true}
-                  onAiSuggest={handleAiSuggestReply}
-                  onAiSummary={handleAiSummary}
+                  onAiSuggest={emailPrefs.aiEnabled ? handleAiSuggestReply : undefined}
+                  onAiSummary={emailPrefs.aiEnabled ? handleAiSummary : undefined}
                   aiLoading={aiSuggestLoading}
                   aiSummaryLoading={aiSummaryLoading}
                 />
@@ -2611,6 +2625,28 @@ export default function EmailClientPage() {
               <pre className="whitespace-pre-wrap font-sans text-sm" style={{ overflowWrap: "break-word", wordBreak: "break-word" }}>{emailDetail.body?.content || emailDetail.bodyPreview}</pre>
             )}
           </div>
+          {!emailPrefs.attachmentsBeforeContent && emailDetail.attachmentsList && emailDetail.attachmentsList.filter((a: any) => !a.isInline).length > 0 && (
+            <div className="px-4 py-2 border-t">
+              <p className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1">
+                <Paperclip className="h-3 w-3" />
+                Prílohy ({emailDetail.attachmentsList.filter((a: any) => !a.isInline).length})
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {emailDetail.attachmentsList.filter((a: any) => !a.isInline).map((att: any) => (
+                  <button
+                    key={att.id}
+                    className="flex items-center gap-1.5 px-2 py-1 rounded-md border bg-muted/50 hover:bg-accent transition-colors text-xs"
+                    onClick={() => downloadAttachment(emailDetail.id, att.id, att.name)}
+                    data-testid={`attachment-download-${att.id}`}
+                  >
+                    <Download className="h-3 w-3 text-muted-foreground" />
+                    <span className="max-w-40 truncate">{att.name}</span>
+                    <span className="text-muted-foreground">({formatFileSize(att.size)})</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </ScrollArea>
       </div>
     );
@@ -3132,6 +3168,49 @@ export default function EmailClientPage() {
             <SettingRow label="Prílohy pred obsahom" description="Zobraziť prílohy nad telom emailu">
               <Switch checked={emailPrefs.attachmentsBeforeContent} onCheckedChange={(v) => updateEmailPref("attachmentsBeforeContent", v)} />
             </SettingRow>
+          </div>
+
+          <SectionTitle>AI Asistent</SectionTitle>
+          <div className="divide-y">
+            <SettingRow label="Povoliť AI" description="Zapnúť AI funkcie (odpoveď, zhrnutie)">
+              <Switch checked={emailPrefs.aiEnabled} onCheckedChange={(v) => updateEmailPref("aiEnabled", v)} />
+            </SettingRow>
+            {emailPrefs.aiEnabled && (
+              <>
+                <SettingRow label="Jazyk AI odpovede" description="V akom jazyku má AI generovať odpovede a zhrnutia">
+                  <Select value={emailPrefs.aiLanguageMode} onValueChange={(v) => updateEmailPref("aiLanguageMode", v)}>
+                    <SelectTrigger className="w-52 h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="email">Jazyk emailovej správy</SelectItem>
+                      <SelectItem value="user">Preklad do zvoleného jazyka</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </SettingRow>
+                {emailPrefs.aiLanguageMode === "user" && (
+                  <SettingRow label="Cieľový jazyk" description="Do akého jazyka preložiť AI výstup">
+                    <Select value={emailPrefs.aiUserLanguage} onValueChange={(v) => updateEmailPref("aiUserLanguage", v)}>
+                      <SelectTrigger className="w-40 h-8 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="sk">Slovenčina</SelectItem>
+                        <SelectItem value="cs">Čeština</SelectItem>
+                        <SelectItem value="en">English</SelectItem>
+                        <SelectItem value="de">Deutsch</SelectItem>
+                        <SelectItem value="hu">Magyar</SelectItem>
+                        <SelectItem value="ro">Română</SelectItem>
+                        <SelectItem value="pl">Polski</SelectItem>
+                        <SelectItem value="it">Italiano</SelectItem>
+                        <SelectItem value="fr">Français</SelectItem>
+                        <SelectItem value="es">Español</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </SettingRow>
+                )}
+              </>
+            )}
           </div>
         </div>
       );
