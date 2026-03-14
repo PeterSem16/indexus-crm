@@ -4381,9 +4381,11 @@ export const emailRoutingRulesRelations = relations(emailRoutingRules, ({ one })
 // Email tags - custom tags that can be applied to emails
 export const emailTags = pgTable("email_tags", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  name: text("name").notNull().unique(),
-  color: text("color").notNull().default("#6B7280"), // Hex color
-  description: text("description"),
+  userId: varchar("user_id").references(() => users.id),
+  name: text("name").notNull(),
+  color: text("color").notNull().default("#6B7280"),
+  icon: text("icon"),
+  isDefault: boolean("is_default").notNull().default(false),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
@@ -4394,6 +4396,22 @@ export const insertEmailTagSchema = createInsertSchema(emailTags).omit({
 });
 export type InsertEmailTag = z.infer<typeof insertEmailTagSchema>;
 export type EmailTag = typeof emailTags.$inferSelect;
+
+export const emailTagAssignments = pgTable("email_tag_assignments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  emailId: text("email_id").notNull(),
+  tagId: varchar("tag_id").notNull().references(() => emailTags.id, { onDelete: "cascade" }),
+  mailboxEmail: text("mailbox_email").notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const insertEmailTagAssignmentSchema = createInsertSchema(emailTagAssignments).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertEmailTagAssignment = z.infer<typeof insertEmailTagAssignmentSchema>;
+export type EmailTagAssignment = typeof emailTagAssignments.$inferSelect;
 
 // Email metadata - stores routing results and tags for processed emails
 export const emailMetadata = pgTable("email_metadata", {

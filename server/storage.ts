@@ -108,11 +108,13 @@ import {
   type AutomationRule, type InsertAutomationRule,
   userMs365Connections, userMs365SharedMailboxes, emailSignatures,
   emailRoutingRules, emailTags, emailMetadata, customerEmailNotifications,
+  emailTagAssignments,
   type UserMs365Connection, type InsertUserMs365Connection,
   type UserMs365SharedMailbox, type InsertUserMs365SharedMailbox,
   type EmailSignature, type InsertEmailSignature,
   type EmailRoutingRule, type InsertEmailRoutingRule,
   type EmailTag, type InsertEmailTag,
+  type EmailTagAssignment, type InsertEmailTagAssignment,
   type EmailMetadata, type InsertEmailMetadata,
   type CustomerEmailNotification, type InsertCustomerEmailNotification,
   gsmSenderConfigs, type GsmSenderConfig, type InsertGsmSenderConfig,
@@ -5834,6 +5836,63 @@ export class DatabaseStorage implements IStorage {
   async deleteEmailTag(id: string): Promise<boolean> {
     const result = await db.delete(emailTags)
       .where(eq(emailTags.id, id))
+      .returning();
+    return result.length > 0;
+  }
+
+  async getEmailTagsByUser(userId: string): Promise<EmailTag[]> {
+    return db.select().from(emailTags)
+      .where(eq(emailTags.userId, userId))
+      .orderBy(asc(emailTags.name));
+  }
+
+  async getEmailTagAssignments(emailId: string, mailboxEmail: string): Promise<(EmailTagAssignment & { tag: EmailTag })[]> {
+    const results = await db.select({
+      assignment: emailTagAssignments,
+      tag: emailTags,
+    })
+    .from(emailTagAssignments)
+    .innerJoin(emailTags, eq(emailTagAssignments.tagId, emailTags.id))
+    .where(and(
+      eq(emailTagAssignments.emailId, emailId),
+      eq(emailTagAssignments.mailboxEmail, mailboxEmail)
+    ));
+    return results.map(r => ({ ...r.assignment, tag: r.tag }));
+  }
+
+  async getEmailTagAssignmentsByMailbox(mailboxEmail: string, userId: string): Promise<(EmailTagAssignment & { tag: EmailTag })[]> {
+    const results = await db.select({
+      assignment: emailTagAssignments,
+      tag: emailTags,
+    })
+    .from(emailTagAssignments)
+    .innerJoin(emailTags, eq(emailTagAssignments.tagId, emailTags.id))
+    .where(and(
+      eq(emailTagAssignments.mailboxEmail, mailboxEmail),
+      eq(emailTagAssignments.userId, userId)
+    ));
+    return results.map(r => ({ ...r.assignment, tag: r.tag }));
+  }
+
+  async assignEmailTag(data: InsertEmailTagAssignment): Promise<EmailTagAssignment> {
+    const existing = await db.select().from(emailTagAssignments)
+      .where(and(
+        eq(emailTagAssignments.emailId, data.emailId),
+        eq(emailTagAssignments.tagId, data.tagId),
+        eq(emailTagAssignments.mailboxEmail, data.mailboxEmail)
+      ));
+    if (existing.length > 0) return existing[0];
+    const [assignment] = await db.insert(emailTagAssignments).values(data).returning();
+    return assignment;
+  }
+
+  async removeEmailTag(emailId: string, tagId: string, mailboxEmail: string): Promise<boolean> {
+    const result = await db.delete(emailTagAssignments)
+      .where(and(
+        eq(emailTagAssignments.emailId, emailId),
+        eq(emailTagAssignments.tagId, tagId),
+        eq(emailTagAssignments.mailboxEmail, mailboxEmail)
+      ))
       .returning();
     return result.length > 0;
   }

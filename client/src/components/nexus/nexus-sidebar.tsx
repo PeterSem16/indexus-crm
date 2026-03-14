@@ -3,6 +3,12 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   Inbox,
   Send,
   FileText,
@@ -43,16 +49,17 @@ interface NexusSidebarProps {
   totalUnreadEmails: number;
   selectedChatId?: string | null;
   onSelectChat?: (chatId: string) => void;
-  onHide: () => void;
+  collapsed: boolean;
+  onToggleCollapse: () => void;
 }
 
-const WELL_KNOWN_FOLDERS: Record<string, { icon: React.ReactNode; label: string; order: number }> = {
-  inbox: { icon: <Inbox className="h-4 w-4" />, label: "Doručená pošta", order: 0 },
-  sentitems: { icon: <Send className="h-4 w-4" />, label: "Odoslané", order: 1 },
-  drafts: { icon: <FileText className="h-4 w-4" />, label: "Koncepty", order: 2 },
-  junkemail: { icon: <Archive className="h-4 w-4" />, label: "Spam", order: 3 },
-  deleteditems: { icon: <Trash2 className="h-4 w-4" />, label: "Kôš", order: 4 },
-  archive: { icon: <Archive className="h-4 w-4" />, label: "Archív", order: 5 },
+const WELL_KNOWN_FOLDERS: Record<string, { icon: React.ReactNode; iconCollapsed: React.ReactNode; label: string; order: number }> = {
+  inbox: { icon: <Inbox className="h-4 w-4" />, iconCollapsed: <Inbox className="h-5 w-5" />, label: "Doručená pošta", order: 0 },
+  sentitems: { icon: <Send className="h-4 w-4" />, iconCollapsed: <Send className="h-5 w-5" />, label: "Odoslané", order: 1 },
+  drafts: { icon: <FileText className="h-4 w-4" />, iconCollapsed: <FileText className="h-5 w-5" />, label: "Koncepty", order: 2 },
+  junkemail: { icon: <Archive className="h-4 w-4" />, iconCollapsed: <Archive className="h-5 w-5" />, label: "Spam", order: 3 },
+  deleteditems: { icon: <Trash2 className="h-4 w-4" />, iconCollapsed: <Trash2 className="h-5 w-5" />, label: "Kôš", order: 4 },
+  archive: { icon: <Archive className="h-4 w-4" />, iconCollapsed: <Archive className="h-5 w-5" />, label: "Archív", order: 5 },
 };
 
 function getWellKnownKey(folder: MailFolder): string | null {
@@ -84,7 +91,8 @@ export default function NexusSidebar({
   totalUnreadEmails,
   selectedChatId,
   onSelectChat,
-  onHide,
+  collapsed,
+  onToggleCollapse,
 }: NexusSidebarProps) {
   const [showOtherFolders, setShowOtherFolders] = useState(false);
 
@@ -115,6 +123,223 @@ export default function NexusSidebar({
     chats: { title: "Chaty", icon: <MessagesSquare className="h-3.5 w-3.5 text-violet-500" /> },
   };
 
+  if (collapsed) {
+    return (
+      <div className="flex flex-col h-full bg-card rounded-lg border w-[48px] shrink-0 items-center py-2 gap-1">
+        <TooltipProvider delayDuration={200}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-7 w-7 mb-1" onClick={onToggleCollapse} data-testid="button-expand-sidebar">
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right" className="text-xs">Rozbaliť panel</TooltipContent>
+          </Tooltip>
+
+          {activeTab === "email" && (
+            <>
+              {foldersLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground mt-2" />
+              ) : (
+                <>
+                  {wellKnownFolders.map(folder => {
+                    const wkKey = getWellKnownKey(folder)!;
+                    const config = WELL_KNOWN_FOLDERS[wkKey];
+                    const isActive = selectedFolderId === folder.id;
+                    return (
+                      <Tooltip key={folder.id}>
+                        <TooltipTrigger asChild>
+                          <button
+                            onClick={() => onSelectFolder(folder.id)}
+                            className={`relative p-2 rounded-md transition-all ${
+                              isActive
+                                ? "bg-primary/10 text-primary"
+                                : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                            }`}
+                            data-testid={`folder-collapsed-${wkKey}`}
+                          >
+                            {config.iconCollapsed}
+                            {folder.unreadItemCount > 0 && (
+                              <span className="absolute -top-0.5 -right-0.5 bg-primary text-primary-foreground text-[8px] font-bold rounded-full h-[14px] min-w-[14px] px-0.5 flex items-center justify-center">
+                                {folder.unreadItemCount > 99 ? "99+" : folder.unreadItemCount}
+                              </span>
+                            )}
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="right" className="text-xs">
+                          {config.label}
+                          {folder.unreadItemCount > 0 && ` (${folder.unreadItemCount})`}
+                        </TooltipContent>
+                      </Tooltip>
+                    );
+                  })}
+                  {otherFolders.length > 0 && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-all"
+                          onClick={onToggleCollapse}
+                          data-testid="folder-collapsed-other"
+                        >
+                          <FolderOpen className="h-5 w-5" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="right" className="text-xs">Ďalšie priečinky ({otherFolders.length})</TooltipContent>
+                    </Tooltip>
+                  )}
+                </>
+              )}
+            </>
+          )}
+
+          {activeTab === "sms" && (
+            <>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => onSmsFilterChange("all")}
+                    className={`relative p-2 rounded-md transition-all ${smsFilter === "all" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-accent/50"}`}
+                    data-testid="sms-collapsed-all"
+                  >
+                    <MessageSquare className="h-5 w-5" />
+                    {smsInboundCount > 0 && (
+                      <span className="absolute -top-0.5 -right-0.5 bg-primary text-primary-foreground text-[8px] font-bold rounded-full h-[14px] min-w-[14px] px-0.5 flex items-center justify-center">
+                        {smsInboundCount}
+                      </span>
+                    )}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="right" className="text-xs">Všetky SMS ({smsTotal})</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => onSmsFilterChange("inbound")}
+                    className={`p-2 rounded-md transition-all ${smsFilter === "inbound" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-accent/50"}`}
+                    data-testid="sms-collapsed-inbound"
+                  >
+                    <ArrowDownLeft className="h-5 w-5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="right" className="text-xs">Prijaté ({smsInboundTotal})</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => onSmsFilterChange("outbound")}
+                    className={`p-2 rounded-md transition-all ${smsFilter === "outbound" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-accent/50"}`}
+                    data-testid="sms-collapsed-outbound"
+                  >
+                    <ArrowUpRight className="h-5 w-5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="right" className="text-xs">Odoslané ({smsOutboundTotal})</TooltipContent>
+              </Tooltip>
+            </>
+          )}
+
+          {activeTab === "tasks" && (
+            <>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => onTaskFilterChange("all")}
+                    className={`p-2 rounded-md transition-all ${taskFilter === "all" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-accent/50"}`}
+                    data-testid="task-collapsed-all"
+                  >
+                    <ListTodo className="h-5 w-5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="right" className="text-xs">Všetky úlohy ({totalTasks})</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => onTaskFilterChange("pending")}
+                    className={`relative p-2 rounded-md transition-all ${taskFilter === "pending" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-accent/50"}`}
+                    data-testid="task-collapsed-pending"
+                  >
+                    <Clock className="h-5 w-5 text-amber-500" />
+                    {pendingTasks > 0 && (
+                      <span className="absolute -top-0.5 -right-0.5 bg-amber-500 text-white text-[8px] font-bold rounded-full h-[14px] min-w-[14px] px-0.5 flex items-center justify-center">
+                        {pendingTasks}
+                      </span>
+                    )}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="right" className="text-xs">Čakajúce ({pendingTasks})</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => onTaskFilterChange("in_progress")}
+                    className={`p-2 rounded-md transition-all ${taskFilter === "in_progress" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-accent/50"}`}
+                    data-testid="task-collapsed-in-progress"
+                  >
+                    <CircleDashed className="h-5 w-5 text-blue-500" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="right" className="text-xs">Rozpracované ({inProgressTasks})</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => onTaskFilterChange("completed")}
+                    className={`p-2 rounded-md transition-all ${taskFilter === "completed" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-accent/50"}`}
+                    data-testid="task-collapsed-completed"
+                  >
+                    <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="right" className="text-xs">Dokončené ({completedTasks})</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => onTaskFilterChange("cancelled")}
+                    className={`p-2 rounded-md transition-all ${taskFilter === "cancelled" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-accent/50"}`}
+                    data-testid="task-collapsed-cancelled"
+                  >
+                    <XCircle className="h-5 w-5 text-red-400" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="right" className="text-xs">Zrušené ({cancelledTasks})</TooltipContent>
+              </Tooltip>
+            </>
+          )}
+
+          {activeTab === "chats" && (
+            <>
+              {chatsData && chatsData.length > 0 ? (
+                chatsData.slice(0, 8).map(chat => (
+                  <Tooltip key={chat.id}>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={() => onSelectChat?.(chat.id)}
+                        className={`relative p-2 rounded-md transition-all ${selectedChatId === chat.id ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-accent/50"}`}
+                        data-testid={`chat-collapsed-${chat.id}`}
+                      >
+                        <MessagesSquare className="h-5 w-5" />
+                        {chat.unreadCount > 0 && (
+                          <span className="absolute -top-0.5 -right-0.5 bg-primary text-primary-foreground text-[8px] font-bold rounded-full h-[14px] min-w-[14px] px-0.5 flex items-center justify-center">
+                            {chat.unreadCount}
+                          </span>
+                        )}
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="right" className="text-xs">{chat.participantName || "Konverzácia"}</TooltipContent>
+                  </Tooltip>
+                ))
+              ) : (
+                <MessagesSquare className="h-5 w-5 text-muted-foreground/30 mt-4" />
+              )}
+            </>
+          )}
+        </TooltipProvider>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-full bg-card rounded-lg border w-[220px] min-w-[200px] max-w-[240px] shrink-0">
       <div className="flex items-center justify-between px-3 py-2 border-b bg-muted/30">
@@ -122,7 +347,7 @@ export default function NexusSidebar({
           {tabConfig[activeTab].icon}
           <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{tabConfig[activeTab].title}</span>
         </div>
-        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onHide} data-testid="button-hide-sidebar">
+        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onToggleCollapse} data-testid="button-hide-sidebar">
           <ChevronLeft className="h-3.5 w-3.5" />
         </Button>
       </div>

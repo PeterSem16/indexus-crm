@@ -4523,6 +4523,109 @@ export async function registerRoutes(
     }
   });
 
+  // User-scoped email tags
+  app.get("/api/users/:userId/email-tags", requireAuth, async (req, res) => {
+    try {
+      const tags = await storage.getEmailTagsByUser(req.params.userId);
+      res.json(tags);
+    } catch (error) {
+      console.error("Error fetching user email tags:", error);
+      res.status(500).json({ error: "Failed to fetch email tags" });
+    }
+  });
+
+  app.post("/api/users/:userId/email-tags", requireAuth, async (req, res) => {
+    try {
+      const tag = await storage.createEmailTag({ ...req.body, userId: req.params.userId });
+      res.status(201).json(tag);
+    } catch (error) {
+      console.error("Error creating user email tag:", error);
+      res.status(500).json({ error: "Failed to create email tag" });
+    }
+  });
+
+  app.patch("/api/users/:userId/email-tags/:id", requireAuth, async (req, res) => {
+    try {
+      const tag = await storage.updateEmailTag(req.params.id, req.body);
+      if (!tag) return res.status(404).json({ error: "Tag not found" });
+      res.json(tag);
+    } catch (error) {
+      console.error("Error updating user email tag:", error);
+      res.status(500).json({ error: "Failed to update email tag" });
+    }
+  });
+
+  app.delete("/api/users/:userId/email-tags/:id", requireAuth, async (req, res) => {
+    try {
+      const deleted = await storage.deleteEmailTag(req.params.id);
+      if (!deleted) return res.status(404).json({ error: "Tag not found" });
+      res.json({ message: "Tag deleted" });
+    } catch (error) {
+      console.error("Error deleting user email tag:", error);
+      res.status(500).json({ error: "Failed to delete email tag" });
+    }
+  });
+
+  app.post("/api/users/:userId/email-tags/init-defaults", requireAuth, async (req, res) => {
+    try {
+      const existing = await storage.getEmailTagsByUser(req.params.userId);
+      if (existing.length > 0) return res.json(existing);
+      const defaults = [
+        { name: "Dôležité", color: "#EF4444", icon: "star", isDefault: true, userId: req.params.userId },
+        { name: "Osobné", color: "#8B5CF6", icon: "user", isDefault: true, userId: req.params.userId },
+        { name: "Práca", color: "#3B82F6", icon: "briefcase", isDefault: true, userId: req.params.userId },
+        { name: "Neskôr", color: "#F59E0B", icon: "clock", isDefault: true, userId: req.params.userId },
+        { name: "Čaká na odpoveď", color: "#10B981", icon: "hourglass", isDefault: true, userId: req.params.userId },
+      ];
+      const created = [];
+      for (const d of defaults) {
+        const tag = await storage.createEmailTag(d as any);
+        created.push(tag);
+      }
+      res.status(201).json(created);
+    } catch (error) {
+      console.error("Error initializing default email tags:", error);
+      res.status(500).json({ error: "Failed to initialize default tags" });
+    }
+  });
+
+  // Email tag assignments
+  app.get("/api/users/:userId/email-tag-assignments", requireAuth, async (req, res) => {
+    try {
+      const mailbox = req.query.mailbox as string;
+      if (!mailbox) return res.status(400).json({ error: "mailbox query parameter required" });
+      const assignments = await storage.getEmailTagAssignmentsByMailbox(mailbox, req.params.userId);
+      res.json(assignments);
+    } catch (error) {
+      console.error("Error fetching tag assignments:", error);
+      res.status(500).json({ error: "Failed to fetch tag assignments" });
+    }
+  });
+
+  app.post("/api/users/:userId/email-tag-assignments", requireAuth, async (req, res) => {
+    try {
+      const { emailId, tagId, mailboxEmail } = req.body;
+      if (!emailId || !tagId || !mailboxEmail) return res.status(400).json({ error: "emailId, tagId, and mailboxEmail required" });
+      const assignment = await storage.assignEmailTag({ emailId, tagId, mailboxEmail, userId: req.params.userId });
+      res.status(201).json(assignment);
+    } catch (error) {
+      console.error("Error assigning email tag:", error);
+      res.status(500).json({ error: "Failed to assign email tag" });
+    }
+  });
+
+  app.delete("/api/users/:userId/email-tag-assignments", requireAuth, async (req, res) => {
+    try {
+      const { emailId, tagId, mailboxEmail } = req.body;
+      if (!emailId || !tagId || !mailboxEmail) return res.status(400).json({ error: "emailId, tagId, and mailboxEmail required" });
+      const removed = await storage.removeEmailTag(emailId, tagId, mailboxEmail);
+      res.json({ removed });
+    } catch (error) {
+      console.error("Error removing email tag:", error);
+      res.status(500).json({ error: "Failed to remove email tag" });
+    }
+  });
+
   // ============================================
   // CUSTOMER EMAIL NOTIFICATIONS API
   // ============================================

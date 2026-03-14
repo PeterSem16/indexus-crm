@@ -34,6 +34,18 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
   Mail,
   MailOpen,
   RefreshCw,
@@ -77,6 +89,13 @@ import {
   CalendarDays,
   CalendarRange,
   FilterX,
+  ArrowUpDown,
+  ArrowUpAZ,
+  ArrowDownAZ,
+  Tag,
+  Plus,
+  Briefcase,
+  Hourglass,
 } from "lucide-react";
 import Editor from "react-simple-wysiwyg";
 
@@ -141,6 +160,14 @@ export default function EmailClientPage() {
     thisWeek: false,
   });
   const [modalEmail, setModalEmail] = useState<EmailMessage | null>(null);
+  const [emailSort, setEmailSort] = useState<"date-desc" | "date-asc" | "sender-asc" | "sender-desc" | "subject-asc" | "subject-desc">("date-desc");
+  const [listSearchQuery, setListSearchQuery] = useState("");
+  const [listSearchOpen, setListSearchOpen] = useState(false);
+  const [filterByTagId, setFilterByTagId] = useState<string | null>(null);
+  const [tagPickerEmailId, setTagPickerEmailId] = useState<string | null>(null);
+  const [settingsTab, setSettingsTab] = useState<"signature" | "tags">("signature");
+  const [newTagName, setNewTagName] = useState("");
+  const [newTagColor, setNewTagColor] = useState("#6B7280");
 
   const toggleEmailFilter = (key: keyof typeof emailFilters) => {
     setEmailFilters(prev => {
@@ -279,6 +306,83 @@ export default function EmailClientPage() {
     queryFn: () => fetch(`/api/users/${user?.id}/email-signatures/${selectedMailbox}`).then(r => r.json()),
     enabled: !!user?.id && !!selectedMailbox,
   });
+
+  const currentMailboxEmail = selectedMailbox === "personal"
+    ? mailboxes.find(m => m.type === "personal")?.email
+    : selectedMailbox;
+
+  const { data: userTags = [] } = useQuery<any[]>({
+    queryKey: ["/api/users", user?.id, "email-tags"],
+    queryFn: () => fetch(`/api/users/${user?.id}/email-tags`).then(r => r.json()),
+    enabled: !!user?.id,
+  });
+
+  useEffect(() => {
+    if (user?.id && userTags.length === 0) {
+      fetch(`/api/users/${user.id}/email-tags/init-defaults`, { method: "POST", headers: { "Content-Type": "application/json" } })
+        .then(r => r.json())
+        .then(() => queryClient.invalidateQueries({ queryKey: ["/api/users", user.id, "email-tags"] }))
+        .catch(() => {});
+    }
+  }, [user?.id, userTags.length]);
+
+  const { data: tagAssignments = [] } = useQuery<any[]>({
+    queryKey: ["/api/users", user?.id, "email-tag-assignments", currentMailboxEmail],
+    queryFn: () => fetch(`/api/users/${user?.id}/email-tag-assignments?mailbox=${encodeURIComponent(currentMailboxEmail!)}`).then(r => r.json()),
+    enabled: !!user?.id && !!currentMailboxEmail,
+  });
+
+  const assignTagMutation = useMutation({
+    mutationFn: async (data: { emailId: string; tagId: string; mailboxEmail: string }) => {
+      return apiRequest("POST", `/api/users/${user?.id}/email-tag-assignments`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/users", user?.id, "email-tag-assignments"] });
+    },
+  });
+
+  const removeTagMutation = useMutation({
+    mutationFn: async (data: { emailId: string; tagId: string; mailboxEmail: string }) => {
+      return apiRequest("DELETE", `/api/users/${user?.id}/email-tag-assignments`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/users", user?.id, "email-tag-assignments"] });
+    },
+  });
+
+  const createTagMutation = useMutation({
+    mutationFn: async (data: { name: string; color: string; icon?: string }) => {
+      return apiRequest("POST", `/api/users/${user?.id}/email-tags`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/users", user?.id, "email-tags"] });
+      toast({ title: "Tag vytvorený" });
+    },
+  });
+
+  const deleteTagMutation = useMutation({
+    mutationFn: async (tagId: string) => {
+      return apiRequest("DELETE", `/api/users/${user?.id}/email-tags/${tagId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/users", user?.id, "email-tags"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users", user?.id, "email-tag-assignments"] });
+      toast({ title: "Tag zmazaný" });
+    },
+  });
+
+  const updateTagMutation = useMutation({
+    mutationFn: async ({ id, ...data }: { id: string; name?: string; color?: string; icon?: string }) => {
+      return apiRequest("PATCH", `/api/users/${user?.id}/email-tags/${id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/users", user?.id, "email-tags"] });
+    },
+  });
+
+  const getEmailTags = (emailId: string) => {
+    return tagAssignments.filter(a => a.emailId === emailId).map(a => a.tag);
+  };
 
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const { data: searchResults, isLoading: searchLoading } = useQuery<{ emails: EmailMessage[]; mailbox: string }[]>({
@@ -455,10 +559,33 @@ export default function EmailClientPage() {
       const d = new Date(email.receivedDateTime);
       if (d < weekStart) return false;
     }
+    if (listSearchQuery.trim()) {
+      const q = listSearchQuery.toLowerCase();
+      const matchSubject = (email.subject || "").toLowerCase().includes(q);
+      const matchSender = (email.from?.emailAddress?.name || "").toLowerCase().includes(q) || (email.from?.emailAddress?.address || "").toLowerCase().includes(q);
+      const matchPreview = (email.bodyPreview || "").toLowerCase().includes(q);
+      if (!matchSubject && !matchSender && !matchPreview) return false;
+    }
+    if (filterByTagId) {
+      const emailTags = getEmailTags(email.id);
+      if (!emailTags.some((t: any) => t.id === filterByTagId)) return false;
+    }
     return true;
   });
 
-  const emailsPage = filteredEmails.slice(localPage * localPageSize, (localPage + 1) * localPageSize);
+  const sortedFilteredEmails = [...filteredEmails].sort((a, b) => {
+    switch (emailSort) {
+      case "date-desc": return new Date(b.receivedDateTime).getTime() - new Date(a.receivedDateTime).getTime();
+      case "date-asc": return new Date(a.receivedDateTime).getTime() - new Date(b.receivedDateTime).getTime();
+      case "sender-asc": return (a.from?.emailAddress?.name || "").localeCompare(b.from?.emailAddress?.name || "");
+      case "sender-desc": return (b.from?.emailAddress?.name || "").localeCompare(a.from?.emailAddress?.name || "");
+      case "subject-asc": return (a.subject || "").localeCompare(b.subject || "");
+      case "subject-desc": return (b.subject || "").localeCompare(a.subject || "");
+      default: return 0;
+    }
+  });
+
+  const emailsPage = sortedFilteredEmails.slice(localPage * localPageSize, (localPage + 1) * localPageSize);
   const totalEmailPages = Math.ceil(filteredEmails.length / localPageSize);
 
   const smsPage = filteredSms.slice(localPage * localPageSize, (localPage + 1) * localPageSize);
@@ -667,63 +794,26 @@ export default function EmailClientPage() {
         ))}
       </div>
 
-      {activeTab === "email" && (
-        <Card className="p-3">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 flex-1">
-              <Search className="h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Hľadať vo všetkých emailoch..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                className="flex-1"
-                data-testid="input-search"
-              />
-            </div>
-            <Button onClick={handleSearch} disabled={searchQuery.trim().length < 2} data-testid="button-search">
-              <Search className="h-4 w-4 mr-2" />
-              Hľadať
-            </Button>
-            {isSearching && (
-              <Button variant="outline" onClick={clearSearch} data-testid="button-clear-search">
-                <X className="h-4 w-4 mr-2" />
-                Zrušiť
-              </Button>
-            )}
-          </div>
-        </Card>
-      )}
-
-      <div className="flex gap-2 h-[calc(100vh-280px)] transition-all duration-300">
-        {isSidebarHidden && (
-          <div className="flex flex-col items-center pt-2 shrink-0">
-            <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setIsSidebarHidden(false)} data-testid="button-show-sidebar">
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-        )}
-
-        {!isSidebarHidden && (
-          <NexusSidebar
-            activeTab={activeTab}
-            selectedFolderId={selectedFolderId}
-            onSelectFolder={handleSelectFolder}
-            folders={folders}
-            foldersLoading={foldersLoading}
-            smsFilter={smsFilter}
-            onSmsFilterChange={setSmsFilter}
-            taskFilter={taskFilter}
-            onTaskFilterChange={setTaskFilter}
-            smsData={smsData}
-            tasksData={tasksData}
-            chatsData={chatsData}
-            totalUnreadEmails={totalUnreadEmails}
-            selectedChatId={selectedChatId}
-            onSelectChat={setSelectedChatId}
-            onHide={() => setIsSidebarHidden(true)}
-          />
-        )}
+      <div className="flex gap-2 h-[calc(100vh-230px)] transition-all duration-300">
+        <NexusSidebar
+          activeTab={activeTab}
+          selectedFolderId={selectedFolderId}
+          onSelectFolder={handleSelectFolder}
+          folders={folders}
+          foldersLoading={foldersLoading}
+          smsFilter={smsFilter}
+          onSmsFilterChange={setSmsFilter}
+          taskFilter={taskFilter}
+          onTaskFilterChange={setTaskFilter}
+          smsData={smsData}
+          tasksData={tasksData}
+          chatsData={chatsData}
+          totalUnreadEmails={totalUnreadEmails}
+          selectedChatId={selectedChatId}
+          onSelectChat={setSelectedChatId}
+          collapsed={isSidebarHidden}
+          onToggleCollapse={() => setIsSidebarHidden(prev => !prev)}
+        />
 
         {activeTab === "email" && (
           <>
@@ -757,6 +847,56 @@ export default function EmailClientPage() {
                 {!isSearching && (
                   <TooltipProvider delayDuration={200}>
                     <div className="flex items-center gap-0.5 pt-1 border-t mt-1">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            onClick={() => { setListSearchOpen(!listSearchOpen); if (listSearchOpen) { setListSearchQuery(""); } }}
+                            className={`p-1.5 rounded-md transition-all ${listSearchOpen ? "bg-blue-100 dark:bg-blue-900/40 text-blue-600" : "text-muted-foreground hover:text-foreground hover:bg-accent/50"}`}
+                            data-testid="filter-search"
+                          >
+                            <Search className="h-3.5 w-3.5" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" className="text-xs">Hľadať v zozname</TooltipContent>
+                      </Tooltip>
+                      <DropdownMenu>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <DropdownMenuTrigger asChild>
+                              <button
+                                className={`p-1.5 rounded-md transition-all ${emailSort !== "date-desc" ? "bg-violet-100 dark:bg-violet-900/40 text-violet-600" : "text-muted-foreground hover:text-foreground hover:bg-accent/50"}`}
+                                data-testid="filter-sort"
+                              >
+                                <ArrowUpDown className="h-3.5 w-3.5" />
+                              </button>
+                            </DropdownMenuTrigger>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom" className="text-xs">Radenie</TooltipContent>
+                        </Tooltip>
+                        <DropdownMenuContent align="start" className="w-48">
+                          <DropdownMenuItem onClick={() => setEmailSort("date-desc")} className={emailSort === "date-desc" ? "bg-accent" : ""}>
+                            <ArrowDown className="h-3.5 w-3.5 mr-2" />Dátum (najnovšie)
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setEmailSort("date-asc")} className={emailSort === "date-asc" ? "bg-accent" : ""}>
+                            <ArrowUp className="h-3.5 w-3.5 mr-2" />Dátum (najstaršie)
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => setEmailSort("sender-asc")} className={emailSort === "sender-asc" ? "bg-accent" : ""}>
+                            <ArrowUpAZ className="h-3.5 w-3.5 mr-2" />Odosielateľ (A→Z)
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setEmailSort("sender-desc")} className={emailSort === "sender-desc" ? "bg-accent" : ""}>
+                            <ArrowDownAZ className="h-3.5 w-3.5 mr-2" />Odosielateľ (Z→A)
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => setEmailSort("subject-asc")} className={emailSort === "subject-asc" ? "bg-accent" : ""}>
+                            <ArrowUpAZ className="h-3.5 w-3.5 mr-2" />Predmet (A→Z)
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setEmailSort("subject-desc")} className={emailSort === "subject-desc" ? "bg-accent" : ""}>
+                            <ArrowDownAZ className="h-3.5 w-3.5 mr-2" />Predmet (Z→A)
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                      <div className="w-px h-4 bg-border mx-0.5" />
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <button
@@ -818,25 +958,73 @@ export default function EmailClientPage() {
                         </TooltipTrigger>
                         <TooltipContent side="bottom" className="text-xs">Tento týždeň</TooltipContent>
                       </Tooltip>
-                      {activeFilterCount > 0 && (
+                      <div className="w-px h-4 bg-border mx-0.5" />
+                      <DropdownMenu>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <DropdownMenuTrigger asChild>
+                              <button
+                                className={`p-1.5 rounded-md transition-all ${filterByTagId ? "bg-purple-100 dark:bg-purple-900/40 text-purple-600" : "text-muted-foreground hover:text-foreground hover:bg-accent/50"}`}
+                                data-testid="filter-tag"
+                              >
+                                <Tag className="h-3.5 w-3.5" />
+                              </button>
+                            </DropdownMenuTrigger>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom" className="text-xs">Filtrovať podľa tagu</TooltipContent>
+                        </Tooltip>
+                        <DropdownMenuContent align="start" className="w-44">
+                          <DropdownMenuItem onClick={() => setFilterByTagId(null)} className={!filterByTagId ? "bg-accent" : ""}>
+                            <Tag className="h-3.5 w-3.5 mr-2" />Všetky
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          {userTags.map((tag: any) => (
+                            <DropdownMenuItem key={tag.id} onClick={() => setFilterByTagId(tag.id)} className={filterByTagId === tag.id ? "bg-accent" : ""}>
+                              <span className="h-2.5 w-2.5 rounded-full mr-2 shrink-0" style={{ backgroundColor: tag.color }} />
+                              {tag.name}
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                      {(activeFilterCount > 0 || filterByTagId || listSearchQuery || emailSort !== "date-desc") && (
                         <>
                           <div className="w-px h-4 bg-border mx-0.5" />
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <button
-                                onClick={() => setEmailFilters({ unreadOnly: false, hasAttachments: false, important: false, today: false, thisWeek: false })}
+                                onClick={() => { setEmailFilters({ unreadOnly: false, hasAttachments: false, important: false, today: false, thisWeek: false }); setFilterByTagId(null); setListSearchQuery(""); setListSearchOpen(false); setEmailSort("date-desc"); }}
                                 className="p-1.5 rounded-md text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-all"
                                 data-testid="filter-clear"
                               >
                                 <FilterX className="h-3.5 w-3.5" />
                               </button>
                             </TooltipTrigger>
-                            <TooltipContent side="bottom" className="text-xs">Zrušiť filtre ({activeFilterCount})</TooltipContent>
+                            <TooltipContent side="bottom" className="text-xs">Zrušiť všetko</TooltipContent>
                           </Tooltip>
                         </>
                       )}
                     </div>
                   </TooltipProvider>
+                )}
+                {listSearchOpen && !isSearching && (
+                  <div className="px-2 pb-1.5 pt-1 border-t">
+                    <div className="relative">
+                      <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                      <Input
+                        placeholder="Hľadať v zozname..."
+                        value={listSearchQuery}
+                        onChange={(e) => { setListSearchQuery(e.target.value); setLocalPage(0); }}
+                        className="h-7 text-xs pl-7 pr-7"
+                        autoFocus
+                        data-testid="input-list-search"
+                      />
+                      {listSearchQuery && (
+                        <button onClick={() => setListSearchQuery("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                          <X className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 )}
               </CardHeader>
               <CardContent className="p-0">
@@ -945,6 +1133,15 @@ export default function EmailClientPage() {
                                 {email.subject || "(Bez predmetu)"}
                               </p>
                               <p className="text-[11px] text-muted-foreground truncate">{email.bodyPreview}</p>
+                              {getEmailTags(email.id).length > 0 && (
+                                <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+                                  {getEmailTags(email.id).map((tag: any) => (
+                                    <span key={tag.id} className="inline-flex items-center gap-0.5 text-[9px] font-medium px-1.5 py-0 rounded-full text-white" style={{ backgroundColor: tag.color }}>
+                                      {tag.name}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -1013,7 +1210,7 @@ export default function EmailClientPage() {
                             className={`w-full text-left px-3 py-2.5 transition-all hover:bg-accent/50 cursor-pointer ${
                               selectedSms?.id === sms.id ? "bg-accent" : ""
                             } ${isUnread ? "font-medium" : ""}`}
-                            onClick={() => { setSelectedSms(sms); setSelectedEmail(null); setSelectedTask(null); setSelectedChat(null); }}
+                            onClick={() => { setSelectedSms(sms); setSelectedEmail(null); setSelectedTask(null); _setSelectedChat(null); }}
                             data-testid={`sms-item-${sms.id}`}
                           >
                             <div className="flex items-start gap-2.5">
@@ -1094,7 +1291,7 @@ export default function EmailClientPage() {
                           className={`w-full text-left px-3 py-2.5 transition-all hover:bg-accent/50 cursor-pointer ${
                             selectedTask?.id === task.id ? "bg-accent" : ""
                           } ${task.status === "pending" ? "font-medium" : ""}`}
-                          onClick={() => { setSelectedTask(task); setSelectedEmail(null); setSelectedSms(null); setSelectedChat(null); }}
+                          onClick={() => { setSelectedTask(task); setSelectedEmail(null); setSelectedSms(null); _setSelectedChat(null); }}
                           data-testid={`task-item-${task.id}`}
                         >
                           <div className="flex items-start gap-2.5">
@@ -1226,26 +1423,11 @@ export default function EmailClientPage() {
       </Dialog>
 
       <Dialog open={signatureDialogOpen} onOpenChange={setSignatureDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
           <DialogHeader>
-            <DialogTitle>Nastavenie podpisu</DialogTitle>
+            <DialogTitle>Nastavenia emailu</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <Checkbox id="signature-active" checked={signatureActive} onCheckedChange={(c) => setSignatureActive(!!c)} />
-              <label htmlFor="signature-active" className="text-sm">Aktívny podpis</label>
-            </div>
-            <div className="border rounded-md">
-              <Editor value={signatureHtml} onChange={(e) => setSignatureHtml(e.target.value)} style={{ minHeight: "200px" }} data-testid="editor-signature" />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setSignatureDialogOpen(false)}>Zrušiť</Button>
-            <Button onClick={() => saveSignatureMutation.mutate({ htmlContent: signatureHtml, isActive: signatureActive })} disabled={saveSignatureMutation.isPending} data-testid="button-save-signature">
-              {saveSignatureMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              Uložiť podpis
-            </Button>
-          </DialogFooter>
+          {renderSettingsTabs()}
         </DialogContent>
       </Dialog>
 
@@ -1362,6 +1544,56 @@ export default function EmailClientPage() {
               </div>
             </div>
           )}
+
+          <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+            {getEmailTags(emailDetail.id).map((tag: any) => (
+              <span
+                key={tag.id}
+                className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full text-white cursor-pointer hover:opacity-80 transition-opacity"
+                style={{ backgroundColor: tag.color }}
+                onClick={() => currentMailboxEmail && removeTagMutation.mutate({ emailId: emailDetail.id, tagId: tag.id, mailboxEmail: currentMailboxEmail })}
+                title="Kliknite pre odstránenie"
+                data-testid={`email-tag-${tag.id}`}
+              >
+                {tag.name}
+                <X className="h-2.5 w-2.5" />
+              </span>
+            ))}
+            <Popover open={tagPickerEmailId === emailDetail.id} onOpenChange={(open) => setTagPickerEmailId(open ? emailDetail.id : null)}>
+              <PopoverTrigger asChild>
+                <button
+                  className="inline-flex items-center gap-0.5 text-[10px] px-2 py-0.5 rounded-full border border-dashed border-muted-foreground/40 text-muted-foreground hover:border-primary hover:text-primary transition-colors"
+                  data-testid="button-add-tag"
+                >
+                  <Tag className="h-2.5 w-2.5" />
+                  Tag
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-44 p-1" align="start">
+                <div className="space-y-0.5">
+                  {userTags.filter((tag: any) => !getEmailTags(emailDetail.id).some((et: any) => et.id === tag.id)).map((tag: any) => (
+                    <button
+                      key={tag.id}
+                      className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-sm hover:bg-accent transition-colors text-left"
+                      onClick={() => {
+                        if (currentMailboxEmail) {
+                          assignTagMutation.mutate({ emailId: emailDetail.id, tagId: tag.id, mailboxEmail: currentMailboxEmail });
+                        }
+                        setTagPickerEmailId(null);
+                      }}
+                      data-testid={`assign-tag-${tag.id}`}
+                    >
+                      <span className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: tag.color }} />
+                      {tag.name}
+                    </button>
+                  ))}
+                  {userTags.filter((tag: any) => !getEmailTags(emailDetail.id).some((et: any) => et.id === tag.id)).length === 0 && (
+                    <p className="text-xs text-muted-foreground text-center py-2">Všetky tagy priradené</p>
+                  )}
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
         </div>
 
         {replyMode ? (
@@ -1731,6 +1963,124 @@ export default function EmailClientPage() {
           </ScrollArea>
         </DialogContent>
       </Dialog>
+    );
+  }
+
+  function renderSettingsTabs() {
+    const TAG_COLORS = ["#EF4444", "#F59E0B", "#10B981", "#3B82F6", "#8B5CF6", "#EC4899", "#6B7280", "#0EA5E9", "#14B8A6", "#F97316"];
+
+    return (
+      <div className="flex flex-col flex-1 min-h-0 gap-4">
+        <div className="flex gap-1 border-b">
+          <button
+            onClick={() => setSettingsTab("signature")}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${settingsTab === "signature" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+            data-testid="settings-tab-signature"
+          >
+            Podpis
+          </button>
+          <button
+            onClick={() => setSettingsTab("tags")}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${settingsTab === "tags" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+            data-testid="settings-tab-tags"
+          >
+            Tagy
+          </button>
+        </div>
+
+        {settingsTab === "signature" && (
+          <div className="space-y-4 flex-1">
+            <div className="flex items-center gap-2">
+              <Checkbox id="signature-active" checked={signatureActive} onCheckedChange={(c) => setSignatureActive(!!c)} />
+              <label htmlFor="signature-active" className="text-sm">Aktívny podpis</label>
+            </div>
+            <div className="border rounded-md">
+              <Editor value={signatureHtml} onChange={(e) => setSignatureHtml(e.target.value)} style={{ minHeight: "200px" }} data-testid="editor-signature" />
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setSignatureDialogOpen(false)}>Zrušiť</Button>
+              <Button onClick={() => saveSignatureMutation.mutate({ htmlContent: signatureHtml, isActive: signatureActive })} disabled={saveSignatureMutation.isPending} data-testid="button-save-signature">
+                {saveSignatureMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Uložiť podpis
+              </Button>
+            </DialogFooter>
+          </div>
+        )}
+
+        {settingsTab === "tags" && (
+          <div className="space-y-4 flex-1 overflow-auto">
+            <div className="flex items-center gap-2">
+              <Input
+                placeholder="Názov nového tagu..."
+                value={newTagName}
+                onChange={(e) => setNewTagName(e.target.value)}
+                className="flex-1 h-9"
+                data-testid="input-new-tag-name"
+              />
+              <div className="flex items-center gap-1">
+                {TAG_COLORS.map(color => (
+                  <button
+                    key={color}
+                    onClick={() => setNewTagColor(color)}
+                    className={`h-6 w-6 rounded-full transition-all ${newTagColor === color ? "ring-2 ring-offset-2 ring-primary" : "hover:scale-110"}`}
+                    style={{ backgroundColor: color }}
+                  />
+                ))}
+              </div>
+              <Button
+                size="sm"
+                onClick={() => {
+                  if (newTagName.trim()) {
+                    createTagMutation.mutate({ name: newTagName.trim(), color: newTagColor });
+                    setNewTagName("");
+                  }
+                }}
+                disabled={!newTagName.trim() || createTagMutation.isPending}
+                data-testid="button-create-tag"
+              >
+                <Plus className="h-4 w-4 mr-1" />Pridať
+              </Button>
+            </div>
+
+            <div className="space-y-1">
+              {userTags.map((tag: any) => (
+                <div key={tag.id} className="flex items-center gap-2 p-2 rounded-md border hover:bg-accent/30 transition-colors group">
+                  <span className="h-4 w-4 rounded-full shrink-0" style={{ backgroundColor: tag.color }} />
+                  <span className="flex-1 text-sm font-medium">{tag.name}</span>
+                  {tag.isDefault && (
+                    <Badge variant="secondary" className="text-[10px] h-5">Predvolený</Badge>
+                  )}
+                  <div className="flex items-center gap-0.5">
+                    {TAG_COLORS.map(color => (
+                      <button
+                        key={color}
+                        onClick={() => updateTagMutation.mutate({ id: tag.id, color })}
+                        className={`h-4 w-4 rounded-full opacity-0 group-hover:opacity-100 transition-all hover:scale-125 ${tag.color === color ? "ring-1 ring-offset-1 ring-primary opacity-100" : ""}`}
+                        style={{ backgroundColor: color }}
+                      />
+                    ))}
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-red-500 hover:text-red-600 hover:bg-red-50"
+                    onClick={() => deleteTagMutation.mutate(tag.id)}
+                    data-testid={`delete-tag-${tag.id}`}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              ))}
+              {userTags.length === 0 && (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Tag className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                  <p className="text-sm">Zatiaľ žiadne tagy</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
     );
   }
 }
