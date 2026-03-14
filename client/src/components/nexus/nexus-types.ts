@@ -1,4 +1,4 @@
-export type NexusTab = "email" | "sms" | "tasks" | "chats";
+export type NexusTab = "email" | "sms" | "tasks" | "chats" | "teams";
 
 export interface Mailbox {
   id: string;
@@ -134,6 +134,7 @@ export const typeColors: Record<string, { bg: string; text: string; border: stri
   chat: { bg: "bg-violet-50 dark:bg-violet-950/30", text: "text-violet-700 dark:text-violet-300", border: "border-violet-200 dark:border-violet-800", dot: "bg-violet-500", accent: "text-violet-600 dark:text-violet-400" },
   chats: { bg: "bg-violet-50 dark:bg-violet-950/30", text: "text-violet-700 dark:text-violet-300", border: "border-violet-200 dark:border-violet-800", dot: "bg-violet-500", accent: "text-violet-600 dark:text-violet-400" },
   sms: { bg: "bg-cyan-50 dark:bg-cyan-950/30", text: "text-cyan-700 dark:text-cyan-300", border: "border-cyan-200 dark:border-cyan-800", dot: "bg-cyan-500", accent: "text-cyan-600 dark:text-cyan-400" },
+  teams: { bg: "bg-indigo-50 dark:bg-indigo-950/30", text: "text-indigo-700 dark:text-indigo-300", border: "border-indigo-200 dark:border-indigo-800", dot: "bg-indigo-500", accent: "text-indigo-600 dark:text-indigo-400" },
 };
 
 export type TaskFilter = "all" | "pending" | "in_progress" | "completed" | "cancelled";

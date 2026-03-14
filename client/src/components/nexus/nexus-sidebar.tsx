@@ -33,6 +33,34 @@ import {
 } from "lucide-react";
 import type { MailFolder, SmsMessage, Task, ChatConversation, NexusTab, TaskFilter, SmsFilter } from "./nexus-types";
 
+export interface AccountIconConfig {
+  email: string;
+  displayName: string;
+  icon: string;
+  color: string;
+  type: "personal" | "shared";
+  isDefault: boolean;
+}
+
+export const ACCOUNT_ICONS: { key: string; label: string; emoji: string }[] = [
+  { key: "mail", label: "Obálka", emoji: "✉️" },
+  { key: "inbox", label: "Inbox", emoji: "📥" },
+  { key: "office", label: "Kancelária", emoji: "🏢" },
+  { key: "globe", label: "Svet", emoji: "🌐" },
+  { key: "briefcase", label: "Kufrík", emoji: "💼" },
+  { key: "shield", label: "Štít", emoji: "🛡️" },
+  { key: "heart", label: "Srdce", emoji: "❤️" },
+  { key: "star", label: "Hviezda", emoji: "⭐" },
+  { key: "fire", label: "Oheň", emoji: "🔥" },
+  { key: "bell", label: "Zvonček", emoji: "🔔" },
+  { key: "megaphone", label: "Megafón", emoji: "📢" },
+  { key: "robot", label: "Robot", emoji: "🤖" },
+  { key: "leaf", label: "List", emoji: "🍀" },
+  { key: "gem", label: "Drahokam", emoji: "💎" },
+  { key: "rocket", label: "Raketa", emoji: "🚀" },
+  { key: "crown", label: "Koruna", emoji: "👑" },
+];
+
 interface NexusSidebarProps {
   activeTab: NexusTab;
   selectedFolderId: string | null;
@@ -51,6 +79,10 @@ interface NexusSidebarProps {
   onSelectChat?: (chatId: string) => void;
   collapsed: boolean;
   onToggleCollapse: () => void;
+  mailboxes?: AccountIconConfig[];
+  selectedMailbox?: string;
+  onSelectMailbox?: (mailbox: string) => void;
+  mailboxUnreadCounts?: Record<string, number>;
 }
 
 const WELL_KNOWN_FOLDERS: Record<string, { icon: React.ReactNode; iconCollapsed: React.ReactNode; label: string; order: number }> = {
@@ -93,6 +125,10 @@ export default function NexusSidebar({
   onSelectChat,
   collapsed,
   onToggleCollapse,
+  mailboxes,
+  selectedMailbox,
+  onSelectMailbox,
+  mailboxUnreadCounts,
 }: NexusSidebarProps) {
   const [showOtherFolders, setShowOtherFolders] = useState(false);
 
@@ -121,6 +157,7 @@ export default function NexusSidebar({
     sms: { title: "SMS", icon: <MessageSquare className="h-3.5 w-3.5 text-cyan-500" /> },
     tasks: { title: "Úlohy", icon: <ListTodo className="h-3.5 w-3.5 text-amber-500" /> },
     chats: { title: "Chaty", icon: <MessagesSquare className="h-3.5 w-3.5 text-violet-500" /> },
+    teams: { title: "Teams", icon: <MessagesSquare className="h-3.5 w-3.5 text-indigo-500" /> },
   };
 
   if (collapsed) {
@@ -334,6 +371,45 @@ export default function NexusSidebar({
                 <MessagesSquare className="h-5 w-5 text-muted-foreground/30 mt-4" />
               )}
             </>
+          )}
+          {activeTab === "email" && mailboxes && mailboxes.length > 0 && (
+            <div className="mt-auto pt-2 border-t flex flex-col items-center gap-1">
+              {mailboxes.map(mb => {
+                const mbKey = mb.type === "personal" ? "personal" : mb.email;
+                const isActive = selectedMailbox === mbKey;
+                const iconDef = ACCOUNT_ICONS.find(i => i.key === mb.icon);
+                const unread = mailboxUnreadCounts?.[mb.email] || 0;
+                return (
+                  <Tooltip key={mb.email}>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={() => onSelectMailbox?.(mbKey)}
+                        className={`relative h-9 w-9 rounded-full flex items-center justify-center text-sm transition-all ${
+                          isActive
+                            ? "ring-2 ring-primary ring-offset-2 ring-offset-background"
+                            : "hover:opacity-80"
+                        }`}
+                        style={{ backgroundColor: mb.color || "#6B7280" }}
+                        data-testid={`account-icon-${mb.email}`}
+                      >
+                        <span className="text-white text-base leading-none">
+                          {iconDef ? iconDef.emoji : mb.displayName?.substring(0, 1).toUpperCase() || "?"}
+                        </span>
+                        {unread > 0 && (
+                          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] font-bold rounded-full h-[16px] min-w-[16px] px-0.5 flex items-center justify-center">
+                            {unread > 99 ? "99+" : unread}
+                          </span>
+                        )}
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="right" className="text-xs">
+                      {mb.displayName || mb.email}
+                      {unread > 0 && ` (${unread})`}
+                    </TooltipContent>
+                  </Tooltip>
+                );
+              })}
+            </div>
           )}
         </TooltipProvider>
       </div>
@@ -560,6 +636,42 @@ export default function NexusSidebar({
           )}
         </div>
       </ScrollArea>
+      {activeTab === "email" && mailboxes && mailboxes.length > 0 && (
+        <div className="border-t px-2 py-2 space-y-1">
+          {mailboxes.map(mb => {
+            const mbKey = mb.type === "personal" ? "personal" : mb.email;
+            const isActive = selectedMailbox === mbKey;
+            const iconDef = ACCOUNT_ICONS.find(i => i.key === mb.icon);
+            const unread = mailboxUnreadCounts?.[mb.email] || 0;
+            return (
+              <button
+                key={mb.email}
+                onClick={() => onSelectMailbox?.(mbKey)}
+                className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-sm transition-all ${
+                  isActive ? "bg-primary/10 font-medium" : "hover:bg-accent/50"
+                }`}
+                data-testid={`account-expanded-${mb.email}`}
+              >
+                <span
+                  className="relative h-7 w-7 rounded-full flex items-center justify-center text-xs shrink-0"
+                  style={{ backgroundColor: mb.color || "#6B7280" }}
+                >
+                  <span className="text-white leading-none">
+                    {iconDef ? iconDef.emoji : mb.displayName?.substring(0, 1).toUpperCase() || "?"}
+                  </span>
+                  {unread > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[7px] font-bold rounded-full h-[14px] min-w-[14px] px-0.5 flex items-center justify-center">
+                      {unread > 99 ? "99+" : unread}
+                    </span>
+                  )}
+                </span>
+                <span className="truncate text-xs">{mb.displayName || mb.email}</span>
+                {mb.isDefault && <span className="text-[9px] text-muted-foreground ml-auto shrink-0">Predvolená</span>}
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

@@ -106,7 +106,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import Editor from "react-simple-wysiwyg";
 
-import NexusSidebar from "@/components/nexus/nexus-sidebar";
+import NexusSidebar, { ACCOUNT_ICONS, type AccountIconConfig } from "@/components/nexus/nexus-sidebar";
 import type {
   Mailbox,
   MailFolder,
@@ -177,6 +177,19 @@ export default function EmailClientPage() {
   const [newTagColor, setNewTagColor] = useState("#6B7280");
   const [loadingAll, setLoadingAll] = useState(false);
   const [defaultTagsInitialized, setDefaultTagsInitialized] = useState(false);
+
+  const [accountConfigs, setAccountConfigs] = useState<Record<string, { icon: string; color: string; enabled: boolean }>>(() => {
+    const saved = localStorage.getItem("nexus-account-configs");
+    return saved ? JSON.parse(saved) : {};
+  });
+
+  const updateAccountConfig = (email: string, config: { icon: string; color: string; enabled: boolean }) => {
+    setAccountConfigs(prev => {
+      const next = { ...prev, [email]: config };
+      localStorage.setItem("nexus-account-configs", JSON.stringify(next));
+      return next;
+    });
+  };
 
   const [emailPrefs, setEmailPrefs] = useState(() => {
     const saved = localStorage.getItem("nexus-email-prefs");
@@ -425,6 +438,28 @@ export default function EmailClientPage() {
 
   const mailboxColorMap: Record<string, string> = {};
   mailboxColorsList.forEach((mc: any) => { mailboxColorMap[mc.mailboxEmail] = mc.color; });
+
+  const sidebarMailboxes: AccountIconConfig[] = mailboxes
+    .filter(mb => {
+      const cfg = accountConfigs[mb.email];
+      return cfg ? cfg.enabled !== false : true;
+    })
+    .map(mb => ({
+      email: mb.email,
+      displayName: mb.displayName || mb.email,
+      icon: accountConfigs[mb.email]?.icon || "mail",
+      color: accountConfigs[mb.email]?.color || mailboxColorMap[mb.email] || "#6B7280",
+      type: mb.type,
+      isDefault: mb.isDefault,
+    }));
+
+  const handleSidebarMailboxSelect = (mbKey: string) => {
+    setSelectedMailbox(mbKey);
+    setSelectedFolderId(null);
+    setSelectedEmail(null);
+    setPage(0);
+    setAccumulatedEmails([]);
+  };
 
   const upsertMailboxColorMutation = useMutation({
     mutationFn: async (data: { mailboxEmail: string; color: string }) => {
@@ -843,6 +878,7 @@ export default function EmailClientPage() {
     { key: "sms", label: "SMS", icon: <MessageSquare className="h-4 w-4" />, badge: smsInboundUnread > 0 ? smsInboundUnread : undefined, badgeColor: "bg-cyan-500" },
     { key: "tasks", label: "Úlohy", icon: <ListTodo className="h-4 w-4" />, badge: pendingTasks > 0 ? pendingTasks : undefined, badgeColor: "bg-amber-500" },
     { key: "chats", label: "Chaty", icon: <MessagesSquare className="h-4 w-4" />, badge: unreadChats > 0 ? unreadChats : undefined, badgeColor: "bg-violet-500" },
+    { key: "teams", label: "Teams", icon: <MessagesSquare className="h-4 w-4" />, badgeColor: "bg-indigo-500" },
   ];
 
   return (
@@ -857,33 +893,6 @@ export default function EmailClientPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {activeTab === "email" && (
-            <Select value={selectedMailbox} onValueChange={(v) => { setSelectedMailbox(v); setSelectedFolderId(null); setSelectedEmail(null); setPage(0); setAccumulatedEmails([]); }}>
-              <SelectTrigger className="w-56" data-testid="select-mailbox">
-                <SelectValue placeholder="Vyberte schránku" />
-              </SelectTrigger>
-              <SelectContent>
-                {mailboxes.map((mb) => {
-                  const mbKey = mb.type === "personal" ? mb.email : mb.email;
-                  const mbColor = mailboxColorMap[mbKey];
-                  return (
-                    <SelectItem key={mb.id} value={mb.type === "personal" ? "personal" : mb.email}>
-                      <div className="flex items-center gap-2">
-                        {mbColor ? (
-                          <span className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: mbColor }} />
-                        ) : (
-                          mb.type === "personal" ? <User className="h-4 w-4" /> : <Mail className="h-4 w-4" />
-                        )}
-                        <span>{mb.displayName || mb.email}</span>
-                        {mb.isDefault && <Badge variant="secondary" className="text-xs">Predvolená</Badge>}
-                      </div>
-                    </SelectItem>
-                  );
-                })}
-              </SelectContent>
-            </Select>
-          )}
-
           <Button variant="outline" size="icon" onClick={handleRefresh} data-testid="button-refresh">
             <RefreshCw className="h-4 w-4" />
           </Button>
@@ -943,6 +952,9 @@ export default function EmailClientPage() {
           onSelectChat={setSelectedChatId}
           collapsed={isSidebarHidden}
           onToggleCollapse={() => setIsSidebarHidden(prev => !prev)}
+          mailboxes={sidebarMailboxes}
+          selectedMailbox={selectedMailbox}
+          onSelectMailbox={handleSidebarMailboxSelect}
         />
 
         {activeTab === "email" && (
@@ -1212,7 +1224,7 @@ export default function EmailClientPage() {
                                         {email.subject || "(Bez predmetu)"}
                                       </p>
                                       {emailPrefs.previewLines > 0 && (
-                                        <p className={`text-[11px] text-muted-foreground ${emailPrefs.previewLines === 1 ? "truncate" : "line-clamp-2"}`}>{email.bodyPreview}</p>
+                                        <p className={`text-[11px] text-muted-foreground break-words ${emailPrefs.previewLines === 1 ? "line-clamp-1" : "line-clamp-2"}`}>{email.bodyPreview}</p>
                                       )}
                                     </div>
                                   </div>
@@ -1285,7 +1297,7 @@ export default function EmailClientPage() {
                                 {email.subject || "(Bez predmetu)"}
                               </p>
                               {emailPrefs.previewLines > 0 && (
-                                <p className={`text-[11px] text-muted-foreground ${emailPrefs.previewLines === 1 ? "truncate" : "line-clamp-2"}`}>{email.bodyPreview}</p>
+                                <p className={`text-[11px] text-muted-foreground break-words ${emailPrefs.previewLines === 1 ? "line-clamp-1" : "line-clamp-2"}`}>{email.bodyPreview}</p>
                               )}
                               {emailPrefs.showTags && getEmailTags(email.id).length > 0 && (
                                 <div className="flex items-center gap-1 mt-0.5 flex-wrap">
@@ -1530,6 +1542,23 @@ export default function EmailClientPage() {
               </CardContent>
             </Card>
           </>
+        )}
+
+        {activeTab === "teams" && (
+          <Card className="transition-all duration-300 flex-1 min-w-0">
+            <CardContent className="p-0 h-full">
+              <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                <MessagesSquare className="h-16 w-16 mb-4 opacity-30" />
+                <p className="text-xl font-semibold mb-2">Microsoft Teams</p>
+                <p className="text-sm text-center max-w-md">
+                  Integrácia s Microsoft Teams je pripravovaná. Po aktivácii tu uvidíte Teams konverzácie, kanály a správy priamo v NEXUS klientovi.
+                </p>
+                <Badge variant="outline" className="mt-4 text-indigo-600 border-indigo-300">
+                  Pripravuje sa
+                </Badge>
+              </div>
+            </CardContent>
+          </Card>
         )}
       </div>
 
@@ -2257,57 +2286,62 @@ export default function EmailClientPage() {
       return (
         <div>
           <h2 className="text-lg font-semibold mb-1">Účty</h2>
-          <p className="text-sm text-muted-foreground mb-4">Pripojené emailové účty a ich farebné označenie.</p>
-          <div className="space-y-2">
+          <p className="text-sm text-muted-foreground mb-4">Pripojené emailové účty, ikony a farby pre bočný panel.</p>
+          <div className="space-y-4">
             {mailboxes.map((mb) => {
               const mbEmail = mb.email;
               const currentColor = mailboxColorMap[mbEmail] || null;
+              const cfg = accountConfigs[mbEmail] || { icon: "mail", color: currentColor || "#6B7280", enabled: true };
+              const selectedIcon = ACCOUNT_ICONS.find(i => i.key === cfg.icon);
               return (
-                <div key={mb.id} className="flex items-center gap-3 p-3 rounded-lg border hover:bg-accent/30 transition-colors group">
-                  <span
-                    className="h-6 w-6 rounded-full shrink-0 border-2 shadow-sm"
-                    style={{ backgroundColor: currentColor || "transparent", borderColor: currentColor || "#d1d5db" }}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{mb.displayName || mb.email}</p>
-                    <p className="text-[11px] text-muted-foreground truncate">{mb.email}</p>
+                <div key={mb.id} className="p-3 rounded-lg border hover:bg-accent/30 transition-colors space-y-3">
+                  <div className="flex items-center gap-3">
+                    <span
+                      className="h-8 w-8 rounded-full shrink-0 flex items-center justify-center text-sm shadow-sm"
+                      style={{ backgroundColor: cfg.color || "#6B7280" }}
+                    >
+                      <span className="text-white leading-none">{selectedIcon ? selectedIcon.emoji : "📧"}</span>
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{mb.displayName || mb.email}</p>
+                      <p className="text-[11px] text-muted-foreground truncate">{mb.email}</p>
+                    </div>
+                    <Badge variant={mb.type === "personal" ? "default" : "secondary"} className="text-[10px] shrink-0">
+                      {mb.type === "personal" ? "Osobná" : "Zdieľaná"}
+                    </Badge>
                   </div>
-                  <Badge variant={mb.type === "personal" ? "default" : "secondary"} className="text-[10px] shrink-0">
-                    {mb.type === "personal" ? "Osobná" : "Zdieľaná"}
-                  </Badge>
-                </div>
-              );
-            })}
-          </div>
-
-          <SectionTitle>Farby účtov</SectionTitle>
-          <p className="text-[12px] text-muted-foreground mb-3">Priraďte farby k účtom pre rýchlu identifikáciu v zozname správ.</p>
-          <div className="space-y-3">
-            {mailboxes.map((mb) => {
-              const mbEmail = mb.email;
-              const currentColor = mailboxColorMap[mbEmail] || null;
-              return (
-                <div key={`color-${mb.id}`} className="flex items-center gap-3">
-                  <span className="text-sm flex-1 min-w-0 truncate">{mb.displayName || mb.email}</span>
-                  <div className="flex items-center gap-1">
-                    {currentColor && (
-                      <button
-                        onClick={() => upsertMailboxColorMutation.mutate({ mailboxEmail: mbEmail, color: "" })}
-                        className="p-1 rounded-md hover:bg-red-50 dark:hover:bg-red-950/30 text-red-400 hover:text-red-500 transition-colors"
-                        title="Odstrániť farbu"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    )}
-                    {ACCOUNT_COLORS.map(color => (
-                      <button
-                        key={color}
-                        onClick={() => upsertMailboxColorMutation.mutate({ mailboxEmail: mbEmail, color })}
-                        className={`h-5 w-5 rounded-full transition-all hover:scale-110 ${currentColor === color ? "ring-2 ring-offset-2 ring-primary" : ""}`}
-                        style={{ backgroundColor: color }}
-                        data-testid={`account-color-${mb.id}-${color}`}
-                      />
-                    ))}
+                  <div>
+                    <p className="text-[11px] text-muted-foreground mb-1.5">Ikona v bočnom paneli</p>
+                    <div className="flex flex-wrap gap-1">
+                      {ACCOUNT_ICONS.map(icon => (
+                        <button
+                          key={icon.key}
+                          onClick={() => updateAccountConfig(mbEmail, { ...cfg, icon: icon.key })}
+                          className={`h-7 w-7 rounded-md flex items-center justify-center text-sm transition-all hover:scale-110 ${cfg.icon === icon.key ? "ring-2 ring-primary bg-primary/10" : "hover:bg-accent"}`}
+                          title={icon.label}
+                          data-testid={`account-icon-${mb.id}-${icon.key}`}
+                        >
+                          {icon.emoji}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-[11px] text-muted-foreground mb-1.5">Farba účtu</p>
+                    <div className="flex items-center gap-1">
+                      {ACCOUNT_COLORS.map(color => (
+                        <button
+                          key={color}
+                          onClick={() => {
+                            updateAccountConfig(mbEmail, { ...cfg, color });
+                            upsertMailboxColorMutation.mutate({ mailboxEmail: mbEmail, color });
+                          }}
+                          className={`h-5 w-5 rounded-full transition-all hover:scale-110 ${cfg.color === color ? "ring-2 ring-offset-2 ring-primary" : ""}`}
+                          style={{ backgroundColor: color }}
+                          data-testid={`account-color-${mb.id}-${color}`}
+                        />
+                      ))}
+                    </div>
                   </div>
                 </div>
               );
