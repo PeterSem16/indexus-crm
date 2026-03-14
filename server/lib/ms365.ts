@@ -743,7 +743,8 @@ export async function sendEmailWithSignature(
   isHtml: boolean = true,
   cc: string[] = [],
   bcc: string[] = [],
-  mailboxEmail?: string
+  mailboxEmail?: string,
+  importance?: string
 ): Promise<boolean> {
   const client = createGraphClient(accessToken);
   const basePath = mailboxEmail ? `/users/${mailboxEmail}` : '/me';
@@ -755,7 +756,7 @@ export async function sendEmailWithSignature(
     finalBody = `${body}\n\n--\n${signature}`;
   }
   
-  const message = {
+  const message: any = {
     subject,
     body: {
       contentType: isHtml ? 'HTML' : 'Text',
@@ -765,6 +766,10 @@ export async function sendEmailWithSignature(
     ccRecipients: cc.map(email => ({ emailAddress: { address: email } })),
     bccRecipients: bcc.map(email => ({ emailAddress: { address: email } })),
   };
+
+  if (importance && ['low', 'normal', 'high'].includes(importance)) {
+    message.importance = importance;
+  }
   
   try {
     await client.api(`${basePath}/sendMail`).post({ message, saveToSentItems: true });
@@ -865,6 +870,39 @@ export async function deleteEmail(
   } catch (error) {
     console.error('[MS365] Error deleting email:', error);
     return false;
+  }
+}
+
+export async function getEmailAttachments(
+  accessToken: string,
+  emailId: string,
+  mailboxEmail?: string
+): Promise<any[]> {
+  const client = createGraphClient(accessToken);
+  const basePath = mailboxEmail ? `/users/${mailboxEmail}` : '/me';
+  try {
+    const result = await client.api(`${basePath}/messages/${emailId}/attachments`).get();
+    return result.value || [];
+  } catch (error) {
+    console.error('[MS365] Error getting attachments:', error);
+    return [];
+  }
+}
+
+export async function getEmailAttachmentContent(
+  accessToken: string,
+  emailId: string,
+  attachmentId: string,
+  mailboxEmail?: string
+): Promise<any | null> {
+  const client = createGraphClient(accessToken);
+  const basePath = mailboxEmail ? `/users/${mailboxEmail}` : '/me';
+  try {
+    const result = await client.api(`${basePath}/messages/${emailId}/attachments/${attachmentId}`).get();
+    return result;
+  } catch (error) {
+    console.error('[MS365] Error getting attachment content:', error);
+    return null;
   }
 }
 

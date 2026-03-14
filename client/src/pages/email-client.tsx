@@ -218,7 +218,7 @@ export default function EmailClientPage() {
   const activeFilterCount = Object.values(emailFilters).filter(Boolean).length;
 
   const [attachments, setAttachments] = useState<File[]>([]);
-  const [composeData, setComposeData] = useState({ to: "", cc: "", bcc: "", subject: "", body: "" });
+  const [composeData, setComposeData] = useState({ to: "", cc: "", bcc: "", subject: "", body: "", importance: "normal" as string, tagId: null as number | null });
   const [signatureHtml, setSignatureHtml] = useState("");
   const [signatureActive, setSignatureActive] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -486,7 +486,7 @@ export default function EmailClientPage() {
     onSuccess: () => {
       toast({ title: "Odoslané", description: "Správa bola úspešne odoslaná" });
       setComposeOpen(false);
-      setComposeData({ to: "", cc: "", bcc: "", subject: "", body: "" });
+      setComposeData({ to: "", cc: "", bcc: "", subject: "", body: "", importance: "normal", tagId: null });
       setAttachments([]);
       refetchMessages();
     },
@@ -502,7 +502,7 @@ export default function EmailClientPage() {
     onSuccess: () => {
       toast({ title: "Odoslané", description: "Odpoveď bola úspešne odoslaná" });
       setReplyMode(null);
-      setComposeData({ to: "", cc: "", bcc: "", subject: "", body: "" });
+      setComposeData({ to: "", cc: "", bcc: "", subject: "", body: "", importance: "normal", tagId: null });
       refetchMessages();
     },
     onError: () => {
@@ -517,7 +517,7 @@ export default function EmailClientPage() {
     onSuccess: () => {
       toast({ title: "Odoslané", description: "Správa bola úspešne preposlaná" });
       setReplyMode(null);
-      setComposeData({ to: "", cc: "", bcc: "", subject: "", body: "" });
+      setComposeData({ to: "", cc: "", bcc: "", subject: "", body: "", importance: "normal", tagId: null });
       refetchMessages();
     },
     onError: () => {
@@ -705,6 +705,44 @@ export default function EmailClientPage() {
     setAttachments(prev => prev.filter((_, i) => i !== index));
   };
 
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1048576) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / 1048576).toFixed(1)} MB`;
+  };
+
+  const downloadAttachment = (emailId: string, attachmentId: string, fileName: string) => {
+    const mailbox = selectedMailbox;
+    const url = `/api/users/${user?.id}/ms365-email/${emailId}/attachments/${attachmentId}?mailbox=${encodeURIComponent(mailbox)}`;
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    a.click();
+  };
+
+  const processHtmlForImages = (html: string, emailId: string, attachmentsList?: any[]) => {
+    if (!html) return html;
+    let processed = html;
+    if (attachmentsList && attachmentsList.length > 0) {
+      const mailbox = selectedMailbox;
+      const inlineAtts = attachmentsList.filter(a => a.isInline);
+      inlineAtts.forEach(att => {
+        const inlineUrl = `/api/users/${user?.id}/ms365-email/${emailId}/attachment-inline/${att.id}?mailbox=${encodeURIComponent(mailbox)}`;
+        if (att.contentId) {
+          const cidEscaped = att.contentId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const cidPattern = new RegExp(`src=["']cid:${cidEscaped}["']`, 'gi');
+          processed = processed.replace(cidPattern, `src="${inlineUrl}"`);
+        }
+        const nameEscaped = att.name?.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') || '';
+        if (nameEscaped) {
+          const cidNamePattern = new RegExp(`src=["']cid:${nameEscaped}["']`, 'gi');
+          processed = processed.replace(cidNamePattern, `src="${inlineUrl}"`);
+        }
+      });
+    }
+    return processed;
+  };
+
   const handleSendEmail = () => {
     const toList = composeData.to.split(",").map(e => e.trim()).filter(Boolean);
     const ccList = composeData.cc ? composeData.cc.split(",").map(e => e.trim()).filter(Boolean) : [];
@@ -717,7 +755,8 @@ export default function EmailClientPage() {
       to: toList, cc: ccList, bcc: bccList,
       subject: composeData.subject, body: composeData.body,
       mailboxEmail: selectedMailbox,
-    });
+      importance: composeData.importance !== "normal" ? composeData.importance : undefined,
+    } as any);
   };
 
   const handleReply = () => {
@@ -854,7 +893,7 @@ export default function EmailClientPage() {
             </Button>
           )}
           {activeTab === "email" && (
-            <Button onClick={() => { setComposeOpen(true); setReplyMode(null); setComposeData({ to: "", cc: "", bcc: "", subject: "", body: "" }); setAttachments([]); }} data-testid="button-compose">
+            <Button onClick={() => { setComposeOpen(true); setReplyMode(null); setComposeData({ to: "", cc: "", bcc: "", subject: "", body: "", importance: "normal", tagId: null }); setAttachments([]); }} data-testid="button-compose">
               <PenSquare className="h-4 w-4 mr-2" />
               Nová správa
             </Button>
@@ -1195,6 +1234,7 @@ export default function EmailClientPage() {
                     <span className="text-sm">Žiadne emaily</span>
                   </div>
                 ) : (
+                  <>
                   <ScrollArea className="h-[calc(100vh-380px)]">
                     <div className="divide-y">
                       {emailsPage.map((email) => (
@@ -1260,25 +1300,26 @@ export default function EmailClientPage() {
                           </div>
                         </div>
                       ))}
-                      {totalCount > emails.length && (
-                        <div className="p-3 text-center space-y-1.5">
-                          <div className="flex items-center justify-center gap-2">
-                            <Button variant="outline" size="sm" className="text-xs gap-1" onClick={() => setPage(p => p + 1)} disabled={messagesFetching || loadingAll} data-testid="button-load-more">
-                              {messagesFetching && !loadingAll && <Loader2 className="h-3 w-3 animate-spin" />}
-                              Načítať ďalšie ({emails.length} z {totalCount})
-                            </Button>
-                            <Button variant="default" size="sm" className="text-xs gap-1" onClick={loadAllEmails} disabled={messagesFetching || loadingAll} data-testid="button-load-all">
-                              {loadingAll && <Loader2 className="h-3 w-3 animate-spin" />}
-                              Načítať všetko
-                            </Button>
-                          </div>
-                          {loadingAll && (
-                            <p className="text-[10px] text-muted-foreground">Načítava sa... {emails.length} z {totalCount}</p>
-                          )}
-                        </div>
-                      )}
                     </div>
                   </ScrollArea>
+                  {totalCount > emails.length && (
+                    <div className="p-2 border-t bg-background text-center space-y-1">
+                      <div className="flex items-center justify-center gap-2">
+                        <Button variant="outline" size="sm" className="text-xs gap-1" onClick={() => setPage(p => p + 1)} disabled={messagesFetching || loadingAll} data-testid="button-load-more">
+                          {messagesFetching && !loadingAll && <Loader2 className="h-3 w-3 animate-spin" />}
+                          Načítať ďalšie ({emails.length} z {totalCount})
+                        </Button>
+                        <Button variant="default" size="sm" className="text-xs gap-1" onClick={loadAllEmails} disabled={messagesFetching || loadingAll} data-testid="button-load-all">
+                          {loadingAll && <Loader2 className="h-3 w-3 animate-spin" />}
+                          Načítať všetko
+                        </Button>
+                      </div>
+                      {loadingAll && (
+                        <p className="text-[10px] text-muted-foreground">Načítava sa... {emails.length} z {totalCount}</p>
+                      )}
+                    </div>
+                  )}
+                  </>
                 )}
               </CardContent>
             </Card>
@@ -1533,6 +1574,40 @@ export default function EmailClientPage() {
                 </div>
               )}
             </div>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">Dôležitosť:</span>
+                <Select value={composeData.importance} onValueChange={(v) => setComposeData({ ...composeData, importance: v })}>
+                  <SelectTrigger className="w-32 h-8 text-xs" data-testid="select-importance">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="low">Nízka</SelectItem>
+                    <SelectItem value="normal">Normálna</SelectItem>
+                    <SelectItem value="high">Vysoká</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">Tag:</span>
+                <Select value={composeData.tagId?.toString() || "none"} onValueChange={(v) => setComposeData({ ...composeData, tagId: v === "none" ? null : parseInt(v) })}>
+                  <SelectTrigger className="w-36 h-8 text-xs" data-testid="select-compose-tag">
+                    <SelectValue placeholder="Žiadny" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Žiadny tag</SelectItem>
+                    {userTags.map((tag: any) => (
+                      <SelectItem key={tag.id} value={tag.id.toString()}>
+                        <span className="flex items-center gap-2">
+                          <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: tag.color }} />
+                          {tag.name}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setComposeOpen(false)}>Zrušiť</Button>
@@ -1745,6 +1820,29 @@ export default function EmailClientPage() {
           </div>
         </div>
 
+        {emailDetail.attachmentsList && emailDetail.attachmentsList.filter((a: any) => !a.isInline).length > 0 && (
+          <div className="px-4 py-2 border-t">
+            <p className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1">
+              <Paperclip className="h-3 w-3" />
+              Prílohy ({emailDetail.attachmentsList.filter((a: any) => !a.isInline).length})
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {emailDetail.attachmentsList.filter((a: any) => !a.isInline).map((att: any) => (
+                <button
+                  key={att.id}
+                  className="flex items-center gap-1.5 px-2 py-1 rounded-md border bg-muted/50 hover:bg-accent transition-colors text-xs"
+                  onClick={() => downloadAttachment(emailDetail.id, att.id, att.name)}
+                  data-testid={`attachment-download-${att.id}`}
+                >
+                  <Download className="h-3 w-3 text-muted-foreground" />
+                  <span className="max-w-40 truncate">{att.name}</span>
+                  <span className="text-muted-foreground">({formatFileSize(att.size)})</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {replyMode ? (
           <div className="flex-1 p-4 space-y-4 overflow-auto">
             <div className="flex items-center justify-between">
@@ -1775,7 +1873,7 @@ export default function EmailClientPage() {
           <ScrollArea className="flex-1">
             <div className="p-4">
               {emailDetail.body?.contentType === "html" ? (
-                <div className="prose dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: emailDetail.body.content }} />
+                <div className="prose dark:prose-invert max-w-none [&_img]:max-w-full [&_img]:h-auto" dangerouslySetInnerHTML={{ __html: processHtmlForImages(emailDetail.body.content, emailDetail.id, emailDetail.attachmentsList) }} />
               ) : (
                 <pre className="whitespace-pre-wrap font-sans text-sm">{emailDetail.body?.content || emailDetail.bodyPreview}</pre>
               )}
@@ -2101,10 +2199,32 @@ export default function EmailClientPage() {
               </div>
             )}
           </div>
+          {detail.attachmentsList && detail.attachmentsList.filter((a: any) => !a.isInline).length > 0 && (
+            <div className="px-5 py-2 border-t">
+              <p className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1">
+                <Paperclip className="h-3 w-3" />
+                Prílohy ({detail.attachmentsList.filter((a: any) => !a.isInline).length})
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {detail.attachmentsList.filter((a: any) => !a.isInline).map((att: any) => (
+                  <button
+                    key={att.id}
+                    className="flex items-center gap-1.5 px-2 py-1 rounded-md border bg-muted/50 hover:bg-accent transition-colors text-xs"
+                    onClick={() => downloadAttachment(detail.id, att.id, att.name)}
+                    data-testid={`modal-attachment-${att.id}`}
+                  >
+                    <Download className="h-3 w-3 text-muted-foreground" />
+                    <span className="max-w-40 truncate">{att.name}</span>
+                    <span className="text-muted-foreground">({formatFileSize(att.size)})</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           <ScrollArea className="flex-1 min-h-0">
             <div className="p-5">
               {detail.body?.contentType === "html" ? (
-                <div className="prose dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: detail.body.content }} />
+                <div className="prose dark:prose-invert max-w-none [&_img]:max-w-full [&_img]:h-auto" dangerouslySetInnerHTML={{ __html: processHtmlForImages(detail.body.content, detail.id, detail.attachmentsList) }} />
               ) : (
                 <pre className="whitespace-pre-wrap font-sans text-sm">{detail.body?.content || detail.bodyPreview}</pre>
               )}

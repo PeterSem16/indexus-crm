@@ -3896,10 +3896,131 @@ export async function registerRoutes(
         }
       }
       
-      res.json({ ...email, linkedCustomer, aiAnalysis: existingAiAnalysis });
+      let attachmentsList: any[] = [];
+      if (email.hasAttachments) {
+        try {
+          const { getEmailAttachments } = await import("./lib/ms365");
+          const rawAttachments = await getEmailAttachments(
+            tokenResult.accessToken,
+            emailId,
+            mailboxEmail === "personal" ? undefined : mailboxEmail
+          );
+          attachmentsList = rawAttachments.map((a: any) => ({
+            id: a.id,
+            name: a.name,
+            contentType: a.contentType,
+            size: a.size,
+            isInline: a.isInline || false,
+            contentId: a.contentId || null,
+          }));
+        } catch (attErr) {
+          console.error("[EmailRouter] Error fetching attachments:", attErr);
+        }
+      }
+
+      res.json({ ...email, linkedCustomer, aiAnalysis: existingAiAnalysis, attachmentsList });
     } catch (error) {
       console.error("Error fetching email:", error);
       res.status(500).json({ error: "Failed to fetch email" });
+    }
+  });
+
+  app.get("/api/users/:userId/ms365-email/:emailId/attachments/:attachmentId", requireAuth, async (req, res) => {
+    try {
+      const { userId, emailId, attachmentId } = req.params;
+      const mailboxEmail = req.query.mailbox as string | undefined;
+
+      const ms365Connection = await storage.getUserMs365Connection(userId);
+      if (!ms365Connection || !ms365Connection.isConnected) {
+        return res.status(400).json({ error: "MS365 not connected" });
+      }
+
+      const { decryptTokenSafe } = await import("./lib/token-crypto");
+      const { getValidAccessToken, getEmailAttachmentContent } = await import("./lib/ms365");
+
+      let accessToken: string;
+      let refreshToken: string | null;
+
+      try {
+        accessToken = decryptTokenSafe(ms365Connection.accessToken);
+        refreshToken = ms365Connection.refreshToken ? decryptTokenSafe(ms365Connection.refreshToken) : null;
+      } catch {
+        return res.status(400).json({ error: "Token decryption failed" });
+      }
+
+      const tokenResult = await getValidAccessToken(accessToken, ms365Connection.tokenExpiresAt, refreshToken);
+      if (!tokenResult?.accessToken) {
+        return res.status(401).json({ error: "Token expired" });
+      }
+
+      const attachment = await getEmailAttachmentContent(
+        tokenResult.accessToken,
+        emailId,
+        attachmentId,
+        mailboxEmail === "personal" ? undefined : mailboxEmail
+      );
+
+      if (!attachment || !attachment.contentBytes) {
+        return res.status(404).json({ error: "Attachment not found" });
+      }
+
+      const buffer = Buffer.from(attachment.contentBytes, 'base64');
+      res.setHeader('Content-Type', attachment.contentType || 'application/octet-stream');
+      res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(attachment.name || 'attachment')}"`);
+      res.setHeader('Content-Length', buffer.length.toString());
+      res.send(buffer);
+    } catch (error) {
+      console.error("Error downloading attachment:", error);
+      res.status(500).json({ error: "Failed to download attachment" });
+    }
+  });
+
+  app.get("/api/users/:userId/ms365-email/:emailId/attachment-inline/:attachmentId", requireAuth, async (req, res) => {
+    try {
+      const { userId, emailId, attachmentId } = req.params;
+      const mailboxEmail = req.query.mailbox as string | undefined;
+
+      const ms365Connection = await storage.getUserMs365Connection(userId);
+      if (!ms365Connection || !ms365Connection.isConnected) {
+        return res.status(400).json({ error: "MS365 not connected" });
+      }
+
+      const { decryptTokenSafe } = await import("./lib/token-crypto");
+      const { getValidAccessToken, getEmailAttachmentContent } = await import("./lib/ms365");
+
+      let accessToken: string;
+      let refreshToken: string | null;
+
+      try {
+        accessToken = decryptTokenSafe(ms365Connection.accessToken);
+        refreshToken = ms365Connection.refreshToken ? decryptTokenSafe(ms365Connection.refreshToken) : null;
+      } catch {
+        return res.status(400).json({ error: "Token decryption failed" });
+      }
+
+      const tokenResult = await getValidAccessToken(accessToken, ms365Connection.tokenExpiresAt, refreshToken);
+      if (!tokenResult?.accessToken) {
+        return res.status(401).json({ error: "Token expired" });
+      }
+
+      const attachment = await getEmailAttachmentContent(
+        tokenResult.accessToken,
+        emailId,
+        attachmentId,
+        mailboxEmail === "personal" ? undefined : mailboxEmail
+      );
+
+      if (!attachment || !attachment.contentBytes) {
+        return res.status(404).json({ error: "Attachment not found" });
+      }
+
+      const buffer = Buffer.from(attachment.contentBytes, 'base64');
+      res.setHeader('Content-Type', attachment.contentType || 'image/png');
+      res.setHeader('Cache-Control', 'private, max-age=3600');
+      res.send(buffer);
+    } catch (error) {
+      console.error("Error fetching inline attachment:", error);
+      res.status(500).json({ error: "Failed to fetch inline attachment" });
     }
   });
 
@@ -3907,7 +4028,7 @@ export async function registerRoutes(
   app.post("/api/users/:userId/ms365-send-email", requireAuth, async (req, res) => {
     try {
       const { userId } = req.params;
-      const { to, cc, bcc, subject, body, isHtml, mailboxEmail } = req.body;
+      const { to, cc, bcc, subject, body, isHtml, mailboxEmail, importance } = req.body;
       
       if (!to || !Array.isArray(to) || to.length === 0) {
         return res.status(400).json({ error: "Recipient is required" });
@@ -3950,7 +4071,8 @@ export async function registerRoutes(
         isHtml !== false,
         cc || [],
         bcc || [],
-        mailboxEmail === "personal" ? undefined : mailboxEmail
+        mailboxEmail === "personal" ? undefined : mailboxEmail,
+        importance
       );
       
       if (success) {
