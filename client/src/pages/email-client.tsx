@@ -464,10 +464,12 @@ export default function EmailClientPage() {
   const [aiSuggestLoading, setAiSuggestLoading] = useState(false);
   const [aiSummaryLoading, setAiSummaryLoading] = useState(false);
   const [aiSuggestCounter, setAiSuggestCounter] = useState(0);
+  const aiInsertBodyRef = useRef<string | null>(null);
   const [aiModalOpen, setAiModalOpen] = useState(false);
   const [aiModalContent, setAiModalContent] = useState("");
   const [aiModalType, setAiModalType] = useState<"reply" | "summary">("reply");
   const [detailFullscreen, setDetailFullscreen] = useState(false);
+  const [replyModalFullscreen, setReplyModalFullscreen] = useState(false);
   const [signatureDialogOpen, setSignatureDialogOpen] = useState(false);
   const [page, setPage] = useState(0);
   const pageSize = 200;
@@ -909,6 +911,7 @@ export default function EmailClientPage() {
       toast({ title: "Odoslané", description: "Odpoveď bola úspešne odoslaná" });
       setReplyMode(null);
       setReplyFieldsExpanded(false);
+      setReplyModalFullscreen(false);
       setComposeData({ to: "", cc: "", bcc: "", subject: "", body: "", importance: "normal", tagId: null, replyTo: "" });
       setAttachments([]);
       refetchMessages();
@@ -926,6 +929,7 @@ export default function EmailClientPage() {
       toast({ title: "Odoslané", description: "Správa bola úspešne preposlaná" });
       setReplyMode(null);
       setReplyFieldsExpanded(false);
+      setReplyModalFullscreen(false);
       setComposeData({ to: "", cc: "", bcc: "", subject: "", body: "", importance: "normal", tagId: null, replyTo: "" });
       setAttachments([]);
       refetchMessages();
@@ -1351,10 +1355,8 @@ export default function EmailClientPage() {
       ? '<p><br></p><p><br></p><p><br></p><div class="email-signature">' + signatureForMailbox + '</div>'
       : '';
     const newBody = aiModalContent + sigBlock;
-    setComposeData(prev => ({ ...prev, body: newBody }));
-    setTimeout(() => {
-      setAiSuggestCounter(prev => prev + 1);
-    }, 0);
+    aiInsertBodyRef.current = newBody;
+    setAiSuggestCounter(prev => prev + 1);
     setReplyMode(prev => prev || "reply");
     setAiModalOpen(false);
   };
@@ -2464,130 +2466,153 @@ export default function EmailClientPage() {
           </div>
         )}
 
-        {replyMode ? (
-          <div className="flex-1 p-4 space-y-2 overflow-auto">
-            <div className="flex items-center justify-between">
-              <h3 className="font-medium text-sm">
-                {replyMode === "reply" && "Odpoveď"}
-                {replyMode === "replyAll" && "Odpoveď všetkým"}
-                {replyMode === "forward" && "Preposlať"}
-              </h3>
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setReplyMode(null); setReplyFieldsExpanded(false); }}>
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-1">
-                <span className="text-xs text-muted-foreground w-16 shrink-0">Pre:</span>
-                <div className="flex-1">
-                  <EmailRecipientInput
-                    placeholder="Komu (viac adries oddeľte čiarkou)"
-                    value={composeData.to}
-                    onChange={(v) => setComposeData({ ...composeData, to: v })}
-                    knownEmails={knownEmails}
-                    data-testid="input-reply-to"
-                  />
+        {replyMode && (
+          <Dialog open={!!replyMode} onOpenChange={(open) => { if (!open) { setReplyMode(null); setReplyFieldsExpanded(false); setReplyModalFullscreen(false); } }}>
+            <DialogContent className={cn(
+              "flex flex-col gap-0 p-0",
+              replyModalFullscreen
+                ? "max-w-[100vw] w-[100vw] h-[100vh] max-h-[100vh] rounded-none"
+                : "max-w-3xl w-[90vw] max-h-[85vh]"
+            )}>
+              <DialogHeader className="px-4 py-3 border-b shrink-0">
+                <div className="flex items-center justify-between">
+                  <DialogTitle className="text-base">
+                    {replyMode === "reply" && "Odpoveď"}
+                    {replyMode === "replyAll" && "Odpoveď všetkým"}
+                    {replyMode === "forward" && "Preposlať"}
+                  </DialogTitle>
+                  <div className="flex items-center gap-1">
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setReplyModalFullscreen(f => !f)} title={replyModalFullscreen ? "Zmenšiť" : "Na celú obrazovku"}>
+                      {replyModalFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+                    </Button>
+                  </div>
                 </div>
-                <Button type="button" variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => setReplyFieldsExpanded(!replyFieldsExpanded)} title={replyFieldsExpanded ? "Skryť polia" : "Kópia, Skrytá, Reply To"}>
-                  {replyFieldsExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                </Button>
-              </div>
-              {replyFieldsExpanded && (
-                <>
+                <DialogDescription className="sr-only">
+                  {replyMode === "reply" ? "Odpoveď na email" : replyMode === "replyAll" ? "Odpoveď všetkým" : "Preposlať email"}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="flex-1 overflow-auto p-4 space-y-2">
+                <div className="space-y-1.5">
                   <div className="flex items-center gap-1">
-                    <span className="text-xs text-muted-foreground w-16 shrink-0">Kópia:</span>
+                    <span className="text-xs text-muted-foreground w-16 shrink-0">Pre:</span>
                     <div className="flex-1">
                       <EmailRecipientInput
-                        placeholder="Cc"
-                        value={composeData.cc}
-                        onChange={(v) => setComposeData({ ...composeData, cc: v })}
+                        placeholder="Komu (viac adries oddeľte čiarkou)"
+                        value={composeData.to}
+                        onChange={(v) => setComposeData({ ...composeData, to: v })}
                         knownEmails={knownEmails}
-                        data-testid="input-reply-cc"
+                        data-testid="input-reply-to"
                       />
                     </div>
+                    <Button type="button" variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => setReplyFieldsExpanded(!replyFieldsExpanded)} title={replyFieldsExpanded ? "Skryť polia" : "Kópia, Skrytá, Reply To"}>
+                      {replyFieldsExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                    </Button>
                   </div>
+                  {replyFieldsExpanded && (
+                    <>
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs text-muted-foreground w-16 shrink-0">Kópia:</span>
+                        <div className="flex-1">
+                          <EmailRecipientInput
+                            placeholder="Cc"
+                            value={composeData.cc}
+                            onChange={(v) => setComposeData({ ...composeData, cc: v })}
+                            knownEmails={knownEmails}
+                            data-testid="input-reply-cc"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs text-muted-foreground w-16 shrink-0">Skrytá:</span>
+                        <div className="flex-1">
+                          <EmailRecipientInput
+                            placeholder="Bcc"
+                            value={composeData.bcc}
+                            onChange={(v) => setComposeData({ ...composeData, bcc: v })}
+                            knownEmails={knownEmails}
+                            data-testid="input-reply-bcc"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs text-muted-foreground w-16 shrink-0">Reply To:</span>
+                        <div className="flex-1">
+                          <Input
+                            placeholder="Reply-To adresa"
+                            value={composeData.replyTo || ""}
+                            onChange={(e) => setComposeData({ ...composeData, replyTo: e.target.value })}
+                            data-testid="input-reply-replyto"
+                          />
+                        </div>
+                      </div>
+                    </>
+                  )}
                   <div className="flex items-center gap-1">
-                    <span className="text-xs text-muted-foreground w-16 shrink-0">Skrytá:</span>
-                    <div className="flex-1">
-                      <EmailRecipientInput
-                        placeholder="Bcc"
-                        value={composeData.bcc}
-                        onChange={(v) => setComposeData({ ...composeData, bcc: v })}
-                        knownEmails={knownEmails}
-                        data-testid="input-reply-bcc"
-                      />
-                    </div>
+                    <span className="text-xs text-muted-foreground w-16 shrink-0">Predmet:</span>
+                    <Input
+                      placeholder="Predmet"
+                      value={composeData.subject}
+                      onChange={(e) => setComposeData({ ...composeData, subject: e.target.value })}
+                      className="flex-1"
+                      data-testid="input-reply-subject"
+                    />
                   </div>
-                  <div className="flex items-center gap-1">
-                    <span className="text-xs text-muted-foreground w-16 shrink-0">Reply To:</span>
-                    <div className="flex-1">
-                      <Input
-                        placeholder="Reply-To adresa"
-                        value={composeData.replyTo || ""}
-                        onChange={(e) => setComposeData({ ...composeData, replyTo: e.target.value })}
-                        data-testid="input-reply-replyto"
-                      />
-                    </div>
-                  </div>
-                </>
-              )}
-              <div className="flex items-center gap-1">
-                <span className="text-xs text-muted-foreground w-16 shrink-0">Predmet:</span>
-                <Input
-                  placeholder="Predmet"
-                  value={composeData.subject}
-                  onChange={(e) => setComposeData({ ...composeData, subject: e.target.value })}
-                  className="flex-1"
-                  data-testid="input-reply-subject"
+                </div>
+                <EmailEditor
+                  key={`reply-${replyMode}-${selectedEmail?.id}-${aiSuggestCounter}`}
+                  initialContent={(() => {
+                    if (aiInsertBodyRef.current !== null) {
+                      const val = aiInsertBodyRef.current;
+                      aiInsertBodyRef.current = null;
+                      return val;
+                    }
+                    return composeData.body;
+                  })()}
+                  onChange={(html) => setComposeData(prev => ({ ...prev, body: html }))}
+                  signatureHtml={getSignatureForCompose()}
+                  placeholder="Napíšte odpoveď..."
+                  minHeight={replyModalFullscreen ? "300px" : "200px"}
+                  attachments={attachments}
+                  onAttachmentsChange={setAttachments}
+                  showAttachments={true}
+                  onAiSuggest={handleAiSuggestReply}
+                  onAiSummary={handleAiSummary}
+                  aiLoading={aiSuggestLoading}
+                  aiSummaryLoading={aiSummaryLoading}
                 />
+                <div className="mt-3 pt-3 border-t">
+                  <p className="text-xs text-muted-foreground mb-2">
+                    {format(new Date(emailDetail.receivedDateTime), "d. MMMM yyyy, HH:mm")}, {emailDetail.from?.emailAddress?.name || emailDetail.from?.emailAddress?.address} napísal(a):
+                  </p>
+                  <div className="pl-3 border-l-2 border-muted-foreground/30 max-h-60 overflow-auto">
+                    {emailDetail.body?.contentType === "html" ? (
+                      <div className="prose dark:prose-invert max-w-none text-sm opacity-70 overflow-hidden [&_img]:max-w-full [&_img]:h-auto [&_table]:table-fixed [&_table]:w-full [&_td]:break-words [&_a]:break-all [&_*]:max-w-full" style={{ overflowWrap: "break-word", wordBreak: "break-word" }} dangerouslySetInnerHTML={{ __html: processHtmlForImages(emailDetail.body.content, emailDetail.id, emailDetail.attachmentsList) }} />
+                    ) : (
+                      <pre className="whitespace-pre-wrap font-sans text-sm opacity-70" style={{ overflowWrap: "break-word", wordBreak: "break-word" }}>{emailDetail.body?.content || emailDetail.bodyPreview}</pre>
+                    )}
+                  </div>
+                </div>
               </div>
-            </div>
-            <EmailEditor
-              key={`reply-${replyMode}-${selectedEmail?.id}-${aiSuggestCounter}`}
-              initialContent={composeData.body}
-              onChange={(html) => setComposeData(prev => ({ ...prev, body: html }))}
-              signatureHtml={getSignatureForCompose()}
-              placeholder="Napíšte odpoveď..."
-              minHeight="150px"
-              attachments={attachments}
-              onAttachmentsChange={setAttachments}
-              showAttachments={true}
-              onAiSuggest={handleAiSuggestReply}
-              onAiSummary={handleAiSummary}
-              aiLoading={aiSuggestLoading}
-              aiSummaryLoading={aiSummaryLoading}
-            />
-            <div className="flex justify-end">
-              <Button onClick={replyMode === "forward" ? handleForward : handleReply} disabled={replyMutation.isPending || forwardMutation.isPending} data-testid="button-send-reply">
-                {(replyMutation.isPending || forwardMutation.isPending) && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                <Send className="h-4 w-4 mr-2" />
-                Odoslať
-              </Button>
-            </div>
-            <div className="mt-3 pt-3 border-t">
-              <p className="text-xs text-muted-foreground mb-2">
-                {format(new Date(emailDetail.receivedDateTime), "d. MMMM yyyy, HH:mm")}, {emailDetail.from?.emailAddress?.name || emailDetail.from?.emailAddress?.address} napísal(a):
-              </p>
-              <div className="pl-3 border-l-2 border-muted-foreground/30">
-                {emailDetail.body?.contentType === "html" ? (
-                  <div className="prose dark:prose-invert max-w-none text-sm opacity-70 overflow-hidden [&_img]:max-w-full [&_img]:h-auto [&_table]:table-fixed [&_table]:w-full [&_td]:break-words [&_a]:break-all [&_*]:max-w-full" style={{ overflowWrap: "break-word", wordBreak: "break-word" }} dangerouslySetInnerHTML={{ __html: processHtmlForImages(emailDetail.body.content, emailDetail.id, emailDetail.attachmentsList) }} />
-                ) : (
-                  <pre className="whitespace-pre-wrap font-sans text-sm opacity-70" style={{ overflowWrap: "break-word", wordBreak: "break-word" }}>{emailDetail.body?.content || emailDetail.bodyPreview}</pre>
-                )}
-              </div>
-            </div>
-          </div>
-        ) : (
-          <ScrollArea className="flex-1">
-            <div className="p-4 overflow-hidden">
-              {emailDetail.body?.contentType === "html" ? (
-                <div className="prose dark:prose-invert max-w-none overflow-hidden [&_img]:max-w-full [&_img]:h-auto [&_table]:table-fixed [&_table]:w-full [&_td]:break-words [&_a]:break-all [&_*]:max-w-full" style={{ overflowWrap: "break-word", wordBreak: "break-word" }} dangerouslySetInnerHTML={{ __html: processHtmlForImages(emailDetail.body.content, emailDetail.id, emailDetail.attachmentsList) }} />
-              ) : (
-                <pre className="whitespace-pre-wrap font-sans text-sm" style={{ overflowWrap: "break-word", wordBreak: "break-word" }}>{emailDetail.body?.content || emailDetail.bodyPreview}</pre>
-              )}
-            </div>
-          </ScrollArea>
+              <DialogFooter className="px-4 py-3 border-t shrink-0">
+                <Button onClick={replyMode === "forward" ? handleForward : handleReply} disabled={replyMutation.isPending || forwardMutation.isPending} data-testid="button-send-reply">
+                  {(replyMutation.isPending || forwardMutation.isPending) && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  <Send className="h-4 w-4 mr-2" />
+                  Odoslať
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         )}
+
+        <ScrollArea className="flex-1">
+          <div className="p-4 overflow-hidden">
+            {emailDetail.body?.contentType === "html" ? (
+              <div className="prose dark:prose-invert max-w-none overflow-hidden [&_img]:max-w-full [&_img]:h-auto [&_table]:table-fixed [&_table]:w-full [&_td]:break-words [&_a]:break-all [&_*]:max-w-full" style={{ overflowWrap: "break-word", wordBreak: "break-word" }} dangerouslySetInnerHTML={{ __html: processHtmlForImages(emailDetail.body.content, emailDetail.id, emailDetail.attachmentsList) }} />
+            ) : (
+              <pre className="whitespace-pre-wrap font-sans text-sm" style={{ overflowWrap: "break-word", wordBreak: "break-word" }}>{emailDetail.body?.content || emailDetail.bodyPreview}</pre>
+            )}
+          </div>
+        </ScrollArea>
       </div>
     );
   }
