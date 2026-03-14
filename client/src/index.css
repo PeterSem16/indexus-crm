@@ -684,3 +684,12 @@
 [data-agent-fullscreen="true"] header {
   display: none !important;
 }
+
+[data-radix-scroll-area-viewport] {
+  overflow-x: hidden !important;
+}
+
+[data-radix-scroll-area-viewport] > div {
+  display: block !important;
+  min-width: 0 !important;
+}

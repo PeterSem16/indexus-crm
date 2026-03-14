@@ -1608,8 +1608,8 @@ export default function EmailClientPage() {
                   </div>
                 ) : (
                   <>
-                  <ScrollArea className="h-[calc(100vh-380px)]">
-                    <div className="divide-y">
+                  <ScrollArea className="h-[calc(100vh-380px)]" style={{ overflowX: "hidden" }}>
+                    <div className="divide-y" style={{ overflowX: "hidden", maxWidth: "100%" }}>
                       {emailsPage.map((email) => {
                         const tintBg = selectedMailbox === "all" && email._mailboxEmail
                           ? getAccountTint(email._mailboxEmail)
