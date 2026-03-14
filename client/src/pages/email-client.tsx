@@ -151,14 +151,16 @@ function TeamsPanel({ userId }: { userId?: string }) {
   const [chatInput, setChatInput] = useState("");
   const { toast } = useToast();
 
-  const { data: chatsData, isLoading: chatsLoading } = useQuery<{ connected: boolean; chats: any[]; error?: string | null; requiredPermissions?: string[] }>({
+  const { data: chatsData, isLoading: chatsLoading, error: chatsError } = useQuery<{ connected: boolean; chats: any[]; error?: string | null; requiredPermissions?: string[] }>({
     queryKey: [`/api/users/${userId}/teams-chats`],
     enabled: !!userId && teamsView === "chats",
+    retry: 1,
   });
 
-  const { data: teamsData, isLoading: teamsLoading } = useQuery<{ connected: boolean; teams: any[]; error?: string | null; requiredPermissions?: string[] }>({
+  const { data: teamsData, isLoading: teamsLoading, error: teamsError } = useQuery<{ connected: boolean; teams: any[]; error?: string | null; requiredPermissions?: string[] }>({
     queryKey: [`/api/users/${userId}/teams-joined`],
     enabled: !!userId && teamsView === "teams",
+    retry: 1,
   });
 
   const { data: channelsData } = useQuery<{ connected: boolean; channels: any[] }>({
@@ -254,7 +256,7 @@ function TeamsPanel({ userId }: { userId?: string }) {
                 ) : chats.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
                     <MessagesSquare className="h-8 w-8 mb-2 opacity-30" />
-                    <span className="text-xs">{chatsData?.error ? "Nepodarilo sa načítať chaty" : "Žiadne Teams chaty"}</span>
+                    <span className="text-xs">{chatsError ? `Chyba: ${chatsError.message}` : chatsData?.error ? `Chyba: ${chatsData.error}` : chatsData?.connected === false ? "MS365 nie je pripojený" : "Žiadne Teams chaty"}</span>
                   </div>
                 ) : chats.map(chat => (
                   <button
@@ -286,7 +288,7 @@ function TeamsPanel({ userId }: { userId?: string }) {
                 ) : teams.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
                     <Users className="h-8 w-8 mb-2 opacity-30" />
-                    <span className="text-xs">Žiadne tímy</span>
+                    <span className="text-xs">{teamsError ? `Chyba: ${teamsError.message}` : teamsData?.error ? `Chyba: ${teamsData.error}` : teamsData?.connected === false ? "MS365 nie je pripojený" : "Žiadne tímy"}</span>
                   </div>
                 ) : teams.map(team => (
                   <button
@@ -1314,7 +1316,7 @@ export default function EmailClientPage() {
 
         {activeTab === "email" && (
           <>
-            <Card className="transition-all duration-300 w-[30%] min-w-[320px] max-w-[420px] shrink-0">
+            <Card className="transition-all duration-300 w-[30%] min-w-[320px] max-w-[420px] shrink-0 overflow-hidden">
               <CardHeader className="py-1.5 px-3 space-y-0 border-b">
                 <div className="flex items-center justify-between gap-1">
                   <div className="flex items-center gap-2">
@@ -1572,14 +1574,14 @@ export default function EmailClientPage() {
                                           {format(new Date(email.receivedDateTime), "d.M. HH:mm")}
                                         </span>
                                       </div>
-                                      <div className="flex items-center gap-1 mt-0.5">
-                                        <p className={`text-xs leading-tight flex-1 min-w-0 ${!email.isRead && emailPrefs.highlightUnread ? "font-semibold" : "text-muted-foreground"}`} style={{ display: "-webkit-box", WebkitLineClamp: 1, WebkitBoxOrient: "vertical", overflow: "hidden", overflowWrap: "anywhere" }}>
+                                      <div className="flex items-center gap-1 mt-0.5 overflow-hidden">
+                                        <p className={`text-xs leading-tight flex-1 min-w-0 truncate ${!email.isRead && emailPrefs.highlightUnread ? "font-semibold" : "text-muted-foreground"}`}>
                                           {email.subject || "(Bez predmetu)"}
                                         </p>
                                         {emailPrefs.previewAttachmentIcons && email.hasAttachments && <Paperclip className="h-3.5 w-3.5 text-muted-foreground/70 shrink-0" />}
                                       </div>
                                       {emailPrefs.previewLines > 0 && email.bodyPreview && (
-                                        <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed" style={{ display: "-webkit-box", WebkitLineClamp: emailPrefs.previewLines === 1 ? 1 : 2, WebkitBoxOrient: "vertical", overflow: "hidden", overflowWrap: "anywhere", wordBreak: "break-word" }}>{email.bodyPreview}</p>
+                                        <p className={`text-[11px] text-muted-foreground mt-0.5 leading-relaxed overflow-hidden ${emailPrefs.previewLines === 1 ? "truncate" : ""}`} style={emailPrefs.previewLines > 1 ? { display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as const, overflow: "hidden", wordBreak: "break-word" } : undefined}>{email.bodyPreview}</p>
                                       )}
                                     </div>
                                   </div>
@@ -1651,15 +1653,15 @@ export default function EmailClientPage() {
                                   {format(new Date(email.receivedDateTime), "d.M. HH:mm")}
                                 </span>
                               </div>
-                              <div className="flex items-center gap-1 mt-0.5">
-                                <p className={`text-xs leading-tight flex-1 min-w-0 ${!email.isRead && emailPrefs.highlightUnread ? "font-semibold" : "text-muted-foreground"}`} style={{ display: "-webkit-box", WebkitLineClamp: 1, WebkitBoxOrient: "vertical", overflow: "hidden", overflowWrap: "anywhere" }}>
+                              <div className="flex items-center gap-1 mt-0.5 overflow-hidden">
+                                <p className={`text-xs leading-tight flex-1 min-w-0 truncate ${!email.isRead && emailPrefs.highlightUnread ? "font-semibold" : "text-muted-foreground"}`}>
                                   {email.subject || "(Bez predmetu)"}
                                 </p>
                                 <div className="flex items-center gap-1 shrink-0">
                                   {email.hasAttachments && <Paperclip className="h-3.5 w-3.5 text-muted-foreground/70" />}
                                   {selectedMailbox === "all" && acctColor && (
                                     <span
-                                      className="h-5 w-5 rounded-full flex items-center justify-center"
+                                      className="h-5 w-5 rounded-full flex items-center justify-center shrink-0"
                                       style={{ backgroundColor: acctColor }}
                                       title={mailboxes.find(m => m.email === email._mailboxEmail)?.displayName || email._mailboxEmail}
                                     >
@@ -1669,7 +1671,7 @@ export default function EmailClientPage() {
                                 </div>
                               </div>
                               {emailPrefs.previewLines > 0 && email.bodyPreview && (
-                                <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed" style={{ display: "-webkit-box", WebkitLineClamp: emailPrefs.previewLines === 1 ? 1 : 2, WebkitBoxOrient: "vertical", overflow: "hidden", overflowWrap: "anywhere", wordBreak: "break-word" }}>{email.bodyPreview}</p>
+                                <p className={`text-[11px] text-muted-foreground mt-0.5 leading-relaxed overflow-hidden ${emailPrefs.previewLines === 1 ? "truncate" : ""}`} style={emailPrefs.previewLines > 1 ? { display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as const, overflow: "hidden", wordBreak: "break-word" } : undefined}>{email.bodyPreview}</p>
                               )}
                               {emailPrefs.showTags && getEmailTags(email.id).length > 0 && (
                                 <div className="flex items-center gap-1 mt-0.5 flex-wrap">

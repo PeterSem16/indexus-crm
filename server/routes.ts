@@ -3555,6 +3555,7 @@ export async function registerRoutes(
   app.get("/api/users/:userId/teams-chats", requireAuth, async (req, res) => {
     try {
       const { userId } = req.params;
+      console.log("[Teams] GET teams-chats for userId:", userId);
       const ms365Connection = await storage.getUserMs365Connection(userId);
       if (!ms365Connection || !ms365Connection.isConnected) {
         return res.json({ connected: false, chats: [], error: null });
