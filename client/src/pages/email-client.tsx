@@ -96,7 +96,14 @@ import {
   Plus,
   Briefcase,
   Hourglass,
+  Palette,
+  Type,
+  LayoutList,
+  Sliders,
+  UserCircle,
+  Download,
 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import Editor from "react-simple-wysiwyg";
 
 import NexusSidebar from "@/components/nexus/nexus-sidebar";
@@ -165,11 +172,38 @@ export default function EmailClientPage() {
   const [listSearchOpen, setListSearchOpen] = useState(false);
   const [filterByTagId, setFilterByTagId] = useState<string | null>(null);
   const [tagPickerEmailId, setTagPickerEmailId] = useState<string | null>(null);
-  const [settingsTab, setSettingsTab] = useState<"signature" | "tags" | "accounts">("signature");
+  const [settingsTab, setSettingsTab] = useState<"accounts" | "messages" | "compose" | "tags" | "appearance">("messages");
   const [newTagName, setNewTagName] = useState("");
   const [newTagColor, setNewTagColor] = useState("#6B7280");
   const [loadingAll, setLoadingAll] = useState(false);
   const [defaultTagsInitialized, setDefaultTagsInitialized] = useState(false);
+
+  const [emailPrefs, setEmailPrefs] = useState(() => {
+    const saved = localStorage.getItem("nexus-email-prefs");
+    return saved ? JSON.parse(saved) : {
+      showAccountIcons: true,
+      highlightUnread: true,
+      unreadIndicator: true,
+      showTags: true,
+      previewAttachmentIcons: true,
+      previewLines: 1,
+      defaultSort: "date-desc",
+      showAllRecipients: false,
+      expandBodyMessages: true,
+      attachmentsBeforeContent: false,
+      autoLoadImages: true,
+      showSenderInitials: true,
+      groupByDate: false,
+    };
+  });
+
+  const updateEmailPref = (key: string, value: any) => {
+    setEmailPrefs((prev: any) => {
+      const next = { ...prev, [key]: value };
+      localStorage.setItem("nexus-email-prefs", JSON.stringify(next));
+      return next;
+    });
+  };
 
   const toggleEmailFilter = (key: keyof typeof emailFilters) => {
     setEmailFilters(prev => {
@@ -1113,23 +1147,32 @@ export default function EmailClientPage() {
                                   data-testid={`search-email-item-${email.id}`}
                                 >
                                   <div className="flex items-start gap-2.5">
-                                    <span className={`h-2 w-2 rounded-full shrink-0 mt-2 ${!email.isRead ? "bg-blue-500" : "bg-transparent"}`} />
+                                    {emailPrefs.unreadIndicator && (
+                                      <span className={`h-2 w-2 rounded-full shrink-0 mt-2 ${!email.isRead ? "bg-blue-500" : "bg-transparent"}`} />
+                                    )}
+                                    {emailPrefs.showSenderInitials && (
+                                      <div className="h-7 w-7 rounded-full bg-gradient-to-br from-muted to-muted-foreground/20 flex items-center justify-center text-[10px] font-bold text-muted-foreground shrink-0 mt-0.5">
+                                        {(email.from?.emailAddress?.name || email.from?.emailAddress?.address || "?").substring(0, 2).toUpperCase()}
+                                      </div>
+                                    )}
                                     <div className="flex-1 min-w-0">
                                       <div className="flex items-center justify-between gap-1">
-                                        <span className={`text-sm truncate ${!email.isRead ? "font-bold" : ""}`}>
+                                        <span className={`text-sm truncate ${!email.isRead && emailPrefs.highlightUnread ? "font-bold" : ""}`}>
                                           {email.from?.emailAddress?.name || email.from?.emailAddress?.address || "Neznámy"}
                                         </span>
                                         <div className="flex items-center gap-1 shrink-0">
-                                          {email.hasAttachments && <Paperclip className="h-3 w-3 text-muted-foreground" />}
+                                          {emailPrefs.previewAttachmentIcons && email.hasAttachments && <Paperclip className="h-3 w-3 text-muted-foreground" />}
                                           <span className="text-[11px] text-muted-foreground whitespace-nowrap">
                                             {format(new Date(email.receivedDateTime), "d.M. HH:mm")}
                                           </span>
                                         </div>
                                       </div>
-                                      <p className={`text-xs truncate ${!email.isRead ? "font-semibold" : "text-muted-foreground"}`}>
+                                      <p className={`text-xs truncate ${!email.isRead && emailPrefs.highlightUnread ? "font-semibold" : "text-muted-foreground"}`}>
                                         {email.subject || "(Bez predmetu)"}
                                       </p>
-                                      <p className="text-[11px] text-muted-foreground truncate">{email.bodyPreview}</p>
+                                      {emailPrefs.previewLines > 0 && (
+                                        <p className={`text-[11px] text-muted-foreground ${emailPrefs.previewLines === 1 ? "truncate" : "line-clamp-2"}`}>{email.bodyPreview}</p>
+                                      )}
                                     </div>
                                   </div>
                                 </div>
@@ -1172,28 +1215,37 @@ export default function EmailClientPage() {
                           </button>
                           <div className="flex items-start gap-2.5">
                             <div className="flex flex-col items-center gap-0.5 mt-1.5 shrink-0">
-                              <span className={`h-2 w-2 rounded-full ${!email.isRead ? "bg-blue-500" : "bg-transparent"}`} />
-                              {currentMailboxEmail && mailboxColorMap[currentMailboxEmail] && (
+                              {emailPrefs.unreadIndicator && (
+                                <span className={`h-2 w-2 rounded-full ${!email.isRead ? "bg-blue-500" : "bg-transparent"}`} />
+                              )}
+                              {emailPrefs.showAccountIcons && currentMailboxEmail && mailboxColorMap[currentMailboxEmail] && (
                                 <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: mailboxColorMap[currentMailboxEmail] }} />
                               )}
                             </div>
+                            {emailPrefs.showSenderInitials && (
+                              <div className="h-8 w-8 rounded-full bg-gradient-to-br from-muted to-muted-foreground/20 flex items-center justify-center text-[11px] font-bold text-muted-foreground shrink-0 mt-0.5">
+                                {(email.from?.emailAddress?.name || email.from?.emailAddress?.address || "?").substring(0, 2).toUpperCase()}
+                              </div>
+                            )}
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center justify-between gap-1">
-                                <span className={`text-sm truncate ${!email.isRead ? "font-bold" : ""}`}>
+                                <span className={`text-sm truncate ${!email.isRead && emailPrefs.highlightUnread ? "font-bold" : ""}`}>
                                   {email.from?.emailAddress?.name || email.from?.emailAddress?.address || "Neznámy"}
                                 </span>
                                 <div className="flex items-center gap-1 shrink-0">
-                                  {email.hasAttachments && <Paperclip className="h-3 w-3 text-muted-foreground" />}
+                                  {emailPrefs.previewAttachmentIcons && email.hasAttachments && <Paperclip className="h-3 w-3 text-muted-foreground" />}
                                   <span className="text-[11px] text-muted-foreground whitespace-nowrap">
                                     {format(new Date(email.receivedDateTime), "d.M. HH:mm")}
                                   </span>
                                 </div>
                               </div>
-                              <p className={`text-xs truncate ${!email.isRead ? "font-semibold" : "text-muted-foreground"}`}>
+                              <p className={`text-xs truncate ${!email.isRead && emailPrefs.highlightUnread ? "font-semibold" : "text-muted-foreground"}`}>
                                 {email.subject || "(Bez predmetu)"}
                               </p>
-                              <p className="text-[11px] text-muted-foreground truncate">{email.bodyPreview}</p>
-                              {getEmailTags(email.id).length > 0 && (
+                              {emailPrefs.previewLines > 0 && (
+                                <p className={`text-[11px] text-muted-foreground ${emailPrefs.previewLines === 1 ? "truncate" : "line-clamp-2"}`}>{email.bodyPreview}</p>
+                              )}
+                              {emailPrefs.showTags && getEmailTags(email.id).length > 0 && (
                                 <div className="flex items-center gap-1 mt-0.5 flex-wrap">
                                   {getEmailTags(email.id).map((tag: any) => (
                                     <span key={tag.id} className="inline-flex items-center gap-0.5 text-[9px] font-medium px-1.5 py-0 rounded-full text-white" style={{ backgroundColor: tag.color }}>
@@ -1492,11 +1544,34 @@ export default function EmailClientPage() {
       </Dialog>
 
       <Dialog open={signatureDialogOpen} onOpenChange={setSignatureDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
-          <DialogHeader>
-            <DialogTitle>Nastavenia emailu</DialogTitle>
-          </DialogHeader>
-          {renderSettingsTabs()}
+        <DialogContent className="max-w-4xl max-h-[85vh] p-0 gap-0 overflow-hidden">
+          <div className="flex h-[75vh]">
+            <div className="w-48 border-r bg-muted/30 flex flex-col py-2 shrink-0">
+              <DialogHeader className="px-4 pb-3 pt-2">
+                <DialogTitle className="text-base">Nastavenia</DialogTitle>
+              </DialogHeader>
+              {[
+                { key: "accounts" as const, label: "Účty", icon: <UserCircle className="h-4 w-4" /> },
+                { key: "messages" as const, label: "Správy", icon: <LayoutList className="h-4 w-4" /> },
+                { key: "compose" as const, label: "Písanie", icon: <Type className="h-4 w-4" /> },
+                { key: "tags" as const, label: "Tagy", icon: <Tag className="h-4 w-4" /> },
+                { key: "appearance" as const, label: "Vzhľad", icon: <Palette className="h-4 w-4" /> },
+              ].map(item => (
+                <button
+                  key={item.key}
+                  onClick={() => setSettingsTab(item.key)}
+                  className={`flex items-center gap-2.5 px-4 py-2 text-sm transition-colors text-left ${settingsTab === item.key ? "bg-primary/10 text-primary font-medium border-r-2 border-primary" : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"}`}
+                  data-testid={`settings-nav-${item.key}`}
+                >
+                  {item.icon}
+                  {item.label}
+                </button>
+              ))}
+            </div>
+            <div className="flex-1 overflow-auto p-6">
+              {renderSettingsContent()}
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -1549,6 +1624,9 @@ export default function EmailClientPage() {
           <div className="text-sm">
             <p><span className="text-muted-foreground">Od:</span> {emailDetail.from?.emailAddress?.name} &lt;{emailDetail.from?.emailAddress?.address}&gt;</p>
             <p><span className="text-muted-foreground">Komu:</span> {emailDetail.toRecipients?.map(r => r.emailAddress?.address).join(", ")}</p>
+            {emailPrefs.showAllRecipients && emailDetail.ccRecipients && emailDetail.ccRecipients.length > 0 && (
+              <p><span className="text-muted-foreground">CC:</span> {emailDetail.ccRecipients.map((r: any) => r.emailAddress?.address).join(", ")}</p>
+            )}
             <p className="text-muted-foreground text-xs mt-1">
               {format(new Date(emailDetail.receivedDateTime), "d. MMMM yyyy, HH:mm")}
             </p>
@@ -2035,179 +2113,338 @@ export default function EmailClientPage() {
     );
   }
 
-  function renderSettingsTabs() {
+  function renderSettingsContent() {
     const TAG_COLORS = ["#EF4444", "#F59E0B", "#10B981", "#3B82F6", "#8B5CF6", "#EC4899", "#6B7280", "#0EA5E9", "#14B8A6", "#F97316"];
     const ACCOUNT_COLORS = ["#3B82F6", "#EF4444", "#10B981", "#F59E0B", "#8B5CF6", "#EC4899", "#0EA5E9", "#14B8A6", "#F97316", "#6366F1", "#84CC16", "#6B7280"];
 
-    return (
-      <div className="flex flex-col flex-1 min-h-0 gap-4">
-        <div className="flex gap-1 border-b">
-          <button
-            onClick={() => setSettingsTab("signature")}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${settingsTab === "signature" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}
-            data-testid="settings-tab-signature"
-          >
-            Podpis
-          </button>
-          <button
-            onClick={() => setSettingsTab("tags")}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${settingsTab === "tags" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}
-            data-testid="settings-tab-tags"
-          >
-            Tagy
-          </button>
-          <button
-            onClick={() => setSettingsTab("accounts")}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${settingsTab === "accounts" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}
-            data-testid="settings-tab-accounts"
-          >
-            Účty
-          </button>
+    const SettingRow = ({ label, description, children }: { label: string; description?: string; children: React.ReactNode }) => (
+      <div className="flex items-center justify-between gap-4 py-2.5">
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium">{label}</p>
+          {description && <p className="text-[11px] text-muted-foreground">{description}</p>}
         </div>
+        <div className="shrink-0">{children}</div>
+      </div>
+    );
 
-        {settingsTab === "signature" && (
-          <div className="space-y-4 flex-1">
+    const SectionTitle = ({ children }: { children: React.ReactNode }) => (
+      <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-2 mt-4 first:mt-0">{children}</h3>
+    );
+
+    if (settingsTab === "accounts") {
+      return (
+        <div>
+          <h2 className="text-lg font-semibold mb-1">Účty</h2>
+          <p className="text-sm text-muted-foreground mb-4">Pripojené emailové účty a ich farebné označenie.</p>
+          <div className="space-y-2">
+            {mailboxes.map((mb) => {
+              const mbEmail = mb.email;
+              const currentColor = mailboxColorMap[mbEmail] || null;
+              return (
+                <div key={mb.id} className="flex items-center gap-3 p-3 rounded-lg border hover:bg-accent/30 transition-colors group">
+                  <span
+                    className="h-6 w-6 rounded-full shrink-0 border-2 shadow-sm"
+                    style={{ backgroundColor: currentColor || "transparent", borderColor: currentColor || "#d1d5db" }}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{mb.displayName || mb.email}</p>
+                    <p className="text-[11px] text-muted-foreground truncate">{mb.email}</p>
+                  </div>
+                  <Badge variant={mb.type === "personal" ? "default" : "secondary"} className="text-[10px] shrink-0">
+                    {mb.type === "personal" ? "Osobná" : "Zdieľaná"}
+                  </Badge>
+                </div>
+              );
+            })}
+          </div>
+
+          <SectionTitle>Farby účtov</SectionTitle>
+          <p className="text-[12px] text-muted-foreground mb-3">Priraďte farby k účtom pre rýchlu identifikáciu v zozname správ.</p>
+          <div className="space-y-3">
+            {mailboxes.map((mb) => {
+              const mbEmail = mb.email;
+              const currentColor = mailboxColorMap[mbEmail] || null;
+              return (
+                <div key={`color-${mb.id}`} className="flex items-center gap-3">
+                  <span className="text-sm flex-1 min-w-0 truncate">{mb.displayName || mb.email}</span>
+                  <div className="flex items-center gap-1">
+                    {currentColor && (
+                      <button
+                        onClick={() => upsertMailboxColorMutation.mutate({ mailboxEmail: mbEmail, color: "" })}
+                        className="p-1 rounded-md hover:bg-red-50 dark:hover:bg-red-950/30 text-red-400 hover:text-red-500 transition-colors"
+                        title="Odstrániť farbu"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    )}
+                    {ACCOUNT_COLORS.map(color => (
+                      <button
+                        key={color}
+                        onClick={() => upsertMailboxColorMutation.mutate({ mailboxEmail: mbEmail, color })}
+                        className={`h-5 w-5 rounded-full transition-all hover:scale-110 ${currentColor === color ? "ring-2 ring-offset-2 ring-primary" : ""}`}
+                        style={{ backgroundColor: color }}
+                        data-testid={`account-color-${mb.id}-${color}`}
+                      />
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+            {mailboxes.length === 0 && (
+              <div className="text-center py-8 text-muted-foreground">
+                <Mail className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                <p className="text-sm">Žiadne pripojené účty</p>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    if (settingsTab === "messages") {
+      return (
+        <div>
+          <h2 className="text-lg font-semibold mb-1">Správy</h2>
+          <p className="text-sm text-muted-foreground mb-4">Nastavenia zobrazenia zoznamu a detailu emailov.</p>
+
+          <SectionTitle>Zoznam správ</SectionTitle>
+          <div className="divide-y">
+            <SettingRow label="Iniciály odosielateľa" description="Zobrazí kruhový avatar s iniciálami v zozname">
+              <Switch checked={emailPrefs.showSenderInitials} onCheckedChange={(v) => updateEmailPref("showSenderInitials", v)} />
+            </SettingRow>
+            <SettingRow label="Ikony účtov" description="Farebná bodka podľa priradenia účtu">
+              <Switch checked={emailPrefs.showAccountIcons} onCheckedChange={(v) => updateEmailPref("showAccountIcons", v)} />
+            </SettingRow>
+            <SettingRow label="Zvýrazniť neprečítané" description="Tučné písmo pre neprečítané správy">
+              <Switch checked={emailPrefs.highlightUnread} onCheckedChange={(v) => updateEmailPref("highlightUnread", v)} />
+            </SettingRow>
+            <SettingRow label="Indikátor neprečítaných" description="Modrá bodka pri neprečítaných správach">
+              <Switch checked={emailPrefs.unreadIndicator} onCheckedChange={(v) => updateEmailPref("unreadIndicator", v)} />
+            </SettingRow>
+            <SettingRow label="Zobraziť tagy" description="Farebné štítky v zozname správ">
+              <Switch checked={emailPrefs.showTags} onCheckedChange={(v) => updateEmailPref("showTags", v)} />
+            </SettingRow>
+            <SettingRow label="Ikony príloh" description="Ikona spinky pri správach s prílohami">
+              <Switch checked={emailPrefs.previewAttachmentIcons} onCheckedChange={(v) => updateEmailPref("previewAttachmentIcons", v)} />
+            </SettingRow>
+            <SettingRow label="Zoskupovať podľa dátumu" description="Oddeliť správy podľa dní">
+              <Switch checked={emailPrefs.groupByDate} onCheckedChange={(v) => updateEmailPref("groupByDate", v)} />
+            </SettingRow>
+            <SettingRow label="Riadky náhľadu" description="Počet riadkov textu náhľadu v zozname">
+              <Select value={String(emailPrefs.previewLines)} onValueChange={(v) => updateEmailPref("previewLines", parseInt(v))}>
+                <SelectTrigger className="w-28 h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="0">Žiadny</SelectItem>
+                  <SelectItem value="1">1 riadok</SelectItem>
+                  <SelectItem value="2">2 riadky</SelectItem>
+                </SelectContent>
+              </Select>
+            </SettingRow>
+            <SettingRow label="Predvolené radenie" description="Predvolené zoradenie emailov">
+              <Select value={emailPrefs.defaultSort} onValueChange={(v) => { updateEmailPref("defaultSort", v); setEmailSort(v as any); }}>
+                <SelectTrigger className="w-40 h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="date-desc">Dátum (najnovšie)</SelectItem>
+                  <SelectItem value="date-asc">Dátum (najstaršie)</SelectItem>
+                  <SelectItem value="sender-asc">Odosielateľ (A→Z)</SelectItem>
+                  <SelectItem value="sender-desc">Odosielateľ (Z→A)</SelectItem>
+                  <SelectItem value="subject-asc">Predmet (A→Z)</SelectItem>
+                  <SelectItem value="subject-desc">Predmet (Z→A)</SelectItem>
+                </SelectContent>
+              </Select>
+            </SettingRow>
+          </div>
+
+          <SectionTitle>Detail správy</SectionTitle>
+          <div className="divide-y">
+            <SettingRow label="Automaticky nahrať obrázky" description="Načítať vzdialené obrázky v tele emailu">
+              <Switch checked={emailPrefs.autoLoadImages} onCheckedChange={(v) => updateEmailPref("autoLoadImages", v)} />
+            </SettingRow>
+            <SettingRow label="Zobraziť všetkých príjemcov" description="V detaile zobraziť CC a BCC príjemcov">
+              <Switch checked={emailPrefs.showAllRecipients} onCheckedChange={(v) => updateEmailPref("showAllRecipients", v)} />
+            </SettingRow>
+            <SettingRow label="Rozbalené telo správy" description="Automaticky zobraziť celý obsah emailu">
+              <Switch checked={emailPrefs.expandBodyMessages} onCheckedChange={(v) => updateEmailPref("expandBodyMessages", v)} />
+            </SettingRow>
+            <SettingRow label="Prílohy pred obsahom" description="Zobraziť prílohy nad telom emailu">
+              <Switch checked={emailPrefs.attachmentsBeforeContent} onCheckedChange={(v) => updateEmailPref("attachmentsBeforeContent", v)} />
+            </SettingRow>
+          </div>
+        </div>
+      );
+    }
+
+    if (settingsTab === "compose") {
+      return (
+        <div>
+          <h2 className="text-lg font-semibold mb-1">Písanie</h2>
+          <p className="text-sm text-muted-foreground mb-4">Nastavenia podpisu a písania emailov.</p>
+
+          <SectionTitle>Podpis</SectionTitle>
+          <div className="space-y-3">
             <div className="flex items-center gap-2">
-              <Checkbox id="signature-active" checked={signatureActive} onCheckedChange={(c) => setSignatureActive(!!c)} />
-              <label htmlFor="signature-active" className="text-sm">Aktívny podpis</label>
+              <Switch id="signature-active" checked={signatureActive} onCheckedChange={(c) => setSignatureActive(!!c)} />
+              <label htmlFor="signature-active" className="text-sm font-medium">Aktívny podpis</label>
             </div>
-            <div className="border rounded-md">
-              <Editor value={signatureHtml} onChange={(e) => setSignatureHtml(e.target.value)} style={{ minHeight: "200px" }} data-testid="editor-signature" />
+            <p className="text-[12px] text-muted-foreground">Podpis sa automaticky pridá na koniec každého nového emailu a odpovede.</p>
+            <div className="border rounded-lg overflow-hidden">
+              <Editor value={signatureHtml} onChange={(e) => setSignatureHtml(e.target.value)} style={{ minHeight: "180px" }} data-testid="editor-signature" />
             </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setSignatureDialogOpen(false)}>Zrušiť</Button>
+            <div className="flex justify-end">
               <Button onClick={() => saveSignatureMutation.mutate({ htmlContent: signatureHtml, isActive: signatureActive })} disabled={saveSignatureMutation.isPending} data-testid="button-save-signature">
                 {saveSignatureMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 Uložiť podpis
               </Button>
-            </DialogFooter>
-          </div>
-        )}
-
-        {settingsTab === "tags" && (
-          <div className="space-y-4 flex-1 overflow-auto">
-            <div className="flex items-center gap-2">
-              <Input
-                placeholder="Názov nového tagu..."
-                value={newTagName}
-                onChange={(e) => setNewTagName(e.target.value)}
-                className="flex-1 h-9"
-                data-testid="input-new-tag-name"
-              />
-              <div className="flex items-center gap-1">
-                {TAG_COLORS.map(color => (
-                  <button
-                    key={color}
-                    onClick={() => setNewTagColor(color)}
-                    className={`h-6 w-6 rounded-full transition-all ${newTagColor === color ? "ring-2 ring-offset-2 ring-primary" : "hover:scale-110"}`}
-                    style={{ backgroundColor: color }}
-                  />
-                ))}
-              </div>
-              <Button
-                size="sm"
-                onClick={() => {
-                  if (newTagName.trim()) {
-                    createTagMutation.mutate({ name: newTagName.trim(), color: newTagColor });
-                    setNewTagName("");
-                  }
-                }}
-                disabled={!newTagName.trim() || createTagMutation.isPending}
-                data-testid="button-create-tag"
-              >
-                <Plus className="h-4 w-4 mr-1" />Pridať
-              </Button>
-            </div>
-
-            <div className="space-y-1">
-              {userTags.map((tag: any) => (
-                <div key={tag.id} className="flex items-center gap-2 p-2 rounded-md border hover:bg-accent/30 transition-colors group">
-                  <span className="h-4 w-4 rounded-full shrink-0" style={{ backgroundColor: tag.color }} />
-                  <span className="flex-1 text-sm font-medium">{tag.name}</span>
-                  {tag.isDefault && (
-                    <Badge variant="secondary" className="text-[10px] h-5">Predvolený</Badge>
-                  )}
-                  <div className="flex items-center gap-0.5">
-                    {TAG_COLORS.map(color => (
-                      <button
-                        key={color}
-                        onClick={() => updateTagMutation.mutate({ id: tag.id, color })}
-                        className={`h-4 w-4 rounded-full opacity-0 group-hover:opacity-100 transition-all hover:scale-125 ${tag.color === color ? "ring-1 ring-offset-1 ring-primary opacity-100" : ""}`}
-                        style={{ backgroundColor: color }}
-                      />
-                    ))}
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-red-500 hover:text-red-600 hover:bg-red-50"
-                    onClick={() => deleteTagMutation.mutate(tag.id)}
-                    data-testid={`delete-tag-${tag.id}`}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              ))}
-              {userTags.length === 0 && (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Tag className="h-8 w-8 mx-auto mb-2 opacity-30" />
-                  <p className="text-sm">Zatiaľ žiadne tagy</p>
-                </div>
-              )}
             </div>
           </div>
-        )}
+        </div>
+      );
+    }
 
-        {settingsTab === "accounts" && (
-          <div className="space-y-4 flex-1 overflow-auto">
-            <p className="text-sm text-muted-foreground">Priraďte farby k emailovým účtom pre ľahšiu orientáciu v správach.</p>
-            <div className="space-y-2">
-              {mailboxes.map((mb) => {
-                const mbEmail = mb.email;
-                const currentColor = mailboxColorMap[mbEmail] || null;
-                return (
-                  <div key={mb.id} className="flex items-center gap-3 p-3 rounded-md border hover:bg-accent/30 transition-colors group">
-                    <span
-                      className="h-5 w-5 rounded-full shrink-0 border-2"
-                      style={{ backgroundColor: currentColor || "transparent", borderColor: currentColor || "#d1d5db" }}
+    if (settingsTab === "tags") {
+      return (
+        <div>
+          <h2 className="text-lg font-semibold mb-1">Tagy</h2>
+          <p className="text-sm text-muted-foreground mb-4">Vytvárajte a spravujte farebné tagy pre organizáciu emailov.</p>
+
+          <div className="flex items-center gap-2 mb-4">
+            <Input
+              placeholder="Názov nového tagu..."
+              value={newTagName}
+              onChange={(e) => setNewTagName(e.target.value)}
+              className="flex-1 h-9"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && newTagName.trim()) {
+                  createTagMutation.mutate({ name: newTagName.trim(), color: newTagColor });
+                  setNewTagName("");
+                }
+              }}
+              data-testid="input-new-tag-name"
+            />
+            <Popover>
+              <PopoverTrigger asChild>
+                <button className="h-7 w-7 rounded-full shrink-0 ring-2 ring-offset-2 ring-muted hover:ring-primary transition-all" style={{ backgroundColor: newTagColor }} />
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-2" align="end">
+                <div className="grid grid-cols-5 gap-1.5">
+                  {TAG_COLORS.map(color => (
+                    <button
+                      key={color}
+                      onClick={() => setNewTagColor(color)}
+                      className={`h-7 w-7 rounded-full transition-all hover:scale-110 ${newTagColor === color ? "ring-2 ring-offset-2 ring-primary" : ""}`}
+                      style={{ backgroundColor: color }}
                     />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{mb.displayName || mb.email}</p>
-                      <p className="text-[11px] text-muted-foreground truncate">{mb.email}</p>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      {currentColor && (
-                        <button
-                          onClick={() => upsertMailboxColorMutation.mutate({ mailboxEmail: mbEmail, color: "" })}
-                          className="p-1 rounded-md hover:bg-red-50 dark:hover:bg-red-950/30 text-red-500 transition-colors opacity-0 group-hover:opacity-100"
-                          title="Odstrániť farbu"
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      )}
-                      {ACCOUNT_COLORS.map(color => (
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
+            <Button
+              size="sm"
+              onClick={() => {
+                if (newTagName.trim()) {
+                  createTagMutation.mutate({ name: newTagName.trim(), color: newTagColor });
+                  setNewTagName("");
+                }
+              }}
+              disabled={!newTagName.trim() || createTagMutation.isPending}
+              data-testid="button-create-tag"
+            >
+              {createTagMutation.isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Plus className="h-4 w-4 mr-1" />}
+              Pridať
+            </Button>
+          </div>
+
+          <div className="space-y-1">
+            {userTags.map((tag: any) => (
+              <div key={tag.id} className="flex items-center gap-2.5 p-2.5 rounded-lg border hover:bg-accent/30 transition-colors group">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button className="h-5 w-5 rounded-full shrink-0 hover:ring-2 hover:ring-offset-1 hover:ring-primary transition-all cursor-pointer" style={{ backgroundColor: tag.color }} title="Zmeniť farbu" />
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-2" align="start">
+                    <div className="grid grid-cols-5 gap-1.5">
+                      {TAG_COLORS.map(color => (
                         <button
                           key={color}
-                          onClick={() => upsertMailboxColorMutation.mutate({ mailboxEmail: mbEmail, color })}
-                          className={`h-5 w-5 rounded-full transition-all hover:scale-110 ${currentColor === color ? "ring-2 ring-offset-2 ring-primary" : ""}`}
+                          onClick={() => updateTagMutation.mutate({ id: tag.id, color })}
+                          className={`h-7 w-7 rounded-full transition-all hover:scale-110 ${tag.color === color ? "ring-2 ring-offset-2 ring-primary" : ""}`}
                           style={{ backgroundColor: color }}
-                          data-testid={`account-color-${mb.id}-${color}`}
                         />
                       ))}
                     </div>
-                  </div>
-                );
-              })}
-              {mailboxes.length === 0 && (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Mail className="h-8 w-8 mx-auto mb-2 opacity-30" />
-                  <p className="text-sm">Žiadne pripojené účty</p>
-                </div>
-              )}
+                  </PopoverContent>
+                </Popover>
+                <span className="flex-1 text-sm font-medium">{tag.name}</span>
+                {tag.isDefault && (
+                  <Badge variant="secondary" className="text-[10px] h-5">Predvolený</Badge>
+                )}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-red-500 hover:text-red-600 hover:bg-red-50"
+                  onClick={() => deleteTagMutation.mutate(tag.id)}
+                  data-testid={`delete-tag-${tag.id}`}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            ))}
+            {userTags.length === 0 && (
+              <div className="text-center py-8 text-muted-foreground">
+                <Tag className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                <p className="text-sm">Zatiaľ žiadne tagy</p>
+                <p className="text-xs mt-1">Vytvorte si vlastné tagy pre organizáciu emailov</p>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    if (settingsTab === "appearance") {
+      return (
+        <div>
+          <h2 className="text-lg font-semibold mb-1">Vzhľad</h2>
+          <p className="text-sm text-muted-foreground mb-4">Prispôsobte si zobrazenie NEXUS klienta.</p>
+
+          <SectionTitle>Rozloženie</SectionTitle>
+          <div className="divide-y">
+            <SettingRow label="Postranný panel" description="Zobraziť alebo skryť postranný panel s priečinkami">
+              <Switch checked={!isSidebarHidden} onCheckedChange={(v) => { setIsSidebarHidden(!v); localStorage.setItem("nexus-sidebar-hidden", String(!v)); }} />
+            </SettingRow>
+          </div>
+
+          <SectionTitle>Informácie</SectionTitle>
+          <div className="rounded-lg border p-4 space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Aktuálny účet</span>
+              <span className="font-medium">{currentMailboxEmail || "—"}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Načítaných emailov</span>
+              <span className="font-medium">{emails.length} / {totalCount}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Priečinkov</span>
+              <span className="font-medium">{folders.length}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Tagov</span>
+              <span className="font-medium">{userTags.length}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Pripojených účtov</span>
+              <span className="font-medium">{mailboxes.length}</span>
             </div>
           </div>
-        )}
-      </div>
-    );
+        </div>
+      );
+    }
+
+    return null;
   }
 }
