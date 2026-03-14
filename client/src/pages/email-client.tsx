@@ -742,8 +742,10 @@ export default function EmailClientPage() {
   };
 
   const openSignatureEditor = () => {
+    console.log("[SETTINGS] Opening NEW Airmail-style settings dialog v2");
     setSignatureHtml(signatureData?.htmlContent || "");
     setSignatureActive(signatureData?.isActive !== false);
+    setSettingsTab("messages");
     setSignatureDialogOpen(true);
   };
 
