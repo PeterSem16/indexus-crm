@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import {
   ArrowUpRight,
   Loader2,
   ChevronLeft,
+  ChevronUp,
   Eye,
   EyeOff,
   Settings,
@@ -52,6 +53,24 @@ function getFolderIcon(folder: MailFolder) {
     || <Mail className="h-4 w-4" />;
 }
 
+function loadFolderOrder(): string[] {
+  try {
+    const saved = localStorage.getItem("nexus-folder-order");
+    return saved ? JSON.parse(saved) : [];
+  } catch { return []; }
+}
+
+function saveFolderOrder(order: string[]) {
+  localStorage.setItem("nexus-folder-order", JSON.stringify(order));
+}
+
+function loadHiddenFolders(): Set<string> {
+  try {
+    const saved = localStorage.getItem("nexus-hidden-folders");
+    return saved ? new Set(JSON.parse(saved)) : new Set();
+  } catch { return new Set(); }
+}
+
 export default function NexusSidebar({
   selectedChannel,
   onSelectChannel,
@@ -65,13 +84,8 @@ export default function NexusSidebar({
 }: NexusSidebarProps) {
   const [emailFoldersOpen, setEmailFoldersOpen] = useState(true);
   const [folderManageMode, setFolderManageMode] = useState(false);
-
-  const [hiddenFolders, setHiddenFolders] = useState<Set<string>>(() => {
-    try {
-      const saved = localStorage.getItem("nexus-hidden-folders");
-      return saved ? new Set(JSON.parse(saved)) : new Set();
-    } catch { return new Set(); }
-  });
+  const [hiddenFolders, setHiddenFolders] = useState<Set<string>>(loadHiddenFolders);
+  const [folderOrder, setFolderOrder] = useState<string[]>(loadFolderOrder);
 
   const toggleFolderVisibility = (folderId: string) => {
     setHiddenFolders(prev => {
@@ -96,6 +110,37 @@ export default function NexusSidebar({
   const totalChats = chatsData?.length || 0;
 
   const parentFolders = folders.filter(f => !f.isChildFolder);
+  const nonInboxFolders = parentFolders.filter(f => {
+    const wk = f.wellKnownName || f.displayName;
+    return wk !== "Inbox" && wk !== "inbox";
+  });
+
+  const sortedFolders = [...nonInboxFolders].sort((a, b) => {
+    const orderA = folderOrder.indexOf(a.id);
+    const orderB = folderOrder.indexOf(b.id);
+    if (orderA !== -1 && orderB !== -1) return orderA - orderB;
+    if (orderA !== -1) return -1;
+    if (orderB !== -1) return 1;
+    return 0;
+  });
+
+  const moveFolderUp = (folderId: string) => {
+    const ids = sortedFolders.map(f => f.id);
+    const idx = ids.indexOf(folderId);
+    if (idx <= 0) return;
+    [ids[idx - 1], ids[idx]] = [ids[idx], ids[idx - 1]];
+    setFolderOrder(ids);
+    saveFolderOrder(ids);
+  };
+
+  const moveFolderDown = (folderId: string) => {
+    const ids = sortedFolders.map(f => f.id);
+    const idx = ids.indexOf(folderId);
+    if (idx < 0 || idx >= ids.length - 1) return;
+    [ids[idx], ids[idx + 1]] = [ids[idx + 1], ids[idx]];
+    setFolderOrder(ids);
+    saveFolderOrder(ids);
+  };
 
   const isActive = (channel: SidebarChannel) => selectedChannel === channel;
 
@@ -109,7 +154,7 @@ export default function NexusSidebar({
       </div>
 
       <ScrollArea className="flex-1">
-        <div className="p-2 space-y-1">
+        <div className="p-2 space-y-0.5">
           <SidebarItem
             icon={<Inbox className="h-4 w-4" />}
             label="Všetka komunikácia"
@@ -168,13 +213,9 @@ export default function NexusSidebar({
                     <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
                   </div>
                 ) : (
-                  parentFolders
-                    .filter(f => {
-                      const wk = f.wellKnownName || f.displayName;
-                      return wk !== "Inbox" && wk !== "inbox";
-                    })
+                  sortedFolders
                     .filter(f => folderManageMode || !hiddenFolders.has(f.id))
-                    .map((folder) => {
+                    .map((folder, idx, arr) => {
                       const isHidden = hiddenFolders.has(folder.id);
                       const childFolders = folders
                         .filter(cf => cf.isChildFolder && cf.parentFolderId === folder.id)
@@ -182,6 +223,28 @@ export default function NexusSidebar({
                       return (
                         <div key={folder.id}>
                           <div className="flex items-center gap-0.5">
+                            {folderManageMode && (
+                              <div className="flex flex-col shrink-0">
+                                <button
+                                  onClick={() => moveFolderUp(folder.id)}
+                                  className="p-0.5 rounded hover:bg-accent transition-colors disabled:opacity-30"
+                                  disabled={idx === 0}
+                                  title="Posunúť hore"
+                                  data-testid={`move-folder-up-${folder.id}`}
+                                >
+                                  <ChevronUp className="h-2.5 w-2.5 text-muted-foreground" />
+                                </button>
+                                <button
+                                  onClick={() => moveFolderDown(folder.id)}
+                                  className="p-0.5 rounded hover:bg-accent transition-colors disabled:opacity-30"
+                                  disabled={idx === arr.length - 1}
+                                  title="Posunúť dole"
+                                  data-testid={`move-folder-down-${folder.id}`}
+                                >
+                                  <ChevronDown className="h-2.5 w-2.5 text-muted-foreground" />
+                                </button>
+                              </div>
+                            )}
                             <div className={`flex-1 ${isHidden ? "opacity-40" : ""}`}>
                               <SidebarItem
                                 icon={getFolderIcon(folder)}

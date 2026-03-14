@@ -82,6 +82,8 @@ import {
   Calendar as CalendarIcon,
   ArrowUp,
   ArrowDown,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import Editor from "react-simple-wysiwyg";
 
@@ -196,6 +198,18 @@ export default function EmailClientPage() {
   const [localPage, setLocalPage] = useState(0);
   const localPageSize = 25;
 
+  const [channelRefreshToken, setChannelRefreshToken] = useState(0);
+
+  const handleChannelSelect = (channel: SidebarChannel) => {
+    if (channel === selectedChannel) {
+      setChannelRefreshToken(t => t + 1);
+      setPage(0);
+      setAccumulatedEmails([]);
+      setServerTotalCount(0);
+    }
+    setSelectedChannel(channel);
+  };
+
   const [isSidebarHidden, setIsSidebarHidden] = useState(() => {
     const saved = localStorage.getItem("nexus-sidebar-hidden");
     return saved === "true";
@@ -230,7 +244,7 @@ export default function EmailClientPage() {
   const shouldFetchEmails = selectedChannel === "all" || selectedChannel === "unread" || selectedChannel === "email-inbox" || selectedChannel.startsWith("email-folder-");
 
   const { data: messagesData, isLoading: messagesLoading, isFetching: messagesFetching, refetch: refetchMessages } = useQuery<{ connected: boolean; emails: EmailMessage[]; totalCount: number }>({
-    queryKey: ["/api/users", user?.id, "ms365-folder-messages", emailFolderId, selectedMailbox, page, selectedChannel],
+    queryKey: ["/api/users", user?.id, "ms365-folder-messages", emailFolderId, selectedMailbox, page, selectedChannel, channelRefreshToken],
     queryFn: () => {
       return fetch(`/api/users/${user?.id}/ms365-folder-messages/${emailFolderId}?mailbox=${selectedMailbox}&top=${pageSize}&skip=${page * pageSize}`).then(r => r.json());
     },
@@ -416,6 +430,29 @@ export default function EmailClientPage() {
     },
     onError: () => {
       toast({ title: "Chyba", description: "Nepodarilo sa zmazať správu", variant: "destructive" });
+    },
+  });
+
+  const toggleReadMutation = useMutation({
+    mutationFn: async ({ emailId, isRead }: { emailId: string; isRead: boolean }) => {
+      return apiRequest("PATCH", `/api/users/${user?.id}/ms365-email/${emailId}/read-status?mailbox=${selectedMailbox}`, { isRead });
+    },
+    onSuccess: (_data, variables) => {
+      toast({
+        title: variables.isRead ? "Označené ako prečítané" : "Označené ako neprečítané",
+        description: variables.isRead ? "Správa bola označená ako prečítaná" : "Správa bola označená ako neprečítaná",
+      });
+      setAccumulatedEmails(prev => prev.map(e =>
+        e.id === variables.emailId ? { ...e, isRead: variables.isRead } : e
+      ));
+      if (selectedEmail?.id === variables.emailId) {
+        setSelectedEmail(prev => prev ? { ...prev, isRead: variables.isRead } : null);
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/users", user?.id, "ms365-email", variables.emailId] });
+      refetchFolders();
+    },
+    onError: () => {
+      toast({ title: "Chyba", description: "Nepodarilo sa zmeniť stav prečítania", variant: "destructive" });
     },
   });
 
@@ -707,7 +744,7 @@ export default function EmailClientPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Select value={selectedMailbox} onValueChange={(v) => { setSelectedMailbox(v); setSelectedChannel("all"); setSelectedEmail(null); setPage(0); }}>
+          <Select value={selectedMailbox} onValueChange={(v) => { setSelectedMailbox(v); setSelectedChannel("all"); setSelectedEmail(null); setPage(0); setAccumulatedEmails([]); setChannelRefreshToken(t => t + 1); }}>
             <SelectTrigger className="w-56" data-testid="select-mailbox">
               <SelectValue placeholder="Vyberte schránku" />
             </SelectTrigger>
@@ -803,7 +840,7 @@ export default function EmailClientPage() {
         {!isSidebarHidden && (
           <NexusSidebar
             selectedChannel={selectedChannel}
-            onSelectChannel={setSelectedChannel}
+            onSelectChannel={handleChannelSelect}
             folders={folders}
             foldersLoading={foldersLoading}
             smsData={smsData}
@@ -940,20 +977,34 @@ export default function EmailClientPage() {
               <ScrollArea className="h-[calc(100vh-380px)]">
                 <div className="divide-y">
                   {paginatedMessages.map((msg) => (
-                    <button
+                    <div
                       key={msg.id}
-                      onClick={() => selectUnifiedMessage(msg)}
-                      onDoubleClick={() => { selectUnifiedMessage(msg); setExpandedMessage(msg); }}
-                      className={`w-full text-left px-3 py-2.5 transition-all hover:bg-accent/50 ${
+                      className={`relative group w-full text-left px-3 py-2.5 transition-all hover:bg-accent/50 cursor-pointer ${
                         (selectedEmail?.id && msg.id === `email-${selectedEmail.id}`) ||
                         (selectedTask?.id && msg.id === `task-${selectedTask.id}`) ||
                         (selectedChat?.id && msg.id === `chat-${selectedChat.id}`) ||
                         (selectedSms?.id && msg.id === `sms-${selectedSms.id}`)
                           ? "bg-accent" : ""
                       } ${msg.isUnread ? "font-medium" : ""}`}
+                      onClick={() => selectUnifiedMessage(msg)}
+                      onDoubleClick={() => { selectUnifiedMessage(msg); setExpandedMessage(msg); }}
                       title="Dvojklik pre zväčšený náhľad"
                       data-testid={`message-item-${msg.id}`}
                     >
+                      {msg.type === "email" && (
+                        <button
+                          className="absolute top-1.5 right-1.5 p-1 rounded-md opacity-0 group-hover:opacity-100 hover:bg-background/80 transition-all z-10"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const email = msg.originalData as EmailMessage;
+                            toggleReadMutation.mutate({ emailId: email.id, isRead: msg.isUnread });
+                          }}
+                          title={msg.isUnread ? "Označiť ako prečítané" : "Označiť ako neprečítané"}
+                          data-testid={`toggle-read-${msg.id}`}
+                        >
+                          {msg.isUnread ? <Eye className="h-3.5 w-3.5 text-muted-foreground" /> : <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />}
+                        </button>
+                      )}
                       <div className="flex items-start gap-2.5">
                         <div className="flex flex-col items-center gap-1 mt-1 shrink-0">
                           <span className={`h-2 w-2 rounded-full shrink-0 ${msg.isUnread ? typeColors[msg.type].dot : "bg-transparent"}`} />
@@ -1022,7 +1073,7 @@ export default function EmailClientPage() {
                           )}
                         </div>
                       </div>
-                    </button>
+                    </div>
                   ))}
                   {totalCount > emails.length && shouldFetchEmails && (
                     <div className="p-3 text-center">
@@ -1070,6 +1121,16 @@ export default function EmailClientPage() {
                       </Button>
                       <Button variant="ghost" size="icon" onClick={() => { setReplyMode("forward"); setComposeData({ to: "", cc: "", bcc: "", subject: `Fwd: ${emailDetail.subject}`, body: "" }); }} data-testid="button-forward">
                         <Forward className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => toggleReadMutation.mutate({ emailId: emailDetail.id, isRead: !emailDetail.isRead })}
+                        disabled={toggleReadMutation.isPending}
+                        title={emailDetail.isRead ? "Označiť ako neprečítané" : "Označiť ako prečítané"}
+                        data-testid="button-toggle-read"
+                      >
+                        {emailDetail.isRead ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </Button>
                       <Button variant="ghost" size="icon" onClick={() => deleteEmailMutation.mutate(emailDetail.id)} data-testid="button-delete">
                         <Trash2 className="h-4 w-4" />

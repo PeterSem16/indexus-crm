@@ -4226,6 +4226,57 @@ export async function registerRoutes(
   });
 
   // Delete email
+  app.patch("/api/users/:userId/ms365-email/:emailId/read-status", requireAuth, async (req, res) => {
+    try {
+      const { userId, emailId } = req.params;
+      const { isRead } = req.body;
+      const mailboxEmail = req.query.mailbox as string | undefined;
+
+      if (typeof isRead !== "boolean") {
+        return res.status(400).json({ error: "isRead must be a boolean" });
+      }
+
+      const ms365Connection = await storage.getUserMs365Connection(userId);
+      if (!ms365Connection || !ms365Connection.isConnected) {
+        return res.status(400).json({ error: "MS365 not connected" });
+      }
+
+      const { decryptTokenSafe } = await import("./lib/token-crypto");
+      const { getValidAccessToken, markEmailAsRead } = await import("./lib/ms365");
+
+      let accessToken: string;
+      let refreshToken: string | null;
+
+      try {
+        accessToken = decryptTokenSafe(ms365Connection.accessToken);
+        refreshToken = ms365Connection.refreshToken ? decryptTokenSafe(ms365Connection.refreshToken) : null;
+      } catch {
+        return res.status(400).json({ error: "Token decryption failed" });
+      }
+
+      const tokenResult = await getValidAccessToken(accessToken, ms365Connection.tokenExpiresAt, refreshToken);
+      if (!tokenResult?.accessToken) {
+        return res.status(401).json({ error: "Token expired", requiresReauth: true });
+      }
+
+      const success = await markEmailAsRead(
+        tokenResult.accessToken,
+        emailId,
+        isRead,
+        mailboxEmail === "personal" ? undefined : mailboxEmail
+      );
+
+      if (success) {
+        res.json({ success: true, isRead });
+      } else {
+        res.status(500).json({ error: "Failed to update read status" });
+      }
+    } catch (error) {
+      console.error("Error updating email read status:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   app.delete("/api/users/:userId/ms365-email/:emailId", requireAuth, async (req, res) => {
     try {
       const { userId, emailId } = req.params;
