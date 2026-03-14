@@ -4397,6 +4397,21 @@ export const insertEmailTagSchema = createInsertSchema(emailTags).omit({
 export type InsertEmailTag = z.infer<typeof insertEmailTagSchema>;
 export type EmailTag = typeof emailTags.$inferSelect;
 
+export const mailboxColors = pgTable("mailbox_colors", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  mailboxEmail: text("mailbox_email").notNull(),
+  color: text("color").notNull().default("#3B82F6"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const insertMailboxColorSchema = createInsertSchema(mailboxColors).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertMailboxColor = z.infer<typeof insertMailboxColorSchema>;
+export type MailboxColor = typeof mailboxColors.$inferSelect;
+
 export const emailTagAssignments = pgTable("email_tag_assignments", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   emailId: text("email_id").notNull(),

@@ -4627,6 +4627,32 @@ export async function registerRoutes(
   });
 
   // ============================================
+  // MAILBOX COLORS API
+  // ============================================
+
+  app.get("/api/users/:userId/mailbox-colors", requireAuth, async (req, res) => {
+    try {
+      const colors = await storage.getMailboxColorsByUser(req.params.userId);
+      res.json(colors);
+    } catch (error) {
+      console.error("Error fetching mailbox colors:", error);
+      res.status(500).json({ error: "Failed to fetch mailbox colors" });
+    }
+  });
+
+  app.put("/api/users/:userId/mailbox-colors", requireAuth, async (req, res) => {
+    try {
+      const { mailboxEmail, color } = req.body;
+      if (!mailboxEmail || !color) return res.status(400).json({ error: "mailboxEmail and color required" });
+      const result = await storage.upsertMailboxColor(req.params.userId, mailboxEmail, color);
+      res.json(result);
+    } catch (error) {
+      console.error("Error updating mailbox color:", error);
+      res.status(500).json({ error: "Failed to update mailbox color" });
+    }
+  });
+
+  // ============================================
   // CUSTOMER EMAIL NOTIFICATIONS API
   // ============================================
 

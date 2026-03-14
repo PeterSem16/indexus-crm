@@ -108,7 +108,7 @@ import {
   type AutomationRule, type InsertAutomationRule,
   userMs365Connections, userMs365SharedMailboxes, emailSignatures,
   emailRoutingRules, emailTags, emailMetadata, customerEmailNotifications,
-  emailTagAssignments,
+  emailTagAssignments, mailboxColors,
   type UserMs365Connection, type InsertUserMs365Connection,
   type UserMs365SharedMailbox, type InsertUserMs365SharedMailbox,
   type EmailSignature, type InsertEmailSignature,
@@ -117,6 +117,7 @@ import {
   type EmailTagAssignment, type InsertEmailTagAssignment,
   type EmailMetadata, type InsertEmailMetadata,
   type CustomerEmailNotification, type InsertCustomerEmailNotification,
+  type MailboxColor, type InsertMailboxColor,
   gsmSenderConfigs, type GsmSenderConfig, type InsertGsmSenderConfig,
   countrySystemSettings, type CountrySystemSettings, type InsertCountrySystemSettings,
   systemMs365Connections, type SystemMs365Connection, type InsertSystemMs365Connection,
@@ -950,6 +951,10 @@ export interface IStorage {
   createEmailTag(data: InsertEmailTag): Promise<EmailTag>;
   updateEmailTag(id: string, data: Partial<InsertEmailTag>): Promise<EmailTag | undefined>;
   deleteEmailTag(id: string): Promise<boolean>;
+
+  // Mailbox Colors
+  getMailboxColorsByUser(userId: string): Promise<MailboxColor[]>;
+  upsertMailboxColor(userId: string, mailboxEmail: string, color: string): Promise<MailboxColor>;
 
   // Email Metadata
   getEmailMetadata(messageId: string, mailboxEmail: string): Promise<EmailMetadata | undefined>;
@@ -5895,6 +5900,25 @@ export class DatabaseStorage implements IStorage {
       ))
       .returning();
     return result.length > 0;
+  }
+
+  // Mailbox Colors
+  async getMailboxColorsByUser(userId: string): Promise<MailboxColor[]> {
+    return db.select().from(mailboxColors).where(eq(mailboxColors.userId, userId));
+  }
+
+  async upsertMailboxColor(userId: string, mailboxEmail: string, color: string): Promise<MailboxColor> {
+    const existing = await db.select().from(mailboxColors)
+      .where(and(eq(mailboxColors.userId, userId), eq(mailboxColors.mailboxEmail, mailboxEmail)));
+    if (existing.length > 0) {
+      const [updated] = await db.update(mailboxColors)
+        .set({ color })
+        .where(and(eq(mailboxColors.userId, userId), eq(mailboxColors.mailboxEmail, mailboxEmail)))
+        .returning();
+      return updated;
+    }
+    const [created] = await db.insert(mailboxColors).values({ userId, mailboxEmail, color }).returning();
+    return created;
   }
 
   // Email Metadata

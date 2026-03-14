@@ -165,9 +165,11 @@ export default function EmailClientPage() {
   const [listSearchOpen, setListSearchOpen] = useState(false);
   const [filterByTagId, setFilterByTagId] = useState<string | null>(null);
   const [tagPickerEmailId, setTagPickerEmailId] = useState<string | null>(null);
-  const [settingsTab, setSettingsTab] = useState<"signature" | "tags">("signature");
+  const [settingsTab, setSettingsTab] = useState<"signature" | "tags" | "accounts">("signature");
   const [newTagName, setNewTagName] = useState("");
   const [newTagColor, setNewTagColor] = useState("#6B7280");
+  const [loadingAll, setLoadingAll] = useState(false);
+  const [defaultTagsInitialized, setDefaultTagsInitialized] = useState(false);
 
   const toggleEmailFilter = (key: keyof typeof emailFilters) => {
     setEmailFilters(prev => {
@@ -318,13 +320,14 @@ export default function EmailClientPage() {
   });
 
   useEffect(() => {
-    if (user?.id && userTags.length === 0) {
+    if (user?.id && userTags.length === 0 && !defaultTagsInitialized) {
+      setDefaultTagsInitialized(true);
       fetch(`/api/users/${user.id}/email-tags/init-defaults`, { method: "POST", headers: { "Content-Type": "application/json" } })
         .then(r => r.json())
         .then(() => queryClient.invalidateQueries({ queryKey: ["/api/users", user.id, "email-tags"] }))
         .catch(() => {});
     }
-  }, [user?.id, userTags.length]);
+  }, [user?.id, userTags.length, defaultTagsInitialized]);
 
   const { data: tagAssignments = [] } = useQuery<any[]>({
     queryKey: ["/api/users", user?.id, "email-tag-assignments", currentMailboxEmail],
@@ -377,6 +380,24 @@ export default function EmailClientPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/users", user?.id, "email-tags"] });
+    },
+  });
+
+  const { data: mailboxColorsList = [] } = useQuery<any[]>({
+    queryKey: ["/api/users", user?.id, "mailbox-colors"],
+    queryFn: () => fetch(`/api/users/${user?.id}/mailbox-colors`).then(r => r.json()),
+    enabled: !!user?.id,
+  });
+
+  const mailboxColorMap: Record<string, string> = {};
+  mailboxColorsList.forEach((mc: any) => { mailboxColorMap[mc.mailboxEmail] = mc.color; });
+
+  const upsertMailboxColorMutation = useMutation({
+    mutationFn: async (data: { mailboxEmail: string; color: string }) => {
+      return apiRequest("PUT", `/api/users/${user?.id}/mailbox-colors`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/users", user?.id, "mailbox-colors"] });
     },
   });
 
@@ -521,6 +542,32 @@ export default function EmailClientPage() {
   });
 
   const folders = foldersData?.folders || [];
+  const loadAllEmails = async () => {
+    if (!user?.id || !selectedFolderId || loadingAll) return;
+    setLoadingAll(true);
+    try {
+      let allEmails: EmailMessage[] = [...accumulatedEmails];
+      let skip = allEmails.length;
+      const batchSize = 500;
+      while (skip < serverTotalCount) {
+        const res = await fetch(`/api/users/${user.id}/ms365-folder-messages/${selectedFolderId}?mailbox=${selectedMailbox}&top=${batchSize}&skip=${skip}`);
+        const data = await res.json();
+        if (!data.emails || data.emails.length === 0) break;
+        const existingIds = new Set(allEmails.map(e => e.id));
+        const newBatch = data.emails.filter((e: EmailMessage) => !existingIds.has(e.id));
+        allEmails = [...allEmails, ...newBatch];
+        skip += data.emails.length;
+        setAccumulatedEmails([...allEmails]);
+        setServerTotalCount(data.totalCount || allEmails.length);
+      }
+      toast({ title: `Načítaných ${allEmails.length} emailov` });
+    } catch (error) {
+      toast({ title: "Chyba pri načítaní", description: "Nepodarilo sa načítať všetky emaily", variant: "destructive" });
+    } finally {
+      setLoadingAll(false);
+    }
+  };
+
   const emails = accumulatedEmails;
   const totalCount = serverTotalCount;
   const totalUnreadEmails = folders.find(f => f.wellKnownName === "inbox" || f.displayName === "Inbox")?.unreadItemCount || 0;
@@ -741,15 +788,23 @@ export default function EmailClientPage() {
                 <SelectValue placeholder="Vyberte schránku" />
               </SelectTrigger>
               <SelectContent>
-                {mailboxes.map((mb) => (
-                  <SelectItem key={mb.id} value={mb.type === "personal" ? "personal" : mb.email}>
-                    <div className="flex items-center gap-2">
-                      {mb.type === "personal" ? <User className="h-4 w-4" /> : <Mail className="h-4 w-4" />}
-                      <span>{mb.displayName || mb.email}</span>
-                      {mb.isDefault && <Badge variant="secondary" className="text-xs">Predvolená</Badge>}
-                    </div>
-                  </SelectItem>
-                ))}
+                {mailboxes.map((mb) => {
+                  const mbKey = mb.type === "personal" ? mb.email : mb.email;
+                  const mbColor = mailboxColorMap[mbKey];
+                  return (
+                    <SelectItem key={mb.id} value={mb.type === "personal" ? "personal" : mb.email}>
+                      <div className="flex items-center gap-2">
+                        {mbColor ? (
+                          <span className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: mbColor }} />
+                        ) : (
+                          mb.type === "personal" ? <User className="h-4 w-4" /> : <Mail className="h-4 w-4" />
+                        )}
+                        <span>{mb.displayName || mb.email}</span>
+                        {mb.isDefault && <Badge variant="secondary" className="text-xs">Predvolená</Badge>}
+                      </div>
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
           )}
@@ -1116,7 +1171,12 @@ export default function EmailClientPage() {
                             {!email.isRead ? <Eye className="h-3.5 w-3.5 text-muted-foreground" /> : <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />}
                           </button>
                           <div className="flex items-start gap-2.5">
-                            <span className={`h-2 w-2 rounded-full shrink-0 mt-2 ${!email.isRead ? "bg-blue-500" : "bg-transparent"}`} />
+                            <div className="flex flex-col items-center gap-0.5 mt-1.5 shrink-0">
+                              <span className={`h-2 w-2 rounded-full ${!email.isRead ? "bg-blue-500" : "bg-transparent"}`} />
+                              {currentMailboxEmail && mailboxColorMap[currentMailboxEmail] && (
+                                <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: mailboxColorMap[currentMailboxEmail] }} />
+                              )}
+                            </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center justify-between gap-1">
                                 <span className={`text-sm truncate ${!email.isRead ? "font-bold" : ""}`}>
@@ -1147,11 +1207,20 @@ export default function EmailClientPage() {
                         </div>
                       ))}
                       {totalCount > emails.length && (
-                        <div className="p-3 text-center">
-                          <Button variant="outline" size="sm" className="text-xs gap-1" onClick={() => setPage(p => p + 1)} disabled={messagesFetching} data-testid="button-load-more">
-                            {messagesFetching && <Loader2 className="h-3 w-3 animate-spin" />}
-                            Načítať ďalšie ({emails.length} z {totalCount})
-                          </Button>
+                        <div className="p-3 text-center space-y-1.5">
+                          <div className="flex items-center justify-center gap-2">
+                            <Button variant="outline" size="sm" className="text-xs gap-1" onClick={() => setPage(p => p + 1)} disabled={messagesFetching || loadingAll} data-testid="button-load-more">
+                              {messagesFetching && !loadingAll && <Loader2 className="h-3 w-3 animate-spin" />}
+                              Načítať ďalšie ({emails.length} z {totalCount})
+                            </Button>
+                            <Button variant="default" size="sm" className="text-xs gap-1" onClick={loadAllEmails} disabled={messagesFetching || loadingAll} data-testid="button-load-all">
+                              {loadingAll && <Loader2 className="h-3 w-3 animate-spin" />}
+                              Načítať všetko
+                            </Button>
+                          </div>
+                          {loadingAll && (
+                            <p className="text-[10px] text-muted-foreground">Načítava sa... {emails.length} z {totalCount}</p>
+                          )}
                         </div>
                       )}
                     </div>
@@ -1968,6 +2037,7 @@ export default function EmailClientPage() {
 
   function renderSettingsTabs() {
     const TAG_COLORS = ["#EF4444", "#F59E0B", "#10B981", "#3B82F6", "#8B5CF6", "#EC4899", "#6B7280", "#0EA5E9", "#14B8A6", "#F97316"];
+    const ACCOUNT_COLORS = ["#3B82F6", "#EF4444", "#10B981", "#F59E0B", "#8B5CF6", "#EC4899", "#0EA5E9", "#14B8A6", "#F97316", "#6366F1", "#84CC16", "#6B7280"];
 
     return (
       <div className="flex flex-col flex-1 min-h-0 gap-4">
@@ -1985,6 +2055,13 @@ export default function EmailClientPage() {
             data-testid="settings-tab-tags"
           >
             Tagy
+          </button>
+          <button
+            onClick={() => setSettingsTab("accounts")}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${settingsTab === "accounts" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+            data-testid="settings-tab-accounts"
+          >
+            Účty
           </button>
         </div>
 
@@ -2075,6 +2152,56 @@ export default function EmailClientPage() {
                 <div className="text-center py-8 text-muted-foreground">
                   <Tag className="h-8 w-8 mx-auto mb-2 opacity-30" />
                   <p className="text-sm">Zatiaľ žiadne tagy</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {settingsTab === "accounts" && (
+          <div className="space-y-4 flex-1 overflow-auto">
+            <p className="text-sm text-muted-foreground">Priraďte farby k emailovým účtom pre ľahšiu orientáciu v správach.</p>
+            <div className="space-y-2">
+              {mailboxes.map((mb) => {
+                const mbEmail = mb.email;
+                const currentColor = mailboxColorMap[mbEmail] || null;
+                return (
+                  <div key={mb.id} className="flex items-center gap-3 p-3 rounded-md border hover:bg-accent/30 transition-colors group">
+                    <span
+                      className="h-5 w-5 rounded-full shrink-0 border-2"
+                      style={{ backgroundColor: currentColor || "transparent", borderColor: currentColor || "#d1d5db" }}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{mb.displayName || mb.email}</p>
+                      <p className="text-[11px] text-muted-foreground truncate">{mb.email}</p>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      {currentColor && (
+                        <button
+                          onClick={() => upsertMailboxColorMutation.mutate({ mailboxEmail: mbEmail, color: "" })}
+                          className="p-1 rounded-md hover:bg-red-50 dark:hover:bg-red-950/30 text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                          title="Odstrániť farbu"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      )}
+                      {ACCOUNT_COLORS.map(color => (
+                        <button
+                          key={color}
+                          onClick={() => upsertMailboxColorMutation.mutate({ mailboxEmail: mbEmail, color })}
+                          className={`h-5 w-5 rounded-full transition-all hover:scale-110 ${currentColor === color ? "ring-2 ring-offset-2 ring-primary" : ""}`}
+                          style={{ backgroundColor: color }}
+                          data-testid={`account-color-${mb.id}-${color}`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+              {mailboxes.length === 0 && (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Mail className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                  <p className="text-sm">Žiadne pripojené účty</p>
                 </div>
               )}
             </div>
