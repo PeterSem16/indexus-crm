@@ -111,6 +111,10 @@ import {
   Minimize2,
   FileText,
   Sparkles,
+  Languages,
+  Volume2,
+  VolumeX,
+  Check,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import EmailEditor, { EmailRecipientInput } from "@/components/nexus/email-editor";
@@ -469,6 +473,13 @@ export default function EmailClientPage() {
   const [aiModalOpen, setAiModalOpen] = useState(false);
   const [aiModalContent, setAiModalContent] = useState("");
   const [aiModalType, setAiModalType] = useState<"reply" | "summary">("reply");
+  const [aiTranslating, setAiTranslating] = useState(false);
+  const [sendProgress, setSendProgress] = useState<{ active: boolean; progress: number; status: "sending" | "done" | "error" }>({ active: false, progress: 0, status: "sending" });
+  const prevEmailCountRef = useRef<number>(-1);
+  const prevMailboxContextRef = useRef<string>("");
+  const sendProgressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const sendHideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [aiTranslationKey, setAiTranslationKey] = useState(0);
   const [detailFullscreen, setDetailFullscreen] = useState(false);
   const [replyModalFullscreen, setReplyModalFullscreen] = useState(false);
   const [signatureDialogOpen, setSignatureDialogOpen] = useState(false);
@@ -532,6 +543,10 @@ export default function EmailClientPage() {
       aiEnabled: true,
       aiLanguageMode: "email" as "email" | "user",
       aiUserLanguage: "sk",
+      soundOnSend: true,
+      soundOnReceive: true,
+      pollingEnabled: true,
+      pollingInterval: 30,
     };
     return saved ? { ...defaults, ...JSON.parse(saved) } : defaults;
   });
@@ -643,11 +658,27 @@ export default function EmailClientPage() {
       return fetch(`/api/users/${user?.id}/ms365-folder-messages/${selectedFolderId}?mailbox=${effectiveMailbox}&top=${pageSize}&skip=${page * pageSize}`).then(r => r.json());
     },
     enabled: !!user?.id && !!selectedFolderId && activeTab === "email",
+    refetchInterval: emailPrefs.pollingEnabled ? emailPrefs.pollingInterval * 1000 : false,
+    refetchIntervalInBackground: false,
   });
+
+  useEffect(() => {
+    const contextKey = `${selectedMailbox}-${selectedFolderId}-${page}`;
+    if (contextKey !== prevMailboxContextRef.current) {
+      prevEmailCountRef.current = -1;
+      prevMailboxContextRef.current = contextKey;
+    }
+  }, [selectedMailbox, selectedFolderId, page]);
 
   useEffect(() => {
     if (messagesData?.emails) {
       if (page === 0) {
+        const currentUnreadCount = messagesData.emails.filter((e: any) => !e.isRead).length;
+        const prevCount = prevEmailCountRef.current;
+        if (prevCount >= 0 && currentUnreadCount > prevCount && emailPrefs.soundOnReceive) {
+          playSound("receive");
+        }
+        prevEmailCountRef.current = currentUnreadCount;
         setAccumulatedEmails(messagesData.emails);
       } else {
         setAccumulatedEmails(prev => {
@@ -894,26 +925,29 @@ export default function EmailClientPage() {
 
   const sendEmailMutation = useMutation({
     mutationFn: async (data: { to: string[]; cc?: string[]; bcc?: string[]; subject: string; body: string; mailboxEmail: string; attachments?: Array<{ name: string; contentType: string; contentBytes: string }> }) => {
+      startSendProgress();
       return apiRequest("POST", `/api/users/${user?.id}/ms365-send-email`, data);
     },
     onSuccess: () => {
-      toast({ title: "Odoslané", description: "Správa bola úspešne odoslaná" });
+      completeSendProgress(true);
       setComposeOpen(false);
       setComposeData({ to: "", cc: "", bcc: "", subject: "", body: "", importance: "normal", tagId: null, replyTo: "" });
       setAttachments([]);
       refetchMessages();
     },
     onError: () => {
+      completeSendProgress(false);
       toast({ title: "Chyba", description: "Nepodarilo sa odoslať správu", variant: "destructive" });
     },
   });
 
   const replyMutation = useMutation({
     mutationFn: async (data: { emailId: string; body: string; replyAll: boolean; mailboxEmail: string; cc?: string[]; bcc?: string[]; attachments?: Array<{ name: string; contentType: string; contentBytes: string }> }) => {
+      startSendProgress();
       return apiRequest("POST", `/api/users/${user?.id}/ms365-reply/${data.emailId}`, data);
     },
     onSuccess: () => {
-      toast({ title: "Odoslané", description: "Odpoveď bola úspešne odoslaná" });
+      completeSendProgress(true);
       setReplyMode(null);
       setReplyFieldsExpanded(false);
       setReplyModalFullscreen(false);
@@ -922,16 +956,18 @@ export default function EmailClientPage() {
       refetchMessages();
     },
     onError: () => {
+      completeSendProgress(false);
       toast({ title: "Chyba", description: "Nepodarilo sa odoslať odpoveď", variant: "destructive" });
     },
   });
 
   const forwardMutation = useMutation({
     mutationFn: async (data: { emailId: string; to: string[]; body: string; mailboxEmail: string; cc?: string[]; bcc?: string[]; attachments?: Array<{ name: string; contentType: string; contentBytes: string }> }) => {
+      startSendProgress();
       return apiRequest("POST", `/api/users/${user?.id}/ms365-forward/${data.emailId}`, data);
     },
     onSuccess: () => {
-      toast({ title: "Odoslané", description: "Správa bola úspešne preposlaná" });
+      completeSendProgress(true);
       setReplyMode(null);
       setReplyFieldsExpanded(false);
       setReplyModalFullscreen(false);
@@ -940,6 +976,7 @@ export default function EmailClientPage() {
       refetchMessages();
     },
     onError: () => {
+      completeSendProgress(false);
       toast({ title: "Chyba", description: "Nepodarilo sa preposlať správu", variant: "destructive" });
     },
   });
@@ -1371,6 +1408,115 @@ export default function EmailClientPage() {
     setAiSuggestCounter(prev => prev + 1);
     setReplyMode(prev => prev || "reply");
     setAiModalOpen(false);
+  };
+
+  const handleAiTranslate = async (targetLang: string) => {
+    if (!aiModalContent || aiTranslating) return;
+    setAiTranslating(true);
+    try {
+      const res = await apiRequest("POST", `/api/users/${user?.id}/ms365-ai-translate`, {
+        content: aiModalContent,
+        targetLanguage: targetLang,
+      });
+      const data = await res.json();
+      if (data.translated) {
+        setAiModalContent(data.translated);
+        setAiTranslationKey(prev => prev + 1);
+      }
+    } catch {
+      toast({ title: "Chyba", description: "Nepodarilo sa preložiť obsah", variant: "destructive" });
+    } finally {
+      setAiTranslating(false);
+    }
+  };
+
+  const AI_LANGUAGES = [
+    { code: "sk", label: "Slovenčina" },
+    { code: "cs", label: "Čeština" },
+    { code: "en", label: "English" },
+    { code: "de", label: "Deutsch" },
+    { code: "hu", label: "Magyar" },
+    { code: "ro", label: "Română" },
+    { code: "pl", label: "Polski" },
+    { code: "it", label: "Italiano" },
+    { code: "fr", label: "Français" },
+    { code: "es", label: "Español" },
+  ];
+
+  const playSound = (type: "send" | "receive") => {
+    try {
+      const ctx = new AudioContext();
+      if (type === "send") {
+        const osc1 = ctx.createOscillator();
+        const gain1 = ctx.createGain();
+        osc1.type = "sine";
+        osc1.frequency.setValueAtTime(880, ctx.currentTime);
+        osc1.frequency.exponentialRampToValueAtTime(1320, ctx.currentTime + 0.1);
+        gain1.gain.setValueAtTime(0.15, ctx.currentTime);
+        gain1.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+        osc1.connect(gain1);
+        gain1.connect(ctx.destination);
+        osc1.start(ctx.currentTime);
+        osc1.stop(ctx.currentTime + 0.3);
+        const osc2 = ctx.createOscillator();
+        const gain2 = ctx.createGain();
+        osc2.type = "sine";
+        osc2.frequency.setValueAtTime(1320, ctx.currentTime + 0.1);
+        osc2.frequency.exponentialRampToValueAtTime(1760, ctx.currentTime + 0.2);
+        gain2.gain.setValueAtTime(0, ctx.currentTime);
+        gain2.gain.setValueAtTime(0.12, ctx.currentTime + 0.1);
+        gain2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
+        osc2.connect(gain2);
+        gain2.connect(ctx.destination);
+        osc2.start(ctx.currentTime + 0.1);
+        osc2.stop(ctx.currentTime + 0.4);
+      } else {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(587, ctx.currentTime);
+        osc.frequency.setValueAtTime(784, ctx.currentTime + 0.15);
+        osc.frequency.setValueAtTime(1047, ctx.currentTime + 0.3);
+        gain.gain.setValueAtTime(0.12, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(ctx.currentTime);
+        osc.stop(ctx.currentTime + 0.5);
+      }
+    } catch {}
+  };
+
+  const startSendProgress = () => {
+    if (sendHideTimeoutRef.current) {
+      clearTimeout(sendHideTimeoutRef.current);
+      sendHideTimeoutRef.current = null;
+    }
+    setSendProgress({ active: true, progress: 0, status: "sending" });
+    let p = 0;
+    if (sendProgressTimerRef.current) clearInterval(sendProgressTimerRef.current);
+    sendProgressTimerRef.current = setInterval(() => {
+      p += Math.random() * 15 + 5;
+      if (p >= 90) p = 90;
+      setSendProgress(prev => ({ ...prev, progress: p }));
+    }, 200);
+  };
+
+  const completeSendProgress = (success: boolean) => {
+    if (sendProgressTimerRef.current) {
+      clearInterval(sendProgressTimerRef.current);
+      sendProgressTimerRef.current = null;
+    }
+    if (sendHideTimeoutRef.current) {
+      clearTimeout(sendHideTimeoutRef.current);
+      sendHideTimeoutRef.current = null;
+    }
+    setSendProgress({ active: true, progress: 100, status: success ? "done" : "error" });
+    if (success && emailPrefs.soundOnSend) playSound("send");
+    sendHideTimeoutRef.current = setTimeout(() => {
+      setSendProgress({ active: false, progress: 0, status: "sending" });
+      sendHideTimeoutRef.current = null;
+    }, success ? 2000 : 3000);
   };
 
   const openSignatureEditor = () => {
@@ -2256,9 +2402,27 @@ export default function EmailClientPage() {
               {aiModalType === "reply" ? "Skontrolujte a upravte navrhovanú odpoveď pred vložením." : "Skontrolujte a upravte zhrnutie pred vložením do odpovede."}
             </DialogDescription>
           </DialogHeader>
+          <div className="flex items-center gap-2 px-1">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" disabled={aiTranslating} className="gap-1.5" data-testid="ai-translate-btn">
+                  {aiTranslating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Languages className="h-3.5 w-3.5" />}
+                  Preložiť
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                {AI_LANGUAGES.map(lang => (
+                  <DropdownMenuItem key={lang.code} onClick={() => handleAiTranslate(lang.code)} data-testid={`ai-translate-${lang.code}`}>
+                    {lang.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            {aiTranslating && <span className="text-xs text-muted-foreground">Prebieha preklad...</span>}
+          </div>
           <div className="flex-1 overflow-auto min-h-0">
             <EmailEditor
-              key={`ai-modal-${aiModalType}-${aiModalOpen}`}
+              key={`ai-modal-${aiModalType}-${aiTranslationKey}`}
               initialContent={aiModalContent}
               onChange={(html) => setAiModalContent(html)}
               placeholder="Upravte AI obsah..."
@@ -2277,6 +2441,59 @@ export default function EmailClientPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {sendProgress.active && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] animate-in slide-in-from-bottom-4 fade-in duration-300" data-testid="send-progress-overlay">
+          <div className="bg-background/95 backdrop-blur-md border shadow-2xl rounded-xl px-6 py-4 min-w-[320px] max-w-[400px]">
+            <div className="flex items-center gap-3 mb-3">
+              {sendProgress.status === "sending" && (
+                <>
+                  <div className="h-8 w-8 rounded-full bg-blue-500/10 flex items-center justify-center">
+                    <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">Odosielam správu...</p>
+                    <p className="text-xs text-muted-foreground">Prosím čakajte</p>
+                  </div>
+                </>
+              )}
+              {sendProgress.status === "done" && (
+                <>
+                  <div className="h-8 w-8 rounded-full bg-green-500/10 flex items-center justify-center">
+                    <Check className="h-4 w-4 text-green-500" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-green-600 dark:text-green-400">Správa odoslaná</p>
+                    <p className="text-xs text-muted-foreground">Email bol úspešne doručený</p>
+                  </div>
+                </>
+              )}
+              {sendProgress.status === "error" && (
+                <>
+                  <div className="h-8 w-8 rounded-full bg-red-500/10 flex items-center justify-center">
+                    <XCircle className="h-4 w-4 text-red-500" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-red-600 dark:text-red-400">Odoslanie zlyhalo</p>
+                    <p className="text-xs text-muted-foreground">Skúste to znova</p>
+                  </div>
+                </>
+              )}
+            </div>
+            <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+              <div
+                className={cn(
+                  "h-full rounded-full transition-all duration-300 ease-out",
+                  sendProgress.status === "sending" && "bg-blue-500",
+                  sendProgress.status === "done" && "bg-green-500",
+                  sendProgress.status === "error" && "bg-red-500",
+                )}
+                style={{ width: `${sendProgress.progress}%` }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 
@@ -3210,6 +3427,41 @@ export default function EmailClientPage() {
                   </SettingRow>
                 )}
               </>
+            )}
+          </div>
+
+          <SectionTitle>Zvuky a notifikácie</SectionTitle>
+          <div className="divide-y">
+            <SettingRow label="Zvuk odoslania" description="Prehrať zvuk po úspešnom odoslaní emailu">
+              <Switch checked={emailPrefs.soundOnSend} onCheckedChange={(v) => updateEmailPref("soundOnSend", v)} />
+            </SettingRow>
+            <SettingRow label="Zvuk prijatia" description="Prehrať zvuk pri doručení nového emailu">
+              <Switch checked={emailPrefs.soundOnReceive} onCheckedChange={(v) => updateEmailPref("soundOnReceive", v)} />
+            </SettingRow>
+          </div>
+
+          <SectionTitle>Kontrola pošty</SectionTitle>
+          <div className="divide-y">
+            <SettingRow label="Automatická kontrola" description="Pravidelne kontrolovať novú poštu">
+              <Switch checked={emailPrefs.pollingEnabled} onCheckedChange={(v) => updateEmailPref("pollingEnabled", v)} />
+            </SettingRow>
+            {emailPrefs.pollingEnabled && (
+              <SettingRow label="Interval kontroly" description="Ako často kontrolovať novú poštu">
+                <Select value={String(emailPrefs.pollingInterval)} onValueChange={(v) => updateEmailPref("pollingInterval", parseInt(v))}>
+                  <SelectTrigger className="w-36 h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="5">Každých 5 sekúnd</SelectItem>
+                    <SelectItem value="10">Každých 10 sekúnd</SelectItem>
+                    <SelectItem value="15">Každých 15 sekúnd</SelectItem>
+                    <SelectItem value="30">Každých 30 sekúnd</SelectItem>
+                    <SelectItem value="60">Každú minútu</SelectItem>
+                    <SelectItem value="120">Každé 2 minúty</SelectItem>
+                    <SelectItem value="300">Každých 5 minút</SelectItem>
+                  </SelectContent>
+                </Select>
+              </SettingRow>
             )}
           </div>
         </div>

@@ -4640,6 +4640,44 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/users/:userId/ms365-ai-translate", requireAuth, async (req, res) => {
+    try {
+      const { content, targetLanguage } = req.body;
+      if (!content) {
+        return res.status(400).json({ error: "Content is required" });
+      }
+      const langNames: Record<string, string> = {
+        sk: "slovenčina", cs: "čeština", en: "English", de: "Deutsch",
+        hu: "magyar", ro: "română", it: "italiano", pl: "polski", fr: "français", es: "español",
+      };
+      const langName = langNames[targetLanguage] || targetLanguage || "slovenčina";
+      const trimmedContent = content.substring(0, 8000);
+
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "system",
+            content: `Preložte nasledujúci HTML obsah do jazyka ${langName}. Zachovajte všetky HTML tagy a formátovanie presne tak, ako sú. Preložte IBA textový obsah medzi tagmi. Vráťte IBA preložený HTML, bez ďalších komentárov.`,
+          },
+          {
+            role: "user",
+            content: trimmedContent,
+          },
+        ],
+        temperature: 0.3,
+        max_tokens: 2000,
+      });
+
+      let translated = response.choices[0]?.message?.content || "";
+      translated = translated.replace(/^```html\s*/i, "").replace(/```\s*$/, "").trim();
+      res.json({ translated });
+    } catch (error) {
+      console.error("[AI Translate] Error:", error);
+      res.status(500).json({ error: "Failed to translate content" });
+    }
+  });
+
   // Delete email
   app.patch("/api/users/:userId/ms365-email/:emailId/read-status", requireAuth, async (req, res) => {
     try {
