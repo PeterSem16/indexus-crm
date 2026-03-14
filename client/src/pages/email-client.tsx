@@ -506,7 +506,7 @@ export default function EmailClientPage() {
   const [listSearchOpen, setListSearchOpen] = useState(false);
   const [filterByTagId, setFilterByTagId] = useState<string | null>(null);
   const [tagPickerEmailId, setTagPickerEmailId] = useState<string | null>(null);
-  const [settingsTab, setSettingsTab] = useState<"accounts" | "messages" | "compose" | "tags" | "appearance">("messages");
+  const [settingsTab, setSettingsTab] = useState<"accounts" | "messages" | "compose" | "tags" | "appearance" | "ai" | "notifications">("messages");
   const [newTagName, setNewTagName] = useState("");
   const [newTagColor, setNewTagColor] = useState("#6B7280");
   const [loadingAll, setLoadingAll] = useState(false);
@@ -2381,6 +2381,8 @@ export default function EmailClientPage() {
                 { key: "messages" as const, label: "Správy", icon: <LayoutList className="h-4 w-4" /> },
                 { key: "compose" as const, label: "Písanie", icon: <Type className="h-4 w-4" /> },
                 { key: "tags" as const, label: "Tagy", icon: <Tag className="h-4 w-4" /> },
+                { key: "ai" as const, label: "AI Asistent", icon: <Sparkles className="h-4 w-4" /> },
+                { key: "notifications" as const, label: "Notifikácie", icon: <Volume2 className="h-4 w-4" /> },
                 { key: "appearance" as const, label: "Vzhľad", icon: <Palette className="h-4 w-4" /> },
               ].map(item => (
                 <button
@@ -2414,23 +2416,30 @@ export default function EmailClientPage() {
               {aiModalType === "reply" ? "Skontrolujte a upravte navrhovanú odpoveď pred vložením." : "Skontrolujte a upravte zhrnutie pred vložením do odpovede."}
             </DialogDescription>
           </DialogHeader>
-          <div className="flex items-center gap-2 px-1">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
+          <div className="flex items-center gap-2 px-4">
+            <Popover>
+              <PopoverTrigger asChild>
                 <Button variant="outline" size="sm" disabled={aiTranslating} className="gap-1.5" data-testid="ai-translate-btn">
                   {aiTranslating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Languages className="h-3.5 w-3.5" />}
                   Preložiť
                 </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start">
-                {AI_LANGUAGES.map(lang => (
-                  <DropdownMenuItem key={lang.code} onClick={() => handleAiTranslate(lang.code)} data-testid={`ai-translate-${lang.code}`}>
-                    {lang.label}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-            {aiTranslating && <span className="text-xs text-muted-foreground">Prebieha preklad...</span>}
+              </PopoverTrigger>
+              <PopoverContent className="w-44 p-1" align="start" side="bottom" sideOffset={4}>
+                <div className="space-y-0.5">
+                  {AI_LANGUAGES.map(lang => (
+                    <button
+                      key={lang.code}
+                      className="w-full flex items-center gap-2 px-3 py-1.5 rounded-md text-sm hover:bg-accent transition-colors text-left"
+                      onClick={() => handleAiTranslate(lang.code)}
+                      data-testid={`ai-translate-${lang.code}`}
+                    >
+                      {lang.label}
+                    </button>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
+            {aiTranslating && <span className="text-xs text-muted-foreground animate-pulse">Prebieha preklad...</span>}
           </div>
           <div className="flex-1 overflow-auto min-h-0">
             <EmailEditor
@@ -3399,14 +3408,28 @@ export default function EmailClientPage() {
             </SettingRow>
           </div>
 
-          <SectionTitle>AI Asistent</SectionTitle>
+        </div>
+      );
+    }
+
+    if (settingsTab === "ai") {
+      return (
+        <div>
+          <h2 className="text-lg font-semibold mb-1">AI Asistent</h2>
+          <p className="text-sm text-muted-foreground mb-4">Nastavenia umelej inteligencie pre emailovú komunikáciu.</p>
+
+          <SectionTitle>Základné nastavenia</SectionTitle>
           <div className="divide-y">
-            <SettingRow label="Povoliť AI" description="Zapnúť AI funkcie (odpoveď, zhrnutie)">
+            <SettingRow label="Povoliť AI" description="Zapnúť AI funkcie (odpoveď, zhrnutie, preklad)">
               <Switch checked={emailPrefs.aiEnabled} onCheckedChange={(v) => updateEmailPref("aiEnabled", v)} />
             </SettingRow>
-            {emailPrefs.aiEnabled && (
-              <>
-                <SettingRow label="Jazyk AI odpovede" description="V akom jazyku má AI generovať odpovede a zhrnutia">
+          </div>
+
+          {emailPrefs.aiEnabled && (
+            <>
+              <SectionTitle>Jazyk AI odpovede</SectionTitle>
+              <div className="divide-y">
+                <SettingRow label="Režim jazyka" description="V akom jazyku má AI generovať odpovede a zhrnutia">
                   <Select value={emailPrefs.aiLanguageMode} onValueChange={(v) => updateEmailPref("aiLanguageMode", v)}>
                     <SelectTrigger className="w-52 h-8 text-xs">
                       <SelectValue />
@@ -3438,11 +3461,20 @@ export default function EmailClientPage() {
                     </Select>
                   </SettingRow>
                 )}
-              </>
-            )}
-          </div>
+              </div>
+            </>
+          )}
+        </div>
+      );
+    }
 
-          <SectionTitle>Zvuky a notifikácie</SectionTitle>
+    if (settingsTab === "notifications") {
+      return (
+        <div>
+          <h2 className="text-lg font-semibold mb-1">Notifikácie a zvuky</h2>
+          <p className="text-sm text-muted-foreground mb-4">Nastavenia zvukových notifikácií a automatickej kontroly pošty.</p>
+
+          <SectionTitle>Zvuky</SectionTitle>
           <div className="divide-y">
             <SettingRow label="Zvuk odoslania" description="Prehrať zvuk po úspešnom odoslaní emailu">
               <Switch checked={emailPrefs.soundOnSend} onCheckedChange={(v) => updateEmailPref("soundOnSend", v)} />
