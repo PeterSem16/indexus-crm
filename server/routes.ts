@@ -4218,7 +4218,7 @@ export async function registerRoutes(
   app.post("/api/users/:userId/ms365-send-email", requireAuth, async (req, res) => {
     try {
       const { userId } = req.params;
-      const { to, cc, bcc, subject, body, isHtml, mailboxEmail, importance } = req.body;
+      const { to, cc, bcc, subject, body, isHtml, mailboxEmail, importance, attachments: reqAttachments } = req.body;
       
       if (!to || !Array.isArray(to) || to.length === 0) {
         return res.status(400).json({ error: "Recipient is required" });
@@ -4262,7 +4262,8 @@ export async function registerRoutes(
         cc || [],
         bcc || [],
         mailboxEmail === "personal" ? undefined : mailboxEmail,
-        importance
+        importance,
+        Array.isArray(reqAttachments) ? reqAttachments : undefined
       );
       
       if (success) {
@@ -4352,7 +4353,7 @@ export async function registerRoutes(
   app.post("/api/users/:userId/ms365-reply/:emailId", requireAuth, async (req, res) => {
     try {
       const { userId, emailId } = req.params;
-      const { body, isHtml, replyAll, mailboxEmail, cc, bcc } = req.body;
+      const { body, isHtml, replyAll, mailboxEmail, cc, bcc, attachments: reqAttachments } = req.body;
       
       const ms365Connection = await storage.getUserMs365Connection(userId);
       if (!ms365Connection || !ms365Connection.isConnected) {
@@ -4394,7 +4395,8 @@ export async function registerRoutes(
         replyAll === true,
         mailboxEmail === "personal" ? undefined : mailboxEmail,
         ccList.length > 0 ? ccList : undefined,
-        bccList.length > 0 ? bccList : undefined
+        bccList.length > 0 ? bccList : undefined,
+        Array.isArray(reqAttachments) ? reqAttachments : undefined
       );
       
       if (success) {
@@ -4434,7 +4436,7 @@ export async function registerRoutes(
   app.post("/api/users/:userId/ms365-forward/:emailId", requireAuth, async (req, res) => {
     try {
       const { userId, emailId } = req.params;
-      const { to, body, isHtml, mailboxEmail, cc, bcc } = req.body;
+      const { to, body, isHtml, mailboxEmail, cc, bcc, attachments: reqAttachments } = req.body;
       
       if (!to || !Array.isArray(to) || to.length === 0) {
         return res.status(400).json({ error: "Recipient is required" });
@@ -4480,7 +4482,8 @@ export async function registerRoutes(
         isHtml !== false,
         mailboxEmail === "personal" ? undefined : mailboxEmail,
         ccList.length > 0 ? ccList : undefined,
-        bccList.length > 0 ? bccList : undefined
+        bccList.length > 0 ? bccList : undefined,
+        Array.isArray(reqAttachments) ? reqAttachments : undefined
       );
       
       if (success) {
@@ -4581,7 +4584,8 @@ export async function registerRoutes(
         max_tokens: 1000,
       });
 
-      const suggestion = response.choices[0]?.message?.content || "";
+      let suggestion = response.choices[0]?.message?.content || "";
+      suggestion = suggestion.replace(/^```html\s*/i, "").replace(/```\s*$/, "").trim();
       res.json({ suggestion });
     } catch (error) {
       console.error("[AI Suggest Reply] Error:", error);
@@ -4623,7 +4627,8 @@ export async function registerRoutes(
         max_tokens: 1500,
       });
 
-      const summary = response.choices[0]?.message?.content || "";
+      let summary = response.choices[0]?.message?.content || "";
+      summary = summary.replace(/^```html\s*/i, "").replace(/```\s*$/, "").trim();
       res.json({ summary });
     } catch (error) {
       console.error("[AI Summary] Error:", error);

@@ -744,7 +744,8 @@ export async function sendEmailWithSignature(
   cc: string[] = [],
   bcc: string[] = [],
   mailboxEmail?: string,
-  importance?: string
+  importance?: string,
+  attachments?: Array<{ name: string; contentType: string; contentBytes: string }>
 ): Promise<boolean> {
   const client = createGraphClient(accessToken);
   const basePath = mailboxEmail ? `/users/${mailboxEmail}` : '/me';
@@ -770,6 +771,15 @@ export async function sendEmailWithSignature(
   if (importance && ['low', 'normal', 'high'].includes(importance)) {
     message.importance = importance;
   }
+
+  if (attachments && attachments.length > 0) {
+    message.attachments = attachments.map(att => ({
+      "@odata.type": "#microsoft.graph.fileAttachment",
+      name: att.name,
+      contentType: att.contentType,
+      contentBytes: att.contentBytes,
+    }));
+  }
   
   try {
     await client.api(`${basePath}/sendMail`).post({ message, saveToSentItems: true });
@@ -792,7 +802,8 @@ export async function replyToEmail(
   replyAll: boolean = false,
   mailboxEmail?: string,
   cc?: string[],
-  bcc?: string[]
+  bcc?: string[],
+  attachments?: Array<{ name: string; contentType: string; contentBytes: string }>
 ): Promise<boolean> {
   const client = createGraphClient(accessToken);
   const basePath = mailboxEmail ? `/users/${mailboxEmail}` : '/me';
@@ -802,6 +813,40 @@ export async function replyToEmail(
     finalBody = `${body}<br/><br/>--<br/>${signature}`;
   } else if (signature) {
     finalBody = `${body}\n\n--\n${signature}`;
+  }
+
+  if (attachments && attachments.length > 0) {
+    try {
+      const endpoint = replyAll ? 'createReplyAll' : 'createReply';
+      const draft = await client.api(`${basePath}/messages/${emailId}/${endpoint}`).post({});
+      const draftId = draft.id;
+
+      const updateBody: any = {
+        body: { contentType: isHtml ? 'HTML' : 'Text', content: finalBody },
+      };
+      if (cc && cc.length > 0) {
+        updateBody.ccRecipients = cc.map((email: string) => ({ emailAddress: { address: email } }));
+      }
+      if (bcc && bcc.length > 0) {
+        updateBody.bccRecipients = bcc.map((email: string) => ({ emailAddress: { address: email } }));
+      }
+      await client.api(`${basePath}/messages/${draftId}`).patch(updateBody);
+
+      for (const att of attachments) {
+        await client.api(`${basePath}/messages/${draftId}/attachments`).post({
+          "@odata.type": "#microsoft.graph.fileAttachment",
+          name: att.name,
+          contentType: att.contentType,
+          contentBytes: att.contentBytes,
+        });
+      }
+
+      await client.api(`${basePath}/messages/${draftId}/send`).post({});
+      return true;
+    } catch (error) {
+      console.error('[MS365] Error replying with attachments:', error);
+      return false;
+    }
   }
   
   const message: any = {};
@@ -839,7 +884,8 @@ export async function forwardEmail(
   isHtml: boolean = true,
   mailboxEmail?: string,
   cc?: string[],
-  bcc?: string[]
+  bcc?: string[],
+  attachments?: Array<{ name: string; contentType: string; contentBytes: string }>
 ): Promise<boolean> {
   const client = createGraphClient(accessToken);
   const basePath = mailboxEmail ? `/users/${mailboxEmail}` : '/me';
@@ -849,6 +895,40 @@ export async function forwardEmail(
     finalBody = `${body}<br/><br/>--<br/>${signature}`;
   } else if (signature) {
     finalBody = `${body}\n\n--\n${signature}`;
+  }
+
+  if (attachments && attachments.length > 0) {
+    try {
+      const draft = await client.api(`${basePath}/messages/${emailId}/createForward`).post({});
+      const draftId = draft.id;
+
+      const updateBody: any = {
+        body: { contentType: isHtml ? 'HTML' : 'Text', content: finalBody },
+        toRecipients: to.map((email: string) => ({ emailAddress: { address: email } })),
+      };
+      if (cc && cc.length > 0) {
+        updateBody.ccRecipients = cc.map((email: string) => ({ emailAddress: { address: email } }));
+      }
+      if (bcc && bcc.length > 0) {
+        updateBody.bccRecipients = bcc.map((email: string) => ({ emailAddress: { address: email } }));
+      }
+      await client.api(`${basePath}/messages/${draftId}`).patch(updateBody);
+
+      for (const att of attachments) {
+        await client.api(`${basePath}/messages/${draftId}/attachments`).post({
+          "@odata.type": "#microsoft.graph.fileAttachment",
+          name: att.name,
+          contentType: att.contentType,
+          contentBytes: att.contentBytes,
+        });
+      }
+
+      await client.api(`${basePath}/messages/${draftId}/send`).post({});
+      return true;
+    } catch (error) {
+      console.error('[MS365] Error forwarding with attachments:', error);
+      return false;
+    }
   }
   
   const forward: any = {

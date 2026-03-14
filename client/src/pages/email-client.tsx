@@ -886,7 +886,7 @@ export default function EmailClientPage() {
   };
 
   const sendEmailMutation = useMutation({
-    mutationFn: async (data: { to: string[]; cc?: string[]; bcc?: string[]; subject: string; body: string; mailboxEmail: string }) => {
+    mutationFn: async (data: { to: string[]; cc?: string[]; bcc?: string[]; subject: string; body: string; mailboxEmail: string; attachments?: Array<{ name: string; contentType: string; contentBytes: string }> }) => {
       return apiRequest("POST", `/api/users/${user?.id}/ms365-send-email`, data);
     },
     onSuccess: () => {
@@ -902,7 +902,7 @@ export default function EmailClientPage() {
   });
 
   const replyMutation = useMutation({
-    mutationFn: async (data: { emailId: string; body: string; replyAll: boolean; mailboxEmail: string; cc?: string[]; bcc?: string[] }) => {
+    mutationFn: async (data: { emailId: string; body: string; replyAll: boolean; mailboxEmail: string; cc?: string[]; bcc?: string[]; attachments?: Array<{ name: string; contentType: string; contentBytes: string }> }) => {
       return apiRequest("POST", `/api/users/${user?.id}/ms365-reply/${data.emailId}`, data);
     },
     onSuccess: () => {
@@ -910,6 +910,7 @@ export default function EmailClientPage() {
       setReplyMode(null);
       setReplyFieldsExpanded(false);
       setComposeData({ to: "", cc: "", bcc: "", subject: "", body: "", importance: "normal", tagId: null, replyTo: "" });
+      setAttachments([]);
       refetchMessages();
     },
     onError: () => {
@@ -918,7 +919,7 @@ export default function EmailClientPage() {
   });
 
   const forwardMutation = useMutation({
-    mutationFn: async (data: { emailId: string; to: string[]; body: string; mailboxEmail: string; cc?: string[]; bcc?: string[] }) => {
+    mutationFn: async (data: { emailId: string; to: string[]; body: string; mailboxEmail: string; cc?: string[]; bcc?: string[]; attachments?: Array<{ name: string; contentType: string; contentBytes: string }> }) => {
       return apiRequest("POST", `/api/users/${user?.id}/ms365-forward/${data.emailId}`, data);
     },
     onSuccess: () => {
@@ -926,6 +927,7 @@ export default function EmailClientPage() {
       setReplyMode(null);
       setReplyFieldsExpanded(false);
       setComposeData({ to: "", cc: "", bcc: "", subject: "", body: "", importance: "normal", tagId: null, replyTo: "" });
+      setAttachments([]);
       refetchMessages();
     },
     onError: () => {
@@ -1189,7 +1191,7 @@ export default function EmailClientPage() {
     return undefined;
   };
 
-  const handleSendEmail = () => {
+  const handleSendEmail = async () => {
     const toList = composeData.to.split(",").map(e => e.trim()).filter(Boolean);
     const ccList = composeData.cc ? composeData.cc.split(",").map(e => e.trim()).filter(Boolean) : [];
     const bccList = composeData.bcc ? composeData.bcc.split(",").map(e => e.trim()).filter(Boolean) : [];
@@ -1197,11 +1199,13 @@ export default function EmailClientPage() {
       toast({ title: "Chyba", description: "Zadajte príjemcu", variant: "destructive" });
       return;
     }
+    const attData = attachments.length > 0 ? await filesToBase64(attachments) : undefined;
     sendEmailMutation.mutate({
       to: toList, cc: ccList, bcc: bccList,
       subject: composeData.subject, body: composeData.body,
       mailboxEmail: effectiveMailbox,
       importance: composeData.importance !== "normal" ? composeData.importance : undefined,
+      attachments: attData,
     } as any);
   };
 
@@ -1247,19 +1251,36 @@ export default function EmailClientPage() {
     setReplyMode(mode);
   };
 
-  const handleReply = () => {
+  const filesToBase64 = async (files: File[]): Promise<Array<{ name: string; contentType: string; contentBytes: string }>> => {
+    const results = [];
+    for (const file of files) {
+      const buffer = await file.arrayBuffer();
+      const bytes = new Uint8Array(buffer);
+      let binary = "";
+      for (let i = 0; i < bytes.length; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      const base64 = btoa(binary);
+      results.push({ name: file.name, contentType: file.type || "application/octet-stream", contentBytes: base64 });
+    }
+    return results;
+  };
+
+  const handleReply = async () => {
     if (!selectedEmail) return;
     const ccList = composeData.cc.split(",").map(e => e.trim()).filter(Boolean);
     const bccList = composeData.bcc.split(",").map(e => e.trim()).filter(Boolean);
+    const attData = attachments.length > 0 ? await filesToBase64(attachments) : undefined;
     replyMutation.mutate({
       emailId: selectedEmail.id, body: composeData.body,
       replyAll: replyMode === "replyAll", mailboxEmail: emailDetailMailbox,
       cc: ccList.length > 0 ? ccList : undefined,
       bcc: bccList.length > 0 ? bccList : undefined,
+      attachments: attData,
     });
   };
 
-  const handleForward = () => {
+  const handleForward = async () => {
     if (!selectedEmail) return;
     const toList = composeData.to.split(",").map(e => e.trim()).filter(Boolean);
     if (toList.length === 0) {
@@ -1268,11 +1289,13 @@ export default function EmailClientPage() {
     }
     const ccList = composeData.cc.split(",").map(e => e.trim()).filter(Boolean);
     const bccList = composeData.bcc.split(",").map(e => e.trim()).filter(Boolean);
+    const attData = attachments.length > 0 ? await filesToBase64(attachments) : undefined;
     forwardMutation.mutate({
       emailId: selectedEmail.id, to: toList,
       body: composeData.body, mailboxEmail: emailDetailMailbox,
       cc: ccList.length > 0 ? ccList : undefined,
       bcc: bccList.length > 0 ? bccList : undefined,
+      attachments: attData,
     });
   };
 
@@ -1324,7 +1347,12 @@ export default function EmailClientPage() {
 
   const handleAiModalInsert = () => {
     setComposeData(prev => {
-      const existing = prev.body.replace(/<p><br><\/p>/g, "").trim();
+      let existing = prev.body;
+      const sigIndex = existing.indexOf('<div class="email-signature"');
+      if (sigIndex !== -1) {
+        existing = existing.substring(0, sigIndex);
+      }
+      existing = existing.replace(/<p><br><\/p>/g, "").trim();
       const newBody = existing ? `${existing}<br>${aiModalContent}` : aiModalContent;
       return { ...prev, body: newBody };
     });
