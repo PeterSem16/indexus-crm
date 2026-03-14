@@ -790,7 +790,9 @@ export async function replyToEmail(
   signature: string = '',
   isHtml: boolean = true,
   replyAll: boolean = false,
-  mailboxEmail?: string
+  mailboxEmail?: string,
+  cc?: string[],
+  bcc?: string[]
 ): Promise<boolean> {
   const client = createGraphClient(accessToken);
   const basePath = mailboxEmail ? `/users/${mailboxEmail}` : '/me';
@@ -802,8 +804,16 @@ export async function replyToEmail(
     finalBody = `${body}\n\n--\n${signature}`;
   }
   
+  const message: any = {};
+  if (cc && cc.length > 0) {
+    message.ccRecipients = cc.map(email => ({ emailAddress: { address: email } }));
+  }
+  if (bcc && bcc.length > 0) {
+    message.bccRecipients = bcc.map(email => ({ emailAddress: { address: email } }));
+  }
+
   const reply = {
-    message: {},
+    message,
     comment: finalBody,
   };
   
@@ -827,7 +837,9 @@ export async function forwardEmail(
   body: string,
   signature: string = '',
   isHtml: boolean = true,
-  mailboxEmail?: string
+  mailboxEmail?: string,
+  cc?: string[],
+  bcc?: string[]
 ): Promise<boolean> {
   const client = createGraphClient(accessToken);
   const basePath = mailboxEmail ? `/users/${mailboxEmail}` : '/me';
@@ -839,10 +851,16 @@ export async function forwardEmail(
     finalBody = `${body}\n\n--\n${signature}`;
   }
   
-  const forward = {
+  const forward: any = {
     toRecipients: to.map(email => ({ emailAddress: { address: email } })),
     comment: finalBody,
   };
+  if (cc && cc.length > 0) {
+    forward.ccRecipients = cc.map(email => ({ emailAddress: { address: email } }));
+  }
+  if (bcc && bcc.length > 0) {
+    forward.bccRecipients = bcc.map(email => ({ emailAddress: { address: email } }));
+  }
   
   try {
     await client.api(`${basePath}/messages/${emailId}/forward`).post(forward);

@@ -26,8 +26,9 @@ import {
   Quote, Undo2, Redo2, AlignLeft, AlignCenter, AlignRight, AlignJustify,
   Link as LinkIcon, Unlink, ImageIcon, Table as TableIcon,
   Paintbrush, Type, Minus,
-  Paperclip, X, Upload
+  Paperclip, X, Upload, Sparkles, Loader2, ChevronDown, ChevronUp
 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 declare module "@tiptap/core" {
   interface Commands<ReturnType> {
@@ -81,7 +82,24 @@ const TEXT_COLORS = [
   "#c9daf8", "#cfe2f3", "#d9d2e9", "#ead1dc",
 ];
 
-const FONT_SIZES = ["10px", "11px", "12px", "13px", "14px", "16px", "18px", "20px", "24px", "28px", "32px", "36px"];
+const FONT_SIZES = [
+  { label: "8", value: "8px" },
+  { label: "9", value: "9px" },
+  { label: "10", value: "10px" },
+  { label: "11", value: "11px" },
+  { label: "12", value: "12px" },
+  { label: "13", value: "13px" },
+  { label: "14", value: "14px" },
+  { label: "16", value: "16px" },
+  { label: "18", value: "18px" },
+  { label: "20", value: "20px" },
+  { label: "24", value: "24px" },
+  { label: "28", value: "28px" },
+  { label: "32", value: "32px" },
+  { label: "36", value: "36px" },
+  { label: "48", value: "48px" },
+  { label: "72", value: "72px" },
+];
 
 interface EmailEditorProps {
   initialContent?: string;
@@ -93,6 +111,8 @@ interface EmailEditorProps {
   onAttachmentsChange?: (files: File[]) => void;
   showAttachments?: boolean;
   className?: string;
+  onAiSuggest?: () => void;
+  aiLoading?: boolean;
 }
 
 export default function EmailEditor({
@@ -105,6 +125,8 @@ export default function EmailEditor({
   onAttachmentsChange,
   showAttachments = true,
   className,
+  onAiSuggest,
+  aiLoading,
 }: EmailEditorProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [linkUrl, setLinkUrl] = useState("");
@@ -151,11 +173,14 @@ export default function EmailEditor({
       initializedRef.current = true;
       let content = initialContent || "";
       if (signatureHtml) {
-        content = content + (content ? "<br><br>" : "") + '<div class="email-signature">' + signatureHtml + "</div>";
+        const spacer = "<p><br></p><p><br></p><p><br></p>";
+        content = content + spacer + '<div class="email-signature">' + signatureHtml + "</div>";
       }
       if (content) {
         editor.commands.setContent(content);
-        editor.commands.focus("start");
+        setTimeout(() => {
+          editor.commands.focus("start");
+        }, 50);
       }
     }
   }, [editor, initialContent, signatureHtml]);
@@ -215,6 +240,12 @@ export default function EmailEditor({
     return `${(bytes / 1048576).toFixed(1)} MB`;
   };
 
+  const getCurrentFontSize = () => {
+    if (!editor) return "";
+    const attrs = editor.getAttributes("textStyle");
+    return attrs?.fontSize ? attrs.fontSize.replace("px", "") : "13";
+  };
+
   if (!editor) return null;
 
   return (
@@ -251,24 +282,23 @@ export default function EmailEditor({
 
         <Separator orientation="vertical" className="h-5 mx-0.5" />
 
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button type="button" variant="ghost" size="icon" className="h-7 w-7" title="Veľkosť písma">
-              <Type className="h-3.5 w-3.5" />
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-24 p-1" align="start">
-            {FONT_SIZES.map(size => (
-              <button
-                key={size}
-                className="w-full text-left px-2 py-1 text-sm rounded hover:bg-accent"
-                onClick={() => { editor.chain().focus().setFontSize(size).run(); }}
-              >
-                {size}
-              </button>
+        <Select
+          value={getCurrentFontSize()}
+          onValueChange={(val) => {
+            editor.chain().focus().setFontSize(`${val}px`).run();
+          }}
+        >
+          <SelectTrigger className="h-7 w-14 text-xs px-1.5 border-0 bg-transparent hover:bg-accent" data-testid="select-font-size">
+            <SelectValue placeholder="13" />
+          </SelectTrigger>
+          <SelectContent>
+            {FONT_SIZES.map(s => (
+              <SelectItem key={s.value} value={s.label}>
+                <span style={{ fontSize: s.value }}>{s.label}</span>
+              </SelectItem>
             ))}
-          </PopoverContent>
-        </Popover>
+          </SelectContent>
+        </Select>
 
         <Separator orientation="vertical" className="h-5 mx-0.5" />
 
@@ -458,6 +488,25 @@ export default function EmailEditor({
             <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFileSelect} />
           </>
         )}
+
+        {onAiSuggest && (
+          <>
+            <Separator orientation="vertical" className="h-5 mx-0.5" />
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 gap-1 text-xs px-2 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/30"
+              onClick={onAiSuggest}
+              disabled={aiLoading}
+              title="AI návrh odpovede"
+              data-testid="button-ai-suggest"
+            >
+              {aiLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+              AI
+            </Button>
+          </>
+        )}
       </div>
 
       <EditorContent editor={editor} data-testid="email-editor-content" />
@@ -478,6 +527,11 @@ export default function EmailEditor({
       )}
     </div>
   );
+}
+
+export function useEmailEditorRef() {
+  const editorRef = useRef<{ setContent: (html: string) => void } | null>(null);
+  return editorRef;
 }
 
 interface EmailRecipientInputProps {
@@ -529,11 +583,12 @@ export function EmailRecipientInput({
   }, [onChange, knownEmails]);
 
   const selectSuggestion = useCallback((suggestion: { name?: string; address: string }) => {
-    const parts = value.split(",").map(p => p.trim());
-    parts[parts.length - 1] = suggestion.address;
-    onChange(parts.join(", ") + ", ");
+    const parts = value.split(",").map(p => p.trim()).filter(Boolean);
+    const alreadySelected = parts.slice(0, -1);
+    const newParts = [...alreadySelected, suggestion.address];
+    onChange(newParts.join(", ") + ", ");
     setShowSuggestions(false);
-    inputRef.current?.focus();
+    setTimeout(() => inputRef.current?.focus(), 0);
   }, [value, onChange]);
 
   return (
@@ -558,8 +613,13 @@ export function EmailRecipientInput({
           {filteredSuggestions.map((s, i) => (
             <button
               key={i}
+              type="button"
               className="w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors flex items-center gap-2"
-              onClick={() => selectSuggestion(s)}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                selectSuggestion(s);
+              }}
               data-testid={`suggestion-${i}`}
             >
               <div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center text-[10px] font-bold shrink-0">

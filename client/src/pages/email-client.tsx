@@ -104,6 +104,8 @@ import {
   Download,
   Shield,
   Users,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import EmailEditor, { EmailRecipientInput } from "@/components/nexus/email-editor";
@@ -454,6 +456,9 @@ export default function EmailClientPage() {
   const [selectedSms, setSelectedSms] = useState<SmsMessage | null>(null);
   const [composeOpen, setComposeOpen] = useState(false);
   const [replyMode, setReplyMode] = useState<"reply" | "replyAll" | "forward" | null>(null);
+  const [replyFieldsExpanded, setReplyFieldsExpanded] = useState(false);
+  const [aiSuggestLoading, setAiSuggestLoading] = useState(false);
+  const [aiSuggestCounter, setAiSuggestCounter] = useState(0);
   const [signatureDialogOpen, setSignatureDialogOpen] = useState(false);
   const [page, setPage] = useState(0);
   const pageSize = 200;
@@ -536,7 +541,7 @@ export default function EmailClientPage() {
   const activeFilterCount = Object.values(emailFilters).filter(Boolean).length;
 
   const [attachments, setAttachments] = useState<File[]>([]);
-  const [composeData, setComposeData] = useState({ to: "", cc: "", bcc: "", subject: "", body: "", importance: "normal" as string, tagId: null as number | null });
+  const [composeData, setComposeData] = useState({ to: "", cc: "", bcc: "", subject: "", body: "", importance: "normal" as string, tagId: null as number | null, replyTo: "" });
   const [signatureHtml, setSignatureHtml] = useState("");
   const [signatureActive, setSignatureActive] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -878,7 +883,7 @@ export default function EmailClientPage() {
     onSuccess: () => {
       toast({ title: "Odoslané", description: "Správa bola úspešne odoslaná" });
       setComposeOpen(false);
-      setComposeData({ to: "", cc: "", bcc: "", subject: "", body: "", importance: "normal", tagId: null });
+      setComposeData({ to: "", cc: "", bcc: "", subject: "", body: "", importance: "normal", tagId: null, replyTo: "" });
       setAttachments([]);
       refetchMessages();
     },
@@ -888,13 +893,14 @@ export default function EmailClientPage() {
   });
 
   const replyMutation = useMutation({
-    mutationFn: async (data: { emailId: string; body: string; replyAll: boolean; mailboxEmail: string }) => {
+    mutationFn: async (data: { emailId: string; body: string; replyAll: boolean; mailboxEmail: string; cc?: string[]; bcc?: string[] }) => {
       return apiRequest("POST", `/api/users/${user?.id}/ms365-reply/${data.emailId}`, data);
     },
     onSuccess: () => {
       toast({ title: "Odoslané", description: "Odpoveď bola úspešne odoslaná" });
       setReplyMode(null);
-      setComposeData({ to: "", cc: "", bcc: "", subject: "", body: "", importance: "normal", tagId: null });
+      setReplyFieldsExpanded(false);
+      setComposeData({ to: "", cc: "", bcc: "", subject: "", body: "", importance: "normal", tagId: null, replyTo: "" });
       refetchMessages();
     },
     onError: () => {
@@ -903,13 +909,14 @@ export default function EmailClientPage() {
   });
 
   const forwardMutation = useMutation({
-    mutationFn: async (data: { emailId: string; to: string[]; body: string; mailboxEmail: string }) => {
+    mutationFn: async (data: { emailId: string; to: string[]; body: string; mailboxEmail: string; cc?: string[]; bcc?: string[] }) => {
       return apiRequest("POST", `/api/users/${user?.id}/ms365-forward/${data.emailId}`, data);
     },
     onSuccess: () => {
       toast({ title: "Odoslané", description: "Správa bola úspešne preposlaná" });
       setReplyMode(null);
-      setComposeData({ to: "", cc: "", bcc: "", subject: "", body: "", importance: "normal", tagId: null });
+      setReplyFieldsExpanded(false);
+      setComposeData({ to: "", cc: "", bcc: "", subject: "", body: "", importance: "normal", tagId: null, replyTo: "" });
       refetchMessages();
     },
     onError: () => {
@@ -1182,11 +1189,57 @@ export default function EmailClientPage() {
     } as any);
   };
 
+  const getMyMailboxEmails = () => {
+    return mailboxes.map(m => m.email?.toLowerCase()).filter(Boolean) as string[];
+  };
+
+  const setupReplyCompose = (mode: "reply" | "replyAll" | "forward", detail: any) => {
+    setReplyFieldsExpanded(false);
+    setAttachments([]);
+    const myEmails = getMyMailboxEmails();
+
+    if (mode === "reply") {
+      setComposeData({
+        to: detail.from?.emailAddress?.address || "",
+        cc: "", bcc: "",
+        subject: `Re: ${(detail.subject || "").replace(/^Re:\s*/i, "")}`,
+        body: "", importance: "normal", tagId: null, replyTo: "",
+      });
+    } else if (mode === "replyAll") {
+      const allTo = [
+        detail.from?.emailAddress?.address,
+        ...(detail.toRecipients?.map((r: any) => r.emailAddress?.address) || []),
+      ].filter(Boolean).map((e: string) => e.toLowerCase());
+      const deduped = [...new Set(allTo)].filter(e => !myEmails.includes(e));
+      const ccAll = (detail.ccRecipients?.map((r: any) => r.emailAddress?.address) || [])
+        .filter(Boolean).map((e: string) => e.toLowerCase());
+      const ccDeduped = [...new Set(ccAll)].filter(e => !myEmails.includes(e) && !deduped.includes(e));
+      setComposeData({
+        to: deduped.join(", "),
+        cc: ccDeduped.join(", "),
+        bcc: "",
+        subject: `Re: ${(detail.subject || "").replace(/^Re:\s*/i, "")}`,
+        body: "", importance: "normal", tagId: null, replyTo: "",
+      });
+    } else {
+      setComposeData({
+        to: "", cc: "", bcc: "",
+        subject: `Fwd: ${(detail.subject || "").replace(/^Fwd:\s*/i, "")}`,
+        body: "", importance: "normal", tagId: null, replyTo: "",
+      });
+    }
+    setReplyMode(mode);
+  };
+
   const handleReply = () => {
     if (!selectedEmail) return;
+    const ccList = composeData.cc.split(",").map(e => e.trim()).filter(Boolean);
+    const bccList = composeData.bcc.split(",").map(e => e.trim()).filter(Boolean);
     replyMutation.mutate({
       emailId: selectedEmail.id, body: composeData.body,
       replyAll: replyMode === "replyAll", mailboxEmail: emailDetailMailbox,
+      cc: ccList.length > 0 ? ccList : undefined,
+      bcc: bccList.length > 0 ? bccList : undefined,
     });
   };
 
@@ -1197,10 +1250,37 @@ export default function EmailClientPage() {
       toast({ title: "Chyba", description: "Zadajte príjemcu", variant: "destructive" });
       return;
     }
+    const ccList = composeData.cc.split(",").map(e => e.trim()).filter(Boolean);
+    const bccList = composeData.bcc.split(",").map(e => e.trim()).filter(Boolean);
     forwardMutation.mutate({
       emailId: selectedEmail.id, to: toList,
       body: composeData.body, mailboxEmail: emailDetailMailbox,
+      cc: ccList.length > 0 ? ccList : undefined,
+      bcc: bccList.length > 0 ? bccList : undefined,
     });
+  };
+
+  const handleAiSuggestReply = async () => {
+    if (!selectedEmail || !emailDetail) return;
+    setAiSuggestLoading(true);
+    try {
+      const res = await apiRequest("POST", `/api/users/${user?.id}/ms365-ai-suggest-reply`, {
+        emailSubject: emailDetail.subject || "",
+        emailBody: emailDetail.body?.content || emailDetail.bodyPreview || "",
+        emailFrom: emailDetail.from?.emailAddress?.name || emailDetail.from?.emailAddress?.address || "",
+        language: "sk",
+      });
+      const data = await res.json();
+      if (data.suggestion) {
+        setComposeData(prev => ({ ...prev, body: data.suggestion }));
+        setAiSuggestCounter(prev => prev + 1);
+        setReplyMode(prev => prev || "reply");
+      }
+    } catch (err) {
+      toast({ title: "Chyba", description: "Nepodarilo sa vygenerovať AI návrh", variant: "destructive" });
+    } finally {
+      setAiSuggestLoading(false);
+    }
   };
 
   const openSignatureEditor = () => {
@@ -1290,7 +1370,7 @@ export default function EmailClientPage() {
             </Button>
           )}
           {activeTab === "email" && (
-            <Button onClick={() => { setComposeOpen(true); setReplyMode(null); setComposeData({ to: "", cc: "", bcc: "", subject: "", body: "", importance: "normal", tagId: null }); setAttachments([]); }} data-testid="button-compose">
+            <Button onClick={() => { setComposeOpen(true); setReplyMode(null); setComposeData({ to: "", cc: "", bcc: "", subject: "", body: "", importance: "normal", tagId: null, replyTo: "" }); setAttachments([]); }} data-testid="button-compose">
               <PenSquare className="h-4 w-4 mr-2" />
               Nová správa
             </Button>
@@ -2096,13 +2176,13 @@ export default function EmailClientPage() {
           <div className="flex items-start justify-between gap-4">
             <h2 className="text-lg font-semibold flex-1 min-w-0">{emailDetail.subject || "(Bez predmetu)"}</h2>
             <div className="flex items-center gap-1 shrink-0">
-              <Button variant="ghost" size="icon" onClick={() => { setReplyMode("reply"); setComposeData({ ...composeData, body: "" }); }} data-testid="button-reply">
+              <Button variant="ghost" size="icon" onClick={() => setupReplyCompose("reply", emailDetail)} data-testid="button-reply">
                 <Reply className="h-4 w-4" />
               </Button>
-              <Button variant="ghost" size="icon" onClick={() => { setReplyMode("replyAll"); setComposeData({ ...composeData, body: "" }); }} data-testid="button-reply-all">
+              <Button variant="ghost" size="icon" onClick={() => setupReplyCompose("replyAll", emailDetail)} data-testid="button-reply-all">
                 <ReplyAll className="h-4 w-4" />
               </Button>
-              <Button variant="ghost" size="icon" onClick={() => { setReplyMode("forward"); setComposeData({ to: "", cc: "", bcc: "", subject: `Fwd: ${emailDetail.subject}`, body: "" }); }} data-testid="button-forward">
+              <Button variant="ghost" size="icon" onClick={() => setupReplyCompose("forward", emailDetail)} data-testid="button-forward">
                 <Forward className="h-4 w-4" />
               </Button>
               <Button
@@ -2265,29 +2345,86 @@ export default function EmailClientPage() {
         )}
 
         {replyMode ? (
-          <div className="flex-1 p-4 space-y-3 overflow-auto">
+          <div className="flex-1 p-4 space-y-2 overflow-auto">
             <div className="flex items-center justify-between">
               <h3 className="font-medium text-sm">
                 {replyMode === "reply" && "Odpoveď"}
                 {replyMode === "replyAll" && "Odpoveď všetkým"}
                 {replyMode === "forward" && "Preposlať"}
               </h3>
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setReplyMode(null)}>
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setReplyMode(null); setReplyFieldsExpanded(false); }}>
                 <X className="h-4 w-4" />
               </Button>
             </div>
-            {replyMode === "forward" && (
-              <EmailRecipientInput
-                placeholder="Komu"
-                value={composeData.to}
-                onChange={(v) => setComposeData({ ...composeData, to: v })}
-                knownEmails={knownEmails}
-                data-testid="input-forward-to"
-              />
-            )}
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-1">
+                <span className="text-xs text-muted-foreground w-16 shrink-0">Pre:</span>
+                <div className="flex-1">
+                  <EmailRecipientInput
+                    placeholder="Komu (viac adries oddeľte čiarkou)"
+                    value={composeData.to}
+                    onChange={(v) => setComposeData({ ...composeData, to: v })}
+                    knownEmails={knownEmails}
+                    data-testid="input-reply-to"
+                  />
+                </div>
+                <Button type="button" variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => setReplyFieldsExpanded(!replyFieldsExpanded)} title={replyFieldsExpanded ? "Skryť polia" : "Kópia, Skrytá, Reply To"}>
+                  {replyFieldsExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                </Button>
+              </div>
+              {replyFieldsExpanded && (
+                <>
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs text-muted-foreground w-16 shrink-0">Kópia:</span>
+                    <div className="flex-1">
+                      <EmailRecipientInput
+                        placeholder="Cc"
+                        value={composeData.cc}
+                        onChange={(v) => setComposeData({ ...composeData, cc: v })}
+                        knownEmails={knownEmails}
+                        data-testid="input-reply-cc"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs text-muted-foreground w-16 shrink-0">Skrytá:</span>
+                    <div className="flex-1">
+                      <EmailRecipientInput
+                        placeholder="Bcc"
+                        value={composeData.bcc}
+                        onChange={(v) => setComposeData({ ...composeData, bcc: v })}
+                        knownEmails={knownEmails}
+                        data-testid="input-reply-bcc"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs text-muted-foreground w-16 shrink-0">Reply To:</span>
+                    <div className="flex-1">
+                      <Input
+                        placeholder="Reply-To adresa"
+                        value={composeData.replyTo || ""}
+                        onChange={(e) => setComposeData({ ...composeData, replyTo: e.target.value })}
+                        data-testid="input-reply-replyto"
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+              <div className="flex items-center gap-1">
+                <span className="text-xs text-muted-foreground w-16 shrink-0">Predmet:</span>
+                <Input
+                  placeholder="Predmet"
+                  value={composeData.subject}
+                  onChange={(e) => setComposeData({ ...composeData, subject: e.target.value })}
+                  className="flex-1"
+                  data-testid="input-reply-subject"
+                />
+              </div>
+            </div>
             <EmailEditor
-              key={`reply-${replyMode}-${selectedEmail?.id}`}
-              initialContent=""
+              key={`reply-${replyMode}-${selectedEmail?.id}-${aiSuggestCounter}`}
+              initialContent={composeData.body}
               onChange={(html) => setComposeData(prev => ({ ...prev, body: html }))}
               signatureHtml={getSignatureForCompose()}
               placeholder="Napíšte odpoveď..."
@@ -2295,6 +2432,8 @@ export default function EmailClientPage() {
               attachments={attachments}
               onAttachmentsChange={setAttachments}
               showAttachments={true}
+              onAiSuggest={handleAiSuggestReply}
+              aiLoading={aiSuggestLoading}
             />
             <div className="flex justify-end">
               <Button onClick={replyMode === "forward" ? handleForward : handleReply} disabled={replyMutation.isPending || forwardMutation.isPending} data-testid="button-send-reply">
@@ -2502,7 +2641,7 @@ export default function EmailClientPage() {
                 <TooltipProvider delayDuration={200}>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setReplyMode("reply"); setComposeData({ ...composeData, body: "" }); setModalEmail(null); }} data-testid="modal-reply">
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setupReplyCompose("reply", detail); setModalEmail(null); }} data-testid="modal-reply">
                         <Reply className="h-4 w-4" />
                       </Button>
                     </TooltipTrigger>
@@ -2510,7 +2649,7 @@ export default function EmailClientPage() {
                   </Tooltip>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setReplyMode("replyAll"); setComposeData({ ...composeData, body: "" }); setModalEmail(null); }} data-testid="modal-reply-all">
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setupReplyCompose("replyAll", detail); setModalEmail(null); }} data-testid="modal-reply-all">
                         <ReplyAll className="h-4 w-4" />
                       </Button>
                     </TooltipTrigger>
@@ -2518,7 +2657,7 @@ export default function EmailClientPage() {
                   </Tooltip>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setReplyMode("forward"); setComposeData({ to: "", cc: "", bcc: "", subject: `Fwd: ${detail.subject}`, body: "" }); setModalEmail(null); }} data-testid="modal-forward">
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setupReplyCompose("forward", detail); setModalEmail(null); }} data-testid="modal-forward">
                         <Forward className="h-4 w-4" />
                       </Button>
                     </TooltipTrigger>

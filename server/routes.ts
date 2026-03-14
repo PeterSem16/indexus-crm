@@ -4352,7 +4352,7 @@ export async function registerRoutes(
   app.post("/api/users/:userId/ms365-reply/:emailId", requireAuth, async (req, res) => {
     try {
       const { userId, emailId } = req.params;
-      const { body, isHtml, replyAll, mailboxEmail } = req.body;
+      const { body, isHtml, replyAll, mailboxEmail, cc, bcc } = req.body;
       
       const ms365Connection = await storage.getUserMs365Connection(userId);
       if (!ms365Connection || !ms365Connection.isConnected) {
@@ -4381,6 +4381,9 @@ export async function registerRoutes(
       const signatureMailbox = mailboxEmail || "personal";
       const signature = await storage.getEmailSignature(userId, signatureMailbox);
       const signatureHtml = signature?.isActive ? signature.htmlContent : "";
+
+      const ccList = Array.isArray(cc) ? cc.filter(Boolean) : [];
+      const bccList = Array.isArray(bcc) ? bcc.filter(Boolean) : [];
       
       const success = await replyToEmail(
         tokenResult.accessToken,
@@ -4389,7 +4392,9 @@ export async function registerRoutes(
         signatureHtml,
         isHtml !== false,
         replyAll === true,
-        mailboxEmail === "personal" ? undefined : mailboxEmail
+        mailboxEmail === "personal" ? undefined : mailboxEmail,
+        ccList.length > 0 ? ccList : undefined,
+        bccList.length > 0 ? bccList : undefined
       );
       
       if (success) {
@@ -4429,7 +4434,7 @@ export async function registerRoutes(
   app.post("/api/users/:userId/ms365-forward/:emailId", requireAuth, async (req, res) => {
     try {
       const { userId, emailId } = req.params;
-      const { to, body, isHtml, mailboxEmail } = req.body;
+      const { to, body, isHtml, mailboxEmail, cc, bcc } = req.body;
       
       if (!to || !Array.isArray(to) || to.length === 0) {
         return res.status(400).json({ error: "Recipient is required" });
@@ -4462,6 +4467,9 @@ export async function registerRoutes(
       const signatureMailbox = mailboxEmail || "personal";
       const signature = await storage.getEmailSignature(userId, signatureMailbox);
       const signatureHtml = signature?.isActive ? signature.htmlContent : "";
+
+      const ccList = Array.isArray(cc) ? cc.filter(Boolean) : [];
+      const bccList = Array.isArray(bcc) ? bcc.filter(Boolean) : [];
       
       const success = await forwardEmail(
         tokenResult.accessToken,
@@ -4470,7 +4478,9 @@ export async function registerRoutes(
         body || "",
         signatureHtml,
         isHtml !== false,
-        mailboxEmail === "personal" ? undefined : mailboxEmail
+        mailboxEmail === "personal" ? undefined : mailboxEmail,
+        ccList.length > 0 ? ccList : undefined,
+        bccList.length > 0 ? bccList : undefined
       );
       
       if (success) {
@@ -4534,6 +4544,48 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error forwarding email:", error);
       res.status(500).json({ error: "Failed to forward email" });
+    }
+  });
+
+  app.post("/api/users/:userId/ms365-ai-suggest-reply", requireAuth, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { emailSubject, emailBody, emailFrom, language } = req.body;
+
+      if (!emailBody && !emailSubject) {
+        return res.status(400).json({ error: "Email content is required" });
+      }
+
+      const lang = language || "sk";
+      const langNames: Record<string, string> = {
+        sk: "slovenčina", cs: "čeština", en: "English", de: "Deutsch",
+        hu: "magyar", ro: "română", it: "italiano",
+      };
+      const langName = langNames[lang] || "slovenčina";
+
+      const plainBody = (emailBody || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().substring(0, 3000);
+
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "system",
+            content: `Ste profesionálny asistent pre emailovú komunikáciu v spoločnosti zaoberajúcej sa bankou pupočníkovej krvi. Napíšte návrh odpovede na email v jazyku ${langName}. Odpoveď musí byť zdvorilá, profesionálna a stručná. Nepoužívajte pozdrav ani podpis - to sa pridá automaticky. Odpoveď píšte ako HTML (použite <p> tagy pre odstavce). Ak je to komerčný/spam email, navrhnite krátku zdvorilostnú odpoveď alebo prázdnu odpoveď.`,
+          },
+          {
+            role: "user",
+            content: `Od: ${emailFrom || "neznámy"}\nPredmet: ${emailSubject || "(bez predmetu)"}\n\nObsah emailu:\n${plainBody}`,
+          },
+        ],
+        temperature: 0.7,
+        max_tokens: 1000,
+      });
+
+      const suggestion = response.choices[0]?.message?.content || "";
+      res.json({ suggestion });
+    } catch (error) {
+      console.error("[AI Suggest Reply] Error:", error);
+      res.status(500).json({ error: "Failed to generate AI suggestion" });
     }
   });
 
