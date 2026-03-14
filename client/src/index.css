@@ -693,3 +693,73 @@
   display: block !important;
   min-width: 0 !important;
 }
+
+.tiptap p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: hsl(var(--muted-foreground));
+  opacity: 0.5;
+  pointer-events: none;
+  height: 0;
+}
+
+.tiptap {
+  outline: none;
+}
+
+.tiptap table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.5rem 0;
+}
+
+.tiptap th,
+.tiptap td {
+  border: 1px solid hsl(var(--border));
+  padding: 0.4rem 0.6rem;
+  min-width: 60px;
+}
+
+.tiptap th {
+  background: hsl(var(--muted));
+  font-weight: 600;
+}
+
+.tiptap img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.25rem;
+}
+
+.tiptap blockquote {
+  border-left: 3px solid hsl(var(--border));
+  padding-left: 1rem;
+  margin: 0.5rem 0;
+  color: hsl(var(--muted-foreground));
+}
+
+.tiptap hr {
+  border: none;
+  border-top: 1px solid hsl(var(--border));
+  margin: 1rem 0;
+}
+
+.tiptap ul,
+.tiptap ol {
+  padding-left: 1.5rem;
+  margin: 0.25rem 0;
+}
+
+.tiptap a {
+  color: hsl(212 100% 48%);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.email-signature {
+  border-top: 1px solid hsl(var(--border));
+  padding-top: 0.75rem;
+  margin-top: 0.75rem;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.875rem;
+}

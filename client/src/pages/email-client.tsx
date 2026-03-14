@@ -106,7 +106,7 @@ import {
   Users,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
-import Editor from "react-simple-wysiwyg";
+import EmailEditor, { EmailRecipientInput } from "@/components/nexus/email-editor";
 
 import NexusSidebar, { ACCOUNT_ICONS, AccountIcon, type AccountIconConfig } from "@/components/nexus/nexus-sidebar";
 import type {
@@ -703,7 +703,7 @@ export default function EmailClientPage() {
   const currentMailboxEmail = selectedMailbox === "personal"
     ? mailboxes.find(m => m.type === "personal")?.email
     : selectedMailbox === "all"
-      ? null
+      ? (selectedEmail?._mailboxEmail || mailboxes.find(m => m.type === "personal")?.email || null)
       : selectedMailbox;
 
   const { data: userTags = [] } = useQuery<any[]>({
@@ -932,8 +932,9 @@ export default function EmailClientPage() {
   });
 
   const toggleReadMutation = useMutation({
-    mutationFn: async ({ emailId, isRead }: { emailId: string; isRead: boolean }) => {
-      return apiRequest("PATCH", `/api/users/${user?.id}/ms365-email/${emailId}/read-status?mailbox=${emailDetailMailbox}`, { isRead });
+    mutationFn: async ({ emailId, isRead, mailbox }: { emailId: string; isRead: boolean; mailbox?: string }) => {
+      const mb = mailbox || emailDetailMailbox;
+      return apiRequest("PATCH", `/api/users/${user?.id}/ms365-email/${emailId}/read-status?mailbox=${mb}`, { isRead });
     },
     onSuccess: (_data, variables) => {
       toast({
@@ -1133,6 +1134,36 @@ export default function EmailClientPage() {
       });
     }
     return processed;
+  };
+
+  const knownEmails = (() => {
+    const map = new Map<string, { name?: string; address: string }>();
+    accumulatedEmails.forEach(email => {
+      const addr = email.from?.emailAddress?.address;
+      if (addr && !map.has(addr.toLowerCase())) {
+        map.set(addr.toLowerCase(), { name: email.from?.emailAddress?.name || undefined, address: addr });
+      }
+      email.toRecipients?.forEach((r: any) => {
+        const a = r.emailAddress?.address;
+        if (a && !map.has(a.toLowerCase())) {
+          map.set(a.toLowerCase(), { name: r.emailAddress?.name || undefined, address: a });
+        }
+      });
+      email.ccRecipients?.forEach((r: any) => {
+        const a = r.emailAddress?.address;
+        if (a && !map.has(a.toLowerCase())) {
+          map.set(a.toLowerCase(), { name: r.emailAddress?.name || undefined, address: a });
+        }
+      });
+    });
+    return Array.from(map.values());
+  })();
+
+  const getSignatureForCompose = () => {
+    if (signatureData?.isActive && signatureData?.htmlContent) {
+      return signatureData.htmlContent;
+    }
+    return undefined;
   };
 
   const handleSendEmail = () => {
@@ -1633,7 +1664,7 @@ export default function EmailClientPage() {
                           )}
                           <button
                             className="absolute top-1.5 right-1.5 p-1 rounded-md opacity-0 group-hover:opacity-100 hover:bg-background/80 transition-all z-10"
-                            onClick={(e) => { e.stopPropagation(); toggleReadMutation.mutate({ emailId: email.id, isRead: !email.isRead }); }}
+                            onClick={(e) => { e.stopPropagation(); toggleReadMutation.mutate({ emailId: email.id, isRead: !email.isRead, mailbox: email._mailboxEmail ? getMailboxParam(email._mailboxEmail) : undefined }); }}
                             title={email.isRead ? "Označiť ako neprečítané" : "Označiť ako prečítané"}
                             data-testid={`toggle-read-${email.id}`}
                           >
@@ -1940,36 +1971,30 @@ export default function EmailClientPage() {
               Odoslať z: {mailboxes.find(m => (m.type === "personal" ? "personal" : m.email) === effectiveMailbox)?.email || effectiveMailbox}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <Input placeholder="Komu (viac adries oddeľte čiarkou)" value={composeData.to} onChange={(e) => setComposeData({ ...composeData, to: e.target.value })} data-testid="input-compose-to" />
+          <div className="space-y-3">
+            <EmailRecipientInput
+              placeholder="Komu (viac adries oddeľte čiarkou)"
+              value={composeData.to}
+              onChange={(v) => setComposeData({ ...composeData, to: v })}
+              knownEmails={knownEmails}
+              data-testid="input-compose-to"
+            />
             <div className="grid grid-cols-2 gap-2">
-              <Input placeholder="Cc" value={composeData.cc} onChange={(e) => setComposeData({ ...composeData, cc: e.target.value })} data-testid="input-compose-cc" />
-              <Input placeholder="Bcc" value={composeData.bcc} onChange={(e) => setComposeData({ ...composeData, bcc: e.target.value })} data-testid="input-compose-bcc" />
+              <EmailRecipientInput placeholder="Cc" value={composeData.cc} onChange={(v) => setComposeData({ ...composeData, cc: v })} knownEmails={knownEmails} data-testid="input-compose-cc" />
+              <EmailRecipientInput placeholder="Bcc" value={composeData.bcc} onChange={(v) => setComposeData({ ...composeData, bcc: v })} knownEmails={knownEmails} data-testid="input-compose-bcc" />
             </div>
             <Input placeholder="Predmet" value={composeData.subject} onChange={(e) => setComposeData({ ...composeData, subject: e.target.value })} data-testid="input-compose-subject" />
-            <div className="border rounded-md">
-              <Editor value={composeData.body} onChange={(e) => setComposeData({ ...composeData, body: e.target.value })} style={{ minHeight: "200px" }} data-testid="editor-compose-body" />
-            </div>
-            <div className="space-y-2">
-              <input type="file" ref={fileInputRef} onChange={handleFileSelect} multiple className="hidden" />
-              <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} data-testid="button-add-attachment">
-                <Upload className="h-4 w-4 mr-2" />
-                Pridať prílohu
-              </Button>
-              {attachments.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {attachments.map((file, index) => (
-                    <Badge key={index} variant="secondary" className="flex items-center gap-1 pr-1">
-                      <Paperclip className="h-3 w-3" />
-                      <span className="max-w-32 truncate">{file.name}</span>
-                      <Button type="button" variant="ghost" size="icon" className="h-4 w-4 ml-1" onClick={() => removeAttachment(index)}>
-                        <X className="h-3 w-3" />
-                      </Button>
-                    </Badge>
-                  ))}
-                </div>
-              )}
-            </div>
+            <EmailEditor
+              key={composeOpen ? "compose-open" : "compose-closed"}
+              initialContent={composeData.body}
+              onChange={(html) => setComposeData(prev => ({ ...prev, body: html }))}
+              signatureHtml={getSignatureForCompose()}
+              placeholder="Napíšte správu..."
+              minHeight="200px"
+              attachments={attachments}
+              onAttachmentsChange={setAttachments}
+              data-testid="editor-compose-body"
+            />
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
                 <span className="text-sm text-muted-foreground">Dôležitosť:</span>
@@ -2240,23 +2265,37 @@ export default function EmailClientPage() {
         )}
 
         {replyMode ? (
-          <div className="flex-1 p-4 space-y-4 overflow-auto">
+          <div className="flex-1 p-4 space-y-3 overflow-auto">
             <div className="flex items-center justify-between">
-              <h3 className="font-medium">
+              <h3 className="font-medium text-sm">
                 {replyMode === "reply" && "Odpoveď"}
                 {replyMode === "replyAll" && "Odpoveď všetkým"}
                 {replyMode === "forward" && "Preposlať"}
               </h3>
-              <Button variant="ghost" size="icon" onClick={() => setReplyMode(null)}>
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setReplyMode(null)}>
                 <X className="h-4 w-4" />
               </Button>
             </div>
             {replyMode === "forward" && (
-              <Input placeholder="Komu" value={composeData.to} onChange={(e) => setComposeData({ ...composeData, to: e.target.value })} data-testid="input-forward-to" />
+              <EmailRecipientInput
+                placeholder="Komu"
+                value={composeData.to}
+                onChange={(v) => setComposeData({ ...composeData, to: v })}
+                knownEmails={knownEmails}
+                data-testid="input-forward-to"
+              />
             )}
-            <div className="border rounded-md">
-              <Editor value={composeData.body} onChange={(e) => setComposeData({ ...composeData, body: e.target.value })} style={{ minHeight: "150px" }} data-testid="editor-reply-body" />
-            </div>
+            <EmailEditor
+              key={`reply-${replyMode}-${selectedEmail?.id}`}
+              initialContent=""
+              onChange={(html) => setComposeData(prev => ({ ...prev, body: html }))}
+              signatureHtml={getSignatureForCompose()}
+              placeholder="Napíšte odpoveď..."
+              minHeight="150px"
+              attachments={attachments}
+              onAttachmentsChange={setAttachments}
+              showAttachments={true}
+            />
             <div className="flex justify-end">
               <Button onClick={replyMode === "forward" ? handleForward : handleReply} disabled={replyMutation.isPending || forwardMutation.isPending} data-testid="button-send-reply">
                 {(replyMutation.isPending || forwardMutation.isPending) && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
@@ -2491,7 +2530,7 @@ export default function EmailClientPage() {
                       <Button
                         variant="ghost" size="icon" className="h-8 w-8"
                         onClick={() => {
-                          toggleReadMutation.mutate({ emailId: detail.id, isRead: !detail.isRead });
+                          toggleReadMutation.mutate({ emailId: detail.id, isRead: !detail.isRead, mailbox: detail._mailboxEmail ? getMailboxParam(detail._mailboxEmail) : undefined });
                           setModalEmail(prev => prev ? { ...prev, isRead: !prev.isRead } : null);
                         }}
                         disabled={toggleReadMutation.isPending}
@@ -2814,9 +2853,14 @@ export default function EmailClientPage() {
               <label htmlFor="signature-active" className="text-sm font-medium">Aktívny podpis</label>
             </div>
             <p className="text-[12px] text-muted-foreground">Podpis sa automaticky pridá na koniec každého nového emailu a odpovede.</p>
-            <div className="border rounded-lg overflow-hidden">
-              <Editor value={signatureHtml} onChange={(e) => setSignatureHtml(e.target.value)} style={{ minHeight: "180px" }} data-testid="editor-signature" />
-            </div>
+            <EmailEditor
+              key={`sig-${settingsTab}`}
+              initialContent={signatureHtml}
+              onChange={(html) => setSignatureHtml(html)}
+              placeholder="Váš podpis..."
+              minHeight="180px"
+              showAttachments={false}
+            />
             <div className="flex justify-end">
               <Button onClick={() => saveSignatureMutation.mutate({ htmlContent: signatureHtml, isActive: signatureActive })} disabled={saveSignatureMutation.isPending} data-testid="button-save-signature">
                 {saveSignatureMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
