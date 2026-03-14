@@ -152,32 +152,27 @@ function TeamsPanel({ userId }: { userId?: string }) {
   const { toast } = useToast();
 
   const { data: chatsData, isLoading: chatsLoading } = useQuery<{ connected: boolean; chats: any[]; error?: string | null; requiredPermissions?: string[] }>({
-    queryKey: ["/api/users", userId, "teams-chats"],
-    queryFn: () => fetch(`/api/users/${userId}/teams-chats`).then(r => r.json()),
+    queryKey: [`/api/users/${userId}/teams-chats`],
     enabled: !!userId && teamsView === "chats",
   });
 
   const { data: teamsData, isLoading: teamsLoading } = useQuery<{ connected: boolean; teams: any[]; error?: string | null; requiredPermissions?: string[] }>({
-    queryKey: ["/api/users", userId, "teams-joined"],
-    queryFn: () => fetch(`/api/users/${userId}/teams-joined`).then(r => r.json()),
+    queryKey: [`/api/users/${userId}/teams-joined`],
     enabled: !!userId && teamsView === "teams",
   });
 
   const { data: channelsData } = useQuery<{ connected: boolean; channels: any[] }>({
-    queryKey: ["/api/users", userId, "teams", selectedTeamId, "channels"],
-    queryFn: () => fetch(`/api/users/${userId}/teams/${selectedTeamId}/channels`).then(r => r.json()),
+    queryKey: [`/api/users/${userId}/teams/${selectedTeamId}/channels`],
     enabled: !!userId && !!selectedTeamId,
   });
 
   const { data: chatMsgsData, isLoading: msgsLoading, refetch: refetchMsgs } = useQuery<{ connected: boolean; messages: any[] }>({
-    queryKey: ["/api/users", userId, "teams-chats", selectedTeamsChatId, "messages"],
-    queryFn: () => fetch(`/api/users/${userId}/teams-chats/${selectedTeamsChatId}/messages`).then(r => r.json()),
+    queryKey: [`/api/users/${userId}/teams-chats/${selectedTeamsChatId}/messages`],
     enabled: !!userId && !!selectedTeamsChatId,
   });
 
   const { data: channelMsgsData } = useQuery<{ connected: boolean; messages: any[] }>({
-    queryKey: ["/api/users", userId, "teams", selectedTeamId, "channels", selectedChannelId, "messages"],
-    queryFn: () => fetch(`/api/users/${userId}/teams/${selectedTeamId}/channels/${selectedChannelId}/messages`).then(r => r.json()),
+    queryKey: [`/api/users/${userId}/teams/${selectedTeamId}/channels/${selectedChannelId}/messages`],
     enabled: !!userId && !!selectedTeamId && !!selectedChannelId,
   });
 
@@ -1552,7 +1547,7 @@ export default function EmailClientPage() {
                               {result.emails.map(email => (
                                 <div
                                   key={email.id}
-                                  className={`relative group w-full text-left px-3 py-2.5 transition-all hover:bg-accent/50 cursor-pointer ${
+                                  className={`relative group w-full text-left px-3 py-2.5 transition-all hover:bg-accent/50 cursor-pointer overflow-hidden ${
                                     selectedEmail?.id === email.id ? "bg-accent" : ""
                                   } ${!email.isRead ? "font-medium" : ""}`}
                                   onClick={() => setSelectedEmail(email)}
@@ -1619,7 +1614,7 @@ export default function EmailClientPage() {
                         return (
                         <div
                           key={email.id}
-                          className={`relative group w-full text-left px-3 py-2.5 transition-all hover:bg-accent/50 cursor-pointer ${
+                          className={`relative group w-full text-left px-3 py-2.5 transition-all hover:bg-accent/50 cursor-pointer overflow-hidden ${
                             selectedEmail?.id === email.id ? "bg-accent" : ""
                           } ${!email.isRead ? "font-medium" : ""}`}
                           onClick={() => setSelectedEmail(email)}
@@ -2265,11 +2260,11 @@ export default function EmailClientPage() {
           </div>
         ) : (
           <ScrollArea className="flex-1">
-            <div className="p-4">
+            <div className="p-4 overflow-hidden">
               {emailDetail.body?.contentType === "html" ? (
-                <div className="prose dark:prose-invert max-w-none [&_img]:max-w-full [&_img]:h-auto" dangerouslySetInnerHTML={{ __html: processHtmlForImages(emailDetail.body.content, emailDetail.id, emailDetail.attachmentsList) }} />
+                <div className="prose dark:prose-invert max-w-none overflow-hidden [&_img]:max-w-full [&_img]:h-auto [&_table]:table-fixed [&_table]:w-full [&_td]:break-words [&_a]:break-all [&_*]:max-w-full" style={{ overflowWrap: "break-word", wordBreak: "break-word" }} dangerouslySetInnerHTML={{ __html: processHtmlForImages(emailDetail.body.content, emailDetail.id, emailDetail.attachmentsList) }} />
               ) : (
-                <pre className="whitespace-pre-wrap font-sans text-sm">{emailDetail.body?.content || emailDetail.bodyPreview}</pre>
+                <pre className="whitespace-pre-wrap font-sans text-sm" style={{ overflowWrap: "break-word", wordBreak: "break-word" }}>{emailDetail.body?.content || emailDetail.bodyPreview}</pre>
               )}
             </div>
           </ScrollArea>
@@ -2389,7 +2384,7 @@ export default function EmailClientPage() {
         <ScrollArea className="flex-1">
           <div className="p-4">
             <div className={`p-4 rounded-lg ${selectedSms.direction === "inbound" ? "bg-cyan-50 dark:bg-cyan-950/30" : "bg-slate-50 dark:bg-slate-900"}`}>
-              <p className="text-sm whitespace-pre-wrap">{selectedSms.content}</p>
+              <p className="text-sm whitespace-pre-wrap" style={{ overflowWrap: "break-word", wordBreak: "break-word" }}>{selectedSms.content}</p>
             </div>
           </div>
         </ScrollArea>
@@ -2439,7 +2434,7 @@ export default function EmailClientPage() {
         </div>
         <ScrollArea className="flex-1">
           <div className="p-4">
-            <p className="text-sm whitespace-pre-wrap">{selectedTask.description || "Bez popisu"}</p>
+            <p className="text-sm whitespace-pre-wrap" style={{ overflowWrap: "break-word", wordBreak: "break-word" }}>{selectedTask.description || "Bez popisu"}</p>
           </div>
         </ScrollArea>
       </div>
@@ -2616,11 +2611,11 @@ export default function EmailClientPage() {
             </div>
           )}
           <ScrollArea className="flex-1 min-h-0">
-            <div className="p-5">
+            <div className="p-5 overflow-hidden">
               {detail.body?.contentType === "html" ? (
-                <div className="prose dark:prose-invert max-w-none [&_img]:max-w-full [&_img]:h-auto" dangerouslySetInnerHTML={{ __html: processHtmlForImages(detail.body.content, detail.id, detail.attachmentsList) }} />
+                <div className="prose dark:prose-invert max-w-none overflow-hidden [&_img]:max-w-full [&_img]:h-auto [&_table]:table-fixed [&_table]:w-full [&_td]:break-words [&_a]:break-all [&_*]:max-w-full" style={{ overflowWrap: "break-word", wordBreak: "break-word" }} dangerouslySetInnerHTML={{ __html: processHtmlForImages(detail.body.content, detail.id, detail.attachmentsList) }} />
               ) : (
-                <pre className="whitespace-pre-wrap font-sans text-sm">{detail.body?.content || detail.bodyPreview}</pre>
+                <pre className="whitespace-pre-wrap font-sans text-sm" style={{ overflowWrap: "break-word", wordBreak: "break-word" }}>{detail.body?.content || detail.bodyPreview}</pre>
               )}
             </div>
           </ScrollArea>
