@@ -28,25 +28,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuCheckboxItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import {
-  Inbox,
-  Send,
-  FileText,
-  Trash2,
   Mail,
-  MailOpen,
   RefreshCw,
   Reply,
   ReplyAll,
@@ -65,7 +53,6 @@ import {
   UserCheck,
   Flame,
   ShieldAlert,
-  Columns3,
   Upload,
   ArrowRight,
   Zap,
@@ -78,7 +65,8 @@ import {
   AlertOctagon,
   CheckCircle2,
   XCircle,
-  Calendar as CalendarIcon,
+  Trash2,
+  Send,
   ArrowUp,
   ArrowDown,
   Eye,
@@ -96,23 +84,11 @@ import type {
   Task,
   ChatConversation,
   SmsMessage,
-  ColumnConfig,
   NexusTab,
   TaskFilter,
   SmsFilter,
 } from "@/components/nexus/nexus-types";
 import { typeColors } from "@/components/nexus/nexus-types";
-
-const defaultColumns: ColumnConfig[] = [
-  { id: "status", label: "Stav", visible: true, order: 0 },
-  { id: "type", label: "Typ", visible: true, order: 1 },
-  { id: "from", label: "Od/Komu", visible: true, order: 2 },
-  { id: "subject", label: "Predmet/Názov", visible: true, order: 3 },
-  { id: "date", label: "Dátum", visible: true, order: 4 },
-  { id: "attachments", label: "Prílohy", visible: true, order: 5 },
-  { id: "priority", label: "Priorita", visible: false, order: 6 },
-  { id: "preview", label: "Náhľad", visible: true, order: 7 },
-];
 
 const priorityIcons: Record<string, React.ReactNode> = {
   low: <Circle className="h-3 w-3 text-slate-400" />,
@@ -151,8 +127,6 @@ export default function EmailClientPage() {
   const [smsFilter, setSmsFilter] = useState<SmsFilter>("all");
   const [taskFilter, setTaskFilter] = useState<TaskFilter>("all");
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
-
-  const [columns, setColumns] = useState<ColumnConfig[]>(defaultColumns);
 
   const [attachments, setAttachments] = useState<File[]>([]);
   const [composeData, setComposeData] = useState({ to: "", cc: "", bcc: "", subject: "", body: "" });
@@ -419,7 +393,6 @@ export default function EmailClientPage() {
   const folders = foldersData?.folders || [];
   const emails = accumulatedEmails;
   const totalCount = serverTotalCount;
-  const visibleColumns = columns.filter(c => c.visible).sort((a, b) => a.order - b.order);
   const totalUnreadEmails = folders.find(f => f.wellKnownName === "inbox" || f.displayName === "Inbox")?.unreadItemCount || 0;
 
   const smsInboundUnread = smsData?.filter(s => s.direction === "inbound" && s.deliveryStatus !== "read")?.length || 0;
@@ -468,14 +441,6 @@ export default function EmailClientPage() {
       _setSelectedChat(null);
     }
   }, [selectedChatId, chatsData]);
-
-  const toggleColumn = (columnId: string) => {
-    const newColumns = columns.map(c =>
-      c.id === columnId ? { ...c, visible: !c.visible } : c
-    );
-    setColumns(newColumns);
-    localStorage.setItem("nexus-email-columns", JSON.stringify(newColumns));
-  };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);

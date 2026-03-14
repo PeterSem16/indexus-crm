@@ -127,10 +127,12 @@ export interface ColumnConfig {
 
 export type SidebarChannel = "all" | "unread" | "email-inbox" | "email-sent" | "email-drafts" | "email-trash" | "sms-all" | "sms-inbound" | "sms-outbound" | "tasks" | "chats" | string;
 
-export const typeColors = {
+export const typeColors: Record<string, { bg: string; text: string; border: string; dot: string; accent: string }> = {
   email: { bg: "bg-blue-50 dark:bg-blue-950/30", text: "text-blue-700 dark:text-blue-300", border: "border-blue-200 dark:border-blue-800", dot: "bg-blue-500", accent: "text-blue-600 dark:text-blue-400" },
   task: { bg: "bg-amber-50 dark:bg-amber-950/30", text: "text-amber-700 dark:text-amber-300", border: "border-amber-200 dark:border-amber-800", dot: "bg-amber-500", accent: "text-amber-600 dark:text-amber-400" },
+  tasks: { bg: "bg-amber-50 dark:bg-amber-950/30", text: "text-amber-700 dark:text-amber-300", border: "border-amber-200 dark:border-amber-800", dot: "bg-amber-500", accent: "text-amber-600 dark:text-amber-400" },
   chat: { bg: "bg-violet-50 dark:bg-violet-950/30", text: "text-violet-700 dark:text-violet-300", border: "border-violet-200 dark:border-violet-800", dot: "bg-violet-500", accent: "text-violet-600 dark:text-violet-400" },
+  chats: { bg: "bg-violet-50 dark:bg-violet-950/30", text: "text-violet-700 dark:text-violet-300", border: "border-violet-200 dark:border-violet-800", dot: "bg-violet-500", accent: "text-violet-600 dark:text-violet-400" },
   sms: { bg: "bg-cyan-50 dark:bg-cyan-950/30", text: "text-cyan-700 dark:text-cyan-300", border: "border-cyan-200 dark:border-cyan-800", dot: "bg-cyan-500", accent: "text-cyan-600 dark:text-cyan-400" },
 };
 

@@ -17,15 +17,13 @@ import {
   ArrowUpRight,
   Loader2,
   ChevronLeft,
-  ChevronUp,
-  Eye,
-  EyeOff,
-  Settings,
   Clock,
   CheckCircle2,
   XCircle,
   CircleDashed,
-  Filter,
+  FolderOpen,
+  Archive,
+  Star,
 } from "lucide-react";
 import type { MailFolder, SmsMessage, Task, ChatConversation, NexusTab, TaskFilter, SmsFilter } from "./nexus-types";
 
@@ -48,39 +46,26 @@ interface NexusSidebarProps {
   onHide: () => void;
 }
 
-const wellKnownFolderMap: Record<string, { icon: React.ReactNode; order: number }> = {
-  "Inbox": { icon: <Inbox className="h-4 w-4" />, order: 0 },
-  "inbox": { icon: <Inbox className="h-4 w-4" />, order: 0 },
-  "Sent Items": { icon: <Send className="h-4 w-4" />, order: 1 },
-  "sentitems": { icon: <Send className="h-4 w-4" />, order: 1 },
-  "Drafts": { icon: <FileText className="h-4 w-4" />, order: 2 },
-  "drafts": { icon: <FileText className="h-4 w-4" />, order: 2 },
-  "Deleted Items": { icon: <Trash2 className="h-4 w-4" />, order: 3 },
-  "deleteditems": { icon: <Trash2 className="h-4 w-4" />, order: 3 },
+const WELL_KNOWN_FOLDERS: Record<string, { icon: React.ReactNode; label: string; order: number }> = {
+  inbox: { icon: <Inbox className="h-4 w-4" />, label: "Doručená pošta", order: 0 },
+  sentitems: { icon: <Send className="h-4 w-4" />, label: "Odoslané", order: 1 },
+  drafts: { icon: <FileText className="h-4 w-4" />, label: "Koncepty", order: 2 },
+  junkemail: { icon: <Archive className="h-4 w-4" />, label: "Spam", order: 3 },
+  deleteditems: { icon: <Trash2 className="h-4 w-4" />, label: "Kôš", order: 4 },
+  archive: { icon: <Archive className="h-4 w-4" />, label: "Archív", order: 5 },
 };
 
-function getFolderIcon(folder: MailFolder) {
-  return wellKnownFolderMap[folder.displayName]?.icon 
-    || wellKnownFolderMap[folder.wellKnownName || ""]?.icon 
-    || <Mail className="h-4 w-4" />;
-}
-
-function loadFolderOrder(): string[] {
-  try {
-    const saved = localStorage.getItem("nexus-folder-order");
-    return saved ? JSON.parse(saved) : [];
-  } catch { return []; }
-}
-
-function saveFolderOrder(order: string[]) {
-  localStorage.setItem("nexus-folder-order", JSON.stringify(order));
-}
-
-function loadHiddenFolders(): Set<string> {
-  try {
-    const saved = localStorage.getItem("nexus-hidden-folders");
-    return saved ? new Set(JSON.parse(saved)) : new Set();
-  } catch { return new Set(); }
+function getWellKnownKey(folder: MailFolder): string | null {
+  if (folder.wellKnownName && WELL_KNOWN_FOLDERS[folder.wellKnownName]) return folder.wellKnownName;
+  const nameMap: Record<string, string> = {
+    "Inbox": "inbox", "Doručená pošta": "inbox",
+    "Sent Items": "sentitems", "Odoslané": "sentitems", "Odoslaná pošta": "sentitems",
+    "Drafts": "drafts", "Koncepty": "drafts",
+    "Junk Email": "junkemail", "Spam": "junkemail", "Nevyžiadaná pošta": "junkemail",
+    "Deleted Items": "deleteditems", "Kôš": "deleteditems", "Odstránené položky": "deleteditems",
+    "Archive": "archive", "Archív": "archive",
+  };
+  return nameMap[folder.displayName] || null;
 }
 
 export default function NexusSidebar({
@@ -101,52 +86,17 @@ export default function NexusSidebar({
   onSelectChat,
   onHide,
 }: NexusSidebarProps) {
-  const [folderManageMode, setFolderManageMode] = useState(false);
-  const [hiddenFolders, setHiddenFolders] = useState<Set<string>>(loadHiddenFolders);
-  const [folderOrder, setFolderOrder] = useState<string[]>(loadFolderOrder);
+  const [showOtherFolders, setShowOtherFolders] = useState(false);
 
-  const toggleFolderVisibility = (folderId: string) => {
-    setHiddenFolders(prev => {
-      const next = new Set(prev);
-      if (next.has(folderId)) next.delete(folderId);
-      else next.add(folderId);
-      localStorage.setItem("nexus-hidden-folders", JSON.stringify(Array.from(next)));
-      return next;
+  const wellKnownFolders = folders
+    .filter(f => !f.isChildFolder && getWellKnownKey(f) !== null)
+    .sort((a, b) => {
+      const aKey = getWellKnownKey(a)!;
+      const bKey = getWellKnownKey(b)!;
+      return (WELL_KNOWN_FOLDERS[aKey]?.order ?? 99) - (WELL_KNOWN_FOLDERS[bKey]?.order ?? 99);
     });
-  };
 
-  const parentFolders = folders.filter(f => !f.isChildFolder);
-  const nonInboxFolders = parentFolders.filter(f => {
-    const wk = f.wellKnownName || f.displayName;
-    return wk !== "Inbox" && wk !== "inbox";
-  });
-
-  const sortedFolders = [...nonInboxFolders].sort((a, b) => {
-    const orderA = folderOrder.indexOf(a.id);
-    const orderB = folderOrder.indexOf(b.id);
-    if (orderA !== -1 && orderB !== -1) return orderA - orderB;
-    if (orderA !== -1) return -1;
-    if (orderB !== -1) return 1;
-    return 0;
-  });
-
-  const moveFolderUp = (folderId: string) => {
-    const ids = sortedFolders.map(f => f.id);
-    const idx = ids.indexOf(folderId);
-    if (idx <= 0) return;
-    [ids[idx - 1], ids[idx]] = [ids[idx], ids[idx - 1]];
-    setFolderOrder(ids);
-    saveFolderOrder(ids);
-  };
-
-  const moveFolderDown = (folderId: string) => {
-    const ids = sortedFolders.map(f => f.id);
-    const idx = ids.indexOf(folderId);
-    if (idx < 0 || idx >= ids.length - 1) return;
-    [ids[idx], ids[idx + 1]] = [ids[idx + 1], ids[idx]];
-    setFolderOrder(ids);
-    saveFolderOrder(ids);
-  };
+  const otherFolders = folders.filter(f => !f.isChildFolder && getWellKnownKey(f) === null);
 
   const smsInboundCount = smsData?.filter(s => s.direction === "inbound" && s.deliveryStatus !== "read")?.length || 0;
   const smsTotal = smsData?.length || 0;
@@ -158,176 +108,145 @@ export default function NexusSidebar({
   const cancelledTasks = tasksData?.filter(t => t.status === "cancelled")?.length || 0;
   const totalTasks = tasksData?.length || 0;
 
-  const inboxFolder = folders.find(f => f.wellKnownName === "inbox" || f.displayName === "Inbox");
-  const inboxId = inboxFolder?.id || null;
-
-  const tabTitles: Record<NexusTab, string> = {
-    email: "E-mail priečinky",
-    sms: "SMS filter",
-    tasks: "Stav úloh",
-    chats: "Konverzácie",
+  const tabConfig: Record<NexusTab, { title: string; icon: React.ReactNode }> = {
+    email: { title: "E-mail", icon: <Mail className="h-3.5 w-3.5 text-blue-500" /> },
+    sms: { title: "SMS", icon: <MessageSquare className="h-3.5 w-3.5 text-cyan-500" /> },
+    tasks: { title: "Úlohy", icon: <ListTodo className="h-3.5 w-3.5 text-amber-500" /> },
+    chats: { title: "Chaty", icon: <MessagesSquare className="h-3.5 w-3.5 text-violet-500" /> },
   };
 
   return (
-    <div className="flex flex-col h-full bg-card rounded-lg border shadow-sm w-[220px] min-w-[200px] max-w-[240px] shrink-0">
-      <div className="flex items-center justify-between px-3 py-2.5 border-b">
-        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{tabTitles[activeTab]}</span>
+    <div className="flex flex-col h-full bg-card rounded-lg border w-[220px] min-w-[200px] max-w-[240px] shrink-0">
+      <div className="flex items-center justify-between px-3 py-2 border-b bg-muted/30">
+        <div className="flex items-center gap-1.5">
+          {tabConfig[activeTab].icon}
+          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{tabConfig[activeTab].title}</span>
+        </div>
         <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onHide} data-testid="button-hide-sidebar">
           <ChevronLeft className="h-3.5 w-3.5" />
         </Button>
       </div>
 
       <ScrollArea className="flex-1">
-        <div className="p-2 space-y-0.5">
+        <div className="p-1.5 space-y-0.5">
           {activeTab === "email" && (
             <>
-              {inboxFolder && (
-                <SidebarItem
-                  icon={<Inbox className="h-4 w-4 text-blue-600 dark:text-blue-400" />}
-                  label="Doručená pošta"
-                  badge={totalUnreadEmails > 0 ? totalUnreadEmails : undefined}
-                  badgeColor="bg-blue-500"
-                  active={selectedFolderId === inboxId}
-                  onClick={() => inboxId && onSelectFolder(inboxId)}
-                  testId="channel-email-inbox"
-                />
-              )}
-
-              <div className="pt-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70 px-2 py-1">Priečinky</span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-5 w-5 mr-1"
-                    onClick={() => setFolderManageMode(!folderManageMode)}
-                    title={folderManageMode ? "Hotovo" : "Spravovať priečinky"}
-                    data-testid="button-manage-folders"
-                  >
-                    {folderManageMode ? <Eye className="h-3 w-3" /> : <Settings className="h-3 w-3" />}
-                  </Button>
+              {foldersLoading ? (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                 </div>
-                <div className="space-y-0.5">
-                  {foldersLoading ? (
-                    <div className="flex items-center justify-center py-2">
-                      <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
-                    </div>
-                  ) : (
-                    sortedFolders
-                      .filter(f => folderManageMode || !hiddenFolders.has(f.id))
-                      .map((folder, idx, arr) => {
-                        const isHidden = hiddenFolders.has(folder.id);
-                        const childFolders = folders
-                          .filter(cf => cf.isChildFolder && cf.parentFolderId === folder.id)
-                          .filter(cf => folderManageMode || !hiddenFolders.has(cf.id));
-                        return (
-                          <div key={folder.id}>
-                            <div className="flex items-center gap-0.5">
-                              {folderManageMode && (
-                                <div className="flex flex-col shrink-0">
-                                  <button
-                                    onClick={() => moveFolderUp(folder.id)}
-                                    className="p-0.5 rounded hover:bg-accent transition-colors disabled:opacity-30"
-                                    disabled={idx === 0}
-                                    data-testid={`move-folder-up-${folder.id}`}
-                                  >
-                                    <ChevronUp className="h-2.5 w-2.5 text-muted-foreground" />
-                                  </button>
-                                  <button
-                                    onClick={() => moveFolderDown(folder.id)}
-                                    className="p-0.5 rounded hover:bg-accent transition-colors disabled:opacity-30"
-                                    disabled={idx === arr.length - 1}
-                                    data-testid={`move-folder-down-${folder.id}`}
-                                  >
-                                    <ChevronDown className="h-2.5 w-2.5 text-muted-foreground" />
-                                  </button>
-                                </div>
-                              )}
-                              <div className={`flex-1 ${isHidden ? "opacity-40" : ""}`}>
+              ) : (
+                <>
+                  {wellKnownFolders.map(folder => {
+                    const wkKey = getWellKnownKey(folder)!;
+                    const config = WELL_KNOWN_FOLDERS[wkKey];
+                    const isInbox = wkKey === "inbox";
+                    const childFolders = folders.filter(cf => cf.isChildFolder && cf.parentFolderId === folder.id);
+                    return (
+                      <div key={folder.id}>
+                        <SidebarItem
+                          icon={config.icon}
+                          label={config.label}
+                          badge={folder.unreadItemCount > 0 ? folder.unreadItemCount : undefined}
+                          badgeVariant={isInbox ? "primary" : "muted"}
+                          active={selectedFolderId === folder.id}
+                          onClick={() => onSelectFolder(folder.id)}
+                          bold={isInbox}
+                          testId={`folder-${wkKey}`}
+                        />
+                        {childFolders.map(child => (
+                          <SidebarItem
+                            key={child.id}
+                            icon={<FolderOpen className="h-3.5 w-3.5" />}
+                            label={child.displayName}
+                            badge={child.unreadItemCount > 0 ? child.unreadItemCount : undefined}
+                            active={selectedFolderId === child.id}
+                            onClick={() => onSelectFolder(child.id)}
+                            indent
+                            small
+                            testId={`folder-child-${child.id}`}
+                          />
+                        ))}
+                      </div>
+                    );
+                  })}
+
+                  {otherFolders.length > 0 && (
+                    <div className="pt-1">
+                      <button
+                        onClick={() => setShowOtherFolders(!showOtherFolders)}
+                        className="w-full flex items-center gap-1.5 px-2 py-1.5 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors rounded-md hover:bg-accent/40"
+                        data-testid="toggle-other-folders"
+                      >
+                        {showOtherFolders ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                        <FolderOpen className="h-3 w-3" />
+                        <span>Ďalšie priečinky ({otherFolders.length})</span>
+                      </button>
+                      {showOtherFolders && (
+                        <div className="space-y-0.5 mt-0.5">
+                          {otherFolders.map(folder => {
+                            const childFolders = folders.filter(cf => cf.isChildFolder && cf.parentFolderId === folder.id);
+                            return (
+                              <div key={folder.id}>
                                 <SidebarItem
-                                  icon={getFolderIcon(folder)}
+                                  icon={<FolderOpen className="h-3.5 w-3.5" />}
                                   label={folder.displayName}
                                   badge={folder.unreadItemCount > 0 ? folder.unreadItemCount : undefined}
-                                  badgeColor="bg-blue-500"
                                   active={selectedFolderId === folder.id}
-                                  onClick={() => !folderManageMode && onSelectFolder(folder.id)}
+                                  onClick={() => onSelectFolder(folder.id)}
                                   small
-                                  testId={`channel-email-${folder.displayName.toLowerCase().replace(/\s/g, "-")}`}
+                                  indent
+                                  testId={`folder-other-${folder.id}`}
                                 />
+                                {childFolders.map(child => (
+                                  <SidebarItem
+                                    key={child.id}
+                                    icon={<FolderOpen className="h-3 w-3" />}
+                                    label={child.displayName}
+                                    badge={child.unreadItemCount > 0 ? child.unreadItemCount : undefined}
+                                    active={selectedFolderId === child.id}
+                                    onClick={() => onSelectFolder(child.id)}
+                                    indent
+                                    small
+                                    doubleIndent
+                                    testId={`folder-other-child-${child.id}`}
+                                  />
+                                ))}
                               </div>
-                              {folderManageMode && (
-                                <button
-                                  onClick={() => toggleFolderVisibility(folder.id)}
-                                  className="shrink-0 p-1 rounded hover:bg-accent transition-colors"
-                                  data-testid={`toggle-folder-${folder.id}`}
-                                >
-                                  {isHidden ? <EyeOff className="h-3 w-3 text-muted-foreground" /> : <Eye className="h-3 w-3 text-muted-foreground" />}
-                                </button>
-                              )}
-                            </div>
-                            {childFolders.map((child) => {
-                              const isChildHidden = hiddenFolders.has(child.id);
-                              return (
-                                <div key={child.id} className="flex items-center gap-0.5">
-                                  <div className={`flex-1 ${isChildHidden ? "opacity-40" : ""}`}>
-                                    <SidebarItem
-                                      icon={<Mail className="h-3.5 w-3.5 opacity-60" />}
-                                      label={child.displayName}
-                                      badge={child.unreadItemCount > 0 ? child.unreadItemCount : undefined}
-                                      badgeColor="bg-blue-500"
-                                      active={selectedFolderId === child.id}
-                                      onClick={() => !folderManageMode && onSelectFolder(child.id)}
-                                      small
-                                      indent
-                                      testId={`channel-email-child-${child.displayName.toLowerCase().replace(/\s/g, "-")}`}
-                                    />
-                                  </div>
-                                  {folderManageMode && (
-                                    <button
-                                      onClick={() => toggleFolderVisibility(child.id)}
-                                      className="shrink-0 p-1 rounded hover:bg-accent transition-colors"
-                                      data-testid={`toggle-folder-${child.id}`}
-                                    >
-                                      {isChildHidden ? <EyeOff className="h-3 w-3 text-muted-foreground" /> : <Eye className="h-3 w-3 text-muted-foreground" />}
-                                    </button>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        );
-                      })
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
                   )}
-                </div>
-              </div>
+                </>
+              )}
             </>
           )}
 
           {activeTab === "sms" && (
             <>
               <SidebarItem
-                icon={<MessageSquare className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />}
+                icon={<MessageSquare className="h-4 w-4" />}
                 label="Všetky SMS"
                 count={smsTotal}
                 badge={smsInboundCount > 0 ? smsInboundCount : undefined}
-                badgeColor="bg-cyan-500"
+                badgeVariant="primary"
                 active={smsFilter === "all"}
                 onClick={() => onSmsFilterChange("all")}
                 testId="sms-filter-all"
               />
               <SidebarItem
-                icon={<ArrowDownLeft className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />}
+                icon={<ArrowDownLeft className="h-4 w-4" />}
                 label="Prijaté"
                 count={smsInboundTotal}
-                badge={smsInboundCount > 0 ? smsInboundCount : undefined}
-                badgeColor="bg-cyan-500"
                 active={smsFilter === "inbound"}
                 onClick={() => onSmsFilterChange("inbound")}
                 small
                 testId="sms-filter-inbound"
               />
               <SidebarItem
-                icon={<ArrowUpRight className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />}
+                icon={<ArrowUpRight className="h-4 w-4" />}
                 label="Odoslané"
                 count={smsOutboundTotal}
                 active={smsFilter === "outbound"}
@@ -341,26 +260,27 @@ export default function NexusSidebar({
           {activeTab === "tasks" && (
             <>
               <SidebarItem
-                icon={<ListTodo className="h-4 w-4 text-amber-600 dark:text-amber-400" />}
+                icon={<ListTodo className="h-4 w-4" />}
                 label="Všetky úlohy"
                 count={totalTasks}
                 active={taskFilter === "all"}
                 onClick={() => onTaskFilterChange("all")}
                 testId="task-filter-all"
               />
+              <div className="my-1 mx-2 border-t" />
               <SidebarItem
-                icon={<Clock className="h-4 w-4 text-slate-500" />}
+                icon={<Clock className="h-3.5 w-3.5 text-amber-500" />}
                 label="Čakajúce"
                 count={pendingTasks}
                 badge={pendingTasks > 0 ? pendingTasks : undefined}
-                badgeColor="bg-amber-500"
+                badgeVariant="primary"
                 active={taskFilter === "pending"}
                 onClick={() => onTaskFilterChange("pending")}
                 small
                 testId="task-filter-pending"
               />
               <SidebarItem
-                icon={<CircleDashed className="h-4 w-4 text-blue-500" />}
+                icon={<CircleDashed className="h-3.5 w-3.5 text-blue-500" />}
                 label="Rozpracované"
                 count={inProgressTasks}
                 active={taskFilter === "in_progress"}
@@ -369,7 +289,7 @@ export default function NexusSidebar({
                 testId="task-filter-in-progress"
               />
               <SidebarItem
-                icon={<CheckCircle2 className="h-4 w-4 text-emerald-500" />}
+                icon={<CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />}
                 label="Dokončené"
                 count={completedTasks}
                 active={taskFilter === "completed"}
@@ -378,7 +298,7 @@ export default function NexusSidebar({
                 testId="task-filter-completed"
               />
               <SidebarItem
-                icon={<XCircle className="h-4 w-4 text-red-500" />}
+                icon={<XCircle className="h-3.5 w-3.5 text-red-400" />}
                 label="Zrušené"
                 count={cancelledTasks}
                 active={taskFilter === "cancelled"}
@@ -395,10 +315,10 @@ export default function NexusSidebar({
                 chatsData.map(chat => (
                   <SidebarItem
                     key={chat.id}
-                    icon={<MessagesSquare className="h-4 w-4 text-violet-600 dark:text-violet-400" />}
+                    icon={<MessagesSquare className="h-3.5 w-3.5" />}
                     label={chat.participantName || "Konverzácia"}
                     badge={chat.unreadCount > 0 ? chat.unreadCount : undefined}
-                    badgeColor="bg-violet-500"
+                    badgeVariant="primary"
                     active={selectedChatId === chat.id}
                     onClick={() => onSelectChat?.(chat.id)}
                     small
@@ -406,8 +326,8 @@ export default function NexusSidebar({
                   />
                 ))
               ) : (
-                <div className="flex flex-col items-center justify-center py-6 text-muted-foreground">
-                  <MessagesSquare className="h-6 w-6 mb-2 opacity-40" />
+                <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+                  <MessagesSquare className="h-8 w-8 mb-2 opacity-30" />
                   <span className="text-xs">Žiadne konverzácie</span>
                 </div>
               )}
@@ -423,41 +343,47 @@ interface SidebarItemProps {
   icon: React.ReactNode;
   label: string;
   badge?: number;
-  badgeColor?: string;
+  badgeVariant?: "primary" | "muted";
   count?: number;
   active: boolean;
   onClick: () => void;
   small?: boolean;
+  bold?: boolean;
   indent?: boolean;
+  doubleIndent?: boolean;
   testId: string;
 }
 
-function SidebarItem({ icon, label, badge, badgeColor = "bg-primary", count, active, onClick, small, indent, testId }: SidebarItemProps) {
+function SidebarItem({ icon, label, badge, badgeVariant = "muted", count, active, onClick, small, bold, indent, doubleIndent, testId }: SidebarItemProps) {
   return (
     <button
       onClick={onClick}
-      className={`w-full flex items-center justify-between rounded-md transition-all group
-        ${small ? "px-2 py-1.5 text-[13px]" : "px-2.5 py-2 text-sm"}
-        ${indent ? "ml-3" : ""}
+      className={`w-full flex items-center justify-between rounded-md transition-all
+        ${small ? "px-2 py-1 text-[12.5px]" : "px-2.5 py-1.5 text-[13px]"}
+        ${indent ? "ml-2" : ""} ${doubleIndent ? "ml-4" : ""}
         ${active 
-          ? "bg-primary text-primary-foreground shadow-sm" 
-          : "hover:bg-accent/60 text-foreground"
+          ? "bg-primary/10 text-primary font-medium border border-primary/20" 
+          : "hover:bg-accent/50 text-foreground"
         }
       `}
       data-testid={testId}
     >
       <div className="flex items-center gap-2 min-w-0">
-        <span className={`shrink-0 ${active ? "text-primary-foreground" : ""}`}>{icon}</span>
-        <span className="truncate">{label}</span>
+        <span className={`shrink-0 ${active ? "text-primary" : "text-muted-foreground"}`}>{icon}</span>
+        <span className={`truncate ${bold ? "font-semibold" : ""}`}>{label}</span>
       </div>
       <div className="flex items-center gap-1.5 shrink-0">
         {count !== undefined && !badge && (
-          <span className={`text-[10px] ${active ? "text-primary-foreground/70" : "text-muted-foreground"}`}>{count}</span>
+          <span className={`text-[10px] tabular-nums ${active ? "text-primary/60" : "text-muted-foreground/60"}`}>{count}</span>
         )}
         {badge !== undefined && badge > 0 && (
-          <Badge className={`${active ? "bg-white/20 text-primary-foreground" : badgeColor + " text-white"} text-[10px] h-5 min-w-[20px] px-1.5 flex items-center justify-center`}>
-            {badge}
-          </Badge>
+          <span className={`text-[10px] tabular-nums font-medium rounded-full h-[18px] min-w-[18px] px-1 flex items-center justify-center ${
+            badgeVariant === "primary" 
+              ? "bg-primary text-primary-foreground" 
+              : "bg-muted text-muted-foreground"
+          }`}>
+            {badge > 99 ? "99+" : badge}
+          </span>
         )}
       </div>
     </button>
