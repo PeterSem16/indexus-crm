@@ -576,6 +576,7 @@ export default function EmailClientPage() {
   const [composeData, setComposeData] = useState({ to: "", cc: "", bcc: "", subject: "", body: "", importance: "normal" as string, tagId: null as number | null, replyTo: "" });
   const [signatureHtml, setSignatureHtml] = useState("");
   const [signatureActive, setSignatureActive] = useState(true);
+  const [sigEditMailbox, setSigEditMailbox] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [searchMailbox, setSearchMailbox] = useState<string>("all");
@@ -751,6 +752,12 @@ export default function EmailClientPage() {
     queryKey: ["/api/users", user?.id, "email-signatures", effectiveMailbox],
     queryFn: () => fetch(`/api/users/${user?.id}/email-signatures/${effectiveMailbox}`).then(r => r.json()),
     enabled: !!user?.id && !!effectiveMailbox,
+  });
+
+  const { data: allSignatures = [] } = useQuery<EmailSignature[]>({
+    queryKey: ["/api/users", user?.id, "email-signatures"],
+    queryFn: () => fetch(`/api/users/${user?.id}/email-signatures`).then(r => r.json()),
+    enabled: !!user?.id,
   });
 
   const currentMailboxEmail = selectedMailbox === "personal"
@@ -1021,13 +1028,13 @@ export default function EmailClientPage() {
   });
 
   const saveSignatureMutation = useMutation({
-    mutationFn: async (data: { htmlContent: string; isActive: boolean }) => {
-      return apiRequest("PUT", `/api/users/${user?.id}/email-signatures/${effectiveMailbox}`, data);
+    mutationFn: async (data: { htmlContent: string; isActive: boolean; mailboxEmail?: string }) => {
+      const mbx = data.mailboxEmail || effectiveMailbox;
+      return apiRequest("PUT", `/api/users/${user?.id}/email-signatures/${mbx}`, { htmlContent: data.htmlContent, isActive: data.isActive });
     },
     onSuccess: () => {
       toast({ title: "Uložené", description: "Podpis bol uložený" });
-      setSignatureDialogOpen(false);
-      queryClient.invalidateQueries({ queryKey: ["/api/users", user?.id, "email-signatures", effectiveMailbox] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users", user?.id, "email-signatures"] });
     },
     onError: () => {
       toast({ title: "Chyba", description: "Nepodarilo sa uložiť podpis", variant: "destructive" });
@@ -1232,7 +1239,12 @@ export default function EmailClientPage() {
     return Array.from(map.values());
   })();
 
-  const getSignatureForCompose = () => {
+  const getSignatureForCompose = (forMailbox?: string) => {
+    const mbx = forMailbox || effectiveMailbox;
+    const sig = allSignatures.find((s: EmailSignature) => s.mailboxEmail === mbx);
+    if (sig?.isActive && sig?.htmlContent) {
+      return sig.htmlContent;
+    }
     if (signatureData?.isActive && signatureData?.htmlContent) {
       return signatureData.htmlContent;
     }
@@ -1522,10 +1534,12 @@ export default function EmailClientPage() {
   };
 
   const openSignatureEditor = () => {
-    console.log("[SETTINGS] Opening NEW Airmail-style settings dialog v2");
-    setSignatureHtml(signatureData?.htmlContent || "");
-    setSignatureActive(signatureData?.isActive !== false);
-    setSettingsTab("messages");
+    const mbxKey = effectiveMailbox || (mailboxes[0]?.type === "personal" ? "personal" : mailboxes[0]?.email) || "";
+    const sig = allSignatures.find((s: EmailSignature) => s.mailboxEmail === mbxKey);
+    setSignatureHtml(sig?.htmlContent || signatureData?.htmlContent || "");
+    setSignatureActive(sig?.isActive !== false);
+    setSigEditMailbox(mbxKey);
+    setSettingsTab("compose");
     setSignatureDialogOpen(true);
   };
 
@@ -3513,28 +3527,74 @@ export default function EmailClientPage() {
     }
 
     if (settingsTab === "compose") {
+      const sigMailboxes = mailboxes.map(m => ({
+        key: m.type === "personal" ? "personal" : m.email,
+        label: m.email,
+        type: m.type,
+      }));
+      const activeSigMailbox = sigEditMailbox || sigMailboxes[0]?.key || "";
+      const currentSig = allSignatures.find((s: EmailSignature) => s.mailboxEmail === activeSigMailbox);
+
+      const loadSigForMailbox = (mbxKey: string) => {
+        setSigEditMailbox(mbxKey);
+        const sig = allSignatures.find((s: EmailSignature) => s.mailboxEmail === mbxKey);
+        setSignatureHtml(sig?.htmlContent || "");
+        setSignatureActive(sig?.isActive !== false);
+      };
+
       return (
         <div>
           <h2 className="text-lg font-semibold mb-1">Písanie</h2>
-          <p className="text-sm text-muted-foreground mb-4">Nastavenia podpisu a písania emailov.</p>
+          <p className="text-sm text-muted-foreground mb-4">Podpisy pre emailové účty. Každý účet môže mať vlastný podpis s obrázkami.</p>
 
-          <SectionTitle>Podpis</SectionTitle>
+          <SectionTitle>Emailový účet</SectionTitle>
+          <div className="flex flex-wrap gap-1.5 mb-4">
+            {sigMailboxes.map(mb => {
+              const hasSig = allSignatures.some((s: EmailSignature) => s.mailboxEmail === mb.key && s.htmlContent && s.isActive);
+              return (
+                <button
+                  key={mb.key}
+                  onClick={() => loadSigForMailbox(mb.key)}
+                  className={cn(
+                    "flex items-center gap-2 px-3 py-2 rounded-lg border text-sm transition-all",
+                    activeSigMailbox === mb.key
+                      ? "bg-primary/10 border-primary text-primary font-medium shadow-sm"
+                      : "hover:bg-accent/50 border-border text-muted-foreground"
+                  )}
+                  data-testid={`sig-account-${mb.key}`}
+                >
+                  <Mail className="h-3.5 w-3.5" />
+                  <span className="truncate max-w-48">{mb.label}</span>
+                  {hasSig && <Check className="h-3 w-3 text-green-500" />}
+                </button>
+              );
+            })}
+          </div>
+
+          <SectionTitle>Podpis pre {sigMailboxes.find(m => m.key === activeSigMailbox)?.label || activeSigMailbox}</SectionTitle>
           <div className="space-y-3">
             <div className="flex items-center gap-2">
               <Switch id="signature-active" checked={signatureActive} onCheckedChange={(c) => setSignatureActive(!!c)} />
               <label htmlFor="signature-active" className="text-sm font-medium">Aktívny podpis</label>
             </div>
-            <p className="text-[12px] text-muted-foreground">Podpis sa automaticky pridá na koniec každého nového emailu a odpovede.</p>
+            <p className="text-[12px] text-muted-foreground">Podpis sa automaticky pridá na koniec emailov odoslaných z tohto účtu. Môžete vložiť aj obrázky cez ikonu obrázka v paneli nástrojov.</p>
             <EmailEditor
-              key={`sig-${settingsTab}`}
+              key={`sig-${activeSigMailbox}`}
               initialContent={signatureHtml}
               onChange={(html) => setSignatureHtml(html)}
-              placeholder="Váš podpis..."
-              minHeight="180px"
+              placeholder="Váš podpis... (použite ikonu obrázka pre vloženie loga)"
+              minHeight="200px"
               showAttachments={false}
             />
-            <div className="flex justify-end">
-              <Button onClick={() => saveSignatureMutation.mutate({ htmlContent: signatureHtml, isActive: signatureActive })} disabled={saveSignatureMutation.isPending} data-testid="button-save-signature">
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">
+                {currentSig ? "Posledná úprava: " + new Date(currentSig.updatedAt).toLocaleString("sk-SK") : "Žiadny podpis pre tento účet"}
+              </p>
+              <Button
+                onClick={() => saveSignatureMutation.mutate({ htmlContent: signatureHtml, isActive: signatureActive, mailboxEmail: activeSigMailbox })}
+                disabled={saveSignatureMutation.isPending}
+                data-testid="button-save-signature"
+              >
                 {saveSignatureMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 Uložiť podpis
               </Button>
