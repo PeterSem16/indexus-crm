@@ -288,16 +288,25 @@ export default function EmailClientPage() {
     queryKey: ["/api/users", user?.id, "ms365-folder-messages", selectedFolderId, selectedMailbox, page],
     queryFn: async () => {
       if (selectedMailbox === "all" && mailboxes.length > 1) {
+        const perMb = Math.max(10, Math.floor(pageSize / mailboxes.length));
+        const perMbSkip = Math.floor((page * pageSize) / mailboxes.length);
         const results = await Promise.all(
-          mailboxes.map(mb => {
+          mailboxes.map(async (mb) => {
             const mbParam = mb.type === "personal" ? "personal" : mb.email;
-            return fetch(`/api/users/${user?.id}/ms365-folder-messages/${selectedFolderId}?mailbox=${mbParam}&top=${pageSize}&skip=${page * pageSize}`)
-              .then(r => r.json())
-              .then(data => ({
+            try {
+              const foldersRes = await fetch(`/api/users/${user?.id}/ms365-folders?mailbox=${mbParam}`);
+              const foldersJson = await foldersRes.json();
+              const inboxId = foldersJson.inboxId;
+              if (!inboxId) return { connected: false, emails: [], totalCount: 0 };
+              const msgsRes = await fetch(`/api/users/${user?.id}/ms365-folder-messages/${inboxId}?mailbox=${mbParam}&top=${perMb}&skip=${perMbSkip}`);
+              const data = await msgsRes.json();
+              return {
                 ...data,
                 emails: (data.emails || []).map((e: any) => ({ ...e, _mailboxEmail: mb.email })),
-              }))
-              .catch(() => ({ connected: false, emails: [], totalCount: 0 }));
+              };
+            } catch {
+              return { connected: false, emails: [], totalCount: 0 };
+            }
           })
         );
         const allEmails = results.flatMap(r => r.emails || []);
@@ -491,6 +500,17 @@ export default function EmailClientPage() {
     setSelectedEmail(null);
     setPage(0);
     setAccumulatedEmails([]);
+  };
+
+  const getAccountTint = (emailAddr?: string | null): string | undefined => {
+    if (!emailAddr) return undefined;
+    const cfg = accountConfigs[emailAddr];
+    const hex = cfg?.color || mailboxColorMap[emailAddr];
+    if (!hex) return undefined;
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, 0.06)`;
   };
 
   const upsertMailboxColorMutation = useMutation({
@@ -1281,7 +1301,14 @@ export default function EmailClientPage() {
                   <>
                   <ScrollArea className="h-[calc(100vh-380px)]">
                     <div className="divide-y">
-                      {emailsPage.map((email) => (
+                      {emailsPage.map((email) => {
+                        const tintBg = selectedMailbox === "all" && email._mailboxEmail
+                          ? getAccountTint(email._mailboxEmail)
+                          : undefined;
+                        const acctColor = email._mailboxEmail
+                          ? (accountConfigs[email._mailboxEmail]?.color || mailboxColorMap[email._mailboxEmail] || "#6B7280")
+                          : null;
+                        return (
                         <div
                           key={email.id}
                           className={`relative group w-full text-left px-3 py-2.5 transition-all hover:bg-accent/50 cursor-pointer ${
@@ -1290,7 +1317,11 @@ export default function EmailClientPage() {
                           onClick={() => setSelectedEmail(email)}
                           onDoubleClick={() => { setSelectedEmail(email); setModalEmail(email); }}
                           data-testid={`email-item-${email.id}`}
+                          style={tintBg && selectedEmail?.id !== email.id ? { backgroundColor: tintBg } : undefined}
                         >
+                          {selectedMailbox === "all" && acctColor && (
+                            <span className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-sm" style={{ backgroundColor: acctColor }} />
+                          )}
                           <button
                             className="absolute top-1.5 right-1.5 p-1 rounded-md opacity-0 group-hover:opacity-100 hover:bg-background/80 transition-all z-10"
                             onClick={(e) => { e.stopPropagation(); toggleReadMutation.mutate({ emailId: email.id, isRead: !email.isRead }); }}
@@ -1299,52 +1330,43 @@ export default function EmailClientPage() {
                           >
                             {!email.isRead ? <Eye className="h-3.5 w-3.5 text-muted-foreground" /> : <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />}
                           </button>
-                          <div className="flex items-start gap-2.5">
-                            <div className="flex flex-col items-center gap-0.5 mt-1.5 shrink-0">
-                              {emailPrefs.unreadIndicator && (
-                                <span className={`h-2 w-2 rounded-full ${!email.isRead ? "bg-blue-500" : "bg-transparent"}`} />
-                              )}
-                              {selectedMailbox === "all" && email._mailboxEmail && (() => {
-                                const mbEmail = email._mailboxEmail!;
-                                const cfg = accountConfigs[mbEmail];
-                                const color = cfg?.color || mailboxColorMap[mbEmail] || "#6B7280";
-                                const iconKey = cfg?.icon || "mail";
-                                return (
-                                  <span
-                                    className="h-4 w-4 rounded-full flex items-center justify-center"
-                                    style={{ backgroundColor: color }}
-                                    title={mailboxes.find(m => m.email === mbEmail)?.displayName || mbEmail}
-                                  >
-                                    <AccountIcon iconKey={iconKey} className="h-2.5 w-2.5 text-white" />
-                                  </span>
-                                );
-                              })()}
-                              {selectedMailbox !== "all" && emailPrefs.showAccountIcons && currentMailboxEmail && mailboxColorMap[currentMailboxEmail] && (
-                                <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: mailboxColorMap[currentMailboxEmail] }} />
-                              )}
-                            </div>
+                          <div className="flex items-start gap-2">
+                            {emailPrefs.unreadIndicator && (
+                              <span className={`h-2 w-2 rounded-full mt-2 shrink-0 ${!email.isRead ? "bg-blue-500" : "bg-transparent"}`} />
+                            )}
                             {emailPrefs.showSenderInitials && (
                               <div className="h-8 w-8 rounded-full bg-gradient-to-br from-muted to-muted-foreground/20 flex items-center justify-center text-[11px] font-bold text-muted-foreground shrink-0 mt-0.5">
                                 {(email.from?.emailAddress?.name || email.from?.emailAddress?.address || "?").substring(0, 2).toUpperCase()}
                               </div>
                             )}
-                            <div className="flex-1 min-w-0">
+                            <div className="flex-1 min-w-0 overflow-hidden">
                               <div className="flex items-center justify-between gap-1">
                                 <span className={`text-sm truncate ${!email.isRead && emailPrefs.highlightUnread ? "font-bold" : ""}`}>
                                   {email.from?.emailAddress?.name || email.from?.emailAddress?.address || "Neznámy"}
                                 </span>
                                 <div className="flex items-center gap-1 shrink-0">
-                                  {emailPrefs.previewAttachmentIcons && email.hasAttachments && <Paperclip className="h-3 w-3 text-muted-foreground" />}
+                                  {email.hasAttachments && <Paperclip className="h-3 w-3 text-muted-foreground" />}
                                   <span className="text-[11px] text-muted-foreground whitespace-nowrap">
                                     {format(new Date(email.receivedDateTime), "d.M. HH:mm")}
                                   </span>
                                 </div>
                               </div>
-                              <p className={`text-xs truncate ${!email.isRead && emailPrefs.highlightUnread ? "font-semibold" : "text-muted-foreground"}`}>
-                                {email.subject || "(Bez predmetu)"}
-                              </p>
-                              {emailPrefs.previewLines > 0 && (
-                                <p className={`text-[11px] text-muted-foreground ${emailPrefs.previewLines === 1 ? "line-clamp-1" : "line-clamp-2"}`} style={{ overflowWrap: "anywhere", wordBreak: "break-word" }}>{email.bodyPreview}</p>
+                              <div className="flex items-center gap-1.5">
+                                {selectedMailbox === "all" && acctColor && (
+                                  <span
+                                    className="h-4 w-4 rounded-full flex items-center justify-center shrink-0"
+                                    style={{ backgroundColor: acctColor }}
+                                    title={mailboxes.find(m => m.email === email._mailboxEmail)?.displayName || email._mailboxEmail}
+                                  >
+                                    <AccountIcon iconKey={accountConfigs[email._mailboxEmail!]?.icon || "mail"} className="h-2.5 w-2.5 text-white" />
+                                  </span>
+                                )}
+                                <p className={`text-xs truncate flex-1 min-w-0 ${!email.isRead && emailPrefs.highlightUnread ? "font-semibold" : "text-muted-foreground"}`}>
+                                  {email.subject || "(Bez predmetu)"}
+                                </p>
+                              </div>
+                              {emailPrefs.previewLines > 0 && email.bodyPreview && (
+                                <p className={`text-[11px] text-muted-foreground mt-0.5 ${emailPrefs.previewLines === 1 ? "line-clamp-1" : "line-clamp-2"}`} style={{ overflowWrap: "anywhere", wordBreak: "break-word" }}>{email.bodyPreview}</p>
                               )}
                               {emailPrefs.showTags && getEmailTags(email.id).length > 0 && (
                                 <div className="flex items-center gap-1 mt-0.5 flex-wrap">
@@ -1358,7 +1380,8 @@ export default function EmailClientPage() {
                             </div>
                           </div>
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </ScrollArea>
                   {totalCount > emails.length && (
