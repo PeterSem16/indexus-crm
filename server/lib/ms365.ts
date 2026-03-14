@@ -751,10 +751,13 @@ export async function sendEmailWithSignature(
   const basePath = mailboxEmail ? `/users/${mailboxEmail}` : '/me';
   
   let finalBody = body;
-  if (signature && isHtml) {
-    finalBody = `${body}<br/><br/>--<br/>${signature}`;
-  } else if (signature) {
-    finalBody = `${body}\n\n--\n${signature}`;
+  const bodyAlreadyHasSignature = body.includes('class="email-signature"');
+  if (signature && !bodyAlreadyHasSignature) {
+    if (isHtml) {
+      finalBody = `${body}<br/><br/>--<br/>${signature}`;
+    } else {
+      finalBody = `${body}\n\n--\n${signature}`;
+    }
   }
   
   const message: any = {
@@ -809,10 +812,13 @@ export async function replyToEmail(
   const basePath = mailboxEmail ? `/users/${mailboxEmail}` : '/me';
   
   let finalBody = body;
-  if (signature && isHtml) {
-    finalBody = `${body}<br/><br/>--<br/>${signature}`;
-  } else if (signature) {
-    finalBody = `${body}\n\n--\n${signature}`;
+  const bodyAlreadyHasSignature = body.includes('class="email-signature"');
+  if (signature && !bodyAlreadyHasSignature) {
+    if (isHtml) {
+      finalBody = `${body}<br/><br/>--<br/>${signature}`;
+    } else {
+      finalBody = `${body}\n\n--\n${signature}`;
+    }
   }
 
   if (attachments && attachments.length > 0) {
@@ -891,10 +897,13 @@ export async function forwardEmail(
   const basePath = mailboxEmail ? `/users/${mailboxEmail}` : '/me';
   
   let finalBody = body;
-  if (signature && isHtml) {
-    finalBody = `${body}<br/><br/>--<br/>${signature}`;
-  } else if (signature) {
-    finalBody = `${body}\n\n--\n${signature}`;
+  const bodyAlreadyHasSignature = body.includes('class="email-signature"');
+  if (signature && !bodyAlreadyHasSignature) {
+    if (isHtml) {
+      finalBody = `${body}<br/><br/>--<br/>${signature}`;
+    } else {
+      finalBody = `${body}\n\n--\n${signature}`;
+    }
   }
 
   if (attachments && attachments.length > 0) {

@@ -2304,6 +2304,15 @@ export default function EmailClientPage() {
               >
                 {emailDetail.isRead ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </Button>
+              <Button
+                variant="ghost" size="icon"
+                onClick={handleAiSummary}
+                disabled={aiSummaryLoading}
+                title="Súhrn emailu"
+                data-testid="button-email-summary"
+              >
+                {aiSummaryLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4 text-blue-500" />}
+              </Button>
               <Button variant="ghost" size="icon" onClick={() => deleteEmailMutation.mutate(emailDetail.id)} data-testid="button-delete">
                 <Trash2 className="h-4 w-4" />
               </Button>
