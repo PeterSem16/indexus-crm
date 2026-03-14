@@ -56,6 +56,7 @@ export interface EmailMessage {
     pipelineStageName?: string;
     pipelineActionReason?: string;
   };
+  _mailboxEmail?: string;
 }
 
 export interface EmailSignature {

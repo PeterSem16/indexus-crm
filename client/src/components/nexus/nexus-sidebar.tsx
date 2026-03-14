@@ -30,6 +30,22 @@ import {
   FolderOpen,
   Archive,
   Star,
+  Building2,
+  Globe,
+  Briefcase,
+  Shield,
+  Heart,
+  Flame,
+  Bell,
+  Megaphone,
+  Bot,
+  Clover,
+  Gem,
+  Rocket,
+  Crown,
+  User,
+  Users,
+  Layers,
 } from "lucide-react";
 import type { MailFolder, SmsMessage, Task, ChatConversation, NexusTab, TaskFilter, SmsFilter } from "./nexus-types";
 
@@ -42,24 +58,49 @@ export interface AccountIconConfig {
   isDefault: boolean;
 }
 
-export const ACCOUNT_ICONS: { key: string; label: string; emoji: string }[] = [
-  { key: "mail", label: "Obálka", emoji: "✉️" },
-  { key: "inbox", label: "Inbox", emoji: "📥" },
-  { key: "office", label: "Kancelária", emoji: "🏢" },
-  { key: "globe", label: "Svet", emoji: "🌐" },
-  { key: "briefcase", label: "Kufrík", emoji: "💼" },
-  { key: "shield", label: "Štít", emoji: "🛡️" },
-  { key: "heart", label: "Srdce", emoji: "❤️" },
-  { key: "star", label: "Hviezda", emoji: "⭐" },
-  { key: "fire", label: "Oheň", emoji: "🔥" },
-  { key: "bell", label: "Zvonček", emoji: "🔔" },
-  { key: "megaphone", label: "Megafón", emoji: "📢" },
-  { key: "robot", label: "Robot", emoji: "🤖" },
-  { key: "leaf", label: "List", emoji: "🍀" },
-  { key: "gem", label: "Drahokam", emoji: "💎" },
-  { key: "rocket", label: "Raketa", emoji: "🚀" },
-  { key: "crown", label: "Koruna", emoji: "👑" },
+const ACCOUNT_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
+  mail: Mail,
+  inbox: Inbox,
+  office: Building2,
+  globe: Globe,
+  briefcase: Briefcase,
+  shield: Shield,
+  heart: Heart,
+  star: Star,
+  fire: Flame,
+  bell: Bell,
+  megaphone: Megaphone,
+  robot: Bot,
+  leaf: Clover,
+  gem: Gem,
+  rocket: Rocket,
+  crown: Crown,
+  user: User,
+  users: Users,
+};
+
+export const ACCOUNT_ICONS: { key: string; label: string }[] = [
+  { key: "mail", label: "Obálka" },
+  { key: "inbox", label: "Inbox" },
+  { key: "user", label: "Osoba" },
+  { key: "users", label: "Tím" },
+  { key: "office", label: "Kancelária" },
+  { key: "globe", label: "Svet" },
+  { key: "briefcase", label: "Kufrík" },
+  { key: "shield", label: "Štít" },
+  { key: "heart", label: "Srdce" },
+  { key: "star", label: "Hviezda" },
+  { key: "fire", label: "Oheň" },
+  { key: "bell", label: "Zvonček" },
+  { key: "gem", label: "Drahokam" },
+  { key: "rocket", label: "Raketa" },
+  { key: "crown", label: "Koruna" },
 ];
+
+export function AccountIcon({ iconKey, className }: { iconKey: string; className?: string }) {
+  const IconComponent = ACCOUNT_ICON_MAP[iconKey] || Mail;
+  return <IconComponent className={className || "h-3.5 w-3.5"} />;
+}
 
 interface NexusSidebarProps {
   activeTab: NexusTab;
@@ -374,17 +415,34 @@ export default function NexusSidebar({
           )}
           {activeTab === "email" && mailboxes && mailboxes.length > 0 && (
             <div className="mt-auto pt-2 border-t flex flex-col items-center gap-1">
+              {mailboxes.length > 1 && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => onSelectMailbox?.("all")}
+                      className={`relative h-8 w-8 rounded-full flex items-center justify-center transition-all ${
+                        selectedMailbox === "all"
+                          ? "ring-2 ring-primary ring-offset-2 ring-offset-background"
+                          : "hover:opacity-80"
+                      } bg-gradient-to-br from-blue-500 to-violet-500`}
+                      data-testid="account-icon-all"
+                    >
+                      <Layers className="h-4 w-4 text-white" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right" className="text-xs">Všetky účty</TooltipContent>
+                </Tooltip>
+              )}
               {mailboxes.map(mb => {
                 const mbKey = mb.type === "personal" ? "personal" : mb.email;
                 const isActive = selectedMailbox === mbKey;
-                const iconDef = ACCOUNT_ICONS.find(i => i.key === mb.icon);
                 const unread = mailboxUnreadCounts?.[mb.email] || 0;
                 return (
                   <Tooltip key={mb.email}>
                     <TooltipTrigger asChild>
                       <button
                         onClick={() => onSelectMailbox?.(mbKey)}
-                        className={`relative h-9 w-9 rounded-full flex items-center justify-center text-sm transition-all ${
+                        className={`relative h-8 w-8 rounded-full flex items-center justify-center transition-all ${
                           isActive
                             ? "ring-2 ring-primary ring-offset-2 ring-offset-background"
                             : "hover:opacity-80"
@@ -392,9 +450,7 @@ export default function NexusSidebar({
                         style={{ backgroundColor: mb.color || "#6B7280" }}
                         data-testid={`account-icon-${mb.email}`}
                       >
-                        <span className="text-white text-base leading-none">
-                          {iconDef ? iconDef.emoji : mb.displayName?.substring(0, 1).toUpperCase() || "?"}
-                        </span>
+                        <AccountIcon iconKey={mb.icon} className="h-4 w-4 text-white" />
                         {unread > 0 && (
                           <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] font-bold rounded-full h-[16px] min-w-[16px] px-0.5 flex items-center justify-center">
                             {unread > 99 ? "99+" : unread}
@@ -638,10 +694,23 @@ export default function NexusSidebar({
       </ScrollArea>
       {activeTab === "email" && mailboxes && mailboxes.length > 0 && (
         <div className="border-t px-2 py-2 space-y-1">
+          {mailboxes.length > 1 && (
+            <button
+              onClick={() => onSelectMailbox?.("all")}
+              className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-sm transition-all ${
+                selectedMailbox === "all" ? "bg-primary/10 font-medium" : "hover:bg-accent/50"
+              }`}
+              data-testid="account-expanded-all"
+            >
+              <span className="relative h-7 w-7 rounded-full flex items-center justify-center shrink-0 bg-gradient-to-br from-blue-500 to-violet-500">
+                <Layers className="h-3.5 w-3.5 text-white" />
+              </span>
+              <span className="truncate text-xs">Všetky účty</span>
+            </button>
+          )}
           {mailboxes.map(mb => {
             const mbKey = mb.type === "personal" ? "personal" : mb.email;
             const isActive = selectedMailbox === mbKey;
-            const iconDef = ACCOUNT_ICONS.find(i => i.key === mb.icon);
             const unread = mailboxUnreadCounts?.[mb.email] || 0;
             return (
               <button
@@ -653,12 +722,10 @@ export default function NexusSidebar({
                 data-testid={`account-expanded-${mb.email}`}
               >
                 <span
-                  className="relative h-7 w-7 rounded-full flex items-center justify-center text-xs shrink-0"
+                  className="relative h-7 w-7 rounded-full flex items-center justify-center shrink-0"
                   style={{ backgroundColor: mb.color || "#6B7280" }}
                 >
-                  <span className="text-white leading-none">
-                    {iconDef ? iconDef.emoji : mb.displayName?.substring(0, 1).toUpperCase() || "?"}
-                  </span>
+                  <AccountIcon iconKey={mb.icon} className="h-3.5 w-3.5 text-white" />
                   {unread > 0 && (
                     <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[7px] font-bold rounded-full h-[14px] min-w-[14px] px-0.5 flex items-center justify-center">
                       {unread > 99 ? "99+" : unread}

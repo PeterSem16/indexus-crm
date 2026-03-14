@@ -106,7 +106,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import Editor from "react-simple-wysiwyg";
 
-import NexusSidebar, { ACCOUNT_ICONS, type AccountIconConfig } from "@/components/nexus/nexus-sidebar";
+import NexusSidebar, { ACCOUNT_ICONS, AccountIcon, type AccountIconConfig } from "@/components/nexus/nexus-sidebar";
 import type {
   Mailbox,
   MailFolder,
@@ -255,10 +255,12 @@ export default function EmailClientPage() {
     enabled: !!user?.id,
   });
 
+  const effectiveMailbox = selectedMailbox === "all" ? "personal" : selectedMailbox;
+
   const { data: foldersData, isLoading: foldersLoading, refetch: refetchFolders } = useQuery<{ connected: boolean; folders: MailFolder[]; inboxId?: string | null }>({
-    queryKey: ["/api/users", user?.id, "ms365-folders", selectedMailbox],
-    queryFn: () => fetch(`/api/users/${user?.id}/ms365-folders?mailbox=${selectedMailbox}`).then(r => r.json()),
-    enabled: !!user?.id && !!selectedMailbox,
+    queryKey: ["/api/users", user?.id, "ms365-folders", effectiveMailbox],
+    queryFn: () => fetch(`/api/users/${user?.id}/ms365-folders?mailbox=${effectiveMailbox}`).then(r => r.json()),
+    enabled: !!user?.id && !!effectiveMailbox,
   });
 
   useEffect(() => {
@@ -284,8 +286,26 @@ export default function EmailClientPage() {
 
   const { data: messagesData, isLoading: messagesLoading, isFetching: messagesFetching, refetch: refetchMessages } = useQuery<{ connected: boolean; emails: EmailMessage[]; totalCount: number }>({
     queryKey: ["/api/users", user?.id, "ms365-folder-messages", selectedFolderId, selectedMailbox, page],
-    queryFn: () => {
-      return fetch(`/api/users/${user?.id}/ms365-folder-messages/${selectedFolderId}?mailbox=${selectedMailbox}&top=${pageSize}&skip=${page * pageSize}`).then(r => r.json());
+    queryFn: async () => {
+      if (selectedMailbox === "all" && mailboxes.length > 1) {
+        const results = await Promise.all(
+          mailboxes.map(mb => {
+            const mbParam = mb.type === "personal" ? "personal" : mb.email;
+            return fetch(`/api/users/${user?.id}/ms365-folder-messages/${selectedFolderId}?mailbox=${mbParam}&top=${pageSize}&skip=${page * pageSize}`)
+              .then(r => r.json())
+              .then(data => ({
+                ...data,
+                emails: (data.emails || []).map((e: any) => ({ ...e, _mailboxEmail: mb.email })),
+              }))
+              .catch(() => ({ connected: false, emails: [], totalCount: 0 }));
+          })
+        );
+        const allEmails = results.flatMap(r => r.emails || []);
+        allEmails.sort((a: any, b: any) => new Date(b.receivedDateTime).getTime() - new Date(a.receivedDateTime).getTime());
+        const totalCount = results.reduce((sum, r) => sum + (r.totalCount || 0), 0);
+        return { connected: true, emails: allEmails, totalCount };
+      }
+      return fetch(`/api/users/${user?.id}/ms365-folder-messages/${selectedFolderId}?mailbox=${effectiveMailbox}&top=${pageSize}&skip=${page * pageSize}`).then(r => r.json());
     },
     enabled: !!user?.id && !!selectedFolderId && activeTab === "email",
   });
@@ -344,21 +364,33 @@ export default function EmailClientPage() {
     enabled: !!user?.id,
   });
 
+  const getMailboxParam = (email?: string | null) => {
+    if (!email) return effectiveMailbox;
+    const mb = mailboxes.find(m => m.email === email);
+    return mb?.type === "personal" ? "personal" : email;
+  };
+
+  const emailDetailMailbox = selectedEmail?._mailboxEmail
+    ? getMailboxParam(selectedEmail._mailboxEmail)
+    : effectiveMailbox;
+
   const { data: emailDetail, isLoading: detailLoading } = useQuery<EmailMessage>({
-    queryKey: ["/api/users", user?.id, "ms365-email", selectedEmail?.id, selectedMailbox],
-    queryFn: () => fetch(`/api/users/${user?.id}/ms365-email/${selectedEmail?.id}?mailbox=${selectedMailbox}`).then(r => r.json()),
+    queryKey: ["/api/users", user?.id, "ms365-email", selectedEmail?.id, emailDetailMailbox],
+    queryFn: () => fetch(`/api/users/${user?.id}/ms365-email/${selectedEmail?.id}?mailbox=${emailDetailMailbox}`).then(r => r.json()),
     enabled: !!user?.id && !!selectedEmail?.id,
   });
 
   const { data: signatureData } = useQuery<EmailSignature>({
-    queryKey: ["/api/users", user?.id, "email-signatures", selectedMailbox],
-    queryFn: () => fetch(`/api/users/${user?.id}/email-signatures/${selectedMailbox}`).then(r => r.json()),
-    enabled: !!user?.id && !!selectedMailbox,
+    queryKey: ["/api/users", user?.id, "email-signatures", effectiveMailbox],
+    queryFn: () => fetch(`/api/users/${user?.id}/email-signatures/${effectiveMailbox}`).then(r => r.json()),
+    enabled: !!user?.id && !!effectiveMailbox,
   });
 
   const currentMailboxEmail = selectedMailbox === "personal"
     ? mailboxes.find(m => m.type === "personal")?.email
-    : selectedMailbox;
+    : selectedMailbox === "all"
+      ? null
+      : selectedMailbox;
 
   const { data: userTags = [] } = useQuery<any[]>({
     queryKey: ["/api/users", user?.id, "email-tags"],
@@ -562,7 +594,7 @@ export default function EmailClientPage() {
 
   const deleteEmailMutation = useMutation({
     mutationFn: async (emailId: string) => {
-      return apiRequest("DELETE", `/api/users/${user?.id}/ms365-email/${emailId}?mailbox=${selectedMailbox}`);
+      return apiRequest("DELETE", `/api/users/${user?.id}/ms365-email/${emailId}?mailbox=${emailDetailMailbox}`);
     },
     onSuccess: () => {
       toast({ title: "Zmazané", description: "Správa bola odstránená" });
@@ -576,7 +608,7 @@ export default function EmailClientPage() {
 
   const toggleReadMutation = useMutation({
     mutationFn: async ({ emailId, isRead }: { emailId: string; isRead: boolean }) => {
-      return apiRequest("PATCH", `/api/users/${user?.id}/ms365-email/${emailId}/read-status?mailbox=${selectedMailbox}`, { isRead });
+      return apiRequest("PATCH", `/api/users/${user?.id}/ms365-email/${emailId}/read-status?mailbox=${emailDetailMailbox}`, { isRead });
     },
     onSuccess: (_data, variables) => {
       toast({
@@ -598,12 +630,12 @@ export default function EmailClientPage() {
 
   const saveSignatureMutation = useMutation({
     mutationFn: async (data: { htmlContent: string; isActive: boolean }) => {
-      return apiRequest("PUT", `/api/users/${user?.id}/email-signatures/${selectedMailbox}`, data);
+      return apiRequest("PUT", `/api/users/${user?.id}/email-signatures/${effectiveMailbox}`, data);
     },
     onSuccess: () => {
       toast({ title: "Uložené", description: "Podpis bol uložený" });
       setSignatureDialogOpen(false);
-      queryClient.invalidateQueries({ queryKey: ["/api/users", user?.id, "email-signatures", selectedMailbox] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users", user?.id, "email-signatures", effectiveMailbox] });
     },
     onError: () => {
       toast({ title: "Chyba", description: "Nepodarilo sa uložiť podpis", variant: "destructive" });
@@ -619,7 +651,7 @@ export default function EmailClientPage() {
       let skip = allEmails.length;
       const batchSize = 500;
       while (skip < serverTotalCount) {
-        const res = await fetch(`/api/users/${user.id}/ms365-folder-messages/${selectedFolderId}?mailbox=${selectedMailbox}&top=${batchSize}&skip=${skip}`);
+        const res = await fetch(`/api/users/${user.id}/ms365-folder-messages/${selectedFolderId}?mailbox=${effectiveMailbox}&top=${batchSize}&skip=${skip}`);
         const data = await res.json();
         if (!data.emails || data.emails.length === 0) break;
         const existingIds = new Set(allEmails.map(e => e.id));
@@ -747,7 +779,7 @@ export default function EmailClientPage() {
   };
 
   const downloadAttachment = (emailId: string, attachmentId: string, fileName: string) => {
-    const mailbox = selectedMailbox;
+    const mailbox = emailDetailMailbox;
     const url = `/api/users/${user?.id}/ms365-email/${emailId}/attachments/${attachmentId}?mailbox=${encodeURIComponent(mailbox)}`;
     const a = document.createElement("a");
     a.href = url;
@@ -759,7 +791,7 @@ export default function EmailClientPage() {
     if (!html) return html;
     let processed = html;
     if (attachmentsList && attachmentsList.length > 0) {
-      const mailbox = selectedMailbox;
+      const mailbox = emailDetailMailbox;
       const inlineAtts = attachmentsList.filter(a => a.isInline);
       inlineAtts.forEach(att => {
         const inlineUrl = `/api/users/${user?.id}/ms365-email/${emailId}/attachment-inline/${att.id}?mailbox=${encodeURIComponent(mailbox)}`;
@@ -789,7 +821,7 @@ export default function EmailClientPage() {
     sendEmailMutation.mutate({
       to: toList, cc: ccList, bcc: bccList,
       subject: composeData.subject, body: composeData.body,
-      mailboxEmail: selectedMailbox,
+      mailboxEmail: effectiveMailbox,
       importance: composeData.importance !== "normal" ? composeData.importance : undefined,
     } as any);
   };
@@ -798,7 +830,7 @@ export default function EmailClientPage() {
     if (!selectedEmail) return;
     replyMutation.mutate({
       emailId: selectedEmail.id, body: composeData.body,
-      replyAll: replyMode === "replyAll", mailboxEmail: selectedMailbox,
+      replyAll: replyMode === "replyAll", mailboxEmail: emailDetailMailbox,
     });
   };
 
@@ -811,7 +843,7 @@ export default function EmailClientPage() {
     }
     forwardMutation.mutate({
       emailId: selectedEmail.id, to: toList,
-      body: composeData.body, mailboxEmail: selectedMailbox,
+      body: composeData.body, mailboxEmail: emailDetailMailbox,
     });
   };
 
@@ -1224,7 +1256,7 @@ export default function EmailClientPage() {
                                         {email.subject || "(Bez predmetu)"}
                                       </p>
                                       {emailPrefs.previewLines > 0 && (
-                                        <p className={`text-[11px] text-muted-foreground break-words ${emailPrefs.previewLines === 1 ? "line-clamp-1" : "line-clamp-2"}`}>{email.bodyPreview}</p>
+                                        <p className={`text-[11px] text-muted-foreground ${emailPrefs.previewLines === 1 ? "line-clamp-1" : "line-clamp-2"}`} style={{ overflowWrap: "anywhere", wordBreak: "break-word" }}>{email.bodyPreview}</p>
                                       )}
                                     </div>
                                   </div>
@@ -1272,7 +1304,22 @@ export default function EmailClientPage() {
                               {emailPrefs.unreadIndicator && (
                                 <span className={`h-2 w-2 rounded-full ${!email.isRead ? "bg-blue-500" : "bg-transparent"}`} />
                               )}
-                              {emailPrefs.showAccountIcons && currentMailboxEmail && mailboxColorMap[currentMailboxEmail] && (
+                              {selectedMailbox === "all" && email._mailboxEmail && (() => {
+                                const mbEmail = email._mailboxEmail!;
+                                const cfg = accountConfigs[mbEmail];
+                                const color = cfg?.color || mailboxColorMap[mbEmail] || "#6B7280";
+                                const iconKey = cfg?.icon || "mail";
+                                return (
+                                  <span
+                                    className="h-4 w-4 rounded-full flex items-center justify-center"
+                                    style={{ backgroundColor: color }}
+                                    title={mailboxes.find(m => m.email === mbEmail)?.displayName || mbEmail}
+                                  >
+                                    <AccountIcon iconKey={iconKey} className="h-2.5 w-2.5 text-white" />
+                                  </span>
+                                );
+                              })()}
+                              {selectedMailbox !== "all" && emailPrefs.showAccountIcons && currentMailboxEmail && mailboxColorMap[currentMailboxEmail] && (
                                 <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: mailboxColorMap[currentMailboxEmail] }} />
                               )}
                             </div>
@@ -1297,7 +1344,7 @@ export default function EmailClientPage() {
                                 {email.subject || "(Bez predmetu)"}
                               </p>
                               {emailPrefs.previewLines > 0 && (
-                                <p className={`text-[11px] text-muted-foreground break-words ${emailPrefs.previewLines === 1 ? "line-clamp-1" : "line-clamp-2"}`}>{email.bodyPreview}</p>
+                                <p className={`text-[11px] text-muted-foreground ${emailPrefs.previewLines === 1 ? "line-clamp-1" : "line-clamp-2"}`} style={{ overflowWrap: "anywhere", wordBreak: "break-word" }}>{email.bodyPreview}</p>
                               )}
                               {emailPrefs.showTags && getEmailTags(email.id).length > 0 && (
                                 <div className="flex items-center gap-1 mt-0.5 flex-wrap">
@@ -1570,7 +1617,7 @@ export default function EmailClientPage() {
               Nová správa
             </DialogTitle>
             <DialogDescription>
-              Odoslať z: {mailboxes.find(m => (m.type === "personal" ? "personal" : m.email) === selectedMailbox)?.email || selectedMailbox}
+              Odoslať z: {mailboxes.find(m => (m.type === "personal" ? "personal" : m.email) === effectiveMailbox)?.email || effectiveMailbox}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -2300,7 +2347,7 @@ export default function EmailClientPage() {
                       className="h-8 w-8 rounded-full shrink-0 flex items-center justify-center text-sm shadow-sm"
                       style={{ backgroundColor: cfg.color || "#6B7280" }}
                     >
-                      <span className="text-white leading-none">{selectedIcon ? selectedIcon.emoji : "📧"}</span>
+                      <AccountIcon iconKey={cfg.icon} className="h-4 w-4 text-white" />
                     </span>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{mb.displayName || mb.email}</p>
@@ -2317,11 +2364,11 @@ export default function EmailClientPage() {
                         <button
                           key={icon.key}
                           onClick={() => updateAccountConfig(mbEmail, { ...cfg, icon: icon.key })}
-                          className={`h-7 w-7 rounded-md flex items-center justify-center text-sm transition-all hover:scale-110 ${cfg.icon === icon.key ? "ring-2 ring-primary bg-primary/10" : "hover:bg-accent"}`}
+                          className={`h-7 w-7 rounded-md flex items-center justify-center transition-all hover:scale-110 ${cfg.icon === icon.key ? "ring-2 ring-primary bg-primary/10" : "hover:bg-accent"}`}
                           title={icon.label}
                           data-testid={`account-icon-${mb.id}-${icon.key}`}
                         >
-                          {icon.emoji}
+                          <AccountIcon iconKey={icon.key} className="h-4 w-4 text-muted-foreground" />
                         </button>
                       ))}
                     </div>
