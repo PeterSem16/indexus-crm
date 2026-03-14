@@ -3551,6 +3551,195 @@ export async function registerRoutes(
     }
   });
 
+  // Teams - list chats
+  app.get("/api/users/:userId/teams-chats", requireAuth, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const ms365Connection = await storage.getUserMs365Connection(userId);
+      if (!ms365Connection || !ms365Connection.isConnected) {
+        return res.json({ connected: false, chats: [], error: null });
+      }
+      const { decryptTokenSafe } = await import("./lib/token-crypto");
+      const { getValidAccessToken, getTeamsChats } = await import("./lib/ms365");
+      let accessToken: string;
+      let refreshToken: string | null;
+      try {
+        accessToken = decryptTokenSafe(ms365Connection.accessToken);
+        refreshToken = ms365Connection.refreshToken ? decryptTokenSafe(ms365Connection.refreshToken) : null;
+      } catch {
+        return res.json({ connected: false, chats: [], error: "token_decrypt" });
+      }
+      const tokenResult = await getValidAccessToken(accessToken, ms365Connection.tokenExpiresAt, refreshToken);
+      if (!tokenResult?.accessToken) {
+        return res.json({ connected: false, chats: [], error: "token_expired" });
+      }
+      const result = await getTeamsChats(tokenResult.accessToken);
+      res.json({ connected: true, ...result });
+    } catch (error: any) {
+      console.error("Error fetching Teams chats:", error?.message || error);
+      const msg = error?.message || "";
+      if (msg.includes("Authorization_RequestDenied") || msg.includes("Insufficient privileges")) {
+        return res.json({ connected: true, chats: [], error: "missing_permissions", requiredPermissions: ["Chat.Read", "Chat.ReadWrite"] });
+      }
+      res.json({ connected: true, chats: [], error: msg });
+    }
+  });
+
+  // Teams - chat messages
+  app.get("/api/users/:userId/teams-chats/:chatId/messages", requireAuth, async (req, res) => {
+    try {
+      const { userId, chatId } = req.params;
+      const ms365Connection = await storage.getUserMs365Connection(userId);
+      if (!ms365Connection || !ms365Connection.isConnected) {
+        return res.json({ connected: false, messages: [] });
+      }
+      const { decryptTokenSafe } = await import("./lib/token-crypto");
+      const { getValidAccessToken, getTeamsChatMessages } = await import("./lib/ms365");
+      let accessToken: string;
+      let refreshToken: string | null;
+      try {
+        accessToken = decryptTokenSafe(ms365Connection.accessToken);
+        refreshToken = ms365Connection.refreshToken ? decryptTokenSafe(ms365Connection.refreshToken) : null;
+      } catch {
+        return res.json({ connected: false, messages: [] });
+      }
+      const tokenResult = await getValidAccessToken(accessToken, ms365Connection.tokenExpiresAt, refreshToken);
+      if (!tokenResult?.accessToken) {
+        return res.json({ connected: false, messages: [] });
+      }
+      const result = await getTeamsChatMessages(tokenResult.accessToken, chatId);
+      res.json({ connected: true, ...result });
+    } catch (error) {
+      console.error("Error fetching chat messages:", error);
+      res.status(500).json({ error: "Failed to fetch chat messages" });
+    }
+  });
+
+  // Teams - send chat message
+  app.post("/api/users/:userId/teams-chats/:chatId/messages", requireAuth, async (req, res) => {
+    try {
+      const { userId, chatId } = req.params;
+      const { content } = req.body;
+      const ms365Connection = await storage.getUserMs365Connection(userId);
+      if (!ms365Connection || !ms365Connection.isConnected) {
+        return res.status(400).json({ error: "Not connected" });
+      }
+      const { decryptTokenSafe } = await import("./lib/token-crypto");
+      const { getValidAccessToken, sendTeamsChatMessage } = await import("./lib/ms365");
+      let accessToken: string;
+      let refreshToken: string | null;
+      try {
+        accessToken = decryptTokenSafe(ms365Connection.accessToken);
+        refreshToken = ms365Connection.refreshToken ? decryptTokenSafe(ms365Connection.refreshToken) : null;
+      } catch {
+        return res.status(400).json({ error: "Token error" });
+      }
+      const tokenResult = await getValidAccessToken(accessToken, ms365Connection.tokenExpiresAt, refreshToken);
+      if (!tokenResult?.accessToken) {
+        return res.status(400).json({ error: "Token expired" });
+      }
+      const result = await sendTeamsChatMessage(tokenResult.accessToken, chatId, content);
+      res.json({ success: true, message: result });
+    } catch (error: any) {
+      console.error("Error sending chat message:", error?.message || error);
+      res.status(500).json({ error: "Failed to send message", success: false });
+    }
+  });
+
+  // Teams - joined teams
+  app.get("/api/users/:userId/teams-joined", requireAuth, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const ms365Connection = await storage.getUserMs365Connection(userId);
+      if (!ms365Connection || !ms365Connection.isConnected) {
+        return res.json({ connected: false, teams: [] });
+      }
+      const { decryptTokenSafe } = await import("./lib/token-crypto");
+      const { getValidAccessToken, getJoinedTeams } = await import("./lib/ms365");
+      let accessToken: string;
+      let refreshToken: string | null;
+      try {
+        accessToken = decryptTokenSafe(ms365Connection.accessToken);
+        refreshToken = ms365Connection.refreshToken ? decryptTokenSafe(ms365Connection.refreshToken) : null;
+      } catch {
+        return res.json({ connected: false, teams: [] });
+      }
+      const tokenResult = await getValidAccessToken(accessToken, ms365Connection.tokenExpiresAt, refreshToken);
+      if (!tokenResult?.accessToken) {
+        return res.json({ connected: false, teams: [] });
+      }
+      const result = await getJoinedTeams(tokenResult.accessToken);
+      res.json({ connected: true, ...result });
+    } catch (error: any) {
+      console.error("Error fetching joined teams:", error?.message || error);
+      const msg = error?.message || "";
+      if (msg.includes("Authorization_RequestDenied") || msg.includes("Insufficient privileges")) {
+        return res.json({ connected: true, teams: [], error: "missing_permissions", requiredPermissions: ["Team.ReadBasic.All"] });
+      }
+      res.json({ connected: true, teams: [], error: msg });
+    }
+  });
+
+  // Teams - team channels
+  app.get("/api/users/:userId/teams/:teamId/channels", requireAuth, async (req, res) => {
+    try {
+      const { userId, teamId } = req.params;
+      const ms365Connection = await storage.getUserMs365Connection(userId);
+      if (!ms365Connection || !ms365Connection.isConnected) {
+        return res.json({ connected: false, channels: [] });
+      }
+      const { decryptTokenSafe } = await import("./lib/token-crypto");
+      const { getValidAccessToken, getTeamChannels } = await import("./lib/ms365");
+      let accessToken: string;
+      let refreshToken: string | null;
+      try {
+        accessToken = decryptTokenSafe(ms365Connection.accessToken);
+        refreshToken = ms365Connection.refreshToken ? decryptTokenSafe(ms365Connection.refreshToken) : null;
+      } catch {
+        return res.json({ connected: false, channels: [] });
+      }
+      const tokenResult = await getValidAccessToken(accessToken, ms365Connection.tokenExpiresAt, refreshToken);
+      if (!tokenResult?.accessToken) {
+        return res.json({ connected: false, channels: [] });
+      }
+      const result = await getTeamChannels(tokenResult.accessToken, teamId);
+      res.json({ connected: true, ...result });
+    } catch (error) {
+      console.error("Error fetching team channels:", error);
+      res.status(500).json({ error: "Failed to fetch channels" });
+    }
+  });
+
+  // Teams - channel messages
+  app.get("/api/users/:userId/teams/:teamId/channels/:channelId/messages", requireAuth, async (req, res) => {
+    try {
+      const { userId, teamId, channelId } = req.params;
+      const ms365Connection = await storage.getUserMs365Connection(userId);
+      if (!ms365Connection || !ms365Connection.isConnected) {
+        return res.json({ connected: false, messages: [] });
+      }
+      const { decryptTokenSafe } = await import("./lib/token-crypto");
+      const { getValidAccessToken, getChannelMessages } = await import("./lib/ms365");
+      let accessToken: string;
+      let refreshToken: string | null;
+      try {
+        accessToken = decryptTokenSafe(ms365Connection.accessToken);
+        refreshToken = ms365Connection.refreshToken ? decryptTokenSafe(ms365Connection.refreshToken) : null;
+      } catch {
+        return res.json({ connected: false, messages: [] });
+      }
+      const tokenResult = await getValidAccessToken(accessToken, ms365Connection.tokenExpiresAt, refreshToken);
+      if (!tokenResult?.accessToken) {
+        return res.json({ connected: false, messages: [] });
+      }
+      const result = await getChannelMessages(tokenResult.accessToken, teamId, channelId);
+      res.json({ connected: true, ...result });
+    } catch (error) {
+      console.error("Error fetching channel messages:", error);
+      res.status(500).json({ error: "Failed to fetch messages" });
+    }
+  });
+
   // Search emails across mailbox
   app.get("/api/users/:userId/ms365-search-emails", requireAuth, async (req, res) => {
     try {

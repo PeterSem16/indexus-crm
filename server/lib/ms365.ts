@@ -906,4 +906,114 @@ export async function getEmailAttachmentContent(
   }
 }
 
+export async function getTeamsChats(
+  accessToken: string
+): Promise<{ chats: any[] }> {
+  const client = createGraphClient(accessToken);
+  const result = await client.api('/me/chats')
+    .select('id,topic,chatType,createdDateTime,lastUpdatedDateTime')
+    .expand('members')
+    .top(50)
+    .orderby('lastUpdatedDateTime desc')
+    .get();
+  const chats = (result.value || []).map((chat: any) => ({
+    id: chat.id,
+    topic: chat.topic || (chat.members || [])
+      .filter((m: any) => m['@odata.type'] === '#microsoft.graph.aadUserConversationMember')
+      .map((m: any) => m.displayName)
+      .filter((n: string) => n)
+      .join(', ') || 'Konverzácia',
+    chatType: chat.chatType,
+    createdDateTime: chat.createdDateTime,
+    lastUpdatedDateTime: chat.lastUpdatedDateTime,
+    members: (chat.members || []).map((m: any) => ({
+      id: m.id,
+      displayName: m.displayName,
+      email: m.email,
+    })),
+  }));
+  return { chats };
+}
+
+export async function getTeamsChatMessages(
+  accessToken: string,
+  chatId: string,
+  top: number = 30
+): Promise<{ messages: any[] }> {
+  const client = createGraphClient(accessToken);
+  const result = await client.api(`/me/chats/${chatId}/messages`)
+    .top(top)
+    .orderby('createdDateTime desc')
+    .get();
+  const messages = (result.value || [])
+    .filter((m: any) => m.messageType === 'message')
+    .map((msg: any) => ({
+      id: msg.id,
+      body: msg.body?.content || '',
+      contentType: msg.body?.contentType || 'text',
+      from: msg.from?.user?.displayName || 'Neznámy',
+      fromEmail: msg.from?.user?.email || null,
+      createdDateTime: msg.createdDateTime,
+      importance: msg.importance,
+    }));
+  return { messages };
+}
+
+export async function getJoinedTeams(
+  accessToken: string
+): Promise<{ teams: any[] }> {
+  const client = createGraphClient(accessToken);
+  const result = await client.api('/me/joinedTeams')
+    .select('id,displayName,description')
+    .get();
+  return { teams: result.value || [] };
+}
+
+export async function getTeamChannels(
+  accessToken: string,
+  teamId: string
+): Promise<{ channels: any[] }> {
+  const client = createGraphClient(accessToken);
+  const result = await client.api(`/teams/${teamId}/channels`)
+    .select('id,displayName,description,membershipType')
+    .get();
+  return { channels: result.value || [] };
+}
+
+export async function getChannelMessages(
+  accessToken: string,
+  teamId: string,
+  channelId: string,
+  top: number = 30
+): Promise<{ messages: any[] }> {
+  const client = createGraphClient(accessToken);
+  const result = await client.api(`/teams/${teamId}/channels/${channelId}/messages`)
+    .top(top)
+    .get();
+  const messages = (result.value || [])
+    .filter((m: any) => m.messageType === 'message')
+    .map((msg: any) => ({
+      id: msg.id,
+      body: msg.body?.content || '',
+      contentType: msg.body?.contentType || 'text',
+      from: msg.from?.user?.displayName || 'Neznámy',
+      createdDateTime: msg.createdDateTime,
+      importance: msg.importance,
+      subject: msg.subject || null,
+    }));
+  return { messages };
+}
+
+export async function sendTeamsChatMessage(
+  accessToken: string,
+  chatId: string,
+  content: string
+): Promise<any> {
+  const client = createGraphClient(accessToken);
+  const result = await client.api(`/me/chats/${chatId}/messages`).post({
+    body: { contentType: 'html', content },
+  });
+  return result;
+}
+
 export { MS365_CONFIG, GRAPH_SCOPES };

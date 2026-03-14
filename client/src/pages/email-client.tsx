@@ -102,6 +102,8 @@ import {
   Sliders,
   UserCircle,
   Download,
+  Shield,
+  Users,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import Editor from "react-simple-wysiwyg";
@@ -134,6 +136,312 @@ const statusIcons: Record<string, React.ReactNode> = {
   completed: <CheckCircle2 className="h-3 w-3 text-emerald-500" />,
   cancelled: <XCircle className="h-3 w-3 text-red-500" />,
 };
+
+function stripHtmlTags(html: string): string {
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  doc.querySelectorAll("script,style,iframe,object,embed").forEach(el => el.remove());
+  return doc.body.innerHTML;
+}
+
+function TeamsPanel({ userId }: { userId?: string }) {
+  const [selectedTeamsChatId, setSelectedTeamsChatId] = useState<string | null>(null);
+  const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
+  const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
+  const [teamsView, setTeamsView] = useState<"chats" | "teams">("chats");
+  const [chatInput, setChatInput] = useState("");
+  const { toast } = useToast();
+
+  const { data: chatsData, isLoading: chatsLoading } = useQuery<{ connected: boolean; chats: any[]; error?: string | null; requiredPermissions?: string[] }>({
+    queryKey: ["/api/users", userId, "teams-chats"],
+    queryFn: () => fetch(`/api/users/${userId}/teams-chats`).then(r => r.json()),
+    enabled: !!userId && teamsView === "chats",
+  });
+
+  const { data: teamsData, isLoading: teamsLoading } = useQuery<{ connected: boolean; teams: any[]; error?: string | null; requiredPermissions?: string[] }>({
+    queryKey: ["/api/users", userId, "teams-joined"],
+    queryFn: () => fetch(`/api/users/${userId}/teams-joined`).then(r => r.json()),
+    enabled: !!userId && teamsView === "teams",
+  });
+
+  const { data: channelsData } = useQuery<{ connected: boolean; channels: any[] }>({
+    queryKey: ["/api/users", userId, "teams", selectedTeamId, "channels"],
+    queryFn: () => fetch(`/api/users/${userId}/teams/${selectedTeamId}/channels`).then(r => r.json()),
+    enabled: !!userId && !!selectedTeamId,
+  });
+
+  const { data: chatMsgsData, isLoading: msgsLoading, refetch: refetchMsgs } = useQuery<{ connected: boolean; messages: any[] }>({
+    queryKey: ["/api/users", userId, "teams-chats", selectedTeamsChatId, "messages"],
+    queryFn: () => fetch(`/api/users/${userId}/teams-chats/${selectedTeamsChatId}/messages`).then(r => r.json()),
+    enabled: !!userId && !!selectedTeamsChatId,
+  });
+
+  const { data: channelMsgsData } = useQuery<{ connected: boolean; messages: any[] }>({
+    queryKey: ["/api/users", userId, "teams", selectedTeamId, "channels", selectedChannelId, "messages"],
+    queryFn: () => fetch(`/api/users/${userId}/teams/${selectedTeamId}/channels/${selectedChannelId}/messages`).then(r => r.json()),
+    enabled: !!userId && !!selectedTeamId && !!selectedChannelId,
+  });
+
+  const sendMutation = useMutation({
+    mutationFn: async (content: string) => {
+      return apiRequest("POST", `/api/users/${userId}/teams-chats/${selectedTeamsChatId}/messages`, { content });
+    },
+    onSuccess: () => {
+      setChatInput("");
+      refetchMsgs();
+    },
+    onError: () => {
+      toast({ title: "Chyba", description: "Nepodarilo sa odoslať správu", variant: "destructive" });
+    },
+  });
+
+  const permError = chatsData?.error === "missing_permissions" || teamsData?.error === "missing_permissions";
+  const requiredPerms = chatsData?.requiredPermissions || teamsData?.requiredPermissions || [];
+
+  if (permError) {
+    return (
+      <Card className="transition-all duration-300 flex-1 min-w-0">
+        <CardContent className="p-0 h-full">
+          <div className="flex flex-col items-center justify-center h-full text-muted-foreground p-8">
+            <Shield className="h-16 w-16 mb-4 opacity-30 text-indigo-400" />
+            <p className="text-xl font-semibold mb-2">Chýbajúce oprávnenia</p>
+            <p className="text-sm text-center max-w-md mb-4">
+              Na prístup k Microsoft Teams konverzáciám je potrebné pridať oprávnenia do Azure AD registrácie aplikácie.
+            </p>
+            <div className="bg-muted/50 rounded-lg p-4 max-w-md w-full">
+              <p className="text-xs font-semibold mb-2 uppercase tracking-wider">Potrebné oprávnenia (delegated):</p>
+              <div className="space-y-1.5">
+                {["Chat.Read", "Chat.ReadWrite", "ChannelMessage.Read.All", "Team.ReadBasic.All", "User.Read"].map(p => (
+                  <div key={p} className="flex items-center gap-2 text-xs">
+                    <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" />
+                    <code className="bg-background px-1.5 py-0.5 rounded font-mono text-[11px]">{p}</code>
+                  </div>
+                ))}
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-3">
+                Prejdite do Azure Portal → App registrations → vaša aplikácia → API permissions → Add a permission → Microsoft Graph → Delegated permissions → pridajte vyššie uvedené oprávnenia → kliknite "Grant admin consent".
+              </p>
+              <p className="text-[11px] text-muted-foreground mt-2">
+                Po pridaní oprávnení sa odhláste a znova prihláste do NEXUS.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const chats = chatsData?.chats || [];
+  const teams = teamsData?.teams || [];
+  const channels = channelsData?.channels || [];
+  const chatMessages = chatMsgsData?.messages || [];
+  const channelMessages = channelMsgsData?.messages || [];
+  const selectedTeam = teams.find(t => t.id === selectedTeamId);
+
+  return (
+    <>
+      <Card className="transition-all duration-300 w-[30%] min-w-[280px] max-w-[380px] shrink-0">
+        <CardContent className="p-0 h-full flex flex-col">
+          <div className="p-3 border-b">
+            <div className="flex gap-1">
+              <Button variant={teamsView === "chats" ? "default" : "outline"} size="sm" className="flex-1 text-xs" onClick={() => { setTeamsView("chats"); setSelectedTeamId(null); setSelectedChannelId(null); }} data-testid="teams-view-chats">
+                <MessagesSquare className="h-3.5 w-3.5 mr-1" />Chaty
+              </Button>
+              <Button variant={teamsView === "teams" ? "default" : "outline"} size="sm" className="flex-1 text-xs" onClick={() => { setTeamsView("teams"); setSelectedTeamsChatId(null); }} data-testid="teams-view-teams">
+                <Users className="h-3.5 w-3.5 mr-1" />Tímy
+              </Button>
+            </div>
+          </div>
+          <ScrollArea className="flex-1">
+            {teamsView === "chats" && (
+              <div className="divide-y">
+                {chatsLoading ? (
+                  <div className="flex items-center justify-center py-8"><Loader2 className="h-5 w-5 animate-spin" /></div>
+                ) : chats.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+                    <MessagesSquare className="h-8 w-8 mb-2 opacity-30" />
+                    <span className="text-xs">{chatsData?.error ? "Nepodarilo sa načítať chaty" : "Žiadne Teams chaty"}</span>
+                  </div>
+                ) : chats.map(chat => (
+                  <button
+                    key={chat.id}
+                    className={`w-full text-left px-3 py-2.5 transition-all hover:bg-accent/50 ${selectedTeamsChatId === chat.id ? "bg-accent" : ""}`}
+                    onClick={() => setSelectedTeamsChatId(chat.id)}
+                    data-testid={`teams-chat-${chat.id}`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className="h-8 w-8 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center shrink-0">
+                        {chat.chatType === "group" ? <Users className="h-4 w-4 text-indigo-600" /> : <User className="h-4 w-4 text-indigo-600" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{chat.topic}</p>
+                        <p className="text-[11px] text-muted-foreground truncate">
+                          {chat.chatType === "oneOnOne" ? "Priamy chat" : chat.chatType === "group" ? "Skupinový chat" : chat.chatType}
+                          {chat.lastUpdatedDateTime && ` · ${format(new Date(chat.lastUpdatedDateTime), "d.M. HH:mm")}`}
+                        </p>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+            {teamsView === "teams" && !selectedTeamId && (
+              <div className="divide-y">
+                {teamsLoading ? (
+                  <div className="flex items-center justify-center py-8"><Loader2 className="h-5 w-5 animate-spin" /></div>
+                ) : teams.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+                    <Users className="h-8 w-8 mb-2 opacity-30" />
+                    <span className="text-xs">Žiadne tímy</span>
+                  </div>
+                ) : teams.map(team => (
+                  <button
+                    key={team.id}
+                    className="w-full text-left px-3 py-2.5 transition-all hover:bg-accent/50"
+                    onClick={() => setSelectedTeamId(team.id)}
+                    data-testid={`teams-team-${team.id}`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className="h-8 w-8 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center shrink-0">
+                        <Users className="h-4 w-4 text-indigo-600" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{team.displayName}</p>
+                        {team.description && <p className="text-[11px] text-muted-foreground truncate">{team.description}</p>}
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+            {teamsView === "teams" && selectedTeamId && (
+              <div>
+                <button className="w-full text-left px-3 py-2 text-xs text-muted-foreground hover:bg-accent/50 flex items-center gap-1" onClick={() => { setSelectedTeamId(null); setSelectedChannelId(null); }}>
+                  <ChevronLeft className="h-3 w-3" /> Späť na tímy
+                </button>
+                <div className="px-3 py-1.5 border-b">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{selectedTeam?.displayName} - Kanály</p>
+                </div>
+                <div className="divide-y">
+                  {channels.map(ch => (
+                    <button
+                      key={ch.id}
+                      className={`w-full text-left px-3 py-2 transition-all hover:bg-accent/50 ${selectedChannelId === ch.id ? "bg-accent" : ""}`}
+                      onClick={() => setSelectedChannelId(ch.id)}
+                      data-testid={`teams-channel-${ch.id}`}
+                    >
+                      <p className="text-sm font-medium truncate"># {ch.displayName}</p>
+                      {ch.description && <p className="text-[11px] text-muted-foreground truncate">{ch.description}</p>}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </ScrollArea>
+        </CardContent>
+      </Card>
+      <Card className="transition-all duration-300 flex-1 min-w-0">
+        <CardContent className="p-0 h-full">
+          {selectedTeamsChatId ? (
+            msgsLoading ? (
+              <div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
+            ) : (
+              <div className="flex flex-col h-full">
+                <div className="p-3 border-b flex items-center gap-2">
+                  <Badge className="bg-indigo-50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-300">
+                    <MessagesSquare className="h-3 w-3 mr-1" />Teams Chat
+                  </Badge>
+                  <span className="text-sm font-semibold truncate">{chats.find(c => c.id === selectedTeamsChatId)?.topic || "Chat"}</span>
+                </div>
+                <ScrollArea className="flex-1">
+                  <div className="p-4 space-y-3">
+                    {chatMessages.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                        <MessagesSquare className="h-8 w-8 mb-2 opacity-30" />
+                        <span className="text-xs">Žiadne správy</span>
+                      </div>
+                    ) : [...chatMessages].reverse().map(msg => (
+                      <div key={msg.id} className="flex gap-2">
+                        <div className="h-7 w-7 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-[10px] font-bold text-indigo-700 shrink-0 mt-0.5">
+                          {(msg.from || "?").substring(0, 2).toUpperCase()}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-baseline gap-2">
+                            <span className="text-xs font-semibold">{msg.from}</span>
+                            <span className="text-[10px] text-muted-foreground">{format(new Date(msg.createdDateTime), "d.M. HH:mm")}</span>
+                          </div>
+                          {msg.contentType === "html" ? (
+                            <div className="text-sm mt-0.5 prose prose-sm max-w-none dark:prose-invert" dangerouslySetInnerHTML={{ __html: stripHtmlTags(msg.body) }} />
+                          ) : (
+                            <p className="text-sm mt-0.5" style={{ overflowWrap: "anywhere" }}>{msg.body}</p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+                <div className="p-3 border-t flex gap-2">
+                  <Input
+                    placeholder="Napíšte správu..."
+                    value={chatInput}
+                    onChange={(e) => setChatInput(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter" && chatInput.trim()) sendMutation.mutate(chatInput.trim()); }}
+                    data-testid="teams-chat-input"
+                  />
+                  <Button size="sm" disabled={!chatInput.trim() || sendMutation.isPending} onClick={() => chatInput.trim() && sendMutation.mutate(chatInput.trim())} data-testid="teams-chat-send">
+                    {sendMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                  </Button>
+                </div>
+              </div>
+            )
+          ) : selectedChannelId ? (
+            <div className="flex flex-col h-full">
+              <div className="p-3 border-b flex items-center gap-2">
+                <Badge className="bg-indigo-50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-300">
+                  <Users className="h-3 w-3 mr-1" />{selectedTeam?.displayName}
+                </Badge>
+                <span className="text-sm font-semibold truncate">#{channels.find(c => c.id === selectedChannelId)?.displayName}</span>
+              </div>
+              <ScrollArea className="flex-1">
+                <div className="p-4 space-y-3">
+                  {channelMessages.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                      <MessagesSquare className="h-8 w-8 mb-2 opacity-30" />
+                      <span className="text-xs">Žiadne správy v kanáli</span>
+                    </div>
+                  ) : [...channelMessages].reverse().map(msg => (
+                    <div key={msg.id} className="flex gap-2">
+                      <div className="h-7 w-7 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-[10px] font-bold text-indigo-700 shrink-0 mt-0.5">
+                        {(msg.from || "?").substring(0, 2).toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-xs font-semibold">{msg.from}</span>
+                          <span className="text-[10px] text-muted-foreground">{format(new Date(msg.createdDateTime), "d.M. HH:mm")}</span>
+                        </div>
+                        {msg.subject && <p className="text-xs font-medium text-muted-foreground">{msg.subject}</p>}
+                        {msg.contentType === "html" ? (
+                          <div className="text-sm mt-0.5 prose prose-sm max-w-none dark:prose-invert" dangerouslySetInnerHTML={{ __html: stripHtmlTags(msg.body) }} />
+                        ) : (
+                          <p className="text-sm mt-0.5" style={{ overflowWrap: "anywhere" }}>{msg.body}</p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+              <MessagesSquare className="h-12 w-12 mb-4 opacity-30" />
+              <p className="font-medium">Microsoft Teams</p>
+              <p className="text-sm">Vyberte konverzáciu alebo kanál</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </>
+  );
+}
 
 export default function EmailClientPage() {
   const { user } = useAuth();
@@ -1251,32 +1559,32 @@ export default function EmailClientPage() {
                                   onDoubleClick={() => { setSelectedEmail(email); setModalEmail(email); }}
                                   data-testid={`search-email-item-${email.id}`}
                                 >
-                                  <div className="flex items-start gap-2.5">
+                                  <div className="flex items-start gap-2">
                                     {emailPrefs.unreadIndicator && (
-                                      <span className={`h-2 w-2 rounded-full shrink-0 mt-2 ${!email.isRead ? "bg-blue-500" : "bg-transparent"}`} />
+                                      <span className={`h-2 w-2 rounded-full shrink-0 mt-1.5 ${!email.isRead ? "bg-blue-500" : "bg-transparent"}`} />
                                     )}
                                     {emailPrefs.showSenderInitials && (
-                                      <div className="h-7 w-7 rounded-full bg-gradient-to-br from-muted to-muted-foreground/20 flex items-center justify-center text-[10px] font-bold text-muted-foreground shrink-0 mt-0.5">
+                                      <div className="h-9 w-9 rounded-full bg-gradient-to-br from-muted to-muted-foreground/20 flex items-center justify-center text-[11px] font-bold text-muted-foreground shrink-0">
                                         {(email.from?.emailAddress?.name || email.from?.emailAddress?.address || "?").substring(0, 2).toUpperCase()}
                                       </div>
                                     )}
                                     <div className="flex-1 min-w-0">
-                                      <div className="flex items-center justify-between gap-1">
-                                        <span className={`text-sm truncate ${!email.isRead && emailPrefs.highlightUnread ? "font-bold" : ""}`}>
+                                      <div className="flex items-baseline justify-between gap-2">
+                                        <span className={`text-[13px] leading-tight truncate ${!email.isRead && emailPrefs.highlightUnread ? "font-bold" : "font-medium"}`}>
                                           {email.from?.emailAddress?.name || email.from?.emailAddress?.address || "Neznámy"}
                                         </span>
-                                        <div className="flex items-center gap-1 shrink-0">
-                                          {emailPrefs.previewAttachmentIcons && email.hasAttachments && <Paperclip className="h-3 w-3 text-muted-foreground" />}
-                                          <span className="text-[11px] text-muted-foreground whitespace-nowrap">
-                                            {format(new Date(email.receivedDateTime), "d.M. HH:mm")}
-                                          </span>
-                                        </div>
+                                        <span className="text-[11px] text-muted-foreground whitespace-nowrap shrink-0">
+                                          {format(new Date(email.receivedDateTime), "d.M. HH:mm")}
+                                        </span>
                                       </div>
-                                      <p className={`text-xs truncate ${!email.isRead && emailPrefs.highlightUnread ? "font-semibold" : "text-muted-foreground"}`}>
-                                        {email.subject || "(Bez predmetu)"}
-                                      </p>
-                                      {emailPrefs.previewLines > 0 && (
-                                        <p className={`text-[11px] text-muted-foreground ${emailPrefs.previewLines === 1 ? "line-clamp-1" : "line-clamp-2"}`} style={{ overflowWrap: "anywhere", wordBreak: "break-word" }}>{email.bodyPreview}</p>
+                                      <div className="flex items-center gap-1 mt-0.5">
+                                        <p className={`text-xs leading-tight flex-1 min-w-0 ${!email.isRead && emailPrefs.highlightUnread ? "font-semibold" : "text-muted-foreground"}`} style={{ display: "-webkit-box", WebkitLineClamp: 1, WebkitBoxOrient: "vertical", overflow: "hidden", overflowWrap: "anywhere" }}>
+                                          {email.subject || "(Bez predmetu)"}
+                                        </p>
+                                        {emailPrefs.previewAttachmentIcons && email.hasAttachments && <Paperclip className="h-3.5 w-3.5 text-muted-foreground/70 shrink-0" />}
+                                      </div>
+                                      {emailPrefs.previewLines > 0 && email.bodyPreview && (
+                                        <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed" style={{ display: "-webkit-box", WebkitLineClamp: emailPrefs.previewLines === 1 ? 1 : 2, WebkitBoxOrient: "vertical", overflow: "hidden", overflowWrap: "anywhere", wordBreak: "break-word" }}>{email.bodyPreview}</p>
                                       )}
                                     </div>
                                   </div>
@@ -1332,41 +1640,41 @@ export default function EmailClientPage() {
                           </button>
                           <div className="flex items-start gap-2">
                             {emailPrefs.unreadIndicator && (
-                              <span className={`h-2 w-2 rounded-full mt-2 shrink-0 ${!email.isRead ? "bg-blue-500" : "bg-transparent"}`} />
+                              <span className={`h-2 w-2 rounded-full mt-1.5 shrink-0 ${!email.isRead ? "bg-blue-500" : "bg-transparent"}`} />
                             )}
                             {emailPrefs.showSenderInitials && (
-                              <div className="h-8 w-8 rounded-full bg-gradient-to-br from-muted to-muted-foreground/20 flex items-center justify-center text-[11px] font-bold text-muted-foreground shrink-0 mt-0.5">
+                              <div className="h-9 w-9 rounded-full bg-gradient-to-br from-muted to-muted-foreground/20 flex items-center justify-center text-[11px] font-bold text-muted-foreground shrink-0">
                                 {(email.from?.emailAddress?.name || email.from?.emailAddress?.address || "?").substring(0, 2).toUpperCase()}
                               </div>
                             )}
-                            <div className="flex-1 min-w-0 overflow-hidden">
-                              <div className="flex items-center justify-between gap-1">
-                                <span className={`text-sm truncate ${!email.isRead && emailPrefs.highlightUnread ? "font-bold" : ""}`}>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-baseline justify-between gap-2">
+                                <span className={`text-[13px] leading-tight truncate ${!email.isRead && emailPrefs.highlightUnread ? "font-bold" : "font-medium"}`}>
                                   {email.from?.emailAddress?.name || email.from?.emailAddress?.address || "Neznámy"}
                                 </span>
-                                <div className="flex items-center gap-1 shrink-0">
-                                  {email.hasAttachments && <Paperclip className="h-3 w-3 text-muted-foreground" />}
-                                  <span className="text-[11px] text-muted-foreground whitespace-nowrap">
-                                    {format(new Date(email.receivedDateTime), "d.M. HH:mm")}
-                                  </span>
-                                </div>
+                                <span className="text-[11px] text-muted-foreground whitespace-nowrap shrink-0">
+                                  {format(new Date(email.receivedDateTime), "d.M. HH:mm")}
+                                </span>
                               </div>
-                              <div className="flex items-center gap-1.5">
-                                {selectedMailbox === "all" && acctColor && (
-                                  <span
-                                    className="h-4 w-4 rounded-full flex items-center justify-center shrink-0"
-                                    style={{ backgroundColor: acctColor }}
-                                    title={mailboxes.find(m => m.email === email._mailboxEmail)?.displayName || email._mailboxEmail}
-                                  >
-                                    <AccountIcon iconKey={accountConfigs[email._mailboxEmail!]?.icon || "mail"} className="h-2.5 w-2.5 text-white" />
-                                  </span>
-                                )}
-                                <p className={`text-xs truncate flex-1 min-w-0 ${!email.isRead && emailPrefs.highlightUnread ? "font-semibold" : "text-muted-foreground"}`}>
+                              <div className="flex items-center gap-1 mt-0.5">
+                                <p className={`text-xs leading-tight flex-1 min-w-0 ${!email.isRead && emailPrefs.highlightUnread ? "font-semibold" : "text-muted-foreground"}`} style={{ display: "-webkit-box", WebkitLineClamp: 1, WebkitBoxOrient: "vertical", overflow: "hidden", overflowWrap: "anywhere" }}>
                                   {email.subject || "(Bez predmetu)"}
                                 </p>
+                                <div className="flex items-center gap-1 shrink-0">
+                                  {email.hasAttachments && <Paperclip className="h-3.5 w-3.5 text-muted-foreground/70" />}
+                                  {selectedMailbox === "all" && acctColor && (
+                                    <span
+                                      className="h-5 w-5 rounded-full flex items-center justify-center"
+                                      style={{ backgroundColor: acctColor }}
+                                      title={mailboxes.find(m => m.email === email._mailboxEmail)?.displayName || email._mailboxEmail}
+                                    >
+                                      <AccountIcon iconKey={accountConfigs[email._mailboxEmail!]?.icon || "mail"} className="h-3 w-3 text-white" />
+                                    </span>
+                                  )}
+                                </div>
                               </div>
                               {emailPrefs.previewLines > 0 && email.bodyPreview && (
-                                <p className={`text-[11px] text-muted-foreground mt-0.5 ${emailPrefs.previewLines === 1 ? "line-clamp-1" : "line-clamp-2"}`} style={{ overflowWrap: "anywhere", wordBreak: "break-word" }}>{email.bodyPreview}</p>
+                                <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed" style={{ display: "-webkit-box", WebkitLineClamp: emailPrefs.previewLines === 1 ? 1 : 2, WebkitBoxOrient: "vertical", overflow: "hidden", overflowWrap: "anywhere", wordBreak: "break-word" }}>{email.bodyPreview}</p>
                               )}
                               {emailPrefs.showTags && getEmailTags(email.id).length > 0 && (
                                 <div className="flex items-center gap-1 mt-0.5 flex-wrap">
@@ -1615,20 +1923,7 @@ export default function EmailClientPage() {
         )}
 
         {activeTab === "teams" && (
-          <Card className="transition-all duration-300 flex-1 min-w-0">
-            <CardContent className="p-0 h-full">
-              <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-                <MessagesSquare className="h-16 w-16 mb-4 opacity-30" />
-                <p className="text-xl font-semibold mb-2">Microsoft Teams</p>
-                <p className="text-sm text-center max-w-md">
-                  Integrácia s Microsoft Teams je pripravovaná. Po aktivácii tu uvidíte Teams konverzácie, kanály a správy priamo v NEXUS klientovi.
-                </p>
-                <Badge variant="outline" className="mt-4 text-indigo-600 border-indigo-300">
-                  Pripravuje sa
-                </Badge>
-              </div>
-            </CardContent>
-          </Card>
+          <TeamsPanel userId={user?.id} />
         )}
       </div>
 
