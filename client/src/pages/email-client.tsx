@@ -164,6 +164,7 @@ function TeamsPanel({ userId }: { userId?: string }) {
   const [teamsView, setTeamsView] = useState<"chats" | "teams">("chats");
   const [chatInput, setChatInput] = useState("");
   const { toast } = useToast();
+  const { t } = useI18n();
 
   const { data: chatsData, isLoading: chatsLoading, error: chatsError } = useQuery<{ connected: boolean; chats: any[]; error?: string | null; requiredPermissions?: string[] }>({
     queryKey: [`/api/users/${userId}/teams-chats`],
@@ -201,7 +202,7 @@ function TeamsPanel({ userId }: { userId?: string }) {
       refetchMsgs();
     },
     onError: () => {
-      toast({ title: "Chyba", description: "Nepodarilo sa odoslať správu", variant: "destructive" });
+      toast({ title: t.nexusOmni.common.error, description: t.nexusOmni.teams.sendError, variant: "destructive" });
     },
   });
 
@@ -214,12 +215,12 @@ function TeamsPanel({ userId }: { userId?: string }) {
         <CardContent className="p-0 h-full">
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground p-8">
             <Shield className="h-16 w-16 mb-4 opacity-30 text-indigo-400" />
-            <p className="text-xl font-semibold mb-2">Chýbajúce oprávnenia</p>
+            <p className="text-xl font-semibold mb-2">{t.nexusOmni.permissions.requiredPermissions}</p>
             <p className="text-sm text-center max-w-md mb-4">
-              Na prístup k Microsoft Teams konverzáciám je potrebné pridať oprávnenia do Azure AD registrácie aplikácie.
+              {t.nexusOmni.permissions.permissionsGuide}
             </p>
             <div className="bg-muted/50 rounded-lg p-4 max-w-md w-full">
-              <p className="text-xs font-semibold mb-2 uppercase tracking-wider">Potrebné oprávnenia (delegated):</p>
+              <p className="text-xs font-semibold mb-2 uppercase tracking-wider">{t.nexusOmni.permissions.requiredPermissions}</p>
               <div className="space-y-1.5">
                 {["Chat.Read", "Chat.ReadWrite", "ChannelMessage.Read.All", "Team.ReadBasic.All", "User.Read"].map(p => (
                   <div key={p} className="flex items-center gap-2 text-xs">
@@ -229,10 +230,7 @@ function TeamsPanel({ userId }: { userId?: string }) {
                 ))}
               </div>
               <p className="text-[11px] text-muted-foreground mt-3">
-                Prejdite do Azure Portal → App registrations → vaša aplikácia → API permissions → Add a permission → Microsoft Graph → Delegated permissions → pridajte vyššie uvedené oprávnenia → kliknite "Grant admin consent".
-              </p>
-              <p className="text-[11px] text-muted-foreground mt-2">
-                Po pridaní oprávnení sa odhláste a znova prihláste do NEXUS.
+                {t.nexusOmni.permissions.permissionsGuide}
               </p>
             </div>
           </div>
@@ -255,10 +253,10 @@ function TeamsPanel({ userId }: { userId?: string }) {
           <div className="p-3 border-b">
             <div className="flex gap-1">
               <Button variant={teamsView === "chats" ? "default" : "outline"} size="sm" className="flex-1 text-xs" onClick={() => { setTeamsView("chats"); setSelectedTeamId(null); setSelectedChannelId(null); }} data-testid="teams-view-chats">
-                <MessagesSquare className="h-3.5 w-3.5 mr-1" />Chaty
+                <MessagesSquare className="h-3.5 w-3.5 mr-1" />{t.nexusOmni.tabs.chats}
               </Button>
               <Button variant={teamsView === "teams" ? "default" : "outline"} size="sm" className="flex-1 text-xs" onClick={() => { setTeamsView("teams"); setSelectedTeamsChatId(null); }} data-testid="teams-view-teams">
-                <Users className="h-3.5 w-3.5 mr-1" />Tímy
+                <Users className="h-3.5 w-3.5 mr-1" />{t.nexusOmni.tabs.teams}
               </Button>
             </div>
           </div>
@@ -270,7 +268,7 @@ function TeamsPanel({ userId }: { userId?: string }) {
                 ) : chats.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
                     <MessagesSquare className="h-8 w-8 mb-2 opacity-30" />
-                    <span className="text-xs">{chatsError ? `Chyba: ${chatsError.message}` : chatsData?.error ? `Chyba: ${chatsData.error}` : chatsData?.connected === false ? "MS365 nie je pripojený" : "Žiadne Teams chaty"}</span>
+                    <span className="text-xs">{chatsError ? `${t.nexusOmni.common.error}: ${chatsError.message}` : chatsData?.error ? `${t.nexusOmni.common.error}: ${chatsData.error}` : chatsData?.connected === false ? t.nexusOmni.teams.notConnected : t.nexusOmni.teams.noTeamsChats}</span>
                   </div>
                 ) : chats.map(chat => (
                   <button
@@ -284,9 +282,9 @@ function TeamsPanel({ userId }: { userId?: string }) {
                         {chat.chatType === "group" ? <Users className="h-4 w-4 text-indigo-600" /> : <User className="h-4 w-4 text-indigo-600" />}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{chat.topic}</p>
+                        <p className="text-sm font-medium truncate">{chat.topic || (chat.chatType === "oneOnOne" ? t.nexusOmni.teams.directChat : t.nexusOmni.teams.groupChat)}</p>
                         <p className="text-[11px] text-muted-foreground truncate">
-                          {chat.chatType === "oneOnOne" ? "Priamy chat" : chat.chatType === "group" ? "Skupinový chat" : chat.chatType}
+                          {chat.chatType === "oneOnOne" ? t.nexusOmni.teams.directChat : chat.chatType === "group" ? t.nexusOmni.teams.groupChat : chat.chatType}
                           {chat.lastUpdatedDateTime && ` · ${format(new Date(chat.lastUpdatedDateTime), "d.M. HH:mm")}`}
                         </p>
                       </div>
@@ -302,7 +300,7 @@ function TeamsPanel({ userId }: { userId?: string }) {
                 ) : teams.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
                     <Users className="h-8 w-8 mb-2 opacity-30" />
-                    <span className="text-xs">{teamsError ? `Chyba: ${teamsError.message}` : teamsData?.error ? `Chyba: ${teamsData.error}` : teamsData?.connected === false ? "MS365 nie je pripojený" : "Žiadne tímy"}</span>
+                    <span className="text-xs">{teamsError ? `${t.nexusOmni.common.error}: ${teamsError.message}` : teamsData?.error ? `${t.nexusOmni.common.error}: ${teamsData.error}` : teamsData?.connected === false ? t.nexusOmni.teams.notConnected : t.nexusOmni.teams.noTeams}</span>
                   </div>
                 ) : teams.map(team => (
                   <button
@@ -327,10 +325,10 @@ function TeamsPanel({ userId }: { userId?: string }) {
             {teamsView === "teams" && selectedTeamId && (
               <div>
                 <button className="w-full text-left px-3 py-2 text-xs text-muted-foreground hover:bg-accent/50 flex items-center gap-1" onClick={() => { setSelectedTeamId(null); setSelectedChannelId(null); }}>
-                  <ChevronLeft className="h-3 w-3" /> Späť na tímy
+                  <ChevronLeft className="h-3 w-3" /> {t.nexusOmni.tabs.teams}
                 </button>
                 <div className="px-3 py-1.5 border-b">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{selectedTeam?.displayName} - Kanály</p>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{selectedTeam?.displayName} - {t.nexusOmni.email.channels}</p>
                 </div>
                 <div className="divide-y">
                   {channels.map(ch => (
@@ -392,7 +390,7 @@ function TeamsPanel({ userId }: { userId?: string }) {
                 </ScrollArea>
                 <div className="p-3 border-t flex gap-2">
                   <Input
-                    placeholder="Napíšte správu..."
+                    placeholder={t.nexusOmni.teams.writePlaceholder}
                     value={chatInput}
                     onChange={(e) => setChatInput(e.target.value)}
                     onKeyDown={(e) => { if (e.key === "Enter" && chatInput.trim()) sendMutation.mutate(chatInput.trim()); }}
@@ -417,7 +415,7 @@ function TeamsPanel({ userId }: { userId?: string }) {
                   {channelMessages.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                       <MessagesSquare className="h-8 w-8 mb-2 opacity-30" />
-                      <span className="text-xs">Žiadne správy v kanáli</span>
+                      <span className="text-xs">{t.nexusOmni.teams.noMessages}</span>
                     </div>
                   ) : [...channelMessages].reverse().map(msg => (
                     <div key={msg.id} className="flex gap-2">
@@ -445,7 +443,7 @@ function TeamsPanel({ userId }: { userId?: string }) {
             <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
               <MessagesSquare className="h-12 w-12 mb-4 opacity-30" />
               <p className="font-medium">Microsoft Teams</p>
-              <p className="text-sm">Vyberte konverzáciu alebo kanál</p>
+              <p className="text-sm">{t.nexusOmni.chats.selectConversation}</p>
             </div>
           )}
         </CardContent>
@@ -851,7 +849,7 @@ export default function EmailClientPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/users", user?.id, "email-tags"] });
-      toast({ title: "Tag vytvorený" });
+      toast({ title: t.nexusOmni.settings.tagCreated });
     },
   });
 
@@ -862,7 +860,7 @@ export default function EmailClientPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/users", user?.id, "email-tags"] });
       queryClient.invalidateQueries({ queryKey: ["/api/users", user?.id, "email-tag-assignments"] });
-      toast({ title: "Tag zmazaný" });
+      toast({ title: t.nexusOmni.settings.tagDeleted });
     },
   });
 
@@ -1000,7 +998,7 @@ export default function EmailClientPage() {
     },
     onError: () => {
       completeSendProgress(false);
-      toast({ title: "Chyba", description: "Nepodarilo sa odoslať správu", variant: "destructive" });
+      toast({ title: t.nexusOmni.common.error, description: t.nexusOmni.email.sendError, variant: "destructive" });
     },
   });
 
@@ -1020,7 +1018,7 @@ export default function EmailClientPage() {
     },
     onError: () => {
       completeSendProgress(false);
-      toast({ title: "Chyba", description: "Nepodarilo sa odoslať odpoveď", variant: "destructive" });
+      toast({ title: t.nexusOmni.common.error, description: t.nexusOmni.email.replyError, variant: "destructive" });
     },
   });
 
@@ -1040,7 +1038,7 @@ export default function EmailClientPage() {
     },
     onError: () => {
       completeSendProgress(false);
-      toast({ title: "Chyba", description: "Nepodarilo sa preposlať správu", variant: "destructive" });
+      toast({ title: t.nexusOmni.common.error, description: t.nexusOmni.email.forwardError, variant: "destructive" });
     },
   });
 
@@ -1049,12 +1047,12 @@ export default function EmailClientPage() {
       return apiRequest("DELETE", `/api/users/${user?.id}/ms365-email/${emailId}?mailbox=${emailDetailMailbox}`);
     },
     onSuccess: () => {
-      toast({ title: "Zmazané", description: "Správa bola odstránená" });
+      toast({ title: t.nexusOmni.email.deleted, description: t.nexusOmni.email.messageDeleted });
       setSelectedEmail(null);
       refetchMessages();
     },
     onError: () => {
-      toast({ title: "Chyba", description: "Nepodarilo sa zmazať správu", variant: "destructive" });
+      toast({ title: t.nexusOmni.common.error, description: t.nexusOmni.email.deleteError, variant: "destructive" });
     },
   });
 
@@ -1065,7 +1063,7 @@ export default function EmailClientPage() {
     },
     onSuccess: (_data, variables) => {
       toast({
-        title: variables.isRead ? "Označené ako prečítané" : "Označené ako neprečítané",
+        title: variables.isRead ? t.nexusOmni.email.markedRead : t.nexusOmni.email.markedUnread,
       });
       setAccumulatedEmails(prev => prev.map(e =>
         e.id === variables.emailId ? { ...e, isRead: variables.isRead } : e
@@ -1077,7 +1075,7 @@ export default function EmailClientPage() {
       refetchFolders();
     },
     onError: () => {
-      toast({ title: "Chyba", description: "Nepodarilo sa zmeniť stav prečítania", variant: "destructive" });
+      toast({ title: t.nexusOmni.common.error, description: t.nexusOmni.email.readStatusError, variant: "destructive" });
     },
   });
 
@@ -1087,11 +1085,11 @@ export default function EmailClientPage() {
       return apiRequest("PUT", `/api/users/${user?.id}/email-signatures/${mbx}`, { htmlContent: data.htmlContent, isActive: data.isActive });
     },
     onSuccess: () => {
-      toast({ title: "Uložené", description: "Podpis bol uložený" });
+      toast({ title: t.nexusOmni.settings.saved, description: t.nexusOmni.settings.signatureSaved });
       queryClient.invalidateQueries({ queryKey: ["/api/users", user?.id, "email-signatures"] });
     },
     onError: () => {
-      toast({ title: "Chyba", description: "Nepodarilo sa uložiť podpis", variant: "destructive" });
+      toast({ title: t.nexusOmni.common.error, description: t.nexusOmni.settings.saveError, variant: "destructive" });
     },
   });
 
@@ -1142,9 +1140,9 @@ export default function EmailClientPage() {
         setAccumulatedEmails([...allEmails]);
         setServerTotalCount(data.totalCount || allEmails.length);
       }
-      toast({ title: `Načítaných ${allEmails.length} emailov` });
+      toast({ title: `${t.nexusOmni.email.loadedEmails}: ${allEmails.length}` });
     } catch (error) {
-      toast({ title: "Chyba pri načítaní", description: "Nepodarilo sa načítať všetky emaily", variant: "destructive" });
+      toast({ title: t.nexusOmni.email.loadError, description: t.nexusOmni.email.loadAllError, variant: "destructive" });
     } finally {
       setLoadingAll(false);
     }
@@ -1292,24 +1290,24 @@ export default function EmailClientPage() {
         const keywords = cleanSubject.split(/\s+/).filter(w => w.length > 4);
         if (keywords.length > 0) {
           const kw = keywords[0];
-          suggestions.push({ label: `Hľadať "${kw}"`, query: kw, icon: "tag", type: "subject" });
+          suggestions.push({ label: `${t.nexusOmni.email.searchFor} "${kw}"`, query: kw, icon: "tag", type: "subject" });
         }
       }
       if (selectedEmail.hasAttachments) {
-        suggestions.push({ label: "Emaily s prílohami od tohto odosielateľa", query: `from:${senderEmail} hasAttachments:true`, icon: "paperclip", type: "attachment" });
+        suggestions.push({ label: t.nexusOmni.email.fromSenderWithAttachments, query: `from:${senderEmail} hasAttachments:true`, icon: "paperclip", type: "attachment" });
       }
     }
 
-    suggestions.push({ label: "Emaily s prílohami", query: "hasAttachments:true", icon: "paperclip", type: "attachment" });
-    suggestions.push({ label: "Dôležité emaily", query: "importance:high", icon: "flame", type: "date" });
+    suggestions.push({ label: t.nexusOmni.email.withAttachments, query: "hasAttachments:true", icon: "paperclip", type: "attachment" });
+    suggestions.push({ label: t.nexusOmni.email.important, query: "importance:high", icon: "flame", type: "date" });
 
     const today = new Date();
     const todayStr = today.toISOString().split("T")[0];
     const weekAgo = new Date(today.getTime() - 7 * 86400000).toISOString().split("T")[0];
     const monthAgo = new Date(today.getTime() - 30 * 86400000).toISOString().split("T")[0];
-    suggestions.push({ label: `Dnešné emaily (${todayStr})`, query: `__date:${todayStr}:${todayStr}`, icon: "calendar", type: "date" });
-    suggestions.push({ label: "Emaily za posledný týždeň", query: `__date:${weekAgo}:${todayStr}`, icon: "calendar", type: "date" });
-    suggestions.push({ label: "Emaily za posledný mesiac", query: `__date:${monthAgo}:${todayStr}`, icon: "calendar", type: "date" });
+    suggestions.push({ label: `${t.nexusOmni.email.todaysEmails} (${todayStr})`, query: `__date:${todayStr}:${todayStr}`, icon: "calendar", type: "date" });
+    suggestions.push({ label: t.nexusOmni.email.lastWeek, query: `__date:${weekAgo}:${todayStr}`, icon: "calendar", type: "date" });
+    suggestions.push({ label: t.nexusOmni.email.lastMonth, query: `__date:${monthAgo}:${todayStr}`, icon: "calendar", type: "date" });
 
     return suggestions;
   };
@@ -1460,7 +1458,7 @@ export default function EmailClientPage() {
     const ccList = composeData.cc ? composeData.cc.split(",").map(e => e.trim()).filter(Boolean) : [];
     const bccList = composeData.bcc ? composeData.bcc.split(",").map(e => e.trim()).filter(Boolean) : [];
     if (toList.length === 0) {
-      toast({ title: "Chyba", description: "Zadajte príjemcu", variant: "destructive" });
+      toast({ title: t.nexusOmni.common.error, description: t.nexusOmni.email.enterRecipient, variant: "destructive" });
       return;
     }
     const attData = attachments.length > 0 ? await filesToBase64(attachments) : undefined;
@@ -1548,7 +1546,7 @@ export default function EmailClientPage() {
     if (!selectedEmail) return;
     const toList = composeData.to.split(",").map(e => e.trim()).filter(Boolean);
     if (toList.length === 0) {
-      toast({ title: "Chyba", description: "Zadajte príjemcu", variant: "destructive" });
+      toast({ title: t.nexusOmni.common.error, description: t.nexusOmni.email.enterRecipient, variant: "destructive" });
       return;
     }
     const ccList = composeData.cc.split(",").map(e => e.trim()).filter(Boolean);
@@ -1586,7 +1584,7 @@ export default function EmailClientPage() {
         setAiModalOpen(true);
       }
     } catch (err) {
-      toast({ title: "Chyba", description: "Nepodarilo sa vygenerovať AI návrh", variant: "destructive" });
+      toast({ title: t.nexusOmni.common.error, description: t.nexusOmni.ai.generateError, variant: "destructive" });
     } finally {
       setAiSuggestLoading(false);
     }
@@ -1610,7 +1608,7 @@ export default function EmailClientPage() {
         setAiModalOpen(true);
       }
     } catch (err) {
-      toast({ title: "Chyba", description: "Nepodarilo sa vygenerovať zhrnutie", variant: "destructive" });
+      toast({ title: t.nexusOmni.common.error, description: t.nexusOmni.ai.summaryError, variant: "destructive" });
     } finally {
       setAiSummaryLoading(false);
     }
@@ -1642,7 +1640,7 @@ export default function EmailClientPage() {
         setAiTranslationKey(prev => prev + 1);
       }
     } catch {
-      toast({ title: "Chyba", description: "Nepodarilo sa preložiť obsah", variant: "destructive" });
+      toast({ title: t.nexusOmni.common.error, description: t.nexusOmni.ai.translateError, variant: "destructive" });
     } finally {
       setAiTranslating(false);
     }
@@ -1943,7 +1941,7 @@ export default function EmailClientPage() {
                               <X className="h-4 w-4" />
                             </button>
                           </TooltipTrigger>
-                          <TooltipContent side="bottom" className="text-xs">Zrušiť vyhľadávanie</TooltipContent>
+                          <TooltipContent side="bottom" className="text-xs">{t.nexusOmni.email.clear}</TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
                     )}
@@ -1961,7 +1959,7 @@ export default function EmailClientPage() {
                               {searchPanelExpanded ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
                             </button>
                           </TooltipTrigger>
-                          <TooltipContent side="bottom" className="text-xs">{searchPanelExpanded ? "Zmenšiť panel" : "Maximalizovať panel"}</TooltipContent>
+                          <TooltipContent side="bottom" className="text-xs">{searchPanelExpanded ? t.nexusOmni.settings.minimizePanel : t.nexusOmni.settings.maximizePanel}</TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
                     </div>
@@ -1979,7 +1977,7 @@ export default function EmailClientPage() {
                               {listPanelExpanded ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
                             </button>
                           </TooltipTrigger>
-                          <TooltipContent side="bottom" className="text-xs">{listPanelExpanded ? "Zmenšiť panel" : "Maximalizovať panel"}</TooltipContent>
+                          <TooltipContent side="bottom" className="text-xs">{listPanelExpanded ? t.nexusOmni.settings.minimizePanel : t.nexusOmni.settings.maximizePanel}</TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
                       <Button variant="ghost" size="icon" className="h-6 w-6" disabled={localPage === 0} onClick={() => setLocalPage(p => p - 1)} data-testid="button-page-prev">
@@ -2005,7 +2003,7 @@ export default function EmailClientPage() {
                             <Search className="h-3.5 w-3.5" />
                           </button>
                         </TooltipTrigger>
-                        <TooltipContent side="bottom" className="text-xs">Hľadať v zozname</TooltipContent>
+                        <TooltipContent side="bottom" className="text-xs">{t.nexusOmni.search.searchInList}</TooltipContent>
                       </Tooltip>
                       <DropdownMenu>
                         <Tooltip>
@@ -2147,7 +2145,7 @@ export default function EmailClientPage() {
                                 <FilterX className="h-3.5 w-3.5" />
                               </button>
                             </TooltipTrigger>
-                            <TooltipContent side="bottom" className="text-xs">Zrušiť všetko</TooltipContent>
+                            <TooltipContent side="bottom" className="text-xs">{t.nexusOmni.email.clear}</TooltipContent>
                           </Tooltip>
                         </>
                       )}
@@ -2159,7 +2157,7 @@ export default function EmailClientPage() {
                     <div className="relative">
                       <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                       <Input
-                        placeholder="Hľadať v zozname..."
+                        placeholder={t.nexusOmni.search.searchInList}
                         value={listSearchQuery}
                         onChange={(e) => { setListSearchQuery(e.target.value); setLocalPage(0); }}
                         className="h-7 text-xs pl-7 pr-7"
@@ -2230,7 +2228,7 @@ export default function EmailClientPage() {
                                     <div style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
                                       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
                                         <span className={`${!email.isRead && emailPrefs.highlightUnread ? "font-bold" : "font-medium"}`} style={{ fontSize: 13, lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
-                                          {highlightSearchMatch(email.from?.emailAddress?.name || email.from?.emailAddress?.address || "Neznámy", debouncedSearchQuery)}
+                                          {highlightSearchMatch(email.from?.emailAddress?.name || email.from?.emailAddress?.address || t.nexusOmni.email.unknown, debouncedSearchQuery)}
                                         </span>
                                         <span style={{ fontSize: 11, whiteSpace: "nowrap", flexShrink: 0 }} className="text-muted-foreground">
                                           {format(new Date(email.receivedDateTime), "d.M. HH:mm")}
@@ -2312,7 +2310,7 @@ export default function EmailClientPage() {
                           <button
                             className="absolute top-1.5 right-1.5 p-1 rounded-md opacity-0 group-hover:opacity-100 hover:bg-background/80 transition-all z-10"
                             onClick={(e) => { e.stopPropagation(); toggleReadMutation.mutate({ emailId: email.id, isRead: !email.isRead, mailbox: email._mailboxEmail ? getMailboxParam(email._mailboxEmail) : undefined }); }}
-                            title={email.isRead ? "Označiť ako neprečítané" : "Označiť ako prečítané"}
+                            title={email.isRead ? t.nexusOmni.email.markUnread : t.nexusOmni.email.markRead}
                             data-testid={`toggle-read-${email.id}`}
                           >
                             {!email.isRead ? <Eye className="h-3.5 w-3.5 text-muted-foreground" /> : <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />}
@@ -2329,7 +2327,7 @@ export default function EmailClientPage() {
                             <div style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
                               <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
                                 <span className={`${!email.isRead && emailPrefs.highlightUnread ? "font-bold" : "font-medium"}`} style={{ fontSize: 13, lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
-                                  {email.from?.emailAddress?.name || email.from?.emailAddress?.address || "Neznámy"}
+                                  {email.from?.emailAddress?.name || email.from?.emailAddress?.address || t.nexusOmni.email.unknown}
                                 </span>
                                 <span style={{ fontSize: 11, whiteSpace: "nowrap", flexShrink: 0 }} className="text-muted-foreground">
                                   {format(new Date(email.receivedDateTime), "d.M. HH:mm")}
@@ -2408,7 +2406,7 @@ export default function EmailClientPage() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <MessageSquare className="h-4 w-4 text-cyan-600" />
-                    <span className="text-sm font-semibold">{smsFilter === "all" ? "Všetky SMS" : smsFilter === "inbound" ? "Prijaté SMS" : "Odoslané SMS"}</span>
+                    <span className="text-sm font-semibold">{smsFilter === "all" ? t.nexusOmni.sms.allSms : smsFilter === "inbound" ? t.nexusOmni.sms.received : t.nexusOmni.sms.sent}</span>
                     <Badge variant="secondary" className="text-[10px]">{filteredSms.length}</Badge>
                   </div>
                   <div className="flex items-center gap-0.5">
@@ -2436,7 +2434,7 @@ export default function EmailClientPage() {
                       {smsPage.map(sms => {
                         const customerName = sms.customer
                           ? `${sms.customer.firstName} ${sms.customer.lastName}`
-                          : (sms.direction === "inbound" ? sms.senderPhone : sms.recipientPhone) || "Neznámy";
+                          : (sms.direction === "inbound" ? sms.senderPhone : sms.recipientPhone) || t.nexusOmni.email.unknown;
                         const isUnread = sms.direction === "inbound" && sms.deliveryStatus !== "read";
                         return (
                           <div
@@ -2465,8 +2463,8 @@ export default function EmailClientPage() {
                                     sms.aiAlertLevel === "critical" ? "border-red-500 text-red-600" : "border-amber-500 text-amber-600"
                                   }`}>
                                     {sms.aiAlertLevel === "critical" ? <ShieldAlert className="h-3 w-3 mr-0.5" /> : <AlertTriangle className="h-3 w-3 mr-0.5" />}
-                                    {sms.aiHasAngryTone && "Nahnevaný"}
-                                    {sms.aiWantsToCancel && "Zrušenie"}
+                                    {sms.aiHasAngryTone && t.nexusOmni.sms.angry}
+                                    {sms.aiWantsToCancel && t.nexusOmni.sms.cancellation}
                                   </Badge>
                                 )}
                               </div>
@@ -2494,7 +2492,7 @@ export default function EmailClientPage() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <ListTodo className="h-4 w-4 text-amber-600" />
-                    <span className="text-sm font-semibold">{taskFilter === "all" ? "Všetky úlohy" : taskFilter === "pending" ? "Čakajúce" : taskFilter === "in_progress" ? "Rozpracované" : taskFilter === "completed" ? "Dokončené" : "Zrušené"}</span>
+                    <span className="text-sm font-semibold">{taskFilter === "all" ? t.nexusOmni.tasks.allTasks : taskFilter === "pending" ? t.nexusOmni.tasks.pending : taskFilter === "in_progress" ? t.nexusOmni.tasks.inProgress : taskFilter === "completed" ? t.nexusOmni.tasks.completed : t.nexusOmni.tasks.cancelled}</span>
                     <Badge variant="secondary" className="text-[10px]">{filteredTasks.length}</Badge>
                   </div>
                   <div className="flex items-center gap-0.5">
@@ -2618,7 +2616,7 @@ export default function EmailClientPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 ref={smartSearchInputRef}
-                placeholder="Hľadať v emailoch, SMS, úlohách, chatoch..."
+                placeholder={t.nexusOmni.search.placeholder}
                 value={smartSearchQuery}
                 onChange={(e) => setSmartSearchQuery(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") executeSmartSearch(smartSearchQuery); }}
@@ -2922,15 +2920,15 @@ export default function EmailClientPage() {
                       <>
                         <button onClick={() => executeSmartSearch(`__date:${todayStr}:${todayStr}`)} className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-accent transition-all text-left group" data-testid="quick-search-today">
                           <div className="h-8 w-8 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center shrink-0"><CalendarDays className="h-4 w-4 text-indigo-600 dark:text-indigo-400" /></div>
-                          <p className="text-sm">Dnešné emaily</p>
+                          <p className="text-sm">{t.nexusOmni.email.todaysEmails}</p>
                         </button>
                         <button onClick={() => executeSmartSearch(`__date:${weekAgo}:${todayStr}`)} className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-accent transition-all text-left group" data-testid="quick-search-week">
                           <div className="h-8 w-8 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center shrink-0"><CalendarRange className="h-4 w-4 text-indigo-600 dark:text-indigo-400" /></div>
-                          <p className="text-sm">Posledný týždeň</p>
+                          <p className="text-sm">{t.nexusOmni.email.lastWeek}</p>
                         </button>
                         <button onClick={() => executeSmartSearch(`__date:${monthAgo}:${todayStr}`)} className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-accent transition-all text-left group" data-testid="quick-search-month">
                           <div className="h-8 w-8 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center shrink-0"><CalendarRange className="h-4 w-4 text-indigo-600 dark:text-indigo-400" /></div>
-                          <p className="text-sm">Posledný mesiac</p>
+                          <p className="text-sm">{t.nexusOmni.email.lastMonth}</p>
                         </button>
                       </>
                     );
@@ -2943,10 +2941,10 @@ export default function EmailClientPage() {
                   <div className="px-3 py-1.5 mt-2 flex items-center justify-between">
                     <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                       <History className="h-3 w-3" />
-                      Posledné vyhľadávania
+                      {t.nexusOmni.search.recentSearches}
                     </span>
                     <button onClick={clearRecentSearches} className="text-[10px] text-muted-foreground hover:text-foreground transition-colors" data-testid="clear-recent-searches">
-                      Vymazať
+                      {t.nexusOmni.email.clear}
                     </button>
                   </div>
                   {recentSearches.map((recent, idx) => (
@@ -3020,7 +3018,7 @@ export default function EmailClientPage() {
                 className="text-xs text-primary hover:underline"
                 data-testid="clear-active-search"
               >
-                Zrušiť aktívne vyhľadávanie
+                {t.nexusOmni.email.clear}
               </button>
             )}
           </div>
@@ -3045,12 +3043,12 @@ export default function EmailClientPage() {
               </Button>
             </div>
             <DialogDescription className="text-xs">
-              Odoslať z: {mailboxes.find(m => (m.type === "personal" ? "personal" : m.email) === effectiveMailbox)?.email || effectiveMailbox}
+              {t.common.save}: {mailboxes.find(m => (m.type === "personal" ? "personal" : m.email) === effectiveMailbox)?.email || effectiveMailbox}
             </DialogDescription>
           </DialogHeader>
           <div className="flex-1 overflow-auto p-4 space-y-3">
             <EmailRecipientInput
-              placeholder="Komu (viac adries oddeľte čiarkou)"
+              placeholder={t.nexusOmni.email.recipientPlaceholder}
               value={composeData.to}
               onChange={(v) => setComposeData({ ...composeData, to: v })}
               knownEmails={knownEmails}
@@ -3060,13 +3058,13 @@ export default function EmailClientPage() {
               <EmailRecipientInput placeholder="Cc" value={composeData.cc} onChange={(v) => setComposeData({ ...composeData, cc: v })} knownEmails={knownEmails} data-testid="input-compose-cc" />
               <EmailRecipientInput placeholder="Bcc" value={composeData.bcc} onChange={(v) => setComposeData({ ...composeData, bcc: v })} knownEmails={knownEmails} data-testid="input-compose-bcc" />
             </div>
-            <Input placeholder="Predmet" value={composeData.subject} onChange={(e) => setComposeData({ ...composeData, subject: e.target.value })} data-testid="input-compose-subject" />
+            <Input placeholder={t.nexusOmni.email.subjectPlaceholder} value={composeData.subject} onChange={(e) => setComposeData({ ...composeData, subject: e.target.value })} data-testid="input-compose-subject" />
             <EmailEditor
               key={composeOpen ? "compose-open" : "compose-closed"}
               initialContent={composeData.body}
               onChange={(html) => setComposeData(prev => ({ ...prev, body: html }))}
               signatureHtml={getSignatureForCompose()}
-              placeholder="Napíšte správu..."
+              placeholder={t.nexusOmni.email.messagePlaceholder}
               minHeight={composeFullscreen ? "400px" : "200px"}
               attachments={attachments}
               onAttachmentsChange={setAttachments}
@@ -3090,10 +3088,10 @@ export default function EmailClientPage() {
                 <span className="text-sm text-muted-foreground">Tag:</span>
                 <Select value={composeData.tagId?.toString() || "none"} onValueChange={(v) => setComposeData({ ...composeData, tagId: v === "none" ? null : parseInt(v) })}>
                   <SelectTrigger className="w-36 h-8 text-xs" data-testid="select-compose-tag">
-                    <SelectValue placeholder="Žiadny" />
+                    <SelectValue placeholder={t.nexusOmni.common.none} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">Žiadny tag</SelectItem>
+                    <SelectItem value="none">{t.nexusOmni.common.none}</SelectItem>
                     {userTags.map((tag: any) => (
                       <SelectItem key={tag.id} value={tag.id.toString()}>
                         <span className="flex items-center gap-2">
@@ -3108,11 +3106,11 @@ export default function EmailClientPage() {
             </div>
           </div>
           <DialogFooter className="px-4 py-3 border-t shrink-0">
-            <Button variant="outline" onClick={() => setComposeOpen(false)}>Zrušiť</Button>
+            <Button variant="outline" onClick={() => setComposeOpen(false)}>{t.common.cancel}</Button>
             <Button onClick={handleSendEmail} disabled={sendEmailMutation.isPending} data-testid="button-send-compose">
               {sendEmailMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               <Send className="h-4 w-4 mr-2" />
-              Odoslať
+              {t.common.save}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -3123,16 +3121,16 @@ export default function EmailClientPage() {
           <div className="flex h-[75vh]">
             <div className="w-48 border-r bg-muted/30 flex flex-col py-2 shrink-0">
               <DialogHeader className="px-4 pb-3 pt-2">
-                <DialogTitle className="text-base">Nastavenia</DialogTitle>
+                <DialogTitle className="text-base">{t.nexusOmni.settings.settingsTitle}</DialogTitle>
               </DialogHeader>
               {[
-                { key: "accounts" as const, label: "Účty", icon: <UserCircle className="h-4 w-4" /> },
-                { key: "messages" as const, label: "Správy", icon: <LayoutList className="h-4 w-4" /> },
-                { key: "compose" as const, label: "Písanie", icon: <Type className="h-4 w-4" /> },
-                { key: "tags" as const, label: "Tagy", icon: <Tag className="h-4 w-4" /> },
-                { key: "ai" as const, label: "AI Asistent", icon: <Sparkles className="h-4 w-4" /> },
-                { key: "notifications" as const, label: "Notifikácie", icon: <Volume2 className="h-4 w-4" /> },
-                { key: "appearance" as const, label: "Vzhľad", icon: <Palette className="h-4 w-4" /> },
+                { key: "accounts" as const, label: t.nexusOmni.settings.accounts, icon: <UserCircle className="h-4 w-4" /> },
+                { key: "messages" as const, label: t.nexusOmni.common.messages, icon: <LayoutList className="h-4 w-4" /> },
+                { key: "compose" as const, label: t.nexusOmni.settings.compose, icon: <Type className="h-4 w-4" /> },
+                { key: "tags" as const, label: t.nexusOmni.settings.tags, icon: <Tag className="h-4 w-4" /> },
+                { key: "ai" as const, label: t.nexusOmni.settings.ai, icon: <Sparkles className="h-4 w-4" /> },
+                { key: "notifications" as const, label: t.nexusOmni.settings.notifications, icon: <Volume2 className="h-4 w-4" /> },
+                { key: "appearance" as const, label: t.nexusOmni.settings.appearance, icon: <Palette className="h-4 w-4" /> },
               ].map(item => (
                 <button
                   key={item.key}
@@ -3159,10 +3157,10 @@ export default function EmailClientPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-purple-500" />
-              {aiModalType === "reply" ? "AI Generovať odpoveď" : "AI Zhrnutie konverzácie"}
+              {aiModalType === "reply" ? t.nexusOmni.ai.generateReply : t.nexusOmni.ai.conversationSummary}
             </DialogTitle>
             <DialogDescription>
-              {aiModalType === "reply" ? "Skontrolujte a upravte navrhovanú odpoveď pred vložením." : "Skontrolujte a upravte zhrnutie pred vložením do odpovede."}
+              {aiModalType === "reply" ? t.nexusOmni.ai.reviewReply : t.nexusOmni.ai.reviewSummary}
             </DialogDescription>
           </DialogHeader>
           <div className="flex items-center gap-2 px-4">
@@ -3299,7 +3297,7 @@ export default function EmailClientPage() {
                 variant="ghost" size="icon"
                 onClick={() => toggleReadMutation.mutate({ emailId: emailDetail.id, isRead: !emailDetail.isRead })}
                 disabled={toggleReadMutation.isPending}
-                title={emailDetail.isRead ? "Označiť ako neprečítané" : "Označiť ako prečítané"}
+                title={emailDetail.isRead ? t.nexusOmni.email.markUnread : t.nexusOmni.email.markRead}
                 data-testid="button-toggle-read"
               >
                 {emailDetail.isRead ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -3309,7 +3307,7 @@ export default function EmailClientPage() {
                   variant="ghost" size="icon"
                   onClick={handleAiSummary}
                   disabled={aiSummaryLoading}
-                  title="Súhrn emailu"
+                  title={t.nexusOmni.email.emailSummary}
                   data-testid="button-email-summary"
                 >
                   {aiSummaryLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4 text-blue-500" />}
@@ -3318,7 +3316,7 @@ export default function EmailClientPage() {
               <Button variant="ghost" size="icon" onClick={() => deleteEmailMutation.mutate(emailDetail.id)} data-testid="button-delete">
                 <Trash2 className="h-4 w-4" />
               </Button>
-              <Button variant="ghost" size="icon" onClick={() => setDetailFullscreen(f => !f)} data-testid="button-fullscreen" title={detailFullscreen ? "Zmenšiť" : "Maximalizovať"}>
+              <Button variant="ghost" size="icon" onClick={() => setDetailFullscreen(f => !f)} data-testid="button-fullscreen" title={detailFullscreen ? t.nexusOmni.settings.minimize : t.nexusOmni.settings.maximize}>
                 {detailFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
               </Button>
             </div>
@@ -3337,10 +3335,10 @@ export default function EmailClientPage() {
                         data-testid="quick-search-sender"
                       >
                         <Search className="h-3 w-3" />
-                        Ďalšie
+                        {t.nexusOmni.email.showMoreFromSender}
                       </button>
                     </TooltipTrigger>
-                    <TooltipContent side="top" className="text-xs">Zobraziť ďalšie emaily od tohto odosielateľa</TooltipContent>
+                    <TooltipContent side="top" className="text-xs">{t.nexusOmni.email.showMoreFromSender}</TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
               )}
@@ -3386,18 +3384,18 @@ export default function EmailClientPage() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-sm font-semibold">
-                    {(emailDetail as any).aiAnalysis.alertLevel === "critical" ? "Kritické upozornenie" : "Upozornenie"}
+                    {(emailDetail as any).aiAnalysis.alertLevel === "critical" ? t.nexusOmni.sms.criticalAlert : t.nexusOmni.sms.warning}
                   </span>
                   {(emailDetail as any).aiAnalysis.hasAngryTone && (
                     <Badge variant="outline" className="text-xs border-orange-400 text-orange-600">
-                      <Flame className="h-3 w-3 mr-1" />Nahnevaný
+                      <Flame className="h-3 w-3 mr-1" />{t.nexusOmni.sms.angry}
                     </Badge>
                   )}
                   {(emailDetail as any).aiAnalysis.wantsToCancel && (
-                    <Badge variant="outline" className="text-xs border-red-500 text-red-600">Zrušenie zmluvy</Badge>
+                    <Badge variant="outline" className="text-xs border-red-500 text-red-600">{t.nexusOmni.sms.cancellation}</Badge>
                   )}
                   {(emailDetail as any).aiAnalysis.wantsConsent && (
-                    <Badge variant="outline" className="text-xs border-green-500 text-green-600">Súhlas</Badge>
+                    <Badge variant="outline" className="text-xs border-green-500 text-green-600">Consent</Badge>
                   )}
                 </div>
                 {(emailDetail as any).aiAnalysis.pipelineActionTaken && (
@@ -3421,7 +3419,7 @@ export default function EmailClientPage() {
                 className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full text-white cursor-pointer hover:opacity-80 transition-opacity"
                 style={{ backgroundColor: tag.color }}
                 onClick={() => currentMailboxEmail && removeTagMutation.mutate({ emailId: emailDetail.id, tagId: tag.id, mailboxEmail: currentMailboxEmail })}
-                title="Kliknite pre odstránenie"
+                title={t.nexusOmni.email.clickToRemove}
                 data-testid={`email-tag-${tag.id}`}
               >
                 {tag.name}
@@ -3499,16 +3497,16 @@ export default function EmailClientPage() {
               <DialogHeader className="px-4 py-3 border-b shrink-0">
                 <div className="flex items-center justify-between pr-8">
                   <DialogTitle className="text-base">
-                    {replyMode === "reply" && "Odpoveď"}
-                    {replyMode === "replyAll" && "Odpoveď všetkým"}
-                    {replyMode === "forward" && "Preposlať"}
+                    {replyMode === "reply" && t.nexusOmni.email.reply}
+                    {replyMode === "replyAll" && t.nexusOmni.email.replyToAll}
+                    {replyMode === "forward" && t.nexusOmni.email.forward}
                   </DialogTitle>
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setReplyModalFullscreen(f => !f)} title={replyModalFullscreen ? "Zmenšiť" : "Na celú obrazovku"}>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setReplyModalFullscreen(f => !f)} title={replyModalFullscreen ? t.nexusOmni.exitFullscreen : t.nexusOmni.fullscreen}>
                     {replyModalFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
                   </Button>
                 </div>
                 <DialogDescription className="sr-only">
-                  {replyMode === "reply" ? "Odpoveď na email" : replyMode === "replyAll" ? "Odpoveď všetkým" : "Preposlať email"}
+                  {replyMode === "reply" ? t.nexusOmni.email.replyToEmail : replyMode === "replyAll" ? t.nexusOmni.email.replyToAll : t.nexusOmni.email.forwardEmail}
                 </DialogDescription>
               </DialogHeader>
               <div className="flex-1 overflow-auto p-4 space-y-2">
@@ -3517,7 +3515,7 @@ export default function EmailClientPage() {
                     <span className="text-xs text-muted-foreground w-16 shrink-0">Pre:</span>
                     <div className="flex-1">
                       <EmailRecipientInput
-                        placeholder="Komu (viac adries oddeľte čiarkou)"
+                        placeholder={t.nexusOmni.email.recipientPlaceholder}
                         value={composeData.to}
                         onChange={(v) => setComposeData({ ...composeData, to: v })}
                         knownEmails={knownEmails}
@@ -3568,9 +3566,9 @@ export default function EmailClientPage() {
                     </>
                   )}
                   <div className="flex items-center gap-1">
-                    <span className="text-xs text-muted-foreground w-16 shrink-0">Predmet:</span>
+                    <span className="text-xs text-muted-foreground w-16 shrink-0">{t.nexusOmni.email.subjectPlaceholder}:</span>
                     <Input
-                      placeholder="Predmet"
+                      placeholder={t.nexusOmni.email.subjectPlaceholder}
                       value={composeData.subject}
                       onChange={(e) => setComposeData({ ...composeData, subject: e.target.value })}
                       className="flex-1"
@@ -3590,7 +3588,7 @@ export default function EmailClientPage() {
                   })()}
                   onChange={(html) => setComposeData(prev => ({ ...prev, body: html }))}
                   signatureHtml={getSignatureForCompose()}
-                  placeholder="Napíšte odpoveď..."
+                  placeholder={t.nexusOmni.email.replyPlaceholder}
                   minHeight={replyModalFullscreen ? "300px" : "200px"}
                   attachments={attachments}
                   onAttachmentsChange={setAttachments}
@@ -3617,7 +3615,7 @@ export default function EmailClientPage() {
                 <Button onClick={replyMode === "forward" ? handleForward : handleReply} disabled={replyMutation.isPending || forwardMutation.isPending} data-testid="button-send-reply">
                   {(replyMutation.isPending || forwardMutation.isPending) && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                   <Send className="h-4 w-4 mr-2" />
-                  Odoslať
+                  {t.common.save}
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -3676,7 +3674,7 @@ export default function EmailClientPage() {
             <div className="flex items-center gap-2 flex-wrap">
               <Badge className={`${typeColors.sms.bg} ${typeColors.sms.text}`}>
                 <MessageSquare className="h-3 w-3 mr-1" />
-                {selectedSms.direction === "inbound" ? "Prijatá SMS" : "Odoslaná SMS"}
+                {selectedSms.direction === "inbound" ? t.nexusOmni.sms.receivedSms : t.nexusOmni.sms.sentSms}
               </Badge>
               <h2 className="text-lg font-semibold">
                 {selectedSms.customer
@@ -3740,21 +3738,21 @@ export default function EmailClientPage() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-sm font-semibold">
-                    {selectedSms.aiAlertLevel === "critical" ? "Kritické upozornenie" : "Upozornenie"}
+                    {selectedSms.aiAlertLevel === "critical" ? t.nexusOmni.sms.criticalAlert : t.nexusOmni.sms.warning}
                   </span>
                   {selectedSms.aiHasAngryTone && (
                     <Badge variant="outline" className="text-xs border-orange-400 text-orange-600">
-                      <Flame className="h-3 w-3 mr-1" />Nahnevaný
+                      <Flame className="h-3 w-3 mr-1" />{t.nexusOmni.sms.angry}
                     </Badge>
                   )}
                   {selectedSms.aiHasRudeExpressions && (
                     <Badge variant="outline" className="text-xs border-purple-400 text-purple-600">Hrubé výrazy</Badge>
                   )}
                   {selectedSms.aiWantsToCancel && (
-                    <Badge variant="outline" className="text-xs border-red-500 text-red-600">Zrušenie zmluvy</Badge>
+                    <Badge variant="outline" className="text-xs border-red-500 text-red-600">{t.nexusOmni.sms.cancellation}</Badge>
                   )}
                   {selectedSms.aiWantsConsent && (
-                    <Badge variant="outline" className="text-xs border-green-500 text-green-600">Súhlas</Badge>
+                    <Badge variant="outline" className="text-xs border-green-500 text-green-600">Consent</Badge>
                   )}
                   {selectedSms.aiDoesNotAcceptContract && (
                     <Badge variant="outline" className="text-xs border-red-500 text-red-600">Odmietnutie zmluvy</Badge>
@@ -3796,10 +3794,10 @@ export default function EmailClientPage() {
                       .then(r => r.json())
                       .then(data => {
                         if (data.error) throw new Error(data.error);
-                        toast({ title: "SMS odoslaná", description: `Správa odoslaná na ${replyPhone}` });
+                        toast({ title: t.nexusOmni.sms.replySent });
                         setSmsReplyText("");
                       })
-                      .catch(err => toast({ title: "Chyba", description: err.message, variant: "destructive" }))
+                      .catch(err => toast({ title: t.nexusOmni.common.error, description: err.message, variant: "destructive" }))
                       .finally(() => setSmsReplySending(false));
                   }
                 }}
@@ -3819,10 +3817,10 @@ export default function EmailClientPage() {
                     .then(r => r.json())
                     .then(data => {
                       if (data.error) throw new Error(data.error);
-                      toast({ title: "SMS odoslaná", description: `Správa odoslaná na ${replyPhone}` });
+                      toast({ title: t.nexusOmni.sms.replySent });
                       setSmsReplyText("");
                     })
-                    .catch(err => toast({ title: "Chyba", description: err.message, variant: "destructive" }))
+                    .catch(err => toast({ title: t.nexusOmni.common.error, description: err.message, variant: "destructive" }))
                     .finally(() => setSmsReplySending(false));
                 }}
                 data-testid="sms-reply-send"
@@ -3937,7 +3935,7 @@ export default function EmailClientPage() {
                         {detail.isRead ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </Button>
                     </TooltipTrigger>
-                    <TooltipContent>{detail.isRead ? "Označiť ako neprečítané" : "Označiť ako prečítané"}</TooltipContent>
+                    <TooltipContent>{detail.isRead ? t.nexusOmni.email.markUnread : t.nexusOmni.email.markRead}</TooltipContent>
                   </Tooltip>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -3977,11 +3975,11 @@ export default function EmailClientPage() {
                 )}
                 {detail.importance === "high" && (
                   <Badge variant="outline" className="text-[10px] gap-1 h-5 border-amber-400 text-amber-600">
-                    <Star className="h-3 w-3" />Dôležité
+                    <Star className="h-3 w-3" />{t.nexusOmni.email.important}
                   </Badge>
                 )}
                 <Badge variant={detail.isRead ? "secondary" : "default"} className="text-[10px] h-5">
-                  {detail.isRead ? "Prečítané" : "Neprečítané"}
+                  {detail.isRead ? t.nexusOmni.email.markedRead : t.nexusOmni.email.markedUnread}
                 </Badge>
               </div>
             </div>
@@ -4017,15 +4015,15 @@ export default function EmailClientPage() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-sm font-semibold">
-                      {(detail as any).aiAnalysis.alertLevel === "critical" ? "Kritické upozornenie" : "Upozornenie"}
+                      {(detail as any).aiAnalysis.alertLevel === "critical" ? t.nexusOmni.sms.criticalAlert : t.nexusOmni.sms.warning}
                     </span>
                     {(detail as any).aiAnalysis.hasAngryTone && (
                       <Badge variant="outline" className="text-xs border-orange-400 text-orange-600">
-                        <Flame className="h-3 w-3 mr-1" />Nahnevaný
+                        <Flame className="h-3 w-3 mr-1" />{t.nexusOmni.sms.angry}
                       </Badge>
                     )}
                     {(detail as any).aiAnalysis.wantsToCancel && (
-                      <Badge variant="outline" className="text-xs border-red-500 text-red-600">Zrušenie</Badge>
+                      <Badge variant="outline" className="text-xs border-red-500 text-red-600">{t.nexusOmni.sms.cancellation}</Badge>
                     )}
                   </div>
                 </div>
@@ -4111,7 +4109,7 @@ export default function EmailClientPage() {
                       <p className="text-[11px] text-muted-foreground truncate">{mb.email}</p>
                     </div>
                     <Badge variant={mb.type === "personal" ? "default" : "secondary"} className="text-[10px] shrink-0">
-                      {mb.type === "personal" ? "Osobná" : "Zdieľaná"}
+                      {mb.type === "personal" ? t.nexusOmni.settings.personal : t.nexusOmni.settings.shared}
                     </Badge>
                   </div>
                   <div>
@@ -4164,73 +4162,73 @@ export default function EmailClientPage() {
     if (settingsTab === "messages") {
       return (
         <div>
-          <h2 className="text-lg font-semibold mb-1">Správy</h2>
-          <p className="text-sm text-muted-foreground mb-4">Nastavenia zobrazenia zoznamu a detailu emailov.</p>
+          <h2 className="text-lg font-semibold mb-1">{t.nexusOmni.common.messages}</h2>
+          <p className="text-sm text-muted-foreground mb-4">{t.nexusOmni.settings.settingsEmailDesc}</p>
 
-          <SectionTitle>Zoznam správ</SectionTitle>
+          <SectionTitle>{t.nexusOmni.common.messages}</SectionTitle>
           <div className="divide-y">
-            <SettingRow label="Iniciály odosielateľa" description="Zobrazí kruhový avatar s iniciálami v zozname">
+            <SettingRow label={t.nexusOmni.settings.senderInitials} description={t.nexusOmni.settings.senderInitialsDesc}>
               <Switch checked={emailPrefs.showSenderInitials} onCheckedChange={(v) => updateEmailPref("showSenderInitials", v)} />
             </SettingRow>
-            <SettingRow label="Ikony účtov" description="Farebná bodka podľa priradenia účtu">
+            <SettingRow label={t.nexusOmni.settings.accountIcons} description={t.nexusOmni.settings.accountIconsDesc}>
               <Switch checked={emailPrefs.showAccountIcons} onCheckedChange={(v) => updateEmailPref("showAccountIcons", v)} />
             </SettingRow>
-            <SettingRow label="Zvýrazniť neprečítané" description="Tučné písmo pre neprečítané správy">
+            <SettingRow label={t.nexusOmni.settings.highlightUnread} description={t.nexusOmni.settings.highlightUnreadDesc}>
               <Switch checked={emailPrefs.highlightUnread} onCheckedChange={(v) => updateEmailPref("highlightUnread", v)} />
             </SettingRow>
-            <SettingRow label="Indikátor neprečítaných" description="Modrá bodka pri neprečítaných správach">
+            <SettingRow label={t.nexusOmni.settings.unreadIndicator} description={t.nexusOmni.settings.unreadIndicatorDesc}>
               <Switch checked={emailPrefs.unreadIndicator} onCheckedChange={(v) => updateEmailPref("unreadIndicator", v)} />
             </SettingRow>
-            <SettingRow label="Zobraziť tagy" description="Farebné štítky v zozname správ">
+            <SettingRow label={t.nexusOmni.settings.showTags} description={t.nexusOmni.settings.showTagsDesc}>
               <Switch checked={emailPrefs.showTags} onCheckedChange={(v) => updateEmailPref("showTags", v)} />
             </SettingRow>
-            <SettingRow label="Ikony príloh" description="Ikona spinky pri správach s prílohami">
+            <SettingRow label={t.nexusOmni.settings.attachmentIcons} description={t.nexusOmni.settings.attachmentIconsDesc}>
               <Switch checked={emailPrefs.previewAttachmentIcons} onCheckedChange={(v) => updateEmailPref("previewAttachmentIcons", v)} />
             </SettingRow>
-            <SettingRow label="Zoskupovať podľa dátumu" description="Oddeliť správy podľa dní">
+            <SettingRow label={t.nexusOmni.settings.groupByDate} description={t.nexusOmni.settings.groupByDateDesc}>
               <Switch checked={emailPrefs.groupByDate} onCheckedChange={(v) => updateEmailPref("groupByDate", v)} />
             </SettingRow>
-            <SettingRow label="Riadky náhľadu" description="Počet riadkov textu náhľadu v zozname">
+            <SettingRow label={t.nexusOmni.settings.previewLines} description={t.nexusOmni.settings.previewLinesDesc}>
               <Select value={String(emailPrefs.previewLines)} onValueChange={(v) => updateEmailPref("previewLines", parseInt(v))}>
                 <SelectTrigger className="w-28 h-8 text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="0">Žiadny</SelectItem>
-                  <SelectItem value="1">1 riadok</SelectItem>
-                  <SelectItem value="2">2 riadky</SelectItem>
+                  <SelectItem value="0">{t.nexusOmni.common.none}</SelectItem>
+                  <SelectItem value="1">1</SelectItem>
+                  <SelectItem value="2">2</SelectItem>
                 </SelectContent>
               </Select>
             </SettingRow>
-            <SettingRow label="Predvolené radenie" description="Predvolené zoradenie emailov">
+            <SettingRow label={t.nexusOmni.settings.defaultSort} description={t.nexusOmni.settings.defaultSortDesc}>
               <Select value={emailPrefs.defaultSort} onValueChange={(v) => { updateEmailPref("defaultSort", v); setEmailSort(v as any); }}>
                 <SelectTrigger className="w-40 h-8 text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="date-desc">Dátum (najnovšie)</SelectItem>
-                  <SelectItem value="date-asc">Dátum (najstaršie)</SelectItem>
-                  <SelectItem value="sender-asc">Odosielateľ (A→Z)</SelectItem>
-                  <SelectItem value="sender-desc">Odosielateľ (Z→A)</SelectItem>
-                  <SelectItem value="subject-asc">Predmet (A→Z)</SelectItem>
-                  <SelectItem value="subject-desc">Predmet (Z→A)</SelectItem>
+                  <SelectItem value="date-desc">Date ↓</SelectItem>
+                  <SelectItem value="date-asc">Date ↑</SelectItem>
+                  <SelectItem value="sender-asc">Sender A→Z</SelectItem>
+                  <SelectItem value="sender-desc">Sender Z→A</SelectItem>
+                  <SelectItem value="subject-asc">{t.nexusOmni.email.subjectPlaceholder} A→Z</SelectItem>
+                  <SelectItem value="subject-desc">{t.nexusOmni.email.subjectPlaceholder} Z→A</SelectItem>
                 </SelectContent>
               </Select>
             </SettingRow>
           </div>
 
-          <SectionTitle>Detail správy</SectionTitle>
+          <SectionTitle>{t.nexusOmni.common.messages}</SectionTitle>
           <div className="divide-y">
-            <SettingRow label="Automaticky nahrať obrázky" description="Načítať vzdialené obrázky v tele emailu">
+            <SettingRow label={t.nexusOmni.settings.autoLoadImages} description={t.nexusOmni.settings.autoLoadImagesDesc}>
               <Switch checked={emailPrefs.autoLoadImages} onCheckedChange={(v) => updateEmailPref("autoLoadImages", v)} />
             </SettingRow>
-            <SettingRow label="Zobraziť všetkých príjemcov" description="V detaile zobraziť CC a BCC príjemcov">
+            <SettingRow label={t.nexusOmni.settings.showAllRecipients} description={t.nexusOmni.settings.showAllRecipientsDesc}>
               <Switch checked={emailPrefs.showAllRecipients} onCheckedChange={(v) => updateEmailPref("showAllRecipients", v)} />
             </SettingRow>
-            <SettingRow label="Rozbalené telo správy" description="Automaticky zobraziť celý obsah emailu">
+            <SettingRow label={t.nexusOmni.settings.expandBody} description={t.nexusOmni.settings.expandBodyDesc}>
               <Switch checked={emailPrefs.expandBodyMessages} onCheckedChange={(v) => updateEmailPref("expandBodyMessages", v)} />
             </SettingRow>
-            <SettingRow label="Prílohy pred obsahom" description="Zobraziť prílohy nad telom emailu">
+            <SettingRow label={t.nexusOmni.settings.attachmentsBefore} description={t.nexusOmni.settings.attachmentsBeforeDesc}>
               <Switch checked={emailPrefs.attachmentsBeforeContent} onCheckedChange={(v) => updateEmailPref("attachmentsBeforeContent", v)} />
             </SettingRow>
           </div>
@@ -4242,33 +4240,33 @@ export default function EmailClientPage() {
     if (settingsTab === "ai") {
       return (
         <div>
-          <h2 className="text-lg font-semibold mb-1">AI Asistent</h2>
-          <p className="text-sm text-muted-foreground mb-4">Nastavenia umelej inteligencie pre emailovú komunikáciu.</p>
+          <h2 className="text-lg font-semibold mb-1">{t.nexusOmni.settings.ai}</h2>
+          <p className="text-sm text-muted-foreground mb-4">{t.nexusOmni.settings.settingsAiDesc}</p>
 
-          <SectionTitle>Základné nastavenia</SectionTitle>
+          <SectionTitle>{t.nexusOmni.settings.ai}</SectionTitle>
           <div className="divide-y">
-            <SettingRow label="Povoliť AI" description="Zapnúť AI funkcie (odpoveď, zhrnutie, preklad)">
+            <SettingRow label={t.nexusOmni.settings.enableAi} description={t.nexusOmni.settings.enableAiDesc}>
               <Switch checked={emailPrefs.aiEnabled} onCheckedChange={(v) => updateEmailPref("aiEnabled", v)} />
             </SettingRow>
           </div>
 
           {emailPrefs.aiEnabled && (
             <>
-              <SectionTitle>Jazyk AI odpovede</SectionTitle>
+              <SectionTitle>{t.nexusOmni.settings.languageMode}</SectionTitle>
               <div className="divide-y">
-                <SettingRow label="Režim jazyka" description="V akom jazyku má AI generovať odpovede a zhrnutia">
+                <SettingRow label={t.nexusOmni.settings.languageMode} description={t.nexusOmni.settings.languageModeDesc}>
                   <Select value={emailPrefs.aiLanguageMode} onValueChange={(v) => updateEmailPref("aiLanguageMode", v)}>
                     <SelectTrigger className="w-52 h-8 text-xs">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="email">Jazyk emailovej správy</SelectItem>
-                      <SelectItem value="user">Preklad do zvoleného jazyka</SelectItem>
+                      <SelectItem value="email">Email language</SelectItem>
+                      <SelectItem value="user">{t.nexusOmni.settings.targetLanguage}</SelectItem>
                     </SelectContent>
                   </Select>
                 </SettingRow>
                 {emailPrefs.aiLanguageMode === "user" && (
-                  <SettingRow label="Cieľový jazyk" description="Do akého jazyka preložiť AI výstup">
+                  <SettingRow label={t.nexusOmni.settings.targetLanguage} description={t.nexusOmni.settings.targetLanguageDesc}>
                     <Select value={emailPrefs.aiUserLanguage} onValueChange={(v) => updateEmailPref("aiUserLanguage", v)}>
                       <SelectTrigger className="w-40 h-8 text-xs">
                         <SelectValue />
@@ -4298,38 +4296,38 @@ export default function EmailClientPage() {
     if (settingsTab === "notifications") {
       return (
         <div>
-          <h2 className="text-lg font-semibold mb-1">Notifikácie a zvuky</h2>
-          <p className="text-sm text-muted-foreground mb-4">Nastavenia zvukových notifikácií a automatickej kontroly pošty.</p>
+          <h2 className="text-lg font-semibold mb-1">{t.nexusOmni.settings.notifications}</h2>
+          <p className="text-sm text-muted-foreground mb-4">{t.nexusOmni.settings.settingsNotifDesc}</p>
 
-          <SectionTitle>Zvuky</SectionTitle>
+          <SectionTitle>{t.nexusOmni.settings.soundOnSend}</SectionTitle>
           <div className="divide-y">
-            <SettingRow label="Zvuk odoslania" description="Prehrať zvuk po úspešnom odoslaní emailu">
+            <SettingRow label={t.nexusOmni.settings.soundOnSend} description={t.nexusOmni.settings.soundOnSendDesc}>
               <Switch checked={emailPrefs.soundOnSend} onCheckedChange={(v) => updateEmailPref("soundOnSend", v)} />
             </SettingRow>
-            <SettingRow label="Zvuk prijatia" description="Prehrať zvuk pri doručení nového emailu">
+            <SettingRow label={t.nexusOmni.settings.soundOnReceive} description={t.nexusOmni.settings.soundOnReceiveDesc}>
               <Switch checked={emailPrefs.soundOnReceive} onCheckedChange={(v) => updateEmailPref("soundOnReceive", v)} />
             </SettingRow>
           </div>
 
-          <SectionTitle>Kontrola pošty</SectionTitle>
+          <SectionTitle>{t.nexusOmni.settings.polling}</SectionTitle>
           <div className="divide-y">
-            <SettingRow label="Automatická kontrola" description="Pravidelne kontrolovať novú poštu">
+            <SettingRow label={t.nexusOmni.settings.polling} description={t.nexusOmni.settings.pollingDesc}>
               <Switch checked={emailPrefs.pollingEnabled} onCheckedChange={(v) => updateEmailPref("pollingEnabled", v)} />
             </SettingRow>
             {emailPrefs.pollingEnabled && (
-              <SettingRow label="Interval kontroly" description="Ako často kontrolovať novú poštu">
+              <SettingRow label={t.nexusOmni.settings.polling} description={t.nexusOmni.settings.pollingDesc}>
                 <Select value={String(emailPrefs.pollingInterval)} onValueChange={(v) => updateEmailPref("pollingInterval", parseInt(v))}>
                   <SelectTrigger className="w-36 h-8 text-xs">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="5">Každých 5 sekúnd</SelectItem>
-                    <SelectItem value="10">Každých 10 sekúnd</SelectItem>
-                    <SelectItem value="15">Každých 15 sekúnd</SelectItem>
-                    <SelectItem value="30">Každých 30 sekúnd</SelectItem>
-                    <SelectItem value="60">Každú minútu</SelectItem>
-                    <SelectItem value="120">Každé 2 minúty</SelectItem>
-                    <SelectItem value="300">Každých 5 minút</SelectItem>
+                    <SelectItem value="5">5s</SelectItem>
+                    <SelectItem value="10">10s</SelectItem>
+                    <SelectItem value="15">15s</SelectItem>
+                    <SelectItem value="30">30s</SelectItem>
+                    <SelectItem value="60">1 min</SelectItem>
+                    <SelectItem value="120">2 min</SelectItem>
+                    <SelectItem value="300">5 min</SelectItem>
                   </SelectContent>
                 </Select>
               </SettingRow>
@@ -4357,10 +4355,10 @@ export default function EmailClientPage() {
 
       return (
         <div>
-          <h2 className="text-lg font-semibold mb-1">Písanie</h2>
-          <p className="text-sm text-muted-foreground mb-4">Podpisy pre emailové účty. Každý účet môže mať vlastný podpis s obrázkami.</p>
+          <h2 className="text-lg font-semibold mb-1">{t.nexusOmni.settings.compose}</h2>
+          <p className="text-sm text-muted-foreground mb-4">{t.nexusOmni.settings.settingsSignatureDesc}</p>
 
-          <SectionTitle>Emailový účet</SectionTitle>
+          <SectionTitle>{t.nexusOmni.settings.accounts}</SectionTitle>
           <div className="flex flex-wrap gap-1.5 mb-4">
             {sigMailboxes.map(mb => {
               const hasSig = allSignatures.some((s: EmailSignature) => s.mailboxEmail === mb.key && s.htmlContent && s.isActive);
@@ -4384,24 +4382,24 @@ export default function EmailClientPage() {
             })}
           </div>
 
-          <SectionTitle>Podpis pre {sigMailboxes.find(m => m.key === activeSigMailbox)?.label || activeSigMailbox}</SectionTitle>
+          <SectionTitle>{t.nexusOmni.settings.signatureFor} {sigMailboxes.find(m => m.key === activeSigMailbox)?.label || activeSigMailbox}</SectionTitle>
           <div className="space-y-3">
             <div className="flex items-center gap-2">
               <Switch id="signature-active" checked={signatureActive} onCheckedChange={(c) => setSignatureActive(!!c)} />
-              <label htmlFor="signature-active" className="text-sm font-medium">Aktívny podpis</label>
+              <label htmlFor="signature-active" className="text-sm font-medium">{t.nexusOmni.settings.signature}</label>
             </div>
-            <p className="text-[12px] text-muted-foreground">Podpis sa automaticky pridá na koniec emailov odoslaných z tohto účtu. Môžete vložiť aj obrázky cez ikonu obrázka v paneli nástrojov.</p>
+            <p className="text-[12px] text-muted-foreground">{t.nexusOmni.settings.signatureAutoAdd}</p>
             <EmailEditor
               key={`sig-${activeSigMailbox}`}
               initialContent={signatureHtml}
               onChange={(html) => setSignatureHtml(html)}
-              placeholder="Váš podpis... (použite ikonu obrázka pre vloženie loga)"
+              placeholder={t.nexusOmni.settings.signaturePlaceholder}
               minHeight="200px"
               showAttachments={false}
             />
             <div className="flex items-center justify-between">
               <p className="text-xs text-muted-foreground">
-                {currentSig ? "Posledná úprava: " + new Date(currentSig.updatedAt).toLocaleString("sk-SK") : "Žiadny podpis pre tento účet"}
+                {currentSig ? `${t.nexusOmni.settings.lastEdit}: ${new Date(currentSig.updatedAt).toLocaleString()}` : t.nexusOmni.settings.noSignature}
               </p>
               <Button
                 onClick={() => saveSignatureMutation.mutate({ htmlContent: signatureHtml, isActive: signatureActive, mailboxEmail: activeSigMailbox })}
@@ -4425,7 +4423,7 @@ export default function EmailClientPage() {
 
           <div className="flex items-center gap-2 mb-4">
             <Input
-              placeholder="Názov nového tagu..."
+              placeholder={t.nexusOmni.settings.newTagPlaceholder}
               value={newTagName}
               onChange={(e) => setNewTagName(e.target.value)}
               className="flex-1 h-9"
@@ -4520,36 +4518,36 @@ export default function EmailClientPage() {
     if (settingsTab === "appearance") {
       return (
         <div>
-          <h2 className="text-lg font-semibold mb-1">Vzhľad</h2>
-          <p className="text-sm text-muted-foreground mb-4">Prispôsobte si zobrazenie NEXUS klienta.</p>
+          <h2 className="text-lg font-semibold mb-1">{t.nexusOmni.settings.appearance}</h2>
+          <p className="text-sm text-muted-foreground mb-4">{t.nexusOmni.settings.settingsEmailDesc}</p>
 
-          <SectionTitle>Rozloženie</SectionTitle>
+          <SectionTitle>{t.nexusOmni.settings.sidebar}</SectionTitle>
           <div className="divide-y">
-            <SettingRow label="Postranný panel" description="Zobraziť alebo skryť postranný panel s priečinkami">
+            <SettingRow label={t.nexusOmni.settings.sidebar} description={t.nexusOmni.settings.showHideSidebar}>
               <Switch checked={!isSidebarHidden} onCheckedChange={(v) => { setIsSidebarHidden(!v); localStorage.setItem("nexus-sidebar-hidden", String(!v)); }} />
             </SettingRow>
           </div>
 
-          <SectionTitle>Informácie</SectionTitle>
+          <SectionTitle>Info</SectionTitle>
           <div className="rounded-lg border p-4 space-y-2 text-sm">
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Aktuálny účet</span>
+              <span className="text-muted-foreground">{t.nexusOmni.settings.accounts}</span>
               <span className="font-medium">{currentMailboxEmail || "—"}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Načítaných emailov</span>
+              <span className="text-muted-foreground">{t.nexusOmni.email.loadedEmails}</span>
               <span className="font-medium">{emails.length} / {totalCount}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Priečinkov</span>
+              <span className="text-muted-foreground">{t.nexusOmni.folders.otherFolders}</span>
               <span className="font-medium">{folders.length}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Tagov</span>
+              <span className="text-muted-foreground">{t.nexusOmni.settings.tags}</span>
               <span className="font-medium">{userTags.length}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Pripojených účtov</span>
+              <span className="text-muted-foreground">{t.nexusOmni.settings.accounts}</span>
               <span className="font-medium">{mailboxes.length}</span>
             </div>
           </div>
