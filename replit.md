@@ -59,7 +59,8 @@ Preferred communication style: Simple, everyday language.
 ### Multi-Language Support (i18n)
 - **Languages**: EN, SK, CS, HU, RO, IT, DE.
 - **Implementation**: Custom I18nProvider with React Context, localStorage persistence, and locale-aware date formatting.
-- **Coverage**: Full localization across all modules, including call analysis and campaign management.
+- **Coverage**: Full localization across all modules, including call analysis, campaign management, and NEXUS Omni communication client.
+- **NEXUS Omni Localization**: Deep i18n of all 4 component files (email-client.tsx, nexus-sidebar.tsx, email-editor.tsx, nexus-chat.tsx) with 377+ `t.nexusOmni.*` translation references. Namespace structure: `nexusOmni.{title,tabs,folders,email,sms,tasks,chats,teams,search,settings,ai,permissions,common,sort,filter,editor,nexusChat}`. Account icons and well-known folders use dynamic functions `getAccountIcons(t)` and `getWellKnownFolders(t)`. Folder name normalization maps (for MS365 server-returned names) remain as intentional hardcoded Slovak strings for programmatic matching.
 
 ### Mobile Application (INDEXUS Connect)
 - **Framework**: React Native (Expo)

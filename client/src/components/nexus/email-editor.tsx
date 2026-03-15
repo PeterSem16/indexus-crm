@@ -14,6 +14,7 @@ import { TableCell } from "@tiptap/extension-table-cell";
 import { TableHeader } from "@tiptap/extension-table-header";
 import { Extension } from "@tiptap/core";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useI18n } from "@/i18n/I18nProvider";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -120,7 +121,7 @@ interface EmailEditorProps {
 export default function EmailEditor({
   initialContent = "",
   onChange,
-  placeholder = "Napíšte správu...",
+  placeholder: placeholderProp,
   minHeight = "200px",
   signatureHtml,
   attachments = [],
@@ -132,6 +133,8 @@ export default function EmailEditor({
   aiLoading,
   aiSummaryLoading,
 }: EmailEditorProps) {
+  const { t } = useI18n();
+  const placeholder = placeholderProp || t.nexusOmni.email.messagePlaceholder;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [linkUrl, setLinkUrl] = useState("");
   const [linkOpen, setLinkOpen] = useState(false);
@@ -259,28 +262,28 @@ export default function EmailEditor({
         <Button
           type="button" variant="ghost" size="icon" className={cn("h-7 w-7", editor.isActive("bold") && "bg-accent")}
           onClick={() => editor.chain().focus().toggleBold().run()}
-          title="Tučné"
+          title={t.nexusOmni.editor.bold}
         >
           <Bold className="h-3.5 w-3.5" />
         </Button>
         <Button
           type="button" variant="ghost" size="icon" className={cn("h-7 w-7", editor.isActive("italic") && "bg-accent")}
           onClick={() => editor.chain().focus().toggleItalic().run()}
-          title="Kurzíva"
+          title={t.nexusOmni.editor.italic}
         >
           <Italic className="h-3.5 w-3.5" />
         </Button>
         <Button
           type="button" variant="ghost" size="icon" className={cn("h-7 w-7", editor.isActive("underline") && "bg-accent")}
           onClick={() => editor.chain().focus().toggleUnderline().run()}
-          title="Podčiarknuté"
+          title={t.nexusOmni.editor.underline}
         >
           <UnderlineIcon className="h-3.5 w-3.5" />
         </Button>
         <Button
           type="button" variant="ghost" size="icon" className={cn("h-7 w-7", editor.isActive("strike") && "bg-accent")}
           onClick={() => editor.chain().focus().toggleStrike().run()}
-          title="Prečiarknuté"
+          title={t.nexusOmni.editor.strikethrough}
         >
           <Strikethrough className="h-3.5 w-3.5" />
         </Button>
@@ -310,14 +313,14 @@ export default function EmailEditor({
         <Button
           type="button" variant="ghost" size="icon" className={cn("h-7 w-7", editor.isActive("heading", { level: 1 }) && "bg-accent")}
           onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-          title="Nadpis 1"
+          title={t.nexusOmni.editor.heading1}
         >
           <Heading1 className="h-3.5 w-3.5" />
         </Button>
         <Button
           type="button" variant="ghost" size="icon" className={cn("h-7 w-7", editor.isActive("heading", { level: 2 }) && "bg-accent")}
           onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-          title="Nadpis 2"
+          title={t.nexusOmni.editor.heading2}
         >
           <Heading2 className="h-3.5 w-3.5" />
         </Button>
@@ -327,28 +330,28 @@ export default function EmailEditor({
         <Button
           type="button" variant="ghost" size="icon" className={cn("h-7 w-7", editor.isActive("bulletList") && "bg-accent")}
           onClick={() => editor.chain().focus().toggleBulletList().run()}
-          title="Odrážkový zoznam"
+          title={t.nexusOmni.editor.bulletList}
         >
           <List className="h-3.5 w-3.5" />
         </Button>
         <Button
           type="button" variant="ghost" size="icon" className={cn("h-7 w-7", editor.isActive("orderedList") && "bg-accent")}
           onClick={() => editor.chain().focus().toggleOrderedList().run()}
-          title="Číslovaný zoznam"
+          title={t.nexusOmni.editor.numberedList}
         >
           <ListOrdered className="h-3.5 w-3.5" />
         </Button>
         <Button
           type="button" variant="ghost" size="icon" className={cn("h-7 w-7", editor.isActive("blockquote") && "bg-accent")}
           onClick={() => editor.chain().focus().toggleBlockquote().run()}
-          title="Citácia"
+          title={t.nexusOmni.editor.blockquote}
         >
           <Quote className="h-3.5 w-3.5" />
         </Button>
         <Button
           type="button" variant="ghost" size="icon" className="h-7 w-7"
           onClick={() => editor.chain().focus().setHorizontalRule().run()}
-          title="Horizontálna čiara"
+          title={t.nexusOmni.editor.horizontalRule}
         >
           <Minus className="h-3.5 w-3.5" />
         </Button>
@@ -358,28 +361,28 @@ export default function EmailEditor({
         <Button
           type="button" variant="ghost" size="icon" className={cn("h-7 w-7", editor.isActive({ textAlign: "left" }) && "bg-accent")}
           onClick={() => editor.chain().focus().setTextAlign("left").run()}
-          title="Zarovnať vľavo"
+          title={t.nexusOmni.editor.alignLeft}
         >
           <AlignLeft className="h-3.5 w-3.5" />
         </Button>
         <Button
           type="button" variant="ghost" size="icon" className={cn("h-7 w-7", editor.isActive({ textAlign: "center" }) && "bg-accent")}
           onClick={() => editor.chain().focus().setTextAlign("center").run()}
-          title="Na stred"
+          title={t.nexusOmni.editor.alignCenter}
         >
           <AlignCenter className="h-3.5 w-3.5" />
         </Button>
         <Button
           type="button" variant="ghost" size="icon" className={cn("h-7 w-7", editor.isActive({ textAlign: "right" }) && "bg-accent")}
           onClick={() => editor.chain().focus().setTextAlign("right").run()}
-          title="Zarovnať vpravo"
+          title={t.nexusOmni.editor.alignRight}
         >
           <AlignRight className="h-3.5 w-3.5" />
         </Button>
         <Button
           type="button" variant="ghost" size="icon" className={cn("h-7 w-7", editor.isActive({ textAlign: "justify" }) && "bg-accent")}
           onClick={() => editor.chain().focus().setTextAlign("justify").run()}
-          title="Do bloku"
+          title={t.nexusOmni.editor.alignJustify}
         >
           <AlignJustify className="h-3.5 w-3.5" />
         </Button>
@@ -388,7 +391,7 @@ export default function EmailEditor({
 
         <Popover open={colorOpen} onOpenChange={setColorOpen}>
           <PopoverTrigger asChild>
-            <Button type="button" variant="ghost" size="icon" className="h-7 w-7" title="Farba textu">
+            <Button type="button" variant="ghost" size="icon" className="h-7 w-7" title={t.nexusOmni.editor.bold}>
               <Paintbrush className="h-3.5 w-3.5" />
             </Button>
           </PopoverTrigger>
@@ -404,7 +407,7 @@ export default function EmailEditor({
               ))}
             </div>
             <button className="mt-2 w-full text-xs text-muted-foreground hover:text-foreground text-center py-1" onClick={() => { editor.chain().focus().unsetColor().run(); setColorOpen(false); }}>
-              Zrušiť farbu
+              {t.nexusOmni.editor.resetColor}
             </button>
           </PopoverContent>
         </Popover>
@@ -413,7 +416,7 @@ export default function EmailEditor({
 
         <Popover open={linkOpen} onOpenChange={setLinkOpen}>
           <PopoverTrigger asChild>
-            <Button type="button" variant="ghost" size="icon" className={cn("h-7 w-7", editor.isActive("link") && "bg-accent")} title="Odkaz">
+            <Button type="button" variant="ghost" size="icon" className={cn("h-7 w-7", editor.isActive("link") && "bg-accent")} title="Link">
               <LinkIcon className="h-3.5 w-3.5" />
             </Button>
           </PopoverTrigger>
@@ -431,21 +434,21 @@ export default function EmailEditor({
           </PopoverContent>
         </Popover>
         {editor.isActive("link") && (
-          <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => editor.chain().focus().unsetLink().run()} title="Odstrániť odkaz">
+          <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => editor.chain().focus().unsetLink().run()} title={t.nexusOmni.editor.removeLink}>
             <Unlink className="h-3.5 w-3.5" />
           </Button>
         )}
 
         <Popover open={imageOpen} onOpenChange={setImageOpen}>
           <PopoverTrigger asChild>
-            <Button type="button" variant="ghost" size="icon" className="h-7 w-7" title="Vložiť obrázok">
+            <Button type="button" variant="ghost" size="icon" className="h-7 w-7" title={t.nexusOmni.editor.insertImage}>
               <ImageIcon className="h-3.5 w-3.5" />
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-72 p-2 space-y-2" align="start">
             <div className="flex gap-1">
               <Input
-                placeholder="URL obrázka..."
+                placeholder={t.nexusOmni.editor.imageUrl}
                 value={imageUrl}
                 onChange={(e) => setImageUrl(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleImageInsert()}
@@ -461,7 +464,7 @@ export default function EmailEditor({
               onClick={() => imageFileRef.current?.click()}
             >
               <Upload className="h-3.5 w-3.5 mr-2" />
-              Nahrať zo súboru
+              {t.nexusOmni.editor.uploadFromFile}
             </Button>
             <input ref={imageFileRef} type="file" accept="image/*" className="hidden" onChange={handleImageFileSelect} />
           </PopoverContent>
@@ -470,24 +473,24 @@ export default function EmailEditor({
         <Button
           type="button" variant="ghost" size="icon" className="h-7 w-7"
           onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}
-          title="Vložiť tabuľku"
+          title={t.nexusOmni.editor.insertTable}
         >
           <TableIcon className="h-3.5 w-3.5" />
         </Button>
 
         <Separator orientation="vertical" className="h-5 mx-0.5" />
 
-        <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => editor.chain().focus().undo().run()} disabled={!editor.can().undo()} title="Späť">
+        <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => editor.chain().focus().undo().run()} disabled={!editor.can().undo()} title={t.nexusOmni.editor.undo}>
           <Undo2 className="h-3.5 w-3.5" />
         </Button>
-        <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => editor.chain().focus().redo().run()} disabled={!editor.can().redo()} title="Vpred">
+        <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => editor.chain().focus().redo().run()} disabled={!editor.can().redo()} title="Redo">
           <Redo2 className="h-3.5 w-3.5" />
         </Button>
 
         {showAttachments && (
           <>
             <Separator orientation="vertical" className="h-5 mx-0.5" />
-            <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => fileInputRef.current?.click()} title="Pridať prílohu">
+            <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => fileInputRef.current?.click()} title={t.nexusOmni.editor.addAttachment}>
               <Paperclip className="h-3.5 w-3.5" />
             </Button>
             <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFileSelect} />
@@ -505,11 +508,11 @@ export default function EmailEditor({
                 className="h-7 gap-1 text-xs px-2 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/30"
                 onClick={onAiSuggest}
                 disabled={aiLoading}
-                title="Generovať odpoveď pomocou AI"
+                title={t.nexusOmni.editor.generateReply}
                 data-testid="button-ai-suggest"
               >
                 {aiLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-                Generovať odpoveď
+                {t.nexusOmni.ai.generateReply}
               </Button>
             )}
             {onAiSummary && (
@@ -520,7 +523,7 @@ export default function EmailEditor({
                 className="h-7 gap-1 text-xs px-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30"
                 onClick={onAiSummary}
                 disabled={aiSummaryLoading}
-                title="Zhrnutie emailovej konverzácie"
+                title={t.nexusOmni.editor.conversationSummary}
                 data-testid="button-ai-summary"
               >
                 {aiSummaryLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}

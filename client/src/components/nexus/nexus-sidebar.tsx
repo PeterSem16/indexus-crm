@@ -48,6 +48,7 @@ import {
   Layers,
 } from "lucide-react";
 import type { MailFolder, SmsMessage, Task, ChatConversation, NexusTab, TaskFilter, SmsFilter } from "./nexus-types";
+import { useI18n } from "@/i18n/I18nProvider";
 
 export interface AccountIconConfig {
   email: string;
@@ -79,23 +80,28 @@ const ACCOUNT_ICON_MAP: Record<string, React.ComponentType<{ className?: string 
   users: Users,
 };
 
-export const ACCOUNT_ICONS: { key: string; label: string }[] = [
-  { key: "mail", label: "Obálka" },
-  { key: "inbox", label: "Inbox" },
-  { key: "user", label: "Osoba" },
-  { key: "users", label: "Tím" },
-  { key: "office", label: "Kancelária" },
-  { key: "globe", label: "Svet" },
-  { key: "briefcase", label: "Kufrík" },
-  { key: "shield", label: "Štít" },
-  { key: "heart", label: "Srdce" },
-  { key: "star", label: "Hviezda" },
-  { key: "fire", label: "Oheň" },
-  { key: "bell", label: "Zvonček" },
-  { key: "gem", label: "Drahokam" },
-  { key: "rocket", label: "Raketa" },
-  { key: "crown", label: "Koruna" },
-];
+export const ACCOUNT_ICON_KEYS = ["mail", "inbox", "user", "users", "office", "globe", "briefcase", "shield", "heart", "star", "fire", "bell", "gem", "rocket", "crown"];
+
+export function getAccountIcons(t: any): { key: string; label: string }[] {
+  const c = t.nexusOmni.common;
+  return [
+    { key: "mail", label: c.iconEnvelope },
+    { key: "inbox", label: c.iconInbox },
+    { key: "user", label: c.iconPerson },
+    { key: "users", label: c.iconTeam },
+    { key: "office", label: c.iconOffice },
+    { key: "globe", label: c.iconWorld },
+    { key: "briefcase", label: c.iconBriefcase },
+    { key: "shield", label: c.iconShield },
+    { key: "heart", label: c.iconHeart },
+    { key: "star", label: c.iconStar },
+    { key: "fire", label: c.iconFire },
+    { key: "bell", label: c.iconBell },
+    { key: "gem", label: c.iconGem },
+    { key: "rocket", label: c.iconRocket },
+    { key: "crown", label: c.iconCrown },
+  ];
+}
 
 export function AccountIcon({ iconKey, className }: { iconKey: string; className?: string }) {
   const IconComponent = ACCOUNT_ICON_MAP[iconKey] || Mail;
@@ -126,17 +132,19 @@ interface NexusSidebarProps {
   mailboxUnreadCounts?: Record<string, number>;
 }
 
-const WELL_KNOWN_FOLDERS: Record<string, { icon: React.ReactNode; iconCollapsed: React.ReactNode; label: string; order: number }> = {
-  inbox: { icon: <Inbox className="h-4 w-4" />, iconCollapsed: <Inbox className="h-5 w-5" />, label: "Doručená pošta", order: 0 },
-  sentitems: { icon: <Send className="h-4 w-4" />, iconCollapsed: <Send className="h-5 w-5" />, label: "Odoslané", order: 1 },
-  drafts: { icon: <FileText className="h-4 w-4" />, iconCollapsed: <FileText className="h-5 w-5" />, label: "Koncepty", order: 2 },
-  junkemail: { icon: <Archive className="h-4 w-4" />, iconCollapsed: <Archive className="h-5 w-5" />, label: "Spam", order: 3 },
-  deleteditems: { icon: <Trash2 className="h-4 w-4" />, iconCollapsed: <Trash2 className="h-5 w-5" />, label: "Kôš", order: 4 },
-  archive: { icon: <Archive className="h-4 w-4" />, iconCollapsed: <Archive className="h-5 w-5" />, label: "Archív", order: 5 },
-};
+function getWellKnownFolders(t: any): Record<string, { icon: React.ReactNode; iconCollapsed: React.ReactNode; label: string; order: number }> {
+  return {
+    inbox: { icon: <Inbox className="h-4 w-4" />, iconCollapsed: <Inbox className="h-5 w-5" />, label: t.nexusOmni.folders.inbox, order: 0 },
+    sentitems: { icon: <Send className="h-4 w-4" />, iconCollapsed: <Send className="h-5 w-5" />, label: t.nexusOmni.folders.sent, order: 1 },
+    drafts: { icon: <FileText className="h-4 w-4" />, iconCollapsed: <FileText className="h-5 w-5" />, label: t.nexusOmni.folders.drafts, order: 2 },
+    junkemail: { icon: <Archive className="h-4 w-4" />, iconCollapsed: <Archive className="h-5 w-5" />, label: t.nexusOmni.folders.spam, order: 3 },
+    deleteditems: { icon: <Trash2 className="h-4 w-4" />, iconCollapsed: <Trash2 className="h-5 w-5" />, label: t.nexusOmni.folders.trash, order: 4 },
+    archive: { icon: <Archive className="h-4 w-4" />, iconCollapsed: <Archive className="h-5 w-5" />, label: t.nexusOmni.folders.archive, order: 5 },
+  };
+}
 
-function getWellKnownKey(folder: MailFolder): string | null {
-  if (folder.wellKnownName && WELL_KNOWN_FOLDERS[folder.wellKnownName]) return folder.wellKnownName;
+function getWellKnownKey(folder: MailFolder, wellKnownFolders: Record<string, any>): string | null {
+  if (folder.wellKnownName && wellKnownFolders[folder.wellKnownName]) return folder.wellKnownName;
   const nameMap: Record<string, string> = {
     "Inbox": "inbox", "Doručená pošta": "inbox",
     "Sent Items": "sentitems", "Odoslané": "sentitems", "Odoslaná pošta": "sentitems",
@@ -171,17 +179,19 @@ export default function NexusSidebar({
   onSelectMailbox,
   mailboxUnreadCounts,
 }: NexusSidebarProps) {
+  const { t } = useI18n();
   const [showOtherFolders, setShowOtherFolders] = useState(false);
+  const WELL_KNOWN_FOLDERS = getWellKnownFolders(t);
 
   const wellKnownFolders = folders
-    .filter(f => !f.isChildFolder && getWellKnownKey(f) !== null)
+    .filter(f => !f.isChildFolder && getWellKnownKey(f, WELL_KNOWN_FOLDERS) !== null)
     .sort((a, b) => {
-      const aKey = getWellKnownKey(a)!;
-      const bKey = getWellKnownKey(b)!;
+      const aKey = getWellKnownKey(a, WELL_KNOWN_FOLDERS)!;
+      const bKey = getWellKnownKey(b, WELL_KNOWN_FOLDERS)!;
       return (WELL_KNOWN_FOLDERS[aKey]?.order ?? 99) - (WELL_KNOWN_FOLDERS[bKey]?.order ?? 99);
     });
 
-  const otherFolders = folders.filter(f => !f.isChildFolder && getWellKnownKey(f) === null);
+  const otherFolders = folders.filter(f => !f.isChildFolder && getWellKnownKey(f, WELL_KNOWN_FOLDERS) === null);
 
   const smsInboundCount = smsData?.filter(s => s.direction === "inbound" && s.deliveryStatus !== "read")?.length || 0;
   const smsTotal = smsData?.length || 0;
@@ -194,11 +204,11 @@ export default function NexusSidebar({
   const totalTasks = tasksData?.length || 0;
 
   const tabConfig: Record<NexusTab, { title: string; icon: React.ReactNode }> = {
-    email: { title: "E-mail", icon: <Mail className="h-3.5 w-3.5 text-blue-500" /> },
-    sms: { title: "SMS", icon: <MessageSquare className="h-3.5 w-3.5 text-cyan-500" /> },
-    tasks: { title: "Úlohy", icon: <ListTodo className="h-3.5 w-3.5 text-amber-500" /> },
-    chats: { title: "Chaty", icon: <MessagesSquare className="h-3.5 w-3.5 text-violet-500" /> },
-    teams: { title: "Teams", icon: <MessagesSquare className="h-3.5 w-3.5 text-indigo-500" /> },
+    email: { title: t.nexusOmni.tabs.email, icon: <Mail className="h-3.5 w-3.5 text-blue-500" /> },
+    sms: { title: t.nexusOmni.tabs.sms, icon: <MessageSquare className="h-3.5 w-3.5 text-cyan-500" /> },
+    tasks: { title: t.nexusOmni.tabs.tasks, icon: <ListTodo className="h-3.5 w-3.5 text-amber-500" /> },
+    chats: { title: t.nexusOmni.tabs.chats, icon: <MessagesSquare className="h-3.5 w-3.5 text-violet-500" /> },
+    teams: { title: t.nexusOmni.tabs.teams, icon: <MessagesSquare className="h-3.5 w-3.5 text-indigo-500" /> },
   };
 
   if (collapsed) {
@@ -211,7 +221,7 @@ export default function NexusSidebar({
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="right" className="text-xs">Rozbaliť panel</TooltipContent>
+            <TooltipContent side="right" className="text-xs">{t.nexusOmni.common.expandPanel}</TooltipContent>
           </Tooltip>
 
           {activeTab === "email" && (
@@ -221,7 +231,7 @@ export default function NexusSidebar({
               ) : (
                 <>
                   {wellKnownFolders.map(folder => {
-                    const wkKey = getWellKnownKey(folder)!;
+                    const wkKey = getWellKnownKey(folder, WELL_KNOWN_FOLDERS)!;
                     const config = WELL_KNOWN_FOLDERS[wkKey];
                     const isActive = selectedFolderId === folder.id;
                     return (
@@ -262,7 +272,7 @@ export default function NexusSidebar({
                           <FolderOpen className="h-5 w-5" />
                         </button>
                       </TooltipTrigger>
-                      <TooltipContent side="right" className="text-xs">Ďalšie priečinky ({otherFolders.length})</TooltipContent>
+                      <TooltipContent side="right" className="text-xs">{t.nexusOmni.folders.otherFolders} ({otherFolders.length})</TooltipContent>
                     </Tooltip>
                   )}
                 </>
@@ -287,7 +297,7 @@ export default function NexusSidebar({
                     )}
                   </button>
                 </TooltipTrigger>
-                <TooltipContent side="right" className="text-xs">Všetky SMS ({smsTotal})</TooltipContent>
+                <TooltipContent side="right" className="text-xs">{t.nexusOmni.sms.allSms} ({smsTotal})</TooltipContent>
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -299,7 +309,7 @@ export default function NexusSidebar({
                     <ArrowDownLeft className="h-5 w-5" />
                   </button>
                 </TooltipTrigger>
-                <TooltipContent side="right" className="text-xs">Prijaté ({smsInboundTotal})</TooltipContent>
+                <TooltipContent side="right" className="text-xs">{t.nexusOmni.sms.received} ({smsInboundTotal})</TooltipContent>
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -311,7 +321,7 @@ export default function NexusSidebar({
                     <ArrowUpRight className="h-5 w-5" />
                   </button>
                 </TooltipTrigger>
-                <TooltipContent side="right" className="text-xs">Odoslané ({smsOutboundTotal})</TooltipContent>
+                <TooltipContent side="right" className="text-xs">{t.nexusOmni.common.sent} ({smsOutboundTotal})</TooltipContent>
               </Tooltip>
             </>
           )}
@@ -328,7 +338,7 @@ export default function NexusSidebar({
                     <ListTodo className="h-5 w-5" />
                   </button>
                 </TooltipTrigger>
-                <TooltipContent side="right" className="text-xs">Všetky úlohy ({totalTasks})</TooltipContent>
+                <TooltipContent side="right" className="text-xs">{t.nexusOmni.tasks.allTasks} ({totalTasks})</TooltipContent>
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -345,7 +355,7 @@ export default function NexusSidebar({
                     )}
                   </button>
                 </TooltipTrigger>
-                <TooltipContent side="right" className="text-xs">Čakajúce ({pendingTasks})</TooltipContent>
+                <TooltipContent side="right" className="text-xs">{t.nexusOmni.tasks.pending} ({pendingTasks})</TooltipContent>
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -357,7 +367,7 @@ export default function NexusSidebar({
                     <CircleDashed className="h-5 w-5 text-blue-500" />
                   </button>
                 </TooltipTrigger>
-                <TooltipContent side="right" className="text-xs">Rozpracované ({inProgressTasks})</TooltipContent>
+                <TooltipContent side="right" className="text-xs">{t.nexusOmni.tasks.inProgress} ({inProgressTasks})</TooltipContent>
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -369,7 +379,7 @@ export default function NexusSidebar({
                     <CheckCircle2 className="h-5 w-5 text-emerald-500" />
                   </button>
                 </TooltipTrigger>
-                <TooltipContent side="right" className="text-xs">Dokončené ({completedTasks})</TooltipContent>
+                <TooltipContent side="right" className="text-xs">{t.nexusOmni.tasks.completed} ({completedTasks})</TooltipContent>
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -381,7 +391,7 @@ export default function NexusSidebar({
                     <XCircle className="h-5 w-5 text-red-400" />
                   </button>
                 </TooltipTrigger>
-                <TooltipContent side="right" className="text-xs">Zrušené ({cancelledTasks})</TooltipContent>
+                <TooltipContent side="right" className="text-xs">{t.nexusOmni.tasks.cancelled} ({cancelledTasks})</TooltipContent>
               </Tooltip>
             </>
           )}
@@ -405,7 +415,7 @@ export default function NexusSidebar({
                         )}
                       </button>
                     </TooltipTrigger>
-                    <TooltipContent side="right" className="text-xs">{chat.participantName || "Konverzácia"}</TooltipContent>
+                    <TooltipContent side="right" className="text-xs">{chat.participantName || t.nexusOmni.chats.internalChats}</TooltipContent>
                   </Tooltip>
                 ))
               ) : (
@@ -430,7 +440,7 @@ export default function NexusSidebar({
                       <Layers className="h-4 w-4 text-white" />
                     </button>
                   </TooltipTrigger>
-                  <TooltipContent side="right" className="text-xs">Všetky účty</TooltipContent>
+                  <TooltipContent side="right" className="text-xs">{t.nexusOmni.common.allAccounts}</TooltipContent>
                 </Tooltip>
               )}
               {mailboxes.map(mb => {
@@ -495,7 +505,7 @@ export default function NexusSidebar({
               ) : (
                 <>
                   {wellKnownFolders.map(folder => {
-                    const wkKey = getWellKnownKey(folder)!;
+                    const wkKey = getWellKnownKey(folder, WELL_KNOWN_FOLDERS)!;
                     const config = WELL_KNOWN_FOLDERS[wkKey];
                     const isInbox = wkKey === "inbox";
                     const childFolders = folders.filter(cf => cf.isChildFolder && cf.parentFolderId === folder.id);
@@ -537,7 +547,7 @@ export default function NexusSidebar({
                       >
                         {showOtherFolders ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
                         <FolderOpen className="h-3 w-3" />
-                        <span>Ďalšie priečinky ({otherFolders.length})</span>
+                        <span>{t.nexusOmni.folders.otherFolders} ({otherFolders.length})</span>
                       </button>
                       {showOtherFolders && (
                         <div className="space-y-0.5 mt-0.5">
@@ -585,7 +595,7 @@ export default function NexusSidebar({
             <>
               <SidebarItem
                 icon={<MessageSquare className="h-4 w-4" />}
-                label="Všetky SMS"
+                label={t.nexusOmni.sms.allSms}
                 count={smsTotal}
                 badge={smsInboundCount > 0 ? smsInboundCount : undefined}
                 badgeVariant="primary"
@@ -595,7 +605,7 @@ export default function NexusSidebar({
               />
               <SidebarItem
                 icon={<ArrowDownLeft className="h-4 w-4" />}
-                label="Prijaté"
+                label={t.nexusOmni.sms.received}
                 count={smsInboundTotal}
                 active={smsFilter === "inbound"}
                 onClick={() => onSmsFilterChange("inbound")}
@@ -604,7 +614,7 @@ export default function NexusSidebar({
               />
               <SidebarItem
                 icon={<ArrowUpRight className="h-4 w-4" />}
-                label="Odoslané"
+                label={t.nexusOmni.common.sent}
                 count={smsOutboundTotal}
                 active={smsFilter === "outbound"}
                 onClick={() => onSmsFilterChange("outbound")}
@@ -618,7 +628,7 @@ export default function NexusSidebar({
             <>
               <SidebarItem
                 icon={<ListTodo className="h-4 w-4" />}
-                label="Všetky úlohy"
+                label={t.nexusOmni.tasks.allTasks}
                 count={totalTasks}
                 active={taskFilter === "all"}
                 onClick={() => onTaskFilterChange("all")}
@@ -627,7 +637,7 @@ export default function NexusSidebar({
               <div className="my-1 mx-2 border-t" />
               <SidebarItem
                 icon={<Clock className="h-3.5 w-3.5 text-amber-500" />}
-                label="Čakajúce"
+                label={t.nexusOmni.tasks.pending}
                 count={pendingTasks}
                 badge={pendingTasks > 0 ? pendingTasks : undefined}
                 badgeVariant="primary"
@@ -638,7 +648,7 @@ export default function NexusSidebar({
               />
               <SidebarItem
                 icon={<CircleDashed className="h-3.5 w-3.5 text-blue-500" />}
-                label="Rozpracované"
+                label={t.nexusOmni.tasks.inProgress}
                 count={inProgressTasks}
                 active={taskFilter === "in_progress"}
                 onClick={() => onTaskFilterChange("in_progress")}
@@ -647,7 +657,7 @@ export default function NexusSidebar({
               />
               <SidebarItem
                 icon={<CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />}
-                label="Dokončené"
+                label={t.nexusOmni.tasks.completed}
                 count={completedTasks}
                 active={taskFilter === "completed"}
                 onClick={() => onTaskFilterChange("completed")}
@@ -656,7 +666,7 @@ export default function NexusSidebar({
               />
               <SidebarItem
                 icon={<XCircle className="h-3.5 w-3.5 text-red-400" />}
-                label="Zrušené"
+                label={t.nexusOmni.tasks.cancelled}
                 count={cancelledTasks}
                 active={taskFilter === "cancelled"}
                 onClick={() => onTaskFilterChange("cancelled")}
@@ -673,7 +683,7 @@ export default function NexusSidebar({
                   <SidebarItem
                     key={chat.id}
                     icon={<MessagesSquare className="h-3.5 w-3.5" />}
-                    label={chat.participantName || "Konverzácia"}
+                    label={chat.participantName || t.nexusOmni.chats.internalChats}
                     badge={chat.unreadCount > 0 ? chat.unreadCount : undefined}
                     badgeVariant="primary"
                     active={selectedChatId === chat.id}
@@ -685,7 +695,7 @@ export default function NexusSidebar({
               ) : (
                 <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
                   <MessagesSquare className="h-8 w-8 mb-2 opacity-30" />
-                  <span className="text-xs">Žiadne konverzácie</span>
+                  <span className="text-xs">{t.nexusOmni.chats.noConversations}</span>
                 </div>
               )}
             </>
@@ -705,7 +715,7 @@ export default function NexusSidebar({
               <span className="relative h-7 w-7 rounded-full flex items-center justify-center shrink-0 bg-gradient-to-br from-blue-500 to-violet-500">
                 <Layers className="h-3.5 w-3.5 text-white" />
               </span>
-              <span className="truncate text-xs">Všetky účty</span>
+              <span className="truncate text-xs">{t.nexusOmni.common.allAccounts}</span>
             </button>
           )}
           {mailboxes.map(mb => {
@@ -733,7 +743,7 @@ export default function NexusSidebar({
                   )}
                 </span>
                 <span className="truncate text-xs">{mb.displayName || mb.email}</span>
-                {mb.isDefault && <span className="text-[9px] text-muted-foreground ml-auto shrink-0">Predvolená</span>}
+                {mb.isDefault && <span className="text-[9px] text-muted-foreground ml-auto shrink-0">{t.nexusOmni.settings.defaultTag}</span>}
               </button>
             );
           })}

@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { useI18n } from "@/i18n/I18nProvider";
 import { useMutation } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -76,6 +77,7 @@ function MessageDetailDialog({
   messages,
   onSend,
   isPending,
+  t,
 }: {
   message: Message | null;
   open: boolean;
@@ -85,6 +87,7 @@ function MessageDetailDialog({
   messages: Message[];
   onSend: (query: string) => void;
   isPending: boolean;
+  t: any;
 }) {
   const [followUpInput, setFollowUpInput] = useState("");
   const { toast } = useToast();
@@ -93,7 +96,7 @@ function MessageDetailDialog({
 
   const handleCopy = () => {
     navigator.clipboard.writeText(message.content);
-    toast({ title: "Skopirované", description: "Správa bola skopírovaná do schránky" });
+    toast({ title: t.nexusOmni.nexusChat.copied, description: t.nexusOmni.nexusChat.messageCopied });
   };
 
   const handleSendFollowUp = () => {
@@ -112,7 +115,7 @@ function MessageDetailDialog({
               <div>
                 <span className="text-base font-semibold">NEXUS</span>
                 <p className="text-[10px] font-normal text-muted-foreground">
-                  Detail správy + Nastavenia
+                  {t.nexusOmni.nexusChat.messageDetail}
                 </p>
               </div>
             </div>
@@ -121,7 +124,7 @@ function MessageDetailDialog({
                 variant="ghost"
                 size="icon"
                 onClick={handleCopy}
-                title="Kopírovať správu"
+                title={t.nexusOmni.nexusChat.copyMessage}
                 data-testid="button-nexus-copy"
               >
                 <Copy className="h-4 w-4" />
@@ -156,7 +159,7 @@ function MessageDetailDialog({
                     <div className="space-y-3">
                       <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
                         <MessageSquare className="h-3 w-3" />
-                        Konverzácia ({messages.length})
+                        {t.nexusOmni.nexusChat.conversation} ({messages.length})
                       </h4>
                       {messages.slice(-6).map((msg) => (
                         <div
@@ -200,7 +203,7 @@ function MessageDetailDialog({
                       handleSendFollowUp();
                     }
                   }}
-                  placeholder="Opýtajte sa ďalej..."
+                  placeholder={t.nexusOmni.nexusChat.askMore}
                   className="min-h-[60px] max-h-[100px] resize-none text-sm"
                   disabled={isPending}
                   data-testid="input-nexus-followup"
@@ -262,8 +265,8 @@ function MessageDetailDialog({
                     data-testid="slider-nexus-temperature"
                   />
                   <div className="flex justify-between text-[9px] text-muted-foreground">
-                    <span>Presné</span>
-                    <span>Kreatívne</span>
+                    <span>{t.nexusOmni.nexusChat.precise}</span>
+                    <span>{t.nexusOmni.nexusChat.creative}</span>
                   </div>
                 </div>
 
@@ -308,11 +311,11 @@ function MessageDetailDialog({
                 <Separator />
 
                 <div className="space-y-2">
-                  <Label className="text-xs">Systémový prompt (voliteľné)</Label>
+                  <Label className="text-xs">{t.nexusOmni.nexusChat.systemPrompt}</Label>
                   <Textarea
                     value={settings.systemPrompt}
                     onChange={(e) => onSettingsChange({ ...settings, systemPrompt: e.target.value })}
-                    placeholder="Vlastné inštrukcie pre NEXUS..."
+                    placeholder={t.nexusOmni.nexusChat.customInstructions}
                     className="min-h-[80px] text-xs resize-none"
                     data-testid="input-nexus-system-prompt"
                   />
@@ -326,7 +329,7 @@ function MessageDetailDialog({
                   data-testid="button-nexus-reset-settings"
                 >
                   <RotateCcw className="h-3 w-3" />
-                  Obnoviť predvolené
+                  {t.nexusOmni.nexusChat.resetDefaults}
                 </Button>
               </div>
             </ScrollArea>
@@ -338,6 +341,7 @@ function MessageDetailDialog({
 }
 
 export function NexusChat({ open, onOpenChange }: NexusChatProps) {
+  const { t } = useI18n();
   const { toast } = useToast();
 
   const getWelcomeMessage = () => {
@@ -521,7 +525,7 @@ export function NexusChat({ open, onOpenChange }: NexusChatProps) {
 
           <div className="px-4 pb-1 pt-0">
             <p className="text-[9px] text-muted-foreground text-center">
-              Dvojklik na správu pre detail a nastavenia
+              {t.nexusOmni.nexusChat.messageDetail}
             </p>
           </div>
 
@@ -563,6 +567,7 @@ export function NexusChat({ open, onOpenChange }: NexusChatProps) {
         messages={messages}
         onSend={(query) => handleSend(query)}
         isPending={queryMutation.isPending}
+        t={t}
       />
     </>
   );
