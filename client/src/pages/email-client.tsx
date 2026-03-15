@@ -162,6 +162,8 @@ function TeamsPanel({ userId }: { userId?: string }) {
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
   const [teamsView, setTeamsView] = useState<"chats" | "teams">("chats");
   const [chatInput, setChatInput] = useState("");
+  const [smsReplyText, setSmsReplyText] = useState("");
+  const [smsReplySending, setSmsReplySending] = useState(false);
   const { toast } = useToast();
 
   const { data: chatsData, isLoading: chatsLoading, error: chatsError } = useQuery<{ connected: boolean; chats: any[]; error?: string | null; requiredPermissions?: string[] }>({
@@ -930,10 +932,11 @@ export default function EmailClientPage() {
           if (searchDateTo) params.set("dateTo", searchDateTo);
           const response = await fetch(`/api/users/${user?.id}/ms365-search-emails?${params.toString()}`);
           const data = await response.json();
-          const taggedEmails = (data.emails || []).map((e: EmailMessage) => ({ ...e, _mailboxEmail: mbx }));
+          const actualEmail = mbx === "personal" ? (mailboxes.find(m => m.type === "personal")?.email || mbx) : mbx;
+          const taggedEmails = (data.emails || []).map((e: EmailMessage) => ({ ...e, _mailboxEmail: actualEmail }));
           results.push({
             emails: taggedEmails,
-            mailbox: mbx === "personal" ? (mailboxes.find(m => m.type === "personal")?.email || "Osobná schránka") : mbx
+            mailbox: actualEmail
           });
         } catch {
           results.push({ emails: [], mailbox: mbx });
@@ -2659,6 +2662,12 @@ export default function EmailClientPage() {
 
                 {(() => {
                   const q = smartSearchQuery.toLowerCase().trim();
+                  const matchedEmails = accumulatedEmails.filter(e =>
+                    (e.subject || "").toLowerCase().includes(q) ||
+                    (e.from?.emailAddress?.name || "").toLowerCase().includes(q) ||
+                    (e.from?.emailAddress?.address || "").toLowerCase().includes(q) ||
+                    (e.bodyPreview || "").toLowerCase().includes(q)
+                  ).slice(0, 5);
                   const matchedSms = (smsData || []).filter(s => {
                     const phone = s.direction === "inbound" ? s.senderPhone : s.recipientPhone;
                     const custName = s.customer ? `${s.customer.firstName} ${s.customer.lastName}` : "";
@@ -2672,6 +2681,38 @@ export default function EmailClientPage() {
                   ).slice(0, 5);
                   return (
                     <>
+                      {matchedEmails.length > 0 && (
+                        <>
+                          <div className="px-3 py-1 mt-1">
+                            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                              <Mail className="h-3 w-3" /> Emaily ({matchedEmails.length})
+                            </span>
+                          </div>
+                          {matchedEmails.map(email => {
+                            const emColor = email._mailboxEmail ? (accountConfigs[email._mailboxEmail]?.color || mailboxColorMap[email._mailboxEmail] || undefined) : undefined;
+                            const emTint = email._mailboxEmail ? getAccountTint(email._mailboxEmail) : undefined;
+                            return (
+                            <button
+                              key={email.id}
+                              onClick={() => { setActiveTab("email"); setSelectedEmail(email); setSmartSearchOpen(false); setSmartSearchQuery(""); }}
+                              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-accent transition-all text-left group relative overflow-hidden"
+                              style={emTint ? { backgroundColor: emTint } : undefined}
+                              data-testid={`search-email-quick-${email.id}`}
+                            >
+                              {emColor && <span className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-sm" style={{ backgroundColor: emColor }} />}
+                              <div className="h-8 w-8 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: emColor || "hsl(var(--muted))" }}>
+                                <AccountIcon iconKey={email._mailboxEmail ? (accountConfigs[email._mailboxEmail]?.icon || "mail") : "mail"} className="h-3.5 w-3.5 text-white" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm truncate">{email.from?.emailAddress?.name || email.from?.emailAddress?.address || "Neznámy"}</p>
+                                <p className="text-[11px] text-muted-foreground truncate">{email.subject || "(Bez predmetu)"}</p>
+                              </div>
+                              <span className="text-[10px] text-muted-foreground shrink-0">{format(new Date(email.receivedDateTime), "d.M. HH:mm")}</span>
+                            </button>
+                            );
+                          })}
+                        </>
+                      )}
                       {matchedSms.length > 0 && (
                         <>
                           <div className="px-3 py-1 mt-1">
@@ -3686,6 +3727,64 @@ export default function EmailClientPage() {
             </div>
           </div>
         </ScrollArea>
+        {(() => {
+          const replyPhone = selectedSms.direction === "inbound" ? selectedSms.senderPhone : selectedSms.recipientPhone;
+          if (!replyPhone) return null;
+          return (
+            <div className="p-3 border-t flex gap-2" data-testid="sms-reply-bar">
+              <Input
+                placeholder={`Odpovedať na ${replyPhone}...`}
+                value={smsReplyText}
+                onChange={(e) => setSmsReplyText(e.target.value)}
+                maxLength={160}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && smsReplyText.trim() && !smsReplySending) {
+                    e.preventDefault();
+                    setSmsReplySending(true);
+                    fetch("/api/send-sms", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ to: replyPhone, message: smsReplyText.trim(), customerId: selectedSms.customer?.id || null }),
+                    })
+                      .then(r => r.json())
+                      .then(data => {
+                        if (data.error) throw new Error(data.error);
+                        toast({ title: "SMS odoslaná", description: `Správa odoslaná na ${replyPhone}` });
+                        setSmsReplyText("");
+                      })
+                      .catch(err => toast({ title: "Chyba", description: err.message, variant: "destructive" }))
+                      .finally(() => setSmsReplySending(false));
+                  }
+                }}
+                data-testid="sms-reply-input"
+              />
+              <Button
+                size="sm"
+                disabled={!smsReplyText.trim() || smsReplySending}
+                onClick={() => {
+                  if (!smsReplyText.trim() || smsReplySending) return;
+                  setSmsReplySending(true);
+                  fetch("/api/send-sms", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ to: replyPhone, message: smsReplyText.trim(), customerId: selectedSms.customer?.id || null }),
+                  })
+                    .then(r => r.json())
+                    .then(data => {
+                      if (data.error) throw new Error(data.error);
+                      toast({ title: "SMS odoslaná", description: `Správa odoslaná na ${replyPhone}` });
+                      setSmsReplyText("");
+                    })
+                    .catch(err => toast({ title: "Chyba", description: err.message, variant: "destructive" }))
+                    .finally(() => setSmsReplySending(false));
+                }}
+                data-testid="sms-reply-send"
+              >
+                {smsReplySending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              </Button>
+            </div>
+          );
+        })()}
       </div>
     );
   }
