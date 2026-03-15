@@ -645,6 +645,8 @@ export default function EmailClientPage() {
     queryKey: ["/api/users", user?.id, "ms365-folder-messages", selectedFolderId, selectedMailbox, page],
     queryFn: async () => {
       if (selectedMailbox === "all" && mailboxes.length > 1) {
+        const selectedFolderObj = folders.find(f => f.id === selectedFolderId);
+        const selectedFolderName = selectedFolderObj?.displayName || "Inbox";
         const perMb = Math.max(10, Math.floor(pageSize / mailboxes.length));
         const perMbSkip = Math.floor((page * pageSize) / mailboxes.length);
         const results = await Promise.all(
@@ -653,9 +655,11 @@ export default function EmailClientPage() {
             try {
               const foldersRes = await fetch(`/api/users/${user?.id}/ms365-folders?mailbox=${mbParam}`);
               const foldersJson = await foldersRes.json();
-              const inboxId = foldersJson.inboxId;
-              if (!inboxId) return { connected: false, emails: [], totalCount: 0 };
-              const msgsRes = await fetch(`/api/users/${user?.id}/ms365-folder-messages/${inboxId}?mailbox=${mbParam}&top=${perMb}&skip=${perMbSkip}`);
+              const mbFolders: MailFolder[] = foldersJson.folders || [];
+              const matchedFolder = mbFolders.find(f => f.displayName === selectedFolderName) || mbFolders.find(f => f.id === foldersJson.inboxId);
+              const targetFolderId = matchedFolder?.id || foldersJson.inboxId;
+              if (!targetFolderId) return { connected: false, emails: [], totalCount: 0 };
+              const msgsRes = await fetch(`/api/users/${user?.id}/ms365-folder-messages/${targetFolderId}?mailbox=${mbParam}&top=${perMb}&skip=${perMbSkip}`);
               const data = await msgsRes.json();
               return {
                 ...data,
@@ -1754,7 +1758,7 @@ export default function EmailClientPage() {
   return (
     <div className={cn(
       nexusFullscreen
-        ? "fixed inset-0 z-50 bg-background flex flex-col p-3 pt-1 overflow-hidden"
+        ? "fixed inset-0 z-50 bg-background flex flex-col p-3 pt-1 gap-2 overflow-hidden"
         : "space-y-3 mt-1"
     )}>
       <div className="flex items-center justify-between">
