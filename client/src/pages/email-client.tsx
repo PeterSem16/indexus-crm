@@ -115,6 +115,9 @@ import {
   Volume2,
   VolumeX,
   Check,
+  History,
+  Globe,
+  AtSign,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import EmailEditor, { EmailRecipientInput } from "@/components/nexus/email-editor";
@@ -580,6 +583,13 @@ export default function EmailClientPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [searchMailbox, setSearchMailbox] = useState<string>("all");
+  const [smartSearchOpen, setSmartSearchOpen] = useState(false);
+  const [smartSearchQuery, setSmartSearchQuery] = useState("");
+  const [smartSearchMailbox, setSmartSearchMailbox] = useState<string>("all");
+  const smartSearchInputRef = useRef<HTMLInputElement>(null);
+  const [recentSearches, setRecentSearches] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem("nexus-recent-searches") || "[]"); } catch { return []; }
+  });
   const [localPage, setLocalPage] = useState(0);
   const localPageSize = 25;
 
@@ -904,8 +914,9 @@ export default function EmailClientPage() {
         try {
           const response = await fetch(`/api/users/${user?.id}/ms365-search-emails?q=${encodeURIComponent(debouncedSearchQuery)}&mailbox=${mbx}&top=50`);
           const data = await response.json();
+          const taggedEmails = (data.emails || []).map((e: EmailMessage) => ({ ...e, _mailboxEmail: mbx }));
           results.push({
-            emails: data.emails || [],
+            emails: taggedEmails,
             mailbox: mbx === "personal" ? (mailboxes.find(m => m.type === "personal")?.email || "Osobná schránka") : mbx
           });
         } catch {
@@ -1168,6 +1179,86 @@ export default function EmailClientPage() {
       _setSelectedChat(null);
     }
   }, [selectedChatId, chatsData]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "k" && activeTab === "email") {
+        e.preventDefault();
+        setSmartSearchOpen(true);
+        setTimeout(() => smartSearchInputRef.current?.focus(), 100);
+      }
+      if (e.key === "Escape" && smartSearchOpen) {
+        setSmartSearchOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [smartSearchOpen, activeTab]);
+
+  const getSmartSuggestions = () => {
+    const suggestions: { label: string; query: string; icon: string; type: "sender" | "domain" | "subject" | "date" | "recent" | "attachment" }[] = [];
+
+    if (selectedEmail) {
+      const senderEmail = selectedEmail.from?.emailAddress?.address || "";
+      const senderName = selectedEmail.from?.emailAddress?.name || "";
+      const domain = senderEmail.split("@")[1] || "";
+      const subject = selectedEmail.subject || "";
+
+      if (senderEmail) {
+        suggestions.push({ label: `Emaily od ${senderName || senderEmail}`, query: `from:${senderEmail}`, icon: "user", type: "sender" });
+      }
+      if (domain && !["gmail.com", "outlook.com", "hotmail.com", "yahoo.com"].includes(domain)) {
+        suggestions.push({ label: `Emaily z domény @${domain}`, query: domain, icon: "globe", type: "domain" });
+      }
+      if (subject) {
+        const cleanSubject = subject.replace(/^(Re|Fwd|Odp|FW|RE|Fw):\s*/gi, "").trim();
+        if (cleanSubject.length > 3) {
+          suggestions.push({ label: `Konverzácia: "${cleanSubject.substring(0, 40)}${cleanSubject.length > 40 ? "..." : ""}"`, query: cleanSubject, icon: "message", type: "subject" });
+        }
+        const keywords = cleanSubject.split(/\s+/).filter(w => w.length > 4);
+        if (keywords.length > 0) {
+          const kw = keywords[0];
+          suggestions.push({ label: `Hľadať "${kw}"`, query: kw, icon: "tag", type: "subject" });
+        }
+      }
+      if (selectedEmail.hasAttachments) {
+        suggestions.push({ label: "Emaily s prílohami od tohto odosielateľa", query: `from:${senderEmail} hasAttachments:true`, icon: "paperclip", type: "attachment" });
+      }
+    }
+
+    suggestions.push({ label: "Emaily s prílohami", query: "hasAttachments:true", icon: "paperclip", type: "attachment" });
+    suggestions.push({ label: "Dôležité emaily", query: "importance:high", icon: "flame", type: "date" });
+
+    return suggestions;
+  };
+
+  const addRecentSearch = (query: string) => {
+    const trimmed = query.trim();
+    if (!trimmed || trimmed.length < 2) return;
+    setRecentSearches(prev => {
+      const updated = [trimmed, ...prev.filter(s => s !== trimmed)].slice(0, 10);
+      localStorage.setItem("nexus-recent-searches", JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const executeSmartSearch = (query: string, mailboxOverride?: string) => {
+    const trimmed = query.trim();
+    if (!trimmed || trimmed.length < 2) return;
+    addRecentSearch(trimmed);
+    setSearchQuery(trimmed);
+    setDebouncedSearchQuery(trimmed);
+    setSearchMailbox(mailboxOverride || smartSearchMailbox);
+    setIsSearching(true);
+    setSelectedEmail(null);
+    setSmartSearchOpen(false);
+    setSmartSearchQuery("");
+  };
+
+  const clearRecentSearches = () => {
+    setRecentSearches([]);
+    localStorage.removeItem("nexus-recent-searches");
+  };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -1613,6 +1704,19 @@ export default function EmailClientPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {activeTab === "email" && (
+            <button
+              onClick={() => { setSmartSearchOpen(true); setTimeout(() => smartSearchInputRef.current?.focus(), 100); }}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg border bg-muted/50 text-muted-foreground hover:bg-accent hover:text-foreground transition-all text-sm cursor-pointer"
+              data-testid="button-smart-search"
+            >
+              <Search className="h-3.5 w-3.5" />
+              <span className="hidden md:inline">Hľadať emaily...</span>
+              <kbd className="hidden md:inline-flex items-center gap-0.5 rounded border bg-muted px-1.5 text-[10px] font-mono text-muted-foreground">
+                Ctrl K
+              </kbd>
+            </button>
+          )}
           <Button variant="outline" size="icon" onClick={handleRefresh} data-testid="button-refresh">
             <RefreshCw className="h-4 w-4" />
           </Button>
@@ -2292,6 +2396,231 @@ export default function EmailClientPage() {
         )}
       </div>
 
+      <Dialog open={smartSearchOpen} onOpenChange={setSmartSearchOpen}>
+        <DialogContent className="max-w-xl p-0 gap-0 overflow-hidden" data-testid="smart-search-dialog">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Vyhľadávanie emailov</DialogTitle>
+            <DialogDescription>Inteligentné vyhľadávanie vo všetkých emailových schránkach</DialogDescription>
+          </DialogHeader>
+          <div className="p-4 border-b">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                ref={smartSearchInputRef}
+                placeholder="Hľadať vo všetkých emailových schránkach..."
+                value={smartSearchQuery}
+                onChange={(e) => setSmartSearchQuery(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") executeSmartSearch(smartSearchQuery); }}
+                className="pl-10 pr-4 h-10 text-sm"
+                autoFocus
+                data-testid="input-smart-search"
+              />
+            </div>
+            <div className="flex items-center gap-2 mt-2">
+              <span className="text-xs text-muted-foreground shrink-0">Schránka:</span>
+              <div className="flex flex-wrap gap-1">
+                <button
+                  onClick={() => setSmartSearchMailbox("all")}
+                  className={cn("px-2 py-0.5 rounded text-xs transition-all", smartSearchMailbox === "all" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-accent")}
+                  data-testid="smart-search-mailbox-all"
+                >
+                  Všetky
+                </button>
+                {mailboxes.map(m => {
+                  const key = m.type === "personal" ? "personal" : m.email;
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => setSmartSearchMailbox(key)}
+                      className={cn("px-2 py-0.5 rounded text-xs transition-all truncate max-w-32", smartSearchMailbox === key ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-accent")}
+                      data-testid={`smart-search-mailbox-${key}`}
+                    >
+                      {m.email.split("@")[0]}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          <ScrollArea className="max-h-[400px]">
+            <div className="p-2">
+              {smartSearchQuery.trim().length >= 2 && (
+                <button
+                  onClick={() => executeSmartSearch(smartSearchQuery)}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-accent transition-all text-left group"
+                  data-testid="smart-search-execute"
+                >
+                  <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                    <Search className="h-4 w-4 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">Hľadať "{smartSearchQuery}"</p>
+                    <p className="text-xs text-muted-foreground">Prehľadať {smartSearchMailbox === "all" ? "všetky schránky" : smartSearchMailbox}</p>
+                  </div>
+                  <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                </button>
+              )}
+
+              {selectedEmail && smartSearchQuery.length === 0 && (
+                <>
+                  <div className="px-3 py-1.5">
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                      <Sparkles className="h-3 w-3" />
+                      Návrhy na základe otvoreného emailu
+                    </span>
+                  </div>
+                  {getSmartSuggestions().map((suggestion, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => executeSmartSearch(suggestion.query)}
+                      className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-accent transition-all text-left group"
+                      data-testid={`smart-suggestion-${idx}`}
+                    >
+                      <div className={cn("h-8 w-8 rounded-lg flex items-center justify-center shrink-0",
+                        suggestion.type === "sender" ? "bg-blue-100 dark:bg-blue-900/30" :
+                        suggestion.type === "domain" ? "bg-purple-100 dark:bg-purple-900/30" :
+                        suggestion.type === "subject" ? "bg-amber-100 dark:bg-amber-900/30" :
+                        suggestion.type === "attachment" ? "bg-green-100 dark:bg-green-900/30" :
+                        "bg-muted"
+                      )}>
+                        {suggestion.icon === "user" && <User className={cn("h-4 w-4", "text-blue-600 dark:text-blue-400")} />}
+                        {suggestion.icon === "globe" && <Globe className={cn("h-4 w-4", "text-purple-600 dark:text-purple-400")} />}
+                        {suggestion.icon === "message" && <Mail className={cn("h-4 w-4", "text-amber-600 dark:text-amber-400")} />}
+                        {suggestion.icon === "tag" && <Tag className={cn("h-4 w-4", "text-amber-600 dark:text-amber-400")} />}
+                        {suggestion.icon === "paperclip" && <Paperclip className={cn("h-4 w-4", "text-green-600 dark:text-green-400")} />}
+                        {suggestion.icon === "flame" && <Flame className={cn("h-4 w-4", "text-red-600 dark:text-red-400")} />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm truncate">{suggestion.label}</p>
+                        <p className="text-[11px] text-muted-foreground truncate">{suggestion.query}</p>
+                      </div>
+                      <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </button>
+                  ))}
+                </>
+              )}
+
+              {!selectedEmail && smartSearchQuery.length === 0 && (
+                <>
+                  <div className="px-3 py-1.5">
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                      <Zap className="h-3 w-3" />
+                      Rýchle vyhľadávanie
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => executeSmartSearch("hasAttachments:true")}
+                    className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-accent transition-all text-left group"
+                    data-testid="quick-search-attachments"
+                  >
+                    <div className="h-8 w-8 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center shrink-0">
+                      <Paperclip className="h-4 w-4 text-green-600 dark:text-green-400" />
+                    </div>
+                    <p className="text-sm">Emaily s prílohami</p>
+                  </button>
+                  <button
+                    onClick={() => executeSmartSearch("importance:high")}
+                    className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-accent transition-all text-left group"
+                    data-testid="quick-search-important"
+                  >
+                    <div className="h-8 w-8 rounded-lg bg-red-100 dark:bg-red-900/30 flex items-center justify-center shrink-0">
+                      <Flame className="h-4 w-4 text-red-600 dark:text-red-400" />
+                    </div>
+                    <p className="text-sm">Dôležité emaily</p>
+                  </button>
+                </>
+              )}
+
+              {recentSearches.length > 0 && smartSearchQuery.length === 0 && (
+                <>
+                  <div className="px-3 py-1.5 mt-2 flex items-center justify-between">
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                      <History className="h-3 w-3" />
+                      Posledné vyhľadávania
+                    </span>
+                    <button onClick={clearRecentSearches} className="text-[10px] text-muted-foreground hover:text-foreground transition-colors" data-testid="clear-recent-searches">
+                      Vymazať
+                    </button>
+                  </div>
+                  {recentSearches.map((recent, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => executeSmartSearch(recent)}
+                      className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-accent transition-all text-left group"
+                      data-testid={`recent-search-${idx}`}
+                    >
+                      <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                        <History className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                      <p className="text-sm truncate flex-1">{recent}</p>
+                      <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </button>
+                  ))}
+                </>
+              )}
+
+              {smartSearchQuery.trim().length > 0 && smartSearchQuery.trim().length < 2 && (
+                <div className="flex flex-col items-center justify-center py-6 text-muted-foreground">
+                  <Search className="h-6 w-6 mb-2 opacity-40" />
+                  <p className="text-sm">Zadajte aspoň 2 znaky</p>
+                </div>
+              )}
+
+              {smartSearchQuery.trim().length >= 2 && (
+                <>
+                  {getSmartSuggestions().filter(s => s.label.toLowerCase().includes(smartSearchQuery.toLowerCase()) || s.query.toLowerCase().includes(smartSearchQuery.toLowerCase())).map((suggestion, idx) => (
+                    <button
+                      key={`filtered-${idx}`}
+                      onClick={() => executeSmartSearch(suggestion.query)}
+                      className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-accent transition-all text-left group"
+                      data-testid={`filtered-suggestion-${idx}`}
+                    >
+                      <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                        <Sparkles className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm truncate">{suggestion.label}</p>
+                      </div>
+                    </button>
+                  ))}
+
+                  {recentSearches.filter(r => r.toLowerCase().includes(smartSearchQuery.toLowerCase())).map((recent, idx) => (
+                    <button
+                      key={`recent-filtered-${idx}`}
+                      onClick={() => executeSmartSearch(recent)}
+                      className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-accent transition-all text-left group"
+                      data-testid={`recent-filtered-${idx}`}
+                    >
+                      <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                        <History className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                      <p className="text-sm truncate flex-1">{recent}</p>
+                    </button>
+                  ))}
+                </>
+              )}
+            </div>
+          </ScrollArea>
+
+          <div className="px-4 py-2 border-t bg-muted/30 flex items-center justify-between">
+            <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+              <span className="flex items-center gap-1"><kbd className="px-1 py-0.5 bg-muted border rounded text-[9px]">↵</kbd> Hľadať</span>
+              <span className="flex items-center gap-1"><kbd className="px-1 py-0.5 bg-muted border rounded text-[9px]">Esc</kbd> Zavrieť</span>
+            </div>
+            {isSearching && (
+              <button
+                onClick={() => { clearSearch(); setSmartSearchOpen(false); }}
+                className="text-xs text-primary hover:underline"
+                data-testid="clear-active-search"
+              >
+                Zrušiť aktívne vyhľadávanie
+              </button>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={composeOpen} onOpenChange={(open) => { setComposeOpen(open); if (!open) setComposeFullscreen(false); }}>
         <DialogContent className={cn(
           "flex flex-col gap-0 p-0",
@@ -2589,7 +2918,27 @@ export default function EmailClientPage() {
             </div>
           </div>
           <div className="text-sm">
-            <p><span className="text-muted-foreground">Od:</span> {emailDetail.from?.emailAddress?.name} &lt;{emailDetail.from?.emailAddress?.address}&gt;</p>
+            <p className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-muted-foreground">Od:</span>
+              <span>{emailDetail.from?.emailAddress?.name} &lt;{emailDetail.from?.emailAddress?.address}&gt;</span>
+              {emailDetail.from?.emailAddress?.address && (
+                <TooltipProvider delayDuration={200}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={() => executeSmartSearch(`from:${emailDetail.from.emailAddress.address}`, "all")}
+                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors text-[11px]"
+                        data-testid="quick-search-sender"
+                      >
+                        <Search className="h-3 w-3" />
+                        Ďalšie
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="text-xs">Zobraziť ďalšie emaily od tohto odosielateľa</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+            </p>
             <p><span className="text-muted-foreground">Komu:</span> {emailDetail.toRecipients?.map(r => r.emailAddress?.address).join(", ")}</p>
             {emailPrefs.showAllRecipients && emailDetail.ccRecipients && emailDetail.ccRecipients.length > 0 && (
               <p><span className="text-muted-foreground">CC:</span> {emailDetail.ccRecipients.map((r: any) => r.emailAddress?.address).join(", ")}</p>
