@@ -590,6 +590,8 @@ export default function EmailClientPage() {
   const [recentSearches, setRecentSearches] = useState<string[]>(() => {
     try { return JSON.parse(localStorage.getItem("nexus-recent-searches") || "[]"); } catch { return []; }
   });
+  const [searchDateFrom, setSearchDateFrom] = useState("");
+  const [searchDateTo, setSearchDateTo] = useState("");
   const [localPage, setLocalPage] = useState(0);
   const localPageSize = 25;
 
@@ -903,16 +905,24 @@ export default function EmailClientPage() {
 
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const { data: searchResults, isLoading: searchLoading } = useQuery<{ emails: EmailMessage[]; mailbox: string }[]>({
-    queryKey: ["/api/users", user?.id, "ms365-search-emails", debouncedSearchQuery, searchMailbox],
+    queryKey: ["/api/users", user?.id, "ms365-search-emails", debouncedSearchQuery, searchMailbox, searchDateFrom, searchDateTo],
     queryFn: async () => {
-      if (!debouncedSearchQuery || debouncedSearchQuery.trim().length < 2) return [];
+      const hasQuery = debouncedSearchQuery && debouncedSearchQuery.trim().length >= 2;
+      const hasDate = searchDateFrom || searchDateTo;
+      if (!hasQuery && !hasDate) return [];
       const mailboxesToSearch = searchMailbox === "all"
         ? mailboxes.map(m => m.type === "personal" ? "personal" : m.email)
         : [searchMailbox];
       const results: { emails: EmailMessage[]; mailbox: string }[] = [];
       for (const mbx of mailboxesToSearch) {
         try {
-          const response = await fetch(`/api/users/${user?.id}/ms365-search-emails?q=${encodeURIComponent(debouncedSearchQuery)}&mailbox=${mbx}&top=50`);
+          const params = new URLSearchParams();
+          if (hasQuery) params.set("q", debouncedSearchQuery);
+          params.set("mailbox", mbx);
+          params.set("fetchAll", "true");
+          if (searchDateFrom) params.set("dateFrom", searchDateFrom);
+          if (searchDateTo) params.set("dateTo", searchDateTo);
+          const response = await fetch(`/api/users/${user?.id}/ms365-search-emails?${params.toString()}`);
           const data = await response.json();
           const taggedEmails = (data.emails || []).map((e: EmailMessage) => ({ ...e, _mailboxEmail: mbx }));
           results.push({
@@ -925,7 +935,9 @@ export default function EmailClientPage() {
       }
       return results;
     },
-    enabled: !!user?.id && isSearching && !!debouncedSearchQuery && debouncedSearchQuery.trim().length >= 2,
+    enabled: !!user?.id && isSearching && (
+      (!!debouncedSearchQuery && debouncedSearchQuery.trim().length >= 2) || !!searchDateFrom || !!searchDateTo
+    ),
   });
 
   const handleSearch = () => {
@@ -939,6 +951,8 @@ export default function EmailClientPage() {
   const clearSearch = () => {
     setSearchQuery("");
     setDebouncedSearchQuery("");
+    setSearchDateFrom("");
+    setSearchDateTo("");
     setIsSearching(false);
   };
 
@@ -1229,6 +1243,14 @@ export default function EmailClientPage() {
     suggestions.push({ label: "Emaily s prílohami", query: "hasAttachments:true", icon: "paperclip", type: "attachment" });
     suggestions.push({ label: "Dôležité emaily", query: "importance:high", icon: "flame", type: "date" });
 
+    const today = new Date();
+    const todayStr = today.toISOString().split("T")[0];
+    const weekAgo = new Date(today.getTime() - 7 * 86400000).toISOString().split("T")[0];
+    const monthAgo = new Date(today.getTime() - 30 * 86400000).toISOString().split("T")[0];
+    suggestions.push({ label: `Dnešné emaily (${todayStr})`, query: `__date:${todayStr}:${todayStr}`, icon: "calendar", type: "date" });
+    suggestions.push({ label: "Emaily za posledný týždeň", query: `__date:${weekAgo}:${todayStr}`, icon: "calendar", type: "date" });
+    suggestions.push({ label: "Emaily za posledný mesiac", query: `__date:${monthAgo}:${todayStr}`, icon: "calendar", type: "date" });
+
     return suggestions;
   };
 
@@ -1242,12 +1264,25 @@ export default function EmailClientPage() {
     });
   };
 
-  const executeSmartSearch = (query: string, mailboxOverride?: string) => {
-    const trimmed = query.trim();
-    if (!trimmed || trimmed.length < 2) return;
-    addRecentSearch(trimmed);
+  const executeSmartSearch = (query: string, mailboxOverride?: string, dateFromOverride?: string, dateToOverride?: string) => {
+    let trimmed = query.trim();
+    let df = dateFromOverride !== undefined ? dateFromOverride : searchDateFrom;
+    let dt = dateToOverride !== undefined ? dateToOverride : searchDateTo;
+
+    const dateMatch = trimmed.match(/^__date:(\d{4}-\d{2}-\d{2}):(\d{4}-\d{2}-\d{2})$/);
+    if (dateMatch) {
+      df = dateMatch[1];
+      dt = dateMatch[2];
+      trimmed = "";
+    }
+
+    const hasDate = df || dt;
+    if ((!trimmed || trimmed.length < 2) && !hasDate) return;
+    if (trimmed && trimmed.length >= 2) addRecentSearch(trimmed);
     setSearchQuery(trimmed);
     setDebouncedSearchQuery(trimmed);
+    setSearchDateFrom(df);
+    setSearchDateTo(dt);
     setSearchMailbox(mailboxOverride || smartSearchMailbox);
     setIsSearching(true);
     setSelectedEmail(null);
@@ -1788,7 +1823,7 @@ export default function EmailClientPage() {
                 <div className="flex items-center justify-between gap-1">
                   <div className="flex items-center gap-2">
                     <Mail className="h-4 w-4 text-blue-600" />
-                    <span className="text-sm font-semibold">{isSearching ? `Výsledky: "${debouncedSearchQuery}"` : currentFolderName}</span>
+                    <span className="text-sm font-semibold">{isSearching ? `Výsledky: ${debouncedSearchQuery ? `"${debouncedSearchQuery}"` : ""}${(searchDateFrom || searchDateTo) ? ` ${searchDateFrom || "..."} — ${searchDateTo || "..."}` : ""}`.trim() : currentFolderName}</span>
                     {!isSearching && (
                       <Badge variant="secondary" className="text-[10px]">
                         {activeFilterCount > 0 ? `${filteredEmails.length}/${emails.length}` : emails.length}
@@ -2441,6 +2476,38 @@ export default function EmailClientPage() {
                 })}
               </div>
             </div>
+            <div className="flex items-center gap-2 mt-2">
+              <span className="text-xs text-muted-foreground shrink-0 flex items-center gap-1">
+                <CalendarDays className="h-3 w-3" />
+                Dátum:
+              </span>
+              <div className="flex items-center gap-1.5 flex-1">
+                <input
+                  type="date"
+                  value={searchDateFrom}
+                  onChange={(e) => setSearchDateFrom(e.target.value)}
+                  className="h-7 px-2 text-xs rounded border bg-background text-foreground flex-1 min-w-0"
+                  data-testid="search-date-from"
+                />
+                <span className="text-xs text-muted-foreground">—</span>
+                <input
+                  type="date"
+                  value={searchDateTo}
+                  onChange={(e) => setSearchDateTo(e.target.value)}
+                  className="h-7 px-2 text-xs rounded border bg-background text-foreground flex-1 min-w-0"
+                  data-testid="search-date-to"
+                />
+                {(searchDateFrom || searchDateTo) && (
+                  <button
+                    onClick={() => { setSearchDateFrom(""); setSearchDateTo(""); }}
+                    className="h-7 w-7 flex items-center justify-center rounded border bg-muted text-muted-foreground hover:text-foreground hover:bg-accent transition-colors shrink-0"
+                    data-testid="clear-date-filter"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
 
           <ScrollArea className="max-h-[400px]">
@@ -2482,6 +2549,7 @@ export default function EmailClientPage() {
                         suggestion.type === "domain" ? "bg-purple-100 dark:bg-purple-900/30" :
                         suggestion.type === "subject" ? "bg-amber-100 dark:bg-amber-900/30" :
                         suggestion.type === "attachment" ? "bg-green-100 dark:bg-green-900/30" :
+                        suggestion.type === "date" ? "bg-indigo-100 dark:bg-indigo-900/30" :
                         "bg-muted"
                       )}>
                         {suggestion.icon === "user" && <User className={cn("h-4 w-4", "text-blue-600 dark:text-blue-400")} />}
@@ -2490,10 +2558,11 @@ export default function EmailClientPage() {
                         {suggestion.icon === "tag" && <Tag className={cn("h-4 w-4", "text-amber-600 dark:text-amber-400")} />}
                         {suggestion.icon === "paperclip" && <Paperclip className={cn("h-4 w-4", "text-green-600 dark:text-green-400")} />}
                         {suggestion.icon === "flame" && <Flame className={cn("h-4 w-4", "text-red-600 dark:text-red-400")} />}
+                        {suggestion.icon === "calendar" && <CalendarDays className={cn("h-4 w-4", "text-indigo-600 dark:text-indigo-400")} />}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm truncate">{suggestion.label}</p>
-                        <p className="text-[11px] text-muted-foreground truncate">{suggestion.query}</p>
+                        {!suggestion.query.startsWith("__date:") && <p className="text-[11px] text-muted-foreground truncate">{suggestion.query}</p>}
                       </div>
                       <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                     </button>
@@ -2529,6 +2598,28 @@ export default function EmailClientPage() {
                     </div>
                     <p className="text-sm">Dôležité emaily</p>
                   </button>
+                  {(() => {
+                    const today = new Date();
+                    const todayStr = today.toISOString().split("T")[0];
+                    const weekAgo = new Date(today.getTime() - 7 * 86400000).toISOString().split("T")[0];
+                    const monthAgo = new Date(today.getTime() - 30 * 86400000).toISOString().split("T")[0];
+                    return (
+                      <>
+                        <button onClick={() => executeSmartSearch(`__date:${todayStr}:${todayStr}`)} className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-accent transition-all text-left group" data-testid="quick-search-today">
+                          <div className="h-8 w-8 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center shrink-0"><CalendarDays className="h-4 w-4 text-indigo-600 dark:text-indigo-400" /></div>
+                          <p className="text-sm">Dnešné emaily</p>
+                        </button>
+                        <button onClick={() => executeSmartSearch(`__date:${weekAgo}:${todayStr}`)} className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-accent transition-all text-left group" data-testid="quick-search-week">
+                          <div className="h-8 w-8 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center shrink-0"><CalendarRange className="h-4 w-4 text-indigo-600 dark:text-indigo-400" /></div>
+                          <p className="text-sm">Posledný týždeň</p>
+                        </button>
+                        <button onClick={() => executeSmartSearch(`__date:${monthAgo}:${todayStr}`)} className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-accent transition-all text-left group" data-testid="quick-search-month">
+                          <div className="h-8 w-8 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center shrink-0"><CalendarRange className="h-4 w-4 text-indigo-600 dark:text-indigo-400" /></div>
+                          <p className="text-sm">Posledný mesiac</p>
+                        </button>
+                      </>
+                    );
+                  })()}
                 </>
               )}
 

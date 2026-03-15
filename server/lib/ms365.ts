@@ -660,7 +660,10 @@ export async function searchEmails(
   accessToken: string,
   searchQuery: string,
   mailboxEmail?: string,
-  top: number = 50
+  top: number = 50,
+  dateFrom?: string,
+  dateTo?: string,
+  fetchAll: boolean = false
 ): Promise<{ emails: any[]; totalCount: number }> {
   const client = createGraphClient(accessToken);
   const basePath = mailboxEmail ? `/users/${mailboxEmail}` : '/me';
@@ -669,18 +672,68 @@ export async function searchEmails(
     .replace(/["\\\n\r\t]/g, ' ')
     .trim();
   
-  if (!sanitizedQuery) {
+  const hasDateFilter = dateFrom || dateTo;
+  
+  if (!sanitizedQuery && !hasDateFilter) {
     return { emails: [], totalCount: 0 };
   }
   
   try {
-    const searchResult = await client.api(`${basePath}/messages`)
-      .search(`"${sanitizedQuery}"`)
-      .select('id,subject,from,toRecipients,ccRecipients,receivedDateTime,sentDateTime,isRead,bodyPreview,hasAttachments,importance,flag,parentFolderId')
-      .top(top)
-      .get();
+    let allEmails: any[] = [];
+    const pageSize = fetchAll ? 250 : Math.min(top, 250);
+    const maxPages = fetchAll ? 20 : 1;
     
-    return { emails: searchResult.value || [], totalCount: searchResult.value?.length || 0 };
+    let request = client.api(`${basePath}/messages`)
+      .select('id,subject,from,toRecipients,ccRecipients,receivedDateTime,sentDateTime,isRead,bodyPreview,hasAttachments,importance,flag,parentFolderId')
+      .top(pageSize);
+    
+    if (sanitizedQuery) {
+      request = request.search(`"${sanitizedQuery}"`);
+    } else {
+      request = request.orderby('receivedDateTime desc');
+    }
+    
+    if (hasDateFilter && !sanitizedQuery) {
+      const filters: string[] = [];
+      if (dateFrom) {
+        filters.push(`receivedDateTime ge ${dateFrom}T00:00:00Z`);
+      }
+      if (dateTo) {
+        filters.push(`receivedDateTime le ${dateTo}T23:59:59Z`);
+      }
+      request = request.filter(filters.join(' and '));
+    }
+    
+    let page = 0;
+    let nextLink: string | null = null;
+    
+    const firstResult = await request.get();
+    allEmails.push(...(firstResult.value || []));
+    nextLink = firstResult['@odata.nextLink'] || null;
+    page++;
+    
+    while (fetchAll && nextLink && page < maxPages) {
+      try {
+        const nextResult = await client.api(nextLink).get();
+        allEmails.push(...(nextResult.value || []));
+        nextLink = nextResult['@odata.nextLink'] || null;
+        page++;
+      } catch (pageError) {
+        console.error(`[MS365] Error fetching search page ${page}:`, pageError);
+        break;
+      }
+    }
+    
+    if (hasDateFilter && sanitizedQuery) {
+      allEmails = allEmails.filter(email => {
+        const received = new Date(email.receivedDateTime);
+        if (dateFrom && received < new Date(`${dateFrom}T00:00:00Z`)) return false;
+        if (dateTo && received > new Date(`${dateTo}T23:59:59Z`)) return false;
+        return true;
+      });
+    }
+    
+    return { emails: allEmails, totalCount: allEmails.length, hasMore: !!nextLink } as any;
   } catch (error) {
     console.error(`[MS365] Error searching emails:`, error);
     return { emails: [], totalCount: 0 };

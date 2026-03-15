@@ -3748,8 +3748,12 @@ export async function registerRoutes(
       const query = req.query.q as string;
       const mailboxEmail = req.query.mailbox as string | undefined;
       const top = parseInt(req.query.top as string) || 50;
+      const dateFrom = req.query.dateFrom as string | undefined;
+      const dateTo = req.query.dateTo as string | undefined;
+      const fetchAll = req.query.fetchAll === "true";
       
-      if (!query || query.trim().length < 2) {
+      const hasDateFilter = dateFrom || dateTo;
+      if ((!query || query.trim().length < 2) && !hasDateFilter) {
         return res.json({ connected: true, emails: [], totalCount: 0 });
       }
       
@@ -3786,9 +3790,12 @@ export async function registerRoutes(
       
       const result = await searchEmails(
         tokenResult.accessToken, 
-        query.trim(),
+        (query || "").trim(),
         mailboxEmail === "personal" ? undefined : mailboxEmail,
-        top
+        top,
+        dateFrom,
+        dateTo,
+        fetchAll
       );
       res.json({ connected: true, ...result });
     } catch (error) {
