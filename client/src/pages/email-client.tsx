@@ -3077,97 +3077,106 @@ export default function EmailClientPage() {
         </Dialog>
 
         <Dialog open={composeOpen} onOpenChange={(open) => { setComposeOpen(open); if (!open) setComposeFullscreen(false); }}>
-        <DialogContent className={cn(
-          "flex flex-col gap-0 p-0",
-          composeFullscreen
-            ? "max-w-[100vw] w-[100vw] h-[100vh] max-h-[100vh] rounded-none"
-            : "max-w-3xl w-[90vw] max-h-[85vh]"
-        )}>
-          <DialogHeader className="px-4 py-3 border-b shrink-0">
-            <div className="flex items-center justify-between pr-8">
-              <DialogTitle className="flex items-center gap-2">
-                <PenSquare className="h-5 w-5" />
-                {t.nexusOmni.email.newMessage}
-              </DialogTitle>
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setComposeFullscreen(f => !f)} title={composeFullscreen ? t.nexusOmni.email.composeMinimize : t.nexusOmni.email.composeFullscreen}>
-                {composeFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-              </Button>
-            </div>
-            <DialogDescription className="text-xs">
-              {t.common.save}: {mailboxes.find(m => (m.type === "personal" ? "personal" : m.email) === effectiveMailbox)?.email || effectiveMailbox}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex-1 overflow-auto p-4 space-y-3">
-            <EmailRecipientInput
-              placeholder={t.nexusOmni.email.recipientPlaceholder}
-              value={composeData.to}
-              onChange={(v) => setComposeData({ ...composeData, to: v })}
-              knownEmails={knownEmails}
-              data-testid="input-compose-to"
-            />
-            <div className="grid grid-cols-2 gap-2">
-              <EmailRecipientInput placeholder="Cc" value={composeData.cc} onChange={(v) => setComposeData({ ...composeData, cc: v })} knownEmails={knownEmails} data-testid="input-compose-cc" />
-              <EmailRecipientInput placeholder="Bcc" value={composeData.bcc} onChange={(v) => setComposeData({ ...composeData, bcc: v })} knownEmails={knownEmails} data-testid="input-compose-bcc" />
-            </div>
-            <Input placeholder={t.nexusOmni.email.subjectPlaceholder} value={composeData.subject} onChange={(e) => setComposeData({ ...composeData, subject: e.target.value })} data-testid="input-compose-subject" />
-            <EmailEditor
-              key={composeOpen ? "compose-open" : "compose-closed"}
-              initialContent={composeData.body}
-              onChange={(html) => setComposeData(prev => ({ ...prev, body: html }))}
-              signatureHtml={getSignatureForCompose()}
-              placeholder={t.nexusOmni.email.messagePlaceholder}
-              minHeight={composeFullscreen ? "400px" : "200px"}
-              attachments={attachments}
-              onAttachmentsChange={setAttachments}
-              data-testid="editor-compose-body"
-            />
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">{t.nexusOmni.email.importance}:</span>
-                <Select value={composeData.importance} onValueChange={(v) => setComposeData({ ...composeData, importance: v })}>
-                  <SelectTrigger className="w-32 h-8 text-xs" data-testid="select-importance">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="low">{t.nexusOmni.email.importanceLow}</SelectItem>
-                    <SelectItem value="normal">{t.nexusOmni.email.importanceNormal}</SelectItem>
-                    <SelectItem value="high">{t.nexusOmni.email.importanceHigh}</SelectItem>
-                  </SelectContent>
-                </Select>
+          <DialogContent className={cn(
+            "flex flex-col gap-0 p-0 overflow-hidden",
+            composeFullscreen
+              ? "max-w-[100vw] w-[100vw] h-[100vh] max-h-[100vh] rounded-none"
+              : "max-w-3xl w-[90vw] max-h-[85vh] rounded-2xl border-0 shadow-2xl"
+          )}>
+            <DialogHeader className="px-5 py-4 shrink-0 bg-gradient-to-r from-primary/5 via-transparent to-transparent">
+              <div className="flex items-center justify-between pr-8">
+                <DialogTitle className="flex items-center gap-2.5 text-base">
+                  <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center shadow-sm">
+                    <PenSquare className="h-4 w-4 text-primary" />
+                  </div>
+                  {t.nexusOmni.email.newMessage}
+                </DialogTitle>
+                <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg" onClick={() => setComposeFullscreen(f => !f)} title={composeFullscreen ? t.nexusOmni.email.composeMinimize : t.nexusOmni.email.composeFullscreen}>
+                  {composeFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+                </Button>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">{t.nexusOmni.email.tag}:</span>
-                <Select value={composeData.tagId?.toString() || "none"} onValueChange={(v) => setComposeData({ ...composeData, tagId: v === "none" ? null : parseInt(v) })}>
-                  <SelectTrigger className="w-36 h-8 text-xs" data-testid="select-compose-tag">
-                    <SelectValue placeholder={t.nexusOmni.common.none} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">{t.nexusOmni.common.none}</SelectItem>
-                    {userTags.map((tag: any) => (
-                      <SelectItem key={tag.id} value={tag.id.toString()}>
-                        <span className="flex items-center gap-2">
-                          <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: tag.color }} />
-                          {tag.name}
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </div>
-          <DialogFooter className="px-4 py-3 border-t shrink-0">
-            <Button variant="outline" onClick={() => setComposeOpen(false)}>{t.common.cancel}</Button>
-            <Button onClick={handleSendEmail} disabled={sendEmailMutation.isPending} data-testid="button-send-compose">
-              {sendEmailMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              <Send className="h-4 w-4 mr-2" />
-              {t.common.save}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+              <DialogDescription className="text-xs text-muted-foreground/70 ml-[42px]">
+                {t.common.save}: {mailboxes.find(m => (m.type === "personal" ? "personal" : m.email) === effectiveMailbox)?.email || effectiveMailbox}
+              </DialogDescription>
+            </DialogHeader>
 
-      <Dialog open={signatureDialogOpen} onOpenChange={setSignatureDialogOpen}>
+            <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
+
+            <div className="flex-1 overflow-auto px-5 py-4 space-y-3">
+              <EmailRecipientInput
+                placeholder={t.nexusOmni.email.recipientPlaceholder}
+                value={composeData.to}
+                onChange={(v) => setComposeData({ ...composeData, to: v })}
+                knownEmails={knownEmails}
+                data-testid="input-compose-to"
+              />
+              <div className="grid grid-cols-2 gap-2">
+                <EmailRecipientInput placeholder="Cc" value={composeData.cc} onChange={(v) => setComposeData({ ...composeData, cc: v })} knownEmails={knownEmails} data-testid="input-compose-cc" />
+                <EmailRecipientInput placeholder="Bcc" value={composeData.bcc} onChange={(v) => setComposeData({ ...composeData, bcc: v })} knownEmails={knownEmails} data-testid="input-compose-bcc" />
+              </div>
+              <Input placeholder={t.nexusOmni.email.subjectPlaceholder} value={composeData.subject} onChange={(e) => setComposeData({ ...composeData, subject: e.target.value })} className="h-11 text-sm rounded-xl border-muted-foreground/20 bg-muted/30 focus:bg-background transition-all" data-testid="input-compose-subject" />
+
+              <div className="flex items-center gap-3 py-1">
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-muted/40 border border-transparent hover:border-muted-foreground/10 transition-colors">
+                  <Flame className={cn("h-3.5 w-3.5 shrink-0", composeData.importance === "high" ? "text-red-500" : composeData.importance === "low" ? "text-blue-400" : "text-muted-foreground/50")} />
+                  <Select value={composeData.importance} onValueChange={(v) => setComposeData({ ...composeData, importance: v })}>
+                    <SelectTrigger className="w-28 h-7 text-xs border-0 bg-transparent shadow-none p-0 focus:ring-0" data-testid="select-importance">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="low">{t.nexusOmni.email.importanceLow}</SelectItem>
+                      <SelectItem value="normal">{t.nexusOmni.email.importanceNormal}</SelectItem>
+                      <SelectItem value="high">{t.nexusOmni.email.importanceHigh}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-muted/40 border border-transparent hover:border-muted-foreground/10 transition-colors">
+                  <Tag className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0" />
+                  <Select value={composeData.tagId?.toString() || "none"} onValueChange={(v) => setComposeData({ ...composeData, tagId: v === "none" ? null : parseInt(v) })}>
+                    <SelectTrigger className="w-32 h-7 text-xs border-0 bg-transparent shadow-none p-0 focus:ring-0" data-testid="select-compose-tag">
+                      <SelectValue placeholder={t.nexusOmni.common.none} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">{t.nexusOmni.common.none}</SelectItem>
+                      {userTags.map((tag: any) => (
+                        <SelectItem key={tag.id} value={tag.id.toString()}>
+                          <span className="flex items-center gap-2">
+                            <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: tag.color }} />
+                            {tag.name}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <EmailEditor
+                key={composeOpen ? "compose-open" : "compose-closed"}
+                initialContent={composeData.body}
+                onChange={(html) => setComposeData(prev => ({ ...prev, body: html }))}
+                signatureHtml={getSignatureForCompose()}
+                placeholder={t.nexusOmni.email.messagePlaceholder}
+                minHeight={composeFullscreen ? "400px" : "200px"}
+                attachments={attachments}
+                onAttachmentsChange={setAttachments}
+                data-testid="editor-compose-body"
+              />
+            </div>
+
+            <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
+            <DialogFooter className="px-5 py-3 shrink-0 flex items-center gap-2">
+              <Button variant="ghost" onClick={() => setComposeOpen(false)} className="rounded-xl text-muted-foreground hover:text-foreground">{t.common.cancel}</Button>
+              <Button onClick={handleSendEmail} disabled={sendEmailMutation.isPending} className="rounded-xl px-6 shadow-sm bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary" data-testid="button-send-compose">
+                {sendEmailMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                <Send className="h-4 w-4 mr-2" />
+                {t.common.save}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={signatureDialogOpen} onOpenChange={setSignatureDialogOpen}>
         <DialogContent className="max-w-4xl max-h-[85vh] p-0 gap-0 overflow-hidden">
           <div className="flex h-[75vh]">
             <div className="w-48 border-r bg-muted/30 flex flex-col py-2 shrink-0">
