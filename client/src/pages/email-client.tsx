@@ -1754,16 +1754,17 @@ export default function EmailClientPage() {
   return (
     <div className={cn(
       nexusFullscreen
-        ? "fixed inset-0 z-50 bg-background flex flex-col p-3 overflow-hidden"
+        ? "fixed inset-0 z-50 bg-background flex flex-col p-3 pt-1 overflow-hidden"
         : "space-y-3 mt-1"
     )}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          {!nexusFullscreen && (
-            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center shadow-lg">
-              <Network className="h-5 w-5 text-primary-foreground" />
-            </div>
-          )}
+          <div className={cn(
+            "rounded-xl bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center shadow-lg",
+            nexusFullscreen ? "h-8 w-8" : "h-10 w-10"
+          )}>
+            <Network className={nexusFullscreen ? "h-4 w-4 text-primary-foreground" : "h-5 w-5 text-primary-foreground"} />
+          </div>
           <div>
             <h1 className={nexusFullscreen ? "text-lg font-bold tracking-tight" : "text-2xl font-bold tracking-tight"}>NEXUS</h1>
           </div>
@@ -2136,7 +2137,11 @@ export default function EmailClientPage() {
                           result.emails.length > 0 && (
                             <div key={result.mailbox}>
                               {searchResults.length > 1 && (
-                                <div className="px-3 py-1 bg-muted/50 border-b">
+                                <div className="px-3 py-1 bg-muted/50 border-b flex items-center gap-1.5">
+                                  {(() => {
+                                    const hdrColor = accountConfigs[result.mailbox]?.color || mailboxColorMap[result.mailbox] || undefined;
+                                    return hdrColor ? <span className="inline-block h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: hdrColor }} /> : null;
+                                  })()}
                                   <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{result.mailbox}</span>
                                 </div>
                               )}
@@ -2580,13 +2585,15 @@ export default function EmailClientPage() {
                 </button>
                 {mailboxes.map(m => {
                   const key = m.type === "personal" ? "personal" : m.email;
+                  const mbColor = accountConfigs[m.email]?.color || mailboxColorMap[m.email] || undefined;
                   return (
                     <button
                       key={key}
                       onClick={() => setSmartSearchMailbox(key)}
-                      className={cn("px-2 py-0.5 rounded text-xs transition-all truncate max-w-32", smartSearchMailbox === key ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-accent")}
+                      className={cn("px-2 py-0.5 rounded text-xs transition-all truncate max-w-32 flex items-center gap-1", smartSearchMailbox === key ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-accent")}
                       data-testid={`smart-search-mailbox-${key}`}
                     >
+                      {mbColor && <span className="inline-block h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: mbColor }} />}
                       {m.email.split("@")[0]}
                     </button>
                   );
