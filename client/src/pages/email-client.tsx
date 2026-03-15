@@ -162,8 +162,6 @@ function TeamsPanel({ userId }: { userId?: string }) {
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
   const [teamsView, setTeamsView] = useState<"chats" | "teams">("chats");
   const [chatInput, setChatInput] = useState("");
-  const [smsReplyText, setSmsReplyText] = useState("");
-  const [smsReplySending, setSmsReplySending] = useState(false);
   const { toast } = useToast();
 
   const { data: chatsData, isLoading: chatsLoading, error: chatsError } = useQuery<{ connected: boolean; chats: any[]; error?: string | null; requiredPermissions?: string[] }>({
@@ -467,6 +465,8 @@ export default function EmailClientPage() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [selectedChat, _setSelectedChat] = useState<ChatConversation | null>(null);
   const [selectedSms, setSelectedSms] = useState<SmsMessage | null>(null);
+  const [smsReplyText, setSmsReplyText] = useState("");
+  const [smsReplySending, setSmsReplySending] = useState(false);
   const [composeOpen, setComposeOpen] = useState(false);
   const [composeFullscreen, setComposeFullscreen] = useState(false);
   const [replyMode, setReplyMode] = useState<"reply" | "replyAll" | "forward" | null>(null);
@@ -620,6 +620,23 @@ export default function EmailClientPage() {
     queryKey: ["/api/users", user?.id, "ms365-folders", effectiveMailbox],
     queryFn: () => fetch(`/api/users/${user?.id}/ms365-folders?mailbox=${effectiveMailbox}`).then(r => r.json()),
     enabled: !!user?.id && !!effectiveMailbox,
+  });
+
+  const { data: allMailboxFoldersData } = useQuery<Record<string, MailFolder[]>>({
+    queryKey: ["/api/users", user?.id, "ms365-folders-all-mailboxes", mailboxes.map(m => m.email).join(",")],
+    queryFn: async () => {
+      const result: Record<string, MailFolder[]> = {};
+      for (const mb of mailboxes) {
+        const mbKey = mb.type === "personal" ? "personal" : mb.email;
+        try {
+          const data = await fetch(`/api/users/${user?.id}/ms365-folders?mailbox=${mbKey}`).then(r => r.json());
+          result[mbKey] = data.folders || [];
+        } catch { result[mbKey] = []; }
+      }
+      return result;
+    },
+    enabled: !!user?.id && selectedMailbox === "all" && mailboxes.length > 1,
+    staleTime: 60000,
   });
 
   useEffect(() => {
@@ -1076,7 +1093,35 @@ export default function EmailClientPage() {
     },
   });
 
-  const folders = foldersData?.folders || [];
+  const rawFolders = foldersData?.folders || [];
+  const folders = (() => {
+    if (selectedMailbox !== "all" || !allMailboxFoldersData) return rawFolders;
+    const wkNameMap: Record<string, string> = {
+      "Inbox": "inbox", "Doručená pošta": "inbox",
+      "Sent Items": "sentitems", "Odoslané": "sentitems", "Odoslaná pošta": "sentitems",
+      "Drafts": "drafts", "Koncepty": "drafts",
+      "Junk Email": "junkemail", "Spam": "junkemail", "Nevyžiadaná pošta": "junkemail",
+      "Deleted Items": "deleteditems", "Kôš": "deleteditems", "Odstránené položky": "deleteditems",
+      "Archive": "archive", "Archív": "archive",
+    };
+    const getWK = (f: MailFolder) => f.wellKnownName || wkNameMap[f.displayName] || null;
+    const otherMbFolders = Object.entries(allMailboxFoldersData).filter(([k]) => k !== "personal").flatMap(([, v]) => v);
+    return rawFolders.map(f => {
+      const wk = getWK(f);
+      if (!wk) return f;
+      let extraUnread = 0;
+      let extraTotal = 0;
+      for (const of2 of otherMbFolders) {
+        const wk2 = getWK(of2);
+        if (wk2 === wk) {
+          extraUnread += of2.unreadItemCount || 0;
+          extraTotal += of2.totalItemCount || 0;
+        }
+      }
+      if (extraUnread === 0 && extraTotal === 0) return f;
+      return { ...f, unreadItemCount: (f.unreadItemCount || 0) + extraUnread, totalItemCount: (f.totalItemCount || 0) + extraTotal };
+    });
+  })();
   const loadAllEmails = async () => {
     if (!user?.id || !selectedFolderId || loadingAll) return;
     setLoadingAll(true);
