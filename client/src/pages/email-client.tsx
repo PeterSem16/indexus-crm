@@ -593,6 +593,8 @@ export default function EmailClientPage() {
   const [searchDateFrom, setSearchDateFrom] = useState("");
   const [searchDateTo, setSearchDateTo] = useState("");
   const [searchPanelExpanded, setSearchPanelExpanded] = useState(false);
+  const [listPanelExpanded, setListPanelExpanded] = useState(false);
+  const [nexusFullscreen, setNexusFullscreen] = useState(false);
   const [localPage, setLocalPage] = useState(0);
   const localPageSize = 25;
 
@@ -1206,10 +1208,13 @@ export default function EmailClientPage() {
       if (e.key === "Escape" && smartSearchOpen) {
         setSmartSearchOpen(false);
       }
+      if (e.key === "Escape" && !smartSearchOpen && nexusFullscreen) {
+        setNexusFullscreen(false);
+      }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [smartSearchOpen, activeTab]);
+  }, [smartSearchOpen, activeTab, nexusFullscreen]);
 
   const getSmartSuggestions = () => {
     const suggestions: { label: string; query: string; icon: string; type: "sender" | "domain" | "subject" | "date" | "recent" | "attachment" }[] = [];
@@ -1748,14 +1753,20 @@ export default function EmailClientPage() {
   ];
 
   return (
-    <div className="space-y-3">
+    <div className={cn(
+      nexusFullscreen
+        ? "fixed inset-0 z-50 bg-background flex flex-col p-3 overflow-hidden"
+        : "space-y-3"
+    )}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center shadow-lg">
-            <Network className="h-5 w-5 text-primary-foreground" />
-          </div>
+          {!nexusFullscreen && (
+            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center shadow-lg">
+              <Network className="h-5 w-5 text-primary-foreground" />
+            </div>
+          )}
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">NEXUS</h1>
+            <h1 className={nexusFullscreen ? "text-lg font-bold tracking-tight" : "text-2xl font-bold tracking-tight"}>NEXUS</h1>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -1780,6 +1791,21 @@ export default function EmailClientPage() {
               <Settings className="h-4 w-4" />
             </Button>
           )}
+          <TooltipProvider delayDuration={200}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setNexusFullscreen(prev => !prev)}
+                  data-testid="button-nexus-fullscreen"
+                >
+                  {nexusFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-xs">{nexusFullscreen ? "Zmenšiť NEXUS" : "NEXUS na celú obrazovku"}</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
           {activeTab === "email" && (
             <Button onClick={() => { setComposeOpen(true); setReplyMode(null); setComposeData({ to: "", cc: "", bcc: "", subject: "", body: "", importance: "normal", tagId: null, replyTo: "" }); setAttachments([]); }} data-testid="button-compose">
               <PenSquare className="h-4 w-4 mr-2" />
@@ -1812,7 +1838,7 @@ export default function EmailClientPage() {
         ))}
       </div>
 
-      <div className="flex gap-2 h-[calc(100vh-230px)] transition-all duration-300">
+      <div className={cn("flex gap-2 transition-all duration-300", nexusFullscreen ? "flex-1 min-h-0" : "h-[calc(100vh-230px)]")}>
         <NexusSidebar
           activeTab={activeTab}
           selectedFolderId={selectedFolderId}
@@ -1839,7 +1865,7 @@ export default function EmailClientPage() {
         {activeTab === "email" && (
           <>
             <Card className={cn("transition-all duration-300 shrink-0 overflow-hidden",
-              isSearching && searchPanelExpanded
+              (isSearching && searchPanelExpanded) || (!isSearching && listPanelExpanded)
                 ? "flex-1 min-w-[400px]"
                 : "w-[30%] min-w-[320px] max-w-[420px]"
             )}>
@@ -1893,6 +1919,20 @@ export default function EmailClientPage() {
                   )}
                   {!isSearching && (
                     <div className="flex items-center gap-0.5">
+                      <TooltipProvider delayDuration={200}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              onClick={() => setListPanelExpanded(prev => !prev)}
+                              className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-all"
+                              data-testid="button-expand-list"
+                            >
+                              {listPanelExpanded ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom" className="text-xs">{listPanelExpanded ? "Zmenšiť panel" : "Maximalizovať panel"}</TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                       <Button variant="ghost" size="icon" className="h-6 w-6" disabled={localPage === 0} onClick={() => setLocalPage(p => p - 1)} data-testid="button-page-prev">
                         <ChevronLeft className="h-3.5 w-3.5" />
                       </Button>
@@ -2096,7 +2136,7 @@ export default function EmailClientPage() {
                       <span className="text-sm">Žiadne výsledky pre "{debouncedSearchQuery}"</span>
                     </div>
                   ) : (
-                    <ScrollArea className="h-[calc(100vh-380px)]">
+                    <ScrollArea className={nexusFullscreen ? "h-[calc(100vh-180px)]" : "h-[calc(100vh-380px)]"}>
                       <div className="divide-y">
                         {searchResults.map((result) => (
                           result.emails.length > 0 && (
@@ -2166,7 +2206,7 @@ export default function EmailClientPage() {
                   </div>
                 ) : (
                   <>
-                  <ScrollArea className="h-[calc(100vh-380px)]" style={{ overflowX: "hidden" }}>
+                  <ScrollArea className={nexusFullscreen ? "h-[calc(100vh-180px)]" : "h-[calc(100vh-380px)]"} style={{ overflowX: "hidden" }}>
                     <div className="divide-y" style={{ overflowX: "hidden", maxWidth: "100%" }}>
                       {emailsPage.map((email) => {
                         const tintBg = selectedMailbox === "all" && email._mailboxEmail
@@ -2311,7 +2351,7 @@ export default function EmailClientPage() {
                     <span className="text-sm">Žiadne SMS</span>
                   </div>
                 ) : (
-                  <ScrollArea className="h-[calc(100vh-360px)]">
+                  <ScrollArea className={nexusFullscreen ? "h-[calc(100vh-160px)]" : "h-[calc(100vh-360px)]"}>
                     <div className="divide-y">
                       {smsPage.map(sms => {
                         const customerName = sms.customer
@@ -2397,7 +2437,7 @@ export default function EmailClientPage() {
                     <span className="text-sm">Žiadne úlohy</span>
                   </div>
                 ) : (
-                  <ScrollArea className="h-[calc(100vh-360px)]">
+                  <ScrollArea className={nexusFullscreen ? "h-[calc(100vh-160px)]" : "h-[calc(100vh-360px)]"}>
                     <div className="divide-y">
                       {tasksPage.map(task => (
                         <div
