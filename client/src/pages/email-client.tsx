@@ -592,6 +592,7 @@ export default function EmailClientPage() {
   });
   const [searchDateFrom, setSearchDateFrom] = useState("");
   const [searchDateTo, setSearchDateTo] = useState("");
+  const [searchPanelExpanded, setSearchPanelExpanded] = useState(false);
   const [localPage, setLocalPage] = useState(0);
   const localPageSize = 25;
 
@@ -954,6 +955,7 @@ export default function EmailClientPage() {
     setSearchDateFrom("");
     setSearchDateTo("");
     setIsSearching(false);
+    setSearchPanelExpanded(false);
   };
 
   const sendEmailMutation = useMutation({
@@ -1293,6 +1295,24 @@ export default function EmailClientPage() {
   const clearRecentSearches = () => {
     setRecentSearches([]);
     localStorage.removeItem("nexus-recent-searches");
+  };
+
+  const highlightSearchMatch = (text: string, query: string) => {
+    if (!query || query.length < 2 || !text) return text;
+    const cleanQuery = query.replace(/^(from:|hasAttachments:|importance:)\S*\s*/gi, "").trim();
+    if (!cleanQuery || cleanQuery.length < 2) return text;
+    try {
+      const escaped = cleanQuery.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const parts = text.split(new RegExp(`(${escaped})`, "gi"));
+      if (parts.length === 1) return text;
+      return parts.map((part, i) =>
+        part.toLowerCase() === cleanQuery.toLowerCase()
+          ? <mark key={i} className="bg-yellow-200 dark:bg-yellow-800 text-foreground rounded-sm px-0.5">{part}</mark>
+          : part
+      );
+    } catch {
+      return text;
+    }
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1818,7 +1838,11 @@ export default function EmailClientPage() {
 
         {activeTab === "email" && (
           <>
-            <Card className="transition-all duration-300 w-[30%] min-w-[320px] max-w-[420px] shrink-0 overflow-hidden">
+            <Card className={cn("transition-all duration-300 shrink-0 overflow-hidden",
+              isSearching && searchPanelExpanded
+                ? "flex-1 min-w-[400px]"
+                : "w-[30%] min-w-[320px] max-w-[420px]"
+            )}>
               <CardHeader className="py-1.5 px-3 space-y-0 border-b">
                 <div className="flex items-center justify-between gap-1">
                   <div className="flex items-center gap-2">
@@ -1832,7 +1856,41 @@ export default function EmailClientPage() {
                     {isSearching && searchResults && (
                       <Badge variant="secondary" className="text-[10px]">{searchResults.reduce((acc, r) => acc + r.emails.length, 0)}</Badge>
                     )}
+                    {isSearching && (
+                      <TooltipProvider delayDuration={200}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              onClick={clearSearch}
+                              className="p-1 rounded-md text-muted-foreground hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all"
+                              data-testid="button-clear-search"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom" className="text-xs">Zrušiť vyhľadávanie</TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    )}
                   </div>
+                  {isSearching && (
+                    <div className="flex items-center gap-0.5">
+                      <TooltipProvider delayDuration={200}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              onClick={() => setSearchPanelExpanded(prev => !prev)}
+                              className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-all"
+                              data-testid="button-expand-search"
+                            >
+                              {searchPanelExpanded ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom" className="text-xs">{searchPanelExpanded ? "Zmenšiť panel" : "Maximalizovať panel"}</TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
+                  )}
                   {!isSearching && (
                     <div className="flex items-center gap-0.5">
                       <Button variant="ghost" size="icon" className="h-6 w-6" disabled={localPage === 0} onClick={() => setLocalPage(p => p - 1)} data-testid="button-page-prev">
@@ -2070,7 +2128,7 @@ export default function EmailClientPage() {
                                     <div style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
                                       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
                                         <span className={`${!email.isRead && emailPrefs.highlightUnread ? "font-bold" : "font-medium"}`} style={{ fontSize: 13, lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
-                                          {email.from?.emailAddress?.name || email.from?.emailAddress?.address || "Neznámy"}
+                                          {highlightSearchMatch(email.from?.emailAddress?.name || email.from?.emailAddress?.address || "Neznámy", debouncedSearchQuery)}
                                         </span>
                                         <span style={{ fontSize: 11, whiteSpace: "nowrap", flexShrink: 0 }} className="text-muted-foreground">
                                           {format(new Date(email.receivedDateTime), "d.M. HH:mm")}
@@ -2078,16 +2136,14 @@ export default function EmailClientPage() {
                                       </div>
                                       <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 2, overflow: "hidden" }}>
                                         <p className={`${!email.isRead && emailPrefs.highlightUnread ? "font-semibold" : "text-muted-foreground"}`} style={{ fontSize: 12, lineHeight: 1.2, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", margin: 0 }}>
-                                          {email.subject || "(Bez predmetu)"}
+                                          {highlightSearchMatch(email.subject || "(Bez predmetu)", debouncedSearchQuery)}
                                         </p>
                                         {emailPrefs.previewAttachmentIcons && email.hasAttachments && <Paperclip className="text-muted-foreground/70" style={{ height: 14, width: 14, flexShrink: 0 }} />}
                                       </div>
                                       {emailPrefs.previewLines > 0 && email.bodyPreview && (
-                                        emailPrefs.previewLines === 1 ? (
-                                          <p style={{ fontSize: 11, marginTop: 2, lineHeight: 1.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", margin: "2px 0 0" }} className="text-muted-foreground">{email.bodyPreview}</p>
-                                        ) : (
-                                          <p style={{ fontSize: 11, marginTop: 2, lineHeight: 1.5, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as const, wordBreak: "break-word", margin: "2px 0 0" }} className="text-muted-foreground">{email.bodyPreview}</p>
-                                        )
+                                        <p style={{ fontSize: 11, marginTop: 2, lineHeight: 1.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", margin: "2px 0 0" }} className="text-muted-foreground">
+                                          {highlightSearchMatch(email.bodyPreview, debouncedSearchQuery)}
+                                        </p>
                                       )}
                                     </div>
                                   </div>
