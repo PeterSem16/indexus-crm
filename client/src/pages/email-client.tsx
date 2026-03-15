@@ -2624,426 +2624,459 @@ export default function EmailClientPage() {
       </div>
 
       <Dialog open={smartSearchOpen} onOpenChange={setSmartSearchOpen}>
-        <DialogContent className="max-w-xl p-0 gap-0 overflow-hidden" data-testid="smart-search-dialog">
-          <DialogHeader className="sr-only">
-            <DialogTitle>{t.nexusOmni.search.searchInEmails}</DialogTitle>
-            <DialogDescription>{t.nexusOmni.search.placeholder}</DialogDescription>
-          </DialogHeader>
-          <div className="p-4 border-b">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                ref={smartSearchInputRef}
-                placeholder={t.nexusOmni.search.placeholder}
-                value={smartSearchQuery}
-                onChange={(e) => setSmartSearchQuery(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") executeSmartSearch(smartSearchQuery); }}
-                className="pl-10 pr-4 h-10 text-sm"
-                autoFocus
-                data-testid="input-smart-search"
-              />
-            </div>
-            <div className="flex items-center gap-2 mt-2">
-              <span className="text-xs text-muted-foreground shrink-0">{t.nexusOmni.search.mailbox}:</span>
-              <div className="flex flex-wrap gap-1">
-                <button
-                  onClick={() => setSmartSearchMailbox("all")}
-                  className={cn("px-2 py-0.5 rounded text-xs transition-all", smartSearchMailbox === "all" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-accent")}
-                  data-testid="smart-search-mailbox-all"
-                >
-                  {t.nexusOmni.search.allMailboxes}
-                </button>
-                {mailboxes.map(m => {
-                  const key = m.type === "personal" ? "personal" : m.email;
-                  const mbColor = accountConfigs[m.email]?.color || mailboxColorMap[m.email] || undefined;
-                  return (
-                    <button
-                      key={key}
-                      onClick={() => setSmartSearchMailbox(key)}
-                      className={cn("px-2 py-0.5 rounded text-xs transition-all truncate max-w-32 flex items-center gap-1", smartSearchMailbox === key ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-accent")}
-                      data-testid={`smart-search-mailbox-${key}`}
-                    >
-                      {mbColor && <span className="inline-block h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: mbColor }} />}
-                      {m.email.split("@")[0]}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-            <div className="flex items-center gap-2 mt-2">
-              <span className="text-xs text-muted-foreground shrink-0 flex items-center gap-1">
-                <CalendarDays className="h-3 w-3" />
-                {t.nexusOmni.common.date}:
-              </span>
-              <div className="flex items-center gap-1.5 flex-1">
-                <input
-                  type="date"
-                  value={searchDateFrom}
-                  onChange={(e) => setSearchDateFrom(e.target.value)}
-                  className="h-7 px-2 text-xs rounded border bg-background text-foreground flex-1 min-w-0"
-                  data-testid="search-date-from"
+          <DialogContent className="max-w-2xl p-0 gap-0 overflow-hidden rounded-2xl border-0 shadow-2xl" data-testid="smart-search-dialog">
+            <DialogHeader className="sr-only">
+              <DialogTitle>{t.nexusOmni.search.searchInEmails}</DialogTitle>
+              <DialogDescription>{t.nexusOmni.search.placeholder}</DialogDescription>
+            </DialogHeader>
+
+            <div className="px-5 pt-5 pb-3">
+              <div className="relative group">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground/60 transition-colors group-focus-within:text-primary" />
+                <Input
+                  ref={smartSearchInputRef}
+                  placeholder={t.nexusOmni.search.placeholder}
+                  value={smartSearchQuery}
+                  onChange={(e) => setSmartSearchQuery(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") executeSmartSearch(smartSearchQuery); }}
+                  className="pl-12 pr-12 h-12 text-base rounded-xl border-muted-foreground/20 bg-muted/40 focus:bg-background shadow-sm transition-all focus:shadow-md"
+                  autoFocus
+                  data-testid="input-smart-search"
                 />
-                <span className="text-xs text-muted-foreground">—</span>
-                <input
-                  type="date"
-                  value={searchDateTo}
-                  onChange={(e) => setSearchDateTo(e.target.value)}
-                  className="h-7 px-2 text-xs rounded border bg-background text-foreground flex-1 min-w-0"
-                  data-testid="search-date-to"
-                />
-                {(searchDateFrom || searchDateTo) && (
+                {smartSearchQuery.length > 0 ? (
                   <button
-                    onClick={() => { setSearchDateFrom(""); setSearchDateTo(""); }}
-                    className="h-7 w-7 flex items-center justify-center rounded border bg-muted text-muted-foreground hover:text-foreground hover:bg-accent transition-colors shrink-0"
-                    data-testid="clear-date-filter"
+                    onClick={() => { setSmartSearchQuery(""); smartSearchInputRef.current?.focus(); }}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full bg-muted-foreground/15 hover:bg-muted-foreground/25 flex items-center justify-center transition-all"
+                    data-testid="clear-search-input"
                   >
-                    <X className="h-3 w-3" />
+                    <X className="h-3.5 w-3.5 text-muted-foreground" />
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setSmartSearchOpen(false)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full bg-muted-foreground/15 hover:bg-muted-foreground/25 flex items-center justify-center transition-all"
+                    data-testid="close-search-dialog"
+                  >
+                    <X className="h-3.5 w-3.5 text-muted-foreground" />
                   </button>
                 )}
               </div>
-            </div>
-          </div>
 
-          <ScrollArea className="max-h-[400px]">
-            <div className="p-2">
-              {smartSearchQuery.trim().length >= 2 && (
-                <>
-                <button
-                  onClick={() => executeSmartSearch(smartSearchQuery)}
-                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-accent transition-all text-left group"
-                  data-testid="smart-search-execute"
-                >
-                  <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                    <Mail className="h-4 w-4 text-primary" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{t.nexusOmni.search.searchInEmailsQuery} "{smartSearchQuery}"</p>
-                    <p className="text-xs text-muted-foreground">{smartSearchMailbox === "all" ? t.nexusOmni.search.searchAllMailboxesLabel : smartSearchMailbox}</p>
-                  </div>
-                  <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
-                </button>
+              <div className="flex items-center gap-2 mt-3">
+                <div className="flex flex-wrap gap-1.5">
+                  <button
+                    onClick={() => setSmartSearchMailbox("all")}
+                    className={cn("px-3 py-1 rounded-full text-xs font-medium transition-all",
+                      smartSearchMailbox === "all"
+                        ? "bg-primary text-primary-foreground shadow-sm"
+                        : "bg-muted/70 text-muted-foreground hover:bg-muted hover:text-foreground"
+                    )}
+                    data-testid="smart-search-mailbox-all"
+                  >
+                    {t.nexusOmni.search.allMailboxes}
+                  </button>
+                  {mailboxes.map(m => {
+                    const key = m.type === "personal" ? "personal" : m.email;
+                    const mbColor = accountConfigs[m.email]?.color || mailboxColorMap[m.email] || undefined;
+                    return (
+                      <button
+                        key={key}
+                        onClick={() => setSmartSearchMailbox(key)}
+                        className={cn("px-3 py-1 rounded-full text-xs font-medium transition-all truncate max-w-36 flex items-center gap-1.5",
+                          smartSearchMailbox === key
+                            ? "bg-primary text-primary-foreground shadow-sm"
+                            : "bg-muted/70 text-muted-foreground hover:bg-muted hover:text-foreground"
+                        )}
+                        data-testid={`smart-search-mailbox-${key}`}
+                      >
+                        {mbColor && <span className="inline-block h-2 w-2 rounded-full shrink-0 ring-1 ring-white/50" style={{ backgroundColor: mbColor }} />}
+                        {m.email.split("@")[0]}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
 
-                {(() => {
-                  const q = smartSearchQuery.toLowerCase().trim();
-                  const matchedEmails = accumulatedEmails.filter(e =>
-                    (e.subject || "").toLowerCase().includes(q) ||
-                    (e.from?.emailAddress?.name || "").toLowerCase().includes(q) ||
-                    (e.from?.emailAddress?.address || "").toLowerCase().includes(q) ||
-                    (e.bodyPreview || "").toLowerCase().includes(q)
-                  ).slice(0, 5);
-                  const matchedSms = (smsData || []).filter(s => {
-                    const phone = s.direction === "inbound" ? s.senderPhone : s.recipientPhone;
-                    const custName = s.customer ? `${s.customer.firstName} ${s.customer.lastName}` : "";
-                    return (s.content || "").toLowerCase().includes(q) || (phone || "").includes(q) || custName.toLowerCase().includes(q);
-                  }).slice(0, 5);
-                  const matchedTasks = (tasksData || []).filter(t =>
-                    (t.title || "").toLowerCase().includes(q) || (t.description || "").toLowerCase().includes(q)
-                  ).slice(0, 5);
-                  const matchedChats = (chatsData || []).filter(c =>
-                    (c.participantName || "").toLowerCase().includes(q) || (c.lastMessage || "").toLowerCase().includes(q)
-                  ).slice(0, 5);
-                  return (
-                    <>
-                      {matchedEmails.length > 0 && (
-                        <>
-                          <div className="px-3 py-1 mt-1">
-                            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                              <Mail className="h-3 w-3" /> Emaily ({matchedEmails.length})
-                            </span>
-                          </div>
-                          {matchedEmails.map(email => {
-                            const emColor = email._mailboxEmail ? (accountConfigs[email._mailboxEmail]?.color || mailboxColorMap[email._mailboxEmail] || undefined) : undefined;
-                            const emTint = email._mailboxEmail ? getAccountTint(email._mailboxEmail) : undefined;
-                            return (
-                            <button
-                              key={email.id}
-                              onClick={() => { setActiveTab("email"); setSelectedEmail(email); setSmartSearchOpen(false); setSmartSearchQuery(""); }}
-                              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-accent transition-all text-left group relative overflow-hidden"
-                              style={emTint ? { backgroundColor: emTint } : undefined}
-                              data-testid={`search-email-quick-${email.id}`}
-                            >
-                              {emColor && <span className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-sm" style={{ backgroundColor: emColor }} />}
-                              <div className="h-8 w-8 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: emColor || "hsl(var(--muted))" }}>
-                                <AccountIcon iconKey={email._mailboxEmail ? (accountConfigs[email._mailboxEmail]?.icon || "mail") : "mail"} className="h-3.5 w-3.5 text-white" />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm truncate">{email.from?.emailAddress?.name || email.from?.emailAddress?.address || t.nexusOmni.email.unknown}</p>
-                                <p className="text-[11px] text-muted-foreground truncate">{email.subject || t.nexusOmni.email.noSubject}</p>
-                              </div>
-                              <span className="text-[10px] text-muted-foreground shrink-0">{format(new Date(email.receivedDateTime), "d.M. HH:mm")}</span>
-                            </button>
-                            );
-                          })}
-                        </>
-                      )}
-                      {matchedSms.length > 0 && (
-                        <>
-                          <div className="px-3 py-1 mt-1">
-                            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                              <MessageSquare className="h-3 w-3" /> SMS ({matchedSms.length})
-                            </span>
-                          </div>
-                          {matchedSms.map(sms => (
-                            <button
-                              key={sms.id}
-                              onClick={() => { setActiveTab("sms"); setSelectedSms(sms); setSmartSearchOpen(false); setSmartSearchQuery(""); }}
-                              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-accent transition-all text-left group"
-                              data-testid={`search-sms-${sms.id}`}
-                            >
-                              <div className="h-8 w-8 rounded-lg bg-cyan-100 dark:bg-cyan-900/30 flex items-center justify-center shrink-0">
-                                <MessageSquare className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm truncate">{sms.customer ? `${sms.customer.firstName} ${sms.customer.lastName}` : (sms.direction === "inbound" ? sms.senderPhone : sms.recipientPhone)}</p>
-                                <p className="text-[11px] text-muted-foreground truncate">{sms.content}</p>
-                              </div>
-                              <span className="text-[10px] text-muted-foreground shrink-0">{format(new Date(sms.createdAt), "d.M. HH:mm")}</span>
-                            </button>
-                          ))}
-                        </>
-                      )}
-                      {matchedTasks.length > 0 && (
-                        <>
-                          <div className="px-3 py-1 mt-1">
-                            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                              <ListTodo className="h-3 w-3" /> {t.nexusOmni.tabs.tasks} ({matchedTasks.length})
-                            </span>
-                          </div>
-                          {matchedTasks.map(task => (
-                            <button
-                              key={task.id}
-                              onClick={() => { setActiveTab("tasks"); setSelectedTask(task); setSmartSearchOpen(false); setSmartSearchQuery(""); }}
-                              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-accent transition-all text-left group"
-                              data-testid={`search-task-${task.id}`}
-                            >
-                              <div className="h-8 w-8 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center shrink-0">
-                                <ListTodo className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm truncate">{task.title}</p>
-                                <p className="text-[11px] text-muted-foreground truncate">{task.description || task.status}</p>
-                              </div>
-                              <Badge variant="secondary" className="text-[10px] shrink-0">{task.status === "pending" ? t.nexusOmni.tasks.pending : task.status === "completed" ? t.nexusOmni.tasks.completed : task.status}</Badge>
-                            </button>
-                          ))}
-                        </>
-                      )}
-                      {matchedChats.length > 0 && (
-                        <>
-                          <div className="px-3 py-1 mt-1">
-                            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                              <MessagesSquare className="h-3 w-3" /> Chaty ({matchedChats.length})
-                            </span>
-                          </div>
-                          {matchedChats.map(chat => (
-                            <button
-                              key={chat.id}
-                              onClick={() => { setActiveTab("chats"); _setSelectedChat(chat); setSmartSearchOpen(false); setSmartSearchQuery(""); }}
-                              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-accent transition-all text-left group"
-                              data-testid={`search-chat-${chat.id}`}
-                            >
-                              <div className="h-8 w-8 rounded-lg bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center shrink-0">
-                                <MessagesSquare className="h-4 w-4 text-violet-600 dark:text-violet-400" />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm truncate">{chat.participantName}</p>
-                                <p className="text-[11px] text-muted-foreground truncate">{chat.lastMessage}</p>
-                              </div>
-                              <span className="text-[10px] text-muted-foreground shrink-0">{format(new Date(chat.lastMessageAt), "d.M. HH:mm")}</span>
-                            </button>
-                          ))}
-                        </>
-                      )}
-                    </>
-                  );
-                })()}
-                </>
-              )}
-
-              {selectedEmail && smartSearchQuery.length === 0 && (
-                <>
-                  <div className="px-3 py-1.5">
-                    <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                      <Sparkles className="h-3 w-3" />
-                      {t.nexusOmni.search.suggestionsTitle}
-                    </span>
-                  </div>
-                  {getSmartSuggestions().map((suggestion, idx) => (
+              <div className="flex items-center gap-2 mt-2.5">
+                <div className="flex items-center gap-1.5 flex-1 px-3 py-1.5 rounded-xl bg-muted/40 border border-transparent focus-within:border-muted-foreground/20 transition-colors">
+                  <CalendarDays className="h-3.5 w-3.5 text-muted-foreground/60 shrink-0" />
+                  <input
+                    type="date"
+                    value={searchDateFrom}
+                    onChange={(e) => setSearchDateFrom(e.target.value)}
+                    className="h-6 text-xs bg-transparent text-foreground flex-1 min-w-0 outline-none"
+                    data-testid="search-date-from"
+                  />
+                  <span className="text-xs text-muted-foreground/50 mx-1">—</span>
+                  <input
+                    type="date"
+                    value={searchDateTo}
+                    onChange={(e) => setSearchDateTo(e.target.value)}
+                    className="h-6 text-xs bg-transparent text-foreground flex-1 min-w-0 outline-none"
+                    data-testid="search-date-to"
+                  />
+                  {(searchDateFrom || searchDateTo) && (
                     <button
-                      key={idx}
-                      onClick={() => executeSmartSearch(suggestion.query)}
-                      className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-accent transition-all text-left group"
-                      data-testid={`smart-suggestion-${idx}`}
+                      onClick={() => { setSearchDateFrom(""); setSearchDateTo(""); }}
+                      className="h-5 w-5 flex items-center justify-center rounded-full bg-muted-foreground/15 hover:bg-muted-foreground/25 transition-colors shrink-0"
+                      data-testid="clear-date-filter"
                     >
-                      <div className={cn("h-8 w-8 rounded-lg flex items-center justify-center shrink-0",
-                        suggestion.type === "sender" ? "bg-blue-100 dark:bg-blue-900/30" :
-                        suggestion.type === "domain" ? "bg-purple-100 dark:bg-purple-900/30" :
-                        suggestion.type === "subject" ? "bg-amber-100 dark:bg-amber-900/30" :
-                        suggestion.type === "attachment" ? "bg-green-100 dark:bg-green-900/30" :
-                        suggestion.type === "date" ? "bg-indigo-100 dark:bg-indigo-900/30" :
-                        "bg-muted"
-                      )}>
-                        {suggestion.icon === "user" && <User className={cn("h-4 w-4", "text-blue-600 dark:text-blue-400")} />}
-                        {suggestion.icon === "globe" && <Globe className={cn("h-4 w-4", "text-purple-600 dark:text-purple-400")} />}
-                        {suggestion.icon === "message" && <Mail className={cn("h-4 w-4", "text-amber-600 dark:text-amber-400")} />}
-                        {suggestion.icon === "tag" && <Tag className={cn("h-4 w-4", "text-amber-600 dark:text-amber-400")} />}
-                        {suggestion.icon === "paperclip" && <Paperclip className={cn("h-4 w-4", "text-green-600 dark:text-green-400")} />}
-                        {suggestion.icon === "flame" && <Flame className={cn("h-4 w-4", "text-red-600 dark:text-red-400")} />}
-                        {suggestion.icon === "calendar" && <CalendarDays className={cn("h-4 w-4", "text-indigo-600 dark:text-indigo-400")} />}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm truncate">{suggestion.label}</p>
-                        {!suggestion.query.startsWith("__date:") && <p className="text-[11px] text-muted-foreground truncate">{suggestion.query}</p>}
-                      </div>
-                      <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                      <X className="h-2.5 w-2.5 text-muted-foreground" />
                     </button>
-                  ))}
-                </>
-              )}
+                  )}
+                </div>
+              </div>
+            </div>
 
-              {!selectedEmail && smartSearchQuery.length === 0 && (
-                <>
-                  <div className="px-3 py-1.5">
-                    <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                      <Zap className="h-3 w-3" />
-                      {t.nexusOmni.search.quickSearch}
-                    </span>
-                  </div>
+            <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
+
+            <ScrollArea className="max-h-[420px]">
+              <div className="p-2">
+                {smartSearchQuery.trim().length >= 2 && (
+                  <>
                   <button
-                    onClick={() => executeSmartSearch("hasAttachments:true")}
-                    className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-accent transition-all text-left group"
-                    data-testid="quick-search-attachments"
+                    onClick={() => executeSmartSearch(smartSearchQuery)}
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-primary/5 transition-all text-left group border border-transparent hover:border-primary/10"
+                    data-testid="smart-search-execute"
                   >
-                    <div className="h-8 w-8 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center shrink-0">
-                      <Paperclip className="h-4 w-4 text-green-600 dark:text-green-400" />
+                    <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center shrink-0 shadow-sm">
+                      <Search className="h-4 w-4 text-primary" />
                     </div>
-                    <p className="text-sm">{t.nexusOmni.email.withAttachments}</p>
-                  </button>
-                  <button
-                    onClick={() => executeSmartSearch("importance:high")}
-                    className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-accent transition-all text-left group"
-                    data-testid="quick-search-important"
-                  >
-                    <div className="h-8 w-8 rounded-lg bg-red-100 dark:bg-red-900/30 flex items-center justify-center shrink-0">
-                      <Flame className="h-4 w-4 text-red-600 dark:text-red-400" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{t.nexusOmni.search.searchInEmailsQuery} "<span className="text-primary">{smartSearchQuery}</span>"</p>
+                      <p className="text-[11px] text-muted-foreground">{smartSearchMailbox === "all" ? t.nexusOmni.search.searchAllMailboxesLabel : smartSearchMailbox}</p>
                     </div>
-                    <p className="text-sm">{t.nexusOmni.email.important}</p>
+                    <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                      <ArrowRight className="h-3.5 w-3.5 text-primary" />
+                    </div>
                   </button>
+
                   {(() => {
-                    const today = new Date();
-                    const todayStr = today.toISOString().split("T")[0];
-                    const weekAgo = new Date(today.getTime() - 7 * 86400000).toISOString().split("T")[0];
-                    const monthAgo = new Date(today.getTime() - 30 * 86400000).toISOString().split("T")[0];
+                    const q = smartSearchQuery.toLowerCase().trim();
+                    const matchedEmails = accumulatedEmails.filter(e =>
+                      (e.subject || "").toLowerCase().includes(q) ||
+                      (e.from?.emailAddress?.name || "").toLowerCase().includes(q) ||
+                      (e.from?.emailAddress?.address || "").toLowerCase().includes(q) ||
+                      (e.bodyPreview || "").toLowerCase().includes(q)
+                    ).slice(0, 5);
+                    const matchedSms = (smsData || []).filter(s => {
+                      const phone = s.direction === "inbound" ? s.senderPhone : s.recipientPhone;
+                      const custName = s.customer ? `${s.customer.firstName} ${s.customer.lastName}` : "";
+                      return (s.content || "").toLowerCase().includes(q) || (phone || "").includes(q) || custName.toLowerCase().includes(q);
+                    }).slice(0, 5);
+                    const matchedTasks = (tasksData || []).filter(t =>
+                      (t.title || "").toLowerCase().includes(q) || (t.description || "").toLowerCase().includes(q)
+                    ).slice(0, 5);
+                    const matchedChats = (chatsData || []).filter(c =>
+                      (c.participantName || "").toLowerCase().includes(q) || (c.lastMessage || "").toLowerCase().includes(q)
+                    ).slice(0, 5);
                     return (
                       <>
-                        <button onClick={() => executeSmartSearch(`__date:${todayStr}:${todayStr}`)} className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-accent transition-all text-left group" data-testid="quick-search-today">
-                          <div className="h-8 w-8 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center shrink-0"><CalendarDays className="h-4 w-4 text-indigo-600 dark:text-indigo-400" /></div>
-                          <p className="text-sm">{t.nexusOmni.email.todaysEmails}</p>
-                        </button>
-                        <button onClick={() => executeSmartSearch(`__date:${weekAgo}:${todayStr}`)} className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-accent transition-all text-left group" data-testid="quick-search-week">
-                          <div className="h-8 w-8 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center shrink-0"><CalendarRange className="h-4 w-4 text-indigo-600 dark:text-indigo-400" /></div>
-                          <p className="text-sm">{t.nexusOmni.email.lastWeek}</p>
-                        </button>
-                        <button onClick={() => executeSmartSearch(`__date:${monthAgo}:${todayStr}`)} className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-accent transition-all text-left group" data-testid="quick-search-month">
-                          <div className="h-8 w-8 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center shrink-0"><CalendarRange className="h-4 w-4 text-indigo-600 dark:text-indigo-400" /></div>
-                          <p className="text-sm">{t.nexusOmni.email.lastMonth}</p>
-                        </button>
+                        {matchedEmails.length > 0 && (
+                          <>
+                            <div className="px-4 pt-3 pb-1">
+                              <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70 flex items-center gap-1.5">
+                                <Mail className="h-3 w-3" /> {t.nexusOmni.tabs.email} ({matchedEmails.length})
+                              </span>
+                            </div>
+                            {matchedEmails.map(email => {
+                              const emColor = email._mailboxEmail ? (accountConfigs[email._mailboxEmail]?.color || mailboxColorMap[email._mailboxEmail] || undefined) : undefined;
+                              return (
+                              <button
+                                key={email.id}
+                                onClick={() => { setActiveTab("email"); setSelectedEmail(email); setSmartSearchOpen(false); setSmartSearchQuery(""); }}
+                                className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-accent/60 transition-all text-left group"
+                                data-testid={`search-email-${email.id}`}
+                              >
+                                <div className="h-8 w-8 rounded-full flex items-center justify-center shrink-0 shadow-sm" style={{ backgroundColor: emColor || "hsl(var(--muted))" }}>
+                                  <AccountIcon iconKey={email._mailboxEmail ? (accountConfigs[email._mailboxEmail]?.icon || "mail") : "mail"} className="h-3.5 w-3.5 text-white" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium truncate">{email.from?.emailAddress?.name || email.from?.emailAddress?.address || t.nexusOmni.email.unknown}</p>
+                                  <p className="text-[11px] text-muted-foreground truncate">{email.subject || t.nexusOmni.email.noSubject}</p>
+                                </div>
+                                <span className="text-[10px] text-muted-foreground/70 shrink-0 tabular-nums">{format(new Date(email.receivedDateTime), "d.M. HH:mm")}</span>
+                              </button>
+                              );
+                            })}
+                          </>
+                        )}
+                        {matchedSms.length > 0 && (
+                          <>
+                            <div className="px-4 pt-3 pb-1">
+                              <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70 flex items-center gap-1.5">
+                                <MessageSquare className="h-3 w-3" /> SMS ({matchedSms.length})
+                              </span>
+                            </div>
+                            {matchedSms.map(sms => (
+                              <button
+                                key={sms.id}
+                                onClick={() => { setActiveTab("sms"); setSelectedSms(sms); setSmartSearchOpen(false); setSmartSearchQuery(""); }}
+                                className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-accent/60 transition-all text-left group"
+                                data-testid={`search-sms-${sms.id}`}
+                              >
+                                <div className="h-8 w-8 rounded-xl bg-cyan-100 dark:bg-cyan-900/30 flex items-center justify-center shrink-0">
+                                  <MessageSquare className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium truncate">{sms.customer ? `${sms.customer.firstName} ${sms.customer.lastName}` : (sms.direction === "inbound" ? sms.senderPhone : sms.recipientPhone)}</p>
+                                  <p className="text-[11px] text-muted-foreground truncate">{sms.content}</p>
+                                </div>
+                                <span className="text-[10px] text-muted-foreground/70 shrink-0 tabular-nums">{format(new Date(sms.createdAt), "d.M. HH:mm")}</span>
+                              </button>
+                            ))}
+                          </>
+                        )}
+                        {matchedTasks.length > 0 && (
+                          <>
+                            <div className="px-4 pt-3 pb-1">
+                              <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70 flex items-center gap-1.5">
+                                <ListTodo className="h-3 w-3" /> {t.nexusOmni.tabs.tasks} ({matchedTasks.length})
+                              </span>
+                            </div>
+                            {matchedTasks.map(task => (
+                              <button
+                                key={task.id}
+                                onClick={() => { setActiveTab("tasks"); setSelectedTask(task); setSmartSearchOpen(false); setSmartSearchQuery(""); }}
+                                className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-accent/60 transition-all text-left group"
+                                data-testid={`search-task-${task.id}`}
+                              >
+                                <div className="h-8 w-8 rounded-xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center shrink-0">
+                                  <ListTodo className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium truncate">{task.title}</p>
+                                  <p className="text-[11px] text-muted-foreground truncate">{task.description || task.status}</p>
+                                </div>
+                                <Badge variant="secondary" className="text-[10px] shrink-0 rounded-full">{task.status === "pending" ? t.nexusOmni.tasks.pending : task.status === "completed" ? t.nexusOmni.tasks.completed : task.status}</Badge>
+                              </button>
+                            ))}
+                          </>
+                        )}
+                        {matchedChats.length > 0 && (
+                          <>
+                            <div className="px-4 pt-3 pb-1">
+                              <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70 flex items-center gap-1.5">
+                                <MessagesSquare className="h-3 w-3" /> {t.nexusOmni.tabs.chats} ({matchedChats.length})
+                              </span>
+                            </div>
+                            {matchedChats.map(chat => (
+                              <button
+                                key={chat.id}
+                                onClick={() => { setActiveTab("chats"); _setSelectedChat(chat); setSmartSearchOpen(false); setSmartSearchQuery(""); }}
+                                className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-accent/60 transition-all text-left group"
+                                data-testid={`search-chat-${chat.id}`}
+                              >
+                                <div className="h-8 w-8 rounded-xl bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center shrink-0">
+                                  <MessagesSquare className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium truncate">{chat.participantName}</p>
+                                  <p className="text-[11px] text-muted-foreground truncate">{chat.lastMessage}</p>
+                                </div>
+                                <span className="text-[10px] text-muted-foreground/70 shrink-0 tabular-nums">{format(new Date(chat.lastMessageAt), "d.M. HH:mm")}</span>
+                              </button>
+                            ))}
+                          </>
+                        )}
                       </>
                     );
                   })()}
-                </>
-              )}
+                  </>
+                )}
 
-              {recentSearches.length > 0 && smartSearchQuery.length === 0 && (
-                <>
-                  <div className="px-3 py-1.5 mt-2 flex items-center justify-between">
-                    <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                      <History className="h-3 w-3" />
-                      {t.nexusOmni.search.recentSearches}
-                    </span>
-                    <button onClick={clearRecentSearches} className="text-[10px] text-muted-foreground hover:text-foreground transition-colors" data-testid="clear-recent-searches">
-                      {t.nexusOmni.email.clear}
+                {selectedEmail && smartSearchQuery.length === 0 && (
+                  <>
+                    <div className="px-4 pt-2 pb-1.5">
+                      <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70 flex items-center gap-1.5">
+                        <Sparkles className="h-3 w-3 text-amber-500" />
+                        {t.nexusOmni.search.suggestionsTitle}
+                      </span>
+                    </div>
+                    {getSmartSuggestions().map((suggestion, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => executeSmartSearch(suggestion.query)}
+                        className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-accent/60 transition-all text-left group"
+                        data-testid={`smart-suggestion-${idx}`}
+                      >
+                        <div className={cn("h-9 w-9 rounded-xl flex items-center justify-center shrink-0 shadow-sm",
+                          suggestion.type === "sender" ? "bg-gradient-to-br from-blue-100 to-blue-50 dark:from-blue-900/40 dark:to-blue-900/20" :
+                          suggestion.type === "domain" ? "bg-gradient-to-br from-purple-100 to-purple-50 dark:from-purple-900/40 dark:to-purple-900/20" :
+                          suggestion.type === "subject" ? "bg-gradient-to-br from-amber-100 to-amber-50 dark:from-amber-900/40 dark:to-amber-900/20" :
+                          suggestion.type === "attachment" ? "bg-gradient-to-br from-green-100 to-green-50 dark:from-green-900/40 dark:to-green-900/20" :
+                          suggestion.type === "date" ? "bg-gradient-to-br from-indigo-100 to-indigo-50 dark:from-indigo-900/40 dark:to-indigo-900/20" :
+                          "bg-muted"
+                        )}>
+                          {suggestion.icon === "user" && <User className="h-4 w-4 text-blue-600 dark:text-blue-400" />}
+                          {suggestion.icon === "globe" && <Globe className="h-4 w-4 text-purple-600 dark:text-purple-400" />}
+                          {suggestion.icon === "message" && <Mail className="h-4 w-4 text-amber-600 dark:text-amber-400" />}
+                          {suggestion.icon === "tag" && <Tag className="h-4 w-4 text-amber-600 dark:text-amber-400" />}
+                          {suggestion.icon === "paperclip" && <Paperclip className="h-4 w-4 text-green-600 dark:text-green-400" />}
+                          {suggestion.icon === "flame" && <Flame className="h-4 w-4 text-red-600 dark:text-red-400" />}
+                          {suggestion.icon === "calendar" && <CalendarDays className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{suggestion.label}</p>
+                          {!suggestion.query.startsWith("__date:") && <p className="text-[11px] text-muted-foreground/60 truncate font-mono">{suggestion.query}</p>}
+                        </div>
+                        <div className="h-6 w-6 rounded-lg bg-muted/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                          <ArrowRight className="h-3 w-3 text-muted-foreground" />
+                        </div>
+                      </button>
+                    ))}
+                  </>
+                )}
+
+                {!selectedEmail && smartSearchQuery.length === 0 && (
+                  <>
+                    <div className="px-4 pt-2 pb-1.5">
+                      <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70 flex items-center gap-1.5">
+                        <Zap className="h-3 w-3 text-amber-500" />
+                        {t.nexusOmni.search.quickSearch}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => executeSmartSearch("hasAttachments:true")}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-accent/60 transition-all text-left group"
+                      data-testid="quick-search-attachments"
+                    >
+                      <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-green-100 to-green-50 dark:from-green-900/40 dark:to-green-900/20 flex items-center justify-center shrink-0 shadow-sm">
+                        <Paperclip className="h-4 w-4 text-green-600 dark:text-green-400" />
+                      </div>
+                      <p className="text-sm font-medium">{t.nexusOmni.email.withAttachments}</p>
                     </button>
+                    <button
+                      onClick={() => executeSmartSearch("importance:high")}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-accent/60 transition-all text-left group"
+                      data-testid="quick-search-important"
+                    >
+                      <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-red-100 to-red-50 dark:from-red-900/40 dark:to-red-900/20 flex items-center justify-center shrink-0 shadow-sm">
+                        <Flame className="h-4 w-4 text-red-600 dark:text-red-400" />
+                      </div>
+                      <p className="text-sm font-medium">{t.nexusOmni.email.important}</p>
+                    </button>
+                    {(() => {
+                      const today = new Date();
+                      const todayStr = today.toISOString().split("T")[0];
+                      const weekAgo = new Date(today.getTime() - 7 * 86400000).toISOString().split("T")[0];
+                      const monthAgo = new Date(today.getTime() - 30 * 86400000).toISOString().split("T")[0];
+                      return (
+                        <>
+                          <button onClick={() => executeSmartSearch(`__date:${todayStr}:${todayStr}`)} className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-accent/60 transition-all text-left group" data-testid="quick-search-today">
+                            <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-indigo-100 to-indigo-50 dark:from-indigo-900/40 dark:to-indigo-900/20 flex items-center justify-center shrink-0 shadow-sm"><CalendarDays className="h-4 w-4 text-indigo-600 dark:text-indigo-400" /></div>
+                            <p className="text-sm font-medium">{t.nexusOmni.email.todaysEmails}</p>
+                          </button>
+                          <button onClick={() => executeSmartSearch(`__date:${weekAgo}:${todayStr}`)} className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-accent/60 transition-all text-left group" data-testid="quick-search-week">
+                            <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-indigo-100 to-indigo-50 dark:from-indigo-900/40 dark:to-indigo-900/20 flex items-center justify-center shrink-0 shadow-sm"><CalendarRange className="h-4 w-4 text-indigo-600 dark:text-indigo-400" /></div>
+                            <p className="text-sm font-medium">{t.nexusOmni.email.lastWeek}</p>
+                          </button>
+                          <button onClick={() => executeSmartSearch(`__date:${monthAgo}:${todayStr}`)} className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-accent/60 transition-all text-left group" data-testid="quick-search-month">
+                            <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-indigo-100 to-indigo-50 dark:from-indigo-900/40 dark:to-indigo-900/20 flex items-center justify-center shrink-0 shadow-sm"><CalendarRange className="h-4 w-4 text-indigo-600 dark:text-indigo-400" /></div>
+                            <p className="text-sm font-medium">{t.nexusOmni.email.lastMonth}</p>
+                          </button>
+                        </>
+                      );
+                    })()}
+                  </>
+                )}
+
+                {recentSearches.length > 0 && smartSearchQuery.length === 0 && (
+                  <>
+                    <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent mx-4 my-1" />
+                    <div className="px-4 pt-2 pb-1 flex items-center justify-between">
+                      <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70 flex items-center gap-1.5">
+                        <History className="h-3 w-3" />
+                        {t.nexusOmni.search.recentSearches}
+                      </span>
+                      <button onClick={clearRecentSearches} className="text-[10px] text-muted-foreground/60 hover:text-foreground transition-colors" data-testid="clear-recent-searches">
+                        {t.nexusOmni.email.clear}
+                      </button>
+                    </div>
+                    {recentSearches.map((recent, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => executeSmartSearch(recent)}
+                        className="w-full flex items-center gap-3 px-4 py-2 rounded-xl hover:bg-accent/60 transition-all text-left group"
+                        data-testid={`recent-search-${idx}`}
+                      >
+                        <div className="h-7 w-7 rounded-lg bg-muted/60 flex items-center justify-center shrink-0">
+                          <History className="h-3.5 w-3.5 text-muted-foreground/60" />
+                        </div>
+                        <p className="text-sm truncate flex-1 text-muted-foreground">{recent}</p>
+                        <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                          <ArrowRight className="h-3 w-3 text-muted-foreground" />
+                        </div>
+                      </button>
+                    ))}
+                  </>
+                )}
+
+                {smartSearchQuery.trim().length > 0 && smartSearchQuery.trim().length < 2 && (
+                  <div className="flex flex-col items-center justify-center py-10 text-muted-foreground">
+                    <div className="h-12 w-12 rounded-2xl bg-muted/50 flex items-center justify-center mb-3">
+                      <Search className="h-5 w-5 opacity-40" />
+                    </div>
+                    <p className="text-sm text-muted-foreground/70">{t.nexusOmni.search.enterMin2Chars}</p>
                   </div>
-                  {recentSearches.map((recent, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => executeSmartSearch(recent)}
-                      className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-accent transition-all text-left group"
-                      data-testid={`recent-search-${idx}`}
-                    >
-                      <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center shrink-0">
-                        <History className="h-4 w-4 text-muted-foreground" />
-                      </div>
-                      <p className="text-sm truncate flex-1">{recent}</p>
-                      <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                    </button>
-                  ))}
-                </>
-              )}
+                )}
 
-              {smartSearchQuery.trim().length > 0 && smartSearchQuery.trim().length < 2 && (
-                <div className="flex flex-col items-center justify-center py-6 text-muted-foreground">
-                  <Search className="h-6 w-6 mb-2 opacity-40" />
-                  <p className="text-sm">{t.nexusOmni.search.enterMin2Chars}</p>
-                </div>
-              )}
+                {smartSearchQuery.trim().length >= 2 && (
+                  <>
+                    {getSmartSuggestions().filter(s => s.label.toLowerCase().includes(smartSearchQuery.toLowerCase()) || s.query.toLowerCase().includes(smartSearchQuery.toLowerCase())).map((suggestion, idx) => (
+                      <button
+                        key={`filtered-${idx}`}
+                        onClick={() => executeSmartSearch(suggestion.query)}
+                        className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-accent/60 transition-all text-left group"
+                        data-testid={`filtered-suggestion-${idx}`}
+                      >
+                        <div className="h-8 w-8 rounded-xl bg-muted/60 flex items-center justify-center shrink-0">
+                          <Sparkles className="h-4 w-4 text-muted-foreground/60" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{suggestion.label}</p>
+                        </div>
+                      </button>
+                    ))}
 
-              {smartSearchQuery.trim().length >= 2 && (
-                <>
-                  {getSmartSuggestions().filter(s => s.label.toLowerCase().includes(smartSearchQuery.toLowerCase()) || s.query.toLowerCase().includes(smartSearchQuery.toLowerCase())).map((suggestion, idx) => (
-                    <button
-                      key={`filtered-${idx}`}
-                      onClick={() => executeSmartSearch(suggestion.query)}
-                      className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-accent transition-all text-left group"
-                      data-testid={`filtered-suggestion-${idx}`}
-                    >
-                      <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center shrink-0">
-                        <Sparkles className="h-4 w-4 text-muted-foreground" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm truncate">{suggestion.label}</p>
-                      </div>
-                    </button>
-                  ))}
+                    {recentSearches.filter(r => r.toLowerCase().includes(smartSearchQuery.toLowerCase())).map((recent, idx) => (
+                      <button
+                        key={`recent-filtered-${idx}`}
+                        onClick={() => executeSmartSearch(recent)}
+                        className="w-full flex items-center gap-3 px-4 py-2 rounded-xl hover:bg-accent/60 transition-all text-left group"
+                        data-testid={`recent-filtered-${idx}`}
+                      >
+                        <div className="h-7 w-7 rounded-lg bg-muted/60 flex items-center justify-center shrink-0">
+                          <History className="h-3.5 w-3.5 text-muted-foreground/60" />
+                        </div>
+                        <p className="text-sm truncate flex-1 text-muted-foreground">{recent}</p>
+                      </button>
+                    ))}
+                  </>
+                )}
+              </div>
+            </ScrollArea>
 
-                  {recentSearches.filter(r => r.toLowerCase().includes(smartSearchQuery.toLowerCase())).map((recent, idx) => (
-                    <button
-                      key={`recent-filtered-${idx}`}
-                      onClick={() => executeSmartSearch(recent)}
-                      className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-accent transition-all text-left group"
-                      data-testid={`recent-filtered-${idx}`}
-                    >
-                      <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center shrink-0">
-                        <History className="h-4 w-4 text-muted-foreground" />
-                      </div>
-                      <p className="text-sm truncate flex-1">{recent}</p>
-                    </button>
-                  ))}
-                </>
+            <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
+            <div className="px-5 py-2.5 flex items-center justify-between">
+              <div className="flex items-center gap-4 text-[10px] text-muted-foreground/60">
+                <span className="flex items-center gap-1.5"><kbd className="px-1.5 py-0.5 bg-muted/70 border border-border/50 rounded-md text-[9px] font-mono shadow-sm">↵</kbd> {t.nexusOmni.search.searchAction}</span>
+                <span className="flex items-center gap-1.5"><kbd className="px-1.5 py-0.5 bg-muted/70 border border-border/50 rounded-md text-[9px] font-mono shadow-sm">Esc</kbd> {t.nexusOmni.search.closeAction}</span>
+              </div>
+              {isSearching && (
+                <button
+                  onClick={() => { clearSearch(); setSmartSearchOpen(false); }}
+                  className="text-xs text-primary hover:text-primary/80 font-medium transition-colors"
+                  data-testid="clear-active-search"
+                >
+                  {t.nexusOmni.email.clear}
+                </button>
               )}
             </div>
-          </ScrollArea>
+          </DialogContent>
+        </Dialog>
 
-          <div className="px-4 py-2 border-t bg-muted/30 flex items-center justify-between">
-            <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
-              <span className="flex items-center gap-1"><kbd className="px-1 py-0.5 bg-muted border rounded text-[9px]">↵</kbd> {t.nexusOmni.search.searchAction}</span>
-              <span className="flex items-center gap-1"><kbd className="px-1 py-0.5 bg-muted border rounded text-[9px]">Esc</kbd> {t.nexusOmni.search.closeAction}</span>
-            </div>
-            {isSearching && (
-              <button
-                onClick={() => { clearSearch(); setSmartSearchOpen(false); }}
-                className="text-xs text-primary hover:underline"
-                data-testid="clear-active-search"
-              >
-                {t.nexusOmni.email.clear}
-              </button>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={composeOpen} onOpenChange={(open) => { setComposeOpen(open); if (!open) setComposeFullscreen(false); }}>
+        <Dialog open={composeOpen} onOpenChange={(open) => { setComposeOpen(open); if (!open) setComposeFullscreen(false); }}>
         <DialogContent className={cn(
           "flex flex-col gap-0 p-0",
           composeFullscreen
