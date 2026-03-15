@@ -103,7 +103,7 @@ export function AppSidebar() {
   ];
 
   const nexusSubItems = [
-    { title: "Komunikácia", url: "/email", testId: "nexus-email", moduleKey: "email" },
+    { title: t.nexusOmni.title, url: "/email", testId: "nexus-email", moduleKey: "email" },
     { title: t.nav.tasks, url: "/tasks", testId: "nexus-tasks", moduleKey: "tasks" },
   ];
 

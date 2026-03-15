@@ -4115,6 +4115,216 @@ export interface Translations {
     externalEmails: string;
     externalEmailPlaceholder: string;
   };
+  nexusOmni: {
+    title: string;
+    loginRequired: string;
+    connectMs365: string;
+    connectMs365Desc: string;
+    fullscreen: string;
+    exitFullscreen: string;
+    tabs: {
+      email: string;
+      sms: string;
+      tasks: string;
+      chats: string;
+      teams: string;
+    };
+    folders: {
+      inbox: string;
+      sent: string;
+      drafts: string;
+      spam: string;
+      trash: string;
+      archive: string;
+      otherFolders: string;
+    };
+    email: {
+      noEmails: string;
+      noResults: string;
+      unknown: string;
+      noSubject: string;
+      markRead: string;
+      markUnread: string;
+      markedRead: string;
+      markedUnread: string;
+      reply: string;
+      replyAll: string;
+      forward: string;
+      replyToEmail: string;
+      replyToAll: string;
+      forwardEmail: string;
+      recipientPlaceholder: string;
+      enterRecipient: string;
+      messagePlaceholder: string;
+      replyPlaceholder: string;
+      subjectPlaceholder: string;
+      ccBccReplyTo: string;
+      hideFields: string;
+      ccPlaceholder: string;
+      bccPlaceholder: string;
+      replyToPlaceholder: string;
+      deleted: string;
+      messageDeleted: string;
+      deleteError: string;
+      sendError: string;
+      replyError: string;
+      forwardError: string;
+      readStatusError: string;
+      loadError: string;
+      loadAllError: string;
+      emailSummary: string;
+      clickToRemove: string;
+      attachmentsBeforeContent: string;
+      showAttachmentsAbove: string;
+      important: string;
+      withAttachments: string;
+      fromSenderWithAttachments: string;
+      lastWeek: string;
+      lastMonth: string;
+    };
+    sms: {
+      allSms: string;
+      received: string;
+      sent: string;
+      noSms: string;
+      receivedSms: string;
+      sentSms: string;
+      replySent: string;
+      replyPlaceholder: string;
+      angry: string;
+      cancellation: string;
+      criticalAlert: string;
+      warning: string;
+    };
+    tasks: {
+      allTasks: string;
+      pending: string;
+      inProgress: string;
+      completed: string;
+      cancelled: string;
+      noDescription: string;
+      deadline: string;
+    };
+    chats: {
+      internalChats: string;
+      selectConversation: string;
+      lastMessage: string;
+    };
+    teams: {
+      teamsChat: string;
+      noMessages: string;
+      writePlaceholder: string;
+      directChat: string;
+      groupChat: string;
+      noTeamsChats: string;
+      noTeams: string;
+      notConnected: string;
+      sendError: string;
+    };
+    search: {
+      placeholder: string;
+      searchInEmails: string;
+      searchAllMailboxes: string;
+      emails: string;
+      sms: string;
+      tasks: string;
+      chats: string;
+      suggestionsTitle: string;
+      searchInList: string;
+      recentSearches: string;
+      clearHistory: string;
+      mailbox: string;
+      allMailboxes: string;
+      dateFrom: string;
+      dateTo: string;
+    };
+    settings: {
+      appearance: string;
+      accounts: string;
+      notifications: string;
+      sidebar: string;
+      compose: string;
+      signature: string;
+      ai: string;
+      unreadIndicator: string;
+      unreadIndicatorDesc: string;
+      highlightUnread: string;
+      highlightUnreadDesc: string;
+      accountIcons: string;
+      accountIconsDesc: string;
+      attachmentIcons: string;
+      attachmentIconsDesc: string;
+      showTags: string;
+      showTagsDesc: string;
+      previewLines: string;
+      previewLinesDesc: string;
+      defaultSort: string;
+      defaultSortDesc: string;
+      showAllRecipients: string;
+      showAllRecipientsDesc: string;
+      expandBody: string;
+      expandBodyDesc: string;
+      autoLoadImages: string;
+      autoLoadImagesDesc: string;
+      senderInitials: string;
+      senderInitialsDesc: string;
+      groupByDate: string;
+      groupByDateDesc: string;
+      attachmentsBefore: string;
+      attachmentsBeforeDesc: string;
+      enableAi: string;
+      enableAiDesc: string;
+      languageMode: string;
+      languageModeDesc: string;
+      targetLanguage: string;
+      targetLanguageDesc: string;
+      soundOnSend: string;
+      soundOnSendDesc: string;
+      soundOnReceive: string;
+      soundOnReceiveDesc: string;
+      polling: string;
+      pollingDesc: string;
+      showHideSidebar: string;
+      changeColor: string;
+      noSignature: string;
+      signaturePlaceholder: string;
+      lastEdit: string;
+      personal: string;
+      shared: string;
+      newTagPlaceholder: string;
+      tagCreated: string;
+      tagDeleted: string;
+      saved: string;
+      signatureSaved: string;
+      saveError: string;
+      maximize: string;
+      minimize: string;
+      maximizePanel: string;
+      minimizePanel: string;
+    };
+    ai: {
+      generateReply: string;
+      conversationSummary: string;
+      reviewReply: string;
+      reviewSummary: string;
+      editPlaceholder: string;
+      insert: string;
+      generating: string;
+      generateError: string;
+      summaryError: string;
+      translateError: string;
+    };
+    permissions: {
+      requiredPermissions: string;
+      permissionsGuide: string;
+    };
+    common: {
+      error: string;
+      messages: string;
+      none: string;
+      all: string;
+    };
+  };
 }
 
 export const translations: Record<Locale, Translations> = {
@@ -8618,6 +8828,26 @@ export const translations: Record<Locale, Translations> = {
       externalEmails: 'External Email Addresses',
       externalEmailPlaceholder: 'Enter email address...',
     },
+    nexusOmni: {
+        title: 'NEXUS Omni',
+        loginRequired: 'Please log in to access NEXUS Omni',
+        connectMs365: 'NEXUS Omni',
+        connectMs365Desc: 'Connect your MS365 account to use NEXUS Omni',
+        fullscreen: 'NEXUS Omni fullscreen',
+        exitFullscreen: 'Minimize NEXUS Omni',
+        tabs: { email: 'Email', sms: 'SMS', tasks: 'Tasks', chats: 'Chats', teams: 'Teams' },
+        folders: { inbox: 'Inbox', sent: 'Sent', drafts: 'Drafts', spam: 'Spam', trash: 'Trash', archive: 'Archive', otherFolders: 'Other folders' },
+        email: { noEmails: 'No emails', noResults: 'No results for', unknown: 'Unknown', noSubject: '(No subject)', markRead: 'Mark as read', markUnread: 'Mark as unread', markedRead: 'Marked as read', markedUnread: 'Marked as unread', reply: 'Reply', replyAll: 'Reply all', forward: 'Forward', replyToEmail: 'Reply to email', replyToAll: 'Reply to all', forwardEmail: 'Forward email', recipientPlaceholder: 'To (separate multiple addresses with comma)', enterRecipient: 'Enter recipient', messagePlaceholder: 'Write a message...', replyPlaceholder: 'Write a reply...', subjectPlaceholder: 'Subject', ccBccReplyTo: 'Cc, Bcc, Reply To', hideFields: 'Hide fields', ccPlaceholder: 'Cc', bccPlaceholder: 'Bcc', replyToPlaceholder: 'Reply-To address', deleted: 'Deleted', messageDeleted: 'Message was deleted', deleteError: 'Failed to delete message', sendError: 'Failed to send message', replyError: 'Failed to send reply', forwardError: 'Failed to forward message', readStatusError: 'Failed to change read status', loadError: 'Loading error', loadAllError: 'Failed to load all emails', emailSummary: 'Email summary', clickToRemove: 'Click to remove', attachmentsBeforeContent: 'Attachments before content', showAttachmentsAbove: 'Show attachments above email body', important: 'Important emails', withAttachments: 'Emails with attachments', fromSenderWithAttachments: 'Emails with attachments from this sender', lastWeek: 'Emails from last week', lastMonth: 'Emails from last month' },
+        sms: { allSms: 'All SMS', received: 'Received', sent: 'Sent', noSms: 'No SMS', receivedSms: 'Received SMS', sentSms: 'Sent SMS', replySent: 'SMS sent', replyPlaceholder: 'Reply to', angry: 'Angry', cancellation: 'Cancellation', criticalAlert: 'Critical alert', warning: 'Warning' },
+        tasks: { allTasks: 'All tasks', pending: 'Pending', inProgress: 'In progress', completed: 'Completed', cancelled: 'Cancelled', noDescription: 'No description', deadline: 'Deadline' },
+        chats: { internalChats: 'Internal chats', selectConversation: 'Select a conversation in the sidebar', lastMessage: 'Last message:' },
+        teams: { teamsChat: 'Teams Chat', noMessages: 'No messages', writePlaceholder: 'Write a message...', directChat: 'Direct chat', groupChat: 'Group chat', noTeamsChats: 'No Teams chats', noTeams: 'No teams', notConnected: 'MS365 is not connected', sendError: 'Failed to send message' },
+        search: { placeholder: 'Search emails, SMS, tasks, chats...', searchInEmails: 'Search in emails', searchAllMailboxes: 'all mailboxes', emails: 'Emails', sms: 'SMS', tasks: 'Tasks', chats: 'Chats', suggestionsTitle: 'Suggestions based on open email', searchInList: 'Search in list...', recentSearches: 'Recent searches', clearHistory: 'Clear history', mailbox: 'Mailbox', allMailboxes: 'All mailboxes', dateFrom: 'From', dateTo: 'To' },
+        settings: { appearance: 'Appearance', accounts: 'Accounts', notifications: 'Notifications', sidebar: 'Sidebar', compose: 'Compose', signature: 'Signature', ai: 'AI', unreadIndicator: 'Unread indicator', unreadIndicatorDesc: 'Blue dot on unread messages', highlightUnread: 'Highlight unread', highlightUnreadDesc: 'Bold text for unread messages', accountIcons: 'Account icons', accountIconsDesc: 'Color dot by account assignment', attachmentIcons: 'Attachment icons', attachmentIconsDesc: 'Paperclip icon on messages with attachments', showTags: 'Show tags', showTagsDesc: 'Colored tags in message list', previewLines: 'Preview lines', previewLinesDesc: 'Number of preview text lines in list', defaultSort: 'Default sort', defaultSortDesc: 'Default email sort order', showAllRecipients: 'Show all recipients', showAllRecipientsDesc: 'Show CC and BCC recipients in detail', expandBody: 'Expand message body', expandBodyDesc: 'Automatically show full email content', autoLoadImages: 'Auto load images', autoLoadImagesDesc: 'Load remote images in email body', senderInitials: 'Sender initials', senderInitialsDesc: 'Show circular avatar with initials in list', groupByDate: 'Group by date', groupByDateDesc: 'Separate messages by days', attachmentsBefore: 'Attachments before content', attachmentsBeforeDesc: 'Show attachments above email body', enableAi: 'Enable AI', enableAiDesc: 'Enable AI functions (reply, summary, translation)', languageMode: 'Language mode', languageModeDesc: 'In which language AI should generate replies and summaries', targetLanguage: 'Target language', targetLanguageDesc: 'Into which language to translate AI output', soundOnSend: 'Sound on send', soundOnSendDesc: 'Play sound on successful email send', soundOnReceive: 'Sound on receive', soundOnReceiveDesc: 'Play sound on new email delivery', polling: 'Auto check', pollingDesc: 'How often to check for new mail', showHideSidebar: 'Show or hide folder sidebar', changeColor: 'Change color', noSignature: 'No signature for this account', signaturePlaceholder: 'Your signature... (use image icon to insert logo)', lastEdit: 'Last edit: ', personal: 'Personal', shared: 'Shared', newTagPlaceholder: 'New tag name...', tagCreated: 'Tag created', tagDeleted: 'Tag deleted', saved: 'Saved', signatureSaved: 'Signature was saved', saveError: 'Failed to save signature', maximize: 'Maximize', minimize: 'Minimize', maximizePanel: 'Maximize panel', minimizePanel: 'Minimize panel' },
+        ai: { generateReply: 'AI Generate reply', conversationSummary: 'AI Conversation summary', reviewReply: 'Review and edit the suggested reply before inserting.', reviewSummary: 'Review and edit the summary before inserting into reply.', editPlaceholder: 'Edit AI content...', insert: 'Insert', generating: 'Generating...', generateError: 'Failed to generate AI suggestion', summaryError: 'Failed to generate summary', translateError: 'Failed to translate content' },
+        permissions: { requiredPermissions: 'Required permissions for Microsoft Teams:', permissionsGuide: 'Go to Azure Portal → App registrations → your app → API permissions → Add a permission → Microsoft Graph → Delegated permissions → add the above permissions → click "Grant admin consent".' },
+        common: { error: 'Error', messages: 'Messages', none: 'None', all: 'All' },
+      },
   },
   sk: {
     nav: {
@@ -13066,6 +13296,26 @@ export const translations: Record<Locale, Translations> = {
       externalEmails: 'Externé emailové adresy',
       externalEmailPlaceholder: 'Zadajte emailovú adresu...',
     },
+    nexusOmni: {
+        title: 'NEXUS Omni',
+        loginRequired: 'Prihláste sa pre prístup do NEXUS Omni',
+        connectMs365: 'NEXUS Omni',
+        connectMs365Desc: 'Pre použitie NEXUS Omni pripojte svoj MS365 účet',
+        fullscreen: 'NEXUS Omni na celú obrazovku',
+        exitFullscreen: 'Zmenšiť NEXUS Omni',
+        tabs: { email: 'Email', sms: 'SMS', tasks: 'Úlohy', chats: 'Chaty', teams: 'Teams' },
+        folders: { inbox: 'Doručená pošta', sent: 'Odoslané', drafts: 'Koncepty', spam: 'Spam', trash: 'Kôš', archive: 'Archív', otherFolders: 'Ďalšie priečinky' },
+        email: { noEmails: 'Žiadne emaily', noResults: 'Žiadne výsledky pre', unknown: 'Neznámy', noSubject: '(Bez predmetu)', markRead: 'Označiť ako prečítané', markUnread: 'Označiť ako neprečítané', markedRead: 'Označené ako prečítané', markedUnread: 'Označené ako neprečítané', reply: 'Odpoveď', replyAll: 'Odpoveď všetkým', forward: 'Preposlať', replyToEmail: 'Odpoveď na email', replyToAll: 'Odpoveď všetkým', forwardEmail: 'Preposlať email', recipientPlaceholder: 'Komu (viac adries oddeľte čiarkou)', enterRecipient: 'Zadajte príjemcu', messagePlaceholder: 'Napíšte správu...', replyPlaceholder: 'Napíšte odpoveď...', subjectPlaceholder: 'Predmet', ccBccReplyTo: 'Kópia, Skrytá, Reply To', hideFields: 'Skryť polia', ccPlaceholder: 'Cc', bccPlaceholder: 'Bcc', replyToPlaceholder: 'Reply-To adresa', deleted: 'Zmazané', messageDeleted: 'Správa bola odstránená', deleteError: 'Nepodarilo sa zmazať správu', sendError: 'Nepodarilo sa odoslať správu', replyError: 'Nepodarilo sa odoslať odpoveď', forwardError: 'Nepodarilo sa preposlať správu', readStatusError: 'Nepodarilo sa zmeniť stav prečítania', loadError: 'Chyba pri načítaní', loadAllError: 'Nepodarilo sa načítať všetky emaily', emailSummary: 'Súhrn emailu', clickToRemove: 'Kliknite pre odstránenie', attachmentsBeforeContent: 'Prílohy pred obsahom', showAttachmentsAbove: 'Zobraziť prílohy nad telom emailu', important: 'Dôležité emaily', withAttachments: 'Emaily s prílohami', fromSenderWithAttachments: 'Emaily s prílohami od tohto odosielateľa', lastWeek: 'Emaily za posledný týždeň', lastMonth: 'Emaily za posledný mesiac' },
+        sms: { allSms: 'Všetky SMS', received: 'Prijaté', sent: 'Odoslané SMS', noSms: 'Žiadne SMS', receivedSms: 'Prijatá SMS', sentSms: 'Odoslaná SMS', replySent: 'SMS odoslaná', replyPlaceholder: 'Odpovedať na', angry: 'Nahnevaný', cancellation: 'Zrušenie', criticalAlert: 'Kritické upozornenie', warning: 'Upozornenie' },
+        tasks: { allTasks: 'Všetky úlohy', pending: 'Čakajúce', inProgress: 'Rozpracované', completed: 'Dokončené', cancelled: 'Zrušené', noDescription: 'Bez popisu', deadline: 'Termín' },
+        chats: { internalChats: 'Interné chaty', selectConversation: 'Vyberte konverzáciu v postrannom paneli', lastMessage: 'Posledná správa:' },
+        teams: { teamsChat: 'Teams Chat', noMessages: 'Žiadne správy', writePlaceholder: 'Napíšte správu...', directChat: 'Priamy chat', groupChat: 'Skupinový chat', noTeamsChats: 'Žiadne Teams chaty', noTeams: 'Žiadne tímy', notConnected: 'MS365 nie je pripojený', sendError: 'Nepodarilo sa odoslať správu' },
+        search: { placeholder: 'Hľadať v emailoch, SMS, úlohách, chatoch...', searchInEmails: 'Hľadať v emailoch', searchAllMailboxes: 'všetky schránky', emails: 'Emaily', sms: 'SMS', tasks: 'Úlohy', chats: 'Chaty', suggestionsTitle: 'Návrhy na základe otvoreného emailu', searchInList: 'Hľadať v zozname...', recentSearches: 'Nedávne vyhľadávania', clearHistory: 'Vymazať históriu', mailbox: 'Schránka', allMailboxes: 'Všetky schránky', dateFrom: 'Od', dateTo: 'Do' },
+        settings: { appearance: 'Vzhľad', accounts: 'Účty', notifications: 'Notifikácie', sidebar: 'Postranný panel', compose: 'Písanie', signature: 'Podpis', ai: 'AI', unreadIndicator: 'Indikátor neprečítaných', unreadIndicatorDesc: 'Modrá bodka pri neprečítaných správach', highlightUnread: 'Zvýrazniť neprečítané', highlightUnreadDesc: 'Tučné písmo pre neprečítané správy', accountIcons: 'Ikony účtov', accountIconsDesc: 'Farebná bodka podľa priradenia účtu', attachmentIcons: 'Ikony príloh', attachmentIconsDesc: 'Ikona spinky pri správach s prílohami', showTags: 'Zobraziť tagy', showTagsDesc: 'Farebné štítky v zozname správ', previewLines: 'Riadky náhľadu', previewLinesDesc: 'Počet riadkov textu náhľadu v zozname', defaultSort: 'Predvolené radenie', defaultSortDesc: 'Predvolené zoradenie emailov', showAllRecipients: 'Zobraziť všetkých príjemcov', showAllRecipientsDesc: 'V detaile zobraziť CC a BCC príjemcov', expandBody: 'Rozbalené telo správy', expandBodyDesc: 'Automaticky zobraziť celý obsah emailu', autoLoadImages: 'Automaticky nahrať obrázky', autoLoadImagesDesc: 'Načítať vzdialené obrázky v tele emailu', senderInitials: 'Iniciály odosielateľa', senderInitialsDesc: 'Zobrazí kruhový avatar s iniciálami v zozname', groupByDate: 'Zoskupovať podľa dátumu', groupByDateDesc: 'Oddeliť správy podľa dní', attachmentsBefore: 'Prílohy pred obsahom', attachmentsBeforeDesc: 'Zobraziť prílohy nad telom emailu', enableAi: 'Povoliť AI', enableAiDesc: 'Zapnúť AI funkcie (odpoveď, zhrnutie, preklad)', languageMode: 'Režim jazyka', languageModeDesc: 'V akom jazyku má AI generovať odpovede a zhrnutia', targetLanguage: 'Cieľový jazyk', targetLanguageDesc: 'Do akého jazyka preložiť AI výstup', soundOnSend: 'Zvuk pri odoslaní', soundOnSendDesc: 'Prehrať zvuk po úspešnom odoslaní emailu', soundOnReceive: 'Zvuk pri prijatí', soundOnReceiveDesc: 'Prehrať zvuk pri doručení nového emailu', polling: 'Automatická kontrola', pollingDesc: 'Ako často kontrolovať novú poštu', showHideSidebar: 'Zobraziť alebo skryť postranný panel s priečinkami', changeColor: 'Zmeniť farbu', noSignature: 'Žiadny podpis pre tento účet', signaturePlaceholder: 'Váš podpis... (použite ikonu obrázka pre vloženie loga)', lastEdit: 'Posledná úprava: ', personal: 'Osobná', shared: 'Zdieľaná', newTagPlaceholder: 'Názov nového tagu...', tagCreated: 'Tag vytvorený', tagDeleted: 'Tag zmazaný', saved: 'Uložené', signatureSaved: 'Podpis bol uložený', saveError: 'Nepodarilo sa uložiť podpis', maximize: 'Maximalizovať', minimize: 'Zmenšiť', maximizePanel: 'Maximalizovať panel', minimizePanel: 'Zmenšiť panel' },
+        ai: { generateReply: 'AI Generovať odpoveď', conversationSummary: 'AI Zhrnutie konverzácie', reviewReply: 'Skontrolujte a upravte navrhovanú odpoveď pred vložením.', reviewSummary: 'Skontrolujte a upravte zhrnutie pred vložením do odpovede.', editPlaceholder: 'Upravte AI obsah...', insert: 'Vložiť', generating: 'Generujem...', generateError: 'Nepodarilo sa vygenerovať AI návrh', summaryError: 'Nepodarilo sa vygenerovať zhrnutie', translateError: 'Nepodarilo sa preložiť obsah' },
+        permissions: { requiredPermissions: 'Potrebné oprávnenia pre Microsoft Teams:', permissionsGuide: 'Prejdite do Azure Portal → App registrations → vaša aplikácia → API permissions → Add a permission → Microsoft Graph → Delegated permissions → pridajte vyššie uvedené oprávnenia → kliknite "Grant admin consent".' },
+        common: { error: 'Chyba', messages: 'Správy', none: 'Žiadny', all: 'Všetky' },
+      },
   },
   cs: {
     nav: {
@@ -17446,6 +17696,26 @@ export const translations: Record<Locale, Translations> = {
       externalEmails: 'Externí e-mailové adresy',
       externalEmailPlaceholder: 'Zadejte e-mailovou adresu...',
     },
+    nexusOmni: {
+        title: 'NEXUS Omni',
+        loginRequired: 'Přihlaste se pro přístup do NEXUS Omni',
+        connectMs365: 'NEXUS Omni',
+        connectMs365Desc: 'Pro použití NEXUS Omni připojte svůj MS365 účet',
+        fullscreen: 'NEXUS Omni na celou obrazovku',
+        exitFullscreen: 'Zmenšit NEXUS Omni',
+        tabs: { email: 'Email', sms: 'SMS', tasks: 'Úkoly', chats: 'Chaty', teams: 'Teams' },
+        folders: { inbox: 'Doručená pošta', sent: 'Odesláno', drafts: 'Koncepty', spam: 'Spam', trash: 'Koš', archive: 'Archiv', otherFolders: 'Další složky' },
+        email: { noEmails: 'Žádné emaily', noResults: 'Žádné výsledky pro', unknown: 'Neznámý', noSubject: '(Bez předmětu)', markRead: 'Označit jako přečtené', markUnread: 'Označit jako nepřečtené', markedRead: 'Označeno jako přečtené', markedUnread: 'Označeno jako nepřečtené', reply: 'Odpovědět', replyAll: 'Odpovědět všem', forward: 'Přeposlat', replyToEmail: 'Odpověď na email', replyToAll: 'Odpověď všem', forwardEmail: 'Přeposlat email', recipientPlaceholder: 'Komu (více adres oddělte čárkou)', enterRecipient: 'Zadejte příjemce', messagePlaceholder: 'Napište zprávu...', replyPlaceholder: 'Napište odpověď...', subjectPlaceholder: 'Předmět', ccBccReplyTo: 'Kopie, Skrytá, Reply To', hideFields: 'Skrýt pole', ccPlaceholder: 'Cc', bccPlaceholder: 'Bcc', replyToPlaceholder: 'Reply-To adresa', deleted: 'Smazáno', messageDeleted: 'Zpráva byla odstraněna', deleteError: 'Nepodařilo se smazat zprávu', sendError: 'Nepodařilo se odeslat zprávu', replyError: 'Nepodařilo se odeslat odpověď', forwardError: 'Nepodařilo se přeposlat zprávu', readStatusError: 'Nepodařilo se změnit stav přečtení', loadError: 'Chyba při načítání', loadAllError: 'Nepodařilo se načíst všechny emaily', emailSummary: 'Souhrn emailu', clickToRemove: 'Klikněte pro odstranění', attachmentsBeforeContent: 'Přílohy před obsahem', showAttachmentsAbove: 'Zobrazit přílohy nad tělem emailu', important: 'Důležité emaily', withAttachments: 'Emaily s přílohami', fromSenderWithAttachments: 'Emaily s přílohami od tohoto odesílatele', lastWeek: 'Emaily za poslední týden', lastMonth: 'Emaily za poslední měsíc' },
+        sms: { allSms: 'Všechny SMS', received: 'Přijaté', sent: 'Odeslané SMS', noSms: 'Žádné SMS', receivedSms: 'Přijatá SMS', sentSms: 'Odeslaná SMS', replySent: 'SMS odeslána', replyPlaceholder: 'Odpovědět na', angry: 'Rozzlobený', cancellation: 'Zrušení', criticalAlert: 'Kritické upozornění', warning: 'Upozornění' },
+        tasks: { allTasks: 'Všechny úkoly', pending: 'Čekající', inProgress: 'Rozpracované', completed: 'Dokončené', cancelled: 'Zrušené', noDescription: 'Bez popisu', deadline: 'Termín' },
+        chats: { internalChats: 'Interní chaty', selectConversation: 'Vyberte konverzaci v postranním panelu', lastMessage: 'Poslední zpráva:' },
+        teams: { teamsChat: 'Teams Chat', noMessages: 'Žádné zprávy', writePlaceholder: 'Napište zprávu...', directChat: 'Přímý chat', groupChat: 'Skupinový chat', noTeamsChats: 'Žádné Teams chaty', noTeams: 'Žádné týmy', notConnected: 'MS365 není připojen', sendError: 'Nepodařilo se odeslat zprávu' },
+        search: { placeholder: 'Hledat v emailech, SMS, úkolech, chatech...', searchInEmails: 'Hledat v emailech', searchAllMailboxes: 'všechny schránky', emails: 'Emaily', sms: 'SMS', tasks: 'Úkoly', chats: 'Chaty', suggestionsTitle: 'Návrhy na základě otevřeného emailu', searchInList: 'Hledat v seznamu...', recentSearches: 'Nedávná vyhledávání', clearHistory: 'Vymazat historii', mailbox: 'Schránka', allMailboxes: 'Všechny schránky', dateFrom: 'Od', dateTo: 'Do' },
+        settings: { appearance: 'Vzhled', accounts: 'Účty', notifications: 'Notifikace', sidebar: 'Postranní panel', compose: 'Psaní', signature: 'Podpis', ai: 'AI', unreadIndicator: 'Indikátor nepřečtených', unreadIndicatorDesc: 'Modrá tečka u nepřečtených zpráv', highlightUnread: 'Zvýraznit nepřečtené', highlightUnreadDesc: 'Tučné písmo pro nepřečtené zprávy', accountIcons: 'Ikony účtů', accountIconsDesc: 'Barevná tečka podle přiřazení účtu', attachmentIcons: 'Ikony příloh', attachmentIconsDesc: 'Ikona spony u zpráv s přílohami', showTags: 'Zobrazit tagy', showTagsDesc: 'Barevné štítky v seznamu zpráv', previewLines: 'Řádky náhledu', previewLinesDesc: 'Počet řádků textu náhledu v seznamu', defaultSort: 'Výchozí řazení', defaultSortDesc: 'Výchozí řazení emailů', showAllRecipients: 'Zobrazit všechny příjemce', showAllRecipientsDesc: 'V detailu zobrazit CC a BCC příjemce', expandBody: 'Rozbalené tělo zprávy', expandBodyDesc: 'Automaticky zobrazit celý obsah emailu', autoLoadImages: 'Automaticky načíst obrázky', autoLoadImagesDesc: 'Načíst vzdálené obrázky v těle emailu', senderInitials: 'Iniciály odesílatele', senderInitialsDesc: 'Zobrazí kruhový avatar s iniciálami v seznamu', groupByDate: 'Seskupovat podle data', groupByDateDesc: 'Oddělit zprávy podle dnů', attachmentsBefore: 'Přílohy před obsahem', attachmentsBeforeDesc: 'Zobrazit přílohy nad tělem emailu', enableAi: 'Povolit AI', enableAiDesc: 'Zapnout AI funkce (odpověď, souhrn, překlad)', languageMode: 'Režim jazyka', languageModeDesc: 'V jakém jazyce má AI generovat odpovědi a souhrny', targetLanguage: 'Cílový jazyk', targetLanguageDesc: 'Do jakého jazyka přeložit AI výstup', soundOnSend: 'Zvuk při odeslání', soundOnSendDesc: 'Přehrát zvuk po úspěšném odeslání emailu', soundOnReceive: 'Zvuk při přijetí', soundOnReceiveDesc: 'Přehrát zvuk při doručení nového emailu', polling: 'Automatická kontrola', pollingDesc: 'Jak často kontrolovat novou poštu', showHideSidebar: 'Zobrazit nebo skrýt postranní panel se složkami', changeColor: 'Změnit barvu', noSignature: 'Žádný podpis pro tento účet', signaturePlaceholder: 'Váš podpis... (použijte ikonu obrázku pro vložení loga)', lastEdit: 'Poslední úprava: ', personal: 'Osobní', shared: 'Sdílená', newTagPlaceholder: 'Název nového tagu...', tagCreated: 'Tag vytvořen', tagDeleted: 'Tag smazán', saved: 'Uloženo', signatureSaved: 'Podpis byl uložen', saveError: 'Nepodařilo se uložit podpis', maximize: 'Maximalizovat', minimize: 'Zmenšit', maximizePanel: 'Maximalizovat panel', minimizePanel: 'Zmenšit panel' },
+        ai: { generateReply: 'AI Generovat odpověď', conversationSummary: 'AI Souhrn konverzace', reviewReply: 'Zkontrolujte a upravte navrhovanou odpověď před vložením.', reviewSummary: 'Zkontrolujte a upravte souhrn před vložením do odpovědi.', editPlaceholder: 'Upravte AI obsah...', insert: 'Vložit', generating: 'Generuji...', generateError: 'Nepodařilo se vygenerovat AI návrh', summaryError: 'Nepodařilo se vygenerovat souhrn', translateError: 'Nepodařilo se přeložit obsah' },
+        permissions: { requiredPermissions: 'Potřebná oprávnění pro Microsoft Teams:', permissionsGuide: 'Přejděte do Azure Portal → App registrations → vaše aplikace → API permissions → Add a permission → Microsoft Graph → Delegated permissions → přidejte výše uvedená oprávnění → klikněte "Grant admin consent".' },
+        common: { error: 'Chyba', messages: 'Zprávy', none: 'Žádný', all: 'Všechny' },
+      },
   },
   hu: {
     nav: {
@@ -21826,6 +22096,26 @@ export const translations: Record<Locale, Translations> = {
       externalEmails: 'Külső e-mail címek',
       externalEmailPlaceholder: 'Adja meg az e-mail címet...',
     },
+    nexusOmni: {
+        title: 'NEXUS Omni',
+        loginRequired: 'Jelentkezzen be a NEXUS Omni eléréséhez',
+        connectMs365: 'NEXUS Omni',
+        connectMs365Desc: 'A NEXUS Omni használatához csatlakoztassa MS365 fiókját',
+        fullscreen: 'NEXUS Omni teljes képernyő',
+        exitFullscreen: 'NEXUS Omni kicsinyítése',
+        tabs: { email: 'Email', sms: 'SMS', tasks: 'Feladatok', chats: 'Csevegések', teams: 'Teams' },
+        folders: { inbox: 'Beérkezett', sent: 'Elküldött', drafts: 'Piszkozatok', spam: 'Spam', trash: 'Kuka', archive: 'Archívum', otherFolders: 'Egyéb mappák' },
+        email: { noEmails: 'Nincsenek emailek', noResults: 'Nincs találat erre', unknown: 'Ismeretlen', noSubject: '(Nincs tárgy)', markRead: 'Megjelölés olvasottként', markUnread: 'Megjelölés olvasatlanként', markedRead: 'Olvasottnak jelölve', markedUnread: 'Olvasatlannak jelölve', reply: 'Válasz', replyAll: 'Válasz mindenkinek', forward: 'Továbbítás', replyToEmail: 'Válasz az emailre', replyToAll: 'Válasz mindenkinek', forwardEmail: 'Email továbbítása', recipientPlaceholder: 'Címzett (több címet vesszővel válasszon el)', enterRecipient: 'Adja meg a címzettet', messagePlaceholder: 'Írjon üzenetet...', replyPlaceholder: 'Írjon választ...', subjectPlaceholder: 'Tárgy', ccBccReplyTo: 'Másolat, Titkos, Reply To', hideFields: 'Mezők elrejtése', ccPlaceholder: 'Cc', bccPlaceholder: 'Bcc', replyToPlaceholder: 'Reply-To cím', deleted: 'Törölve', messageDeleted: 'Az üzenet törölve lett', deleteError: 'Nem sikerült törölni az üzenetet', sendError: 'Nem sikerült elküldeni az üzenetet', replyError: 'Nem sikerült elküldeni a választ', forwardError: 'Nem sikerült továbbítani az üzenetet', readStatusError: 'Nem sikerült megváltoztatni az olvasási állapotot', loadError: 'Betöltési hiba', loadAllError: 'Nem sikerült betölteni az összes emailt', emailSummary: 'Email összefoglaló', clickToRemove: 'Kattintson az eltávolításhoz', attachmentsBeforeContent: 'Mellékletek a tartalom előtt', showAttachmentsAbove: 'Mellékletek megjelenítése az email törzse felett', important: 'Fontos emailek', withAttachments: 'Emailek mellékletekkel', fromSenderWithAttachments: 'Emailek mellékletekkel ettől a feladótól', lastWeek: 'Emailek az elmúlt héten', lastMonth: 'Emailek az elmúlt hónapban' },
+        sms: { allSms: 'Összes SMS', received: 'Fogadott', sent: 'Küldött SMS', noSms: 'Nincs SMS', receivedSms: 'Fogadott SMS', sentSms: 'Küldött SMS', replySent: 'SMS elküldve', replyPlaceholder: 'Válasz erre', angry: 'Dühös', cancellation: 'Lemondás', criticalAlert: 'Kritikus figyelmeztetés', warning: 'Figyelmeztetés' },
+        tasks: { allTasks: 'Összes feladat', pending: 'Függőben', inProgress: 'Folyamatban', completed: 'Befejezett', cancelled: 'Törölt', noDescription: 'Nincs leírás', deadline: 'Határidő' },
+        chats: { internalChats: 'Belső csevegések', selectConversation: 'Válasszon beszélgetést az oldalsávban', lastMessage: 'Utolsó üzenet:' },
+        teams: { teamsChat: 'Teams Chat', noMessages: 'Nincsenek üzenetek', writePlaceholder: 'Írjon üzenetet...', directChat: 'Közvetlen chat', groupChat: 'Csoportos chat', noTeamsChats: 'Nincsenek Teams chatek', noTeams: 'Nincsenek csapatok', notConnected: 'MS365 nincs csatlakoztatva', sendError: 'Nem sikerült elküldeni az üzenetet' },
+        search: { placeholder: 'Keresés emailekben, SMS-ben, feladatokban, chatekben...', searchInEmails: 'Keresés emailekben', searchAllMailboxes: 'összes postafiók', emails: 'Emailek', sms: 'SMS', tasks: 'Feladatok', chats: 'Csevegések', suggestionsTitle: 'Javaslatok a megnyitott email alapján', searchInList: 'Keresés a listában...', recentSearches: 'Legutóbbi keresések', clearHistory: 'Előzmények törlése', mailbox: 'Postafiók', allMailboxes: 'Összes postafiók', dateFrom: 'Ettől', dateTo: 'Eddig' },
+        settings: { appearance: 'Megjelenés', accounts: 'Fiókok', notifications: 'Értesítések', sidebar: 'Oldalsáv', compose: 'Írás', signature: 'Aláírás', ai: 'AI', unreadIndicator: 'Olvasatlan jelző', unreadIndicatorDesc: 'Kék pont az olvasatlan üzeneteknél', highlightUnread: 'Olvasatlanok kiemelése', highlightUnreadDesc: 'Félkövér betű az olvasatlan üzeneteknél', accountIcons: 'Fiók ikonok', accountIconsDesc: 'Színes pont a fiók hozzárendelés szerint', attachmentIcons: 'Melléklet ikonok', attachmentIconsDesc: 'Gémkapocs ikon a melléklettel rendelkező üzeneteknél', showTags: 'Címkék megjelenítése', showTagsDesc: 'Színes címkék az üzenetlistában', previewLines: 'Előnézeti sorok', previewLinesDesc: 'Előnézeti szöveg sorainak száma a listában', defaultSort: 'Alapértelmezett rendezés', defaultSortDesc: 'Alapértelmezett email rendezés', showAllRecipients: 'Összes címzett megjelenítése', showAllRecipientsDesc: 'CC és BCC címzettek megjelenítése a részletekben', expandBody: 'Üzenettörzs kibontása', expandBodyDesc: 'Automatikusan megjeleníteni az email teljes tartalmát', autoLoadImages: 'Képek automatikus betöltése', autoLoadImagesDesc: 'Távoli képek betöltése az email törzsében', senderInitials: 'Feladó monogramja', senderInitialsDesc: 'Kör alakú avatar monogrammal a listában', groupByDate: 'Csoportosítás dátum szerint', groupByDateDesc: 'Üzenetek szétválasztása napok szerint', attachmentsBefore: 'Mellékletek a tartalom előtt', attachmentsBeforeDesc: 'Mellékletek megjelenítése az email törzse felett', enableAi: 'AI engedélyezése', enableAiDesc: 'AI funkciók bekapcsolása (válasz, összefoglaló, fordítás)', languageMode: 'Nyelvi mód', languageModeDesc: 'Milyen nyelven generáljon az AI válaszokat és összefoglalókat', targetLanguage: 'Célnyelv', targetLanguageDesc: 'Milyen nyelvre fordítsa az AI kimenetet', soundOnSend: 'Hang küldéskor', soundOnSendDesc: 'Hang lejátszása sikeres email küldés után', soundOnReceive: 'Hang fogadáskor', soundOnReceiveDesc: 'Hang lejátszása új email érkezésekor', polling: 'Automatikus ellenőrzés', pollingDesc: 'Milyen gyakran ellenőrizze az új postát', showHideSidebar: 'Mappa oldalsáv megjelenítése vagy elrejtése', changeColor: 'Szín módosítása', noSignature: 'Nincs aláírás ehhez a fiókhoz', signaturePlaceholder: 'Aláírása... (használja a kép ikont logó beillesztéséhez)', lastEdit: 'Utolsó szerkesztés: ', personal: 'Személyes', shared: 'Megosztott', newTagPlaceholder: 'Új címke neve...', tagCreated: 'Címke létrehozva', tagDeleted: 'Címke törölve', saved: 'Mentve', signatureSaved: 'Aláírás elmentve', saveError: 'Nem sikerült menteni az aláírást', maximize: 'Maximalizálás', minimize: 'Kicsinyítés', maximizePanel: 'Panel maximalizálása', minimizePanel: 'Panel kicsinyítése' },
+        ai: { generateReply: 'AI Válasz generálása', conversationSummary: 'AI Beszélgetés összefoglaló', reviewReply: 'Ellenőrizze és szerkessze a javasolt választ beillesztés előtt.', reviewSummary: 'Ellenőrizze és szerkessze az összefoglalót beillesztés előtt.', editPlaceholder: 'AI tartalom szerkesztése...', insert: 'Beillesztés', generating: 'Generálás...', generateError: 'Nem sikerült AI javaslatot generálni', summaryError: 'Nem sikerült összefoglalót generálni', translateError: 'Nem sikerült lefordítani a tartalmat' },
+        permissions: { requiredPermissions: 'Szükséges engedélyek a Microsoft Teamshez:', permissionsGuide: 'Lépjen az Azure Portal → App registrations → az alkalmazása → API permissions → Add a permission → Microsoft Graph → Delegated permissions → adja hozzá a fenti engedélyeket → kattintson a "Grant admin consent"-re.' },
+        common: { error: 'Hiba', messages: 'Üzenetek', none: 'Nincs', all: 'Összes' },
+      },
   },
   ro: {
     nav: {
@@ -26205,6 +26495,26 @@ export const translations: Record<Locale, Translations> = {
       externalEmails: 'Adrese de e-mail externe',
       externalEmailPlaceholder: 'Introduceți adresa de e-mail...',
     },
+    nexusOmni: {
+        title: 'NEXUS Omni',
+        loginRequired: 'Autentificați-vă pentru acces la NEXUS Omni',
+        connectMs365: 'NEXUS Omni',
+        connectMs365Desc: 'Pentru a utiliza NEXUS Omni, conectați contul MS365',
+        fullscreen: 'NEXUS Omni pe ecran complet',
+        exitFullscreen: 'Micșorare NEXUS Omni',
+        tabs: { email: 'Email', sms: 'SMS', tasks: 'Sarcini', chats: 'Chat-uri', teams: 'Teams' },
+        folders: { inbox: 'Primite', sent: 'Trimise', drafts: 'Ciorne', spam: 'Spam', trash: 'Coș', archive: 'Arhivă', otherFolders: 'Alte dosare' },
+        email: { noEmails: 'Niciun email', noResults: 'Niciun rezultat pentru', unknown: 'Necunoscut', noSubject: '(Fără subiect)', markRead: 'Marchează ca citit', markUnread: 'Marchează ca necitit', markedRead: 'Marcat ca citit', markedUnread: 'Marcat ca necitit', reply: 'Răspunde', replyAll: 'Răspunde tuturor', forward: 'Redirecționează', replyToEmail: 'Răspuns la email', replyToAll: 'Răspuns tuturor', forwardEmail: 'Redirecționare email', recipientPlaceholder: 'Către (separați mai multe adrese cu virgulă)', enterRecipient: 'Introduceți destinatarul', messagePlaceholder: 'Scrieți un mesaj...', replyPlaceholder: 'Scrieți un răspuns...', subjectPlaceholder: 'Subiect', ccBccReplyTo: 'Cc, Bcc, Reply To', hideFields: 'Ascunde câmpuri', ccPlaceholder: 'Cc', bccPlaceholder: 'Bcc', replyToPlaceholder: 'Adresă Reply-To', deleted: 'Șters', messageDeleted: 'Mesajul a fost șters', deleteError: 'Nu s-a putut șterge mesajul', sendError: 'Nu s-a putut trimite mesajul', replyError: 'Nu s-a putut trimite răspunsul', forwardError: 'Nu s-a putut redirecționa mesajul', readStatusError: 'Nu s-a putut schimba starea de citire', loadError: 'Eroare la încărcare', loadAllError: 'Nu s-au putut încărca toate emailurile', emailSummary: 'Rezumat email', clickToRemove: 'Clic pentru a elimina', attachmentsBeforeContent: 'Atașamente înainte de conținut', showAttachmentsAbove: 'Afișare atașamente deasupra corpului emailului', important: 'Emailuri importante', withAttachments: 'Emailuri cu atașamente', fromSenderWithAttachments: 'Emailuri cu atașamente de la acest expeditor', lastWeek: 'Emailuri din ultima săptămână', lastMonth: 'Emailuri din ultima lună' },
+        sms: { allSms: 'Toate SMS-urile', received: 'Primite', sent: 'SMS trimise', noSms: 'Niciun SMS', receivedSms: 'SMS primit', sentSms: 'SMS trimis', replySent: 'SMS trimis', replyPlaceholder: 'Răspunde la', angry: 'Supărat', cancellation: 'Anulare', criticalAlert: 'Alertă critică', warning: 'Avertizare' },
+        tasks: { allTasks: 'Toate sarcinile', pending: 'În așteptare', inProgress: 'În curs', completed: 'Finalizate', cancelled: 'Anulate', noDescription: 'Fără descriere', deadline: 'Termen' },
+        chats: { internalChats: 'Chat-uri interne', selectConversation: 'Selectați o conversație din bara laterală', lastMessage: 'Ultimul mesaj:' },
+        teams: { teamsChat: 'Teams Chat', noMessages: 'Niciun mesaj', writePlaceholder: 'Scrieți un mesaj...', directChat: 'Chat direct', groupChat: 'Chat de grup', noTeamsChats: 'Niciun chat Teams', noTeams: 'Nicio echipă', notConnected: 'MS365 nu este conectat', sendError: 'Nu s-a putut trimite mesajul' },
+        search: { placeholder: 'Căutare în emailuri, SMS, sarcini, chaturi...', searchInEmails: 'Căutare în emailuri', searchAllMailboxes: 'toate căsuțele', emails: 'Emailuri', sms: 'SMS', tasks: 'Sarcini', chats: 'Chat-uri', suggestionsTitle: 'Sugestii bazate pe emailul deschis', searchInList: 'Căutare în listă...', recentSearches: 'Căutări recente', clearHistory: 'Șterge istoricul', mailbox: 'Căsuță', allMailboxes: 'Toate căsuțele', dateFrom: 'De la', dateTo: 'Până la' },
+        settings: { appearance: 'Aspect', accounts: 'Conturi', notifications: 'Notificări', sidebar: 'Bară laterală', compose: 'Compunere', signature: 'Semnătură', ai: 'AI', unreadIndicator: 'Indicator necitite', unreadIndicatorDesc: 'Punct albastru la mesajele necitite', highlightUnread: 'Evidențiere necitite', highlightUnreadDesc: 'Text bold pentru mesajele necitite', accountIcons: 'Icoane conturi', accountIconsDesc: 'Punct colorat după atribuirea contului', attachmentIcons: 'Icoane atașamente', attachmentIconsDesc: 'Icoana agrafă la mesajele cu atașamente', showTags: 'Afișare etichete', showTagsDesc: 'Etichete colorate în lista de mesaje', previewLines: 'Linii de previzualizare', previewLinesDesc: 'Număr de linii de text în previzualizare', defaultSort: 'Sortare implicită', defaultSortDesc: 'Sortare implicită a emailurilor', showAllRecipients: 'Afișare toți destinatarii', showAllRecipientsDesc: 'Afișare CC și BCC în detalii', expandBody: 'Corp mesaj extins', expandBodyDesc: 'Afișare automată conținut complet email', autoLoadImages: 'Încărcare automată imagini', autoLoadImagesDesc: 'Încărcare imagini remote din corpul emailului', senderInitials: 'Inițiale expeditor', senderInitialsDesc: 'Avatar circular cu inițiale în listă', groupByDate: 'Grupare după dată', groupByDateDesc: 'Separare mesaje pe zile', attachmentsBefore: 'Atașamente înainte de conținut', attachmentsBeforeDesc: 'Afișare atașamente deasupra corpului emailului', enableAi: 'Activare AI', enableAiDesc: 'Activare funcții AI (răspuns, rezumat, traducere)', languageMode: 'Mod limbă', languageModeDesc: 'În ce limbă să genereze AI răspunsuri și rezumate', targetLanguage: 'Limba țintă', targetLanguageDesc: 'În ce limbă să traducă AI', soundOnSend: 'Sunet la trimitere', soundOnSendDesc: 'Redare sunet la trimiterea cu succes', soundOnReceive: 'Sunet la primire', soundOnReceiveDesc: 'Redare sunet la primirea unui email nou', polling: 'Verificare automată', pollingDesc: 'Cât de des să verifice posta nouă', showHideSidebar: 'Afișare sau ascundere bară laterală cu dosare', changeColor: 'Schimbare culoare', noSignature: 'Nicio semnătură pentru acest cont', signaturePlaceholder: 'Semnătura dvs... (folosiți icoana de imagine pentru logo)', lastEdit: 'Ultima editare: ', personal: 'Personală', shared: 'Partajată', newTagPlaceholder: 'Nume etichetă nouă...', tagCreated: 'Etichetă creată', tagDeleted: 'Etichetă ștearsă', saved: 'Salvat', signatureSaved: 'Semnătura a fost salvată', saveError: 'Nu s-a putut salva semnătura', maximize: 'Maximizare', minimize: 'Minimizare', maximizePanel: 'Maximizare panou', minimizePanel: 'Minimizare panou' },
+        ai: { generateReply: 'AI Generare răspuns', conversationSummary: 'AI Rezumat conversație', reviewReply: 'Verificați și editați răspunsul sugerat înainte de inserare.', reviewSummary: 'Verificați și editați rezumatul înainte de inserare.', editPlaceholder: 'Editare conținut AI...', insert: 'Inserare', generating: 'Se generează...', generateError: 'Nu s-a putut genera sugestia AI', summaryError: 'Nu s-a putut genera rezumatul', translateError: 'Nu s-a putut traduce conținutul' },
+        permissions: { requiredPermissions: 'Permisiuni necesare pentru Microsoft Teams:', permissionsGuide: 'Mergeți la Azure Portal → App registrations → aplicația dvs → API permissions → Add a permission → Microsoft Graph → Delegated permissions → adăugați permisiunile de mai sus → clic pe "Grant admin consent".' },
+        common: { error: 'Eroare', messages: 'Mesaje', none: 'Niciunul', all: 'Toate' },
+      },
   },
   it: {
     nav: {
@@ -30585,6 +30895,26 @@ export const translations: Record<Locale, Translations> = {
       externalEmails: 'Indirizzi email esterni',
       externalEmailPlaceholder: 'Inserisci indirizzo email...',
     },
+    nexusOmni: {
+        title: 'NEXUS Omni',
+        loginRequired: 'Accedi per accedere a NEXUS Omni',
+        connectMs365: 'NEXUS Omni',
+        connectMs365Desc: 'Per utilizzare NEXUS Omni, collega il tuo account MS365',
+        fullscreen: 'NEXUS Omni a schermo intero',
+        exitFullscreen: 'Riduci NEXUS Omni',
+        tabs: { email: 'Email', sms: 'SMS', tasks: 'Attività', chats: 'Chat', teams: 'Teams' },
+        folders: { inbox: 'Posta in arrivo', sent: 'Inviata', drafts: 'Bozze', spam: 'Spam', trash: 'Cestino', archive: 'Archivio', otherFolders: 'Altre cartelle' },
+        email: { noEmails: 'Nessuna email', noResults: 'Nessun risultato per', unknown: 'Sconosciuto', noSubject: '(Senza oggetto)', markRead: 'Segna come letto', markUnread: 'Segna come non letto', markedRead: 'Segnato come letto', markedUnread: 'Segnato come non letto', reply: 'Rispondi', replyAll: 'Rispondi a tutti', forward: 'Inoltra', replyToEmail: "Risposta all'email", replyToAll: 'Risposta a tutti', forwardEmail: 'Inoltra email', recipientPlaceholder: 'A (separare più indirizzi con virgola)', enterRecipient: 'Inserisci destinatario', messagePlaceholder: 'Scrivi un messaggio...', replyPlaceholder: 'Scrivi una risposta...', subjectPlaceholder: 'Oggetto', ccBccReplyTo: 'Cc, Ccn, Reply To', hideFields: 'Nascondi campi', ccPlaceholder: 'Cc', bccPlaceholder: 'Ccn', replyToPlaceholder: 'Indirizzo Reply-To', deleted: 'Eliminato', messageDeleted: 'Il messaggio è stato eliminato', deleteError: 'Impossibile eliminare il messaggio', sendError: 'Impossibile inviare il messaggio', replyError: 'Impossibile inviare la risposta', forwardError: 'Impossibile inoltrare il messaggio', readStatusError: 'Impossibile cambiare lo stato di lettura', loadError: 'Errore di caricamento', loadAllError: 'Impossibile caricare tutte le email', emailSummary: 'Riepilogo email', clickToRemove: 'Clicca per rimuovere', attachmentsBeforeContent: 'Allegati prima del contenuto', showAttachmentsAbove: "Mostra allegati sopra il corpo dell'email", important: 'Email importanti', withAttachments: 'Email con allegati', fromSenderWithAttachments: 'Email con allegati da questo mittente', lastWeek: "Email dell'ultima settimana", lastMonth: "Email dell'ultimo mese" },
+        sms: { allSms: 'Tutti gli SMS', received: 'Ricevuti', sent: 'SMS inviati', noSms: 'Nessun SMS', receivedSms: 'SMS ricevuto', sentSms: 'SMS inviato', replySent: 'SMS inviato', replyPlaceholder: 'Rispondi a', angry: 'Arrabbiato', cancellation: 'Cancellazione', criticalAlert: 'Avviso critico', warning: 'Avviso' },
+        tasks: { allTasks: 'Tutte le attività', pending: 'In attesa', inProgress: 'In corso', completed: 'Completate', cancelled: 'Annullate', noDescription: 'Senza descrizione', deadline: 'Scadenza' },
+        chats: { internalChats: 'Chat interni', selectConversation: 'Seleziona una conversazione nella barra laterale', lastMessage: 'Ultimo messaggio:' },
+        teams: { teamsChat: 'Teams Chat', noMessages: 'Nessun messaggio', writePlaceholder: 'Scrivi un messaggio...', directChat: 'Chat diretto', groupChat: 'Chat di gruppo', noTeamsChats: 'Nessun chat Teams', noTeams: 'Nessun team', notConnected: 'MS365 non è collegato', sendError: 'Impossibile inviare il messaggio' },
+        search: { placeholder: 'Cerca in email, SMS, attività, chat...', searchInEmails: 'Cerca nelle email', searchAllMailboxes: 'tutte le caselle', emails: 'Email', sms: 'SMS', tasks: 'Attività', chats: 'Chat', suggestionsTitle: "Suggerimenti basati sull'email aperta", searchInList: 'Cerca nella lista...', recentSearches: 'Ricerche recenti', clearHistory: 'Cancella cronologia', mailbox: 'Casella', allMailboxes: 'Tutte le caselle', dateFrom: 'Da', dateTo: 'A' },
+        settings: { appearance: 'Aspetto', accounts: 'Account', notifications: 'Notifiche', sidebar: 'Barra laterale', compose: 'Composizione', signature: 'Firma', ai: 'AI', unreadIndicator: 'Indicatore non letti', unreadIndicatorDesc: 'Punto blu sui messaggi non letti', highlightUnread: 'Evidenzia non letti', highlightUnreadDesc: 'Testo in grassetto per messaggi non letti', accountIcons: 'Icone account', accountIconsDesc: 'Punto colorato per assegnazione account', attachmentIcons: 'Icone allegati', attachmentIconsDesc: 'Icona graffetta sui messaggi con allegati', showTags: 'Mostra tag', showTagsDesc: 'Tag colorati nella lista messaggi', previewLines: 'Righe anteprima', previewLinesDesc: 'Numero di righe di testo anteprima nella lista', defaultSort: 'Ordinamento predefinito', defaultSortDesc: 'Ordinamento predefinito delle email', showAllRecipients: 'Mostra tutti i destinatari', showAllRecipientsDesc: 'Mostra CC e CCN nei dettagli', expandBody: 'Corpo messaggio espanso', expandBodyDesc: "Mostra automaticamente il contenuto completo dell'email", autoLoadImages: 'Caricamento automatico immagini', autoLoadImagesDesc: "Carica immagini remote nel corpo dell'email", senderInitials: 'Iniziali mittente', senderInitialsDesc: 'Avatar circolare con iniziali nella lista', groupByDate: 'Raggruppamento per data', groupByDateDesc: 'Separare i messaggi per giorno', attachmentsBefore: 'Allegati prima del contenuto', attachmentsBeforeDesc: "Mostra allegati sopra il corpo dell'email", enableAi: 'Abilita AI', enableAiDesc: 'Attiva funzioni AI (risposta, riepilogo, traduzione)', languageMode: 'Modalità lingua', languageModeDesc: "In che lingua l'AI deve generare risposte e riepiloghi", targetLanguage: 'Lingua di destinazione', targetLanguageDesc: "In che lingua tradurre l'output AI", soundOnSend: "Suono all'invio", soundOnSendDesc: 'Riproduci suono dopo invio email riuscito', soundOnReceive: 'Suono alla ricezione', soundOnReceiveDesc: 'Riproduci suono alla consegna di una nuova email', polling: 'Controllo automatico', pollingDesc: 'Frequenza di controllo nuova posta', showHideSidebar: 'Mostra o nascondi barra laterale con cartelle', changeColor: 'Cambia colore', noSignature: 'Nessuna firma per questo account', signaturePlaceholder: "La tua firma... (usa l'icona immagine per inserire il logo)", lastEdit: 'Ultima modifica: ', personal: 'Personale', shared: 'Condivisa', newTagPlaceholder: 'Nome nuovo tag...', tagCreated: 'Tag creato', tagDeleted: 'Tag eliminato', saved: 'Salvato', signatureSaved: 'Firma salvata', saveError: 'Impossibile salvare la firma', maximize: 'Massimizza', minimize: 'Riduci', maximizePanel: 'Massimizza pannello', minimizePanel: 'Riduci pannello' },
+        ai: { generateReply: 'AI Genera risposta', conversationSummary: 'AI Riepilogo conversazione', reviewReply: "Controlla e modifica la risposta suggerita prima dell'inserimento.", reviewSummary: "Controlla e modifica il riepilogo prima dell'inserimento.", editPlaceholder: 'Modifica contenuto AI...', insert: 'Inserisci', generating: 'Generazione...', generateError: 'Impossibile generare suggerimento AI', summaryError: 'Impossibile generare il riepilogo', translateError: 'Impossibile tradurre il contenuto' },
+        permissions: { requiredPermissions: 'Permessi necessari per Microsoft Teams:', permissionsGuide: 'Vai su Azure Portal → App registrations → la tua app → API permissions → Add a permission → Microsoft Graph → Delegated permissions → aggiungi i permessi sopra → clicca "Grant admin consent".' },
+        common: { error: 'Errore', messages: 'Messaggi', none: 'Nessuno', all: 'Tutti' },
+      },
   },
   de: {
     nav: {
@@ -34964,5 +35294,25 @@ export const translations: Record<Locale, Translations> = {
       externalEmails: 'Externe E-Mail-Adressen',
       externalEmailPlaceholder: 'E-Mail-Adresse eingeben...',
     },
+    nexusOmni: {
+        title: 'NEXUS Omni',
+        loginRequired: 'Melden Sie sich an, um auf NEXUS Omni zuzugreifen',
+        connectMs365: 'NEXUS Omni',
+        connectMs365Desc: 'Verbinden Sie Ihr MS365-Konto, um NEXUS Omni zu nutzen',
+        fullscreen: 'NEXUS Omni Vollbild',
+        exitFullscreen: 'NEXUS Omni verkleinern',
+        tabs: { email: 'E-Mail', sms: 'SMS', tasks: 'Aufgaben', chats: 'Chats', teams: 'Teams' },
+        folders: { inbox: 'Posteingang', sent: 'Gesendet', drafts: 'Entwürfe', spam: 'Spam', trash: 'Papierkorb', archive: 'Archiv', otherFolders: 'Weitere Ordner' },
+        email: { noEmails: 'Keine E-Mails', noResults: 'Keine Ergebnisse für', unknown: 'Unbekannt', noSubject: '(Kein Betreff)', markRead: 'Als gelesen markieren', markUnread: 'Als ungelesen markieren', markedRead: 'Als gelesen markiert', markedUnread: 'Als ungelesen markiert', reply: 'Antworten', replyAll: 'Allen antworten', forward: 'Weiterleiten', replyToEmail: 'Antwort auf E-Mail', replyToAll: 'Antwort an alle', forwardEmail: 'E-Mail weiterleiten', recipientPlaceholder: 'An (mehrere Adressen mit Komma trennen)', enterRecipient: 'Empfänger eingeben', messagePlaceholder: 'Nachricht schreiben...', replyPlaceholder: 'Antwort schreiben...', subjectPlaceholder: 'Betreff', ccBccReplyTo: 'Cc, Bcc, Reply To', hideFields: 'Felder ausblenden', ccPlaceholder: 'Cc', bccPlaceholder: 'Bcc', replyToPlaceholder: 'Reply-To-Adresse', deleted: 'Gelöscht', messageDeleted: 'Nachricht wurde gelöscht', deleteError: 'Nachricht konnte nicht gelöscht werden', sendError: 'Nachricht konnte nicht gesendet werden', replyError: 'Antwort konnte nicht gesendet werden', forwardError: 'Nachricht konnte nicht weitergeleitet werden', readStatusError: 'Lesestatus konnte nicht geändert werden', loadError: 'Ladefehler', loadAllError: 'Alle E-Mails konnten nicht geladen werden', emailSummary: 'E-Mail-Zusammenfassung', clickToRemove: 'Klicken zum Entfernen', attachmentsBeforeContent: 'Anhänge vor dem Inhalt', showAttachmentsAbove: 'Anhänge über dem E-Mail-Text anzeigen', important: 'Wichtige E-Mails', withAttachments: 'E-Mails mit Anhängen', fromSenderWithAttachments: 'E-Mails mit Anhängen von diesem Absender', lastWeek: 'E-Mails der letzten Woche', lastMonth: 'E-Mails des letzten Monats' },
+        sms: { allSms: 'Alle SMS', received: 'Empfangen', sent: 'Gesendete SMS', noSms: 'Keine SMS', receivedSms: 'Empfangene SMS', sentSms: 'Gesendete SMS', replySent: 'SMS gesendet', replyPlaceholder: 'Antwort an', angry: 'Verärgert', cancellation: 'Kündigung', criticalAlert: 'Kritische Warnung', warning: 'Warnung' },
+        tasks: { allTasks: 'Alle Aufgaben', pending: 'Ausstehend', inProgress: 'In Bearbeitung', completed: 'Abgeschlossen', cancelled: 'Storniert', noDescription: 'Keine Beschreibung', deadline: 'Frist' },
+        chats: { internalChats: 'Interne Chats', selectConversation: 'Wählen Sie eine Konversation in der Seitenleiste', lastMessage: 'Letzte Nachricht:' },
+        teams: { teamsChat: 'Teams Chat', noMessages: 'Keine Nachrichten', writePlaceholder: 'Nachricht schreiben...', directChat: 'Direkter Chat', groupChat: 'Gruppenchat', noTeamsChats: 'Keine Teams-Chats', noTeams: 'Keine Teams', notConnected: 'MS365 ist nicht verbunden', sendError: 'Nachricht konnte nicht gesendet werden' },
+        search: { placeholder: 'Suche in E-Mails, SMS, Aufgaben, Chats...', searchInEmails: 'In E-Mails suchen', searchAllMailboxes: 'alle Postfächer', emails: 'E-Mails', sms: 'SMS', tasks: 'Aufgaben', chats: 'Chats', suggestionsTitle: 'Vorschläge basierend auf geöffneter E-Mail', searchInList: 'In der Liste suchen...', recentSearches: 'Letzte Suchen', clearHistory: 'Verlauf löschen', mailbox: 'Postfach', allMailboxes: 'Alle Postfächer', dateFrom: 'Von', dateTo: 'Bis' },
+        settings: { appearance: 'Darstellung', accounts: 'Konten', notifications: 'Benachrichtigungen', sidebar: 'Seitenleiste', compose: 'Verfassen', signature: 'Signatur', ai: 'KI', unreadIndicator: 'Ungelesen-Anzeige', unreadIndicatorDesc: 'Blauer Punkt bei ungelesenen Nachrichten', highlightUnread: 'Ungelesene hervorheben', highlightUnreadDesc: 'Fettschrift für ungelesene Nachrichten', accountIcons: 'Konto-Icons', accountIconsDesc: 'Farbiger Punkt nach Kontozuordnung', attachmentIcons: 'Anhang-Icons', attachmentIconsDesc: 'Büroklammer-Symbol bei Nachrichten mit Anhängen', showTags: 'Tags anzeigen', showTagsDesc: 'Farbige Tags in der Nachrichtenliste', previewLines: 'Vorschauzeilen', previewLinesDesc: 'Anzahl der Vorschau-Textzeilen in der Liste', defaultSort: 'Standard-Sortierung', defaultSortDesc: 'Standard-E-Mail-Sortierung', showAllRecipients: 'Alle Empfänger anzeigen', showAllRecipientsDesc: 'CC und BCC in Details anzeigen', expandBody: 'Nachrichtentext erweitern', expandBodyDesc: 'Automatisch vollständigen E-Mail-Inhalt anzeigen', autoLoadImages: 'Bilder automatisch laden', autoLoadImagesDesc: 'Externe Bilder im E-Mail-Text laden', senderInitials: 'Absender-Initialen', senderInitialsDesc: 'Rundes Avatar mit Initialen in der Liste', groupByDate: 'Nach Datum gruppieren', groupByDateDesc: 'Nachrichten nach Tagen trennen', attachmentsBefore: 'Anhänge vor Inhalt', attachmentsBeforeDesc: 'Anhänge über dem E-Mail-Text anzeigen', enableAi: 'KI aktivieren', enableAiDesc: 'KI-Funktionen aktivieren (Antwort, Zusammenfassung, Übersetzung)', languageMode: 'Sprachmodus', languageModeDesc: 'In welcher Sprache soll die KI Antworten und Zusammenfassungen generieren', targetLanguage: 'Zielsprache', targetLanguageDesc: 'In welche Sprache soll die KI-Ausgabe übersetzt werden', soundOnSend: 'Ton beim Senden', soundOnSendDesc: 'Ton nach erfolgreichem E-Mail-Versand abspielen', soundOnReceive: 'Ton beim Empfang', soundOnReceiveDesc: 'Ton bei Eingang einer neuen E-Mail abspielen', polling: 'Automatische Überprüfung', pollingDesc: 'Wie oft nach neuer Post prüfen', showHideSidebar: 'Ordner-Seitenleiste ein- oder ausblenden', changeColor: 'Farbe ändern', noSignature: 'Keine Signatur für dieses Konto', signaturePlaceholder: 'Ihre Signatur... (verwenden Sie das Bildsymbol zum Einfügen eines Logos)', lastEdit: 'Letzte Bearbeitung: ', personal: 'Persönlich', shared: 'Geteilt', newTagPlaceholder: 'Neuer Tag-Name...', tagCreated: 'Tag erstellt', tagDeleted: 'Tag gelöscht', saved: 'Gespeichert', signatureSaved: 'Signatur wurde gespeichert', saveError: 'Signatur konnte nicht gespeichert werden', maximize: 'Maximieren', minimize: 'Minimieren', maximizePanel: 'Panel maximieren', minimizePanel: 'Panel minimieren' },
+        ai: { generateReply: 'KI Antwort generieren', conversationSummary: 'KI Gesprächszusammenfassung', reviewReply: 'Überprüfen und bearbeiten Sie die vorgeschlagene Antwort vor dem Einfügen.', reviewSummary: 'Überprüfen und bearbeiten Sie die Zusammenfassung vor dem Einfügen.', editPlaceholder: 'KI-Inhalt bearbeiten...', insert: 'Einfügen', generating: 'Wird generiert...', generateError: 'KI-Vorschlag konnte nicht generiert werden', summaryError: 'Zusammenfassung konnte nicht generiert werden', translateError: 'Inhalt konnte nicht übersetzt werden' },
+        permissions: { requiredPermissions: 'Erforderliche Berechtigungen für Microsoft Teams:', permissionsGuide: 'Gehen Sie zu Azure Portal → App registrations → Ihre App → API permissions → Add a permission → Microsoft Graph → Delegated permissions → fügen Sie die oben genannten Berechtigungen hinzu → klicken Sie auf "Grant admin consent".' },
+        common: { error: 'Fehler', messages: 'Nachrichten', none: 'Keine', all: 'Alle' },
+      },
   },
 };

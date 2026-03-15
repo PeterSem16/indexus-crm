@@ -6,6 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { Link } from "wouter";
+import { useI18n } from "@/i18n/I18nProvider";
 
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -456,6 +457,7 @@ function TeamsPanel({ userId }: { userId?: string }) {
 export default function EmailClientPage() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { t } = useI18n();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [activeTab, setActiveTab] = useState<NexusTab>("email");
@@ -1764,7 +1766,7 @@ export default function EmailClientPage() {
     return (
       <div className="flex items-center justify-center h-96">
         <AlertCircle className="h-8 w-8 text-muted-foreground mr-2" />
-        <span>Prihláste sa pre prístup do NEXUS</span>
+        <span>{t.nexusOmni.loginRequired}</span>
       </div>
     );
   }
@@ -1777,17 +1779,17 @@ export default function EmailClientPage() {
             <Network className="h-6 w-6 text-primary-foreground" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">NEXUS</h1>
-            <p className="text-muted-foreground">Komunikačné centrum</p>
+            <h1 className="text-3xl font-bold tracking-tight">{t.nexusOmni.connectMs365}</h1>
+            <p className="text-muted-foreground">{t.nexusOmni.connectMs365Desc}</p>
           </div>
         </div>
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <Mail className="h-12 w-12 text-muted-foreground mb-4" />
-            <p className="text-lg font-medium mb-2">MS365 nie je pripojený</p>
-            <p className="text-muted-foreground mb-4">Pre použitie NEXUS pripojte svoj MS365 účet</p>
+            <p className="text-lg font-medium mb-2">{t.nexusOmni.teams.notConnected}</p>
+            <p className="text-muted-foreground mb-4">{t.nexusOmni.connectMs365Desc}</p>
             <Button onClick={() => window.location.href = "/ms365"} data-testid="button-connect-ms365">
-              Pripojiť MS365
+              {t.nexusOmni.connectMs365}
             </Button>
           </CardContent>
         </Card>
@@ -1796,11 +1798,11 @@ export default function EmailClientPage() {
   }
 
   const tabConfig: { key: NexusTab; label: string; icon: React.ReactNode; badge?: number; badgeColor?: string }[] = [
-    { key: "email", label: "Email", icon: <Mail className="h-4 w-4" />, badge: totalUnreadEmails > 0 ? totalUnreadEmails : undefined, badgeColor: "bg-blue-500" },
-    { key: "sms", label: "SMS", icon: <MessageSquare className="h-4 w-4" />, badge: smsInboundUnread > 0 ? smsInboundUnread : undefined, badgeColor: "bg-cyan-500" },
-    { key: "tasks", label: "Úlohy", icon: <ListTodo className="h-4 w-4" />, badge: pendingTasks > 0 ? pendingTasks : undefined, badgeColor: "bg-amber-500" },
-    { key: "chats", label: "Chaty", icon: <MessagesSquare className="h-4 w-4" />, badge: unreadChats > 0 ? unreadChats : undefined, badgeColor: "bg-violet-500" },
-    { key: "teams", label: "Teams", icon: <MessagesSquare className="h-4 w-4" />, badgeColor: "bg-indigo-500" },
+    { key: "email", label: t.nexusOmni.tabs.email, icon: <Mail className="h-4 w-4" />, badge: totalUnreadEmails > 0 ? totalUnreadEmails : undefined, badgeColor: "bg-blue-500" },
+    { key: "sms", label: t.nexusOmni.tabs.sms, icon: <MessageSquare className="h-4 w-4" />, badge: smsInboundUnread > 0 ? smsInboundUnread : undefined, badgeColor: "bg-cyan-500" },
+    { key: "tasks", label: t.nexusOmni.tabs.tasks, icon: <ListTodo className="h-4 w-4" />, badge: pendingTasks > 0 ? pendingTasks : undefined, badgeColor: "bg-amber-500" },
+    { key: "chats", label: t.nexusOmni.tabs.chats, icon: <MessagesSquare className="h-4 w-4" />, badge: unreadChats > 0 ? unreadChats : undefined, badgeColor: "bg-violet-500" },
+    { key: "teams", label: t.nexusOmni.tabs.teams, icon: <MessagesSquare className="h-4 w-4" />, badgeColor: "bg-indigo-500" },
   ];
 
   return (
@@ -1818,7 +1820,7 @@ export default function EmailClientPage() {
             <Network className={nexusFullscreen ? "h-4 w-4 text-primary-foreground" : "h-5 w-5 text-primary-foreground"} />
           </div>
           <div>
-            <h1 className={nexusFullscreen ? "text-lg font-bold tracking-tight" : "text-2xl font-bold tracking-tight"}>NEXUS</h1>
+            <h1 className={nexusFullscreen ? "text-lg font-bold tracking-tight" : "text-2xl font-bold tracking-tight"}>{t.nexusOmni.title}</h1>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -1828,7 +1830,7 @@ export default function EmailClientPage() {
             data-testid="button-smart-search"
           >
             <Search className="h-3.5 w-3.5" />
-            <span className="hidden md:inline">Hľadať...</span>
+            <span className="hidden md:inline">{t.nexusOmni.search.searchInEmails}...</span>
             <kbd className="hidden md:inline-flex items-center gap-0.5 rounded border bg-muted px-1.5 text-[10px] font-mono text-muted-foreground">
               Ctrl K
             </kbd>
@@ -1850,7 +1852,7 @@ export default function EmailClientPage() {
                   {nexusFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="bottom" className="text-xs">{nexusFullscreen ? "Zmenšiť NEXUS" : "NEXUS na celú obrazovku"}</TooltipContent>
+              <TooltipContent side="bottom" className="text-xs">{nexusFullscreen ? t.nexusOmni.exitFullscreen : t.nexusOmni.fullscreen}</TooltipContent>
             </Tooltip>
           </TooltipProvider>
           {activeTab === "email" && (
@@ -2608,8 +2610,8 @@ export default function EmailClientPage() {
       <Dialog open={smartSearchOpen} onOpenChange={setSmartSearchOpen}>
         <DialogContent className="max-w-xl p-0 gap-0 overflow-hidden" data-testid="smart-search-dialog">
           <DialogHeader className="sr-only">
-            <DialogTitle>Vyhľadávanie</DialogTitle>
-            <DialogDescription>Inteligentné vyhľadávanie v NEXUS komunikácii</DialogDescription>
+            <DialogTitle>{t.nexusOmni.search.searchInEmails}</DialogTitle>
+            <DialogDescription>{t.nexusOmni.search.placeholder}</DialogDescription>
           </DialogHeader>
           <div className="p-4 border-b">
             <div className="relative">
