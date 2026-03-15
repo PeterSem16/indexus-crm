@@ -120,6 +120,7 @@ import {
   AtSign,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
+import { DateTimePicker } from "@/components/ui/date-time-picker";
 import EmailEditor, { EmailRecipientInput } from "@/components/nexus/email-editor";
 
 import NexusSidebar, { getAccountIcons, AccountIcon, type AccountIconConfig } from "@/components/nexus/nexus-sidebar";
@@ -455,7 +456,8 @@ function TeamsPanel({ userId }: { userId?: string }) {
 export default function EmailClientPage() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
+  const localeToCountry: Record<string, string> = { en: "US", sk: "SK", cs: "CZ", hu: "HU", ro: "RO", it: "IT", de: "DE" };
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [activeTab, setActiveTab] = useState<NexusTab>("email");
@@ -2624,131 +2626,118 @@ export default function EmailClientPage() {
       </div>
 
       <Dialog open={smartSearchOpen} onOpenChange={setSmartSearchOpen}>
-          <DialogContent className="max-w-2xl p-0 gap-0 overflow-hidden rounded-2xl border-0 shadow-2xl" data-testid="smart-search-dialog">
+          <DialogContent hideCloseButton className="max-w-3xl p-0 gap-0 overflow-hidden rounded-2xl border shadow-2xl" data-testid="smart-search-dialog">
             <DialogHeader className="sr-only">
               <DialogTitle>{t.nexusOmni.search.searchInEmails}</DialogTitle>
               <DialogDescription>{t.nexusOmni.search.placeholder}</DialogDescription>
             </DialogHeader>
 
-            <div className="px-5 pt-5 pb-3">
+            <div className="px-5 pt-4 pb-3 space-y-3">
               <div className="relative group">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground/60 transition-colors group-focus-within:text-primary" />
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground/50 transition-colors group-focus-within:text-primary" />
                 <Input
                   ref={smartSearchInputRef}
                   placeholder={t.nexusOmni.search.placeholder}
                   value={smartSearchQuery}
                   onChange={(e) => setSmartSearchQuery(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") executeSmartSearch(smartSearchQuery); }}
-                  className="pl-12 pr-12 h-12 text-base rounded-xl border-muted-foreground/20 bg-muted/40 focus:bg-background shadow-sm transition-all focus:shadow-md"
+                  onKeyDown={(e) => { if (e.key === "Enter") executeSmartSearch(smartSearchQuery); if (e.key === "Escape") setSmartSearchOpen(false); }}
+                  className="pl-12 pr-10 h-12 text-base rounded-xl border-0 bg-muted/50 focus-visible:ring-1 focus-visible:ring-primary/30 shadow-inner"
                   autoFocus
                   data-testid="input-smart-search"
                 />
-                {smartSearchQuery.length > 0 ? (
+                {smartSearchQuery.length > 0 && (
                   <button
                     onClick={() => { setSmartSearchQuery(""); smartSearchInputRef.current?.focus(); }}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full bg-muted-foreground/15 hover:bg-muted-foreground/25 flex items-center justify-center transition-all"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 h-7 w-7 rounded-lg bg-muted hover:bg-muted-foreground/20 flex items-center justify-center transition-all"
                     data-testid="clear-search-input"
-                  >
-                    <X className="h-3.5 w-3.5 text-muted-foreground" />
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => setSmartSearchOpen(false)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full bg-muted-foreground/15 hover:bg-muted-foreground/25 flex items-center justify-center transition-all"
-                    data-testid="close-search-dialog"
                   >
                     <X className="h-3.5 w-3.5 text-muted-foreground" />
                   </button>
                 )}
               </div>
 
-              <div className="flex items-center gap-2 mt-3">
-                <div className="flex flex-wrap gap-1.5">
-                  <button
-                    onClick={() => setSmartSearchMailbox("all")}
-                    className={cn("px-3 py-1 rounded-full text-xs font-medium transition-all",
-                      smartSearchMailbox === "all"
-                        ? "bg-primary text-primary-foreground shadow-sm"
-                        : "bg-muted/70 text-muted-foreground hover:bg-muted hover:text-foreground"
-                    )}
-                    data-testid="smart-search-mailbox-all"
-                  >
-                    {t.nexusOmni.search.allMailboxes}
-                  </button>
-                  {mailboxes.map(m => {
-                    const key = m.type === "personal" ? "personal" : m.email;
-                    const mbColor = accountConfigs[m.email]?.color || mailboxColorMap[m.email] || undefined;
-                    return (
-                      <button
-                        key={key}
-                        onClick={() => setSmartSearchMailbox(key)}
-                        className={cn("px-3 py-1 rounded-full text-xs font-medium transition-all truncate max-w-36 flex items-center gap-1.5",
-                          smartSearchMailbox === key
-                            ? "bg-primary text-primary-foreground shadow-sm"
-                            : "bg-muted/70 text-muted-foreground hover:bg-muted hover:text-foreground"
-                        )}
-                        data-testid={`smart-search-mailbox-${key}`}
-                      >
-                        {mbColor && <span className="inline-block h-2 w-2 rounded-full shrink-0 ring-1 ring-white/50" style={{ backgroundColor: mbColor }} />}
-                        {m.email.split("@")[0]}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 mt-2.5">
-                <div className="flex items-center gap-1.5 flex-1 px-3 py-1.5 rounded-xl bg-muted/40 border border-transparent focus-within:border-muted-foreground/20 transition-colors">
-                  <CalendarDays className="h-3.5 w-3.5 text-muted-foreground/60 shrink-0" />
-                  <input
-                    type="date"
-                    value={searchDateFrom}
-                    onChange={(e) => setSearchDateFrom(e.target.value)}
-                    className="h-6 text-xs bg-transparent text-foreground flex-1 min-w-0 outline-none"
-                    data-testid="search-date-from"
-                  />
-                  <span className="text-xs text-muted-foreground/50 mx-1">—</span>
-                  <input
-                    type="date"
-                    value={searchDateTo}
-                    onChange={(e) => setSearchDateTo(e.target.value)}
-                    className="h-6 text-xs bg-transparent text-foreground flex-1 min-w-0 outline-none"
-                    data-testid="search-date-to"
-                  />
-                  {(searchDateFrom || searchDateTo) && (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60 px-1">{t.nexusOmni.search.mailbox}</span>
+                  <div className="flex flex-wrap gap-1.5">
                     <button
-                      onClick={() => { setSearchDateFrom(""); setSearchDateTo(""); }}
-                      className="h-5 w-5 flex items-center justify-center rounded-full bg-muted-foreground/15 hover:bg-muted-foreground/25 transition-colors shrink-0"
-                      data-testid="clear-date-filter"
+                      onClick={() => setSmartSearchMailbox("all")}
+                      className={cn("px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all border",
+                        smartSearchMailbox === "all"
+                          ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                          : "bg-card text-muted-foreground border-border hover:bg-accent hover:text-foreground"
+                      )}
+                      data-testid="smart-search-mailbox-all"
                     >
-                      <X className="h-2.5 w-2.5 text-muted-foreground" />
+                      {t.nexusOmni.search.allMailboxes}
                     </button>
-                  )}
+                    {mailboxes.map(m => {
+                      const key = m.type === "personal" ? "personal" : m.email;
+                      const mbColor = accountConfigs[m.email]?.color || mailboxColorMap[m.email] || undefined;
+                      return (
+                        <button
+                          key={key}
+                          onClick={() => setSmartSearchMailbox(key)}
+                          className={cn("px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all truncate max-w-28 flex items-center gap-1.5 border",
+                            smartSearchMailbox === key
+                              ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                              : "bg-card text-muted-foreground border-border hover:bg-accent hover:text-foreground"
+                          )}
+                          data-testid={`smart-search-mailbox-${key}`}
+                        >
+                          {mbColor && <span className="inline-block h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: mbColor }} />}
+                          {m.email.split("@")[0]}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60 px-1">{t.nexusOmni.common.date}</span>
+                  <div className="grid grid-cols-2 gap-2">
+                    <DateTimePicker
+                      value={searchDateFrom}
+                      onChange={(v) => setSearchDateFrom(v)}
+                      countryCode={localeToCountry[locale] || "SK"}
+                      includeTime={false}
+                      placeholder={t.nexusOmni.filter?.from || "Od"}
+                      className="h-8 text-xs rounded-lg"
+                      data-testid="search-date-from"
+                    />
+                    <DateTimePicker
+                      value={searchDateTo}
+                      onChange={(v) => setSearchDateTo(v)}
+                      countryCode={localeToCountry[locale] || "SK"}
+                      includeTime={false}
+                      placeholder={t.nexusOmni.filter?.to || "Do"}
+                      className="h-8 text-xs rounded-lg"
+                      data-testid="search-date-to"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
+            <div className="h-px bg-border" />
 
-            <ScrollArea className="max-h-[420px]">
-              <div className="p-2">
+            <ScrollArea className="max-h-[400px]">
+              <div className="p-2 space-y-0.5">
                 {smartSearchQuery.trim().length >= 2 && (
                   <>
                   <button
                     onClick={() => executeSmartSearch(smartSearchQuery)}
-                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-primary/5 transition-all text-left group border border-transparent hover:border-primary/10"
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-accent transition-all text-left group"
                     data-testid="smart-search-execute"
                   >
-                    <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center shrink-0 shadow-sm">
+                    <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
                       <Search className="h-4 w-4 text-primary" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{t.nexusOmni.search.searchInEmailsQuery} "<span className="text-primary">{smartSearchQuery}</span>"</p>
                       <p className="text-[11px] text-muted-foreground">{smartSearchMailbox === "all" ? t.nexusOmni.search.searchAllMailboxesLabel : smartSearchMailbox}</p>
                     </div>
-                    <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                      <ArrowRight className="h-3.5 w-3.5 text-primary" />
-                    </div>
+                    <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                   </button>
 
                   {(() => {
@@ -2774,8 +2763,8 @@ export default function EmailClientPage() {
                       <>
                         {matchedEmails.length > 0 && (
                           <>
-                            <div className="px-4 pt-3 pb-1">
-                              <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70 flex items-center gap-1.5">
+                            <div className="px-3 pt-3 pb-1">
+                              <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60 flex items-center gap-1.5">
                                 <Mail className="h-3 w-3" /> {t.nexusOmni.tabs.email} ({matchedEmails.length})
                               </span>
                             </div>
@@ -2785,17 +2774,17 @@ export default function EmailClientPage() {
                               <button
                                 key={email.id}
                                 onClick={() => { setActiveTab("email"); setSelectedEmail(email); setSmartSearchOpen(false); setSmartSearchQuery(""); }}
-                                className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-accent/60 transition-all text-left group"
+                                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-accent transition-all text-left group"
                                 data-testid={`search-email-${email.id}`}
                               >
-                                <div className="h-8 w-8 rounded-full flex items-center justify-center shrink-0 shadow-sm" style={{ backgroundColor: emColor || "hsl(var(--muted))" }}>
+                                <div className="h-8 w-8 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: emColor || "hsl(var(--muted))" }}>
                                   <AccountIcon iconKey={email._mailboxEmail ? (accountConfigs[email._mailboxEmail]?.icon || "mail") : "mail"} className="h-3.5 w-3.5 text-white" />
                                 </div>
                                 <div className="flex-1 min-w-0">
                                   <p className="text-sm font-medium truncate">{email.from?.emailAddress?.name || email.from?.emailAddress?.address || t.nexusOmni.email.unknown}</p>
                                   <p className="text-[11px] text-muted-foreground truncate">{email.subject || t.nexusOmni.email.noSubject}</p>
                                 </div>
-                                <span className="text-[10px] text-muted-foreground/70 shrink-0 tabular-nums">{format(new Date(email.receivedDateTime), "d.M. HH:mm")}</span>
+                                <span className="text-[10px] text-muted-foreground/60 shrink-0 tabular-nums">{format(new Date(email.receivedDateTime), "d.M. HH:mm")}</span>
                               </button>
                               );
                             })}
@@ -2803,8 +2792,8 @@ export default function EmailClientPage() {
                         )}
                         {matchedSms.length > 0 && (
                           <>
-                            <div className="px-4 pt-3 pb-1">
-                              <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70 flex items-center gap-1.5">
+                            <div className="px-3 pt-3 pb-1">
+                              <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60 flex items-center gap-1.5">
                                 <MessageSquare className="h-3 w-3" /> SMS ({matchedSms.length})
                               </span>
                             </div>
@@ -2812,25 +2801,25 @@ export default function EmailClientPage() {
                               <button
                                 key={sms.id}
                                 onClick={() => { setActiveTab("sms"); setSelectedSms(sms); setSmartSearchOpen(false); setSmartSearchQuery(""); }}
-                                className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-accent/60 transition-all text-left group"
+                                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-accent transition-all text-left group"
                                 data-testid={`search-sms-${sms.id}`}
                               >
-                                <div className="h-8 w-8 rounded-xl bg-cyan-100 dark:bg-cyan-900/30 flex items-center justify-center shrink-0">
+                                <div className="h-8 w-8 rounded-lg bg-cyan-500/10 flex items-center justify-center shrink-0">
                                   <MessageSquare className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
                                 </div>
                                 <div className="flex-1 min-w-0">
                                   <p className="text-sm font-medium truncate">{sms.customer ? `${sms.customer.firstName} ${sms.customer.lastName}` : (sms.direction === "inbound" ? sms.senderPhone : sms.recipientPhone)}</p>
                                   <p className="text-[11px] text-muted-foreground truncate">{sms.content}</p>
                                 </div>
-                                <span className="text-[10px] text-muted-foreground/70 shrink-0 tabular-nums">{format(new Date(sms.createdAt), "d.M. HH:mm")}</span>
+                                <span className="text-[10px] text-muted-foreground/60 shrink-0 tabular-nums">{format(new Date(sms.createdAt), "d.M. HH:mm")}</span>
                               </button>
                             ))}
                           </>
                         )}
                         {matchedTasks.length > 0 && (
                           <>
-                            <div className="px-4 pt-3 pb-1">
-                              <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70 flex items-center gap-1.5">
+                            <div className="px-3 pt-3 pb-1">
+                              <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60 flex items-center gap-1.5">
                                 <ListTodo className="h-3 w-3" /> {t.nexusOmni.tabs.tasks} ({matchedTasks.length})
                               </span>
                             </div>
@@ -2838,25 +2827,25 @@ export default function EmailClientPage() {
                               <button
                                 key={task.id}
                                 onClick={() => { setActiveTab("tasks"); setSelectedTask(task); setSmartSearchOpen(false); setSmartSearchQuery(""); }}
-                                className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-accent/60 transition-all text-left group"
+                                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-accent transition-all text-left group"
                                 data-testid={`search-task-${task.id}`}
                               >
-                                <div className="h-8 w-8 rounded-xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center shrink-0">
+                                <div className="h-8 w-8 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0">
                                   <ListTodo className="h-4 w-4 text-amber-600 dark:text-amber-400" />
                                 </div>
                                 <div className="flex-1 min-w-0">
                                   <p className="text-sm font-medium truncate">{task.title}</p>
                                   <p className="text-[11px] text-muted-foreground truncate">{task.description || task.status}</p>
                                 </div>
-                                <Badge variant="secondary" className="text-[10px] shrink-0 rounded-full">{task.status === "pending" ? t.nexusOmni.tasks.pending : task.status === "completed" ? t.nexusOmni.tasks.completed : task.status}</Badge>
+                                <Badge variant="secondary" className="text-[10px] shrink-0 rounded-md">{task.status === "pending" ? t.nexusOmni.tasks.pending : task.status === "completed" ? t.nexusOmni.tasks.completed : task.status}</Badge>
                               </button>
                             ))}
                           </>
                         )}
                         {matchedChats.length > 0 && (
                           <>
-                            <div className="px-4 pt-3 pb-1">
-                              <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70 flex items-center gap-1.5">
+                            <div className="px-3 pt-3 pb-1">
+                              <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60 flex items-center gap-1.5">
                                 <MessagesSquare className="h-3 w-3" /> {t.nexusOmni.tabs.chats} ({matchedChats.length})
                               </span>
                             </div>
@@ -2864,17 +2853,17 @@ export default function EmailClientPage() {
                               <button
                                 key={chat.id}
                                 onClick={() => { setActiveTab("chats"); _setSelectedChat(chat); setSmartSearchOpen(false); setSmartSearchQuery(""); }}
-                                className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-accent/60 transition-all text-left group"
+                                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-accent transition-all text-left group"
                                 data-testid={`search-chat-${chat.id}`}
                               >
-                                <div className="h-8 w-8 rounded-xl bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center shrink-0">
+                                <div className="h-8 w-8 rounded-lg bg-violet-500/10 flex items-center justify-center shrink-0">
                                   <MessagesSquare className="h-4 w-4 text-violet-600 dark:text-violet-400" />
                                 </div>
                                 <div className="flex-1 min-w-0">
                                   <p className="text-sm font-medium truncate">{chat.participantName}</p>
                                   <p className="text-[11px] text-muted-foreground truncate">{chat.lastMessage}</p>
                                 </div>
-                                <span className="text-[10px] text-muted-foreground/70 shrink-0 tabular-nums">{format(new Date(chat.lastMessageAt), "d.M. HH:mm")}</span>
+                                <span className="text-[10px] text-muted-foreground/60 shrink-0 tabular-nums">{format(new Date(chat.lastMessageAt), "d.M. HH:mm")}</span>
                               </button>
                             ))}
                           </>
@@ -2887,9 +2876,9 @@ export default function EmailClientPage() {
 
                 {selectedEmail && smartSearchQuery.length === 0 && (
                   <>
-                    <div className="px-4 pt-2 pb-1.5">
-                      <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70 flex items-center gap-1.5">
-                        <Sparkles className="h-3 w-3 text-amber-500" />
+                    <div className="px-3 pt-2 pb-1">
+                      <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60 flex items-center gap-1.5">
+                        <Sparkles className="h-3 w-3" />
                         {t.nexusOmni.search.suggestionsTitle}
                       </span>
                     </div>
@@ -2897,15 +2886,15 @@ export default function EmailClientPage() {
                       <button
                         key={idx}
                         onClick={() => executeSmartSearch(suggestion.query)}
-                        className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-accent/60 transition-all text-left group"
+                        className="w-full flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-accent transition-all text-left group"
                         data-testid={`smart-suggestion-${idx}`}
                       >
-                        <div className={cn("h-9 w-9 rounded-xl flex items-center justify-center shrink-0 shadow-sm",
-                          suggestion.type === "sender" ? "bg-gradient-to-br from-blue-100 to-blue-50 dark:from-blue-900/40 dark:to-blue-900/20" :
-                          suggestion.type === "domain" ? "bg-gradient-to-br from-purple-100 to-purple-50 dark:from-purple-900/40 dark:to-purple-900/20" :
-                          suggestion.type === "subject" ? "bg-gradient-to-br from-amber-100 to-amber-50 dark:from-amber-900/40 dark:to-amber-900/20" :
-                          suggestion.type === "attachment" ? "bg-gradient-to-br from-green-100 to-green-50 dark:from-green-900/40 dark:to-green-900/20" :
-                          suggestion.type === "date" ? "bg-gradient-to-br from-indigo-100 to-indigo-50 dark:from-indigo-900/40 dark:to-indigo-900/20" :
+                        <div className={cn("h-8 w-8 rounded-lg flex items-center justify-center shrink-0",
+                          suggestion.type === "sender" ? "bg-blue-500/10" :
+                          suggestion.type === "domain" ? "bg-purple-500/10" :
+                          suggestion.type === "subject" ? "bg-amber-500/10" :
+                          suggestion.type === "attachment" ? "bg-green-500/10" :
+                          suggestion.type === "date" ? "bg-indigo-500/10" :
                           "bg-muted"
                         )}>
                           {suggestion.icon === "user" && <User className="h-4 w-4 text-blue-600 dark:text-blue-400" />}
@@ -2917,12 +2906,10 @@ export default function EmailClientPage() {
                           {suggestion.icon === "calendar" && <CalendarDays className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{suggestion.label}</p>
-                          {!suggestion.query.startsWith("__date:") && <p className="text-[11px] text-muted-foreground/60 truncate font-mono">{suggestion.query}</p>}
+                          <p className="text-sm truncate">{suggestion.label}</p>
+                          {!suggestion.query.startsWith("__date:") && <p className="text-[10px] text-muted-foreground/50 truncate font-mono">{suggestion.query}</p>}
                         </div>
-                        <div className="h-6 w-6 rounded-lg bg-muted/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                          <ArrowRight className="h-3 w-3 text-muted-foreground" />
-                        </div>
+                        <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                       </button>
                     ))}
                   </>
@@ -2930,66 +2917,68 @@ export default function EmailClientPage() {
 
                 {!selectedEmail && smartSearchQuery.length === 0 && (
                   <>
-                    <div className="px-4 pt-2 pb-1.5">
-                      <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70 flex items-center gap-1.5">
-                        <Zap className="h-3 w-3 text-amber-500" />
+                    <div className="px-3 pt-2 pb-1">
+                      <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60 flex items-center gap-1.5">
+                        <Zap className="h-3 w-3" />
                         {t.nexusOmni.search.quickSearch}
                       </span>
                     </div>
-                    <button
-                      onClick={() => executeSmartSearch("hasAttachments:true")}
-                      className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-accent/60 transition-all text-left group"
-                      data-testid="quick-search-attachments"
-                    >
-                      <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-green-100 to-green-50 dark:from-green-900/40 dark:to-green-900/20 flex items-center justify-center shrink-0 shadow-sm">
-                        <Paperclip className="h-4 w-4 text-green-600 dark:text-green-400" />
-                      </div>
-                      <p className="text-sm font-medium">{t.nexusOmni.email.withAttachments}</p>
-                    </button>
-                    <button
-                      onClick={() => executeSmartSearch("importance:high")}
-                      className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-accent/60 transition-all text-left group"
-                      data-testid="quick-search-important"
-                    >
-                      <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-red-100 to-red-50 dark:from-red-900/40 dark:to-red-900/20 flex items-center justify-center shrink-0 shadow-sm">
-                        <Flame className="h-4 w-4 text-red-600 dark:text-red-400" />
-                      </div>
-                      <p className="text-sm font-medium">{t.nexusOmni.email.important}</p>
-                    </button>
-                    {(() => {
-                      const today = new Date();
-                      const todayStr = today.toISOString().split("T")[0];
-                      const weekAgo = new Date(today.getTime() - 7 * 86400000).toISOString().split("T")[0];
-                      const monthAgo = new Date(today.getTime() - 30 * 86400000).toISOString().split("T")[0];
-                      return (
-                        <>
-                          <button onClick={() => executeSmartSearch(`__date:${todayStr}:${todayStr}`)} className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-accent/60 transition-all text-left group" data-testid="quick-search-today">
-                            <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-indigo-100 to-indigo-50 dark:from-indigo-900/40 dark:to-indigo-900/20 flex items-center justify-center shrink-0 shadow-sm"><CalendarDays className="h-4 w-4 text-indigo-600 dark:text-indigo-400" /></div>
-                            <p className="text-sm font-medium">{t.nexusOmni.email.todaysEmails}</p>
-                          </button>
-                          <button onClick={() => executeSmartSearch(`__date:${weekAgo}:${todayStr}`)} className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-accent/60 transition-all text-left group" data-testid="quick-search-week">
-                            <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-indigo-100 to-indigo-50 dark:from-indigo-900/40 dark:to-indigo-900/20 flex items-center justify-center shrink-0 shadow-sm"><CalendarRange className="h-4 w-4 text-indigo-600 dark:text-indigo-400" /></div>
-                            <p className="text-sm font-medium">{t.nexusOmni.email.lastWeek}</p>
-                          </button>
-                          <button onClick={() => executeSmartSearch(`__date:${monthAgo}:${todayStr}`)} className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-accent/60 transition-all text-left group" data-testid="quick-search-month">
-                            <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-indigo-100 to-indigo-50 dark:from-indigo-900/40 dark:to-indigo-900/20 flex items-center justify-center shrink-0 shadow-sm"><CalendarRange className="h-4 w-4 text-indigo-600 dark:text-indigo-400" /></div>
-                            <p className="text-sm font-medium">{t.nexusOmni.email.lastMonth}</p>
-                          </button>
-                        </>
-                      );
-                    })()}
+                    <div className="grid grid-cols-2 gap-0.5 px-1">
+                      <button
+                        onClick={() => executeSmartSearch("hasAttachments:true")}
+                        className="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-accent transition-all text-left group"
+                        data-testid="quick-search-attachments"
+                      >
+                        <div className="h-8 w-8 rounded-lg bg-green-500/10 flex items-center justify-center shrink-0">
+                          <Paperclip className="h-4 w-4 text-green-600 dark:text-green-400" />
+                        </div>
+                        <p className="text-sm truncate">{t.nexusOmni.email.withAttachments}</p>
+                      </button>
+                      <button
+                        onClick={() => executeSmartSearch("importance:high")}
+                        className="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-accent transition-all text-left group"
+                        data-testid="quick-search-important"
+                      >
+                        <div className="h-8 w-8 rounded-lg bg-red-500/10 flex items-center justify-center shrink-0">
+                          <Flame className="h-4 w-4 text-red-600 dark:text-red-400" />
+                        </div>
+                        <p className="text-sm truncate">{t.nexusOmni.email.important}</p>
+                      </button>
+                      {(() => {
+                        const today = new Date();
+                        const todayStr = today.toISOString().split("T")[0];
+                        const weekAgo = new Date(today.getTime() - 7 * 86400000).toISOString().split("T")[0];
+                        const monthAgo = new Date(today.getTime() - 30 * 86400000).toISOString().split("T")[0];
+                        return (
+                          <>
+                            <button onClick={() => executeSmartSearch(`__date:${todayStr}:${todayStr}`)} className="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-accent transition-all text-left group" data-testid="quick-search-today">
+                              <div className="h-8 w-8 rounded-lg bg-indigo-500/10 flex items-center justify-center shrink-0"><CalendarDays className="h-4 w-4 text-indigo-600 dark:text-indigo-400" /></div>
+                              <p className="text-sm truncate">{t.nexusOmni.email.todaysEmails}</p>
+                            </button>
+                            <button onClick={() => executeSmartSearch(`__date:${weekAgo}:${todayStr}`)} className="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-accent transition-all text-left group" data-testid="quick-search-week">
+                              <div className="h-8 w-8 rounded-lg bg-indigo-500/10 flex items-center justify-center shrink-0"><CalendarRange className="h-4 w-4 text-indigo-600 dark:text-indigo-400" /></div>
+                              <p className="text-sm truncate">{t.nexusOmni.email.lastWeek}</p>
+                            </button>
+                            <button onClick={() => executeSmartSearch(`__date:${monthAgo}:${todayStr}`)} className="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-accent transition-all text-left group col-span-2" data-testid="quick-search-month">
+                              <div className="h-8 w-8 rounded-lg bg-indigo-500/10 flex items-center justify-center shrink-0"><CalendarRange className="h-4 w-4 text-indigo-600 dark:text-indigo-400" /></div>
+                              <p className="text-sm truncate">{t.nexusOmni.email.lastMonth}</p>
+                            </button>
+                          </>
+                        );
+                      })()}
+                    </div>
                   </>
                 )}
 
                 {recentSearches.length > 0 && smartSearchQuery.length === 0 && (
                   <>
-                    <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent mx-4 my-1" />
-                    <div className="px-4 pt-2 pb-1 flex items-center justify-between">
-                      <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70 flex items-center gap-1.5">
+                    <div className="h-px bg-border mx-3 my-1.5" />
+                    <div className="px-3 pt-1 pb-1 flex items-center justify-between">
+                      <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60 flex items-center gap-1.5">
                         <History className="h-3 w-3" />
                         {t.nexusOmni.search.recentSearches}
                       </span>
-                      <button onClick={clearRecentSearches} className="text-[10px] text-muted-foreground/60 hover:text-foreground transition-colors" data-testid="clear-recent-searches">
+                      <button onClick={clearRecentSearches} className="text-[10px] text-muted-foreground/50 hover:text-foreground transition-colors" data-testid="clear-recent-searches">
                         {t.nexusOmni.email.clear}
                       </button>
                     </div>
@@ -2997,16 +2986,14 @@ export default function EmailClientPage() {
                       <button
                         key={idx}
                         onClick={() => executeSmartSearch(recent)}
-                        className="w-full flex items-center gap-3 px-4 py-2 rounded-xl hover:bg-accent/60 transition-all text-left group"
+                        className="w-full flex items-center gap-3 px-3 py-1.5 rounded-xl hover:bg-accent transition-all text-left group"
                         data-testid={`recent-search-${idx}`}
                       >
-                        <div className="h-7 w-7 rounded-lg bg-muted/60 flex items-center justify-center shrink-0">
-                          <History className="h-3.5 w-3.5 text-muted-foreground/60" />
+                        <div className="h-7 w-7 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                          <History className="h-3.5 w-3.5 text-muted-foreground/50" />
                         </div>
                         <p className="text-sm truncate flex-1 text-muted-foreground">{recent}</p>
-                        <div className="h-5 w-5 rounded-md bg-muted/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                          <ArrowRight className="h-3 w-3 text-muted-foreground" />
-                        </div>
+                        <ArrowRight className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                       </button>
                     ))}
                   </>
@@ -3014,10 +3001,8 @@ export default function EmailClientPage() {
 
                 {smartSearchQuery.trim().length > 0 && smartSearchQuery.trim().length < 2 && (
                   <div className="flex flex-col items-center justify-center py-10 text-muted-foreground">
-                    <div className="h-12 w-12 rounded-2xl bg-muted/50 flex items-center justify-center mb-3">
-                      <Search className="h-5 w-5 opacity-40" />
-                    </div>
-                    <p className="text-sm text-muted-foreground/70">{t.nexusOmni.search.enterMin2Chars}</p>
+                    <Search className="h-8 w-8 mb-3 opacity-20" />
+                    <p className="text-sm text-muted-foreground/60">{t.nexusOmni.search.enterMin2Chars}</p>
                   </div>
                 )}
 
@@ -3027,14 +3012,14 @@ export default function EmailClientPage() {
                       <button
                         key={`filtered-${idx}`}
                         onClick={() => executeSmartSearch(suggestion.query)}
-                        className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-accent/60 transition-all text-left group"
+                        className="w-full flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-accent transition-all text-left group"
                         data-testid={`filtered-suggestion-${idx}`}
                       >
-                        <div className="h-8 w-8 rounded-xl bg-muted/60 flex items-center justify-center shrink-0">
-                          <Sparkles className="h-4 w-4 text-muted-foreground/60" />
+                        <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                          <Sparkles className="h-4 w-4 text-muted-foreground/50" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{suggestion.label}</p>
+                          <p className="text-sm truncate">{suggestion.label}</p>
                         </div>
                       </button>
                     ))}
@@ -3043,11 +3028,11 @@ export default function EmailClientPage() {
                       <button
                         key={`recent-filtered-${idx}`}
                         onClick={() => executeSmartSearch(recent)}
-                        className="w-full flex items-center gap-3 px-4 py-2 rounded-xl hover:bg-accent/60 transition-all text-left group"
+                        className="w-full flex items-center gap-3 px-3 py-1.5 rounded-xl hover:bg-accent transition-all text-left group"
                         data-testid={`recent-filtered-${idx}`}
                       >
-                        <div className="h-7 w-7 rounded-lg bg-muted/60 flex items-center justify-center shrink-0">
-                          <History className="h-3.5 w-3.5 text-muted-foreground/60" />
+                        <div className="h-7 w-7 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                          <History className="h-3.5 w-3.5 text-muted-foreground/50" />
                         </div>
                         <p className="text-sm truncate flex-1 text-muted-foreground">{recent}</p>
                       </button>
@@ -3057,16 +3042,15 @@ export default function EmailClientPage() {
               </div>
             </ScrollArea>
 
-            <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
-            <div className="px-5 py-2.5 flex items-center justify-between">
-              <div className="flex items-center gap-4 text-[10px] text-muted-foreground/60">
-                <span className="flex items-center gap-1.5"><kbd className="px-1.5 py-0.5 bg-muted/70 border border-border/50 rounded-md text-[9px] font-mono shadow-sm">↵</kbd> {t.nexusOmni.search.searchAction}</span>
-                <span className="flex items-center gap-1.5"><kbd className="px-1.5 py-0.5 bg-muted/70 border border-border/50 rounded-md text-[9px] font-mono shadow-sm">Esc</kbd> {t.nexusOmni.search.closeAction}</span>
+            <div className="px-4 py-2 border-t bg-muted/30 flex items-center justify-between">
+              <div className="flex items-center gap-3 text-[10px] text-muted-foreground/50">
+                <span className="flex items-center gap-1"><kbd className="px-1.5 py-0.5 bg-card border rounded text-[9px] font-mono">↵</kbd> {t.nexusOmni.search.searchAction}</span>
+                <span className="flex items-center gap-1"><kbd className="px-1.5 py-0.5 bg-card border rounded text-[9px] font-mono">Esc</kbd> {t.nexusOmni.search.closeAction}</span>
               </div>
               {isSearching && (
                 <button
                   onClick={() => { clearSearch(); setSmartSearchOpen(false); }}
-                  className="text-xs text-primary hover:text-primary/80 font-medium transition-colors"
+                  className="text-xs text-primary hover:underline font-medium"
                   data-testid="clear-active-search"
                 >
                   {t.nexusOmni.email.clear}
@@ -3076,51 +3060,58 @@ export default function EmailClientPage() {
           </DialogContent>
         </Dialog>
 
-        <Dialog open={composeOpen} onOpenChange={(open) => { setComposeOpen(open); if (!open) setComposeFullscreen(false); }}>
-          <DialogContent className={cn(
+            <Dialog open={composeOpen} onOpenChange={(open) => { setComposeOpen(open); if (!open) setComposeFullscreen(false); }}>
+          <DialogContent hideCloseButton className={cn(
             "flex flex-col gap-0 p-0 overflow-hidden",
             composeFullscreen
               ? "max-w-[100vw] w-[100vw] h-[100vh] max-h-[100vh] rounded-none"
-              : "max-w-3xl w-[90vw] max-h-[85vh] rounded-2xl border-0 shadow-2xl"
+              : "max-w-3xl w-[90vw] max-h-[85vh] rounded-2xl border shadow-2xl"
           )}>
-            <DialogHeader className="px-5 py-4 shrink-0 bg-gradient-to-r from-primary/5 via-transparent to-transparent">
-              <div className="flex items-center justify-between pr-8">
-                <DialogTitle className="flex items-center gap-2.5 text-base">
-                  <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center shadow-sm">
-                    <PenSquare className="h-4 w-4 text-primary" />
-                  </div>
-                  {t.nexusOmni.email.newMessage}
-                </DialogTitle>
+            <div className="px-5 py-3 border-b shrink-0 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <PenSquare className="h-4 w-4 text-primary" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold">{t.nexusOmni.email.newMessage}</h3>
+                  <p className="text-[11px] text-muted-foreground">{mailboxes.find(m => (m.type === "personal" ? "personal" : m.email) === effectiveMailbox)?.email || effectiveMailbox}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-1">
                 <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg" onClick={() => setComposeFullscreen(f => !f)} title={composeFullscreen ? t.nexusOmni.email.composeMinimize : t.nexusOmni.email.composeFullscreen}>
                   {composeFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
                 </Button>
+                <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg" onClick={() => setComposeOpen(false)}>
+                  <X className="h-4 w-4" />
+                </Button>
               </div>
-              <DialogDescription className="text-xs text-muted-foreground/70 ml-[42px]">
-                {t.common.save}: {mailboxes.find(m => (m.type === "personal" ? "personal" : m.email) === effectiveMailbox)?.email || effectiveMailbox}
-              </DialogDescription>
+            </div>
+            <DialogHeader className="sr-only">
+              <DialogTitle>{t.nexusOmni.email.newMessage}</DialogTitle>
+              <DialogDescription>{t.nexusOmni.email.newMessage}</DialogDescription>
             </DialogHeader>
 
-            <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
-
-            <div className="flex-1 overflow-auto px-5 py-4 space-y-3">
-              <EmailRecipientInput
-                placeholder={t.nexusOmni.email.recipientPlaceholder}
-                value={composeData.to}
-                onChange={(v) => setComposeData({ ...composeData, to: v })}
-                knownEmails={knownEmails}
-                data-testid="input-compose-to"
-              />
-              <div className="grid grid-cols-2 gap-2">
-                <EmailRecipientInput placeholder="Cc" value={composeData.cc} onChange={(v) => setComposeData({ ...composeData, cc: v })} knownEmails={knownEmails} data-testid="input-compose-cc" />
-                <EmailRecipientInput placeholder="Bcc" value={composeData.bcc} onChange={(v) => setComposeData({ ...composeData, bcc: v })} knownEmails={knownEmails} data-testid="input-compose-bcc" />
+            <div className="flex-1 overflow-auto">
+              <div className="px-5 py-3 space-y-2 border-b bg-muted/20">
+                <EmailRecipientInput
+                  placeholder={t.nexusOmni.email.recipientPlaceholder}
+                  value={composeData.to}
+                  onChange={(v) => setComposeData({ ...composeData, to: v })}
+                  knownEmails={knownEmails}
+                  data-testid="input-compose-to"
+                />
+                <div className="grid grid-cols-2 gap-2">
+                  <EmailRecipientInput placeholder="Cc" value={composeData.cc} onChange={(v) => setComposeData({ ...composeData, cc: v })} knownEmails={knownEmails} data-testid="input-compose-cc" />
+                  <EmailRecipientInput placeholder="Bcc" value={composeData.bcc} onChange={(v) => setComposeData({ ...composeData, bcc: v })} knownEmails={knownEmails} data-testid="input-compose-bcc" />
+                </div>
+                <Input placeholder={t.nexusOmni.email.subjectPlaceholder} value={composeData.subject} onChange={(e) => setComposeData({ ...composeData, subject: e.target.value })} className="h-10 border-0 bg-transparent px-0 text-base font-medium focus-visible:ring-0 placeholder:text-muted-foreground/40" data-testid="input-compose-subject" />
               </div>
-              <Input placeholder={t.nexusOmni.email.subjectPlaceholder} value={composeData.subject} onChange={(e) => setComposeData({ ...composeData, subject: e.target.value })} className="h-11 text-sm rounded-xl border-muted-foreground/20 bg-muted/30 focus:bg-background transition-all" data-testid="input-compose-subject" />
 
-              <div className="flex items-center gap-3 py-1">
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-muted/40 border border-transparent hover:border-muted-foreground/10 transition-colors">
-                  <Flame className={cn("h-3.5 w-3.5 shrink-0", composeData.importance === "high" ? "text-red-500" : composeData.importance === "low" ? "text-blue-400" : "text-muted-foreground/50")} />
+              <div className="px-5 py-2 border-b flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-1.5 text-xs">
+                  <Flame className={cn("h-3.5 w-3.5", composeData.importance === "high" ? "text-red-500" : composeData.importance === "low" ? "text-blue-400" : "text-muted-foreground/40")} />
                   <Select value={composeData.importance} onValueChange={(v) => setComposeData({ ...composeData, importance: v })}>
-                    <SelectTrigger className="w-28 h-7 text-xs border-0 bg-transparent shadow-none p-0 focus:ring-0" data-testid="select-importance">
+                    <SelectTrigger className="w-auto h-7 text-xs border-0 bg-transparent shadow-none px-1 gap-1 focus:ring-0" data-testid="select-importance">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -3130,10 +3121,22 @@ export default function EmailClientPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-muted/40 border border-transparent hover:border-muted-foreground/10 transition-colors">
-                  <Tag className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0" />
+                <div className="w-px h-4 bg-border" />
+                <div className="flex items-center gap-1.5 text-xs">
+                  {(() => {
+                    const selectedTag = composeData.tagId ? userTags.find((tag: any) => tag.id === composeData.tagId) : null;
+                    return (
+                      <>
+                        {selectedTag ? (
+                          <span className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: (selectedTag as any).color }} />
+                        ) : (
+                          <Tag className="h-3.5 w-3.5 text-muted-foreground/40" />
+                        )}
+                      </>
+                    );
+                  })()}
                   <Select value={composeData.tagId?.toString() || "none"} onValueChange={(v) => setComposeData({ ...composeData, tagId: v === "none" ? null : parseInt(v) })}>
-                    <SelectTrigger className="w-32 h-7 text-xs border-0 bg-transparent shadow-none p-0 focus:ring-0" data-testid="select-compose-tag">
+                    <SelectTrigger className="w-auto h-7 text-xs border-0 bg-transparent shadow-none px-1 gap-1 focus:ring-0" data-testid="select-compose-tag">
                       <SelectValue placeholder={t.nexusOmni.common.none} />
                     </SelectTrigger>
                     <SelectContent>
@@ -3151,32 +3154,33 @@ export default function EmailClientPage() {
                 </div>
               </div>
 
-              <EmailEditor
-                key={composeOpen ? "compose-open" : "compose-closed"}
-                initialContent={composeData.body}
-                onChange={(html) => setComposeData(prev => ({ ...prev, body: html }))}
-                signatureHtml={getSignatureForCompose()}
-                placeholder={t.nexusOmni.email.messagePlaceholder}
-                minHeight={composeFullscreen ? "400px" : "200px"}
-                attachments={attachments}
-                onAttachmentsChange={setAttachments}
-                data-testid="editor-compose-body"
-              />
+              <div className="px-5 py-3">
+                <EmailEditor
+                  key={composeOpen ? "compose-open" : "compose-closed"}
+                  initialContent={composeData.body}
+                  onChange={(html) => setComposeData(prev => ({ ...prev, body: html }))}
+                  signatureHtml={getSignatureForCompose()}
+                  placeholder={t.nexusOmni.email.messagePlaceholder}
+                  minHeight={composeFullscreen ? "400px" : "200px"}
+                  attachments={attachments}
+                  onAttachmentsChange={setAttachments}
+                  data-testid="editor-compose-body"
+                />
+              </div>
             </div>
 
-            <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
-            <DialogFooter className="px-5 py-3 shrink-0 flex items-center gap-2">
-              <Button variant="ghost" onClick={() => setComposeOpen(false)} className="rounded-xl text-muted-foreground hover:text-foreground">{t.common.cancel}</Button>
-              <Button onClick={handleSendEmail} disabled={sendEmailMutation.isPending} className="rounded-xl px-6 shadow-sm bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary" data-testid="button-send-compose">
+            <div className="px-5 py-3 border-t shrink-0 flex items-center justify-between">
+              <Button variant="ghost" size="sm" onClick={() => setComposeOpen(false)} className="text-muted-foreground">{t.common.cancel}</Button>
+              <Button onClick={handleSendEmail} disabled={sendEmailMutation.isPending} size="sm" className="px-5" data-testid="button-send-compose">
                 {sendEmailMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 <Send className="h-4 w-4 mr-2" />
                 {t.common.save}
               </Button>
-            </DialogFooter>
+            </div>
           </DialogContent>
         </Dialog>
 
-        <Dialog open={signatureDialogOpen} onOpenChange={setSignatureDialogOpen}>
+          <Dialog open={signatureDialogOpen} onOpenChange={setSignatureDialogOpen}>
         <DialogContent className="max-w-4xl max-h-[85vh] p-0 gap-0 overflow-hidden">
           <div className="flex h-[75vh]">
             <div className="w-48 border-r bg-muted/30 flex flex-col py-2 shrink-0">
