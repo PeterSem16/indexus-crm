@@ -49,7 +49,6 @@ import {
 import {
   Mail,
   MailOpen,
-  RefreshCw,
   Reply,
   ReplyAll,
   Forward,
@@ -1200,7 +1199,7 @@ export default function EmailClientPage() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === "k" && activeTab === "email") {
+      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
         e.preventDefault();
         setSmartSearchOpen(true);
         setTimeout(() => smartSearchInputRef.current?.focus(), 100);
@@ -1756,7 +1755,7 @@ export default function EmailClientPage() {
     <div className={cn(
       nexusFullscreen
         ? "fixed inset-0 z-50 bg-background flex flex-col p-3 overflow-hidden"
-        : "space-y-3"
+        : "space-y-3 mt-1"
     )}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -1770,22 +1769,17 @@ export default function EmailClientPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {activeTab === "email" && (
-            <button
-              onClick={() => { setSmartSearchOpen(true); setTimeout(() => smartSearchInputRef.current?.focus(), 100); }}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg border bg-muted/50 text-muted-foreground hover:bg-accent hover:text-foreground transition-all text-sm cursor-pointer"
-              data-testid="button-smart-search"
-            >
-              <Search className="h-3.5 w-3.5" />
-              <span className="hidden md:inline">Hľadať emaily...</span>
-              <kbd className="hidden md:inline-flex items-center gap-0.5 rounded border bg-muted px-1.5 text-[10px] font-mono text-muted-foreground">
-                Ctrl K
-              </kbd>
-            </button>
-          )}
-          <Button variant="outline" size="icon" onClick={handleRefresh} data-testid="button-refresh">
-            <RefreshCw className="h-4 w-4" />
-          </Button>
+          <button
+            onClick={() => { setSmartSearchOpen(true); setTimeout(() => smartSearchInputRef.current?.focus(), 100); }}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg border bg-muted/50 text-muted-foreground hover:bg-accent hover:text-foreground transition-all text-sm cursor-pointer"
+            data-testid="button-smart-search"
+          >
+            <Search className="h-3.5 w-3.5" />
+            <span className="hidden md:inline">Hľadať...</span>
+            <kbd className="hidden md:inline-flex items-center gap-0.5 rounded border bg-muted px-1.5 text-[10px] font-mono text-muted-foreground">
+              Ctrl K
+            </kbd>
+          </button>
           {activeTab === "email" && (
             <Button variant="outline" size="icon" onClick={openSignatureEditor} data-testid="button-signature">
               <Settings className="h-4 w-4" />
@@ -2146,7 +2140,12 @@ export default function EmailClientPage() {
                                   <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{result.mailbox}</span>
                                 </div>
                               )}
-                              {result.emails.map(email => (
+                              {result.emails.map(email => {
+                                const srTintBg = email._mailboxEmail ? getAccountTint(email._mailboxEmail) : undefined;
+                                const srAcctColor = email._mailboxEmail
+                                  ? (accountConfigs[email._mailboxEmail]?.color || mailboxColorMap[email._mailboxEmail] || "#6B7280")
+                                  : null;
+                                return (
                                 <div
                                   key={email.id}
                                   className={`relative group w-full text-left px-3 py-2.5 transition-all hover:bg-accent/50 cursor-pointer overflow-hidden ${
@@ -2155,7 +2154,11 @@ export default function EmailClientPage() {
                                   onClick={() => setSelectedEmail(email)}
                                   onDoubleClick={() => { setSelectedEmail(email); setModalEmail(email); }}
                                   data-testid={`search-email-item-${email.id}`}
+                                  style={srTintBg && selectedEmail?.id !== email.id ? { backgroundColor: srTintBg } : undefined}
                                 >
+                                  {srAcctColor && (
+                                    <span className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-sm" style={{ backgroundColor: srAcctColor }} />
+                                  )}
                                   <div style={{ display: "flex", alignItems: "flex-start", gap: "8px", overflow: "hidden", width: "100%" }}>
                                     {emailPrefs.unreadIndicator && (
                                       <span className={`${!email.isRead ? "bg-blue-500" : "bg-transparent"}`} style={{ height: 8, width: 8, borderRadius: "50%", marginTop: 6, flexShrink: 0 }} />
@@ -2179,16 +2182,34 @@ export default function EmailClientPage() {
                                           {highlightSearchMatch(email.subject || "(Bez predmetu)", debouncedSearchQuery)}
                                         </p>
                                         {emailPrefs.previewAttachmentIcons && email.hasAttachments && <Paperclip className="text-muted-foreground/70" style={{ height: 14, width: 14, flexShrink: 0 }} />}
+                                        {srAcctColor && (
+                                          <span
+                                            style={{ height: 20, width: 20, minWidth: 20, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: srAcctColor, flexShrink: 0 }}
+                                            title={mailboxes.find(m => m.email === email._mailboxEmail)?.displayName || email._mailboxEmail}
+                                          >
+                                            <AccountIcon iconKey={accountConfigs[email._mailboxEmail!]?.icon || "mail"} className="h-3 w-3 text-white" />
+                                          </span>
+                                        )}
                                       </div>
                                       {emailPrefs.previewLines > 0 && email.bodyPreview && (
                                         <p style={{ fontSize: 11, marginTop: 2, lineHeight: 1.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", margin: "2px 0 0" }} className="text-muted-foreground">
                                           {highlightSearchMatch(email.bodyPreview, debouncedSearchQuery)}
                                         </p>
                                       )}
+                                      {emailPrefs.showTags && getEmailTags(email.id).length > 0 && (
+                                        <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+                                          {getEmailTags(email.id).map((tag: any) => (
+                                            <span key={tag.id} className="inline-flex items-center gap-0.5 text-[9px] font-medium px-1.5 py-0 rounded-full text-white" style={{ backgroundColor: tag.color }}>
+                                              {tag.name}
+                                            </span>
+                                          ))}
+                                        </div>
+                                      )}
                                     </div>
                                   </div>
                                 </div>
-                              ))}
+                                );
+                              })}
                             </div>
                           )
                         ))}
@@ -2530,15 +2551,15 @@ export default function EmailClientPage() {
       <Dialog open={smartSearchOpen} onOpenChange={setSmartSearchOpen}>
         <DialogContent className="max-w-xl p-0 gap-0 overflow-hidden" data-testid="smart-search-dialog">
           <DialogHeader className="sr-only">
-            <DialogTitle>Vyhľadávanie emailov</DialogTitle>
-            <DialogDescription>Inteligentné vyhľadávanie vo všetkých emailových schránkach</DialogDescription>
+            <DialogTitle>Vyhľadávanie</DialogTitle>
+            <DialogDescription>Inteligentné vyhľadávanie v NEXUS komunikácii</DialogDescription>
           </DialogHeader>
           <div className="p-4 border-b">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 ref={smartSearchInputRef}
-                placeholder="Hľadať vo všetkých emailových schránkach..."
+                placeholder="Hľadať v emailoch, SMS, úlohách, chatoch..."
                 value={smartSearchQuery}
                 onChange={(e) => setSmartSearchQuery(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") executeSmartSearch(smartSearchQuery); }}
@@ -2609,20 +2630,119 @@ export default function EmailClientPage() {
           <ScrollArea className="max-h-[400px]">
             <div className="p-2">
               {smartSearchQuery.trim().length >= 2 && (
+                <>
                 <button
                   onClick={() => executeSmartSearch(smartSearchQuery)}
                   className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-accent transition-all text-left group"
                   data-testid="smart-search-execute"
                 >
                   <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                    <Search className="h-4 w-4 text-primary" />
+                    <Mail className="h-4 w-4 text-primary" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">Hľadať "{smartSearchQuery}"</p>
+                    <p className="text-sm font-medium truncate">Hľadať v emailoch "{smartSearchQuery}"</p>
                     <p className="text-xs text-muted-foreground">Prehľadať {smartSearchMailbox === "all" ? "všetky schránky" : smartSearchMailbox}</p>
                   </div>
                   <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
                 </button>
+
+                {(() => {
+                  const q = smartSearchQuery.toLowerCase().trim();
+                  const matchedSms = (smsData || []).filter(s => {
+                    const phone = s.direction === "inbound" ? s.senderPhone : s.recipientPhone;
+                    const custName = s.customer ? `${s.customer.firstName} ${s.customer.lastName}` : "";
+                    return (s.content || "").toLowerCase().includes(q) || (phone || "").includes(q) || custName.toLowerCase().includes(q);
+                  }).slice(0, 5);
+                  const matchedTasks = (tasksData || []).filter(t =>
+                    (t.title || "").toLowerCase().includes(q) || (t.description || "").toLowerCase().includes(q)
+                  ).slice(0, 5);
+                  const matchedChats = (chatsData || []).filter(c =>
+                    (c.participantName || "").toLowerCase().includes(q) || (c.lastMessage || "").toLowerCase().includes(q)
+                  ).slice(0, 5);
+                  return (
+                    <>
+                      {matchedSms.length > 0 && (
+                        <>
+                          <div className="px-3 py-1 mt-1">
+                            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                              <MessageSquare className="h-3 w-3" /> SMS ({matchedSms.length})
+                            </span>
+                          </div>
+                          {matchedSms.map(sms => (
+                            <button
+                              key={sms.id}
+                              onClick={() => { setActiveTab("sms"); setSelectedSms(sms); setSmartSearchOpen(false); setSmartSearchQuery(""); }}
+                              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-accent transition-all text-left group"
+                              data-testid={`search-sms-${sms.id}`}
+                            >
+                              <div className="h-8 w-8 rounded-lg bg-cyan-100 dark:bg-cyan-900/30 flex items-center justify-center shrink-0">
+                                <MessageSquare className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm truncate">{sms.customer ? `${sms.customer.firstName} ${sms.customer.lastName}` : (sms.direction === "inbound" ? sms.senderPhone : sms.recipientPhone)}</p>
+                                <p className="text-[11px] text-muted-foreground truncate">{sms.content}</p>
+                              </div>
+                              <span className="text-[10px] text-muted-foreground shrink-0">{format(new Date(sms.createdAt), "d.M. HH:mm")}</span>
+                            </button>
+                          ))}
+                        </>
+                      )}
+                      {matchedTasks.length > 0 && (
+                        <>
+                          <div className="px-3 py-1 mt-1">
+                            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                              <ListTodo className="h-3 w-3" /> Úlohy ({matchedTasks.length})
+                            </span>
+                          </div>
+                          {matchedTasks.map(task => (
+                            <button
+                              key={task.id}
+                              onClick={() => { setActiveTab("tasks"); setSelectedTask(task); setSmartSearchOpen(false); setSmartSearchQuery(""); }}
+                              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-accent transition-all text-left group"
+                              data-testid={`search-task-${task.id}`}
+                            >
+                              <div className="h-8 w-8 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center shrink-0">
+                                <ListTodo className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm truncate">{task.title}</p>
+                                <p className="text-[11px] text-muted-foreground truncate">{task.description || task.status}</p>
+                              </div>
+                              <Badge variant="secondary" className="text-[10px] shrink-0">{task.status === "pending" ? "Čakajúca" : task.status === "completed" ? "Hotová" : task.status}</Badge>
+                            </button>
+                          ))}
+                        </>
+                      )}
+                      {matchedChats.length > 0 && (
+                        <>
+                          <div className="px-3 py-1 mt-1">
+                            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                              <MessagesSquare className="h-3 w-3" /> Chaty ({matchedChats.length})
+                            </span>
+                          </div>
+                          {matchedChats.map(chat => (
+                            <button
+                              key={chat.id}
+                              onClick={() => { setActiveTab("chats"); _setSelectedChat(chat); setSmartSearchOpen(false); setSmartSearchQuery(""); }}
+                              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-accent transition-all text-left group"
+                              data-testid={`search-chat-${chat.id}`}
+                            >
+                              <div className="h-8 w-8 rounded-lg bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center shrink-0">
+                                <MessagesSquare className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm truncate">{chat.participantName}</p>
+                                <p className="text-[11px] text-muted-foreground truncate">{chat.lastMessage}</p>
+                              </div>
+                              <span className="text-[10px] text-muted-foreground shrink-0">{format(new Date(chat.lastMessageAt), "d.M. HH:mm")}</span>
+                            </button>
+                          ))}
+                        </>
+                      )}
+                    </>
+                  );
+                })()}
+                </>
               )}
 
               {selectedEmail && smartSearchQuery.length === 0 && (
