@@ -1074,7 +1074,6 @@ export async function getTeamsChats(
     .select('id,topic,chatType,createdDateTime,lastUpdatedDateTime,webUrl')
     .expand('members,lastMessagePreview')
     .top(50)
-    .orderby('lastUpdatedDateTime desc')
     .get();
   const chats = (result.value || []).map((chat: any) => ({
     id: chat.id,
@@ -1099,6 +1098,11 @@ export async function getTeamsChats(
       email: m.email,
     })),
   }));
+  chats.sort((a: any, b: any) => {
+    const dateA = a.lastUpdatedDateTime ? new Date(a.lastUpdatedDateTime).getTime() : 0;
+    const dateB = b.lastUpdatedDateTime ? new Date(b.lastUpdatedDateTime).getTime() : 0;
+    return dateB - dateA;
+  });
   return { chats };
 }
 
