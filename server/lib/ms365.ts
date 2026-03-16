@@ -1176,4 +1176,103 @@ export async function sendTeamsChatMessage(
   return result;
 }
 
+// ============ SharePoint / NexusPoint functions ============
+
+export async function getSharePointSites(accessToken: string): Promise<any[]> {
+  const client = createGraphClient(accessToken);
+  try {
+    const result = await client.api('/sites?search=*').select('id,displayName,webUrl,description').top(100).get();
+    return result?.value || [];
+  } catch (error) {
+    console.error('[MS365] Error fetching SharePoint sites:', error);
+    return [];
+  }
+}
+
+export async function getSiteDrives(accessToken: string, siteId: string): Promise<any[]> {
+  const client = createGraphClient(accessToken);
+  try {
+    const result = await client.api(`/sites/${siteId}/drives`).select('id,name,driveType,webUrl').get();
+    return result?.value || [];
+  } catch (error) {
+    console.error('[MS365] Error fetching site drives:', error);
+    return [];
+  }
+}
+
+export async function getDriveItems(accessToken: string, driveId: string, folderId?: string): Promise<any[]> {
+  const client = createGraphClient(accessToken);
+  try {
+    const path = folderId
+      ? `/drives/${driveId}/items/${folderId}/children`
+      : `/drives/${driveId}/root/children`;
+    const result = await client.api(path)
+      .select('id,name,size,lastModifiedDateTime,lastModifiedBy,file,folder,webUrl,parentReference')
+      .orderby('name')
+      .top(200)
+      .get();
+    return result?.value || [];
+  } catch (error) {
+    console.error('[MS365] Error fetching drive items:', error);
+    return [];
+  }
+}
+
+export async function createSharePointFolder(accessToken: string, driveId: string, parentFolderId: string | null, folderName: string): Promise<any> {
+  const client = createGraphClient(accessToken);
+  const path = parentFolderId
+    ? `/drives/${driveId}/items/${parentFolderId}/children`
+    : `/drives/${driveId}/root/children`;
+  const result = await client.api(path).post({
+    name: folderName,
+    folder: {},
+    "@microsoft.graph.conflictBehavior": "rename"
+  });
+  return result;
+}
+
+export async function uploadSharePointFile(accessToken: string, driveId: string, parentFolderId: string | null, fileName: string, content: Buffer): Promise<any> {
+  const client = createGraphClient(accessToken);
+  const path = parentFolderId
+    ? `/drives/${driveId}/items/${parentFolderId}:/${encodeURIComponent(fileName)}:/content`
+    : `/drives/${driveId}/root:/${encodeURIComponent(fileName)}:/content`;
+  const result = await client.api(path)
+    .headers({ "Content-Type": "application/octet-stream" })
+    .put(content);
+  return result;
+}
+
+export async function deleteSharePointItem(accessToken: string, driveId: string, itemId: string): Promise<boolean> {
+  const client = createGraphClient(accessToken);
+  try {
+    await client.api(`/drives/${driveId}/items/${itemId}`).delete();
+    return true;
+  } catch (error) {
+    console.error('[MS365] Error deleting item:', error);
+    return false;
+  }
+}
+
+export async function getSharePointDownloadUrl(accessToken: string, driveId: string, itemId: string): Promise<string | null> {
+  const client = createGraphClient(accessToken);
+  try {
+    const result = await client.api(`/drives/${driveId}/items/${itemId}`).select('@microsoft.graph.downloadUrl,name').get();
+    return result?.['@microsoft.graph.downloadUrl'] || null;
+  } catch (error) {
+    console.error('[MS365] Error getting download URL:', error);
+    return null;
+  }
+}
+
+export async function searchSharePointFiles(accessToken: string, siteId: string, query: string): Promise<any[]> {
+  const client = createGraphClient(accessToken);
+  try {
+    const result = await client.api(`/sites/${siteId}/drive/root/search(q='${encodeURIComponent(query)}')`).top(50).get();
+    return result?.value || [];
+  } catch (error) {
+    console.error('[MS365] Error searching files:', error);
+    return [];
+  }
+}
+
 export { MS365_CONFIG, GRAPH_SCOPES };

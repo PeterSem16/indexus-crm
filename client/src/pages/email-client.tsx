@@ -118,6 +118,16 @@ import {
   History,
   Globe,
   AtSign,
+  HardDrive,
+  FolderOpen,
+  FolderPlus,
+  ExternalLink,
+  File,
+  FileImage,
+  FileVideo,
+  FileSpreadsheet,
+  FileArchive,
+  Presentation,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
@@ -156,6 +166,355 @@ function stripHtmlTags(html: string): string {
   const doc = new DOMParser().parseFromString(html, "text/html");
   doc.querySelectorAll("script,style,iframe,object,embed").forEach(el => el.remove());
   return doc.body.innerHTML;
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+function getFileIcon(fileName: string, isFolder: boolean) {
+  if (isFolder) return <FolderOpen className="h-5 w-5 text-amber-500" />;
+  const ext = fileName.split('.').pop()?.toLowerCase() || '';
+  if (['jpg','jpeg','png','gif','bmp','svg','webp','ico'].includes(ext)) return <FileImage className="h-5 w-5 text-pink-500" />;
+  if (['mp4','avi','mov','wmv','mkv','webm'].includes(ext)) return <FileVideo className="h-5 w-5 text-purple-500" />;
+  if (['xls','xlsx','csv'].includes(ext)) return <FileSpreadsheet className="h-5 w-5 text-green-600" />;
+  if (['doc','docx','txt','rtf'].includes(ext)) return <FileText className="h-5 w-5 text-blue-600" />;
+  if (['pdf'].includes(ext)) return <FileText className="h-5 w-5 text-red-500" />;
+  if (['ppt','pptx'].includes(ext)) return <Presentation className="h-5 w-5 text-orange-500" />;
+  if (['zip','rar','7z','tar','gz'].includes(ext)) return <FileArchive className="h-5 w-5 text-yellow-600" />;
+  return <File className="h-5 w-5 text-gray-500" />;
+}
+
+function NexusPointPanel({ userId }: { userId?: string }) {
+  const [selectedSiteId, setSelectedSiteId] = useState<string | null>(null);
+  const [selectedDriveId, setSelectedDriveId] = useState<string | null>(null);
+  const [folderStack, setFolderStack] = useState<{ id: string; name: string }[]>([]);
+  const [newFolderOpen, setNewFolderOpen] = useState(false);
+  const [newFolderName, setNewFolderName] = useState("");
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
+  const { t } = useI18n();
+
+  const currentFolderId = folderStack.length > 0 ? folderStack[folderStack.length - 1].id : undefined;
+
+  const { data: sites = [], isLoading: sitesLoading } = useQuery<any[]>({
+    queryKey: ["/api/users", userId, "sharepoint", "sites"],
+    queryFn: async () => {
+      const res = await fetch(`/api/users/${userId}/sharepoint/sites`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: !!userId,
+  });
+
+  const { data: drives = [], isLoading: drivesLoading } = useQuery<any[]>({
+    queryKey: ["/api/users", userId, "sharepoint", "sites", selectedSiteId, "drives"],
+    queryFn: async () => {
+      const res = await fetch(`/api/users/${userId}/sharepoint/sites/${selectedSiteId}/drives`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: !!userId && !!selectedSiteId,
+  });
+
+  const { data: items = [], isLoading: itemsLoading, refetch: refetchItems } = useQuery<any[]>({
+    queryKey: ["/api/users", userId, "sharepoint", "drives", selectedDriveId, "items", currentFolderId],
+    queryFn: async () => {
+      const params = currentFolderId ? `?folderId=${currentFolderId}` : '';
+      const res = await fetch(`/api/users/${userId}/sharepoint/drives/${selectedDriveId}/items${params}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: !!userId && !!selectedDriveId,
+  });
+
+  const uploadMutation = useMutation({
+    mutationFn: async (file: globalThis.File) => {
+      const reader = new FileReader();
+      const contentBase64 = await new Promise<string>((resolve) => {
+        reader.onload = () => {
+          const base64 = (reader.result as string).split(",")[1];
+          resolve(base64);
+        };
+        reader.readAsDataURL(file);
+      });
+      return apiRequest("POST", `/api/users/${userId}/sharepoint/drives/${selectedDriveId}/upload`, {
+        parentFolderId: currentFolderId || null,
+        fileName: file.name,
+        contentBase64,
+      });
+    },
+    onSuccess: () => {
+      toast({ title: t.nexusOmni.nexuspoint.uploadSuccess });
+      refetchItems();
+    },
+    onError: () => {
+      toast({ title: t.nexusOmni.nexuspoint.uploadError, variant: "destructive" });
+    },
+  });
+
+  const createFolderMutation = useMutation({
+    mutationFn: async (name: string) => {
+      return apiRequest("POST", `/api/users/${userId}/sharepoint/drives/${selectedDriveId}/folder`, {
+        parentFolderId: currentFolderId || null,
+        name,
+      });
+    },
+    onSuccess: () => {
+      toast({ title: t.nexusOmni.nexuspoint.folderCreated });
+      setNewFolderOpen(false);
+      setNewFolderName("");
+      refetchItems();
+    },
+    onError: () => {
+      toast({ title: t.nexusOmni.nexuspoint.folderError, variant: "destructive" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (itemId: string) => {
+      return apiRequest("DELETE", `/api/users/${userId}/sharepoint/drives/${selectedDriveId}/items/${itemId}`);
+    },
+    onSuccess: () => {
+      toast({ title: t.nexusOmni.nexuspoint.deleted });
+      refetchItems();
+    },
+    onError: () => {
+      toast({ title: t.nexusOmni.nexuspoint.deleteError, variant: "destructive" });
+    },
+  });
+
+  const handleDownload = async (item: any) => {
+    try {
+      const res = await fetch(`/api/users/${userId}/sharepoint/drives/${selectedDriveId}/items/${item.id}/download`, { credentials: "include" });
+      const data = await res.json();
+      if (data.downloadUrl) {
+        window.open(data.downloadUrl, "_blank");
+      }
+    } catch {
+      toast({ title: t.nexusOmni.nexuspoint.deleteError, variant: "destructive" });
+    }
+  };
+
+  const handleFileDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const files = Array.from(e.dataTransfer.files);
+    files.forEach(file => uploadMutation.mutate(file));
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    files.forEach(file => uploadMutation.mutate(file));
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const navigateToFolder = (item: any) => {
+    setFolderStack([...folderStack, { id: item.id, name: item.name }]);
+  };
+
+  const navigateBack = (index: number) => {
+    setFolderStack(folderStack.slice(0, index));
+  };
+
+  useEffect(() => {
+    if (drives.length > 0 && !selectedDriveId) {
+      setSelectedDriveId(drives[0].id);
+    }
+  }, [drives, selectedDriveId]);
+
+  const folders = items.filter((i: any) => i.folder);
+  const files = items.filter((i: any) => i.file);
+  const sortedItems = [...folders, ...files];
+
+  if (!selectedSiteId) {
+    return (
+      <Card className="flex-1 flex flex-col">
+        <CardHeader className="py-2 px-3 border-b shrink-0">
+          <div className="flex items-center gap-2">
+            <HardDrive className="h-4 w-4 text-emerald-600" />
+            <span className="text-sm font-semibold">NexusPoint</span>
+          </div>
+        </CardHeader>
+        <CardContent className="flex-1 flex flex-col items-center justify-center p-6">
+          <HardDrive className="h-12 w-12 text-emerald-500/30 mb-4" />
+          <h3 className="text-lg font-semibold mb-2">{t.nexusOmni.nexuspoint.selectSite}</h3>
+          {sitesLoading ? (
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          ) : sites.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{t.nexusOmni.nexuspoint.noSites}</p>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-4 w-full max-w-3xl">
+              {sites.map((site: any) => (
+                <button
+                  key={site.id}
+                  onClick={() => { setSelectedSiteId(site.id); setSelectedDriveId(null); setFolderStack([]); }}
+                  className="flex items-start gap-3 p-3 rounded-lg border hover:bg-accent transition-colors text-left"
+                  data-testid={`nexuspoint-site-${site.id}`}
+                >
+                  <Globe className="h-5 w-5 text-emerald-600 mt-0.5 shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate">{site.displayName}</p>
+                    {site.description && <p className="text-xs text-muted-foreground line-clamp-2">{site.description}</p>}
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="flex-1 flex flex-col min-w-0">
+      <CardHeader className="py-1.5 px-3 border-b shrink-0 space-y-0">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => { setSelectedSiteId(null); setSelectedDriveId(null); setFolderStack([]); }} data-testid="button-back-sites">
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <HardDrive className="h-4 w-4 text-emerald-600 shrink-0" />
+            <span className="text-sm font-semibold truncate">{sites.find((s: any) => s.id === selectedSiteId)?.displayName || 'NexusPoint'}</span>
+            {drives.length > 1 && (
+              <Select value={selectedDriveId || ""} onValueChange={(v) => { setSelectedDriveId(v); setFolderStack([]); }}>
+                <SelectTrigger className="h-6 text-xs w-auto min-w-[100px] max-w-[180px]" data-testid="select-drive">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {drives.map((d: any) => (
+                    <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+          <div className="flex items-center gap-1 shrink-0">
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setNewFolderOpen(true)} data-testid="button-new-folder">
+              <FolderPlus className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => fileInputRef.current?.click()} disabled={uploadMutation.isPending} data-testid="button-upload">
+              {uploadMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+            </Button>
+            <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFileSelect} />
+          </div>
+        </div>
+        {folderStack.length > 0 && (
+          <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1 overflow-x-auto">
+            <button onClick={() => navigateBack(0)} className="hover:text-foreground shrink-0" data-testid="breadcrumb-root">
+              <FolderOpen className="h-3 w-3" />
+            </button>
+            {folderStack.map((f, i) => (
+              <span key={f.id} className="flex items-center gap-1 shrink-0">
+                <ChevronRight className="h-3 w-3" />
+                <button onClick={() => navigateBack(i + 1)} className={cn("hover:text-foreground", i === folderStack.length - 1 && "text-foreground font-medium")}>
+                  {f.name}
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+      </CardHeader>
+      <CardContent
+        className={cn("p-0 flex-1 min-h-0 flex flex-col", isDragging && "bg-emerald-50 dark:bg-emerald-950/20")}
+        onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+        onDragLeave={() => setIsDragging(false)}
+        onDrop={handleFileDrop}
+      >
+        {isDragging && (
+          <div className="p-4 text-center text-sm text-emerald-600 font-medium border-2 border-dashed border-emerald-300 rounded-lg m-2">
+            {t.nexusOmni.nexuspoint.dragDropHint}
+          </div>
+        )}
+        {newFolderOpen && (
+          <div className="flex items-center gap-2 px-3 py-2 border-b bg-muted/30">
+            <FolderPlus className="h-4 w-4 text-amber-500" />
+            <Input
+              value={newFolderName}
+              onChange={(e) => setNewFolderName(e.target.value)}
+              placeholder={t.nexusOmni.nexuspoint.folderName}
+              className="h-7 text-sm flex-1"
+              autoFocus
+              onKeyDown={(e) => { if (e.key === "Enter" && newFolderName.trim()) createFolderMutation.mutate(newFolderName.trim()); if (e.key === "Escape") { setNewFolderOpen(false); setNewFolderName(""); } }}
+              data-testid="input-folder-name"
+            />
+            <Button size="sm" className="h-7 text-xs" onClick={() => newFolderName.trim() && createFolderMutation.mutate(newFolderName.trim())} disabled={createFolderMutation.isPending} data-testid="button-create-folder">
+              {createFolderMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : t.nexusOmni.nexuspoint.createFolder}
+            </Button>
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setNewFolderOpen(false); setNewFolderName(""); }}>
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        )}
+        <ScrollArea className="flex-1">
+          {itemsLoading || drivesLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : sortedItems.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+              <FolderOpen className="h-10 w-10 mb-3 opacity-30" />
+              <p className="text-sm">{t.nexusOmni.nexuspoint.noFiles}</p>
+              <p className="text-xs mt-1">{t.nexusOmni.nexuspoint.dragDropHint}</p>
+            </div>
+          ) : (
+            <div className="divide-y">
+              {sortedItems.map((item: any) => {
+                const isFolder = !!item.folder;
+                return (
+                  <div
+                    key={item.id}
+                    className="flex items-center gap-3 px-3 py-2 hover:bg-accent/50 transition-colors group cursor-pointer"
+                    onClick={() => isFolder ? navigateToFolder(item) : handleDownload(item)}
+                    data-testid={`nexuspoint-item-${item.id}`}
+                  >
+                    {getFileIcon(item.name, isFolder)}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{item.name}</p>
+                      <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+                        {isFolder && item.folder?.childCount !== undefined && (
+                          <span>{item.folder.childCount} {t.nexusOmni.nexuspoint.items}</span>
+                        )}
+                        {!isFolder && item.size && (
+                          <span>{formatFileSize(item.size)}</span>
+                        )}
+                        {item.lastModifiedDateTime && (
+                          <span>{format(new Date(item.lastModifiedDateTime), "d.M.yyyy HH:mm")}</span>
+                        )}
+                        {item.lastModifiedBy?.user?.displayName && (
+                          <span className="truncate max-w-[120px]">{item.lastModifiedBy.user.displayName}</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                      {!isFolder && (
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); handleDownload(item); }} data-testid={`button-download-${item.id}`}>
+                          <Download className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                      {item.webUrl && (
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); window.open(item.webUrl, "_blank"); }} data-testid={`button-open-${item.id}`}>
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); if (confirm(t.nexusOmni.nexuspoint.deleteConfirm)) deleteMutation.mutate(item.id); }} data-testid={`button-delete-${item.id}`}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </ScrollArea>
+      </CardContent>
+    </Card>
+  );
 }
 
 function TeamsPanel({ userId }: { userId?: string }) {
@@ -1830,6 +2189,7 @@ export default function EmailClientPage() {
     { key: "tasks", label: t.nexusOmni.tabs.tasks, icon: <ListTodo className="h-4 w-4" />, badge: pendingTasks > 0 ? pendingTasks : undefined, badgeColor: "bg-amber-500" },
     { key: "chats", label: t.nexusOmni.tabs.chats, icon: <MessagesSquare className="h-4 w-4" />, badge: unreadChats > 0 ? unreadChats : undefined, badgeColor: "bg-violet-500" },
     { key: "teams", label: t.nexusOmni.tabs.teams, icon: <MessagesSquare className="h-4 w-4" />, badgeColor: "bg-indigo-500" },
+    { key: "nexuspoint", label: t.nexusOmni.tabs.nexuspoint, icon: <HardDrive className="h-4 w-4" />, badgeColor: "bg-emerald-500" },
   ];
 
   return (
@@ -2631,6 +2991,10 @@ export default function EmailClientPage() {
 
         {activeTab === "teams" && (
           <TeamsPanel userId={user?.id} />
+        )}
+
+        {activeTab === "nexuspoint" && (
+          <NexusPointPanel userId={user?.id} />
         )}
       </div>
 

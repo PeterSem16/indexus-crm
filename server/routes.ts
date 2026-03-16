@@ -3741,6 +3741,135 @@ export async function registerRoutes(
     }
   });
 
+  // ============ SharePoint / NexusPoint routes ============
+
+  const getSharePointToken = async (userId: string) => {
+    const ms365Connection = await storage.getUserMs365Connection(userId);
+    if (!ms365Connection || !ms365Connection.isConnected) return null;
+    const { decryptTokenSafe } = await import("./lib/token-crypto");
+    const { getValidAccessToken } = await import("./lib/ms365");
+    try {
+      const accessToken = decryptTokenSafe(ms365Connection.accessToken);
+      const refreshToken = ms365Connection.refreshToken ? decryptTokenSafe(ms365Connection.refreshToken) : null;
+      const tokenResult = await getValidAccessToken(accessToken, ms365Connection.tokenExpiresAt, refreshToken);
+      if (tokenResult?.newAccessToken) {
+        await storage.updateUserMs365Connection(userId, { accessToken: (await import("./lib/token-crypto")).encryptTokenSafe(tokenResult.newAccessToken), tokenExpiresAt: tokenResult.newExpiresAt || ms365Connection.tokenExpiresAt });
+      }
+      return tokenResult?.accessToken || null;
+    } catch { return null; }
+  };
+
+  app.get("/api/users/:userId/sharepoint/sites", requireAuth, async (req, res) => {
+    try {
+      const token = await getSharePointToken(req.params.userId);
+      if (!token) return res.status(401).json({ error: "Not connected" });
+      const { getSharePointSites } = await import("./lib/ms365");
+      const sites = await getSharePointSites(token);
+      res.json(sites);
+    } catch (error) {
+      console.error("[SharePoint] Error fetching sites:", error);
+      res.status(500).json({ error: "Failed to fetch sites" });
+    }
+  });
+
+  app.get("/api/users/:userId/sharepoint/sites/:siteId/drives", requireAuth, async (req, res) => {
+    try {
+      const token = await getSharePointToken(req.params.userId);
+      if (!token) return res.status(401).json({ error: "Not connected" });
+      const { getSiteDrives } = await import("./lib/ms365");
+      const drives = await getSiteDrives(token, req.params.siteId);
+      res.json(drives);
+    } catch (error) {
+      console.error("[SharePoint] Error fetching drives:", error);
+      res.status(500).json({ error: "Failed to fetch drives" });
+    }
+  });
+
+  app.get("/api/users/:userId/sharepoint/drives/:driveId/items", requireAuth, async (req, res) => {
+    try {
+      const token = await getSharePointToken(req.params.userId);
+      if (!token) return res.status(401).json({ error: "Not connected" });
+      const { getDriveItems } = await import("./lib/ms365");
+      const folderId = req.query.folderId as string | undefined;
+      const items = await getDriveItems(token, req.params.driveId, folderId);
+      res.json(items);
+    } catch (error) {
+      console.error("[SharePoint] Error fetching items:", error);
+      res.status(500).json({ error: "Failed to fetch items" });
+    }
+  });
+
+  app.post("/api/users/:userId/sharepoint/drives/:driveId/folder", requireAuth, async (req, res) => {
+    try {
+      const token = await getSharePointToken(req.params.userId);
+      if (!token) return res.status(401).json({ error: "Not connected" });
+      const { createSharePointFolder } = await import("./lib/ms365");
+      const { parentFolderId, name } = req.body;
+      const folder = await createSharePointFolder(token, req.params.driveId, parentFolderId || null, name);
+      res.json(folder);
+    } catch (error) {
+      console.error("[SharePoint] Error creating folder:", error);
+      res.status(500).json({ error: "Failed to create folder" });
+    }
+  });
+
+  app.post("/api/users/:userId/sharepoint/drives/:driveId/upload", requireAuth, async (req, res) => {
+    try {
+      const token = await getSharePointToken(req.params.userId);
+      if (!token) return res.status(401).json({ error: "Not connected" });
+      const { uploadSharePointFile } = await import("./lib/ms365");
+      const { parentFolderId, fileName, contentBase64 } = req.body;
+      const content = Buffer.from(contentBase64, "base64");
+      const result = await uploadSharePointFile(token, req.params.driveId, parentFolderId || null, fileName, content);
+      res.json(result);
+    } catch (error) {
+      console.error("[SharePoint] Error uploading file:", error);
+      res.status(500).json({ error: "Failed to upload file" });
+    }
+  });
+
+  app.delete("/api/users/:userId/sharepoint/drives/:driveId/items/:itemId", requireAuth, async (req, res) => {
+    try {
+      const token = await getSharePointToken(req.params.userId);
+      if (!token) return res.status(401).json({ error: "Not connected" });
+      const { deleteSharePointItem } = await import("./lib/ms365");
+      const success = await deleteSharePointItem(token, req.params.driveId, req.params.itemId);
+      res.json({ success });
+    } catch (error) {
+      console.error("[SharePoint] Error deleting item:", error);
+      res.status(500).json({ error: "Failed to delete item" });
+    }
+  });
+
+  app.get("/api/users/:userId/sharepoint/drives/:driveId/items/:itemId/download", requireAuth, async (req, res) => {
+    try {
+      const token = await getSharePointToken(req.params.userId);
+      if (!token) return res.status(401).json({ error: "Not connected" });
+      const { getSharePointDownloadUrl } = await import("./lib/ms365");
+      const url = await getSharePointDownloadUrl(token, req.params.driveId, req.params.itemId);
+      if (!url) return res.status(404).json({ error: "File not found" });
+      res.json({ downloadUrl: url });
+    } catch (error) {
+      console.error("[SharePoint] Error getting download URL:", error);
+      res.status(500).json({ error: "Failed to get download URL" });
+    }
+  });
+
+  app.get("/api/users/:userId/sharepoint/sites/:siteId/search", requireAuth, async (req, res) => {
+    try {
+      const token = await getSharePointToken(req.params.userId);
+      if (!token) return res.status(401).json({ error: "Not connected" });
+      const { searchSharePointFiles } = await import("./lib/ms365");
+      const query = req.query.q as string;
+      if (!query || query.length < 2) return res.json([]);
+      const results = await searchSharePointFiles(token, req.params.siteId, query);
+      res.json(results);
+    } catch (error) {
+      console.error("[SharePoint] Error searching:", error);
+      res.status(500).json({ error: "Search failed" });
+    }
+  });
+
   // Search emails across mailbox
   app.get("/api/users/:userId/ms365-search-emails", requireAuth, async (req, res) => {
     try {
