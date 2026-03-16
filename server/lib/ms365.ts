@@ -1204,7 +1204,6 @@ export async function getTeamsChatMessages(
   const result = await client.api(`/me/chats/${chatId}/messages`)
     .top(top)
     .orderby('createdDateTime desc')
-    .expand('hostedContents')
     .get();
   const messages = (result.value || [])
     .filter((m: any) => m.messageType === 'message')
@@ -1222,11 +1221,6 @@ export async function getTeamsChatMessages(
         contentType: att.contentType,
         contentUrl: att.contentUrl,
         thumbnailUrl: att.thumbnailUrl,
-      })),
-      hostedContents: (msg.hostedContents || []).map((hc: any) => ({
-        id: hc.id,
-        contentBytes: hc.contentBytes,
-        contentType: hc.contentType,
       })),
     }));
   return { messages };
