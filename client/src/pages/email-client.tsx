@@ -1118,33 +1118,56 @@ function TeamsPanel({ userId }: { userId?: string }) {
   const selectedTeam = teams.find(tm => tm.id === selectedTeamId);
   const selectedChat = chats.find(c => c.id === selectedTeamsChatId);
 
+  const avatarColors = ['bg-violet-600', 'bg-blue-600', 'bg-emerald-600', 'bg-amber-600', 'bg-rose-600', 'bg-cyan-600', 'bg-pink-600', 'bg-teal-600', 'bg-orange-600', 'bg-indigo-600'];
+  const getAvatarColor = (name: string) => {
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    return avatarColors[Math.abs(hash) % avatarColors.length];
+  };
+  const getInitials = (name: string) => {
+    const parts = name.trim().split(/\s+/);
+    if (parts.length >= 2) return (parts[parts.length - 1][0] + parts[0][0]).toUpperCase();
+    return name.substring(0, 2).toUpperCase();
+  };
+  const getChatDisplayName = (chat: any) => {
+    if (chat.topic) return chat.topic;
+    const memberNames = (chat.members || []).map((m: any) => m.displayName).filter(Boolean);
+    if (memberNames.length === 0) return chat.chatType === "oneOnOne" ? t.nexusOmni.teams.directChat : t.nexusOmni.teams.groupChat;
+    if (chat.chatType === "oneOnOne" && memberNames.length <= 2) return memberNames[0];
+    if (memberNames.length <= 3) return memberNames.join(', ');
+    return `${memberNames.slice(0, 2).join(', ')}, +${memberNames.length - 2}`;
+  };
+
   return (
     <>
-      <Card className="transition-all duration-300 w-[30%] min-w-[280px] max-w-[380px] shrink-0">
+      <Card className="transition-all duration-300 w-[30%] min-w-[280px] max-w-[380px] shrink-0 dark:bg-[#1f1f1f] dark:border-[#333]">
         <CardContent className="p-0 h-full flex flex-col">
-          <div className="p-3 border-b space-y-2">
+          <div className="p-3 border-b dark:border-[#333]">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-base font-semibold">Chat</h3>
+              <div className="flex items-center gap-1">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setMeetingDialogOpen(true); setMeetingLink(null); setMeetingSubject(""); }} data-testid="button-new-meeting">
+                      <Video className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>{t.nexusOmni.teams.createMeeting}</TooltipContent>
+                </Tooltip>
+              </div>
+            </div>
             <div className="flex gap-1">
-              <Button variant={teamsView === "chats" ? "default" : "outline"} size="sm" className="flex-1 text-xs" onClick={() => { setTeamsView("chats"); setSelectedTeamId(null); setSelectedChannelId(null); }} data-testid="teams-view-chats">
-                <MessagesSquare className="h-3.5 w-3.5 mr-1" />{t.nexusOmni.tabs.chats}
+              <Button variant={teamsView === "chats" ? "secondary" : "ghost"} size="sm" className="h-7 text-xs rounded-full px-3" onClick={() => { setTeamsView("chats"); setSelectedTeamId(null); setSelectedChannelId(null); }} data-testid="teams-view-chats">
+                {t.nexusOmni.tabs.chats}
               </Button>
-              <Button variant={teamsView === "teams" ? "default" : "outline"} size="sm" className="flex-1 text-xs" onClick={() => { setTeamsView("teams"); setSelectedTeamsChatId(null); }} data-testid="teams-view-teams">
-                <Users className="h-3.5 w-3.5 mr-1" />{t.nexusOmni.tabs.teams}
+              <Button variant={teamsView === "teams" ? "secondary" : "ghost"} size="sm" className="h-7 text-xs rounded-full px-3" onClick={() => { setTeamsView("teams"); setSelectedTeamsChatId(null); }} data-testid="teams-view-teams">
+                {t.nexusOmni.tabs.teams}
               </Button>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full text-xs gap-1.5 border-indigo-200 text-indigo-700 hover:bg-indigo-50 dark:border-indigo-800 dark:text-indigo-300 dark:hover:bg-indigo-950/30"
-              onClick={() => { setMeetingDialogOpen(true); setMeetingLink(null); setMeetingSubject(""); }}
-              data-testid="button-new-meeting"
-            >
-              <Video className="h-3.5 w-3.5" />
-              {t.nexusOmni.teams.createMeeting}
-            </Button>
           </div>
           <ScrollArea className="flex-1">
             {teamsView === "chats" && (
-              <div className="divide-y">
+              <div>
                 {chatsLoading ? (
                   <div className="flex items-center justify-center py-8"><Loader2 className="h-5 w-5 animate-spin" /></div>
                 ) : chats.length === 0 ? (
@@ -1152,61 +1175,44 @@ function TeamsPanel({ userId }: { userId?: string }) {
                     <MessagesSquare className="h-8 w-8 mb-2 opacity-30" />
                     <span className="text-xs">{chatsError ? `${t.nexusOmni.common.error}: ${chatsError.message}` : chatsData?.error ? `${t.nexusOmni.common.error}: ${chatsData.error}` : chatsData?.connected === false ? t.nexusOmni.teams.notConnected : t.nexusOmni.teams.noTeamsChats}</span>
                   </div>
-                ) : chats.map(chat => (
-                  <button
-                    key={chat.id}
-                    className={cn(
-                      "w-full text-left px-3 py-2.5 transition-all hover:bg-accent/50",
-                      selectedTeamsChatId === chat.id && "bg-accent"
-                    )}
-                    onClick={() => setSelectedTeamsChatId(chat.id)}
-                    data-testid={`teams-chat-${chat.id}`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <div className="h-9 w-9 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center shrink-0">
-                        {chat.chatType === "group" ? <Users className="h-4 w-4 text-indigo-600" /> : <User className="h-4 w-4 text-indigo-600" />}
+                ) : chats.map(chat => {
+                  const displayName = getChatDisplayName(chat);
+                  return (
+                    <button
+                      key={chat.id}
+                      className={cn(
+                        "w-full text-left px-3 py-2 transition-all hover:bg-accent/50 flex items-center gap-3",
+                        selectedTeamsChatId === chat.id && "bg-accent dark:bg-[#383838]"
+                      )}
+                      onClick={() => setSelectedTeamsChatId(chat.id)}
+                      data-testid={`teams-chat-${chat.id}`}
+                    >
+                      <div className={cn("h-9 w-9 rounded-full flex items-center justify-center shrink-0 text-white text-xs font-semibold", getAvatarColor(displayName))}>
+                        {chat.chatType === "group" && (chat.members?.length || 0) > 2
+                          ? <Users className="h-4 w-4" />
+                          : getInitials(displayName)
+                        }
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-1">
-                          <p className="text-sm font-medium truncate">{chat.topic || (chat.chatType === "oneOnOne" ? t.nexusOmni.teams.directChat : t.nexusOmni.teams.groupChat)}</p>
+                          <p className="text-sm font-medium truncate">{displayName}</p>
                           {chat.lastUpdatedDateTime && (
-                            <span className="text-[10px] text-muted-foreground shrink-0">{format(new Date(chat.lastUpdatedDateTime), "d.M. HH:mm")}</span>
+                            <span className="text-[10px] text-muted-foreground shrink-0">{format(new Date(chat.lastUpdatedDateTime), "d.M.")}</span>
                           )}
                         </div>
                         {chat.lastMessagePreview ? (
-                          <p className="text-[11px] text-muted-foreground truncate">
-                            {chat.lastMessagePreview.from && <span className="font-medium">{chat.lastMessagePreview.from}: </span>}
-                            {stripHtmlTags(chat.lastMessagePreview.body).substring(0, 60)}
+                          <p className="text-[11px] text-muted-foreground truncate mt-0.5">
+                            {stripHtmlTags(chat.lastMessagePreview.body).substring(0, 50)}
                           </p>
-                        ) : (
-                          <p className="text-[11px] text-muted-foreground truncate">
-                            {chat.chatType === "oneOnOne" ? t.nexusOmni.teams.directChat : chat.chatType === "group" ? t.nexusOmni.teams.groupChat : chat.chatType}
-                          </p>
-                        )}
-                        {chat.members && chat.members.length > 0 && (
-                          <div className="flex items-center gap-1 mt-0.5">
-                            <div className="flex -space-x-1">
-                              {chat.members.slice(0, 4).map((m: any, i: number) => (
-                                <div key={i} className="h-4 w-4 rounded-full bg-indigo-200 dark:bg-indigo-800 flex items-center justify-center text-[7px] font-bold text-indigo-700 dark:text-indigo-300 border border-background">
-                                  {(m.displayName || "?").substring(0, 1).toUpperCase()}
-                                </div>
-                              ))}
-                              {chat.members.length > 4 && (
-                                <div className="h-4 w-4 rounded-full bg-muted flex items-center justify-center text-[7px] font-bold text-muted-foreground border border-background">
-                                  +{chat.members.length - 4}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        )}
+                        ) : null}
                       </div>
-                    </div>
-                  </button>
-                ))}
+                    </button>
+                  );
+                })}
               </div>
             )}
             {teamsView === "teams" && !selectedTeamId && (
-              <div className="divide-y">
+              <div>
                 {teamsLoading ? (
                   <div className="flex items-center justify-center py-8"><Loader2 className="h-5 w-5 animate-spin" /></div>
                 ) : teams.length === 0 ? (
@@ -1217,18 +1223,16 @@ function TeamsPanel({ userId }: { userId?: string }) {
                 ) : teams.map(team => (
                   <button
                     key={team.id}
-                    className="w-full text-left px-3 py-2.5 transition-all hover:bg-accent/50"
+                    className="w-full text-left px-3 py-2 transition-all hover:bg-accent/50 flex items-center gap-3"
                     onClick={() => setSelectedTeamId(team.id)}
                     data-testid={`teams-team-${team.id}`}
                   >
-                    <div className="flex items-center gap-2">
-                      <div className="h-9 w-9 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center shrink-0">
-                        <Users className="h-4 w-4 text-indigo-600" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{team.displayName}</p>
-                        {team.description && <p className="text-[11px] text-muted-foreground truncate">{team.description}</p>}
-                      </div>
+                    <div className={cn("h-9 w-9 rounded-full flex items-center justify-center shrink-0 text-white text-xs font-semibold", getAvatarColor(team.displayName || ''))}>
+                      {getInitials(team.displayName || 'T')}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{team.displayName}</p>
+                      {team.description && <p className="text-[11px] text-muted-foreground truncate">{team.description}</p>}
                     </div>
                   </button>
                 ))}
@@ -1239,25 +1243,23 @@ function TeamsPanel({ userId }: { userId?: string }) {
                 <button className="w-full text-left px-3 py-2 text-xs text-muted-foreground hover:bg-accent/50 flex items-center gap-1" onClick={() => { setSelectedTeamId(null); setSelectedChannelId(null); }}>
                   <ChevronLeft className="h-3 w-3" /> {t.nexusOmni.tabs.teams}
                 </button>
-                <div className="px-3 py-1.5 border-b">
+                <div className="px-3 py-1.5 border-b dark:border-[#333]">
                   <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{selectedTeam?.displayName} - {t.nexusOmni.email.channels}</p>
                 </div>
-                <div className="divide-y">
-                  {channels.map(ch => (
-                    <button
-                      key={ch.id}
-                      className={cn(
-                        "w-full text-left px-3 py-2 transition-all hover:bg-accent/50",
-                        selectedChannelId === ch.id && "bg-accent"
-                      )}
-                      onClick={() => setSelectedChannelId(ch.id)}
-                      data-testid={`teams-channel-${ch.id}`}
-                    >
-                      <p className="text-sm font-medium truncate"># {ch.displayName}</p>
-                      {ch.description && <p className="text-[11px] text-muted-foreground truncate">{ch.description}</p>}
-                    </button>
-                  ))}
-                </div>
+                {channels.map(ch => (
+                  <button
+                    key={ch.id}
+                    className={cn(
+                      "w-full text-left px-3 py-2 transition-all hover:bg-accent/50",
+                      selectedChannelId === ch.id && "bg-accent dark:bg-[#383838]"
+                    )}
+                    onClick={() => setSelectedChannelId(ch.id)}
+                    data-testid={`teams-channel-${ch.id}`}
+                  >
+                    <p className="text-sm font-medium truncate"># {ch.displayName}</p>
+                    {ch.description && <p className="text-[11px] text-muted-foreground truncate">{ch.description}</p>}
+                  </button>
+                ))}
               </div>
             )}
           </ScrollArea>
@@ -1266,7 +1268,7 @@ function TeamsPanel({ userId }: { userId?: string }) {
       <Card className="transition-all duration-300 flex-1 min-w-0">
         <CardContent className="p-0 h-full">
           {activeMeeting ? (
-            <div className="flex flex-col h-full">
+            <div className="flex flex-col h-full dark:bg-[#292929]">
               <div className="p-3 border-b bg-gradient-to-r from-indigo-600 to-violet-600 text-white flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="h-10 w-10 rounded-full bg-white/20 flex items-center justify-center shrink-0">
@@ -1394,24 +1396,30 @@ function TeamsPanel({ userId }: { userId?: string }) {
             msgsLoading ? (
               <div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
             ) : (
-              <div className="flex flex-col h-full">
-                <div className="p-3 border-b flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <Badge className="bg-indigo-50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-300 shrink-0">
-                      <MessagesSquare className="h-3 w-3 mr-1" />Teams
-                    </Badge>
-                    <span className="text-sm font-semibold truncate">{selectedChat?.topic || "Chat"}</span>
-                    {selectedChat?.members && (
-                      <span className="text-[11px] text-muted-foreground shrink-0">({selectedChat.members.length} {t.nexusOmni.teams.members})</span>
-                    )}
+              <div className="flex flex-col h-full dark:bg-[#292929]">
+                <div className="px-4 py-3 border-b dark:border-[#333] flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className={cn("h-10 w-10 rounded-full flex items-center justify-center shrink-0 text-white text-sm font-semibold", getAvatarColor(getChatDisplayName(selectedChat || {})))}>
+                      {selectedChat?.chatType === "group" && (selectedChat?.members?.length || 0) > 2
+                        ? <Users className="h-5 w-5" />
+                        : getInitials(getChatDisplayName(selectedChat || {}))}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold truncate">{getChatDisplayName(selectedChat || {})}</p>
+                      {selectedChat?.members && selectedChat.members.length > 0 && (
+                        <p className="text-[11px] text-muted-foreground truncate">
+                          {selectedChat.members.map((m: any) => m.displayName?.split(' ')[0]).filter(Boolean).join(', ')}
+                        </p>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1 shrink-0">
+                  <div className="flex items-center gap-0.5 shrink-0">
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-950/30"
+                          className="h-9 w-9"
                           onClick={() => {
                             const emails = selectedChat?.members?.map((m: any) => m.email).filter(Boolean) || [];
                             handleInstantMeeting(emails);
@@ -1424,16 +1432,27 @@ function TeamsPanel({ userId }: { userId?: string }) {
                       </TooltipTrigger>
                       <TooltipContent>{t.nexusOmni.teams.instantMeeting}</TooltipContent>
                     </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-9 w-9"
+                          onClick={() => {
+                            const emails = selectedChat?.members?.map((m: any) => m.email).filter(Boolean) || [];
+                            handleInstantMeeting(emails);
+                          }}
+                          disabled={meetingMutation.isPending}
+                        >
+                          <Phone className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Audio call</TooltipContent>
+                    </Tooltip>
                     {selectedChat?.webUrl && (
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={() => window.open(selectedChat.webUrl, "_blank")}
-                            data-testid="button-open-teams"
-                          >
+                          <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => window.open(selectedChat.webUrl, "_blank")} data-testid="button-open-teams">
                             <ExternalLink className="h-4 w-4" />
                           </Button>
                         </TooltipTrigger>
@@ -1443,98 +1462,159 @@ function TeamsPanel({ userId }: { userId?: string }) {
                   </div>
                 </div>
                 <ScrollArea className="flex-1">
-                  <div className="p-4 space-y-3">
+                  <div className="px-4 py-3 space-y-4">
                     {chatMessages.length === 0 ? (
                       <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                         <MessagesSquare className="h-8 w-8 mb-2 opacity-30" />
                         <span className="text-xs">{t.nexusOmni.common.noMessages}</span>
                       </div>
-                    ) : [...chatMessages].reverse().map(msg => (
-                      <div key={msg.id} className="flex gap-2">
-                        <div className="h-7 w-7 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-[10px] font-bold text-indigo-700 shrink-0 mt-0.5">
-                          {(msg.from || "?").substring(0, 2).toUpperCase()}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-baseline gap-2">
-                            <span className="text-xs font-semibold">{msg.from}</span>
-                            <span className="text-[10px] text-muted-foreground">{format(new Date(msg.createdDateTime), "d.M. HH:mm")}</span>
+                    ) : (() => {
+                      const sorted = [...chatMessages].reverse();
+                      const elements: any[] = [];
+                      let lastDate = '';
+                      sorted.forEach((msg, idx) => {
+                        const msgDate = format(new Date(msg.createdDateTime), 'd. MMMM');
+                        if (msgDate !== lastDate) {
+                          lastDate = msgDate;
+                          elements.push(
+                            <div key={`date-${idx}`} className="flex items-center gap-3 py-2">
+                              <div className="flex-1 h-px bg-border dark:bg-[#444]" />
+                              <span className="text-[11px] text-muted-foreground font-medium px-2">{msgDate}</span>
+                              <div className="flex-1 h-px bg-border dark:bg-[#444]" />
+                            </div>
+                          );
+                        }
+                        const prevMsg = idx > 0 ? sorted[idx - 1] : null;
+                        const showHeader = !prevMsg || prevMsg.from !== msg.from ||
+                          (new Date(msg.createdDateTime).getTime() - new Date(prevMsg.createdDateTime).getTime() > 5 * 60 * 1000);
+                        elements.push(
+                          <div key={msg.id} className={cn("group hover:bg-accent/30 dark:hover:bg-[#333] rounded-md px-2 py-0.5 -mx-2", !showHeader && "ml-12")}>
+                            {showHeader ? (
+                              <div className="flex gap-3">
+                                <div className={cn("h-9 w-9 rounded-full flex items-center justify-center shrink-0 text-white text-xs font-semibold mt-0.5", getAvatarColor(msg.from || ''))}>
+                                  {getInitials(msg.from || '?')}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-baseline gap-2">
+                                    <span className="text-sm font-semibold">{msg.from}</span>
+                                    <span className="text-[11px] text-muted-foreground">{format(new Date(msg.createdDateTime), "d.M. HH:mm")}</span>
+                                  </div>
+                                  {msg.contentType === "html" ? (
+                                    <div className="text-sm mt-0.5 [&_a]:text-blue-500 [&_a]:underline [&_img]:max-w-xs [&_img]:rounded-md [&_img]:mt-1" dangerouslySetInnerHTML={{ __html: msg.body }} />
+                                  ) : (
+                                    <p className="text-sm mt-0.5" style={{ overflowWrap: "anywhere" }}>{msg.body}</p>
+                                  )}
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="flex-1 min-w-0">
+                                <span className="text-[10px] text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity mr-2">{format(new Date(msg.createdDateTime), "HH:mm")}</span>
+                                {msg.contentType === "html" ? (
+                                  <span className="text-sm [&_a]:text-blue-500 [&_a]:underline" dangerouslySetInnerHTML={{ __html: msg.body }} />
+                                ) : (
+                                  <span className="text-sm" style={{ overflowWrap: "anywhere" }}>{msg.body}</span>
+                                )}
+                              </div>
+                            )}
                           </div>
-                          {msg.contentType === "html" ? (
-                            <div className="text-sm mt-0.5 prose prose-sm max-w-none dark:prose-invert [&_a]:text-indigo-600 [&_a]:underline" dangerouslySetInnerHTML={{ __html: msg.body }} />
-                          ) : (
-                            <p className="text-sm mt-0.5" style={{ overflowWrap: "anywhere" }}>{msg.body}</p>
-                          )}
-                        </div>
-                      </div>
-                    ))}
+                        );
+                      });
+                      return elements;
+                    })()}
                   </div>
                 </ScrollArea>
-                <div className="p-3 border-t flex gap-2">
-                  <Input
-                    placeholder={t.nexusOmni.teams.writePlaceholder}
-                    value={chatInput}
-                    onChange={(e) => setChatInput(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter" && chatInput.trim()) sendMutation.mutate(chatInput.trim()); }}
-                    data-testid="teams-chat-input"
-                  />
-                  <Button size="sm" disabled={!chatInput.trim() || sendMutation.isPending} onClick={() => chatInput.trim() && sendMutation.mutate(chatInput.trim())} data-testid="teams-chat-send">
-                    {sendMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                  </Button>
+                <div className="px-4 py-3 border-t dark:border-[#333]">
+                  <div className="flex gap-2 items-center bg-muted/50 dark:bg-[#333] rounded-lg px-3 py-1.5">
+                    <Input
+                      placeholder={t.nexusOmni.teams.writePlaceholder}
+                      value={chatInput}
+                      onChange={(e) => setChatInput(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter" && chatInput.trim()) sendMutation.mutate(chatInput.trim()); }}
+                      className="border-0 bg-transparent focus-visible:ring-0 shadow-none px-0 h-8"
+                      data-testid="teams-chat-input"
+                    />
+                    <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" disabled={!chatInput.trim() || sendMutation.isPending} onClick={() => chatInput.trim() && sendMutation.mutate(chatInput.trim())} data-testid="teams-chat-send">
+                      {sendMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                    </Button>
+                  </div>
                 </div>
               </div>
             )
           ) : selectedChannelId ? (
-            <div className="flex flex-col h-full">
-              <div className="p-3 border-b flex items-center gap-2">
-                <Badge className="bg-indigo-50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-300">
-                  <Users className="h-3 w-3 mr-1" />{selectedTeam?.displayName}
-                </Badge>
-                <span className="text-sm font-semibold truncate">#{channels.find(c => c.id === selectedChannelId)?.displayName}</span>
+            <div className="flex flex-col h-full dark:bg-[#292929]">
+              <div className="px-4 py-3 border-b dark:border-[#333] flex items-center gap-3">
+                <div className={cn("h-10 w-10 rounded-full flex items-center justify-center shrink-0 text-white text-sm font-semibold", getAvatarColor(selectedTeam?.displayName || ''))}>
+                  {getInitials(selectedTeam?.displayName || 'T')}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold truncate">#{channels.find(c => c.id === selectedChannelId)?.displayName}</p>
+                  <p className="text-[11px] text-muted-foreground truncate">{selectedTeam?.displayName}</p>
+                </div>
               </div>
               <ScrollArea className="flex-1">
-                <div className="p-4 space-y-3">
+                <div className="px-4 py-3 space-y-4">
                   {channelMessages.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                       <MessagesSquare className="h-8 w-8 mb-2 opacity-30" />
                       <span className="text-xs">{t.nexusOmni.teams.noMessages}</span>
                     </div>
-                  ) : [...channelMessages].reverse().map(msg => (
-                    <div key={msg.id} className="flex gap-2">
-                      <div className="h-7 w-7 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-[10px] font-bold text-indigo-700 shrink-0 mt-0.5">
-                        {(msg.from || "?").substring(0, 2).toUpperCase()}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-baseline gap-2">
-                          <span className="text-xs font-semibold">{msg.from}</span>
-                          <span className="text-[10px] text-muted-foreground">{format(new Date(msg.createdDateTime), "d.M. HH:mm")}</span>
-                        </div>
-                        {msg.subject && <p className="text-xs font-medium text-muted-foreground">{msg.subject}</p>}
-                        {msg.contentType === "html" ? (
-                          <div className="text-sm mt-0.5 prose prose-sm max-w-none dark:prose-invert [&_a]:text-indigo-600 [&_a]:underline" dangerouslySetInnerHTML={{ __html: msg.body }} />
+                  ) : [...channelMessages].reverse().map((msg, idx, arr) => {
+                    const prevMsg = idx > 0 ? arr[idx - 1] : null;
+                    const showHeader = !prevMsg || prevMsg.from !== msg.from;
+                    return (
+                      <div key={msg.id} className={cn("group hover:bg-accent/30 dark:hover:bg-[#333] rounded-md px-2 py-0.5 -mx-2", !showHeader && "ml-12")}>
+                        {showHeader ? (
+                          <div className="flex gap-3">
+                            <div className={cn("h-9 w-9 rounded-full flex items-center justify-center shrink-0 text-white text-xs font-semibold mt-0.5", getAvatarColor(msg.from || ''))}>
+                              {getInitials(msg.from || '?')}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-baseline gap-2">
+                                <span className="text-sm font-semibold">{msg.from}</span>
+                                <span className="text-[11px] text-muted-foreground">{format(new Date(msg.createdDateTime), "d.M. HH:mm")}</span>
+                              </div>
+                              {msg.subject && <p className="text-xs font-medium text-muted-foreground">{msg.subject}</p>}
+                              {msg.contentType === "html" ? (
+                                <div className="text-sm mt-0.5 [&_a]:text-blue-500 [&_a]:underline" dangerouslySetInnerHTML={{ __html: msg.body }} />
+                              ) : (
+                                <p className="text-sm mt-0.5" style={{ overflowWrap: "anywhere" }}>{msg.body}</p>
+                              )}
+                            </div>
+                          </div>
                         ) : (
-                          <p className="text-sm mt-0.5" style={{ overflowWrap: "anywhere" }}>{msg.body}</p>
+                          <div className="flex-1 min-w-0">
+                            {msg.contentType === "html" ? (
+                              <div className="text-sm [&_a]:text-blue-500 [&_a]:underline" dangerouslySetInnerHTML={{ __html: msg.body }} />
+                            ) : (
+                              <p className="text-sm" style={{ overflowWrap: "anywhere" }}>{msg.body}</p>
+                            )}
+                          </div>
                         )}
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </ScrollArea>
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-              <Video className="h-12 w-12 mb-4 opacity-30 text-indigo-400" />
-              <p className="font-medium text-lg">Microsoft Teams</p>
-              <p className="text-sm mb-4">{t.nexusOmni.chats.selectConversation}</p>
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-2 border-indigo-200 text-indigo-700 hover:bg-indigo-50 dark:border-indigo-800 dark:text-indigo-300"
-                onClick={() => { setMeetingDialogOpen(true); setMeetingLink(null); setMeetingSubject(""); }}
-                data-testid="button-new-meeting-center"
-              >
-                <Video className="h-4 w-4" />
-                {t.nexusOmni.teams.instantMeeting}
-              </Button>
+            <div className="flex flex-col items-center justify-center h-full text-muted-foreground dark:bg-[#292929]">
+              <div className="h-20 w-20 rounded-full bg-indigo-100 dark:bg-indigo-900/20 flex items-center justify-center mb-4">
+                <MessagesSquare className="h-10 w-10 text-indigo-400 opacity-60" />
+              </div>
+              <p className="font-semibold text-lg mb-1 text-foreground">Microsoft Teams</p>
+              <p className="text-sm mb-5">{t.nexusOmni.chats.selectConversation}</p>
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={() => { setMeetingDialogOpen(true); setMeetingLink(null); setMeetingSubject(""); }}
+                  data-testid="button-new-meeting-center"
+                >
+                  <Video className="h-4 w-4" />
+                  {t.nexusOmni.teams.createMeeting}
+                </Button>
+              </div>
             </div>
           )}
         </CardContent>
