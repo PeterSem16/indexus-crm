@@ -584,6 +584,7 @@ export default function EmailClientPage() {
   const [aiComposeLoading, setAiComposeLoading] = useState(false);
   const [aiComposeOpen, setAiComposeOpen] = useState(false);
   const [composeEditorKey, setComposeEditorKey] = useState(0);
+  const [aiComposeLang, setAiComposeLang] = useState<string>("");
   const [signatureHtml, setSignatureHtml] = useState("");
   const [signatureActive, setSignatureActive] = useState(true);
   const [sigEditMailbox, setSigEditMailbox] = useState<string>("");
@@ -1875,7 +1876,7 @@ export default function EmailClientPage() {
             </Tooltip>
           </TooltipProvider>
           {activeTab === "email" && (
-            <Button onClick={() => { setComposeOpen(true); setReplyMode(null); setComposeData({ to: "", cc: "", bcc: "", subject: "", body: "", importance: "normal", tagId: null, replyTo: "" }); setAttachments([]); setComposeMailbox(effectiveMailbox); setComposeEditorKey(0); }} data-testid="button-compose">
+            <Button onClick={() => { setComposeOpen(true); setReplyMode(null); setComposeData({ to: "", cc: "", bcc: "", subject: "", body: "", importance: "normal", tagId: null, replyTo: "" }); setAttachments([]); setComposeMailbox(effectiveMailbox); setComposeEditorKey(0); setAiComposeLang(locale || "sk"); }} data-testid="button-compose">
               <PenSquare className="h-4 w-4 mr-2" />
               {t.nexusOmni.common.newMessage}
             </Button>
@@ -3214,9 +3215,25 @@ export default function EmailClientPage() {
                       AI
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-64 p-2" align="start">
+                  <PopoverContent className="w-72 p-2" align="start">
                     <div className="space-y-1">
-                      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-2 py-1">{t.nexusOmni.ai?.templates || "AI Templates"}</p>
+                      <div className="flex items-center justify-between px-2 py-1">
+                        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{t.nexusOmni.ai?.templates || "AI Templates"}</p>
+                        <Select value={aiComposeLang || locale || "sk"} onValueChange={setAiComposeLang}>
+                          <SelectTrigger className="w-auto h-5 text-[10px] border-0 bg-muted/50 shadow-none px-1.5 gap-1 focus:ring-0 rounded" data-testid="select-ai-lang">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="sk">Slovenčina</SelectItem>
+                            <SelectItem value="cs">Čeština</SelectItem>
+                            <SelectItem value="en">English</SelectItem>
+                            <SelectItem value="de">Deutsch</SelectItem>
+                            <SelectItem value="hu">Magyar</SelectItem>
+                            <SelectItem value="ro">Română</SelectItem>
+                            <SelectItem value="it">Italiano</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                       {[
                         { key: "business_intro", label: t.nexusOmni.ai?.businessIntro || "Obchodné oslovenie", icon: "briefcase" },
                         { key: "thank_you", label: t.nexusOmni.ai?.thankYou || "Poďakovanie", icon: "heart" },
@@ -3232,7 +3249,7 @@ export default function EmailClientPage() {
                           onClick={async () => {
                             setAiComposeLoading(true);
                             try {
-                              const lang = locale || "sk";
+                              const lang = aiComposeLang || locale || "sk";
                               const recipientName = composeData.to ? composeData.to.split(",")[0].trim() : "";
                               const res = await fetch(`/api/users/${user?.id}/ms365-ai-compose`, {
                                 method: "POST",
@@ -3647,21 +3664,34 @@ export default function EmailClientPage() {
           <div className="px-4 py-2 border-t">
             <p className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1">
               <Paperclip className="h-3 w-3" />
-              Prílohy ({emailDetail.attachmentsList.filter((a: any) => !a.isInline).length})
+              {t.nexusOmni.email.attachments} ({emailDetail.attachmentsList.filter((a: any) => !a.isInline).length})
             </p>
-            <div className="flex flex-wrap gap-1.5">
-              {emailDetail.attachmentsList.filter((a: any) => !a.isInline).map((att: any) => (
-                <button
-                  key={att.id}
-                  className="flex items-center gap-1.5 px-2 py-1 rounded-md border bg-muted/50 hover:bg-accent transition-colors text-xs"
-                  onClick={() => downloadAttachment(emailDetail.id, att.id, att.name)}
-                  data-testid={`attachment-download-${att.id}`}
-                >
-                  <Download className="h-3 w-3 text-muted-foreground" />
-                  <span className="max-w-40 truncate">{att.name}</span>
-                  <span className="text-muted-foreground">({formatFileSize(att.size)})</span>
-                </button>
-              ))}
+            <div className="flex flex-wrap gap-2">
+              {emailDetail.attachmentsList.filter((a: any) => !a.isInline).map((att: any) => {
+                const isImg = att.contentType?.startsWith("image/");
+                const thumbUrl = isImg ? `/api/users/${user?.id}/ms365-email/${emailDetail.id}/attachments/${att.id}?mailbox=${encodeURIComponent(emailDetailMailbox)}` : null;
+                return (
+                  <button
+                    key={att.id}
+                    className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border bg-card hover:bg-accent/50 transition-colors text-xs"
+                    onClick={() => downloadAttachment(emailDetail.id, att.id, att.name)}
+                    data-testid={`attachment-download-${att.id}`}
+                  >
+                    {isImg && thumbUrl ? (
+                      <img src={thumbUrl} alt={att.name} className="h-8 w-8 rounded object-cover shrink-0" />
+                    ) : (
+                      <div className="h-8 w-8 rounded bg-muted flex items-center justify-center shrink-0">
+                        <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                      </div>
+                    )}
+                    <div className="min-w-0 text-left">
+                      <p className="text-xs font-medium truncate max-w-32">{att.name}</p>
+                      <p className="text-[10px] text-muted-foreground">{formatFileSize(att.size)}</p>
+                    </div>
+                    <Download className="h-3 w-3 text-muted-foreground shrink-0" />
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}
@@ -3814,21 +3844,34 @@ export default function EmailClientPage() {
             <div className="px-4 py-2 border-t">
               <p className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1">
                 <Paperclip className="h-3 w-3" />
-                Prílohy ({emailDetail.attachmentsList.filter((a: any) => !a.isInline).length})
+                {t.nexusOmni.email.attachments} ({emailDetail.attachmentsList.filter((a: any) => !a.isInline).length})
               </p>
-              <div className="flex flex-wrap gap-1.5">
-                {emailDetail.attachmentsList.filter((a: any) => !a.isInline).map((att: any) => (
-                  <button
-                    key={att.id}
-                    className="flex items-center gap-1.5 px-2 py-1 rounded-md border bg-muted/50 hover:bg-accent transition-colors text-xs"
-                    onClick={() => downloadAttachment(emailDetail.id, att.id, att.name)}
-                    data-testid={`attachment-download-${att.id}`}
-                  >
-                    <Download className="h-3 w-3 text-muted-foreground" />
-                    <span className="max-w-40 truncate">{att.name}</span>
-                    <span className="text-muted-foreground">({formatFileSize(att.size)})</span>
-                  </button>
-                ))}
+              <div className="flex flex-wrap gap-2">
+                {emailDetail.attachmentsList.filter((a: any) => !a.isInline).map((att: any) => {
+                  const isImg = att.contentType?.startsWith("image/");
+                  const thumbUrl = isImg ? `/api/users/${user?.id}/ms365-email/${emailDetail.id}/attachments/${att.id}?mailbox=${encodeURIComponent(emailDetailMailbox)}` : null;
+                  return (
+                    <button
+                      key={att.id}
+                      className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border bg-card hover:bg-accent/50 transition-colors text-xs"
+                      onClick={() => downloadAttachment(emailDetail.id, att.id, att.name)}
+                      data-testid={`attachment-download-${att.id}`}
+                    >
+                      {isImg && thumbUrl ? (
+                        <img src={thumbUrl} alt={att.name} className="h-8 w-8 rounded object-cover shrink-0" />
+                      ) : (
+                        <div className="h-8 w-8 rounded bg-muted flex items-center justify-center shrink-0">
+                          <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                        </div>
+                      )}
+                      <div className="min-w-0 text-left">
+                        <p className="text-xs font-medium truncate max-w-32">{att.name}</p>
+                        <p className="text-[10px] text-muted-foreground">{formatFileSize(att.size)}</p>
+                      </div>
+                      <Download className="h-3 w-3 text-muted-foreground shrink-0" />
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -4214,21 +4257,34 @@ export default function EmailClientPage() {
             <div className="px-5 py-2 border-t">
               <p className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1">
                 <Paperclip className="h-3 w-3" />
-                Prílohy ({detail.attachmentsList.filter((a: any) => !a.isInline).length})
+                {t.nexusOmni.email.attachments} ({detail.attachmentsList.filter((a: any) => !a.isInline).length})
               </p>
-              <div className="flex flex-wrap gap-1.5">
-                {detail.attachmentsList.filter((a: any) => !a.isInline).map((att: any) => (
-                  <button
-                    key={att.id}
-                    className="flex items-center gap-1.5 px-2 py-1 rounded-md border bg-muted/50 hover:bg-accent transition-colors text-xs"
-                    onClick={() => downloadAttachment(detail.id, att.id, att.name)}
-                    data-testid={`modal-attachment-${att.id}`}
-                  >
-                    <Download className="h-3 w-3 text-muted-foreground" />
-                    <span className="max-w-40 truncate">{att.name}</span>
-                    <span className="text-muted-foreground">({formatFileSize(att.size)})</span>
-                  </button>
-                ))}
+              <div className="flex flex-wrap gap-2">
+                {detail.attachmentsList.filter((a: any) => !a.isInline).map((att: any) => {
+                  const isImg = att.contentType?.startsWith("image/");
+                  const thumbUrl = isImg ? `/api/users/${user?.id}/ms365-email/${detail.id}/attachments/${att.id}?mailbox=${encodeURIComponent(emailDetailMailbox)}` : null;
+                  return (
+                    <button
+                      key={att.id}
+                      className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border bg-card hover:bg-accent/50 transition-colors text-xs"
+                      onClick={() => downloadAttachment(detail.id, att.id, att.name)}
+                      data-testid={`modal-attachment-${att.id}`}
+                    >
+                      {isImg && thumbUrl ? (
+                        <img src={thumbUrl} alt={att.name} className="h-8 w-8 rounded object-cover shrink-0" />
+                      ) : (
+                        <div className="h-8 w-8 rounded bg-muted flex items-center justify-center shrink-0">
+                          <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                        </div>
+                      )}
+                      <div className="min-w-0 text-left">
+                        <p className="text-xs font-medium truncate max-w-32">{att.name}</p>
+                        <p className="text-[10px] text-muted-foreground">{formatFileSize(att.size)}</p>
+                      </div>
+                      <Download className="h-3 w-3 text-muted-foreground shrink-0" />
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
