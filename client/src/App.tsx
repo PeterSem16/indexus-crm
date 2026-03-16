@@ -194,8 +194,8 @@ function AuthenticatedApp() {
                   <ThemeToggle />
                 </div>
               </header>
-              <main className={`flex-1 overflow-auto ${location === "/email" ? "p-0" : "p-6"}`}>
-                <div className={location === "/email" ? "" : "max-w-7xl mx-auto"}>
+              <main className={`flex-1 ${location === "/email" ? "overflow-hidden p-0" : "overflow-auto p-6"}`}>
+                <div className={location === "/email" ? "h-full" : "max-w-7xl mx-auto"}>
                   <Switch>
                     <Route path="/" component={Dashboard} />
                     <Route path="/users" component={UsersPage} />
