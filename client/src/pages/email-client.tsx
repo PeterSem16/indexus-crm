@@ -580,6 +580,9 @@ export default function EmailClientPage() {
 
   const [attachments, setAttachments] = useState<File[]>([]);
   const [composeData, setComposeData] = useState({ to: "", cc: "", bcc: "", subject: "", body: "", importance: "normal" as string, tagId: null as number | null, replyTo: "" });
+  const [composeMailbox, setComposeMailbox] = useState<string>("");
+  const [aiComposeLoading, setAiComposeLoading] = useState(false);
+  const [aiComposeOpen, setAiComposeOpen] = useState(false);
   const [signatureHtml, setSignatureHtml] = useState("");
   const [signatureActive, setSignatureActive] = useState(true);
   const [sigEditMailbox, setSigEditMailbox] = useState<string>("");
@@ -1463,12 +1466,9 @@ export default function EmailClientPage() {
 
   const getSignatureForCompose = (forMailbox?: string) => {
     const mbx = forMailbox || effectiveMailbox;
-    const sig = allSignatures.find((s: EmailSignature) => s.mailboxEmail === mbx);
-    if (sig?.isActive && sig?.htmlContent) {
+    const sig = allSignatures.find((s: EmailSignature) => s.mailboxEmail === mbx && s.isActive);
+    if (sig?.htmlContent) {
       return sig.htmlContent;
-    }
-    if (signatureData?.isActive && signatureData?.htmlContent) {
-      return signatureData.htmlContent;
     }
     return undefined;
   };
@@ -1485,7 +1485,7 @@ export default function EmailClientPage() {
     sendEmailMutation.mutate({
       to: toList, cc: ccList, bcc: bccList,
       subject: composeData.subject, body: composeData.body,
-      mailboxEmail: effectiveMailbox,
+      mailboxEmail: composeMailbox || effectiveMailbox,
       importance: composeData.importance !== "normal" ? composeData.importance : undefined,
       attachments: attData,
     } as any);
@@ -1635,9 +1635,9 @@ export default function EmailClientPage() {
   };
 
   const handleAiModalInsert = () => {
-    const signatureForMailbox = getSignatureForCompose();
+    const signatureForMailbox = getSignatureForCompose(composeMailbox || effectiveMailbox);
     const sigBlock = signatureForMailbox
-      ? '<p><br></p><p><br></p><p><br></p><div class="email-signature">' + signatureForMailbox + '</div>'
+      ? '<p><br></p><div class="email-signature">' + signatureForMailbox + '</div>'
       : '';
     const newBody = aiModalContent + sigBlock;
     aiInsertBodyRef.current = newBody;
@@ -1874,7 +1874,7 @@ export default function EmailClientPage() {
             </Tooltip>
           </TooltipProvider>
           {activeTab === "email" && (
-            <Button onClick={() => { setComposeOpen(true); setReplyMode(null); setComposeData({ to: "", cc: "", bcc: "", subject: "", body: "", importance: "normal", tagId: null, replyTo: "" }); setAttachments([]); }} data-testid="button-compose">
+            <Button onClick={() => { setComposeOpen(true); setReplyMode(null); setComposeData({ to: "", cc: "", bcc: "", subject: "", body: "", importance: "normal", tagId: null, replyTo: "" }); setAttachments([]); setComposeMailbox(effectiveMailbox); }} data-testid="button-compose">
               <PenSquare className="h-4 w-4 mr-2" />
               {t.nexusOmni.common.newMessage}
             </Button>
@@ -3060,21 +3060,21 @@ export default function EmailClientPage() {
           </DialogContent>
         </Dialog>
 
-            <Dialog open={composeOpen} onOpenChange={(open) => { setComposeOpen(open); if (!open) setComposeFullscreen(false); }}>
+
+      <Dialog open={composeOpen} onOpenChange={(open) => { setComposeOpen(open); if (!open) setComposeFullscreen(false); }}>
           <DialogContent hideCloseButton className={cn(
             "flex flex-col gap-0 p-0 overflow-hidden",
             composeFullscreen
               ? "max-w-[100vw] w-[100vw] h-[100vh] max-h-[100vh] rounded-none"
               : "max-w-3xl w-[90vw] max-h-[85vh] rounded-2xl border shadow-2xl"
           )}>
-            <div className="px-5 py-3 border-b shrink-0 flex items-center justify-between">
+            <div className="px-4 py-2.5 border-b shrink-0 flex items-center justify-between bg-muted/30">
               <div className="flex items-center gap-3">
                 <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
                   <PenSquare className="h-4 w-4 text-primary" />
                 </div>
                 <div>
                   <h3 className="text-sm font-semibold">{t.nexusOmni.email.newMessage}</h3>
-                  <p className="text-[11px] text-muted-foreground">{mailboxes.find(m => (m.type === "personal" ? "personal" : m.email) === effectiveMailbox)?.email || effectiveMailbox}</p>
                 </div>
               </div>
               <div className="flex items-center gap-1">
@@ -3092,26 +3092,56 @@ export default function EmailClientPage() {
             </DialogHeader>
 
             <div className="flex-1 overflow-auto">
-              <div className="px-5 py-3 space-y-2 border-b bg-muted/20">
-                <EmailRecipientInput
-                  placeholder={t.nexusOmni.email.recipientPlaceholder}
-                  value={composeData.to}
-                  onChange={(v) => setComposeData({ ...composeData, to: v })}
-                  knownEmails={knownEmails}
-                  data-testid="input-compose-to"
-                />
-                <div className="grid grid-cols-2 gap-2">
+              <div className="px-4 py-3 space-y-2 border-b">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground w-10 shrink-0">{t.nexusOmni.search.mailbox}:</span>
+                  <Select value={composeMailbox || effectiveMailbox} onValueChange={(v) => setComposeMailbox(v)}>
+                    <SelectTrigger className="h-8 text-xs flex-1" data-testid="select-compose-mailbox">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {mailboxes.map(m => {
+                        const key = m.type === "personal" ? "personal" : m.email;
+                        const mbColor = accountConfigs[m.email]?.color || mailboxColorMap[m.email] || undefined;
+                        return (
+                          <SelectItem key={key} value={key}>
+                            <span className="flex items-center gap-2">
+                              {mbColor && <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: mbColor }} />}
+                              {m.email}
+                            </span>
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground w-10 shrink-0">To:</span>
+                  <div className="flex-1">
+                    <EmailRecipientInput
+                      placeholder={t.nexusOmni.email.recipientPlaceholder}
+                      value={composeData.to}
+                      onChange={(v) => setComposeData({ ...composeData, to: v })}
+                      knownEmails={knownEmails}
+                      data-testid="input-compose-to"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2 pl-12">
                   <EmailRecipientInput placeholder="Cc" value={composeData.cc} onChange={(v) => setComposeData({ ...composeData, cc: v })} knownEmails={knownEmails} data-testid="input-compose-cc" />
                   <EmailRecipientInput placeholder="Bcc" value={composeData.bcc} onChange={(v) => setComposeData({ ...composeData, bcc: v })} knownEmails={knownEmails} data-testid="input-compose-bcc" />
                 </div>
-                <Input placeholder={t.nexusOmni.email.subjectPlaceholder} value={composeData.subject} onChange={(e) => setComposeData({ ...composeData, subject: e.target.value })} className="h-10 border-0 bg-transparent px-0 text-base font-medium focus-visible:ring-0 placeholder:text-muted-foreground/40" data-testid="input-compose-subject" />
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground w-10 shrink-0">{t.nexusOmni.email.subjectPlaceholder?.split(':')[0] || "Subject"}:</span>
+                  <Input placeholder={t.nexusOmni.email.subjectPlaceholder} value={composeData.subject} onChange={(e) => setComposeData({ ...composeData, subject: e.target.value })} className="h-9 text-sm flex-1" data-testid="input-compose-subject" />
+                </div>
               </div>
 
-              <div className="px-5 py-2 border-b flex items-center gap-2 flex-wrap">
-                <div className="flex items-center gap-1.5 text-xs">
+              <div className="px-4 py-1.5 border-b flex items-center gap-1.5 flex-wrap bg-muted/20">
+                <div className="flex items-center gap-1 text-xs">
                   <Flame className={cn("h-3.5 w-3.5", composeData.importance === "high" ? "text-red-500" : composeData.importance === "low" ? "text-blue-400" : "text-muted-foreground/40")} />
                   <Select value={composeData.importance} onValueChange={(v) => setComposeData({ ...composeData, importance: v })}>
-                    <SelectTrigger className="w-auto h-7 text-xs border-0 bg-transparent shadow-none px-1 gap-1 focus:ring-0" data-testid="select-importance">
+                    <SelectTrigger className="w-auto h-6 text-[11px] border-0 bg-transparent shadow-none px-1 gap-1 focus:ring-0" data-testid="select-importance">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -3122,22 +3152,28 @@ export default function EmailClientPage() {
                   </Select>
                 </div>
                 <div className="w-px h-4 bg-border" />
-                <div className="flex items-center gap-1.5 text-xs">
+                <div className="flex items-center gap-1 text-xs">
                   {(() => {
-                    const selectedTag = composeData.tagId ? userTags.find((tag: any) => tag.id === composeData.tagId) : null;
-                    return (
-                      <>
-                        {selectedTag ? (
-                          <span className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: (selectedTag as any).color }} />
-                        ) : (
-                          <Tag className="h-3.5 w-3.5 text-muted-foreground/40" />
-                        )}
-                      </>
+                    const selectedTag = composeData.tagId ? userTags.find((tg: any) => tg.id === composeData.tagId) : null;
+                    return selectedTag ? (
+                      <span className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: (selectedTag as any).color }} />
+                    ) : (
+                      <Tag className="h-3.5 w-3.5 text-muted-foreground/40" />
                     );
                   })()}
                   <Select value={composeData.tagId?.toString() || "none"} onValueChange={(v) => setComposeData({ ...composeData, tagId: v === "none" ? null : parseInt(v) })}>
-                    <SelectTrigger className="w-auto h-7 text-xs border-0 bg-transparent shadow-none px-1 gap-1 focus:ring-0" data-testid="select-compose-tag">
-                      <SelectValue placeholder={t.nexusOmni.common.none} />
+                    <SelectTrigger className="w-auto h-6 text-[11px] border-0 bg-transparent shadow-none px-1 gap-1 focus:ring-0" data-testid="select-compose-tag">
+                      <SelectValue>
+                        {(() => {
+                          const selTag = composeData.tagId ? userTags.find((tg: any) => tg.id === composeData.tagId) : null;
+                          return selTag ? (
+                            <span className="flex items-center gap-1.5">
+                              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: (selTag as any).color }} />
+                              {(selTag as any).name}
+                            </span>
+                          ) : t.nexusOmni.common.none;
+                        })()}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">{t.nexusOmni.common.none}</SelectItem>
@@ -3152,24 +3188,83 @@ export default function EmailClientPage() {
                     </SelectContent>
                   </Select>
                 </div>
+                <div className="w-px h-4 bg-border" />
+                <Popover open={aiComposeOpen} onOpenChange={setAiComposeOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-6 text-[11px] px-2 gap-1" data-testid="button-ai-compose">
+                      <Sparkles className="h-3 w-3" />
+                      AI
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-64 p-2" align="start">
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-2 py-1">{t.nexusOmni.ai?.templates || "AI Templates"}</p>
+                      {[
+                        { key: "business_intro", label: t.nexusOmni.ai?.businessIntro || "Obchodné oslovenie", icon: "briefcase" },
+                        { key: "thank_you", label: t.nexusOmni.ai?.thankYou || "Poďakovanie", icon: "heart" },
+                        { key: "follow_up", label: t.nexusOmni.ai?.followUp || "Follow-up", icon: "repeat" },
+                        { key: "meeting_request", label: t.nexusOmni.ai?.meetingRequest || "Žiadosť o stretnutie", icon: "calendar" },
+                        { key: "offer", label: t.nexusOmni.ai?.offer || "Obchodná ponuka", icon: "tag" },
+                        { key: "info_request", label: t.nexusOmni.ai?.infoRequest || "Žiadosť o informácie", icon: "info" },
+                        { key: "invitation", label: t.nexusOmni.ai?.invitation || "Pozvánka", icon: "mail" },
+                      ].map(tmpl => (
+                        <button
+                          key={tmpl.key}
+                          disabled={aiComposeLoading}
+                          onClick={async () => {
+                            setAiComposeLoading(true);
+                            try {
+                              const lang = locale || "sk";
+                              const recipientName = composeData.to ? composeData.to.split(",")[0].trim() : "";
+                              const res = await fetch(`/api/users/${user?.id}/ms365-ai-compose`, {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                credentials: "include",
+                                body: JSON.stringify({ templateType: tmpl.key, language: lang, recipientName }),
+                              });
+                              const data = await res.json();
+                              if (data.draft) {
+                                setComposeData(prev => ({ ...prev, body: data.draft }));
+                                setAiComposeOpen(false);
+                                toast({ title: "AI", description: t.nexusOmni.ai?.draftGenerated || "Email vygenerovaný" });
+                              }
+                            } catch (err) {
+                              toast({ title: t.nexusOmni.common.error, description: t.nexusOmni.ai?.generateError || "Chyba", variant: "destructive" });
+                            } finally {
+                              setAiComposeLoading(false);
+                            }
+                          }}
+                          className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-accent transition-colors text-left text-xs disabled:opacity-50"
+                          data-testid={`ai-template-${tmpl.key}`}
+                        >
+                          <Sparkles className="h-3 w-3 text-primary shrink-0" />
+                          {tmpl.label}
+                        </button>
+                      ))}
+                      {aiComposeLoading && (
+                        <div className="flex items-center justify-center py-2">
+                          <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                        </div>
+                      )}
+                    </div>
+                  </PopoverContent>
+                </Popover>
               </div>
 
-              <div className="px-5 py-3">
-                <EmailEditor
-                  key={composeOpen ? "compose-open" : "compose-closed"}
-                  initialContent={composeData.body}
-                  onChange={(html) => setComposeData(prev => ({ ...prev, body: html }))}
-                  signatureHtml={getSignatureForCompose()}
-                  placeholder={t.nexusOmni.email.messagePlaceholder}
-                  minHeight={composeFullscreen ? "400px" : "200px"}
-                  attachments={attachments}
-                  onAttachmentsChange={setAttachments}
-                  data-testid="editor-compose-body"
-                />
-              </div>
+              <EmailEditor
+                key={`compose-${composeOpen}-${composeMailbox}-${composeData.body ? "has-body" : "no-body"}`}
+                initialContent={composeData.body}
+                onChange={(html) => setComposeData(prev => ({ ...prev, body: html }))}
+                signatureHtml={getSignatureForCompose(composeMailbox || effectiveMailbox)}
+                placeholder={t.nexusOmni.email.messagePlaceholder}
+                minHeight={composeFullscreen ? "400px" : "180px"}
+                attachments={attachments}
+                onAttachmentsChange={setAttachments}
+                data-testid="editor-compose-body"
+              />
             </div>
 
-            <div className="px-5 py-3 border-t shrink-0 flex items-center justify-between">
+            <div className="px-4 py-2.5 border-t shrink-0 flex items-center justify-between bg-muted/20">
               <Button variant="ghost" size="sm" onClick={() => setComposeOpen(false)} className="text-muted-foreground">{t.common.cancel}</Button>
               <Button onClick={handleSendEmail} disabled={sendEmailMutation.isPending} size="sm" className="px-5" data-testid="button-send-compose">
                 {sendEmailMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
@@ -3180,7 +3275,7 @@ export default function EmailClientPage() {
           </DialogContent>
         </Dialog>
 
-          <Dialog open={signatureDialogOpen} onOpenChange={setSignatureDialogOpen}>
+            <Dialog open={signatureDialogOpen} onOpenChange={setSignatureDialogOpen}>
         <DialogContent className="max-w-4xl max-h-[85vh] p-0 gap-0 overflow-hidden">
           <div className="flex h-[75vh]">
             <div className="w-48 border-r bg-muted/30 flex flex-col py-2 shrink-0">

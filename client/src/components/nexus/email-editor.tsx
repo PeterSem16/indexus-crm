@@ -181,7 +181,7 @@ export default function EmailEditor({
       let content = initialContent || "";
       const alreadyHasSignature = content.indexOf('<div class="email-signature"') !== -1;
       if (signatureHtml && !alreadyHasSignature) {
-        const spacer = "<p><br></p><p><br></p><p><br></p>";
+        const spacer = "<p><br></p>";
         content = content + spacer + '<div class="email-signature">' + signatureHtml + "</div>";
       }
       if (content) {
@@ -534,22 +534,34 @@ export default function EmailEditor({
         )}
       </div>
 
-      <EditorContent editor={editor} data-testid="email-editor-content" />
-
       {showAttachments && attachments.length > 0 && (
-        <div className="border-t px-3 py-2 flex flex-wrap gap-1.5 bg-muted/20">
-          {attachments.map((file, index) => (
-            <Badge key={index} variant="secondary" className="flex items-center gap-1 pr-1 text-xs">
-              <Paperclip className="h-3 w-3" />
-              <span className="max-w-40 truncate">{file.name}</span>
-              <span className="text-muted-foreground text-[10px]">({formatFileSize(file.size)})</span>
-              <button type="button" className="ml-1 h-4 w-4 rounded-sm hover:bg-destructive/20 flex items-center justify-center" onClick={() => removeAttachment(index)}>
-                <X className="h-3 w-3" />
-              </button>
-            </Badge>
-          ))}
+        <div className="border-b px-3 py-2 flex flex-wrap gap-2 bg-muted/20">
+          {attachments.map((file, index) => {
+            const isImage = file.type.startsWith("image/");
+            const previewUrl = isImage ? URL.createObjectURL(file) : null;
+            return (
+              <div key={index} className="group relative flex items-center gap-2 px-2.5 py-1.5 rounded-lg border bg-card hover:bg-accent/50 transition-colors">
+                {isImage && previewUrl ? (
+                  <img src={previewUrl} alt={file.name} className="h-8 w-8 rounded object-cover shrink-0" />
+                ) : (
+                  <div className="h-8 w-8 rounded bg-muted flex items-center justify-center shrink-0">
+                    <Paperclip className="h-3.5 w-3.5 text-muted-foreground" />
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <p className="text-xs font-medium truncate max-w-32">{file.name}</p>
+                  <p className="text-[10px] text-muted-foreground">{formatFileSize(file.size)}</p>
+                </div>
+                <button type="button" className="h-5 w-5 rounded-full bg-muted hover:bg-destructive/20 flex items-center justify-center shrink-0 transition-colors" onClick={() => removeAttachment(index)}>
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            );
+          })}
         </div>
       )}
+
+      <EditorContent editor={editor} data-testid="email-editor-content" />
     </div>
   );
 }

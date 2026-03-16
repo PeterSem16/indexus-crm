@@ -4685,6 +4685,54 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/users/:userId/ms365-ai-compose", requireAuth, async (req, res) => {
+    try {
+      const { templateType, language, customPrompt, recipientName } = req.body;
+      if (!templateType) {
+        return res.status(400).json({ error: "Template type is required" });
+      }
+      const langNames: Record<string, string> = {
+        sk: "slovenčina", cs: "čeština", en: "English", de: "Deutsch",
+        hu: "magyar", ro: "română", it: "italiano", pl: "polski", fr: "français", es: "español",
+      };
+      const langName = langNames[language] || language || "slovenčina";
+      const templatePrompts: Record<string, string> = {
+        business_intro: `Napíšte profesionálny obchodný úvodný email. Email by mal predstaviť spoločnosť (banka pupočníkovej krvi) a jej služby. Buďte zdvorilí a profesionálni.`,
+        thank_you: `Napíšte ďakovný email. Poďakujte za spoluprácu/záujem/stretnutie. Buďte srdační ale profesionálni.`,
+        follow_up: `Napíšte follow-up email. Pripomeňte predchádzajúcu komunikáciu a navrhnite ďalšie kroky.`,
+        meeting_request: `Napíšte žiadosť o stretnutie. Navrhnite termín a tému stretnutia. Buďte flexibilní ohľadom času.`,
+        info_request: `Napíšte žiadosť o informácie. Jasne špecifikujte, aké informácie potrebujete a prečo.`,
+        apology: `Napíšte ospravedlňujúci email. Buďte úprimní, profesionálni a navrhnite riešenie.`,
+        offer: `Napíšte obchodnú ponuku. Stručne popíšte produkt/službu a jej výhody.`,
+        invitation: `Napíšte pozvánku na udalosť/prezentáciu. Uveďte základné informácie (čo, kedy, kde).`,
+        custom: customPrompt || `Napíšte profesionálny email.`,
+      };
+      const prompt = templatePrompts[templateType] || templatePrompts.custom;
+      const recipientInfo = recipientName ? `Adresát: ${recipientName}. ` : "";
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "system",
+            content: `Ste profesionálny asistent pre emailovú komunikáciu v spoločnosti zaoberajúcej sa bankou pupočníkovej krvi (Cord Blood Center Group). Píšte v jazyku ${langName}. Nepoužívajte podpis - to sa pridá automaticky. Začnite pozdravom. Píšte ako HTML (použite <p> tagy pre odstavce). Buďte struční ale profesionálni. Email by mal mať 3-5 odstavcov.`,
+          },
+          {
+            role: "user",
+            content: `${recipientInfo}${prompt}`,
+          },
+        ],
+        temperature: 0.7,
+        max_tokens: 1000,
+      });
+      let draft = response.choices[0]?.message?.content || "";
+      draft = draft.replace(/^```html\s*/i, "").replace(/```\s*$/, "").trim();
+      res.json({ draft });
+    } catch (error) {
+      console.error("[AI Compose] Error:", error);
+      res.status(500).json({ error: "Failed to generate AI draft" });
+    }
+  });
+
   // Delete email
   app.patch("/api/users/:userId/ms365-email/:emailId/read-status", requireAuth, async (req, res) => {
     try {
