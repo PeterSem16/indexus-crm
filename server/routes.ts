@@ -3743,17 +3743,20 @@ export async function registerRoutes(
 
   // ============ SharePoint / NexusPoint routes ============
 
-  const getSharePointToken = async (userId: string) => {
+  const getSharePointToken = async (userId: string, sessionUser: any) => {
+    if (!sessionUser || String(sessionUser.id) !== String(userId)) return null;
     const ms365Connection = await storage.getUserMs365Connection(userId);
     if (!ms365Connection || !ms365Connection.isConnected) return null;
-    const { decryptTokenSafe } = await import("./lib/token-crypto");
+    const { decryptTokenSafe, encryptTokenSafe } = await import("./lib/token-crypto");
     const { getValidAccessToken } = await import("./lib/ms365");
     try {
       const accessToken = decryptTokenSafe(ms365Connection.accessToken);
       const refreshToken = ms365Connection.refreshToken ? decryptTokenSafe(ms365Connection.refreshToken) : null;
       const tokenResult = await getValidAccessToken(accessToken, ms365Connection.tokenExpiresAt, refreshToken);
-      if (tokenResult?.newAccessToken) {
-        await storage.updateUserMs365Connection(userId, { accessToken: (await import("./lib/token-crypto")).encryptTokenSafe(tokenResult.newAccessToken), tokenExpiresAt: tokenResult.newExpiresAt || ms365Connection.tokenExpiresAt });
+      if (tokenResult?.refreshed && tokenResult?.accessToken) {
+        const updates: any = { accessToken: encryptTokenSafe(tokenResult.accessToken), tokenExpiresAt: tokenResult.expiresOn || ms365Connection.tokenExpiresAt };
+        if (tokenResult.refreshToken) updates.refreshToken = encryptTokenSafe(tokenResult.refreshToken);
+        await storage.updateUserMs365Connection(userId, updates);
       }
       return tokenResult?.accessToken || null;
     } catch { return null; }
@@ -3761,7 +3764,7 @@ export async function registerRoutes(
 
   app.get("/api/users/:userId/sharepoint/sites", requireAuth, async (req, res) => {
     try {
-      const token = await getSharePointToken(req.params.userId);
+      const token = await getSharePointToken(req.params.userId, req.session.user);
       if (!token) return res.status(401).json({ error: "Not connected" });
       const { getSharePointSites } = await import("./lib/ms365");
       const sites = await getSharePointSites(token);
@@ -3774,7 +3777,7 @@ export async function registerRoutes(
 
   app.get("/api/users/:userId/sharepoint/sites/:siteId/drives", requireAuth, async (req, res) => {
     try {
-      const token = await getSharePointToken(req.params.userId);
+      const token = await getSharePointToken(req.params.userId, req.session.user);
       if (!token) return res.status(401).json({ error: "Not connected" });
       const { getSiteDrives } = await import("./lib/ms365");
       const drives = await getSiteDrives(token, req.params.siteId);
@@ -3787,7 +3790,7 @@ export async function registerRoutes(
 
   app.get("/api/users/:userId/sharepoint/drives/:driveId/items", requireAuth, async (req, res) => {
     try {
-      const token = await getSharePointToken(req.params.userId);
+      const token = await getSharePointToken(req.params.userId, req.session.user);
       if (!token) return res.status(401).json({ error: "Not connected" });
       const { getDriveItems } = await import("./lib/ms365");
       const folderId = req.query.folderId as string | undefined;
@@ -3801,7 +3804,7 @@ export async function registerRoutes(
 
   app.post("/api/users/:userId/sharepoint/drives/:driveId/folder", requireAuth, async (req, res) => {
     try {
-      const token = await getSharePointToken(req.params.userId);
+      const token = await getSharePointToken(req.params.userId, req.session.user);
       if (!token) return res.status(401).json({ error: "Not connected" });
       const { createSharePointFolder } = await import("./lib/ms365");
       const { parentFolderId, name } = req.body;
@@ -3815,7 +3818,7 @@ export async function registerRoutes(
 
   app.post("/api/users/:userId/sharepoint/drives/:driveId/upload", requireAuth, async (req, res) => {
     try {
-      const token = await getSharePointToken(req.params.userId);
+      const token = await getSharePointToken(req.params.userId, req.session.user);
       if (!token) return res.status(401).json({ error: "Not connected" });
       const { uploadSharePointFile } = await import("./lib/ms365");
       const { parentFolderId, fileName, contentBase64 } = req.body;
@@ -3830,7 +3833,7 @@ export async function registerRoutes(
 
   app.delete("/api/users/:userId/sharepoint/drives/:driveId/items/:itemId", requireAuth, async (req, res) => {
     try {
-      const token = await getSharePointToken(req.params.userId);
+      const token = await getSharePointToken(req.params.userId, req.session.user);
       if (!token) return res.status(401).json({ error: "Not connected" });
       const { deleteSharePointItem } = await import("./lib/ms365");
       const success = await deleteSharePointItem(token, req.params.driveId, req.params.itemId);
@@ -3843,7 +3846,7 @@ export async function registerRoutes(
 
   app.get("/api/users/:userId/sharepoint/drives/:driveId/items/:itemId/download", requireAuth, async (req, res) => {
     try {
-      const token = await getSharePointToken(req.params.userId);
+      const token = await getSharePointToken(req.params.userId, req.session.user);
       if (!token) return res.status(401).json({ error: "Not connected" });
       const { getSharePointDownloadUrl } = await import("./lib/ms365");
       const url = await getSharePointDownloadUrl(token, req.params.driveId, req.params.itemId);
@@ -3857,7 +3860,7 @@ export async function registerRoutes(
 
   app.get("/api/users/:userId/sharepoint/sites/:siteId/search", requireAuth, async (req, res) => {
     try {
-      const token = await getSharePointToken(req.params.userId);
+      const token = await getSharePointToken(req.params.userId, req.session.user);
       if (!token) return res.status(401).json({ error: "Not connected" });
       const { searchSharePointFiles } = await import("./lib/ms365");
       const query = req.query.q as string;
@@ -3867,6 +3870,91 @@ export async function registerRoutes(
     } catch (error) {
       console.error("[SharePoint] Error searching:", error);
       res.status(500).json({ error: "Search failed" });
+    }
+  });
+
+  app.get("/api/users/:userId/sharepoint/drives/:driveId/items/:itemId/thumbnail", requireAuth, async (req, res) => {
+    try {
+      const token = await getSharePointToken(req.params.userId, req.session.user);
+      if (!token) return res.status(401).json({ error: "Not connected" });
+      const { getFileThumbnail } = await import("./lib/ms365");
+      const url = await getFileThumbnail(token, req.params.driveId, req.params.itemId);
+      res.json({ thumbnailUrl: url });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get thumbnail" });
+    }
+  });
+
+  app.get("/api/users/:userId/sharepoint/drives/:driveId/items/:itemId/preview", requireAuth, async (req, res) => {
+    try {
+      const token = await getSharePointToken(req.params.userId, req.session.user);
+      if (!token) return res.status(401).json({ error: "Not connected" });
+      const { getFilePreviewUrl } = await import("./lib/ms365");
+      const url = await getFilePreviewUrl(token, req.params.driveId, req.params.itemId);
+      res.json({ previewUrl: url });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get preview" });
+    }
+  });
+
+  app.get("/api/users/:userId/sharepoint/drives/:driveId/items/:itemId/versions", requireAuth, async (req, res) => {
+    try {
+      const token = await getSharePointToken(req.params.userId, req.session.user);
+      if (!token) return res.status(401).json({ error: "Not connected" });
+      const { getFileVersions } = await import("./lib/ms365");
+      const versions = await getFileVersions(token, req.params.driveId, req.params.itemId);
+      res.json(versions);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get versions" });
+    }
+  });
+
+  app.post("/api/users/:userId/sharepoint/drives/:driveId/items/:itemId/versions/:versionId/restore", requireAuth, async (req, res) => {
+    try {
+      const token = await getSharePointToken(req.params.userId, req.session.user);
+      if (!token) return res.status(401).json({ error: "Not connected" });
+      const { restoreFileVersion } = await import("./lib/ms365");
+      const success = await restoreFileVersion(token, req.params.driveId, req.params.itemId, req.params.versionId);
+      res.json({ success });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to restore version" });
+    }
+  });
+
+  app.post("/api/users/:userId/sharepoint/drives/:driveId/items/:itemId/share", requireAuth, async (req, res) => {
+    try {
+      const token = await getSharePointToken(req.params.userId, req.session.user);
+      if (!token) return res.status(401).json({ error: "Not connected" });
+      const { createSharingLink } = await import("./lib/ms365");
+      const { type, scope } = req.body;
+      const link = await createSharingLink(token, req.params.driveId, req.params.itemId, type || 'view', scope || 'organization');
+      res.json(link);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create sharing link" });
+    }
+  });
+
+  app.get("/api/users/:userId/sharepoint/drives/:driveId/items/:itemId/permissions", requireAuth, async (req, res) => {
+    try {
+      const token = await getSharePointToken(req.params.userId, req.session.user);
+      if (!token) return res.status(401).json({ error: "Not connected" });
+      const { getFilePermissions } = await import("./lib/ms365");
+      const permissions = await getFilePermissions(token, req.params.driveId, req.params.itemId);
+      res.json(permissions);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get permissions" });
+    }
+  });
+
+  app.delete("/api/users/:userId/sharepoint/drives/:driveId/items/:itemId/permissions/:permissionId", requireAuth, async (req, res) => {
+    try {
+      const token = await getSharePointToken(req.params.userId, req.session.user);
+      if (!token) return res.status(401).json({ error: "Not connected" });
+      const { removeFilePermission } = await import("./lib/ms365");
+      const success = await removeFilePermission(token, req.params.driveId, req.params.itemId, req.params.permissionId);
+      res.json({ success });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to remove permission" });
     }
   });
 

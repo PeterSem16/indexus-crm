@@ -1275,4 +1275,83 @@ export async function searchSharePointFiles(accessToken: string, siteId: string,
   }
 }
 
+export async function getFileThumbnail(accessToken: string, driveId: string, itemId: string): Promise<string | null> {
+  const client = createGraphClient(accessToken);
+  try {
+    const result = await client.api(`/drives/${driveId}/items/${itemId}/thumbnails`).get();
+    const thumb = result?.value?.[0];
+    return thumb?.large?.url || thumb?.medium?.url || thumb?.small?.url || null;
+  } catch {
+    return null;
+  }
+}
+
+export async function getFileVersions(accessToken: string, driveId: string, itemId: string): Promise<any[]> {
+  const client = createGraphClient(accessToken);
+  try {
+    const result = await client.api(`/drives/${driveId}/items/${itemId}/versions`).get();
+    return result?.value || [];
+  } catch (error) {
+    console.error('[MS365] Error fetching versions:', error);
+    return [];
+  }
+}
+
+export async function restoreFileVersion(accessToken: string, driveId: string, itemId: string, versionId: string): Promise<boolean> {
+  const client = createGraphClient(accessToken);
+  try {
+    await client.api(`/drives/${driveId}/items/${itemId}/versions/${versionId}/restoreVersion`).post({});
+    return true;
+  } catch (error) {
+    console.error('[MS365] Error restoring version:', error);
+    return false;
+  }
+}
+
+export async function createSharingLink(accessToken: string, driveId: string, itemId: string, type: 'view' | 'edit' = 'view', scope: 'anonymous' | 'organization' = 'organization'): Promise<any> {
+  const client = createGraphClient(accessToken);
+  try {
+    const result = await client.api(`/drives/${driveId}/items/${itemId}/createLink`).post({
+      type,
+      scope,
+    });
+    return result;
+  } catch (error) {
+    console.error('[MS365] Error creating sharing link:', error);
+    return null;
+  }
+}
+
+export async function getFilePermissions(accessToken: string, driveId: string, itemId: string): Promise<any[]> {
+  const client = createGraphClient(accessToken);
+  try {
+    const result = await client.api(`/drives/${driveId}/items/${itemId}/permissions`).get();
+    return result?.value || [];
+  } catch (error) {
+    console.error('[MS365] Error fetching permissions:', error);
+    return [];
+  }
+}
+
+export async function removeFilePermission(accessToken: string, driveId: string, itemId: string, permissionId: string): Promise<boolean> {
+  const client = createGraphClient(accessToken);
+  try {
+    await client.api(`/drives/${driveId}/items/${itemId}/permissions/${permissionId}`).delete();
+    return true;
+  } catch (error) {
+    console.error('[MS365] Error removing permission:', error);
+    return false;
+  }
+}
+
+export async function getFilePreviewUrl(accessToken: string, driveId: string, itemId: string): Promise<string | null> {
+  const client = createGraphClient(accessToken);
+  try {
+    const result = await client.api(`/drives/${driveId}/items/${itemId}/preview`).post({});
+    return result?.getUrl || null;
+  } catch {
+    return null;
+  }
+}
+
 export { MS365_CONFIG, GRAPH_SCOPES };
