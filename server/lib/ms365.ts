@@ -1071,8 +1071,8 @@ export async function getTeamsChats(
 ): Promise<{ chats: any[] }> {
   const client = createGraphClient(accessToken);
   const result = await client.api('/me/chats')
-    .select('id,topic,chatType,createdDateTime,lastUpdatedDateTime')
-    .expand('members')
+    .select('id,topic,chatType,createdDateTime,lastUpdatedDateTime,webUrl')
+    .expand('members,lastMessagePreview')
     .top(50)
     .orderby('lastUpdatedDateTime desc')
     .get();
@@ -1082,12 +1082,19 @@ export async function getTeamsChats(
       .filter((m: any) => m['@odata.type'] === '#microsoft.graph.aadUserConversationMember')
       .map((m: any) => m.displayName)
       .filter((n: string) => n)
-      .join(', ') || 'Konverzácia',
+      .join(', ') || 'Chat',
     chatType: chat.chatType,
     createdDateTime: chat.createdDateTime,
     lastUpdatedDateTime: chat.lastUpdatedDateTime,
+    webUrl: chat.webUrl || null,
+    lastMessagePreview: chat.lastMessagePreview ? {
+      body: chat.lastMessagePreview.body?.content || '',
+      from: chat.lastMessagePreview.from?.user?.displayName || null,
+      createdDateTime: chat.lastMessagePreview.createdDateTime,
+    } : null,
     members: (chat.members || []).map((m: any) => ({
       id: m.id,
+      userId: m.userId,
       displayName: m.displayName,
       email: m.email,
     })),
@@ -1174,6 +1181,74 @@ export async function sendTeamsChatMessage(
     body: { contentType: 'html', content },
   });
   return result;
+}
+
+export async function createOnlineMeeting(
+  accessToken: string,
+  subject: string,
+  startDateTime?: string,
+  endDateTime?: string,
+  participantEmails?: string[]
+): Promise<any> {
+  const client = createGraphClient(accessToken);
+  const now = new Date();
+  const start = startDateTime || now.toISOString();
+  const end = endDateTime || new Date(now.getTime() + 60 * 60 * 1000).toISOString();
+
+  const meetingPayload: any = {
+    subject,
+    startDateTime: start,
+    endDateTime: end,
+    lobbyBypassSettings: {
+      scope: 'everyone',
+      isDialInBypassEnabled: true,
+    },
+    isEntryExitAnnounced: false,
+  };
+
+  if (participantEmails && participantEmails.length > 0) {
+    meetingPayload.participants = {
+      attendees: participantEmails.map(email => ({
+        upn: email,
+        role: 'attendee',
+      })),
+    };
+  }
+
+  try {
+    const result = await client.api('/me/onlineMeetings').post(meetingPayload);
+    return {
+      id: result.id,
+      joinUrl: result.joinWebUrl || result.joinUrl,
+      subject: result.subject,
+      startDateTime: result.startDateTime,
+      endDateTime: result.endDateTime,
+      videoTeleconferenceId: result.videoTeleconferenceId,
+    };
+  } catch (error) {
+    console.error('[MS365] Error creating online meeting:', error);
+    throw error;
+  }
+}
+
+export async function getChatMembers(
+  accessToken: string,
+  chatId: string
+): Promise<any[]> {
+  const client = createGraphClient(accessToken);
+  try {
+    const result = await client.api(`/me/chats/${chatId}/members`).get();
+    return (result.value || []).map((m: any) => ({
+      id: m.id,
+      userId: m.userId,
+      displayName: m.displayName,
+      email: m.email,
+      roles: m.roles || [],
+    }));
+  } catch (error) {
+    console.error('[MS365] Error fetching chat members:', error);
+    return [];
+  }
 }
 
 // ============ SharePoint / NexusPoint functions ============

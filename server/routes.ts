@@ -3647,6 +3647,54 @@ export async function registerRoutes(
     }
   });
 
+  // Teams - create online meeting
+  app.post("/api/users/:userId/teams-meeting", requireAuth, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      if (String(req.session.user?.id) !== String(userId)) return res.status(403).json({ error: "Forbidden" });
+      const { subject, startDateTime, endDateTime, participantEmails } = req.body;
+      const ms365Connection = await storage.getUserMs365Connection(userId);
+      if (!ms365Connection || !ms365Connection.isConnected) {
+        return res.status(400).json({ error: "Not connected" });
+      }
+      const { decryptTokenSafe } = await import("./lib/token-crypto");
+      const { getValidAccessToken, createOnlineMeeting } = await import("./lib/ms365");
+      const accessToken = decryptTokenSafe(ms365Connection.accessToken);
+      const refreshToken = ms365Connection.refreshToken ? decryptTokenSafe(ms365Connection.refreshToken) : null;
+      const tokenResult = await getValidAccessToken(accessToken, ms365Connection.tokenExpiresAt, refreshToken);
+      if (!tokenResult?.accessToken) {
+        return res.status(401).json({ error: "Token expired" });
+      }
+      const meeting = await createOnlineMeeting(tokenResult.accessToken, subject || 'NEXUS Meeting', startDateTime, endDateTime, participantEmails);
+      res.json(meeting);
+    } catch (error: any) {
+      console.error("Error creating Teams meeting:", error?.message || error);
+      res.status(500).json({ error: "Failed to create meeting" });
+    }
+  });
+
+  // Teams - get chat members
+  app.get("/api/users/:userId/teams-chats/:chatId/members", requireAuth, async (req, res) => {
+    try {
+      const { userId, chatId } = req.params;
+      const ms365Connection = await storage.getUserMs365Connection(userId);
+      if (!ms365Connection || !ms365Connection.isConnected) {
+        return res.json([]);
+      }
+      const { decryptTokenSafe } = await import("./lib/token-crypto");
+      const { getValidAccessToken, getChatMembers } = await import("./lib/ms365");
+      const accessToken = decryptTokenSafe(ms365Connection.accessToken);
+      const refreshToken = ms365Connection.refreshToken ? decryptTokenSafe(ms365Connection.refreshToken) : null;
+      const tokenResult = await getValidAccessToken(accessToken, ms365Connection.tokenExpiresAt, refreshToken);
+      if (!tokenResult?.accessToken) return res.json([]);
+      const members = await getChatMembers(tokenResult.accessToken, chatId);
+      res.json(members);
+    } catch (error) {
+      console.error("Error fetching chat members:", error);
+      res.json([]);
+    }
+  });
+
   // Teams - joined teams
   app.get("/api/users/:userId/teams-joined", requireAuth, async (req, res) => {
     try {
