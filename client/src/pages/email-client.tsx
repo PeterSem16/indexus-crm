@@ -1224,6 +1224,7 @@ function TeamsPanel({ userId }: { userId?: string }) {
   const [chatsSectionOpen, setChatsSectionOpen] = useState(true);
   const [teamsSectionOpen, setTeamsSectionOpen] = useState(true);
   const [expandedTeamIds, setExpandedTeamIds] = useState<string[]>([]);
+  const [chatSearchQuery, setChatSearchQuery] = useState("");
 
   const toggleTeamExpand = (teamId: string) => {
     setExpandedTeamIds(prev => prev.includes(teamId) ? prev.filter(id => id !== teamId) : [...prev, teamId]);
@@ -1239,8 +1240,8 @@ function TeamsPanel({ userId }: { userId?: string }) {
       <button
         key={chat.id}
         className={cn(
-          "w-full text-left pl-6 pr-3 py-[7px] transition-all hover:bg-[#2a2a2a] dark:hover:bg-[#2a2a2a] flex items-center gap-2.5 group",
-          selectedTeamsChatId === chat.id && "bg-[#383838] dark:bg-[#383838]"
+          "w-full text-left pl-6 pr-3 py-[7px] transition-all hover:bg-accent/50 flex items-center gap-2.5",
+          selectedTeamsChatId === chat.id && "bg-accent"
         )}
         onClick={() => { setSelectedTeamsChatId(chat.id); setSelectedChannelId(null); setSelectedTeamId(null); }}
         data-testid={`teams-chat-${chat.id}`}
@@ -1249,27 +1250,45 @@ function TeamsPanel({ userId }: { userId?: string }) {
           <div className={cn("h-8 w-8 rounded-full flex items-center justify-center text-white text-[11px] font-semibold", getAvatarColor(displayName))}>
             {isGroup ? <Users className="h-3.5 w-3.5" /> : getInitials(displayName)}
           </div>
-          <div className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-[#1f1f1f] bg-gray-500" />
         </div>
         <span className={cn("text-[13px] truncate flex-1", selectedTeamsChatId === chat.id ? "font-semibold" : "font-normal")}>{displayName}</span>
       </button>
     );
   };
 
-  const filteredChats = sidebarFilter === "channels" ? [] : chats;
-  const showTeamsSection = sidebarFilter !== "chats";
+  const filteredChats = (() => {
+    let list = sidebarFilter === "channels" ? [] : chats;
+    if (chatSearchQuery.trim()) {
+      const q = chatSearchQuery.toLowerCase();
+      list = list.filter(chat => {
+        const name = getChatDisplayName(chat).toLowerCase();
+        const memberMatch = (chat.members || []).some((m: any) => m.displayName?.toLowerCase().includes(q) || m.email?.toLowerCase().includes(q));
+        return name.includes(q) || memberMatch;
+      });
+    }
+    return list;
+  })();
+  const filteredTeams = (() => {
+    if (sidebarFilter === "chats") return [];
+    let list = teams;
+    if (chatSearchQuery.trim()) {
+      const q = chatSearchQuery.toLowerCase();
+      list = list.filter((team: any) => team.displayName?.toLowerCase().includes(q));
+    }
+    return list;
+  })();
 
   return (
     <>
-      <Card className="transition-all duration-300 w-[30%] min-w-[280px] max-w-[380px] shrink-0 bg-[#1f1f1f] dark:bg-[#1f1f1f] border-[#333] dark:border-[#333] text-[#e0e0e0]">
+      <Card className="transition-all duration-300 w-[30%] min-w-[280px] max-w-[380px] shrink-0">
         <CardContent className="p-0 h-full flex flex-col">
-          <div className="px-4 pt-3 pb-2 border-b border-[#333]">
-            <div className="flex items-center justify-between mb-2.5">
-              <h3 className="text-[17px] font-semibold text-white">Chat</h3>
+          <div className="px-3 pt-3 pb-2 border-b space-y-2">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-semibold">Chat</h3>
               <div className="flex items-center gap-0.5">
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-[#999] hover:text-white hover:bg-[#333]" onClick={() => { setMeetingDialogOpen(true); setMeetingLink(null); setMeetingSubject(""); }} data-testid="button-new-meeting">
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setMeetingDialogOpen(true); setMeetingLink(null); setMeetingSubject(""); }} data-testid="button-new-meeting">
                       <Video className="h-4 w-4" />
                     </Button>
                   </TooltipTrigger>
@@ -1277,10 +1296,25 @@ function TeamsPanel({ userId }: { userId?: string }) {
                 </Tooltip>
               </div>
             </div>
+            <div className="relative">
+              <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={chatSearchQuery}
+                onChange={(e) => setChatSearchQuery(e.target.value)}
+                placeholder={t.nexusOmni.common.search || "Search..."}
+                className="h-8 text-xs pl-8 pr-8"
+                data-testid="teams-search-input"
+              />
+              {chatSearchQuery && (
+                <button className="absolute right-2.5 top-1/2 -translate-y-1/2" onClick={() => setChatSearchQuery("")}>
+                  <X className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+                </button>
+              )}
+            </div>
             <div className="flex gap-1.5">
               <button
                 className={cn("px-3 py-1 rounded-full text-xs font-medium border transition-colors",
-                  sidebarFilter === "channels" ? "bg-[#383838] border-[#555] text-white" : "border-[#444] text-[#bbb] hover:bg-[#2a2a2a]"
+                  sidebarFilter === "channels" ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-accent"
                 )}
                 onClick={() => setSidebarFilter(f => f === "channels" ? "all" : "channels")}
                 data-testid="teams-filter-channels"
@@ -1289,7 +1323,7 @@ function TeamsPanel({ userId }: { userId?: string }) {
               </button>
               <button
                 className={cn("px-3 py-1 rounded-full text-xs font-medium border transition-colors",
-                  sidebarFilter === "chats" ? "bg-[#383838] border-[#555] text-white" : "border-[#444] text-[#bbb] hover:bg-[#2a2a2a]"
+                  sidebarFilter === "chats" ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-accent"
                 )}
                 onClick={() => setSidebarFilter(f => f === "chats" ? "all" : "chats")}
                 data-testid="teams-filter-chats"
@@ -1301,9 +1335,9 @@ function TeamsPanel({ userId }: { userId?: string }) {
           <ScrollArea className="flex-1">
             <div className="py-1">
               {chatsLoading && teamsLoading ? (
-                <div className="flex items-center justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-[#888]" /></div>
+                <div className="flex items-center justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
               ) : chats.length === 0 && teams.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-8 text-[#888]">
+                <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
                   <MessagesSquare className="h-8 w-8 mb-2 opacity-30" />
                   <span className="text-xs">{chatsError ? `${t.nexusOmni.common.error}: ${chatsError.message}` : chatsData?.error ? `${t.nexusOmni.common.error}: ${chatsData.error}` : chatsData?.connected === false ? t.nexusOmni.teams.notConnected : t.nexusOmni.teams.noTeamsChats}</span>
                 </div>
@@ -1312,7 +1346,7 @@ function TeamsPanel({ userId }: { userId?: string }) {
                   {filteredChats.length > 0 && (
                     <>
                       <button
-                        className="w-full text-left px-4 py-1.5 flex items-center gap-1 text-xs font-semibold text-[#999] hover:text-white transition-colors"
+                        className="w-full text-left px-4 py-1.5 flex items-center gap-1 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
                         onClick={() => setChatsSectionOpen(!chatsSectionOpen)}
                         data-testid="teams-section-chats"
                       >
@@ -1327,10 +1361,10 @@ function TeamsPanel({ userId }: { userId?: string }) {
                     </>
                   )}
 
-                  {showTeamsSection && teams.length > 0 && (
+                  {filteredTeams.length > 0 && (
                     <>
                       <button
-                        className="w-full text-left px-4 py-1.5 flex items-center gap-1 text-xs font-semibold text-[#999] hover:text-white transition-colors mt-1"
+                        className="w-full text-left px-4 py-1.5 flex items-center gap-1 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors mt-1"
                         onClick={() => setTeamsSectionOpen(!teamsSectionOpen)}
                         data-testid="teams-section-teams"
                       >
@@ -1339,17 +1373,17 @@ function TeamsPanel({ userId }: { userId?: string }) {
                       </button>
                       {teamsSectionOpen && (
                         <div>
-                          {teams.map(team => (
+                          {filteredTeams.map((team: any) => (
                             <div key={team.id}>
                               <button
                                 className={cn(
-                                  "w-full text-left pl-5 pr-3 py-[7px] transition-all hover:bg-[#2a2a2a] flex items-center gap-2.5",
-                                  selectedTeamId === team.id && !selectedChannelId && "bg-[#383838]"
+                                  "w-full text-left pl-5 pr-3 py-[7px] transition-all hover:bg-accent/50 flex items-center gap-2.5",
+                                  selectedTeamId === team.id && !selectedChannelId && "bg-accent"
                                 )}
                                 onClick={() => toggleTeamExpand(team.id)}
                                 data-testid={`teams-team-${team.id}`}
                               >
-                                <ChevronDown className={cn("h-3 w-3 text-[#999] transition-transform shrink-0", !expandedTeamIds.includes(team.id) && "-rotate-90")} />
+                                <ChevronDown className={cn("h-3 w-3 text-muted-foreground transition-transform shrink-0", !expandedTeamIds.includes(team.id) && "-rotate-90")} />
                                 <div className={cn("h-7 w-7 rounded flex items-center justify-center text-white text-[10px] font-bold shrink-0", getAvatarColor(team.displayName || ''))}>
                                   {getInitials(team.displayName || 'T')}
                                 </div>
@@ -1361,18 +1395,18 @@ function TeamsPanel({ userId }: { userId?: string }) {
                                     <button
                                       key={ch.id}
                                       className={cn(
-                                        "w-full text-left pl-4 pr-3 py-[5px] transition-all hover:bg-[#2a2a2a] flex items-center gap-2 text-[12px]",
-                                        selectedChannelId === ch.id && "bg-[#383838] font-semibold"
+                                        "w-full text-left pl-4 pr-3 py-[5px] transition-all hover:bg-accent/50 flex items-center gap-2 text-[12px]",
+                                        selectedChannelId === ch.id && "bg-accent font-semibold"
                                       )}
                                       onClick={() => { setSelectedChannelId(ch.id); setSelectedTeamsChatId(null); }}
                                       data-testid={`teams-channel-${ch.id}`}
                                     >
-                                      <span className="text-[#999]">#</span>
+                                      <span className="text-muted-foreground">#</span>
                                       <span className="truncate">{ch.displayName}</span>
                                     </button>
                                   )) || (
                                     <div className="pl-4 py-2">
-                                      <Loader2 className="h-3 w-3 animate-spin text-[#666]" />
+                                      <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
                                     </div>
                                   )}
                                 </div>
@@ -1383,13 +1417,20 @@ function TeamsPanel({ userId }: { userId?: string }) {
                       )}
                     </>
                   )}
+
+                  {chatSearchQuery && filteredChats.length === 0 && filteredTeams.length === 0 && (
+                    <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+                      <Search className="h-6 w-6 mb-2 opacity-30" />
+                      <span className="text-xs">{t.nexusOmni.common.noResults || "No results"}</span>
+                    </div>
+                  )}
                 </>
               )}
             </div>
           </ScrollArea>
         </CardContent>
       </Card>
-      <Card className="transition-all duration-300 flex-1 min-w-0 dark:bg-[#292929] dark:border-[#333]">
+      <Card className="transition-all duration-300 flex-1 min-w-0">
         <CardContent className="p-0 h-full">
           {activeMeeting ? (
             <div className="flex flex-col h-full dark:bg-[#292929]">
