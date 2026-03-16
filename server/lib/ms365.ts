@@ -401,20 +401,50 @@ export async function getContacts(accessToken: string, top: number = 50): Promis
 
 export async function searchPeople(accessToken: string, query: string, top: number = 10): Promise<any[]> {
   const client = createGraphClient(accessToken);
+  const mapPerson = (p: any) => ({
+    displayName: p.displayName || '',
+    email: p.emailAddresses?.[0]?.address || p.mail || p.userPrincipalName || '',
+    givenName: p.givenName || '',
+    surname: p.surname || '',
+  });
+
   try {
     const result = await client.api('/me/people')
       .search(query)
       .top(top)
       .select('displayName,emailAddresses,userPrincipalName,givenName,surname')
       .get();
-    return (result?.value || []).map((p: any) => ({
-      displayName: p.displayName,
-      email: p.emailAddresses?.[0]?.address || p.userPrincipalName || '',
-      givenName: p.givenName,
-      surname: p.surname,
+    const people = (result?.value || []).map(mapPerson).filter((p: any) => p.email);
+    if (people.length > 0) return people;
+  } catch (error: any) {
+    console.log('[MS365] /me/people search failed, trying /users fallback:', error?.message);
+  }
+
+  try {
+    const result = await client.api('/users')
+      .filter(`startsWith(displayName,'${query.replace(/'/g, "''")}') or startsWith(mail,'${query.replace(/'/g, "''")}')`)
+      .top(top)
+      .select('displayName,mail,userPrincipalName,givenName,surname')
+      .get();
+    return (result?.value || []).map((u: any) => ({
+      displayName: u.displayName || '',
+      email: u.mail || u.userPrincipalName || '',
+      givenName: u.givenName || '',
+      surname: u.surname || '',
     })).filter((p: any) => p.email);
   } catch (error: any) {
-    console.error('[MS365] searchPeople error:', error?.message);
+    console.log('[MS365] /users search also failed:', error?.message);
+  }
+
+  try {
+    const contacts = await client.api('/me/contacts')
+      .filter(`startsWith(displayName,'${query.replace(/'/g, "''")}')`)
+      .top(top)
+      .select('displayName,emailAddresses,givenName,surname')
+      .get();
+    return (contacts?.value || []).map(mapPerson).filter((p: any) => p.email);
+  } catch (error: any) {
+    console.log('[MS365] /me/contacts search also failed:', error?.message);
     return [];
   }
 }
