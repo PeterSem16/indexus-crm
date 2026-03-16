@@ -1829,7 +1829,7 @@ export default function EmailClientPage() {
     <div className={cn(
       nexusFullscreen
         ? "fixed inset-0 z-50 bg-background flex flex-col p-3 pt-1 gap-2 overflow-hidden"
-        : "flex flex-col -mx-6 -mb-6 -mt-5 px-4 pt-2 pb-0 h-[calc(100vh-56px)] overflow-hidden gap-2"
+        : "flex flex-col h-[calc(100vh-56px)] overflow-hidden gap-2 px-3 pt-1 pb-0"
     )}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
