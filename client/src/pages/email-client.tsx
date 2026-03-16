@@ -1829,7 +1829,7 @@ export default function EmailClientPage() {
     <div className={cn(
       nexusFullscreen
         ? "fixed inset-0 z-50 bg-background flex flex-col p-3 pt-1 gap-2 overflow-hidden"
-        : "space-y-3 -mx-6 -mb-6 -mt-5 px-4 pt-2 pb-4"
+        : "flex flex-col -mx-6 -mb-6 -mt-5 px-4 pt-2 pb-0 h-[calc(100vh-56px)] overflow-hidden gap-2"
     )}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -1907,7 +1907,7 @@ export default function EmailClientPage() {
         ))}
       </div>
 
-      <div className={cn("flex gap-2 transition-all duration-300", nexusFullscreen ? "flex-1 min-h-0" : "h-[calc(100vh-230px)]")}>
+      <div className={cn("flex gap-2 transition-all duration-300", "flex-1 min-h-0")}>
         <NexusSidebar
           activeTab={activeTab}
           selectedFolderId={selectedFolderId}
@@ -1933,12 +1933,12 @@ export default function EmailClientPage() {
 
         {activeTab === "email" && (
           <>
-            <Card className={cn("transition-all duration-300 shrink-0 overflow-hidden",
+            <Card className={cn("transition-all duration-300 shrink-0 overflow-hidden flex flex-col",
               (isSearching && searchPanelExpanded) || (!isSearching && listPanelExpanded)
                 ? "flex-1 min-w-[400px]"
                 : "w-[30%] min-w-[320px] max-w-[420px]"
             )}>
-              <CardHeader className="py-1.5 px-3 space-y-0 border-b">
+              <CardHeader className="py-1.5 px-3 space-y-0 border-b shrink-0">
                 <div className="flex items-center justify-between gap-1">
                   <div className="flex items-center gap-2">
                     <Mail className="h-4 w-4 text-blue-600" />
@@ -2195,7 +2195,7 @@ export default function EmailClientPage() {
                   </div>
                 )}
               </CardHeader>
-              <CardContent className="p-0">
+              <CardContent className="p-0 flex-1 min-h-0 flex flex-col">
                 {isSearching ? (
                   searchLoading ? (
                     <div className="flex items-center justify-center py-8"><Loader2 className="h-5 w-5 animate-spin" /></div>
@@ -2205,7 +2205,7 @@ export default function EmailClientPage() {
                       <span className="text-sm">{t.nexusOmni.email.noResults} "{debouncedSearchQuery}"</span>
                     </div>
                   ) : (
-                    <ScrollArea className={nexusFullscreen ? "h-[calc(100vh-180px)]" : "h-[calc(100vh-380px)]"}>
+                    <ScrollArea className="flex-1 min-h-0">
                       <div className="divide-y">
                         {searchResults.map((result) => (
                           result.emails.length > 0 && (
@@ -2306,7 +2306,7 @@ export default function EmailClientPage() {
                   </div>
                 ) : (
                   <>
-                  <ScrollArea className={nexusFullscreen ? "h-[calc(100vh-180px)]" : "h-[calc(100vh-380px)]"} style={{ overflowX: "hidden" }}>
+                  <ScrollArea className="flex-1 min-h-0" style={{ overflowX: "hidden" }}>
                     <div className="divide-y" style={{ overflowX: "hidden", maxWidth: "100%" }}>
                       {emailsPage.map((email) => {
                         const tintBg = selectedMailbox === "all" && email._mailboxEmail
@@ -2413,8 +2413,8 @@ export default function EmailClientPage() {
                 )}
               </CardContent>
             </Card>
-            <Card className={`transition-all duration-300 ${detailFullscreen ? "fixed inset-0 z-50 rounded-none" : "flex-1 min-w-0"}`}>
-              <CardContent className="p-0 h-full">
+            <Card className={`transition-all duration-300 flex flex-col ${detailFullscreen ? "fixed inset-0 z-50 rounded-none" : "flex-1 min-w-0"}`}>
+              <CardContent className="p-0 flex-1 min-h-0 flex flex-col">
                 {renderEmailDetail()}
               </CardContent>
             </Card>
@@ -2423,8 +2423,8 @@ export default function EmailClientPage() {
 
         {activeTab === "sms" && (
           <>
-            <Card className="transition-all duration-300 w-[30%] min-w-[320px] max-w-[420px] shrink-0">
-              <CardHeader className="py-2 px-3 border-b">
+            <Card className="transition-all duration-300 w-[30%] min-w-[320px] max-w-[420px] shrink-0 flex flex-col">
+              <CardHeader className="py-2 px-3 border-b shrink-0">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <MessageSquare className="h-4 w-4 text-cyan-600" />
@@ -2442,7 +2442,7 @@ export default function EmailClientPage() {
                   </div>
                 </div>
               </CardHeader>
-              <CardContent className="p-0">
+              <CardContent className="p-0 flex-1 min-h-0 flex flex-col">
                 {smsLoading ? (
                   <div className="flex items-center justify-center py-8"><Loader2 className="h-5 w-5 animate-spin" /></div>
                 ) : smsPage.length === 0 ? (
@@ -2451,7 +2451,7 @@ export default function EmailClientPage() {
                     <span className="text-sm">{t.nexusOmni.sms.noSms}</span>
                   </div>
                 ) : (
-                  <ScrollArea className={nexusFullscreen ? "h-[calc(100vh-160px)]" : "h-[calc(100vh-360px)]"}>
+                  <ScrollArea className="flex-1 min-h-0">
                     <div className="divide-y">
                       {smsPage.map(sms => {
                         const customerName = sms.customer
@@ -2499,8 +2499,8 @@ export default function EmailClientPage() {
                 )}
               </CardContent>
             </Card>
-            <Card className="transition-all duration-300 flex-1 min-w-0">
-              <CardContent className="p-0 h-full">
+            <Card className="transition-all duration-300 flex-1 min-w-0 flex flex-col">
+              <CardContent className="p-0 flex-1 min-h-0 flex flex-col">
                 {renderSmsDetail()}
               </CardContent>
             </Card>
@@ -2509,8 +2509,8 @@ export default function EmailClientPage() {
 
         {activeTab === "tasks" && (
           <>
-            <Card className="transition-all duration-300 w-[30%] min-w-[320px] max-w-[420px] shrink-0">
-              <CardHeader className="py-2 px-3 border-b">
+            <Card className="transition-all duration-300 w-[30%] min-w-[320px] max-w-[420px] shrink-0 flex flex-col">
+              <CardHeader className="py-2 px-3 border-b shrink-0">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <ListTodo className="h-4 w-4 text-amber-600" />
@@ -2528,7 +2528,7 @@ export default function EmailClientPage() {
                   </div>
                 </div>
               </CardHeader>
-              <CardContent className="p-0">
+              <CardContent className="p-0 flex-1 min-h-0 flex flex-col">
                 {tasksLoading ? (
                   <div className="flex items-center justify-center py-8"><Loader2 className="h-5 w-5 animate-spin" /></div>
                 ) : tasksPage.length === 0 ? (
@@ -2537,7 +2537,7 @@ export default function EmailClientPage() {
                     <span className="text-sm">{t.nexusOmni.tasks.noTasks}</span>
                   </div>
                 ) : (
-                  <ScrollArea className={nexusFullscreen ? "h-[calc(100vh-160px)]" : "h-[calc(100vh-360px)]"}>
+                  <ScrollArea className="flex-1 min-h-0">
                     <div className="divide-y">
                       {tasksPage.map(task => (
                         <div
@@ -2581,8 +2581,8 @@ export default function EmailClientPage() {
                 )}
               </CardContent>
             </Card>
-            <Card className="transition-all duration-300 flex-1 min-w-0">
-              <CardContent className="p-0 h-full">
+            <Card className="transition-all duration-300 flex-1 min-w-0 flex flex-col">
+              <CardContent className="p-0 flex-1 min-h-0 flex flex-col">
                 {renderTaskDetail()}
               </CardContent>
             </Card>
@@ -2591,8 +2591,8 @@ export default function EmailClientPage() {
 
         {activeTab === "chats" && (
           <>
-            <Card className="transition-all duration-300 flex-1 min-w-0">
-              <CardContent className="p-0 h-full">
+            <Card className="transition-all duration-300 flex-1 min-w-0 flex flex-col">
+              <CardContent className="p-0 flex-1 min-h-0 flex flex-col">
                 {selectedChat ? (
                   <div className="flex flex-col h-full">
                     <div className="p-4 border-b">
@@ -3307,7 +3307,7 @@ export default function EmailClientPage() {
               <Button onClick={handleSendEmail} disabled={sendEmailMutation.isPending} size="sm" className="px-5" data-testid="button-send-compose">
                 {sendEmailMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 <Send className="h-4 w-4 mr-2" />
-                {t.common.save}
+                {t.nexusOmni.common.sendEmail}
               </Button>
             </div>
           </DialogContent>
@@ -3825,7 +3825,7 @@ export default function EmailClientPage() {
                 <Button onClick={replyMode === "forward" ? handleForward : handleReply} disabled={replyMutation.isPending || forwardMutation.isPending} data-testid="button-send-reply">
                   {(replyMutation.isPending || forwardMutation.isPending) && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                   <Send className="h-4 w-4 mr-2" />
-                  {t.common.save}
+                  {t.nexusOmni.common.sendEmail}
                 </Button>
               </DialogFooter>
             </DialogContent>

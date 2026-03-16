@@ -4254,17 +4254,12 @@ export async function registerRoutes(
         return res.status(401).json({ error: "Token expired", requiresReauth: true });
       }
       
-      // Get signature for this mailbox
-      const signatureMailbox = mailboxEmail || "personal";
-      const signature = await storage.getEmailSignature(userId, signatureMailbox);
-      const signatureHtml = signature?.isActive ? signature.htmlContent : "";
-      
       const success = await sendEmailWithSignature(
         tokenResult.accessToken,
         to,
         subject || "",
         body || "",
-        signatureHtml,
+        "",
         isHtml !== false,
         cc || [],
         bcc || [],
@@ -4385,11 +4380,6 @@ export async function registerRoutes(
         return res.status(401).json({ error: "Token expired", requiresReauth: true });
       }
       
-      // Get signature
-      const signatureMailbox = mailboxEmail || "personal";
-      const signature = await storage.getEmailSignature(userId, signatureMailbox);
-      const signatureHtml = signature?.isActive ? signature.htmlContent : "";
-
       const ccList = Array.isArray(cc) ? cc.filter(Boolean) : [];
       const bccList = Array.isArray(bcc) ? bcc.filter(Boolean) : [];
       
@@ -4397,7 +4387,7 @@ export async function registerRoutes(
         tokenResult.accessToken,
         emailId,
         body || "",
-        signatureHtml,
+        "",
         isHtml !== false,
         replyAll === true,
         mailboxEmail === "personal" ? undefined : mailboxEmail,
@@ -4472,11 +4462,6 @@ export async function registerRoutes(
         return res.status(401).json({ error: "Token expired", requiresReauth: true });
       }
       
-      // Get signature
-      const signatureMailbox = mailboxEmail || "personal";
-      const signature = await storage.getEmailSignature(userId, signatureMailbox);
-      const signatureHtml = signature?.isActive ? signature.htmlContent : "";
-
       const ccList = Array.isArray(cc) ? cc.filter(Boolean) : [];
       const bccList = Array.isArray(bcc) ? bcc.filter(Boolean) : [];
       
@@ -4485,7 +4470,7 @@ export async function registerRoutes(
         emailId,
         to,
         body || "",
-        signatureHtml,
+        "",
         isHtml !== false,
         mailboxEmail === "personal" ? undefined : mailboxEmail,
         ccList.length > 0 ? ccList : undefined,
