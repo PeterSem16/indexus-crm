@@ -3668,6 +3668,32 @@ export async function registerRoutes(
     }
   });
 
+  const uploadChatFile = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } });
+  app.post("/api/users/:userId/teams-chats/:chatId/upload", requireAuth, uploadChatFile.single('file'), async (req, res) => {
+    try {
+      const { userId, chatId } = req.params;
+      const messageText = req.body.message || '';
+      if (!req.file) return res.status(400).json({ error: "No file provided" });
+      const ms365Connection = await storage.getUserMs365Connection(userId);
+      if (!ms365Connection || !ms365Connection.isConnected) {
+        return res.status(400).json({ error: "Not connected" });
+      }
+      const { decryptTokenSafe } = await import("./lib/token-crypto");
+      const { getValidAccessToken, uploadFileToOneDriveAndAttachToChat } = await import("./lib/ms365");
+      const accessToken = decryptTokenSafe(ms365Connection.accessToken);
+      const refreshToken = ms365Connection.refreshToken ? decryptTokenSafe(ms365Connection.refreshToken) : null;
+      const tokenResult = await getValidAccessToken(accessToken, ms365Connection.tokenExpiresAt, refreshToken);
+      if (!tokenResult?.accessToken) return res.status(401).json({ error: "Token expired" });
+      const result = await uploadFileToOneDriveAndAttachToChat(
+        tokenResult.accessToken, chatId, req.file.originalname, req.file.buffer, req.file.mimetype, messageText
+      );
+      res.json({ success: true, message: result });
+    } catch (error: any) {
+      console.error("Error uploading chat attachment:", error?.message || error);
+      res.status(500).json({ error: "Failed to upload attachment" });
+    }
+  });
+
   // Teams - create online meeting
   app.post("/api/users/:userId/teams-meeting", requireAuth, async (req, res) => {
     try {

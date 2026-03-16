@@ -1204,6 +1204,7 @@ export async function getTeamsChatMessages(
   const result = await client.api(`/me/chats/${chatId}/messages`)
     .top(top)
     .orderby('createdDateTime desc')
+    .expand('hostedContents')
     .get();
   const messages = (result.value || [])
     .filter((m: any) => m.messageType === 'message')
@@ -1215,8 +1216,57 @@ export async function getTeamsChatMessages(
       fromEmail: msg.from?.user?.email || null,
       createdDateTime: msg.createdDateTime,
       importance: msg.importance,
+      attachments: (msg.attachments || []).map((att: any) => ({
+        id: att.id,
+        name: att.name,
+        contentType: att.contentType,
+        contentUrl: att.contentUrl,
+        thumbnailUrl: att.thumbnailUrl,
+      })),
+      hostedContents: (msg.hostedContents || []).map((hc: any) => ({
+        id: hc.id,
+        contentBytes: hc.contentBytes,
+        contentType: hc.contentType,
+      })),
     }));
   return { messages };
+}
+
+export async function uploadFileToOneDriveAndAttachToChat(
+  accessToken: string,
+  chatId: string,
+  fileName: string,
+  fileBuffer: Buffer,
+  fileMimeType: string,
+  messageText?: string
+): Promise<any> {
+  const client = createGraphClient(accessToken);
+  const uploadPath = `/me/drive/root:/Teams Chat Files/${fileName}:/content`;
+  const uploaded = await client.api(uploadPath)
+    .header('Content-Type', fileMimeType)
+    .put(fileBuffer);
+
+  const attachmentId = uploaded.id;
+  const webUrl = uploaded.webUrl;
+  const eTag = uploaded.eTag?.replace(/[{}]/g, '') || uploaded.id;
+
+  const messageBody: any = {
+    body: {
+      contentType: 'html',
+      content: messageText
+        ? `${messageText}<br/><attachment id="${attachmentId}"></attachment>`
+        : `<attachment id="${attachmentId}"></attachment>`,
+    },
+    attachments: [{
+      id: attachmentId,
+      contentType: 'reference',
+      contentUrl: webUrl,
+      name: fileName,
+    }],
+  };
+
+  const result = await client.api(`/me/chats/${chatId}/messages`).post(messageBody);
+  return result;
 }
 
 export async function getJoinedTeams(

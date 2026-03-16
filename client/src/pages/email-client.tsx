@@ -1199,6 +1199,30 @@ function TeamsPanel({ userId }: { userId?: string }) {
     },
   });
 
+  const chatFileInputRef = useRef<HTMLInputElement>(null);
+  const chatUploadMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      if (chatInput.trim()) formData.append('message', chatInput.trim());
+      const res = await fetch(`/api/users/${userId}/teams-chats/${selectedTeamsChatId}/upload`, {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error('Upload failed');
+      return res.json();
+    },
+    onSuccess: () => {
+      setChatInput("");
+      refetchMsgs();
+      toast({ title: t.nexusOmni.common.success, description: t.nexusOmni.teams.attachmentSent || 'Attachment sent' });
+    },
+    onError: () => {
+      toast({ title: t.nexusOmni.common.error, description: t.nexusOmni.teams.uploadError || 'Failed to upload file', variant: "destructive" });
+    },
+  });
+
   const meetingMutation = useMutation({
     mutationFn: async ({ subject, participantEmails, startDateTime, endDateTime }: { subject: string; participantEmails?: string[]; startDateTime?: string; endDateTime?: string }) => {
       return apiRequest("POST", `/api/users/${userId}/teams-meeting`, { subject, participantEmails, startDateTime, endDateTime });
@@ -1792,6 +1816,19 @@ function TeamsPanel({ userId }: { userId?: string }) {
                                   ) : (
                                     <p className="text-sm mt-0.5" style={{ overflowWrap: "anywhere" }}>{msg.body}</p>
                                   )}
+                                  {msg.attachments?.length > 0 && (
+                                    <div className="flex flex-wrap gap-2 mt-1.5">
+                                      {msg.attachments.map((att: any) => (
+                                        <a key={att.id} href={att.contentUrl} target="_blank" rel="noopener noreferrer"
+                                          className="inline-flex items-center gap-1.5 bg-muted/60 dark:bg-[#3a3a3a] hover:bg-muted dark:hover:bg-[#444] rounded-md px-2.5 py-1.5 text-xs transition-colors border border-border/50"
+                                          data-testid={`attachment-${att.id}`}>
+                                          {att.contentType?.startsWith('image') ? <FileImage className="h-3.5 w-3.5 text-green-500" /> : <Paperclip className="h-3.5 w-3.5 text-blue-500" />}
+                                          <span className="truncate max-w-[180px]">{att.name || 'Attachment'}</span>
+                                          <ExternalLink className="h-3 w-3 text-muted-foreground shrink-0" />
+                                        </a>
+                                      ))}
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             ) : (
@@ -1801,6 +1838,18 @@ function TeamsPanel({ userId }: { userId?: string }) {
                                   <span className="text-sm [&_a]:text-blue-500 [&_a]:underline" dangerouslySetInnerHTML={{ __html: msg.body }} />
                                 ) : (
                                   <span className="text-sm" style={{ overflowWrap: "anywhere" }}>{msg.body}</span>
+                                )}
+                                {msg.attachments?.length > 0 && (
+                                  <div className="flex flex-wrap gap-2 mt-1">
+                                    {msg.attachments.map((att: any) => (
+                                      <a key={att.id} href={att.contentUrl} target="_blank" rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1.5 bg-muted/60 dark:bg-[#3a3a3a] hover:bg-muted dark:hover:bg-[#444] rounded-md px-2.5 py-1.5 text-xs transition-colors border border-border/50">
+                                        {att.contentType?.startsWith('image') ? <FileImage className="h-3.5 w-3.5 text-green-500" /> : <Paperclip className="h-3.5 w-3.5 text-blue-500" />}
+                                        <span className="truncate max-w-[180px]">{att.name || 'Attachment'}</span>
+                                        <ExternalLink className="h-3 w-3 text-muted-foreground shrink-0" />
+                                      </a>
+                                    ))}
+                                  </div>
                                 )}
                               </div>
                             )}
@@ -1812,7 +1861,26 @@ function TeamsPanel({ userId }: { userId?: string }) {
                   </div>
                 </ScrollArea>
                 <div className="px-4 py-3 border-t dark:border-[#333]">
+                  <input
+                    type="file"
+                    ref={chatFileInputRef}
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) chatUploadMutation.mutate(file);
+                      e.target.value = '';
+                    }}
+                    data-testid="teams-chat-file-input"
+                  />
                   <div className="flex gap-2 items-center bg-muted/50 dark:bg-[#333] rounded-lg px-3 py-1.5">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={() => chatFileInputRef.current?.click()} disabled={chatUploadMutation.isPending} data-testid="teams-chat-attach">
+                          {chatUploadMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Paperclip className="h-4 w-4" />}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>{t.nexusOmni.teams.attachFile || 'Attach file'}</TooltipContent>
+                    </Tooltip>
                     <Input
                       placeholder={t.nexusOmni.teams.writePlaceholder}
                       value={chatInput}
