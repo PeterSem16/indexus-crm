@@ -1,0 +1,56 @@
+Skvelá myšlienka! NexusPoint ako SharePoint file management v rámci NEXUS Omni dáva veľký zmysel. Dovoľ mi ti najprv detailne popísať, čo všetko môžeš zo SharePointu využiť a aké oprávnenia budeš potrebovať, a potom to môžeme začať stavať.
+
+Čo všetko môže NexusPoint zo SharePointu využiť
+Správa súborov a priečinkov
+Prezeranie celej štruktúry priečinkov a súborov na SharePoint sites
+Upload/Download súborov (aj veľké súbory cez resumable upload)
+Premenovanie, presúvanie, kopírovanie, mazanie súborov aj priečinkov
+Vytváranie nových priečinkov
+Náhľady súborov (thumbnaily pre obrázky, PDF, Office dokumenty)
+Revízie dokumentov (verzionovanie)
+Zoznam všetkých verzií súboru s dátumom, autorom a veľkosťou
+Obnovenie staršej verzie
+Stiahnutie konkrétnej verzie
+Check-out / Check-in workflow (zamknutie dokumentu pri úprave)
+Vyhľadávanie
+Full-text search cez obsah dokumentov (Word, Excel, PDF, PowerPoint)
+Vyhľadávanie podľa názvu, autora, dátumu úpravy, typu súboru
+Vyhľadávanie naprieč viacerými SharePoint sites
+SharePoint Sites a Knižnice
+Zoznam všetkých sites v organizácii
+Document libraries (dokumentové knižnice) — každý site ich môže mať viac
+Lists — štruktúrované dáta (ako jednoduché databázy)
+Zdieľanie a oprávnenia
+Zdieľanie súborov/priečinkov s konkrétnymi používateľmi
+Vytváranie zdieľacích linkov (view-only, edit, anonymous)
+Správa prístupových oprávnení na úrovni súborov
+Ďalšie funkcie
+Metadata — vlastné stĺpce/properties na dokumentoch
+Webhooks — notifikácie keď sa súbor zmení
+Delta query — zistenie čo sa zmenilo od posledného kontroly
+Komentáre na súboroch
+Kolaboratívne úpravy — odkaz na online editor (Word, Excel, PowerPoint online)
+Potrebné Microsoft Graph API oprávnenia
+Pre Azure AD app registráciu budeš potrebovať tieto Application permissions alebo Delegated permissions:
+
+Oprávnenie	Typ	Na čo
+Sites.Read.All	Delegated	Čítanie sites a knižníc
+Sites.ReadWrite.All	Delegated	Upload, mazanie, úprava súborov
+Files.Read.All	Delegated	Čítanie súborov cez OneDrive/SharePoint
+Files.ReadWrite.All	Delegated	Úprava súborov
+Sites.Manage.All	Delegated	Správa SharePoint sites (vytváranie lists, knižníc)
+Sites.Search.All	Delegated	Full-text vyhľadávanie v obsahu
+User.Read	Delegated	Info o prihlásenom používateľovi
+Keďže už máte Microsoft 365 integráciu pre emaily (Microsoft Graph), stačí rozšíriť existujúcu app registráciu o tieto ďalšie scopes — netreba novú app.
+
+Navrhovaná štruktúra NexusPoint v NEXUS Omni
+Nový tab "NexusPoint" v NEXUS sidebar by obsahoval:
+
+Sites browser — výber SharePoint site z organizácie
+File explorer — dvojpanelový prieskumník s priečinkami vľavo a súbormi vpravo
+Náhľadový panel — preview dokumentu, metadata, verzie
+Vyhľadávanie — full-text search naprieč všetkými sites
+Revízie — história verzií s porovnaním a obnovením
+Zdieľanie — správa linkov a prístupov
+Upload — drag & drop upload s progress barom
+Chceš aby som to začal stavať? Ak áno, mám jednu otázku:
