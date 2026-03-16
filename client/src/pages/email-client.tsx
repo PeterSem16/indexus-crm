@@ -583,6 +583,7 @@ export default function EmailClientPage() {
   const [composeMailbox, setComposeMailbox] = useState<string>("");
   const [aiComposeLoading, setAiComposeLoading] = useState(false);
   const [aiComposeOpen, setAiComposeOpen] = useState(false);
+  const [composeEditorKey, setComposeEditorKey] = useState(0);
   const [signatureHtml, setSignatureHtml] = useState("");
   const [signatureActive, setSignatureActive] = useState(true);
   const [sigEditMailbox, setSigEditMailbox] = useState<string>("");
@@ -1874,7 +1875,7 @@ export default function EmailClientPage() {
             </Tooltip>
           </TooltipProvider>
           {activeTab === "email" && (
-            <Button onClick={() => { setComposeOpen(true); setReplyMode(null); setComposeData({ to: "", cc: "", bcc: "", subject: "", body: "", importance: "normal", tagId: null, replyTo: "" }); setAttachments([]); setComposeMailbox(effectiveMailbox); }} data-testid="button-compose">
+            <Button onClick={() => { setComposeOpen(true); setReplyMode(null); setComposeData({ to: "", cc: "", bcc: "", subject: "", body: "", importance: "normal", tagId: null, replyTo: "" }); setAttachments([]); setComposeMailbox(effectiveMailbox); setComposeEditorKey(0); }} data-testid="button-compose">
               <PenSquare className="h-4 w-4 mr-2" />
               {t.nexusOmni.common.newMessage}
             </Button>
@@ -3095,7 +3096,16 @@ export default function EmailClientPage() {
               <div className="px-4 py-3 space-y-2 border-b">
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-muted-foreground w-10 shrink-0">{t.nexusOmni.search.mailbox}:</span>
-                  <Select value={composeMailbox || effectiveMailbox} onValueChange={(v) => setComposeMailbox(v)}>
+                  <Select value={composeMailbox || effectiveMailbox} onValueChange={(v) => {
+                    setComposeMailbox(v);
+                    const currentBody = composeData.body || "";
+                    const sigDivIdx = currentBody.indexOf('<div class="email-signature"');
+                    const bodyWithoutSig = sigDivIdx !== -1 ? currentBody.substring(0, sigDivIdx).replace(/<p><br><\/p>$/, '') : currentBody;
+                    const newSig = getSignatureForCompose(v);
+                    const newSigBlock = newSig ? '<p><br></p><div class="email-signature">' + newSig + '</div>' : '';
+                    setComposeData(prev => ({ ...prev, body: bodyWithoutSig + newSigBlock }));
+                    setComposeEditorKey(k => k + 1);
+                  }}>
                     <SelectTrigger className="h-8 text-xs flex-1" data-testid="select-compose-mailbox">
                       <SelectValue />
                     </SelectTrigger>
@@ -3161,9 +3171,9 @@ export default function EmailClientPage() {
                       <Tag className="h-3.5 w-3.5 text-muted-foreground/40" />
                     );
                   })()}
-                  <Select value={composeData.tagId?.toString() || "none"} onValueChange={(v) => setComposeData({ ...composeData, tagId: v === "none" ? null : parseInt(v) })}>
-                    <SelectTrigger className="w-auto h-6 text-[11px] border-0 bg-transparent shadow-none px-1 gap-1 focus:ring-0" data-testid="select-compose-tag">
-                      <SelectValue>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button className="flex items-center gap-1 h-6 text-[11px] px-1 hover:bg-accent rounded transition-colors" data-testid="select-compose-tag">
                         {(() => {
                           const selTag = composeData.tagId ? userTags.find((tg: any) => tg.id === composeData.tagId) : null;
                           return selTag ? (
@@ -3173,20 +3183,28 @@ export default function EmailClientPage() {
                             </span>
                           ) : t.nexusOmni.common.none;
                         })()}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">{t.nexusOmni.common.none}</SelectItem>
+                        <ChevronDown className="h-3 w-3 opacity-50" />
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-44 p-1" align="start">
+                      <button
+                        className={cn("w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs hover:bg-accent transition-colors text-left", !composeData.tagId && "bg-accent")}
+                        onClick={() => setComposeData({ ...composeData, tagId: null })}
+                      >
+                        {t.nexusOmni.common.none}
+                      </button>
                       {userTags.map((tag: any) => (
-                        <SelectItem key={tag.id} value={tag.id.toString()}>
-                          <span className="flex items-center gap-2">
-                            <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: tag.color }} />
-                            {tag.name}
-                          </span>
-                        </SelectItem>
+                        <button
+                          key={tag.id}
+                          className={cn("w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs hover:bg-accent transition-colors text-left", composeData.tagId === tag.id && "bg-accent")}
+                          onClick={() => setComposeData({ ...composeData, tagId: tag.id })}
+                        >
+                          <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: tag.color }} />
+                          {tag.name}
+                        </button>
                       ))}
-                    </SelectContent>
-                  </Select>
+                    </PopoverContent>
+                  </Popover>
                 </div>
                 <div className="w-px h-4 bg-border" />
                 <Popover open={aiComposeOpen} onOpenChange={setAiComposeOpen}>
@@ -3224,7 +3242,10 @@ export default function EmailClientPage() {
                               });
                               const data = await res.json();
                               if (data.draft) {
-                                setComposeData(prev => ({ ...prev, body: data.draft }));
+                                const sig = getSignatureForCompose(composeMailbox || effectiveMailbox);
+                                const sigBlock = sig ? '<p><br></p><div class="email-signature">' + sig + '</div>' : '';
+                                setComposeData(prev => ({ ...prev, body: data.draft + sigBlock }));
+                                setComposeEditorKey(k => k + 1);
                                 setAiComposeOpen(false);
                                 toast({ title: "AI", description: t.nexusOmni.ai?.draftGenerated || "Email vygenerovaný" });
                               }
@@ -3252,10 +3273,10 @@ export default function EmailClientPage() {
               </div>
 
               <EmailEditor
-                key={`compose-${composeOpen}-${composeMailbox}-${composeData.body ? "has-body" : "no-body"}`}
+                key={`compose-${composeOpen}-${composeEditorKey}`}
                 initialContent={composeData.body}
                 onChange={(html) => setComposeData(prev => ({ ...prev, body: html }))}
-                signatureHtml={getSignatureForCompose(composeMailbox || effectiveMailbox)}
+                signatureHtml={composeData.body ? undefined : getSignatureForCompose(composeMailbox || effectiveMailbox)}
                 placeholder={t.nexusOmni.email.messagePlaceholder}
                 minHeight={composeFullscreen ? "400px" : "180px"}
                 attachments={attachments}
