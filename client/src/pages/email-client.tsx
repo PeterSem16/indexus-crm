@@ -87,6 +87,7 @@ import {
   EyeOff,
   CircleDashed,
   Star,
+  Calendar,
   CalendarDays,
   CalendarRange,
   FilterX,
@@ -240,6 +241,12 @@ function NexusPointPanel({ userId }: { userId?: string }) {
     },
     enabled: !!userId && !!selectedSiteId,
   });
+
+  useEffect(() => {
+    if (drives.length > 0 && !selectedDriveId) {
+      setSelectedDriveId(drives[0].id);
+    }
+  }, [drives, selectedDriveId]);
 
   const { data: items = [], isLoading: itemsLoading, refetch: refetchItems } = useQuery<any[]>({
     queryKey: ["/api/users", userId, "sharepoint", "drives", selectedDriveId, "items", currentFolderId],
@@ -1057,6 +1064,11 @@ function TeamsPanel({ userId }: { userId?: string }) {
   const [meetingLink, setMeetingLink] = useState<string | null>(null);
   const [activeMeeting, setActiveMeeting] = useState<{ subject: string; joinUrl: string; startTime: number } | null>(null);
   const [meetingElapsed, setMeetingElapsed] = useState(0);
+  const [meetingDate, setMeetingDate] = useState("");
+  const [meetingStartTime, setMeetingStartTime] = useState("");
+  const [meetingEndTime, setMeetingEndTime] = useState("");
+  const [meetingParticipants, setMeetingParticipants] = useState<string[]>([]);
+  const [participantInput, setParticipantInput] = useState("");
   const { toast } = useToast();
   const { t } = useI18n();
 
@@ -1113,6 +1125,40 @@ function TeamsPanel({ userId }: { userId?: string }) {
     enabled: !!userId && !!selectedTeamId && !!selectedChannelId,
   });
 
+  const { data: upcomingMeetings = [] } = useQuery<any[]>({
+    queryKey: ["/api/ms365/calendar", "upcoming"],
+    queryFn: async () => {
+      const now = new Date();
+      const end = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+      const res = await fetch(`/api/ms365/calendar?startDate=${now.toISOString()}&endDate=${end.toISOString()}`, { credentials: "include" });
+      if (!res.ok) return [];
+      const events = await res.json();
+      return (events || []).filter((e: any) => e.isOnlineMeeting || e.onlineMeeting?.joinUrl).sort((a: any, b: any) => new Date(a.start?.dateTime || a.startDateTime).getTime() - new Date(b.start?.dateTime || b.startDateTime).getTime());
+    },
+    enabled: !!userId,
+    refetchInterval: 60000,
+  });
+
+  const notifiedMeetingsRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!upcomingMeetings.length) return;
+    const checkUpcoming = () => {
+      const now = Date.now();
+      upcomingMeetings.forEach((m: any) => {
+        const start = new Date(m.start?.dateTime ? m.start.dateTime + 'Z' : m.startDateTime).getTime();
+        const diff = start - now;
+        if (diff > 0 && diff <= 5 * 60 * 1000 && !notifiedMeetingsRef.current.has(m.id)) {
+          notifiedMeetingsRef.current.add(m.id);
+          const mins = Math.ceil(diff / 60000);
+          toast({ title: `${m.subject || 'Meeting'}`, description: `${t.nexusOmni.teams.startsIn} ${mins} min`, duration: 15000 });
+        }
+      });
+    };
+    checkUpcoming();
+    const iv = setInterval(checkUpcoming, 30000);
+    return () => clearInterval(iv);
+  }, [upcomingMeetings, toast, t]);
+
   useEffect(() => {
     if (!activeMeeting) { setMeetingElapsed(0); return; }
     const iv = setInterval(() => setMeetingElapsed(Math.floor((Date.now() - activeMeeting.startTime) / 1000)), 1000);
@@ -1142,8 +1188,8 @@ function TeamsPanel({ userId }: { userId?: string }) {
   });
 
   const meetingMutation = useMutation({
-    mutationFn: async ({ subject, participantEmails }: { subject: string; participantEmails?: string[] }) => {
-      return apiRequest("POST", `/api/users/${userId}/teams-meeting`, { subject, participantEmails });
+    mutationFn: async ({ subject, participantEmails, startDateTime, endDateTime }: { subject: string; participantEmails?: string[]; startDateTime?: string; endDateTime?: string }) => {
+      return apiRequest("POST", `/api/users/${userId}/teams-meeting`, { subject, participantEmails, startDateTime, endDateTime });
     },
     onSuccess: async (res: any) => {
       const data = await res.json();
@@ -1151,6 +1197,11 @@ function TeamsPanel({ userId }: { userId?: string }) {
         setMeetingLink(data.joinUrl);
         setActiveMeeting({ subject: data.subject || meetingSubject || 'NEXUS Meeting', joinUrl: data.joinUrl, startTime: Date.now() });
         toast({ title: t.nexusOmni.teams.meetingCreated });
+        setMeetingDate("");
+        setMeetingStartTime("");
+        setMeetingEndTime("");
+        setMeetingParticipants([]);
+        setParticipantInput("");
       }
     },
     onError: () => {
@@ -1165,11 +1216,34 @@ function TeamsPanel({ userId }: { userId?: string }) {
     meetingMutation.mutate({ subject, participantEmails });
   };
 
+  const addParticipant = (email: string) => {
+    const trimmed = email.trim().toLowerCase();
+    if (trimmed && trimmed.includes("@") && !meetingParticipants.includes(trimmed)) {
+      setMeetingParticipants([...meetingParticipants, trimmed]);
+    }
+    setParticipantInput("");
+  };
+
+  const removeParticipant = (email: string) => {
+    setMeetingParticipants(meetingParticipants.filter(p => p !== email));
+  };
+
   const handleCreateScheduledMeeting = () => {
     const subj = meetingSubject.trim() || 'NEXUS Meeting';
     const sc = chats.find(c => c.id === selectedTeamsChatId);
-    const emails = sc?.members?.map((m: any) => m.email).filter(Boolean) || [];
-    meetingMutation.mutate({ subject: subj, participantEmails: emails });
+    const chatEmails = sc?.members?.map((m: any) => m.email).filter(Boolean) || [];
+    const allEmails = [...new Set([...meetingParticipants, ...chatEmails])];
+    let startDateTime: string | undefined;
+    let endDateTime: string | undefined;
+    if (meetingDate && meetingStartTime) {
+      startDateTime = new Date(`${meetingDate}T${meetingStartTime}`).toISOString();
+      if (meetingEndTime) {
+        endDateTime = new Date(`${meetingDate}T${meetingEndTime}`).toISOString();
+      } else {
+        endDateTime = new Date(new Date(`${meetingDate}T${meetingStartTime}`).getTime() + 60 * 60 * 1000).toISOString();
+      }
+    }
+    meetingMutation.mutate({ subject: subj, participantEmails: allEmails.length > 0 ? allEmails : undefined, startDateTime, endDateTime });
   };
 
   const endMeeting = () => {
@@ -1785,54 +1859,160 @@ function TeamsPanel({ userId }: { userId?: string }) {
                 <MessagesSquare className="h-10 w-10 text-indigo-400 opacity-60" />
               </div>
               <p className="font-semibold text-lg mb-1 text-foreground">Microsoft Teams</p>
-              <p className="text-sm mb-5">{t.nexusOmni.chats.selectConversation}</p>
-              <div className="flex gap-3">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-2"
-                  onClick={() => { setMeetingDialogOpen(true); setMeetingLink(null); setMeetingSubject(""); }}
-                  data-testid="button-new-meeting-center"
-                >
-                  <Video className="h-4 w-4" />
-                  {t.nexusOmni.teams.createMeeting}
-                </Button>
-              </div>
+              <p className="text-sm mb-4">{t.nexusOmni.chats.selectConversation}</p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2 mb-6"
+                onClick={() => { setMeetingDialogOpen(true); setMeetingLink(null); setMeetingSubject(""); setMeetingDate(""); setMeetingStartTime(""); setMeetingEndTime(""); setMeetingParticipants([]); setParticipantInput(""); }}
+                data-testid="button-new-meeting-center"
+              >
+                <Video className="h-4 w-4" />
+                {t.nexusOmni.teams.createMeeting}
+              </Button>
+              {upcomingMeetings.length > 0 && (
+                <div className="w-full max-w-sm">
+                  <p className="text-xs font-semibold text-foreground mb-2 text-left flex items-center gap-1.5">
+                    <Calendar className="h-3.5 w-3.5 text-indigo-500" />
+                    {t.nexusOmni.teams.upcomingMeetings}
+                  </p>
+                  <div className="space-y-1.5">
+                    {upcomingMeetings.slice(0, 5).map((m: any) => {
+                      const startTime = new Date(m.start?.dateTime ? m.start.dateTime + 'Z' : m.startDateTime);
+                      const now = new Date();
+                      const diffMs = startTime.getTime() - now.getTime();
+                      const isNow = diffMs <= 0;
+                      const mins = Math.ceil(diffMs / 60000);
+                      const joinUrl = m.onlineMeeting?.joinUrl || m.joinUrl;
+                      return (
+                        <div key={m.id} className="flex items-center gap-2 px-3 py-2 rounded-md border bg-card text-left" data-testid={`upcoming-meeting-${m.id}`}>
+                          <div className={cn("w-2 h-2 rounded-full shrink-0", isNow ? "bg-green-500 animate-pulse" : mins <= 15 ? "bg-amber-500" : "bg-indigo-400")} />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium truncate text-foreground">{m.subject || 'Meeting'}</p>
+                            <p className="text-[10px] text-muted-foreground">
+                              {startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              {isNow ? ` · ${t.nexusOmni.teams.inProgress}` : ` · ${t.nexusOmni.teams.startsIn} ${mins} min`}
+                            </p>
+                          </div>
+                          {joinUrl && (
+                            <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => window.open(joinUrl, "_blank")} data-testid={`join-upcoming-${m.id}`}>
+                              <Video className="h-3.5 w-3.5 text-indigo-500" />
+                            </Button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </CardContent>
       </Card>
 
       <Dialog open={meetingDialogOpen && !activeMeeting} onOpenChange={setMeetingDialogOpen}>
-        <DialogContent className="sm:max-w-[420px]">
+        <DialogContent className="sm:max-w-[480px]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Video className="h-5 w-5 text-indigo-600" />
               {t.nexusOmni.teams.createMeeting}
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Input
-                placeholder={t.nexusOmni.teams.meetingSubject}
-                value={meetingSubject}
-                onChange={(e) => setMeetingSubject(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") handleCreateScheduledMeeting(); }}
-                data-testid="input-meeting-subject"
-              />
+          <div className="space-y-3">
+            <Input
+              placeholder={t.nexusOmni.teams.meetingSubject}
+              value={meetingSubject}
+              onChange={(e) => setMeetingSubject(e.target.value)}
+              data-testid="input-meeting-subject"
+            />
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">{t.nexusOmni.teams.meetingDate}</label>
+                <Input
+                  type="date"
+                  value={meetingDate}
+                  onChange={(e) => setMeetingDate(e.target.value)}
+                  className="text-xs h-8"
+                  data-testid="input-meeting-date"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">{t.nexusOmni.teams.meetingStartTime}</label>
+                <Input
+                  type="time"
+                  value={meetingStartTime}
+                  onChange={(e) => setMeetingStartTime(e.target.value)}
+                  className="text-xs h-8"
+                  data-testid="input-meeting-start-time"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">{t.nexusOmni.teams.meetingEndTime}</label>
+                <Input
+                  type="time"
+                  value={meetingEndTime}
+                  onChange={(e) => setMeetingEndTime(e.target.value)}
+                  className="text-xs h-8"
+                  data-testid="input-meeting-end-time"
+                />
+              </div>
             </div>
-            <Button
-              className="w-full gap-2 bg-indigo-600 hover:bg-indigo-700"
-              onClick={() => {
-                meetingMutation.mutate({ subject: meetingSubject.trim() || 'NEXUS Meeting' });
-                setMeetingDialogOpen(false);
-              }}
-              disabled={meetingMutation.isPending}
-              data-testid="button-create-instant-meeting"
-            >
-              {meetingMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Video className="h-4 w-4" />}
-              {t.nexusOmni.teams.startMeeting}
-            </Button>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">{t.nexusOmni.teams.addParticipants}</label>
+              <div className="flex gap-1.5">
+                <Input
+                  placeholder={t.nexusOmni.teams.participantEmail}
+                  value={participantInput}
+                  onChange={(e) => setParticipantInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addParticipant(participantInput); } }}
+                  className="text-xs h-8 flex-1"
+                  data-testid="input-participant-email"
+                />
+                <Button variant="outline" size="sm" className="h-8 text-xs px-2.5" onClick={() => addParticipant(participantInput)} disabled={!participantInput.trim()} data-testid="button-add-participant">
+                  <Plus className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+              {meetingParticipants.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {meetingParticipants.map((email) => (
+                    <span key={email} className="inline-flex items-center gap-1 bg-indigo-50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-300 rounded-full px-2 py-0.5 text-[11px]">
+                      <Mail className="h-2.5 w-2.5" />
+                      {email}
+                      <button onClick={() => removeParticipant(email)} className="hover:text-destructive ml-0.5" data-testid={`remove-participant-${email}`}>
+                        <X className="h-2.5 w-2.5" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="flex gap-2 pt-1">
+              <Button
+                variant="outline"
+                className="flex-1 gap-2"
+                onClick={() => {
+                  handleInstantMeeting(meetingParticipants.length > 0 ? meetingParticipants : undefined);
+                  setMeetingDialogOpen(false);
+                }}
+                disabled={meetingMutation.isPending}
+                data-testid="button-create-instant-meeting"
+              >
+                {meetingMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Video className="h-4 w-4" />}
+                {t.nexusOmni.teams.instantMeeting}
+              </Button>
+              <Button
+                className="flex-1 gap-2 bg-indigo-600 hover:bg-indigo-700"
+                onClick={() => {
+                  handleCreateScheduledMeeting();
+                  setMeetingDialogOpen(false);
+                }}
+                disabled={meetingMutation.isPending}
+                data-testid="button-create-scheduled-meeting"
+              >
+                {meetingMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Calendar className="h-4 w-4" />}
+                {t.nexusOmni.teams.scheduleMeeting}
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
