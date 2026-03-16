@@ -588,6 +588,7 @@ function NexusPointPanel({ userId }: { userId?: string }) {
   };
 
   return (
+    <TooltipProvider delayDuration={200}>
     <div className="flex-1 flex min-w-0 min-h-0 gap-0">
       <Card className="w-[240px] min-w-[200px] max-w-[280px] shrink-0 flex flex-col">
         <CardHeader className="py-2 px-3 border-b shrink-0 space-y-0">
@@ -662,43 +663,33 @@ function NexusPointPanel({ userId }: { userId?: string }) {
                 <span className="text-xs text-muted-foreground">/ {drives.find((d: any) => d.id === selectedDriveId)?.name}</span>
               )}
             </div>
-            <div className="flex items-center gap-1.5 shrink-0">
-              <div className="relative">
-                <Search className="h-3.5 w-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  value={searchQuery}
-                  onChange={(e) => handleSearch(e.target.value)}
-                  placeholder={t.nexusOmni.nexuspoint.searchFiles}
-                  className="h-7 text-xs pl-7 w-[140px]"
-                  data-testid="input-search-files"
-                />
-                {isSearching && <Loader2 className="h-3 w-3 animate-spin absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground" />}
-                {searchQuery && !isSearching && (
-                  <button className="absolute right-2 top-1/2 -translate-y-1/2" onClick={() => { setSearchQuery(""); setSearchResults(null); }}>
-                    <X className="h-3 w-3 text-muted-foreground hover:text-foreground" />
-                  </button>
-                )}
-              </div>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="outline" size="sm" className="h-7 text-xs gap-1 px-2" onClick={() => setNewFolderOpen(true)} data-testid="button-new-folder">
-                    <FolderPlus className="h-3.5 w-3.5" />
-                    <span className="hidden sm:inline">{t.nexusOmni.nexuspoint.createFolder}</span>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>{t.nexusOmni.nexuspoint.createFolder}</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="outline" size="sm" className="h-7 text-xs gap-1 px-2" onClick={() => fileInputRef.current?.click()} disabled={uploadMutation.isPending} data-testid="button-upload">
-                    {uploadMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
-                    <span className="hidden sm:inline">Upload</span>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Upload</TooltipContent>
-              </Tooltip>
-              <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFileSelect} />
+            <div className="relative shrink-0">
+              <Search className="h-3.5 w-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={searchQuery}
+                onChange={(e) => handleSearch(e.target.value)}
+                placeholder={t.nexusOmni.nexuspoint.searchFiles}
+                className="h-7 text-xs pl-7 w-[140px]"
+                data-testid="input-search-files"
+              />
+              {isSearching && <Loader2 className="h-3 w-3 animate-spin absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground" />}
+              {searchQuery && !isSearching && (
+                <button className="absolute right-2 top-1/2 -translate-y-1/2" onClick={() => { setSearchQuery(""); setSearchResults(null); }}>
+                  <X className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+                </button>
+              )}
             </div>
+          </div>
+          <div className="flex items-center gap-1.5 mt-1.5">
+            <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5 px-2.5" onClick={() => setNewFolderOpen(true)} data-testid="button-new-folder">
+              <FolderPlus className="h-3.5 w-3.5" />
+              {t.nexusOmni.nexuspoint.createFolder}
+            </Button>
+            <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5 px-2.5" onClick={() => fileInputRef.current?.click()} disabled={uploadMutation.isPending} data-testid="button-upload">
+              {uploadMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+              {t.nexusOmni.nexuspoint.upload}
+            </Button>
+            <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFileSelect} />
           </div>
           {folderStack.length > 0 && !searchResults && (
             <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1 overflow-x-auto">
@@ -1051,6 +1042,7 @@ function NexusPointPanel({ userId }: { userId?: string }) {
         </DialogContent>
       </Dialog>
     </div>
+    </TooltipProvider>
   );
 }
 
