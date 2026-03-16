@@ -461,42 +461,73 @@ function NexusPointPanel({ userId }: { userId?: string }) {
   const sortedItems = [...folders, ...filesList];
   const displayItems = searchResults !== null ? searchResults : sortedItems;
 
-  if (!selectedSiteId) {
+  if (!selectedSiteId || !selectedDriveId) {
     return (
-      <Card className="flex-1 flex flex-col">
-        <CardHeader className="py-2 px-3 border-b shrink-0">
-          <div className="flex items-center gap-2">
-            <HardDrive className="h-4 w-4 text-emerald-600" />
-            <span className="text-sm font-semibold">NexusPoint</span>
-          </div>
-        </CardHeader>
-        <CardContent className="flex-1 flex flex-col items-center justify-center p-6">
-          <HardDrive className="h-12 w-12 text-emerald-500/30 mb-4" />
-          <h3 className="text-lg font-semibold mb-2">{t.nexusOmni.nexuspoint.selectSite}</h3>
-          {sitesLoading ? (
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-          ) : sites.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t.nexusOmni.nexuspoint.noSites}</p>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-4 w-full max-w-3xl">
-              {sites.map((site: any) => (
-                <button
-                  key={site.id}
-                  onClick={() => { setSelectedSiteId(site.id); setSelectedDriveId(null); setFolderStack([]); }}
-                  className="flex items-start gap-3 p-3 rounded-lg border hover:bg-accent transition-colors text-left"
-                  data-testid={`nexuspoint-site-${site.id}`}
-                >
-                  <Globe className="h-5 w-5 text-emerald-600 mt-0.5 shrink-0" />
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium truncate">{site.displayName}</p>
-                    {site.description && <p className="text-xs text-muted-foreground line-clamp-2">{site.description}</p>}
-                  </div>
-                </button>
+      <div className="flex-1 flex min-w-0 min-h-0 gap-0">
+        <Card className="w-[240px] min-w-[200px] max-w-[280px] shrink-0 flex flex-col">
+          <CardHeader className="py-2 px-3 border-b shrink-0 space-y-0">
+            <div className="flex items-center gap-2">
+              <HardDrive className="h-4 w-4 text-emerald-600" />
+              <span className="text-sm font-semibold">NexusPoint</span>
+            </div>
+          </CardHeader>
+          <ScrollArea className="flex-1">
+            <div className="py-1">
+              {sitesLoading ? (
+                <div className="flex items-center justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+              ) : sites.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-4">{t.nexusOmni.nexuspoint.noSites}</p>
+              ) : sites.map((site: any) => (
+                <div key={site.id}>
+                  <button
+                    className={cn(
+                      "w-full text-left px-3 py-1.5 flex items-center gap-2 hover:bg-accent/50 transition-colors text-sm",
+                      selectedSiteId === site.id && "bg-accent font-medium"
+                    )}
+                    onClick={() => {
+                      if (selectedSiteId !== site.id) {
+                        setSelectedSiteId(site.id);
+                        setSelectedDriveId(null);
+                        setFolderStack([]);
+                        setDetailItem(null);
+                        setSearchResults(null);
+                        setSearchQuery("");
+                      }
+                    }}
+                    data-testid={`nexuspoint-site-${site.id}`}
+                  >
+                    <Globe className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                    <span className="truncate">{site.displayName}</span>
+                  </button>
+                  {selectedSiteId === site.id && drives.length > 0 && (
+                    <div className="ml-4">
+                      {drives.map((d: any) => (
+                        <button
+                          key={d.id}
+                          className={cn(
+                            "w-full text-left px-3 py-1 flex items-center gap-2 hover:bg-accent/50 transition-colors text-xs",
+                            selectedDriveId === d.id && "bg-emerald-50 dark:bg-emerald-950/20 font-medium text-emerald-700 dark:text-emerald-300"
+                          )}
+                          onClick={() => { setSelectedDriveId(d.id); setFolderStack([]); setDetailItem(null); }}
+                          data-testid={`nexuspoint-drive-${d.id}`}
+                        >
+                          <HardDrive className="h-3 w-3 shrink-0" />
+                          <span className="truncate">{d.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               ))}
             </div>
-          )}
-        </CardContent>
-      </Card>
+          </ScrollArea>
+        </Card>
+        <Card className="flex-1 flex flex-col items-center justify-center min-w-0">
+          <HardDrive className="h-12 w-12 text-emerald-500/30 mb-4" />
+          <h3 className="text-lg font-semibold mb-2">{t.nexusOmni.nexuspoint.selectSite}</h3>
+          <p className="text-sm text-muted-foreground">{selectedSiteId ? "Select a document library" : t.nexusOmni.nexuspoint.noSites}</p>
+        </Card>
+      </div>
     );
   }
 
@@ -557,27 +588,78 @@ function NexusPointPanel({ userId }: { userId?: string }) {
   };
 
   return (
-    <div className="flex-1 flex min-w-0 min-h-0">
+    <div className="flex-1 flex min-w-0 min-h-0 gap-0">
+      <Card className="w-[240px] min-w-[200px] max-w-[280px] shrink-0 flex flex-col">
+        <CardHeader className="py-2 px-3 border-b shrink-0 space-y-0">
+          <div className="flex items-center gap-2">
+            <HardDrive className="h-4 w-4 text-emerald-600" />
+            <span className="text-sm font-semibold">NexusPoint</span>
+          </div>
+        </CardHeader>
+        <ScrollArea className="flex-1">
+          <div className="py-1">
+            {sitesLoading ? (
+              <div className="flex items-center justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+            ) : sites.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-4">{t.nexusOmni.nexuspoint.noSites}</p>
+            ) : sites.map((site: any) => (
+              <div key={site.id}>
+                <button
+                  className={cn(
+                    "w-full text-left px-3 py-1.5 flex items-center gap-2 hover:bg-accent/50 transition-colors text-sm",
+                    selectedSiteId === site.id && "bg-accent font-medium"
+                  )}
+                  onClick={() => {
+                    if (selectedSiteId !== site.id) {
+                      setSelectedSiteId(site.id);
+                      setSelectedDriveId(null);
+                      setFolderStack([]);
+                      setDetailItem(null);
+                      setSearchResults(null);
+                      setSearchQuery("");
+                    }
+                  }}
+                  data-testid={`nexuspoint-sidebar-site-${site.id}`}
+                >
+                  <Globe className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                  <span className="truncate">{site.displayName}</span>
+                </button>
+                {selectedSiteId === site.id && drives.length > 0 && (
+                  <div className="ml-4">
+                    {drives.map((d: any) => (
+                      <button
+                        key={d.id}
+                        className={cn(
+                          "w-full text-left px-3 py-1 flex items-center gap-2 hover:bg-accent/50 transition-colors text-xs",
+                          selectedDriveId === d.id && "bg-emerald-50 dark:bg-emerald-950/20 font-medium text-emerald-700 dark:text-emerald-300"
+                        )}
+                        onClick={() => { setSelectedDriveId(d.id); setFolderStack([]); setDetailItem(null); }}
+                        data-testid={`nexuspoint-sidebar-drive-${d.id}`}
+                      >
+                        <HardDrive className="h-3 w-3 shrink-0" />
+                        <span className="truncate">{d.name}</span>
+                      </button>
+                    ))}
+                    {drivesLoading && (
+                      <div className="flex items-center gap-2 px-3 py-1 text-xs text-muted-foreground">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </ScrollArea>
+      </Card>
       <Card className="flex-1 flex flex-col min-w-0">
         <CardHeader className="py-1.5 px-3 border-b shrink-0 space-y-0">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
-              <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => { setSelectedSiteId(null); setSelectedDriveId(null); setFolderStack([]); setDetailItem(null); setSearchResults(null); setSearchQuery(""); }} data-testid="button-back-sites">
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
               <HardDrive className="h-4 w-4 text-emerald-600 shrink-0" />
               <span className="text-sm font-semibold truncate">{sites.find((s: any) => s.id === selectedSiteId)?.displayName || 'NexusPoint'}</span>
-              {drives.length > 1 && (
-                <Select value={selectedDriveId || ""} onValueChange={(v) => { setSelectedDriveId(v); setFolderStack([]); }}>
-                  <SelectTrigger className="h-6 text-xs w-auto min-w-[100px] max-w-[180px]" data-testid="select-drive">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {drives.map((d: any) => (
-                      <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              {selectedDriveId && drives.length > 0 && (
+                <span className="text-xs text-muted-foreground">/ {drives.find((d: any) => d.id === selectedDriveId)?.name}</span>
               )}
             </div>
             <div className="flex items-center gap-1 shrink-0">

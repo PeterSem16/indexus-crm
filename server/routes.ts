@@ -3856,11 +3856,16 @@ export async function registerRoutes(
       if (!token) return res.status(401).json({ error: "Not connected" });
       const { createSharePointFolder } = await import("./lib/ms365");
       const { parentFolderId, name } = req.body;
-      const folder = await createSharePointFolder(token, req.params.driveId, parentFolderId || null, name);
+      if (!name || typeof name !== 'string' || !name.trim()) {
+        return res.status(400).json({ error: "Folder name is required" });
+      }
+      console.log("[SharePoint] Creating folder:", { driveId: req.params.driveId, parentFolderId, name: name.trim() });
+      const folder = await createSharePointFolder(token, req.params.driveId, parentFolderId || null, name.trim());
       res.json(folder);
-    } catch (error) {
-      console.error("[SharePoint] Error creating folder:", error);
-      res.status(500).json({ error: "Failed to create folder" });
+    } catch (error: any) {
+      const graphError = error?.body || error?.message || error?.statusCode || String(error);
+      console.error("[SharePoint] Error creating folder:", graphError);
+      res.status(error?.statusCode || 500).json({ error: `Failed to create folder: ${typeof graphError === 'string' ? graphError : JSON.stringify(graphError)}` });
     }
   });
 

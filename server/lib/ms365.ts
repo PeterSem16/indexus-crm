@@ -1070,34 +1070,73 @@ export async function getTeamsChats(
   accessToken: string
 ): Promise<{ chats: any[] }> {
   const client = createGraphClient(accessToken);
-  const result = await client.api('/me/chats')
-    .select('id,topic,chatType,createdDateTime,lastUpdatedDateTime,webUrl')
-    .expand('members,lastMessagePreview')
-    .top(50)
-    .get();
-  const chats = (result.value || []).map((chat: any) => ({
-    id: chat.id,
-    topic: chat.topic || (chat.members || [])
-      .filter((m: any) => m['@odata.type'] === '#microsoft.graph.aadUserConversationMember')
-      .map((m: any) => m.displayName)
-      .filter((n: string) => n)
-      .join(', ') || 'Chat',
-    chatType: chat.chatType,
-    createdDateTime: chat.createdDateTime,
-    lastUpdatedDateTime: chat.lastUpdatedDateTime,
-    webUrl: chat.webUrl || null,
-    lastMessagePreview: chat.lastMessagePreview ? {
-      body: chat.lastMessagePreview.body?.content || '',
-      from: chat.lastMessagePreview.from?.user?.displayName || null,
-      createdDateTime: chat.lastMessagePreview.createdDateTime,
-    } : null,
-    members: (chat.members || []).map((m: any) => ({
+  let result: any;
+  try {
+    result = await client.api('/me/chats')
+      .select('id,topic,chatType,createdDateTime,lastUpdatedDateTime,webUrl')
+      .expand('members,lastMessagePreview')
+      .top(50)
+      .get();
+  } catch (expandError: any) {
+    console.warn('[MS365] Chats expand(members) failed, trying without expand:', expandError?.code || expandError?.message);
+    try {
+      result = await client.api('/me/chats')
+        .select('id,topic,chatType,createdDateTime,lastUpdatedDateTime,webUrl')
+        .expand('lastMessagePreview')
+        .top(50)
+        .get();
+    } catch (fallbackError: any) {
+      console.warn('[MS365] Chats expand(lastMessagePreview) also failed, basic fetch:', fallbackError?.code);
+      result = await client.api('/me/chats')
+        .select('id,topic,chatType,createdDateTime,lastUpdatedDateTime,webUrl')
+        .top(50)
+        .get();
+    }
+  }
+  const rawChats = result.value || [];
+
+  const chats = await Promise.all(rawChats.map(async (chat: any) => {
+    let members = (chat.members || []).map((m: any) => ({
       id: m.id,
       userId: m.userId,
       displayName: m.displayName,
       email: m.email,
-    })),
+    })).filter((m: any) => m.displayName);
+
+    if (members.length === 0) {
+      try {
+        const membersResult = await client.api(`/me/chats/${chat.id}/members`).get();
+        members = (membersResult.value || []).map((m: any) => ({
+          id: m.id,
+          userId: m.userId,
+          displayName: m.displayName,
+          email: m.email,
+        })).filter((m: any) => m.displayName);
+      } catch {
+      }
+    }
+
+    const memberNames = members.map((m: any) => m.displayName).filter(Boolean);
+    const displayTopic = chat.topic || memberNames.join(', ') || 
+      (chat.lastMessagePreview?.from?.user?.displayName ? chat.lastMessagePreview.from.user.displayName : null) ||
+      (chat.chatType === 'oneOnOne' ? 'Direct Chat' : chat.chatType === 'group' ? 'Group Chat' : 'Chat');
+
+    return {
+      id: chat.id,
+      topic: displayTopic,
+      chatType: chat.chatType,
+      createdDateTime: chat.createdDateTime,
+      lastUpdatedDateTime: chat.lastUpdatedDateTime,
+      webUrl: chat.webUrl || null,
+      lastMessagePreview: chat.lastMessagePreview ? {
+        body: chat.lastMessagePreview.body?.content || '',
+        from: chat.lastMessagePreview.from?.user?.displayName || null,
+        createdDateTime: chat.lastMessagePreview.createdDateTime,
+      } : null,
+      members,
+    };
   }));
+
   chats.sort((a: any, b: any) => {
     const dateA = a.lastUpdatedDateTime ? new Date(a.lastUpdatedDateTime).getTime() : 0;
     const dateB = b.lastUpdatedDateTime ? new Date(b.lastUpdatedDateTime).getTime() : 0;
@@ -1302,12 +1341,18 @@ export async function createSharePointFolder(accessToken: string, driveId: strin
   const path = parentFolderId
     ? `/drives/${driveId}/items/${parentFolderId}/children`
     : `/drives/${driveId}/root/children`;
-  const result = await client.api(path).post({
-    name: folderName,
-    folder: {},
-    "@microsoft.graph.conflictBehavior": "rename"
-  });
-  return result;
+  console.log('[MS365] createSharePointFolder path:', path, 'name:', folderName);
+  try {
+    const result = await client.api(path).post({
+      name: folderName,
+      folder: {},
+      "@microsoft.graph.conflictBehavior": "rename"
+    });
+    return result;
+  } catch (error: any) {
+    console.error('[MS365] createSharePointFolder error details:', error?.statusCode, error?.code, error?.message, error?.body);
+    throw error;
+  }
 }
 
 export async function uploadSharePointFile(accessToken: string, driveId: string, parentFolderId: string | null, fileName: string, content: Buffer): Promise<any> {
