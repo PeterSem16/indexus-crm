@@ -1571,7 +1571,7 @@ export async function registerRoutes(
       
       // Always use HTTPS for redirect URI (Replit runs behind a proxy)
       const redirectUri = `https://${req.get("host")}/api/auth/microsoft/callback`;
-      const scopes = ["openid", "profile", "email", "User.Read"];
+      const scopes = ["openid", "profile", "email", "offline_access", "User.Read", "Mail.Read", "Mail.ReadWrite", "Mail.Send", "Chat.Read", "Chat.ReadWrite", "ChannelMessage.Read.All", "Team.ReadBasic.All", "OnlineMeetings.ReadWrite", "Files.ReadWrite.All", "Sites.ReadWrite.All", "Presence.Read.All"];
       
       // Include user ID in state parameter (format: login:{userId})
       const stateParam = `login:${user.id}`;
@@ -2485,7 +2485,7 @@ export async function registerRoutes(
             code: String(code),
             redirect_uri: redirectUri,
             grant_type: "authorization_code",
-            scope: "openid profile email User.Read",
+            scope: "openid profile email offline_access User.Read Mail.Read Mail.ReadWrite Mail.Send Chat.Read Chat.ReadWrite ChannelMessage.Read.All Team.ReadBasic.All OnlineMeetings.ReadWrite Files.ReadWrite.All Sites.ReadWrite.All Presence.Read.All",
           }),
         });
         
