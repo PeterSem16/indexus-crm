@@ -2635,36 +2635,36 @@ export default function EmailClientPage() {
             </DialogHeader>
 
             <div className="px-5 pt-4 pb-3 space-y-3">
-              <div className="relative group">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground/50 transition-colors group-focus-within:text-primary" />
-                <Input
-                  ref={smartSearchInputRef}
-                  placeholder={t.nexusOmni.search.placeholder}
-                  value={smartSearchQuery}
-                  onChange={(e) => setSmartSearchQuery(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") executeSmartSearch(smartSearchQuery); if (e.key === "Escape") setSmartSearchOpen(false); }}
-                  className="pl-12 pr-20 h-12 text-base rounded-xl border-0 bg-muted/50 focus-visible:ring-1 focus-visible:ring-primary/30 shadow-inner"
-                  autoFocus
-                  data-testid="input-smart-search"
-                />
-                <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
+              <div className="flex items-center gap-2">
+                <div className="relative group flex-1">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground/50 transition-colors group-focus-within:text-primary" />
+                  <Input
+                    ref={smartSearchInputRef}
+                    placeholder={t.nexusOmni.search.placeholder}
+                    value={smartSearchQuery}
+                    onChange={(e) => setSmartSearchQuery(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") executeSmartSearch(smartSearchQuery); if (e.key === "Escape") setSmartSearchOpen(false); }}
+                    className="pl-12 pr-10 h-12 text-base rounded-xl border-0 bg-muted/50 focus-visible:ring-1 focus-visible:ring-primary/30 shadow-inner"
+                    autoFocus
+                    data-testid="input-smart-search"
+                  />
                   {smartSearchQuery.length > 0 && (
                     <button
                       onClick={() => { setSmartSearchQuery(""); smartSearchInputRef.current?.focus(); }}
-                      className="h-7 w-7 rounded-lg bg-muted hover:bg-muted-foreground/20 flex items-center justify-center transition-all"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 h-7 w-7 rounded-lg bg-muted hover:bg-muted-foreground/20 flex items-center justify-center transition-all"
                       data-testid="clear-search-input"
                     >
                       <X className="h-3.5 w-3.5 text-muted-foreground" />
                     </button>
                   )}
-                  <button
-                    onClick={() => setSmartSearchOpen(false)}
-                    className="h-7 w-7 rounded-lg hover:bg-destructive/10 flex items-center justify-center transition-all"
-                    data-testid="button-close-search"
-                  >
-                    <X className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                  </button>
                 </div>
+                <button
+                  onClick={() => setSmartSearchOpen(false)}
+                  className="h-10 w-10 rounded-xl border border-border hover:bg-destructive/10 flex items-center justify-center transition-all shrink-0"
+                  data-testid="button-close-search"
+                >
+                  <X className="h-4.5 w-4.5 text-muted-foreground hover:text-destructive" />
+                </button>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
