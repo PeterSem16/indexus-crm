@@ -1208,7 +1208,7 @@ function TeamsPanel({ userId }: { userId?: string }) {
   };
   const getInitials = (name: string) => {
     const parts = name.trim().split(/\s+/);
-    if (parts.length >= 2) return (parts[parts.length - 1][0] + parts[0][0]).toUpperCase();
+    if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
     return name.substring(0, 2).toUpperCase();
   };
   const getChatDisplayName = (chat: any) => {
@@ -1220,17 +1220,56 @@ function TeamsPanel({ userId }: { userId?: string }) {
     return `${memberNames.slice(0, 2).join(', ')}, +${memberNames.length - 2}`;
   };
 
+  const [sidebarFilter, setSidebarFilter] = useState<"all" | "channels" | "chats">("all");
+  const [chatsSectionOpen, setChatsSectionOpen] = useState(true);
+  const [teamsSectionOpen, setTeamsSectionOpen] = useState(true);
+  const [expandedTeamIds, setExpandedTeamIds] = useState<string[]>([]);
+
+  const toggleTeamExpand = (teamId: string) => {
+    setExpandedTeamIds(prev => prev.includes(teamId) ? prev.filter(id => id !== teamId) : [...prev, teamId]);
+    if (!selectedTeamId || selectedTeamId !== teamId) {
+      setSelectedTeamId(teamId);
+    }
+  };
+
+  const renderChatItem = (chat: any) => {
+    const displayName = getChatDisplayName(chat);
+    const isGroup = chat.chatType === "group" && (chat.members?.length || 0) > 2;
+    return (
+      <button
+        key={chat.id}
+        className={cn(
+          "w-full text-left pl-6 pr-3 py-[7px] transition-all hover:bg-[#2a2a2a] dark:hover:bg-[#2a2a2a] flex items-center gap-2.5 group",
+          selectedTeamsChatId === chat.id && "bg-[#383838] dark:bg-[#383838]"
+        )}
+        onClick={() => { setSelectedTeamsChatId(chat.id); setSelectedChannelId(null); setSelectedTeamId(null); }}
+        data-testid={`teams-chat-${chat.id}`}
+      >
+        <div className="relative shrink-0">
+          <div className={cn("h-8 w-8 rounded-full flex items-center justify-center text-white text-[11px] font-semibold", getAvatarColor(displayName))}>
+            {isGroup ? <Users className="h-3.5 w-3.5" /> : getInitials(displayName)}
+          </div>
+          <div className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-[#1f1f1f] bg-gray-500" />
+        </div>
+        <span className={cn("text-[13px] truncate flex-1", selectedTeamsChatId === chat.id ? "font-semibold" : "font-normal")}>{displayName}</span>
+      </button>
+    );
+  };
+
+  const filteredChats = sidebarFilter === "channels" ? [] : chats;
+  const showTeamsSection = sidebarFilter !== "chats";
+
   return (
     <>
-      <Card className="transition-all duration-300 w-[30%] min-w-[280px] max-w-[380px] shrink-0 dark:bg-[#1f1f1f] dark:border-[#333]">
+      <Card className="transition-all duration-300 w-[30%] min-w-[280px] max-w-[380px] shrink-0 bg-[#1f1f1f] dark:bg-[#1f1f1f] border-[#333] dark:border-[#333] text-[#e0e0e0]">
         <CardContent className="p-0 h-full flex flex-col">
-          <div className="p-3 border-b dark:border-[#333]">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-base font-semibold">Chat</h3>
-              <div className="flex items-center gap-1">
+          <div className="px-4 pt-3 pb-2 border-b border-[#333]">
+            <div className="flex items-center justify-between mb-2.5">
+              <h3 className="text-[17px] font-semibold text-white">Chat</h3>
+              <div className="flex items-center gap-0.5">
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setMeetingDialogOpen(true); setMeetingLink(null); setMeetingSubject(""); }} data-testid="button-new-meeting">
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-[#999] hover:text-white hover:bg-[#333]" onClick={() => { setMeetingDialogOpen(true); setMeetingLink(null); setMeetingSubject(""); }} data-testid="button-new-meeting">
                       <Video className="h-4 w-4" />
                     </Button>
                   </TooltipTrigger>
@@ -1238,116 +1277,119 @@ function TeamsPanel({ userId }: { userId?: string }) {
                 </Tooltip>
               </div>
             </div>
-            <div className="flex gap-1">
-              <Button variant={teamsView === "chats" ? "secondary" : "ghost"} size="sm" className="h-7 text-xs rounded-full px-3" onClick={() => { setTeamsView("chats"); setSelectedTeamId(null); setSelectedChannelId(null); }} data-testid="teams-view-chats">
+            <div className="flex gap-1.5">
+              <button
+                className={cn("px-3 py-1 rounded-full text-xs font-medium border transition-colors",
+                  sidebarFilter === "channels" ? "bg-[#383838] border-[#555] text-white" : "border-[#444] text-[#bbb] hover:bg-[#2a2a2a]"
+                )}
+                onClick={() => setSidebarFilter(f => f === "channels" ? "all" : "channels")}
+                data-testid="teams-filter-channels"
+              >
+                {t.nexusOmni.email.channels}
+              </button>
+              <button
+                className={cn("px-3 py-1 rounded-full text-xs font-medium border transition-colors",
+                  sidebarFilter === "chats" ? "bg-[#383838] border-[#555] text-white" : "border-[#444] text-[#bbb] hover:bg-[#2a2a2a]"
+                )}
+                onClick={() => setSidebarFilter(f => f === "chats" ? "all" : "chats")}
+                data-testid="teams-filter-chats"
+              >
                 {t.nexusOmni.tabs.chats}
-              </Button>
-              <Button variant={teamsView === "teams" ? "secondary" : "ghost"} size="sm" className="h-7 text-xs rounded-full px-3" onClick={() => { setTeamsView("teams"); setSelectedTeamsChatId(null); }} data-testid="teams-view-teams">
-                {t.nexusOmni.tabs.teams}
-              </Button>
+              </button>
             </div>
           </div>
           <ScrollArea className="flex-1">
-            {teamsView === "chats" && (
-              <div>
-                {chatsLoading ? (
-                  <div className="flex items-center justify-center py-8"><Loader2 className="h-5 w-5 animate-spin" /></div>
-                ) : chats.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-                    <MessagesSquare className="h-8 w-8 mb-2 opacity-30" />
-                    <span className="text-xs">{chatsError ? `${t.nexusOmni.common.error}: ${chatsError.message}` : chatsData?.error ? `${t.nexusOmni.common.error}: ${chatsData.error}` : chatsData?.connected === false ? t.nexusOmni.teams.notConnected : t.nexusOmni.teams.noTeamsChats}</span>
-                  </div>
-                ) : chats.map(chat => {
-                  const displayName = getChatDisplayName(chat);
-                  return (
-                    <button
-                      key={chat.id}
-                      className={cn(
-                        "w-full text-left px-3 py-2 transition-all hover:bg-accent/50 flex items-center gap-3",
-                        selectedTeamsChatId === chat.id && "bg-accent dark:bg-[#383838]"
-                      )}
-                      onClick={() => setSelectedTeamsChatId(chat.id)}
-                      data-testid={`teams-chat-${chat.id}`}
-                    >
-                      <div className={cn("h-9 w-9 rounded-full flex items-center justify-center shrink-0 text-white text-xs font-semibold", getAvatarColor(displayName))}>
-                        {chat.chatType === "group" && (chat.members?.length || 0) > 2
-                          ? <Users className="h-4 w-4" />
-                          : getInitials(displayName)
-                        }
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between gap-1">
-                          <p className="text-sm font-medium truncate">{displayName}</p>
-                          {chat.lastUpdatedDateTime && (
-                            <span className="text-[10px] text-muted-foreground shrink-0">{format(new Date(chat.lastUpdatedDateTime), "d.M.")}</span>
-                          )}
-                        </div>
-                        {chat.lastMessagePreview ? (
-                          <p className="text-[11px] text-muted-foreground truncate mt-0.5">
-                            {stripHtmlTags(chat.lastMessagePreview.body).substring(0, 50)}
-                          </p>
-                        ) : null}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-            {teamsView === "teams" && !selectedTeamId && (
-              <div>
-                {teamsLoading ? (
-                  <div className="flex items-center justify-center py-8"><Loader2 className="h-5 w-5 animate-spin" /></div>
-                ) : teams.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-                    <Users className="h-8 w-8 mb-2 opacity-30" />
-                    <span className="text-xs">{teamsError ? `${t.nexusOmni.common.error}: ${teamsError.message}` : teamsData?.error ? `${t.nexusOmni.common.error}: ${teamsData.error}` : teamsData?.connected === false ? t.nexusOmni.teams.notConnected : t.nexusOmni.teams.noTeams}</span>
-                  </div>
-                ) : teams.map(team => (
-                  <button
-                    key={team.id}
-                    className="w-full text-left px-3 py-2 transition-all hover:bg-accent/50 flex items-center gap-3"
-                    onClick={() => setSelectedTeamId(team.id)}
-                    data-testid={`teams-team-${team.id}`}
-                  >
-                    <div className={cn("h-9 w-9 rounded-full flex items-center justify-center shrink-0 text-white text-xs font-semibold", getAvatarColor(team.displayName || ''))}>
-                      {getInitials(team.displayName || 'T')}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{team.displayName}</p>
-                      {team.description && <p className="text-[11px] text-muted-foreground truncate">{team.description}</p>}
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
-            {teamsView === "teams" && selectedTeamId && (
-              <div>
-                <button className="w-full text-left px-3 py-2 text-xs text-muted-foreground hover:bg-accent/50 flex items-center gap-1" onClick={() => { setSelectedTeamId(null); setSelectedChannelId(null); }}>
-                  <ChevronLeft className="h-3 w-3" /> {t.nexusOmni.tabs.teams}
-                </button>
-                <div className="px-3 py-1.5 border-b dark:border-[#333]">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{selectedTeam?.displayName} - {t.nexusOmni.email.channels}</p>
+            <div className="py-1">
+              {chatsLoading && teamsLoading ? (
+                <div className="flex items-center justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-[#888]" /></div>
+              ) : chats.length === 0 && teams.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 text-[#888]">
+                  <MessagesSquare className="h-8 w-8 mb-2 opacity-30" />
+                  <span className="text-xs">{chatsError ? `${t.nexusOmni.common.error}: ${chatsError.message}` : chatsData?.error ? `${t.nexusOmni.common.error}: ${chatsData.error}` : chatsData?.connected === false ? t.nexusOmni.teams.notConnected : t.nexusOmni.teams.noTeamsChats}</span>
                 </div>
-                {channels.map(ch => (
-                  <button
-                    key={ch.id}
-                    className={cn(
-                      "w-full text-left px-3 py-2 transition-all hover:bg-accent/50",
-                      selectedChannelId === ch.id && "bg-accent dark:bg-[#383838]"
-                    )}
-                    onClick={() => setSelectedChannelId(ch.id)}
-                    data-testid={`teams-channel-${ch.id}`}
-                  >
-                    <p className="text-sm font-medium truncate"># {ch.displayName}</p>
-                    {ch.description && <p className="text-[11px] text-muted-foreground truncate">{ch.description}</p>}
-                  </button>
-                ))}
-              </div>
-            )}
+              ) : (
+                <>
+                  {filteredChats.length > 0 && (
+                    <>
+                      <button
+                        className="w-full text-left px-4 py-1.5 flex items-center gap-1 text-xs font-semibold text-[#999] hover:text-white transition-colors"
+                        onClick={() => setChatsSectionOpen(!chatsSectionOpen)}
+                        data-testid="teams-section-chats"
+                      >
+                        <ChevronDown className={cn("h-3 w-3 transition-transform", !chatsSectionOpen && "-rotate-90")} />
+                        <span>{t.nexusOmni.tabs.chats}</span>
+                      </button>
+                      {chatsSectionOpen && (
+                        <div>
+                          {filteredChats.map(chat => renderChatItem(chat))}
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {showTeamsSection && teams.length > 0 && (
+                    <>
+                      <button
+                        className="w-full text-left px-4 py-1.5 flex items-center gap-1 text-xs font-semibold text-[#999] hover:text-white transition-colors mt-1"
+                        onClick={() => setTeamsSectionOpen(!teamsSectionOpen)}
+                        data-testid="teams-section-teams"
+                      >
+                        <ChevronDown className={cn("h-3 w-3 transition-transform", !teamsSectionOpen && "-rotate-90")} />
+                        <span>{t.nexusOmni.tabs.teams} & {t.nexusOmni.email.channels}</span>
+                      </button>
+                      {teamsSectionOpen && (
+                        <div>
+                          {teams.map(team => (
+                            <div key={team.id}>
+                              <button
+                                className={cn(
+                                  "w-full text-left pl-5 pr-3 py-[7px] transition-all hover:bg-[#2a2a2a] flex items-center gap-2.5",
+                                  selectedTeamId === team.id && !selectedChannelId && "bg-[#383838]"
+                                )}
+                                onClick={() => toggleTeamExpand(team.id)}
+                                data-testid={`teams-team-${team.id}`}
+                              >
+                                <ChevronDown className={cn("h-3 w-3 text-[#999] transition-transform shrink-0", !expandedTeamIds.includes(team.id) && "-rotate-90")} />
+                                <div className={cn("h-7 w-7 rounded flex items-center justify-center text-white text-[10px] font-bold shrink-0", getAvatarColor(team.displayName || ''))}>
+                                  {getInitials(team.displayName || 'T')}
+                                </div>
+                                <span className="text-[13px] truncate">{team.displayName}</span>
+                              </button>
+                              {expandedTeamIds.includes(team.id) && selectedTeamId === team.id && (
+                                <div className="ml-8">
+                                  {channelsData?.channels?.map((ch: any) => (
+                                    <button
+                                      key={ch.id}
+                                      className={cn(
+                                        "w-full text-left pl-4 pr-3 py-[5px] transition-all hover:bg-[#2a2a2a] flex items-center gap-2 text-[12px]",
+                                        selectedChannelId === ch.id && "bg-[#383838] font-semibold"
+                                      )}
+                                      onClick={() => { setSelectedChannelId(ch.id); setSelectedTeamsChatId(null); }}
+                                      data-testid={`teams-channel-${ch.id}`}
+                                    >
+                                      <span className="text-[#999]">#</span>
+                                      <span className="truncate">{ch.displayName}</span>
+                                    </button>
+                                  )) || (
+                                    <div className="pl-4 py-2">
+                                      <Loader2 className="h-3 w-3 animate-spin text-[#666]" />
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </>
+              )}
+            </div>
           </ScrollArea>
         </CardContent>
       </Card>
-      <Card className="transition-all duration-300 flex-1 min-w-0">
+      <Card className="transition-all duration-300 flex-1 min-w-0 dark:bg-[#292929] dark:border-[#333]">
         <CardContent className="p-0 h-full">
           {activeMeeting ? (
             <div className="flex flex-col h-full dark:bg-[#292929]">
