@@ -955,6 +955,8 @@ function TeamsPanel({ userId }: { userId?: string }) {
   const [meetingDialogOpen, setMeetingDialogOpen] = useState(false);
   const [meetingSubject, setMeetingSubject] = useState("");
   const [meetingLink, setMeetingLink] = useState<string | null>(null);
+  const [activeMeeting, setActiveMeeting] = useState<{ subject: string; joinUrl: string; startTime: number } | null>(null);
+  const [meetingElapsed, setMeetingElapsed] = useState(0);
   const { toast } = useToast();
   const { t } = useI18n();
 
@@ -1011,6 +1013,21 @@ function TeamsPanel({ userId }: { userId?: string }) {
     enabled: !!userId && !!selectedTeamId && !!selectedChannelId,
   });
 
+  useEffect(() => {
+    if (!activeMeeting) { setMeetingElapsed(0); return; }
+    const iv = setInterval(() => setMeetingElapsed(Math.floor((Date.now() - activeMeeting.startTime) / 1000)), 1000);
+    return () => clearInterval(iv);
+  }, [activeMeeting]);
+
+  const formatElapsed = (s: number) => {
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = s % 60;
+    return h > 0
+      ? `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`
+      : `${m}:${String(sec).padStart(2, '0')}`;
+  };
+
   const sendMutation = useMutation({
     mutationFn: async (content: string) => {
       return apiRequest("POST", `/api/users/${userId}/teams-chats/${selectedTeamsChatId}/messages`, { content });
@@ -1032,6 +1049,7 @@ function TeamsPanel({ userId }: { userId?: string }) {
       const data = await res.json();
       if (data.joinUrl) {
         setMeetingLink(data.joinUrl);
+        setActiveMeeting({ subject: data.subject || meetingSubject || 'NEXUS Meeting', joinUrl: data.joinUrl, startTime: Date.now() });
         toast({ title: t.nexusOmni.teams.meetingCreated });
       }
     },
@@ -1041,16 +1059,23 @@ function TeamsPanel({ userId }: { userId?: string }) {
   });
 
   const handleInstantMeeting = (participantEmails?: string[]) => {
-    const selectedChat = chats.find(c => c.id === selectedTeamsChatId);
-    const subject = selectedChat ? `${t.nexusOmni.teams.meetingWith} ${selectedChat.topic || 'Chat'}` : 'NEXUS Meeting';
+    const sc = chats.find(c => c.id === selectedTeamsChatId);
+    const subject = sc ? `${t.nexusOmni.teams.meetingWith} ${sc.topic || 'Chat'}` : 'NEXUS Meeting';
+    setMeetingSubject(subject);
     meetingMutation.mutate({ subject, participantEmails });
   };
 
   const handleCreateScheduledMeeting = () => {
-    if (!meetingSubject.trim()) return;
-    const selectedChat = chats.find(c => c.id === selectedTeamsChatId);
-    const emails = selectedChat?.members?.map((m: any) => m.email).filter(Boolean) || [];
-    meetingMutation.mutate({ subject: meetingSubject.trim(), participantEmails: emails });
+    const subj = meetingSubject.trim() || 'NEXUS Meeting';
+    const sc = chats.find(c => c.id === selectedTeamsChatId);
+    const emails = sc?.members?.map((m: any) => m.email).filter(Boolean) || [];
+    meetingMutation.mutate({ subject: subj, participantEmails: emails });
+  };
+
+  const endMeeting = () => {
+    setActiveMeeting(null);
+    setMeetingLink(null);
+    setMeetingDialogOpen(false);
   };
 
   const permError = chatsData?.error === "missing_permissions" || teamsData?.error === "missing_permissions";
@@ -1240,7 +1265,132 @@ function TeamsPanel({ userId }: { userId?: string }) {
       </Card>
       <Card className="transition-all duration-300 flex-1 min-w-0">
         <CardContent className="p-0 h-full">
-          {selectedTeamsChatId ? (
+          {activeMeeting ? (
+            <div className="flex flex-col h-full">
+              <div className="p-3 border-b bg-gradient-to-r from-indigo-600 to-violet-600 text-white flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="h-10 w-10 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+                    <Video className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold truncate">{activeMeeting.subject}</p>
+                    <div className="flex items-center gap-2 text-xs text-white/80">
+                      <span className="flex items-center gap-1">
+                        <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+                        {t.nexusOmni.teams.meetingCreated}
+                      </span>
+                      <span className="font-mono tabular-nums">{formatElapsed(meetingElapsed)}</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-white hover:bg-white/20"
+                        onClick={() => { navigator.clipboard.writeText(activeMeeting.joinUrl); toast({ title: t.nexusOmni.teams.linkCopied }); }}
+                        data-testid="button-copy-active-meeting"
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>{t.nexusOmni.teams.meetingLink}</TooltipContent>
+                  </Tooltip>
+                  {selectedTeamsChatId && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-white hover:bg-white/20"
+                          onClick={() => {
+                            sendMutation.mutate(`<a href="${activeMeeting.joinUrl}">${t.nexusOmni.teams.joinMeeting}: ${activeMeeting.joinUrl}</a>`);
+                            toast({ title: t.nexusOmni.teams.linkCopied });
+                          }}
+                          data-testid="button-share-active-meeting"
+                        >
+                          <Send className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Share to chat</TooltipContent>
+                    </Tooltip>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 text-xs gap-1.5 bg-red-500/80 hover:bg-red-600 text-white border-0"
+                    onClick={endMeeting}
+                    data-testid="button-end-meeting"
+                  >
+                    <Phone className="h-3.5 w-3.5 rotate-[135deg]" />
+                    {t.nexusOmni.common.close}
+                  </Button>
+                </div>
+              </div>
+              <div className="flex-1 flex flex-col">
+                <div className="flex-1 bg-gradient-to-b from-slate-900 to-slate-800 flex flex-col items-center justify-center relative overflow-hidden">
+                  <div className="absolute inset-0 opacity-5">
+                    <div className="absolute top-1/4 left-1/4 h-64 w-64 rounded-full bg-indigo-500 blur-3xl" />
+                    <div className="absolute bottom-1/4 right-1/4 h-48 w-48 rounded-full bg-violet-500 blur-3xl" />
+                  </div>
+                  <div className="relative z-10 flex flex-col items-center gap-6 text-white">
+                    <div className="h-24 w-24 rounded-full bg-indigo-600/30 border-2 border-indigo-400/50 flex items-center justify-center">
+                      <Video className="h-10 w-10 text-indigo-300" />
+                    </div>
+                    <div className="text-center">
+                      <p className="text-lg font-semibold mb-1">{activeMeeting.subject}</p>
+                      <p className="text-sm text-white/60 mb-1">{t.nexusOmni.teams.meetingLink}</p>
+                      <p className="text-3xl font-mono tabular-nums text-white/90">{formatElapsed(meetingElapsed)}</p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Button
+                        size="lg"
+                        className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-600/30 px-8"
+                        onClick={() => window.open(activeMeeting.joinUrl, "_blank")}
+                        data-testid="button-join-active-meeting"
+                      >
+                        <Video className="h-5 w-5" />
+                        {t.nexusOmni.teams.joinMeeting}
+                      </Button>
+                    </div>
+                    <div className="flex items-center gap-4 mt-2">
+                      <button
+                        className="flex flex-col items-center gap-1.5 text-white/60 hover:text-white transition-colors"
+                        onClick={() => { navigator.clipboard.writeText(activeMeeting.joinUrl); toast({ title: t.nexusOmni.teams.linkCopied }); }}
+                        data-testid="button-copy-link-meeting-view"
+                      >
+                        <div className="h-10 w-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors">
+                          <Copy className="h-4 w-4" />
+                        </div>
+                        <span className="text-[10px]">{t.nexusOmni.teams.meetingLink}</span>
+                      </button>
+                      <button
+                        className="flex flex-col items-center gap-1.5 text-white/60 hover:text-white transition-colors"
+                        onClick={() => window.open(activeMeeting.joinUrl, "_blank")}
+                      >
+                        <div className="h-10 w-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors">
+                          <ExternalLink className="h-4 w-4" />
+                        </div>
+                        <span className="text-[10px]">{t.nexusOmni.teams.openInTeams}</span>
+                      </button>
+                      <button
+                        className="flex flex-col items-center gap-1.5 text-red-400 hover:text-red-300 transition-colors"
+                        onClick={endMeeting}
+                        data-testid="button-hangup-meeting"
+                      >
+                        <div className="h-10 w-10 rounded-full bg-red-500/20 hover:bg-red-500/40 flex items-center justify-center transition-colors">
+                          <Phone className="h-4 w-4 rotate-[135deg]" />
+                        </div>
+                        <span className="text-[10px]">{t.nexusOmni.common.close}</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : selectedTeamsChatId ? (
             msgsLoading ? (
               <div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
             ) : (
@@ -1292,51 +1442,6 @@ function TeamsPanel({ userId }: { userId?: string }) {
                     )}
                   </div>
                 </div>
-                {meetingLink && (
-                  <div className="px-3 py-2 border-b bg-indigo-50 dark:bg-indigo-950/20 flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <Video className="h-4 w-4 text-indigo-600 shrink-0" />
-                      <span className="text-xs font-medium text-indigo-700 dark:text-indigo-300">{t.nexusOmni.teams.meetingCreated}</span>
-                    </div>
-                    <div className="flex items-center gap-1 shrink-0">
-                      <Button
-                        variant="default"
-                        size="sm"
-                        className="h-7 text-xs gap-1 bg-indigo-600 hover:bg-indigo-700"
-                        onClick={() => window.open(meetingLink, "_blank")}
-                        data-testid="button-join-meeting"
-                      >
-                        <Video className="h-3 w-3" />
-                        {t.nexusOmni.teams.joinMeeting}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 text-xs gap-1"
-                        onClick={() => { navigator.clipboard.writeText(meetingLink); toast({ title: t.nexusOmni.teams.linkCopied }); }}
-                        data-testid="button-copy-meeting-link"
-                      >
-                        <Copy className="h-3 w-3" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7"
-                        onClick={() => {
-                          const content = `<a href="${meetingLink}">${t.nexusOmni.teams.joinMeeting}: ${meetingLink}</a>`;
-                          sendMutation.mutate(content);
-                          setMeetingLink(null);
-                        }}
-                        data-testid="button-share-meeting-chat"
-                      >
-                        <Send className="h-3 w-3" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setMeetingLink(null)}>
-                        <X className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </div>
-                )}
                 <ScrollArea className="flex-1">
                   <div className="p-4 space-y-3">
                     {chatMessages.length === 0 ? (
@@ -1435,7 +1540,7 @@ function TeamsPanel({ userId }: { userId?: string }) {
         </CardContent>
       </Card>
 
-      <Dialog open={meetingDialogOpen} onOpenChange={setMeetingDialogOpen}>
+      <Dialog open={meetingDialogOpen && !activeMeeting} onOpenChange={setMeetingDialogOpen}>
         <DialogContent className="sm:max-w-[420px]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -1444,60 +1549,27 @@ function TeamsPanel({ userId }: { userId?: string }) {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            {!meetingLink ? (
-              <>
-                <div className="space-y-2">
-                  <Input
-                    placeholder={t.nexusOmni.teams.meetingSubject}
-                    value={meetingSubject}
-                    onChange={(e) => setMeetingSubject(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter") handleCreateScheduledMeeting(); }}
-                    data-testid="input-meeting-subject"
-                  />
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    className="flex-1 gap-1.5 bg-indigo-600 hover:bg-indigo-700"
-                    onClick={() => {
-                      meetingMutation.mutate({ subject: meetingSubject.trim() || 'NEXUS Meeting' });
-                    }}
-                    disabled={meetingMutation.isPending}
-                    data-testid="button-create-instant-meeting"
-                  >
-                    {meetingMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Video className="h-4 w-4" />}
-                    {t.nexusOmni.teams.startMeeting}
-                  </Button>
-                </div>
-              </>
-            ) : (
-              <div className="space-y-3">
-                <div className="flex items-center gap-2 p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800">
-                  <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
-                  <span className="text-sm font-medium text-emerald-700 dark:text-emerald-300">{t.nexusOmni.teams.meetingCreated}</span>
-                </div>
-                <div className="flex items-center gap-2 p-2 rounded border bg-muted/30">
-                  <LinkIcon className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <span className="text-xs truncate flex-1 font-mono">{meetingLink}</span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 shrink-0"
-                    onClick={() => { navigator.clipboard.writeText(meetingLink); toast({ title: t.nexusOmni.teams.linkCopied }); }}
-                    data-testid="button-copy-meeting-link-dialog"
-                  >
-                    <Copy className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-                <Button
-                  className="w-full gap-2 bg-indigo-600 hover:bg-indigo-700"
-                  onClick={() => window.open(meetingLink, "_blank")}
-                  data-testid="button-join-meeting-dialog"
-                >
-                  <Video className="h-4 w-4" />
-                  {t.nexusOmni.teams.joinMeeting}
-                </Button>
-              </div>
-            )}
+            <div className="space-y-2">
+              <Input
+                placeholder={t.nexusOmni.teams.meetingSubject}
+                value={meetingSubject}
+                onChange={(e) => setMeetingSubject(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") handleCreateScheduledMeeting(); }}
+                data-testid="input-meeting-subject"
+              />
+            </div>
+            <Button
+              className="w-full gap-2 bg-indigo-600 hover:bg-indigo-700"
+              onClick={() => {
+                meetingMutation.mutate({ subject: meetingSubject.trim() || 'NEXUS Meeting' });
+                setMeetingDialogOpen(false);
+              }}
+              disabled={meetingMutation.isPending}
+              data-testid="button-create-instant-meeting"
+            >
+              {meetingMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Video className="h-4 w-4" />}
+              {t.nexusOmni.teams.startMeeting}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
