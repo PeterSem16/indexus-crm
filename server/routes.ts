@@ -4269,6 +4269,20 @@ export async function registerRoutes(
       );
       
       if (success) {
+        let sentMessageId: string | undefined;
+        try {
+          const { Client } = await import("@microsoft/microsoft-graph-client");
+          const graphClient = Client.init({ authProvider: (done: any) => done(null, tokenResult.accessToken) });
+          const basePath = (mailboxEmail && mailboxEmail !== "personal") ? `/users/${mailboxEmail}` : '/me';
+          const sentItems = await graphClient.api(`${basePath}/mailFolders/SentItems/messages`)
+            .top(1).orderby("sentDateTime desc").select("id").get();
+          if (sentItems?.value?.[0]?.id) {
+            sentMessageId = sentItems.value[0].id;
+          }
+        } catch (e) {
+          console.error('[MS365] Could not fetch sent message ID:', e);
+        }
+
         // Log outbound email to customer history for each recipient AND each matching customer
         try {
           const actualMailbox = mailboxEmail === "personal" ? ms365Connection.email : mailboxEmail;
@@ -4341,7 +4355,7 @@ export async function registerRoutes(
           console.error("[EmailRouter] Error logging outbound email to customer:", linkError);
         }
         
-        res.json({ success: true, message: "Email sent successfully" });
+        res.json({ success: true, message: "Email sent successfully", sentMessageId });
       } else {
         res.status(500).json({ error: "Failed to send email" });
       }

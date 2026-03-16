@@ -991,12 +991,18 @@ export default function EmailClientPage() {
   };
 
   const sendEmailMutation = useMutation({
-    mutationFn: async (data: { to: string[]; cc?: string[]; bcc?: string[]; subject: string; body: string; mailboxEmail: string; attachments?: Array<{ name: string; contentType: string; contentBytes: string }> }) => {
+    mutationFn: async (data: { to: string[]; cc?: string[]; bcc?: string[]; subject: string; body: string; mailboxEmail: string; importance?: string; tagId?: number | null; attachments?: Array<{ name: string; contentType: string; contentBytes: string }> }) => {
       startSendProgress();
-      return apiRequest("POST", `/api/users/${user?.id}/ms365-send-email`, data);
+      const { tagId, ...sendData } = data;
+      const res = await apiRequest("POST", `/api/users/${user?.id}/ms365-send-email`, sendData);
+      const result = await res.json();
+      return { ...result, tagId, mailboxEmail: data.mailboxEmail };
     },
-    onSuccess: () => {
+    onSuccess: (result: any) => {
       completeSendProgress(true);
+      if (result?.tagId && result?.sentMessageId) {
+        assignTagMutation.mutate({ emailId: result.sentMessageId, tagId: String(result.tagId), mailboxEmail: result.mailboxEmail || effectiveMailbox });
+      }
       setComposeOpen(false);
       setComposeFullscreen(false);
       setComposeData({ to: "", cc: "", bcc: "", subject: "", body: "", importance: "normal", tagId: null, replyTo: "" });
@@ -1489,6 +1495,7 @@ export default function EmailClientPage() {
       subject: composeData.subject, body: composeData.body,
       mailboxEmail: composeMailbox || effectiveMailbox,
       importance: composeData.importance !== "normal" ? composeData.importance : undefined,
+      tagId: composeData.tagId,
       attachments: attData,
     } as any);
   };
