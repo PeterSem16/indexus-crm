@@ -3106,6 +3106,27 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/ms365/people/search", requireAuth, async (req, res) => {
+    try {
+      const query = (req.query.q as string) || '';
+      if (!query || query.length < 2) return res.json([]);
+      const userId = String((req.session as any)?.user?.id);
+      const ms365Connection = await storage.getUserMs365Connection(userId);
+      if (!ms365Connection || !ms365Connection.isConnected) return res.json([]);
+      const { decryptTokenSafe } = await import("./lib/token-crypto");
+      const { getValidAccessToken, searchPeople } = await import("./lib/ms365");
+      const accessToken = decryptTokenSafe(ms365Connection.accessToken);
+      const refreshToken = ms365Connection.refreshToken ? decryptTokenSafe(ms365Connection.refreshToken) : null;
+      const tokenResult = await getValidAccessToken(accessToken, ms365Connection.tokenExpiresAt, refreshToken);
+      if (!tokenResult?.accessToken) return res.json([]);
+      const people = await searchPeople(tokenResult.accessToken, query);
+      res.json(people);
+    } catch (error) {
+      console.error("Error searching people:", error);
+      res.json([]);
+    }
+  });
+
   // ============================================
   // User MS365 Connections API
   // ============================================

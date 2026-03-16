@@ -399,6 +399,26 @@ export async function getContacts(accessToken: string, top: number = 50): Promis
     .get();
 }
 
+export async function searchPeople(accessToken: string, query: string, top: number = 10): Promise<any[]> {
+  const client = createGraphClient(accessToken);
+  try {
+    const result = await client.api('/me/people')
+      .search(query)
+      .top(top)
+      .select('displayName,emailAddresses,userPrincipalName,givenName,surname')
+      .get();
+    return (result?.value || []).map((p: any) => ({
+      displayName: p.displayName,
+      email: p.emailAddresses?.[0]?.address || p.userPrincipalName || '',
+      givenName: p.givenName,
+      surname: p.surname,
+    })).filter((p: any) => p.email);
+  } catch (error: any) {
+    console.error('[MS365] searchPeople error:', error?.message);
+    return [];
+  }
+}
+
 /**
  * Get unread email count for a mailbox
  * @param accessToken - Access token

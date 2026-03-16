@@ -307,10 +307,19 @@ function NexusPointPanel({ userId }: { userId?: string }) {
 
   const createFolderMutation = useMutation({
     mutationFn: async (name: string) => {
-      return apiRequest("POST", `/api/users/${userId}/sharepoint/drives/${selectedDriveId}/folder`, {
-        parentFolderId: currentFolderId || null,
-        name,
+      const driveId = selectedDriveId;
+      if (!driveId) throw new Error("No drive selected");
+      const res = await fetch(`/api/users/${userId}/sharepoint/drives/${driveId}/folder`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ parentFolderId: currentFolderId || null, name }),
       });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: res.statusText }));
+        throw new Error(err.error || `Error ${res.status}`);
+      }
+      return res.json();
     },
     onSuccess: () => {
       toast({ title: t.nexusOmni.nexuspoint.folderCreated });
@@ -318,8 +327,8 @@ function NexusPointPanel({ userId }: { userId?: string }) {
       setNewFolderName("");
       refetchItems();
     },
-    onError: () => {
-      toast({ title: t.nexusOmni.nexuspoint.folderError, variant: "destructive" });
+    onError: (error: any) => {
+      toast({ title: t.nexusOmni.nexuspoint.folderError, description: error?.message || '', variant: "destructive" });
     },
   });
 
@@ -1067,8 +1076,11 @@ function TeamsPanel({ userId }: { userId?: string }) {
   const [meetingDate, setMeetingDate] = useState("");
   const [meetingStartTime, setMeetingStartTime] = useState("");
   const [meetingEndTime, setMeetingEndTime] = useState("");
-  const [meetingParticipants, setMeetingParticipants] = useState<string[]>([]);
+  const [meetingParticipants, setMeetingParticipants] = useState<{email: string; displayName?: string}[]>([]);
   const [participantInput, setParticipantInput] = useState("");
+  const [peopleSuggestions, setPeopleSuggestions] = useState<{displayName: string; email: string}[]>([]);
+  const [showPeopleSuggestions, setShowPeopleSuggestions] = useState(false);
+  const peopleSearchRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { toast } = useToast();
   const { t } = useI18n();
 
@@ -1216,23 +1228,42 @@ function TeamsPanel({ userId }: { userId?: string }) {
     meetingMutation.mutate({ subject, participantEmails });
   };
 
-  const addParticipant = (email: string) => {
+  const searchPeopleDebounced = (query: string) => {
+    if (peopleSearchRef.current) clearTimeout(peopleSearchRef.current);
+    if (!query || query.length < 2) { setPeopleSuggestions([]); setShowPeopleSuggestions(false); return; }
+    peopleSearchRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/ms365/people/search?q=${encodeURIComponent(query)}`, { credentials: "include" });
+        if (res.ok) {
+          const data = await res.json();
+          const existing = new Set(meetingParticipants.map(p => p.email));
+          setPeopleSuggestions((data || []).filter((p: any) => !existing.has(p.email)));
+          setShowPeopleSuggestions(true);
+        }
+      } catch { setPeopleSuggestions([]); }
+    }, 300);
+  };
+
+  const addParticipant = (email: string, displayName?: string) => {
     const trimmed = email.trim().toLowerCase();
-    if (trimmed && trimmed.includes("@") && !meetingParticipants.includes(trimmed)) {
-      setMeetingParticipants([...meetingParticipants, trimmed]);
+    if (trimmed && trimmed.includes("@") && !meetingParticipants.some(p => p.email === trimmed)) {
+      setMeetingParticipants([...meetingParticipants, { email: trimmed, displayName }]);
     }
     setParticipantInput("");
+    setPeopleSuggestions([]);
+    setShowPeopleSuggestions(false);
   };
 
   const removeParticipant = (email: string) => {
-    setMeetingParticipants(meetingParticipants.filter(p => p !== email));
+    setMeetingParticipants(meetingParticipants.filter(p => p.email !== email));
   };
 
   const handleCreateScheduledMeeting = () => {
     const subj = meetingSubject.trim() || 'NEXUS Meeting';
     const sc = chats.find(c => c.id === selectedTeamsChatId);
     const chatEmails = sc?.members?.map((m: any) => m.email).filter(Boolean) || [];
-    const allEmails = [...new Set([...meetingParticipants, ...chatEmails])];
+    const participantEmails = meetingParticipants.map(p => p.email);
+    const allEmails = [...new Set([...participantEmails, ...chatEmails])];
     let startDateTime: string | undefined;
     let endDateTime: string | undefined;
     if (meetingDate && meetingStartTime) {
@@ -1959,26 +1990,53 @@ function TeamsPanel({ userId }: { userId?: string }) {
             </div>
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">{t.nexusOmni.teams.addParticipants}</label>
-              <div className="flex gap-1.5">
-                <Input
-                  placeholder={t.nexusOmni.teams.participantEmail}
-                  value={participantInput}
-                  onChange={(e) => setParticipantInput(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addParticipant(participantInput); } }}
-                  className="text-xs h-8 flex-1"
-                  data-testid="input-participant-email"
-                />
-                <Button variant="outline" size="sm" className="h-8 text-xs px-2.5" onClick={() => addParticipant(participantInput)} disabled={!participantInput.trim()} data-testid="button-add-participant">
-                  <Plus className="h-3.5 w-3.5" />
-                </Button>
+              <div className="relative">
+                <div className="flex gap-1.5">
+                  <div className="relative flex-1">
+                    <Users className="h-3.5 w-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      placeholder={t.nexusOmni.teams.participantEmail}
+                      value={participantInput}
+                      onChange={(e) => { setParticipantInput(e.target.value); searchPeopleDebounced(e.target.value); }}
+                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addParticipant(participantInput); } if (e.key === "Escape") { setShowPeopleSuggestions(false); } }}
+                      onFocus={() => { if (peopleSuggestions.length > 0) setShowPeopleSuggestions(true); }}
+                      onBlur={() => setTimeout(() => setShowPeopleSuggestions(false), 200)}
+                      className="text-xs h-8 flex-1 pl-7"
+                      data-testid="input-participant-email"
+                    />
+                  </div>
+                  <Button variant="outline" size="sm" className="h-8 text-xs px-2.5" onClick={() => addParticipant(participantInput)} disabled={!participantInput.trim()} data-testid="button-add-participant">
+                    <Plus className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+                {showPeopleSuggestions && peopleSuggestions.length > 0 && (
+                  <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-popover border rounded-md shadow-lg max-h-[180px] overflow-y-auto" data-testid="people-suggestions">
+                    {peopleSuggestions.map((p) => (
+                      <button
+                        key={p.email}
+                        className="w-full text-left px-3 py-2 hover:bg-accent flex items-center gap-2 text-xs transition-colors"
+                        onMouseDown={(e) => { e.preventDefault(); addParticipant(p.email, p.displayName); }}
+                        data-testid={`suggestion-${p.email}`}
+                      >
+                        <div className="h-6 w-6 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center shrink-0">
+                          <span className="text-[10px] font-medium text-indigo-600 dark:text-indigo-400">{(p.displayName || p.email)[0]?.toUpperCase()}</span>
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium truncate">{p.displayName}</p>
+                          <p className="text-[10px] text-muted-foreground truncate">{p.email}</p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
               {meetingParticipants.length > 0 && (
                 <div className="flex flex-wrap gap-1 mt-2">
-                  {meetingParticipants.map((email) => (
-                    <span key={email} className="inline-flex items-center gap-1 bg-indigo-50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-300 rounded-full px-2 py-0.5 text-[11px]">
+                  {meetingParticipants.map((p) => (
+                    <span key={p.email} className="inline-flex items-center gap-1 bg-indigo-50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-300 rounded-full px-2 py-0.5 text-[11px]">
                       <Mail className="h-2.5 w-2.5" />
-                      {email}
-                      <button onClick={() => removeParticipant(email)} className="hover:text-destructive ml-0.5" data-testid={`remove-participant-${email}`}>
+                      {p.displayName || p.email}
+                      <button onClick={() => removeParticipant(p.email)} className="hover:text-destructive ml-0.5" data-testid={`remove-participant-${p.email}`}>
                         <X className="h-2.5 w-2.5" />
                       </button>
                     </span>
@@ -1991,7 +2049,7 @@ function TeamsPanel({ userId }: { userId?: string }) {
                 variant="outline"
                 className="flex-1 gap-2"
                 onClick={() => {
-                  handleInstantMeeting(meetingParticipants.length > 0 ? meetingParticipants : undefined);
+                  handleInstantMeeting(meetingParticipants.length > 0 ? meetingParticipants.map(p => p.email) : undefined);
                   setMeetingDialogOpen(false);
                 }}
                 disabled={meetingMutation.isPending}
