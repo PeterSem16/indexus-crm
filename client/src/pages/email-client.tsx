@@ -1343,6 +1343,13 @@ function TeamsPanel({ userId }: { userId?: string }) {
   const teams = teamsData?.teams || [];
   const channels = channelsData?.channels || [];
   const chatMessages = chatMsgsData?.messages || [];
+  const proxyTeamsImageUrls = (html: string) => {
+    if (!html || !userId) return html;
+    return html.replace(
+      /src="(https:\/\/graph\.microsoft\.com\/[^"]+)"/g,
+      (_, url) => `src="/api/users/${userId}/teams-image-proxy?url=${encodeURIComponent(url)}"`
+    );
+  };
   const channelMessages = channelMsgsData?.messages || [];
   const selectedTeam = teams.find(tm => tm.id === selectedTeamId);
   const selectedChat = chats.find(c => c.id === selectedTeamsChatId);
@@ -1812,7 +1819,7 @@ function TeamsPanel({ userId }: { userId?: string }) {
                                     <span className="text-[11px] text-muted-foreground">{format(new Date(msg.createdDateTime), "d.M. HH:mm")}</span>
                                   </div>
                                   {msg.contentType === "html" ? (
-                                    <div className="text-sm mt-0.5 [&_a]:text-blue-500 [&_a]:underline [&_img]:max-w-xs [&_img]:rounded-md [&_img]:mt-1" dangerouslySetInnerHTML={{ __html: msg.body }} />
+                                    <div className="text-sm mt-0.5 [&_a]:text-blue-500 [&_a]:underline [&_img]:max-w-xs [&_img]:rounded-md [&_img]:mt-1" dangerouslySetInnerHTML={{ __html: proxyTeamsImageUrls(msg.body) }} />
                                   ) : (
                                     <p className="text-sm mt-0.5" style={{ overflowWrap: "anywhere" }}>{msg.body}</p>
                                   )}
@@ -1835,7 +1842,7 @@ function TeamsPanel({ userId }: { userId?: string }) {
                               <div className="flex-1 min-w-0">
                                 <span className="text-[10px] text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity mr-2">{format(new Date(msg.createdDateTime), "HH:mm")}</span>
                                 {msg.contentType === "html" ? (
-                                  <span className="text-sm [&_a]:text-blue-500 [&_a]:underline" dangerouslySetInnerHTML={{ __html: msg.body }} />
+                                  <span className="text-sm [&_a]:text-blue-500 [&_a]:underline" dangerouslySetInnerHTML={{ __html: proxyTeamsImageUrls(msg.body) }} />
                                 ) : (
                                   <span className="text-sm" style={{ overflowWrap: "anywhere" }}>{msg.body}</span>
                                 )}
@@ -1931,7 +1938,7 @@ function TeamsPanel({ userId }: { userId?: string }) {
                               </div>
                               {msg.subject && <p className="text-xs font-medium text-muted-foreground">{msg.subject}</p>}
                               {msg.contentType === "html" ? (
-                                <div className="text-sm mt-0.5 [&_a]:text-blue-500 [&_a]:underline" dangerouslySetInnerHTML={{ __html: msg.body }} />
+                                <div className="text-sm mt-0.5 [&_a]:text-blue-500 [&_a]:underline" dangerouslySetInnerHTML={{ __html: proxyTeamsImageUrls(msg.body) }} />
                               ) : (
                                 <p className="text-sm mt-0.5" style={{ overflowWrap: "anywhere" }}>{msg.body}</p>
                               )}
@@ -1940,7 +1947,7 @@ function TeamsPanel({ userId }: { userId?: string }) {
                         ) : (
                           <div className="flex-1 min-w-0">
                             {msg.contentType === "html" ? (
-                              <div className="text-sm [&_a]:text-blue-500 [&_a]:underline" dangerouslySetInnerHTML={{ __html: msg.body }} />
+                              <div className="text-sm [&_a]:text-blue-500 [&_a]:underline" dangerouslySetInnerHTML={{ __html: proxyTeamsImageUrls(msg.body) }} />
                             ) : (
                               <p className="text-sm" style={{ overflowWrap: "anywhere" }}>{msg.body}</p>
                             )}

@@ -3637,6 +3637,38 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/users/:userId/teams-image-proxy", requireAuth, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const imageUrl = req.query.url as string;
+      if (!imageUrl || !imageUrl.startsWith('https://graph.microsoft.com/')) {
+        return res.status(400).json({ error: "Invalid URL" });
+      }
+      const ms365Connection = await storage.getUserMs365Connection(userId);
+      if (!ms365Connection || !ms365Connection.isConnected) {
+        return res.status(400).json({ error: "Not connected" });
+      }
+      const { decryptTokenSafe } = await import("./lib/token-crypto");
+      const { getValidAccessToken } = await import("./lib/ms365");
+      const accessToken = decryptTokenSafe(ms365Connection.accessToken);
+      const refreshToken = ms365Connection.refreshToken ? decryptTokenSafe(ms365Connection.refreshToken) : null;
+      const tokenResult = await getValidAccessToken(accessToken, ms365Connection.tokenExpiresAt, refreshToken);
+      if (!tokenResult?.accessToken) return res.status(401).json({ error: "Token expired" });
+      const response = await fetch(imageUrl, {
+        headers: { 'Authorization': `Bearer ${tokenResult.accessToken}` },
+      });
+      if (!response.ok) return res.status(response.status).send('Failed to fetch image');
+      const contentType = response.headers.get('content-type') || 'image/png';
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Cache-Control', 'private, max-age=3600');
+      const buffer = await response.arrayBuffer();
+      res.send(Buffer.from(buffer));
+    } catch (error: any) {
+      console.error("Error proxying Teams image:", error?.message || error);
+      res.status(500).send('Failed to proxy image');
+    }
+  });
+
   // Teams - send chat message
   app.post("/api/users/:userId/teams-chats/:chatId/messages", requireAuth, async (req, res) => {
     try {
