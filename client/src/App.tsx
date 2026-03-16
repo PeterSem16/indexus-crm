@@ -164,6 +164,7 @@ function I18nWrapper({ children, userCountries }: { children: React.ReactNode; u
 function AuthenticatedApp() {
   const { user } = useAuth();
   const sipContext = useSip();
+  const [location] = useLocation();
   useSessionHeartbeat();
   const style = {
     "--sidebar-width": "18rem",
@@ -194,8 +195,8 @@ function AuthenticatedApp() {
                   <ThemeToggle />
                 </div>
               </header>
-              <main className={`flex-1 ${location === "/email" ? "overflow-hidden p-0 flex flex-col" : "overflow-auto p-6"}`}>
-                <div className={location === "/email" ? "flex-1 min-h-0 w-full" : "max-w-7xl mx-auto"}>
+              <main className={`flex-1 overflow-auto ${location === "/email" ? "px-0 pt-0 pb-0" : "p-6"}`}>
+                <div className={location === "/email" ? "" : "max-w-7xl mx-auto"}>
                   <Switch>
                     <Route path="/" component={Dashboard} />
                     <Route path="/users" component={UsersPage} />
