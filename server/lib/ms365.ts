@@ -1405,9 +1405,33 @@ export async function createOnlineMeeting(
       const meeting = await client.api('/me/onlineMeetings').post(meetingPayload);
       const joinUrl = meeting.joinWebUrl || meeting.joinUrl;
 
+      let calendarEventId: string | null = null;
+      try {
+        const calEventPayload: any = {
+          subject,
+          start: { dateTime: start, timeZone: 'UTC' },
+          end: { dateTime: end, timeZone: 'UTC' },
+          body: {
+            contentType: 'HTML',
+            content: `<p>Teams Meeting</p><p><a href="${joinUrl}">Join Microsoft Teams Meeting</a></p>`,
+          },
+        };
+        if (participantEmails && participantEmails.length > 0) {
+          calEventPayload.attendees = participantEmails.map(email => ({
+            emailAddress: { address: email },
+            type: 'required',
+          }));
+        }
+        const calEvent = await client.api('/me/events').post(calEventPayload);
+        calendarEventId = calEvent.id;
+        console.log('[MS365] Calendar event created alongside online meeting');
+      } catch (calErr: any) {
+        console.warn('[MS365] Could not create calendar event (no Calendars.ReadWrite?), meeting link still available:', calErr?.message || calErr?.code);
+      }
+
       return {
         id: meeting.id,
-        calendarEventId: null,
+        calendarEventId,
         joinUrl,
         subject: meeting.subject,
         startDateTime: meeting.startDateTime,

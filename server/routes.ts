@@ -5337,6 +5337,67 @@ Format the output in clean HTML with headings (h3), bullet lists (ul/li), and bo
     }
   });
 
+  app.post("/api/users/:userId/ms365-ai-check-translation", requireAuth, async (req, res) => {
+    try {
+      const { text, targetLanguage } = req.body;
+      if (!text || !text.trim()) {
+        return res.status(400).json({ error: "Text is required" });
+      }
+      const langNames: Record<string, string> = {
+        sk: "slovenčina", cs: "čeština", en: "English", de: "Deutsch",
+        hu: "magyar", ro: "română", it: "italiano", pl: "polski", fr: "français", es: "español",
+      };
+      const targetLangInstruction = targetLanguage && targetLanguage !== "auto"
+        ? `The user intends this text to be in ${langNames[targetLanguage] || targetLanguage}.`
+        : "Auto-detect what language the user is trying to write in.";
+
+      const plainText = text.replace(/<[^>]*>/g, " ").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim().substring(0, 5000);
+
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "system",
+            content: `You are a professional language proofreader and translation checker. ${targetLangInstruction}
+
+Analyze the given text and return a JSON object with:
+1. "detectedLanguage": the language code of the text (e.g. "en", "sk", "de")
+2. "overallScore": a quality score from 1-10 (10 = perfect)
+3. "corrections": an array of objects, each with:
+   - "original": the problematic word/phrase (exact text from input)
+   - "corrected": the suggested correction
+   - "type": one of "grammar", "spelling", "style", "word_choice", "punctuation"
+   - "explanation": brief explanation in the same language as the text
+4. "improvedText": the full corrected/improved version of the text (as HTML with <p> tags)
+5. "summary": a brief overall assessment in the same language as the text
+
+If the text is perfect, return empty corrections array and score 10.
+Return ONLY valid JSON, no markdown code blocks.`,
+          },
+          {
+            role: "user",
+            content: plainText,
+          },
+        ],
+        temperature: 0.3,
+        max_tokens: 2000,
+      });
+
+      let result = response.choices[0]?.message?.content || "{}";
+      result = result.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/, "").trim();
+
+      try {
+        const parsed = JSON.parse(result);
+        res.json(parsed);
+      } catch {
+        res.json({ detectedLanguage: "unknown", overallScore: 5, corrections: [], improvedText: text, summary: result });
+      }
+    } catch (error) {
+      console.error("[AI Check Translation] Error:", error);
+      res.status(500).json({ error: "Failed to check translation" });
+    }
+  });
+
   // Delete email
   app.patch("/api/users/:userId/ms365-email/:emailId/read-status", requireAuth, async (req, res) => {
     try {

@@ -27,7 +27,7 @@ import {
   Quote, Undo2, Redo2, AlignLeft, AlignCenter, AlignRight, AlignJustify,
   Link as LinkIcon, Unlink, ImageIcon, Table as TableIcon,
   Paintbrush, Type, Minus,
-  Paperclip, X, Upload, Sparkles, Loader2, ChevronDown, ChevronUp
+  Paperclip, X, Upload, Sparkles, Loader2, ChevronDown, ChevronUp, Languages
 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -114,8 +114,10 @@ interface EmailEditorProps {
   className?: string;
   onAiSuggest?: () => void;
   onAiSummary?: () => void;
+  onAiCheckTranslation?: () => void;
   aiLoading?: boolean;
   aiSummaryLoading?: boolean;
+  aiCheckTranslationLoading?: boolean;
 }
 
 export default function EmailEditor({
@@ -130,8 +132,10 @@ export default function EmailEditor({
   className,
   onAiSuggest,
   onAiSummary,
+  onAiCheckTranslation,
   aiLoading,
   aiSummaryLoading,
+  aiCheckTranslationLoading,
 }: EmailEditorProps) {
   const { t } = useI18n();
   const placeholder = placeholderProp || t.nexusOmni.email.messagePlaceholder;
@@ -497,7 +501,7 @@ export default function EmailEditor({
           </>
         )}
 
-        {(onAiSuggest || onAiSummary) && (
+        {(onAiSuggest || onAiSummary || onAiCheckTranslation) && (
           <>
             <Separator orientation="vertical" className="h-5 mx-0.5" />
             {onAiSuggest && (
@@ -528,6 +532,21 @@ export default function EmailEditor({
               >
                 {aiSummaryLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
                 Zhrnutie
+              </Button>
+            )}
+            {onAiCheckTranslation && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 gap-1 text-xs px-2 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+                onClick={onAiCheckTranslation}
+                disabled={aiCheckTranslationLoading}
+                title={t.nexusOmni.ai.checkTranslation}
+                data-testid="button-ai-check-translation"
+              >
+                {aiCheckTranslationLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Languages className="h-3.5 w-3.5" />}
+                {t.nexusOmni.ai.checkTranslation}
               </Button>
             )}
           </>

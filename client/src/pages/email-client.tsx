@@ -2414,6 +2414,15 @@ export default function EmailClientPage() {
   const [aiModalContent, setAiModalContent] = useState("");
   const [aiModalType, setAiModalType] = useState<"reply" | "summary">("reply");
   const [aiTranslating, setAiTranslating] = useState(false);
+  const [aiCheckTranslationLoading, setAiCheckTranslationLoading] = useState(false);
+  const [translationCheckResult, setTranslationCheckResult] = useState<{
+    detectedLanguage?: string;
+    overallScore?: number;
+    corrections?: Array<{ original: string; corrected: string; type: string; explanation: string }>;
+    improvedText?: string;
+    summary?: string;
+  } | null>(null);
+  const [translationCheckOpen, setTranslationCheckOpen] = useState(false);
   const [sendProgress, setSendProgress] = useState<{ active: boolean; progress: number; status: "sending" | "done" | "error" }>({ active: false, progress: 0, status: "sending" });
   const prevEmailCountRef = useRef<number>(-1);
   const prevMailboxContextRef = useRef<string>("");
@@ -3621,6 +3630,26 @@ export default function EmailClientPage() {
       toast({ title: t.nexusOmni.common.error, description: t.nexusOmni.ai.summaryError, variant: "destructive" });
     } finally {
       setAiSummaryLoading(false);
+    }
+  };
+
+  const handleAiCheckTranslation = async () => {
+    if (!composeData.body || !emailPrefs.aiEnabled) return;
+    setAiCheckTranslationLoading(true);
+    setTranslationCheckResult(null);
+    try {
+      const lang = getAiLanguage();
+      const res = await apiRequest("POST", `/api/users/${user?.id}/ms365-ai-check-translation`, {
+        text: composeData.body,
+        targetLanguage: lang === "auto" ? undefined : lang,
+      });
+      const data = await res.json();
+      setTranslationCheckResult(data);
+      setTranslationCheckOpen(true);
+    } catch (err) {
+      toast({ title: t.nexusOmni.common.error, description: t.nexusOmni.ai.translateError, variant: "destructive" });
+    } finally {
+      setAiCheckTranslationLoading(false);
     }
   };
 
@@ -5661,8 +5690,81 @@ export default function EmailClientPage() {
                 minHeight={composeFullscreen ? "400px" : "180px"}
                 attachments={attachments}
                 onAttachmentsChange={setAttachments}
+                onAiCheckTranslation={emailPrefs.aiEnabled ? handleAiCheckTranslation : undefined}
+                aiCheckTranslationLoading={aiCheckTranslationLoading}
                 data-testid="editor-compose-body"
               />
+              {translationCheckOpen && translationCheckResult && (
+                <div className="mx-0 mt-2 p-3 rounded-lg border bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800" data-testid="translation-check-compose-panel">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <Languages className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                      <span className="text-sm font-medium text-emerald-700 dark:text-emerald-300">{t.nexusOmni.ai.checkTranslation}</span>
+                      {translationCheckResult.detectedLanguage && (
+                        <Badge variant="secondary" className="text-[10px] h-5">{translationCheckResult.detectedLanguage.toUpperCase()}</Badge>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {translationCheckResult.overallScore !== undefined && (
+                        <div className="flex items-center gap-1">
+                          <span className="text-xs text-muted-foreground">{t.nexusOmni.ai.score}:</span>
+                          <Badge variant={translationCheckResult.overallScore >= 8 ? "default" : translationCheckResult.overallScore >= 5 ? "secondary" : "destructive"} className="text-[10px] h-5">
+                            {translationCheckResult.overallScore}/10
+                          </Badge>
+                        </div>
+                      )}
+                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setTranslationCheckOpen(false)}>
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
+                  {translationCheckResult.summary && (
+                    <p className="text-xs text-muted-foreground mb-2">{translationCheckResult.summary}</p>
+                  )}
+                  {translationCheckResult.corrections && translationCheckResult.corrections.length > 0 ? (
+                    <div className="space-y-1.5 mb-2">
+                      <p className="text-xs font-medium text-orange-600 dark:text-orange-400">
+                        {translationCheckResult.corrections.length} {t.nexusOmni.ai.errorsFound}
+                      </p>
+                      {translationCheckResult.corrections.map((c, i) => {
+                        const typeLabels: Record<string, string> = {
+                          grammar: t.nexusOmni.ai.grammar, spelling: t.nexusOmni.ai.spelling,
+                          style: t.nexusOmni.ai.style, word_choice: t.nexusOmni.ai.wordChoice, punctuation: t.nexusOmni.ai.punctuation,
+                        };
+                        return (
+                          <div key={i} className="flex items-start gap-2 text-xs p-1.5 rounded bg-white/50 dark:bg-black/20">
+                            <Badge variant="outline" className="text-[9px] h-4 shrink-0 mt-0.5">{typeLabels[c.type] || c.type}</Badge>
+                            <div className="min-w-0">
+                              <span className="line-through text-red-500">{c.original}</span>{" → "}<span className="font-medium text-emerald-600 dark:text-emerald-400">{c.corrected}</span>
+                              {c.explanation && <p className="text-muted-foreground mt-0.5">{c.explanation}</p>}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1 mb-2">
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      {t.nexusOmni.ai.noErrors}
+                    </p>
+                  )}
+                  {translationCheckResult.improvedText && translationCheckResult.corrections && translationCheckResult.corrections.length > 0 && (
+                    <Button
+                      variant="outline" size="sm"
+                      className="h-7 text-xs gap-1 border-emerald-300 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/30"
+                      onClick={() => {
+                        setComposeData(prev => ({ ...prev, body: translationCheckResult.improvedText! }));
+                        setComposeEditorKey(k => k + 1);
+                        setTranslationCheckOpen(false);
+                        toast({ title: t.nexusOmni.ai.checkTranslation, description: t.nexusOmni.ai.useImproved });
+                      }}
+                    >
+                      <Sparkles className="h-3 w-3" />
+                      {t.nexusOmni.ai.useImproved}
+                    </Button>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="px-4 py-2.5 border-t shrink-0 flex items-center justify-between bg-muted/20">
@@ -6168,9 +6270,91 @@ export default function EmailClientPage() {
                   showAttachments={true}
                   onAiSuggest={emailPrefs.aiEnabled ? handleAiSuggestReply : undefined}
                   onAiSummary={emailPrefs.aiEnabled ? handleAiSummary : undefined}
+                  onAiCheckTranslation={emailPrefs.aiEnabled ? handleAiCheckTranslation : undefined}
                   aiLoading={aiSuggestLoading}
                   aiSummaryLoading={aiSummaryLoading}
+                  aiCheckTranslationLoading={aiCheckTranslationLoading}
                 />
+                {translationCheckOpen && translationCheckResult && (
+                  <div className="mx-0 mt-2 p-3 rounded-lg border bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800" data-testid="translation-check-panel">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <Languages className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                        <span className="text-sm font-medium text-emerald-700 dark:text-emerald-300">{t.nexusOmni.ai.checkTranslation}</span>
+                        {translationCheckResult.detectedLanguage && (
+                          <Badge variant="secondary" className="text-[10px] h-5">{translationCheckResult.detectedLanguage.toUpperCase()}</Badge>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {translationCheckResult.overallScore !== undefined && (
+                          <div className="flex items-center gap-1">
+                            <span className="text-xs text-muted-foreground">{t.nexusOmni.ai.score}:</span>
+                            <Badge variant={translationCheckResult.overallScore >= 8 ? "default" : translationCheckResult.overallScore >= 5 ? "secondary" : "destructive"} className="text-[10px] h-5">
+                              {translationCheckResult.overallScore}/10
+                            </Badge>
+                          </div>
+                        )}
+                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setTranslationCheckOpen(false)} data-testid="close-translation-check">
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                    {translationCheckResult.summary && (
+                      <p className="text-xs text-muted-foreground mb-2">{translationCheckResult.summary}</p>
+                    )}
+                    {translationCheckResult.corrections && translationCheckResult.corrections.length > 0 ? (
+                      <div className="space-y-1.5 mb-2">
+                        <p className="text-xs font-medium text-orange-600 dark:text-orange-400">
+                          {translationCheckResult.corrections.length} {t.nexusOmni.ai.errorsFound}
+                        </p>
+                        {translationCheckResult.corrections.map((c, i) => {
+                          const typeLabels: Record<string, string> = {
+                            grammar: t.nexusOmni.ai.grammar,
+                            spelling: t.nexusOmni.ai.spelling,
+                            style: t.nexusOmni.ai.style,
+                            word_choice: t.nexusOmni.ai.wordChoice,
+                            punctuation: t.nexusOmni.ai.punctuation,
+                          };
+                          return (
+                            <div key={i} className="flex items-start gap-2 text-xs p-1.5 rounded bg-white/50 dark:bg-black/20" data-testid={`correction-${i}`}>
+                              <Badge variant="outline" className="text-[9px] h-4 shrink-0 mt-0.5">
+                                {typeLabels[c.type] || c.type}
+                              </Badge>
+                              <div className="min-w-0">
+                                <span className="line-through text-red-500">{c.original}</span>
+                                {" → "}
+                                <span className="font-medium text-emerald-600 dark:text-emerald-400">{c.corrected}</span>
+                                {c.explanation && <p className="text-muted-foreground mt-0.5">{c.explanation}</p>}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1 mb-2">
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        {t.nexusOmni.ai.noErrors}
+                      </p>
+                    )}
+                    {translationCheckResult.improvedText && translationCheckResult.corrections && translationCheckResult.corrections.length > 0 && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs gap-1 border-emerald-300 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/30"
+                        onClick={() => {
+                          aiInsertBodyRef.current = translationCheckResult.improvedText!;
+                          setAiSuggestCounter(c => c + 1);
+                          setTranslationCheckOpen(false);
+                          toast({ title: t.nexusOmni.ai.checkTranslation, description: t.nexusOmni.ai.useImproved });
+                        }}
+                        data-testid="button-use-improved"
+                      >
+                        <Sparkles className="h-3 w-3" />
+                        {t.nexusOmni.ai.useImproved}
+                      </Button>
+                    )}
+                  </div>
+                )}
                 <div className="mt-3 pt-3 border-t">
                   <p className="text-xs text-muted-foreground mb-2">
                     {format(new Date(emailDetail.receivedDateTime), "d. MMMM yyyy, HH:mm")}, {emailDetail.from?.emailAddress?.name || emailDetail.from?.emailAddress?.address} {t.nexusOmni.email.wrote}
