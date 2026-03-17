@@ -3882,6 +3882,55 @@ Format the output in clean HTML with headings (h3), bullet lists (ul/li), and bo
     }
   });
 
+  app.get("/api/users/:userId/teams-meetings/:meetingId/recordings", requireAuth, async (req, res) => {
+    try {
+      const { userId, meetingId } = req.params;
+      const ms365Connection = await storage.getUserMs365Connection(userId);
+      if (!ms365Connection || !ms365Connection.isConnected) {
+        return res.json({ recordings: [] });
+      }
+      const { decryptTokenSafe } = await import("./lib/token-crypto");
+      const { getValidAccessToken, getMeetingRecordings } = await import("./lib/ms365");
+      const accessToken = decryptTokenSafe(ms365Connection.accessToken);
+      const refreshToken = ms365Connection.refreshToken ? decryptTokenSafe(ms365Connection.refreshToken) : null;
+      const tokenResult = await getValidAccessToken(accessToken, ms365Connection.tokenExpiresAt, refreshToken);
+      if (!tokenResult?.accessToken) return res.json({ recordings: [] });
+      const recordings = await getMeetingRecordings(tokenResult.accessToken, meetingId);
+      res.json({ recordings });
+    } catch (error: any) {
+      console.error("Error fetching recordings:", error?.message || error);
+      res.json({ recordings: [] });
+    }
+  });
+
+  app.get("/api/users/:userId/teams-meetings/:meetingId/recordings/:recordingId/content", requireAuth, async (req, res) => {
+    try {
+      const { userId, meetingId, recordingId } = req.params;
+      const ms365Connection = await storage.getUserMs365Connection(userId);
+      if (!ms365Connection || !ms365Connection.isConnected) {
+        return res.status(400).json({ error: "Not connected" });
+      }
+      const { decryptTokenSafe } = await import("./lib/token-crypto");
+      const { getValidAccessToken } = await import("./lib/ms365");
+      const accessToken = decryptTokenSafe(ms365Connection.accessToken);
+      const refreshToken = ms365Connection.refreshToken ? decryptTokenSafe(ms365Connection.refreshToken) : null;
+      const tokenResult = await getValidAccessToken(accessToken, ms365Connection.tokenExpiresAt, refreshToken);
+      if (!tokenResult?.accessToken) return res.status(401).json({ error: "Token expired" });
+      const graphRes = await fetch(
+        `https://graph.microsoft.com/v1.0/me/onlineMeetings/${meetingId}/recordings/${recordingId}/content`,
+        { headers: { 'Authorization': `Bearer ${tokenResult.accessToken}` } }
+      );
+      if (!graphRes.ok) return res.status(graphRes.status).json({ error: `HTTP ${graphRes.status}` });
+      res.setHeader("Content-Type", graphRes.headers.get("content-type") || "video/mp4");
+      res.setHeader("Content-Disposition", `attachment; filename="recording-${recordingId}.mp4"`);
+      const buffer = await graphRes.arrayBuffer();
+      res.send(Buffer.from(buffer));
+    } catch (error: any) {
+      console.error("Error fetching recording content:", error?.message || error);
+      res.status(500).json({ error: "Failed to fetch recording" });
+    }
+  });
+
   // Teams - get chat members
   app.get("/api/users/:userId/teams-chats/:chatId/members", requireAuth, async (req, res) => {
     try {

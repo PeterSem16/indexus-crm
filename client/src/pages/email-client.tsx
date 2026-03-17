@@ -1137,7 +1137,8 @@ function TeamsPanel({ userId }: { userId?: string }) {
   const [meetingAiSummary, setMeetingAiSummary] = useState<string | null>(null);
   const [loadingTranscript, setLoadingTranscript] = useState(false);
   const [generatingSummary, setGeneratingSummary] = useState(false);
-  const [transcriptView, setTranscriptView] = useState<"transcript" | "summary">("transcript");
+  const [transcriptView, setTranscriptView] = useState<"transcript" | "summary" | "recordings">("transcript");
+  const [meetingRecordings, setMeetingRecordings] = useState<any[]>([]);
   const { toast } = useToast();
   const { t } = useI18n();
 
@@ -1156,22 +1157,34 @@ function TeamsPanel({ userId }: { userId?: string }) {
 
   const transcriptRequestRef = useRef<string | null>(null);
 
-  const loadTranscript = async (meetingId: string) => {
+  const loadMeetingDetails = async (meetingId: string) => {
     if (!userId) return;
     transcriptRequestRef.current = meetingId;
     setLoadingTranscript(true);
     setMeetingTranscriptContent(null);
     setMeetingAiSummary(null);
+    setMeetingRecordings([]);
     setTranscriptView("transcript");
+
+    const recPromise = fetch(`/api/users/${userId}/teams-meetings/${meetingId}/recordings`, { credentials: "include" })
+      .then(r => r.ok ? r.json() : { recordings: [] })
+      .then(d => d.recordings || [])
+      .catch(() => []);
+
     try {
-      const res = await fetch(`/api/users/${userId}/teams-meetings/${meetingId}/transcripts`, { credentials: "include" });
-      if (!res.ok) throw new Error("Failed");
+      const [recordings, transcriptsRes] = await Promise.all([
+        recPromise,
+        fetch(`/api/users/${userId}/teams-meetings/${meetingId}/transcripts`, { credentials: "include" }),
+      ]);
       if (transcriptRequestRef.current !== meetingId) return;
-      const data = await res.json();
+      setMeetingRecordings(recordings);
+      if (!transcriptsRes.ok) throw new Error("Failed");
+      const data = await transcriptsRes.json();
       const transcripts = data.transcripts || [];
       if (transcripts.length === 0) {
         if (transcriptRequestRef.current === meetingId) setMeetingTranscriptContent(null);
         setLoadingTranscript(false);
+        if (recordings.length > 0) setTranscriptView("recordings");
         return;
       }
       const contentRes = await fetch(`/api/users/${userId}/teams-meetings/${meetingId}/transcripts/${transcripts[0].id}/content`, { credentials: "include" });
@@ -1598,34 +1611,24 @@ function TeamsPanel({ userId }: { userId?: string }) {
                 </button>
               )}
             </div>
-            <div className="flex gap-1.5">
-              <button
-                className={cn("px-3 py-1 rounded-full text-xs font-medium border transition-colors",
-                  sidebarFilter === "channels" ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-accent"
-                )}
-                onClick={() => setSidebarFilter(f => f === "channels" ? "all" : "channels")}
-                data-testid="teams-filter-channels"
-              >
-                {t.nexusOmni.email.channels}
-              </button>
-              <button
-                className={cn("px-3 py-1 rounded-full text-xs font-medium border transition-colors",
-                  sidebarFilter === "chats" ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-accent"
-                )}
-                onClick={() => setSidebarFilter(f => f === "chats" ? "all" : "chats")}
-                data-testid="teams-filter-chats"
-              >
-                {t.nexusOmni.tabs.chats}
-              </button>
-              <button
-                className={cn("px-3 py-1 rounded-full text-xs font-medium border transition-colors",
-                  sidebarFilter === "meetings" ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-accent"
-                )}
-                onClick={() => setSidebarFilter(f => f === "meetings" ? "all" : "meetings")}
-                data-testid="teams-filter-meetings"
-              >
-                {t.nexusOmni.teams.recentMeetings}
-              </button>
+            <div className="flex gap-1">
+              {[
+                { key: "all" as const, label: "All" },
+                { key: "chats" as const, label: t.nexusOmni.tabs.chats },
+                { key: "channels" as const, label: t.nexusOmni.email.channels },
+                { key: "meetings" as const, label: t.nexusOmni.teams.meetingsAndRecordings },
+              ].map(item => (
+                <button
+                  key={item.key}
+                  className={cn("px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors",
+                    sidebarFilter === item.key ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-accent"
+                  )}
+                  onClick={() => setSidebarFilter(item.key)}
+                  data-testid={`teams-filter-${item.key}`}
+                >
+                  {item.label}
+                </button>
+              ))}
             </div>
           </div>
           <ScrollArea className="flex-1">
@@ -1743,7 +1746,7 @@ function TeamsPanel({ userId }: { userId?: string }) {
                                 setSelectedTeamsChatId(null);
                                 setSelectedChannelId(null);
                                 setSelectedTeamId(null);
-                                loadTranscript(meeting.id);
+                                loadMeetingDetails(meeting.id);
                               }}
                               data-testid={`teams-meeting-${meeting.id}`}
                             >
@@ -2158,61 +2161,75 @@ function TeamsPanel({ userId }: { userId?: string }) {
                 const duration = startTime && endTime ? Math.round((endTime.getTime() - startTime.getTime()) / 60000) : null;
                 return (
                   <>
-                    <div className="px-4 py-3 border-b dark:border-[#333] flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="h-10 w-10 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center shrink-0">
-                          <Video className="h-5 w-5 text-indigo-500" />
+                    <div className="px-4 py-3 border-b dark:border-[#333]">
+                      <div className="flex items-center justify-between gap-2 mb-2.5">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="h-10 w-10 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center shrink-0">
+                            <Video className="h-5 w-5 text-indigo-500" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold truncate">{meeting?.subject || 'Meeting'}</p>
+                            <p className="text-[11px] text-muted-foreground">
+                              {startTime ? format(startTime, "d.M.yyyy HH:mm") : ''}
+                              {duration ? ` · ${t.nexusOmni.teams.meetingDuration}: ${duration} min` : ''}
+                              {meeting?.participants?.length > 0 ? ` · ${meeting.participants.length} ${t.nexusOmni.teams.members.toLowerCase()}` : ''}
+                            </p>
+                          </div>
                         </div>
-                        <div className="min-w-0">
-                          <p className="text-sm font-semibold truncate">{meeting?.subject || 'Meeting'}</p>
-                          <p className="text-[11px] text-muted-foreground">
-                            {startTime ? format(startTime, "d.M.yyyy HH:mm") : ''}
-                            {duration ? ` · ${t.nexusOmni.teams.meetingDuration}: ${duration} min` : ''}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1 shrink-0">
                         {meetingTranscriptContent && (
-                          <>
-                            <div className="flex border rounded-md overflow-hidden mr-1">
-                              <button
-                                className={cn("px-2.5 py-1 text-[11px] font-medium transition-colors",
-                                  transcriptView === "transcript" ? "bg-primary text-primary-foreground" : "hover:bg-accent text-muted-foreground"
-                                )}
-                                onClick={() => setTranscriptView("transcript")}
-                                data-testid="btn-view-transcript"
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 gap-1.5 text-xs shrink-0"
+                                onClick={() => generateAiSummary(selectedMeetingId)}
+                                disabled={generatingSummary}
+                                data-testid="btn-generate-summary"
                               >
-                                {t.nexusOmni.teams.rawTranscript}
-                              </button>
-                              <button
-                                className={cn("px-2.5 py-1 text-[11px] font-medium transition-colors",
-                                  transcriptView === "summary" ? "bg-primary text-primary-foreground" : "hover:bg-accent text-muted-foreground"
-                                )}
-                                onClick={() => setTranscriptView("summary")}
-                                disabled={!meetingAiSummary}
-                                data-testid="btn-view-summary"
-                              >
-                                {t.nexusOmni.teams.summary}
-                              </button>
-                            </div>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-8 gap-1.5 text-xs"
-                                  onClick={() => generateAiSummary(selectedMeetingId)}
-                                  disabled={generatingSummary}
-                                  data-testid="btn-generate-summary"
-                                >
-                                  {generatingSummary ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
-                                  {generatingSummary ? t.nexusOmni.teams.generatingSummary : t.nexusOmni.teams.generateSummary}
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>{t.nexusOmni.teams.aiSummary}</TooltipContent>
-                            </Tooltip>
-                          </>
+                                {generatingSummary ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
+                                {generatingSummary ? t.nexusOmni.teams.generatingSummary : t.nexusOmni.teams.generateSummary}
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>{t.nexusOmni.teams.aiSummary}</TooltipContent>
+                          </Tooltip>
                         )}
+                      </div>
+                      <div className="flex border rounded-lg overflow-hidden">
+                        <button
+                          className={cn("flex-1 px-3 py-1.5 text-[11px] font-medium transition-colors flex items-center justify-center gap-1.5",
+                            transcriptView === "transcript" ? "bg-primary text-primary-foreground" : "hover:bg-accent text-muted-foreground"
+                          )}
+                          onClick={() => setTranscriptView("transcript")}
+                          data-testid="btn-view-transcript"
+                        >
+                          <FileText className="h-3 w-3" />
+                          {t.nexusOmni.teams.transcript}
+                        </button>
+                        <button
+                          className={cn("flex-1 px-3 py-1.5 text-[11px] font-medium transition-colors flex items-center justify-center gap-1.5",
+                            transcriptView === "summary" ? "bg-primary text-primary-foreground" : "hover:bg-accent text-muted-foreground"
+                          )}
+                          onClick={() => setTranscriptView("summary")}
+                          disabled={!meetingAiSummary}
+                          data-testid="btn-view-summary"
+                        >
+                          <Wand2 className="h-3 w-3" />
+                          {t.nexusOmni.teams.aiSummary}
+                        </button>
+                        <button
+                          className={cn("flex-1 px-3 py-1.5 text-[11px] font-medium transition-colors flex items-center justify-center gap-1.5",
+                            transcriptView === "recordings" ? "bg-primary text-primary-foreground" : "hover:bg-accent text-muted-foreground"
+                          )}
+                          onClick={() => setTranscriptView("recordings")}
+                          data-testid="btn-view-recordings"
+                        >
+                          <Video className="h-3 w-3" />
+                          {t.nexusOmni.teams.recordings}
+                          {meetingRecordings.length > 0 && (
+                            <span className="ml-0.5 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 rounded-full px-1.5 text-[10px] font-bold">{meetingRecordings.length}</span>
+                          )}
+                        </button>
                       </div>
                     </div>
                     <ScrollArea className="flex-1">
@@ -2222,6 +2239,41 @@ function TeamsPanel({ userId }: { userId?: string }) {
                             <Loader2 className="h-8 w-8 animate-spin text-indigo-500 mb-3" />
                             <p className="text-sm text-muted-foreground">{t.nexusOmni.teams.loadingTranscript}</p>
                           </div>
+                        ) : transcriptView === "recordings" ? (
+                          meetingRecordings.length > 0 ? (
+                            <div className="space-y-3">
+                              {meetingRecordings.map((rec: any, idx: number) => (
+                                <div key={rec.id} className="flex items-center gap-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors" data-testid={`recording-${rec.id}`}>
+                                  <div className="h-10 w-10 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center shrink-0">
+                                    <Video className="h-5 w-5 text-indigo-500" />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium">{t.nexusOmni.teams.recording} {idx + 1}</p>
+                                    <p className="text-[11px] text-muted-foreground">
+                                      {rec.createdDateTime ? format(new Date(rec.createdDateTime), "d.M.yyyy HH:mm") : ''}
+                                    </p>
+                                  </div>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 gap-1.5 text-xs shrink-0"
+                                    onClick={() => {
+                                      window.open(`/api/users/${userId}/teams-meetings/${selectedMeetingId}/recordings/${rec.id}/content`, '_blank');
+                                    }}
+                                    data-testid={`download-recording-${rec.id}`}
+                                  >
+                                    <Download className="h-3.5 w-3.5" />
+                                    {t.nexusOmni.teams.downloadRecording}
+                                  </Button>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+                              <Video className="h-10 w-10 mb-3 opacity-30" />
+                              <p className="text-sm">{t.nexusOmni.teams.noRecordings}</p>
+                            </div>
+                          )
                         ) : transcriptView === "summary" && meetingAiSummary ? (
                           <div className="prose prose-sm dark:prose-invert max-w-none [&_h3]:text-base [&_h3]:font-semibold [&_h3]:mt-4 [&_h3]:mb-2 [&_ul]:space-y-1 [&_li]:text-sm [&_strong]:font-semibold" dangerouslySetInnerHTML={{ __html: meetingAiSummary }} />
                         ) : meetingTranscriptContent ? (
