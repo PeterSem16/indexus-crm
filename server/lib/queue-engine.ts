@@ -17,6 +17,8 @@ import {
   callLogs,
   ivrMenus,
   ivrMenuOptions,
+  collaborators,
+  sipExtensions,
   type InboundQueue,
   type QueueMember,
   type InboundCallLog,
@@ -195,11 +197,15 @@ export class QueueEngine extends EventEmitter {
       const candidate = nameMatch[1];
       if (this.pendingOutboundCallerIds.has(candidate)) {
         extension = candidate;
+      } else {
+        extension = candidate;
       }
     }
 
     if (!extension && channel.caller?.number) {
       if (this.pendingOutboundCallerIds.has(channel.caller.number)) {
+        extension = channel.caller.number;
+      } else {
         extension = channel.caller.number;
       }
     }
@@ -207,22 +213,42 @@ export class QueueEngine extends EventEmitter {
     if (!extension) return;
 
     const pending = this.pendingOutboundCallerIds.get(extension);
-    if (!pending) return;
-
-    if (Date.now() > pending.expiresAt) {
+    if (pending && Date.now() <= pending.expiresAt) {
+      try {
+        await this.ariClient.setChannelVariable(channel.id, "CAMPAIGN_CID", pending.callerIdNumber);
+        await this.ariClient.setChannelVariable(channel.id, "CALLERID(num)", pending.callerIdNumber);
+        await this.ariClient.setChannelVariable(channel.id, "CALLERID(name)", pending.callerIdNumber);
+        console.log(`[QueueEngine] Set outbound caller ID ${pending.callerIdNumber} on channel ${channel.id} (ext: ${extension}, name: ${channel.name})`);
+      } catch (err) {
+        console.warn(`[QueueEngine] Failed to set caller ID on channel ${channel.id}:`, err instanceof Error ? err.message : err);
+      }
       this.pendingOutboundCallerIds.delete(extension);
       return;
     }
 
-    try {
-      await this.ariClient.setChannelVariable(channel.id, "CALLERID(num)", pending.callerIdNumber);
-      await this.ariClient.setChannelVariable(channel.id, "CALLERID(name)", pending.callerIdNumber);
-      console.log(`[QueueEngine] Set outbound caller ID ${pending.callerIdNumber} on channel ${channel.id} (ext: ${extension}, name: ${channel.name})`);
-    } catch (err) {
-      console.warn(`[QueueEngine] Failed to set caller ID on channel ${channel.id}:`, err instanceof Error ? err.message : err);
+    if (pending) {
+      this.pendingOutboundCallerIds.delete(extension);
     }
 
-    this.pendingOutboundCallerIds.delete(extension);
+    try {
+      const sipExt = await db.select().from(sipExtensions).where(eq(sipExtensions.extension, extension)).limit(1);
+      if (sipExt.length > 0 && sipExt[0].assignedToCollaboratorId) {
+        const collab = await db.select({ outboundCallerId: collaborators.outboundCallerId })
+          .from(collaborators)
+          .where(eq(collaborators.id, sipExt[0].assignedToCollaboratorId))
+          .limit(1);
+        if (collab.length > 0 && collab[0].outboundCallerId) {
+          await this.ariClient.setChannelVariable(channel.id, "CAMPAIGN_CID", collab[0].outboundCallerId);
+          await this.ariClient.setChannelVariable(channel.id, "CALLERID(num)", collab[0].outboundCallerId);
+          await this.ariClient.setChannelVariable(channel.id, "CALLERID(name)", collab[0].outboundCallerId);
+          console.log(`[QueueEngine] Set collaborator outbound caller ID ${collab[0].outboundCallerId} on channel ${channel.id} (ext: ${extension}, collaborator: ${sipExt[0].assignedToCollaboratorId})`);
+          return;
+        }
+      }
+    
+    } catch (err) {
+      console.warn(`[QueueEngine] Failed to lookup outbound caller ID for ext ${extension}:`, err instanceof Error ? err.message : err);
+    }
   }
 
   async setOutboundCallerId(sipExtension: string, callerIdNumber: string): Promise<void> {
