@@ -1125,7 +1125,7 @@ export async function getTeamsChats(
     result = await client.api('/me/chats')
       .select('id,topic,chatType,createdDateTime,lastUpdatedDateTime,webUrl')
       .expand('members,lastMessagePreview')
-      .top(100)
+      .top(50)
       .get();
   } catch (expandError: any) {
     console.warn('[MS365] Chats expand(members) failed, trying without expand:', expandError?.code || expandError?.message);
@@ -1133,13 +1133,13 @@ export async function getTeamsChats(
       result = await client.api('/me/chats')
         .select('id,topic,chatType,createdDateTime,lastUpdatedDateTime,webUrl')
         .expand('lastMessagePreview')
-        .top(100)
+        .top(50)
         .get();
     } catch (fallbackError: any) {
       console.warn('[MS365] Chats expand(lastMessagePreview) also failed, basic fetch:', fallbackError?.code);
       result = await client.api('/me/chats')
         .select('id,topic,chatType,createdDateTime,lastUpdatedDateTime,webUrl')
-        .top(100)
+        .top(50)
         .get();
     }
   }
@@ -1696,7 +1696,7 @@ export async function getTeamsActivityFeed(
         .get(),
       client.api('/me/events')
         .filter(`start/dateTime ge '${threeMonthsAgo.toISOString()}' and start/dateTime le '${new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000).toISOString()}'`)
-        .top(100)
+        .top(50)
         .orderby('start/dateTime desc')
         .select('id,subject,start,end,isOnlineMeeting,onlineMeeting,organizer,attendees,bodyPreview,webLink,createdDateTime,lastModifiedDateTime,responseStatus')
         .get(),
