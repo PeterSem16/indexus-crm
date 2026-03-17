@@ -3167,11 +3167,12 @@ export default function EmailClientPage() {
     return true;
   });
 
-  const [taskSubTab, setTaskSubTab] = useState<"my" | "all" | "reporting">("my");
+  const [taskSubTab, setTaskSubTab] = useState<"my" | "all">("my");
+  const [taskReportingOpen, setTaskReportingOpen] = useState(false);
 
   const filteredTasks = (tasksData || []).filter(task => {
     const matchesStatus = taskFilter === "all" || task.status === taskFilter;
-    const matchesTab = taskSubTab === "all" || taskSubTab === "reporting" || task.assignedUserId === user?.id;
+    const matchesTab = taskSubTab === "all" || task.assignedUserId === user?.id;
     return matchesStatus && matchesTab;
   });
 
@@ -4922,93 +4923,14 @@ export default function EmailClientPage() {
                   <Button variant={taskSubTab === "all" ? "default" : "ghost"} size="sm" className="h-6 text-[11px] px-2" onClick={() => { setTaskSubTab("all"); setLocalPage(0); }} data-testid="task-subtab-all">
                     {t.nexusOmni.tasks.allTasks}
                   </Button>
-                  <Button variant={taskSubTab === "reporting" ? "default" : "ghost"} size="sm" className="h-6 text-[11px] px-2" onClick={() => setTaskSubTab("reporting")} data-testid="task-subtab-reporting">
+                  <Button variant="ghost" size="sm" className="h-6 text-[11px] px-2" onClick={() => setTaskReportingOpen(true)} data-testid="task-subtab-reporting">
                     <BarChart3 className="h-3 w-3 mr-1" />
                     {t.nexusOmni.tasks.reporting}
                   </Button>
                 </div>
               </CardHeader>
               <CardContent className="p-0 flex-1 min-h-0 flex flex-col">
-                {taskSubTab === "reporting" ? (() => {
-                  const allTasksForReport = (tasksData || []).filter(task => {
-                    const taskDate = new Date(task.createdAt);
-                    return taskDate >= taskReportStartDate && taskDate <= taskReportEndDate;
-                  });
-                  const userStats = allSystemUsers.map((u: any) => {
-                    const uTasks = allTasksForReport.filter(t2 => t2.assignedUserId === u.id);
-                    const total = uTasks.length;
-                    const completed = uTasks.filter(t2 => t2.status === "completed").length;
-                    const inProg = uTasks.filter(t2 => t2.status === "in_progress").length;
-                    const pend = uTasks.filter(t2 => t2.status === "pending").length;
-                    const canc = uTasks.filter(t2 => t2.status === "cancelled").length;
-                    return { user: u, total, completed, inProgress: inProg, pending: pend, cancelled: canc, completionRate: total > 0 ? Math.round((completed / total) * 100) : 0 };
-                  }).filter(s => s.total > 0).sort((a, b) => b.total - a.total);
-                  return (
-                    <ScrollArea className="flex-1 min-h-0">
-                      <div className="p-3 space-y-3">
-                        <div className="flex items-center gap-1 flex-wrap">
-                          {["this_month", "last_month", "quarter", "half_year", "year"].map(preset => (
-                            <Button key={preset} variant={taskReportDateRange === preset ? "default" : "outline"} size="sm" className="h-6 text-[10px] px-2" onClick={() => handleTaskReportDateRange(preset)} data-testid={`report-${preset}`}>
-                              {preset === "this_month" ? t.nexusOmni.tasks.thisMonth : preset === "last_month" ? t.nexusOmni.tasks.lastMonth : preset === "quarter" ? t.nexusOmni.tasks.quarter : preset === "half_year" ? t.nexusOmni.tasks.halfYear : t.nexusOmni.tasks.year}
-                            </Button>
-                          ))}
-                        </div>
-                        <div className="text-[11px] text-muted-foreground flex items-center gap-1">
-                          <Calendar className="h-3 w-3" />
-                          {format(taskReportStartDate, "dd.MM.yyyy")} - {format(taskReportEndDate, "dd.MM.yyyy")}
-                          <span className="ml-1">({allTasksForReport.length} {t.nexusOmni.tasks.tasksCount})</span>
-                        </div>
-                        {userStats.length === 0 ? (
-                          <div className="text-center py-8 text-muted-foreground">
-                            <BarChart3 className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                            <p className="text-xs">{t.nexusOmni.tasks.noTasks}</p>
-                          </div>
-                        ) : userStats.map(stat => (
-                          <div key={stat.user.id} className="p-3 rounded-lg border" data-testid={`user-stat-${stat.user.id}`}>
-                            <div className="flex items-center justify-between mb-2">
-                              <div className="flex items-center gap-2">
-                                <Avatar className="h-7 w-7">
-                                  <AvatarImage src={stat.user.avatarUrl || undefined} className="object-cover" />
-                                  <AvatarFallback className={cn("text-white text-[9px] font-semibold", getAvatarColorStatic(stat.user.fullName || stat.user.username))}>
-                                    {getInitialsStatic(stat.user.fullName || stat.user.username)}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <div>
-                                  <p className="text-xs font-medium">{stat.user.fullName || stat.user.username}</p>
-                                  <p className="text-[10px] text-muted-foreground">{stat.user.email}</p>
-                                </div>
-                              </div>
-                              <Badge variant="secondary" className="text-xs font-semibold">{stat.total}</Badge>
-                            </div>
-                            <div className="flex items-center justify-between mb-1.5">
-                              <span className="text-[11px]">{t.nexusOmni.tasks.completionRate}</span>
-                              <span className="text-[11px] font-bold text-green-600">{stat.completionRate}%</span>
-                            </div>
-                            <Progress value={stat.completionRate} className="h-1.5 mb-2" />
-                            <div className="grid grid-cols-2 gap-1.5 text-[10px]">
-                              <div className="flex items-center justify-between p-1.5 rounded bg-green-50 dark:bg-green-900/20">
-                                <span className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3 text-green-600" />{t.nexusOmni.tasks.completed}</span>
-                                <span className="font-semibold">{stat.completed}</span>
-                              </div>
-                              <div className="flex items-center justify-between p-1.5 rounded bg-blue-50 dark:bg-blue-900/20">
-                                <span className="flex items-center gap-1"><Play className="h-3 w-3 text-blue-600" />{t.nexusOmni.tasks.inProgress}</span>
-                                <span className="font-semibold">{stat.inProgress}</span>
-                              </div>
-                              <div className="flex items-center justify-between p-1.5 rounded bg-slate-50 dark:bg-slate-800/50">
-                                <span className="flex items-center gap-1"><Clock className="h-3 w-3 text-slate-600" />{t.nexusOmni.tasks.pending}</span>
-                                <span className="font-semibold">{stat.pending}</span>
-                              </div>
-                              <div className="flex items-center justify-between p-1.5 rounded bg-gray-50 dark:bg-gray-800/50">
-                                <span className="flex items-center gap-1"><XCircle className="h-3 w-3 text-gray-500" />{t.nexusOmni.tasks.cancelled}</span>
-                                <span className="font-semibold">{stat.cancelled}</span>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </ScrollArea>
-                  );
-                })() : tasksLoading ? (
+                {tasksLoading ? (
                   <div className="flex items-center justify-center py-8"><Loader2 className="h-5 w-5 animate-spin" /></div>
                 ) : tasksPage.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
@@ -6511,6 +6433,99 @@ export default function EmailClientPage() {
               <UserPlus className="h-4 w-4 mr-2" />{t.nexusOmni.tasks.reassign}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={taskReportingOpen} onOpenChange={setTaskReportingOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5 text-amber-600" />
+              {t.nexusOmni.tasks.reporting}
+            </DialogTitle>
+          </DialogHeader>
+          {(() => {
+            const allTasksForReport = (tasksData || []).filter(task => {
+              const taskDate = new Date(task.createdAt);
+              return taskDate >= taskReportStartDate && taskDate <= taskReportEndDate;
+            });
+            const userStats = allSystemUsers.map((u: any) => {
+              const uTasks = allTasksForReport.filter(t2 => t2.assignedUserId === u.id);
+              const total = uTasks.length;
+              const completed = uTasks.filter(t2 => t2.status === "completed").length;
+              const inProg = uTasks.filter(t2 => t2.status === "in_progress").length;
+              const pend = uTasks.filter(t2 => t2.status === "pending").length;
+              const canc = uTasks.filter(t2 => t2.status === "cancelled").length;
+              return { user: u, total, completed, inProgress: inProg, pending: pend, cancelled: canc, completionRate: total > 0 ? Math.round((completed / total) * 100) : 0 };
+            }).filter(s => s.total > 0).sort((a, b) => b.total - a.total);
+            return (
+              <div className="flex-1 min-h-0 overflow-auto space-y-4">
+                <div className="flex items-center gap-1 flex-wrap">
+                  {["this_month", "last_month", "quarter", "half_year", "year"].map(preset => (
+                    <Button key={preset} variant={taskReportDateRange === preset ? "default" : "outline"} size="sm" className="h-7 text-xs px-3" onClick={() => handleTaskReportDateRange(preset)} data-testid={`report-${preset}`}>
+                      {preset === "this_month" ? t.nexusOmni.tasks.thisMonth : preset === "last_month" ? t.nexusOmni.tasks.lastMonth : preset === "quarter" ? t.nexusOmni.tasks.quarter : preset === "half_year" ? t.nexusOmni.tasks.halfYear : t.nexusOmni.tasks.year}
+                    </Button>
+                  ))}
+                </div>
+                <div className="text-xs text-muted-foreground flex items-center gap-1.5">
+                  <Calendar className="h-3.5 w-3.5" />
+                  {format(taskReportStartDate, "dd.MM.yyyy")} - {format(taskReportEndDate, "dd.MM.yyyy")}
+                  <span className="ml-1 font-medium">({allTasksForReport.length} {t.nexusOmni.tasks.tasksCount})</span>
+                </div>
+                {userStats.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <BarChart3 className="h-10 w-10 mx-auto mb-3 opacity-50" />
+                    <p className="text-sm">{t.nexusOmni.tasks.noTasks}</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {userStats.map(stat => (
+                      <div key={stat.user.id} className="p-4 rounded-lg border" data-testid={`user-stat-${stat.user.id}`}>
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2.5">
+                            <Avatar className="h-9 w-9">
+                              <AvatarImage src={stat.user.avatarUrl || undefined} className="object-cover" />
+                              <AvatarFallback className={cn("text-white text-xs font-semibold", getAvatarColorStatic(stat.user.fullName || stat.user.username))}>
+                                {getInitialsStatic(stat.user.fullName || stat.user.username)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <p className="text-sm font-medium">{stat.user.fullName || stat.user.username}</p>
+                              <p className="text-[11px] text-muted-foreground">{stat.user.email}</p>
+                            </div>
+                          </div>
+                          <Badge variant="secondary" className="text-sm font-bold">{stat.total}</Badge>
+                        </div>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-xs">{t.nexusOmni.tasks.completionRate}</span>
+                          <span className="text-xs font-bold text-green-600">{stat.completionRate}%</span>
+                        </div>
+                        <Progress value={stat.completionRate} className="h-2 mb-3" />
+                        <div className="grid grid-cols-2 gap-2 text-[11px]">
+                          <div className="flex items-center justify-between p-2 rounded bg-green-50 dark:bg-green-900/20">
+                            <span className="flex items-center gap-1"><CheckCircle2 className="h-3.5 w-3.5 text-green-600" />{t.nexusOmni.tasks.completed}</span>
+                            <span className="font-semibold">{stat.completed}</span>
+                          </div>
+                          <div className="flex items-center justify-between p-2 rounded bg-blue-50 dark:bg-blue-900/20">
+                            <span className="flex items-center gap-1"><Play className="h-3.5 w-3.5 text-blue-600" />{t.nexusOmni.tasks.inProgress}</span>
+                            <span className="font-semibold">{stat.inProgress}</span>
+                          </div>
+                          <div className="flex items-center justify-between p-2 rounded bg-slate-50 dark:bg-slate-800/50">
+                            <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5 text-slate-600" />{t.nexusOmni.tasks.pending}</span>
+                            <span className="font-semibold">{stat.pending}</span>
+                          </div>
+                          <div className="flex items-center justify-between p-2 rounded bg-gray-50 dark:bg-gray-800/50">
+                            <span className="flex items-center gap-1"><XCircle className="h-3.5 w-3.5 text-gray-500" />{t.nexusOmni.tasks.cancelled}</span>
+                            <span className="font-semibold">{stat.cancelled}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </DialogContent>
       </Dialog>
 
