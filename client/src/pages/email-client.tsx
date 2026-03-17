@@ -4948,11 +4948,11 @@ export default function EmailClientPage() {
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center justify-between">
                                   <p className="text-xs font-medium truncate">{conv.partner?.fullName || conv.partnerId}</p>
-                                  {conv.lastMessageAt && (
-                                    <span className="text-[10px] text-muted-foreground">{format(new Date(conv.lastMessageAt), "HH:mm")}</span>
+                                  {conv.lastMessage?.createdAt && (
+                                    <span className="text-[10px] text-muted-foreground">{format(new Date(conv.lastMessage.createdAt), "HH:mm")}</span>
                                   )}
                                 </div>
-                                <p className="text-[10px] text-muted-foreground truncate">{conv.lastMessage || ""}</p>
+                                <p className="text-[10px] text-muted-foreground truncate">{conv.lastMessage?.content || ""}</p>
                               </div>
                               {conv.unreadCount > 0 && (
                                 <Badge className="h-4 min-w-[16px] text-[9px] px-1 bg-violet-500">{conv.unreadCount}</Badge>
