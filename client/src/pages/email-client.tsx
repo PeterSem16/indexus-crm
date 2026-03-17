@@ -3737,9 +3737,15 @@ export default function EmailClientPage() {
       inlineAtts.forEach(att => {
         const inlineUrl = `/api/users/${user?.id}/ms365-email/${emailId}/attachment-inline/${att.id}?mailbox=${encodeURIComponent(mailbox)}`;
         if (att.contentId) {
-          const cidEscaped = att.contentId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const rawCid = att.contentId.replace(/^<|>$/g, '');
+          const cidEscaped = rawCid.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
           const cidPattern = new RegExp(`src=["']cid:${cidEscaped}["']`, 'gi');
           processed = processed.replace(cidPattern, `src="${inlineUrl}"`);
+          if (rawCid !== att.contentId) {
+            const origEscaped = att.contentId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const origPattern = new RegExp(`src=["']cid:${origEscaped}["']`, 'gi');
+            processed = processed.replace(origPattern, `src="${inlineUrl}"`);
+          }
         }
         const nameEscaped = att.name?.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') || '';
         if (nameEscaped) {
@@ -3748,6 +3754,13 @@ export default function EmailClientPage() {
         }
       });
     }
+    processed = processed.replace(
+      /src=["'](https?:\/\/[^"']+)["']/gi,
+      (match, url) => {
+        if (url.startsWith('/api/')) return match;
+        return `src="/api/users/${user?.id}/email-image-proxy?url=${encodeURIComponent(url)}"`;
+      }
+    );
     return processed;
   };
 

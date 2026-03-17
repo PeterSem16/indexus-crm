@@ -4658,7 +4658,7 @@ Format the output in clean HTML with headings (h3), bullet lists (ul/li), and bo
             contentType: a.contentType,
             size: a.size,
             isInline: a.isInline || false,
-            contentId: a.contentId || null,
+            contentId: a.contentId ? a.contentId.replace(/^<|>$/g, '') : null,
           }));
         } catch (attErr) {
           console.error("[EmailRouter] Error fetching attachments:", attErr);
@@ -4719,6 +4719,46 @@ Format the output in clean HTML with headings (h3), bullet lists (ul/li), and bo
     } catch (error) {
       console.error("Error downloading attachment:", error);
       res.status(500).json({ error: "Failed to download attachment" });
+    }
+  });
+
+  app.get("/api/users/:userId/email-image-proxy", requireAuth, async (req, res) => {
+    try {
+      const imageUrl = req.query.url as string;
+      if (!imageUrl) {
+        return res.status(400).json({ error: "URL is required" });
+      }
+
+      try {
+        new URL(imageUrl);
+      } catch {
+        return res.status(400).json({ error: "Invalid URL" });
+      }
+
+      const response = await fetch(imageUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Accept': 'image/*,*/*;q=0.8',
+        },
+        signal: AbortSignal.timeout(10000),
+      });
+
+      if (!response.ok) {
+        return res.status(response.status).end();
+      }
+
+      const contentType = response.headers.get('content-type') || 'image/png';
+      const buffer = Buffer.from(await response.arrayBuffer());
+      
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Cache-Control', 'private, max-age=86400');
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+      res.send(buffer);
+    } catch (error: any) {
+      if (error?.name === 'TimeoutError' || error?.name === 'AbortError') {
+        return res.status(504).end();
+      }
+      res.status(502).end();
     }
   });
 
