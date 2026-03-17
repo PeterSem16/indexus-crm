@@ -1383,9 +1383,43 @@ export async function createOnlineMeeting(
       endDateTime: calendarEvent.end?.dateTime,
       videoTeleconferenceId: onlineMeetingId,
     };
-  } catch (error: any) {
-    console.error('[MS365] Error creating online meeting with calendar event:', error?.message || error, error?.body || '');
-    throw error;
+  } catch (calendarError: any) {
+    console.warn('[MS365] Calendar event approach failed, trying /me/onlineMeetings fallback:', calendarError?.message || calendarError?.code);
+
+    try {
+      const meetingPayload: any = {
+        subject,
+        startDateTime: startRaw,
+        endDateTime: endRaw,
+      };
+
+      if (participantEmails && participantEmails.length > 0) {
+        meetingPayload.participants = {
+          attendees: participantEmails.map(email => ({
+            upn: email,
+            role: 'attendee',
+          })),
+        };
+      }
+
+      const meeting = await client.api('/me/onlineMeetings').post(meetingPayload);
+      const joinUrl = meeting.joinWebUrl || meeting.joinUrl;
+
+      return {
+        id: meeting.id,
+        calendarEventId: null,
+        joinUrl,
+        subject: meeting.subject,
+        startDateTime: meeting.startDateTime,
+        endDateTime: meeting.endDateTime,
+        videoTeleconferenceId: meeting.videoTeleconferenceId,
+      };
+    } catch (onlineMeetingError: any) {
+      console.error('[MS365] Both meeting creation approaches failed.');
+      console.error('[MS365] Calendar event error:', calendarError?.message || calendarError);
+      console.error('[MS365] OnlineMeetings error:', onlineMeetingError?.message || onlineMeetingError);
+      throw onlineMeetingError;
+    }
   }
 }
 
