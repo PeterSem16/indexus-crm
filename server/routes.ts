@@ -21619,15 +21619,16 @@ Return ONLY valid JSON, no markdown code blocks.`,
     try {
       const { extension } = req.params;
       const apiKey = req.headers["x-asterisk-key"] || req.query.key;
+      const debug = req.query.debug === "1";
       if (apiKey !== (process.env.ASTERISK_API_KEY || "indexus-asterisk-2024")) {
-        return res.status(401).send("");
+        return debug ? res.json({ error: "invalid_key", provided: apiKey }) : res.status(401).send("");
       }
       if (!extension) {
-        return res.send("");
+        return debug ? res.json({ error: "no_extension" }) : res.send("");
       }
       const sipExt = await db.select().from(sipExtensions).where(eq(sipExtensions.extension, extension)).limit(1);
       if (sipExt.length === 0) {
-        return res.send("");
+        return debug ? res.json({ error: "extension_not_found", extension }) : res.send("");
       }
       if (sipExt[0].assignedToCollaboratorId) {
         const collab = await db.select({ outboundCallerId: collaborators.outboundCallerId })
@@ -21635,13 +21636,14 @@ Return ONLY valid JSON, no markdown code blocks.`,
           .where(eq(collaborators.id, sipExt[0].assignedToCollaboratorId))
           .limit(1);
         if (collab.length > 0 && collab[0].outboundCallerId) {
-          return res.send(collab[0].outboundCallerId);
+          return debug ? res.json({ ok: true, callerId: collab[0].outboundCallerId }) : res.send(collab[0].outboundCallerId);
         }
+        return debug ? res.json({ error: "no_callerid_on_collaborator", collaboratorId: sipExt[0].assignedToCollaboratorId, collab }) : res.send("");
       }
-      return res.send("");
+      return debug ? res.json({ error: "no_collaborator_assigned", extensionId: sipExt[0].id }) : res.send("");
     } catch (error) {
       console.error("Failed to get asterisk caller ID:", error);
-      res.send("");
+      return res.json({ error: "exception", message: error instanceof Error ? error.message : String(error) });
     }
   });
 
