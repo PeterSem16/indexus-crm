@@ -1,0 +1,27 @@
+== DTLS ECDH initialized (automatic), faster PFS enabled
+    -- Executing [421948519438@webrtc-indexus:1] NoOp("PJSIP/2009-00000010", "WEbrtc-Indexus: caller="" <2009> exten=421948519438") in new stack
+    -- Executing [421948519438@webrtc-indexus:2] Set("PJSIP/2009-00000010", "OUTNUM=421948519438") in new stack
+    -- Executing [421948519438@webrtc-indexus:3] Set("PJSIP/2009-00000010", "ORIG_EXT=2009") in new stack
+    -- Executing [421948519438@webrtc-indexus:4] Set("PJSIP/2009-00000010", "CAMPAIGN_CID=") in new stack
+    -- Executing [421948519438@webrtc-indexus:5] ExecIf("PJSIP/2009-00000010", "1?Set(CAMPAIGN_CID=)") in new stack
+    -- Executing [421948519438@webrtc-indexus:6] ExecIf("PJSIP/2009-00000010", "0?Set(CALLERID(num)=)") in new stack
+    -- Executing [421948519438@webrtc-indexus:7] NoOp("PJSIP/2009-00000010", "WEbrtc-Indexus normalized OUTNUM=421948519438 ORIG_EXT=2009 CAMPAIGN_CID= FINAL_CID=2009") in new stack
+    -- Executing [421948519438@webrtc-indexus:8] Goto("PJSIP/2009-00000010", "route,1") in new stack
+    -- Goto (webrtc-indexus,route,1)
+    -- Executing [route@webrtc-indexus:1] NoOp("PJSIP/2009-00000010", "WEbrtc-Indexus ROUTE: caller=2009 ORIG_EXT=2009 OUTNUM=421948519438") in new stack
+    -- Executing [route@webrtc-indexus:2] GotoIf("PJSIP/2009-00000010", "0?[webrtc-indexus],421948519438,1") in new stack
+    -- Executing [route@webrtc-indexus:3] GotoIf("PJSIP/2009-00000010", "0?do_picktrunk") in new stack
+    -- Executing [route@webrtc-indexus:4] GotoIf("PJSIP/2009-00000010", "1?do_picktrunk") in new stack
+    -- Goto (webrtc-indexus,route,7)
+    -- Executing [route@webrtc-indexus:7] Goto("PJSIP/2009-00000010", "webrtc-indexus,picktrunk,1") in new stack
+    -- Goto (webrtc-indexus,picktrunk,1)
+    -- Executing [picktrunk@webrtc-indexus:1] NoOp("PJSIP/2009-00000010", "WEbrtc-Indexus PICKTRUNK: orig_ext=2009 caller=2009 OUTNUM=421948519438") in new stack
+    -- Executing [picktrunk@webrtc-indexus:2] GotoIf("PJSIP/2009-00000010", "1?dial_slovanet,1") in new stack
+    -- Goto (webrtc-indexus,dial_slovanet,1)
+    -- Executing [dial_slovanet@webrtc-indexus:1] NoOp("PJSIP/2009-00000010", "WEbrtc-Indexus DIAL via SLOVANET: 2009 -> 421948519438") in new stack
+    -- Executing [dial_slovanet@webrtc-indexus:2] Dial("PJSIP/2009-00000010", "SIP/SLOVANET-VGW/421948519438,60,Tt") in new stack
+  == Using SIP RTP CoS mark 5
+    -- Called SIP/SLOVANET-VGW/421948519438
+    -- SIP/SLOVANET-VGW-00000169 is ringing
+       > 0x7f8bec06a800 -- Strict RTP learning after remote address set to: 195.28.88.42:17482
+    -- SIP/SLOVANET-VGW-00000169 is ringing
