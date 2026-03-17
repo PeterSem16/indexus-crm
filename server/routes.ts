@@ -13482,6 +13482,19 @@ Return ONLY valid JSON, no markdown code blocks.`,
         await storage.updateCollaborator(req.params.id, webrtcUpdate);
       }
 
+      if (outboundCallerId !== undefined) {
+        const engine = getQueueEngine();
+        if (engine) {
+          const collabSipExt = mobileSipExtensionId || oldCollaborator.mobileSipExtensionId;
+          if (collabSipExt) {
+            const ext = await storage.getSipExtensionById(collabSipExt);
+            if (ext) {
+              engine.syncCallerIdToAsteriskDB(ext.extension, outboundCallerId || null).catch(() => {});
+            }
+          }
+        }
+      }
+
       if (mobileSipExtensionId && mobileSipExtensionId !== oldCollaborator.mobileSipExtensionId) {
         const ext = await storage.getSipExtensionById(mobileSipExtensionId);
         if (!ext) {

@@ -264,6 +264,20 @@ export class QueueEngine extends EventEmitter {
     console.log(`[QueueEngine] Pending outbound caller ID set: ext=${sipExtension}, callerId=${callerIdNumber} (expires in 30s)`);
   }
 
+  async syncCallerIdToAsteriskDB(extension: string, callerId: string | null): Promise<void> {
+    try {
+      if (callerId) {
+        await this.ariClient.setAsteriskDB("callerid", extension, callerId);
+        console.log(`[QueueEngine] Synced caller ID to Asterisk DB: callerid/${extension} = ${callerId}`);
+      } else {
+        await this.ariClient.deleteAsteriskDB("callerid", extension);
+        console.log(`[QueueEngine] Deleted caller ID from Asterisk DB: callerid/${extension}`);
+      }
+    } catch (err) {
+      console.warn(`[QueueEngine] Failed to sync caller ID to Asterisk DB for ext ${extension}:`, err instanceof Error ? err.message : err);
+    }
+  }
+
   private async handlePlaybackFinished(event: AriEvent): Promise<void> {
     const playbackId = event.playback?.id;
     if (!playbackId) return;

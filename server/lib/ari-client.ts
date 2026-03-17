@@ -464,6 +464,27 @@ export class AriClient extends EventEmitter {
     await this.ariRequest("POST", `/channels/${channelId}/variable?variable=${variable}&value=${encodeURIComponent(value)}`);
   }
 
+  async setGlobalVariable(variable: string, value: string): Promise<void> {
+    await this.ariRequest("POST", `/asterisk/variable?variable=${encodeURIComponent(variable)}&value=${encodeURIComponent(value)}`);
+  }
+
+  async getGlobalVariable(variable: string): Promise<string | null> {
+    try {
+      const result = await this.ariRequest("GET", `/asterisk/variable?variable=${encodeURIComponent(variable)}`);
+      return result?.value || null;
+    } catch {
+      return null;
+    }
+  }
+
+  async setAsteriskDB(family: string, key: string, value: string): Promise<void> {
+    await this.setGlobalVariable(`DB(${family}/${key})`, value);
+  }
+
+  async deleteAsteriskDB(family: string, key: string): Promise<void> {
+    await this.setGlobalVariable(`DB_DELETE(${family}/${key})`, "");
+  }
+
   async muteChannel(channelId: string, direction: string = "in"): Promise<void> {
     await this.ariRequest("POST", `/channels/${channelId}/mute?direction=${direction}`);
   }
