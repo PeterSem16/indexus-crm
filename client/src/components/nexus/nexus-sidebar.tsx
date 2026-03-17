@@ -355,7 +355,7 @@ export default function NexusSidebar({
                     <ListTodo className="h-5 w-5" />
                   </button>
                 </TooltipTrigger>
-                <TooltipContent side="right" className="text-xs">{t.nexusOmni.tasks.allTasks} ({totalTasks})</TooltipContent>
+                <TooltipContent side="right" className="text-xs">{t.tasks.allTasks} ({totalTasks})</TooltipContent>
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -372,7 +372,7 @@ export default function NexusSidebar({
                     )}
                   </button>
                 </TooltipTrigger>
-                <TooltipContent side="right" className="text-xs">{t.nexusOmni.tasks.pending} ({pendingTasks})</TooltipContent>
+                <TooltipContent side="right" className="text-xs">{t.tasks.pending} ({pendingTasks})</TooltipContent>
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -384,7 +384,7 @@ export default function NexusSidebar({
                     <CircleDashed className="h-5 w-5 text-blue-500" />
                   </button>
                 </TooltipTrigger>
-                <TooltipContent side="right" className="text-xs">{t.nexusOmni.tasks.inProgress} ({inProgressTasks})</TooltipContent>
+                <TooltipContent side="right" className="text-xs">{t.tasks.inProgress} ({inProgressTasks})</TooltipContent>
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -396,7 +396,7 @@ export default function NexusSidebar({
                     <CheckCircle2 className="h-5 w-5 text-emerald-500" />
                   </button>
                 </TooltipTrigger>
-                <TooltipContent side="right" className="text-xs">{t.nexusOmni.tasks.completed} ({completedTasks})</TooltipContent>
+                <TooltipContent side="right" className="text-xs">{t.tasks.completed} ({completedTasks})</TooltipContent>
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -408,7 +408,7 @@ export default function NexusSidebar({
                     <XCircle className="h-5 w-5 text-red-400" />
                   </button>
                 </TooltipTrigger>
-                <TooltipContent side="right" className="text-xs">{t.nexusOmni.tasks.cancelled} ({cancelledTasks})</TooltipContent>
+                <TooltipContent side="right" className="text-xs">{t.tasks.cancelled} ({cancelledTasks})</TooltipContent>
               </Tooltip>
             </>
           )}
@@ -723,7 +723,7 @@ export default function NexusSidebar({
             <>
               <SidebarItem
                 icon={<ListTodo className="h-4 w-4" />}
-                label={t.nexusOmni.tasks.allTasks}
+                label={t.tasks.allTasks}
                 count={totalTasks}
                 active={taskFilter === "all"}
                 onClick={() => onTaskFilterChange("all")}
@@ -732,7 +732,7 @@ export default function NexusSidebar({
               <div className="my-1 mx-2 border-t" />
               <SidebarItem
                 icon={<Clock className="h-3.5 w-3.5 text-amber-500" />}
-                label={t.nexusOmni.tasks.pending}
+                label={t.tasks.pending}
                 count={pendingTasks}
                 badge={pendingTasks > 0 ? pendingTasks : undefined}
                 badgeVariant="primary"
@@ -743,7 +743,7 @@ export default function NexusSidebar({
               />
               <SidebarItem
                 icon={<CircleDashed className="h-3.5 w-3.5 text-blue-500" />}
-                label={t.nexusOmni.tasks.inProgress}
+                label={t.tasks.inProgress}
                 count={inProgressTasks}
                 active={taskFilter === "in_progress"}
                 onClick={() => onTaskFilterChange("in_progress")}
@@ -752,7 +752,7 @@ export default function NexusSidebar({
               />
               <SidebarItem
                 icon={<CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />}
-                label={t.nexusOmni.tasks.completed}
+                label={t.tasks.completed}
                 count={completedTasks}
                 active={taskFilter === "completed"}
                 onClick={() => onTaskFilterChange("completed")}
@@ -761,7 +761,7 @@ export default function NexusSidebar({
               />
               <SidebarItem
                 icon={<XCircle className="h-3.5 w-3.5 text-red-400" />}
-                label={t.nexusOmni.tasks.cancelled}
+                label={t.tasks.cancelled}
                 count={cancelledTasks}
                 active={taskFilter === "cancelled"}
                 onClick={() => onTaskFilterChange("cancelled")}

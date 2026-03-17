@@ -3419,7 +3419,7 @@ export default function EmailClientPage() {
     try {
       const res = await apiRequest("POST", `/api/tasks/${selectedTask.id}/comments`, { content: taskCommentInput.trim() });
       if (res.ok) {
-        toast({ title: t.nexusOmni.tasks.commentAdded });
+        toast({ title: t.tasks.commentAdded });
         setTaskCommentInput("");
         fetchTaskComments(selectedTask.id);
       }
@@ -3430,7 +3430,7 @@ export default function EmailClientPage() {
     if (!selectedTask?.id) return;
     try {
       await apiRequest("DELETE", `/api/tasks/${selectedTask.id}/comments/${commentId}`);
-      toast({ title: t.nexusOmni.tasks.commentDeleted });
+      toast({ title: t.tasks.commentDeleted });
       fetchTaskComments(selectedTask.id);
     } catch { toast({ title: t.nexusOmni.common.error, variant: "destructive" }); }
   };
@@ -3451,7 +3451,7 @@ export default function EmailClientPage() {
   const handleTaskStatusChange = async (task: any, newStatus: string) => {
     try {
       await apiRequest("PATCH", `/api/tasks/${task.id}`, { status: newStatus });
-      toast({ title: t.nexusOmni.tasks.taskUpdated });
+      toast({ title: t.tasks.taskUpdated });
       queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
       if (selectedTask?.id === task.id) setSelectedTask({ ...task, status: newStatus });
     } catch { toast({ title: t.nexusOmni.common.error, variant: "destructive" }); }
@@ -3461,7 +3461,7 @@ export default function EmailClientPage() {
     if (!selectedTask || !taskResolutionText.trim()) return;
     try {
       await apiRequest("POST", `/api/tasks/${selectedTask.id}/resolve`, { resolution: taskResolutionText });
-      toast({ title: t.nexusOmni.tasks.taskResolved });
+      toast({ title: t.tasks.taskResolved });
       queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
       setTaskResolveDialogOpen(false);
       setTaskResolutionText("");
@@ -3473,7 +3473,7 @@ export default function EmailClientPage() {
     if (!selectedTask || !taskReassignUserId) return;
     try {
       await apiRequest("POST", `/api/tasks/${selectedTask.id}/reassign`, { newAssignedUserId: taskReassignUserId });
-      toast({ title: t.nexusOmni.tasks.taskReassigned });
+      toast({ title: t.tasks.taskReassigned });
       queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
       setTaskReassignDialogOpen(false);
       setTaskReassignUserId("");
@@ -3485,7 +3485,7 @@ export default function EmailClientPage() {
     if (!selectedTask) return;
     try {
       await apiRequest("PATCH", `/api/tasks/${selectedTask.id}`, taskEditForm);
-      toast({ title: t.nexusOmni.tasks.taskUpdated });
+      toast({ title: t.tasks.taskUpdated });
       queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
       setTaskEditDialogOpen(false);
       setSelectedTask(null);
@@ -4910,7 +4910,7 @@ export default function EmailClientPage() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <ListTodo className="h-4 w-4 text-amber-600" />
-                    <span className="text-sm font-semibold">{taskFilter === "all" ? t.nexusOmni.tasks.allTasks : taskFilter === "pending" ? t.nexusOmni.tasks.pending : taskFilter === "in_progress" ? t.nexusOmni.tasks.inProgress : taskFilter === "completed" ? t.nexusOmni.tasks.completed : t.nexusOmni.tasks.cancelled}</span>
+                    <span className="text-sm font-semibold">{taskFilter === "all" ? t.tasks.allTasks : taskFilter === "pending" ? t.tasks.pending : taskFilter === "in_progress" ? t.tasks.inProgress : taskFilter === "completed" ? t.tasks.completed : t.tasks.cancelled}</span>
                     <Badge variant="secondary" className="text-[10px]">{filteredTasks.length}</Badge>
                   </div>
                   <div className="flex items-center gap-0.5">
@@ -4925,14 +4925,14 @@ export default function EmailClientPage() {
                 </div>
                 <div className="flex items-center gap-1 mt-1.5">
                   <Button variant={taskSubTab === "my" ? "default" : "ghost"} size="sm" className="h-6 text-[11px] px-2" onClick={() => { setTaskSubTab("my"); setLocalPage(0); }} data-testid="task-subtab-my">
-                    {t.nexusOmni.tasks.myTasks}
+                    {t.tasks.myTasks}
                   </Button>
                   <Button variant={taskSubTab === "all" ? "default" : "ghost"} size="sm" className="h-6 text-[11px] px-2" onClick={() => { setTaskSubTab("all"); setLocalPage(0); }} data-testid="task-subtab-all">
-                    {t.nexusOmni.tasks.allTasks}
+                    {t.tasks.allTasks}
                   </Button>
                   <Button variant="ghost" size="sm" className="h-6 text-[11px] px-2" onClick={() => setTaskReportingOpen(true)} data-testid="task-subtab-reporting">
                     <BarChart3 className="h-3 w-3 mr-1" />
-                    {t.nexusOmni.tasks.reporting}
+                    {t.tasks.reporting}
                   </Button>
                 </div>
               </CardHeader>
@@ -4942,7 +4942,7 @@ export default function EmailClientPage() {
                 ) : tasksPage.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                     <ListTodo className="h-8 w-8 mb-2 opacity-50" />
-                    <span className="text-sm">{t.nexusOmni.tasks.noTasks}</span>
+                    <span className="text-sm">{t.tasks.noTasks}</span>
                   </div>
                 ) : (
                   <ScrollArea className="flex-1 min-h-0">
@@ -4977,16 +4977,16 @@ export default function EmailClientPage() {
                                     {format(new Date(task.updatedAt || task.createdAt), "d.M. HH:mm")}
                                   </span>
                                 </div>
-                                <p className="text-[11px] text-muted-foreground truncate">{task.description || t.nexusOmni.tasks.noDescription}</p>
+                                <p className="text-[11px] text-muted-foreground truncate">{task.description || t.tasks.noDescription}</p>
                                 <div className="flex items-center gap-1 mt-0.5">
                                   {task.priority && (
                                     <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 gap-0.5">
                                       {priorityIcons[task.priority]}
-                                      {t.nexusOmni.tasks.priorities?.[task.priority as keyof typeof t.nexusOmni.tasks.priorities] || task.priority}
+                                      {t.tasks.priorities?.[task.priority as keyof typeof t.tasks.priorities] || task.priority}
                                     </Badge>
                                   )}
                                   <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 gap-0.5">
-                                    {t.nexusOmni.tasks.statuses?.[task.status as keyof typeof t.nexusOmni.tasks.statuses] || task.status}
+                                    {t.tasks.statuses?.[task.status as keyof typeof t.tasks.statuses] || task.status}
                                   </Badge>
                                   {task.dueDate && (
                                     <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 gap-0.5">
@@ -5698,7 +5698,7 @@ export default function EmailClientPage() {
                                   <p className="text-sm font-medium truncate">{task.title}</p>
                                   <p className="text-[11px] text-muted-foreground truncate">{task.description || task.status}</p>
                                 </div>
-                                <Badge variant="secondary" className="text-[10px] shrink-0 rounded-md">{task.status === "pending" ? t.nexusOmni.tasks.pending : task.status === "completed" ? t.nexusOmni.tasks.completed : task.status}</Badge>
+                                <Badge variant="secondary" className="text-[10px] shrink-0 rounded-md">{task.status === "pending" ? t.tasks.pending : task.status === "completed" ? t.tasks.completed : task.status}</Badge>
                               </button>
                             ))}
                           </>
@@ -6397,14 +6397,14 @@ export default function EmailClientPage() {
       <Dialog open={taskResolveDialogOpen} onOpenChange={setTaskResolveDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{t.nexusOmni.tasks.resolve}</DialogTitle>
+            <DialogTitle>{t.tasks.resolve}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">{selectedTask?.title}</p>
             <Textarea
               value={taskResolutionText}
               onChange={(e) => setTaskResolutionText(e.target.value)}
-              placeholder={t.nexusOmni.tasks.resolution}
+              placeholder={t.tasks.resolution}
               rows={4}
               className="text-sm"
               data-testid="resolve-text"
@@ -6413,7 +6413,7 @@ export default function EmailClientPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setTaskResolveDialogOpen(false)}>{t.nexusOmni.email.cancel}</Button>
             <Button onClick={handleTaskResolve} disabled={!taskResolutionText.trim()} data-testid="resolve-confirm">
-              <CheckCircle2 className="h-4 w-4 mr-2" />{t.nexusOmni.tasks.resolve}
+              <CheckCircle2 className="h-4 w-4 mr-2" />{t.tasks.resolve}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -6422,7 +6422,7 @@ export default function EmailClientPage() {
       <Dialog open={taskReassignDialogOpen} onOpenChange={setTaskReassignDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{t.nexusOmni.tasks.reassign}</DialogTitle>
+            <DialogTitle>{t.tasks.reassign}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">{selectedTask?.title}</p>
@@ -6451,7 +6451,7 @@ export default function EmailClientPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setTaskReassignDialogOpen(false)}>{t.nexusOmni.email.cancel}</Button>
             <Button onClick={handleTaskReassign} disabled={!taskReassignUserId} data-testid="reassign-confirm">
-              <UserPlus className="h-4 w-4 mr-2" />{t.nexusOmni.tasks.reassign}
+              <UserPlus className="h-4 w-4 mr-2" />{t.tasks.reassign}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -6462,7 +6462,7 @@ export default function EmailClientPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <BarChart3 className="h-5 w-5 text-amber-600" />
-              {t.nexusOmni.tasks.reporting}
+              {t.tasks.reporting}
             </DialogTitle>
           </DialogHeader>
           {(() => {
@@ -6484,19 +6484,19 @@ export default function EmailClientPage() {
                 <div className="flex items-center gap-1 flex-wrap">
                   {["this_month", "last_month", "quarter", "half_year", "year"].map(preset => (
                     <Button key={preset} variant={taskReportDateRange === preset ? "default" : "outline"} size="sm" className="h-7 text-xs px-3" onClick={() => handleTaskReportDateRange(preset)} data-testid={`report-${preset}`}>
-                      {preset === "this_month" ? t.nexusOmni.tasks.thisMonth : preset === "last_month" ? t.nexusOmni.tasks.lastMonth : preset === "quarter" ? t.nexusOmni.tasks.quarter : preset === "half_year" ? t.nexusOmni.tasks.halfYear : t.nexusOmni.tasks.year}
+                      {preset === "this_month" ? t.tasks.thisMonth : preset === "last_month" ? t.tasks.lastMonth : preset === "quarter" ? t.tasks.quarter : preset === "half_year" ? t.tasks.halfYear : t.tasks.year}
                     </Button>
                   ))}
                 </div>
                 <div className="text-xs text-muted-foreground flex items-center gap-1.5">
                   <Calendar className="h-3.5 w-3.5" />
                   {format(taskReportStartDate, "dd.MM.yyyy")} - {format(taskReportEndDate, "dd.MM.yyyy")}
-                  <span className="ml-1 font-medium">({allTasksForReport.length} {t.nexusOmni.tasks.tasksCount})</span>
+                  <span className="ml-1 font-medium">({allTasksForReport.length} {t.tasks.tasksCount})</span>
                 </div>
                 {userStats.length === 0 ? (
                   <div className="text-center py-12 text-muted-foreground">
                     <BarChart3 className="h-10 w-10 mx-auto mb-3 opacity-50" />
-                    <p className="text-sm">{t.nexusOmni.tasks.noTasks}</p>
+                    <p className="text-sm">{t.tasks.noTasks}</p>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -6518,25 +6518,25 @@ export default function EmailClientPage() {
                           <Badge variant="secondary" className="text-sm font-bold">{stat.total}</Badge>
                         </div>
                         <div className="flex items-center justify-between mb-1.5">
-                          <span className="text-xs">{t.nexusOmni.tasks.completionRate}</span>
+                          <span className="text-xs">{t.tasks.completionRate}</span>
                           <span className="text-xs font-bold text-green-600">{stat.completionRate}%</span>
                         </div>
                         <Progress value={stat.completionRate} className="h-2 mb-3" />
                         <div className="grid grid-cols-2 gap-2 text-[11px]">
                           <div className="flex items-center justify-between p-2 rounded bg-green-50 dark:bg-green-900/20">
-                            <span className="flex items-center gap-1"><CheckCircle2 className="h-3.5 w-3.5 text-green-600" />{t.nexusOmni.tasks.completed}</span>
+                            <span className="flex items-center gap-1"><CheckCircle2 className="h-3.5 w-3.5 text-green-600" />{t.tasks.completed}</span>
                             <span className="font-semibold">{stat.completed}</span>
                           </div>
                           <div className="flex items-center justify-between p-2 rounded bg-blue-50 dark:bg-blue-900/20">
-                            <span className="flex items-center gap-1"><Play className="h-3.5 w-3.5 text-blue-600" />{t.nexusOmni.tasks.inProgress}</span>
+                            <span className="flex items-center gap-1"><Play className="h-3.5 w-3.5 text-blue-600" />{t.tasks.inProgress}</span>
                             <span className="font-semibold">{stat.inProgress}</span>
                           </div>
                           <div className="flex items-center justify-between p-2 rounded bg-slate-50 dark:bg-slate-800/50">
-                            <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5 text-slate-600" />{t.nexusOmni.tasks.pending}</span>
+                            <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5 text-slate-600" />{t.tasks.pending}</span>
                             <span className="font-semibold">{stat.pending}</span>
                           </div>
                           <div className="flex items-center justify-between p-2 rounded bg-gray-50 dark:bg-gray-800/50">
-                            <span className="flex items-center gap-1"><XCircle className="h-3.5 w-3.5 text-gray-500" />{t.nexusOmni.tasks.cancelled}</span>
+                            <span className="flex items-center gap-1"><XCircle className="h-3.5 w-3.5 text-gray-500" />{t.tasks.cancelled}</span>
                             <span className="font-semibold">{stat.cancelled}</span>
                           </div>
                         </div>
@@ -6553,20 +6553,20 @@ export default function EmailClientPage() {
       <Dialog open={taskEditDialogOpen} onOpenChange={setTaskEditDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{t.nexusOmni.tasks.editTask}</DialogTitle>
+            <DialogTitle>{t.tasks.editTask}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <Input
               value={taskEditForm.title}
               onChange={(e) => setTaskEditForm(prev => ({ ...prev, title: e.target.value }))}
-              placeholder={t.nexusOmni.tasks.title}
+              placeholder={t.tasks.title}
               className="text-sm"
               data-testid="edit-task-title"
             />
             <Textarea
               value={taskEditForm.description}
               onChange={(e) => setTaskEditForm(prev => ({ ...prev, description: e.target.value }))}
-              placeholder={t.nexusOmni.tasks.description}
+              placeholder={t.tasks.description2}
               rows={4}
               className="text-sm"
               data-testid="edit-task-description"
@@ -6574,24 +6574,24 @@ export default function EmailClientPage() {
             <div className="grid grid-cols-2 gap-2">
               <Select value={taskEditForm.priority} onValueChange={(v) => setTaskEditForm(prev => ({ ...prev, priority: v }))}>
                 <SelectTrigger className="h-8 text-xs">
-                  <SelectValue placeholder={t.nexusOmni.tasks.priority} />
+                  <SelectValue placeholder={t.tasks.priority} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="low">{t.nexusOmni.tasks.priorities?.low || "Low"}</SelectItem>
-                  <SelectItem value="medium">{t.nexusOmni.tasks.priorities?.medium || "Medium"}</SelectItem>
-                  <SelectItem value="high">{t.nexusOmni.tasks.priorities?.high || "High"}</SelectItem>
-                  <SelectItem value="urgent">{t.nexusOmni.tasks.priorities?.urgent || "Urgent"}</SelectItem>
+                  <SelectItem value="low">{t.tasks.priorities?.low || "Low"}</SelectItem>
+                  <SelectItem value="medium">{t.tasks.priorities?.medium || "Medium"}</SelectItem>
+                  <SelectItem value="high">{t.tasks.priorities?.high || "High"}</SelectItem>
+                  <SelectItem value="urgent">{t.tasks.priorities?.urgent || "Urgent"}</SelectItem>
                 </SelectContent>
               </Select>
               <Select value={taskEditForm.status} onValueChange={(v) => setTaskEditForm(prev => ({ ...prev, status: v }))}>
                 <SelectTrigger className="h-8 text-xs">
-                  <SelectValue placeholder={t.nexusOmni.tasks.status} />
+                  <SelectValue placeholder={t.tasks.status} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="pending">{t.nexusOmni.tasks.statuses?.pending || "Pending"}</SelectItem>
-                  <SelectItem value="in_progress">{t.nexusOmni.tasks.statuses?.in_progress || "In Progress"}</SelectItem>
-                  <SelectItem value="completed">{t.nexusOmni.tasks.statuses?.completed || "Completed"}</SelectItem>
-                  <SelectItem value="cancelled">{t.nexusOmni.tasks.statuses?.cancelled || "Cancelled"}</SelectItem>
+                  <SelectItem value="pending">{t.tasks.statuses?.pending || "Pending"}</SelectItem>
+                  <SelectItem value="in_progress">{t.tasks.statuses?.in_progress || "In Progress"}</SelectItem>
+                  <SelectItem value="completed">{t.tasks.statuses?.completed || "Completed"}</SelectItem>
+                  <SelectItem value="cancelled">{t.tasks.statuses?.cancelled || "Cancelled"}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -6606,7 +6606,7 @@ export default function EmailClientPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setTaskEditDialogOpen(false)}>{t.nexusOmni.email.cancel}</Button>
             <Button onClick={handleTaskEditSave} disabled={!taskEditForm.title.trim()} data-testid="edit-task-save">
-              <Edit className="h-4 w-4 mr-2" />{t.nexusOmni.tasks.save || "Save"}
+              <Edit className="h-4 w-4 mr-2" />{t.tasks.save || "Save"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -7297,7 +7297,7 @@ export default function EmailClientPage() {
         <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
           <ListTodo className="h-12 w-12 mb-4 opacity-50" />
           <p className="font-medium">{t.nexusOmni.tabs.tasks}</p>
-          <p className="text-sm">{t.nexusOmni.tasks.selectTask}</p>
+          <p className="text-sm">{t.tasks.selectTask}</p>
         </div>
       );
     }
@@ -7312,7 +7312,7 @@ export default function EmailClientPage() {
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-2 flex-wrap">
               <Badge className={`${typeColors.task.bg} ${typeColors.task.text}`}>
-                <ListTodo className="h-3 w-3 mr-1" />{t.nexusOmni.tasks.task}
+                <ListTodo className="h-3 w-3 mr-1" />{t.tasks.task}
               </Badge>
               <h2 className="text-lg font-semibold">{selectedTask.title}</h2>
             </div>
@@ -7320,12 +7320,12 @@ export default function EmailClientPage() {
               {selectedTask.priority && (
                 <Badge variant="outline" className="gap-1">
                   {priorityIcons[selectedTask.priority]}
-                  {t.nexusOmni.tasks.priorities?.[selectedTask.priority as keyof typeof t.nexusOmni.tasks.priorities] || selectedTask.priority}
+                  {t.tasks.priorities?.[selectedTask.priority as keyof typeof t.tasks.priorities] || selectedTask.priority}
                 </Badge>
               )}
               <Badge variant="outline" className="gap-1">
                 {statusIcons[selectedTask.status]}
-                {t.nexusOmni.tasks.statuses?.[selectedTask.status as keyof typeof t.nexusOmni.tasks.statuses] || selectedTask.status}
+                {t.tasks.statuses?.[selectedTask.status as keyof typeof t.tasks.statuses] || selectedTask.status}
               </Badge>
             </div>
           </div>
@@ -7338,7 +7338,7 @@ export default function EmailClientPage() {
                     {getInitialsStatic(assignedUser.fullName || assignedUser.username)}
                   </AvatarFallback>
                 </Avatar>
-                <span>{t.nexusOmni.tasks.assignedTo}: <strong>{assignedUser.fullName || assignedUser.username}</strong></span>
+                <span>{t.tasks.assignedTo}: <strong>{assignedUser.fullName || assignedUser.username}</strong></span>
               </div>
             )}
             {createdByUser && (
@@ -7349,19 +7349,19 @@ export default function EmailClientPage() {
                     {getInitialsStatic(createdByUser.fullName || createdByUser.username)}
                   </AvatarFallback>
                 </Avatar>
-                <span>{t.nexusOmni.tasks.createdBy}: {createdByUser.fullName || createdByUser.username}</span>
+                <span>{t.tasks.createdBy}: {createdByUser.fullName || createdByUser.username}</span>
               </div>
             )}
             {selectedTask.dueDate && (
               <div className="flex items-center gap-1">
                 <Clock className="h-3 w-3" />
-                <span>{t.nexusOmni.tasks.deadline}: {format(new Date(selectedTask.dueDate), "d. MMMM yyyy")}</span>
+                <span>{t.tasks.deadline}: {format(new Date(selectedTask.dueDate), "d. MMMM yyyy")}</span>
               </div>
             )}
             {linkedCustomer && (
               <div className="flex items-center gap-1">
                 <User className="h-3 w-3" />
-                <span>{t.nexusOmni.tasks.linkedTo}: {linkedCustomer.firstName} {linkedCustomer.lastName}</span>
+                <span>{t.tasks.linkedTo}: {linkedCustomer.firstName} {linkedCustomer.lastName}</span>
               </div>
             )}
           </div>
@@ -7369,10 +7369,10 @@ export default function EmailClientPage() {
             {isActive && (
               <>
                 <Button variant="outline" size="sm" className="h-7 text-xs border-green-300 text-green-600 dark:border-green-700 dark:text-green-400" onClick={() => openTaskResolveDialog(selectedTask)} data-testid="task-resolve-btn">
-                  <CheckCircle2 className="h-3 w-3 mr-1" />{t.nexusOmni.tasks.resolve}
+                  <CheckCircle2 className="h-3 w-3 mr-1" />{t.tasks.resolve}
                 </Button>
                 <Button variant="outline" size="sm" className="h-7 text-xs border-amber-300 text-amber-600 dark:border-amber-700 dark:text-amber-400" onClick={() => openTaskReassignDialog(selectedTask)} data-testid="task-reassign-btn">
-                  <UserPlus className="h-3 w-3 mr-1" />{t.nexusOmni.tasks.reassign}
+                  <UserPlus className="h-3 w-3 mr-1" />{t.tasks.reassign}
                 </Button>
               </>
             )}
@@ -7384,16 +7384,16 @@ export default function EmailClientPage() {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onClick={() => openTaskEditDialog(selectedTask)} data-testid="task-action-edit">
-                  <Edit className="h-4 w-4 mr-2" />{t.nexusOmni.tasks.editTask}
+                  <Edit className="h-4 w-4 mr-2" />{t.tasks.editTask}
                 </DropdownMenuItem>
                 {selectedTask.status !== "in_progress" && isActive && (
                   <DropdownMenuItem onClick={() => handleTaskStatusChange(selectedTask, "in_progress")} data-testid="task-action-start">
-                    <Play className="h-4 w-4 mr-2" />{t.nexusOmni.tasks.startWorking}
+                    <Play className="h-4 w-4 mr-2" />{t.tasks.startWorking}
                   </DropdownMenuItem>
                 )}
                 {isActive && (
                   <DropdownMenuItem onClick={() => handleTaskStatusChange(selectedTask, "cancelled")} data-testid="task-action-cancel">
-                    <XCircle className="h-4 w-4 mr-2" />{t.nexusOmni.tasks.cancelTask}
+                    <XCircle className="h-4 w-4 mr-2" />{t.tasks.cancelTask}
                   </DropdownMenuItem>
                 )}
               </DropdownMenuContent>
@@ -7401,11 +7401,11 @@ export default function EmailClientPage() {
           </div>
           {selectedTask.status === "completed" && selectedTask.resolution && (
             <div className="p-3 rounded-md bg-green-50 dark:bg-green-900/20">
-              <div className="font-medium text-xs text-green-700 dark:text-green-300 mb-1">{t.nexusOmni.tasks.resolution}:</div>
+              <div className="font-medium text-xs text-green-700 dark:text-green-300 mb-1">{t.tasks.resolution}:</div>
               <p className="text-xs">{selectedTask.resolution}</p>
               {resolvedByUser && selectedTask.resolvedAt && (
                 <div className="text-[10px] text-muted-foreground mt-1">
-                  {t.nexusOmni.tasks.resolvedBy}: {resolvedByUser.fullName || resolvedByUser.username} ({format(new Date(selectedTask.resolvedAt), "dd.MM.yyyy HH:mm")})
+                  {t.tasks.resolvedBy}: {resolvedByUser.fullName || resolvedByUser.username} ({format(new Date(selectedTask.resolvedAt), "dd.MM.yyyy HH:mm")})
                 </div>
               )}
             </div>
@@ -7413,12 +7413,12 @@ export default function EmailClientPage() {
         </div>
         <div className="flex-1 min-h-0 flex flex-col overflow-auto">
           <div className="p-4 border-b">
-            <p className="text-sm whitespace-pre-wrap" style={{ overflowWrap: "break-word", wordBreak: "break-word" }}>{selectedTask.description || t.nexusOmni.tasks.noDescription}</p>
+            <p className="text-sm whitespace-pre-wrap" style={{ overflowWrap: "break-word", wordBreak: "break-word" }}>{selectedTask.description || t.tasks.noDescription}</p>
           </div>
           <div className="p-4 flex-1 flex flex-col min-h-0">
             <div className="flex items-center gap-2 mb-3">
               <MessagesSquare className="h-4 w-4 text-amber-600" />
-              <span className="text-sm font-semibold">{t.nexusOmni.tasks.comments}</span>
+              <span className="text-sm font-semibold">{t.tasks.comments}</span>
               <Badge variant="secondary" className="text-[10px] h-5">{taskComments.length}</Badge>
             </div>
             <div className="flex-1 min-h-0 overflow-auto space-y-2 mb-3">
@@ -7427,7 +7427,7 @@ export default function EmailClientPage() {
               ) : taskComments.length === 0 ? (
                 <div className="text-center py-6 text-muted-foreground">
                   <MessageCircle className="h-6 w-6 mx-auto mb-1 opacity-50" />
-                  <p className="text-xs">{t.nexusOmni.tasks.noComments}</p>
+                  <p className="text-xs">{t.tasks.noComments}</p>
                 </div>
               ) : (
                 taskComments.map((comment: any) => {
@@ -7462,7 +7462,7 @@ export default function EmailClientPage() {
                 value={taskCommentInput}
                 onChange={(e) => setTaskCommentInput(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); addTaskComment(); } }}
-                placeholder={t.nexusOmni.tasks.commentPlaceholder}
+                placeholder={t.tasks.commentPlaceholder}
                 className="flex-1 text-sm h-8"
                 data-testid="input-task-comment"
               />
@@ -7967,14 +7967,14 @@ export default function EmailClientPage() {
       return (
         <div>
           <h2 className="text-lg font-semibold mb-1">{t.nexusOmni.tabs.tasks}</h2>
-          <p className="text-sm text-muted-foreground mb-4">{t.nexusOmni.tasks.allTasks}</p>
+          <p className="text-sm text-muted-foreground mb-4">{t.tasks.allTasks}</p>
 
           <SectionTitle>{t.nexusOmni.settings.notifications}</SectionTitle>
           <div className="divide-y">
-            <SettingRow label={t.nexusOmni.tasks.taskNotifySound} description={t.nexusOmni.tasks.taskNotifySoundDesc}>
+            <SettingRow label={t.tasks.taskNotifySound} description={t.tasks.taskNotifySoundDesc}>
               <Switch checked={emailPrefs.taskNotifySound} onCheckedChange={(v) => updateEmailPref("taskNotifySound", v)} />
             </SettingRow>
-            <SettingRow label={t.nexusOmni.tasks.taskNotifyPopup} description={t.nexusOmni.tasks.taskNotifyPopupDesc}>
+            <SettingRow label={t.tasks.taskNotifyPopup} description={t.tasks.taskNotifyPopupDesc}>
               <Switch checked={emailPrefs.taskNotifyPopup} onCheckedChange={(v) => updateEmailPref("taskNotifyPopup", v)} />
             </SettingRow>
           </div>

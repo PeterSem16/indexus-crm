@@ -329,6 +329,22 @@ export interface Translations {
     year: string;
     cancelTask: string;
     save: string;
+    selectTask: string;
+    task: string;
+    noDescription: string;
+    deadline: string;
+    cancelled: string;
+    deleteComment: string;
+    commentDeleted: string;
+    assignedTo: string;
+    taskNotifySound: string;
+    taskNotifySoundDesc: string;
+    taskNotifyPopup: string;
+    taskNotifyPopupDesc: string;
+    newTaskAssigned: string;
+    priority: string;
+    status: string;
+    description2: string;
   };
   dashboard: {
     title: string;
@@ -4975,6 +4991,22 @@ export const translations: Record<Locale, Translations> = {
       year: 'Year',
       cancelTask: 'Cancel Task',
       save: 'Save',
+      selectTask: 'Select a task to view details',
+      task: 'Task',
+      noDescription: 'No description',
+      deadline: 'Deadline',
+      cancelled: 'Cancelled',
+      deleteComment: 'Delete comment',
+      commentDeleted: 'Comment deleted',
+      assignedTo: 'Assigned to',
+      taskNotifySound: 'Task notification sound',
+      taskNotifySoundDesc: 'Play sound when a new task is assigned',
+      taskNotifyPopup: 'Task popup notification',
+      taskNotifyPopupDesc: 'Show popup when a new task is assigned',
+      newTaskAssigned: 'New task assigned',
+      priority: 'Priority',
+      status: 'Status',
+      description2: 'Description',
     },
     dashboard: {
       title: 'Dashboard',
@@ -9486,6 +9518,22 @@ export const translations: Record<Locale, Translations> = {
       year: 'Rok',
       cancelTask: 'Zrušiť úlohu',
       save: 'Uložiť',
+      selectTask: 'Vyberte úlohu pre zobrazenie detailu',
+      task: 'Úloha',
+      noDescription: 'Bez popisu',
+      deadline: 'Termín',
+      cancelled: 'Zrušené',
+      deleteComment: 'Zmazať komentár',
+      commentDeleted: 'Komentár zmazaný',
+      assignedTo: 'Priradené',
+      taskNotifySound: 'Zvuk notifikácie úlohy',
+      taskNotifySoundDesc: 'Prehrať zvuk pri priradení novej úlohy',
+      taskNotifyPopup: 'Vyskakovacie okno úlohy',
+      taskNotifyPopupDesc: 'Zobraziť popup pri priradení novej úlohy',
+      newTaskAssigned: 'Nová úloha priradená',
+      priority: 'Priorita',
+      status: 'Stav',
+      description2: 'Popis',
     },
     dashboard: {
       title: 'Prehľad',
@@ -13960,6 +14008,22 @@ export const translations: Record<Locale, Translations> = {
       year: 'Rok',
       cancelTask: 'Zrušit úkol',
       save: 'Uložit',
+      selectTask: 'Vyberte úkol pro zobrazení detailu',
+      task: 'Úkol',
+      noDescription: 'Bez popisu',
+      deadline: 'Termín',
+      cancelled: 'Zrušené',
+      deleteComment: 'Smazat komentář',
+      commentDeleted: 'Komentář smazán',
+      assignedTo: 'Přiřazeno',
+      taskNotifySound: 'Zvuk notifikace úkolu',
+      taskNotifySoundDesc: 'Přehrát zvuk při přiřazení nového úkolu',
+      taskNotifyPopup: 'Vyskakovací okno úkolu',
+      taskNotifyPopupDesc: 'Zobrazit popup při přiřazení nového úkolu',
+      newTaskAssigned: 'Nový úkol přiřazen',
+      priority: 'Priorita',
+      status: 'Stav',
+      description2: 'Popis',
     },
     dashboard: {
       title: 'Přehled',
@@ -18366,6 +18430,22 @@ export const translations: Record<Locale, Translations> = {
       year: 'Év',
       cancelTask: 'Feladat törlése',
       save: 'Mentés',
+      selectTask: 'Válasszon feladatot a részletek megtekintéséhez',
+      task: 'Feladat',
+      noDescription: 'Nincs leírás',
+      deadline: 'Határidő',
+      cancelled: 'Törölt',
+      deleteComment: 'Hozzászólás törlése',
+      commentDeleted: 'Hozzászólás törölve',
+      assignedTo: 'Hozzárendelve',
+      taskNotifySound: 'Feladat értesítési hang',
+      taskNotifySoundDesc: 'Hang lejátszása új feladat hozzárendelésekor',
+      taskNotifyPopup: 'Feladat felugró értesítés',
+      taskNotifyPopupDesc: 'Felugró ablak megjelenítése új feladat hozzárendelésekor',
+      newTaskAssigned: 'Új feladat hozzárendelve',
+      priority: 'Prioritás',
+      status: 'Állapot',
+      description2: 'Leírás',
     },
     dashboard: {
       title: 'Irányítópult',
@@ -22771,6 +22851,22 @@ export const translations: Record<Locale, Translations> = {
       year: 'An',
       cancelTask: 'Anulează sarcina',
       save: 'Salvează',
+      selectTask: 'Selectați o sarcină pentru a vedea detaliile',
+      task: 'Sarcină',
+      noDescription: 'Fără descriere',
+      deadline: 'Termen',
+      cancelled: 'Anulate',
+      deleteComment: 'Șterge comentariu',
+      commentDeleted: 'Comentariu șters',
+      assignedTo: 'Atribuit',
+      taskNotifySound: 'Sunet notificare sarcină',
+      taskNotifySoundDesc: 'Redă sunet la atribuirea unei sarcini noi',
+      taskNotifyPopup: 'Notificare popup sarcină',
+      taskNotifyPopupDesc: 'Afișează popup la atribuirea unei sarcini noi',
+      newTaskAssigned: 'Sarcină nouă atribuită',
+      priority: 'Prioritate',
+      status: 'Stare',
+      description2: 'Descriere',
     },
     dashboard: {
       title: 'Panou de control',
@@ -27177,6 +27273,22 @@ export const translations: Record<Locale, Translations> = {
       year: 'Anno',
       cancelTask: 'Annulla attività',
       save: 'Salva',
+      selectTask: 'Seleziona un\'attività per visualizzare i dettagli',
+      task: 'Attività',
+      noDescription: 'Senza descrizione',
+      deadline: 'Scadenza',
+      cancelled: 'Annullate',
+      deleteComment: 'Elimina commento',
+      commentDeleted: 'Commento eliminato',
+      assignedTo: 'Assegnato a',
+      taskNotifySound: 'Suono notifica attività',
+      taskNotifySoundDesc: 'Riproduci suono quando viene assegnata una nuova attività',
+      taskNotifyPopup: 'Popup notifica attività',
+      taskNotifyPopupDesc: 'Mostra popup quando viene assegnata una nuova attività',
+      newTaskAssigned: 'Nuova attività assegnata',
+      priority: 'Priorità',
+      status: 'Stato',
+      description2: 'Descrizione',
     },
     dashboard: {
       title: 'Dashboard',
@@ -31583,6 +31695,22 @@ export const translations: Record<Locale, Translations> = {
       year: 'Jahr',
       cancelTask: 'Aufgabe abbrechen',
       save: 'Speichern',
+      selectTask: 'Wählen Sie eine Aufgabe aus, um Details anzuzeigen',
+      task: 'Aufgabe',
+      noDescription: 'Keine Beschreibung',
+      deadline: 'Frist',
+      cancelled: 'Abgebrochen',
+      deleteComment: 'Kommentar löschen',
+      commentDeleted: 'Kommentar gelöscht',
+      assignedTo: 'Zugewiesen an',
+      taskNotifySound: 'Aufgaben-Benachrichtigungston',
+      taskNotifySoundDesc: 'Ton abspielen, wenn eine neue Aufgabe zugewiesen wird',
+      taskNotifyPopup: 'Aufgaben-Popup-Benachrichtigung',
+      taskNotifyPopupDesc: 'Popup anzeigen, wenn eine neue Aufgabe zugewiesen wird',
+      newTaskAssigned: 'Neue Aufgabe zugewiesen',
+      priority: 'Priorität',
+      status: 'Status',
+      description2: 'Beschreibung',
     },
     dashboard: {
       title: 'Dashboard',
