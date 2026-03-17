@@ -1,0 +1,23 @@
+Console verbose was OFF and is now 21.
+    -- Executing [+421948519438@webrtc-indexus:1] NoOp("PJSIP/2001-00000013", "WebRTC outbound PLUS caller=2001 dest=+421948519438") in new stack
+    -- Executing [+421948519438@webrtc-indexus:2] Set("PJSIP/2001-00000013", "OUTNUM=421948519438") in new stack
+    -- Executing [+421948519438@webrtc-indexus:3] Goto("PJSIP/2001-00000013", "indexus-outbound,421948519438,1") in new stack
+    -- Goto (indexus-outbound,421948519438,1)
+    -- Executing [421948519438@indexus-outbound:1] NoOp("PJSIP/2001-00000013", "Indexus outbound caller=2001 dest=421948519438") in new stack
+    -- Executing [421948519438@indexus-outbound:2] Set("PJSIP/2001-00000013", "ORIG_EXT=2001") in new stack
+    -- Executing [421948519438@indexus-outbound:3] Set("PJSIP/2001-00000013", "CAMPAIGN_CID=0232399030") in new stack
+    -- Executing [421948519438@indexus-outbound:4] ExecIf("PJSIP/2001-00000013", "0?Set(CAMPAIGN_CID=)") in new stack
+    -- Executing [421948519438@indexus-outbound:5] ExecIf("PJSIP/2001-00000013", "1?Set(CALLERID(num)=0232399030)") in new stack
+    -- Executing [421948519438@indexus-outbound:6] NoOp("PJSIP/2001-00000013", "Outbound CID: ext=2001 campaign_cid=0232399030 final=0232399030") in new stack
+    -- Executing [421948519438@indexus-outbound:7] GotoIf("PJSIP/2001-00000013", "0?route-cz,421948519438,1") in new stack
+    -- Executing [421948519438@indexus-outbound:8] GotoIf("PJSIP/2001-00000013", "0?route-hu,421948519438,1") in new stack
+    -- Executing [421948519438@indexus-outbound:9] GotoIf("PJSIP/2001-00000013", "0?route-ro,421948519438,1") in new stack
+    -- Executing [421948519438@indexus-outbound:10] GotoIf("PJSIP/2001-00000013", "1?route-sk,421948519438,1") in new stack
+    -- Goto (route-sk,421948519438,1)
+    -- Executing [421948519438@route-sk:1] NoOp("PJSIP/2001-00000013", "Route via SK legacy server caller=0232399030 dest=421948519438") in new stack
+    -- Executing [421948519438@route-sk:2] Set("PJSIP/2001-00000013", "OUTNUM=421948519438") in new stack
+    -- Executing [421948519438@route-sk:3] ExecIf("PJSIP/2001-00000013", "1?Set(OUTNUM=0948519438)") in new stack
+    -- Executing [421948519438@route-sk:4] NoOp("PJSIP/2001-00000013", "Normalized SK outbound number=0948519438") in new stack
+    -- Executing [421948519438@route-sk:5] ExecIf("PJSIP/2001-00000013", "1?Set(PJSIP_HEADER(add,X-Campaign-CallerID)=0232399030)") in new stack
+    -- Executing [421948519438@route-sk:6] Dial("PJSIP/2001-00000013", "PJSIP/0948519438@trunk-sk-endpoint,60") in new stack
+    -- Called PJSIP/0948519438@trunk-sk-endpoint
