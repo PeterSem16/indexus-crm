@@ -157,6 +157,52 @@ import type {
 } from "@/components/nexus/nexus-types";
 import { typeColors } from "@/components/nexus/nexus-types";
 
+const avatarColors = [
+  "bg-blue-600", "bg-emerald-600", "bg-violet-600", "bg-amber-600", "bg-rose-600",
+  "bg-cyan-600", "bg-indigo-600", "bg-teal-600", "bg-pink-600", "bg-orange-600",
+];
+const getAvatarColorStatic = (name: string) => {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  return avatarColors[Math.abs(hash) % avatarColors.length];
+};
+const getInitialsStatic = (name: string) => {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  return name.substring(0, 2).toUpperCase();
+};
+const msAvatarErrorCache = new Set<string>();
+
+function MsAvatar({ email, name, userId, size = "md", className }: { email?: string | null; name: string; userId?: string; size?: "sm" | "md" | "lg"; className?: string }) {
+  const sizeClasses = size === "sm" ? "h-7 w-7 text-[10px]" : size === "lg" ? "h-10 w-10 text-sm" : "h-9 w-9 text-xs";
+  const imgSizeClasses = size === "sm" ? "h-7 w-7" : size === "lg" ? "h-10 w-10" : "h-9 w-9";
+  const avatarUrl = email && userId && !msAvatarErrorCache.has(email) ? `/api/users/${userId}/teams-avatar?email=${encodeURIComponent(email)}` : null;
+  if (avatarUrl) {
+    return (
+      <div className={cn("relative rounded-full shrink-0 overflow-hidden", imgSizeClasses, className)}>
+        <img
+          src={avatarUrl}
+          alt={name}
+          className={cn("rounded-full object-cover", imgSizeClasses)}
+          onError={(e) => {
+            msAvatarErrorCache.add(email!);
+            (e.target as HTMLImageElement).style.display = 'none';
+            (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
+          }}
+        />
+        <div className={cn("hidden rounded-full flex items-center justify-center text-white font-semibold absolute inset-0", sizeClasses, getAvatarColorStatic(name))}>
+          {getInitialsStatic(name)}
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className={cn("rounded-full flex items-center justify-center shrink-0 text-white font-semibold", sizeClasses, getAvatarColorStatic(name), className)}>
+      {getInitialsStatic(name)}
+    </div>
+  );
+}
+
 const priorityIcons: Record<string, React.ReactNode> = {
   low: <Circle className="h-3 w-3 text-slate-400" />,
   medium: <Circle className="h-3 w-3 text-blue-500" />,
@@ -573,7 +619,10 @@ function NexusPointPanel({ userId }: { userId?: string }) {
               <span>{format(new Date(item.lastModifiedDateTime), "d.M.yyyy HH:mm")}</span>
             )}
             {item.lastModifiedBy?.user?.displayName && (
-              <span className="truncate max-w-[120px]">{item.lastModifiedBy.user.displayName}</span>
+              <span className="inline-flex items-center gap-1 truncate max-w-[160px]">
+                <MsAvatar email={item.lastModifiedBy.user.email} name={item.lastModifiedBy.user.displayName} userId={userId} size="sm" className="!h-4 !w-4 !text-[7px]" />
+                {item.lastModifiedBy.user.displayName}
+              </span>
             )}
           </div>
         </div>
@@ -1354,17 +1403,8 @@ function TeamsPanel({ userId }: { userId?: string }) {
   const selectedTeam = teams.find(tm => tm.id === selectedTeamId);
   const selectedChat = chats.find(c => c.id === selectedTeamsChatId);
 
-  const avatarColors = ['bg-violet-600', 'bg-blue-600', 'bg-emerald-600', 'bg-amber-600', 'bg-rose-600', 'bg-cyan-600', 'bg-pink-600', 'bg-teal-600', 'bg-orange-600', 'bg-indigo-600'];
-  const getAvatarColor = (name: string) => {
-    let hash = 0;
-    for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
-    return avatarColors[Math.abs(hash) % avatarColors.length];
-  };
-  const getInitials = (name: string) => {
-    const parts = name.trim().split(/\s+/);
-    if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-    return name.substring(0, 2).toUpperCase();
-  };
+  const getAvatarColor = getAvatarColorStatic;
+  const getInitials = getInitialsStatic;
   const getChatDisplayName = (chat: any) => {
     if (chat.topic) return chat.topic;
     const memberNames = (chat.members || []).map((m: any) => m.displayName).filter(Boolean);
@@ -1390,6 +1430,7 @@ function TeamsPanel({ userId }: { userId?: string }) {
   const renderChatItem = (chat: any) => {
     const displayName = getChatDisplayName(chat);
     const isGroup = chat.chatType === "group" && (chat.members?.length || 0) > 2;
+    const firstMemberEmail = chat.members?.[0]?.email;
     return (
       <button
         key={chat.id}
@@ -1401,9 +1442,13 @@ function TeamsPanel({ userId }: { userId?: string }) {
         data-testid={`teams-chat-${chat.id}`}
       >
         <div className="relative shrink-0">
-          <div className={cn("h-8 w-8 rounded-full flex items-center justify-center text-white text-[11px] font-semibold", getAvatarColor(displayName))}>
-            {isGroup ? <Users className="h-3.5 w-3.5" /> : getInitials(displayName)}
-          </div>
+          {isGroup ? (
+            <div className={cn("h-8 w-8 rounded-full flex items-center justify-center text-white text-[11px] font-semibold", getAvatarColor(displayName))}>
+              <Users className="h-3.5 w-3.5" />
+            </div>
+          ) : (
+            <MsAvatar email={firstMemberEmail} name={displayName} userId={userId} size="sm" />
+          )}
         </div>
         <span className={cn("text-[13px] truncate flex-1", selectedTeamsChatId === chat.id ? "font-semibold" : "font-normal")}>{displayName}</span>
       </button>
@@ -1718,11 +1763,13 @@ function TeamsPanel({ userId }: { userId?: string }) {
               <div className="flex flex-col h-full dark:bg-[#292929]">
                 <div className="px-4 py-3 border-b dark:border-[#333] flex items-center justify-between gap-2">
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className={cn("h-10 w-10 rounded-full flex items-center justify-center shrink-0 text-white text-sm font-semibold", getAvatarColor(getChatDisplayName(selectedChat || {})))}>
-                      {selectedChat?.chatType === "group" && (selectedChat?.members?.length || 0) > 2
-                        ? <Users className="h-5 w-5" />
-                        : getInitials(getChatDisplayName(selectedChat || {}))}
-                    </div>
+                    {selectedChat?.chatType === "group" && (selectedChat?.members?.length || 0) > 2 ? (
+                      <div className={cn("h-10 w-10 rounded-full flex items-center justify-center shrink-0 text-white text-sm font-semibold", getAvatarColor(getChatDisplayName(selectedChat || {})))}>
+                        <Users className="h-5 w-5" />
+                      </div>
+                    ) : (
+                      <MsAvatar email={selectedChat?.members?.[0]?.email} name={getChatDisplayName(selectedChat || {})} userId={userId} size="lg" className="mt-0.5" />
+                    )}
                     <div className="min-w-0">
                       <p className="text-sm font-semibold truncate">{getChatDisplayName(selectedChat || {})}</p>
                       {selectedChat?.members && selectedChat.members.length > 0 && (
@@ -1810,9 +1857,7 @@ function TeamsPanel({ userId }: { userId?: string }) {
                           <div key={msg.id} className={cn("group hover:bg-accent/30 dark:hover:bg-[#333] rounded-md px-2 py-0.5 -mx-2", !showHeader && "ml-12")}>
                             {showHeader ? (
                               <div className="flex gap-3">
-                                <div className={cn("h-9 w-9 rounded-full flex items-center justify-center shrink-0 text-white text-xs font-semibold mt-0.5", getAvatarColor(msg.from || ''))}>
-                                  {getInitials(msg.from || '?')}
-                                </div>
+                                <MsAvatar email={msg.fromEmail} name={msg.from || '?'} userId={userId} size="md" className="mt-0.5" />
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-baseline gap-2">
                                     <span className="text-sm font-semibold">{msg.from}</span>
@@ -1928,9 +1973,7 @@ function TeamsPanel({ userId }: { userId?: string }) {
                       <div key={msg.id} className={cn("group hover:bg-accent/30 dark:hover:bg-[#333] rounded-md px-2 py-0.5 -mx-2", !showHeader && "ml-12")}>
                         {showHeader ? (
                           <div className="flex gap-3">
-                            <div className={cn("h-9 w-9 rounded-full flex items-center justify-center shrink-0 text-white text-xs font-semibold mt-0.5", getAvatarColor(msg.from || ''))}>
-                              {getInitials(msg.from || '?')}
-                            </div>
+                            <MsAvatar email={msg.fromEmail} name={msg.from || '?'} userId={userId} size="md" className="mt-0.5" />
                             <div className="flex-1 min-w-0">
                               <div className="flex items-baseline gap-2">
                                 <span className="text-sm font-semibold">{msg.from}</span>

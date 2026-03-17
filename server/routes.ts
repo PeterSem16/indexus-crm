@@ -3669,6 +3669,35 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/users/:userId/teams-avatar", requireAuth, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const email = req.query.email as string;
+      if (!email) return res.status(400).json({ error: "Missing email" });
+      const ms365Connection = await storage.getUserMs365Connection(userId);
+      if (!ms365Connection || !ms365Connection.isConnected) {
+        return res.status(400).json({ error: "Not connected" });
+      }
+      const { decryptTokenSafe } = await import("./lib/token-crypto");
+      const { getValidAccessToken } = await import("./lib/ms365");
+      const accessToken = decryptTokenSafe(ms365Connection.accessToken);
+      const refreshToken = ms365Connection.refreshToken ? decryptTokenSafe(ms365Connection.refreshToken) : null;
+      const tokenResult = await getValidAccessToken(accessToken, ms365Connection.tokenExpiresAt, refreshToken);
+      if (!tokenResult?.accessToken) return res.status(401).json({ error: "Token expired" });
+      const response = await fetch(`https://graph.microsoft.com/v1.0/users/${encodeURIComponent(email)}/photo/$value`, {
+        headers: { 'Authorization': `Bearer ${tokenResult.accessToken}` },
+      });
+      if (!response.ok) return res.status(404).send('No photo');
+      const contentType = response.headers.get('content-type') || 'image/jpeg';
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      const buffer = await response.arrayBuffer();
+      res.send(Buffer.from(buffer));
+    } catch (error: any) {
+      res.status(404).send('No photo');
+    }
+  });
+
   // Teams - send chat message
   app.post("/api/users/:userId/teams-chats/:chatId/messages", requireAuth, async (req, res) => {
     try {

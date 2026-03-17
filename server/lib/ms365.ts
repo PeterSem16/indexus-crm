@@ -1301,6 +1301,7 @@ export async function getChannelMessages(
       body: msg.body?.content || '',
       contentType: msg.body?.contentType || 'text',
       from: msg.from?.user?.displayName || 'Neznámy',
+      fromEmail: msg.from?.user?.email || null,
       createdDateTime: msg.createdDateTime,
       importance: msg.importance,
       subject: msg.subject || null,
