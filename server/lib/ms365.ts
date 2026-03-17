@@ -1330,8 +1330,10 @@ export async function createOnlineMeeting(
 ): Promise<any> {
   const client = createGraphClient(accessToken);
   const now = new Date();
-  const start = startDateTime || now.toISOString();
-  const end = endDateTime || new Date(now.getTime() + 60 * 60 * 1000).toISOString();
+  const startRaw = startDateTime || now.toISOString();
+  const endRaw = endDateTime || new Date(now.getTime() + 60 * 60 * 1000).toISOString();
+  const start = startRaw.replace('Z', '').replace(/\.\d{3}$/, '');
+  const end = endRaw.replace('Z', '').replace(/\.\d{3}$/, '');
 
   try {
     const eventPayload: any = {
@@ -1356,24 +1358,24 @@ export async function createOnlineMeeting(
       }));
     }
 
-    const calendarEvent = await client.api('/me/events').post(eventPayload);
+    let calendarEvent: any;
+    try {
+      calendarEvent = await client.api('/me/events').post(eventPayload);
+    } catch (e: any) {
+      if (e?.statusCode === 400 || e?.code === 'ErrorInvalidOnlineMeetingProvider') {
+        eventPayload.onlineMeetingProvider = 'teamsForBusiness';
+        delete eventPayload.allowNewTimeProposals;
+        calendarEvent = await client.api('/me/events').post(eventPayload);
+      } else {
+        throw e;
+      }
+    }
 
     const joinUrl = calendarEvent.onlineMeeting?.joinUrl || calendarEvent.onlineMeetingUrl;
     const onlineMeetingId = calendarEvent.onlineMeeting?.conferenceId;
 
-    let meetingId = onlineMeetingId;
-    if (joinUrl) {
-      try {
-        const encodedJoinUrl = encodeURIComponent(joinUrl);
-        const meetingResult = await client.api(`/me/onlineMeetings?$filter=joinWebUrl eq '${encodedJoinUrl}'`).get();
-        if (meetingResult?.value?.[0]?.id) {
-          meetingId = meetingResult.value[0].id;
-        }
-      } catch {}
-    }
-
     return {
-      id: meetingId || calendarEvent.id,
+      id: onlineMeetingId || calendarEvent.id,
       calendarEventId: calendarEvent.id,
       joinUrl,
       subject: calendarEvent.subject,
@@ -1381,8 +1383,8 @@ export async function createOnlineMeeting(
       endDateTime: calendarEvent.end?.dateTime,
       videoTeleconferenceId: onlineMeetingId,
     };
-  } catch (error) {
-    console.error('[MS365] Error creating online meeting with calendar event:', error);
+  } catch (error: any) {
+    console.error('[MS365] Error creating online meeting with calendar event:', error?.message || error, error?.body || '');
     throw error;
   }
 }
@@ -1674,6 +1676,82 @@ export async function getFilePreviewUrl(accessToken: string, driveId: string, it
     return result?.getUrl || null;
   } catch {
     return null;
+  }
+}
+
+export async function getTeamsActivityFeed(
+  accessToken: string
+): Promise<any[]> {
+  const client = createGraphClient(accessToken);
+  const now = new Date();
+  const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const activities: any[] = [];
+
+  try {
+    const [chatsResult, eventsResult] = await Promise.allSettled([
+      client.api('/me/chats')
+        .top(25)
+        .orderby('lastMessagePreview/createdDateTime desc')
+        .expand('lastMessagePreview')
+        .get(),
+      client.api('/me/events')
+        .filter(`start/dateTime ge '${weekAgo.toISOString()}' and start/dateTime le '${new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString()}'`)
+        .top(30)
+        .orderby('start/dateTime desc')
+        .select('id,subject,start,end,isOnlineMeeting,onlineMeeting,organizer,attendees,bodyPreview,webLink,createdDateTime,lastModifiedDateTime,responseStatus')
+        .get(),
+    ]);
+
+    if (chatsResult.status === 'fulfilled' && chatsResult.value?.value) {
+      for (const chat of chatsResult.value.value) {
+        const preview = chat.lastMessagePreview;
+        if (!preview) continue;
+        const msgTime = new Date(preview.createdDateTime);
+        if (msgTime < weekAgo) continue;
+        activities.push({
+          type: 'chat_message',
+          id: `chat-${chat.id}-${preview.id || Date.now()}`,
+          timestamp: preview.createdDateTime,
+          chatId: chat.id,
+          chatType: chat.chatType,
+          chatTopic: chat.topic,
+          senderName: preview.from?.user?.displayName || preview.from?.application?.displayName || 'Unknown',
+          senderEmail: preview.from?.user?.email,
+          messagePreview: preview.body?.content ? preview.body.content.replace(/<[^>]*>/g, '').substring(0, 200) : '',
+          messageType: preview.messageType,
+          isDeleted: preview.isDeleted,
+        });
+      }
+    }
+
+    if (eventsResult.status === 'fulfilled' && eventsResult.value?.value) {
+      for (const event of eventsResult.value.value) {
+        const eventStart = new Date(event.start?.dateTime + 'Z');
+        const isFuture = eventStart > now;
+        activities.push({
+          type: isFuture ? 'meeting_invite' : 'meeting_past',
+          id: `event-${event.id}`,
+          timestamp: event.createdDateTime || event.start?.dateTime,
+          subject: event.subject,
+          startDateTime: event.start?.dateTime,
+          endDateTime: event.end?.dateTime,
+          organizerName: event.organizer?.emailAddress?.name,
+          organizerEmail: event.organizer?.emailAddress?.address,
+          isOnlineMeeting: event.isOnlineMeeting,
+          joinUrl: event.onlineMeeting?.joinUrl,
+          webLink: event.webLink,
+          attendeeCount: event.attendees?.length || 0,
+          responseStatus: event.responseStatus?.response,
+          bodyPreview: event.bodyPreview?.substring(0, 200),
+        });
+      }
+    }
+
+    activities.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    return activities.slice(0, 50);
+  } catch (error: any) {
+    console.error('[MS365] Error fetching activity feed:', error?.message || error);
+    return [];
   }
 }
 

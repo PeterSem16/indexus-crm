@@ -3953,6 +3953,28 @@ Format the output in clean HTML with headings (h3), bullet lists (ul/li), and bo
     }
   });
 
+  app.get("/api/users/:userId/teams-activity", requireAuth, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      if (String(req.session.user?.id) !== String(userId)) return res.status(403).json({ error: "Forbidden" });
+      const ms365Connection = await storage.getUserMs365Connection(userId);
+      if (!ms365Connection || !ms365Connection.isConnected) {
+        return res.json({ connected: false, activities: [] });
+      }
+      const { decryptTokenSafe } = await import("./lib/token-crypto");
+      const { getValidAccessToken, getTeamsActivityFeed } = await import("./lib/ms365");
+      const accessToken = decryptTokenSafe(ms365Connection.accessToken);
+      const refreshToken = ms365Connection.refreshToken ? decryptTokenSafe(ms365Connection.refreshToken) : null;
+      const tokenResult = await getValidAccessToken(accessToken, ms365Connection.tokenExpiresAt, refreshToken);
+      if (!tokenResult?.accessToken) return res.json({ connected: false, activities: [] });
+      const activities = await getTeamsActivityFeed(tokenResult.accessToken);
+      res.json({ connected: true, activities });
+    } catch (error: any) {
+      console.error("Error fetching Teams activity:", error?.message || error);
+      res.json({ connected: true, activities: [] });
+    }
+  });
+
   // Teams - joined teams
   app.get("/api/users/:userId/teams-joined", requireAuth, async (req, res) => {
     try {

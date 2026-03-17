@@ -139,6 +139,8 @@ import {
   LinkIcon,
   ClipboardList,
   Wand2,
+  Bell,
+  MessageCircle,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
@@ -1664,7 +1666,21 @@ function TeamsPanel({ userId }: { userId?: string }) {
     return `${memberNames.slice(0, 2).join(', ')}, +${memberNames.length - 2}`;
   };
 
-  const [sidebarFilter, setSidebarFilter] = useState<"all" | "channels" | "chats" | "meetings">("all");
+  const [sidebarFilter, setSidebarFilter] = useState<"all" | "activity" | "channels" | "chats" | "meetings">("all");
+
+  const { data: activityData, isLoading: activityLoading } = useQuery<{ activities: any[] }>({
+    queryKey: ["/api/users", userId, "teams-activity"],
+    queryFn: async () => {
+      const res = await fetch(`/api/users/${userId}/teams-activity`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: !!userId && sidebarFilter === "activity",
+    retry: 1,
+    staleTime: 60000,
+  });
+  const activityItems = activityData?.activities || [];
+
   const [chatsSectionOpen, setChatsSectionOpen] = useState(true);
   const [teamsSectionOpen, setTeamsSectionOpen] = useState(true);
   const [expandedTeamIds, setExpandedTeamIds] = useState<string[]>([]);
@@ -1707,7 +1723,7 @@ function TeamsPanel({ userId }: { userId?: string }) {
   };
 
   const filteredChats = (() => {
-    let list = (sidebarFilter === "channels" || sidebarFilter === "meetings") ? [] : chats;
+    let list = (sidebarFilter === "channels" || sidebarFilter === "meetings" || sidebarFilter === "activity") ? [] : chats;
     if (chatSearchQuery.trim()) {
       const q = chatSearchQuery.toLowerCase();
       list = list.filter(chat => {
@@ -1719,7 +1735,7 @@ function TeamsPanel({ userId }: { userId?: string }) {
     return list;
   })();
   const filteredTeams = (() => {
-    if (sidebarFilter === "chats" || sidebarFilter === "meetings") return [];
+    if (sidebarFilter === "chats" || sidebarFilter === "meetings" || sidebarFilter === "activity") return [];
     let list = teams;
     if (chatSearchQuery.trim()) {
       const q = chatSearchQuery.toLowerCase();
@@ -1728,7 +1744,7 @@ function TeamsPanel({ userId }: { userId?: string }) {
     return list;
   })();
   const filteredMeetings = (() => {
-    if (sidebarFilter === "chats" || sidebarFilter === "channels") return [];
+    if (sidebarFilter === "chats" || sidebarFilter === "channels" || sidebarFilter === "activity") return [];
     let list = recentMeetings;
     if (chatSearchQuery.trim()) {
       const q = chatSearchQuery.toLowerCase();
@@ -1773,6 +1789,7 @@ function TeamsPanel({ userId }: { userId?: string }) {
             <div className="flex gap-1">
               {[
                 { key: "all" as const, label: "All" },
+                { key: "activity" as const, label: t.nexusOmni.teams.activity || "Activity" },
                 { key: "chats" as const, label: t.nexusOmni.tabs.chats },
                 { key: "channels" as const, label: t.nexusOmni.email.channels },
                 { key: "meetings" as const, label: t.nexusOmni.teams.meetingsAndRecordings },
@@ -1792,15 +1809,112 @@ function TeamsPanel({ userId }: { userId?: string }) {
           </div>
           <ScrollArea className="flex-1">
             <div className="py-1">
-              {chatsLoading && teamsLoading && meetingsLoading ? (
+              {sidebarFilter !== "activity" && chatsLoading && teamsLoading && meetingsLoading ? (
                 <div className="flex items-center justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
-              ) : chats.length === 0 && teams.length === 0 && recentMeetings.length === 0 ? (
+              ) : sidebarFilter !== "activity" && chats.length === 0 && teams.length === 0 && recentMeetings.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
                   <MessagesSquare className="h-8 w-8 mb-2 opacity-30" />
                   <span className="text-xs">{chatsError ? `${t.nexusOmni.common.error}: ${chatsError.message}` : chatsData?.error ? `${t.nexusOmni.common.error}: ${chatsData.error}` : chatsData?.connected === false ? t.nexusOmni.teams.notConnected : t.nexusOmni.teams.noTeamsChats}</span>
                 </div>
               ) : (
                 <>
+                  {sidebarFilter === "activity" && (
+                    <div className="py-1">
+                      {activityLoading ? (
+                        <div className="flex items-center justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+                      ) : activityItems.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+                          <Bell className="h-8 w-8 mb-2 opacity-30" />
+                          <span className="text-xs">{t.nexusOmni.teams.noActivity || 'No activity'}</span>
+                        </div>
+                      ) : (
+                        activityItems.map((item: any) => {
+                          const time = item.timestamp ? new Date(item.timestamp) : null;
+                          const timeLabel = time ? (() => {
+                            const now = new Date();
+                            const diffMs = now.getTime() - time.getTime();
+                            const diffMin = Math.floor(diffMs / 60000);
+                            if (diffMin < 1) return t.nexusOmni.teams.justNow || 'Just now';
+                            if (diffMin < 60) return `${diffMin}m`;
+                            const diffH = Math.floor(diffMin / 60);
+                            if (diffH < 24) return `${diffH}h`;
+                            return format(time, "d.M.");
+                          })() : '';
+                          if (item.type === 'chat_message') {
+                            return (
+                              <button
+                                key={item.id}
+                                className="w-full text-left px-4 py-2.5 transition-all hover:bg-accent/50 flex items-start gap-2.5 border-b border-border/40"
+                                onClick={() => {
+                                  if (item.chatId) {
+                                    setSelectedTeamsChatId(item.chatId);
+                                    setSelectedMeetingId(null);
+                                    setSelectedChannelId(null);
+                                    setSelectedTeamId(null);
+                                    setSidebarFilter("all");
+                                  }
+                                }}
+                                data-testid={`activity-chat-${item.id}`}
+                              >
+                                <div className="h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center shrink-0 mt-0.5">
+                                  <MessageCircle className="h-3.5 w-3.5 text-blue-500" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center justify-between gap-1">
+                                    <span className="text-[12px] font-semibold truncate">{item.senderName}</span>
+                                    <span className="text-[10px] text-muted-foreground shrink-0">{timeLabel}</span>
+                                  </div>
+                                  <span className="text-[11px] text-muted-foreground truncate block">{item.chatTopic || (item.chatType === 'group' ? (t.nexusOmni.teams.groupChat) : (t.nexusOmni.teams.directChat))}</span>
+                                  {item.messagePreview && !item.isDeleted && (
+                                    <span className="text-[11px] text-muted-foreground/70 truncate block mt-0.5">{item.messagePreview}</span>
+                                  )}
+                                </div>
+                              </button>
+                            );
+                          }
+                          if (item.type === 'meeting_invite' || item.type === 'meeting_past') {
+                            return (
+                              <button
+                                key={item.id}
+                                className="w-full text-left px-4 py-2.5 transition-all hover:bg-accent/50 flex items-start gap-2.5 border-b border-border/40"
+                                onClick={() => {
+                                  if (item.joinUrl) window.open(item.joinUrl, '_blank');
+                                  else if (item.webLink) window.open(item.webLink, '_blank');
+                                }}
+                                data-testid={`activity-meeting-${item.id}`}
+                              >
+                                <div className={cn("h-8 w-8 rounded-full flex items-center justify-center shrink-0 mt-0.5",
+                                  item.type === 'meeting_invite' ? "bg-green-100 dark:bg-green-900/30" : "bg-indigo-100 dark:bg-indigo-900/30"
+                                )}>
+                                  {item.type === 'meeting_invite' ? (
+                                    <CalendarDays className="h-3.5 w-3.5 text-green-500" />
+                                  ) : (
+                                    <Video className="h-3.5 w-3.5 text-indigo-500" />
+                                  )}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center justify-between gap-1">
+                                    <span className="text-[12px] font-semibold truncate">{item.subject || 'Meeting'}</span>
+                                    <span className="text-[10px] text-muted-foreground shrink-0">{timeLabel}</span>
+                                  </div>
+                                  <span className="text-[11px] text-muted-foreground truncate block">
+                                    {item.organizerName && `${item.organizerName}`}
+                                    {item.startDateTime && ` · ${format(new Date(item.startDateTime + (item.startDateTime.endsWith('Z') ? '' : 'Z')), "d.M. HH:mm")}`}
+                                  </span>
+                                  {item.isOnlineMeeting && (
+                                    <span className="inline-flex items-center gap-1 mt-0.5 text-[10px] text-purple-500">
+                                      <Video className="h-2.5 w-2.5" /> Teams
+                                    </span>
+                                  )}
+                                </div>
+                              </button>
+                            );
+                          }
+                          return null;
+                        })
+                      )}
+                    </div>
+                  )}
                   {filteredChats.length > 0 && (
                     <>
                       <button
