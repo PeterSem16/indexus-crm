@@ -2452,8 +2452,6 @@ export default function EmailClientPage() {
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const lastMsgCountRef = useRef<number>(0);
   const [internalChatLoading, setInternalChatLoading] = useState(false);
-  const emailPrefsRef = useRef(emailPrefs);
-  useEffect(() => { emailPrefsRef.current = emailPrefs; }, [emailPrefs]);
   const internalChatPartnerRef = useRef<string | null>(null);
   useEffect(() => { internalChatPartnerRef.current = internalChatPartner; }, [internalChatPartner]);
 
@@ -2531,6 +2529,8 @@ export default function EmailClientPage() {
     };
     return saved ? { ...defaults, ...JSON.parse(saved) } : defaults;
   });
+  const emailPrefsRef = useRef(emailPrefs);
+  useEffect(() => { emailPrefsRef.current = emailPrefs; }, [emailPrefs]);
 
   const updateEmailPref = (key: string, value: any) => {
     setEmailPrefs((prev: any) => {
