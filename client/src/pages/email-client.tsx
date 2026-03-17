@@ -3880,7 +3880,7 @@ export default function EmailClientPage() {
     { key: "tasks", label: t.nexusOmni.tabs.tasks, icon: <ListTodo className="h-4 w-4" />, badge: pendingTasks > 0 ? pendingTasks : undefined, badgeColor: "bg-amber-500" },
     { key: "chats", label: t.nexusOmni.tabs.chats, icon: <MessagesSquare className="h-4 w-4" />, badge: unreadChats > 0 ? unreadChats : undefined, badgeColor: "bg-violet-500" },
     { key: "teams", label: t.nexusOmni.tabs.teams, icon: <MessagesSquare className="h-4 w-4" />, badgeColor: "bg-indigo-500" },
-    { key: "calendar", label: t.nexusOmni.tabs.calendar, icon: <CalendarDays className="h-4 w-4" />, badge: upcomingMeetings.length > 0 ? upcomingMeetings.length : undefined, badgeColor: "bg-rose-500" },
+    { key: "calendar", label: t.nexusOmni.tabs.calendar, icon: <CalendarDays className="h-4 w-4" />, badgeColor: "bg-rose-500" },
     { key: "nexuspoint", label: t.nexusOmni.tabs.nexuspoint, icon: <HardDrive className="h-4 w-4" />, badgeColor: "bg-emerald-500" },
   ];
 
