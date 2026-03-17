@@ -1115,15 +1115,19 @@ function NexusPointPanel({ userId }: { userId?: string }) {
   );
 }
 
-function CalendarPanel({ onCreateMeeting }: { onCreateMeeting: () => void }) {
+function CalendarPanel({ onCreateMeeting, calendarFilter }: { onCreateMeeting: () => void; calendarFilter: "today" | "week" | "month" }) {
   const { t } = useI18n();
   const { user } = useAuth();
   const now = new Date();
   const calStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const calEnd = new Date(calStart.getTime() + 14 * 24 * 60 * 60 * 1000);
+  const calEnd = calendarFilter === "today"
+    ? new Date(calStart.getTime() + 1 * 24 * 60 * 60 * 1000)
+    : calendarFilter === "week"
+    ? new Date(calStart.getTime() + 7 * 24 * 60 * 60 * 1000)
+    : new Date(calStart.getFullYear(), calStart.getMonth() + 1, 0, 23, 59, 59);
 
   const { data: calendarEvents = [], isLoading: calLoading } = useQuery<any[]>({
-    queryKey: ["/api/ms365/calendar", "full", calStart.toISOString()],
+    queryKey: ["/api/ms365/calendar", "full", calStart.toISOString(), calendarFilter],
     queryFn: async () => {
       const res = await fetch(`/api/ms365/calendar?startDate=${calStart.toISOString()}&endDate=${calEnd.toISOString()}`, { credentials: "include" });
       if (!res.ok) return [];
@@ -2763,6 +2767,7 @@ export default function EmailClientPage() {
 
   const [activeTab, setActiveTab] = useState<NexusTab>("email");
   const [teamsSidebarFilter, setTeamsSidebarFilter] = useState<"all" | "activity" | "channels" | "chats" | "meetings">("all");
+  const [calendarSidebarFilter, setCalendarSidebarFilter] = useState<"today" | "week" | "month">("week");
   const [selectedMailbox, setSelectedMailbox] = useState<string>("personal");
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [selectedEmail, setSelectedEmail] = useState<EmailMessage | null>(null);
@@ -4278,6 +4283,8 @@ export default function EmailClientPage() {
           onSelectMailbox={handleSidebarMailboxSelect}
           teamsSidebarFilter={teamsSidebarFilter}
           onTeamsSidebarFilterChange={setTeamsSidebarFilter}
+          calendarSidebarFilter={calendarSidebarFilter}
+          onCalendarSidebarFilterChange={setCalendarSidebarFilter}
         />
 
         {activeTab === "email" && (
@@ -4978,6 +4985,7 @@ export default function EmailClientPage() {
         {activeTab === "calendar" && (
           <CalendarPanel
             onCreateMeeting={() => { setActiveTab("teams"); setMeetingDialogOpen(true); setMeetingLink(null); setMeetingSubject(""); setMeetingDate(""); setMeetingStartTime(""); setMeetingEndTime(""); setMeetingParticipants([]); setParticipantInput(""); }}
+            calendarFilter={calendarSidebarFilter}
           />
         )}
 

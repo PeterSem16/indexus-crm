@@ -1125,7 +1125,7 @@ export async function getTeamsChats(
     result = await client.api('/me/chats')
       .select('id,topic,chatType,createdDateTime,lastUpdatedDateTime,webUrl')
       .expand('members,lastMessagePreview')
-      .top(50)
+      .top(100)
       .get();
   } catch (expandError: any) {
     console.warn('[MS365] Chats expand(members) failed, trying without expand:', expandError?.code || expandError?.message);
@@ -1133,13 +1133,13 @@ export async function getTeamsChats(
       result = await client.api('/me/chats')
         .select('id,topic,chatType,createdDateTime,lastUpdatedDateTime,webUrl')
         .expand('lastMessagePreview')
-        .top(50)
+        .top(100)
         .get();
     } catch (fallbackError: any) {
       console.warn('[MS365] Chats expand(lastMessagePreview) also failed, basic fetch:', fallbackError?.code);
       result = await client.api('/me/chats')
         .select('id,topic,chatType,createdDateTime,lastUpdatedDateTime,webUrl')
-        .top(50)
+        .top(100)
         .get();
     }
   }
@@ -1413,12 +1413,12 @@ export async function getChatMembers(
 
 export async function getRecentMeetings(
   accessToken: string,
-  top: number = 20
+  top: number = 50
 ): Promise<any[]> {
   const client = createGraphClient(accessToken);
   try {
     const now = new Date();
-    const pastDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const pastDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
     const result = await client.api('/me/onlineMeetings')
       .filter(`startDateTime ge ${pastDate.toISOString()} and startDateTime le ${now.toISOString()}`)
       .top(top)
@@ -1684,19 +1684,19 @@ export async function getTeamsActivityFeed(
 ): Promise<any[]> {
   const client = createGraphClient(accessToken);
   const now = new Date();
-  const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const threeMonthsAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
   const activities: any[] = [];
 
   try {
     const [chatsResult, eventsResult] = await Promise.allSettled([
       client.api('/me/chats')
-        .top(25)
+        .top(50)
         .orderby('lastMessagePreview/createdDateTime desc')
         .expand('lastMessagePreview')
         .get(),
       client.api('/me/events')
-        .filter(`start/dateTime ge '${weekAgo.toISOString()}' and start/dateTime le '${new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString()}'`)
-        .top(30)
+        .filter(`start/dateTime ge '${threeMonthsAgo.toISOString()}' and start/dateTime le '${new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000).toISOString()}'`)
+        .top(100)
         .orderby('start/dateTime desc')
         .select('id,subject,start,end,isOnlineMeeting,onlineMeeting,organizer,attendees,bodyPreview,webLink,createdDateTime,lastModifiedDateTime,responseStatus')
         .get(),
@@ -1707,7 +1707,7 @@ export async function getTeamsActivityFeed(
         const preview = chat.lastMessagePreview;
         if (!preview) continue;
         const msgTime = new Date(preview.createdDateTime);
-        if (msgTime < weekAgo) continue;
+        if (msgTime < threeMonthsAgo) continue;
         activities.push({
           type: 'chat_message',
           id: `chat-${chat.id}-${preview.id || Date.now()}`,
@@ -1748,7 +1748,7 @@ export async function getTeamsActivityFeed(
     }
 
     activities.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-    return activities.slice(0, 50);
+    return activities.slice(0, 150);
   } catch (error: any) {
     console.error('[MS365] Error fetching activity feed:', error?.message || error);
     return [];
