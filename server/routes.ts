@@ -34,7 +34,7 @@ import {
   collections, executiveSummaries, collectionLabResults, collectionSprievodnyList,
   insertSopCategorySchema, insertSopArticleSchema,
   agentSessions, agentSessionActivities, agentBreaks, scheduledReports, agentQueueStatus,
-  inboundCallLogs, inboundQueues,
+  inboundCallLogs, inboundQueues, ariSettings,
   type SafeUser, type Customer, type Product, type BillingDetails, type ActivityLog, type LeadScoringCriteria,
   type ServiceConfiguration, type InvoiceTemplate, type InvoiceLayout, type Role,
   type Campaign, type CampaignContact, type ContractInstance
@@ -1192,6 +1192,56 @@ async function persistAgentStatusToDb(userId: string, status: string): Promise<v
   } catch (err: any) {
     console.error(`[AgentStatus] Failed to persist status for agent ${userId}:`, err.message);
   }
+}
+
+const ASTERISK_SK_HOST = "10.9.33.2";
+const ASTERISK_SK_PORT = 8088;
+
+async function syncCallerIdToAsteriskServer(host: string, port: number, extension: string, callerId: string | null): Promise<void> {
+  try {
+    const settings = await db.select().from(ariSettings).limit(1);
+    if (settings.length === 0 || !settings[0].username || !settings[0].password) {
+      console.warn(`[AsteriskSync] No ARI credentials found, skipping sync to ${host}`);
+      return;
+    }
+    const { username, password, protocol } = settings[0];
+    const authHeader = "Basic " + Buffer.from(`${username}:${password}`).toString("base64");
+    const baseUrl = `${protocol || "http"}://${host}:${port}`;
+
+    const variable = callerId
+      ? `DB(callerid/${extension})`
+      : `DB_DELETE(callerid/${extension})`;
+    const value = callerId || "";
+
+    const url = `${baseUrl}/ari/asterisk/variable?variable=${encodeURIComponent(variable)}&value=${encodeURIComponent(value)}`;
+    const resp = await fetch(url, {
+      method: "POST",
+      headers: { Authorization: authHeader, "Content-Type": "application/json" },
+      signal: AbortSignal.timeout(5000),
+    });
+
+    if (resp.ok) {
+      console.log(`[AsteriskSync] ${host}: ${callerId ? "set" : "deleted"} callerid/${extension} = ${callerId || "(removed)"}`);
+    } else {
+      const text = await resp.text();
+      console.warn(`[AsteriskSync] ${host}: Failed (${resp.status}): ${text}`);
+    }
+  } catch (err) {
+    console.warn(`[AsteriskSync] ${host}: Error syncing callerid/${extension}:`, err instanceof Error ? err.message : err);
+  }
+}
+
+async function syncCallerIdToAllAsteriskServers(extension: string, callerId: string | null): Promise<void> {
+  const engine = getQueueEngine();
+  const promises: Promise<void>[] = [];
+
+  promises.push(syncCallerIdToAsteriskServer(ASTERISK_SK_HOST, ASTERISK_SK_PORT, extension, callerId));
+
+  if (engine) {
+    promises.push(engine.syncCallerIdToAsteriskDB(extension, callerId));
+  }
+
+  await Promise.allSettled(promises);
 }
 
 export async function registerRoutes(
@@ -13483,14 +13533,11 @@ Return ONLY valid JSON, no markdown code blocks.`,
       }
 
       if (outboundCallerId !== undefined) {
-        const engine = getQueueEngine();
-        if (engine) {
-          const collabSipExt = mobileSipExtensionId || oldCollaborator.mobileSipExtensionId;
-          if (collabSipExt) {
-            const ext = await storage.getSipExtensionById(collabSipExt);
-            if (ext) {
-              engine.syncCallerIdToAsteriskDB(ext.extension, outboundCallerId || null).catch(() => {});
-            }
+        const collabSipExt = mobileSipExtensionId || oldCollaborator.mobileSipExtensionId;
+        if (collabSipExt) {
+          const ext = await storage.getSipExtensionById(collabSipExt);
+          if (ext) {
+            syncCallerIdToAllAsteriskServers(ext.extension, outboundCallerId || null).catch(() => {});
           }
         }
       }

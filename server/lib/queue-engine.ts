@@ -278,6 +278,10 @@ export class QueueEngine extends EventEmitter {
     }
   }
 
+  getAriClient(): AriClient {
+    return this.ariClient;
+  }
+
   private async handlePlaybackFinished(event: AriEvent): Promise<void> {
     const playbackId = event.playback?.id;
     if (!playbackId) return;
