@@ -2441,6 +2441,22 @@ export default function EmailClientPage() {
   const [taskFilter, setTaskFilter] = useState<TaskFilter>("all");
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
 
+  const wsRef = useRef<WebSocket | null>(null);
+  const [wsOnlineUsers, setWsOnlineUsers] = useState<Array<{ id: string; fullName: string; username: string; avatarUrl?: string }>>([]);
+  const [internalChatPartner, setInternalChatPartner] = useState<string | null>(null);
+  const [internalMessages, setInternalMessages] = useState<any[]>([]);
+  const [internalConversations, setInternalConversations] = useState<any[]>([]);
+  const [internalChatInput, setInternalChatInput] = useState("");
+  const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
+  const typingTimerRef = useRef<Record<string, NodeJS.Timeout>>({});
+  const chatScrollRef = useRef<HTMLDivElement>(null);
+  const lastMsgCountRef = useRef<number>(0);
+  const [internalChatLoading, setInternalChatLoading] = useState(false);
+  const emailPrefsRef = useRef(emailPrefs);
+  useEffect(() => { emailPrefsRef.current = emailPrefs; }, [emailPrefs]);
+  const internalChatPartnerRef = useRef<string | null>(null);
+  useEffect(() => { internalChatPartnerRef.current = internalChatPartner; }, [internalChatPartner]);
+
   const [emailFilters, setEmailFilters] = useState({
     unreadOnly: false,
     hasAttachments: false,
@@ -2454,7 +2470,7 @@ export default function EmailClientPage() {
   const [listSearchOpen, setListSearchOpen] = useState(false);
   const [filterByTagId, setFilterByTagId] = useState<string | null>(null);
   const [tagPickerEmailId, setTagPickerEmailId] = useState<string | null>(null);
-  const [settingsTab, setSettingsTab] = useState<"accounts" | "messages" | "compose" | "tags" | "appearance" | "ai" | "notifications">("messages");
+  const [settingsTab, setSettingsTab] = useState<"accounts" | "messages" | "compose" | "tags" | "appearance" | "ai" | "notifications" | "chats" | "tasks">("messages");
   const [newTagName, setNewTagName] = useState("");
   const [newTagColor, setNewTagColor] = useState("#6B7280");
   const [loadingAll, setLoadingAll] = useState(false);
@@ -2508,6 +2524,10 @@ export default function EmailClientPage() {
       soundOnReceive: true,
       pollingEnabled: true,
       pollingInterval: 30,
+      chatNotifySound: true,
+      chatNotifyPopup: true,
+      taskNotifySound: true,
+      taskNotifyPopup: true,
     };
     return saved ? { ...defaults, ...JSON.parse(saved) } : defaults;
   });
@@ -3251,6 +3271,147 @@ export default function EmailClientPage() {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [smartSearchOpen, activeTab, nexusFullscreen]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const ws = new WebSocket(`${proto}//${window.location.host}/ws/chat`);
+    wsRef.current = ws;
+    ws.onopen = () => {
+      ws.send(JSON.stringify({ type: "auth", userId: user.id }));
+    };
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        switch (data.type) {
+          case "presence_update":
+            setWsOnlineUsers(data.onlineUsers.filter((u: any) => u.id !== user.id));
+            break;
+          case "new_message":
+            if (data.message.senderId === internalChatPartnerRef.current) {
+              setInternalMessages(prev => [...prev, data.message]);
+            }
+            if (emailPrefsRef.current.chatNotifySound) playSound("receive");
+            if (emailPrefsRef.current.chatNotifyPopup && data.sender) {
+              toast({ title: `${t.nexusOmni.chats.newMessageFrom} ${data.sender.fullName}`, description: data.message.content?.substring(0, 80) || "", duration: 5000 });
+            }
+            fetchConversations();
+            break;
+          case "message_sent":
+            if (data.message.receiverId === internalChatPartnerRef.current) {
+              setInternalMessages(prev => [...prev, data.message]);
+            }
+            fetchConversations();
+            break;
+          case "user_typing":
+            if (data.isTyping) {
+              setTypingUsers(prev => new Set(prev).add(data.userId));
+              if (typingTimerRef.current[data.userId]) clearTimeout(typingTimerRef.current[data.userId]);
+              typingTimerRef.current[data.userId] = setTimeout(() => {
+                setTypingUsers(prev => { const n = new Set(prev); n.delete(data.userId); return n; });
+              }, 3000);
+            } else {
+              setTypingUsers(prev => { const n = new Set(prev); n.delete(data.userId); return n; });
+            }
+            break;
+          case "messages_read":
+            break;
+        }
+      } catch {}
+    };
+    ws.onclose = () => { wsRef.current = null; };
+    return () => { ws.close(); wsRef.current = null; };
+  }, [user?.id]);
+
+  const fetchConversations = async () => {
+    try {
+      const res = await fetch("/api/chat/conversations", { credentials: "include" });
+      if (res.ok) { const data = await res.json(); setInternalConversations(data); }
+    } catch {}
+  };
+
+  useEffect(() => { if (user?.id) fetchConversations(); }, [user?.id]);
+
+  const loadChatHistory = async (partnerId: string) => {
+    setInternalChatLoading(true);
+    try {
+      const res = await fetch(`/api/chat/messages/${partnerId}?limit=50`, { credentials: "include" });
+      if (res.ok) { const msgs = await res.json(); setInternalMessages(msgs); }
+    } catch {} finally { setInternalChatLoading(false); }
+  };
+
+  useEffect(() => {
+    if (internalChatPartner) {
+      loadChatHistory(internalChatPartner);
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({ type: "mark_read", senderId: internalChatPartner }));
+      }
+    }
+  }, [internalChatPartner]);
+
+  useEffect(() => {
+    if (chatScrollRef.current && internalMessages.length > lastMsgCountRef.current) {
+      chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
+    }
+    lastMsgCountRef.current = internalMessages.length;
+  }, [internalMessages]);
+
+  const sendInternalMessage = () => {
+    if (!internalChatInput.trim() || !internalChatPartner || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+    wsRef.current.send(JSON.stringify({ type: "chat_message", receiverId: internalChatPartner, content: internalChatInput.trim() }));
+    wsRef.current.send(JSON.stringify({ type: "typing", receiverId: internalChatPartner, isTyping: false }));
+    setInternalChatInput("");
+  };
+
+  const handleInternalChatTyping = (val: string) => {
+    setInternalChatInput(val);
+    if (internalChatPartner && wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: "typing", receiverId: internalChatPartner, isTyping: val.length > 0 }));
+    }
+  };
+
+  const startChatWithUser = (userId: string) => {
+    setInternalChatPartner(userId);
+    setInternalMessages([]);
+    setInternalChatInput("");
+  };
+
+  const [taskCommentInput, setTaskCommentInput] = useState("");
+  const [taskComments, setTaskComments] = useState<any[]>([]);
+  const [taskCommentsLoading, setTaskCommentsLoading] = useState(false);
+
+  const fetchTaskComments = async (taskId: string) => {
+    setTaskCommentsLoading(true);
+    try {
+      const res = await fetch(`/api/tasks/${taskId}/comments`, { credentials: "include" });
+      if (res.ok) { const data = await res.json(); setTaskComments(data); }
+    } catch {} finally { setTaskCommentsLoading(false); }
+  };
+
+  useEffect(() => {
+    if (selectedTask?.id) { fetchTaskComments(selectedTask.id); setTaskCommentInput(""); }
+  }, [selectedTask?.id]);
+
+  const addTaskComment = async () => {
+    if (!taskCommentInput.trim() || !selectedTask?.id) return;
+    try {
+      const res = await apiRequest("POST", `/api/tasks/${selectedTask.id}/comments`, { content: taskCommentInput.trim() });
+      if (res.ok) {
+        toast({ title: t.nexusOmni.tasks.commentAdded });
+        setTaskCommentInput("");
+        fetchTaskComments(selectedTask.id);
+      }
+    } catch { toast({ title: t.nexusOmni.common.error, variant: "destructive" }); }
+  };
+
+  const deleteTaskComment = async (commentId: string) => {
+    if (!selectedTask?.id) return;
+    try {
+      await apiRequest("DELETE", `/api/tasks/${selectedTask.id}/comments/${commentId}`);
+      toast({ title: t.nexusOmni.tasks.commentDeleted });
+      fetchTaskComments(selectedTask.id);
+    } catch { toast({ title: t.nexusOmni.common.error, variant: "destructive" }); }
+  };
 
   const getSmartSuggestions = () => {
     const suggestions: { label: string; query: string; icon: string; type: "sender" | "domain" | "subject" | "date" | "recent" | "attachment" }[] = [];
@@ -4719,26 +4880,168 @@ export default function EmailClientPage() {
 
         {activeTab === "chats" && (
           <>
-            <Card className="transition-all duration-300 flex-1 min-w-0 flex flex-col">
+            <Card className="transition-all duration-300 w-[280px] min-w-[240px] max-w-[320px] shrink-0 flex flex-col">
+              <CardHeader className="py-2 px-3 border-b shrink-0">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <MessagesSquare className="h-4 w-4 text-violet-600" />
+                    <span className="text-sm font-semibold">{t.nexusOmni.chats.internalChats}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Badge variant="secondary" className="text-[10px] h-5">{wsOnlineUsers.length} {t.nexusOmni.chats.online}</Badge>
+                  </div>
+                </div>
+              </CardHeader>
               <CardContent className="p-0 flex-1 min-h-0 flex flex-col">
-                {selectedChat ? (
-                  <div className="flex flex-col h-full">
-                    <div className="p-4 border-b">
-                      <div className="flex items-center gap-2">
-                        <Badge className={`${typeColors.chat.bg} ${typeColors.chat.text}`}>
-                          <MessagesSquare className="h-3 w-3 mr-1" />Chat
-                        </Badge>
-                        <h2 className="text-lg font-semibold">{selectedChat.participantName}</h2>
+                <div className="px-3 py-2 border-b">
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">{t.nexusOmni.chats.onlineUsers}</p>
+                </div>
+                <div className="divide-y max-h-[180px] overflow-auto">
+                  {wsOnlineUsers.length === 0 ? (
+                    <div className="px-3 py-4 text-center text-xs text-muted-foreground">{t.nexusOmni.chats.noConversations}</div>
+                  ) : wsOnlineUsers.map(u => (
+                    <div
+                      key={u.id}
+                      className={`px-3 py-2 flex items-center gap-2.5 cursor-pointer hover:bg-accent/50 transition-colors ${internalChatPartner === u.id ? "bg-accent" : ""}`}
+                      onClick={() => startChatWithUser(u.id)}
+                      data-testid={`online-user-${u.id}`}
+                    >
+                      <div className="relative">
+                        <div className={cn("h-8 w-8 rounded-full flex items-center justify-center shrink-0 text-white text-xs font-semibold", getAvatarColorStatic(u.fullName))}>
+                          {getInitialsStatic(u.fullName)}
+                        </div>
+                        <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-emerald-500 border-2 border-background" />
                       </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium truncate">{u.fullName}</p>
+                        <p className="text-[10px] text-emerald-600">{t.nexusOmni.chats.online}</p>
+                      </div>
+                      <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={(e) => { e.stopPropagation(); startChatWithUser(u.id); }} data-testid={`start-chat-${u.id}`}>
+                        <MessageCircle className="h-3.5 w-3.5" />
+                      </Button>
                     </div>
-                    <ScrollArea className="flex-1">
-                      <div className="p-4">
-                        <p className="text-sm text-muted-foreground">{t.nexusOmni.chats.lastMessage}</p>
-                        <p className="text-sm mt-1">{selectedChat.lastMessage}</p>
+                  ))}
+                </div>
+                {internalConversations.length > 0 && (
+                  <>
+                    <div className="px-3 py-2 border-t border-b">
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">{t.nexusOmni.chats.conversations}</p>
+                    </div>
+                    <ScrollArea className="flex-1 min-h-0">
+                      <div className="divide-y">
+                        {internalConversations.map((conv: any) => (
+                          <div
+                            key={conv.partnerId}
+                            className={`px-3 py-2 cursor-pointer hover:bg-accent/50 transition-colors ${internalChatPartner === conv.partnerId ? "bg-accent" : ""}`}
+                            onClick={() => startChatWithUser(conv.partnerId)}
+                            data-testid={`conv-${conv.partnerId}`}
+                          >
+                            <div className="flex items-center gap-2.5">
+                              <div className="relative">
+                                <div className={cn("h-8 w-8 rounded-full flex items-center justify-center shrink-0 text-white text-xs font-semibold", getAvatarColorStatic(conv.partner?.fullName || "?"))}>
+                                  {getInitialsStatic(conv.partner?.fullName || "?")}
+                                </div>
+                                {wsOnlineUsers.some(u => u.id === conv.partnerId) && (
+                                  <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-emerald-500 border-2 border-background" />
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between">
+                                  <p className="text-xs font-medium truncate">{conv.partner?.fullName || conv.partnerId}</p>
+                                  {conv.lastMessageAt && (
+                                    <span className="text-[10px] text-muted-foreground">{format(new Date(conv.lastMessageAt), "HH:mm")}</span>
+                                  )}
+                                </div>
+                                <p className="text-[10px] text-muted-foreground truncate">{conv.lastMessage || ""}</p>
+                              </div>
+                              {conv.unreadCount > 0 && (
+                                <Badge className="h-4 min-w-[16px] text-[9px] px-1 bg-violet-500">{conv.unreadCount}</Badge>
+                              )}
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </ScrollArea>
-                  </div>
-                ) : (
+                  </>
+                )}
+              </CardContent>
+            </Card>
+            <Card className="transition-all duration-300 flex-1 min-w-0 flex flex-col">
+              <CardContent className="p-0 flex-1 min-h-0 flex flex-col">
+                {internalChatPartner ? (() => {
+                  const partner = wsOnlineUsers.find(u => u.id === internalChatPartner) || internalConversations.find((c: any) => c.partnerId === internalChatPartner)?.partner;
+                  const partnerName = partner?.fullName || internalChatPartner;
+                  const isOnline = wsOnlineUsers.some(u => u.id === internalChatPartner);
+                  const isPartnerTyping = typingUsers.has(internalChatPartner);
+                  return (
+                    <div className="flex flex-col h-full">
+                      <div className="px-4 py-2.5 border-b flex items-center gap-3 shrink-0">
+                        <div className="relative">
+                          <div className={cn("h-9 w-9 rounded-full flex items-center justify-center text-white text-sm font-semibold", getAvatarColorStatic(partnerName))}>
+                            {getInitialsStatic(partnerName)}
+                          </div>
+                          {isOnline && <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-emerald-500 border-2 border-background" />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold truncate">{partnerName}</p>
+                          <p className="text-[11px] text-muted-foreground">
+                            {isPartnerTyping ? <span className="text-violet-500 animate-pulse">{t.nexusOmni.chats.typing}</span> : isOnline ? <span className="text-emerald-500">{t.nexusOmni.chats.online}</span> : <span>{t.nexusOmni.chats.offline}</span>}
+                          </p>
+                        </div>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setInternalChatPartner(null); setInternalMessages([]); }}>
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <div ref={chatScrollRef} className="flex-1 overflow-auto p-4 space-y-2" data-testid="chat-messages-area">
+                        {internalChatLoading ? (
+                          <div className="flex items-center justify-center py-8"><Loader2 className="h-5 w-5 animate-spin" /></div>
+                        ) : internalMessages.length === 0 ? (
+                          <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                            <MessageCircle className="h-8 w-8 mb-2 opacity-50" />
+                            <p className="text-sm">{t.nexusOmni.chats.noMessages}</p>
+                          </div>
+                        ) : (
+                          internalMessages.map((msg, i) => {
+                            const isMine = msg.senderId === user?.id;
+                            const showDate = i === 0 || format(new Date(msg.createdAt), "yyyy-MM-dd") !== format(new Date(internalMessages[i - 1].createdAt), "yyyy-MM-dd");
+                            return (
+                              <div key={msg.id || i}>
+                                {showDate && (
+                                  <div className="flex items-center justify-center my-3">
+                                    <span className="text-[10px] bg-muted px-2 py-0.5 rounded-full text-muted-foreground">
+                                      {format(new Date(msg.createdAt), "d. MMMM yyyy")}
+                                    </span>
+                                  </div>
+                                )}
+                                <div className={`flex ${isMine ? "justify-end" : "justify-start"}`} data-testid={`chat-msg-${msg.id || i}`}>
+                                  <div className={`max-w-[70%] px-3 py-2 rounded-2xl text-sm ${isMine ? "bg-violet-500 text-white rounded-br-md" : "bg-muted rounded-bl-md"}`}>
+                                    <p className="whitespace-pre-wrap break-words">{msg.content}</p>
+                                    <p className={`text-[10px] mt-0.5 ${isMine ? "text-white/60" : "text-muted-foreground"}`}>
+                                      {format(new Date(msg.createdAt), "HH:mm")}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                      <div className="px-3 py-2.5 border-t shrink-0 flex items-center gap-2">
+                        <Input
+                          value={internalChatInput}
+                          onChange={(e) => handleInternalChatTyping(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendInternalMessage(); } }}
+                          placeholder={t.nexusOmni.chats.typeMessage}
+                          className="flex-1 text-sm h-9"
+                          data-testid="input-chat-message"
+                        />
+                        <Button size="sm" className="h-9 px-3" onClick={sendInternalMessage} disabled={!internalChatInput.trim()} data-testid="button-send-chat">
+                          <Send className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })() : (
                   <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
                     <MessagesSquare className="h-12 w-12 mb-4 opacity-50" />
                     <p className="font-medium">{t.nexusOmni.chats.internalChats}</p>
@@ -5792,6 +6095,8 @@ export default function EmailClientPage() {
                 { key: "tags" as const, label: t.nexusOmni.settings.tags, icon: <Tag className="h-4 w-4" /> },
                 { key: "ai" as const, label: t.nexusOmni.settings.ai, icon: <Sparkles className="h-4 w-4" /> },
                 { key: "notifications" as const, label: t.nexusOmni.settings.notifications, icon: <Volume2 className="h-4 w-4" /> },
+                { key: "chats" as const, label: t.nexusOmni.tabs.chats, icon: <MessagesSquare className="h-4 w-4" /> },
+                { key: "tasks" as const, label: t.nexusOmni.tabs.tasks, icon: <ListTodo className="h-4 w-4" /> },
                 { key: "appearance" as const, label: t.nexusOmni.settings.appearance, icon: <Palette className="h-4 w-4" /> },
               ].map(item => (
                 <button
@@ -6644,11 +6949,61 @@ export default function EmailClientPage() {
             </p>
           )}
         </div>
-        <ScrollArea className="flex-1">
-          <div className="p-4">
+        <div className="flex-1 min-h-0 flex flex-col overflow-auto">
+          <div className="p-4 border-b">
             <p className="text-sm whitespace-pre-wrap" style={{ overflowWrap: "break-word", wordBreak: "break-word" }}>{selectedTask.description || t.nexusOmni.tasks.noDescription}</p>
           </div>
-        </ScrollArea>
+          <div className="p-4 flex-1 flex flex-col min-h-0">
+            <div className="flex items-center gap-2 mb-3">
+              <MessagesSquare className="h-4 w-4 text-amber-600" />
+              <span className="text-sm font-semibold">{t.nexusOmni.tasks.comments}</span>
+              <Badge variant="secondary" className="text-[10px] h-5">{taskComments.length}</Badge>
+            </div>
+            <div className="flex-1 min-h-0 overflow-auto space-y-2 mb-3">
+              {taskCommentsLoading ? (
+                <div className="flex items-center justify-center py-4"><Loader2 className="h-4 w-4 animate-spin" /></div>
+              ) : taskComments.length === 0 ? (
+                <div className="text-center py-6 text-muted-foreground">
+                  <MessageCircle className="h-6 w-6 mx-auto mb-1 opacity-50" />
+                  <p className="text-xs">{t.nexusOmni.tasks.noComments}</p>
+                </div>
+              ) : (
+                taskComments.map((comment: any) => (
+                  <div key={comment.id} className="flex gap-2.5 group" data-testid={`task-comment-${comment.id}`}>
+                    <div className={cn("h-7 w-7 rounded-full flex items-center justify-center text-white text-[10px] font-semibold shrink-0 mt-0.5", getAvatarColorStatic(comment.user?.fullName || "?"))}>
+                      {getInitialsStatic(comment.user?.fullName || "?")}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-medium">{comment.user?.fullName || comment.userId}</span>
+                        <span className="text-[10px] text-muted-foreground">{format(new Date(comment.createdAt), "d.M. HH:mm")}</span>
+                        {comment.userId === user?.id && (
+                          <Button variant="ghost" size="icon" className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => deleteTaskComment(comment.id)} data-testid={`delete-comment-${comment.id}`}>
+                            <Trash2 className="h-3 w-3 text-destructive" />
+                          </Button>
+                        )}
+                      </div>
+                      <p className="text-xs mt-0.5 whitespace-pre-wrap" style={{ overflowWrap: "break-word" }}>{comment.content}</p>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <Input
+                value={taskCommentInput}
+                onChange={(e) => setTaskCommentInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); addTaskComment(); } }}
+                placeholder={t.nexusOmni.tasks.commentPlaceholder}
+                className="flex-1 text-sm h-8"
+                data-testid="input-task-comment"
+              />
+              <Button size="sm" className="h-8 px-3" onClick={addTaskComment} disabled={!taskCommentInput.trim()} data-testid="button-add-comment">
+                <Send className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -7116,6 +7471,44 @@ export default function EmailClientPage() {
                 </Select>
               </SettingRow>
             )}
+          </div>
+        </div>
+      );
+    }
+
+    if (settingsTab === "chats") {
+      return (
+        <div>
+          <h2 className="text-lg font-semibold mb-1">{t.nexusOmni.tabs.chats}</h2>
+          <p className="text-sm text-muted-foreground mb-4">{t.nexusOmni.chats.internalChats}</p>
+
+          <SectionTitle>{t.nexusOmni.settings.notifications}</SectionTitle>
+          <div className="divide-y">
+            <SettingRow label={t.nexusOmni.chats.chatNotifySound} description={t.nexusOmni.chats.chatNotifySoundDesc}>
+              <Switch checked={emailPrefs.chatNotifySound} onCheckedChange={(v) => updateEmailPref("chatNotifySound", v)} />
+            </SettingRow>
+            <SettingRow label={t.nexusOmni.chats.chatNotifyPopup} description={t.nexusOmni.chats.chatNotifyPopupDesc}>
+              <Switch checked={emailPrefs.chatNotifyPopup} onCheckedChange={(v) => updateEmailPref("chatNotifyPopup", v)} />
+            </SettingRow>
+          </div>
+        </div>
+      );
+    }
+
+    if (settingsTab === "tasks") {
+      return (
+        <div>
+          <h2 className="text-lg font-semibold mb-1">{t.nexusOmni.tabs.tasks}</h2>
+          <p className="text-sm text-muted-foreground mb-4">{t.nexusOmni.tasks.allTasks}</p>
+
+          <SectionTitle>{t.nexusOmni.settings.notifications}</SectionTitle>
+          <div className="divide-y">
+            <SettingRow label={t.nexusOmni.tasks.taskNotifySound} description={t.nexusOmni.tasks.taskNotifySoundDesc}>
+              <Switch checked={emailPrefs.taskNotifySound} onCheckedChange={(v) => updateEmailPref("taskNotifySound", v)} />
+            </SettingRow>
+            <SettingRow label={t.nexusOmni.tasks.taskNotifyPopup} description={t.nexusOmni.tasks.taskNotifyPopupDesc}>
+              <Switch checked={emailPrefs.taskNotifyPopup} onCheckedChange={(v) => updateEmailPref("taskNotifyPopup", v)} />
+            </SettingRow>
           </div>
         </div>
       );

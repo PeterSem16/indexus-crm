@@ -5351,7 +5351,10 @@ Format the output in clean HTML with headings (h3), bullet lists (ul/li), and bo
         ? `The user intends this text to be in ${langNames[targetLanguage] || targetLanguage}.`
         : "Auto-detect what language the user is trying to write in.";
 
-      const plainText = text.replace(/<[^>]*>/g, " ").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim().substring(0, 5000);
+      const sigIndex = text.indexOf('<div class="email-signature"');
+      const bodyWithoutSig = sigIndex >= 0 ? text.substring(0, sigIndex) : text;
+      const signaturePart = sigIndex >= 0 ? text.substring(sigIndex) : "";
+      const htmlContent = bodyWithoutSig.substring(0, 8000);
 
       const response = await openai.chat.completions.create({
         model: "gpt-4o",
@@ -5360,7 +5363,7 @@ Format the output in clean HTML with headings (h3), bullet lists (ul/li), and bo
             role: "system",
             content: `You are a professional language proofreader and translation checker. ${targetLangInstruction}
 
-Analyze the given text and return a JSON object with:
+You will receive HTML content. Analyze the TEXT content within the HTML and return a JSON object with:
 1. "detectedLanguage": the language code of the text (e.g. "en", "sk", "de")
 2. "overallScore": a quality score from 1-10 (10 = perfect)
 3. "corrections": an array of objects, each with:
@@ -5368,15 +5371,17 @@ Analyze the given text and return a JSON object with:
    - "corrected": the suggested correction
    - "type": one of "grammar", "spelling", "style", "word_choice", "punctuation"
    - "explanation": brief explanation in the same language as the text
-4. "improvedText": the full corrected/improved version of the text (as HTML with <p> tags)
+4. "improvedText": the full corrected/improved version PRESERVING ALL ORIGINAL HTML TAGS, attributes, formatting, and structure. Only fix the text content inside the tags. Do NOT add, remove or change any HTML tags or their attributes. Keep all <p>, <br>, <strong>, <em>, <ul>, <li>, <div>, <span> etc. tags exactly as they are.
 5. "summary": a brief overall assessment in the same language as the text
+
+CRITICAL: The improvedText must keep the EXACT same HTML structure. Only change the actual text words that need correction. Do NOT add any signature or greeting. Do NOT wrap in additional tags.
 
 If the text is perfect, return empty corrections array and score 10.
 Return ONLY valid JSON, no markdown code blocks.`,
           },
           {
             role: "user",
-            content: plainText,
+            content: htmlContent,
           },
         ],
         temperature: 0.3,
@@ -5388,9 +5393,13 @@ Return ONLY valid JSON, no markdown code blocks.`,
 
       try {
         const parsed = JSON.parse(result);
+        if (parsed.improvedText && signaturePart) {
+          parsed.improvedText = parsed.improvedText + signaturePart;
+        }
+        parsed.signaturePart = signaturePart || "";
         res.json(parsed);
       } catch {
-        res.json({ detectedLanguage: "unknown", overallScore: 5, corrections: [], improvedText: text, summary: result });
+        res.json({ detectedLanguage: "unknown", overallScore: 5, corrections: [], improvedText: text, summary: result, signaturePart: signaturePart || "" });
       }
     } catch (error) {
       console.error("[AI Check Translation] Error:", error);
@@ -6071,6 +6080,14 @@ Return ONLY valid JSON, no markdown code blocks.`,
 
   app.delete("/api/tasks/:taskId/comments/:commentId", requireAuth, async (req, res) => {
     try {
+      const comments = await storage.getTaskComments(req.params.taskId);
+      const comment = comments.find((c: any) => c.id === req.params.commentId);
+      if (!comment) {
+        return res.status(404).json({ error: "Comment not found" });
+      }
+      if (comment.userId !== req.session.user!.id && req.session.user!.role !== "admin") {
+        return res.status(403).json({ error: "Not authorized to delete this comment" });
+      }
       const deleted = await storage.deleteTaskComment(req.params.commentId);
       res.json({ success: deleted });
     } catch (error) {
