@@ -102,10 +102,7 @@ export function AppSidebar() {
     { title: t.nav.konfigurator, url: "/configurator", icon: Cog, testId: "konfigurator", moduleKey: "configurator" },
   ];
 
-  const nexusSubItems = [
-    { title: t.nexusOmni.title, url: "/email", testId: "nexus-email", moduleKey: "email" },
-    { title: t.nav.tasks, url: "/tasks", testId: "nexus-tasks", moduleKey: "tasks" },
-  ];
+  const showNexusOmni = canAccessModule("email");
 
   const userRoleName = sidebarRoles.find(r => r.id === user?.roleId)?.name;
   const visibleMainItems = mainNavItems.filter(item => {
@@ -115,7 +112,6 @@ export function AppSidebar() {
     return hasModuleAccess && hasRoleAccess;
   });
   const visibleAdminItems = adminNavItems.filter(item => canAccessModule(item.moduleKey));
-  const visibleNexusItems = nexusSubItems.filter(item => canAccessModule(item.moduleKey));
 
   const handleLogout = async () => {
     await logout();
@@ -273,44 +269,20 @@ export function AppSidebar() {
           </>
         )}
 
-        {visibleNexusItems.length > 0 && (
+        {showNexusOmni && (
           <>
             <SidebarSeparator className="my-2" />
             <SidebarGroup>
               <SidebarGroupContent>
                 <SidebarMenu>
-                  <Collapsible defaultOpen={false} className="group/collapsible">
-                    <SidebarMenuItem>
-                      <CollapsibleTrigger asChild>
-                        <SidebarMenuButton isActive={location === "/email" || location === "/tasks"}>
-                          <Network className="h-4 w-4" />
-                          <span>NEXUS</span>
-                          <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />
-                        </SidebarMenuButton>
-                      </CollapsibleTrigger>
-                      <CollapsibleContent>
-                        <SidebarMenuSub>
-                          {visibleNexusItems.map((item, index, arr) => (
-                            <SidebarMenuSubItem key={item.testId} className="relative">
-                              <SidebarMenuSubButton asChild isActive={location === item.url}>
-                                <Link href={item.url} data-testid={`nav-${item.testId}`} className="flex items-center gap-2">
-                                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-medium text-primary-foreground shrink-0">
-                                    {index + 1}
-                                  </span>
-                                  <span>{item.title}</span>
-                                </Link>
-                              </SidebarMenuSubButton>
-                              {index < arr.length - 1 && (
-                                <div className="absolute left-[18px] top-full flex items-center justify-center h-2">
-                                  <ArrowDown className="h-3 w-3 text-primary" />
-                                </div>
-                              )}
-                            </SidebarMenuSubItem>
-                          ))}
-                        </SidebarMenuSub>
-                      </CollapsibleContent>
-                    </SidebarMenuItem>
-                  </Collapsible>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild isActive={location === "/email"}>
+                      <Link href="/email" data-testid="nav-nexus-omni">
+                        <Network className="h-4 w-4" />
+                        <span>Nexus Omni</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
