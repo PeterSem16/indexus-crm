@@ -3772,6 +3772,18 @@ export default function EmailClientPage() {
         return `background="/api/users/${user?.id}/email-image-proxy?url=${encodeURIComponent(url)}"`;
       }
     );
+    processed = processed.replace(
+      /<img\b([^>]*?)(?:\s+width=["']?\d+["']?)([^>]*?)(?:\s+height=["']?\d+["']?)([^>]*?)>/gi,
+      (match, before, mid, after) => {
+        return `<img${before}${mid}${after} style="max-width:100%;height:auto;object-fit:contain;">`;
+      }
+    );
+    processed = processed.replace(
+      /<img\b([^>]*?)(?:\s+height=["']?\d+["']?)([^>]*?)(?:\s+width=["']?\d+["']?)([^>]*?)>/gi,
+      (match, before, mid, after) => {
+        return `<img${before}${mid}${after} style="max-width:100%;height:auto;object-fit:contain;">`;
+      }
+    );
     return processed;
   };
 
@@ -6170,7 +6182,7 @@ export default function EmailClientPage() {
                   </p>
                   <div className="pl-3 border-l-2 border-muted-foreground/30 max-h-60 overflow-auto">
                     {emailDetail.body?.contentType === "html" ? (
-                      <div className="prose dark:prose-invert max-w-none text-sm opacity-70 overflow-hidden [&_img]:max-w-full [&_img]:h-auto [&_table]:table-auto [&_table]:border-collapse [&_td]:border [&_td]:border-gray-300 [&_td]:px-2 [&_td]:py-1 [&_td]:whitespace-nowrap [&_th]:border [&_th]:border-gray-300 [&_th]:px-2 [&_th]:py-1 [&_th]:whitespace-nowrap [&_a]:break-all [&_*]:max-w-full" style={{ overflowWrap: "break-word", wordBreak: "break-word" }} dangerouslySetInnerHTML={{ __html: processHtmlForImages(emailDetail.body.content, emailDetail.id, emailDetail.attachmentsList) }} />
+                      <div className="prose dark:prose-invert max-w-none text-sm opacity-70 overflow-hidden [&_img]:max-w-full [&_img]:h-auto [&_img]:object-contain [&_table]:table-auto [&_table]:border-collapse [&_td]:border [&_td]:border-gray-300 [&_td]:px-2 [&_td]:py-1 [&_td]:whitespace-nowrap [&_th]:border [&_th]:border-gray-300 [&_th]:px-2 [&_th]:py-1 [&_th]:whitespace-nowrap [&_a]:break-all [&_*]:max-w-full" style={{ overflowWrap: "break-word", wordBreak: "break-word" }} dangerouslySetInnerHTML={{ __html: processHtmlForImages(emailDetail.body.content, emailDetail.id, emailDetail.attachmentsList) }} />
                     ) : (
                       <pre className="whitespace-pre-wrap font-sans text-sm opacity-70" style={{ overflowWrap: "break-word", wordBreak: "break-word" }}>{emailDetail.body?.content || emailDetail.bodyPreview}</pre>
                     )}
@@ -6191,7 +6203,7 @@ export default function EmailClientPage() {
         <ScrollArea className="flex-1">
           <div className="p-4 overflow-x-auto">
             {emailDetail.body?.contentType === "html" ? (
-              <div className="prose dark:prose-invert max-w-none [&_img]:max-w-full [&_img]:h-auto [&_table]:table-auto [&_table]:border-collapse [&_td]:border [&_td]:border-gray-300 [&_td]:px-2 [&_td]:py-1 [&_th]:border [&_th]:border-gray-300 [&_th]:px-2 [&_th]:py-1 [&_a]:break-all" style={{ overflowWrap: "break-word", wordBreak: "break-word" }} dangerouslySetInnerHTML={{ __html: processHtmlForImages(emailDetail.body.content, emailDetail.id, emailDetail.attachmentsList) }} />
+              <div className="prose dark:prose-invert max-w-none [&_img]:max-w-full [&_img]:h-auto [&_img]:object-contain [&_table]:table-auto [&_table]:border-collapse [&_td]:border [&_td]:border-gray-300 [&_td]:px-2 [&_td]:py-1 [&_th]:border [&_th]:border-gray-300 [&_th]:px-2 [&_th]:py-1 [&_a]:break-all" style={{ overflowWrap: "break-word", wordBreak: "break-word" }} dangerouslySetInnerHTML={{ __html: processHtmlForImages(emailDetail.body.content, emailDetail.id, emailDetail.attachmentsList) }} />
             ) : (
               <pre className="whitespace-pre-wrap font-sans text-sm" style={{ overflowWrap: "break-word", wordBreak: "break-word" }}>{emailDetail.body?.content || emailDetail.bodyPreview}</pre>
             )}
@@ -6647,7 +6659,7 @@ export default function EmailClientPage() {
           <ScrollArea className="flex-1 min-h-0">
             <div className="p-5 overflow-x-auto">
               {detail.body?.contentType === "html" ? (
-                <div className="prose dark:prose-invert max-w-none [&_img]:max-w-full [&_img]:h-auto [&_table]:table-auto [&_table]:border-collapse [&_td]:border [&_td]:border-gray-300 [&_td]:px-2 [&_td]:py-1 [&_th]:border [&_th]:border-gray-300 [&_th]:px-2 [&_th]:py-1 [&_a]:break-all" style={{ overflowWrap: "break-word", wordBreak: "break-word" }} dangerouslySetInnerHTML={{ __html: processHtmlForImages(detail.body.content, detail.id, detail.attachmentsList) }} />
+                <div className="prose dark:prose-invert max-w-none [&_img]:max-w-full [&_img]:h-auto [&_img]:object-contain [&_table]:table-auto [&_table]:border-collapse [&_td]:border [&_td]:border-gray-300 [&_td]:px-2 [&_td]:py-1 [&_th]:border [&_th]:border-gray-300 [&_th]:px-2 [&_th]:py-1 [&_a]:break-all" style={{ overflowWrap: "break-word", wordBreak: "break-word" }} dangerouslySetInnerHTML={{ __html: processHtmlForImages(detail.body.content, detail.id, detail.attachmentsList) }} />
               ) : (
                 <pre className="whitespace-pre-wrap font-sans text-sm" style={{ overflowWrap: "break-word", wordBreak: "break-word" }}>{detail.body?.content || detail.bodyPreview}</pre>
               )}
