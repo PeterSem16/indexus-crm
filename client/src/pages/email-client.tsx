@@ -4700,7 +4700,7 @@ export default function EmailClientPage() {
                     if (!res.ok) return [];
                     return res.json();
                   },
-                  enabled: !!userId,
+                  enabled: !!user?.id,
                   refetchInterval: 120000,
                 });
 
