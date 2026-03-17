@@ -1333,38 +1333,56 @@ export async function createOnlineMeeting(
   const start = startDateTime || now.toISOString();
   const end = endDateTime || new Date(now.getTime() + 60 * 60 * 1000).toISOString();
 
-  const meetingPayload: any = {
-    subject,
-    startDateTime: start,
-    endDateTime: end,
-    lobbyBypassSettings: {
-      scope: 'everyone',
-      isDialInBypassEnabled: true,
-    },
-    isEntryExitAnnounced: false,
-  };
-
-  if (participantEmails && participantEmails.length > 0) {
-    meetingPayload.participants = {
-      attendees: participantEmails.map(email => ({
-        upn: email,
-        role: 'attendee',
-      })),
-    };
-  }
-
   try {
-    const result = await client.api('/me/onlineMeetings').post(meetingPayload);
+    const eventPayload: any = {
+      subject,
+      start: {
+        dateTime: start,
+        timeZone: 'UTC',
+      },
+      end: {
+        dateTime: end,
+        timeZone: 'UTC',
+      },
+      isOnlineMeeting: true,
+      onlineMeetingProvider: 'teamsForBusiness',
+      allowNewTimeProposals: true,
+    };
+
+    if (participantEmails && participantEmails.length > 0) {
+      eventPayload.attendees = participantEmails.map(email => ({
+        emailAddress: { address: email },
+        type: 'required',
+      }));
+    }
+
+    const calendarEvent = await client.api('/me/events').post(eventPayload);
+
+    const joinUrl = calendarEvent.onlineMeeting?.joinUrl || calendarEvent.onlineMeetingUrl;
+    const onlineMeetingId = calendarEvent.onlineMeeting?.conferenceId;
+
+    let meetingId = onlineMeetingId;
+    if (joinUrl) {
+      try {
+        const encodedJoinUrl = encodeURIComponent(joinUrl);
+        const meetingResult = await client.api(`/me/onlineMeetings?$filter=joinWebUrl eq '${encodedJoinUrl}'`).get();
+        if (meetingResult?.value?.[0]?.id) {
+          meetingId = meetingResult.value[0].id;
+        }
+      } catch {}
+    }
+
     return {
-      id: result.id,
-      joinUrl: result.joinWebUrl || result.joinUrl,
-      subject: result.subject,
-      startDateTime: result.startDateTime,
-      endDateTime: result.endDateTime,
-      videoTeleconferenceId: result.videoTeleconferenceId,
+      id: meetingId || calendarEvent.id,
+      calendarEventId: calendarEvent.id,
+      joinUrl,
+      subject: calendarEvent.subject,
+      startDateTime: calendarEvent.start?.dateTime,
+      endDateTime: calendarEvent.end?.dateTime,
+      videoTeleconferenceId: onlineMeetingId,
     };
   } catch (error) {
-    console.error('[MS365] Error creating online meeting:', error);
+    console.error('[MS365] Error creating online meeting with calendar event:', error);
     throw error;
   }
 }
