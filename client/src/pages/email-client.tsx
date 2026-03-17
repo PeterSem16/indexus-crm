@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { format } from "date-fns";
+import { format, startOfMonth, endOfMonth, subMonths, startOfQuarter, endOfQuarter, startOfYear, endOfYear } from "date-fns";
 import { Link } from "wouter";
 import { useI18n } from "@/i18n/I18nProvider";
 
@@ -141,7 +141,16 @@ import {
   Wand2,
   Bell,
   MessageCircle,
+  Play,
+  UserPlus,
+  Edit,
+  MoreHorizontal,
+  BarChart3,
+  TrendingUp,
 } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Progress } from "@/components/ui/progress";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Switch } from "@/components/ui/switch";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
 import EmailEditor, { EmailRecipientInput } from "@/components/nexus/email-editor";
@@ -2712,8 +2721,17 @@ export default function EmailClientPage() {
   }, [messagesData, page]);
 
   const { data: tasksData, isLoading: tasksLoading, refetch: refetchTasks } = useQuery<Task[]>({
-    queryKey: ["/api/tasks", user?.id],
-    queryFn: () => fetch(`/api/tasks?assignedUserId=${user?.id}`).then(r => r.json()),
+    queryKey: ["/api/tasks"],
+    enabled: !!user?.id,
+  });
+
+  const { data: allSystemUsers = [] } = useQuery<any[]>({
+    queryKey: ["/api/users"],
+    enabled: !!user?.id,
+  });
+
+  const { data: allCustomers = [] } = useQuery<any[]>({
+    queryKey: ["/api/customers"],
     enabled: !!user?.id,
   });
 
@@ -3149,9 +3167,12 @@ export default function EmailClientPage() {
     return true;
   });
 
+  const [taskSubTab, setTaskSubTab] = useState<"my" | "all" | "reporting">("my");
+
   const filteredTasks = (tasksData || []).filter(task => {
-    if (taskFilter === "all") return true;
-    return task.status === taskFilter;
+    const matchesStatus = taskFilter === "all" || task.status === taskFilter;
+    const matchesTab = taskSubTab === "all" || taskSubTab === "reporting" || task.assignedUserId === user?.id;
+    return matchesStatus && matchesTab;
   });
 
   const currentFolderName = (() => {
@@ -3411,6 +3432,84 @@ export default function EmailClientPage() {
       toast({ title: t.nexusOmni.tasks.commentDeleted });
       fetchTaskComments(selectedTask.id);
     } catch { toast({ title: t.nexusOmni.common.error, variant: "destructive" }); }
+  };
+
+  const [taskResolveDialogOpen, setTaskResolveDialogOpen] = useState(false);
+  const [taskReassignDialogOpen, setTaskReassignDialogOpen] = useState(false);
+  const [taskEditDialogOpen, setTaskEditDialogOpen] = useState(false);
+  const [taskResolutionText, setTaskResolutionText] = useState("");
+  const [taskReassignUserId, setTaskReassignUserId] = useState("");
+  const [taskEditForm, setTaskEditForm] = useState({ title: "", description: "", priority: "medium", status: "pending", assignedUserId: "" });
+  const [taskReportDateRange, setTaskReportDateRange] = useState("this_month");
+  const [taskReportStartDate, setTaskReportStartDate] = useState(startOfMonth(new Date()));
+  const [taskReportEndDate, setTaskReportEndDate] = useState(endOfMonth(new Date()));
+
+  const getSystemUser = (userId: string) => allSystemUsers.find((u: any) => u.id === userId);
+  const getCustomer = (customerId: string | null) => customerId ? allCustomers.find((c: any) => c.id === customerId) : null;
+
+  const handleTaskStatusChange = async (task: any, newStatus: string) => {
+    try {
+      await apiRequest("PATCH", `/api/tasks/${task.id}`, { status: newStatus });
+      toast({ title: t.nexusOmni.tasks.taskUpdated });
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      if (selectedTask?.id === task.id) setSelectedTask({ ...task, status: newStatus });
+    } catch { toast({ title: t.nexusOmni.common.error, variant: "destructive" }); }
+  };
+
+  const handleTaskResolve = async () => {
+    if (!selectedTask || !taskResolutionText.trim()) return;
+    try {
+      await apiRequest("POST", `/api/tasks/${selectedTask.id}/resolve`, { resolution: taskResolutionText });
+      toast({ title: t.nexusOmni.tasks.taskResolved });
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      setTaskResolveDialogOpen(false);
+      setTaskResolutionText("");
+      setSelectedTask(null);
+    } catch { toast({ title: t.nexusOmni.common.error, variant: "destructive" }); }
+  };
+
+  const handleTaskReassign = async () => {
+    if (!selectedTask || !taskReassignUserId) return;
+    try {
+      await apiRequest("POST", `/api/tasks/${selectedTask.id}/reassign`, { newAssignedUserId: taskReassignUserId });
+      toast({ title: t.nexusOmni.tasks.taskReassigned });
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      setTaskReassignDialogOpen(false);
+      setTaskReassignUserId("");
+      setSelectedTask(null);
+    } catch { toast({ title: t.nexusOmni.common.error, variant: "destructive" }); }
+  };
+
+  const handleTaskEditSave = async () => {
+    if (!selectedTask) return;
+    try {
+      await apiRequest("PATCH", `/api/tasks/${selectedTask.id}`, taskEditForm);
+      toast({ title: t.nexusOmni.tasks.taskUpdated });
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      setTaskEditDialogOpen(false);
+      setSelectedTask(null);
+    } catch { toast({ title: t.nexusOmni.common.error, variant: "destructive" }); }
+  };
+
+  const openTaskEditDialog = (task: any) => {
+    setSelectedTask(task);
+    setTaskEditForm({ title: task.title, description: task.description || "", priority: task.priority, status: task.status, assignedUserId: task.assignedUserId, dueDate: task.dueDate ? format(new Date(task.dueDate), "yyyy-MM-dd") : "" } as any);
+    setTaskEditDialogOpen(true);
+  };
+
+  const openTaskResolveDialog = (task: any) => { setSelectedTask(task); setTaskResolutionText(""); setTaskResolveDialogOpen(true); };
+  const openTaskReassignDialog = (task: any) => { setSelectedTask(task); setTaskReassignUserId(""); setTaskReassignDialogOpen(true); };
+
+  const handleTaskReportDateRange = (preset: string) => {
+    setTaskReportDateRange(preset);
+    const now = new Date();
+    switch (preset) {
+      case "this_month": setTaskReportStartDate(startOfMonth(now)); setTaskReportEndDate(endOfMonth(now)); break;
+      case "last_month": setTaskReportStartDate(startOfMonth(subMonths(now, 1))); setTaskReportEndDate(endOfMonth(subMonths(now, 1))); break;
+      case "quarter": setTaskReportStartDate(startOfQuarter(now)); setTaskReportEndDate(endOfQuarter(now)); break;
+      case "half_year": setTaskReportStartDate(subMonths(now, 6)); setTaskReportEndDate(now); break;
+      case "year": setTaskReportStartDate(startOfYear(now)); setTaskReportEndDate(endOfYear(now)); break;
+    }
   };
 
   const getSmartSuggestions = () => {
@@ -4816,9 +4915,100 @@ export default function EmailClientPage() {
                     </Button>
                   </div>
                 </div>
+                <div className="flex items-center gap-1 mt-1.5">
+                  <Button variant={taskSubTab === "my" ? "default" : "ghost"} size="sm" className="h-6 text-[11px] px-2" onClick={() => { setTaskSubTab("my"); setLocalPage(0); }} data-testid="task-subtab-my">
+                    {t.nexusOmni.tasks.myTasks}
+                  </Button>
+                  <Button variant={taskSubTab === "all" ? "default" : "ghost"} size="sm" className="h-6 text-[11px] px-2" onClick={() => { setTaskSubTab("all"); setLocalPage(0); }} data-testid="task-subtab-all">
+                    {t.nexusOmni.tasks.allTasks}
+                  </Button>
+                  <Button variant={taskSubTab === "reporting" ? "default" : "ghost"} size="sm" className="h-6 text-[11px] px-2" onClick={() => setTaskSubTab("reporting")} data-testid="task-subtab-reporting">
+                    <BarChart3 className="h-3 w-3 mr-1" />
+                    {t.nexusOmni.tasks.reporting}
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent className="p-0 flex-1 min-h-0 flex flex-col">
-                {tasksLoading ? (
+                {taskSubTab === "reporting" ? (() => {
+                  const allTasksForReport = (tasksData || []).filter(task => {
+                    const taskDate = new Date(task.createdAt);
+                    return taskDate >= taskReportStartDate && taskDate <= taskReportEndDate;
+                  });
+                  const userStats = allSystemUsers.map((u: any) => {
+                    const uTasks = allTasksForReport.filter(t2 => t2.assignedUserId === u.id);
+                    const total = uTasks.length;
+                    const completed = uTasks.filter(t2 => t2.status === "completed").length;
+                    const inProg = uTasks.filter(t2 => t2.status === "in_progress").length;
+                    const pend = uTasks.filter(t2 => t2.status === "pending").length;
+                    const canc = uTasks.filter(t2 => t2.status === "cancelled").length;
+                    return { user: u, total, completed, inProgress: inProg, pending: pend, cancelled: canc, completionRate: total > 0 ? Math.round((completed / total) * 100) : 0 };
+                  }).filter(s => s.total > 0).sort((a, b) => b.total - a.total);
+                  return (
+                    <ScrollArea className="flex-1 min-h-0">
+                      <div className="p-3 space-y-3">
+                        <div className="flex items-center gap-1 flex-wrap">
+                          {["this_month", "last_month", "quarter", "half_year", "year"].map(preset => (
+                            <Button key={preset} variant={taskReportDateRange === preset ? "default" : "outline"} size="sm" className="h-6 text-[10px] px-2" onClick={() => handleTaskReportDateRange(preset)} data-testid={`report-${preset}`}>
+                              {preset === "this_month" ? t.nexusOmni.tasks.thisMonth : preset === "last_month" ? t.nexusOmni.tasks.lastMonth : preset === "quarter" ? t.nexusOmni.tasks.quarter : preset === "half_year" ? t.nexusOmni.tasks.halfYear : t.nexusOmni.tasks.year}
+                            </Button>
+                          ))}
+                        </div>
+                        <div className="text-[11px] text-muted-foreground flex items-center gap-1">
+                          <Calendar className="h-3 w-3" />
+                          {format(taskReportStartDate, "dd.MM.yyyy")} - {format(taskReportEndDate, "dd.MM.yyyy")}
+                          <span className="ml-1">({allTasksForReport.length} {t.nexusOmni.tasks.tasksCount})</span>
+                        </div>
+                        {userStats.length === 0 ? (
+                          <div className="text-center py-8 text-muted-foreground">
+                            <BarChart3 className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                            <p className="text-xs">{t.nexusOmni.tasks.noTasks}</p>
+                          </div>
+                        ) : userStats.map(stat => (
+                          <div key={stat.user.id} className="p-3 rounded-lg border" data-testid={`user-stat-${stat.user.id}`}>
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <Avatar className="h-7 w-7">
+                                  <AvatarImage src={stat.user.avatarUrl || undefined} className="object-cover" />
+                                  <AvatarFallback className={cn("text-white text-[9px] font-semibold", getAvatarColorStatic(stat.user.fullName || stat.user.username))}>
+                                    {getInitialsStatic(stat.user.fullName || stat.user.username)}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div>
+                                  <p className="text-xs font-medium">{stat.user.fullName || stat.user.username}</p>
+                                  <p className="text-[10px] text-muted-foreground">{stat.user.email}</p>
+                                </div>
+                              </div>
+                              <Badge variant="secondary" className="text-xs font-semibold">{stat.total}</Badge>
+                            </div>
+                            <div className="flex items-center justify-between mb-1.5">
+                              <span className="text-[11px]">{t.nexusOmni.tasks.completionRate}</span>
+                              <span className="text-[11px] font-bold text-green-600">{stat.completionRate}%</span>
+                            </div>
+                            <Progress value={stat.completionRate} className="h-1.5 mb-2" />
+                            <div className="grid grid-cols-2 gap-1.5 text-[10px]">
+                              <div className="flex items-center justify-between p-1.5 rounded bg-green-50 dark:bg-green-900/20">
+                                <span className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3 text-green-600" />{t.nexusOmni.tasks.completed}</span>
+                                <span className="font-semibold">{stat.completed}</span>
+                              </div>
+                              <div className="flex items-center justify-between p-1.5 rounded bg-blue-50 dark:bg-blue-900/20">
+                                <span className="flex items-center gap-1"><Play className="h-3 w-3 text-blue-600" />{t.nexusOmni.tasks.inProgress}</span>
+                                <span className="font-semibold">{stat.inProgress}</span>
+                              </div>
+                              <div className="flex items-center justify-between p-1.5 rounded bg-slate-50 dark:bg-slate-800/50">
+                                <span className="flex items-center gap-1"><Clock className="h-3 w-3 text-slate-600" />{t.nexusOmni.tasks.pending}</span>
+                                <span className="font-semibold">{stat.pending}</span>
+                              </div>
+                              <div className="flex items-center justify-between p-1.5 rounded bg-gray-50 dark:bg-gray-800/50">
+                                <span className="flex items-center gap-1"><XCircle className="h-3 w-3 text-gray-500" />{t.nexusOmni.tasks.cancelled}</span>
+                                <span className="font-semibold">{stat.cancelled}</span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  );
+                })() : tasksLoading ? (
                   <div className="flex items-center justify-center py-8"><Loader2 className="h-5 w-5 animate-spin" /></div>
                 ) : tasksPage.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
@@ -4828,43 +5018,62 @@ export default function EmailClientPage() {
                 ) : (
                   <ScrollArea className="flex-1 min-h-0">
                     <div className="divide-y">
-                      {tasksPage.map(task => (
-                        <div
-                          key={task.id}
-                          className={`w-full text-left px-3 py-2.5 transition-all hover:bg-accent/50 cursor-pointer ${
-                            selectedTask?.id === task.id ? "bg-accent" : ""
-                          } ${task.status === "pending" ? "font-medium" : ""}`}
-                          onClick={() => { setSelectedTask(task); setSelectedEmail(null); setSelectedSms(null); _setSelectedChat(null); }}
-                          data-testid={`task-item-${task.id}`}
-                        >
-                          <div className="flex items-start gap-2.5">
-                            <span className="mt-1 shrink-0">{statusIcons[task.status]}</span>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between gap-1">
-                                <span className="text-sm truncate font-medium">{task.title}</span>
-                                <span className="text-[11px] text-muted-foreground whitespace-nowrap">
-                                  {format(new Date(task.updatedAt || task.createdAt), "d.M. HH:mm")}
-                                </span>
+                      {tasksPage.map(task => {
+                        const assignedUser = getSystemUser(task.assignedUserId);
+                        return (
+                          <div
+                            key={task.id}
+                            className={`w-full text-left px-3 py-2.5 transition-all hover:bg-accent/50 cursor-pointer ${
+                              selectedTask?.id === task.id ? "bg-accent" : ""
+                            } ${task.status === "pending" ? "font-medium" : ""}`}
+                            onClick={() => { setSelectedTask(task); setSelectedEmail(null); setSelectedSms(null); _setSelectedChat(null); }}
+                            data-testid={`task-item-${task.id}`}
+                          >
+                            <div className="flex items-start gap-2.5">
+                              <div className="relative mt-0.5 shrink-0">
+                                <Avatar className="h-7 w-7">
+                                  <AvatarImage src={assignedUser?.avatarUrl || undefined} className="object-cover" />
+                                  <AvatarFallback className={cn("text-white text-[9px] font-semibold", getAvatarColorStatic(assignedUser?.fullName || assignedUser?.username || "?"))}>
+                                    {getInitialsStatic(assignedUser?.fullName || assignedUser?.username || "?")}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div className="absolute -bottom-0.5 -right-0.5">
+                                  {statusIcons[task.status]}
+                                </div>
                               </div>
-                              <p className="text-[11px] text-muted-foreground truncate">{task.description || t.nexusOmni.tasks.noDescription}</p>
-                              <div className="flex items-center gap-1 mt-0.5">
-                                {task.priority && (
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between gap-1">
+                                  <span className="text-sm truncate font-medium">{task.title}</span>
+                                  <span className="text-[11px] text-muted-foreground whitespace-nowrap">
+                                    {format(new Date(task.updatedAt || task.createdAt), "d.M. HH:mm")}
+                                  </span>
+                                </div>
+                                <p className="text-[11px] text-muted-foreground truncate">{task.description || t.nexusOmni.tasks.noDescription}</p>
+                                <div className="flex items-center gap-1 mt-0.5">
+                                  {task.priority && (
+                                    <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 gap-0.5">
+                                      {priorityIcons[task.priority]}
+                                      {t.nexusOmni.tasks.priorities?.[task.priority as keyof typeof t.nexusOmni.tasks.priorities] || task.priority}
+                                    </Badge>
+                                  )}
                                   <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 gap-0.5">
-                                    {priorityIcons[task.priority]}
-                                    {task.priority}
+                                    {t.nexusOmni.tasks.statuses?.[task.status as keyof typeof t.nexusOmni.tasks.statuses] || task.status}
                                   </Badge>
-                                )}
-                                {task.dueDate && (
-                                  <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 gap-0.5">
-                                    <Clock className="h-3 w-3" />
-                                    {format(new Date(task.dueDate), "d.M.")}
-                                  </Badge>
-                                )}
+                                  {task.dueDate && (
+                                    <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 gap-0.5">
+                                      <Clock className="h-3 w-3" />
+                                      {format(new Date(task.dueDate), "d.M.")}
+                                    </Badge>
+                                  )}
+                                  {assignedUser && taskSubTab === "all" && (
+                                    <span className="text-[10px] text-muted-foreground ml-auto truncate max-w-[100px]">{assignedUser.fullName || assignedUser.username}</span>
+                                  )}
+                                </div>
                               </div>
                             </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </ScrollArea>
                 )}
@@ -4899,28 +5108,34 @@ export default function EmailClientPage() {
                 <div className="divide-y max-h-[180px] overflow-auto">
                   {wsOnlineUsers.length === 0 ? (
                     <div className="px-3 py-4 text-center text-xs text-muted-foreground">{t.nexusOmni.chats.noConversations}</div>
-                  ) : wsOnlineUsers.map(u => (
-                    <div
-                      key={u.id}
-                      className={`px-3 py-2 flex items-center gap-2.5 cursor-pointer hover:bg-accent/50 transition-colors ${internalChatPartner === u.id ? "bg-accent" : ""}`}
-                      onClick={() => startChatWithUser(u.id)}
-                      data-testid={`online-user-${u.id}`}
-                    >
-                      <div className="relative">
-                        <div className={cn("h-8 w-8 rounded-full flex items-center justify-center shrink-0 text-white text-xs font-semibold", getAvatarColorStatic(u.fullName))}>
-                          {getInitialsStatic(u.fullName)}
+                  ) : wsOnlineUsers.map(u => {
+                    const sysUser = allSystemUsers.find((su: any) => su.id === u.id);
+                    return (
+                      <div
+                        key={u.id}
+                        className={`px-3 py-2 flex items-center gap-2.5 cursor-pointer hover:bg-accent/50 transition-colors ${internalChatPartner === u.id ? "bg-accent" : ""}`}
+                        onClick={() => startChatWithUser(u.id)}
+                        data-testid={`online-user-${u.id}`}
+                      >
+                        <div className="relative">
+                          <Avatar className="h-8 w-8">
+                            <AvatarImage src={sysUser?.avatarUrl || u.avatarUrl || undefined} className="object-cover" />
+                            <AvatarFallback className={cn("text-white text-xs font-semibold", getAvatarColorStatic(u.fullName))}>
+                              {getInitialsStatic(u.fullName)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-emerald-500 border-2 border-background" />
                         </div>
-                        <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-emerald-500 border-2 border-background" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium truncate">{u.fullName}</p>
+                          <p className="text-[10px] text-emerald-600">{t.nexusOmni.chats.online}</p>
+                        </div>
+                        <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={(e) => { e.stopPropagation(); startChatWithUser(u.id); }} data-testid={`start-chat-${u.id}`}>
+                          <MessageCircle className="h-3.5 w-3.5" />
+                        </Button>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium truncate">{u.fullName}</p>
-                        <p className="text-[10px] text-emerald-600">{t.nexusOmni.chats.online}</p>
-                      </div>
-                      <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={(e) => { e.stopPropagation(); startChatWithUser(u.id); }} data-testid={`start-chat-${u.id}`}>
-                        <MessageCircle className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
                 {internalConversations.length > 0 && (
                   <>
@@ -4929,7 +5144,9 @@ export default function EmailClientPage() {
                     </div>
                     <ScrollArea className="flex-1 min-h-0">
                       <div className="divide-y">
-                        {internalConversations.map((conv: any) => (
+                        {internalConversations.map((conv: any) => {
+                          const convSysUser = allSystemUsers.find((su: any) => su.id === conv.partnerId);
+                          return (
                           <div
                             key={conv.partnerId}
                             className={`px-3 py-2 cursor-pointer hover:bg-accent/50 transition-colors ${internalChatPartner === conv.partnerId ? "bg-accent" : ""}`}
@@ -4938,9 +5155,12 @@ export default function EmailClientPage() {
                           >
                             <div className="flex items-center gap-2.5">
                               <div className="relative">
-                                <div className={cn("h-8 w-8 rounded-full flex items-center justify-center shrink-0 text-white text-xs font-semibold", getAvatarColorStatic(conv.partner?.fullName || "?"))}>
-                                  {getInitialsStatic(conv.partner?.fullName || "?")}
-                                </div>
+                                <Avatar className="h-8 w-8">
+                                  <AvatarImage src={convSysUser?.avatarUrl || conv.partner?.avatarUrl || undefined} className="object-cover" />
+                                  <AvatarFallback className={cn("text-white text-xs font-semibold", getAvatarColorStatic(conv.partner?.fullName || "?"))}>
+                                    {getInitialsStatic(conv.partner?.fullName || "?")}
+                                  </AvatarFallback>
+                                </Avatar>
                                 {wsOnlineUsers.some(u => u.id === conv.partnerId) && (
                                   <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-emerald-500 border-2 border-background" />
                                 )}
@@ -4959,7 +5179,8 @@ export default function EmailClientPage() {
                               )}
                             </div>
                           </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </ScrollArea>
                   </>
@@ -6229,6 +6450,131 @@ export default function EmailClientPage() {
           </div>
         </div>
       )}
+
+      <Dialog open={taskResolveDialogOpen} onOpenChange={setTaskResolveDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t.nexusOmni.tasks.resolve}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">{selectedTask?.title}</p>
+            <Textarea
+              value={taskResolutionText}
+              onChange={(e) => setTaskResolutionText(e.target.value)}
+              placeholder={t.nexusOmni.tasks.resolution}
+              rows={4}
+              className="text-sm"
+              data-testid="resolve-text"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTaskResolveDialogOpen(false)}>{t.nexusOmni.email.cancel}</Button>
+            <Button onClick={handleTaskResolve} disabled={!taskResolutionText.trim()} data-testid="resolve-confirm">
+              <CheckCircle2 className="h-4 w-4 mr-2" />{t.nexusOmni.tasks.resolve}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={taskReassignDialogOpen} onOpenChange={setTaskReassignDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t.nexusOmni.tasks.reassign}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">{selectedTask?.title}</p>
+            <div className="space-y-2">
+              {allSystemUsers.filter((u: any) => u.id !== selectedTask?.assignedUserId).map((u: any) => (
+                <div
+                  key={u.id}
+                  className={cn("flex items-center gap-2.5 p-2 rounded-md cursor-pointer border transition-colors", taskReassignUserId === u.id ? "border-primary bg-primary/5" : "border-transparent hover:bg-accent/50")}
+                  onClick={() => setTaskReassignUserId(u.id)}
+                  data-testid={`reassign-user-${u.id}`}
+                >
+                  <Avatar className="h-7 w-7">
+                    <AvatarImage src={u.avatarUrl || undefined} className="object-cover" />
+                    <AvatarFallback className={cn("text-white text-[9px] font-semibold", getAvatarColorStatic(u.fullName || u.username))}>
+                      {getInitialsStatic(u.fullName || u.username)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <p className="text-xs font-medium">{u.fullName || u.username}</p>
+                    <p className="text-[10px] text-muted-foreground">{u.email}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTaskReassignDialogOpen(false)}>{t.nexusOmni.email.cancel}</Button>
+            <Button onClick={handleTaskReassign} disabled={!taskReassignUserId} data-testid="reassign-confirm">
+              <UserPlus className="h-4 w-4 mr-2" />{t.nexusOmni.tasks.reassign}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={taskEditDialogOpen} onOpenChange={setTaskEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t.nexusOmni.tasks.editTask}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Input
+              value={taskEditForm.title}
+              onChange={(e) => setTaskEditForm(prev => ({ ...prev, title: e.target.value }))}
+              placeholder={t.nexusOmni.tasks.title}
+              className="text-sm"
+              data-testid="edit-task-title"
+            />
+            <Textarea
+              value={taskEditForm.description}
+              onChange={(e) => setTaskEditForm(prev => ({ ...prev, description: e.target.value }))}
+              placeholder={t.nexusOmni.tasks.description}
+              rows={4}
+              className="text-sm"
+              data-testid="edit-task-description"
+            />
+            <div className="grid grid-cols-2 gap-2">
+              <Select value={taskEditForm.priority} onValueChange={(v) => setTaskEditForm(prev => ({ ...prev, priority: v }))}>
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue placeholder={t.nexusOmni.tasks.priority} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low">{t.nexusOmni.tasks.priorities?.low || "Low"}</SelectItem>
+                  <SelectItem value="medium">{t.nexusOmni.tasks.priorities?.medium || "Medium"}</SelectItem>
+                  <SelectItem value="high">{t.nexusOmni.tasks.priorities?.high || "High"}</SelectItem>
+                  <SelectItem value="urgent">{t.nexusOmni.tasks.priorities?.urgent || "Urgent"}</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={taskEditForm.status} onValueChange={(v) => setTaskEditForm(prev => ({ ...prev, status: v }))}>
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue placeholder={t.nexusOmni.tasks.status} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pending">{t.nexusOmni.tasks.statuses?.pending || "Pending"}</SelectItem>
+                  <SelectItem value="in_progress">{t.nexusOmni.tasks.statuses?.in_progress || "In Progress"}</SelectItem>
+                  <SelectItem value="completed">{t.nexusOmni.tasks.statuses?.completed || "Completed"}</SelectItem>
+                  <SelectItem value="cancelled">{t.nexusOmni.tasks.statuses?.cancelled || "Cancelled"}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Input
+              type="date"
+              value={(taskEditForm as any).dueDate || ""}
+              onChange={(e) => setTaskEditForm(prev => ({ ...prev, dueDate: e.target.value }))}
+              className="text-sm h-8"
+              data-testid="edit-task-due-date"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTaskEditDialogOpen(false)}>{t.nexusOmni.email.cancel}</Button>
+            <Button onClick={handleTaskEditSave} disabled={!taskEditForm.title.trim()} data-testid="edit-task-save">
+              <Edit className="h-4 w-4 mr-2" />{t.nexusOmni.tasks.save || "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 
@@ -6919,9 +7265,14 @@ export default function EmailClientPage() {
         </div>
       );
     }
+    const assignedUser = getSystemUser(selectedTask.assignedUserId);
+    const createdByUser = getSystemUser(selectedTask.createdByUserId);
+    const resolvedByUser = selectedTask.resolvedByUserId ? getSystemUser(selectedTask.resolvedByUserId) : null;
+    const linkedCustomer = getCustomer(selectedTask.customerId || null);
+    const isActive = selectedTask.status !== "completed" && selectedTask.status !== "cancelled";
     return (
       <div className="flex flex-col h-full">
-        <div className="p-4 border-b space-y-2">
+        <div className="p-4 border-b space-y-3">
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-2 flex-wrap">
               <Badge className={`${typeColors.task.bg} ${typeColors.task.text}`}>
@@ -6933,20 +7284,95 @@ export default function EmailClientPage() {
               {selectedTask.priority && (
                 <Badge variant="outline" className="gap-1">
                   {priorityIcons[selectedTask.priority]}
-                  {selectedTask.priority}
+                  {t.nexusOmni.tasks.priorities?.[selectedTask.priority as keyof typeof t.nexusOmni.tasks.priorities] || selectedTask.priority}
                 </Badge>
               )}
               <Badge variant="outline" className="gap-1">
                 {statusIcons[selectedTask.status]}
-                {selectedTask.status}
+                {t.nexusOmni.tasks.statuses?.[selectedTask.status as keyof typeof t.nexusOmni.tasks.statuses] || selectedTask.status}
               </Badge>
             </div>
           </div>
-          {selectedTask.dueDate && (
-            <p className="text-sm text-muted-foreground flex items-center gap-1">
-              <Clock className="h-4 w-4" />
-              {t.nexusOmni.tasks.deadline}: {format(new Date(selectedTask.dueDate), "d. MMMM yyyy")}
-            </p>
+          <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
+            {assignedUser && (
+              <div className="flex items-center gap-1.5">
+                <Avatar className="h-5 w-5">
+                  <AvatarImage src={assignedUser.avatarUrl || undefined} className="object-cover" />
+                  <AvatarFallback className={cn("text-white text-[7px] font-semibold", getAvatarColorStatic(assignedUser.fullName || assignedUser.username))}>
+                    {getInitialsStatic(assignedUser.fullName || assignedUser.username)}
+                  </AvatarFallback>
+                </Avatar>
+                <span>{t.nexusOmni.tasks.assignedTo}: <strong>{assignedUser.fullName || assignedUser.username}</strong></span>
+              </div>
+            )}
+            {createdByUser && (
+              <div className="flex items-center gap-1.5">
+                <Avatar className="h-4 w-4">
+                  <AvatarImage src={createdByUser.avatarUrl || undefined} className="object-cover" />
+                  <AvatarFallback className={cn("text-white text-[6px] font-semibold", getAvatarColorStatic(createdByUser.fullName || createdByUser.username))}>
+                    {getInitialsStatic(createdByUser.fullName || createdByUser.username)}
+                  </AvatarFallback>
+                </Avatar>
+                <span>{t.nexusOmni.tasks.createdBy}: {createdByUser.fullName || createdByUser.username}</span>
+              </div>
+            )}
+            {selectedTask.dueDate && (
+              <div className="flex items-center gap-1">
+                <Clock className="h-3 w-3" />
+                <span>{t.nexusOmni.tasks.deadline}: {format(new Date(selectedTask.dueDate), "d. MMMM yyyy")}</span>
+              </div>
+            )}
+            {linkedCustomer && (
+              <div className="flex items-center gap-1">
+                <User className="h-3 w-3" />
+                <span>{t.nexusOmni.tasks.linkedTo}: {linkedCustomer.firstName} {linkedCustomer.lastName}</span>
+              </div>
+            )}
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            {isActive && (
+              <>
+                <Button variant="outline" size="sm" className="h-7 text-xs border-green-300 text-green-600 dark:border-green-700 dark:text-green-400" onClick={() => openTaskResolveDialog(selectedTask)} data-testid="task-resolve-btn">
+                  <CheckCircle2 className="h-3 w-3 mr-1" />{t.nexusOmni.tasks.resolve}
+                </Button>
+                <Button variant="outline" size="sm" className="h-7 text-xs border-amber-300 text-amber-600 dark:border-amber-700 dark:text-amber-400" onClick={() => openTaskReassignDialog(selectedTask)} data-testid="task-reassign-btn">
+                  <UserPlus className="h-3 w-3 mr-1" />{t.nexusOmni.tasks.reassign}
+                </Button>
+              </>
+            )}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-7 text-xs" data-testid="task-more-menu">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => openTaskEditDialog(selectedTask)} data-testid="task-action-edit">
+                  <Edit className="h-4 w-4 mr-2" />{t.nexusOmni.tasks.editTask}
+                </DropdownMenuItem>
+                {selectedTask.status !== "in_progress" && isActive && (
+                  <DropdownMenuItem onClick={() => handleTaskStatusChange(selectedTask, "in_progress")} data-testid="task-action-start">
+                    <Play className="h-4 w-4 mr-2" />{t.nexusOmni.tasks.startWorking}
+                  </DropdownMenuItem>
+                )}
+                {isActive && (
+                  <DropdownMenuItem onClick={() => handleTaskStatusChange(selectedTask, "cancelled")} data-testid="task-action-cancel">
+                    <XCircle className="h-4 w-4 mr-2" />{t.nexusOmni.tasks.cancelTask}
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+          {selectedTask.status === "completed" && selectedTask.resolution && (
+            <div className="p-3 rounded-md bg-green-50 dark:bg-green-900/20">
+              <div className="font-medium text-xs text-green-700 dark:text-green-300 mb-1">{t.nexusOmni.tasks.resolution}:</div>
+              <p className="text-xs">{selectedTask.resolution}</p>
+              {resolvedByUser && selectedTask.resolvedAt && (
+                <div className="text-[10px] text-muted-foreground mt-1">
+                  {t.nexusOmni.tasks.resolvedBy}: {resolvedByUser.fullName || resolvedByUser.username} ({format(new Date(selectedTask.resolvedAt), "dd.MM.yyyy HH:mm")})
+                </div>
+              )}
+            </div>
           )}
         </div>
         <div className="flex-1 min-h-0 flex flex-col overflow-auto">
@@ -6968,25 +7394,31 @@ export default function EmailClientPage() {
                   <p className="text-xs">{t.nexusOmni.tasks.noComments}</p>
                 </div>
               ) : (
-                taskComments.map((comment: any) => (
-                  <div key={comment.id} className="flex gap-2.5 group" data-testid={`task-comment-${comment.id}`}>
-                    <div className={cn("h-7 w-7 rounded-full flex items-center justify-center text-white text-[10px] font-semibold shrink-0 mt-0.5", getAvatarColorStatic(comment.user?.fullName || "?"))}>
-                      {getInitialsStatic(comment.user?.fullName || "?")}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-medium">{comment.user?.fullName || comment.userId}</span>
-                        <span className="text-[10px] text-muted-foreground">{format(new Date(comment.createdAt), "d.M. HH:mm")}</span>
-                        {comment.userId === user?.id && (
-                          <Button variant="ghost" size="icon" className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => deleteTaskComment(comment.id)} data-testid={`delete-comment-${comment.id}`}>
-                            <Trash2 className="h-3 w-3 text-destructive" />
-                          </Button>
-                        )}
+                taskComments.map((comment: any) => {
+                  const commentUser = getSystemUser(comment.userId) || comment.user;
+                  return (
+                    <div key={comment.id} className="flex gap-2.5 group" data-testid={`task-comment-${comment.id}`}>
+                      <Avatar className="h-7 w-7 shrink-0 mt-0.5">
+                        <AvatarImage src={commentUser?.avatarUrl || undefined} className="object-cover" />
+                        <AvatarFallback className={cn("text-white text-[10px] font-semibold", getAvatarColorStatic(commentUser?.fullName || "?"))}>
+                          {getInitialsStatic(commentUser?.fullName || "?")}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-medium">{commentUser?.fullName || comment.userId}</span>
+                          <span className="text-[10px] text-muted-foreground">{format(new Date(comment.createdAt), "d.M. HH:mm")}</span>
+                          {comment.userId === user?.id && (
+                            <Button variant="ghost" size="icon" className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => deleteTaskComment(comment.id)} data-testid={`delete-comment-${comment.id}`}>
+                              <Trash2 className="h-3 w-3 text-destructive" />
+                            </Button>
+                          )}
+                        </div>
+                        <p className="text-xs mt-0.5 whitespace-pre-wrap" style={{ overflowWrap: "break-word" }}>{comment.content}</p>
                       </div>
-                      <p className="text-xs mt-0.5 whitespace-pre-wrap" style={{ overflowWrap: "break-word" }}>{comment.content}</p>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
             <div className="flex items-center gap-2 shrink-0">

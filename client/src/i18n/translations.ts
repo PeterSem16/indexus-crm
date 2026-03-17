@@ -327,6 +327,8 @@ export interface Translations {
     quarter: string;
     halfYear: string;
     year: string;
+    cancelTask: string;
+    save: string;
   };
   dashboard: {
     title: string;
@@ -4971,6 +4973,8 @@ export const translations: Record<Locale, Translations> = {
       quarter: 'Quarter',
       halfYear: 'Half Year',
       year: 'Year',
+      cancelTask: 'Cancel Task',
+      save: 'Save',
     },
     dashboard: {
       title: 'Dashboard',
@@ -9480,6 +9484,8 @@ export const translations: Record<Locale, Translations> = {
       quarter: 'Štvrťrok',
       halfYear: 'Polrok',
       year: 'Rok',
+      cancelTask: 'Zrušiť úlohu',
+      save: 'Uložiť',
     },
     dashboard: {
       title: 'Prehľad',
@@ -13952,6 +13958,8 @@ export const translations: Record<Locale, Translations> = {
       quarter: 'Čtvrtletí',
       halfYear: 'Pololetí',
       year: 'Rok',
+      cancelTask: 'Zrušit úkol',
+      save: 'Uložit',
     },
     dashboard: {
       title: 'Přehled',
@@ -18356,6 +18364,8 @@ export const translations: Record<Locale, Translations> = {
       quarter: 'Negyedév',
       halfYear: 'Félév',
       year: 'Év',
+      cancelTask: 'Feladat törlése',
+      save: 'Mentés',
     },
     dashboard: {
       title: 'Irányítópult',
@@ -22759,6 +22769,8 @@ export const translations: Record<Locale, Translations> = {
       quarter: 'Trimestru',
       halfYear: 'Semestru',
       year: 'An',
+      cancelTask: 'Anulează sarcina',
+      save: 'Salvează',
     },
     dashboard: {
       title: 'Panou de control',
@@ -27163,6 +27175,8 @@ export const translations: Record<Locale, Translations> = {
       quarter: 'Trimestre',
       halfYear: 'Semestre',
       year: 'Anno',
+      cancelTask: 'Annulla attività',
+      save: 'Salva',
     },
     dashboard: {
       title: 'Dashboard',
@@ -31567,6 +31581,8 @@ export const translations: Record<Locale, Translations> = {
       quarter: 'Quartal',
       halfYear: 'Halbjahr',
       year: 'Jahr',
+      cancelTask: 'Aufgabe abbrechen',
+      save: 'Speichern',
     },
     dashboard: {
       title: 'Dashboard',
