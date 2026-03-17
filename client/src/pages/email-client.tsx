@@ -4305,10 +4305,17 @@ export default function EmailClientPage() {
           onTaskFilterChange={setTaskFilter}
           smsData={smsData}
           tasksData={tasksData}
-          chatsData={chatsData}
+          chatsData={internalConversations.map((conv: any) => ({
+            id: conv.partnerId,
+            participantId: conv.partnerId,
+            participantName: conv.partner?.fullName || conv.partnerId,
+            lastMessage: conv.lastMessage?.content || "",
+            lastMessageAt: conv.lastMessage?.createdAt || "",
+            unreadCount: conv.unreadCount || 0,
+          }))}
           totalUnreadEmails={totalUnreadEmails}
-          selectedChatId={selectedChatId}
-          onSelectChat={setSelectedChatId}
+          selectedChatId={internalChatPartner}
+          onSelectChat={(chatId) => { if (chatId) startChatWithUser(chatId); }}
           collapsed={isSidebarHidden}
           onToggleCollapse={() => setIsSidebarHidden(prev => !prev)}
           mailboxes={sidebarMailboxes}
@@ -5024,89 +5031,103 @@ export default function EmailClientPage() {
                 </div>
               </CardHeader>
               <CardContent className="p-0 flex-1 min-h-0 flex flex-col">
-                <div className="px-3 py-2 border-b">
-                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">{t.nexusOmni.chats.onlineUsers}</p>
-                </div>
-                <div className="divide-y max-h-[180px] overflow-auto">
-                  {wsOnlineUsers.length === 0 ? (
-                    <div className="px-3 py-4 text-center text-xs text-muted-foreground">{t.nexusOmni.chats.noConversations}</div>
-                  ) : wsOnlineUsers.map(u => {
-                    const sysUser = allSystemUsers.find((su: any) => su.id === u.id);
-                    return (
-                      <div
-                        key={u.id}
-                        className={`px-3 py-2 flex items-center gap-2.5 cursor-pointer hover:bg-accent/50 transition-colors ${internalChatPartner === u.id ? "bg-accent" : ""}`}
-                        onClick={() => startChatWithUser(u.id)}
-                        data-testid={`online-user-${u.id}`}
-                      >
-                        <div className="relative">
-                          <Avatar className="h-8 w-8">
-                            <AvatarImage src={sysUser?.avatarUrl || u.avatarUrl || undefined} className="object-cover" />
-                            <AvatarFallback className={cn("text-white text-xs font-semibold", getAvatarColorStatic(u.fullName))}>
-                              {getInitialsStatic(u.fullName)}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-emerald-500 border-2 border-background" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium truncate">{u.fullName}</p>
-                          <p className="text-[10px] text-emerald-600">{t.nexusOmni.chats.online}</p>
-                        </div>
-                        <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={(e) => { e.stopPropagation(); startChatWithUser(u.id); }} data-testid={`start-chat-${u.id}`}>
-                          <MessageCircle className="h-3.5 w-3.5" />
-                        </Button>
+                {(() => {
+                  const otherUsers = allSystemUsers.filter((su: any) => su.id !== user?.id);
+                  const onlineIds = new Set(wsOnlineUsers.map(u => u.id));
+                  const sortedUsers = [...otherUsers].sort((a: any, b: any) => {
+                    const aOnline = onlineIds.has(a.id) ? 0 : 1;
+                    const bOnline = onlineIds.has(b.id) ? 0 : 1;
+                    if (aOnline !== bOnline) return aOnline - bOnline;
+                    return (a.fullName || a.username).localeCompare(b.fullName || b.username);
+                  });
+                  const conversationPartnerIds = new Set(internalConversations.map((c: any) => c.partnerId));
+                  return (
+                    <>
+                      <div className="px-3 py-2 border-b">
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">{t.nexusOmni.chats.onlineUsers}</p>
                       </div>
-                    );
-                  })}
-                </div>
-                {internalConversations.length > 0 && (
-                  <>
-                    <div className="px-3 py-2 border-t border-b">
-                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">{t.nexusOmni.chats.conversations}</p>
-                    </div>
-                    <ScrollArea className="flex-1 min-h-0">
-                      <div className="divide-y">
-                        {internalConversations.map((conv: any) => {
-                          const convSysUser = allSystemUsers.find((su: any) => su.id === conv.partnerId);
+                      <div className="divide-y max-h-[200px] overflow-auto">
+                        {sortedUsers.length === 0 ? (
+                          <div className="px-3 py-4 text-center text-xs text-muted-foreground">{t.nexusOmni.chats.noConversations}</div>
+                        ) : sortedUsers.map((su: any) => {
+                          const isOnline = onlineIds.has(su.id);
                           return (
-                          <div
-                            key={conv.partnerId}
-                            className={`px-3 py-2 cursor-pointer hover:bg-accent/50 transition-colors ${internalChatPartner === conv.partnerId ? "bg-accent" : ""}`}
-                            onClick={() => startChatWithUser(conv.partnerId)}
-                            data-testid={`conv-${conv.partnerId}`}
-                          >
-                            <div className="flex items-center gap-2.5">
+                            <div
+                              key={su.id}
+                              className={`px-3 py-2 flex items-center gap-2.5 cursor-pointer hover:bg-accent/50 transition-colors ${internalChatPartner === su.id ? "bg-accent" : ""}`}
+                              onClick={() => startChatWithUser(su.id)}
+                              data-testid={`user-${su.id}`}
+                            >
                               <div className="relative">
                                 <Avatar className="h-8 w-8">
-                                  <AvatarImage src={convSysUser?.avatarUrl || conv.partner?.avatarUrl || undefined} className="object-cover" />
-                                  <AvatarFallback className={cn("text-white text-xs font-semibold", getAvatarColorStatic(conv.partner?.fullName || "?"))}>
-                                    {getInitialsStatic(conv.partner?.fullName || "?")}
+                                  <AvatarImage src={su.avatarUrl || undefined} className="object-cover" />
+                                  <AvatarFallback className={cn("text-white text-xs font-semibold", getAvatarColorStatic(su.fullName || su.username))}>
+                                    {getInitialsStatic(su.fullName || su.username)}
                                   </AvatarFallback>
                                 </Avatar>
-                                {wsOnlineUsers.some(u => u.id === conv.partnerId) && (
-                                  <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-emerald-500 border-2 border-background" />
-                                )}
+                                <div className={cn("absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-background", isOnline ? "bg-emerald-500" : "bg-gray-300 dark:bg-gray-600")} />
                               </div>
                               <div className="flex-1 min-w-0">
-                                <div className="flex items-center justify-between">
-                                  <p className="text-xs font-medium truncate">{conv.partner?.fullName || conv.partnerId}</p>
-                                  {conv.lastMessage?.createdAt && (
-                                    <span className="text-[10px] text-muted-foreground">{format(new Date(conv.lastMessage.createdAt), "HH:mm")}</span>
-                                  )}
-                                </div>
-                                <p className="text-[10px] text-muted-foreground truncate">{conv.lastMessage?.content || ""}</p>
+                                <p className="text-xs font-medium truncate">{su.fullName || su.username}</p>
+                                <p className={cn("text-[10px]", isOnline ? "text-emerald-600" : "text-muted-foreground")}>{isOnline ? t.nexusOmni.chats.online : "Offline"}</p>
                               </div>
-                              {conv.unreadCount > 0 && (
-                                <Badge className="h-4 min-w-[16px] text-[9px] px-1 bg-violet-500">{conv.unreadCount}</Badge>
-                              )}
+                              <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={(e) => { e.stopPropagation(); startChatWithUser(su.id); }} data-testid={`start-chat-${su.id}`}>
+                                <MessageCircle className="h-3.5 w-3.5" />
+                              </Button>
                             </div>
-                          </div>
                           );
                         })}
                       </div>
-                    </ScrollArea>
-                  </>
-                )}
+                      {internalConversations.length > 0 && (
+                        <>
+                          <div className="px-3 py-2 border-t border-b">
+                            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">{t.nexusOmni.chats.conversations}</p>
+                          </div>
+                          <ScrollArea className="flex-1 min-h-0">
+                            <div className="divide-y">
+                              {internalConversations.map((conv: any) => {
+                                const convSysUser = allSystemUsers.find((su: any) => su.id === conv.partnerId);
+                                const isConvOnline = onlineIds.has(conv.partnerId);
+                                return (
+                                  <div
+                                    key={conv.partnerId}
+                                    className={`px-3 py-2 cursor-pointer hover:bg-accent/50 transition-colors ${internalChatPartner === conv.partnerId ? "bg-accent" : ""}`}
+                                    onClick={() => startChatWithUser(conv.partnerId)}
+                                    data-testid={`conv-${conv.partnerId}`}
+                                  >
+                                    <div className="flex items-center gap-2.5">
+                                      <div className="relative">
+                                        <Avatar className="h-8 w-8">
+                                          <AvatarImage src={convSysUser?.avatarUrl || conv.partner?.avatarUrl || undefined} className="object-cover" />
+                                          <AvatarFallback className={cn("text-white text-xs font-semibold", getAvatarColorStatic(conv.partner?.fullName || "?"))}>
+                                            {getInitialsStatic(conv.partner?.fullName || "?")}
+                                          </AvatarFallback>
+                                        </Avatar>
+                                        <div className={cn("absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-background", isConvOnline ? "bg-emerald-500" : "bg-gray-300 dark:bg-gray-600")} />
+                                      </div>
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-center justify-between">
+                                          <p className="text-xs font-medium truncate">{conv.partner?.fullName || conv.partnerId}</p>
+                                          {conv.lastMessage?.createdAt && (
+                                            <span className="text-[10px] text-muted-foreground">{format(new Date(conv.lastMessage.createdAt), "HH:mm")}</span>
+                                          )}
+                                        </div>
+                                        <p className="text-[10px] text-muted-foreground truncate">{conv.lastMessage?.content || ""}</p>
+                                      </div>
+                                      {conv.unreadCount > 0 && (
+                                        <Badge className="h-4 min-w-[16px] text-[9px] px-1 bg-violet-500">{conv.unreadCount}</Badge>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </ScrollArea>
+                        </>
+                      )}
+                    </>
+                  );
+                })()}
               </CardContent>
             </Card>
             <Card className="transition-all duration-300 flex-1 min-w-0 flex flex-col">
