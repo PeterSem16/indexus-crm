@@ -1,0 +1,24 @@
+Console verbose was OFF and is now 21.
+  == Setting global variable 'SIPDOMAIN' to 'mediagtw.cordbloodcenter.com'
+  == DTLS ECDH initialized (automatic), faster PFS enabled
+    -- Executing [421948519438@webrtc-indexus:1] NoOp("PJSIP/2009-00000004", "WEbrtc-Indexus: caller="" <2009> exten=421948519438") in new stack
+    -- Executing [421948519438@webrtc-indexus:2] Set("PJSIP/2009-00000004", "OUTNUM=421948519438") in new stack
+    -- Executing [421948519438@webrtc-indexus:3] Set("PJSIP/2009-00000004", "CAMPAIGN_CID=") in new stack
+    -- Executing [421948519438@webrtc-indexus:4] ExecIf("PJSIP/2009-00000004", "0?Set(CALLERID(num)=)") in new stack
+    -- Executing [421948519438@webrtc-indexus:5] NoOp("PJSIP/2009-00000004", "WEbrtc-Indexus normalized OUTNUM=421948519438 CAMPAIGN_CID= FINAL_CID=2009") in new stack
+    -- Executing [421948519438@webrtc-indexus:6] Goto("PJSIP/2009-00000004", "route,1") in new stack
+    -- Goto (webrtc-indexus,route,1)
+    -- Executing [route@webrtc-indexus:1] NoOp("PJSIP/2009-00000004", "WEbrtc-Indexus ROUTE: caller=2009 OUTNUM=421948519438") in new stack
+    -- Executing [route@webrtc-indexus:2] GotoIf("PJSIP/2009-00000004", "0?[webrtc-indexus],421948519438,1") in new stack
+    -- Executing [route@webrtc-indexus:3] GotoIf("PJSIP/2009-00000004", "0?do_picktrunk") in new stack
+    -- Executing [route@webrtc-indexus:4] GotoIf("PJSIP/2009-00000004", "1?do_picktrunk") in new stack
+    -- Goto (webrtc-indexus,route,7)
+    -- Executing [route@webrtc-indexus:7] Goto("PJSIP/2009-00000004", "webrtc-indexus,picktrunk,1") in new stack
+    -- Goto (webrtc-indexus,picktrunk,1)
+    -- Executing [picktrunk@webrtc-indexus:1] NoOp("PJSIP/2009-00000004", "WEbrtc-Indexus PICKTRUNK: caller=2009 OUTNUM=421948519438") in new stack
+    -- Executing [picktrunk@webrtc-indexus:2] GotoIf("PJSIP/2009-00000004", "1?dial_slovanet,1") in new stack
+    -- Goto (webrtc-indexus,dial_slovanet,1)
+    -- Executing [dial_slovanet@webrtc-indexus:1] NoOp("PJSIP/2009-00000004", "WEbrtc-Indexus DIAL via SLOVANET: 2009 -> 421948519438") in new stack
+    -- Executing [dial_slovanet@webrtc-indexus:2] Dial("PJSIP/2009-00000004", "SIP/SLOVANET-VGW/421948519438,60,Tt") in new stack
+  == Using SIP RTP CoS mark 5
+    -- Called SIP/SLOVANET-VGW/421948519438

@@ -21527,6 +21527,32 @@ Return ONLY valid JSON, no markdown code blocks.`,
     }
   });
 
+  app.get("/api/sip/outbound-callerid/:extension", requireAuth, async (req, res) => {
+    try {
+      const { extension } = req.params;
+      if (!extension) {
+        return res.status(400).json({ error: "Extension is required" });
+      }
+      const sipExt = await db.select().from(sipExtensions).where(eq(sipExtensions.extension, extension)).limit(1);
+      if (sipExt.length === 0) {
+        return res.json({ outboundCallerId: null });
+      }
+      if (sipExt[0].assignedToCollaboratorId) {
+        const collab = await db.select({ outboundCallerId: collaborators.outboundCallerId })
+          .from(collaborators)
+          .where(eq(collaborators.id, sipExt[0].assignedToCollaboratorId))
+          .limit(1);
+        if (collab.length > 0 && collab[0].outboundCallerId) {
+          return res.json({ outboundCallerId: collab[0].outboundCallerId });
+        }
+      }
+      return res.json({ outboundCallerId: null });
+    } catch (error) {
+      console.error("Failed to get outbound caller ID:", error);
+      res.status(500).json({ error: "Failed to get outbound caller ID" });
+    }
+  });
+
   // ===== Call Logs Routes =====
   
   // Get all call logs (with optional filters)

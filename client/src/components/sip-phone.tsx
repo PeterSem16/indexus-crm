@@ -147,6 +147,7 @@ export function SipPhone({
   const [localLeadScore, setLocalLeadScore] = useState<number | undefined>(undefined);
   const [localClientStatus, setLocalClientStatus] = useState<string | undefined>(undefined);
   const [localCallerIdNumber, setLocalCallerIdNumber] = useState<string>("");
+  const [collaboratorCallerId, setCollaboratorCallerId] = useState<string>("");
   const [callState, setCallStateLocal] = useState<CallState>("idle");
   const [phoneNumber, setPhoneNumber] = useState(initialNumber);
   const [isMutedLocal, setIsMutedLocal] = useState(false);
@@ -863,6 +864,18 @@ export function SipPhone({
       return;
     }
     await register();
+    try {
+      const resp = await fetch(`/api/sip/outbound-callerid/${encodeURIComponent(sipConfig.username)}`, { credentials: "include" });
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data.outboundCallerId) {
+          setCollaboratorCallerId(data.outboundCallerId);
+          console.log(`[SIP] Loaded collaborator outbound caller ID: ${data.outboundCallerId} for ext ${sipConfig.username}`);
+        }
+      }
+    } catch (err) {
+      console.warn("[SIP] Failed to load collaborator outbound caller ID:", err);
+    }
   }, [sipConfig, toast, register]);
 
   const disconnect = useCallback(async () => {
@@ -953,8 +966,9 @@ export function SipPhone({
           },
         },
       };
-      if (localCallerIdNumber) {
-        inviterOptions.extraHeaders = [`X-Campaign-CallerID: ${localCallerIdNumber}`];
+      const effectiveCallerId = localCallerIdNumber || collaboratorCallerId;
+      if (effectiveCallerId) {
+        inviterOptions.extraHeaders = [`X-Campaign-CallerID: ${effectiveCallerId}`];
         try {
           await fetch("/api/sip/set-outbound-callerid", {
             method: "POST",
@@ -962,10 +976,10 @@ export function SipPhone({
             credentials: "include",
             body: JSON.stringify({
               sipExtension: sipConfig.username,
-              callerIdNumber: localCallerIdNumber,
+              callerIdNumber: effectiveCallerId,
             }),
           });
-          console.log(`[SIP] Set outbound caller ID ${localCallerIdNumber} for ext ${sipConfig.username}`);
+          console.log(`[SIP] Set outbound caller ID ${effectiveCallerId} for ext ${sipConfig.username} (source: ${localCallerIdNumber ? "campaign" : "collaborator"})`);
         } catch (err) {
           console.warn("[SIP] Failed to set outbound caller ID:", err);
         }
@@ -1102,7 +1116,7 @@ export function SipPhone({
       setCallState("idle");
       makeCallGuardRef.current = false;
     }
-  }, [phoneNumber, sipConfig.server, sipConfig.realm, ensureRegistered, onCallStart, onCallEnd, toast, createCallLogMutation, updateCallLogMutation, userId, currentUser, localCustomerId, localCampaignId, localCustomerName, currentCallLogId, isSipConfigured]);
+  }, [phoneNumber, sipConfig.server, sipConfig.realm, ensureRegistered, onCallStart, onCallEnd, toast, createCallLogMutation, updateCallLogMutation, userId, currentUser, localCustomerId, localCampaignId, localCustomerName, currentCallLogId, isSipConfigured, collaboratorCallerId]);
 
   const isRegisteredRef = useRef(isRegistered);
   useEffect(() => { isRegisteredRef.current = isRegistered; }, [isRegistered]);
