@@ -1389,6 +1389,92 @@ export async function getChatMembers(
   }
 }
 
+// ============ Teams Meetings & Transcripts ============
+
+export async function getRecentMeetings(
+  accessToken: string,
+  top: number = 20
+): Promise<any[]> {
+  const client = createGraphClient(accessToken);
+  try {
+    const now = new Date();
+    const pastDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const result = await client.api('/me/onlineMeetings')
+      .filter(`startDateTime ge ${pastDate.toISOString()} and startDateTime le ${now.toISOString()}`)
+      .top(top)
+      .orderby('startDateTime desc')
+      .get();
+    return (result?.value || []).map((m: any) => ({
+      id: m.id,
+      subject: m.subject || 'Meeting',
+      startDateTime: m.startDateTime,
+      endDateTime: m.endDateTime,
+      joinUrl: m.joinWebUrl || m.joinUrl,
+      participants: m.participants?.attendees?.map((a: any) => ({
+        email: a.upn || a.identity?.user?.id,
+        displayName: a.identity?.user?.displayName,
+      })) || [],
+    }));
+  } catch (error) {
+    console.error('[MS365] Error fetching recent meetings:', error);
+    return [];
+  }
+}
+
+export async function getMeetingTranscripts(
+  accessToken: string,
+  meetingId: string
+): Promise<any[]> {
+  const client = createGraphClient(accessToken);
+  try {
+    const result = await client.api(`/me/onlineMeetings/${meetingId}/transcripts`).get();
+    return (result?.value || []).map((t: any) => ({
+      id: t.id,
+      createdDateTime: t.createdDateTime,
+      meetingId,
+    }));
+  } catch (error) {
+    console.error('[MS365] Error fetching meeting transcripts:', error);
+    return [];
+  }
+}
+
+export async function getMeetingTranscriptContent(
+  accessToken: string,
+  meetingId: string,
+  transcriptId: string
+): Promise<string> {
+  try {
+    const response = await fetch(
+      `https://graph.microsoft.com/v1.0/me/onlineMeetings/${meetingId}/transcripts/${transcriptId}/content?$format=text/vtt`,
+      { headers: { 'Authorization': `Bearer ${accessToken}` } }
+    );
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return await response.text();
+  } catch (error) {
+    console.error('[MS365] Error fetching transcript content:', error);
+    throw error;
+  }
+}
+
+export async function getMeetingRecordings(
+  accessToken: string,
+  meetingId: string
+): Promise<any[]> {
+  const client = createGraphClient(accessToken);
+  try {
+    const result = await client.api(`/me/onlineMeetings/${meetingId}/recordings`).get();
+    return (result?.value || []).map((r: any) => ({
+      id: r.id,
+      createdDateTime: r.createdDateTime,
+      meetingId,
+    }));
+  } catch (error) {
+    console.error('[MS365] Error fetching meeting recordings:', error);
+    return [];
+  }
+}
+
 // ============ SharePoint / NexusPoint functions ============
 
 export async function getSharePointSites(accessToken: string): Promise<any[]> {

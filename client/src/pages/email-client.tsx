@@ -137,6 +137,8 @@ import {
   Video,
   Phone,
   LinkIcon,
+  ClipboardList,
+  Wand2,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
@@ -1130,8 +1132,84 @@ function TeamsPanel({ userId }: { userId?: string }) {
   const [peopleSuggestions, setPeopleSuggestions] = useState<{displayName: string; email: string}[]>([]);
   const [showPeopleSuggestions, setShowPeopleSuggestions] = useState(false);
   const peopleSearchRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [selectedMeetingId, setSelectedMeetingId] = useState<string | null>(null);
+  const [meetingTranscriptContent, setMeetingTranscriptContent] = useState<string | null>(null);
+  const [meetingAiSummary, setMeetingAiSummary] = useState<string | null>(null);
+  const [loadingTranscript, setLoadingTranscript] = useState(false);
+  const [generatingSummary, setGeneratingSummary] = useState(false);
+  const [transcriptView, setTranscriptView] = useState<"transcript" | "summary">("transcript");
   const { toast } = useToast();
   const { t } = useI18n();
+
+  const { data: meetingsData, isLoading: meetingsLoading } = useQuery<{ meetings: any[] }>({
+    queryKey: ["/api/users", userId, "teams-meetings"],
+    queryFn: async () => {
+      const res = await fetch(`/api/users/${userId}/teams-meetings`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: !!userId,
+    retry: 1,
+    staleTime: 60000,
+  });
+  const recentMeetings = meetingsData?.meetings || [];
+
+  const transcriptRequestRef = useRef<string | null>(null);
+
+  const loadTranscript = async (meetingId: string) => {
+    if (!userId) return;
+    transcriptRequestRef.current = meetingId;
+    setLoadingTranscript(true);
+    setMeetingTranscriptContent(null);
+    setMeetingAiSummary(null);
+    setTranscriptView("transcript");
+    try {
+      const res = await fetch(`/api/users/${userId}/teams-meetings/${meetingId}/transcripts`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      if (transcriptRequestRef.current !== meetingId) return;
+      const data = await res.json();
+      const transcripts = data.transcripts || [];
+      if (transcripts.length === 0) {
+        if (transcriptRequestRef.current === meetingId) setMeetingTranscriptContent(null);
+        setLoadingTranscript(false);
+        return;
+      }
+      const contentRes = await fetch(`/api/users/${userId}/teams-meetings/${meetingId}/transcripts/${transcripts[0].id}/content`, { credentials: "include" });
+      if (!contentRes.ok) throw new Error("Failed");
+      if (transcriptRequestRef.current !== meetingId) return;
+      const contentData = await contentRes.json();
+      setMeetingTranscriptContent(contentData.content || null);
+    } catch {
+      if (transcriptRequestRef.current === meetingId) {
+        toast({ title: t.nexusOmni.teams.transcriptError, variant: "destructive" });
+      }
+    }
+    if (transcriptRequestRef.current === meetingId) setLoadingTranscript(false);
+  };
+
+  const generateAiSummary = async (meetingId: string) => {
+    if (!userId || !meetingTranscriptContent) return;
+    setGeneratingSummary(true);
+    const selectedMeeting = recentMeetings.find((m: any) => m.id === meetingId);
+    try {
+      const res = await fetch(`/api/users/${userId}/teams-meetings/${meetingId}/ai-summary`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ transcript: meetingTranscriptContent, meetingSubject: selectedMeeting?.subject || "" }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      if (selectedMeetingId !== meetingId) return;
+      const data = await res.json();
+      if (data.summary) {
+        setMeetingAiSummary(data.summary);
+        setTranscriptView("summary");
+      }
+    } catch {
+      toast({ title: t.nexusOmni.common.error, variant: "destructive" });
+    }
+    setGeneratingSummary(false);
+  };
 
   const { data: chatsData, isLoading: chatsLoading, error: chatsError } = useQuery<{ connected: boolean; chats: any[]; error?: string | null; requiredPermissions?: string[] }>({
     queryKey: ["/api/users", userId, "teams-chats"],
@@ -1414,7 +1492,7 @@ function TeamsPanel({ userId }: { userId?: string }) {
     return `${memberNames.slice(0, 2).join(', ')}, +${memberNames.length - 2}`;
   };
 
-  const [sidebarFilter, setSidebarFilter] = useState<"all" | "channels" | "chats">("all");
+  const [sidebarFilter, setSidebarFilter] = useState<"all" | "channels" | "chats" | "meetings">("all");
   const [chatsSectionOpen, setChatsSectionOpen] = useState(true);
   const [teamsSectionOpen, setTeamsSectionOpen] = useState(true);
   const [expandedTeamIds, setExpandedTeamIds] = useState<string[]>([]);
@@ -1425,6 +1503,7 @@ function TeamsPanel({ userId }: { userId?: string }) {
     if (!selectedTeamId || selectedTeamId !== teamId) {
       setSelectedTeamId(teamId);
     }
+    setSelectedMeetingId(null);
   };
 
   const renderChatItem = (chat: any) => {
@@ -1438,7 +1517,7 @@ function TeamsPanel({ userId }: { userId?: string }) {
           "w-full text-left pl-6 pr-3 py-[7px] transition-all hover:bg-accent/50 flex items-center gap-2.5",
           selectedTeamsChatId === chat.id && "bg-accent"
         )}
-        onClick={() => { setSelectedTeamsChatId(chat.id); setSelectedChannelId(null); setSelectedTeamId(null); }}
+        onClick={() => { setSelectedTeamsChatId(chat.id); setSelectedChannelId(null); setSelectedTeamId(null); setSelectedMeetingId(null); }}
         data-testid={`teams-chat-${chat.id}`}
       >
         <div className="relative shrink-0">
@@ -1456,7 +1535,7 @@ function TeamsPanel({ userId }: { userId?: string }) {
   };
 
   const filteredChats = (() => {
-    let list = sidebarFilter === "channels" ? [] : chats;
+    let list = (sidebarFilter === "channels" || sidebarFilter === "meetings") ? [] : chats;
     if (chatSearchQuery.trim()) {
       const q = chatSearchQuery.toLowerCase();
       list = list.filter(chat => {
@@ -1468,11 +1547,20 @@ function TeamsPanel({ userId }: { userId?: string }) {
     return list;
   })();
   const filteredTeams = (() => {
-    if (sidebarFilter === "chats") return [];
+    if (sidebarFilter === "chats" || sidebarFilter === "meetings") return [];
     let list = teams;
     if (chatSearchQuery.trim()) {
       const q = chatSearchQuery.toLowerCase();
       list = list.filter((team: any) => team.displayName?.toLowerCase().includes(q));
+    }
+    return list;
+  })();
+  const filteredMeetings = (() => {
+    if (sidebarFilter === "chats" || sidebarFilter === "channels") return [];
+    let list = recentMeetings;
+    if (chatSearchQuery.trim()) {
+      const q = chatSearchQuery.toLowerCase();
+      list = list.filter((m: any) => m.subject?.toLowerCase().includes(q));
     }
     return list;
   })();
@@ -1529,13 +1617,22 @@ function TeamsPanel({ userId }: { userId?: string }) {
               >
                 {t.nexusOmni.tabs.chats}
               </button>
+              <button
+                className={cn("px-3 py-1 rounded-full text-xs font-medium border transition-colors",
+                  sidebarFilter === "meetings" ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-accent"
+                )}
+                onClick={() => setSidebarFilter(f => f === "meetings" ? "all" : "meetings")}
+                data-testid="teams-filter-meetings"
+              >
+                {t.nexusOmni.teams.recentMeetings}
+              </button>
             </div>
           </div>
           <ScrollArea className="flex-1">
             <div className="py-1">
-              {chatsLoading && teamsLoading ? (
+              {chatsLoading && teamsLoading && meetingsLoading ? (
                 <div className="flex items-center justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
-              ) : chats.length === 0 && teams.length === 0 ? (
+              ) : chats.length === 0 && teams.length === 0 && recentMeetings.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
                   <MessagesSquare className="h-8 w-8 mb-2 opacity-30" />
                   <span className="text-xs">{chatsError ? `${t.nexusOmni.common.error}: ${chatsError.message}` : chatsData?.error ? `${t.nexusOmni.common.error}: ${chatsData.error}` : chatsData?.connected === false ? t.nexusOmni.teams.notConnected : t.nexusOmni.teams.noTeamsChats}</span>
@@ -1597,7 +1694,7 @@ function TeamsPanel({ userId }: { userId?: string }) {
                                         "w-full text-left pl-4 pr-3 py-[5px] transition-all hover:bg-accent/50 flex items-center gap-2 text-[12px]",
                                         selectedChannelId === ch.id && "bg-accent font-semibold"
                                       )}
-                                      onClick={() => { setSelectedChannelId(ch.id); setSelectedTeamsChatId(null); }}
+                                      onClick={() => { setSelectedChannelId(ch.id); setSelectedTeamsChatId(null); setSelectedMeetingId(null); }}
                                       data-testid={`teams-channel-${ch.id}`}
                                     >
                                       <span className="text-muted-foreground">#</span>
@@ -1617,7 +1714,57 @@ function TeamsPanel({ userId }: { userId?: string }) {
                     </>
                   )}
 
-                  {chatSearchQuery && filteredChats.length === 0 && filteredTeams.length === 0 && (
+                  {filteredMeetings.length > 0 && (
+                    <>
+                      <button
+                        className="w-full text-left px-4 py-1.5 flex items-center gap-1 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors mt-1"
+                        onClick={() => {}}
+                        data-testid="teams-section-meetings"
+                      >
+                        <ClipboardList className="h-3 w-3" />
+                        <span>{t.nexusOmni.teams.recentMeetings}</span>
+                      </button>
+                      <div>
+                        {meetingsLoading ? (
+                          <div className="flex items-center justify-center py-4"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></div>
+                        ) : filteredMeetings.map((meeting: any) => {
+                          const startTime = meeting.startDateTime ? new Date(meeting.startDateTime) : null;
+                          const endTime = meeting.endDateTime ? new Date(meeting.endDateTime) : null;
+                          const duration = startTime && endTime ? Math.round((endTime.getTime() - startTime.getTime()) / 60000) : null;
+                          return (
+                            <button
+                              key={meeting.id}
+                              className={cn(
+                                "w-full text-left pl-6 pr-3 py-[7px] transition-all hover:bg-accent/50 flex items-center gap-2.5",
+                                selectedMeetingId === meeting.id && "bg-accent"
+                              )}
+                              onClick={() => {
+                                setSelectedMeetingId(meeting.id);
+                                setSelectedTeamsChatId(null);
+                                setSelectedChannelId(null);
+                                setSelectedTeamId(null);
+                                loadTranscript(meeting.id);
+                              }}
+                              data-testid={`teams-meeting-${meeting.id}`}
+                            >
+                              <div className="h-8 w-8 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center shrink-0">
+                                <Video className="h-3.5 w-3.5 text-indigo-500" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <span className={cn("text-[13px] truncate block", selectedMeetingId === meeting.id ? "font-semibold" : "font-normal")}>{meeting.subject || 'Meeting'}</span>
+                                <span className="text-[10px] text-muted-foreground">
+                                  {startTime ? format(startTime, "d.M. HH:mm") : ''}
+                                  {duration ? ` · ${duration} min` : ''}
+                                </span>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </>
+                  )}
+
+                  {chatSearchQuery && filteredChats.length === 0 && filteredTeams.length === 0 && filteredMeetings.length === 0 && (
                     <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
                       <Search className="h-6 w-6 mb-2 opacity-30" />
                       <span className="text-xs">{t.nexusOmni.common.noResults || "No results"}</span>
@@ -2001,6 +2148,95 @@ function TeamsPanel({ userId }: { userId?: string }) {
                   })}
                 </div>
               </ScrollArea>
+            </div>
+          ) : selectedMeetingId ? (
+            <div className="flex flex-col h-full dark:bg-[#292929]">
+              {(() => {
+                const meeting = recentMeetings.find((m: any) => m.id === selectedMeetingId);
+                const startTime = meeting?.startDateTime ? new Date(meeting.startDateTime) : null;
+                const endTime = meeting?.endDateTime ? new Date(meeting.endDateTime) : null;
+                const duration = startTime && endTime ? Math.round((endTime.getTime() - startTime.getTime()) / 60000) : null;
+                return (
+                  <>
+                    <div className="px-4 py-3 border-b dark:border-[#333] flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="h-10 w-10 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center shrink-0">
+                          <Video className="h-5 w-5 text-indigo-500" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold truncate">{meeting?.subject || 'Meeting'}</p>
+                          <p className="text-[11px] text-muted-foreground">
+                            {startTime ? format(startTime, "d.M.yyyy HH:mm") : ''}
+                            {duration ? ` · ${t.nexusOmni.teams.meetingDuration}: ${duration} min` : ''}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        {meetingTranscriptContent && (
+                          <>
+                            <div className="flex border rounded-md overflow-hidden mr-1">
+                              <button
+                                className={cn("px-2.5 py-1 text-[11px] font-medium transition-colors",
+                                  transcriptView === "transcript" ? "bg-primary text-primary-foreground" : "hover:bg-accent text-muted-foreground"
+                                )}
+                                onClick={() => setTranscriptView("transcript")}
+                                data-testid="btn-view-transcript"
+                              >
+                                {t.nexusOmni.teams.rawTranscript}
+                              </button>
+                              <button
+                                className={cn("px-2.5 py-1 text-[11px] font-medium transition-colors",
+                                  transcriptView === "summary" ? "bg-primary text-primary-foreground" : "hover:bg-accent text-muted-foreground"
+                                )}
+                                onClick={() => setTranscriptView("summary")}
+                                disabled={!meetingAiSummary}
+                                data-testid="btn-view-summary"
+                              >
+                                {t.nexusOmni.teams.summary}
+                              </button>
+                            </div>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-8 gap-1.5 text-xs"
+                                  onClick={() => generateAiSummary(selectedMeetingId)}
+                                  disabled={generatingSummary}
+                                  data-testid="btn-generate-summary"
+                                >
+                                  {generatingSummary ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
+                                  {generatingSummary ? t.nexusOmni.teams.generatingSummary : t.nexusOmni.teams.generateSummary}
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>{t.nexusOmni.teams.aiSummary}</TooltipContent>
+                            </Tooltip>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    <ScrollArea className="flex-1">
+                      <div className="px-5 py-4">
+                        {loadingTranscript ? (
+                          <div className="flex flex-col items-center justify-center py-16">
+                            <Loader2 className="h-8 w-8 animate-spin text-indigo-500 mb-3" />
+                            <p className="text-sm text-muted-foreground">{t.nexusOmni.teams.loadingTranscript}</p>
+                          </div>
+                        ) : transcriptView === "summary" && meetingAiSummary ? (
+                          <div className="prose prose-sm dark:prose-invert max-w-none [&_h3]:text-base [&_h3]:font-semibold [&_h3]:mt-4 [&_h3]:mb-2 [&_ul]:space-y-1 [&_li]:text-sm [&_strong]:font-semibold" dangerouslySetInnerHTML={{ __html: meetingAiSummary }} />
+                        ) : meetingTranscriptContent ? (
+                          <pre className="text-sm whitespace-pre-wrap font-sans leading-relaxed text-foreground/90">{meetingTranscriptContent}</pre>
+                        ) : (
+                          <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+                            <FileText className="h-10 w-10 mb-3 opacity-30" />
+                            <p className="text-sm">{t.nexusOmni.teams.noTranscript}</p>
+                          </div>
+                        )}
+                      </div>
+                    </ScrollArea>
+                  </>
+                );
+              })()}
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center h-full text-muted-foreground dark:bg-[#292929]">

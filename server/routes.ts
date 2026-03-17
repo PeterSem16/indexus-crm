@@ -3781,6 +3781,107 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/users/:userId/teams-meetings", requireAuth, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const ms365Connection = await storage.getUserMs365Connection(userId);
+      if (!ms365Connection || !ms365Connection.isConnected) {
+        return res.json({ meetings: [] });
+      }
+      const { decryptTokenSafe } = await import("./lib/token-crypto");
+      const { getValidAccessToken, getRecentMeetings } = await import("./lib/ms365");
+      const accessToken = decryptTokenSafe(ms365Connection.accessToken);
+      const refreshToken = ms365Connection.refreshToken ? decryptTokenSafe(ms365Connection.refreshToken) : null;
+      const tokenResult = await getValidAccessToken(accessToken, ms365Connection.tokenExpiresAt, refreshToken);
+      if (!tokenResult?.accessToken) return res.json({ meetings: [] });
+      const meetings = await getRecentMeetings(tokenResult.accessToken);
+      res.json({ meetings });
+    } catch (error: any) {
+      console.error("Error fetching meetings:", error?.message || error);
+      res.json({ meetings: [] });
+    }
+  });
+
+  app.get("/api/users/:userId/teams-meetings/:meetingId/transcripts", requireAuth, async (req, res) => {
+    try {
+      const { userId, meetingId } = req.params;
+      const ms365Connection = await storage.getUserMs365Connection(userId);
+      if (!ms365Connection || !ms365Connection.isConnected) {
+        return res.json({ transcripts: [] });
+      }
+      const { decryptTokenSafe } = await import("./lib/token-crypto");
+      const { getValidAccessToken, getMeetingTranscripts } = await import("./lib/ms365");
+      const accessToken = decryptTokenSafe(ms365Connection.accessToken);
+      const refreshToken = ms365Connection.refreshToken ? decryptTokenSafe(ms365Connection.refreshToken) : null;
+      const tokenResult = await getValidAccessToken(accessToken, ms365Connection.tokenExpiresAt, refreshToken);
+      if (!tokenResult?.accessToken) return res.json({ transcripts: [] });
+      const transcripts = await getMeetingTranscripts(tokenResult.accessToken, meetingId);
+      res.json({ transcripts });
+    } catch (error: any) {
+      console.error("Error fetching transcripts:", error?.message || error);
+      res.json({ transcripts: [] });
+    }
+  });
+
+  app.get("/api/users/:userId/teams-meetings/:meetingId/transcripts/:transcriptId/content", requireAuth, async (req, res) => {
+    try {
+      const { userId, meetingId, transcriptId } = req.params;
+      const ms365Connection = await storage.getUserMs365Connection(userId);
+      if (!ms365Connection || !ms365Connection.isConnected) {
+        return res.status(400).json({ error: "Not connected" });
+      }
+      const { decryptTokenSafe } = await import("./lib/token-crypto");
+      const { getValidAccessToken, getMeetingTranscriptContent } = await import("./lib/ms365");
+      const accessToken = decryptTokenSafe(ms365Connection.accessToken);
+      const refreshToken = ms365Connection.refreshToken ? decryptTokenSafe(ms365Connection.refreshToken) : null;
+      const tokenResult = await getValidAccessToken(accessToken, ms365Connection.tokenExpiresAt, refreshToken);
+      if (!tokenResult?.accessToken) return res.status(401).json({ error: "Token expired" });
+      const content = await getMeetingTranscriptContent(tokenResult.accessToken, meetingId, transcriptId);
+      res.json({ content });
+    } catch (error: any) {
+      console.error("Error fetching transcript content:", error?.message || error);
+      res.status(500).json({ error: "Failed to fetch transcript" });
+    }
+  });
+
+  app.post("/api/users/:userId/teams-meetings/:meetingId/ai-summary", requireAuth, async (req, res) => {
+    try {
+      const { userId, meetingId } = req.params;
+      const { transcript, meetingSubject } = req.body;
+      if (!transcript) return res.status(400).json({ error: "No transcript provided" });
+      if (!process.env.OPENAI_API_KEY) return res.status(400).json({ error: "OpenAI not configured" });
+      const openaiModule = await import("openai");
+      const openai = new openaiModule.default({ apiKey: process.env.OPENAI_API_KEY });
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "system",
+            content: `You are an expert meeting analyst. Analyze the following Teams meeting transcript and provide a comprehensive summary in the SAME LANGUAGE as the transcript. Include:
+1. **Meeting Overview** - Brief description of the meeting topic and context
+2. **Key Discussion Points** - Main topics discussed with details
+3. **Decisions Made** - Any decisions or agreements reached
+4. **Action Items** - Specific tasks assigned, with responsible persons if mentioned
+5. **Important Notes** - Any critical information, deadlines, or follow-ups mentioned
+
+Format the output in clean HTML with headings (h3), bullet lists (ul/li), and bold text (strong) where appropriate. Keep it concise but comprehensive.`
+          },
+          {
+            role: "user",
+            content: `Meeting: ${meetingSubject || 'Teams Meeting'}\n\nTranscript:\n${transcript.substring(0, 30000)}`
+          }
+        ],
+        temperature: 0.3,
+        max_tokens: 4000,
+      });
+      const summary = response.choices[0]?.message?.content || '';
+      res.json({ summary });
+    } catch (error: any) {
+      console.error("Error generating AI summary:", error?.message || error);
+      res.status(500).json({ error: "Failed to generate summary" });
+    }
+  });
+
   // Teams - get chat members
   app.get("/api/users/:userId/teams-chats/:chatId/members", requireAuth, async (req, res) => {
     try {
