@@ -1281,7 +1281,7 @@ function TeamsPanel({ userId }: { userId?: string }) {
     queryKey: ["/api/ms365/calendar", "upcoming"],
     queryFn: async () => {
       const now = new Date();
-      const end = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+      const end = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
       const res = await fetch(`/api/ms365/calendar?startDate=${now.toISOString()}&endDate=${end.toISOString()}`, { credentials: "include" });
       if (!res.ok) return [];
       const events = await res.json();
@@ -1378,6 +1378,8 @@ function TeamsPanel({ userId }: { userId?: string }) {
         setMeetingEndTime("");
         setMeetingParticipants([]);
         setParticipantInput("");
+        queryClient.invalidateQueries({ queryKey: ["/api/ms365/calendar", "upcoming"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/users", userId, "teams-meetings"] });
       }
     },
     onError: () => {
@@ -2308,31 +2310,48 @@ function TeamsPanel({ userId }: { userId?: string }) {
                 {t.nexusOmni.teams.createMeeting}
               </Button>
               {upcomingMeetings.length > 0 && (
-                <div className="w-full max-w-sm">
+                <div className="w-full max-w-md">
                   <p className="text-xs font-semibold text-foreground mb-2 text-left flex items-center gap-1.5">
                     <Calendar className="h-3.5 w-3.5 text-indigo-500" />
                     {t.nexusOmni.teams.upcomingMeetings}
                   </p>
                   <div className="space-y-1.5">
-                    {upcomingMeetings.slice(0, 5).map((m: any) => {
+                    {upcomingMeetings.slice(0, 10).map((m: any) => {
                       const startTime = new Date(m.start?.dateTime ? m.start.dateTime + 'Z' : m.startDateTime);
                       const now = new Date();
                       const diffMs = startTime.getTime() - now.getTime();
                       const isNow = diffMs <= 0;
                       const mins = Math.ceil(diffMs / 60000);
+                      const hours = Math.floor(mins / 60);
+                      const isToday = startTime.toDateString() === now.toDateString();
+                      const isTomorrow = startTime.toDateString() === new Date(now.getTime() + 86400000).toDateString();
                       const joinUrl = m.onlineMeeting?.joinUrl || m.joinUrl;
+                      const attendeeCount = m.attendees?.length || 0;
+                      const timeLabel = isNow
+                        ? t.nexusOmni.teams.inProgress
+                        : mins < 60
+                          ? `${t.nexusOmni.teams.startsIn} ${mins} min`
+                          : hours < 24
+                            ? `${t.nexusOmni.teams.startsIn} ${hours}h ${mins % 60}min`
+                            : '';
+                      const dateLabel = isToday
+                        ? startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                        : isTomorrow
+                          ? `${t.nexusOmni.teams.tomorrow || 'Tomorrow'} ${startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                          : `${startTime.toLocaleDateString([], { day: 'numeric', month: 'short' })} ${startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
                       return (
-                        <div key={m.id} className="flex items-center gap-2 px-3 py-2 rounded-md border bg-card text-left" data-testid={`upcoming-meeting-${m.id}`}>
-                          <div className={cn("w-2 h-2 rounded-full shrink-0", isNow ? "bg-green-500 animate-pulse" : mins <= 15 ? "bg-amber-500" : "bg-indigo-400")} />
+                        <div key={m.id} className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg border bg-card text-left hover:bg-accent/50 transition-colors" data-testid={`upcoming-meeting-${m.id}`}>
+                          <div className={cn("w-2 h-2 rounded-full shrink-0", isNow ? "bg-green-500 animate-pulse" : mins <= 15 ? "bg-amber-500 animate-pulse" : isToday ? "bg-amber-400" : "bg-indigo-400")} />
                           <div className="flex-1 min-w-0">
                             <p className="text-xs font-medium truncate text-foreground">{m.subject || 'Meeting'}</p>
                             <p className="text-[10px] text-muted-foreground">
-                              {startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                              {isNow ? ` · ${t.nexusOmni.teams.inProgress}` : ` · ${t.nexusOmni.teams.startsIn} ${mins} min`}
+                              {dateLabel}
+                              {timeLabel ? ` · ${timeLabel}` : ''}
+                              {attendeeCount > 0 ? ` · ${attendeeCount} ${t.nexusOmni.teams.members.toLowerCase()}` : ''}
                             </p>
                           </div>
                           {joinUrl && (
-                            <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => window.open(joinUrl, "_blank")} data-testid={`join-upcoming-${m.id}`}>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => window.open(joinUrl, "_blank")} data-testid={`join-upcoming-${m.id}`}>
                               <Video className="h-3.5 w-3.5 text-indigo-500" />
                             </Button>
                           )}
