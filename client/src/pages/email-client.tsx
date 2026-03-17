@@ -3880,6 +3880,7 @@ export default function EmailClientPage() {
     { key: "tasks", label: t.nexusOmni.tabs.tasks, icon: <ListTodo className="h-4 w-4" />, badge: pendingTasks > 0 ? pendingTasks : undefined, badgeColor: "bg-amber-500" },
     { key: "chats", label: t.nexusOmni.tabs.chats, icon: <MessagesSquare className="h-4 w-4" />, badge: unreadChats > 0 ? unreadChats : undefined, badgeColor: "bg-violet-500" },
     { key: "teams", label: t.nexusOmni.tabs.teams, icon: <MessagesSquare className="h-4 w-4" />, badgeColor: "bg-indigo-500" },
+    { key: "calendar", label: t.nexusOmni.tabs.calendar, icon: <CalendarDays className="h-4 w-4" />, badge: upcomingMeetings.length > 0 ? upcomingMeetings.length : undefined, badgeColor: "bg-rose-500" },
     { key: "nexuspoint", label: t.nexusOmni.tabs.nexuspoint, icon: <HardDrive className="h-4 w-4" />, badgeColor: "bg-emerald-500" },
   ];
 
@@ -4682,6 +4683,165 @@ export default function EmailClientPage() {
 
         {activeTab === "teams" && (
           <TeamsPanel userId={user?.id} />
+        )}
+
+        {activeTab === "calendar" && (
+          <Card className="flex-1 min-h-0 overflow-hidden">
+            <CardContent className="p-0 h-full flex flex-col">
+              {(() => {
+                const now = new Date();
+                const calStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                const calEnd = new Date(calStart.getTime() + 14 * 24 * 60 * 60 * 1000);
+
+                const { data: calendarEvents = [], isLoading: calLoading } = useQuery<any[]>({
+                  queryKey: ["/api/ms365/calendar", "full", calStart.toISOString()],
+                  queryFn: async () => {
+                    const res = await fetch(`/api/ms365/calendar?startDate=${calStart.toISOString()}&endDate=${calEnd.toISOString()}`, { credentials: "include" });
+                    if (!res.ok) return [];
+                    return res.json();
+                  },
+                  enabled: !!userId,
+                  refetchInterval: 120000,
+                });
+
+                const eventsByDay: Record<string, any[]> = {};
+                (calendarEvents || []).forEach((ev: any) => {
+                  const d = new Date(ev.start?.dateTime ? ev.start.dateTime + 'Z' : ev.startDateTime || ev.start);
+                  const key = d.toDateString();
+                  if (!eventsByDay[key]) eventsByDay[key] = [];
+                  eventsByDay[key].push(ev);
+                });
+
+                const sortedDays = Object.keys(eventsByDay).sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+                const todayStr = now.toDateString();
+                const tomorrowStr = new Date(now.getTime() + 86400000).toDateString();
+
+                return (
+                  <>
+                    <div className="px-4 py-3 border-b dark:border-[#333] flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-full bg-rose-100 dark:bg-rose-900/30 flex items-center justify-center shrink-0">
+                          <CalendarDays className="h-5 w-5 text-rose-500" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold">{t.nexusOmni.tabs.calendar}</p>
+                          <p className="text-[11px] text-muted-foreground">
+                            {format(calStart, "d.M.yyyy")} — {format(calEnd, "d.M.yyyy")} · {calendarEvents.length} {calendarEvents.length === 1 ? 'event' : 'events'}
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-2"
+                        onClick={() => { setActiveTab("teams"); setMeetingDialogOpen(true); setMeetingLink(null); setMeetingSubject(""); setMeetingDate(""); setMeetingStartTime(""); setMeetingEndTime(""); setMeetingParticipants([]); setParticipantInput(""); }}
+                        data-testid="btn-new-meeting-calendar"
+                      >
+                        <Plus className="h-4 w-4" />
+                        {t.nexusOmni.teams.createMeeting}
+                      </Button>
+                    </div>
+                    <ScrollArea className="flex-1">
+                      <div className="p-4">
+                        {calLoading ? (
+                          <div className="flex flex-col items-center justify-center py-16">
+                            <Loader2 className="h-8 w-8 animate-spin text-rose-500 mb-3" />
+                            <p className="text-sm text-muted-foreground">{t.nexusOmni.teams.loadingTranscript}</p>
+                          </div>
+                        ) : sortedDays.length === 0 ? (
+                          <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+                            <CalendarDays className="h-10 w-10 mb-3 opacity-30" />
+                            <p className="text-sm">{t.nexusOmni.teams.noUpcomingMeetings}</p>
+                          </div>
+                        ) : (
+                          <div className="space-y-6">
+                            {sortedDays.map(dayKey => {
+                              const dayDate = new Date(dayKey);
+                              const isToday = dayKey === todayStr;
+                              const isTomorrow = dayKey === tomorrowStr;
+                              const dayLabel = isToday
+                                ? `${t.nexusOmni.teams.today} — ${format(dayDate, "d.M.yyyy, EEEE")}`
+                                : isTomorrow
+                                  ? `${t.nexusOmni.teams.tomorrow} — ${format(dayDate, "d.M.yyyy, EEEE")}`
+                                  : format(dayDate, "d.M.yyyy, EEEE");
+                              const events = eventsByDay[dayKey].sort((a: any, b: any) => {
+                                const aTime = new Date(a.start?.dateTime ? a.start.dateTime + 'Z' : a.startDateTime || a.start).getTime();
+                                const bTime = new Date(b.start?.dateTime ? b.start.dateTime + 'Z' : b.startDateTime || b.start).getTime();
+                                return aTime - bTime;
+                              });
+                              return (
+                                <div key={dayKey}>
+                                  <div className={cn("flex items-center gap-2 mb-2 px-1", isToday && "text-rose-600 dark:text-rose-400")}>
+                                    <div className={cn("w-2 h-2 rounded-full", isToday ? "bg-rose-500" : isTomorrow ? "bg-amber-400" : "bg-muted-foreground/30")} />
+                                    <p className="text-xs font-bold uppercase tracking-wide">{dayLabel}</p>
+                                  </div>
+                                  <div className="space-y-1.5">
+                                    {events.map((ev: any) => {
+                                      const evStart = new Date(ev.start?.dateTime ? ev.start.dateTime + 'Z' : ev.startDateTime || ev.start);
+                                      const evEnd = new Date(ev.end?.dateTime ? ev.end.dateTime + 'Z' : ev.endDateTime || ev.end);
+                                      const durationMin = Math.round((evEnd.getTime() - evStart.getTime()) / 60000);
+                                      const isOnline = ev.isOnlineMeeting || ev.onlineMeeting?.joinUrl;
+                                      const joinUrl = ev.onlineMeeting?.joinUrl || ev.joinUrl;
+                                      const isPast = evEnd.getTime() < now.getTime();
+                                      const isActive = evStart.getTime() <= now.getTime() && evEnd.getTime() > now.getTime();
+                                      const attendeeCount = ev.attendees?.length || 0;
+                                      return (
+                                        <div
+                                          key={ev.id}
+                                          className={cn(
+                                            "flex items-center gap-3 px-3 py-2.5 rounded-lg border transition-colors",
+                                            isActive ? "bg-rose-50 dark:bg-rose-900/20 border-rose-200 dark:border-rose-800" :
+                                            isPast ? "opacity-50 bg-muted/30" : "bg-card hover:bg-accent/50"
+                                          )}
+                                          data-testid={`calendar-event-${ev.id}`}
+                                        >
+                                          <div className="flex flex-col items-center w-14 shrink-0">
+                                            <span className="text-xs font-bold">{format(evStart, "HH:mm")}</span>
+                                            <span className="text-[10px] text-muted-foreground">{format(evEnd, "HH:mm")}</span>
+                                          </div>
+                                          <div className={cn("w-0.5 h-10 rounded-full shrink-0", isActive ? "bg-rose-500" : isOnline ? "bg-indigo-400" : "bg-muted-foreground/20")} />
+                                          <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-medium truncate">{ev.subject || 'Event'}</p>
+                                            <p className="text-[11px] text-muted-foreground flex items-center gap-1.5 flex-wrap">
+                                              {durationMin > 0 && <span>{durationMin} min</span>}
+                                              {isOnline && (
+                                                <span className="flex items-center gap-0.5 text-indigo-500">
+                                                  <Video className="h-3 w-3" /> Teams
+                                                </span>
+                                              )}
+                                              {isActive && <span className="text-rose-500 font-medium">{t.nexusOmni.teams.inProgress}</span>}
+                                              {attendeeCount > 0 && <span>· {attendeeCount} {t.nexusOmni.teams.members.toLowerCase()}</span>}
+                                              {ev.location?.displayName && <span>· {ev.location.displayName}</span>}
+                                            </p>
+                                          </div>
+                                          {joinUrl && !isPast && (
+                                            <Button
+                                              variant={isActive ? "default" : "outline"}
+                                              size="sm"
+                                              className={cn("h-8 gap-1.5 text-xs shrink-0", isActive && "bg-indigo-600 hover:bg-indigo-700")}
+                                              onClick={() => window.open(joinUrl, "_blank")}
+                                              data-testid={`join-calendar-${ev.id}`}
+                                            >
+                                              <Video className="h-3.5 w-3.5" />
+                                              {t.nexusOmni.teams.joinMeeting}
+                                            </Button>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    </ScrollArea>
+                  </>
+                );
+              })()}
+            </CardContent>
+          </Card>
         )}
 
         {activeTab === "nexuspoint" && (

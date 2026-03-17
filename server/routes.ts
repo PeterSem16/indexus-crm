@@ -3073,8 +3073,8 @@ export async function registerRoutes(
         return res.status(401).json({ error: "Not connected to Microsoft 365" });
       }
       
-      const startDate = req.query.start ? new Date(req.query.start as string) : new Date();
-      const endDate = req.query.end ? new Date(req.query.end as string) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+      const startDate = (req.query.startDate || req.query.start) ? new Date((req.query.startDate || req.query.start) as string) : new Date();
+      const endDate = (req.query.endDate || req.query.end) ? new Date((req.query.endDate || req.query.end) as string) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
       
       const { getCalendarEvents } = await import("./lib/ms365");
       const events = await getCalendarEvents(ms365Session.accessToken, startDate, endDate);
