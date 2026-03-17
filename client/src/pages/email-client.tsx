@@ -1276,7 +1276,7 @@ function CalendarPanel({ onCreateMeeting, calendarFilter }: { onCreateMeeting: (
   );
 }
 
-function TeamsPanel({ userId, sidebarFilter, setSidebarFilter }: { userId?: string; sidebarFilter: "all" | "activity" | "channels" | "chats" | "meetings"; setSidebarFilter: (f: "all" | "activity" | "channels" | "chats" | "meetings") => void }) {
+function TeamsPanel({ userId, sidebarFilter, setSidebarFilter }: { userId?: string; sidebarFilter: "all" | "activity" | "channels" | "chats" | "meetings" | "calendar"; setSidebarFilter: (f: "all" | "activity" | "channels" | "chats" | "meetings" | "calendar") => void }) {
   const [selectedTeamsChatId, setSelectedTeamsChatId] = useState<string | null>(null);
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
@@ -2766,7 +2766,7 @@ export default function EmailClientPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [activeTab, setActiveTab] = useState<NexusTab>("email");
-  const [teamsSidebarFilter, setTeamsSidebarFilter] = useState<"all" | "activity" | "channels" | "chats" | "meetings">("all");
+  const [teamsSidebarFilter, setTeamsSidebarFilter] = useState<"all" | "activity" | "channels" | "chats" | "meetings" | "calendar">("all");
   const [calendarSidebarFilter, setCalendarSidebarFilter] = useState<"today" | "week" | "month">("week");
   const [selectedMailbox, setSelectedMailbox] = useState<string>("personal");
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
@@ -4978,13 +4978,13 @@ export default function EmailClientPage() {
           </>
         )}
 
-        {activeTab === "teams" && (
+        {activeTab === "teams" && teamsSidebarFilter !== "calendar" && (
           <TeamsPanel userId={user?.id} sidebarFilter={teamsSidebarFilter} setSidebarFilter={setTeamsSidebarFilter} />
         )}
 
-        {activeTab === "calendar" && (
+        {(activeTab === "calendar" || (activeTab === "teams" && teamsSidebarFilter === "calendar")) && (
           <CalendarPanel
-            onCreateMeeting={() => { setActiveTab("teams"); setMeetingDialogOpen(true); setMeetingLink(null); setMeetingSubject(""); setMeetingDate(""); setMeetingStartTime(""); setMeetingEndTime(""); setMeetingParticipants([]); setParticipantInput(""); }}
+            onCreateMeeting={() => { setTeamsSidebarFilter("meetings"); setMeetingDialogOpen(true); setMeetingLink(null); setMeetingSubject(""); setMeetingDate(""); setMeetingStartTime(""); setMeetingEndTime(""); setMeetingParticipants([]); setParticipantInput(""); }}
             calendarFilter={calendarSidebarFilter}
           />
         )}

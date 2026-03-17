@@ -137,8 +137,8 @@ interface NexusSidebarProps {
   selectedMailbox?: string;
   onSelectMailbox?: (mailbox: string) => void;
   mailboxUnreadCounts?: Record<string, number>;
-  teamsSidebarFilter?: "all" | "activity" | "channels" | "chats" | "meetings";
-  onTeamsSidebarFilterChange?: (filter: "all" | "activity" | "channels" | "chats" | "meetings") => void;
+  teamsSidebarFilter?: "all" | "activity" | "channels" | "chats" | "meetings" | "calendar";
+  onTeamsSidebarFilterChange?: (filter: "all" | "activity" | "channels" | "chats" | "meetings" | "calendar") => void;
   calendarSidebarFilter?: "today" | "week" | "month";
   onCalendarSidebarFilterChange?: (filter: "today" | "week" | "month") => void;
 }
@@ -503,46 +503,17 @@ export default function NexusSidebar({
                 </TooltipTrigger>
                 <TooltipContent side="right" className="text-xs">{t.nexusOmni.teams.meetingsAndRecordings}</TooltipContent>
               </Tooltip>
-            </>
-          )}
-
-          {activeTab === "calendar" && calendarSidebarFilter !== undefined && onCalendarSidebarFilterChange && (
-            <>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
-                    onClick={() => onCalendarSidebarFilterChange("today")}
-                    className={`p-2 rounded-md transition-all ${calendarSidebarFilter === "today" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-accent/50"}`}
-                    data-testid="calendar-collapsed-today"
+                    onClick={() => onTeamsSidebarFilterChange("calendar")}
+                    className={`p-2 rounded-md transition-all ${teamsSidebarFilter === "calendar" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-accent/50"}`}
+                    data-testid="teams-collapsed-calendar"
                   >
                     <CalendarDays className="h-5 w-5 text-rose-500" />
                   </button>
                 </TooltipTrigger>
-                <TooltipContent side="right" className="text-xs">{t.nexusOmni.calendar?.today || "Today"}</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={() => onCalendarSidebarFilterChange("week")}
-                    className={`p-2 rounded-md transition-all ${calendarSidebarFilter === "week" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-accent/50"}`}
-                    data-testid="calendar-collapsed-week"
-                  >
-                    <CalendarRange className="h-5 w-5 text-amber-500" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="right" className="text-xs">{t.nexusOmni.calendar?.thisWeek || "This Week"}</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={() => onCalendarSidebarFilterChange("month")}
-                    className={`p-2 rounded-md transition-all ${calendarSidebarFilter === "month" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-accent/50"}`}
-                    data-testid="calendar-collapsed-month"
-                  >
-                    <CalendarRange className="h-5 w-5 text-emerald-500" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="right" className="text-xs">{t.nexusOmni.calendar?.thisMonth || "This Month"}</TooltipContent>
+                <TooltipContent side="right" className="text-xs">{t.nexusOmni.tabs.calendar}</TooltipContent>
               </Tooltip>
             </>
           )}
@@ -866,33 +837,13 @@ export default function NexusSidebar({
                 small
                 testId="teams-sidebar-meetings"
               />
-            </>
-          )}
-
-          {activeTab === "calendar" && calendarSidebarFilter !== undefined && onCalendarSidebarFilterChange && (
-            <>
               <SidebarItem
-                icon={<CalendarDays className="h-4 w-4 text-rose-500" />}
-                label={t.nexusOmni.calendar?.today || "Today"}
-                active={calendarSidebarFilter === "today"}
-                onClick={() => onCalendarSidebarFilterChange("today")}
-                testId="calendar-sidebar-today"
-              />
-              <SidebarItem
-                icon={<CalendarRange className="h-3.5 w-3.5 text-amber-500" />}
-                label={t.nexusOmni.calendar?.thisWeek || "This Week"}
-                active={calendarSidebarFilter === "week"}
-                onClick={() => onCalendarSidebarFilterChange("week")}
+                icon={<CalendarDays className="h-3.5 w-3.5 text-rose-500" />}
+                label={t.nexusOmni.tabs.calendar}
+                active={teamsSidebarFilter === "calendar"}
+                onClick={() => onTeamsSidebarFilterChange("calendar")}
                 small
-                testId="calendar-sidebar-week"
-              />
-              <SidebarItem
-                icon={<CalendarRange className="h-3.5 w-3.5 text-emerald-500" />}
-                label={t.nexusOmni.calendar?.thisMonth || "This Month"}
-                active={calendarSidebarFilter === "month"}
-                onClick={() => onCalendarSidebarFilterChange("month")}
-                small
-                testId="calendar-sidebar-month"
+                testId="teams-sidebar-calendar"
               />
             </>
           )}
