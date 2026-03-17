@@ -13537,7 +13537,9 @@ Return ONLY valid JSON, no markdown code blocks.`,
         if (collabSipExt) {
           const ext = await storage.getSipExtensionById(collabSipExt);
           if (ext) {
-            syncCallerIdToAllAsteriskServers(ext.extension, outboundCallerId || null).catch(() => {});
+            syncCallerIdToAllAsteriskServers(ext.extension, outboundCallerId || null).catch((err) => {
+              console.error(`[AsteriskSync] Failed to sync caller ID for ext ${ext.extension}:`, err instanceof Error ? err.message : err);
+            });
           }
         }
       }
