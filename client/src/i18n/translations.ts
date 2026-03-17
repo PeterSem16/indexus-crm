@@ -1069,6 +1069,9 @@ export interface Translations {
       sipExtensionNone: string;
       callRecording: string;
       callRecordingDesc: string;
+      outboundCallerId: string;
+      outboundCallerIdPlaceholder: string;
+      outboundCallerIdDesc: string;
       assignedExtension: string;
     };
     connectDescription: string;
@@ -6126,6 +6129,9 @@ export const translations: Record<Locale, Translations> = {
         sipExtensionNone: 'No extension assigned',
         callRecording: 'Call recording',
         callRecordingDesc: 'Record all calls made via the mobile app',
+        outboundCallerId: 'Outbound Caller ID',
+        outboundCallerIdPlaceholder: '+421 XXX XXX XXX',
+        outboundCallerIdDesc: 'Phone number presented as caller ID for outbound calls from the mobile app',
         assignedExtension: 'Assigned extension',
       },
       connectDescription: 'Call history, visits and activities from INDEXUS Connect',
@@ -10646,6 +10652,9 @@ export const translations: Record<Locale, Translations> = {
         sipExtensionNone: 'Žiadna klapka priradená',
         callRecording: 'Nahrávanie hovorov',
         callRecordingDesc: 'Nahrávať všetky hovory uskutočnené cez mobilnú aplikáciu',
+        outboundCallerId: 'Odchádzajúce telefónne číslo',
+        outboundCallerIdPlaceholder: '+421 XXX XXX XXX',
+        outboundCallerIdDesc: 'Telefónne číslo zobrazené ako ID volajúceho pri odchádzajúcich hovoroch z mobilnej aplikácie',
         assignedExtension: 'Priradená klapka',
       },
       connectDescription: 'História hovorov, návštev a aktivít z INDEXUS Connect',
@@ -15105,6 +15114,9 @@ export const translations: Record<Locale, Translations> = {
         sipExtensionNone: 'Žádná klapka přiřazena',
         callRecording: 'Nahrávání hovorů',
         callRecordingDesc: 'Nahrávat všechny hovory uskutečněné přes mobilní aplikaci',
+        outboundCallerId: 'Odchozí telefonní číslo',
+        outboundCallerIdPlaceholder: '+420 XXX XXX XXX',
+        outboundCallerIdDesc: 'Telefonní číslo zobrazené jako ID volajícího při odchozích hovorech z mobilní aplikace',
         assignedExtension: 'Přiřazená klapka',
       },
       connectDescription: 'Historie hovorů, návštěv a aktivit z INDEXUS Connect',
@@ -19527,6 +19539,9 @@ export const translations: Record<Locale, Translations> = {
         sipExtensionNone: 'Nincs mellék hozzárendelve',
         callRecording: 'Hívásrögzítés',
         callRecordingDesc: 'Az összes mobilalkalmazáson keresztüli hívás rögzítése',
+        outboundCallerId: 'Kimenő hívószám',
+        outboundCallerIdPlaceholder: '+36 XX XXX XXXX',
+        outboundCallerIdDesc: 'A mobilalkalmazásból indított kimenő hívásoknál megjelenő hívószám',
         assignedExtension: 'Hozzárendelt mellék',
       },
       connectDescription: 'Hívástörténet, látogatások és tevékenységek az INDEXUS Connectből',
@@ -23948,6 +23963,9 @@ export const translations: Record<Locale, Translations> = {
         sipExtensionNone: 'Nicio extensie atribuită',
         callRecording: 'Înregistrarea apelurilor',
         callRecordingDesc: 'Înregistrați toate apelurile efectuate prin aplicația mobilă',
+        outboundCallerId: 'Număr de telefon de ieșire',
+        outboundCallerIdPlaceholder: '+40 XXX XXX XXX',
+        outboundCallerIdDesc: 'Numărul de telefon afișat ca ID apelant la apelurile de ieșire din aplicația mobilă',
         assignedExtension: 'Extensie atribuită',
       },
       connectDescription: 'Istoricul apelurilor, vizitelor și activităților din INDEXUS Connect',
@@ -28370,6 +28388,9 @@ export const translations: Record<Locale, Translations> = {
         sipExtensionNone: 'Nessun interno assegnato',
         callRecording: 'Registrazione chiamate',
         callRecordingDesc: "Registra tutte le chiamate effettuate tramite l'app mobile",
+        outboundCallerId: 'Numero chiamante in uscita',
+        outboundCallerIdPlaceholder: '+39 XXX XXX XXXX',
+        outboundCallerIdDesc: "Numero di telefono visualizzato come ID chiamante per le chiamate in uscita dall'app mobile",
         assignedExtension: 'Interno assegnato',
       },
       connectDescription: "Cronologia chiamate, visite e attività da INDEXUS Connect",
@@ -32792,6 +32813,9 @@ export const translations: Record<Locale, Translations> = {
         sipExtensionNone: 'Keine Nebenstelle zugewiesen',
         callRecording: 'Anrufaufzeichnung',
         callRecordingDesc: 'Alle über die mobile App getätigten Anrufe aufzeichnen',
+        outboundCallerId: 'Ausgehende Anrufer-ID',
+        outboundCallerIdPlaceholder: '+49 XXX XXX XXXX',
+        outboundCallerIdDesc: 'Telefonnummer, die als Anrufer-ID bei ausgehenden Anrufen über die mobile App angezeigt wird',
         assignedExtension: 'Zugewiesene Nebenstelle',
       },
       connectDescription: 'Anrufverlauf, Besuche und Aktivitäten aus INDEXUS Connect',

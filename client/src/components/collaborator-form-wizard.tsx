@@ -2329,6 +2329,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
     mobileWebrtcEnabled: initialData?.mobileWebrtcEnabled ?? false,
     mobileSipExtensionId: initialData?.mobileSipExtensionId ?? "",
     mobileCallRecording: initialData?.mobileCallRecording ?? true,
+    outboundCallerId: (initialData as any)?.outboundCallerId ?? "",
   });
   const [avatarUrl, setAvatarUrl] = useState<string | null>(initialData?.avatarUrl || null);
   const [avatarUploading, setAvatarUploading] = useState(false);
@@ -2546,10 +2547,12 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
           mobileData.mobileWebrtcEnabled = mobileCredentials.mobileWebrtcEnabled;
           mobileData.mobileSipExtensionId = mobileCredentials.mobileSipExtensionId || null;
           mobileData.mobileCallRecording = mobileCredentials.mobileCallRecording;
+          mobileData.outboundCallerId = mobileCredentials.outboundCallerId || null;
         } else {
           mobileData.mobileWebrtcEnabled = false;
           mobileData.mobileSipExtensionId = null;
           mobileData.mobileCallRecording = true;
+          mobileData.outboundCallerId = null;
         }
         
         await apiRequest("PUT", `/api/collaborators/${collaboratorId}/mobile-credentials`, mobileData);
@@ -3459,6 +3462,17 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
                                 ))}
                               </SelectContent>
                             </Select>
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label>{t.collaborators.mobileApp?.outboundCallerId || 'Outbound Caller ID'}</Label>
+                            <Input
+                              value={mobileCredentials.outboundCallerId}
+                              onChange={(e) => setMobileCredentials({ ...mobileCredentials, outboundCallerId: e.target.value })}
+                              placeholder={t.collaborators.mobileApp?.outboundCallerIdPlaceholder || '+421 XXX XXX XXX'}
+                              data-testid="wizard-input-outbound-caller-id"
+                            />
+                            <p className="text-xs text-muted-foreground">{t.collaborators.mobileApp?.outboundCallerIdDesc || 'Phone number presented as caller ID for outbound calls from the mobile app'}</p>
                           </div>
 
                           <div className="flex items-center space-x-2">

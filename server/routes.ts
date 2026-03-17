@@ -13437,7 +13437,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
 
   app.put("/api/collaborators/:id/mobile-credentials", requireAuth, async (req, res) => {
     try {
-      const { mobileAppEnabled, mobileUsername, mobilePassword, mobileWebrtcEnabled, mobileSipExtensionId, mobileCallRecording } = req.body;
+      const { mobileAppEnabled, mobileUsername, mobilePassword, mobileWebrtcEnabled, mobileSipExtensionId, mobileCallRecording, outboundCallerId } = req.body;
       
       if (typeof mobileAppEnabled !== 'boolean') {
         return res.status(400).json({ error: "mobileAppEnabled is required" });
@@ -13474,6 +13474,9 @@ Return ONLY valid JSON, no markdown code blocks.`,
       }
       if (mobileSipExtensionId !== undefined) {
         webrtcUpdate.mobileSipExtensionId = mobileSipExtensionId || null;
+      }
+      if (outboundCallerId !== undefined) {
+        webrtcUpdate.outboundCallerId = outboundCallerId || null;
       }
       if (Object.keys(webrtcUpdate).length > 0) {
         await storage.updateCollaborator(req.params.id, webrtcUpdate);
