@@ -46,6 +46,7 @@ import {
   User,
   Users,
   Layers,
+  HardDrive,
 } from "lucide-react";
 import type { MailFolder, SmsMessage, Task, ChatConversation, NexusTab, TaskFilter, SmsFilter } from "./nexus-types";
 import { useI18n } from "@/i18n/I18nProvider";
@@ -209,6 +210,7 @@ export default function NexusSidebar({
     tasks: { title: t.nexusOmni.tabs.tasks, icon: <ListTodo className="h-3.5 w-3.5 text-amber-500" /> },
     chats: { title: t.nexusOmni.tabs.chats, icon: <MessagesSquare className="h-3.5 w-3.5 text-violet-500" /> },
     teams: { title: t.nexusOmni.tabs.teams, icon: <MessagesSquare className="h-3.5 w-3.5 text-indigo-500" /> },
+    nexuspoint: { title: t.nexusOmni.tabs.nexuspoint, icon: <HardDrive className="h-3.5 w-3.5 text-emerald-500" /> },
   };
 
   if (collapsed) {
