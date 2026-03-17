@@ -47,6 +47,11 @@ import {
   Users,
   Layers,
   HardDrive,
+  CalendarDays,
+  Video,
+  MessageCircle,
+  Hash,
+  LayoutList,
 } from "lucide-react";
 import type { MailFolder, SmsMessage, Task, ChatConversation, NexusTab, TaskFilter, SmsFilter } from "./nexus-types";
 import { useI18n } from "@/i18n/I18nProvider";
@@ -131,6 +136,8 @@ interface NexusSidebarProps {
   selectedMailbox?: string;
   onSelectMailbox?: (mailbox: string) => void;
   mailboxUnreadCounts?: Record<string, number>;
+  teamsSidebarFilter?: "all" | "activity" | "channels" | "chats" | "meetings";
+  onTeamsSidebarFilterChange?: (filter: "all" | "activity" | "channels" | "chats" | "meetings") => void;
 }
 
 function getWellKnownFolders(t: any): Record<string, { icon: React.ReactNode; iconCollapsed: React.ReactNode; label: string; order: number }> {
@@ -179,6 +186,8 @@ export default function NexusSidebar({
   selectedMailbox,
   onSelectMailbox,
   mailboxUnreadCounts,
+  teamsSidebarFilter,
+  onTeamsSidebarFilterChange,
 }: NexusSidebarProps) {
   const { t } = useI18n();
   const [showOtherFolders, setShowOtherFolders] = useState(false);
@@ -210,6 +219,7 @@ export default function NexusSidebar({
     tasks: { title: t.nexusOmni.tabs.tasks, icon: <ListTodo className="h-3.5 w-3.5 text-amber-500" /> },
     chats: { title: t.nexusOmni.tabs.chats, icon: <MessagesSquare className="h-3.5 w-3.5 text-violet-500" /> },
     teams: { title: t.nexusOmni.tabs.teams, icon: <MessagesSquare className="h-3.5 w-3.5 text-indigo-500" /> },
+    calendar: { title: t.nexusOmni.tabs.calendar, icon: <CalendarDays className="h-3.5 w-3.5 text-rose-500" /> },
     nexuspoint: { title: t.nexusOmni.tabs.nexuspoint, icon: <HardDrive className="h-3.5 w-3.5 text-emerald-500" /> },
   };
 
@@ -425,6 +435,72 @@ export default function NexusSidebar({
               )}
             </>
           )}
+
+          {activeTab === "teams" && teamsSidebarFilter !== undefined && onTeamsSidebarFilterChange && (
+            <>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => onTeamsSidebarFilterChange("all")}
+                    className={`p-2 rounded-md transition-all ${teamsSidebarFilter === "all" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-accent/50"}`}
+                    data-testid="teams-collapsed-all"
+                  >
+                    <LayoutList className="h-5 w-5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="right" className="text-xs">{t.nexusOmni.common.all}</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => onTeamsSidebarFilterChange("activity")}
+                    className={`p-2 rounded-md transition-all ${teamsSidebarFilter === "activity" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-accent/50"}`}
+                    data-testid="teams-collapsed-activity"
+                  >
+                    <Bell className="h-5 w-5 text-orange-500" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="right" className="text-xs">{t.nexusOmni.teams.activity || "Activity"}</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => onTeamsSidebarFilterChange("chats")}
+                    className={`p-2 rounded-md transition-all ${teamsSidebarFilter === "chats" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-accent/50"}`}
+                    data-testid="teams-collapsed-chats"
+                  >
+                    <MessageCircle className="h-5 w-5 text-blue-500" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="right" className="text-xs">{t.nexusOmni.tabs.chats}</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => onTeamsSidebarFilterChange("channels")}
+                    className={`p-2 rounded-md transition-all ${teamsSidebarFilter === "channels" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-accent/50"}`}
+                    data-testid="teams-collapsed-channels"
+                  >
+                    <Hash className="h-5 w-5 text-emerald-500" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="right" className="text-xs">{t.nexusOmni.email.channels}</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => onTeamsSidebarFilterChange("meetings")}
+                    className={`p-2 rounded-md transition-all ${teamsSidebarFilter === "meetings" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-accent/50"}`}
+                    data-testid="teams-collapsed-meetings"
+                  >
+                    <Video className="h-5 w-5 text-indigo-500" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="right" className="text-xs">{t.nexusOmni.teams.meetingsAndRecordings}</TooltipContent>
+              </Tooltip>
+            </>
+          )}
+
           {activeTab === "email" && mailboxes && mailboxes.length > 0 && (
             <div className="mt-auto pt-2 border-t flex flex-col items-center gap-1">
               {mailboxes.length > 1 && (
@@ -700,6 +776,50 @@ export default function NexusSidebar({
                   <span className="text-xs">{t.nexusOmni.chats.noConversations}</span>
                 </div>
               )}
+            </>
+          )}
+
+          {activeTab === "teams" && teamsSidebarFilter !== undefined && onTeamsSidebarFilterChange && (
+            <>
+              <SidebarItem
+                icon={<LayoutList className="h-4 w-4" />}
+                label={t.nexusOmni.common.all}
+                active={teamsSidebarFilter === "all"}
+                onClick={() => onTeamsSidebarFilterChange("all")}
+                testId="teams-sidebar-all"
+              />
+              <SidebarItem
+                icon={<Bell className="h-4 w-4 text-orange-500" />}
+                label={t.nexusOmni.teams.activity || "Activity"}
+                active={teamsSidebarFilter === "activity"}
+                onClick={() => onTeamsSidebarFilterChange("activity")}
+                testId="teams-sidebar-activity"
+              />
+              <div className="my-1 mx-2 border-t" />
+              <SidebarItem
+                icon={<MessageCircle className="h-3.5 w-3.5 text-blue-500" />}
+                label={t.nexusOmni.tabs.chats}
+                active={teamsSidebarFilter === "chats"}
+                onClick={() => onTeamsSidebarFilterChange("chats")}
+                small
+                testId="teams-sidebar-chats"
+              />
+              <SidebarItem
+                icon={<Hash className="h-3.5 w-3.5 text-emerald-500" />}
+                label={t.nexusOmni.email.channels}
+                active={teamsSidebarFilter === "channels"}
+                onClick={() => onTeamsSidebarFilterChange("channels")}
+                small
+                testId="teams-sidebar-channels"
+              />
+              <SidebarItem
+                icon={<Video className="h-3.5 w-3.5 text-indigo-500" />}
+                label={t.nexusOmni.teams.meetingsAndRecordings}
+                active={teamsSidebarFilter === "meetings"}
+                onClick={() => onTeamsSidebarFilterChange("meetings")}
+                small
+                testId="teams-sidebar-meetings"
+              />
             </>
           )}
         </div>

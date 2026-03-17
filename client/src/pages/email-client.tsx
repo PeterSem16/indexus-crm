@@ -1272,7 +1272,7 @@ function CalendarPanel({ onCreateMeeting }: { onCreateMeeting: () => void }) {
   );
 }
 
-function TeamsPanel({ userId }: { userId?: string }) {
+function TeamsPanel({ userId, sidebarFilter, setSidebarFilter }: { userId?: string; sidebarFilter: "all" | "activity" | "channels" | "chats" | "meetings"; setSidebarFilter: (f: "all" | "activity" | "channels" | "chats" | "meetings") => void }) {
   const [selectedTeamsChatId, setSelectedTeamsChatId] = useState<string | null>(null);
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
@@ -1666,7 +1666,6 @@ function TeamsPanel({ userId }: { userId?: string }) {
     return `${memberNames.slice(0, 2).join(', ')}, +${memberNames.length - 2}`;
   };
 
-  const [sidebarFilter, setSidebarFilter] = useState<"all" | "activity" | "channels" | "chats" | "meetings">("all");
 
   const { data: activityData, isLoading: activityLoading } = useQuery<{ activities: any[] }>({
     queryKey: ["/api/users", userId, "teams-activity"],
@@ -1786,26 +1785,7 @@ function TeamsPanel({ userId }: { userId?: string }) {
                 </button>
               )}
             </div>
-            <div className="flex gap-1">
-              {[
-                { key: "all" as const, label: "All" },
-                { key: "activity" as const, label: t.nexusOmni.teams.activity || "Activity" },
-                { key: "chats" as const, label: t.nexusOmni.tabs.chats },
-                { key: "channels" as const, label: t.nexusOmni.email.channels },
-                { key: "meetings" as const, label: t.nexusOmni.teams.meetingsAndRecordings },
-              ].map(item => (
-                <button
-                  key={item.key}
-                  className={cn("px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors",
-                    sidebarFilter === item.key ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-accent"
-                  )}
-                  onClick={() => setSidebarFilter(item.key)}
-                  data-testid={`teams-filter-${item.key}`}
-                >
-                  {item.label}
-                </button>
-              ))}
-            </div>
+            
           </div>
           <ScrollArea className="flex-1">
             <div className="py-1">
@@ -2782,6 +2762,7 @@ export default function EmailClientPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [activeTab, setActiveTab] = useState<NexusTab>("email");
+  const [teamsSidebarFilter, setTeamsSidebarFilter] = useState<"all" | "activity" | "channels" | "chats" | "meetings">("all");
   const [selectedMailbox, setSelectedMailbox] = useState<string>("personal");
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [selectedEmail, setSelectedEmail] = useState<EmailMessage | null>(null);
@@ -4259,6 +4240,8 @@ export default function EmailClientPage() {
           mailboxes={sidebarMailboxes}
           selectedMailbox={selectedMailbox}
           onSelectMailbox={handleSidebarMailboxSelect}
+          teamsSidebarFilter={teamsSidebarFilter}
+          onTeamsSidebarFilterChange={setTeamsSidebarFilter}
         />
 
         {activeTab === "email" && (
@@ -4953,7 +4936,7 @@ export default function EmailClientPage() {
         )}
 
         {activeTab === "teams" && (
-          <TeamsPanel userId={user?.id} />
+          <TeamsPanel userId={user?.id} sidebarFilter={teamsSidebarFilter} setSidebarFilter={setTeamsSidebarFilter} />
         )}
 
         {activeTab === "calendar" && (
