@@ -1119,12 +1119,17 @@ function CalendarPanel({ onCreateMeeting, calendarFilter }: { onCreateMeeting: (
   const { t } = useI18n();
   const { user } = useAuth();
   const now = new Date();
-  const calStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const calEnd = calendarFilter === "today"
-    ? new Date(calStart.getTime() + 1 * 24 * 60 * 60 * 1000)
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const calStart = calendarFilter === "today"
+    ? todayStart
     : calendarFilter === "week"
-    ? new Date(calStart.getTime() + 7 * 24 * 60 * 60 * 1000)
-    : new Date(calStart.getFullYear(), calStart.getMonth() + 1, 0, 23, 59, 59);
+    ? new Date(todayStart.getTime() - 7 * 24 * 60 * 60 * 1000)
+    : new Date(now.getFullYear(), now.getMonth(), 1);
+  const calEnd = calendarFilter === "today"
+    ? new Date(todayStart.getTime() + 1 * 24 * 60 * 60 * 1000)
+    : calendarFilter === "week"
+    ? new Date(todayStart.getTime() + 7 * 24 * 60 * 60 * 1000)
+    : new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
 
   const { data: calendarEvents = [], isLoading: calLoading } = useQuery<any[]>({
     queryKey: ["/api/ms365/calendar", "full", calStart.toISOString(), calendarFilter],
@@ -1276,25 +1281,12 @@ function CalendarPanel({ onCreateMeeting, calendarFilter }: { onCreateMeeting: (
   );
 }
 
-function TeamsPanel({ userId, sidebarFilter, setSidebarFilter }: { userId?: string; sidebarFilter: "all" | "activity" | "channels" | "chats" | "meetings" | "calendar"; setSidebarFilter: (f: "all" | "activity" | "channels" | "chats" | "meetings" | "calendar") => void }) {
+function TeamsPanel({ userId, sidebarFilter, setSidebarFilter, onOpenMeetingDialog }: { userId?: string; sidebarFilter: "all" | "activity" | "channels" | "chats" | "meetings" | "calendar"; setSidebarFilter: (f: "all" | "activity" | "channels" | "chats" | "meetings" | "calendar") => void; onOpenMeetingDialog: () => void }) {
   const [selectedTeamsChatId, setSelectedTeamsChatId] = useState<string | null>(null);
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
   const [teamsView, setTeamsView] = useState<"chats" | "teams">("chats");
   const [chatInput, setChatInput] = useState("");
-  const [meetingDialogOpen, setMeetingDialogOpen] = useState(false);
-  const [meetingSubject, setMeetingSubject] = useState("");
-  const [meetingLink, setMeetingLink] = useState<string | null>(null);
-  const [activeMeeting, setActiveMeeting] = useState<{ subject: string; joinUrl: string; startTime: number } | null>(null);
-  const [meetingElapsed, setMeetingElapsed] = useState(0);
-  const [meetingDate, setMeetingDate] = useState("");
-  const [meetingStartTime, setMeetingStartTime] = useState("");
-  const [meetingEndTime, setMeetingEndTime] = useState("");
-  const [meetingParticipants, setMeetingParticipants] = useState<{email: string; displayName?: string}[]>([]);
-  const [participantInput, setParticipantInput] = useState("");
-  const [peopleSuggestions, setPeopleSuggestions] = useState<{displayName: string; email: string}[]>([]);
-  const [showPeopleSuggestions, setShowPeopleSuggestions] = useState(false);
-  const peopleSearchRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [selectedMeetingId, setSelectedMeetingId] = useState<string | null>(null);
   const [meetingTranscriptContent, setMeetingTranscriptContent] = useState<string | null>(null);
   const [meetingAiSummary, setMeetingAiSummary] = useState<string | null>(null);
@@ -1474,21 +1466,6 @@ function TeamsPanel({ userId, sidebarFilter, setSidebarFilter }: { userId?: stri
     return () => clearInterval(iv);
   }, [upcomingMeetings, toast, t]);
 
-  useEffect(() => {
-    if (!activeMeeting) { setMeetingElapsed(0); return; }
-    const iv = setInterval(() => setMeetingElapsed(Math.floor((Date.now() - activeMeeting.startTime) / 1000)), 1000);
-    return () => clearInterval(iv);
-  }, [activeMeeting]);
-
-  const formatElapsed = (s: number) => {
-    const h = Math.floor(s / 3600);
-    const m = Math.floor((s % 3600) / 60);
-    const sec = s % 60;
-    return h > 0
-      ? `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`
-      : `${m}:${String(sec).padStart(2, '0')}`;
-  };
-
   const sendMutation = useMutation({
     mutationFn: async (content: string) => {
       return apiRequest("POST", `/api/users/${userId}/teams-chats/${selectedTeamsChatId}/messages`, { content });
@@ -1526,91 +1503,6 @@ function TeamsPanel({ userId, sidebarFilter, setSidebarFilter }: { userId?: stri
     },
   });
 
-  const meetingMutation = useMutation({
-    mutationFn: async ({ subject, participantEmails, startDateTime, endDateTime }: { subject: string; participantEmails?: string[]; startDateTime?: string; endDateTime?: string }) => {
-      return apiRequest("POST", `/api/users/${userId}/teams-meeting`, { subject, participantEmails, startDateTime, endDateTime });
-    },
-    onSuccess: async (res: any) => {
-      const data = await res.json();
-      if (data.joinUrl) {
-        setMeetingLink(data.joinUrl);
-        setActiveMeeting({ subject: data.subject || meetingSubject || 'NEXUS Meeting', joinUrl: data.joinUrl, startTime: Date.now() });
-        toast({ title: t.nexusOmni.teams.meetingCreated });
-        setMeetingDate("");
-        setMeetingStartTime("");
-        setMeetingEndTime("");
-        setMeetingParticipants([]);
-        setParticipantInput("");
-        queryClient.invalidateQueries({ queryKey: ["/api/ms365/calendar", "upcoming"] });
-        queryClient.invalidateQueries({ queryKey: ["/api/users", userId, "teams-meetings"] });
-      }
-    },
-    onError: () => {
-      toast({ title: t.nexusOmni.teams.meetingError, variant: "destructive" });
-    },
-  });
-
-  const handleInstantMeeting = (participantEmails?: string[]) => {
-    const sc = chats.find(c => c.id === selectedTeamsChatId);
-    const subject = sc ? `${t.nexusOmni.teams.meetingWith} ${sc.topic || 'Chat'}` : 'NEXUS Meeting';
-    setMeetingSubject(subject);
-    meetingMutation.mutate({ subject, participantEmails });
-  };
-
-  const searchPeopleDebounced = (query: string) => {
-    if (peopleSearchRef.current) clearTimeout(peopleSearchRef.current);
-    if (!query || query.length < 2) { setPeopleSuggestions([]); setShowPeopleSuggestions(false); return; }
-    peopleSearchRef.current = setTimeout(async () => {
-      try {
-        const res = await fetch(`/api/ms365/people/search?q=${encodeURIComponent(query)}`, { credentials: "include" });
-        if (res.ok) {
-          const data = await res.json();
-          const existing = new Set(meetingParticipants.map(p => p.email));
-          setPeopleSuggestions((data || []).filter((p: any) => !existing.has(p.email)));
-          setShowPeopleSuggestions(true);
-        }
-      } catch { setPeopleSuggestions([]); }
-    }, 300);
-  };
-
-  const addParticipant = (email: string, displayName?: string) => {
-    const trimmed = email.trim().toLowerCase();
-    if (trimmed && trimmed.includes("@") && !meetingParticipants.some(p => p.email === trimmed)) {
-      setMeetingParticipants([...meetingParticipants, { email: trimmed, displayName }]);
-    }
-    setParticipantInput("");
-    setPeopleSuggestions([]);
-    setShowPeopleSuggestions(false);
-  };
-
-  const removeParticipant = (email: string) => {
-    setMeetingParticipants(meetingParticipants.filter(p => p.email !== email));
-  };
-
-  const handleCreateScheduledMeeting = () => {
-    const subj = meetingSubject.trim() || 'NEXUS Meeting';
-    const sc = chats.find(c => c.id === selectedTeamsChatId);
-    const chatEmails = sc?.members?.map((m: any) => m.email).filter(Boolean) || [];
-    const participantEmails = meetingParticipants.map(p => p.email);
-    const allEmails = [...new Set([...participantEmails, ...chatEmails])];
-    let startDateTime: string | undefined;
-    let endDateTime: string | undefined;
-    if (meetingDate && meetingStartTime) {
-      startDateTime = new Date(`${meetingDate}T${meetingStartTime}`).toISOString();
-      if (meetingEndTime) {
-        endDateTime = new Date(`${meetingDate}T${meetingEndTime}`).toISOString();
-      } else {
-        endDateTime = new Date(new Date(`${meetingDate}T${meetingStartTime}`).getTime() + 60 * 60 * 1000).toISOString();
-      }
-    }
-    meetingMutation.mutate({ subject: subj, participantEmails: allEmails.length > 0 ? allEmails : undefined, startDateTime, endDateTime });
-  };
-
-  const endMeeting = () => {
-    setActiveMeeting(null);
-    setMeetingLink(null);
-    setMeetingDialogOpen(false);
-  };
 
   const permError = chatsData?.error === "missing_permissions" || teamsData?.error === "missing_permissions";
 
@@ -1766,7 +1658,7 @@ function TeamsPanel({ userId, sidebarFilter, setSidebarFilter }: { userId?: stri
               <div className="flex items-center gap-0.5">
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setMeetingDialogOpen(true); setMeetingLink(null); setMeetingSubject(""); }} data-testid="button-new-meeting">
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onOpenMeetingDialog} data-testid="button-new-meeting">
                       <Video className="h-4 w-4" />
                     </Button>
                   </TooltipTrigger>
@@ -2038,132 +1930,7 @@ function TeamsPanel({ userId, sidebarFilter, setSidebarFilter }: { userId?: stri
       </Card>
       <Card className="transition-all duration-300 flex-1 min-w-0">
         <CardContent className="p-0 h-full">
-          {activeMeeting ? (
-            <div className="flex flex-col h-full dark:bg-[#292929]">
-              <div className="p-3 border-b bg-gradient-to-r from-indigo-600 to-violet-600 text-white flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="h-10 w-10 rounded-full bg-white/20 flex items-center justify-center shrink-0">
-                    <Video className="h-5 w-5" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold truncate">{activeMeeting.subject}</p>
-                    <div className="flex items-center gap-2 text-xs text-white/80">
-                      <span className="flex items-center gap-1">
-                        <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-                        {t.nexusOmni.teams.meetingCreated}
-                      </span>
-                      <span className="font-mono tabular-nums">{formatElapsed(meetingElapsed)}</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-white hover:bg-white/20"
-                        onClick={() => { navigator.clipboard.writeText(activeMeeting.joinUrl); toast({ title: t.nexusOmni.teams.linkCopied }); }}
-                        data-testid="button-copy-active-meeting"
-                      >
-                        <Copy className="h-4 w-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>{t.nexusOmni.teams.meetingLink}</TooltipContent>
-                  </Tooltip>
-                  {selectedTeamsChatId && (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-white hover:bg-white/20"
-                          onClick={() => {
-                            sendMutation.mutate(`<a href="${activeMeeting.joinUrl}">${t.nexusOmni.teams.joinMeeting}: ${activeMeeting.joinUrl}</a>`);
-                            toast({ title: t.nexusOmni.teams.linkCopied });
-                          }}
-                          data-testid="button-share-active-meeting"
-                        >
-                          <Send className="h-4 w-4" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Share to chat</TooltipContent>
-                    </Tooltip>
-                  )}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 text-xs gap-1.5 bg-red-500/80 hover:bg-red-600 text-white border-0"
-                    onClick={endMeeting}
-                    data-testid="button-end-meeting"
-                  >
-                    <Phone className="h-3.5 w-3.5 rotate-[135deg]" />
-                    {t.nexusOmni.common.close}
-                  </Button>
-                </div>
-              </div>
-              <div className="flex-1 flex flex-col">
-                <div className="flex-1 bg-gradient-to-b from-slate-900 to-slate-800 flex flex-col items-center justify-center relative overflow-hidden">
-                  <div className="absolute inset-0 opacity-5">
-                    <div className="absolute top-1/4 left-1/4 h-64 w-64 rounded-full bg-indigo-500 blur-3xl" />
-                    <div className="absolute bottom-1/4 right-1/4 h-48 w-48 rounded-full bg-violet-500 blur-3xl" />
-                  </div>
-                  <div className="relative z-10 flex flex-col items-center gap-6 text-white">
-                    <div className="h-24 w-24 rounded-full bg-indigo-600/30 border-2 border-indigo-400/50 flex items-center justify-center">
-                      <Video className="h-10 w-10 text-indigo-300" />
-                    </div>
-                    <div className="text-center">
-                      <p className="text-lg font-semibold mb-1">{activeMeeting.subject}</p>
-                      <p className="text-sm text-white/60 mb-1">{t.nexusOmni.teams.meetingLink}</p>
-                      <p className="text-3xl font-mono tabular-nums text-white/90">{formatElapsed(meetingElapsed)}</p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <Button
-                        size="lg"
-                        className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-600/30 px-8"
-                        onClick={() => window.open(activeMeeting.joinUrl, "_blank")}
-                        data-testid="button-join-active-meeting"
-                      >
-                        <Video className="h-5 w-5" />
-                        {t.nexusOmni.teams.joinMeeting}
-                      </Button>
-                    </div>
-                    <div className="flex items-center gap-4 mt-2">
-                      <button
-                        className="flex flex-col items-center gap-1.5 text-white/60 hover:text-white transition-colors"
-                        onClick={() => { navigator.clipboard.writeText(activeMeeting.joinUrl); toast({ title: t.nexusOmni.teams.linkCopied }); }}
-                        data-testid="button-copy-link-meeting-view"
-                      >
-                        <div className="h-10 w-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors">
-                          <Copy className="h-4 w-4" />
-                        </div>
-                        <span className="text-[10px]">{t.nexusOmni.teams.meetingLink}</span>
-                      </button>
-                      <button
-                        className="flex flex-col items-center gap-1.5 text-white/60 hover:text-white transition-colors"
-                        onClick={() => window.open(activeMeeting.joinUrl, "_blank")}
-                      >
-                        <div className="h-10 w-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors">
-                          <ExternalLink className="h-4 w-4" />
-                        </div>
-                        <span className="text-[10px]">{t.nexusOmni.teams.openInTeams}</span>
-                      </button>
-                      <button
-                        className="flex flex-col items-center gap-1.5 text-red-400 hover:text-red-300 transition-colors"
-                        onClick={endMeeting}
-                        data-testid="button-hangup-meeting"
-                      >
-                        <div className="h-10 w-10 rounded-full bg-red-500/20 hover:bg-red-500/40 flex items-center justify-center transition-colors">
-                          <Phone className="h-4 w-4 rotate-[135deg]" />
-                        </div>
-                        <span className="text-[10px]">{t.nexusOmni.common.close}</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ) : selectedTeamsChatId ? (
+          {selectedTeamsChatId ? (
             msgsLoading ? (
               <div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
             ) : (
@@ -2193,14 +1960,10 @@ function TeamsPanel({ userId, sidebarFilter, setSidebarFilter }: { userId?: stri
                           variant="ghost"
                           size="icon"
                           className="h-9 w-9"
-                          onClick={() => {
-                            const emails = selectedChat?.members?.map((m: any) => m.email).filter(Boolean) || [];
-                            handleInstantMeeting(emails);
-                          }}
-                          disabled={meetingMutation.isPending}
+                          onClick={onOpenMeetingDialog}
                           data-testid="button-instant-meeting"
                         >
-                          {meetingMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Video className="h-4 w-4" />}
+                          <Video className="h-4 w-4" />
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent>{t.nexusOmni.teams.instantMeeting}</TooltipContent>
@@ -2211,11 +1974,7 @@ function TeamsPanel({ userId, sidebarFilter, setSidebarFilter }: { userId?: stri
                           variant="ghost"
                           size="icon"
                           className="h-9 w-9"
-                          onClick={() => {
-                            const emails = selectedChat?.members?.map((m: any) => m.email).filter(Boolean) || [];
-                            handleInstantMeeting(emails);
-                          }}
-                          disabled={meetingMutation.isPending}
+                          onClick={onOpenMeetingDialog}
                         >
                           <Phone className="h-4 w-4" />
                         </Button>
@@ -2558,7 +2317,7 @@ function TeamsPanel({ userId, sidebarFilter, setSidebarFilter }: { userId?: stri
                 variant="outline"
                 size="sm"
                 className="gap-2 mb-6"
-                onClick={() => { setMeetingDialogOpen(true); setMeetingLink(null); setMeetingSubject(""); setMeetingDate(""); setMeetingStartTime(""); setMeetingEndTime(""); setMeetingParticipants([]); setParticipantInput(""); }}
+                onClick={onOpenMeetingDialog}
                 data-testid="button-new-meeting-center"
               >
                 <Video className="h-4 w-4" />
@@ -2621,139 +2380,6 @@ function TeamsPanel({ userId, sidebarFilter, setSidebarFilter }: { userId?: stri
         </CardContent>
       </Card>
 
-      <Dialog open={meetingDialogOpen && !activeMeeting} onOpenChange={setMeetingDialogOpen}>
-        <DialogContent className="sm:max-w-[480px]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Video className="h-5 w-5 text-indigo-600" />
-              {t.nexusOmni.teams.createMeeting}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            <Input
-              placeholder={t.nexusOmni.teams.meetingSubject}
-              value={meetingSubject}
-              onChange={(e) => setMeetingSubject(e.target.value)}
-              data-testid="input-meeting-subject"
-            />
-            <div className="grid grid-cols-3 gap-2">
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 block">{t.nexusOmni.teams.meetingDate}</label>
-                <Input
-                  type="date"
-                  value={meetingDate}
-                  onChange={(e) => setMeetingDate(e.target.value)}
-                  className="text-xs h-8"
-                  data-testid="input-meeting-date"
-                />
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 block">{t.nexusOmni.teams.meetingStartTime}</label>
-                <Input
-                  type="time"
-                  value={meetingStartTime}
-                  onChange={(e) => setMeetingStartTime(e.target.value)}
-                  className="text-xs h-8"
-                  data-testid="input-meeting-start-time"
-                />
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 block">{t.nexusOmni.teams.meetingEndTime}</label>
-                <Input
-                  type="time"
-                  value={meetingEndTime}
-                  onChange={(e) => setMeetingEndTime(e.target.value)}
-                  className="text-xs h-8"
-                  data-testid="input-meeting-end-time"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block">{t.nexusOmni.teams.addParticipants}</label>
-              <div className="relative">
-                <div className="flex gap-1.5">
-                  <div className="relative flex-1">
-                    <Users className="h-3.5 w-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      placeholder={t.nexusOmni.teams.participantEmail}
-                      value={participantInput}
-                      onChange={(e) => { setParticipantInput(e.target.value); searchPeopleDebounced(e.target.value); }}
-                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addParticipant(participantInput); } if (e.key === "Escape") { setShowPeopleSuggestions(false); } }}
-                      onFocus={() => { if (peopleSuggestions.length > 0) setShowPeopleSuggestions(true); }}
-                      onBlur={() => setTimeout(() => setShowPeopleSuggestions(false), 200)}
-                      className="text-xs h-8 flex-1 pl-7"
-                      data-testid="input-participant-email"
-                    />
-                  </div>
-                  <Button variant="outline" size="sm" className="h-8 text-xs px-2.5" onClick={() => addParticipant(participantInput)} disabled={!participantInput.trim()} data-testid="button-add-participant">
-                    <Plus className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-                {showPeopleSuggestions && peopleSuggestions.length > 0 && (
-                  <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-popover border rounded-md shadow-lg max-h-[180px] overflow-y-auto" data-testid="people-suggestions">
-                    {peopleSuggestions.map((p) => (
-                      <button
-                        key={p.email}
-                        className="w-full text-left px-3 py-2 hover:bg-accent flex items-center gap-2 text-xs transition-colors"
-                        onMouseDown={(e) => { e.preventDefault(); addParticipant(p.email, p.displayName); }}
-                        data-testid={`suggestion-${p.email}`}
-                      >
-                        <div className="h-6 w-6 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center shrink-0">
-                          <span className="text-[10px] font-medium text-indigo-600 dark:text-indigo-400">{(p.displayName || p.email)[0]?.toUpperCase()}</span>
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="font-medium truncate">{p.displayName}</p>
-                          <p className="text-[10px] text-muted-foreground truncate">{p.email}</p>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-              {meetingParticipants.length > 0 && (
-                <div className="flex flex-wrap gap-1 mt-2">
-                  {meetingParticipants.map((p) => (
-                    <span key={p.email} className="inline-flex items-center gap-1 bg-indigo-50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-300 rounded-full px-2 py-0.5 text-[11px]">
-                      <Mail className="h-2.5 w-2.5" />
-                      {p.displayName || p.email}
-                      <button onClick={() => removeParticipant(p.email)} className="hover:text-destructive ml-0.5" data-testid={`remove-participant-${p.email}`}>
-                        <X className="h-2.5 w-2.5" />
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-            <div className="flex gap-2 pt-1">
-              <Button
-                variant="outline"
-                className="flex-1 gap-2"
-                onClick={() => {
-                  handleInstantMeeting(meetingParticipants.length > 0 ? meetingParticipants.map(p => p.email) : undefined);
-                  setMeetingDialogOpen(false);
-                }}
-                disabled={meetingMutation.isPending}
-                data-testid="button-create-instant-meeting"
-              >
-                {meetingMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Video className="h-4 w-4" />}
-                {t.nexusOmni.teams.instantMeeting}
-              </Button>
-              <Button
-                className="flex-1 gap-2 bg-indigo-600 hover:bg-indigo-700"
-                onClick={() => {
-                  handleCreateScheduledMeeting();
-                  setMeetingDialogOpen(false);
-                }}
-                disabled={meetingMutation.isPending}
-                data-testid="button-create-scheduled-meeting"
-              >
-                {meetingMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Calendar className="h-4 w-4" />}
-                {t.nexusOmni.teams.scheduleMeeting}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </>
   );
 }
@@ -2824,6 +2450,18 @@ export default function EmailClientPage() {
   const [newTagColor, setNewTagColor] = useState("#6B7280");
   const [loadingAll, setLoadingAll] = useState(false);
   const [defaultTagsInitialized, setDefaultTagsInitialized] = useState(false);
+
+  const [meetingDialogOpen, setMeetingDialogOpen] = useState(false);
+  const [meetingSubject, setMeetingSubject] = useState("");
+  const [meetingLink, setMeetingLink] = useState<string | null>(null);
+  const [meetingStartDT, setMeetingStartDT] = useState("");
+  const [meetingEndDT, setMeetingEndDT] = useState("");
+  const [meetingParticipants, setMeetingParticipants] = useState<{email: string; displayName?: string}[]>([]);
+  const [participantInput, setParticipantInput] = useState("");
+  const [peopleSuggestions, setPeopleSuggestions] = useState<{email: string; displayName?: string}[]>([]);
+  const [showPeopleSuggestions, setShowPeopleSuggestions] = useState(false);
+  const peopleSearchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [activeMeeting, setActiveMeeting] = useState<{ subject: string; joinUrl: string; startTime: number } | null>(null);
 
   const [accountConfigs, setAccountConfigs] = useState<Record<string, { icon: string; color: string; enabled: boolean }>>(() => {
     const saved = localStorage.getItem("nexus-account-configs");
@@ -4132,6 +3770,111 @@ export default function EmailClientPage() {
     }
   };
 
+  const meetingDayEventsQuery = useQuery<any[]>({
+    queryKey: ["/api/ms365/calendar", "meeting-day", meetingStartDT],
+    queryFn: async () => {
+      if (!meetingStartDT) return [];
+      const d = new Date(meetingStartDT);
+      const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+      const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+      const res = await fetch(`/api/ms365/calendar?startDate=${dayStart.toISOString()}&endDate=${dayEnd.toISOString()}`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!user?.id && !!meetingStartDT && meetingDialogOpen,
+  });
+
+  const meetingMutation = useMutation({
+    mutationFn: async ({ subject, participantEmails, startDateTime, endDateTime }: { subject: string; participantEmails?: string[]; startDateTime?: string; endDateTime?: string }) => {
+      return apiRequest("POST", `/api/users/${user?.id}/teams-meeting`, { subject, participantEmails, startDateTime, endDateTime });
+    },
+    onSuccess: async (res: any) => {
+      const data = await res.json();
+      if (data.joinUrl) {
+        setMeetingLink(data.joinUrl);
+        setActiveMeeting({ subject: data.subject || meetingSubject || 'NEXUS Meeting', joinUrl: data.joinUrl, startTime: Date.now() });
+        toast({ title: t.nexusOmni.teams.meetingCreated });
+        setMeetingStartDT("");
+        setMeetingEndDT("");
+        setMeetingParticipants([]);
+        setParticipantInput("");
+        setMeetingDialogOpen(false);
+        queryClient.invalidateQueries({ queryKey: ["/api/ms365/calendar"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/users", user?.id, "teams-meetings"] });
+      }
+    },
+    onError: () => {
+      toast({ title: t.nexusOmni.teams.meetingError, variant: "destructive" });
+    },
+  });
+
+  const searchMeetingPeople = (query: string) => {
+    if (peopleSearchTimerRef.current) clearTimeout(peopleSearchTimerRef.current);
+    if (!query || query.length < 2) { setPeopleSuggestions([]); setShowPeopleSuggestions(false); return; }
+    peopleSearchTimerRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/ms365/people/search?q=${encodeURIComponent(query)}`, { credentials: "include" });
+        if (res.ok) {
+          const data = await res.json();
+          const existing = new Set(meetingParticipants.map(p => p.email));
+          setPeopleSuggestions((data || []).filter((p: any) => !existing.has(p.email)));
+          setShowPeopleSuggestions(true);
+        }
+      } catch { setPeopleSuggestions([]); }
+    }, 300);
+  };
+
+  const addMeetingParticipant = (email: string, displayName?: string) => {
+    const trimmed = email.trim().toLowerCase();
+    if (trimmed && trimmed.includes("@") && !meetingParticipants.some(p => p.email === trimmed)) {
+      setMeetingParticipants([...meetingParticipants, { email: trimmed, displayName }]);
+    }
+    setParticipantInput("");
+    setPeopleSuggestions([]);
+    setShowPeopleSuggestions(false);
+  };
+
+  const removeMeetingParticipant = (email: string) => {
+    setMeetingParticipants(meetingParticipants.filter(p => p.email !== email));
+  };
+
+  const openMeetingDialog = () => {
+    setMeetingDialogOpen(true);
+    setMeetingLink(null);
+    setMeetingSubject("");
+    const now = new Date();
+    const roundedMinutes = Math.ceil(now.getMinutes() / 15) * 15;
+    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), roundedMinutes);
+    const end = new Date(start.getTime() + 30 * 60 * 1000);
+    const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+    setMeetingStartDT(fmt(start));
+    setMeetingEndDT(fmt(end));
+    setMeetingParticipants([]);
+    setParticipantInput("");
+  };
+
+  const handleCreateMeeting = () => {
+    const subj = meetingSubject.trim() || 'NEXUS Meeting';
+    const allEmails = meetingParticipants.map(p => p.email);
+    let startDateTime: string | undefined;
+    let endDateTime: string | undefined;
+    if (meetingStartDT) {
+      startDateTime = new Date(meetingStartDT).toISOString();
+      if (meetingEndDT) {
+        endDateTime = new Date(meetingEndDT).toISOString();
+      } else {
+        endDateTime = new Date(new Date(meetingStartDT).getTime() + 60 * 60 * 1000).toISOString();
+      }
+    }
+    meetingMutation.mutate({ subject: subj, participantEmails: allEmails.length > 0 ? allEmails : undefined, startDateTime, endDateTime });
+  };
+
+  const handleInstantMeeting = () => {
+    const subj = meetingSubject.trim() || 'NEXUS Meeting';
+    const allEmails = meetingParticipants.map(p => p.email);
+    meetingMutation.mutate({ subject: subj, participantEmails: allEmails.length > 0 ? allEmails : undefined });
+  };
+
   if (!user) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -4167,13 +3910,13 @@ export default function EmailClientPage() {
     );
   }
 
+
   const tabConfig: { key: NexusTab; label: string; icon: React.ReactNode; badge?: number; badgeColor?: string }[] = [
     { key: "email", label: t.nexusOmni.tabs.email, icon: <Mail className="h-4 w-4" />, badge: totalUnreadEmails > 0 ? totalUnreadEmails : undefined, badgeColor: "bg-blue-500" },
     { key: "sms", label: t.nexusOmni.tabs.sms, icon: <MessageSquare className="h-4 w-4" />, badge: smsInboundUnread > 0 ? smsInboundUnread : undefined, badgeColor: "bg-cyan-500" },
     { key: "tasks", label: t.nexusOmni.tabs.tasks, icon: <ListTodo className="h-4 w-4" />, badge: pendingTasks > 0 ? pendingTasks : undefined, badgeColor: "bg-amber-500" },
     { key: "chats", label: t.nexusOmni.tabs.chats, icon: <MessagesSquare className="h-4 w-4" />, badge: unreadChats > 0 ? unreadChats : undefined, badgeColor: "bg-violet-500" },
     { key: "teams", label: t.nexusOmni.tabs.teams, icon: <MessagesSquare className="h-4 w-4" />, badgeColor: "bg-indigo-500" },
-    { key: "calendar", label: t.nexusOmni.tabs.calendar, icon: <CalendarDays className="h-4 w-4" />, badgeColor: "bg-rose-500" },
     { key: "nexuspoint", label: t.nexusOmni.tabs.nexuspoint, icon: <HardDrive className="h-4 w-4" />, badgeColor: "bg-emerald-500" },
   ];
 
@@ -4979,12 +4722,12 @@ export default function EmailClientPage() {
         )}
 
         {activeTab === "teams" && teamsSidebarFilter !== "calendar" && (
-          <TeamsPanel userId={user?.id} sidebarFilter={teamsSidebarFilter} setSidebarFilter={setTeamsSidebarFilter} />
+          <TeamsPanel userId={user?.id} sidebarFilter={teamsSidebarFilter} setSidebarFilter={setTeamsSidebarFilter} onOpenMeetingDialog={openMeetingDialog} />
         )}
 
-        {(activeTab === "calendar" || (activeTab === "teams" && teamsSidebarFilter === "calendar")) && (
+        {(activeTab === "teams" && teamsSidebarFilter === "calendar") && (
           <CalendarPanel
-            onCreateMeeting={() => { setTeamsSidebarFilter("meetings"); setMeetingDialogOpen(true); setMeetingLink(null); setMeetingSubject(""); setMeetingDate(""); setMeetingStartTime(""); setMeetingEndTime(""); setMeetingParticipants([]); setParticipantInput(""); }}
+            onCreateMeeting={openMeetingDialog}
             calendarFilter={calendarSidebarFilter}
           />
         )}
@@ -4993,6 +4736,250 @@ export default function EmailClientPage() {
           <NexusPointPanel userId={user?.id} />
         )}
       </div>
+
+      <Dialog open={meetingDialogOpen && !activeMeeting} onOpenChange={setMeetingDialogOpen}>
+        <DialogContent className="sm:max-w-[820px] p-0 gap-0 overflow-hidden">
+          <DialogHeader className="px-5 pt-4 pb-3 border-b dark:border-[#333]">
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <div className="h-8 w-8 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center">
+                <Video className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+              </div>
+              {t.nexusOmni.teams.createMeeting}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex min-h-[420px]">
+            <div className="flex-1 p-5 space-y-4 overflow-y-auto">
+              <div>
+                <Input
+                  placeholder={t.nexusOmni.teams.meetingSubject}
+                  value={meetingSubject}
+                  onChange={(e) => setMeetingSubject(e.target.value)}
+                  className="text-sm h-10 border-0 border-b rounded-none px-0 focus-visible:ring-0 focus-visible:border-indigo-500 font-medium text-base"
+                  data-testid="input-meeting-subject"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1.5 block flex items-center gap-1.5">
+                  <Users className="h-3.5 w-3.5" />
+                  {t.nexusOmni.teams.addParticipants}
+                </label>
+                <div className="relative">
+                  <div className="flex gap-1.5">
+                    <div className="relative flex-1">
+                      <Input
+                        placeholder={t.nexusOmni.teams.participantEmail}
+                        value={participantInput}
+                        onChange={(e) => { setParticipantInput(e.target.value); searchMeetingPeople(e.target.value); }}
+                        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addMeetingParticipant(participantInput); } if (e.key === "Escape") { setShowPeopleSuggestions(false); } }}
+                        onFocus={() => { if (peopleSuggestions.length > 0) setShowPeopleSuggestions(true); }}
+                        onBlur={() => setTimeout(() => setShowPeopleSuggestions(false), 200)}
+                        className="text-xs h-9"
+                        data-testid="input-participant-email"
+                      />
+                    </div>
+                    <Button variant="outline" size="sm" className="h-9 text-xs px-2.5" onClick={() => addMeetingParticipant(participantInput)} disabled={!participantInput.trim()} data-testid="button-add-participant">
+                      <Plus className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                  {showPeopleSuggestions && peopleSuggestions.length > 0 && (
+                    <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-popover border rounded-md shadow-lg max-h-[180px] overflow-y-auto" data-testid="people-suggestions">
+                      {peopleSuggestions.map((p) => (
+                        <button
+                          key={p.email}
+                          className="w-full text-left px-3 py-2 hover:bg-accent flex items-center gap-2 text-xs transition-colors"
+                          onMouseDown={(e) => { e.preventDefault(); addMeetingParticipant(p.email, p.displayName); }}
+                          data-testid={`suggestion-${p.email}`}
+                        >
+                          <div className="h-6 w-6 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center shrink-0">
+                            <span className="text-[10px] font-medium text-indigo-600 dark:text-indigo-400">{(p.displayName || p.email)[0]?.toUpperCase()}</span>
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium truncate">{p.displayName}</p>
+                            <p className="text-[10px] text-muted-foreground truncate">{p.email}</p>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {meetingParticipants.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {meetingParticipants.map((p) => (
+                      <span key={p.email} className="inline-flex items-center gap-1 bg-indigo-50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-300 rounded-full px-2.5 py-1 text-[11px]">
+                        <Mail className="h-2.5 w-2.5" />
+                        {p.displayName || p.email}
+                        <button onClick={() => removeMeetingParticipant(p.email)} className="hover:text-destructive ml-0.5" data-testid={`remove-participant-${p.email}`}>
+                          <X className="h-2.5 w-2.5" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1.5 block flex items-center gap-1.5">
+                  <Clock className="h-3.5 w-3.5" />
+                  {t.nexusOmni.teams.meetingDate}
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <span className="text-[10px] text-muted-foreground mb-1 block">{t.nexusOmni.teams.meetingStartTime}</span>
+                    <DateTimePicker
+                      value={meetingStartDT}
+                      onChange={(v) => {
+                        setMeetingStartDT(v);
+                        if (v && !meetingEndDT) {
+                          const s = new Date(v);
+                          const e = new Date(s.getTime() + 30 * 60 * 1000);
+                          const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+                          setMeetingEndDT(fmt(e));
+                        }
+                      }}
+                      countryCode={localeToCountry[locale] || "SK"}
+                      includeTime={true}
+                      placeholder={t.nexusOmni.teams.meetingStartTime}
+                      className="h-9 text-xs"
+                      data-testid="input-meeting-start"
+                    />
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-muted-foreground mb-1 block">{t.nexusOmni.teams.meetingEndTime}</span>
+                    <DateTimePicker
+                      value={meetingEndDT}
+                      onChange={(v) => setMeetingEndDT(v)}
+                      countryCode={localeToCountry[locale] || "SK"}
+                      includeTime={true}
+                      placeholder={t.nexusOmni.teams.meetingEndTime}
+                      className="h-9 text-xs"
+                      data-testid="input-meeting-end"
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/30">
+                <Video className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                <span className="text-xs font-medium text-indigo-700 dark:text-indigo-300">Teams Meeting</span>
+                <div className="ml-auto h-5 w-9 rounded-full bg-indigo-600 flex items-center justify-end px-0.5">
+                  <div className="h-4 w-4 rounded-full bg-white" />
+                </div>
+              </div>
+              <div className="flex gap-2 pt-2">
+                <Button
+                  variant="outline"
+                  className="flex-1 gap-2 h-10"
+                  onClick={handleInstantMeeting}
+                  disabled={meetingMutation.isPending}
+                  data-testid="button-create-instant-meeting"
+                >
+                  {meetingMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Video className="h-4 w-4" />}
+                  {t.nexusOmni.teams.instantMeeting}
+                </Button>
+                <Button
+                  className="flex-1 gap-2 h-10 bg-indigo-600 hover:bg-indigo-700"
+                  onClick={handleCreateMeeting}
+                  disabled={meetingMutation.isPending}
+                  data-testid="button-create-scheduled-meeting"
+                >
+                  {meetingMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarDays className="h-4 w-4" />}
+                  {t.nexusOmni.teams.scheduleMeeting}
+                </Button>
+              </div>
+            </div>
+            <div className="w-[280px] border-l dark:border-[#333] bg-muted/20 flex flex-col">
+              <div className="px-3 py-2.5 border-b dark:border-[#333] flex items-center gap-2">
+                <ChevronLeft className="h-4 w-4 text-muted-foreground cursor-pointer hover:text-foreground" onClick={() => {
+                  if (meetingStartDT) {
+                    const d = new Date(meetingStartDT);
+                    d.setDate(d.getDate() - 1);
+                    const fmt = (dt: Date) => `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}T${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
+                    setMeetingStartDT(fmt(d));
+                    const e = new Date(d.getTime() + 30 * 60 * 1000);
+                    setMeetingEndDT(fmt(e));
+                  }
+                }} />
+                <span className="text-xs font-semibold flex-1 text-center">
+                  {meetingStartDT ? format(new Date(meetingStartDT), "EEE, d MMM yyyy") : format(new Date(), "EEE, d MMM yyyy")}
+                </span>
+                <ChevronRight className="h-4 w-4 text-muted-foreground cursor-pointer hover:text-foreground" onClick={() => {
+                  if (meetingStartDT) {
+                    const d = new Date(meetingStartDT);
+                    d.setDate(d.getDate() + 1);
+                    const fmt = (dt: Date) => `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}T${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
+                    setMeetingStartDT(fmt(d));
+                    const e = new Date(d.getTime() + 30 * 60 * 1000);
+                    setMeetingEndDT(fmt(e));
+                  }
+                }} />
+              </div>
+              <ScrollArea className="flex-1">
+                <div className="relative" style={{ height: '672px' }}>
+                  {Array.from({ length: 14 }, (_, i) => i + 7).map(hour => (
+                    <div key={hour} className="absolute w-full border-t border-dashed border-muted-foreground/10" style={{ top: `${(hour - 7) * 48}px`, height: '48px' }}>
+                      <span className="text-[10px] text-muted-foreground/50 pl-2 leading-none">{String(hour).padStart(2, '0')}:00</span>
+                    </div>
+                  ))}
+                  {meetingStartDT && meetingEndDT && (() => {
+                    const s = new Date(meetingStartDT);
+                    const e = new Date(meetingEndDT);
+                    const startMin = s.getHours() * 60 + s.getMinutes();
+                    const endMin = e.getHours() * 60 + e.getMinutes();
+                    const top = Math.max(0, (startMin - 7 * 60) * (48 / 60));
+                    const height = Math.max(24, (endMin - startMin) * (48 / 60));
+                    return (
+                      <div
+                        className="absolute left-8 right-2 rounded-md bg-indigo-500 text-white px-2 py-1 text-[10px] font-medium shadow-sm z-10"
+                        style={{ top: `${top}px`, height: `${height}px` }}
+                      >
+                        {format(s, "HH:mm")} – {format(e, "HH:mm")}
+                      </div>
+                    );
+                  })()}
+                  {(meetingDayEventsQuery.data || []).map((ev: any) => {
+                    const evStart = new Date(ev.start?.dateTime ? ev.start.dateTime + 'Z' : ev.startDateTime || ev.start);
+                    const evEnd = new Date(ev.end?.dateTime ? ev.end.dateTime + 'Z' : ev.endDateTime || ev.end);
+                    const startMin = evStart.getHours() * 60 + evStart.getMinutes();
+                    const endMin = evEnd.getHours() * 60 + evEnd.getMinutes();
+                    const top = Math.max(0, (startMin - 7 * 60) * (48 / 60));
+                    const height = Math.max(20, (endMin - startMin) * (48 / 60));
+                    return (
+                      <div
+                        key={ev.id}
+                        className="absolute left-8 right-2 rounded-md bg-emerald-100 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 text-[10px] overflow-hidden z-[5]"
+                        style={{ top: `${top}px`, height: `${height}px` }}
+                      >
+                        <p className="font-medium text-emerald-800 dark:text-emerald-300 truncate">{ev.subject || 'Event'}</p>
+                        {height > 24 && <p className="text-emerald-600 dark:text-emerald-400 truncate">{ev.location?.displayName || ''}</p>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </ScrollArea>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {activeMeeting && (
+        <div className="fixed bottom-4 right-4 z-50 bg-card border rounded-xl shadow-2xl p-4 w-80" data-testid="active-meeting-bar">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="h-8 w-8 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center animate-pulse">
+              <Video className="h-4 w-4 text-green-600" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium truncate">{activeMeeting.subject}</p>
+              <p className="text-[10px] text-muted-foreground">{t.nexusOmni.teams.inProgress}</p>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Button size="sm" className="flex-1 gap-1.5 bg-indigo-600 hover:bg-indigo-700 h-8" onClick={() => window.open(activeMeeting.joinUrl, "_blank")}>
+              <Video className="h-3.5 w-3.5" /> {t.nexusOmni.teams.joinMeeting}
+            </Button>
+            <Button variant="outline" size="sm" className="h-8" onClick={() => setActiveMeeting(null)}>
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
+      )}
 
       <Dialog open={smartSearchOpen} onOpenChange={setSmartSearchOpen}>
           <DialogContent hideCloseButton className="max-w-3xl p-0 gap-0 overflow-hidden rounded-2xl border shadow-2xl" data-testid="smart-search-dialog">
