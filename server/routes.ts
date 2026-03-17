@@ -21553,6 +21553,36 @@ Return ONLY valid JSON, no markdown code blocks.`,
     }
   });
 
+  app.get("/api/asterisk/callerid/:extension", async (req, res) => {
+    try {
+      const { extension } = req.params;
+      const apiKey = req.headers["x-asterisk-key"] || req.query.key;
+      if (apiKey !== (process.env.ASTERISK_API_KEY || "indexus-asterisk-2024")) {
+        return res.status(401).send("");
+      }
+      if (!extension) {
+        return res.send("");
+      }
+      const sipExt = await db.select().from(sipExtensions).where(eq(sipExtensions.extension, extension)).limit(1);
+      if (sipExt.length === 0) {
+        return res.send("");
+      }
+      if (sipExt[0].assignedToCollaboratorId) {
+        const collab = await db.select({ outboundCallerId: collaborators.outboundCallerId })
+          .from(collaborators)
+          .where(eq(collaborators.id, sipExt[0].assignedToCollaboratorId))
+          .limit(1);
+        if (collab.length > 0 && collab[0].outboundCallerId) {
+          return res.send(collab[0].outboundCallerId);
+        }
+      }
+      return res.send("");
+    } catch (error) {
+      console.error("Failed to get asterisk caller ID:", error);
+      res.send("");
+    }
+  });
+
   // ===== Call Logs Routes =====
   
   // Get all call logs (with optional filters)
