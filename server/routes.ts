@@ -4644,7 +4644,8 @@ Format the output in clean HTML with headings (h3), bullet lists (ul/li), and bo
       }
       
       let attachmentsList: any[] = [];
-      if (email.hasAttachments) {
+      const hasCidRefs = email.body?.content?.includes('cid:');
+      if (email.hasAttachments || hasCidRefs) {
         try {
           const { getEmailAttachments } = await import("./lib/ms365");
           const rawAttachments = await getEmailAttachments(
@@ -4662,6 +4663,20 @@ Format the output in clean HTML with headings (h3), bullet lists (ul/li), and bo
           }));
         } catch (attErr) {
           console.error("[EmailRouter] Error fetching attachments:", attErr);
+        }
+      }
+
+      if (email.body?.content) {
+        const imgMatches = email.body.content.match(/src=["'][^"']*["']/gi) || [];
+        const cidRefs = email.body.content.match(/cid:[^"'\s]*/gi) || [];
+        const vmlImages = email.body.content.match(/<v:imagedata[^>]*/gi) || [];
+        const bgImages = email.body.content.match(/background[^:]*:\s*url\([^)]*\)/gi) || [];
+        console.log(`[EmailImages] Email ${emailId}: hasAttachments=${email.hasAttachments}, bodyLen=${email.body.content.length}, ${imgMatches.length} src attrs, ${cidRefs.length} CID refs, ${vmlImages.length} VML, ${bgImages.length} bgImg`);
+        if (imgMatches.length > 0) imgMatches.slice(0, 10).forEach((m: string) => console.log(`  src: ${m}`));
+        if (cidRefs.length > 0) cidRefs.forEach((m: string) => console.log(`  cid: ${m}`));
+        if (vmlImages.length > 0) vmlImages.forEach((m: string) => console.log(`  vml: ${m}`));
+        if (attachmentsList.length > 0) {
+          console.log(`[EmailImages] Attachments: ${JSON.stringify(attachmentsList.map((a: any) => ({ id: a.id?.substring(0,20), name: a.name, isInline: a.isInline, contentId: a.contentId, contentType: a.contentType })))}`);
         }
       }
 

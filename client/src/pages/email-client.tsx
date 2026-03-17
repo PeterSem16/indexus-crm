@@ -3733,32 +3733,43 @@ export default function EmailClientPage() {
     let processed = html;
     if (attachmentsList && attachmentsList.length > 0) {
       const mailbox = emailDetailMailbox;
-      const inlineAtts = attachmentsList.filter(a => a.isInline);
-      inlineAtts.forEach(att => {
+      const cidAtts = attachmentsList.filter(a => a.isInline || a.contentId);
+      cidAtts.forEach(att => {
         const inlineUrl = `/api/users/${user?.id}/ms365-email/${emailId}/attachment-inline/${att.id}?mailbox=${encodeURIComponent(mailbox)}`;
         if (att.contentId) {
           const rawCid = att.contentId.replace(/^<|>$/g, '');
           const cidEscaped = rawCid.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-          const cidPattern = new RegExp(`src=["']cid:${cidEscaped}["']`, 'gi');
-          processed = processed.replace(cidPattern, `src="${inlineUrl}"`);
+          processed = processed.replace(new RegExp(`src=["']cid:${cidEscaped}["']`, 'gi'), `src="${inlineUrl}"`);
+          processed = processed.replace(new RegExp(`src=cid:${cidEscaped}(?=[\\s>])`, 'gi'), `src="${inlineUrl}"`);
           if (rawCid !== att.contentId) {
             const origEscaped = att.contentId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            const origPattern = new RegExp(`src=["']cid:${origEscaped}["']`, 'gi');
-            processed = processed.replace(origPattern, `src="${inlineUrl}"`);
+            processed = processed.replace(new RegExp(`src=["']cid:${origEscaped}["']`, 'gi'), `src="${inlineUrl}"`);
           }
         }
         const nameEscaped = att.name?.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') || '';
         if (nameEscaped) {
-          const cidNamePattern = new RegExp(`src=["']cid:${nameEscaped}["']`, 'gi');
-          processed = processed.replace(cidNamePattern, `src="${inlineUrl}"`);
+          processed = processed.replace(new RegExp(`src=["']cid:${nameEscaped}["']`, 'gi'), `src="${inlineUrl}"`);
+          const nameNoExt = att.name?.replace(/\.[^.]+$/, '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&') || '';
+          if (nameNoExt) {
+            processed = processed.replace(new RegExp(`src=["']cid:${nameNoExt}(?:\\.[^"']*)?["']`, 'gi'), (m: string) => {
+              if (processed.includes(m)) return `src="${inlineUrl}"`;
+              return m;
+            });
+          }
         }
       });
     }
     processed = processed.replace(
-      /src=["'](https?:\/\/[^"']+)["']/gi,
-      (match, url) => {
+      /<img([^>]*?)src=["'](https?:\/\/[^"']+)["']/gi,
+      (match, before, url) => {
         if (url.startsWith('/api/')) return match;
-        return `src="/api/users/${user?.id}/email-image-proxy?url=${encodeURIComponent(url)}"`;
+        return `<img${before}src="/api/users/${user?.id}/email-image-proxy?url=${encodeURIComponent(url)}"`;
+      }
+    );
+    processed = processed.replace(
+      /background=["'](https?:\/\/[^"']+)["']/gi,
+      (match, url) => {
+        return `background="/api/users/${user?.id}/email-image-proxy?url=${encodeURIComponent(url)}"`;
       }
     );
     return processed;
