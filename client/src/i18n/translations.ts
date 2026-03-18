@@ -897,6 +897,36 @@ export interface Translations {
       settings: string;
       review: string;
     };
+    pipeline: {
+      title: string;
+      initialStatus: string;
+      cooperationInterest: string;
+      contractInterest: string;
+      contractStatus: string;
+      notContacted: string;
+      formerCollaborator: string;
+      activeContract: string;
+      unknown: string;
+      interested: string;
+      notInterested: string;
+      noContract: string;
+      referralAndConference: string;
+      clearSelection: string;
+    };
+    progress: {
+      contact: string;
+      referral: string;
+      cooperation: string;
+      contract: string;
+      partner: string;
+    };
+    pipelineSummary: {
+      title: string;
+      total: string;
+      noStatus: string;
+    };
+    noHistory: string;
+    noHistoryDesc: string;
   };
   collaborators: {
     title: string;
@@ -5988,10 +6018,40 @@ export const translations: Record<Locale, Translations> = {
         web: 'Website and contacts',
         settings: 'Active status and notes',
         review: 'Review details',
+        },
+        pipeline: {
+          title: 'Pipeline Status',
+          initialStatus: 'Initial Status',
+          cooperationInterest: 'Interest in Cooperation',
+          contractInterest: 'Interest in Contractual Cooperation',
+          contractStatus: 'Contract Medical Partner Status',
+          notContacted: 'Not Contacted',
+          formerCollaborator: 'Former Collaborator',
+          activeContract: 'Active Contract',
+          unknown: 'Unknown',
+          interested: 'Interested',
+          notInterested: 'Not Interested',
+          noContract: 'No Contract',
+          referralAndConference: 'Referral & Conference',
+          clearSelection: 'Clear selection',
+        },
+        progress: {
+          contact: 'Contact',
+          referral: 'Referral',
+          cooperation: 'Cooperation',
+          contract: 'Contract',
+          partner: 'Partner',
+        },
+        pipelineSummary: {
+          title: 'Pipeline Status Overview',
+          total: 'Total',
+          noStatus: 'No status',
+        },
+        noHistory: 'No history yet',
+        noHistoryDesc: 'Events will be recorded after the first change',
       },
-    },
-    collaborators: {
-      title: 'Collaborators',
+      collaborators: {
+        title: 'Collaborators',
       description: 'Manage collaborators and medical staff',
       addCollaborator: 'Add Collaborator',
       editCollaborator: 'Edit Collaborator',
@@ -10543,10 +10603,40 @@ export const translations: Record<Locale, Translations> = {
         web: 'Webová stránka a kontakty',
         settings: 'Aktívny stav a poznámky',
         review: 'Skontrolujte údaje',
+        },
+        pipeline: {
+          title: 'Pipeline Status',
+          initialStatus: 'Počiatočný status',
+          cooperationInterest: 'Záujem o spoluprácu',
+          contractInterest: 'Záujem o zmluvnú spoluprácu',
+          contractStatus: 'Status Contract Medical Partner',
+          notContacted: 'Neoslovený',
+          formerCollaborator: 'V minulosti spolupracujúci',
+          activeContract: 'Aktívna zmluva',
+          unknown: 'Neznáme',
+          interested: 'Záujem',
+          notInterested: 'Nezáujem',
+          noContract: 'Bez zmluvy',
+          referralAndConference: 'Referral & Konferencia',
+          clearSelection: 'Zrušiť výber',
+        },
+        progress: {
+          contact: 'Kontakt',
+          referral: 'Referral',
+          cooperation: 'Spolupráca',
+          contract: 'Zmluva',
+          partner: 'Partner',
+        },
+        pipelineSummary: {
+          title: 'Prehľad Pipeline statusov',
+          total: 'Celkom',
+          noStatus: 'Bez statusu',
+        },
+        noHistory: 'Zatiaľ žiadna história',
+        noHistoryDesc: 'Udalosti sa začnú zaznamenávať po prvej zmene',
       },
-    },
-    collaborators: {
-      title: 'Spolupracovníci',
+      collaborators: {
+        title: 'Spolupracovníci',
       description: 'Správa spolupracovníkov a zdravotníckeho personálu',
       addCollaborator: 'Pridať spolupracovníka',
       editCollaborator: 'Upraviť spolupracovníka',
@@ -15037,11 +15127,41 @@ export const translations: Record<Locale, Translations> = {
         web: 'Webová stránka a kontakty',
         settings: 'Aktivní stav a poznámky',
         review: 'Zkontrolujte údaje',
+        },
+        pipeline: {
+          title: 'Pipeline Status',
+          initialStatus: 'Počáteční status',
+          cooperationInterest: 'Zájem o spolupráci',
+          contractInterest: 'Zájem o smluvní spolupráci',
+          contractStatus: 'Status Contract Medical Partner',
+          notContacted: 'Neoslovený',
+          formerCollaborator: 'Dříve spolupracující',
+          activeContract: 'Aktivní smlouva',
+          unknown: 'Neznámé',
+          interested: 'Zájem',
+          notInterested: 'Nezájem',
+          noContract: 'Bez smlouvy',
+          referralAndConference: 'Referral & Konference',
+          clearSelection: 'Zrušit výběr',
+        },
+        progress: {
+          contact: 'Kontakt',
+          referral: 'Referral',
+          cooperation: 'Spolupráce',
+          contract: 'Smlouva',
+          partner: 'Partner',
+        },
+        pipelineSummary: {
+          title: 'Přehled Pipeline statusů',
+          total: 'Celkem',
+          noStatus: 'Bez statusu',
+        },
+        noHistory: 'Zatím žádná historie',
+        noHistoryDesc: 'Události se začnou zaznamenávat po první změně',
       },
-    },
-    collaborators: {
-      title: 'Spolupracovníci',
-      description: 'Správa spolupracovníků a zdravotnického personálu',
+      collaborators: {
+        title: 'Spolupracovníci',
+        description: 'Správa spolupracovníků a zdravotnického personálu',
       addCollaborator: 'Přidat spolupracovníka',
       editCollaborator: 'Upravit spolupracovníka',
       deleteCollaborator: 'Odstranit spolupracovníka',
@@ -19494,10 +19614,40 @@ export const translations: Record<Locale, Translations> = {
         web: 'Weboldal és kapcsolatok',
         settings: 'Aktív állapot és jegyzetek',
         review: 'Ellenorizze az adatokat',
+        },
+        pipeline: {
+          title: 'Pipeline Státusz',
+          initialStatus: 'Kezdeti státusz',
+          cooperationInterest: 'Együttműködési érdeklődés',
+          contractInterest: 'Szerződéses együttműködési érdeklődés',
+          contractStatus: 'Contract Medical Partner státusz',
+          notContacted: 'Nem megkeresett',
+          formerCollaborator: 'Korábbi együttműködő',
+          activeContract: 'Aktív szerződés',
+          unknown: 'Ismeretlen',
+          interested: 'Érdeklődő',
+          notInterested: 'Nem érdeklődő',
+          noContract: 'Szerződés nélkül',
+          referralAndConference: 'Referral & Konferencia',
+          clearSelection: 'Kiválasztás törlése',
+        },
+        progress: {
+          contact: 'Kapcsolat',
+          referral: 'Referral',
+          cooperation: 'Együttműködés',
+          contract: 'Szerződés',
+          partner: 'Partner',
+        },
+        pipelineSummary: {
+          title: 'Pipeline státusz áttekintés',
+          total: 'Összesen',
+          noStatus: 'Nincs státusz',
+        },
+        noHistory: 'Még nincs előzmény',
+        noHistoryDesc: 'Az események az első változtatás után kerülnek rögzítésre',
       },
-    },
-    collaborators: {
-      title: 'Munkatársak',
+      collaborators: {
+        title: 'Munkatársak',
       description: 'Munkatársak és egészségügyi személyzet kezelése',
       addCollaborator: 'Munkatárs hozzáadása',
       editCollaborator: 'Munkatárs szerkesztése',
@@ -23950,10 +24100,40 @@ export const translations: Record<Locale, Translations> = {
         web: 'Website și contacte',
         settings: 'Stare activă și note',
         review: 'Verificați datele',
+        },
+        pipeline: {
+          title: 'Status Pipeline',
+          initialStatus: 'Status inițial',
+          cooperationInterest: 'Interes pentru cooperare',
+          contractInterest: 'Interes pentru cooperare contractuală',
+          contractStatus: 'Status Contract Medical Partner',
+          notContacted: 'Necontactat',
+          formerCollaborator: 'Fost colaborator',
+          activeContract: 'Contract activ',
+          unknown: 'Necunoscut',
+          interested: 'Interesat',
+          notInterested: 'Neinteresat',
+          noContract: 'Fără contract',
+          referralAndConference: 'Referral & Conferință',
+          clearSelection: 'Anulează selecția',
+        },
+        progress: {
+          contact: 'Contact',
+          referral: 'Referral',
+          cooperation: 'Cooperare',
+          contract: 'Contract',
+          partner: 'Partener',
+        },
+        pipelineSummary: {
+          title: 'Prezentare generală status pipeline',
+          total: 'Total',
+          noStatus: 'Fără status',
+        },
+        noHistory: 'Niciun istoric încă',
+        noHistoryDesc: 'Evenimentele vor fi înregistrate după prima modificare',
       },
-    },
-    collaborators: {
-      title: 'Colaboratori',
+      collaborators: {
+        title: 'Colaboratori',
       description: 'Gestionarea colaboratorilor și a personalului medical',
       addCollaborator: 'Adaugă colaborator',
       editCollaborator: 'Editează colaborator',
@@ -28407,10 +28587,40 @@ export const translations: Record<Locale, Translations> = {
         web: 'Sito web e contatti',
         settings: 'Stato attivo e note',
         review: 'Verifica i dati',
+        },
+        pipeline: {
+          title: 'Status Pipeline',
+          initialStatus: 'Status iniziale',
+          cooperationInterest: 'Interesse per la cooperazione',
+          contractInterest: 'Interesse per la cooperazione contrattuale',
+          contractStatus: 'Status Contract Medical Partner',
+          notContacted: 'Non contattato',
+          formerCollaborator: 'Ex collaboratore',
+          activeContract: 'Contratto attivo',
+          unknown: 'Sconosciuto',
+          interested: 'Interessato',
+          notInterested: 'Non interessato',
+          noContract: 'Senza contratto',
+          referralAndConference: 'Referral & Conferenza',
+          clearSelection: 'Annulla selezione',
+        },
+        progress: {
+          contact: 'Contatto',
+          referral: 'Referral',
+          cooperation: 'Cooperazione',
+          contract: 'Contratto',
+          partner: 'Partner',
+        },
+        pipelineSummary: {
+          title: 'Panoramica status pipeline',
+          total: 'Totale',
+          noStatus: 'Senza status',
+        },
+        noHistory: 'Nessuna cronologia ancora',
+        noHistoryDesc: 'Gli eventi verranno registrati dopo la prima modifica',
       },
-    },
-    collaborators: {
-      title: 'Collaboratori',
+      collaborators: {
+        title: 'Collaboratori',
       description: 'Gestione collaboratori e personale medico',
       addCollaborator: 'Aggiungi collaboratore',
       editCollaborator: 'Modifica collaboratore',
@@ -32864,10 +33074,40 @@ export const translations: Record<Locale, Translations> = {
         web: 'Website und Kontakte',
         settings: 'Aktiver Status und Notizen',
         review: 'Daten überprüfen',
+        },
+        pipeline: {
+          title: 'Pipeline-Status',
+          initialStatus: 'Anfangsstatus',
+          cooperationInterest: 'Interesse an Kooperation',
+          contractInterest: 'Interesse an vertraglicher Kooperation',
+          contractStatus: 'Contract Medical Partner Status',
+          notContacted: 'Nicht kontaktiert',
+          formerCollaborator: 'Ehemaliger Mitarbeiter',
+          activeContract: 'Aktiver Vertrag',
+          unknown: 'Unbekannt',
+          interested: 'Interessiert',
+          notInterested: 'Nicht interessiert',
+          noContract: 'Ohne Vertrag',
+          referralAndConference: 'Empfehlung & Konferenz',
+          clearSelection: 'Auswahl aufheben',
+        },
+        progress: {
+          contact: 'Kontakt',
+          referral: 'Empfehlung',
+          cooperation: 'Kooperation',
+          contract: 'Vertrag',
+          partner: 'Partner',
+        },
+        pipelineSummary: {
+          title: 'Pipeline-Status Übersicht',
+          total: 'Gesamt',
+          noStatus: 'Ohne Status',
+        },
+        noHistory: 'Noch keine Historie',
+        noHistoryDesc: 'Ereignisse werden nach der ersten Änderung aufgezeichnet',
       },
-    },
-    collaborators: {
-      title: 'Mitarbeiter',
+      collaborators: {
+        title: 'Mitarbeiter',
       description: 'Verwaltung von Mitarbeitern und medizinischem Personal',
       addCollaborator: 'Mitarbeiter hinzufügen',
       editCollaborator: 'Mitarbeiter bearbeiten',

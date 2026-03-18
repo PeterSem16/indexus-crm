@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Plus, Pencil, Trash2, Search, Building2, FileText, Award, Gift, ListChecks, FileEdit, MapPin, Navigation, ExternalLink, Database, Loader2, Globe, Stethoscope, RefreshCw, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Filter, X, Download, FileSpreadsheet, Target } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
@@ -1060,6 +1060,37 @@ export default function HospitalsPage() {
     (clinicPage - 1) * clinicPageSize,
     clinicPage * clinicPageSize
   );
+
+  const KNOWN_PIPELINE_VALS = new Set([
+    "initial:not_contacted", "initial:former", "initial:active_contract",
+    "coop:unknown", "coop:interested", "coop:not_interested",
+    "contract_int:unknown", "contract_int:interested", "contract_int:not_interested",
+    "contract:none", "contract:active",
+  ]);
+
+  const pipelineStats = useMemo(() => {
+    const stats: Record<string, number> = {};
+    let noStatus = 0;
+    let otherStatus = 0;
+    for (const c of filteredAndSortedClinics) {
+      const clinic = c as any;
+      let val = "";
+      if (clinic.contractStatus) val = `contract:${clinic.contractStatus}`;
+      else if (clinic.interestContract) val = `contract_int:${clinic.interestContract}`;
+      else if (clinic.interestCooperation) val = `coop:${clinic.interestCooperation}`;
+      else if (clinic.initialStatus) val = `initial:${clinic.initialStatus}`;
+      if (val) {
+        if (KNOWN_PIPELINE_VALS.has(val)) {
+          stats[val] = (stats[val] || 0) + 1;
+        } else {
+          otherStatus++;
+        }
+      } else {
+        noStatus++;
+      }
+    }
+    return { stats, noStatus, otherStatus };
+  }, [filteredAndSortedClinics]);
   
   // Reset page when filters change
   const handleClinicFilterChange = () => {
@@ -1835,6 +1866,46 @@ export default function HospitalsPage() {
                 })}
               </div>
               
+              {/* Pipeline Summary Stats */}
+              {filteredAndSortedClinics.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2 p-3 bg-muted/30 rounded-lg border" data-testid="pipeline-summary-bar">
+                  <span className="text-xs font-semibold text-muted-foreground mr-1">
+                    <Target className="h-3.5 w-3.5 inline mr-1" />
+                    {(t.clinics as any).pipelineSummary?.title || "Pipeline"}:
+                  </span>
+                  {[
+                    { val: "initial:not_contacted", color: "bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600", labelKey: "notContacted" },
+                    { val: "initial:former", color: "bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900 dark:text-amber-300 dark:border-amber-700", labelKey: "formerCollaborator" },
+                    { val: "initial:active_contract", color: "bg-green-100 text-green-700 border-green-300 dark:bg-green-900 dark:text-green-300 dark:border-green-700", labelKey: "activeContract" },
+                    { val: "coop:unknown", color: "bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600", labelKey: "unknown" },
+                    { val: "coop:interested", color: "bg-green-100 text-green-700 border-green-300 dark:bg-green-900 dark:text-green-300 dark:border-green-700", labelKey: "interested" },
+                    { val: "coop:not_interested", color: "bg-red-100 text-red-600 border-red-300 dark:bg-red-900 dark:text-red-300 dark:border-red-700", labelKey: "notInterested" },
+                    { val: "contract_int:unknown", color: "bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600", labelKey: "unknown" },
+                    { val: "contract_int:interested", color: "bg-green-100 text-green-700 border-green-300 dark:bg-green-900 dark:text-green-300 dark:border-green-700", labelKey: "interested" },
+                    { val: "contract_int:not_interested", color: "bg-red-100 text-red-600 border-red-300 dark:bg-red-900 dark:text-red-300 dark:border-red-700", labelKey: "notInterested" },
+                    { val: "contract:none", color: "bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600", labelKey: "noContract" },
+                    { val: "contract:active", color: "bg-green-100 text-green-700 border-green-300 dark:bg-green-900 dark:text-green-300 dark:border-green-700", labelKey: "activeContract" },
+                  ].filter(s => pipelineStats.stats[s.val]).map(s => (
+                    <Badge key={s.val} variant="outline" className={`text-[10px] px-2 py-0.5 ${s.color}`} data-testid={`stat-${s.val}`}>
+                      {(t.clinics as any).pipeline?.[s.labelKey] || s.labelKey}: {pipelineStats.stats[s.val]}
+                    </Badge>
+                  ))}
+                  {pipelineStats.otherStatus > 0 && (
+                    <Badge variant="outline" className="text-[10px] px-2 py-0.5 bg-yellow-50 text-yellow-700 border-yellow-300 dark:bg-yellow-900 dark:text-yellow-300 dark:border-yellow-700" data-testid="stat-other">
+                      {t.common.other || "Other"}: {pipelineStats.otherStatus}
+                    </Badge>
+                  )}
+                  {pipelineStats.noStatus > 0 && (
+                    <Badge variant="outline" className="text-[10px] px-2 py-0.5 bg-gray-50 text-gray-500 border-gray-200 dark:bg-gray-900 dark:text-gray-400 dark:border-gray-700" data-testid="stat-no-status">
+                      {(t.clinics as any).pipelineSummary?.noStatus || "No status"}: {pipelineStats.noStatus}
+                    </Badge>
+                  )}
+                  <Badge variant="secondary" className="text-[10px] px-2 py-0.5 ml-auto" data-testid="stat-total">
+                    {(t.clinics as any).pipelineSummary?.total || "Total"}: {filteredAndSortedClinics.length}
+                  </Badge>
+                </div>
+              )}
+
               {/* Search and filters panel */}
               <div className="flex items-center gap-4">
                 <div className="relative flex-1">

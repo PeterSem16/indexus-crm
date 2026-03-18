@@ -125,7 +125,7 @@ type PipelineValue =
 
 interface PipelineOption {
   value: PipelineValue;
-  label: string;
+  labelKey: string;
   icon: typeof Circle;
   stage: number;
   sentiment: "positive" | "negative" | "neutral";
@@ -134,41 +134,41 @@ interface PipelineOption {
 
 interface PipelineCategory {
   key: string;
-  label: string;
+  labelKey: string;
   icon: typeof Circle;
   options: PipelineOption[];
 }
 
 const PIPELINE_CATEGORIES: PipelineCategory[] = [
   {
-    key: "initial", label: "Počiatočný status", icon: CircleDot,
+    key: "initial", labelKey: "initialStatus", icon: CircleDot,
     options: [
-      { value: "initial:not_contacted", label: "Neoslovený", icon: Circle, stage: 1, sentiment: "neutral", color: "text-gray-500" },
-      { value: "initial:former", label: "V minulosti spolupracujúci", icon: Users, stage: 1, sentiment: "neutral", color: "text-amber-600" },
-      { value: "initial:active_contract", label: "Aktívna zmluva", icon: ShieldCheck, stage: 5, sentiment: "positive", color: "text-green-600" },
+      { value: "initial:not_contacted", labelKey: "notContacted", icon: Circle, stage: 1, sentiment: "neutral", color: "text-gray-500" },
+      { value: "initial:former", labelKey: "formerCollaborator", icon: Users, stage: 1, sentiment: "neutral", color: "text-amber-600" },
+      { value: "initial:active_contract", labelKey: "activeContract", icon: ShieldCheck, stage: 5, sentiment: "positive", color: "text-green-600" },
     ],
   },
   {
-    key: "cooperation", label: "Záujem o spoluprácu", icon: Handshake,
+    key: "cooperation", labelKey: "cooperationInterest", icon: Handshake,
     options: [
-      { value: "coop:unknown", label: "Neznáme", icon: HelpCircle, stage: 2, sentiment: "neutral", color: "text-gray-500" },
-      { value: "coop:interested", label: "Záujem", icon: CheckCircle2, stage: 3, sentiment: "positive", color: "text-green-600" },
-      { value: "coop:not_interested", label: "Nezáujem", icon: Ban, stage: 3, sentiment: "negative", color: "text-red-500" },
+      { value: "coop:unknown", labelKey: "unknown", icon: HelpCircle, stage: 2, sentiment: "neutral", color: "text-gray-500" },
+      { value: "coop:interested", labelKey: "interested", icon: CheckCircle2, stage: 3, sentiment: "positive", color: "text-green-600" },
+      { value: "coop:not_interested", labelKey: "notInterested", icon: Ban, stage: 3, sentiment: "negative", color: "text-red-500" },
     ],
   },
   {
-    key: "contract_interest", label: "Záujem o zmluvnú spoluprácu", icon: FileSignature,
+    key: "contract_interest", labelKey: "contractInterest", icon: FileSignature,
     options: [
-      { value: "contract_int:unknown", label: "Neznáme", icon: HelpCircle, stage: 3, sentiment: "neutral", color: "text-gray-500" },
-      { value: "contract_int:interested", label: "Záujem", icon: CheckCircle2, stage: 4, sentiment: "positive", color: "text-green-600" },
-      { value: "contract_int:not_interested", label: "Nezáujem", icon: Ban, stage: 4, sentiment: "negative", color: "text-red-500" },
+      { value: "contract_int:unknown", labelKey: "unknown", icon: HelpCircle, stage: 3, sentiment: "neutral", color: "text-gray-500" },
+      { value: "contract_int:interested", labelKey: "interested", icon: CheckCircle2, stage: 4, sentiment: "positive", color: "text-green-600" },
+      { value: "contract_int:not_interested", labelKey: "notInterested", icon: Ban, stage: 4, sentiment: "negative", color: "text-red-500" },
     ],
   },
   {
-    key: "contract_status", label: "Status Contract Medical Partner", icon: ScrollText,
+    key: "contract_status", labelKey: "contractStatus", icon: ScrollText,
     options: [
-      { value: "contract:none", label: "Bez zmluvy", icon: ScrollText, stage: 4, sentiment: "neutral", color: "text-gray-500" },
-      { value: "contract:active", label: "Aktívna zmluva", icon: ShieldCheck, stage: 5, sentiment: "positive", color: "text-green-600" },
+      { value: "contract:none", labelKey: "noContract", icon: ScrollText, stage: 4, sentiment: "neutral", color: "text-gray-500" },
+      { value: "contract:active", labelKey: "activeContract", icon: ShieldCheck, stage: 5, sentiment: "positive", color: "text-green-600" },
     ],
   },
 ];
@@ -205,11 +205,11 @@ function getSelectedPipelineCategory(val: PipelineValue): PipelineCategory | nul
 }
 
 const PROGRESS_STAGES = [
-  { key: "contact", label: "Kontakt", icon: UserPlus },
-  { key: "referral", label: "Referral", icon: UserCheck },
-  { key: "cooperation", label: "Spolupráca", icon: Handshake },
-  { key: "contract_interest", label: "Zmluva", icon: FileSignature },
-  { key: "partner", label: "Partner", icon: ShieldCheck },
+  { key: "contact", labelKey: "contact", icon: UserPlus },
+  { key: "referral", labelKey: "referral", icon: UserCheck },
+  { key: "cooperation", labelKey: "cooperation", icon: Handshake },
+  { key: "contract_interest", labelKey: "contract", icon: FileSignature },
+  { key: "partner", labelKey: "partner", icon: ShieldCheck },
 ];
 
 function getProgressState(formData: ClinicFormData, hasReferral: boolean) {
@@ -563,7 +563,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess }: 
                   isDone ? "text-green-700 dark:text-green-400"
                     : isNeg ? "text-red-600 dark:text-red-400"
                       : "text-muted-foreground/60"
-                )}>{stage.label}</span>
+                )}>{(t.clinics as any).progress?.[stage.labelKey] || stage.labelKey}</span>
               </div>
               {idx < stages.length - 1 && (
                 <div className={cn("h-0.5 flex-1 mx-1 rounded-full transition-all", lineColor)} />
@@ -629,8 +629,8 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess }: 
                     : currentPipelineOption.sentiment === "negative" ? "bg-red-100 text-red-700 border-red-300 dark:bg-red-900 dark:text-red-200 dark:border-red-700"
                       : "bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-600"
                 )}>
-                  {currentPipelineCategory && <span className="opacity-70">{currentPipelineCategory.label}:</span>}
-                  <span>{currentPipelineOption.label}</span>
+                  {currentPipelineCategory && <span className="opacity-70">{(t.clinics as any).pipeline?.[currentPipelineCategory.labelKey] || currentPipelineCategory.labelKey}:</span>}
+                  <span>{(t.clinics as any).pipeline?.[currentPipelineOption.labelKey] || currentPipelineOption.labelKey}</span>
                 </div>
               </div>
             )}
@@ -751,7 +751,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess }: 
                             <div className="font-medium text-sm">{t.clinics.leadSourceTypes?.[type] || type}</div>
                             {selected && currentPipelineOption && !isExpanded && (
                               <div className={cn("text-xs mt-0.5 font-medium", currentPipelineOption.color)}>
-                                {currentPipelineCategory?.label}: {currentPipelineOption.label}
+                                {(t.clinics as any).pipeline?.[currentPipelineCategory?.labelKey] || currentPipelineCategory?.labelKey}: {(t.clinics as any).pipeline?.[currentPipelineOption.labelKey] || currentPipelineOption.labelKey}
                               </div>
                             )}
                           </div>
@@ -783,14 +783,14 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess }: 
                                     data-testid={`pipeline-cat-${cat.key}`}
                                   >
                                     <CatIcon className="h-4 w-4 text-muted-foreground shrink-0" />
-                                    <span className="text-sm font-medium flex-1">{cat.label}</span>
+                                    <span className="text-sm font-medium flex-1">{(t.clinics as any).pipeline?.[cat.labelKey] || cat.labelKey}</span>
                                     {selectedInCat && (
                                       <span className={cn("text-xs font-semibold px-2 py-0.5 rounded-full border",
                                         selectedInCat.sentiment === "positive" ? "bg-green-100 text-green-700 border-green-300 dark:bg-green-900/50 dark:text-green-300 dark:border-green-700"
                                           : selectedInCat.sentiment === "negative" ? "bg-red-100 text-red-600 border-red-300 dark:bg-red-900/50 dark:text-red-300 dark:border-red-700"
                                             : "bg-gray-100 text-gray-600 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600"
                                       )}>
-                                        {selectedInCat.label}
+                                        {(t.clinics as any).pipeline?.[selectedInCat.labelKey] || selectedInCat.labelKey}
                                       </span>
                                     )}
                                     <ChevronRight className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform shrink-0", isCatExpanded && "rotate-90")} />
@@ -817,7 +817,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess }: 
                                             data-testid={`pipeline-opt-${opt.value}`}
                                           >
                                             <OptIcon className={cn("h-4 w-4 shrink-0", opt.color)} />
-                                            <span className="text-sm font-medium flex-1">{opt.label}</span>
+                                            <span className="text-sm font-medium flex-1">{(t.clinics as any).pipeline?.[opt.labelKey] || opt.labelKey}</span>
                                             {isSelected && <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />}
                                           </button>
                                         );
@@ -840,7 +840,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess }: 
                     setPipelineMenuOpen(false);
                     setExpandedCategory(null);
                   }} data-testid="button-clear-source">
-                    <X className="h-3 w-3 mr-1" /> {t.common.clear || "Zrušiť výber"}
+                    <X className="h-3 w-3 mr-1" /> {(t.clinics as any).pipeline?.clearSelection || t.common.clear || "Clear"}
                   </Button>
                 )}
               </div>
@@ -853,7 +853,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess }: 
                   <div className="flex items-center justify-center w-6 h-6 rounded-md bg-purple-100 dark:bg-purple-900">
                     <UserCheck className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
                   </div>
-                  <h3 className="text-sm font-semibold tracking-wide">Referral & Konferencia</h3>
+                  <h3 className="text-sm font-semibold tracking-wide">{(t.clinics as any).pipeline?.referralAndConference || "Referral & Conference"}</h3>
                 </div>
 
                 {/* Doctor Referral */}
