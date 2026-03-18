@@ -1634,36 +1634,20 @@ export default function HospitalsPage() {
 
         <TabsContent value="hospital" className="mt-6">
           <Card>
-            <CardHeader className="pb-4 space-y-4">
+            <CardHeader className="pb-4 space-y-3">
               <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="flex items-center gap-2">
-                    <Building2 className="h-5 w-5" />
-                    {t.hospitals.title}
-                  </CardTitle>
-                  <CardDescription>{t.hospitals.description}</CardDescription>
+                <div className="text-sm text-muted-foreground">
+                  {filteredAndSortedHospitals.length} {t.common.of} {hospitals.length} {t.common.records}
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button
-                    variant={showHospitalFilters ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setShowHospitalFilters(!showHospitalFilters)}
-                    data-testid="button-toggle-hospital-filters"
-                  >
-                    <Filter className="h-4 w-4 mr-2" />
-                    {t.common.filter}
-                    {hasActiveHospitalFilters && (
-                      <Badge variant="secondary" className="ml-2">!</Badge>
-                    )}
-                  </Button>
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => exportToCsv(filteredAndSortedHospitals, 'hospitals', hospitalExportColumns)}
                     data-testid="button-export-hospitals-csv"
                   >
-                    <Download className="h-4 w-4 mr-2" />
-                    CSV
+                    <Download className="h-4 w-4 mr-1.5" />
+                    Export CSV
                   </Button>
                   <Button
                     variant="outline"
@@ -1671,49 +1655,28 @@ export default function HospitalsPage() {
                     onClick={() => exportToExcel(filteredAndSortedHospitals, 'hospitals', hospitalExportColumns)}
                     data-testid="button-export-hospitals-excel"
                   >
-                    <FileSpreadsheet className="h-4 w-4 mr-2" />
-                    Excel
+                    <FileSpreadsheet className="h-4 w-4 mr-1.5" />
+                    Export Excel
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => queryClient.invalidateQueries({ queryKey: ["/api/hospitals"] })}
+                    data-testid="button-refresh-hospitals"
+                  >
+                    <RefreshCw className="h-4 w-4 mr-1.5" />
+                    {t.common.refresh}
                   </Button>
                   {canAdd("hospitals") && (
-                    <Button onClick={handleAddNew} data-testid="button-add-hospital">
-                      <Plus className="h-4 w-4 mr-2" />
+                    <Button onClick={handleAddNew} className="bg-red-700 hover:bg-red-800 text-white" data-testid="button-add-hospital">
+                      <Plus className="h-4 w-4 mr-1.5" />
                       {t.hospitals.addHospital}
                     </Button>
                   )}
                 </div>
               </div>
-              
-              {/* Country tabs */}
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  variant={countryTab === "ALL" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => { setCountryTab("ALL"); handleHospitalFilterChange(); }}
-                  data-testid="tab-country-all"
-                >
-                  {t.common.all}
-                  <Badge variant="secondary" className="ml-2">{hospitals.length}</Badge>
-                </Button>
-                {COUNTRIES.map((country) => {
-                  const count = countryCounts[country.code] || 0;
-                  if (count === 0) return null;
-                  return (
-                    <Button
-                      key={country.code}
-                      variant={countryTab === country.code ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => { setCountryTab(country.code); handleHospitalFilterChange(); }}
-                      data-testid={`tab-country-${country.code}`}
-                    >
-                      {country.flag} {country.code}
-                      <Badge variant="secondary" className="ml-2">{count}</Badge>
-                    </Button>
-                  );
-                })}
-              </div>
-              
-              {/* Search and filters */}
-              <div className="flex items-center gap-4">
+
+              <div className="flex items-center gap-3">
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -1724,47 +1687,77 @@ export default function HospitalsPage() {
                     data-testid="input-search-hospitals"
                   />
                 </div>
-                {hasActiveHospitalFilters && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={clearHospitalFilters}
-                    data-testid="button-clear-hospital-filters"
-                  >
-                    <X className="h-4 w-4 mr-1" />
-                    {t.common.clearFilters}
-                  </Button>
-                )}
-                <div className="text-sm text-muted-foreground whitespace-nowrap">
-                  {filteredAndSortedHospitals.length} z {hospitals.length} {t.common.records}
-                </div>
+                <Button
+                  variant={showHospitalFilters ? "default" : "outline"}
+                  size="default"
+                  onClick={() => setShowHospitalFilters(!showHospitalFilters)}
+                  className={showHospitalFilters ? "bg-red-700 hover:bg-red-800 text-white" : ""}
+                  data-testid="button-toggle-hospital-filters"
+                >
+                  <Filter className="h-4 w-4 mr-1.5" />
+                  {t.common.filter}
+                </Button>
               </div>
-              
-              {/* Advanced filters */}
+
               {showHospitalFilters && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-muted/50 rounded-lg">
-                  <div>
-                    <label className="text-sm font-medium mb-1 block">{t.hospitals.city}</label>
-                    <Input
-                      placeholder={t.clinics.filterByCity}
-                      value={hospitalCityFilter}
-                      onChange={(e) => { setHospitalCityFilter(e.target.value); handleHospitalFilterChange(); }}
-                      data-testid="input-filter-hospital-city"
-                    />
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="text-xs font-medium mb-1.5 block text-muted-foreground">{t.common.country}</label>
+                      <Select value={countryTab} onValueChange={(val) => { setCountryTab(val); handleHospitalFilterChange(); }}>
+                        <SelectTrigger data-testid="select-filter-hospital-country" className="h-9">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="ALL">{t.common.all}</SelectItem>
+                          {COUNTRIES.map((country) => {
+                            const count = countryCounts[country.code] || 0;
+                            if (count === 0) return null;
+                            return (
+                              <SelectItem key={country.code} value={country.code}>
+                                {country.flag} {country.code} ({count})
+                              </SelectItem>
+                            );
+                          })}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium mb-1.5 block text-muted-foreground">{t.common.status}</label>
+                      <Select value={hospitalStatusFilter} onValueChange={(val) => { setHospitalStatusFilter(val); handleHospitalFilterChange(); }}>
+                        <SelectTrigger data-testid="select-filter-hospital-status" className="h-9">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">{t.common.all}</SelectItem>
+                          <SelectItem value="active">{t.common.active}</SelectItem>
+                          <SelectItem value="inactive">{t.common.inactive}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium mb-1.5 block text-muted-foreground">{t.hospitals.city}</label>
+                      <Input
+                        placeholder={t.clinics.filterByCity}
+                        value={hospitalCityFilter}
+                        onChange={(e) => { setHospitalCityFilter(e.target.value); handleHospitalFilterChange(); }}
+                        className="h-9"
+                        data-testid="input-filter-hospital-city"
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <label className="text-sm font-medium mb-1 block">{t.common.status}</label>
-                    <select
-                      value={hospitalStatusFilter}
-                      onChange={(e) => { setHospitalStatusFilter(e.target.value); handleHospitalFilterChange(); }}
-                      className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
-                      data-testid="select-filter-hospital-status"
+                  {hasActiveHospitalFilters && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={clearHospitalFilters}
+                      className="text-xs"
+                      data-testid="button-clear-hospital-filters"
                     >
-                      <option value="all">{t.common.all}</option>
-                      <option value="active">{t.common.active}</option>
-                      <option value="inactive">{t.common.inactive}</option>
-                    </select>
-                  </div>
+                      <X className="h-3.5 w-3.5 mr-1" />
+                      {t.common.clearFilters}
+                    </Button>
+                  )}
                 </div>
               )}
             </CardHeader>
@@ -1844,36 +1837,20 @@ export default function HospitalsPage() {
 
         <TabsContent value="clinics" className="mt-6">
           <Card>
-            <CardHeader className="pb-4 space-y-4">
+            <CardHeader className="pb-4 space-y-3">
               <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="flex items-center gap-2">
-                    <Stethoscope className="h-5 w-5" />
-                    {t.clinics.title}
-                  </CardTitle>
-                  <CardDescription>{t.clinics.description}</CardDescription>
+                <div className="text-sm text-muted-foreground">
+                  {filteredAndSortedClinics.length} {t.common.of} {clinics.length} {t.common.records}
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button
-                    variant={showClinicFilters ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setShowClinicFilters(!showClinicFilters)}
-                    data-testid="button-toggle-clinic-filters"
-                  >
-                    <Filter className="h-4 w-4 mr-2" />
-                    {t.common.filter}
-                    {hasActiveClinicFilters && (
-                      <Badge variant="secondary" className="ml-2">!</Badge>
-                    )}
-                  </Button>
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => exportToCsv(filteredAndSortedClinics, 'clinics', clinicExportColumns)}
                     data-testid="button-export-clinics-csv"
                   >
-                    <Download className="h-4 w-4 mr-2" />
-                    CSV
+                    <Download className="h-4 w-4 mr-1.5" />
+                    Export CSV
                   </Button>
                   <Button
                     variant="outline"
@@ -1881,8 +1858,8 @@ export default function HospitalsPage() {
                     onClick={() => exportToExcel(filteredAndSortedClinics, 'clinics', clinicExportColumns)}
                     data-testid="button-export-clinics-excel"
                   >
-                    <FileSpreadsheet className="h-4 w-4 mr-2" />
-                    Excel
+                    <FileSpreadsheet className="h-4 w-4 mr-1.5" />
+                    Export Excel
                   </Button>
                   <Button
                     variant="outline"
@@ -1890,47 +1867,153 @@ export default function HospitalsPage() {
                     onClick={() => refetchClinics()}
                     data-testid="button-refresh-clinics"
                   >
-                    <RefreshCw className="h-4 w-4 mr-2" />
+                    <RefreshCw className="h-4 w-4 mr-1.5" />
                     {t.common.refresh}
                   </Button>
                   {canAdd("hospitals") && (
-                    <Button onClick={handleAddNewClinic} data-testid="button-add-clinic">
-                      <Plus className="h-4 w-4 mr-2" />
+                    <Button onClick={handleAddNewClinic} className="bg-red-700 hover:bg-red-800 text-white" data-testid="button-add-clinic">
+                      <Plus className="h-4 w-4 mr-1.5" />
                       {t.clinics.addClinic}
                     </Button>
                   )}
                 </div>
               </div>
-              
-              {/* Country tabs */}
-              <div className="flex flex-wrap gap-2">
+
+              <div className="flex items-center gap-3">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder={t.clinics.searchPlaceholder}
+                    value={clinicSearchQuery}
+                    onChange={(e) => { setClinicSearchQuery(e.target.value); handleClinicFilterChange(); }}
+                    className="pl-10"
+                    data-testid="input-search-clinics"
+                  />
+                </div>
                 <Button
-                  variant={clinicCountryTab === "ALL" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => { setClinicCountryTab("ALL"); handleClinicFilterChange(); }}
-                  data-testid="tab-clinic-country-all"
+                  variant={showClinicFilters ? "default" : "outline"}
+                  size="default"
+                  onClick={() => setShowClinicFilters(!showClinicFilters)}
+                  className={showClinicFilters ? "bg-red-700 hover:bg-red-800 text-white" : ""}
+                  data-testid="button-toggle-clinic-filters"
                 >
-                  {t.common.all}
-                  <Badge variant="secondary" className="ml-2">{clinics.length}</Badge>
+                  <Filter className="h-4 w-4 mr-1.5" />
+                  {t.common.filter}
                 </Button>
-                {COUNTRIES.map((country) => {
-                  const count = clinicCountryCounts[country.code] || 0;
-                  if (count === 0) return null;
-                  return (
-                    <Button
-                      key={country.code}
-                      variant={clinicCountryTab === country.code ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => { setClinicCountryTab(country.code); handleClinicFilterChange(); }}
-                      data-testid={`tab-clinic-country-${country.code}`}
-                    >
-                      {country.flag} {country.code}
-                      <Badge variant="secondary" className="ml-2">{count}</Badge>
-                    </Button>
-                  );
-                })}
               </div>
-              
+
+              {showClinicFilters && (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div>
+                      <label className="text-xs font-medium mb-1.5 block text-muted-foreground">{t.common.country}</label>
+                      <Select value={clinicCountryTab} onValueChange={(val) => { setClinicCountryTab(val); handleClinicFilterChange(); }}>
+                        <SelectTrigger data-testid="select-filter-clinic-country" className="h-9">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="ALL">{t.common.all}</SelectItem>
+                          {COUNTRIES.map((country) => {
+                            const count = clinicCountryCounts[country.code] || 0;
+                            if (count === 0) return null;
+                            return (
+                              <SelectItem key={country.code} value={country.code}>
+                                {country.flag} {country.code} ({count})
+                              </SelectItem>
+                            );
+                          })}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium mb-1.5 block text-muted-foreground">{t.common.status}</label>
+                      <Select value={clinicStatusFilter} onValueChange={(val) => { setClinicStatusFilter(val); handleClinicFilterChange(); }}>
+                        <SelectTrigger data-testid="select-filter-clinic-status" className="h-9">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">{t.common.all}</SelectItem>
+                          <SelectItem value="active">{t.common.active}</SelectItem>
+                          <SelectItem value="inactive">{t.common.inactive}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium mb-1.5 block text-muted-foreground">{(t.clinics as any).pipeline?.title || "Pipeline"}</label>
+                      <Select value={clinicPipelineFilter} onValueChange={(val) => { setClinicPipelineFilter(val); handleClinicFilterChange(); }}>
+                        <SelectTrigger data-testid="select-filter-clinic-pipeline" className="h-9">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">{t.common.all}</SelectItem>
+                          <SelectItem value="no_status">{(t.clinics as any).pipelineSummary?.noStatus || "No status"}</SelectItem>
+                          <SelectItem value="initial:not_contacted">{(t.clinics as any).pipeline?.notContacted || "Not contacted"}</SelectItem>
+                          <SelectItem value="initial:former">{(t.clinics as any).pipeline?.formerCollaborator || "Former collaborator"}</SelectItem>
+                          <SelectItem value="initial:active_contract">{(t.clinics as any).pipeline?.activeContract || "Active contract"}</SelectItem>
+                          <SelectItem value="coop:unknown">{(t.clinics as any).pipeline?.cooperationInterest || "Coop"}: {(t.clinics as any).pipeline?.unknown || "Unknown"}</SelectItem>
+                          <SelectItem value="coop:interested">{(t.clinics as any).pipeline?.cooperationInterest || "Coop"}: {(t.clinics as any).pipeline?.interested || "Interested"}</SelectItem>
+                          <SelectItem value="coop:not_interested">{(t.clinics as any).pipeline?.cooperationInterest || "Coop"}: {(t.clinics as any).pipeline?.notInterested || "Not interested"}</SelectItem>
+                          <SelectItem value="contract_int:unknown">{(t.clinics as any).pipeline?.contractInterest || "Contract"}: {(t.clinics as any).pipeline?.unknown || "Unknown"}</SelectItem>
+                          <SelectItem value="contract_int:interested">{(t.clinics as any).pipeline?.contractInterest || "Contract"}: {(t.clinics as any).pipeline?.interested || "Interested"}</SelectItem>
+                          <SelectItem value="contract_int:not_interested">{(t.clinics as any).pipeline?.contractInterest || "Contract"}: {(t.clinics as any).pipeline?.notInterested || "Not interested"}</SelectItem>
+                          <SelectItem value="contract:none">{(t.clinics as any).pipeline?.noContract || "No contract"}</SelectItem>
+                          <SelectItem value="contract:active">{(t.clinics as any).pipeline?.activeContract || "Active contract"}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium mb-1.5 block text-muted-foreground">{t.clinics.website}</label>
+                      <Select value={clinicHasWebsite} onValueChange={(val) => { setClinicHasWebsite(val); handleClinicFilterChange(); }}>
+                        <SelectTrigger data-testid="select-filter-clinic-website" className="h-9">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">{t.common.all}</SelectItem>
+                          <SelectItem value="yes">{t.clinics.hasWebsite || "S webom"}</SelectItem>
+                          <SelectItem value="no">{t.clinics.noWebsite || "Bez webu"}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    onClick={() => {}}
+                    data-testid="button-advanced-clinic-filters"
+                  >
+                    <Filter className="h-3 w-3" />
+                    <span>{t.clinics.filterByCity}</span>
+                  </button>
+
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div>
+                      <label className="text-xs font-medium mb-1.5 block text-muted-foreground">{t.clinics.city}</label>
+                      <Input
+                        placeholder={t.clinics.filterByCity}
+                        value={clinicCityFilter}
+                        onChange={(e) => { setClinicCityFilter(e.target.value); handleClinicFilterChange(); }}
+                        className="h-9"
+                        data-testid="input-filter-clinic-city"
+                      />
+                    </div>
+                  </div>
+
+                  {hasActiveClinicFilters && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={clearClinicFilters}
+                      className="text-xs"
+                      data-testid="button-clear-clinic-filters"
+                    >
+                      <X className="h-3.5 w-3.5 mr-1" />
+                      {t.common.clearFilters || "Clear filters"}
+                    </Button>
+                  )}
+                </div>
+              )}
+
               {/* Pipeline Summary Stats */}
               {filteredAndSortedClinics.length > 0 && (
                 <div className="flex flex-wrap items-center gap-1.5 p-3 bg-gradient-to-r from-slate-50 to-blue-50/50 dark:from-slate-900 dark:to-blue-950/30 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm" data-testid="pipeline-summary-bar">
@@ -1988,99 +2071,6 @@ export default function HospitalsPage() {
                     <Badge className="text-[10px] px-2.5 py-1 font-bold bg-primary/10 text-primary border-primary/30 hover:bg-primary/20" data-testid="stat-total">
                       {(t.clinics as any).pipelineSummary?.total || "Total"}: {filteredAndSortedClinics.length}
                     </Badge>
-                  </div>
-                </div>
-              )}
-
-              {/* Search and filters panel */}
-              <div className="flex items-center gap-4">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder={t.clinics.searchPlaceholder}
-                    value={clinicSearchQuery}
-                    onChange={(e) => { setClinicSearchQuery(e.target.value); handleClinicFilterChange(); }}
-                    className="pl-10"
-                    data-testid="input-search-clinics"
-                  />
-                </div>
-                {hasActiveClinicFilters && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={clearClinicFilters}
-                    data-testid="button-clear-clinic-filters"
-                  >
-                    <X className="h-4 w-4 mr-1" />
-                    {t.common.clearFilters || "Zmazat filtre"}
-                  </Button>
-                )}
-                <div className="text-sm text-muted-foreground whitespace-nowrap">
-                  {filteredAndSortedClinics.length} z {clinics.length} {t.clinics.count}
-                </div>
-              </div>
-              
-              {/* Advanced filters */}
-              {showClinicFilters && (
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-muted/50 rounded-lg border">
-                  <div>
-                    <label className="text-xs font-medium mb-1.5 block text-muted-foreground uppercase tracking-wider">{t.clinics.city}</label>
-                    <Input
-                      placeholder={t.clinics.filterByCity}
-                      value={clinicCityFilter}
-                      onChange={(e) => { setClinicCityFilter(e.target.value); handleClinicFilterChange(); }}
-                      className="h-9"
-                      data-testid="input-filter-clinic-city"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium mb-1.5 block text-muted-foreground uppercase tracking-wider">{t.common.status}</label>
-                    <select
-                      value={clinicStatusFilter}
-                      onChange={(e) => { setClinicStatusFilter(e.target.value); handleClinicFilterChange(); }}
-                      className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
-                      data-testid="select-filter-clinic-status"
-                    >
-                      <option value="all">{t.common.all}</option>
-                      <option value="active">{t.common.active}</option>
-                      <option value="inactive">{t.common.inactive}</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium mb-1.5 block text-muted-foreground uppercase tracking-wider">{(t.clinics as any).pipeline?.title || "Pipeline"}</label>
-                    <select
-                      value={clinicPipelineFilter}
-                      onChange={(e) => { setClinicPipelineFilter(e.target.value); handleClinicFilterChange(); }}
-                      className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
-                      data-testid="select-filter-clinic-pipeline"
-                    >
-                      <option value="all">{t.common.all}</option>
-                      <option value="no_status">{(t.clinics as any).pipelineSummary?.noStatus || "No status"}</option>
-                      <option value="initial:not_contacted">{(t.clinics as any).pipeline?.notContacted || "Not contacted"}</option>
-                      <option value="initial:former">{(t.clinics as any).pipeline?.formerCollaborator || "Former collaborator"}</option>
-                      <option value="initial:active_contract">{(t.clinics as any).pipeline?.activeContract || "Active contract"}</option>
-                      <option value="coop:unknown">{(t.clinics as any).pipeline?.cooperationInterest || "Coop"}: {(t.clinics as any).pipeline?.unknown || "Unknown"}</option>
-                      <option value="coop:interested">{(t.clinics as any).pipeline?.cooperationInterest || "Coop"}: {(t.clinics as any).pipeline?.interested || "Interested"}</option>
-                      <option value="coop:not_interested">{(t.clinics as any).pipeline?.cooperationInterest || "Coop"}: {(t.clinics as any).pipeline?.notInterested || "Not interested"}</option>
-                      <option value="contract_int:unknown">{(t.clinics as any).pipeline?.contractInterest || "Contract"}: {(t.clinics as any).pipeline?.unknown || "Unknown"}</option>
-                      <option value="contract_int:interested">{(t.clinics as any).pipeline?.contractInterest || "Contract"}: {(t.clinics as any).pipeline?.interested || "Interested"}</option>
-                      <option value="contract_int:not_interested">{(t.clinics as any).pipeline?.contractInterest || "Contract"}: {(t.clinics as any).pipeline?.notInterested || "Not interested"}</option>
-                      <option value="contract:none">{(t.clinics as any).pipeline?.noContract || "No contract"}</option>
-                      <option value="contract:active">{(t.clinics as any).pipeline?.activeContract || "Active contract"}</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium mb-1.5 block text-muted-foreground uppercase tracking-wider">{t.clinics.website}</label>
-                    <select
-                      value={clinicHasWebsite}
-                      onChange={(e) => { setClinicHasWebsite(e.target.value); handleClinicFilterChange(); }}
-                      className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
-                      data-testid="select-filter-clinic-website"
-                    >
-                      <option value="all">{t.common.all}</option>
-                      <option value="yes">{t.clinics.hasWebsite || "S webom"}</option>
-                      <option value="no">{t.clinics.noWebsite || "Bez webu"}</option>
-                    </select>
                   </div>
                 </div>
               )}
