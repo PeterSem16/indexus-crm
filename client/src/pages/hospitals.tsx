@@ -1003,7 +1003,7 @@ export default function HospitalsPage() {
       const matchesCountry = clinicCountryTab === "ALL" || clinic.countryCode === clinicCountryTab;
       const matchesSearch = 
         clinic.name.toLowerCase().includes(clinicSearchQuery.toLowerCase()) ||
-        clinic.doctorName?.toLowerCase().includes(clinicSearchQuery.toLowerCase()) ||
+        (clinic.doctorName || [(clinic as any).doctorTitle, (clinic as any).doctorFirstName, (clinic as any).doctorLastName].filter(Boolean).join(" "))?.toLowerCase().includes(clinicSearchQuery.toLowerCase()) ||
         clinic.city?.toLowerCase().includes(clinicSearchQuery.toLowerCase()) ||
         clinic.address?.toLowerCase().includes(clinicSearchQuery.toLowerCase());
       const matchesCity = !clinicCityFilter || clinic.city?.toLowerCase().includes(clinicCityFilter.toLowerCase());
@@ -1031,8 +1031,8 @@ export default function HospitalsPage() {
           bVal = (b.city || "").toLowerCase();
           break;
         case "doctorName":
-          aVal = (a.doctorName || "").toLowerCase();
-          bVal = (b.doctorName || "").toLowerCase();
+          aVal = ((a as any).doctorLastName || a.doctorName || "").toLowerCase();
+          bVal = ((b as any).doctorLastName || b.doctorName || "").toLowerCase();
           break;
         case "country":
           aVal = a.countryCode;
@@ -1347,7 +1347,11 @@ export default function HospitalsPage() {
     {
       key: "doctorName",
       header: <SortableHeader field="doctorName" label={t.clinics.doctorName} />,
-      cell: (clinic: Clinic) => clinic.doctorName || "-",
+      cell: (clinic: Clinic) => {
+        const c = clinic as any;
+        const parts = [c.doctorTitle, c.doctorFirstName, c.doctorLastName].filter(Boolean);
+        return parts.length > 0 ? parts.join(" ") : (clinic.doctorName || "-");
+      },
     },
     {
       key: "country",
