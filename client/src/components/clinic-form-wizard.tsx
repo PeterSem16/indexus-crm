@@ -261,18 +261,24 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess }: 
         res = await apiRequest("POST", "/api/clinics", payload);
       }
       const savedClinic = await res.json();
+      console.log("[ClinicSave] savedClinic id:", savedClinic?.id, "referrals to save:", referrals.length, referrals);
       if (savedClinic?.id) {
-        if (initialData && existingReferrals) {
+        if (initialData && existingReferrals && existingReferrals.length > 0) {
+          console.log("[ClinicSave] Deleting", existingReferrals.length, "old referrals");
           for (const old of existingReferrals) {
             await apiRequest("DELETE", `/api/clinic-referrals/${old.id}`);
           }
         }
-        for (const ref of referrals) {
-          await apiRequest("POST", "/api/clinic-referrals", {
-            clinicId: savedClinic.id,
-            referringClinicId: ref.clinicId,
-            referralType: ref.referralType,
-          });
+        if (referrals.length > 0) {
+          console.log("[ClinicSave] Saving", referrals.length, "new referrals");
+          for (const ref of referrals) {
+            const refRes = await apiRequest("POST", "/api/clinic-referrals", {
+              clinicId: savedClinic.id,
+              referringClinicId: ref.clinicId,
+              referralType: ref.referralType,
+            });
+            console.log("[ClinicSave] Referral save response:", refRes.status);
+          }
         }
       }
       return savedClinic;

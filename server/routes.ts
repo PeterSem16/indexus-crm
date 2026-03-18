@@ -13330,13 +13330,16 @@ Return ONLY valid JSON, no markdown code blocks.`,
 
   app.get("/api/clinic-referrals/:clinicId", requireAuth, async (req, res) => {
     try {
+      console.log(`[Referrals] GET /api/clinic-referrals/${req.params.clinicId}`);
       const referrals = await db.select().from(clinicReferrals).where(eq(clinicReferrals.clinicId, req.params.clinicId));
+      console.log(`[Referrals] Found ${referrals.length} referrals for clinic ${req.params.clinicId}`);
       const enriched = await Promise.all(referrals.map(async (ref) => {
         const clinic = await storage.getClinic(ref.referringClinicId);
         return { ...ref, referringClinic: clinic };
       }));
       res.json(enriched);
     } catch (error) {
+      console.error(`[Referrals] GET error:`, error);
       res.status(500).json({ error: "Failed to get referrals" });
     }
   });
@@ -13344,7 +13347,9 @@ Return ONLY valid JSON, no markdown code blocks.`,
   app.post("/api/clinic-referrals", requireAuth, async (req, res) => {
     try {
       const { clinicId, referringClinicId, referralType, conferenceName, conferenceDate, notes } = req.body;
+      console.log(`[Referrals] POST /api/clinic-referrals`, { clinicId, referringClinicId, referralType });
       if (!clinicId || !referringClinicId || !referralType) {
+        console.error(`[Referrals] Missing required fields`);
         return res.status(400).json({ error: "clinicId, referringClinicId and referralType are required" });
       }
       const [referral] = await db.insert(clinicReferrals).values({
@@ -13355,8 +13360,10 @@ Return ONLY valid JSON, no markdown code blocks.`,
         conferenceDate: conferenceDate ? new Date(conferenceDate) : null,
         notes: notes || null,
       }).returning();
+      console.log(`[Referrals] Created referral:`, referral.id);
       res.json(referral);
     } catch (error) {
+      console.error(`[Referrals] POST error:`, error);
       res.status(500).json({ error: "Failed to create referral" });
     }
   });
