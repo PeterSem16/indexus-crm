@@ -261,10 +261,16 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess }: 
         res = await apiRequest("POST", "/api/clinics", payload);
       }
       const savedClinic = await res.json();
-      if (referrals.length > 0 && savedClinic?.id) {
+      if (savedClinic?.id) {
+        if (initialData && existingReferrals) {
+          for (const old of existingReferrals) {
+            await apiRequest("DELETE", `/api/clinic-referrals/${old.id}`);
+          }
+        }
         for (const ref of referrals) {
-          await apiRequest("POST", `/api/clinics/${savedClinic.id}/referrals`, {
-            referringClinicId: ref.clinicId,
+          await apiRequest("POST", "/api/clinic-referrals", {
+            clinicId: String(savedClinic.id),
+            referringClinicId: String(ref.clinicId),
             referralType: ref.referralType,
           });
         }
@@ -273,6 +279,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess }: 
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/clinics"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/clinic-referrals"] });
       toast({ title: t.success.saved });
       onSuccess();
       onOpenChange(false);
@@ -302,7 +309,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess }: 
             </SheetTitle>
           </SheetHeader>
 
-          {initialData && (formData.leadSource || formData.isReferredByDoctor || formData.isFromConference) && (() => {
+          {initialData && (formData.leadSource || formData.isReferredByDoctor || formData.isFromConference || (existingReferrals && existingReferrals.length > 0)) && (() => {
             const sourceType = MAIN_SOURCE_TYPES.includes(formData.leadSource as LeadSourceType) ? formData.leadSource as LeadSourceType : null;
             const docRefs = existingReferrals?.filter(r => r.referringClinic && r.referralType === "doctor_referral")?.map(r => r.referringClinic!) || [];
             const confRefs = existingReferrals?.filter(r => r.referringClinic && r.referralType === "conference")?.map(r => r.referringClinic!) || [];
