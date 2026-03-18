@@ -4,7 +4,7 @@ import { Plus, Pencil, Trash2, Search, Building2, FileText, Award, Gift, ListChe
 import { useAuth } from "@/contexts/auth-context";
 import { HospitalFormWizard } from "@/components/hospital-form-wizard";
 import EntityCampaignTimeline from "@/components/campaigns/EntityCampaignTimeline";
-import { ClinicFormWizard } from "@/components/clinic-form-wizard";
+import { ClinicFormSheet } from "@/components/clinic-form-wizard";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -2090,24 +2090,12 @@ export default function HospitalsPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <Dialog open={isClinicFormOpen} onOpenChange={setIsClinicFormOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Stethoscope className="h-5 w-5" />
-              {selectedClinic ? t.clinics.editClinic : t.clinics.addClinic}
-            </DialogTitle>
-            <DialogDescription>
-              {selectedClinic ? t.clinics.editClinic : t.clinics.addClinic}
-            </DialogDescription>
-          </DialogHeader>
-          <ClinicFormWizard
-            initialData={selectedClinic}
-            onSuccess={() => setIsClinicFormOpen(false)}
-            onCancel={() => setIsClinicFormOpen(false)}
-          />
-        </DialogContent>
-      </Dialog>
+      <ClinicFormSheet
+        open={isClinicFormOpen}
+        onOpenChange={setIsClinicFormOpen}
+        initialData={selectedClinic}
+        onSuccess={() => setIsClinicFormOpen(false)}
+      />
 
       <AlertDialog open={isClinicDeleteOpen} onOpenChange={setIsClinicDeleteOpen}>
         <AlertDialogContent>
