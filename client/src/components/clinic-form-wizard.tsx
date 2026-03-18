@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/sheet";
 import { COUNTRIES } from "@shared/schema";
 import type { Clinic } from "@shared/schema";
-import { Stethoscope, MapPin, ExternalLink, Navigation, Loader2, Search, Trash2, Plus, Users, Save, X } from "lucide-react";
+import { Stethoscope, MapPin, ExternalLink, Navigation, Loader2, Search, Trash2, Plus, Users, Save, X, UserPlus, Handshake, UserCheck, GraduationCap, Phone } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -36,6 +36,8 @@ import { getCountryFlag } from "@/lib/countries";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { CallCustomerButton } from "@/components/sip-phone";
+import { getQueryFn } from "@/lib/queryClient";
 
 interface ClinicFormData {
   name: string;
@@ -58,8 +60,24 @@ interface ClinicFormData {
   conferenceDate: string;
 }
 
-const LEAD_SOURCE_TYPES = ["former_collaborator", "current_collaborator", "doctor_referral", "conference"] as const;
+const LEAD_SOURCE_TYPES = ["new_contact", "former_collaborator", "current_collaborator", "doctor_referral", "conference"] as const;
 type LeadSourceType = typeof LEAD_SOURCE_TYPES[number];
+
+const LEAD_SOURCE_ICONS: Record<LeadSourceType, typeof UserPlus> = {
+  new_contact: UserPlus,
+  former_collaborator: Users,
+  current_collaborator: Handshake,
+  doctor_referral: UserCheck,
+  conference: GraduationCap,
+};
+
+const LEAD_SOURCE_COLORS: Record<LeadSourceType, string> = {
+  new_contact: "bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-950 dark:border-blue-800 dark:text-blue-300",
+  former_collaborator: "bg-amber-50 border-amber-200 text-amber-700 dark:bg-amber-950 dark:border-amber-800 dark:text-amber-300",
+  current_collaborator: "bg-green-50 border-green-200 text-green-700 dark:bg-green-950 dark:border-green-800 dark:text-green-300",
+  doctor_referral: "bg-purple-50 border-purple-200 text-purple-700 dark:bg-purple-950 dark:border-purple-800 dark:text-purple-300",
+  conference: "bg-rose-50 border-rose-200 text-rose-700 dark:bg-rose-950 dark:border-rose-800 dark:text-rose-300",
+};
 
 interface ClinicFormSheetProps {
   open: boolean;
@@ -132,6 +150,12 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess }: 
 
   const { data: allClinics } = useQuery<Clinic[]>({
     queryKey: ["/api/clinics"],
+  });
+
+  const { data: existingReferrals } = useQuery<Array<{ id: string; clinicId: string; referringClinicId: string; referringClinic: Clinic | null }>>({
+    queryKey: ["/api/clinic-referrals", initialData?.id],
+    queryFn: getQueryFn({ on401: "returnNull" }),
+    enabled: !!initialData?.id && open,
   });
 
   const [referrals, setReferrals] = useState<Array<{ clinicId: number; clinicName: string; referralType: string }>>([]);
@@ -285,6 +309,44 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess }: 
               {initialData ? t.clinics.editClinic : t.clinics.addClinic}
             </SheetTitle>
           </SheetHeader>
+
+          {initialData && formData.leadSource && LEAD_SOURCE_TYPES.includes(formData.leadSource as LeadSourceType) && (() => {
+            const sourceType = formData.leadSource as LeadSourceType;
+            const Icon = LEAD_SOURCE_ICONS[sourceType];
+            const colorClass = LEAD_SOURCE_COLORS[sourceType];
+            const referringDoctors = existingReferrals?.filter(r => r.referringClinic)?.map(r => r.referringClinic!) || [];
+            return (
+              <div className={cn("mx-6 mt-2 mb-1 rounded-lg border px-4 py-3 flex items-center gap-3", colorClass)} data-testid="clinic-status-bar">
+                <Icon className="h-5 w-5 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-sm truncate">
+                    {t.clinics.leadSourceTypes?.[sourceType] || sourceType}
+                  </div>
+                  <div className="text-xs opacity-80 truncate">
+                    {t.clinics.leadSourceDesc?.[sourceType] || ""}
+                  </div>
+                  {sourceType === "doctor_referral" && referringDoctors.length > 0 && (
+                    <div className="text-xs mt-1 flex items-center gap-1 flex-wrap">
+                      <span className="font-medium">{t.clinics.referredBy}:</span>
+                      {referringDoctors.map((doc, i) => (
+                        <Badge key={doc.id} variant="secondary" className="text-xs py-0 px-1.5">
+                          {doc.doctorName || doc.name}
+                          {i < referringDoctors.length - 1 ? "" : ""}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {initialData.phone && (
+                  <CallCustomerButton
+                    phoneNumber={initialData.phone}
+                    customerName={initialData.doctorName || initialData.name}
+                    variant="icon"
+                  />
+                )}
+              </div>
+            );
+          })()}
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="px-6">
             <TabsList className="grid w-full grid-cols-4">

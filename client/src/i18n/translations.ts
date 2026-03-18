@@ -863,13 +863,18 @@ export interface Translations {
     createNewClinic: string;
     noReferrals: string;
     removeReferral: string;
+    referredBy: string;
+    callNow: string;
+    statusBar: string;
     leadSourceTypes: {
+      new_contact: string;
       former_collaborator: string;
       current_collaborator: string;
       doctor_referral: string;
       conference: string;
     };
     leadSourceDesc: {
+      new_contact: string;
       former_collaborator: string;
       current_collaborator: string;
       doctor_referral: string;
@@ -5949,13 +5954,18 @@ export const translations: Record<Locale, Translations> = {
       createNewClinic: 'Create New Clinic',
       noReferrals: 'No referring doctors added',
       removeReferral: 'Remove',
+      referredBy: 'Referred by',
+      callNow: 'Call',
+      statusBar: 'Status',
       leadSourceTypes: {
+        new_contact: 'New contact (not yet approached)',
         former_collaborator: 'Former collaborator',
         current_collaborator: 'Current collaborator (ongoing)',
         doctor_referral: 'Doctor referral',
         conference: 'Conference / Seminar',
       },
       leadSourceDesc: {
+        new_contact: 'New contact, not yet approached for cooperation',
         former_collaborator: 'Contact was previously our collaborator',
         current_collaborator: 'Contact is our collaborator and cooperation is ongoing',
         doctor_referral: 'Recommendation from another doctor',
@@ -10498,13 +10508,18 @@ export const translations: Record<Locale, Translations> = {
       createNewClinic: 'Vytvoriť novú ambulanciu',
       noReferrals: 'Žiadni odporúčajúci lekári',
       removeReferral: 'Odstrániť',
+      referredBy: 'Odporučil',
+      callNow: 'Volať',
+      statusBar: 'Stav',
       leadSourceTypes: {
+        new_contact: 'Nový kontakt (zatiaľ neoslovený)',
         former_collaborator: 'Bývalý spolupracovník',
         current_collaborator: 'Aktívny spolupracovník (pretrváva)',
         doctor_referral: 'Odporúčanie lekára',
         conference: 'Konferencia / Seminár',
       },
       leadSourceDesc: {
+        new_contact: 'Nový kontakt, zatiaľ neoslovený na spoluprácu',
         former_collaborator: 'Kontakt bol v minulosti naším spolupracovníkom',
         current_collaborator: 'Kontakt je naším spolupracovníkom a spolupráca stále pretrváva',
         doctor_referral: 'Odporúčanie iného lekára',
@@ -14986,13 +15001,18 @@ export const translations: Record<Locale, Translations> = {
       createNewClinic: 'Vytvořit novou ambulanci',
       noReferrals: 'Žádní doporučující lékaři',
       removeReferral: 'Odstranit',
+      referredBy: 'Doporučil',
+      callNow: 'Volat',
+      statusBar: 'Stav',
       leadSourceTypes: {
+        new_contact: 'Nový kontakt (zatím neoslovený)',
         former_collaborator: 'Bývalý spolupracovník',
         current_collaborator: 'Aktivní spolupracovník (trvající)',
         doctor_referral: 'Doporučení lékaře',
         conference: 'Konference / Seminář',
       },
       leadSourceDesc: {
+        new_contact: 'Nový kontakt, zatím neoslovený ke spolupráci',
         former_collaborator: 'Kontakt byl v minulosti naším spolupracovníkem',
         current_collaborator: 'Kontakt je naším spolupracovníkem a spolupráce stále trvá',
         doctor_referral: 'Doporučení jiného lékaře',
@@ -19437,13 +19457,18 @@ export const translations: Record<Locale, Translations> = {
       createNewClinic: 'Új rendelő létrehozása',
       noReferrals: 'Nincsenek ajánló orvosok',
       removeReferral: 'Eltávolítás',
+      referredBy: 'Ajánlotta',
+      callNow: 'Hívás',
+      statusBar: 'Állapot',
       leadSourceTypes: {
+        new_contact: 'Új kapcsolat (még nem megkeresett)',
         former_collaborator: 'Korábbi munkatárs',
         current_collaborator: 'Jelenlegi munkatárs (folyamatban)',
         doctor_referral: 'Orvosi ajánlás',
         conference: 'Konferencia / Szeminárium',
       },
       leadSourceDesc: {
+        new_contact: 'Új kapcsolat, még nem megkeresett együttműködésre',
         former_collaborator: 'A kapcsolat korábban munkatársunk volt',
         current_collaborator: 'A kapcsolat munkatársunk és az együttműködés folytatódik',
         doctor_referral: 'Másik orvos ajánlása',
@@ -23887,13 +23912,18 @@ export const translations: Record<Locale, Translations> = {
       createNewClinic: 'Creează clinică nouă',
       noReferrals: 'Niciun medic recomandant',
       removeReferral: 'Elimină',
+      referredBy: 'Recomandat de',
+      callNow: 'Apelează',
+      statusBar: 'Stare',
       leadSourceTypes: {
+        new_contact: 'Contact nou (necontactat încă)',
         former_collaborator: 'Fost colaborator',
         current_collaborator: 'Colaborator actual (în continuare)',
         doctor_referral: 'Recomandarea unui medic',
         conference: 'Conferință / Seminar',
       },
       leadSourceDesc: {
+        new_contact: 'Contact nou, necontactat încă pentru colaborare',
         former_collaborator: 'Contactul a fost anterior colaboratorul nostru',
         current_collaborator: 'Contactul este colaboratorul nostru iar cooperarea continuă',
         doctor_referral: 'Recomandarea unui alt medic',
@@ -28338,13 +28368,18 @@ export const translations: Record<Locale, Translations> = {
       createNewClinic: 'Crea nuovo ambulatorio',
       noReferrals: 'Nessun medico referente',
       removeReferral: 'Rimuovi',
+      referredBy: 'Raccomandato da',
+      callNow: 'Chiama',
+      statusBar: 'Stato',
       leadSourceTypes: {
+        new_contact: 'Nuovo contatto (non ancora contattato)',
         former_collaborator: 'Ex collaboratore',
         current_collaborator: 'Collaboratore attuale (in corso)',
         doctor_referral: 'Referenza medica',
         conference: 'Conferenza / Seminario',
       },
       leadSourceDesc: {
+        new_contact: 'Nuovo contatto, non ancora contattato per la collaborazione',
         former_collaborator: 'Il contatto era in precedenza un nostro collaboratore',
         current_collaborator: 'Il contatto è un nostro collaboratore e la cooperazione è in corso',
         doctor_referral: 'Raccomandazione di un altro medico',
@@ -32789,13 +32824,18 @@ export const translations: Record<Locale, Translations> = {
       createNewClinic: 'Neue Praxis erstellen',
       noReferrals: 'Keine überweisenden Ärzte',
       removeReferral: 'Entfernen',
+      referredBy: 'Empfohlen von',
+      callNow: 'Anrufen',
+      statusBar: 'Status',
       leadSourceTypes: {
+        new_contact: 'Neuer Kontakt (noch nicht angesprochen)',
         former_collaborator: 'Ehemaliger Mitarbeiter',
         current_collaborator: 'Aktueller Mitarbeiter (laufend)',
         doctor_referral: 'Arztüberweisung',
         conference: 'Konferenz / Seminar',
       },
       leadSourceDesc: {
+        new_contact: 'Neuer Kontakt, noch nicht für Zusammenarbeit angesprochen',
         former_collaborator: 'Der Kontakt war zuvor unser Mitarbeiter',
         current_collaborator: 'Der Kontakt ist unser Mitarbeiter und die Zusammenarbeit dauert an',
         doctor_referral: 'Empfehlung eines anderen Arztes',

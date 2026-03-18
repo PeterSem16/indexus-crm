@@ -329,7 +329,7 @@ export const insertClinicSchema = createInsertSchema(clinics).omit({
 export type InsertClinic = z.infer<typeof insertClinicSchema>;
 export type Clinic = typeof clinics.$inferSelect;
 
-export const LEAD_SOURCE_TYPES = ["former_collaborator", "current_collaborator", "doctor_referral", "conference"] as const;
+export const LEAD_SOURCE_TYPES = ["new_contact", "former_collaborator", "current_collaborator", "doctor_referral", "conference"] as const;
 export type LeadSourceType = typeof LEAD_SOURCE_TYPES[number];
 
 export const clinicReferrals = pgTable("clinic_referrals", {
