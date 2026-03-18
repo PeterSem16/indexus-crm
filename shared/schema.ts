@@ -298,20 +298,25 @@ export const hospitals = pgTable("hospitals", {
 // Clinics table - ambulancie (outpatient clinics)
 export const clinics = pgTable("clinics", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  legacyId: text("legacy_id"), // Legacy ID from previous CRM
-  name: text("name").notNull(), // Názov ambulancie
-  doctorName: text("doctor_name"), // Meno lekára
-  address: text("address"), // Adresa
-  city: text("city"), // Mesto
-  postalCode: text("postal_code"), // PSČ
-  countryCode: text("country_code").notNull().default("SK"), // Krajina
-  phone: text("phone"), // Telefón
-  email: text("email"), // Email
-  website: text("website"), // Web stránka ambulancie
-  latitude: decimal("latitude", { precision: 10, scale: 7 }), // GPS súradnica
-  longitude: decimal("longitude", { precision: 10, scale: 7 }), // GPS súradnica
-  isActive: boolean("is_active").notNull().default(true), // Aktívna ambulancia
-  notes: text("notes"), // Poznámky
+  legacyId: text("legacy_id"),
+  name: text("name").notNull(),
+  doctorName: text("doctor_name"),
+  address: text("address"),
+  city: text("city"),
+  postalCode: text("postal_code"),
+  countryCode: text("country_code").notNull().default("SK"),
+  phone: text("phone"),
+  email: text("email"),
+  website: text("website"),
+  latitude: decimal("latitude", { precision: 10, scale: 7 }),
+  longitude: decimal("longitude", { precision: 10, scale: 7 }),
+  isActive: boolean("is_active").notNull().default(true),
+  notes: text("notes"),
+  leadSource: text("lead_source"),
+  leadSourceDate: timestamp("lead_source_date"),
+  leadSourceNotes: text("lead_source_notes"),
+  conferenceName: text("conference_name"),
+  conferenceDate: timestamp("conference_date"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
@@ -323,6 +328,27 @@ export const insertClinicSchema = createInsertSchema(clinics).omit({
 });
 export type InsertClinic = z.infer<typeof insertClinicSchema>;
 export type Clinic = typeof clinics.$inferSelect;
+
+export const LEAD_SOURCE_TYPES = ["former_collaborator", "current_collaborator", "doctor_referral", "conference"] as const;
+export type LeadSourceType = typeof LEAD_SOURCE_TYPES[number];
+
+export const clinicReferrals = pgTable("clinic_referrals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  clinicId: varchar("clinic_id").notNull(),
+  referringClinicId: varchar("referring_clinic_id").notNull(),
+  referralType: text("referral_type").notNull(),
+  conferenceName: text("conference_name"),
+  conferenceDate: timestamp("conference_date"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const insertClinicReferralSchema = createInsertSchema(clinicReferrals).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertClinicReferral = z.infer<typeof insertClinicReferralSchema>;
+export type ClinicReferral = typeof clinicReferrals.$inferSelect;
 
 // Client status types
 export const CLIENT_STATUSES = [

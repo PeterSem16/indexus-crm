@@ -34,7 +34,7 @@ import {
   collections, executiveSummaries, collectionLabResults, collectionSprievodnyList,
   insertSopCategorySchema, insertSopArticleSchema,
   agentSessions, agentSessionActivities, agentBreaks, scheduledReports, agentQueueStatus,
-  inboundCallLogs, inboundQueues, ariSettings, sipExtensions,
+  inboundCallLogs, inboundQueues, ariSettings, sipExtensions, clinicReferrals,
   type SafeUser, type Customer, type Product, type BillingDetails, type ActivityLog, type LeadScoringCriteria,
   type ServiceConfiguration, type InvoiceTemplate, type InvoiceLayout, type Role,
   type Campaign, type CampaignContact, type ContractInstance
@@ -13325,6 +13325,48 @@ Return ONLY valid JSON, no markdown code blocks.`,
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ error: "Failed to delete clinic" });
+    }
+  });
+
+  app.get("/api/clinic-referrals/:clinicId", requireAuth, async (req, res) => {
+    try {
+      const referrals = await db.select().from(clinicReferrals).where(eq(clinicReferrals.clinicId, req.params.clinicId));
+      const enriched = await Promise.all(referrals.map(async (ref) => {
+        const clinic = await storage.getClinic(ref.referringClinicId);
+        return { ...ref, referringClinic: clinic };
+      }));
+      res.json(enriched);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get referrals" });
+    }
+  });
+
+  app.post("/api/clinic-referrals", requireAuth, async (req, res) => {
+    try {
+      const { clinicId, referringClinicId, referralType, conferenceName, conferenceDate, notes } = req.body;
+      if (!clinicId || !referringClinicId || !referralType) {
+        return res.status(400).json({ error: "clinicId, referringClinicId and referralType are required" });
+      }
+      const [referral] = await db.insert(clinicReferrals).values({
+        clinicId,
+        referringClinicId,
+        referralType,
+        conferenceName: conferenceName || null,
+        conferenceDate: conferenceDate ? new Date(conferenceDate) : null,
+        notes: notes || null,
+      }).returning();
+      res.json(referral);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create referral" });
+    }
+  });
+
+  app.delete("/api/clinic-referrals/:id", requireAuth, async (req, res) => {
+    try {
+      await db.delete(clinicReferrals).where(eq(clinicReferrals.id, req.params.id));
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete referral" });
     }
   });
 

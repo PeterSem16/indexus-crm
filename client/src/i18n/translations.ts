@@ -851,8 +851,33 @@ export interface Translations {
     filterByCity: string;
     hasWebsite: string;
     noWebsite: string;
+    leadSource: string;
+    leadSourceDate: string;
+    leadSourceNotes: string;
+    nextStepPlan: string;
+    conferenceName: string;
+    conferenceDate: string;
+    referringDoctors: string;
+    addReferringDoctor: string;
+    selectDoctor: string;
+    createNewClinic: string;
+    noReferrals: string;
+    removeReferral: string;
+    leadSourceTypes: {
+      former_collaborator: string;
+      current_collaborator: string;
+      doctor_referral: string;
+      conference: string;
+    };
+    leadSourceDesc: {
+      former_collaborator: string;
+      current_collaborator: string;
+      doctor_referral: string;
+      conference: string;
+    };
     steps: {
       basic: string;
+      source: string;
       address: string;
       web: string;
       settings: string;
@@ -860,6 +885,7 @@ export interface Translations {
     };
     stepsDesc: {
       basic: string;
+      source: string;
       address: string;
       web: string;
       settings: string;
@@ -5911,8 +5937,33 @@ export const translations: Record<Locale, Translations> = {
       filterByCity: 'Filter by city',
       hasWebsite: 'With website',
       noWebsite: 'Without website',
+      leadSource: 'Lead Source',
+      leadSourceDate: 'Contact Date',
+      leadSourceNotes: 'Source Notes',
+      nextStepPlan: 'Next Step Plan',
+      conferenceName: 'Conference Name',
+      conferenceDate: 'Conference Date',
+      referringDoctors: 'Referring Doctors',
+      addReferringDoctor: 'Add Referring Doctor',
+      selectDoctor: 'Select doctor from database',
+      createNewClinic: 'Create New Clinic',
+      noReferrals: 'No referring doctors added',
+      removeReferral: 'Remove',
+      leadSourceTypes: {
+        former_collaborator: 'Former collaborator',
+        current_collaborator: 'Current collaborator (ongoing)',
+        doctor_referral: 'Doctor referral',
+        conference: 'Conference / Seminar',
+      },
+      leadSourceDesc: {
+        former_collaborator: 'Contact was previously our collaborator',
+        current_collaborator: 'Contact is our collaborator and cooperation is ongoing',
+        doctor_referral: 'Recommendation from another doctor',
+        conference: 'Contact from conference or seminar',
+      },
       steps: {
         basic: 'Basic Info',
+        source: 'Lead Source',
         address: 'Address',
         web: 'Web & Contact',
         settings: 'Settings',
@@ -5920,6 +5971,7 @@ export const translations: Record<Locale, Translations> = {
       },
       stepsDesc: {
         basic: 'Name and doctor',
+        source: 'Source and referrals',
         address: 'Address and GPS coordinates',
         web: 'Website and contacts',
         settings: 'Active status and notes',
@@ -10434,8 +10486,33 @@ export const translations: Record<Locale, Translations> = {
       filterByCity: 'Filtrovať podľa mesta',
       hasWebsite: 'S webom',
       noWebsite: 'Bez webu',
+      leadSource: 'Zdroj kontaktu',
+      leadSourceDate: 'Dátum kontaktu',
+      leadSourceNotes: 'Poznámky k zdroju',
+      nextStepPlan: 'Plán ďalšieho kroku',
+      conferenceName: 'Názov konferencie',
+      conferenceDate: 'Dátum konferencie',
+      referringDoctors: 'Odporúčajúci lekári',
+      addReferringDoctor: 'Pridať odporúčajúceho lekára',
+      selectDoctor: 'Vybrať lekára z databázy',
+      createNewClinic: 'Vytvoriť novú ambulanciu',
+      noReferrals: 'Žiadni odporúčajúci lekári',
+      removeReferral: 'Odstrániť',
+      leadSourceTypes: {
+        former_collaborator: 'Bývalý spolupracovník',
+        current_collaborator: 'Aktívny spolupracovník (pretrváva)',
+        doctor_referral: 'Odporúčanie lekára',
+        conference: 'Konferencia / Seminár',
+      },
+      leadSourceDesc: {
+        former_collaborator: 'Kontakt bol v minulosti naším spolupracovníkom',
+        current_collaborator: 'Kontakt je naším spolupracovníkom a spolupráca stále pretrváva',
+        doctor_referral: 'Odporúčanie iného lekára',
+        conference: 'Kontakt z konferencie alebo seminára',
+      },
       steps: {
         basic: 'Základné údaje',
+        source: 'Zdroj kontaktu',
         address: 'Adresa',
         web: 'Web a kontakt',
         settings: 'Nastavenia',
@@ -10443,6 +10520,7 @@ export const translations: Record<Locale, Translations> = {
       },
       stepsDesc: {
         basic: 'Názov a lekár',
+        source: 'Zdroj a odporúčania',
         address: 'Adresa a GPS súradnice',
         web: 'Webová stránka a kontakty',
         settings: 'Aktívny stav a poznámky',
@@ -14896,8 +14974,33 @@ export const translations: Record<Locale, Translations> = {
       filterByCity: 'Filtrovat podle města',
       hasWebsite: 'S webem',
       noWebsite: 'Bez webu',
+      leadSource: 'Zdroj kontaktu',
+      leadSourceDate: 'Datum kontaktu',
+      leadSourceNotes: 'Poznámky ke zdroji',
+      nextStepPlan: 'Plán dalšího kroku',
+      conferenceName: 'Název konference',
+      conferenceDate: 'Datum konference',
+      referringDoctors: 'Doporučující lékaři',
+      addReferringDoctor: 'Přidat doporučujícího lékaře',
+      selectDoctor: 'Vybrat lékaře z databáze',
+      createNewClinic: 'Vytvořit novou ambulanci',
+      noReferrals: 'Žádní doporučující lékaři',
+      removeReferral: 'Odstranit',
+      leadSourceTypes: {
+        former_collaborator: 'Bývalý spolupracovník',
+        current_collaborator: 'Aktivní spolupracovník (trvající)',
+        doctor_referral: 'Doporučení lékaře',
+        conference: 'Konference / Seminář',
+      },
+      leadSourceDesc: {
+        former_collaborator: 'Kontakt byl v minulosti naším spolupracovníkem',
+        current_collaborator: 'Kontakt je naším spolupracovníkem a spolupráce stále trvá',
+        doctor_referral: 'Doporučení jiného lékaře',
+        conference: 'Kontakt z konference nebo semináře',
+      },
       steps: {
         basic: 'Základní údaje',
+        source: 'Zdroj kontaktu',
         address: 'Adresa',
         web: 'Web a kontakt',
         settings: 'Nastavení',
@@ -14905,6 +15008,7 @@ export const translations: Record<Locale, Translations> = {
       },
       stepsDesc: {
         basic: 'Název a lékař',
+        source: 'Zdroj a doporučení',
         address: 'Adresa a GPS souřadnice',
         web: 'Webová stránka a kontakty',
         settings: 'Aktivní stav a poznámky',
@@ -19321,8 +19425,33 @@ export const translations: Record<Locale, Translations> = {
       filterByCity: 'Város szerinti szures',
       hasWebsite: 'Weboldallal',
       noWebsite: 'Weboldal nélkül',
+      leadSource: 'Kapcsolat forrása',
+      leadSourceDate: 'Kapcsolat dátuma',
+      leadSourceNotes: 'Forrás megjegyzések',
+      nextStepPlan: 'Következő lépés terve',
+      conferenceName: 'Konferencia neve',
+      conferenceDate: 'Konferencia dátuma',
+      referringDoctors: 'Ajánló orvosok',
+      addReferringDoctor: 'Ajánló orvos hozzáadása',
+      selectDoctor: 'Orvos kiválasztása az adatbázisból',
+      createNewClinic: 'Új rendelő létrehozása',
+      noReferrals: 'Nincsenek ajánló orvosok',
+      removeReferral: 'Eltávolítás',
+      leadSourceTypes: {
+        former_collaborator: 'Korábbi munkatárs',
+        current_collaborator: 'Jelenlegi munkatárs (folyamatban)',
+        doctor_referral: 'Orvosi ajánlás',
+        conference: 'Konferencia / Szeminárium',
+      },
+      leadSourceDesc: {
+        former_collaborator: 'A kapcsolat korábban munkatársunk volt',
+        current_collaborator: 'A kapcsolat munkatársunk és az együttműködés folytatódik',
+        doctor_referral: 'Másik orvos ajánlása',
+        conference: 'Kapcsolat konferenciáról vagy szemináriumról',
+      },
       steps: {
         basic: 'Alapadatok',
+        source: 'Kapcsolat forrása',
         address: 'Cím',
         web: 'Web és kapcsolat',
         settings: 'Beállítások',
@@ -19330,6 +19459,7 @@ export const translations: Record<Locale, Translations> = {
       },
       stepsDesc: {
         basic: 'Név és orvos',
+        source: 'Forrás és ajánlások',
         address: 'Cím és GPS koordináták',
         web: 'Weboldal és kapcsolatok',
         settings: 'Aktív állapot és jegyzetek',
@@ -23745,8 +23875,33 @@ export const translations: Record<Locale, Translations> = {
       filterByCity: 'Filtrare dupa oras',
       hasWebsite: 'Cu website',
       noWebsite: 'Fara website',
+      leadSource: 'Sursa contactului',
+      leadSourceDate: 'Data contactului',
+      leadSourceNotes: 'Note despre sursă',
+      nextStepPlan: 'Planul următorului pas',
+      conferenceName: 'Numele conferinței',
+      conferenceDate: 'Data conferinței',
+      referringDoctors: 'Medici recomandanți',
+      addReferringDoctor: 'Adaugă medic recomandant',
+      selectDoctor: 'Selectează medic din baza de date',
+      createNewClinic: 'Creează clinică nouă',
+      noReferrals: 'Niciun medic recomandant',
+      removeReferral: 'Elimină',
+      leadSourceTypes: {
+        former_collaborator: 'Fost colaborator',
+        current_collaborator: 'Colaborator actual (în continuare)',
+        doctor_referral: 'Recomandarea unui medic',
+        conference: 'Conferință / Seminar',
+      },
+      leadSourceDesc: {
+        former_collaborator: 'Contactul a fost anterior colaboratorul nostru',
+        current_collaborator: 'Contactul este colaboratorul nostru iar cooperarea continuă',
+        doctor_referral: 'Recomandarea unui alt medic',
+        conference: 'Contact de la conferință sau seminar',
+      },
       steps: {
         basic: 'Date de bază',
+        source: 'Sursa contactului',
         address: 'Adresă',
         web: 'Web și contact',
         settings: 'Setări',
@@ -23754,6 +23909,7 @@ export const translations: Record<Locale, Translations> = {
       },
       stepsDesc: {
         basic: 'Nume și medic',
+        source: 'Sursă și recomandări',
         address: 'Adresă și coordonate GPS',
         web: 'Website și contacte',
         settings: 'Stare activă și note',
@@ -28170,8 +28326,33 @@ export const translations: Record<Locale, Translations> = {
       filterByCity: 'Filtra per citta',
       hasWebsite: 'Con sito web',
       noWebsite: 'Senza sito web',
+      leadSource: 'Fonte del contatto',
+      leadSourceDate: 'Data del contatto',
+      leadSourceNotes: 'Note sulla fonte',
+      nextStepPlan: 'Piano del prossimo passo',
+      conferenceName: 'Nome della conferenza',
+      conferenceDate: 'Data della conferenza',
+      referringDoctors: 'Medici referenti',
+      addReferringDoctor: 'Aggiungi medico referente',
+      selectDoctor: 'Seleziona medico dal database',
+      createNewClinic: 'Crea nuovo ambulatorio',
+      noReferrals: 'Nessun medico referente',
+      removeReferral: 'Rimuovi',
+      leadSourceTypes: {
+        former_collaborator: 'Ex collaboratore',
+        current_collaborator: 'Collaboratore attuale (in corso)',
+        doctor_referral: 'Referenza medica',
+        conference: 'Conferenza / Seminario',
+      },
+      leadSourceDesc: {
+        former_collaborator: 'Il contatto era in precedenza un nostro collaboratore',
+        current_collaborator: 'Il contatto è un nostro collaboratore e la cooperazione è in corso',
+        doctor_referral: 'Raccomandazione di un altro medico',
+        conference: 'Contatto da conferenza o seminario',
+      },
       steps: {
         basic: 'Dati di base',
+        source: 'Fonte del contatto',
         address: 'Indirizzo',
         web: 'Web e contatto',
         settings: 'Impostazioni',
@@ -28179,6 +28360,7 @@ export const translations: Record<Locale, Translations> = {
       },
       stepsDesc: {
         basic: 'Nome e medico',
+        source: 'Fonte e referenze',
         address: 'Indirizzo e coordinate GPS',
         web: 'Sito web e contatti',
         settings: 'Stato attivo e note',
@@ -32595,8 +32777,33 @@ export const translations: Record<Locale, Translations> = {
       filterByCity: 'Nach Stadt filtern',
       hasWebsite: 'Mit Website',
       noWebsite: 'Ohne Website',
+      leadSource: 'Kontaktquelle',
+      leadSourceDate: 'Kontaktdatum',
+      leadSourceNotes: 'Quellennotizen',
+      nextStepPlan: 'Nächster Schritt Plan',
+      conferenceName: 'Konferenzname',
+      conferenceDate: 'Konferenzdatum',
+      referringDoctors: 'Überweisende Ärzte',
+      addReferringDoctor: 'Überweisenden Arzt hinzufügen',
+      selectDoctor: 'Arzt aus Datenbank auswählen',
+      createNewClinic: 'Neue Praxis erstellen',
+      noReferrals: 'Keine überweisenden Ärzte',
+      removeReferral: 'Entfernen',
+      leadSourceTypes: {
+        former_collaborator: 'Ehemaliger Mitarbeiter',
+        current_collaborator: 'Aktueller Mitarbeiter (laufend)',
+        doctor_referral: 'Arztüberweisung',
+        conference: 'Konferenz / Seminar',
+      },
+      leadSourceDesc: {
+        former_collaborator: 'Der Kontakt war zuvor unser Mitarbeiter',
+        current_collaborator: 'Der Kontakt ist unser Mitarbeiter und die Zusammenarbeit dauert an',
+        doctor_referral: 'Empfehlung eines anderen Arztes',
+        conference: 'Kontakt von Konferenz oder Seminar',
+      },
       steps: {
         basic: 'Grunddaten',
+        source: 'Kontaktquelle',
         address: 'Adresse',
         web: 'Web und Kontakt',
         settings: 'Einstellungen',
@@ -32604,6 +32811,7 @@ export const translations: Record<Locale, Translations> = {
       },
       stepsDesc: {
         basic: 'Name und Arzt',
+        source: 'Quelle und Überweisungen',
         address: 'Adresse und GPS-Koordinaten',
         web: 'Website und Kontakte',
         settings: 'Aktiver Status und Notizen',
