@@ -16,7 +16,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { COUNTRIES } from "@shared/schema";
 import type { Clinic } from "@shared/schema";
-import { ChevronLeft, ChevronRight, Check, Stethoscope, MapPin, Globe, Settings, ExternalLink, Navigation, Loader2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Check, Stethoscope, MapPin, Globe, Settings, ExternalLink, Navigation, Loader2, Search, Trash2, Plus, Users } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -30,6 +30,8 @@ import { Separator } from "@/components/ui/separator";
 import { getCountryFlag } from "@/lib/countries";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useQuery } from "@tanstack/react-query";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 interface ClinicFormData {
   name: string;
@@ -45,7 +47,15 @@ interface ClinicFormData {
   longitude: string;
   isActive: boolean;
   notes: string;
+  leadSource: string;
+  leadSourceDate: string;
+  leadSourceNotes: string;
+  conferenceName: string;
+  conferenceDate: string;
 }
+
+const LEAD_SOURCE_TYPES = ["former_collaborator", "current_collaborator", "doctor_referral", "conference"] as const;
+type LeadSourceType = typeof LEAD_SOURCE_TYPES[number];
 
 interface ClinicFormWizardProps {
   initialData?: Clinic | null;
@@ -55,6 +65,7 @@ interface ClinicFormWizardProps {
 
 const WIZARD_STEPS = [
   { id: "basic", icon: Stethoscope },
+  { id: "source", icon: Search },
   { id: "address", icon: MapPin },
   { id: "web", icon: Globe },
   { id: "settings", icon: Settings },
@@ -85,6 +96,11 @@ export function ClinicFormWizard({ initialData, onSuccess, onCancel }: ClinicFor
           longitude: initialData.longitude || "",
           isActive: initialData.isActive,
           notes: initialData.notes || "",
+          leadSource: initialData.leadSource || "",
+          leadSourceDate: initialData.leadSourceDate ? new Date(initialData.leadSourceDate).toISOString().split("T")[0] : "",
+          leadSourceNotes: initialData.leadSourceNotes || "",
+          conferenceName: initialData.conferenceName || "",
+          conferenceDate: initialData.conferenceDate ? new Date(initialData.conferenceDate).toISOString().split("T")[0] : "",
         }
       : {
           name: "",
@@ -100,8 +116,20 @@ export function ClinicFormWizard({ initialData, onSuccess, onCancel }: ClinicFor
           longitude: "",
           isActive: true,
           notes: "",
+          leadSource: "",
+          leadSourceDate: "",
+          leadSourceNotes: "",
+          conferenceName: "",
+          conferenceDate: "",
         }
   );
+
+  const { data: allClinics } = useQuery<Clinic[]>({
+    queryKey: ["/api/clinics"],
+  });
+
+  const [referrals, setReferrals] = useState<Array<{ clinicId: number; clinicName: string; referralType: string }>>([]);
+  const [referralSearch, setReferralSearch] = useState("");
 
   const handleGetCurrentLocation = () => {
     if (!navigator.geolocation) {
@@ -141,12 +169,31 @@ export function ClinicFormWizard({ initialData, onSuccess, onCancel }: ClinicFor
   };
 
   const saveMutation = useMutation({
-    mutationFn: (data: ClinicFormData) => {
+    mutationFn: async (data: ClinicFormData) => {
+      const payload = {
+        ...data,
+        leadSourceDate: data.leadSourceDate ? new Date(data.leadSourceDate).toISOString() : null,
+        conferenceDate: data.conferenceDate ? new Date(data.conferenceDate).toISOString() : null,
+        leadSource: data.leadSource || null,
+        leadSourceNotes: data.leadSourceNotes || null,
+        conferenceName: data.conferenceName || null,
+      };
+      let res;
       if (initialData) {
-        return apiRequest("PUT", `/api/clinics/${initialData.id}`, data);
+        res = await apiRequest("PUT", `/api/clinics/${initialData.id}`, payload);
       } else {
-        return apiRequest("POST", "/api/clinics", data);
+        res = await apiRequest("POST", "/api/clinics", payload);
       }
+      const savedClinic = await res.json();
+      if (referrals.length > 0 && savedClinic?.id) {
+        for (const ref of referrals) {
+          await apiRequest("POST", `/api/clinics/${savedClinic.id}/referrals`, {
+            referringClinicId: ref.clinicId,
+            referralType: ref.referralType,
+          });
+        }
+      }
+      return savedClinic;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/clinics"] });
@@ -211,6 +258,7 @@ export function ClinicFormWizard({ initialData, onSuccess, onCancel }: ClinicFor
   const getStepTitle = (stepId: string): string => {
     const stepTitles: Record<string, string> = {
       basic: t.clinics.steps?.basic || t.clinics.name || "Zakladne udaje",
+      source: t.clinics.steps?.source || t.clinics.leadSource || "Zdroj kontaktu",
       address: t.clinics.steps?.address || t.clinics.address || "Adresa",
       web: t.clinics.steps?.web || t.clinics.website || "Web a kontakt",
       settings: t.clinics.steps?.settings || t.settings?.title || "Nastavenia",
@@ -222,12 +270,34 @@ export function ClinicFormWizard({ initialData, onSuccess, onCancel }: ClinicFor
   const getStepDescription = (stepId: string): string => {
     const stepDescs: Record<string, string> = {
       basic: t.clinics.stepsDesc?.basic || "Nazov a lekar",
+      source: t.clinics.stepsDesc?.source || "Zdroj a odporucania",
       address: t.clinics.stepsDesc?.address || "Adresa a GPS suradnice",
       web: t.clinics.stepsDesc?.web || "Webova stranka a kontakty",
       settings: t.clinics.stepsDesc?.settings || "Aktivny stav a poznamky",
       review: t.clinics.stepsDesc?.review || "Skontrolujte udaje",
     };
     return stepDescs[stepId] || "";
+  };
+
+  const filteredClinics = allClinics?.filter((c) => {
+    if (!referralSearch) return false;
+    if (initialData && c.id === initialData.id) return false;
+    if (referrals.some((r) => r.clinicId === c.id)) return false;
+    const search = referralSearch.toLowerCase();
+    return (
+      c.name.toLowerCase().includes(search) ||
+      (c.doctorName && c.doctorName.toLowerCase().includes(search)) ||
+      (c.city && c.city.toLowerCase().includes(search))
+    );
+  }) || [];
+
+  const addReferral = (clinic: Clinic) => {
+    setReferrals([...referrals, { clinicId: clinic.id, clinicName: `${clinic.doctorName || ""} - ${clinic.name}`, referralType: "doctor_referral" }]);
+    setReferralSearch("");
+  };
+
+  const removeReferral = (clinicId: number) => {
+    setReferrals(referrals.filter((r) => r.clinicId !== clinicId));
   };
 
   const renderStepContent = () => {
@@ -279,6 +349,149 @@ export function ClinicFormWizard({ initialData, onSuccess, onCancel }: ClinicFor
         );
 
       case 1:
+        return (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>{t.clinics.leadSource}</Label>
+              <RadioGroup
+                value={formData.leadSource}
+                onValueChange={(value) => setFormData({ ...formData, leadSource: value })}
+                className="grid gap-2"
+              >
+                {LEAD_SOURCE_TYPES.map((type) => (
+                  <div
+                    key={type}
+                    className={cn(
+                      "flex items-center space-x-3 p-3 border rounded-lg cursor-pointer transition-all",
+                      formData.leadSource === type ? "border-primary bg-primary/5" : "hover:bg-muted/50"
+                    )}
+                  >
+                    <RadioGroupItem value={type} id={`source-${type}`} data-testid={`wizard-radio-source-${type}`} />
+                    <Label htmlFor={`source-${type}`} className="flex-1 cursor-pointer">
+                      <div className="font-medium">{t.clinics.leadSourceTypes?.[type as LeadSourceType] || type}</div>
+                      <div className="text-sm text-muted-foreground">{t.clinics.leadSourceDesc?.[type as LeadSourceType] || ""}</div>
+                    </Label>
+                  </div>
+                ))}
+              </RadioGroup>
+            </div>
+
+            {formData.leadSource && (
+              <>
+                <Separator />
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>{t.clinics.leadSourceDate}</Label>
+                    <Input
+                      type="date"
+                      value={formData.leadSourceDate}
+                      onChange={(e) => setFormData({ ...formData, leadSourceDate: e.target.value })}
+                      data-testid="wizard-input-lead-source-date"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>{t.clinics.leadSourceNotes}</Label>
+                  <Textarea
+                    value={formData.leadSourceNotes}
+                    onChange={(e) => setFormData({ ...formData, leadSourceNotes: e.target.value })}
+                    placeholder={t.clinics.leadSourceNotes}
+                    rows={2}
+                    data-testid="wizard-input-lead-source-notes"
+                  />
+                </div>
+              </>
+            )}
+
+            {formData.leadSource === "conference" && (
+              <>
+                <Separator />
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>{t.clinics.conferenceName}</Label>
+                    <Input
+                      value={formData.conferenceName}
+                      onChange={(e) => setFormData({ ...formData, conferenceName: e.target.value })}
+                      placeholder={t.clinics.conferenceName}
+                      data-testid="wizard-input-conference-name"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>{t.clinics.conferenceDate}</Label>
+                    <Input
+                      type="date"
+                      value={formData.conferenceDate}
+                      onChange={(e) => setFormData({ ...formData, conferenceDate: e.target.value })}
+                      data-testid="wizard-input-conference-date"
+                    />
+                  </div>
+                </div>
+              </>
+            )}
+
+            {formData.leadSource === "doctor_referral" && (
+              <>
+                <Separator />
+                <div className="space-y-3">
+                  <Label>{t.clinics.referringDoctors}</Label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      value={referralSearch}
+                      onChange={(e) => setReferralSearch(e.target.value)}
+                      placeholder={t.clinics.selectDoctor}
+                      className="pl-9"
+                      data-testid="wizard-input-referral-search"
+                    />
+                  </div>
+                  {referralSearch && filteredClinics.length > 0 && (
+                    <div className="border rounded-lg max-h-40 overflow-y-auto">
+                      {filteredClinics.slice(0, 10).map((clinic) => (
+                        <div
+                          key={clinic.id}
+                          className="flex items-center justify-between p-2 hover:bg-muted/50 cursor-pointer"
+                          onClick={() => addReferral(clinic)}
+                          data-testid={`wizard-referral-option-${clinic.id}`}
+                        >
+                          <div>
+                            <span className="font-medium text-sm">{clinic.doctorName || clinic.name}</span>
+                            <span className="text-sm text-muted-foreground ml-2">{clinic.city || ""}</span>
+                          </div>
+                          <Plus className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {referrals.length > 0 ? (
+                    <div className="space-y-2">
+                      {referrals.map((ref) => (
+                        <div key={ref.clinicId} className="flex items-center justify-between p-2 border rounded-lg bg-muted/30">
+                          <div className="flex items-center gap-2">
+                            <Users className="h-4 w-4 text-primary" />
+                            <span className="text-sm font-medium">{ref.clinicName}</span>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeReferral(ref.clinicId)}
+                            data-testid={`wizard-remove-referral-${ref.clinicId}`}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground italic">{t.clinics.noReferrals}</p>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        );
+
+      case 2:
         return (
           <div className="space-y-4">
             <div className="space-y-2">
@@ -366,7 +579,7 @@ export function ClinicFormWizard({ initialData, onSuccess, onCancel }: ClinicFor
           </div>
         );
 
-      case 2:
+      case 3:
         return (
           <div className="space-y-4">
             <div className="space-y-2">
@@ -439,7 +652,7 @@ export function ClinicFormWizard({ initialData, onSuccess, onCancel }: ClinicFor
           </div>
         );
 
-      case 3:
+      case 4:
         return (
           <div className="space-y-4">
             <div className="flex items-center justify-between p-4 border rounded-lg">
@@ -466,7 +679,7 @@ export function ClinicFormWizard({ initialData, onSuccess, onCancel }: ClinicFor
           </div>
         );
 
-      case 4:
+      case 5:
         return (
           <div className="space-y-4">
             <div className="p-4 border rounded-lg space-y-3">
@@ -491,6 +704,51 @@ export function ClinicFormWizard({ initialData, onSuccess, onCancel }: ClinicFor
                 </div>
               </div>
             </div>
+
+            {formData.leadSource && (
+              <div className="p-4 border rounded-lg space-y-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <Search className="h-5 w-5 text-primary" />
+                  <h4 className="font-semibold">{t.clinics.steps?.source || "Zdroj kontaktu"}</h4>
+                </div>
+                <div className="grid gap-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">{t.clinics.leadSource}:</span>
+                    <Badge variant="outline">{t.clinics.leadSourceTypes?.[formData.leadSource as LeadSourceType] || formData.leadSource}</Badge>
+                  </div>
+                  {formData.leadSourceDate && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">{t.clinics.leadSourceDate}:</span>
+                      <span className="font-medium">{formData.leadSourceDate}</span>
+                    </div>
+                  )}
+                  {formData.leadSourceNotes && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">{t.clinics.leadSourceNotes}:</span>
+                      <span className="font-medium text-right max-w-[200px] truncate">{formData.leadSourceNotes}</span>
+                    </div>
+                  )}
+                  {formData.leadSource === "conference" && formData.conferenceName && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">{t.clinics.conferenceName}:</span>
+                      <span className="font-medium">{formData.conferenceName}</span>
+                    </div>
+                  )}
+                  {formData.leadSource === "conference" && formData.conferenceDate && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">{t.clinics.conferenceDate}:</span>
+                      <span className="font-medium">{formData.conferenceDate}</span>
+                    </div>
+                  )}
+                  {formData.leadSource === "doctor_referral" && referrals.length > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">{t.clinics.referringDoctors}:</span>
+                      <span className="font-medium">{referrals.map((r) => r.clinicName).join(", ")}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             <div className="p-4 border rounded-lg space-y-3">
               <div className="flex items-center gap-2 mb-2">
