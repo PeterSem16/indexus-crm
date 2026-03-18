@@ -27,6 +27,7 @@ import {
   Clock, ArrowRightLeft, History, FileText, MessageSquare, Megaphone, PhoneCall,
   CalendarDays, FileSignature, Newspaper, CheckCircle2, CircleDot, Circle,
   Building2, ScrollText, Target, ShieldCheck, Ban, HelpCircle, ChevronRight,
+  ChevronDown,
 } from "lucide-react";
 import {
   Dialog,
@@ -115,34 +116,125 @@ const LEAD_SOURCE_ICON_BG: Record<LeadSourceType, string> = {
   conference: "bg-rose-100 text-rose-600 dark:bg-rose-900 dark:text-rose-400",
 };
 
-const INITIAL_STATUS_OPTIONS = [
-  { value: "active_contract", label: "Aktívna zmluva", labelKey: "activeContract", icon: ShieldCheck, color: "text-green-600 bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800" },
-  { value: "former_collaborator", label: "V minulosti spolupracujúci", labelKey: "formerCollaborator", icon: Users, color: "text-amber-600 bg-amber-50 dark:bg-amber-950 border-amber-200 dark:border-amber-800" },
-  { value: "not_contacted", label: "Neoslovený", labelKey: "notContacted", icon: Circle, color: "text-gray-600 bg-gray-50 dark:bg-gray-950 border-gray-200 dark:border-gray-800" },
+type PipelineValue =
+  | "initial:active_contract" | "initial:former" | "initial:not_contacted"
+  | "coop:unknown" | "coop:interested" | "coop:not_interested"
+  | "contract_int:unknown" | "contract_int:interested" | "contract_int:not_interested"
+  | "contract:active" | "contract:none"
+  | "";
+
+interface PipelineOption {
+  value: PipelineValue;
+  label: string;
+  icon: typeof Circle;
+  stage: number;
+  sentiment: "positive" | "negative" | "neutral";
+  color: string;
+}
+
+interface PipelineCategory {
+  key: string;
+  label: string;
+  icon: typeof Circle;
+  options: PipelineOption[];
+}
+
+const PIPELINE_CATEGORIES: PipelineCategory[] = [
+  {
+    key: "initial", label: "Počiatočný status", icon: CircleDot,
+    options: [
+      { value: "initial:not_contacted", label: "Neoslovený", icon: Circle, stage: 1, sentiment: "neutral", color: "text-gray-500" },
+      { value: "initial:former", label: "V minulosti spolupracujúci", icon: Users, stage: 1, sentiment: "neutral", color: "text-amber-600" },
+      { value: "initial:active_contract", label: "Aktívna zmluva", icon: ShieldCheck, stage: 5, sentiment: "positive", color: "text-green-600" },
+    ],
+  },
+  {
+    key: "cooperation", label: "Záujem o spoluprácu", icon: Handshake,
+    options: [
+      { value: "coop:unknown", label: "Neznáme", icon: HelpCircle, stage: 2, sentiment: "neutral", color: "text-gray-500" },
+      { value: "coop:interested", label: "Záujem", icon: CheckCircle2, stage: 3, sentiment: "positive", color: "text-green-600" },
+      { value: "coop:not_interested", label: "Nezáujem", icon: Ban, stage: 3, sentiment: "negative", color: "text-red-500" },
+    ],
+  },
+  {
+    key: "contract_interest", label: "Záujem o zmluvnú spoluprácu", icon: FileSignature,
+    options: [
+      { value: "contract_int:unknown", label: "Neznáme", icon: HelpCircle, stage: 3, sentiment: "neutral", color: "text-gray-500" },
+      { value: "contract_int:interested", label: "Záujem", icon: CheckCircle2, stage: 4, sentiment: "positive", color: "text-green-600" },
+      { value: "contract_int:not_interested", label: "Nezáujem", icon: Ban, stage: 4, sentiment: "negative", color: "text-red-500" },
+    ],
+  },
+  {
+    key: "contract_status", label: "Status Contract Medical Partner", icon: ScrollText,
+    options: [
+      { value: "contract:none", label: "Bez zmluvy", icon: ScrollText, stage: 4, sentiment: "neutral", color: "text-gray-500" },
+      { value: "contract:active", label: "Aktívna zmluva", icon: ShieldCheck, stage: 5, sentiment: "positive", color: "text-green-600" },
+    ],
+  },
 ];
 
-const INTEREST_OPTIONS = [
-  { value: "unknown", label: "Neznáme", labelKey: "unknown", icon: HelpCircle, color: "text-gray-500 bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700" },
-  { value: "interested", label: "Záujem", labelKey: "interested", icon: CheckCircle2, color: "text-green-600 bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800" },
-  { value: "not_interested", label: "Nezáujem", labelKey: "notInterested", icon: Ban, color: "text-red-500 bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800" },
+const ALL_PIPELINE_OPTIONS = PIPELINE_CATEGORIES.flatMap(c => c.options);
+
+function pipelineValueToDbFields(val: PipelineValue) {
+  const fields = { initialStatus: "", interestCooperation: "", interestContract: "", contractStatus: "" };
+  if (!val) return fields;
+  const [cat, opt] = val.split(":");
+  if (cat === "initial") fields.initialStatus = opt;
+  else if (cat === "coop") fields.interestCooperation = opt;
+  else if (cat === "contract_int") fields.interestContract = opt;
+  else if (cat === "contract") fields.contractStatus = opt;
+  return fields;
+}
+
+function dbFieldsToPipelineValue(d: ClinicFormData): PipelineValue {
+  if (d.contractStatus) return `contract:${d.contractStatus}` as PipelineValue;
+  if (d.interestContract) return `contract_int:${d.interestContract}` as PipelineValue;
+  if (d.interestCooperation) return `coop:${d.interestCooperation}` as PipelineValue;
+  if (d.initialStatus) return `initial:${d.initialStatus}` as PipelineValue;
+  return "";
+}
+
+function getSelectedPipelineOption(val: PipelineValue): PipelineOption | null {
+  if (!val) return null;
+  return ALL_PIPELINE_OPTIONS.find(o => o.value === val) || null;
+}
+
+function getSelectedPipelineCategory(val: PipelineValue): PipelineCategory | null {
+  if (!val) return null;
+  return PIPELINE_CATEGORIES.find(c => c.options.some(o => o.value === val)) || null;
+}
+
+const PROGRESS_STAGES = [
+  { key: "contact", label: "Kontakt", icon: UserPlus },
+  { key: "referral", label: "Referral", icon: UserCheck },
+  { key: "cooperation", label: "Spolupráca", icon: Handshake },
+  { key: "contract_interest", label: "Zmluva", icon: FileSignature },
+  { key: "partner", label: "Partner", icon: ShieldCheck },
 ];
 
-const CONTRACT_STATUS_OPTIONS = [
-  { value: "active_contract", label: "Aktívna zmluva", labelKey: "activeContractStatus", icon: ShieldCheck, color: "text-green-600 bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800" },
-  { value: "no_contract", label: "Bez zmluvy", labelKey: "noContract", icon: ScrollText, color: "text-gray-500 bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700" },
-];
+function getProgressState(formData: ClinicFormData, hasReferral: boolean) {
+  const pipelineVal = dbFieldsToPipelineValue(formData);
+  const opt = getSelectedPipelineOption(pipelineVal);
+  const hasLeadSource = !!formData.leadSource;
+  const stage = opt?.stage || 0;
+  const isNegative = opt?.sentiment === "negative";
 
-function getClinicPipelineBadge(clinic: Clinic | ClinicFormData) {
-  const d = clinic as any;
-  if (d.contractStatus === "active_contract") return { label: "Aktívna zmluva", color: "bg-green-100 text-green-800 border-green-300 dark:bg-green-900 dark:text-green-200 dark:border-green-700" };
-  if (d.interestContract === "interested") return { label: "Záujem o zmluvu", color: "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-900 dark:text-emerald-200 dark:border-emerald-700" };
-  if (d.interestContract === "not_interested") return { label: "Nezáujem o zmluvu", color: "bg-red-100 text-red-700 border-red-300 dark:bg-red-900 dark:text-red-200 dark:border-red-700" };
-  if (d.interestCooperation === "interested") return { label: "Záujem o spoluprácu", color: "bg-sky-100 text-sky-800 border-sky-300 dark:bg-sky-900 dark:text-sky-200 dark:border-sky-700" };
-  if (d.interestCooperation === "not_interested") return { label: "Nezáujem o spoluprácu", color: "bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-900 dark:text-orange-200 dark:border-orange-700" };
-  if (d.initialStatus === "active_contract") return { label: "Aktívna zmluva (pôvodná)", color: "bg-teal-100 text-teal-800 border-teal-300 dark:bg-teal-900 dark:text-teal-200 dark:border-teal-700" };
-  if (d.initialStatus === "former_collaborator") return { label: "Bývalý spolupracovník", color: "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900 dark:text-amber-200 dark:border-amber-700" };
-  if (d.initialStatus === "not_contacted") return { label: "Neoslovený", color: "bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-600" };
-  return null;
+  return PROGRESS_STAGES.map((ps, idx) => {
+    const stageNum = idx + 1;
+    if (ps.key === "contact") {
+      return { ...ps, status: hasLeadSource ? "done" as const : "pending" as const };
+    }
+    if (ps.key === "referral") {
+      return { ...ps, status: hasReferral ? "done" as const : "pending" as const };
+    }
+    if (isNegative && stageNum === stage) {
+      return { ...ps, status: "negative" as const };
+    }
+    if (stageNum <= stage) {
+      return { ...ps, status: "done" as const };
+    }
+    return { ...ps, status: "pending" as const };
+  });
 }
 
 function getDoctorFullName(d: { doctorTitle?: string; doctorFirstName?: string; doctorLastName?: string; doctorName?: string } | null | undefined) {
@@ -176,6 +268,8 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess }: 
   const [activeTab, setActiveTab] = useState("source");
   const [showMapDialog, setShowMapDialog] = useState(false);
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
+  const [pipelineMenuOpen, setPipelineMenuOpen] = useState(false);
+  const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
 
   const buildFormData = (data: Clinic | null | undefined): ClinicFormData => {
     if (!data) return {
@@ -210,10 +304,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess }: 
       }
     }
     return {
-      name: data.name,
-      doctorTitle: dTitle,
-      doctorFirstName: dFirst,
-      doctorLastName: dLast,
+      name: data.name, doctorTitle: dTitle, doctorFirstName: dFirst, doctorLastName: dLast,
       address: data.address || "", city: data.city || "", postalCode: data.postalCode || "",
       countryCode: data.countryCode, phone: data.phone || "", email: data.email || "",
       website: data.website || "", latitude: data.latitude || "", longitude: data.longitude || "",
@@ -239,9 +330,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess }: 
   };
   const [formData, setFormData] = useState<ClinicFormData>(() => buildFormData(initialData));
 
-  const { data: allClinics } = useQuery<Clinic[]>({
-    queryKey: ["/api/clinics"],
-  });
+  const { data: allClinics } = useQuery<Clinic[]>({ queryKey: ["/api/clinics"] });
 
   const { data: existingReferrals } = useQuery<Array<{ id: string; clinicId: string; referringClinicId: string; referralType: string; referringClinic: Clinic | null }>>({
     queryKey: ["/api/clinic-referrals", initialData?.id],
@@ -274,6 +363,8 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess }: 
       setConfReferralSearch("");
       setShowMapDialog(false);
       setIsLoadingLocation(false);
+      setPipelineMenuOpen(false);
+      setExpandedCategory(null);
       setFormData(buildFormData(initialData));
       referralsInitRef.current = false;
       userEditedReferralsRef.current = false;
@@ -322,6 +413,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess }: 
 
   const doctorReferrals = referrals.filter(r => r.referralType === "doctor_referral");
   const conferenceReferrals = referrals.filter(r => r.referralType === "conference");
+  const hasAnyReferral = formData.isReferredByDoctor || formData.isFromConference || referrals.length > 0;
 
   const handleGetCurrentLocation = () => {
     if (!navigator.geolocation) {
@@ -352,6 +444,27 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess }: 
   };
 
   const doctorFullName = [formData.doctorTitle, formData.doctorFirstName, formData.doctorLastName].filter(Boolean).join(" ");
+
+  const currentPipelineValue = dbFieldsToPipelineValue(formData);
+  const currentPipelineOption = getSelectedPipelineOption(currentPipelineValue);
+  const currentPipelineCategory = getSelectedPipelineCategory(currentPipelineValue);
+  const progressStages = getProgressState(formData, hasAnyReferral);
+
+  const selectPipelineOption = (val: PipelineValue) => {
+    const isDeselect = currentPipelineValue === val;
+    const fields = isDeselect
+      ? { initialStatus: "", interestCooperation: "", interestContract: "", contractStatus: "" }
+      : pipelineValueToDbFields(val);
+    setFormData(prev => ({
+      ...prev,
+      initialStatus: fields.initialStatus,
+      interestCooperation: fields.interestCooperation,
+      interestContract: fields.interestContract,
+      contractStatus: fields.contractStatus,
+    }));
+    setPipelineMenuOpen(false);
+    setExpandedCategory(null);
+  };
 
   const saveMutation = useMutation({
     mutationFn: async (data: ClinicFormData) => {
@@ -425,24 +538,40 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess }: 
     saveMutation.mutate(formData);
   };
 
-  const pipelineBadge = getClinicPipelineBadge(formData);
-
-  const StatusOptionCard = ({ option, selected, onSelect }: { option: typeof INITIAL_STATUS_OPTIONS[0]; selected: boolean; onSelect: () => void }) => {
-    const Icon = option.icon;
+  const ProgressBar = () => {
+    const stages = progressStages;
     return (
-      <button
-        type="button"
-        onClick={onSelect}
-        className={cn(
-          "flex items-center gap-2.5 px-3 py-2 rounded-lg border text-left transition-all w-full",
-          selected ? cn("border-2 shadow-sm ring-1 ring-primary/20", option.color) : "border-border hover:bg-muted/50"
-        )}
-        data-testid={`status-option-${option.value}`}
-      >
-        <Icon className={cn("h-4 w-4 shrink-0", selected ? "" : "text-muted-foreground")} />
-        <span className={cn("text-sm font-medium", selected ? "" : "text-foreground")}>{option.label}</span>
-        {selected && <CheckCircle2 className="h-3.5 w-3.5 ml-auto text-primary shrink-0" />}
-      </button>
+      <div className="flex items-center w-full gap-0" data-testid="clinic-progress-bar">
+        {stages.map((stage, idx) => {
+          const Icon = stage.icon;
+          const isDone = stage.status === "done";
+          const isNeg = stage.status === "negative";
+          const isPending = stage.status === "pending";
+          const dotColor = isDone
+            ? "bg-green-500 text-white border-green-500"
+            : isNeg
+              ? "bg-red-500 text-white border-red-500"
+              : "bg-background text-muted-foreground border-border";
+          const lineColor = isDone ? "bg-green-400" : isNeg ? "bg-red-400" : "bg-border";
+          return (
+            <div key={stage.key} className="flex items-center flex-1 min-w-0">
+              <div className="flex flex-col items-center">
+                <div className={cn("flex items-center justify-center w-6 h-6 rounded-full border-2 shrink-0 transition-all", dotColor)}>
+                  <Icon className="h-3 w-3" />
+                </div>
+                <span className={cn("text-[9px] mt-0.5 font-medium whitespace-nowrap",
+                  isDone ? "text-green-700 dark:text-green-400"
+                    : isNeg ? "text-red-600 dark:text-red-400"
+                      : "text-muted-foreground/60"
+                )}>{stage.label}</span>
+              </div>
+              {idx < stages.length - 1 && (
+                <div className={cn("h-0.5 flex-1 mx-1 rounded-full transition-all", lineColor)} />
+              )}
+            </div>
+          );
+        })}
+      </div>
     );
   };
 
@@ -450,7 +579,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess }: 
     <>
       <Sheet open={open} onOpenChange={onOpenChange}>
         <SheetContent className="w-[720px] sm:max-w-[720px] overflow-y-auto p-0">
-          <SheetHeader className="px-6 pt-5 pb-3">
+          <SheetHeader className="px-6 pt-5 pb-2">
             <SheetTitle className="flex items-center gap-2.5">
               <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary/10">
                 <Stethoscope className="h-4 w-4 text-primary" />
@@ -461,84 +590,96 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess }: 
                   <p className="text-xs text-muted-foreground font-normal truncate">{doctorFullName} • {initialData.name}</p>
                 )}
               </div>
+              <div className="flex items-center gap-1 shrink-0">
+                {initialData?.email && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" data-testid="button-clinic-email"
+                          onClick={() => {
+                            const params = new URLSearchParams();
+                            if (initialData.email) params.set("compose", initialData.email);
+                            params.set("contactSearch", initialData.email || initialData.phone || "");
+                            onOpenChange(false);
+                            setLocation(`/email?${params.toString()}`);
+                          }}
+                        >
+                          <Mail className="h-3.5 w-3.5" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent><p>{initialData.email}</p></TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
+                {initialData?.phone && (
+                  <CallCustomerButton phoneNumber={initialData.phone} customerName={doctorFullName || initialData.name} variant="icon" />
+                )}
+              </div>
             </SheetTitle>
           </SheetHeader>
 
-          {initialData && (
-            <div className="mx-6 mb-2 space-y-2" data-testid="clinic-status-bar">
-              <div className="flex items-center gap-2 flex-wrap">
-                {pipelineBadge && (
-                  <div className={cn("inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border", pipelineBadge.color)}>
-                    <Target className="h-3 w-3" />
-                    {pipelineBadge.label}
-                  </div>
-                )}
+          {/* Progress Bar */}
+          <div className="mx-6 mb-1 px-2 py-2.5 rounded-lg bg-muted/40 border" data-testid="clinic-status-bar">
+            <ProgressBar />
+            {currentPipelineOption && (
+              <div className="flex items-center justify-center mt-1.5">
+                <div className={cn(
+                  "inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[11px] font-semibold border",
+                  currentPipelineOption.sentiment === "positive" ? "bg-green-100 text-green-800 border-green-300 dark:bg-green-900 dark:text-green-200 dark:border-green-700"
+                    : currentPipelineOption.sentiment === "negative" ? "bg-red-100 text-red-700 border-red-300 dark:bg-red-900 dark:text-red-200 dark:border-red-700"
+                      : "bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-600"
+                )}>
+                  {currentPipelineCategory && <span className="opacity-70">{currentPipelineCategory.label}:</span>}
+                  <span>{currentPipelineOption.label}</span>
+                </div>
+              </div>
+            )}
+            {/* Referral badges in progress bar area */}
+            {(formData.isReferredByDoctor || formData.isFromConference) && (
+              <div className="flex items-center justify-center gap-1.5 mt-1 flex-wrap">
                 {formData.isReferredByDoctor && (
-                  <div className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border", LEAD_SOURCE_COLORS.doctor_referral)}>
-                    <UserCheck className="h-3 w-3" />
-                    {t.clinics.leadSourceTypes?.doctor_referral || "Doctor referral"}
+                  <div className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border", LEAD_SOURCE_COLORS.doctor_referral)}>
+                    <UserCheck className="h-2.5 w-2.5" />
+                    Referral
                   </div>
                 )}
                 {formData.isFromConference && (
-                  <div className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border", LEAD_SOURCE_COLORS.conference)}>
-                    <GraduationCap className="h-3 w-3" />
-                    {t.clinics.leadSourceTypes?.conference || "Conference"}
+                  <div className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border", LEAD_SOURCE_COLORS.conference)}>
+                    <GraduationCap className="h-2.5 w-2.5" />
+                    Conference
                   </div>
                 )}
-                <div className="flex items-center gap-1 ml-auto shrink-0">
-                  {initialData.email && (
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-7 w-7" data-testid="button-clinic-email"
-                            onClick={() => {
-                              const params = new URLSearchParams();
-                              if (initialData.email) params.set("compose", initialData.email);
-                              params.set("contactSearch", initialData.email || initialData.phone || "");
-                              onOpenChange(false);
-                              setLocation(`/email?${params.toString()}`);
-                            }}
-                          >
-                            <Mail className="h-3.5 w-3.5" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent><p>{initialData.email}</p></TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  )}
-                  {initialData.phone && (
-                    <CallCustomerButton phoneNumber={initialData.phone} customerName={doctorFullName || initialData.name} variant="icon" />
-                  )}
-                </div>
               </div>
-              {(() => {
-                const docRefs = existingReferrals?.filter(r => r.referringClinic && r.referralType === "doctor_referral")?.map(r => r.referringClinic!) || [];
-                const confRefs = existingReferrals?.filter(r => r.referringClinic && r.referralType === "conference")?.map(r => r.referringClinic!) || [];
-                return (
-                  <>
-                    {docRefs.length > 0 && (
-                      <div className="flex items-center gap-1.5 flex-wrap text-xs">
-                        <UserCheck className="h-3 w-3 text-purple-500" />
-                        <span className="font-medium text-purple-600 dark:text-purple-400">{t.clinics.referredBy}:</span>
-                        {docRefs.map((doc) => (
-                          <Badge key={doc.id} variant="secondary" className="text-xs py-0 px-1.5">{getDoctorFullName(doc as any) || doc.name}</Badge>
-                        ))}
-                      </div>
-                    )}
-                    {confRefs.length > 0 && (
-                      <div className="flex items-center gap-1.5 flex-wrap text-xs">
-                        <GraduationCap className="h-3 w-3 text-rose-500" />
-                        <span className="font-medium text-rose-600 dark:text-rose-400">{t.clinics.leadSourceTypes?.conference || "Conference"}:</span>
-                        {confRefs.map((doc) => (
-                          <Badge key={doc.id} variant="secondary" className="text-xs py-0 px-1.5">{getDoctorFullName(doc as any) || doc.name}</Badge>
-                        ))}
-                      </div>
-                    )}
-                  </>
-                );
-              })()}
-            </div>
-          )}
+            )}
+          </div>
+
+          {initialData && (() => {
+            const docRefs = existingReferrals?.filter(r => r.referringClinic && r.referralType === "doctor_referral")?.map(r => r.referringClinic!) || [];
+            const confRefs = existingReferrals?.filter(r => r.referringClinic && r.referralType === "conference")?.map(r => r.referringClinic!) || [];
+            if (docRefs.length === 0 && confRefs.length === 0) return null;
+            return (
+              <div className="mx-6 mb-1 space-y-1">
+                {docRefs.length > 0 && (
+                  <div className="flex items-center gap-1.5 flex-wrap text-xs">
+                    <UserCheck className="h-3 w-3 text-purple-500" />
+                    <span className="font-medium text-purple-600 dark:text-purple-400">{t.clinics.referredBy}:</span>
+                    {docRefs.map((doc) => (
+                      <Badge key={doc.id} variant="secondary" className="text-xs py-0 px-1.5">{getDoctorFullName(doc as any) || doc.name}</Badge>
+                    ))}
+                  </div>
+                )}
+                {confRefs.length > 0 && (
+                  <div className="flex items-center gap-1.5 flex-wrap text-xs">
+                    <GraduationCap className="h-3 w-3 text-rose-500" />
+                    <span className="font-medium text-rose-600 dark:text-rose-400">{t.clinics.leadSourceTypes?.conference || "Conference"}:</span>
+                    {confRefs.map((doc) => (
+                      <Badge key={doc.id} variant="secondary" className="text-xs py-0 px-1.5">{getDoctorFullName(doc as any) || doc.name}</Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="px-6">
             <TabsList className={cn("grid w-full h-auto p-1 gap-0.5", initialData ? "grid-cols-5" : "grid-cols-4")}>
@@ -567,102 +708,155 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess }: 
             </TabsList>
 
             {/* ===== LEAD SOURCE TAB ===== */}
-            <TabsContent value="source" className="space-y-5 mt-4 pb-4">
-              {/* Pipeline Status Section */}
-              <div className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center justify-center w-6 h-6 rounded-md bg-indigo-100 dark:bg-indigo-900">
-                    <Target className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
-                  </div>
-                  <h3 className="text-sm font-semibold tracking-wide">Pipeline Status</h3>
-                </div>
-
-                <div className="space-y-3 pl-1">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground uppercase tracking-wider">Počiatočný status</Label>
-                    <div className="grid gap-1.5">
-                      {INITIAL_STATUS_OPTIONS.map((opt) => (
-                        <StatusOptionCard key={opt.value} option={opt} selected={formData.initialStatus === opt.value}
-                          onSelect={() => setFormData({ ...formData, initialStatus: formData.initialStatus === opt.value ? "" : opt.value })} />
-                      ))}
-                    </div>
-                  </div>
-
-                  <Separator className="my-3" />
-
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground uppercase tracking-wider">Záujem o spoluprácu</Label>
-                    <div className="grid gap-1.5">
-                      {INTEREST_OPTIONS.map((opt) => (
-                        <StatusOptionCard key={opt.value} option={opt} selected={formData.interestCooperation === opt.value}
-                          onSelect={() => setFormData({ ...formData, interestCooperation: formData.interestCooperation === opt.value ? "" : opt.value })} />
-                      ))}
-                    </div>
-                  </div>
-
-                  <Separator className="my-3" />
-
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground uppercase tracking-wider">Záujem o zmluvnú spoluprácu</Label>
-                    <div className="grid gap-1.5">
-                      {INTEREST_OPTIONS.map((opt) => (
-                        <StatusOptionCard key={`contract-${opt.value}`} option={opt} selected={formData.interestContract === opt.value}
-                          onSelect={() => setFormData({ ...formData, interestContract: formData.interestContract === opt.value ? "" : opt.value })} />
-                      ))}
-                    </div>
-                  </div>
-
-                  <Separator className="my-3" />
-
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground uppercase tracking-wider">Status Contract Medical Partner</Label>
-                    <div className="grid gap-1.5">
-                      {CONTRACT_STATUS_OPTIONS.map((opt) => (
-                        <StatusOptionCard key={opt.value} option={opt} selected={formData.contractStatus === opt.value}
-                          onSelect={() => setFormData({ ...formData, contractStatus: formData.contractStatus === opt.value ? "" : opt.value })} />
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <Separator />
-
-              {/* Lead Source (origin) */}
+            <TabsContent value="source" className="space-y-4 mt-4 pb-4">
+              {/* Lead Source cards — clicking opens pipeline submenu */}
               <div className="space-y-3">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 mb-1">
                   <div className="flex items-center justify-center w-6 h-6 rounded-md bg-blue-100 dark:bg-blue-900">
                     <CircleDot className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
                   </div>
                   <h3 className="text-sm font-semibold tracking-wide">{t.clinics.leadSource}</h3>
                 </div>
 
-                <RadioGroup value={formData.leadSource} onValueChange={(value) => setFormData({ ...formData, leadSource: value })} className="grid gap-1.5 pl-1">
+                <div className="grid gap-1.5">
                   {MAIN_SOURCE_TYPES.map((type) => {
                     const Icon = LEAD_SOURCE_ICONS[type];
                     const selected = formData.leadSource === type;
+                    const isExpanded = selected && pipelineMenuOpen;
                     return (
-                      <div key={type} className={cn("flex items-center gap-3 px-3 py-2.5 border rounded-lg cursor-pointer transition-all", selected ? cn("border-2 shadow-sm", LEAD_SOURCE_COLORS[type]) : "hover:bg-muted/50 border-border")}
-                        onClick={() => setFormData({ ...formData, leadSource: type })} >
-                        <div className={cn("flex items-center justify-center w-8 h-8 rounded-lg shrink-0", LEAD_SOURCE_ICON_BG[type])}>
-                          <Icon className="h-4 w-4" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="font-medium text-sm">{t.clinics.leadSourceTypes?.[type] || type}</div>
-                          <div className="text-xs text-muted-foreground">{t.clinics.leadSourceDesc?.[type] || ""}</div>
-                        </div>
-                        <RadioGroupItem value={type} id={`source-${type}`} data-testid={`radio-source-${type}`} className="shrink-0" />
+                      <div key={type}>
+                        <button
+                          type="button"
+                          className={cn(
+                            "flex items-center gap-3 px-3 py-2.5 border rounded-lg cursor-pointer transition-all w-full text-left",
+                            selected ? cn("border-2 shadow-sm", LEAD_SOURCE_COLORS[type]) : "hover:bg-muted/50 border-border",
+                            isExpanded && "rounded-b-none"
+                          )}
+                          onClick={() => {
+                            if (selected) {
+                              setPipelineMenuOpen(!pipelineMenuOpen);
+                              setExpandedCategory(null);
+                            } else {
+                              setFormData(prev => ({ ...prev, leadSource: type }));
+                              setPipelineMenuOpen(true);
+                              setExpandedCategory(null);
+                            }
+                          }}
+                          data-testid={`source-card-${type}`}
+                        >
+                          <div className={cn("flex items-center justify-center w-8 h-8 rounded-lg shrink-0", LEAD_SOURCE_ICON_BG[type])}>
+                            <Icon className="h-4 w-4" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-sm">{t.clinics.leadSourceTypes?.[type] || type}</div>
+                            {selected && currentPipelineOption && !isExpanded && (
+                              <div className={cn("text-xs mt-0.5 font-medium", currentPipelineOption.color)}>
+                                {currentPipelineCategory?.label}: {currentPipelineOption.label}
+                              </div>
+                            )}
+                          </div>
+                          {selected && (
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <CheckCircle2 className="h-4 w-4 text-primary" />
+                              <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", isExpanded && "rotate-180")} />
+                            </div>
+                          )}
+                        </button>
+
+                        {/* Pipeline submenu — opens below selected lead source */}
+                        {isExpanded && (
+                          <div className="border border-t-0 rounded-b-lg bg-muted/20 dark:bg-muted/10 overflow-hidden" data-testid="pipeline-submenu">
+                            {PIPELINE_CATEGORIES.map((cat) => {
+                              const CatIcon = cat.icon;
+                              const isCatExpanded = expandedCategory === cat.key;
+                              const selectedInCat = cat.options.find(o => o.value === currentPipelineValue);
+                              return (
+                                <div key={cat.key}>
+                                  <button
+                                    type="button"
+                                    className={cn(
+                                      "flex items-center gap-2.5 w-full px-4 py-2.5 text-left transition-all hover:bg-muted/50",
+                                      isCatExpanded && "bg-muted/40",
+                                      selectedInCat && "bg-primary/5"
+                                    )}
+                                    onClick={() => setExpandedCategory(isCatExpanded ? null : cat.key)}
+                                    data-testid={`pipeline-cat-${cat.key}`}
+                                  >
+                                    <CatIcon className="h-4 w-4 text-muted-foreground shrink-0" />
+                                    <span className="text-sm font-medium flex-1">{cat.label}</span>
+                                    {selectedInCat && (
+                                      <span className={cn("text-xs font-semibold px-2 py-0.5 rounded-full border",
+                                        selectedInCat.sentiment === "positive" ? "bg-green-100 text-green-700 border-green-300 dark:bg-green-900/50 dark:text-green-300 dark:border-green-700"
+                                          : selectedInCat.sentiment === "negative" ? "bg-red-100 text-red-600 border-red-300 dark:bg-red-900/50 dark:text-red-300 dark:border-red-700"
+                                            : "bg-gray-100 text-gray-600 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600"
+                                      )}>
+                                        {selectedInCat.label}
+                                      </span>
+                                    )}
+                                    <ChevronRight className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform shrink-0", isCatExpanded && "rotate-90")} />
+                                  </button>
+
+                                  {isCatExpanded && (
+                                    <div className="px-4 pb-2 pt-1 space-y-1">
+                                      {cat.options.map((opt) => {
+                                        const OptIcon = opt.icon;
+                                        const isSelected = currentPipelineValue === opt.value;
+                                        return (
+                                          <button
+                                            key={opt.value}
+                                            type="button"
+                                            className={cn(
+                                              "flex items-center gap-2.5 w-full px-3 py-2 rounded-md text-left transition-all",
+                                              isSelected
+                                                ? opt.sentiment === "positive" ? "bg-green-100 border border-green-300 text-green-800 dark:bg-green-900/40 dark:border-green-700 dark:text-green-200"
+                                                  : opt.sentiment === "negative" ? "bg-red-100 border border-red-300 text-red-700 dark:bg-red-900/40 dark:border-red-700 dark:text-red-200"
+                                                    : "bg-primary/10 border border-primary/30 text-foreground"
+                                                : "hover:bg-muted/60 border border-transparent"
+                                            )}
+                                            onClick={() => selectPipelineOption(opt.value)}
+                                            data-testid={`pipeline-opt-${opt.value}`}
+                                          >
+                                            <OptIcon className={cn("h-4 w-4 shrink-0", opt.color)} />
+                                            <span className="text-sm font-medium flex-1">{opt.label}</span>
+                                            {isSelected && <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
-                </RadioGroup>
+                </div>
+
                 {formData.leadSource && (
-                  <Button type="button" variant="ghost" size="sm" className="text-muted-foreground text-xs" onClick={() => setFormData({ ...formData, leadSource: "" })} data-testid="button-clear-source">
-                    <X className="h-3 w-3 mr-1" /> {t.common.clear || "Zrusit"}
+                  <Button type="button" variant="ghost" size="sm" className="text-muted-foreground text-xs" onClick={() => {
+                    setFormData(prev => ({ ...prev, leadSource: "", initialStatus: "", interestCooperation: "", interestContract: "", contractStatus: "" }));
+                    setPipelineMenuOpen(false);
+                    setExpandedCategory(null);
+                  }} data-testid="button-clear-source">
+                    <X className="h-3 w-3 mr-1" /> {t.common.clear || "Zrušiť výber"}
                   </Button>
                 )}
+              </div>
 
-                {/* Doctor Referral checkbox */}
+              <Separator />
+
+              {/* Doctor Referral & Conference */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="flex items-center justify-center w-6 h-6 rounded-md bg-purple-100 dark:bg-purple-900">
+                    <UserCheck className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
+                  </div>
+                  <h3 className="text-sm font-semibold tracking-wide">Referral & Konferencia</h3>
+                </div>
+
+                {/* Doctor Referral */}
                 <div className={cn("border rounded-lg px-3 py-2.5 transition-all cursor-pointer", formData.isReferredByDoctor ? cn("border-2 shadow-sm", LEAD_SOURCE_COLORS.doctor_referral) : "hover:bg-muted/50 border-border")}
                   onClick={() => setFormData({ ...formData, isReferredByDoctor: !formData.isReferredByDoctor })} >
                   <div className="flex items-center gap-3">
@@ -715,7 +909,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess }: 
                   </div>
                 )}
 
-                {/* Conference checkbox */}
+                {/* Conference */}
                 <div className={cn("border rounded-lg px-3 py-2.5 transition-all cursor-pointer", formData.isFromConference ? cn("border-2 shadow-sm", LEAD_SOURCE_COLORS.conference) : "hover:bg-muted/50 border-border")}
                   onClick={() => setFormData({ ...formData, isFromConference: !formData.isFromConference })} >
                   <div className="flex items-center gap-3">
@@ -889,7 +1083,6 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess }: 
 
               <Separator />
 
-              {/* Call/Contract tracking block */}
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <div className="flex items-center justify-center w-6 h-6 rounded-md bg-emerald-100 dark:bg-emerald-900">
@@ -915,7 +1108,6 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess }: 
 
               <Separator />
 
-              {/* Contract dates */}
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <div className="flex items-center justify-center w-6 h-6 rounded-md bg-amber-100 dark:bg-amber-900">
@@ -937,7 +1129,6 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess }: 
 
               <Separator />
 
-              {/* Flyers section */}
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <div className="flex items-center justify-center w-6 h-6 rounded-md bg-rose-100 dark:bg-rose-900">
