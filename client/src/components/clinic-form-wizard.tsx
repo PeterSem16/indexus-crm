@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/sheet";
 import { COUNTRIES } from "@shared/schema";
 import type { Clinic } from "@shared/schema";
-import { Stethoscope, MapPin, ExternalLink, Navigation, Loader2, Search, Trash2, Plus, Users, Save, X, UserPlus, Handshake, UserCheck, GraduationCap, Phone } from "lucide-react";
+import { Stethoscope, MapPin, ExternalLink, Navigation, Loader2, Search, Trash2, Plus, Users, Save, X, UserPlus, Handshake, UserCheck, GraduationCap, Phone, Mail } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -38,6 +38,8 @@ import { useToast } from "@/hooks/use-toast";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { CallCustomerButton } from "@/components/sip-phone";
 import { getQueryFn } from "@/lib/queryClient";
+import { useLocation } from "wouter";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface ClinicFormData {
   name: string;
@@ -100,6 +102,7 @@ export function ClinicFormWizard({ initialData, onSuccess, onCancel }: { initial
 export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess }: ClinicFormSheetProps) {
   const { t } = useI18n();
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [activeTab, setActiveTab] = useState("basic");
   const [showMapDialog, setShowMapDialog] = useState(false);
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
@@ -337,13 +340,42 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess }: 
                     </div>
                   )}
                 </div>
-                {initialData.phone && (
-                  <CallCustomerButton
-                    phoneNumber={initialData.phone}
-                    customerName={initialData.doctorName || initialData.name}
-                    variant="icon"
-                  />
-                )}
+                <div className="flex items-center gap-1 shrink-0">
+                  {initialData.email && (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            data-testid="button-clinic-email"
+                            onClick={() => {
+                              const contactIdentifier = initialData.email || initialData.phone || "";
+                              const params = new URLSearchParams();
+                              if (initialData.email) params.set("compose", initialData.email);
+                              if (contactIdentifier) params.set("contactSearch", contactIdentifier);
+                              onOpenChange(false);
+                              setLocation(`/email?${params.toString()}`);
+                            }}
+                          >
+                            <Mail className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>{initialData.email}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
+                  {initialData.phone && (
+                    <CallCustomerButton
+                      phoneNumber={initialData.phone}
+                      customerName={initialData.doctorName || initialData.name}
+                      variant="icon"
+                    />
+                  )}
+                </div>
               </div>
             );
           })()}

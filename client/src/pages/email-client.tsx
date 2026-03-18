@@ -5,7 +5,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { format, startOfMonth, endOfMonth, subMonths, startOfQuarter, endOfQuarter, startOfYear, endOfYear } from "date-fns";
-import { Link } from "wouter";
+import { Link, useSearch } from "wouter";
 import { useI18n } from "@/i18n/I18nProvider";
 
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -2606,6 +2606,9 @@ export default function EmailClientPage() {
 
   const effectiveMailbox = selectedMailbox === "all" ? "personal" : selectedMailbox;
 
+  const searchString = useSearch();
+  const [urlParamsProcessed, setUrlParamsProcessed] = useState(false);
+
   const { data: foldersData, isLoading: foldersLoading, refetch: refetchFolders } = useQuery<{ connected: boolean; folders: MailFolder[]; inboxId?: string | null }>({
     queryKey: ["/api/users", user?.id, "ms365-folders", effectiveMailbox],
     queryFn: () => fetch(`/api/users/${user?.id}/ms365-folders?mailbox=${effectiveMailbox}`).then(r => r.json()),
@@ -2928,6 +2931,34 @@ export default function EmailClientPage() {
   };
 
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
+
+  useEffect(() => {
+    if (urlParamsProcessed) return;
+    if (!searchString) return;
+    const params = new URLSearchParams(searchString);
+    const composeTo = params.get("compose");
+    const contactSearch = params.get("contactSearch");
+    if (composeTo) {
+      setActiveTab("email");
+      setComposeData(prev => ({ ...prev, to: composeTo, cc: "", bcc: "", subject: "", body: "", importance: "normal", tagId: null, replyTo: "" }));
+      setComposeOpen(true);
+      setReplyMode(null);
+      setAttachments([]);
+      setComposeMailbox(effectiveMailbox);
+      setComposeEditorKey(k => k + 1);
+    }
+    if (contactSearch) {
+      setActiveTab("email");
+      setSearchQuery(contactSearch);
+      setDebouncedSearchQuery(contactSearch);
+      setIsSearching(true);
+      setSearchMailbox("all");
+      setSelectedEmail(null);
+    }
+    setUrlParamsProcessed(true);
+    window.history.replaceState({}, "", "/email");
+  }, [searchString, urlParamsProcessed, effectiveMailbox]);
+
   const { data: searchResults, isLoading: searchLoading } = useQuery<{ emails: EmailMessage[]; mailbox: string }[]>({
     queryKey: ["/api/users", user?.id, "ms365-search-emails", debouncedSearchQuery, searchMailbox, searchDateFrom, searchDateTo],
     queryFn: async () => {
