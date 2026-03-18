@@ -352,7 +352,6 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess }: 
   const [referrals, setReferrals] = useState<Array<{ clinicId: string; clinicName: string; referralType: string }>>([]);
   const [referralSearch, setReferralSearch] = useState("");
   const [confReferralSearch, setConfReferralSearch] = useState("");
-  const referralsInitRef = useRef(false);
   const userEditedReferralsRef = useRef(false);
 
   useEffect(() => {
@@ -366,22 +365,18 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess }: 
       setPipelineMenuOpen(false);
       setExpandedCategory(null);
       setFormData(buildFormData(initialData));
-      referralsInitRef.current = false;
       userEditedReferralsRef.current = false;
     }
   }, [open, initialData?.id]);
 
   useEffect(() => {
     if (userEditedReferralsRef.current) return;
-    if (existingReferrals && !referralsInitRef.current) {
-      referralsInitRef.current = true;
-      if (existingReferrals.length > 0) {
-        setReferrals(existingReferrals.filter(r => r.referringClinic).map(r => ({
-          clinicId: String(r.referringClinicId),
-          clinicName: getDoctorFullName(r.referringClinic) || r.referringClinic?.name || "",
-          referralType: r.referralType || "doctor_referral",
-        })));
-      }
+    if (existingReferrals) {
+      setReferrals(existingReferrals.filter(r => r.referringClinic).map(r => ({
+        clinicId: String(r.referringClinicId),
+        clinicName: getDoctorFullName(r.referringClinic) || r.referringClinic?.name || "",
+        referralType: r.referralType || "doctor_referral",
+      })));
     }
   }, [existingReferrals]);
 

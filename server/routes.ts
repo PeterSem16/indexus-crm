@@ -13292,10 +13292,23 @@ Return ONLY valid JSON, no markdown code blocks.`,
     }
   });
 
+  function coerceClinicDates(body: any) {
+    const dateFields = ["leadSourceDate", "conferenceDate", "nextContactDate", "contractSentDate", "contractReturnedDate", "flyersSentDate"];
+    const result = { ...body };
+    for (const f of dateFields) {
+      if (result[f] && typeof result[f] === "string") {
+        result[f] = new Date(result[f]);
+      }
+    }
+    return result;
+  }
+
   app.post("/api/clinics", requireAuth, async (req, res) => {
     try {
-      const parsed = insertClinicSchema.safeParse(req.body);
+      const coerced = coerceClinicDates(req.body);
+      const parsed = insertClinicSchema.safeParse(coerced);
       if (!parsed.success) {
+        console.error("[Clinics] POST validation error:", JSON.stringify(parsed.error.issues));
         return res.status(400).json({ error: "Invalid data", details: parsed.error.issues });
       }
       const clinic = await storage.createClinic(parsed.data);
@@ -13310,6 +13323,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
       });
       res.status(201).json(clinic);
     } catch (error) {
+      console.error("[Clinics] POST error:", error);
       res.status(500).json({ error: "Failed to create clinic" });
     }
   });
@@ -13317,7 +13331,8 @@ Return ONLY valid JSON, no markdown code blocks.`,
   app.put("/api/clinics/:id", requireAuth, async (req, res) => {
     try {
       const oldClinic = await storage.getClinic(req.params.id);
-      const clinic = await storage.updateClinic(req.params.id, req.body);
+      const coerced = coerceClinicDates(req.body);
+      const clinic = await storage.updateClinic(req.params.id, coerced);
       if (!clinic) return res.status(404).json({ error: "Clinic not found" });
       await logActivity(req.session.user!.id, "update", "clinic", clinic.id, clinic.name);
       if (oldClinic) {

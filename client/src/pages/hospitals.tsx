@@ -894,6 +894,7 @@ export default function HospitalsPage() {
   const [clinicCityFilter, setClinicCityFilter] = useState("");
   const [clinicStatusFilter, setClinicStatusFilter] = useState<string>("all");
   const [clinicHasWebsite, setClinicHasWebsite] = useState<string>("all");
+  const [clinicPipelineFilter, setClinicPipelineFilter] = useState<string>("all");
   const [showClinicFilters, setShowClinicFilters] = useState(false);
   
   // Clinic sorting
@@ -1013,7 +1014,21 @@ export default function HospitalsPage() {
       const matchesWebsite = clinicHasWebsite === "all" ||
         (clinicHasWebsite === "yes" && clinic.website) ||
         (clinicHasWebsite === "no" && !clinic.website);
-      return matchesCountry && matchesSearch && matchesCity && matchesStatus && matchesWebsite;
+      let matchesPipeline = true;
+      if (clinicPipelineFilter !== "all") {
+        const c = clinic as any;
+        let pVal = "";
+        if (c.contractStatus) pVal = `contract:${c.contractStatus}`;
+        else if (c.interestContract) pVal = `contract_int:${c.interestContract}`;
+        else if (c.interestCooperation) pVal = `coop:${c.interestCooperation}`;
+        else if (c.initialStatus) pVal = `initial:${c.initialStatus}`;
+        if (clinicPipelineFilter === "no_status") {
+          matchesPipeline = !pVal;
+        } else {
+          matchesPipeline = pVal === clinicPipelineFilter;
+        }
+      }
+      return matchesCountry && matchesSearch && matchesCity && matchesStatus && matchesWebsite && matchesPipeline;
     });
     
     // Then sort
@@ -1112,11 +1127,12 @@ export default function HospitalsPage() {
     setClinicCityFilter("");
     setClinicStatusFilter("all");
     setClinicHasWebsite("all");
+    setClinicPipelineFilter("all");
     setClinicCountryTab("ALL");
     setClinicPage(1);
   };
   
-  const hasActiveClinicFilters = clinicSearchQuery || clinicCityFilter || clinicStatusFilter !== "all" || clinicHasWebsite !== "all" || clinicCountryTab !== "ALL";
+  const hasActiveClinicFilters = clinicSearchQuery || clinicCityFilter || clinicStatusFilter !== "all" || clinicHasWebsite !== "all" || clinicPipelineFilter !== "all" || clinicCountryTab !== "ALL";
 
   // Filtered and sorted hospitals
   const filteredAndSortedHospitals = (() => {
@@ -1412,6 +1428,39 @@ export default function HospitalsPage() {
             <Globe className="h-4 w-4" />
           </Button>
         ) : "-",
+    },
+    {
+      key: "pipelineStatus",
+      header: (t.clinics as any).pipeline?.title || "Pipeline",
+      cell: (clinic: Clinic) => {
+        const c = clinic as any;
+        let pVal = "";
+        if (c.contractStatus) pVal = `contract:${c.contractStatus}`;
+        else if (c.interestContract) pVal = `contract_int:${c.interestContract}`;
+        else if (c.interestCooperation) pVal = `coop:${c.interestCooperation}`;
+        else if (c.initialStatus) pVal = `initial:${c.initialStatus}`;
+        if (!pVal) return <span className="text-muted-foreground text-xs">-</span>;
+        const pipelineLabelMap: Record<string, { labelKey: string; color: string }> = {
+          "initial:not_contacted": { labelKey: "notContacted", color: "bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600" },
+          "initial:former": { labelKey: "formerCollaborator", color: "bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900 dark:text-amber-300 dark:border-amber-700" },
+          "initial:active_contract": { labelKey: "activeContract", color: "bg-green-100 text-green-800 border-green-300 dark:bg-green-900 dark:text-green-300 dark:border-green-700" },
+          "coop:unknown": { labelKey: "unknown", color: "bg-slate-100 text-slate-600 border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-600" },
+          "coop:interested": { labelKey: "interested", color: "bg-emerald-100 text-emerald-700 border-emerald-300 dark:bg-emerald-900 dark:text-emerald-300 dark:border-emerald-700" },
+          "coop:not_interested": { labelKey: "notInterested", color: "bg-red-100 text-red-700 border-red-300 dark:bg-red-900 dark:text-red-300 dark:border-red-700" },
+          "contract_int:unknown": { labelKey: "unknown", color: "bg-slate-100 text-slate-600 border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-600" },
+          "contract_int:interested": { labelKey: "interested", color: "bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900 dark:text-blue-300 dark:border-blue-700" },
+          "contract_int:not_interested": { labelKey: "notInterested", color: "bg-red-100 text-red-700 border-red-300 dark:bg-red-900 dark:text-red-300 dark:border-red-700" },
+          "contract:none": { labelKey: "noContract", color: "bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-900 dark:text-orange-300 dark:border-orange-700" },
+          "contract:active": { labelKey: "activeContract", color: "bg-green-100 text-green-800 border-green-400 dark:bg-green-900 dark:text-green-200 dark:border-green-600" },
+        };
+        const info = pipelineLabelMap[pVal];
+        if (!info) return <Badge variant="outline" className="text-[10px]">{pVal}</Badge>;
+        return (
+          <Badge variant="outline" className={`text-[10px] px-2 py-0.5 whitespace-nowrap font-semibold ${info.color}`} data-testid={`badge-pipeline-${clinic.id}`}>
+            {(t.clinics as any).pipeline?.[info.labelKey] || info.labelKey}
+          </Badge>
+        );
+      },
     },
     {
       key: "phone",
@@ -1868,41 +1917,49 @@ export default function HospitalsPage() {
               
               {/* Pipeline Summary Stats */}
               {filteredAndSortedClinics.length > 0 && (
-                <div className="flex flex-wrap items-center gap-2 p-3 bg-muted/30 rounded-lg border" data-testid="pipeline-summary-bar">
-                  <span className="text-xs font-semibold text-muted-foreground mr-1">
-                    <Target className="h-3.5 w-3.5 inline mr-1" />
-                    {(t.clinics as any).pipelineSummary?.title || "Pipeline"}:
-                  </span>
+                <div className="flex flex-wrap items-center gap-1.5 p-3 bg-gradient-to-r from-slate-50 to-blue-50/50 dark:from-slate-900 dark:to-blue-950/30 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm" data-testid="pipeline-summary-bar">
+                  <div className="flex items-center gap-1.5 mr-2">
+                    <div className="flex items-center justify-center w-6 h-6 rounded-lg bg-primary/10">
+                      <Target className="h-3.5 w-3.5 text-primary" />
+                    </div>
+                    <span className="text-xs font-bold text-foreground">
+                      {(t.clinics as any).pipelineSummary?.title || "Pipeline"}
+                    </span>
+                  </div>
                   {[
-                    { val: "initial:not_contacted", color: "bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600", labelKey: "notContacted" },
-                    { val: "initial:former", color: "bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900 dark:text-amber-300 dark:border-amber-700", labelKey: "formerCollaborator" },
-                    { val: "initial:active_contract", color: "bg-green-100 text-green-700 border-green-300 dark:bg-green-900 dark:text-green-300 dark:border-green-700", labelKey: "activeContract" },
-                    { val: "coop:unknown", color: "bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600", labelKey: "unknown" },
-                    { val: "coop:interested", color: "bg-green-100 text-green-700 border-green-300 dark:bg-green-900 dark:text-green-300 dark:border-green-700", labelKey: "interested" },
-                    { val: "coop:not_interested", color: "bg-red-100 text-red-600 border-red-300 dark:bg-red-900 dark:text-red-300 dark:border-red-700", labelKey: "notInterested" },
-                    { val: "contract_int:unknown", color: "bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600", labelKey: "unknown" },
-                    { val: "contract_int:interested", color: "bg-green-100 text-green-700 border-green-300 dark:bg-green-900 dark:text-green-300 dark:border-green-700", labelKey: "interested" },
-                    { val: "contract_int:not_interested", color: "bg-red-100 text-red-600 border-red-300 dark:bg-red-900 dark:text-red-300 dark:border-red-700", labelKey: "notInterested" },
-                    { val: "contract:none", color: "bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600", labelKey: "noContract" },
-                    { val: "contract:active", color: "bg-green-100 text-green-700 border-green-300 dark:bg-green-900 dark:text-green-300 dark:border-green-700", labelKey: "activeContract" },
+                    { val: "initial:not_contacted", color: "bg-gray-200/80 text-gray-800 border-gray-400 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-500", labelKey: "notContacted" },
+                    { val: "initial:former", color: "bg-amber-200/80 text-amber-900 border-amber-400 dark:bg-amber-800 dark:text-amber-100 dark:border-amber-600", labelKey: "formerCollaborator" },
+                    { val: "initial:active_contract", color: "bg-green-200/80 text-green-900 border-green-500 dark:bg-green-800 dark:text-green-100 dark:border-green-500", labelKey: "activeContract" },
+                    { val: "coop:unknown", color: "bg-slate-200/80 text-slate-700 border-slate-400 dark:bg-slate-700 dark:text-slate-200 dark:border-slate-500", labelKey: "unknown" },
+                    { val: "coop:interested", color: "bg-emerald-200/80 text-emerald-900 border-emerald-500 dark:bg-emerald-800 dark:text-emerald-100 dark:border-emerald-500", labelKey: "interested" },
+                    { val: "coop:not_interested", color: "bg-red-200/80 text-red-900 border-red-500 dark:bg-red-800 dark:text-red-100 dark:border-red-500", labelKey: "notInterested" },
+                    { val: "contract_int:unknown", color: "bg-slate-200/80 text-slate-700 border-slate-400 dark:bg-slate-700 dark:text-slate-200 dark:border-slate-500", labelKey: "unknown" },
+                    { val: "contract_int:interested", color: "bg-blue-200/80 text-blue-900 border-blue-500 dark:bg-blue-800 dark:text-blue-100 dark:border-blue-500", labelKey: "interested" },
+                    { val: "contract_int:not_interested", color: "bg-red-200/80 text-red-900 border-red-500 dark:bg-red-800 dark:text-red-100 dark:border-red-500", labelKey: "notInterested" },
+                    { val: "contract:none", color: "bg-orange-200/80 text-orange-900 border-orange-500 dark:bg-orange-800 dark:text-orange-100 dark:border-orange-500", labelKey: "noContract" },
+                    { val: "contract:active", color: "bg-green-300/80 text-green-900 border-green-600 dark:bg-green-700 dark:text-green-100 dark:border-green-400", labelKey: "activeContract" },
                   ].filter(s => pipelineStats.stats[s.val]).map(s => (
-                    <Badge key={s.val} variant="outline" className={`text-[10px] px-2 py-0.5 ${s.color}`} data-testid={`stat-${s.val}`}>
-                      {(t.clinics as any).pipeline?.[s.labelKey] || s.labelKey}: {pipelineStats.stats[s.val]}
+                    <Badge key={s.val} variant="outline" className={`text-[10px] px-2.5 py-1 font-bold border shadow-sm cursor-pointer hover:opacity-80 transition-opacity ${s.color}`} data-testid={`stat-${s.val}`}
+                      onClick={() => { setClinicPipelineFilter(clinicPipelineFilter === s.val ? "all" : s.val); handleClinicFilterChange(); }}>
+                      {(t.clinics as any).pipeline?.[s.labelKey] || s.labelKey} <span className="ml-1 font-black">{pipelineStats.stats[s.val]}</span>
                     </Badge>
                   ))}
                   {pipelineStats.otherStatus > 0 && (
-                    <Badge variant="outline" className="text-[10px] px-2 py-0.5 bg-yellow-50 text-yellow-700 border-yellow-300 dark:bg-yellow-900 dark:text-yellow-300 dark:border-yellow-700" data-testid="stat-other">
-                      {t.common.other || "Other"}: {pipelineStats.otherStatus}
+                    <Badge variant="outline" className="text-[10px] px-2.5 py-1 font-bold border shadow-sm bg-yellow-200/80 text-yellow-900 border-yellow-500 dark:bg-yellow-800 dark:text-yellow-100 dark:border-yellow-500" data-testid="stat-other">
+                      {t.common.other || "Other"} <span className="ml-1 font-black">{pipelineStats.otherStatus}</span>
                     </Badge>
                   )}
                   {pipelineStats.noStatus > 0 && (
-                    <Badge variant="outline" className="text-[10px] px-2 py-0.5 bg-gray-50 text-gray-500 border-gray-200 dark:bg-gray-900 dark:text-gray-400 dark:border-gray-700" data-testid="stat-no-status">
-                      {(t.clinics as any).pipelineSummary?.noStatus || "No status"}: {pipelineStats.noStatus}
+                    <Badge variant="outline" className="text-[10px] px-2.5 py-1 font-bold border shadow-sm bg-gray-200/60 text-gray-600 border-gray-400 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-500 cursor-pointer hover:opacity-80 transition-opacity" data-testid="stat-no-status"
+                      onClick={() => { setClinicPipelineFilter(clinicPipelineFilter === "no_status" ? "all" : "no_status"); handleClinicFilterChange(); }}>
+                      {(t.clinics as any).pipelineSummary?.noStatus || "No status"} <span className="ml-1 font-black">{pipelineStats.noStatus}</span>
                     </Badge>
                   )}
-                  <Badge variant="secondary" className="text-[10px] px-2 py-0.5 ml-auto" data-testid="stat-total">
-                    {(t.clinics as any).pipelineSummary?.total || "Total"}: {filteredAndSortedClinics.length}
-                  </Badge>
+                  <div className="ml-auto pl-2">
+                    <Badge className="text-[10px] px-2.5 py-1 font-bold bg-primary/10 text-primary border-primary/30 hover:bg-primary/20" data-testid="stat-total">
+                      {(t.clinics as any).pipelineSummary?.total || "Total"}: {filteredAndSortedClinics.length}
+                    </Badge>
+                  </div>
                 </div>
               )}
 
@@ -1936,18 +1993,19 @@ export default function HospitalsPage() {
               
               {/* Advanced filters */}
               {showClinicFilters && (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-muted/50 rounded-lg">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-muted/50 rounded-lg border">
                   <div>
-                    <label className="text-sm font-medium mb-1 block">{t.clinics.city}</label>
+                    <label className="text-xs font-medium mb-1.5 block text-muted-foreground uppercase tracking-wider">{t.clinics.city}</label>
                     <Input
                       placeholder={t.clinics.filterByCity}
                       value={clinicCityFilter}
                       onChange={(e) => { setClinicCityFilter(e.target.value); handleClinicFilterChange(); }}
+                      className="h-9"
                       data-testid="input-filter-clinic-city"
                     />
                   </div>
                   <div>
-                    <label className="text-sm font-medium mb-1 block">{t.common.status}</label>
+                    <label className="text-xs font-medium mb-1.5 block text-muted-foreground uppercase tracking-wider">{t.common.status}</label>
                     <select
                       value={clinicStatusFilter}
                       onChange={(e) => { setClinicStatusFilter(e.target.value); handleClinicFilterChange(); }}
@@ -1960,7 +2018,30 @@ export default function HospitalsPage() {
                     </select>
                   </div>
                   <div>
-                    <label className="text-sm font-medium mb-1 block">{t.clinics.website}</label>
+                    <label className="text-xs font-medium mb-1.5 block text-muted-foreground uppercase tracking-wider">{(t.clinics as any).pipeline?.title || "Pipeline"}</label>
+                    <select
+                      value={clinicPipelineFilter}
+                      onChange={(e) => { setClinicPipelineFilter(e.target.value); handleClinicFilterChange(); }}
+                      className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
+                      data-testid="select-filter-clinic-pipeline"
+                    >
+                      <option value="all">{t.common.all}</option>
+                      <option value="no_status">{(t.clinics as any).pipelineSummary?.noStatus || "No status"}</option>
+                      <option value="initial:not_contacted">{(t.clinics as any).pipeline?.notContacted || "Not contacted"}</option>
+                      <option value="initial:former">{(t.clinics as any).pipeline?.formerCollaborator || "Former collaborator"}</option>
+                      <option value="initial:active_contract">{(t.clinics as any).pipeline?.activeContract || "Active contract"}</option>
+                      <option value="coop:unknown">{(t.clinics as any).pipeline?.cooperationInterest || "Coop"}: {(t.clinics as any).pipeline?.unknown || "Unknown"}</option>
+                      <option value="coop:interested">{(t.clinics as any).pipeline?.cooperationInterest || "Coop"}: {(t.clinics as any).pipeline?.interested || "Interested"}</option>
+                      <option value="coop:not_interested">{(t.clinics as any).pipeline?.cooperationInterest || "Coop"}: {(t.clinics as any).pipeline?.notInterested || "Not interested"}</option>
+                      <option value="contract_int:unknown">{(t.clinics as any).pipeline?.contractInterest || "Contract"}: {(t.clinics as any).pipeline?.unknown || "Unknown"}</option>
+                      <option value="contract_int:interested">{(t.clinics as any).pipeline?.contractInterest || "Contract"}: {(t.clinics as any).pipeline?.interested || "Interested"}</option>
+                      <option value="contract_int:not_interested">{(t.clinics as any).pipeline?.contractInterest || "Contract"}: {(t.clinics as any).pipeline?.notInterested || "Not interested"}</option>
+                      <option value="contract:none">{(t.clinics as any).pipeline?.noContract || "No contract"}</option>
+                      <option value="contract:active">{(t.clinics as any).pipeline?.activeContract || "Active contract"}</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium mb-1.5 block text-muted-foreground uppercase tracking-wider">{t.clinics.website}</label>
                     <select
                       value={clinicHasWebsite}
                       onChange={(e) => { setClinicHasWebsite(e.target.value); handleClinicFilterChange(); }}
