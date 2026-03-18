@@ -20312,15 +20312,17 @@ Return ONLY valid JSON, no markdown code blocks.`,
       
       const enrichedContacts = await Promise.all(
         contacts.map(async (contact) => {
-          let customer = null, hospital = null, clinic = null;
+          let customer = null, hospital = null, clinic = null, collaborator = null;
           if (contact.contactType === "hospital" && contact.hospitalId) {
             hospital = await storage.getHospital(contact.hospitalId);
           } else if (contact.contactType === "clinic" && contact.clinicId) {
             clinic = await storage.getClinic(contact.clinicId);
+          } else if (contact.contactType === "collaborator" && contact.collaboratorId) {
+            collaborator = await storage.getCollaborator(contact.collaboratorId);
           } else if (contact.customerId) {
             customer = await storage.getCustomer(contact.customerId);
           }
-          return { ...contact, customer, hospital, clinic };
+          return { ...contact, customer, hospital, clinic, collaborator };
         })
       );
       

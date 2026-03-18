@@ -139,9 +139,12 @@ import { CustomerDetailsContent } from "@/pages/customers";
 import { StatusBadge } from "@/components/status-badge";
 import { CallRecordingPlayer } from "@/components/call-recording-player";
 import { CustomerForm, type CustomerFormData } from "@/components/customer-form";
+import { HospitalFormWizard } from "@/components/hospital-form-wizard";
+import { ClinicFormSheet } from "@/components/clinic-form-wizard";
+import { CollaboratorFormWizard } from "@/components/collaborator-form-wizard";
 import { InboundCallPopup, InboundQueueStatus } from "@/components/agent/InboundCallPopup";
 import { VoicemailNotifications, VoicemailEmptyBadge } from "@/components/agent/VoicemailNotifications";
-import type { Campaign, Customer, CampaignContact, CampaignDisposition, AgentBreakType } from "@shared/schema";
+import type { Campaign, Customer, CampaignContact, CampaignDisposition, AgentBreakType, Hospital, Clinic, Collaborator } from "@shared/schema";
 import { DISPOSITION_NAME_TRANSLATIONS } from "@shared/schema";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
@@ -154,6 +157,9 @@ type ChannelType = "phone" | "email" | "sms" | "mixed";
 
 interface EnrichedCampaignContact extends CampaignContact {
   customer: Customer | null;
+  hospital?: Hospital | null;
+  clinic?: Clinic | null;
+  collaborator?: Collaborator | null;
 }
 
 interface TaskItem {
@@ -211,6 +217,32 @@ interface TimelineEntry {
   recipientEmail?: string;
   recipientPhone?: string;
   sentiment?: string | null;
+}
+
+function getEntityDisplayInfo(cc: EnrichedCampaignContact): { name: string; initials: string; subtitle: string; type: string } | null {
+  if (cc.contactType === "hospital" && cc.hospital) {
+    const h = cc.hospital as any;
+    const name = h.name || "Hospital";
+    return { name, initials: name.substring(0, 2).toUpperCase(), subtitle: h.phone || h.email || "Hospital", type: "hospital" };
+  }
+  if (cc.contactType === "clinic" && cc.clinic) {
+    const c = cc.clinic as any;
+    const name = c.clinicName || c.name || "Clinic";
+    const doctor = c.doctorName || "";
+    return { name: doctor ? `${name} — ${doctor}` : name, initials: (name[0] || "") + (doctor?.[0] || ""), subtitle: c.phone || c.email || "Clinic", type: "clinic" };
+  }
+  if (cc.contactType === "collaborator" && cc.collaborator) {
+    const col = cc.collaborator as any;
+    const fn = col.firstName || col.name || "";
+    const ln = col.lastName || "";
+    const name = `${fn} ${ln}`.trim() || "Collaborator";
+    return { name, initials: (fn?.[0] || "") + (ln?.[0] || ""), subtitle: col.phone || col.email || "Collaborator", type: "collaborator" };
+  }
+  if (cc.customer) {
+    const cust = cc.customer;
+    return { name: `${cust.firstName || ""} ${cust.lastName || ""}`.trim() || "—", initials: (cust.firstName?.[0] || "") + (cust.lastName?.[0] || ""), subtitle: cust.phone || cust.email || "—", type: "customer" };
+  }
+  return null;
 }
 
 function SentimentBadge({ sentiment, size = "sm" }: { sentiment?: string | null; size?: "sm" | "md" }) {
@@ -812,7 +844,8 @@ function TaskListPanel({
                     )}
                     {sortedContacts.map((cc) => {
                       const cust = cc.customer;
-                      if (!cust) return null;
+                      const entityDisplay = getEntityDisplayInfo(cc);
+                      if (!entityDisplay) return null;
                       const isCallback = cc.status === "callback_scheduled";
                       const isDueCallback = isCallback && cc.callbackDate && new Date(cc.callbackDate) <= now;
                       const isMyCallback = isCallback && cc.assignedTo === currentUserId;
@@ -834,7 +867,7 @@ function TaskListPanel({
                           <div className="relative shrink-0">
                             <Avatar className="h-8 w-8">
                               <AvatarFallback className={`text-xs ${isDueCallback && isMyCallback ? "bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300" : isDueCallback ? "bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300" : "bg-muted"}`}>
-                                {cust.firstName?.[0]}{cust.lastName?.[0]}
+                                {entityDisplay.initials}
                               </AvatarFallback>
                             </Avatar>
                             {isCallback && (
@@ -845,10 +878,10 @@ function TaskListPanel({
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium truncate">
-                              {cust.firstName} {cust.lastName}
+                              {entityDisplay.name}
                             </p>
                             <p className="text-[10px] text-muted-foreground truncate">
-                              {cust.phone || cust.email || "—"}
+                              {entityDisplay.subtitle}
                             </p>
                           </div>
                           <div className="flex flex-col items-end gap-0.5 shrink-0">
@@ -1407,6 +1440,10 @@ function CommunicationCanvas({
   contactHistory,
   onOpenHistoryDetail,
   onCreateContract,
+  contactType,
+  hospitalData,
+  clinicData,
+  collaboratorData,
 }: {
   contact: Customer | null;
   campaign: Campaign | null;
@@ -1442,6 +1479,10 @@ function CommunicationCanvas({
   contactHistory?: ContactHistory[];
   onOpenHistoryDetail?: (entry: TimelineEntry | ContactHistory) => void;
   onCreateContract?: () => void;
+  contactType?: string;
+  hospitalData?: Hospital | null;
+  clinicData?: Clinic | null;
+  collaboratorData?: Collaborator | null;
 }) {
   const { t } = useI18n();
   const { user } = useAuth();
@@ -2086,14 +2127,38 @@ function CommunicationCanvas({
           {phoneSubTab === "card" && contact && (
             <ScrollArea className="flex-1 isolate">
               <div className="px-4 pb-4">
-                <CustomerForm
-                  key={contact.id}
-                  initialData={contact}
-                  onSubmit={(data) => onUpdateContact?.(data)}
-                  isLoading={isUpdatingContact}
-                  onCancel={() => setPhoneSubTab("details")}
-                  useCardLayout
-                />
+                {contactType === "hospital" && hospitalData ? (
+                  <HospitalFormWizard
+                    key={hospitalData.id}
+                    initialData={hospitalData}
+                    onSuccess={() => setPhoneSubTab("details")}
+                    onCancel={() => setPhoneSubTab("details")}
+                  />
+                ) : contactType === "clinic" && clinicData ? (
+                  <ClinicFormSheet
+                    key={clinicData.id}
+                    open={true}
+                    onOpenChange={() => setPhoneSubTab("details")}
+                    initialData={clinicData}
+                    onSuccess={() => setPhoneSubTab("details")}
+                  />
+                ) : contactType === "collaborator" && collaboratorData ? (
+                  <CollaboratorFormWizard
+                    key={collaboratorData.id}
+                    initialData={collaboratorData}
+                    onSuccess={() => setPhoneSubTab("details")}
+                    onCancel={() => setPhoneSubTab("details")}
+                  />
+                ) : (
+                  <CustomerForm
+                    key={contact.id}
+                    initialData={contact}
+                    onSubmit={(data) => onUpdateContact?.(data)}
+                    isLoading={isUpdatingContact}
+                    onCancel={() => setPhoneSubTab("details")}
+                    useCardLayout
+                  />
+                )}
               </div>
             </ScrollArea>
           )}
@@ -4235,6 +4300,10 @@ export default function AgentWorkspacePage() {
   const agentSession = useAgentSession();
   const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null);
   const [currentContact, setCurrentContact] = useState<Customer | null>(null);
+  const [currentContactType, setCurrentContactType] = useState<string>("customer");
+  const [currentHospitalData, setCurrentHospitalData] = useState<Hospital | null>(null);
+  const [currentClinicData, setCurrentClinicData] = useState<Clinic | null>(null);
+  const [currentCollaboratorData, setCurrentCollaboratorData] = useState<Collaborator | null>(null);
   const [currentCampaignContactId, setCurrentCampaignContactId] = useState<string | null>(null);
   const [disposedContactIds, setDisposedContactIds] = useState<Set<string>>(new Set());
   const [sessionLoginOpen, setSessionLoginOpen] = useState(true);
@@ -4548,7 +4617,7 @@ export default function AgentWorkspacePage() {
 
   const pendingCampaignContacts = useMemo(() => {
     return rawCampaignContacts.filter(
-      (cc) => cc.customer && (cc.status === "pending" || cc.status === "callback_scheduled") && !disposedContactIds.has(cc.id)
+      (cc) => (cc.customer || cc.hospital || cc.clinic || cc.collaborator) && (cc.status === "pending" || cc.status === "callback_scheduled") && !disposedContactIds.has(cc.id)
     );
   }, [rawCampaignContacts, disposedContactIds]);
 
@@ -5215,18 +5284,59 @@ export default function AgentWorkspacePage() {
     }
     if (sortedPendingContacts.length > 0) {
       const nextEnriched = sortedPendingContacts[0];
-      if (nextEnriched.customer) {
-        setCurrentCampaignContactId(nextEnriched.id);
-        loadContact(nextEnriched.customer);
-      }
+      handleSelectCampaignContact(nextEnriched);
     }
   };
 
   const handleSelectCampaignContact = (enrichedContact: EnrichedCampaignContact) => {
     const currentStatus = agentSession.status;
     if (currentStatus === "wrap_up" || currentStatus === "break") return;
-    if (enrichedContact.customer) {
-      setCurrentCampaignContactId(enrichedContact.id);
+    setCurrentCampaignContactId(enrichedContact.id);
+    setCurrentHospitalData(null);
+    setCurrentClinicData(null);
+    setCurrentCollaboratorData(null);
+
+    if (enrichedContact.contactType === "hospital" && enrichedContact.hospital) {
+      setCurrentContactType("hospital");
+      setCurrentHospitalData(enrichedContact.hospital as Hospital);
+      const h = enrichedContact.hospital as any;
+      const virtualCustomer: Customer = {
+        id: h.id,
+        firstName: h.name || "",
+        lastName: "",
+        email: h.email || null,
+        phone: h.phone || null,
+        countryCode: h.countryCode || null,
+      } as Customer;
+      loadContact(virtualCustomer);
+    } else if (enrichedContact.contactType === "clinic" && enrichedContact.clinic) {
+      setCurrentContactType("clinic");
+      setCurrentClinicData(enrichedContact.clinic as Clinic);
+      const c = enrichedContact.clinic as any;
+      const virtualCustomer: Customer = {
+        id: c.id,
+        firstName: c.clinicName || c.name || "",
+        lastName: c.doctorName || "",
+        email: c.email || null,
+        phone: c.phone || null,
+        countryCode: c.countryCode || null,
+      } as Customer;
+      loadContact(virtualCustomer);
+    } else if (enrichedContact.contactType === "collaborator" && enrichedContact.collaborator) {
+      setCurrentContactType("collaborator");
+      setCurrentCollaboratorData(enrichedContact.collaborator as Collaborator);
+      const col = enrichedContact.collaborator as any;
+      const virtualCustomer: Customer = {
+        id: col.id,
+        firstName: col.firstName || col.name || "",
+        lastName: col.lastName || "",
+        email: col.email || null,
+        phone: col.phone || null,
+        countryCode: col.countryCode || null,
+      } as Customer;
+      loadContact(virtualCustomer);
+    } else if (enrichedContact.customer) {
+      setCurrentContactType("customer");
       loadContact(enrichedContact.customer);
     }
   };
@@ -5234,6 +5344,10 @@ export default function AgentWorkspacePage() {
   const handleSelectTask = (task: TaskItem) => {
     setActiveTaskId(task.id);
     setCurrentContact(task.contact);
+    setCurrentContactType("customer");
+    setCurrentHospitalData(null);
+    setCurrentClinicData(null);
+    setCurrentCollaboratorData(null);
     setSelectedCampaignId(task.campaignId);
     setCurrentCampaignContactId(task.campaignContactId);
   };
@@ -6004,6 +6118,10 @@ export default function AgentWorkspacePage() {
           contactHistory={contactHistory}
           onOpenHistoryDetail={(entry) => setHistoryDetailModal(entry)}
           onCreateContract={handleOpenContractWizard}
+          contactType={currentContactType}
+          hospitalData={currentHospitalData}
+          clinicData={currentClinicData}
+          collaboratorData={currentCollaboratorData}
         />
 
         <CustomerInfoPanel
@@ -6093,11 +6211,11 @@ export default function AgentWorkspacePage() {
             {(() => {
               const now = new Date();
               let filtered = sortedPendingContacts.filter(cc => {
-                const cust = cc.customer;
-                if (!cust) return false;
+                const entityInfo = getEntityDisplayInfo(cc);
+                if (!entityInfo) return false;
                 if (modalSearch) {
                   const q = modalSearch.toLowerCase();
-                  const match = [cust.firstName, cust.lastName, cust.phone, cust.email]
+                  const match = [entityInfo.name, entityInfo.subtitle]
                     .filter(Boolean).join(" ").toLowerCase().includes(q);
                   if (!match) return false;
                 }
@@ -6122,8 +6240,8 @@ export default function AgentWorkspacePage() {
                     return aDate - bDate;
                   }
                   case "name_asc": {
-                    const aName = `${a.customer?.firstName || ""} ${a.customer?.lastName || ""}`.trim();
-                    const bName = `${b.customer?.firstName || ""} ${b.customer?.lastName || ""}`.trim();
+                    const aName = getEntityDisplayInfo(a)?.name || "";
+                    const bName = getEntityDisplayInfo(b)?.name || "";
                     return aName.localeCompare(bName, "sk");
                   }
                   case "attempts_desc":
@@ -6148,8 +6266,8 @@ export default function AgentWorkspacePage() {
                     {filtered.length} {filtered.length === 1 ? "kontakt" : filtered.length < 5 ? "kontakty" : "kontaktov"}
                   </div>
                   {filtered.map((cc) => {
-                    const cust = cc.customer;
-                    if (!cust) return null;
+                    const entityInfo = getEntityDisplayInfo(cc);
+                    if (!entityInfo) return null;
                     const isCallback = cc.status === "callback_scheduled";
                     const isDueCallback = isCallback && cc.callbackDate && new Date(cc.callbackDate) <= now;
                     const isMyCallback = isCallback && cc.assignedTo === user?.id;
@@ -6173,23 +6291,17 @@ export default function AgentWorkspacePage() {
                       >
                         <Avatar className="h-9 w-9 shrink-0">
                           <AvatarFallback className={`text-xs ${isDueCallback && isMyCallback ? "bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300" : isDueCallback ? "bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300" : "bg-muted"}`}>
-                            {cust.firstName?.[0]}{cust.lastName?.[0]}
+                            {entityInfo.initials}
                           </AvatarFallback>
                         </Avatar>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{cust.firstName} {cust.lastName}</p>
+                          <p className="text-sm font-medium truncate">{entityInfo.name}</p>
                           <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                            {cust.phone && (
-                              <span className="flex items-center gap-1">
-                                <Phone className="h-3 w-3" />
-                                {cust.phone}
-                              </span>
-                            )}
-                            {cust.email && (
-                              <span className="flex items-center gap-1 truncate">
-                                <Mail className="h-3 w-3 shrink-0" />
-                                {cust.email}
-                              </span>
+                            <span className="truncate">{entityInfo.subtitle}</span>
+                            {entityInfo.type !== "customer" && (
+                              <Badge variant="outline" className="text-[9px] px-1 py-0 shrink-0">
+                                {entityInfo.type === "hospital" ? "H" : entityInfo.type === "clinic" ? "C" : "COL"}
+                              </Badge>
                             )}
                           </div>
                         </div>
