@@ -887,6 +887,7 @@ export interface Translations {
       web: string;
       settings: string;
       review: string;
+      history: string;
     };
     stepsDesc: {
       basic: string;
@@ -5978,6 +5979,7 @@ export const translations: Record<Locale, Translations> = {
         web: 'Web & Contact',
         settings: 'Settings',
         review: 'Review',
+        history: 'History',
       },
       stepsDesc: {
         basic: 'Name and doctor',
@@ -10532,6 +10534,7 @@ export const translations: Record<Locale, Translations> = {
         web: 'Web a kontakt',
         settings: 'Nastavenia',
         review: 'Súhrn',
+        history: 'História',
       },
       stepsDesc: {
         basic: 'Názov a lekár',
@@ -15025,6 +15028,7 @@ export const translations: Record<Locale, Translations> = {
         web: 'Web a kontakt',
         settings: 'Nastavení',
         review: 'Souhrn',
+        history: 'Historie',
       },
       stepsDesc: {
         basic: 'Název a lékař',
@@ -19481,6 +19485,7 @@ export const translations: Record<Locale, Translations> = {
         web: 'Web és kapcsolat',
         settings: 'Beállítások',
         review: 'Összefoglaló',
+        history: 'Előzmények',
       },
       stepsDesc: {
         basic: 'Név és orvos',
@@ -23936,6 +23941,7 @@ export const translations: Record<Locale, Translations> = {
         web: 'Web și contact',
         settings: 'Setări',
         review: 'Rezumat',
+        history: 'Istoric',
       },
       stepsDesc: {
         basic: 'Nume și medic',
@@ -28392,6 +28398,7 @@ export const translations: Record<Locale, Translations> = {
         web: 'Web e contatto',
         settings: 'Impostazioni',
         review: 'Riepilogo',
+        history: 'Cronologia',
       },
       stepsDesc: {
         basic: 'Nome e medico',
@@ -32848,6 +32855,7 @@ export const translations: Record<Locale, Translations> = {
         web: 'Web und Kontakt',
         settings: 'Einstellungen',
         review: 'Zusammenfassung',
+        history: 'Verlauf',
       },
       stepsDesc: {
         basic: 'Name und Arzt',

@@ -34,7 +34,7 @@ import {
   collections, executiveSummaries, collectionLabResults, collectionSprievodnyList,
   insertSopCategorySchema, insertSopArticleSchema,
   agentSessions, agentSessionActivities, agentBreaks, scheduledReports, agentQueueStatus,
-  inboundCallLogs, inboundQueues, ariSettings, sipExtensions, clinicReferrals,
+  inboundCallLogs, inboundQueues, ariSettings, sipExtensions, clinicReferrals, clinicEvents,
   type SafeUser, type Customer, type Product, type BillingDetails, type ActivityLog, type LeadScoringCriteria,
   type ServiceConfiguration, type InvoiceTemplate, type InvoiceLayout, type Role,
   type Campaign, type CampaignContact, type ContractInstance
@@ -13300,6 +13300,14 @@ Return ONLY valid JSON, no markdown code blocks.`,
       }
       const clinic = await storage.createClinic(parsed.data);
       await logActivity(req.session.user!.id, "create", "clinic", clinic.id, clinic.name);
+      await db.insert(clinicEvents).values({
+        clinicId: clinic.id,
+        eventType: "clinic_created",
+        title: `Clinic created: ${clinic.name}`,
+        description: clinic.doctorName ? `Doctor: ${clinic.doctorName}` : null,
+        metadata: { leadSource: clinic.leadSource },
+        createdBy: req.session.user!.id,
+      });
       res.status(201).json(clinic);
     } catch (error) {
       res.status(500).json({ error: "Failed to create clinic" });
@@ -13308,9 +13316,28 @@ Return ONLY valid JSON, no markdown code blocks.`,
 
   app.put("/api/clinics/:id", requireAuth, async (req, res) => {
     try {
+      const oldClinic = await storage.getClinic(req.params.id);
       const clinic = await storage.updateClinic(req.params.id, req.body);
       if (!clinic) return res.status(404).json({ error: "Clinic not found" });
       await logActivity(req.session.user!.id, "update", "clinic", clinic.id, clinic.name);
+      if (oldClinic) {
+        const changes: string[] = [];
+        if (oldClinic.isActive !== clinic.isActive) changes.push(`isActive: ${oldClinic.isActive} → ${clinic.isActive}`);
+        if (oldClinic.leadSource !== clinic.leadSource) changes.push(`leadSource: ${oldClinic.leadSource || "none"} → ${clinic.leadSource || "none"}`);
+        if (oldClinic.name !== clinic.name) changes.push(`name: ${oldClinic.name} → ${clinic.name}`);
+        if (oldClinic.isReferredByDoctor !== clinic.isReferredByDoctor) changes.push(`isReferredByDoctor: ${clinic.isReferredByDoctor}`);
+        if (oldClinic.isFromConference !== clinic.isFromConference) changes.push(`isFromConference: ${clinic.isFromConference}`);
+        if (changes.length > 0) {
+          await db.insert(clinicEvents).values({
+            clinicId: clinic.id,
+            eventType: "status_change",
+            title: "Clinic updated",
+            description: changes.join("; "),
+            metadata: { changes, oldValues: { isActive: oldClinic.isActive, leadSource: oldClinic.leadSource, name: oldClinic.name }, newValues: { isActive: clinic.isActive, leadSource: clinic.leadSource, name: clinic.name } },
+            createdBy: req.session.user!.id,
+          });
+        }
+      }
       res.json(clinic);
     } catch (error) {
       res.status(500).json({ error: "Failed to update clinic" });
@@ -13361,6 +13388,26 @@ Return ONLY valid JSON, no markdown code blocks.`,
         notes: notes || null,
       }).returning();
       console.log(`[Referrals] Created referral:`, referral.id);
+      const referringClinic = await storage.getClinic(referringClinicId);
+      const targetClinic = await storage.getClinic(clinicId);
+      await db.insert(clinicEvents).values({
+        clinicId,
+        eventType: "referral_added",
+        title: `Referral added: ${referringClinic?.doctorName || referringClinic?.name || referringClinicId}`,
+        description: `Referred by ${referringClinic?.doctorName || referringClinic?.name || "unknown"} (${referralType})`,
+        metadata: { referralType, referringClinicId, referringClinicName: referringClinic?.name },
+        createdBy: req.session.user?.id || null,
+      });
+      if (referringClinic) {
+        await db.insert(clinicEvents).values({
+          clinicId: referringClinicId,
+          eventType: "referral_given",
+          title: `Referred clinic: ${targetClinic?.doctorName || targetClinic?.name || clinicId}`,
+          description: `Referred ${targetClinic?.doctorName || targetClinic?.name || "unknown"} (${referralType})`,
+          metadata: { referralType, referredClinicId: clinicId, referredClinicName: targetClinic?.name },
+          createdBy: req.session.user?.id || null,
+        });
+      }
       res.json(referral);
     } catch (error) {
       console.error(`[Referrals] POST error:`, error);
@@ -13374,6 +13421,27 @@ Return ONLY valid JSON, no markdown code blocks.`,
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ error: "Failed to delete referral" });
+    }
+  });
+
+  app.get("/api/clinic-events/:clinicId", requireAuth, async (req, res) => {
+    try {
+      const events = await db.select().from(clinicEvents)
+        .where(eq(clinicEvents.clinicId, req.params.clinicId))
+        .orderBy(desc(clinicEvents.createdAt))
+        .limit(100);
+      const enrichedEvents = await Promise.all(events.map(async (evt) => {
+        let createdByName: string | null = null;
+        if (evt.createdBy) {
+          const user = await storage.getUser(evt.createdBy);
+          createdByName = user?.fullName || user?.username || null;
+        }
+        return { ...evt, createdByName };
+      }));
+      res.json(enrichedEvents);
+    } catch (error) {
+      console.error("[ClinicEvents] GET error:", error);
+      res.status(500).json({ error: "Failed to get clinic events" });
     }
   });
 

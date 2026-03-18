@@ -352,6 +352,24 @@ export const insertClinicReferralSchema = createInsertSchema(clinicReferrals).om
 export type InsertClinicReferral = z.infer<typeof insertClinicReferralSchema>;
 export type ClinicReferral = typeof clinicReferrals.$inferSelect;
 
+export const clinicEvents = pgTable("clinic_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  clinicId: varchar("clinic_id").notNull(),
+  eventType: text("event_type").notNull(),
+  title: text("title").notNull(),
+  description: text("description"),
+  metadata: jsonb("metadata"),
+  createdBy: varchar("created_by"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const insertClinicEventSchema = createInsertSchema(clinicEvents).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertClinicEvent = z.infer<typeof insertClinicEventSchema>;
+export type ClinicEvent = typeof clinicEvents.$inferSelect;
+
 // Client status types
 export const CLIENT_STATUSES = [
   { value: "potential", label: "Potenciálny klient" },

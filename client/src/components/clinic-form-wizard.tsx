@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/sheet";
 import { COUNTRIES } from "@shared/schema";
 import type { Clinic } from "@shared/schema";
-import { Stethoscope, MapPin, ExternalLink, Navigation, Loader2, Search, Trash2, Plus, Users, Save, X, UserPlus, Handshake, UserCheck, GraduationCap, Phone, Mail } from "lucide-react";
+import { Stethoscope, MapPin, ExternalLink, Navigation, Loader2, Search, Trash2, Plus, Users, Save, X, UserPlus, Handshake, UserCheck, GraduationCap, Phone, Mail, Clock, ArrowRightLeft, History, FileText, MessageSquare, Megaphone, PhoneCall, RefreshCw } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -157,29 +157,55 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess }: 
     enabled: !!initialData?.id && open,
   });
 
+  interface ClinicEventItem {
+    id: string;
+    clinicId: string;
+    eventType: string;
+    title: string;
+    description: string | null;
+    metadata: any;
+    createdBy: string | null;
+    createdByName: string | null;
+    createdAt: string;
+  }
+
+  const { data: clinicEventsData, isLoading: eventsLoading } = useQuery<ClinicEventItem[]>({
+    queryKey: ["/api/clinic-events", initialData?.id],
+    queryFn: getQueryFn({ on401: "returnNull" }),
+    enabled: !!initialData?.id && open && activeTab === "history",
+  });
+
   const [referrals, setReferrals] = useState<Array<{ clinicId: string; clinicName: string; referralType: string }>>([]);
   const [referralSearch, setReferralSearch] = useState("");
   const [confReferralSearch, setConfReferralSearch] = useState("");
+  const referralsInitRef = useRef(false);
+  const userEditedReferralsRef = useRef(false);
 
   useEffect(() => {
     if (open) {
-      setActiveTab("basic");
+      setActiveTab("source");
       setReferrals([]);
       setReferralSearch("");
       setConfReferralSearch("");
       setShowMapDialog(false);
       setIsLoadingLocation(false);
       setFormData(buildFormData(initialData));
+      referralsInitRef.current = false;
+      userEditedReferralsRef.current = false;
     }
   }, [open, initialData?.id]);
 
   useEffect(() => {
-    if (existingReferrals && existingReferrals.length > 0 && referrals.length === 0) {
-      setReferrals(existingReferrals.filter(r => r.referringClinic).map(r => ({
-        clinicId: String(r.referringClinicId),
-        clinicName: `${r.referringClinic!.doctorName || ""} - ${r.referringClinic!.name}`,
-        referralType: r.referralType || "doctor_referral",
-      })));
+    if (userEditedReferralsRef.current) return;
+    if (existingReferrals && !referralsInitRef.current) {
+      referralsInitRef.current = true;
+      if (existingReferrals.length > 0) {
+        setReferrals(existingReferrals.filter(r => r.referringClinic).map(r => ({
+          clinicId: String(r.referringClinicId),
+          clinicName: `${r.referringClinic!.doctorName || ""} - ${r.referringClinic!.name}`,
+          referralType: r.referralType || "doctor_referral",
+        })));
+      }
     }
   }, [existingReferrals]);
 
@@ -196,12 +222,14 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess }: 
   const filteredClinicsConf = filterClinicsFor(confReferralSearch);
 
   const addReferral = (clinic: Clinic, type: string) => {
+    userEditedReferralsRef.current = true;
     setReferrals([...referrals, { clinicId: String(clinic.id), clinicName: `${clinic.doctorName || ""} - ${clinic.name}`, referralType: type }]);
     if (type === "doctor_referral") setReferralSearch("");
     else setConfReferralSearch("");
   };
 
   const removeReferral = (clinicId: string) => {
+    userEditedReferralsRef.current = true;
     setReferrals(referrals.filter((r) => r.clinicId !== clinicId));
   };
 
@@ -286,6 +314,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess }: 
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/clinics"] });
       queryClient.invalidateQueries({ queryKey: ["/api/clinic-referrals"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/clinic-events"] });
       toast({ title: t.success.saved });
       onSuccess();
       onOpenChange(false);
@@ -402,16 +431,21 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess }: 
           })()}
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="px-6">
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="basic" data-testid="tab-clinic-basic">
-                {t.clinics.steps?.basic || "Zakladne"}
-              </TabsTrigger>
+            <TabsList className={cn("grid w-full", initialData ? "grid-cols-5" : "grid-cols-4")}>
               <TabsTrigger value="source" data-testid="tab-clinic-source">
                 {t.clinics.steps?.source || "Zdroj"}
+              </TabsTrigger>
+              <TabsTrigger value="basic" data-testid="tab-clinic-basic">
+                {t.clinics.steps?.basic || "Zakladne"}
               </TabsTrigger>
               <TabsTrigger value="address" data-testid="tab-clinic-address">
                 {t.clinics.steps?.address || "Adresa"}
               </TabsTrigger>
+              {initialData && (
+                <TabsTrigger value="history" data-testid="tab-clinic-history">
+                  {t.clinics.steps?.history || "História"}
+                </TabsTrigger>
+              )}
               <TabsTrigger value="settings" data-testid="tab-clinic-settings">
                 {t.clinics.steps?.settings || "Nastavenia"}
               </TabsTrigger>
@@ -858,6 +892,84 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess }: 
                 />
               </div>
             </TabsContent>
+
+            {initialData && (
+              <TabsContent value="history" className="mt-4 pb-4" data-testid="tab-content-history">
+                {eventsLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : !clinicEventsData || clinicEventsData.length === 0 ? (
+                  <div className="text-center py-12">
+                    <History className="h-10 w-10 mx-auto text-muted-foreground/40 mb-3" />
+                    <p className="text-sm text-muted-foreground">{t.clinics.noHistory || "Zatiaľ žiadna história"}</p>
+                    <p className="text-xs text-muted-foreground/60 mt-1">{t.clinics.noHistoryDesc || "Udalosti sa začnú zaznamenávať po prvej zmene"}</p>
+                  </div>
+                ) : (
+                  <div className="relative pl-6" data-testid="clinic-history-timeline">
+                    <div className="absolute left-[11px] top-2 bottom-2 w-px bg-border" />
+                    <div className="space-y-0">
+                      {clinicEventsData.map((event, idx) => {
+                        const eventDate = new Date(event.createdAt);
+                        const isToday = new Date().toDateString() === eventDate.toDateString();
+                        const timeStr = eventDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+                        const dateStr = isToday ? timeStr : `${eventDate.toLocaleDateString()} ${timeStr}`;
+
+                        let IconComp = FileText;
+                        let iconColor = "text-gray-500 bg-gray-100 dark:bg-gray-800";
+                        if (event.eventType === "status_change") {
+                          IconComp = ArrowRightLeft;
+                          iconColor = "text-blue-500 bg-blue-50 dark:bg-blue-950";
+                        } else if (event.eventType === "referral_added") {
+                          IconComp = UserCheck;
+                          iconColor = "text-purple-500 bg-purple-50 dark:bg-purple-950";
+                        } else if (event.eventType === "referral_given") {
+                          IconComp = UserPlus;
+                          iconColor = "text-indigo-500 bg-indigo-50 dark:bg-indigo-950";
+                        } else if (event.eventType === "email_sent" || event.eventType === "email_received") {
+                          IconComp = Mail;
+                          iconColor = "text-sky-500 bg-sky-50 dark:bg-sky-950";
+                        } else if (event.eventType === "sms_sent" || event.eventType === "sms_received") {
+                          IconComp = MessageSquare;
+                          iconColor = "text-green-500 bg-green-50 dark:bg-green-950";
+                        } else if (event.eventType === "campaign") {
+                          IconComp = Megaphone;
+                          iconColor = "text-orange-500 bg-orange-50 dark:bg-orange-950";
+                        } else if (event.eventType === "call") {
+                          IconComp = PhoneCall;
+                          iconColor = "text-emerald-500 bg-emerald-50 dark:bg-emerald-950";
+                        } else if (event.eventType === "note") {
+                          IconComp = FileText;
+                          iconColor = "text-amber-500 bg-amber-50 dark:bg-amber-950";
+                        }
+
+                        return (
+                          <div key={event.id} className="relative flex gap-3 pb-5" data-testid={`history-event-${event.id}`}>
+                            <div className={cn("relative z-10 flex items-center justify-center w-6 h-6 rounded-full shrink-0 -ml-6", iconColor)}>
+                              <IconComp className="h-3 w-3" />
+                            </div>
+                            <div className="flex-1 min-w-0 pt-0.5">
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0">
+                                  <p className="text-sm font-medium leading-tight">{event.title}</p>
+                                  {event.description && (
+                                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{event.description}</p>
+                                  )}
+                                </div>
+                                <span className="text-[10px] text-muted-foreground/60 shrink-0 pt-0.5">{dateStr}</span>
+                              </div>
+                              {event.createdByName && (
+                                <p className="text-[10px] text-muted-foreground/50 mt-0.5">{event.createdByName}</p>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </TabsContent>
+            )}
           </Tabs>
 
           {referrals.length > 0 && (
