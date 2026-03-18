@@ -157,7 +157,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess }: 
     enabled: !!initialData?.id && open,
   });
 
-  const [referrals, setReferrals] = useState<Array<{ clinicId: number; clinicName: string; referralType: string }>>([]);
+  const [referrals, setReferrals] = useState<Array<{ clinicId: string; clinicName: string; referralType: string }>>([]);
   const [referralSearch, setReferralSearch] = useState("");
   const [confReferralSearch, setConfReferralSearch] = useState("");
 
@@ -176,7 +176,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess }: 
   useEffect(() => {
     if (existingReferrals && existingReferrals.length > 0 && referrals.length === 0) {
       setReferrals(existingReferrals.filter(r => r.referringClinic).map(r => ({
-        clinicId: Number(r.referringClinicId),
+        clinicId: String(r.referringClinicId),
         clinicName: `${r.referringClinic!.doctorName || ""} - ${r.referringClinic!.name}`,
         referralType: r.referralType || "doctor_referral",
       })));
@@ -186,8 +186,8 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess }: 
   const filterClinicsFor = (searchStr: string) => {
     if (!searchStr) return [];
     return (allClinics?.filter((c) => {
-      if (initialData && c.id === initialData.id) return false;
-      if (referrals.some((r) => r.clinicId === c.id)) return false;
+      if (initialData && String(c.id) === String(initialData.id)) return false;
+      if (referrals.some((r) => String(r.clinicId) === String(c.id))) return false;
       const s = searchStr.toLowerCase();
       return c.name.toLowerCase().includes(s) || (c.doctorName && c.doctorName.toLowerCase().includes(s)) || (c.city && c.city.toLowerCase().includes(s));
     }) || []);
@@ -196,12 +196,12 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess }: 
   const filteredClinicsConf = filterClinicsFor(confReferralSearch);
 
   const addReferral = (clinic: Clinic, type: string) => {
-    setReferrals([...referrals, { clinicId: clinic.id, clinicName: `${clinic.doctorName || ""} - ${clinic.name}`, referralType: type }]);
+    setReferrals([...referrals, { clinicId: String(clinic.id), clinicName: `${clinic.doctorName || ""} - ${clinic.name}`, referralType: type }]);
     if (type === "doctor_referral") setReferralSearch("");
     else setConfReferralSearch("");
   };
 
-  const removeReferral = (clinicId: number) => {
+  const removeReferral = (clinicId: string) => {
     setReferrals(referrals.filter((r) => r.clinicId !== clinicId));
   };
 
@@ -269,8 +269,8 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess }: 
         }
         for (const ref of referrals) {
           await apiRequest("POST", "/api/clinic-referrals", {
-            clinicId: String(savedClinic.id),
-            referringClinicId: String(ref.clinicId),
+            clinicId: savedClinic.id,
+            referringClinicId: ref.clinicId,
             referralType: ref.referralType,
           });
         }
@@ -853,6 +853,37 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess }: 
               </div>
             </TabsContent>
           </Tabs>
+
+          {referrals.length > 0 && (
+            <div className="mx-6 mb-2 space-y-2" data-testid="referrals-summary">
+              {doctorReferrals.length > 0 && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-purple-600 dark:text-purple-400">
+                    <UserCheck className="h-3.5 w-3.5" />
+                    <span>{t.clinics.leadSourceTypes?.doctor_referral || "Doctor referral"}:</span>
+                  </div>
+                  {doctorReferrals.map((ref) => (
+                    <Badge key={ref.clinicId} variant="secondary" className="text-xs py-0.5 px-2 bg-purple-50 dark:bg-purple-950/30 border-purple-200 dark:border-purple-800">
+                      {ref.clinicName}
+                    </Badge>
+                  ))}
+                </div>
+              )}
+              {conferenceReferrals.length > 0 && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-rose-600 dark:text-rose-400">
+                    <GraduationCap className="h-3.5 w-3.5" />
+                    <span>{t.clinics.leadSourceTypes?.conference || "Conference"}:</span>
+                  </div>
+                  {conferenceReferrals.map((ref) => (
+                    <Badge key={ref.clinicId} variant="secondary" className="text-xs py-0.5 px-2 bg-rose-50 dark:bg-rose-950/30 border-rose-200 dark:border-rose-800">
+                      {ref.clinicName}
+                    </Badge>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="sticky bottom-0 bg-background border-t px-6 py-4 flex justify-between">
             <Button
