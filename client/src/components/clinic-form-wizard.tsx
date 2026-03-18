@@ -151,7 +151,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess }: 
     queryKey: ["/api/clinics"],
   });
 
-  const { data: existingReferrals } = useQuery<Array<{ id: string; clinicId: string; referringClinicId: string; referringClinic: Clinic | null }>>({
+  const { data: existingReferrals } = useQuery<Array<{ id: string; clinicId: string; referringClinicId: string; referralType: string; referringClinic: Clinic | null }>>({
     queryKey: ["/api/clinic-referrals", initialData?.id],
     queryFn: getQueryFn({ on401: "returnNull" }),
     enabled: !!initialData?.id && open,
@@ -159,38 +159,54 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess }: 
 
   const [referrals, setReferrals] = useState<Array<{ clinicId: number; clinicName: string; referralType: string }>>([]);
   const [referralSearch, setReferralSearch] = useState("");
+  const [confReferralSearch, setConfReferralSearch] = useState("");
 
   useEffect(() => {
     if (open) {
       setActiveTab("basic");
       setReferrals([]);
       setReferralSearch("");
+      setConfReferralSearch("");
       setShowMapDialog(false);
       setIsLoadingLocation(false);
       setFormData(buildFormData(initialData));
     }
   }, [open, initialData?.id]);
 
-  const filteredClinics = allClinics?.filter((c) => {
-    if (!referralSearch) return false;
-    if (initialData && c.id === initialData.id) return false;
-    if (referrals.some((r) => r.clinicId === c.id)) return false;
-    const search = referralSearch.toLowerCase();
-    return (
-      c.name.toLowerCase().includes(search) ||
-      (c.doctorName && c.doctorName.toLowerCase().includes(search)) ||
-      (c.city && c.city.toLowerCase().includes(search))
-    );
-  }) || [];
+  useEffect(() => {
+    if (existingReferrals && existingReferrals.length > 0 && referrals.length === 0) {
+      setReferrals(existingReferrals.filter(r => r.referringClinic).map(r => ({
+        clinicId: Number(r.referringClinicId),
+        clinicName: `${r.referringClinic!.doctorName || ""} - ${r.referringClinic!.name}`,
+        referralType: r.referralType || "doctor_referral",
+      })));
+    }
+  }, [existingReferrals]);
 
-  const addReferral = (clinic: Clinic) => {
-    setReferrals([...referrals, { clinicId: clinic.id, clinicName: `${clinic.doctorName || ""} - ${clinic.name}`, referralType: "doctor_referral" }]);
-    setReferralSearch("");
+  const filterClinicsFor = (searchStr: string) => {
+    if (!searchStr) return [];
+    return (allClinics?.filter((c) => {
+      if (initialData && c.id === initialData.id) return false;
+      if (referrals.some((r) => r.clinicId === c.id)) return false;
+      const s = searchStr.toLowerCase();
+      return c.name.toLowerCase().includes(s) || (c.doctorName && c.doctorName.toLowerCase().includes(s)) || (c.city && c.city.toLowerCase().includes(s));
+    }) || []);
+  };
+  const filteredClinics = filterClinicsFor(referralSearch);
+  const filteredClinicsConf = filterClinicsFor(confReferralSearch);
+
+  const addReferral = (clinic: Clinic, type: string) => {
+    setReferrals([...referrals, { clinicId: clinic.id, clinicName: `${clinic.doctorName || ""} - ${clinic.name}`, referralType: type }]);
+    if (type === "doctor_referral") setReferralSearch("");
+    else setConfReferralSearch("");
   };
 
   const removeReferral = (clinicId: number) => {
     setReferrals(referrals.filter((r) => r.clinicId !== clinicId));
   };
+
+  const doctorReferrals = referrals.filter(r => r.referralType === "doctor_referral");
+  const conferenceReferrals = referrals.filter(r => r.referralType === "conference");
 
   const handleGetCurrentLocation = () => {
     if (!navigator.geolocation) {
@@ -288,7 +304,8 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess }: 
 
           {initialData && (formData.leadSource || formData.isReferredByDoctor || formData.isFromConference) && (() => {
             const sourceType = MAIN_SOURCE_TYPES.includes(formData.leadSource as LeadSourceType) ? formData.leadSource as LeadSourceType : null;
-            const referringDoctors = existingReferrals?.filter(r => r.referringClinic)?.map(r => r.referringClinic!) || [];
+            const docRefs = existingReferrals?.filter(r => r.referringClinic && r.referralType === "doctor_referral")?.map(r => r.referringClinic!) || [];
+            const confRefs = existingReferrals?.filter(r => r.referringClinic && r.referralType === "conference")?.map(r => r.referringClinic!) || [];
             return (
               <div className="mx-6 mt-2 mb-1 space-y-1.5" data-testid="clinic-status-bar">
                 <div className="flex items-center gap-2">
@@ -345,10 +362,22 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess }: 
                     )}
                   </div>
                 </div>
-                {formData.isReferredByDoctor && referringDoctors.length > 0 && (
-                  <div className="flex items-center gap-1.5 flex-wrap text-xs text-muted-foreground pl-1">
-                    <span className="font-medium">{t.clinics.referredBy}:</span>
-                    {referringDoctors.map((doc) => (
+                {docRefs.length > 0 && (
+                  <div className="flex items-center gap-1.5 flex-wrap text-xs pl-1">
+                    <UserCheck className="h-3 w-3 text-purple-500" />
+                    <span className="font-medium text-purple-600 dark:text-purple-400">{t.clinics.referredBy}:</span>
+                    {docRefs.map((doc) => (
+                      <Badge key={doc.id} variant="secondary" className="text-xs py-0 px-1.5">
+                        {doc.doctorName || doc.name}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+                {confRefs.length > 0 && (
+                  <div className="flex items-center gap-1.5 flex-wrap text-xs pl-1">
+                    <GraduationCap className="h-3 w-3 text-rose-500" />
+                    <span className="font-medium text-rose-600 dark:text-rose-400">{t.clinics.leadSourceTypes?.conference || "Conference"}:</span>
+                    {confRefs.map((doc) => (
                       <Badge key={doc.id} variant="secondary" className="text-xs py-0 px-1.5">
                         {doc.doctorName || doc.name}
                       </Badge>
@@ -511,42 +540,6 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess }: 
                     {t.common.clear || "Zrusit"}
                   </Button>
                 )}
-              </div>
-
-              {formData.leadSource && (
-                <>
-                  <Separator />
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label className="text-sm">{t.clinics.leadSourceDate}</Label>
-                      <DateTimePicker
-                        value={formData.leadSourceDate}
-                        onChange={(v) => setFormData({ ...formData, leadSourceDate: v })}
-                        countryCode={formData.countryCode || "SK"}
-                        includeTime={false}
-                        data-testid="input-lead-source-date"
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-sm">{t.clinics.leadSourceNotes}</Label>
-                    <Textarea
-                      value={formData.leadSourceNotes}
-                      onChange={(e) => setFormData({ ...formData, leadSourceNotes: e.target.value })}
-                      placeholder={t.clinics.leadSourceNotes}
-                      rows={2}
-                      data-testid="input-lead-source-notes"
-                    />
-                  </div>
-                </>
-              )}
-
-              <Separator />
-
-              <div className="space-y-3">
-                <Label className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                  {t.clinics.referredBy || "Referral"}
-                </Label>
 
                 <div
                   className={cn(
@@ -588,12 +581,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess }: 
                     {referralSearch && filteredClinics.length > 0 && (
                       <div className="border rounded-lg max-h-40 overflow-y-auto">
                         {filteredClinics.slice(0, 10).map((clinic) => (
-                          <div
-                            key={clinic.id}
-                            className="flex items-center justify-between p-2 hover:bg-muted/50 cursor-pointer"
-                            onClick={() => addReferral(clinic)}
-                            data-testid={`referral-option-${clinic.id}`}
-                          >
+                          <div key={clinic.id} className="flex items-center justify-between p-2 hover:bg-muted/50 cursor-pointer" onClick={() => addReferral(clinic, "doctor_referral")} data-testid={`referral-option-${clinic.id}`}>
                             <div>
                               <span className="font-medium text-sm">{clinic.doctorName || clinic.name}</span>
                               <span className="text-sm text-muted-foreground ml-2">{clinic.city || ""}</span>
@@ -603,9 +591,9 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess }: 
                         ))}
                       </div>
                     )}
-                    {referrals.length > 0 ? (
+                    {doctorReferrals.length > 0 ? (
                       <div className="space-y-2">
-                        {referrals.map((ref) => (
+                        {doctorReferrals.map((ref) => (
                           <div key={ref.clinicId} className="flex items-center justify-between p-2 border rounded-lg bg-purple-50/50 dark:bg-purple-950/30">
                             <div className="flex items-center gap-2">
                               <UserCheck className="h-4 w-4 text-purple-500" />
@@ -671,9 +659,80 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess }: 
                         />
                       </div>
                     </div>
+
+                    <Separator className="my-2" />
+                    <Label className="text-sm">{t.clinics.referringDoctors}</Label>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        value={confReferralSearch}
+                        onChange={(e) => setConfReferralSearch(e.target.value)}
+                        placeholder={t.clinics.selectDoctor}
+                        className="pl-9"
+                        data-testid="input-conf-referral-search"
+                      />
+                    </div>
+                    {confReferralSearch && filteredClinicsConf.length > 0 && (
+                      <div className="border rounded-lg max-h-40 overflow-y-auto">
+                        {filteredClinicsConf.slice(0, 10).map((clinic) => (
+                          <div key={clinic.id} className="flex items-center justify-between p-2 hover:bg-muted/50 cursor-pointer" onClick={() => addReferral(clinic, "conference")} data-testid={`conf-referral-option-${clinic.id}`}>
+                            <div>
+                              <span className="font-medium text-sm">{clinic.doctorName || clinic.name}</span>
+                              <span className="text-sm text-muted-foreground ml-2">{clinic.city || ""}</span>
+                            </div>
+                            <Plus className="h-4 w-4 text-muted-foreground" />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {conferenceReferrals.length > 0 ? (
+                      <div className="space-y-2">
+                        {conferenceReferrals.map((ref) => (
+                          <div key={ref.clinicId} className="flex items-center justify-between p-2 border rounded-lg bg-rose-50/50 dark:bg-rose-950/30">
+                            <div className="flex items-center gap-2">
+                              <GraduationCap className="h-4 w-4 text-rose-500" />
+                              <span className="text-sm font-medium">{ref.clinicName}</span>
+                            </div>
+                            <Button type="button" variant="ghost" size="sm" onClick={() => removeReferral(ref.clinicId)} data-testid={`remove-conf-referral-${ref.clinicId}`}>
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground italic">{t.clinics.noReferrals}</p>
+                    )}
                   </div>
                 )}
               </div>
+
+              {formData.leadSource && (
+                <>
+                  <Separator />
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label className="text-sm">{t.clinics.leadSourceDate}</Label>
+                      <DateTimePicker
+                        value={formData.leadSourceDate}
+                        onChange={(v) => setFormData({ ...formData, leadSourceDate: v })}
+                        countryCode={formData.countryCode || "SK"}
+                        includeTime={false}
+                        data-testid="input-lead-source-date"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm">{t.clinics.leadSourceNotes}</Label>
+                    <Textarea
+                      value={formData.leadSourceNotes}
+                      onChange={(e) => setFormData({ ...formData, leadSourceNotes: e.target.value })}
+                      placeholder={t.clinics.leadSourceNotes}
+                      rows={2}
+                      data-testid="input-lead-source-notes"
+                    />
+                  </div>
+                </>
+              )}
             </TabsContent>
 
             <TabsContent value="address" className="space-y-4 mt-4 pb-4">
