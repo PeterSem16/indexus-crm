@@ -712,237 +712,409 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
 
           {mode === "inline" ? (
             <div className="px-4 pb-4">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 pt-2">
+              <div className="space-y-4 pt-2">
                 <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-xs font-semibold flex items-center gap-2 text-muted-foreground uppercase tracking-wide">
-                      <div className="p-1 rounded-md bg-blue-100 dark:bg-blue-900"><Building2 className="h-3 w-3 text-blue-600 dark:text-blue-400" /></div>
-                      Ambulancia
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2 pt-1">
-                    <div className="grid gap-x-3 gap-y-2 grid-cols-2">
-                      <div className="space-y-1">
-                        <Label className="text-[11px]">{t.clinics.name} *</Label>
-                        <Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder={t.clinics.name} className="h-8 text-sm" data-testid="input-clinic-name" />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-[11px]">{t.common.country} *</Label>
-                        <Select value={formData.countryCode} onValueChange={(value) => setFormData({ ...formData, countryCode: value })}>
-                          <SelectTrigger data-testid="select-clinic-country" className="h-8 text-sm"><SelectValue placeholder={t.common.country} /></SelectTrigger>
-                          <SelectContent>
-                            {COUNTRIES.map((country) => (
-                              <SelectItem key={country.code} value={country.code}>{getCountryFlag(country.code)} {country.name}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                    <Separator className="my-1" />
-                    <div className="grid gap-x-3 gap-y-2 grid-cols-3">
-                      <div className="space-y-1">
-                        <Label className="text-[11px]">Titul</Label>
-                        <Input value={formData.doctorTitle} onChange={(e) => setFormData({ ...formData, doctorTitle: e.target.value })} placeholder="MUDr." className="h-8 text-sm" data-testid="input-doctor-title" />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-[11px]">Meno</Label>
-                        <Input value={formData.doctorFirstName} onChange={(e) => setFormData({ ...formData, doctorFirstName: e.target.value })} placeholder="Meno" className="h-8 text-sm" data-testid="input-doctor-firstname" />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-[11px]">Priezvisko</Label>
-                        <Input value={formData.doctorLastName} onChange={(e) => setFormData({ ...formData, doctorLastName: e.target.value })} placeholder="Priezvisko" className="h-8 text-sm" data-testid="input-doctor-lastname" />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-xs font-semibold flex items-center gap-2 text-muted-foreground uppercase tracking-wide">
-                      <div className="p-1 rounded-md bg-sky-100 dark:bg-sky-900"><Phone className="h-3 w-3 text-sky-600 dark:text-sky-400" /></div>
-                      Kontakt
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2 pt-1">
-                    <div className="grid gap-x-3 gap-y-2 grid-cols-2">
-                      <div className="space-y-1">
-                        <Label className="text-[11px]">{t.clinics.phone}</Label>
-                        <Input value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} placeholder={t.clinics.phone} className="h-8 text-sm" data-testid="input-clinic-phone" />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-[11px]">{t.clinics.email}</Label>
-                        <Input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} placeholder={t.clinics.email} className="h-8 text-sm" data-testid="input-clinic-email" />
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-[11px]">{t.clinics.website}</Label>
-                      <div className="flex gap-2">
-                        <Input value={formData.website} onChange={(e) => setFormData({ ...formData, website: e.target.value })} placeholder="www.example.com" className="flex-1 h-8 text-sm" data-testid="input-clinic-website" />
-                        {formData.website && (
-                          <Button type="button" variant="outline" size="icon" className="h-8 w-8" onClick={() => window.open(getWebsiteUrl(formData.website), "_blank")} data-testid="button-open-website">
-                            <ExternalLink className="h-3.5 w-3.5" />
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-xs font-semibold flex items-center gap-2 text-muted-foreground uppercase tracking-wide">
-                      <div className="p-1 rounded-md bg-green-100 dark:bg-green-900"><MapPin className="h-3 w-3 text-green-600 dark:text-green-400" /></div>
-                      {t.clinics.steps?.address || "Adresa"}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2 pt-1">
-                    <div className="space-y-1">
-                      <Label className="text-[11px]">{t.clinics.address}</Label>
-                      <Input value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} placeholder={t.clinics.address} className="h-8 text-sm" data-testid="input-clinic-address" />
-                    </div>
-                    <div className="grid gap-x-3 gap-y-2 grid-cols-2">
-                      <div className="space-y-1">
-                        <Label className="text-[11px]">{t.clinics.city}</Label>
-                        <Input value={formData.city} onChange={(e) => setFormData({ ...formData, city: e.target.value })} placeholder={t.clinics.city} className="h-8 text-sm" data-testid="input-clinic-city" />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-[11px]">{t.clinics.postalCode}</Label>
-                        <Input value={formData.postalCode} onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })} placeholder={t.clinics.postalCode} className="h-8 text-sm" data-testid="input-clinic-postal" />
-                      </div>
-                    </div>
-                    <div className="grid gap-x-3 gap-y-2 grid-cols-2">
-                      <div className="space-y-1">
-                        <Label className="text-[11px]">{t.clinics.latitude || "Lat"}</Label>
-                        <Input value={formData.latitude} onChange={(e) => setFormData({ ...formData, latitude: e.target.value })} placeholder="48.1486" className="h-8 text-sm" data-testid="input-clinic-lat" />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-[11px]">{t.clinics.longitude || "Lng"}</Label>
-                        <Input value={formData.longitude} onChange={(e) => setFormData({ ...formData, longitude: e.target.value })} placeholder="17.1077" className="h-8 text-sm" data-testid="input-clinic-lng" />
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={handleGetCurrentLocation} disabled={isLoadingLocation} data-testid="button-get-gps">
-                        {isLoadingLocation ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Navigation className="h-3 w-3 mr-1" />}
-                        GPS
-                      </Button>
-                      {formData.latitude && formData.longitude && (
-                        <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => setShowMapDialog(true)} data-testid="button-show-map">
-                          <MapPin className="h-3 w-3 mr-1" />
-                          {t.clinics.showOnMap || "Mapa"}
-                        </Button>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-xs font-semibold flex items-center gap-2 text-muted-foreground uppercase tracking-wide">
-                      <div className="p-1 rounded-md bg-emerald-100 dark:bg-emerald-900"><PhoneCall className="h-3 w-3 text-emerald-600 dark:text-emerald-400" /></div>
-                      Hovory & Zmluva
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2 pt-1">
-                    <div className="grid gap-x-3 gap-y-2 grid-cols-2">
-                      <div className="space-y-1">
-                        <Label className="text-[11px]">Výsledok hovoru</Label>
-                        <Input value={formData.lastCallResult} onChange={(e) => setFormData({ ...formData, lastCallResult: e.target.value })} placeholder="Výsledok" className="h-8 text-sm" data-testid="input-last-call-result" />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-[11px]">Ďalší kontakt</Label>
-                        <DateTimePicker value={formData.nextContactDate} onChange={(v) => setFormData({ ...formData, nextContactDate: v })} countryCode={formData.countryCode || "SK"} includeTime={false} data-testid="input-next-contact-date" />
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-[11px]">Poznámka</Label>
-                      <Textarea value={formData.lastCallNote} onChange={(e) => setFormData({ ...formData, lastCallNote: e.target.value })} placeholder="Poznámka z hovoru" rows={2} className="text-sm" data-testid="input-last-call-note" />
-                    </div>
-                    <Separator className="my-1" />
-                    <div className="grid gap-x-3 gap-y-2 grid-cols-2">
-                      <div className="space-y-1">
-                        <Label className="text-[11px]">Zmluva odoslaná</Label>
-                        <DateTimePicker value={formData.contractSentDate} onChange={(v) => setFormData({ ...formData, contractSentDate: v })} countryCode={formData.countryCode || "SK"} includeTime={false} data-testid="input-contract-sent-date" />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-[11px]">Zmluva vrátená</Label>
-                        <DateTimePicker value={formData.contractReturnedDate} onChange={(v) => setFormData({ ...formData, contractReturnedDate: v })} countryCode={formData.countryCode || "SK"} includeTime={false} data-testid="input-contract-returned-date" />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card className="lg:col-span-2">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-xs font-semibold flex items-center gap-2 text-muted-foreground uppercase tracking-wide">
                       <div className="p-1 rounded-md bg-blue-100 dark:bg-blue-900"><CircleDot className="h-3 w-3 text-blue-600 dark:text-blue-400" /></div>
                       {t.clinics.leadSource}
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-2 pt-1">
-                    <div className="grid gap-1.5 grid-cols-2 lg:grid-cols-3">
+                  <CardContent className="space-y-3 pt-1">
+                    <div className="grid gap-1.5">
                       {MAIN_SOURCE_TYPES.map((type) => {
                         const Icon = LEAD_SOURCE_ICONS[type];
                         const selected = formData.leadSource === type;
+                        const isExpanded = selected && pipelineMenuOpen;
                         return (
-                          <button key={type} type="button"
-                            className={cn("flex items-center gap-2 px-2.5 py-2 border rounded-lg cursor-pointer transition-all w-full text-left",
-                              selected ? cn("border-2 shadow-sm", LEAD_SOURCE_COLORS[type]) : "hover:bg-muted/50 border-border"
+                          <div key={type}>
+                            <button type="button"
+                              className={cn("flex items-center gap-3 px-3 py-2.5 border rounded-lg cursor-pointer transition-all w-full text-left",
+                                selected ? cn("border-2 shadow-sm", LEAD_SOURCE_COLORS[type]) : "hover:bg-muted/50 border-border",
+                                isExpanded && "rounded-b-none"
+                              )}
+                              onClick={() => {
+                                if (selected) { setPipelineMenuOpen(!pipelineMenuOpen); setExpandedCategory(null); }
+                                else { setFormData(prev => ({ ...prev, leadSource: type })); setPipelineMenuOpen(true); setExpandedCategory(null); }
+                              }}
+                              data-testid={`source-card-${type}`}
+                            >
+                              <div className={cn("flex items-center justify-center w-8 h-8 rounded-lg shrink-0", LEAD_SOURCE_ICON_BG[type])}>
+                                <Icon className="h-4 w-4" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="font-medium text-sm">{t.clinics.leadSourceTypes?.[type] || type}</div>
+                                {selected && currentPipelineOption && !isExpanded && (
+                                  <div className={cn("text-xs mt-0.5 font-medium", currentPipelineOption.color)}>
+                                    {(t.clinics as any).pipeline?.[currentPipelineCategory?.labelKey] || currentPipelineCategory?.labelKey}: {(t.clinics as any).pipeline?.[currentPipelineOption.labelKey] || currentPipelineOption.labelKey}
+                                  </div>
+                                )}
+                              </div>
+                              {selected && (
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  <CheckCircle2 className="h-4 w-4 text-primary" />
+                                  <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", isExpanded && "rotate-180")} />
+                                </div>
+                              )}
+                            </button>
+                            {isExpanded && (
+                              <div className="border border-t-0 rounded-b-lg bg-muted/20 dark:bg-muted/10 overflow-hidden" data-testid="pipeline-submenu">
+                                {PIPELINE_CATEGORIES.map((cat) => {
+                                  const CatIcon = cat.icon;
+                                  const isCatExpanded = expandedCategory === cat.key;
+                                  const selectedInCat = cat.options.find(o => o.value === currentPipelineValue);
+                                  return (
+                                    <div key={cat.key}>
+                                      <button type="button"
+                                        className={cn("flex items-center gap-2.5 w-full px-4 py-2.5 text-left transition-all hover:bg-muted/50",
+                                          isCatExpanded && "bg-muted/40", selectedInCat && "bg-primary/5"
+                                        )}
+                                        onClick={() => setExpandedCategory(isCatExpanded ? null : cat.key)}
+                                        data-testid={`pipeline-cat-${cat.key}`}
+                                      >
+                                        <CatIcon className="h-4 w-4 text-muted-foreground shrink-0" />
+                                        <span className="text-sm font-medium flex-1">{(t.clinics as any).pipeline?.[cat.labelKey] || cat.labelKey}</span>
+                                        {selectedInCat && (
+                                          <span className={cn("text-xs font-semibold px-2 py-0.5 rounded-full border",
+                                            selectedInCat.sentiment === "positive" ? "bg-green-100 text-green-700 border-green-300 dark:bg-green-900/50 dark:text-green-300 dark:border-green-700"
+                                              : selectedInCat.sentiment === "negative" ? "bg-red-100 text-red-600 border-red-300 dark:bg-red-900/50 dark:text-red-300 dark:border-red-700"
+                                                : "bg-gray-100 text-gray-600 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600"
+                                          )}>{(t.clinics as any).pipeline?.[selectedInCat.labelKey] || selectedInCat.labelKey}</span>
+                                        )}
+                                        <ChevronRight className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform shrink-0", isCatExpanded && "rotate-90")} />
+                                      </button>
+                                      {isCatExpanded && (
+                                        <div className="px-4 pb-2 pt-1 space-y-1">
+                                          {cat.options.map((opt) => {
+                                            const OptIcon = opt.icon;
+                                            const isSelected = currentPipelineValue === opt.value;
+                                            return (
+                                              <button key={opt.value} type="button"
+                                                className={cn("flex items-center gap-2.5 w-full px-3 py-2 rounded-md text-left transition-all",
+                                                  isSelected
+                                                    ? opt.sentiment === "positive" ? "bg-green-100 border border-green-300 text-green-800 dark:bg-green-900/40 dark:border-green-700 dark:text-green-200"
+                                                      : opt.sentiment === "negative" ? "bg-red-100 border border-red-300 text-red-700 dark:bg-red-900/40 dark:border-red-700 dark:text-red-200"
+                                                        : "bg-primary/10 border border-primary/30 text-foreground"
+                                                    : "hover:bg-muted/60 border border-transparent"
+                                                )}
+                                                onClick={() => selectPipelineOption(opt.value)}
+                                                data-testid={`pipeline-opt-${opt.value}`}
+                                              >
+                                                <OptIcon className={cn("h-4 w-4 shrink-0", opt.color)} />
+                                                <span className="text-sm font-medium flex-1">{(t.clinics as any).pipeline?.[opt.labelKey] || opt.labelKey}</span>
+                                                {isSelected && <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />}
+                                              </button>
+                                            );
+                                          })}
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
                             )}
-                            onClick={() => {
-                              if (selected) { setFormData(prev => ({ ...prev, leadSource: "" })); }
-                              else { setFormData(prev => ({ ...prev, leadSource: type })); setPipelineMenuOpen(true); setExpandedCategory(null); }
-                            }}
-                            data-testid={`source-card-${type}`}
-                          >
-                            <div className={cn("flex items-center justify-center w-6 h-6 rounded-md shrink-0", LEAD_SOURCE_ICON_BG[type])}>
-                              <Icon className="h-3.5 w-3.5" />
-                            </div>
-                            <span className="font-medium text-xs truncate">{t.clinics.leadSourceTypes?.[type] || type}</span>
-                            {selected && <CheckCircle2 className="h-3.5 w-3.5 text-primary ml-auto shrink-0" />}
-                          </button>
+                          </div>
                         );
                       })}
                     </div>
-                    <div className="grid gap-x-3 gap-y-2 grid-cols-2">
-                      <div className={cn("flex items-center gap-2 px-2.5 py-2 border rounded-lg cursor-pointer transition-all",
-                        formData.isReferredByDoctor ? cn("border-2 shadow-sm", LEAD_SOURCE_COLORS.doctor_referral) : "hover:bg-muted/50 border-border"
-                      )} onClick={() => setFormData({ ...formData, isReferredByDoctor: !formData.isReferredByDoctor })}>
-                        <Checkbox checked={formData.isReferredByDoctor} onCheckedChange={(checked) => setFormData({ ...formData, isReferredByDoctor: !!checked })} data-testid="checkbox-referral" onClick={(e) => e.stopPropagation()} />
-                        <UserCheck className="h-3.5 w-3.5 text-purple-500" />
-                        <span className="text-xs font-medium">{t.clinics.leadSourceTypes?.doctor_referral || "Doctor referral"}</span>
+                    {formData.leadSource && (
+                      <Button type="button" variant="ghost" size="sm" className="text-muted-foreground text-xs" onClick={() => {
+                        setFormData(prev => ({ ...prev, leadSource: "", initialStatus: "", interestCooperation: "", interestContract: "", contractStatus: "" }));
+                        setPipelineMenuOpen(false); setExpandedCategory(null);
+                      }} data-testid="button-clear-source">
+                        <X className="h-3 w-3 mr-1" /> {(t.clinics as any).pipeline?.clearSelection || t.common.clear || "Clear"}
+                      </Button>
+                    )}
+                    <Separator />
+                    <div className="space-y-2">
+                      <div className={cn("border rounded-lg px-3 py-2.5 transition-all cursor-pointer", formData.isReferredByDoctor ? cn("border-2 shadow-sm", LEAD_SOURCE_COLORS.doctor_referral) : "hover:bg-muted/50 border-border")}
+                        onClick={() => setFormData({ ...formData, isReferredByDoctor: !formData.isReferredByDoctor })} >
+                        <div className="flex items-center gap-3">
+                          <div className={cn("flex items-center justify-center w-8 h-8 rounded-lg shrink-0", LEAD_SOURCE_ICON_BG.doctor_referral)}>
+                            <UserCheck className="h-4 w-4" />
+                          </div>
+                          <div className="flex-1 min-w-0"><div className="font-medium text-sm">{t.clinics.leadSourceTypes?.doctor_referral || "Doctor referral"}</div></div>
+                          <Checkbox checked={formData.isReferredByDoctor} onCheckedChange={(checked) => setFormData({ ...formData, isReferredByDoctor: !!checked })} data-testid="checkbox-doctor-referral" className="shrink-0" onClick={(e) => e.stopPropagation()} />
+                        </div>
                       </div>
-                      <div className={cn("flex items-center gap-2 px-2.5 py-2 border rounded-lg cursor-pointer transition-all",
-                        formData.isFromConference ? cn("border-2 shadow-sm", LEAD_SOURCE_COLORS.conference) : "hover:bg-muted/50 border-border"
-                      )} onClick={() => setFormData({ ...formData, isFromConference: !formData.isFromConference })}>
-                        <Checkbox checked={formData.isFromConference} onCheckedChange={(checked) => setFormData({ ...formData, isFromConference: !!checked })} data-testid="checkbox-conference" onClick={(e) => e.stopPropagation()} />
-                        <GraduationCap className="h-3.5 w-3.5 text-rose-500" />
-                        <span className="text-xs font-medium">{t.clinics.leadSourceTypes?.conference || "Conference"}</span>
+                      {formData.isReferredByDoctor && (
+                        <div className="ml-3 pl-3 border-l-2 border-purple-200 dark:border-purple-800 space-y-2">
+                          <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input value={referralSearch} onChange={(e) => setReferralSearch(e.target.value)} placeholder={t.clinics.selectDoctor} className="pl-9 h-9" data-testid="input-referral-search" />
+                          </div>
+                          {referralSearch && filteredClinics.length > 0 && (
+                            <div className="border rounded-lg max-h-36 overflow-y-auto">
+                              {filteredClinics.slice(0, 10).map((clinic) => (
+                                <div key={clinic.id} className="flex items-center justify-between p-2 hover:bg-muted/50 cursor-pointer" onClick={() => addReferral(clinic, "doctor_referral")} data-testid={`referral-option-${clinic.id}`}>
+                                  <div><span className="font-medium text-sm">{getDoctorFullName(clinic as any) || clinic.name}</span><span className="text-sm text-muted-foreground ml-2">{clinic.city || ""}</span></div>
+                                  <Plus className="h-4 w-4 text-muted-foreground" />
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {doctorReferrals.length > 0 ? (
+                            <div className="space-y-1.5">
+                              {doctorReferrals.map((ref) => (
+                                <div key={ref.clinicId} className="flex items-center justify-between px-3 py-1.5 border rounded-lg bg-purple-50/50 dark:bg-purple-950/30">
+                                  <div className="flex items-center gap-2"><UserCheck className="h-3.5 w-3.5 text-purple-500" /><span className="text-sm font-medium">{ref.clinicName}</span></div>
+                                  <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => removeReferral(ref.clinicId)} data-testid={`remove-referral-${ref.clinicId}`}><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (<p className="text-xs text-muted-foreground italic pl-1">{t.clinics.noReferrals}</p>)}
+                        </div>
+                      )}
+                      <div className={cn("border rounded-lg px-3 py-2.5 transition-all cursor-pointer", formData.isFromConference ? cn("border-2 shadow-sm", LEAD_SOURCE_COLORS.conference) : "hover:bg-muted/50 border-border")}
+                        onClick={() => setFormData({ ...formData, isFromConference: !formData.isFromConference })} >
+                        <div className="flex items-center gap-3">
+                          <div className={cn("flex items-center justify-center w-8 h-8 rounded-lg shrink-0", LEAD_SOURCE_ICON_BG.conference)}>
+                            <GraduationCap className="h-4 w-4" />
+                          </div>
+                          <div className="flex-1 min-w-0"><div className="font-medium text-sm">{t.clinics.leadSourceTypes?.conference || "Conference / Seminar"}</div></div>
+                          <Checkbox checked={formData.isFromConference} onCheckedChange={(checked) => setFormData({ ...formData, isFromConference: !!checked })} data-testid="checkbox-conference" className="shrink-0" onClick={(e) => e.stopPropagation()} />
+                        </div>
                       </div>
+                      {formData.isFromConference && (
+                        <div className="ml-3 pl-3 border-l-2 border-rose-200 dark:border-rose-800 space-y-2">
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            <div className="space-y-1">
+                              <Label className="text-xs">{t.clinics.conferenceName}</Label>
+                              <Input value={formData.conferenceName} onChange={(e) => setFormData({ ...formData, conferenceName: e.target.value })} placeholder={t.clinics.conferenceName} className="h-9" data-testid="input-conference-name" />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs">{t.clinics.conferenceDate}</Label>
+                              <DateTimePicker value={formData.conferenceDate} onChange={(v) => setFormData({ ...formData, conferenceDate: v })} countryCode={formData.countryCode || "SK"} includeTime={false} data-testid="input-conference-date" />
+                            </div>
+                          </div>
+                          <Separator className="my-1" />
+                          <Label className="text-xs">{t.clinics.referringDoctors}</Label>
+                          <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input value={confReferralSearch} onChange={(e) => setConfReferralSearch(e.target.value)} placeholder={t.clinics.selectDoctor} className="pl-9 h-9" data-testid="input-conf-referral-search" />
+                          </div>
+                          {confReferralSearch && filteredClinicsConf.length > 0 && (
+                            <div className="border rounded-lg max-h-36 overflow-y-auto">
+                              {filteredClinicsConf.slice(0, 10).map((clinic) => (
+                                <div key={clinic.id} className="flex items-center justify-between p-2 hover:bg-muted/50 cursor-pointer" onClick={() => addReferral(clinic, "conference")} data-testid={`conf-referral-option-${clinic.id}`}>
+                                  <div><span className="font-medium text-sm">{getDoctorFullName(clinic as any) || clinic.name}</span><span className="text-sm text-muted-foreground ml-2">{clinic.city || ""}</span></div>
+                                  <Plus className="h-4 w-4 text-muted-foreground" />
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {conferenceReferrals.length > 0 ? (
+                            <div className="space-y-1.5">
+                              {conferenceReferrals.map((ref) => (
+                                <div key={ref.clinicId} className="flex items-center justify-between px-3 py-1.5 border rounded-lg bg-rose-50/50 dark:bg-rose-950/30">
+                                  <div className="flex items-center gap-2"><GraduationCap className="h-3.5 w-3.5 text-rose-500" /><span className="text-sm font-medium">{ref.clinicName}</span></div>
+                                  <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => removeReferral(ref.clinicId)} data-testid={`remove-conf-referral-${ref.clinicId}`}><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (<p className="text-xs text-muted-foreground italic pl-1">{t.clinics.noReferrals}</p>)}
+                        </div>
+                      )}
                     </div>
+                    {formData.leadSource && (
+                      <>
+                        <Separator />
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <div className="space-y-1">
+                            <Label className="text-xs">{t.clinics.leadSourceDate}</Label>
+                            <DateTimePicker value={formData.leadSourceDate} onChange={(v) => setFormData({ ...formData, leadSourceDate: v })} countryCode={formData.countryCode || "SK"} includeTime={false} data-testid="input-lead-source-date" />
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">{t.clinics.leadSourceNotes}</Label>
+                          <Textarea value={formData.leadSourceNotes} onChange={(e) => setFormData({ ...formData, leadSourceNotes: e.target.value })} placeholder={t.clinics.leadSourceNotes} rows={2} data-testid="input-lead-source-notes" />
+                        </div>
+                      </>
+                    )}
                   </CardContent>
                 </Card>
 
-                <Card className="lg:col-span-2">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-xs font-semibold flex items-center gap-2 text-muted-foreground uppercase tracking-wide">
-                      <div className="p-1 rounded-md bg-gray-100 dark:bg-gray-800"><FileText className="h-3 w-3 text-gray-600 dark:text-gray-400" /></div>
-                      {t.clinics.steps?.settings || "Nastavenia"}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2 pt-1">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <Label className="text-xs">{t.clinics.isActive || "Aktívna"}</Label>
-                        <p className="text-[10px] text-muted-foreground">{t.clinics.isActiveDesc || "Ambulancia je aktívna"}</p>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-xs font-semibold flex items-center gap-2 text-muted-foreground uppercase tracking-wide">
+                        <div className="p-1 rounded-md bg-blue-100 dark:bg-blue-900"><Building2 className="h-3 w-3 text-blue-600 dark:text-blue-400" /></div>
+                        Ambulancia
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2 pt-1">
+                      <div className="grid gap-x-3 gap-y-2 grid-cols-2">
+                        <div className="space-y-1">
+                          <Label className="text-[11px]">{t.clinics.name} *</Label>
+                          <Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder={t.clinics.name} className="h-8 text-sm" data-testid="input-clinic-name" />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[11px]">{t.common.country} *</Label>
+                          <Select value={formData.countryCode} onValueChange={(value) => setFormData({ ...formData, countryCode: value })}>
+                            <SelectTrigger data-testid="select-clinic-country" className="h-8 text-sm"><SelectValue placeholder={t.common.country} /></SelectTrigger>
+                            <SelectContent>
+                              {COUNTRIES.map((country) => (
+                                <SelectItem key={country.code} value={country.code}>{getCountryFlag(country.code)} {country.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
                       </div>
-                      <Switch checked={formData.isActive} onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })} data-testid="switch-clinic-active" />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-[11px]">{t.clinics.notes}</Label>
-                      <Textarea value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} placeholder={t.clinics.notes} rows={2} className="text-sm" data-testid="input-clinic-notes" />
-                    </div>
-                  </CardContent>
-                </Card>
+                      <Separator className="my-1" />
+                      <div className="grid gap-x-3 gap-y-2 grid-cols-3">
+                        <div className="space-y-1">
+                          <Label className="text-[11px]">Titul</Label>
+                          <Input value={formData.doctorTitle} onChange={(e) => setFormData({ ...formData, doctorTitle: e.target.value })} placeholder="MUDr." className="h-8 text-sm" data-testid="input-doctor-title" />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[11px]">Meno</Label>
+                          <Input value={formData.doctorFirstName} onChange={(e) => setFormData({ ...formData, doctorFirstName: e.target.value })} placeholder="Meno" className="h-8 text-sm" data-testid="input-doctor-firstname" />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[11px]">Priezvisko</Label>
+                          <Input value={formData.doctorLastName} onChange={(e) => setFormData({ ...formData, doctorLastName: e.target.value })} placeholder="Priezvisko" className="h-8 text-sm" data-testid="input-doctor-lastname" />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-xs font-semibold flex items-center gap-2 text-muted-foreground uppercase tracking-wide">
+                        <div className="p-1 rounded-md bg-sky-100 dark:bg-sky-900"><Phone className="h-3 w-3 text-sky-600 dark:text-sky-400" /></div>
+                        Kontakt
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2 pt-1">
+                      <div className="grid gap-x-3 gap-y-2 grid-cols-2">
+                        <div className="space-y-1">
+                          <Label className="text-[11px]">{t.clinics.phone}</Label>
+                          <Input value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} placeholder={t.clinics.phone} className="h-8 text-sm" data-testid="input-clinic-phone" />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[11px]">{t.clinics.email}</Label>
+                          <Input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} placeholder={t.clinics.email} className="h-8 text-sm" data-testid="input-clinic-email" />
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[11px]">{t.clinics.website}</Label>
+                        <div className="flex gap-2">
+                          <Input value={formData.website} onChange={(e) => setFormData({ ...formData, website: e.target.value })} placeholder="www.example.com" className="flex-1 h-8 text-sm" data-testid="input-clinic-website" />
+                          {formData.website && (
+                            <Button type="button" variant="outline" size="icon" className="h-8 w-8" onClick={() => window.open(getWebsiteUrl(formData.website), "_blank")} data-testid="button-open-website">
+                              <ExternalLink className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-xs font-semibold flex items-center gap-2 text-muted-foreground uppercase tracking-wide">
+                        <div className="p-1 rounded-md bg-green-100 dark:bg-green-900"><MapPin className="h-3 w-3 text-green-600 dark:text-green-400" /></div>
+                        {t.clinics.steps?.address || "Adresa"}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2 pt-1">
+                      <div className="space-y-1">
+                        <Label className="text-[11px]">{t.clinics.address}</Label>
+                        <Input value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} placeholder={t.clinics.address} className="h-8 text-sm" data-testid="input-clinic-address" />
+                      </div>
+                      <div className="grid gap-x-3 gap-y-2 grid-cols-2">
+                        <div className="space-y-1">
+                          <Label className="text-[11px]">{t.clinics.city}</Label>
+                          <Input value={formData.city} onChange={(e) => setFormData({ ...formData, city: e.target.value })} placeholder={t.clinics.city} className="h-8 text-sm" data-testid="input-clinic-city" />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[11px]">{t.clinics.postalCode}</Label>
+                          <Input value={formData.postalCode} onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })} placeholder={t.clinics.postalCode} className="h-8 text-sm" data-testid="input-clinic-postal" />
+                        </div>
+                      </div>
+                      <div className="grid gap-x-3 gap-y-2 grid-cols-2">
+                        <div className="space-y-1">
+                          <Label className="text-[11px]">{t.clinics.latitude || "Lat"}</Label>
+                          <Input value={formData.latitude} onChange={(e) => setFormData({ ...formData, latitude: e.target.value })} placeholder="48.1486" className="h-8 text-sm" data-testid="input-clinic-lat" />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[11px]">{t.clinics.longitude || "Lng"}</Label>
+                          <Input value={formData.longitude} onChange={(e) => setFormData({ ...formData, longitude: e.target.value })} placeholder="17.1077" className="h-8 text-sm" data-testid="input-clinic-lng" />
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={handleGetCurrentLocation} disabled={isLoadingLocation} data-testid="button-get-gps">
+                          {isLoadingLocation ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Navigation className="h-3 w-3 mr-1" />}
+                          GPS
+                        </Button>
+                        {formData.latitude && formData.longitude && (
+                          <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => setShowMapDialog(true)} data-testid="button-show-map">
+                            <MapPin className="h-3 w-3 mr-1" />
+                            {t.clinics.showOnMap || "Mapa"}
+                          </Button>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-xs font-semibold flex items-center gap-2 text-muted-foreground uppercase tracking-wide">
+                        <div className="p-1 rounded-md bg-emerald-100 dark:bg-emerald-900"><PhoneCall className="h-3 w-3 text-emerald-600 dark:text-emerald-400" /></div>
+                        Hovory & Zmluva
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2 pt-1">
+                      <div className="grid gap-x-3 gap-y-2 grid-cols-2">
+                        <div className="space-y-1">
+                          <Label className="text-[11px]">Výsledok hovoru</Label>
+                          <Input value={formData.lastCallResult} onChange={(e) => setFormData({ ...formData, lastCallResult: e.target.value })} placeholder="Výsledok" className="h-8 text-sm" data-testid="input-last-call-result" />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[11px]">Ďalší kontakt</Label>
+                          <DateTimePicker value={formData.nextContactDate} onChange={(v) => setFormData({ ...formData, nextContactDate: v })} countryCode={formData.countryCode || "SK"} includeTime={false} data-testid="input-next-contact-date" />
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[11px]">Poznámka</Label>
+                        <Textarea value={formData.lastCallNote} onChange={(e) => setFormData({ ...formData, lastCallNote: e.target.value })} placeholder="Poznámka z hovoru" rows={2} className="text-sm" data-testid="input-last-call-note" />
+                      </div>
+                      <Separator className="my-1" />
+                      <div className="grid gap-x-3 gap-y-2 grid-cols-2">
+                        <div className="space-y-1">
+                          <Label className="text-[11px]">Zmluva odoslaná</Label>
+                          <DateTimePicker value={formData.contractSentDate} onChange={(v) => setFormData({ ...formData, contractSentDate: v })} countryCode={formData.countryCode || "SK"} includeTime={false} data-testid="input-contract-sent-date" />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[11px]">Zmluva vrátená</Label>
+                          <DateTimePicker value={formData.contractReturnedDate} onChange={(v) => setFormData({ ...formData, contractReturnedDate: v })} countryCode={formData.countryCode || "SK"} includeTime={false} data-testid="input-contract-returned-date" />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="lg:col-span-2">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-xs font-semibold flex items-center gap-2 text-muted-foreground uppercase tracking-wide">
+                        <div className="p-1 rounded-md bg-gray-100 dark:bg-gray-800"><FileText className="h-3 w-3 text-gray-600 dark:text-gray-400" /></div>
+                        {t.clinics.steps?.settings || "Nastavenia"}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2 pt-1">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <Label className="text-xs">{t.clinics.isActive || "Aktívna"}</Label>
+                          <p className="text-[10px] text-muted-foreground">{t.clinics.isActiveDesc || "Ambulancia je aktívna"}</p>
+                        </div>
+                        <Switch checked={formData.isActive} onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })} data-testid="switch-clinic-active" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[11px]">{t.clinics.notes}</Label>
+                        <Textarea value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} placeholder={t.clinics.notes} rows={2} className="text-sm" data-testid="input-clinic-notes" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
               </div>
             </div>
           ) : (
