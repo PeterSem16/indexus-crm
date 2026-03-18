@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, Search, Building2, FileText, Award, Gift, ListChecks, FileEdit, MapPin, Navigation, ExternalLink, Database, Loader2, Globe, Stethoscope, RefreshCw, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Filter, X, Download, FileSpreadsheet, Target } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Building2, FileText, Award, Gift, ListChecks, FileEdit, MapPin, Navigation, ExternalLink, Database, Loader2, Globe, Stethoscope, RefreshCw, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Filter, X, Download, FileSpreadsheet, Target, UserCheck, GraduationCap } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { HospitalFormWizard } from "@/components/hospital-form-wizard";
 import EntityCampaignTimeline from "@/components/campaigns/EntityCampaignTimeline";
@@ -1087,6 +1087,8 @@ export default function HospitalsPage() {
     const stats: Record<string, number> = {};
     let noStatus = 0;
     let otherStatus = 0;
+    let referralCount = 0;
+    let conferenceCount = 0;
     for (const c of filteredAndSortedClinics) {
       const clinic = c as any;
       let val = "";
@@ -1103,8 +1105,10 @@ export default function HospitalsPage() {
       } else {
         noStatus++;
       }
+      if (clinic.isReferredByDoctor) referralCount++;
+      if (clinic.isFromConference) conferenceCount++;
     }
-    return { stats, noStatus, otherStatus };
+    return { stats, noStatus, otherStatus, referralCount, conferenceCount };
   }, [filteredAndSortedClinics]);
   
   // Reset page when filters change
@@ -1383,10 +1387,22 @@ export default function HospitalsPage() {
       key: "name",
       header: <SortableHeader field="name" label={t.clinics.name} />,
       cell: (clinic: Clinic) => (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <span className="font-medium">{clinic.name}</span>
           {!clinic.isActive && (
             <Badge variant="secondary">{t.common.inactive}</Badge>
+          )}
+          {(clinic as any).isReferredByDoctor && (
+            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-purple-100 text-purple-700 border border-purple-300 dark:bg-purple-900/60 dark:text-purple-300 dark:border-purple-700" data-testid={`badge-referral-${clinic.id}`}>
+              <UserCheck className="h-2.5 w-2.5" />
+              Referral
+            </span>
+          )}
+          {(clinic as any).isFromConference && (
+            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-rose-100 text-rose-700 border border-rose-300 dark:bg-rose-900/60 dark:text-rose-300 dark:border-rose-700" data-testid={`badge-conference-${clinic.id}`}>
+              <GraduationCap className="h-2.5 w-2.5" />
+              Conference
+            </span>
           )}
         </div>
       ),
@@ -1953,6 +1969,19 @@ export default function HospitalsPage() {
                     <Badge variant="outline" className="text-[10px] px-2.5 py-1 font-bold border shadow-sm bg-gray-200/60 text-gray-600 border-gray-400 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-500 cursor-pointer hover:opacity-80 transition-opacity" data-testid="stat-no-status"
                       onClick={() => { setClinicPipelineFilter(clinicPipelineFilter === "no_status" ? "all" : "no_status"); handleClinicFilterChange(); }}>
                       {(t.clinics as any).pipelineSummary?.noStatus || "No status"} <span className="ml-1 font-black">{pipelineStats.noStatus}</span>
+                    </Badge>
+                  )}
+                  <span className="text-muted-foreground/40 mx-0.5">|</span>
+                  {pipelineStats.referralCount > 0 && (
+                    <Badge variant="outline" className="text-[10px] px-2.5 py-1 font-bold border shadow-sm bg-purple-200/80 text-purple-900 border-purple-500 dark:bg-purple-800 dark:text-purple-100 dark:border-purple-500" data-testid="stat-referral">
+                      <UserCheck className="h-3 w-3 mr-1" />
+                      Referral <span className="ml-1 font-black">{pipelineStats.referralCount}</span>
+                    </Badge>
+                  )}
+                  {pipelineStats.conferenceCount > 0 && (
+                    <Badge variant="outline" className="text-[10px] px-2.5 py-1 font-bold border shadow-sm bg-rose-200/80 text-rose-900 border-rose-500 dark:bg-rose-800 dark:text-rose-100 dark:border-rose-500" data-testid="stat-conference">
+                      <GraduationCap className="h-3 w-3 mr-1" />
+                      Conference <span className="ml-1 font-black">{pipelineStats.conferenceCount}</span>
                     </Badge>
                   )}
                   <div className="ml-auto pl-2">

@@ -370,6 +370,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess }: 
   }, [open, initialData?.id]);
 
   useEffect(() => {
+    if (!open) return;
     if (userEditedReferralsRef.current) return;
     if (existingReferrals) {
       setReferrals(existingReferrals.filter(r => r.referringClinic).map(r => ({
@@ -378,7 +379,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess }: 
         referralType: r.referralType || "doctor_referral",
       })));
     }
-  }, [existingReferrals]);
+  }, [existingReferrals, open]);
 
   const filterClinicsFor = (searchStr: string) => {
     if (!searchStr) return [];
