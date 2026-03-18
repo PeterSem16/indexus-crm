@@ -578,10 +578,13 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
     );
   };
 
+  const HeaderWrapper = mode === "inline" ? "div" : SheetHeader;
+  const TitleWrapper = mode === "inline" ? "h3" : SheetTitle;
+
   const formContent = (
     <>
-          <SheetHeader className="px-6 pt-5 pb-2">
-            <SheetTitle className="flex items-center gap-2.5">
+          <HeaderWrapper className="px-6 pt-5 pb-2">
+            <TitleWrapper className="flex items-center gap-2.5">
               <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary/10">
                 <Stethoscope className="h-4 w-4 text-primary" />
               </div>
@@ -616,8 +619,8 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                   <CallCustomerButton phoneNumber={initialData.phone} customerName={doctorFullName || initialData.name} variant="icon" />
                 )}
               </div>
-            </SheetTitle>
-          </SheetHeader>
+            </TitleWrapper>
+          </HeaderWrapper>
 
           {/* Progress Bar */}
           <div className="mx-6 mb-1 px-2 py-2.5 rounded-lg bg-muted/40 border" data-testid="clinic-status-bar">
