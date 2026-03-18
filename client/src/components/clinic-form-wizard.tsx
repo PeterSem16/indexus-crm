@@ -248,6 +248,7 @@ interface ClinicFormSheetProps {
   onOpenChange: (open: boolean) => void;
   initialData?: Clinic | null;
   onSuccess: () => void;
+  mode?: "sheet" | "inline";
 }
 
 export function ClinicFormWizard({ initialData, onSuccess, onCancel }: { initialData?: Clinic | null; onSuccess: () => void; onCancel?: () => void }) {
@@ -261,7 +262,7 @@ export function ClinicFormWizard({ initialData, onSuccess, onCancel }: { initial
   );
 }
 
-export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess }: ClinicFormSheetProps) {
+export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mode = "sheet" }: ClinicFormSheetProps) {
   const { t } = useI18n();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
@@ -577,10 +578,8 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess }: 
     );
   };
 
-  return (
+  const formContent = (
     <>
-      <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent className="w-[720px] sm:max-w-[720px] overflow-y-auto p-0">
           <SheetHeader className="px-6 pt-5 pb-2">
             <SheetTitle className="flex items-center gap-2.5">
               <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary/10">
@@ -1347,9 +1346,10 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess }: 
               {t.common.save}
             </Button>
           </div>
-        </SheetContent>
-      </Sheet>
+    </>
+  );
 
+  const mapDialog = (
       <Dialog open={showMapDialog} onOpenChange={setShowMapDialog}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
@@ -1370,6 +1370,25 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess }: 
           </div>
         </DialogContent>
       </Dialog>
+  );
+
+  if (mode === "inline") {
+    return (
+      <div className="flex flex-col h-full overflow-y-auto">
+        {formContent}
+        {mapDialog}
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent className="w-[720px] sm:max-w-[720px] overflow-y-auto p-0">
+          {formContent}
+        </SheetContent>
+      </Sheet>
+      {mapDialog}
     </>
   );
 }

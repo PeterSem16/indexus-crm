@@ -2141,6 +2141,7 @@ function CommunicationCanvas({
                     onOpenChange={() => setPhoneSubTab("details")}
                     initialData={clinicData}
                     onSuccess={() => setPhoneSubTab("details")}
+                    mode="inline"
                   />
                 ) : contactType === "collaborator" && collaboratorData ? (
                   <CollaboratorFormWizard
