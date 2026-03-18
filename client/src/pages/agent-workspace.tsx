@@ -1524,8 +1524,8 @@ function CommunicationCanvas({
 
   useEffect(() => {
     setPhoneSubTab("card");
-    setSelectedEmails([]);
-    setSelectedPhones([]);
+    setSelectedEmails(contact?.email ? [contact.email] : []);
+    setSelectedPhones(contact?.phone ? [contact.phone] : []);
     setEmailSubject("");
     setEmailMessage("");
     setSmsMessage("");
@@ -4935,7 +4935,7 @@ export default function AgentWorkspacePage() {
   };
 
   const sendEmailMutation = useMutation({
-    mutationFn: async (data: { to: string[]; subject: string; body: string; mailboxId?: string | null; cc?: string; documentIds?: string[]; attachments?: { name: string; contentBase64: string; contentType: string }[]; customerId?: string; compositionDurationSeconds?: number | null }) => {
+    mutationFn: async (data: { to: string[]; subject: string; body: string; mailboxId?: string | null; cc?: string; documentIds?: string[]; attachments?: { name: string; contentBase64: string; contentType: string }[]; customerId?: string; contactType?: string; compositionDurationSeconds?: number | null }) => {
       const res = await apiRequest("POST", "/api/ms365/send-email-from-mailbox", {
         to: data.to,
         subject: data.subject,
@@ -4946,6 +4946,7 @@ export default function AgentWorkspacePage() {
         documentIds: data.documentIds,
         attachments: data.attachments,
         customerId: data.customerId,
+        contactType: data.contactType,
         compositionDurationSeconds: data.compositionDurationSeconds,
       });
       if (!res.ok) {
@@ -5195,6 +5196,7 @@ export default function AgentWorkspacePage() {
       documentIds: data.documentIds,
       attachments: data.attachments,
       customerId: currentContact.id,
+      contactType: currentContactType || "customer",
       compositionDurationSeconds: data.compositionDurationSeconds,
     });
   };

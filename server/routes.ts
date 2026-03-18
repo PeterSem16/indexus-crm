@@ -2948,7 +2948,7 @@ export async function registerRoutes(
         await storage.updateUserMs365Connection(userId, updateData);
       }
       
-      const { to, cc, subject, body, isHtml, mailboxId, attachments, customerId, documentIds, compositionDurationSeconds } = req.body;
+      const { to, cc, subject, body, isHtml, mailboxId, attachments, customerId, contactType, documentIds, compositionDurationSeconds } = req.body;
       
       if (!to || !subject || !body) {
         return res.status(400).json({ error: "Missing required fields: to, subject, body" });
@@ -3064,11 +3064,10 @@ export async function registerRoutes(
           });
           messageId = message.id;
           
-          // Also log to activity logs
           await storage.createActivityLog({
             userId,
             action: "email_sent",
-            entityType: "customer",
+            entityType: contactType || "customer",
             entityId: customerId,
             entityName: toArray[0],
             details: JSON.stringify({
