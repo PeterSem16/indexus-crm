@@ -36,10 +36,12 @@ import { getCountryFlag } from "@/lib/countries";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Checkbox } from "@/components/ui/checkbox";
 import { CallCustomerButton } from "@/components/sip-phone";
 import { getQueryFn } from "@/lib/queryClient";
 import { useLocation } from "wouter";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { DateTimePicker } from "@/components/ui/date-time-picker";
 
 interface ClinicFormData {
   name: string;
@@ -60,10 +62,14 @@ interface ClinicFormData {
   leadSourceNotes: string;
   conferenceName: string;
   conferenceDate: string;
+  isReferredByDoctor: boolean;
+  isFromConference: boolean;
 }
 
 const LEAD_SOURCE_TYPES = ["new_contact", "former_collaborator", "current_collaborator", "doctor_referral", "conference"] as const;
 type LeadSourceType = typeof LEAD_SOURCE_TYPES[number];
+
+const MAIN_SOURCE_TYPES: LeadSourceType[] = ["new_contact", "former_collaborator", "current_collaborator"];
 
 const LEAD_SOURCE_ICONS: Record<LeadSourceType, typeof UserPlus> = {
   new_contact: UserPlus,
@@ -79,6 +85,14 @@ const LEAD_SOURCE_COLORS: Record<LeadSourceType, string> = {
   current_collaborator: "bg-green-50 border-green-200 text-green-700 dark:bg-green-950 dark:border-green-800 dark:text-green-300",
   doctor_referral: "bg-purple-50 border-purple-200 text-purple-700 dark:bg-purple-950 dark:border-purple-800 dark:text-purple-300",
   conference: "bg-rose-50 border-rose-200 text-rose-700 dark:bg-rose-950 dark:border-rose-800 dark:text-rose-300",
+};
+
+const LEAD_SOURCE_ICON_BG: Record<LeadSourceType, string> = {
+  new_contact: "bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-400",
+  former_collaborator: "bg-amber-100 text-amber-600 dark:bg-amber-900 dark:text-amber-400",
+  current_collaborator: "bg-green-100 text-green-600 dark:bg-green-900 dark:text-green-400",
+  doctor_referral: "bg-purple-100 text-purple-600 dark:bg-purple-900 dark:text-purple-400",
+  conference: "bg-rose-100 text-rose-600 dark:bg-rose-900 dark:text-rose-400",
 };
 
 interface ClinicFormSheetProps {
@@ -107,49 +121,31 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess }: 
   const [showMapDialog, setShowMapDialog] = useState(false);
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
 
-  const [formData, setFormData] = useState<ClinicFormData>(() =>
-    initialData
-      ? {
-          name: initialData.name,
-          doctorName: initialData.doctorName || "",
-          address: initialData.address || "",
-          city: initialData.city || "",
-          postalCode: initialData.postalCode || "",
-          countryCode: initialData.countryCode,
-          phone: initialData.phone || "",
-          email: initialData.email || "",
-          website: initialData.website || "",
-          latitude: initialData.latitude || "",
-          longitude: initialData.longitude || "",
-          isActive: initialData.isActive,
-          notes: initialData.notes || "",
-          leadSource: initialData.leadSource || "",
-          leadSourceDate: initialData.leadSourceDate ? new Date(initialData.leadSourceDate).toISOString().split("T")[0] : "",
-          leadSourceNotes: initialData.leadSourceNotes || "",
-          conferenceName: initialData.conferenceName || "",
-          conferenceDate: initialData.conferenceDate ? new Date(initialData.conferenceDate).toISOString().split("T")[0] : "",
-        }
-      : {
-          name: "",
-          doctorName: "",
-          address: "",
-          city: "",
-          postalCode: "",
-          countryCode: "",
-          phone: "",
-          email: "",
-          website: "",
-          latitude: "",
-          longitude: "",
-          isActive: true,
-          notes: "",
-          leadSource: "",
-          leadSourceDate: "",
-          leadSourceNotes: "",
-          conferenceName: "",
-          conferenceDate: "",
-        }
-  );
+  const buildFormData = (data: Clinic | null | undefined): ClinicFormData => {
+    if (!data) return {
+      name: "", doctorName: "", address: "", city: "", postalCode: "", countryCode: "",
+      phone: "", email: "", website: "", latitude: "", longitude: "", isActive: true,
+      notes: "", leadSource: "", leadSourceDate: "", leadSourceNotes: "", conferenceName: "",
+      conferenceDate: "", isReferredByDoctor: false, isFromConference: false,
+    };
+    const oldSource = data.leadSource || "";
+    const isOldDoctorRef = oldSource === "doctor_referral";
+    const isOldConference = oldSource === "conference";
+    const mainSource = (isOldDoctorRef || isOldConference) ? "" : oldSource;
+    return {
+      name: data.name, doctorName: data.doctorName || "", address: data.address || "",
+      city: data.city || "", postalCode: data.postalCode || "", countryCode: data.countryCode,
+      phone: data.phone || "", email: data.email || "", website: data.website || "",
+      latitude: data.latitude || "", longitude: data.longitude || "", isActive: data.isActive,
+      notes: data.notes || "", leadSource: mainSource,
+      leadSourceDate: data.leadSourceDate ? new Date(data.leadSourceDate).toISOString().split("T")[0] : "",
+      leadSourceNotes: data.leadSourceNotes || "", conferenceName: data.conferenceName || "",
+      conferenceDate: data.conferenceDate ? new Date(data.conferenceDate).toISOString().split("T")[0] : "",
+      isReferredByDoctor: data.isReferredByDoctor ?? isOldDoctorRef,
+      isFromConference: data.isFromConference ?? isOldConference,
+    };
+  };
+  const [formData, setFormData] = useState<ClinicFormData>(() => buildFormData(initialData));
 
   const { data: allClinics } = useQuery<Clinic[]>({
     queryKey: ["/api/clinics"],
@@ -171,32 +167,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess }: 
       setReferralSearch("");
       setShowMapDialog(false);
       setIsLoadingLocation(false);
-      const data = initialData;
-      setFormData(data ? {
-        name: data.name,
-        doctorName: data.doctorName || "",
-        address: data.address || "",
-        city: data.city || "",
-        postalCode: data.postalCode || "",
-        countryCode: data.countryCode,
-        phone: data.phone || "",
-        email: data.email || "",
-        website: data.website || "",
-        latitude: data.latitude || "",
-        longitude: data.longitude || "",
-        isActive: data.isActive,
-        notes: data.notes || "",
-        leadSource: data.leadSource || "",
-        leadSourceDate: data.leadSourceDate ? new Date(data.leadSourceDate).toISOString().split("T")[0] : "",
-        leadSourceNotes: data.leadSourceNotes || "",
-        conferenceName: data.conferenceName || "",
-        conferenceDate: data.conferenceDate ? new Date(data.conferenceDate).toISOString().split("T")[0] : "",
-      } : {
-        name: "", doctorName: "", address: "", city: "", postalCode: "", countryCode: "",
-        phone: "", email: "", website: "", latitude: "", longitude: "",
-        isActive: true, notes: "", leadSource: "", leadSourceDate: "", leadSourceNotes: "",
-        conferenceName: "", conferenceDate: "",
-      });
+      setFormData(buildFormData(initialData));
     }
   }, [open, initialData?.id]);
 
@@ -260,10 +231,12 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess }: 
       const payload = {
         ...data,
         leadSourceDate: data.leadSourceDate ? new Date(data.leadSourceDate).toISOString() : null,
-        conferenceDate: data.conferenceDate ? new Date(data.conferenceDate).toISOString() : null,
+        conferenceDate: data.conferenceDate && data.isFromConference ? new Date(data.conferenceDate).toISOString() : null,
         leadSource: data.leadSource || null,
         leadSourceNotes: data.leadSourceNotes || null,
-        conferenceName: data.conferenceName || null,
+        conferenceName: data.isFromConference ? (data.conferenceName || null) : null,
+        isReferredByDoctor: data.isReferredByDoctor,
+        isFromConference: data.isFromConference,
       };
       let res;
       if (initialData) {
@@ -313,69 +286,75 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess }: 
             </SheetTitle>
           </SheetHeader>
 
-          {initialData && formData.leadSource && LEAD_SOURCE_TYPES.includes(formData.leadSource as LeadSourceType) && (() => {
-            const sourceType = formData.leadSource as LeadSourceType;
-            const Icon = LEAD_SOURCE_ICONS[sourceType];
-            const colorClass = LEAD_SOURCE_COLORS[sourceType];
+          {initialData && (formData.leadSource || formData.isReferredByDoctor || formData.isFromConference) && (() => {
+            const sourceType = MAIN_SOURCE_TYPES.includes(formData.leadSource as LeadSourceType) ? formData.leadSource as LeadSourceType : null;
             const referringDoctors = existingReferrals?.filter(r => r.referringClinic)?.map(r => r.referringClinic!) || [];
             return (
-              <div className={cn("mx-6 mt-2 mb-1 rounded-lg border px-4 py-3 flex items-center gap-3", colorClass)} data-testid="clinic-status-bar">
-                <Icon className="h-5 w-5 shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium text-sm truncate">
-                    {t.clinics.leadSourceTypes?.[sourceType] || sourceType}
+              <div className="mx-6 mt-2 mb-1 space-y-1.5" data-testid="clinic-status-bar">
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 flex items-center gap-1.5 flex-wrap min-w-0">
+                    {sourceType && (() => {
+                      const Icon = LEAD_SOURCE_ICONS[sourceType];
+                      return (
+                        <div className={cn("inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border", LEAD_SOURCE_COLORS[sourceType])}>
+                          <Icon className="h-3.5 w-3.5" />
+                          {t.clinics.leadSourceTypes?.[sourceType] || sourceType}
+                        </div>
+                      );
+                    })()}
+                    {formData.isReferredByDoctor && (
+                      <div className={cn("inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border", LEAD_SOURCE_COLORS.doctor_referral)}>
+                        <UserCheck className="h-3.5 w-3.5" />
+                        {t.clinics.leadSourceTypes?.doctor_referral || "Doctor referral"}
+                      </div>
+                    )}
+                    {formData.isFromConference && (
+                      <div className={cn("inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border", LEAD_SOURCE_COLORS.conference)}>
+                        <GraduationCap className="h-3.5 w-3.5" />
+                        {t.clinics.leadSourceTypes?.conference || "Conference"}
+                      </div>
+                    )}
                   </div>
-                  <div className="text-xs opacity-80 truncate">
-                    {t.clinics.leadSourceDesc?.[sourceType] || ""}
+                  <div className="flex items-center gap-1 shrink-0">
+                    {initialData.email && (
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              data-testid="button-clinic-email"
+                              onClick={() => {
+                                const params = new URLSearchParams();
+                                if (initialData.email) params.set("compose", initialData.email);
+                                params.set("contactSearch", initialData.email || initialData.phone || "");
+                                onOpenChange(false);
+                                setLocation(`/email?${params.toString()}`);
+                              }}
+                            >
+                              <Mail className="h-3.5 w-3.5" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent><p>{initialData.email}</p></TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    )}
+                    {initialData.phone && (
+                      <CallCustomerButton phoneNumber={initialData.phone} customerName={initialData.doctorName || initialData.name} variant="icon" />
+                    )}
                   </div>
-                  {sourceType === "doctor_referral" && referringDoctors.length > 0 && (
-                    <div className="text-xs mt-1 flex items-center gap-1 flex-wrap">
-                      <span className="font-medium">{t.clinics.referredBy}:</span>
-                      {referringDoctors.map((doc, i) => (
-                        <Badge key={doc.id} variant="secondary" className="text-xs py-0 px-1.5">
-                          {doc.doctorName || doc.name}
-                          {i < referringDoctors.length - 1 ? "" : ""}
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
                 </div>
-                <div className="flex items-center gap-1 shrink-0">
-                  {initialData.email && (
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            data-testid="button-clinic-email"
-                            onClick={() => {
-                              const contactIdentifier = initialData.email || initialData.phone || "";
-                              const params = new URLSearchParams();
-                              if (initialData.email) params.set("compose", initialData.email);
-                              if (contactIdentifier) params.set("contactSearch", contactIdentifier);
-                              onOpenChange(false);
-                              setLocation(`/email?${params.toString()}`);
-                            }}
-                          >
-                            <Mail className="h-4 w-4" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>{initialData.email}</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  )}
-                  {initialData.phone && (
-                    <CallCustomerButton
-                      phoneNumber={initialData.phone}
-                      customerName={initialData.doctorName || initialData.name}
-                      variant="icon"
-                    />
-                  )}
-                </div>
+                {formData.isReferredByDoctor && referringDoctors.length > 0 && (
+                  <div className="flex items-center gap-1.5 flex-wrap text-xs text-muted-foreground pl-1">
+                    <span className="font-medium">{t.clinics.referredBy}:</span>
+                    {referringDoctors.map((doc) => (
+                      <Badge key={doc.id} variant="secondary" className="text-xs py-0 px-1.5">
+                        {doc.doctorName || doc.name}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
               </div>
             );
           })()}
@@ -462,28 +441,6 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess }: 
                     </Button>
                   )}
                 </div>
-                {formData.website && (
-                  <div className="mt-2 border rounded-lg overflow-hidden">
-                    <div className="bg-muted p-2 flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">{t.clinics.websitePreview || "Nahled"}</span>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => window.open(getWebsiteUrl(formData.website), "_blank")}
-                      >
-                        <ExternalLink className="h-4 w-4 mr-2" />
-                        {t.clinics.openInNewTab || "Otvorit v novom okne"}
-                      </Button>
-                    </div>
-                    <iframe
-                      src={getWebsiteUrl(formData.website)}
-                      className="w-full h-48 border-0"
-                      title="Website preview"
-                      sandbox="allow-scripts allow-same-origin"
-                    />
-                  </div>
-                )}
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
@@ -509,37 +466,45 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess }: 
               </div>
             </TabsContent>
 
-            <TabsContent value="source" className="space-y-4 mt-4 pb-4">
-              <div className="space-y-2">
-                <Label>{t.clinics.leadSource}</Label>
+            <TabsContent value="source" className="space-y-5 mt-4 pb-4">
+              <div className="space-y-3">
+                <Label className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{t.clinics.leadSource}</Label>
                 <RadioGroup
                   value={formData.leadSource}
                   onValueChange={(value) => setFormData({ ...formData, leadSource: value })}
                   className="grid gap-2"
                 >
-                  {LEAD_SOURCE_TYPES.map((type) => (
-                    <div
-                      key={type}
-                      className={cn(
-                        "flex items-center space-x-3 p-3 border rounded-lg cursor-pointer transition-all",
-                        formData.leadSource === type ? "border-primary bg-primary/5" : "hover:bg-muted/50"
-                      )}
-                    >
-                      <RadioGroupItem value={type} id={`source-${type}`} data-testid={`radio-source-${type}`} />
-                      <Label htmlFor={`source-${type}`} className="flex-1 cursor-pointer">
-                        <div className="font-medium">{t.clinics.leadSourceTypes?.[type as LeadSourceType] || type}</div>
-                        <div className="text-sm text-muted-foreground">{t.clinics.leadSourceDesc?.[type as LeadSourceType] || ""}</div>
-                      </Label>
-                    </div>
-                  ))}
+                  {MAIN_SOURCE_TYPES.map((type) => {
+                    const Icon = LEAD_SOURCE_ICONS[type];
+                    const selected = formData.leadSource === type;
+                    return (
+                      <div
+                        key={type}
+                        className={cn(
+                          "flex items-center gap-3 p-3 border rounded-xl cursor-pointer transition-all",
+                          selected ? cn("border-2 shadow-sm", LEAD_SOURCE_COLORS[type]) : "hover:bg-muted/50 border-border"
+                        )}
+                        onClick={() => setFormData({ ...formData, leadSource: type })}
+                      >
+                        <div className={cn("flex items-center justify-center w-9 h-9 rounded-lg shrink-0", LEAD_SOURCE_ICON_BG[type])}>
+                          <Icon className="h-4.5 w-4.5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-sm">{t.clinics.leadSourceTypes?.[type] || type}</div>
+                          <div className="text-xs text-muted-foreground">{t.clinics.leadSourceDesc?.[type] || ""}</div>
+                        </div>
+                        <RadioGroupItem value={type} id={`source-${type}`} data-testid={`radio-source-${type}`} className="shrink-0" />
+                      </div>
+                    );
+                  })}
                 </RadioGroup>
                 {formData.leadSource && (
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="text-muted-foreground"
-                    onClick={() => setFormData({ ...formData, leadSource: "", leadSourceDate: "", leadSourceNotes: "", conferenceName: "", conferenceDate: "" })}
+                    className="text-muted-foreground text-xs"
+                    onClick={() => setFormData({ ...formData, leadSource: "" })}
                     data-testid="button-clear-source"
                   >
                     <X className="h-3 w-3 mr-1" />
@@ -553,17 +518,18 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess }: 
                   <Separator />
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
-                      <Label>{t.clinics.leadSourceDate}</Label>
-                      <Input
-                        type="date"
+                      <Label className="text-sm">{t.clinics.leadSourceDate}</Label>
+                      <DateTimePicker
                         value={formData.leadSourceDate}
-                        onChange={(e) => setFormData({ ...formData, leadSourceDate: e.target.value })}
+                        onChange={(v) => setFormData({ ...formData, leadSourceDate: v })}
+                        countryCode={formData.countryCode || "SK"}
+                        includeTime={false}
                         data-testid="input-lead-source-date"
                       />
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label>{t.clinics.leadSourceNotes}</Label>
+                    <Label className="text-sm">{t.clinics.leadSourceNotes}</Label>
                     <Textarea
                       value={formData.leadSourceNotes}
                       onChange={(e) => setFormData({ ...formData, leadSourceNotes: e.target.value })}
@@ -575,37 +541,40 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess }: 
                 </>
               )}
 
-              {formData.leadSource === "conference" && (
-                <>
-                  <Separator />
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label>{t.clinics.conferenceName}</Label>
-                      <Input
-                        value={formData.conferenceName}
-                        onChange={(e) => setFormData({ ...formData, conferenceName: e.target.value })}
-                        placeholder={t.clinics.conferenceName}
-                        data-testid="input-conference-name"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>{t.clinics.conferenceDate}</Label>
-                      <Input
-                        type="date"
-                        value={formData.conferenceDate}
-                        onChange={(e) => setFormData({ ...formData, conferenceDate: e.target.value })}
-                        data-testid="input-conference-date"
-                      />
-                    </div>
-                  </div>
-                </>
-              )}
+              <Separator />
 
-              {formData.leadSource === "doctor_referral" && (
-                <>
-                  <Separator />
-                  <div className="space-y-3">
-                    <Label>{t.clinics.referringDoctors}</Label>
+              <div className="space-y-3">
+                <Label className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                  {t.clinics.referredBy || "Referral"}
+                </Label>
+
+                <div
+                  className={cn(
+                    "border rounded-xl p-3 transition-all cursor-pointer",
+                    formData.isReferredByDoctor ? cn("border-2 shadow-sm", LEAD_SOURCE_COLORS.doctor_referral) : "hover:bg-muted/50 border-border"
+                  )}
+                  onClick={() => setFormData({ ...formData, isReferredByDoctor: !formData.isReferredByDoctor })}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={cn("flex items-center justify-center w-9 h-9 rounded-lg shrink-0", LEAD_SOURCE_ICON_BG.doctor_referral)}>
+                      <UserCheck className="h-4.5 w-4.5" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-sm">{t.clinics.leadSourceTypes?.doctor_referral || "Doctor referral"}</div>
+                      <div className="text-xs text-muted-foreground">{t.clinics.leadSourceDesc?.doctor_referral || ""}</div>
+                    </div>
+                    <Checkbox
+                      checked={formData.isReferredByDoctor}
+                      onCheckedChange={(checked) => setFormData({ ...formData, isReferredByDoctor: !!checked })}
+                      data-testid="checkbox-doctor-referral"
+                      className="shrink-0"
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </div>
+                </div>
+
+                {formData.isReferredByDoctor && (
+                  <div className="ml-4 pl-4 border-l-2 border-purple-200 dark:border-purple-800 space-y-3">
                     <div className="relative">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <Input
@@ -637,18 +606,12 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess }: 
                     {referrals.length > 0 ? (
                       <div className="space-y-2">
                         {referrals.map((ref) => (
-                          <div key={ref.clinicId} className="flex items-center justify-between p-2 border rounded-lg bg-muted/30">
+                          <div key={ref.clinicId} className="flex items-center justify-between p-2 border rounded-lg bg-purple-50/50 dark:bg-purple-950/30">
                             <div className="flex items-center gap-2">
-                              <Users className="h-4 w-4 text-primary" />
+                              <UserCheck className="h-4 w-4 text-purple-500" />
                               <span className="text-sm font-medium">{ref.clinicName}</span>
                             </div>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => removeReferral(ref.clinicId)}
-                              data-testid={`remove-referral-${ref.clinicId}`}
-                            >
+                            <Button type="button" variant="ghost" size="sm" onClick={() => removeReferral(ref.clinicId)} data-testid={`remove-referral-${ref.clinicId}`}>
                               <Trash2 className="h-4 w-4 text-destructive" />
                             </Button>
                           </div>
@@ -658,8 +621,59 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess }: 
                       <p className="text-sm text-muted-foreground italic">{t.clinics.noReferrals}</p>
                     )}
                   </div>
-                </>
-              )}
+                )}
+
+                <div
+                  className={cn(
+                    "border rounded-xl p-3 transition-all cursor-pointer",
+                    formData.isFromConference ? cn("border-2 shadow-sm", LEAD_SOURCE_COLORS.conference) : "hover:bg-muted/50 border-border"
+                  )}
+                  onClick={() => setFormData({ ...formData, isFromConference: !formData.isFromConference })}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={cn("flex items-center justify-center w-9 h-9 rounded-lg shrink-0", LEAD_SOURCE_ICON_BG.conference)}>
+                      <GraduationCap className="h-4.5 w-4.5" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-sm">{t.clinics.leadSourceTypes?.conference || "Conference / Seminar"}</div>
+                      <div className="text-xs text-muted-foreground">{t.clinics.leadSourceDesc?.conference || ""}</div>
+                    </div>
+                    <Checkbox
+                      checked={formData.isFromConference}
+                      onCheckedChange={(checked) => setFormData({ ...formData, isFromConference: !!checked })}
+                      data-testid="checkbox-conference"
+                      className="shrink-0"
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </div>
+                </div>
+
+                {formData.isFromConference && (
+                  <div className="ml-4 pl-4 border-l-2 border-rose-200 dark:border-rose-800 space-y-3">
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label className="text-sm">{t.clinics.conferenceName}</Label>
+                        <Input
+                          value={formData.conferenceName}
+                          onChange={(e) => setFormData({ ...formData, conferenceName: e.target.value })}
+                          placeholder={t.clinics.conferenceName}
+                          data-testid="input-conference-name"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-sm">{t.clinics.conferenceDate}</Label>
+                        <DateTimePicker
+                          value={formData.conferenceDate}
+                          onChange={(v) => setFormData({ ...formData, conferenceDate: v })}
+                          countryCode={formData.countryCode || "SK"}
+                          includeTime={false}
+                          data-testid="input-conference-date"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
             </TabsContent>
 
             <TabsContent value="address" className="space-y-4 mt-4 pb-4">

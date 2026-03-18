@@ -317,6 +317,8 @@ export const clinics = pgTable("clinics", {
   leadSourceNotes: text("lead_source_notes"),
   conferenceName: text("conference_name"),
   conferenceDate: timestamp("conference_date"),
+  isReferredByDoctor: boolean("is_referred_by_doctor").notNull().default(false),
+  isFromConference: boolean("is_from_conference").notNull().default(false),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
