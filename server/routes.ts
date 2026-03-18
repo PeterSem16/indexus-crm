@@ -13386,6 +13386,19 @@ Return ONLY valid JSON, no markdown code blocks.`,
     }
   });
 
+  app.get("/api/clinic-referred-by-me/:clinicId", requireAuth, async (req, res) => {
+    try {
+      const referrals = await db.select().from(clinicReferrals).where(eq(clinicReferrals.referringClinicId, req.params.clinicId));
+      const enriched = await Promise.all(referrals.map(async (ref) => {
+        const clinic = await storage.getClinic(ref.clinicId);
+        return { ...ref, clinic };
+      }));
+      res.json(enriched);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get reverse referrals" });
+    }
+  });
+
   app.post("/api/clinic-referrals", requireAuth, async (req, res) => {
     try {
       const { clinicId, referringClinicId, referralType, conferenceName, conferenceDate, notes } = req.body;

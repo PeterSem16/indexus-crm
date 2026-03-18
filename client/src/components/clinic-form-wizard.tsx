@@ -24,7 +24,7 @@ import type { Clinic } from "@shared/schema";
 import {
   Stethoscope, MapPin, ExternalLink, Navigation, Loader2, Search, Trash2, Plus,
   Users, Save, X, UserPlus, Handshake, UserCheck, GraduationCap, Phone, Mail,
-  Clock, ArrowRightLeft, History, FileText, MessageSquare, Megaphone, PhoneCall,
+  Clock, ArrowRight, ArrowRightLeft, History, FileText, MessageSquare, Megaphone, PhoneCall,
   CalendarDays, FileSignature, Newspaper, CheckCircle2, CircleDot, Circle,
   Building2, ScrollText, Target, ShieldCheck, Ban, HelpCircle, ChevronRight,
   ChevronDown,
@@ -334,6 +334,12 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess }: 
 
   const { data: existingReferrals } = useQuery<Array<{ id: string; clinicId: string; referringClinicId: string; referralType: string; referringClinic: Clinic | null }>>({
     queryKey: ["/api/clinic-referrals", initialData?.id],
+    queryFn: getQueryFn({ on401: "returnNull" }),
+    enabled: !!initialData?.id && open,
+  });
+
+  const { data: reverseReferrals } = useQuery<Array<{ id: string; clinicId: string; referringClinicId: string; referralType: string; clinic: Clinic | null }>>({
+    queryKey: ["/api/clinic-referred-by-me", initialData?.id],
     queryFn: getQueryFn({ on401: "returnNull" }),
     enabled: !!initialData?.id && open,
   });
@@ -652,7 +658,9 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess }: 
           {initialData && (() => {
             const docRefs = existingReferrals?.filter(r => r.referringClinic && r.referralType === "doctor_referral")?.map(r => r.referringClinic!) || [];
             const confRefs = existingReferrals?.filter(r => r.referringClinic && r.referralType === "conference")?.map(r => r.referringClinic!) || [];
-            if (docRefs.length === 0 && confRefs.length === 0) return null;
+            const myDocRefs = reverseReferrals?.filter(r => r.clinic && r.referralType === "doctor_referral")?.map(r => r.clinic!) || [];
+            const myConfRefs = reverseReferrals?.filter(r => r.clinic && r.referralType === "conference")?.map(r => r.clinic!) || [];
+            if (docRefs.length === 0 && confRefs.length === 0 && myDocRefs.length === 0 && myConfRefs.length === 0) return null;
             return (
               <div className="mx-6 mb-1 space-y-1">
                 {docRefs.length > 0 && (
@@ -670,6 +678,28 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess }: 
                     <span className="font-medium text-rose-600 dark:text-rose-400">{t.clinics.leadSourceTypes?.conference || "Conference"}:</span>
                     {confRefs.map((doc) => (
                       <Badge key={doc.id} variant="secondary" className="text-xs py-0 px-1.5">{getDoctorFullName(doc as any) || doc.name}</Badge>
+                    ))}
+                  </div>
+                )}
+                {myDocRefs.length > 0 && (
+                  <div className="flex items-center gap-1.5 flex-wrap text-xs">
+                    <ArrowRight className="h-3 w-3 text-emerald-500" />
+                    <span className="font-medium text-emerald-600 dark:text-emerald-400">{(t.clinics as any).referredTo || "Referred"}:</span>
+                    {myDocRefs.map((doc) => (
+                      <Badge key={doc.id} variant="outline" className="text-xs py-0 px-1.5 bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-700">
+                        {getDoctorFullName(doc as any) || doc.name}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+                {myConfRefs.length > 0 && (
+                  <div className="flex items-center gap-1.5 flex-wrap text-xs">
+                    <ArrowRight className="h-3 w-3 text-emerald-500" />
+                    <span className="font-medium text-emerald-600 dark:text-emerald-400">{(t.clinics as any).referredToConference || "Conference referral"}:</span>
+                    {myConfRefs.map((doc) => (
+                      <Badge key={doc.id} variant="outline" className="text-xs py-0 px-1.5 bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-700">
+                        {getDoctorFullName(doc as any) || doc.name}
+                      </Badge>
                     ))}
                   </div>
                 )}

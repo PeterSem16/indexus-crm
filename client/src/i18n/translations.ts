@@ -864,6 +864,8 @@ export interface Translations {
     noReferrals: string;
     removeReferral: string;
     referredBy: string;
+    referredTo: string;
+    referredToConference: string;
     callNow: string;
     statusBar: string;
     leadSourceTypes: {
@@ -5986,6 +5988,8 @@ export const translations: Record<Locale, Translations> = {
       noReferrals: 'No referring doctors added',
       removeReferral: 'Remove',
       referredBy: 'Referred by',
+      referredTo: 'Referred',
+      referredToConference: 'Conference referral',
       callNow: 'Call',
       statusBar: 'Status',
       leadSourceTypes: {
@@ -10571,6 +10575,8 @@ export const translations: Record<Locale, Translations> = {
       noReferrals: 'Žiadni odporúčajúci lekári',
       removeReferral: 'Odstrániť',
       referredBy: 'Odporučil',
+      referredTo: 'Odporučil ma',
+      referredToConference: 'Konferenčné odporučenie',
       callNow: 'Volať',
       statusBar: 'Stav',
       leadSourceTypes: {
@@ -15095,6 +15101,8 @@ export const translations: Record<Locale, Translations> = {
       noReferrals: 'Žádní doporučující lékaři',
       removeReferral: 'Odstranit',
       referredBy: 'Doporučil',
+      referredTo: 'Doporučil mě',
+      referredToConference: 'Konferenční doporučení',
       callNow: 'Volat',
       statusBar: 'Stav',
       leadSourceTypes: {
@@ -19582,6 +19590,8 @@ export const translations: Record<Locale, Translations> = {
       noReferrals: 'Nincsenek ajánló orvosok',
       removeReferral: 'Eltávolítás',
       referredBy: 'Ajánlotta',
+      referredTo: 'Ajánlott',
+      referredToConference: 'Konferencia ajánlás',
       callNow: 'Hívás',
       statusBar: 'Állapot',
       leadSourceTypes: {
@@ -24068,6 +24078,8 @@ export const translations: Record<Locale, Translations> = {
       noReferrals: 'Niciun medic recomandant',
       removeReferral: 'Elimină',
       referredBy: 'Recomandat de',
+      referredTo: 'A recomandat',
+      referredToConference: 'Recomandare conferință',
       callNow: 'Apelează',
       statusBar: 'Stare',
       leadSourceTypes: {
@@ -28555,6 +28567,8 @@ export const translations: Record<Locale, Translations> = {
       noReferrals: 'Nessun medico referente',
       removeReferral: 'Rimuovi',
       referredBy: 'Raccomandato da',
+      referredTo: 'Ha raccomandato',
+      referredToConference: 'Raccomandazione conferenza',
       callNow: 'Chiama',
       statusBar: 'Stato',
       leadSourceTypes: {
@@ -33042,6 +33056,8 @@ export const translations: Record<Locale, Translations> = {
       noReferrals: 'Keine überweisenden Ärzte',
       removeReferral: 'Entfernen',
       referredBy: 'Empfohlen von',
+      referredTo: 'Hat empfohlen',
+      referredToConference: 'Konferenzempfehlung',
       callNow: 'Anrufen',
       statusBar: 'Status',
       leadSourceTypes: {
