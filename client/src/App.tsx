@@ -107,32 +107,6 @@ function ProtectedRoute({ component: Component }: { component: React.ComponentTy
 
 function AppRouter() {
   const { user, isLoading } = useAuth();
-  const [location] = useLocation();
-
-  if (location.startsWith("/sign/") || location.startsWith("/s/")) {
-    return (
-      <Switch>
-        <Route path="/sign/:token" component={PublicSigningPage} />
-        <Route path="/s/:token" component={PublicSigningPage} />
-      </Switch>
-    );
-  }
-
-  if (location.startsWith("/f/")) {
-    return (
-      <Switch>
-        <Route path="/f/:slug" component={PublicFormPage} />
-      </Switch>
-    );
-  }
-
-  if (location.startsWith("/audit-timeline/")) {
-    return (
-      <Switch>
-        <Route path="/audit-timeline/:token" component={AuditTimelinePublic} />
-      </Switch>
-    );
-  }
 
   if (isLoading) {
     return (
@@ -267,7 +241,56 @@ function AuthenticatedApp() {
   );
 }
 
+function PublicRoutes() {
+  const [location] = useLocation();
+
+  if (location.startsWith("/sign/") || location.startsWith("/s/")) {
+    return (
+      <Switch>
+        <Route path="/sign/:token" component={PublicSigningPage} />
+        <Route path="/s/:token" component={PublicSigningPage} />
+      </Switch>
+    );
+  }
+
+  if (location.startsWith("/f/")) {
+    return (
+      <Switch>
+        <Route path="/f/:slug" component={PublicFormPage} />
+      </Switch>
+    );
+  }
+
+  if (location.startsWith("/audit-timeline/")) {
+    return (
+      <Switch>
+        <Route path="/audit-timeline/:token" component={AuditTimelinePublic} />
+      </Switch>
+    );
+  }
+
+  return null;
+}
+
 function App() {
+  const [location] = useLocation();
+  const isPublicRoute = location.startsWith("/f/") || location.startsWith("/sign/") || location.startsWith("/s/") || location.startsWith("/audit-timeline/");
+
+  if (isPublicRoute) {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider>
+          <TooltipProvider>
+            <ErrorBoundary>
+              <PublicRoutes />
+            </ErrorBoundary>
+            <Toaster />
+          </TooltipProvider>
+        </ThemeProvider>
+      </QueryClientProvider>
+    );
+  }
+
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
