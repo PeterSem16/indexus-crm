@@ -20,7 +20,7 @@ import {
   Plus, FileText, Globe, Copy, Trash2, Settings, Eye,
   GripVertical, ChevronDown, ChevronRight, Loader2, CheckCircle2, X, Code,
   Clock, Users, ClipboardList, ArrowUp, ArrowDown, EyeOff, AlertCircle,
-  Columns, LayoutGrid, Maximize2
+  Columns, LayoutGrid, Maximize2, Palette
 } from "lucide-react";
 import type { WebForm, WebFormSubmission } from "@shared/schema";
 
@@ -105,6 +105,16 @@ const DEFAULT_FIELDS = [
   { customerField: "howDidYouHear", fieldType: "select_source", label: "Ako ste sa o nás dozvedeli", isRequired: false, sortOrder: 0, sectionIndex: 2, columnSpan: 1 },
 ];
 
+const FORM_WIDTHS = [
+  { value: "xl", label: "Úzky (640px)" },
+  { value: "2xl", label: "Stredný (768px)" },
+  { value: "3xl", label: "Štandard (896px)" },
+  { value: "4xl", label: "Široký (960px)" },
+  { value: "5xl", label: "Veľmi široký (1024px)" },
+  { value: "6xl", label: "3/4 strany (1152px)" },
+  { value: "full", label: "Celá strana" },
+];
+
 export default function WebFormsPage() {
   const { t } = useI18n();
   const { toast } = useToast();
@@ -169,11 +179,16 @@ export default function WebFormsPage() {
       language: country.lang,
       headerTitle: "Mám záujem o odber",
       headerSubtitle: "Objednajte si odber pupočníkovej krvi, tkaniva pupočníka alebo placenty a uchovajte vášmu bábätku jedinečný liečebný zdroj.",
+      contactInfo: "Tel.: +421 2 321 654 00 | info@cordbloodcenter.sk",
       gdprText: "Poskytnutím vašich údajov zaslaním vyplneného formulára súhlasíte so spracovaním vašich osobných údajov na účel vybavenia žiadosti.",
       gdprPregnancyText: "Som si vedomá, že táto služba je určená pre tehotné ženy.",
       gdprMarketingText: "Súhlasím so zasielaním marketingových e-mailov a elektronických newslettrov.",
       successMessage: "Ďakujeme za vašu registráciu! Budeme vás kontaktovať.",
       brandColor: "#16a34a",
+      textColor: "#ffffff",
+      headingColor: "#ffffff",
+      bgColor: "#f3f4f6",
+      formWidth: "3xl",
       isActive: true,
       sections: sectionsWithIds,
       fields: fieldsWithSectionIds,
@@ -283,7 +298,7 @@ export default function WebFormsPage() {
 
       {previewFormSlug && (
         <Dialog open onOpenChange={(o) => !o && setPreviewFormSlug(null)}>
-          <DialogContent className="max-w-4xl h-[85vh] p-0 overflow-hidden">
+          <DialogContent className="max-w-[95vw] h-[90vh] p-0 overflow-hidden">
             <DialogHeader className="px-4 pt-4 pb-2">
               <DialogTitle className="flex items-center justify-between">
                 <span>Náhľad formulára</span>
@@ -301,7 +316,7 @@ export default function WebFormsPage() {
               <iframe
                 src={`/f/${previewFormSlug}`}
                 className="w-full h-full border-0"
-                style={{ height: "calc(85vh - 60px)" }}
+                style={{ height: "calc(90vh - 60px)" }}
                 data-testid="iframe-preview"
               />
             </div>
@@ -353,6 +368,18 @@ function parseValidationRules(rules: string | null | undefined): Record<string, 
   try { return JSON.parse(rules); } catch { return {}; }
 }
 
+function ColorInput({ value, onChange, label }: { value: string; onChange: (v: string) => void; label: string }) {
+  return (
+    <div className="space-y-1">
+      <Label className="text-[11px] text-muted-foreground">{label}</Label>
+      <div className="flex gap-1.5">
+        <input type="color" value={value || "#000000"} onChange={e => onChange(e.target.value)} className="h-8 w-10 rounded border cursor-pointer shrink-0" />
+        <Input value={value || ""} onChange={e => onChange(e.target.value)} className="h-8 text-xs font-mono flex-1" />
+      </div>
+    </div>
+  );
+}
+
 function FieldEditor({ field, index, sectionsOptions, onUpdate, onRemove, onMoveUp, onMoveDown, isFirst, isLast, sectionColumns }: {
   field: any; index: number; sectionsOptions: { id: string; title: string; columns: number }[];
   onUpdate: (idx: number, updated: any) => void; onRemove: (idx: number) => void;
@@ -370,6 +397,7 @@ function FieldEditor({ field, index, sectionsOptions, onUpdate, onRemove, onMove
 
   const fieldTypeLabel = FIELD_TYPES.find(ft => ft.value === field.fieldType)?.label || field.fieldType;
   const maxCols = sectionColumns || 2;
+  const sectionName = field.sectionId ? sectionsOptions.find(s => s.id === field.sectionId)?.title : null;
 
   return (
     <div className="border rounded-lg bg-card overflow-hidden">
@@ -382,16 +410,14 @@ function FieldEditor({ field, index, sectionsOptions, onUpdate, onRemove, onMove
           <ArrowDown className="h-3 w-3" />
         </Button>
         <Collapsible open={expanded} onOpenChange={setExpanded} className="flex-1 min-w-0">
-          <CollapsibleTrigger className="flex items-center gap-2 w-full text-left px-1 py-0.5 hover:bg-muted/50 rounded">
+          <CollapsibleTrigger className="flex items-center gap-1.5 w-full text-left px-1 py-0.5 hover:bg-muted/50 rounded">
             {expanded ? <ChevronDown className="h-3 w-3 shrink-0" /> : <ChevronRight className="h-3 w-3 shrink-0" />}
             <span className="text-sm font-medium truncate">{field.label}</span>
             <Badge variant="outline" className="text-[10px] shrink-0">{fieldTypeLabel}</Badge>
             {field.isRequired && <Badge variant="default" className="text-[10px] shrink-0 bg-red-500">*</Badge>}
-            {(field.columnSpan || 1) > 1 && <Badge variant="secondary" className="text-[10px] shrink-0"><Maximize2 className="h-2.5 w-2.5 mr-0.5" />Celý riadok</Badge>}
+            {sectionName && <Badge variant="secondary" className="text-[9px] shrink-0 max-w-[100px] truncate">{sectionName}</Badge>}
+            {(field.columnSpan || 1) > 1 && <Badge variant="secondary" className="text-[10px] shrink-0"><Maximize2 className="h-2.5 w-2.5" /></Badge>}
             {!field.isVisible && <EyeOff className="h-3 w-3 text-muted-foreground shrink-0" />}
-            {(rules.minLength || rules.maxLength || rules.pattern || rules.min || rules.max) && (
-              <Badge variant="secondary" className="text-[10px] shrink-0">validácia</Badge>
-            )}
           </CollapsibleTrigger>
           <CollapsibleContent>
             <div className="mt-2 space-y-3 pb-2 px-1">
@@ -537,7 +563,12 @@ function FieldEditor({ field, index, sectionsOptions, onUpdate, onRemove, onMove
   );
 }
 
-function LayoutPreview({ sections, fields, brandColor }: { sections: any[]; fields: any[]; brandColor: string }) {
+function LayoutPreview({ sections, fields, formData }: { sections: any[]; fields: any[]; formData: any }) {
+  const brandColor = formData.brandColor || "#16a34a";
+  const textColor = formData.textColor || "#ffffff";
+  const sectionColor = formData.sectionColor || brandColor;
+  const bgColor = formData.bgColor || "#f3f4f6";
+
   const grouped = useMemo(() => {
     const result: Array<{ section: any; fields: any[] }> = [];
     const fieldsBySection: Map<string, any[]> = new Map();
@@ -574,41 +605,43 @@ function LayoutPreview({ sections, fields, brandColor }: { sections: any[]; fiel
   }, [sections, fields]);
 
   return (
-    <div className="bg-gray-50 rounded-xl overflow-hidden border">
+    <div className="rounded-xl overflow-hidden border" style={{ backgroundColor: bgColor }}>
       <div className="py-4 px-5 text-center" style={{ backgroundColor: brandColor }}>
-        <div className="text-white/80 text-[10px] font-medium tracking-wider mb-1">CORD BLOOD CENTER</div>
-        <div className="text-white font-bold text-sm">Mám záujem o odber</div>
+        <div className="text-[10px] font-bold tracking-[0.2em] mb-1" style={{ color: textColor + "cc" }}>CORD BLOOD CENTER</div>
+        <div className="font-bold text-sm mb-1" style={{ color: textColor }}>{formData.headerTitle || "Mám záujem o odber"}</div>
+        {formData.headerSubtitle && <div className="text-[9px] leading-tight" style={{ color: textColor + "cc" }}>{formData.headerSubtitle}</div>}
+        {formData.contactInfo && <div className="text-[8px] mt-1" style={{ color: textColor + "99" }}>{formData.contactInfo}</div>}
       </div>
 
       <div className="bg-white mx-3 -mt-2 rounded-xl shadow-sm mb-3 overflow-hidden">
-        <div className="p-4 space-y-4">
+        <div className="p-4 space-y-3">
           {grouped.map((group, gi) => {
             const cols = group.section?.columns || 2;
             return (
               <div key={gi}>
                 {group.section?.title && (
                   <div className="flex items-center gap-2 mb-2">
-                    <div className="h-px flex-1" style={{ backgroundColor: brandColor + "30" }} />
-                    <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: brandColor }}>
+                    <div className="h-px flex-1" style={{ backgroundColor: sectionColor + "30" }} />
+                    <span className="text-[9px] font-bold uppercase tracking-wider" style={{ color: sectionColor }}>
                       {group.section.title}
                     </span>
-                    <div className="h-px flex-1" style={{ backgroundColor: brandColor + "30" }} />
+                    <div className="h-px flex-1" style={{ backgroundColor: sectionColor + "30" }} />
                   </div>
                 )}
-                <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
+                <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
                   {group.fields.map((field: any, fi: number) => {
                     const span = Math.min(field.columnSpan || 1, cols);
                     return (
                       <div
                         key={fi}
-                        className="border border-dashed border-gray-200 rounded-md p-2 bg-gray-50/50"
+                        className="border border-dashed border-gray-200 rounded-md p-1.5 bg-gray-50/50"
                         style={{ gridColumn: span > 1 ? `span ${span}` : undefined }}
                       >
                         <div className="flex items-center gap-1">
-                          <span className="text-[10px] text-gray-500 truncate">{field.label}</span>
-                          {field.isRequired && <span className="text-red-400 text-[10px]">*</span>}
+                          <span className="text-[9px] text-gray-500 truncate">{field.label}</span>
+                          {field.isRequired && <span className="text-red-400 text-[9px]">*</span>}
                         </div>
-                        <div className="mt-1 h-5 rounded bg-gray-100 border border-gray-200" />
+                        <div className="mt-0.5 h-4 rounded bg-gray-100 border border-gray-200" />
                       </div>
                     );
                   })}
@@ -617,18 +650,14 @@ function LayoutPreview({ sections, fields, brandColor }: { sections: any[]; fiel
             );
           })}
 
-          <div className="border-t pt-2 space-y-1.5">
-            <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 rounded border border-gray-300" />
-              <span className="text-[9px] text-gray-400">GDPR súhlas</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 rounded border border-gray-300" />
-              <span className="text-[9px] text-gray-400">Tehotenstvo</span>
+          <div className="border-t pt-1.5 space-y-1">
+            <div className="flex items-center gap-1">
+              <div className="w-2.5 h-2.5 rounded border border-gray-300" />
+              <span className="text-[8px] text-gray-400">GDPR súhlas</span>
             </div>
           </div>
 
-          <div className="rounded-lg h-8 flex items-center justify-center text-white text-[10px] font-semibold" style={{ backgroundColor: brandColor }}>
+          <div className="rounded-md h-6 flex items-center justify-center text-white text-[9px] font-semibold" style={{ backgroundColor: brandColor }}>
             Odoslať žiadosť
           </div>
         </div>
@@ -653,7 +682,7 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
   useEffect(() => {
     if (formDetail && !hydrated) {
       setEditSections((formDetail.sections || []).map((s: any) => ({ ...s, columns: s.columns || 2 })));
-      setEditFields((formDetail.fields || []).map((f: any) => ({ ...f, columnSpan: f.columnSpan || 1 })));
+      setEditFields((formDetail.fields || []).map((f: any, i: number) => ({ ...f, columnSpan: f.columnSpan || 1, _key: f.id || `field-${Date.now()}-${i}` })));
       setHydrated(true);
     }
   }, [formDetail, hydrated]);
@@ -676,7 +705,8 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
     const sectionColMap = new Map(editSections.map((s: any) => [s.id, s.columns || 2]));
     const normalizedFields = editFields.map((f: any, i: number) => {
       const maxCols = f.sectionId ? (sectionColMap.get(f.sectionId) || 2) : 2;
-      return { ...f, sortOrder: i, columnSpan: Math.min(f.columnSpan || 1, maxCols) };
+      const { _key, ...rest } = f;
+      return { ...rest, sortOrder: i, columnSpan: Math.min(f.columnSpan || 1, maxCols) };
     });
     updateMutation.mutate({
       ...formData,
@@ -705,6 +735,7 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
 
   const addField = (fieldDef: typeof CUSTOMER_FIELDS[0] | typeof SPECIAL_FIELDS[0]) => {
     setEditFields(prev => [...prev, {
+      _key: `new-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       customerField: fieldDef.key,
       fieldType: fieldDef.type,
       label: fieldDef.label,
@@ -723,6 +754,7 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
 
   const addCustomField = () => {
     setEditFields(prev => [...prev, {
+      _key: `custom-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       customerField: null,
       fieldType: "text",
       label: "Nové pole",
@@ -761,34 +793,35 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
 
   return (
     <Sheet open onOpenChange={(o) => !o && onClose()}>
-      <SheetContent className="sm:max-w-[900px] overflow-y-auto">
+      <SheetContent className="sm:max-w-[1100px] overflow-y-auto">
         <SheetHeader>
           <SheetTitle>Upraviť formulár: {form.name}</SheetTitle>
         </SheetHeader>
         <div className="space-y-6 mt-6">
           <Tabs defaultValue="layout">
-            <TabsList className="grid grid-cols-5">
+            <TabsList className="grid grid-cols-6 w-full">
               <TabsTrigger value="layout" data-testid="tab-layout">
                 <LayoutGrid className="h-3.5 w-3.5 mr-1" /> Rozloženie
               </TabsTrigger>
               <TabsTrigger value="fields">Polia ({editFields.length})</TabsTrigger>
               <TabsTrigger value="sections">Sekcie ({editSections.length})</TabsTrigger>
+              <TabsTrigger value="design"><Palette className="h-3.5 w-3.5 mr-1" /> Dizajn</TabsTrigger>
               <TabsTrigger value="settings">Základné</TabsTrigger>
               <TabsTrigger value="texts">Texty & GDPR</TabsTrigger>
             </TabsList>
 
             <TabsContent value="layout" className="mt-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
+              <div className="grid grid-cols-5 gap-4">
+                <div className="col-span-2">
                   <h4 className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wider">Náhľad rozloženia</h4>
                   <LayoutPreview
                     sections={editSections}
                     fields={editFields}
-                    brandColor={formData.brandColor || "#16a34a"}
+                    formData={formData}
                   />
                 </div>
 
-                <div className="space-y-3">
+                <div className="col-span-3 space-y-3">
                   <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Sekcie a stĺpce</h4>
                   {editSections.map((section: any, idx: number) => {
                     const sectionFields = editFields.filter((f: any) => f.sectionId === section.id);
@@ -846,7 +879,7 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
                   <Separator />
                   <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Rýchle pridanie polí</h4>
                   <div className="flex flex-wrap gap-1">
-                    {availableFields.slice(0, 8).map(f => (
+                    {availableFields.slice(0, 10).map(f => (
                       <Button key={f.key} size="sm" variant="outline" className="h-6 text-[10px]" onClick={() => addField(f)}>
                         <Plus className="h-2.5 w-2.5 mr-0.5" /> {f.label}
                       </Button>
@@ -859,11 +892,41 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
               </div>
             </TabsContent>
 
+            <TabsContent value="design" className="mt-4 space-y-5">
+              <div className="grid grid-cols-5 gap-6">
+                <div className="col-span-3 space-y-4">
+                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Farby a vzhľad</h4>
+                  <div className="grid grid-cols-3 gap-3">
+                    <ColorInput label="Hlavná farba (header)" value={formData.brandColor || "#16a34a"} onChange={v => setFormData({ ...formData, brandColor: v })} />
+                    <ColorInput label="Farba písma (header)" value={formData.textColor || "#ffffff"} onChange={v => setFormData({ ...formData, textColor: v })} />
+                    <ColorInput label="Farba nadpisov sekcií" value={formData.sectionColor || formData.brandColor || "#16a34a"} onChange={v => setFormData({ ...formData, sectionColor: v })} />
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    <ColorInput label="Pozadie stránky" value={formData.bgColor || "#f3f4f6"} onChange={v => setFormData({ ...formData, bgColor: v })} />
+                    <ColorInput label="Farba nadpisu" value={formData.headingColor || "#ffffff"} onChange={v => setFormData({ ...formData, headingColor: v })} />
+                    <div className="space-y-1">
+                      <Label className="text-[11px] text-muted-foreground">Šírka formulára</Label>
+                      <Select value={formData.formWidth || "3xl"} onValueChange={v => setFormData({ ...formData, formWidth: v })}>
+                        <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {FORM_WIDTHS.map(w => <SelectItem key={w.value} value={w.value}>{w.label}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+                <div className="col-span-2">
+                  <h4 className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wider">Náhľad</h4>
+                  <LayoutPreview sections={editSections} fields={editFields} formData={formData} />
+                </div>
+              </div>
+            </TabsContent>
+
             <TabsContent value="fields" className="space-y-3 mt-4">
               <div className="space-y-1.5">
                 {editFields.map((field: any, idx: number) => (
                   <FieldEditor
-                    key={idx}
+                    key={field._key || field.id || idx}
                     field={field}
                     index={idx}
                     sectionsOptions={editSections.map((s: any) => ({ id: s.id, title: s.title, columns: s.columns || 2 }))}
@@ -964,11 +1027,19 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Farba značky</Label>
-                  <div className="flex gap-2">
-                    <input type="color" value={formData.brandColor || "#16a34a"} onChange={e => setFormData({ ...formData, brandColor: e.target.value })} className="h-9 w-12 rounded border cursor-pointer" />
-                    <Input value={formData.brandColor || "#16a34a"} onChange={e => setFormData({ ...formData, brandColor: e.target.value })} className="flex-1" />
-                  </div>
+                  <Label className="text-xs">Jazyk</Label>
+                  <Select value={formData.language || "sk"} onValueChange={v => setFormData({ ...formData, language: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="sk">Slovenčina</SelectItem>
+                      <SelectItem value="cs">Čeština</SelectItem>
+                      <SelectItem value="hu">Maďarčina</SelectItem>
+                      <SelectItem value="ro">Rumunčina</SelectItem>
+                      <SelectItem value="it">Taliančina</SelectItem>
+                      <SelectItem value="de">Nemčina</SelectItem>
+                      <SelectItem value="en">Angličtina</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             </TabsContent>
@@ -981,6 +1052,10 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
               <div className="space-y-1">
                 <Label className="text-xs">Podnadpis</Label>
                 <Textarea value={formData.headerSubtitle || ""} onChange={e => setFormData({ ...formData, headerSubtitle: e.target.value })} rows={2} data-testid="input-header-subtitle" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Kontaktné informácie (pod nadpisom)</Label>
+                <Input value={formData.contactInfo || ""} onChange={e => setFormData({ ...formData, contactInfo: e.target.value })} placeholder="Napr. Tel.: +421 2 321 654 00 | info@cordbloodcenter.sk" data-testid="input-contact-info" />
               </div>
               <Separator />
               <div className="space-y-1">

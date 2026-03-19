@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, CheckCircle2, AlertCircle, Send, Shield, Baby } from "lucide-react";
+import { Loader2, CheckCircle2, AlertCircle, Send, Shield } from "lucide-react";
 
 interface FormConfig {
   form: any;
@@ -90,6 +90,16 @@ function validateFieldValue(value: any, field: any): string | null {
   return null;
 }
 
+const WIDTH_MAP: Record<string, string> = {
+  xl: "max-w-xl",
+  "2xl": "max-w-2xl",
+  "3xl": "max-w-3xl",
+  "4xl": "max-w-4xl",
+  "5xl": "max-w-5xl",
+  "6xl": "max-w-6xl",
+  full: "max-w-full px-4 sm:px-8",
+};
+
 export default function PublicFormPage() {
   const params = useParams<{ slug: string }>();
   const slug = params.slug;
@@ -113,6 +123,20 @@ export default function PublicFormPage() {
 
   useEffect(() => {
     if (!slug) return;
+    setLoading(true);
+    setStep("form");
+    setErrors({});
+    setTouched({});
+    setGdprAccepted(false);
+    setPregnancyAccepted(false);
+    setNewsletterAccepted(false);
+    setOtpCode("");
+    setOtpEmail("");
+    setOtpError("");
+    setExistingCustomerId(null);
+    setIsOtpVerified(false);
+    setVerificationToken(null);
+    setSubmitError("");
     fetch(`/api/public/web-form/${slug}`)
       .then(r => { if (!r.ok) throw new Error("Not found"); return r.json(); })
       .then(data => {
@@ -188,6 +212,14 @@ export default function PublicFormPage() {
           return e;
         });
       }
+    }
+    if ((key === "firstName" || key === "lastName" || key === "email") && isOtpVerified) {
+      setIsOtpVerified(false);
+      setExistingCustomerId(null);
+      setVerificationToken(null);
+      setOtpCode("");
+      setOtpEmail("");
+      setOtpError("");
     }
   };
 
@@ -345,10 +377,16 @@ export default function PublicFormPage() {
   }
 
   const brandColor = config.form.brandColor || "#16a34a";
+  const textColor = config.form.textColor || "#ffffff";
+  const headingColor = config.form.headingColor || "#ffffff";
+  const sectionColor = config.form.sectionColor || brandColor;
+  const bgColor = config.form.bgColor || "#f3f4f6";
+  const formWidth = config.form.formWidth || "3xl";
+  const widthClass = WIDTH_MAP[formWidth] || "max-w-3xl";
 
   if (step === "success") {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50" data-testid="text-form-success">
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: bgColor }} data-testid="text-form-success">
         <div className="max-w-md mx-auto text-center p-8 bg-white rounded-2xl shadow-lg">
           <div className="w-20 h-20 rounded-full mx-auto mb-6 flex items-center justify-center" style={{ backgroundColor: brandColor + "15" }}>
             <CheckCircle2 className="h-10 w-10" style={{ color: brandColor }} />
@@ -362,7 +400,7 @@ export default function PublicFormPage() {
 
   if (step === "error") {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: bgColor }}>
         <div className="max-w-md mx-auto text-center p-8 bg-white rounded-2xl shadow-lg">
           <AlertCircle className="h-16 w-16 mx-auto mb-4 text-red-400" />
           <h2 className="text-xl font-bold mb-3 text-red-600">Chyba pri odoslaní</h2>
@@ -375,7 +413,7 @@ export default function PublicFormPage() {
 
   if (step === "otp_check") {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+      <div className="min-h-screen flex items-center justify-center p-4" style={{ backgroundColor: bgColor }}>
         <div className="max-w-md w-full bg-white rounded-2xl shadow-lg p-8">
           <div className="text-center mb-6">
             <Shield className="h-12 w-12 mx-auto mb-3" style={{ color: brandColor }} />
@@ -399,7 +437,7 @@ export default function PublicFormPage() {
 
   if (step === "otp_verify") {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+      <div className="min-h-screen flex items-center justify-center p-4" style={{ backgroundColor: bgColor }}>
         <div className="max-w-md w-full bg-white rounded-2xl shadow-lg p-8">
           <div className="text-center mb-6">
             <Shield className="h-12 w-12 mx-auto mb-3" style={{ color: brandColor }} />
@@ -588,23 +626,29 @@ export default function PublicFormPage() {
   const errorCount = Object.keys(errors).length;
 
   return (
-    <div className="min-h-screen bg-gray-100" data-testid="public-form-container">
+    <div className="min-h-screen" style={{ backgroundColor: bgColor }} data-testid="public-form-container">
       <div className="w-full py-8 px-4" style={{ backgroundColor: brandColor }}>
-        <div className="max-w-3xl mx-auto text-center">
-          <div className="flex items-center justify-center gap-3 mb-4">
-            <Baby className="h-9 w-9 text-white" />
-            <span className="text-white/90 text-sm font-semibold tracking-wider uppercase">Cord Blood Center</span>
+        <div className={`${widthClass} mx-auto text-center`}>
+          <div className="font-bold text-sm tracking-[0.2em] uppercase mb-3" style={{ color: textColor + "cc" }}>
+            CORD BLOOD CENTER
           </div>
-          <h1 className="text-2xl md:text-3xl font-bold text-white mb-3" data-testid="text-form-header">
+          <h1 className="text-2xl md:text-3xl font-bold mb-3" style={{ color: headingColor }} data-testid="text-form-header">
             {config.form.headerTitle || "Registračný formulár"}
           </h1>
           {config.form.headerSubtitle && (
-            <p className="text-white/85 text-sm md:text-base max-w-2xl mx-auto leading-relaxed">{config.form.headerSubtitle}</p>
+            <p className="text-sm md:text-base leading-relaxed mb-2" style={{ color: textColor + "dd" }}>
+              {config.form.headerSubtitle}
+            </p>
+          )}
+          {config.form.contactInfo && (
+            <p className="text-xs md:text-sm mt-2" style={{ color: textColor + "aa" }}>
+              {config.form.contactInfo}
+            </p>
           )}
         </div>
       </div>
 
-      <div className="max-w-3xl mx-auto -mt-6 px-4 pb-12">
+      <div className={`${widthClass} mx-auto -mt-6 px-4 pb-12`}>
         <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
           <div className="p-6 md:p-10 space-y-8">
             {isOtpVerified && (
@@ -622,11 +666,11 @@ export default function PublicFormPage() {
                 <div key={gi} className="space-y-5">
                   {group.section?.title && (
                     <div className="flex items-center gap-3 pt-2">
-                      <div className="h-[2px] flex-1 rounded-full" style={{ backgroundColor: brandColor + "25" }} />
-                      <h3 className="text-xs font-bold uppercase tracking-[0.15em] px-3 whitespace-nowrap" style={{ color: brandColor }}>
+                      <div className="h-[2px] flex-1 rounded-full" style={{ backgroundColor: sectionColor + "25" }} />
+                      <h3 className="text-xs font-bold uppercase tracking-[0.15em] px-3 whitespace-nowrap" style={{ color: sectionColor }}>
                         {group.section.title}
                       </h3>
-                      <div className="h-[2px] flex-1 rounded-full" style={{ backgroundColor: brandColor + "25" }} />
+                      <div className="h-[2px] flex-1 rounded-full" style={{ backgroundColor: sectionColor + "25" }} />
                     </div>
                   )}
                   <div className={`grid gap-x-5 gap-y-4 ${gridCols}`}>
