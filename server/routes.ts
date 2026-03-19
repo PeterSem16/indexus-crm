@@ -33413,7 +33413,7 @@ Return ONLY the JSON object.`
       const { testEmail } = req.body;
       if (!testEmail) return res.status(400).json({ error: "Email is required" });
 
-      const form = await storage.getWebFormById(req.params.id);
+      const form = await storage.getWebForm(req.params.id);
       if (!form) return res.status(404).json({ error: "Form not found" });
 
       const billingCompanies = await storage.getBillingDetailsByCountry(form.countryCode);
