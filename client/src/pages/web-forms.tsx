@@ -1793,7 +1793,100 @@ function SubmissionsSheet({ formId, onClose }: { formId: string; onClose: () => 
     },
   });
 
+  const { data: refData } = useQuery<{ hospitals: any[]; healthInsuranceCompanies: any[]; productSets: any[] }>({
+    queryKey: ["/api/web-forms", formId, "ref-data"],
+    queryFn: async () => {
+      const [h, hi, ps] = await Promise.all([
+        fetch("/api/hospitals", { credentials: "include" }).then(r => r.ok ? r.json() : []),
+        fetch("/api/health-insurance", { credentials: "include" }).then(r => r.ok ? r.json() : []),
+        fetch("/api/product-sets", { credentials: "include" }).then(r => r.ok ? r.json() : []),
+      ]);
+      return { hospitals: h, healthInsuranceCompanies: hi, productSets: ps };
+    },
+  });
+
   const [selectedSubmission, setSelectedSubmission] = useState<any>(null);
+
+  const fieldLabels: Record<string, string> = {
+    firstName: "Meno",
+    lastName: "Priezvisko",
+    email: "Email",
+    phone: "Telefón",
+    mobile: "Mobil",
+    dateOfBirth: "Dátum narodenia",
+    nationalId: "Rodné číslo",
+    address: "Adresa",
+    city: "Mesto",
+    postalCode: "PSČ",
+    region: "Kraj",
+    country: "Krajina",
+    useCorrespondenceAddress: "Korešpondenčná adresa",
+    corrName: "Korešp. meno",
+    corrAddress: "Korešp. adresa",
+    corrCity: "Korešp. mesto",
+    corrPostalCode: "Korešp. PSČ",
+    corrRegion: "Korešp. kraj",
+    corrCountry: "Korešp. krajina",
+    productSetId: "Produkt",
+    hospitalId: "Nemocnica",
+    healthInsuranceId: "Zdravotná poisťovňa",
+    expectedDeliveryDate: "Predpokladaný termín pôrodu",
+    expectedDueDate: "Predpokladaný termín pôrodu",
+    paymentMethod: "Spôsob platby",
+    howDidYouHear: "Ako ste sa o nás dozvedeli",
+    newsletter: "Newsletter",
+    notes: "Poznámky",
+    partnerName: "Meno partnera",
+    partnerPhone: "Telefón partnera",
+    partnerEmail: "Email partnera",
+    gynecologist: "Gynekológ",
+    gynecologistPhone: "Telefón gynekológa",
+    iban: "IBAN",
+  };
+
+  const paymentLabels: Record<string, string> = {
+    bank_transfer: "Bankový prevod",
+    installments: "Splátky",
+    cash: "Hotovosť",
+    card: "Kartou",
+  };
+
+  const formatValue = (key: string, value: any): string => {
+    if (value === null || value === undefined || value === "") return "—";
+
+    if (key === "healthInsuranceId" && refData?.healthInsuranceCompanies) {
+      const found = refData.healthInsuranceCompanies.find((c: any) => c.id === value);
+      if (found) return found.name;
+    }
+    if (key === "hospitalId" && refData?.hospitals) {
+      const found = refData.hospitals.find((h: any) => h.id === value);
+      if (found) return found.name;
+    }
+    if (key === "productSetId" && refData?.productSets) {
+      const found = refData.productSets.find((p: any) => p.id === value);
+      if (found) return found.name;
+    }
+    if (key === "paymentMethod") {
+      return paymentLabels[value] || String(value);
+    }
+    if ((key === "dateOfBirth" || key === "expectedDeliveryDate" || key === "expectedDueDate") && typeof value === "string" && /^\d{4}-\d{2}-\d{2}/.test(value)) {
+      const d = new Date(value);
+      if (!isNaN(d.getTime())) {
+        return `${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}.${d.getFullYear()}`;
+      }
+    }
+    if (key === "useCorrespondenceAddress") {
+      return value ? "Áno" : "Nie";
+    }
+    if (key === "newsletter") {
+      return value === true || value === "true" ? "Áno" : "Nie";
+    }
+    if (key === "country") {
+      const countries: Record<string, string> = { SK: "Slovensko", CZ: "Česko", HU: "Maďarsko", AT: "Rakúsko", PL: "Poľsko" };
+      return countries[value] || String(value);
+    }
+    return String(value);
+  };
 
   return (
     <Sheet open onOpenChange={(o) => !o && onClose()}>
@@ -1845,8 +1938,8 @@ function SubmissionsSheet({ formId, onClose }: { formId: string; onClose: () => 
               <div className="space-y-2 max-h-[60vh] overflow-y-auto">
                 {Object.entries(JSON.parse(selectedSubmission.data || "{}")).map(([key, value]) => (
                   <div key={key} className="flex justify-between text-sm border-b pb-1">
-                    <span className="text-muted-foreground">{key}</span>
-                    <span className="font-medium">{String(value || "—")}</span>
+                    <span className="text-muted-foreground">{fieldLabels[key] || key}</span>
+                    <span className="font-medium text-right max-w-[60%]">{formatValue(key, value)}</span>
                   </div>
                 ))}
               </div>
