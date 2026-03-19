@@ -364,7 +364,7 @@ export default function PublicFormPage() {
     }
   };
 
-  const validate = (): boolean => {
+  const validate = (): Record<string, string> => {
     const errs: Record<string, string> = {};
     const corrFieldKeys = ["corrName","corrAddress","corrCity","corrPostalCode","corrRegion","corrCountry"];
     for (const field of fields) {
@@ -379,11 +379,15 @@ export default function PublicFormPage() {
     const allTouched: Record<string, boolean> = {};
     fields.forEach((f: any) => { allTouched[getFieldKey(f)] = true; });
     setTouched(allTouched);
-    return Object.keys(errs).length === 0;
+    return errs;
   };
 
   const handleSubmit = async () => {
-    if (!validate()) return;
+    const errs = validate();
+    if (Object.keys(errs).length > 0) {
+      console.log("[WebForm] Validation failed:", JSON.stringify(errs));
+      return;
+    }
 
     if (!existingCustomerId && !isOtpVerified) {
       const found = await checkExistingCustomer();
@@ -393,6 +397,7 @@ export default function PublicFormPage() {
     setStep("submitting");
     setSubmitError("");
     try {
+      console.log("[WebForm] Submitting...", { customerId: existingCustomerId, isOtpVerified, hasToken: !!verificationToken });
       const res = await fetch(`/api/public/web-form/${slug}/submit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -403,9 +408,11 @@ export default function PublicFormPage() {
         }),
       });
       const data = await res.json();
+      console.log("[WebForm] Response:", res.status, data);
       if (!res.ok) throw new Error(data.error || "Submission failed");
       setStep("success");
     } catch (e: any) {
+      console.error("[WebForm] Submit error:", e.message);
       setSubmitError(e.message);
       setStep("error");
     }

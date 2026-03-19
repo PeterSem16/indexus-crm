@@ -33154,11 +33154,13 @@ Return ONLY the JSON object.`
       const form = await storage.getWebFormBySlug(req.params.slug);
       if (!form || !form.isActive) return res.status(404).json({ error: "Form not found" });
       const { formData, customerId, verificationToken } = req.body;
+      console.log(`[WebForm Submit] slug=${req.params.slug}, customerId=${customerId || 'none'}, hasToken=${!!verificationToken}, email=${formData?.email}`);
       if (!formData) return res.status(400).json({ error: "No form data" });
 
       let isOtpVerified = false;
       if (customerId && verificationToken) {
         const auditLogs = await storage.getWebFormAuditLogs(form.id);
+        console.log(`[WebForm Submit] Found ${auditLogs.length} audit logs, searching for token match...`);
         const matchingLog = auditLogs.find(log => {
           if (log.action !== "otp_verified") return false;
           try {
@@ -33166,8 +33168,12 @@ Return ONLY the JSON object.`
             return details.verificationToken === verificationToken;
           } catch { return false; }
         });
-        if (!matchingLog) return res.status(403).json({ error: "Invalid verification token" });
+        if (!matchingLog) {
+          console.error(`[WebForm Submit] Token verification FAILED - no matching audit log`);
+          return res.status(403).json({ error: "Invalid verification token" });
+        }
         isOtpVerified = true;
+        console.log(`[WebForm Submit] OTP verified successfully for customer ${customerId}`);
       }
 
       const schema = await import("@shared/schema");
@@ -33323,13 +33329,40 @@ Return ONLY the JSON object.`
                     if (!grouped[key]) grouped[key] = [];
                     grouped[key].push(field);
                   }
+                  const insuranceCompanies = await db.select().from(schema.healthInsuranceCompanies)
+                    .where(eq(schema.healthInsuranceCompanies.countryCode, form.countryCode));
+                  const hospitals = await db.select().from(schema.hospitals)
+                    .where(eq(schema.hospitals.countryCode, form.countryCode));
+                  const productSets = await db.select().from(schema.productSets)
+                    .where(eq(schema.productSets.countryCode, form.countryCode));
+                  const insuranceMap = new Map(insuranceCompanies.map((c: any) => [c.id, c.name]));
+                  const hospitalMap = new Map(hospitals.map((h: any) => [h.id, h.name]));
+                  const productSetMap = new Map(productSets.map((p: any) => [p.id, p.name]));
+                  const paymentMethodLabels: Record<string, string> = {
+                    bank_transfer: "Bankový prevod", cash: "Hotovosť", card: "Kartou",
+                    invoice: "Faktúra", installments: "Splátky", other: "Iné",
+                  };
+                  const resolveDisplayValue = (val: any, customerField: string): string => {
+                    if (!val) return "";
+                    const strVal = String(val);
+                    if (customerField === "healthInsuranceId") return insuranceMap.get(strVal) || strVal;
+                    if (customerField === "hospitalId") return hospitalMap.get(strVal) || strVal;
+                    if (customerField === "productSetId") return productSetMap.get(strVal) || strVal;
+                    if (customerField === "paymentMethod") return paymentMethodLabels[strVal] || strVal;
+                    if ((customerField === "dateOfBirth" || customerField === "expectedDueDate") && strVal.match(/^\d{4}-\d{2}-\d{2}/)) {
+                      const parts = strVal.substring(0, 10).split("-");
+                      return `${parts[2]}.${parts[1]}.${parts[0]}`;
+                    }
+                    return strVal;
+                  };
                   for (const [secId, secFields] of Object.entries(grouped)) {
                     const sec = sectionMap.get(secId);
                     if (sec?.title) {
                       html += `<tr><td colspan="2" style="padding:16px 0 8px 0;border-bottom:2px solid ${brandColor}22;"><strong style="color:${brandColor};text-transform:uppercase;font-size:12px;letter-spacing:1px;">${sec.title}</strong></td></tr>`;
                     }
                     for (const field of secFields) {
-                      const val = formData[field.customerField || field.label] || formData[field.id] || "";
+                      const rawVal = formData[field.customerField || field.label] || formData[field.id] || "";
+                      const val = resolveDisplayValue(rawVal, field.customerField || "");
                       if (val) {
                         html += `<tr><td style="padding:6px 12px 6px 0;color:#6b7280;font-size:13px;white-space:nowrap;vertical-align:top;">${field.label}</td><td style="padding:6px 0;color:#111827;font-size:13px;">${val}</td></tr>`;
                       }
