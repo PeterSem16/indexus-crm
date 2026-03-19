@@ -23,69 +23,89 @@ import {
 } from "lucide-react";
 import type { WebForm, WebFormSubmission } from "@shared/schema";
 
-const COUNTRIES = [
-  { code: "SK", name: "Slovensko", lang: "sk", flag: "🇸🇰" },
-  { code: "CZ", name: "Česko", lang: "cs", flag: "🇨🇿" },
-  { code: "HU", name: "Maďarsko", lang: "hu", flag: "🇭🇺" },
-  { code: "RO", name: "Rumunsko", lang: "ro", flag: "🇷🇴" },
-  { code: "IT", name: "Taliansko", lang: "it", flag: "🇮🇹" },
-  { code: "DE", name: "Nemecko", lang: "de", flag: "🇩🇪" },
-  { code: "GB", name: "UK", lang: "en", flag: "🇬🇧" },
+const COUNTRIES_DATA = [
+  { code: "SK", nameKey: "countrySK" as const, lang: "sk", flag: "🇸🇰" },
+  { code: "CZ", nameKey: "countryCZ" as const, lang: "cs", flag: "🇨🇿" },
+  { code: "HU", nameKey: "countryHU" as const, lang: "hu", flag: "🇭🇺" },
+  { code: "RO", nameKey: "countryRO" as const, lang: "ro", flag: "🇷🇴" },
+  { code: "IT", nameKey: "countryIT" as const, lang: "it", flag: "🇮🇹" },
+  { code: "DE", nameKey: "countryDE" as const, lang: "de", flag: "🇩🇪" },
+  { code: "GB", nameKey: "countryGB" as const, lang: "en", flag: "🇬🇧" },
 ];
 
-const FIELD_TYPES = [
-  { value: "text", label: "Text" },
-  { value: "email", label: "Email" },
-  { value: "tel", label: "Telefón" },
-  { value: "date", label: "Dátum" },
-  { value: "number", label: "Číslo" },
-  { value: "checkbox", label: "Zaškrtávacie políčko" },
-  { value: "select", label: "Výber (vlastné možnosti)" },
-  { value: "select_insurance", label: "Zdravotná poisťovňa" },
-  { value: "select_hospital", label: "Nemocnica" },
-  { value: "select_product", label: "Typ odberu (zostava)" },
-  { value: "select_source", label: "Ako ste sa dozvedeli" },
-  { value: "select_payment", label: "Spôsob platby" },
-  { value: "textarea", label: "Textové pole (veľké)" },
-];
+const COUNTRY_NAMES: Record<string, Record<string, string>> = {
+  SK: { sk: "Slovensko", cs: "Slovensko", en: "Slovakia", hu: "Szlovákia", ro: "Slovacia", it: "Slovacchia", de: "Slowakei" },
+  CZ: { sk: "Česko", cs: "Česko", en: "Czech Republic", hu: "Csehország", ro: "Cehia", it: "Repubblica Ceca", de: "Tschechien" },
+  HU: { sk: "Maďarsko", cs: "Maďarsko", en: "Hungary", hu: "Magyarország", ro: "Ungaria", it: "Ungheria", de: "Ungarn" },
+  RO: { sk: "Rumunsko", cs: "Rumunsko", en: "Romania", hu: "Románia", ro: "România", it: "Romania", de: "Rumänien" },
+  IT: { sk: "Taliansko", cs: "Itálie", en: "Italy", hu: "Olaszország", ro: "Italia", it: "Italia", de: "Italien" },
+  DE: { sk: "Nemecko", cs: "Německo", en: "Germany", hu: "Németország", ro: "Germania", it: "Germania", de: "Deutschland" },
+  GB: { sk: "UK", cs: "UK", en: "UK", hu: "UK", ro: "UK", it: "UK", de: "UK" },
+};
 
-const CUSTOMER_FIELDS = [
-  { key: "firstName", label: "Meno", type: "text", section: "personal" },
-  { key: "lastName", label: "Priezvisko", type: "text", section: "personal" },
-  { key: "maidenName", label: "Rodné priezvisko", type: "text", section: "personal" },
-  { key: "titleBefore", label: "Titul pred", type: "text", section: "personal" },
-  { key: "titleAfter", label: "Titul za", type: "text", section: "personal" },
-  { key: "email", label: "Email", type: "email", section: "personal" },
-  { key: "phone", label: "Telefón", type: "tel", section: "personal" },
-  { key: "mobile", label: "Mobil", type: "tel", section: "personal" },
-  { key: "dateOfBirth", label: "Dátum narodenia", type: "date", section: "personal" },
-  { key: "nationalId", label: "Rodné číslo", type: "text", section: "personal" },
-  { key: "idCardNumber", label: "Číslo OP", type: "text", section: "personal" },
-  { key: "address", label: "Ulica a číslo", type: "text", section: "address" },
-  { key: "city", label: "Mesto", type: "text", section: "address" },
-  { key: "postalCode", label: "PSČ", type: "text", section: "address" },
-  { key: "region", label: "Kraj", type: "text", section: "address" },
-  { key: "healthInsuranceId", label: "Zdravotná poisťovňa", type: "select_insurance", section: "medical" },
-  { key: "bankAccount", label: "IBAN", type: "text", section: "banking" },
-  { key: "bankName", label: "Názov banky", type: "text", section: "banking" },
-  { key: "bankSwift", label: "SWIFT/BIC", type: "text", section: "banking" },
-  { key: "useCorrespondenceAddress", label: "Iná korešpondenčná adresa", type: "checkbox", section: "address" },
-  { key: "corrName", label: "Meno príjemcu (kor.)", type: "text", section: "correspondence" },
-  { key: "corrAddress", label: "Ulica a číslo (kor.)", type: "text", section: "correspondence" },
-  { key: "corrCity", label: "Mesto (kor.)", type: "text", section: "correspondence" },
-  { key: "corrPostalCode", label: "PSČ (kor.)", type: "text", section: "correspondence" },
-  { key: "corrRegion", label: "Kraj (kor.)", type: "text", section: "correspondence" },
-  { key: "corrCountry", label: "Krajina (kor.)", type: "text", section: "correspondence" },
-  { key: "newsletter", label: "Newsletter", type: "checkbox", section: "consent" },
-];
+function getCountryName(code: string, locale: string): string {
+  return COUNTRY_NAMES[code]?.[locale] || COUNTRY_NAMES[code]?.en || code;
+}
 
-const SPECIAL_FIELDS = [
-  { key: "productSetId", label: "Typ odberu (zostava)", type: "select_product", section: "delivery" },
-  { key: "hospitalId", label: "Nemocnica", type: "select_hospital", section: "delivery" },
-  { key: "expectedDeliveryDate", label: "Predpokladaný termín pôrodu", type: "date", section: "delivery" },
-  { key: "howDidYouHear", label: "Ako ste sa o nás dozvedeli", type: "select_source", section: "source" },
-  { key: "paymentMethod", label: "Spôsob platby", type: "select_payment", section: "delivery" },
-];
+function getFieldTypes(t: any) {
+  return [
+    { value: "text", label: t.webForms.fieldText },
+    { value: "email", label: t.webForms.fieldEmail },
+    { value: "tel", label: t.webForms.fieldPhone },
+    { value: "date", label: t.webForms.fieldDate },
+    { value: "number", label: t.webForms.fieldNumber },
+    { value: "checkbox", label: t.webForms.fieldCheckbox },
+    { value: "select", label: t.webForms.fieldSelect },
+    { value: "select_insurance", label: t.webForms.fieldInsurance },
+    { value: "select_hospital", label: t.webForms.fieldHospital },
+    { value: "select_product", label: t.webForms.fieldProduct },
+    { value: "select_source", label: t.webForms.fieldSource },
+    { value: "select_payment", label: t.webForms.fieldPayment },
+    { value: "textarea", label: t.webForms.fieldTextarea },
+  ];
+}
+
+function getCustomerFields(t: any) {
+  return [
+    { key: "firstName", label: t.webForms.firstName, type: "text", section: "personal" },
+    { key: "lastName", label: t.webForms.lastName, type: "text", section: "personal" },
+    { key: "maidenName", label: t.webForms.maidenName, type: "text", section: "personal" },
+    { key: "titleBefore", label: t.webForms.titleBefore, type: "text", section: "personal" },
+    { key: "titleAfter", label: t.webForms.titleAfter, type: "text", section: "personal" },
+    { key: "email", label: t.webForms.email, type: "email", section: "personal" },
+    { key: "phone", label: t.webForms.phone, type: "tel", section: "personal" },
+    { key: "mobile", label: t.webForms.mobile, type: "tel", section: "personal" },
+    { key: "dateOfBirth", label: t.webForms.dateOfBirth, type: "date", section: "personal" },
+    { key: "nationalId", label: t.webForms.nationalId, type: "text", section: "personal" },
+    { key: "idCardNumber", label: t.webForms.idCardNumber, type: "text", section: "personal" },
+    { key: "address", label: t.webForms.streetAndNumber, type: "text", section: "address" },
+    { key: "city", label: t.webForms.city, type: "text", section: "address" },
+    { key: "postalCode", label: t.webForms.postalCode, type: "text", section: "address" },
+    { key: "region", label: t.webForms.region, type: "text", section: "address" },
+    { key: "healthInsuranceId", label: t.webForms.healthInsurance, type: "select_insurance", section: "medical" },
+    { key: "bankAccount", label: t.webForms.iban, type: "text", section: "banking" },
+    { key: "bankName", label: t.webForms.bankName, type: "text", section: "banking" },
+    { key: "bankSwift", label: t.webForms.swift, type: "text", section: "banking" },
+    { key: "useCorrespondenceAddress", label: t.webForms.correspondenceAddr, type: "checkbox", section: "address" },
+    { key: "corrName", label: t.webForms.corrRecipient, type: "text", section: "correspondence" },
+    { key: "corrAddress", label: t.webForms.corrStreet, type: "text", section: "correspondence" },
+    { key: "corrCity", label: t.webForms.corrCity, type: "text", section: "correspondence" },
+    { key: "corrPostalCode", label: t.webForms.corrPostalCode, type: "text", section: "correspondence" },
+    { key: "corrRegion", label: t.webForms.corrRegion, type: "text", section: "correspondence" },
+    { key: "corrCountry", label: t.webForms.corrCountry, type: "text", section: "correspondence" },
+    { key: "newsletter", label: t.webForms.newsletterLabel, type: "checkbox", section: "consent" },
+  ];
+}
+
+function getSpecialFields(t: any) {
+  return [
+    { key: "productSetId", label: t.webForms.productType, type: "select_product", section: "delivery" },
+    { key: "hospitalId", label: t.webForms.hospital, type: "select_hospital", section: "delivery" },
+    { key: "expectedDeliveryDate", label: t.webForms.expectedDueDate, type: "date", section: "delivery" },
+    { key: "howDidYouHear", label: t.webForms.howDidYouHear, type: "select_source", section: "source" },
+    { key: "paymentMethod", label: t.webForms.paymentMethod, type: "select_payment", section: "delivery" },
+  ];
+}
 
 const DEFAULT_SECTIONS = [
   { title: "Údaje o matke", sortOrder: 0, columns: 2 },
@@ -111,23 +131,27 @@ const DEFAULT_FIELDS = [
   { customerField: "howDidYouHear", fieldType: "select_source", label: "Ako ste sa o nás dozvedeli", isRequired: false, sortOrder: 0, sectionIndex: 2, columnSpan: 1 },
 ];
 
-const FORM_WIDTHS = [
-  { value: "xl", label: "Úzky (640px)" },
-  { value: "2xl", label: "Stredný (768px)" },
-  { value: "3xl", label: "Štandard (896px)" },
-  { value: "4xl", label: "Široký (960px)" },
-  { value: "5xl", label: "Veľmi široký (1024px)" },
-  { value: "6xl", label: "3/4 strany (1152px)" },
-  { value: "full", label: "Celá strana" },
-];
+function getFormWidths(t: any) {
+  return [
+    { value: "xl", label: t.webForms.widthNarrow },
+    { value: "2xl", label: t.webForms.widthMedium },
+    { value: "3xl", label: t.webForms.widthStandard },
+    { value: "4xl", label: t.webForms.widthWide },
+    { value: "5xl", label: t.webForms.widthVeryWide },
+    { value: "6xl", label: t.webForms.widthThreeQuarter },
+    { value: "full", label: t.webForms.widthFull },
+  ];
+}
 
-const FORM_LAYOUTS = [
-  { value: "standard", label: "Štandard", desc: "Farebný header s formulárom pod ním" },
-  { value: "minimal", label: "Minimálny", desc: "Biely formulár bez farebného headeru" },
-  { value: "split", label: "Rozdelený", desc: "Farebný panel vľavo, formulár vpravo" },
-  { value: "card", label: "Kartový", desc: "Formulár ako plávajúca karta na pozadí" },
-  { value: "hero", label: "Hero", desc: "Veľký header s obrázkom a formulár pod ním" },
-];
+function getFormLayouts(t: any) {
+  return [
+    { value: "standard", label: t.webForms.layoutStandard, desc: t.webForms.layoutStandardDesc },
+    { value: "minimal", label: t.webForms.layoutMinimal, desc: t.webForms.layoutMinimalDesc },
+    { value: "split", label: t.webForms.layoutSplit, desc: t.webForms.layoutSplitDesc },
+    { value: "card", label: t.webForms.layoutCard, desc: t.webForms.layoutCardDesc },
+    { value: "hero", label: t.webForms.layoutHero, desc: t.webForms.layoutHeroDesc },
+  ];
+}
 
 const FONT_SIZES = [
   { value: "xs", label: "XS (12px)" },
@@ -140,31 +164,38 @@ const FONT_SIZES = [
   { value: "4xl", label: "4XL (36px)" },
 ];
 
-const FONT_WEIGHTS = [
-  { value: "light", label: "Tenké" },
-  { value: "normal", label: "Normálne" },
-  { value: "medium", label: "Stredné" },
-  { value: "semibold", label: "Polotučné" },
-  { value: "bold", label: "Tučné" },
-  { value: "extrabold", label: "Extra tučné" },
-];
+function getFontWeights(t: any) {
+  return [
+    { value: "light", label: t.webForms.weightThin },
+    { value: "normal", label: t.webForms.weightNormal },
+    { value: "medium", label: t.webForms.weightMedium },
+    { value: "semibold", label: t.webForms.weightSemibold },
+    { value: "bold", label: t.webForms.weightBold },
+    { value: "extrabold", label: t.webForms.weightExtrabold },
+  ];
+}
 
-const FONT_FAMILIES = [
-  { value: "inherit", label: "Predvolený" },
-  { value: "'Inter', sans-serif", label: "Inter" },
-  { value: "'Georgia', serif", label: "Georgia (serif)" },
-  { value: "'Arial', sans-serif", label: "Arial" },
-  { value: "'Playfair Display', serif", label: "Playfair Display" },
-  { value: "'Roboto', sans-serif", label: "Roboto" },
-  { value: "'Open Sans', sans-serif", label: "Open Sans" },
-  { value: "'Lato', sans-serif", label: "Lato" },
-  { value: "'Montserrat', sans-serif", label: "Montserrat" },
-];
+function getFontFamilies(t: any) {
+  return [
+    { value: "inherit", label: t.webForms.fontDefault },
+    { value: "'Inter', sans-serif", label: "Inter" },
+    { value: "'Georgia', serif", label: "Georgia (serif)" },
+    { value: "'Arial', sans-serif", label: "Arial" },
+    { value: "'Playfair Display', serif", label: "Playfair Display" },
+    { value: "'Roboto', sans-serif", label: "Roboto" },
+    { value: "'Open Sans', sans-serif", label: "Open Sans" },
+    { value: "'Lato', sans-serif", label: "Lato" },
+    { value: "'Montserrat', sans-serif", label: "Montserrat" },
+  ];
+}
 
 function FontStyleEditor({ prefix, formData, setFormData, showFamily, showItalic }: {
   prefix: string; formData: any; setFormData: (d: any) => void;
   showFamily?: boolean; showItalic?: boolean;
 }) {
+  const { t } = useI18n();
+  const FONT_WEIGHTS = getFontWeights(t);
+  const FONT_FAMILIES = getFontFamilies(t);
   const sizeKey = `${prefix}FontSize`;
   const weightKey = `${prefix}FontWeight`;
   const styleKey = `${prefix}FontStyle`;
@@ -173,14 +204,14 @@ function FontStyleEditor({ prefix, formData, setFormData, showFamily, showItalic
   return (
     <div className="flex flex-wrap items-end gap-2">
       <div className="space-y-1">
-        <Label className="text-[10px] text-muted-foreground">Veľkosť</Label>
+        <Label className="text-[10px] text-muted-foreground">{t.webForms.fontSize}</Label>
         <Select value={formData[sizeKey] || "sm"} onValueChange={v => setFormData({ ...formData, [sizeKey]: v })}>
           <SelectTrigger className="h-7 w-[100px] text-xs"><SelectValue /></SelectTrigger>
           <SelectContent>{FONT_SIZES.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}</SelectContent>
         </Select>
       </div>
       <div className="space-y-1">
-        <Label className="text-[10px] text-muted-foreground">Hrúbka</Label>
+        <Label className="text-[10px] text-muted-foreground">{t.webForms.fontWeight}</Label>
         <Select value={formData[weightKey] || "normal"} onValueChange={v => setFormData({ ...formData, [weightKey]: v })}>
           <SelectTrigger className="h-7 w-[110px] text-xs"><SelectValue /></SelectTrigger>
           <SelectContent>{FONT_WEIGHTS.map(w => <SelectItem key={w.value} value={w.value}>{w.label}</SelectItem>)}</SelectContent>
@@ -198,7 +229,7 @@ function FontStyleEditor({ prefix, formData, setFormData, showFamily, showItalic
       )}
       {showFamily !== false && (
         <div className="space-y-1">
-          <Label className="text-[10px] text-muted-foreground">Font</Label>
+          <Label className="text-[10px] text-muted-foreground">{t.webForms.fontLabel}</Label>
           <Select value={formData[familyKey] || "inherit"} onValueChange={v => setFormData({ ...formData, [familyKey]: v })}>
             <SelectTrigger className="h-7 w-[130px] text-xs"><SelectValue /></SelectTrigger>
             <SelectContent>{FONT_FAMILIES.map(f => <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>)}</SelectContent>
@@ -284,7 +315,7 @@ function parseValidationRules(rules: string | null | undefined): Record<string, 
 }
 
 export default function WebFormsPage() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { toast } = useToast();
   const [editingForm, setEditingForm] = useState<any>(null);
   const [isCreating, setIsCreating] = useState(false);
@@ -303,7 +334,7 @@ export default function WebFormsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/web-forms"] });
       setIsCreating(false);
-      toast({ title: "Formulár vytvorený" });
+      toast({ title: t.webForms.formCreated });
     },
   });
 
@@ -315,7 +346,7 @@ export default function WebFormsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/web-forms"] });
-      toast({ title: "Formulár vymazaný" });
+      toast({ title: t.webForms.formDeleted });
     },
   });
 
@@ -329,7 +360,7 @@ export default function WebFormsPage() {
   });
 
   const handleCreateForm = (countryCode: string) => {
-    const country = COUNTRIES.find(c => c.code === countryCode);
+    const country = COUNTRIES_DATA.find(c => c.code === countryCode);
     if (!country) return;
     const slug = `${countryCode.toLowerCase()}-registracia`;
     const sectionIds = DEFAULT_SECTIONS.map((_, i) => `sec-${Date.now()}-${i}`);
@@ -339,7 +370,7 @@ export default function WebFormsPage() {
       sectionId: sectionIndex !== undefined ? sectionIds[sectionIndex] : null,
     }));
     createMutation.mutate({
-      name: `Registrácia - ${country.name}`,
+      name: `Registrácia - ${getCountryName(countryCode, locale)}`,
       slug,
       countryCode,
       language: country.lang,
@@ -364,25 +395,25 @@ export default function WebFormsPage() {
   const getFormUrl = (slug: string) => `${window.location.origin}/f/${slug}`;
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
-    toast({ title: "Skopírované do schránky" });
+    toast({ title: t.webForms.copiedToClipboard });
   };
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold" data-testid="text-web-forms-title">Web Formuláre</h1>
-          <p className="text-sm text-muted-foreground">Vytvárajte a spravujte registračné formuláre pre klientov</p>
+          <h1 className="text-2xl font-bold" data-testid="text-web-forms-title">{t.webForms.title}</h1>
+          <p className="text-sm text-muted-foreground">{t.webForms.subtitle}</p>
         </div>
         <Select onValueChange={handleCreateForm}>
           <SelectTrigger className="w-[200px]" data-testid="select-create-form">
             <Plus className="h-4 w-4 mr-2" />
-            <SelectValue placeholder="Nový formulár" />
+            <SelectValue placeholder={t.webForms.newForm} />
           </SelectTrigger>
           <SelectContent>
-            {COUNTRIES.map(c => (
+            {COUNTRIES_DATA.map(c => (
               <SelectItem key={c.code} value={c.code} data-testid={`create-form-${c.code}`}>
-                {c.flag} {c.name}
+                {c.flag} {getCountryName(c.code, locale)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -395,14 +426,14 @@ export default function WebFormsPage() {
         <Card className="py-20">
           <CardContent className="text-center">
             <FileText className="h-16 w-16 mx-auto mb-4 text-muted-foreground/30" />
-            <h3 className="text-lg font-semibold mb-2">Žiadne formuláre</h3>
-            <p className="text-sm text-muted-foreground mb-4">Vytvorte prvý registračný formulár pre vašich klientov</p>
+            <h3 className="text-lg font-semibold mb-2">{t.webForms.noForms}</h3>
+            <p className="text-sm text-muted-foreground mb-4">{t.webForms.noFormsDesc}</p>
           </CardContent>
         </Card>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {forms.map(form => {
-            const country = COUNTRIES.find(c => c.code === form.countryCode);
+            const country = COUNTRIES_DATA.find(c => c.code === form.countryCode);
             return (
               <Card key={form.id} className="relative" data-testid={`card-form-${form.id}`}>
                 <CardHeader className="pb-3">
@@ -416,7 +447,7 @@ export default function WebFormsPage() {
                     </div>
                     <div className="flex items-center gap-2">
                       <Badge variant={form.isActive ? "default" : "secondary"} className="text-[10px]">
-                        {form.isActive ? "Aktívny" : "Neaktívny"}
+                        {form.isActive ? t.webForms.active : t.webForms.inactive}
                       </Badge>
                       <Switch checked={form.isActive} onCheckedChange={(checked) => toggleActiveMutation.mutate({ id: form.id, isActive: checked })} data-testid={`switch-active-${form.id}`} />
                     </div>
@@ -425,14 +456,14 @@ export default function WebFormsPage() {
                 <CardContent className="space-y-3">
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     <Globe className="h-3 w-3" />
-                    <span>{country?.name} ({form.language?.toUpperCase()})</span>
+                    <span>{country ? getCountryName(country.code, locale) : ''} ({form.language?.toUpperCase()})</span>
                   </div>
                   <div className="text-xs bg-muted/50 rounded px-2 py-1.5 font-mono truncate" data-testid={`text-form-url-${form.id}`}>
                     {getFormUrl(form.slug)}
                   </div>
                   <div className="flex gap-1.5 flex-wrap">
                     <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setPreviewFormSlug(form.slug)} data-testid={`btn-preview-${form.id}`}>
-                      <Eye className="h-3 w-3 mr-1" /> Náhľad
+                      <Eye className="h-3 w-3 mr-1" /> {t.webForms.preview}
                     </Button>
                     <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => copyToClipboard(getFormUrl(form.slug))} data-testid={`btn-copy-url-${form.id}`}>
                       <Copy className="h-3 w-3 mr-1" /> URL
@@ -441,12 +472,12 @@ export default function WebFormsPage() {
                       <Code className="h-3 w-3 mr-1" /> Embed
                     </Button>
                     <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setEditingForm(form)} data-testid={`btn-edit-${form.id}`}>
-                      <Settings className="h-3 w-3 mr-1" /> Upraviť
+                      <Settings className="h-3 w-3 mr-1" /> {t.webForms.edit}
                     </Button>
                     <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setViewingSubmissions(form.id)} data-testid={`btn-submissions-${form.id}`}>
-                      <ClipboardList className="h-3 w-3 mr-1" /> Žiadosti
+                      <ClipboardList className="h-3 w-3 mr-1" /> {t.webForms.submissions}
                     </Button>
-                    <Button size="sm" variant="destructive" className="h-7 text-xs" onClick={() => { if (confirm("Naozaj vymazať tento formulár?")) deleteMutation.mutate(form.id); }} data-testid={`btn-delete-${form.id}`}>
+                    <Button size="sm" variant="destructive" className="h-7 text-xs" onClick={() => { if (confirm(t.webForms.confirmDelete)) deleteMutation.mutate(form.id); }} data-testid={`btn-delete-${form.id}`}>
                       <Trash2 className="h-3 w-3" />
                     </Button>
                   </div>
@@ -462,13 +493,13 @@ export default function WebFormsPage() {
           <DialogContent className="max-w-[95vw] h-[90vh] p-0 overflow-hidden">
             <DialogHeader className="px-4 pt-4 pb-2">
               <DialogTitle className="flex items-center justify-between">
-                <span>Náhľad formulára</span>
+                <span>{t.webForms.formPreview}</span>
                 <div className="flex items-center gap-2 mr-6">
                   <Button size="sm" variant="outline" onClick={() => copyToClipboard(getFormUrl(previewFormSlug))} data-testid="btn-preview-copy-url">
-                    <Copy className="h-3 w-3 mr-1" /> Kopírovať URL
+                    <Copy className="h-3 w-3 mr-1" /> {t.webForms.copyUrl}
                   </Button>
                   <Button size="sm" variant="outline" onClick={() => window.open(getFormUrl(previewFormSlug), "_blank")} data-testid="btn-preview-open-new">
-                    Nové okno
+                    {t.webForms.newWindow}
                   </Button>
                 </div>
               </DialogTitle>
@@ -482,25 +513,25 @@ export default function WebFormsPage() {
 
       <Dialog open={!!embedDialogForm} onOpenChange={(o) => !o && setEmbedDialogForm(null)}>
         <DialogContent className="max-w-lg">
-          <DialogHeader><DialogTitle>Embed kód pre WordPress</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{t.webForms.embedTitle}</DialogTitle></DialogHeader>
           {embedDialogForm && (
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label className="text-xs font-medium">iframe (odporúčaný)</Label>
+                <Label className="text-xs font-medium">{t.webForms.iframeRecommended}</Label>
                 <Textarea readOnly rows={3} className="font-mono text-xs"
                   value={`<iframe src="${getFormUrl(embedDialogForm.slug)}" width="100%" height="900" frameborder="0" style="border:none;max-width:800px;margin:0 auto;display:block"></iframe>`}
                   data-testid="textarea-embed-iframe"
                 />
                 <Button size="sm" variant="outline" onClick={() => copyToClipboard(`<iframe src="${getFormUrl(embedDialogForm.slug)}" width="100%" height="900" frameborder="0" style="border:none;max-width:800px;margin:0 auto;display:block"></iframe>`)} data-testid="btn-copy-iframe">
-                  <Copy className="h-3 w-3 mr-1" /> Kopírovať
+                  <Copy className="h-3 w-3 mr-1" /> {t.webForms.copy}
                 </Button>
               </div>
               <Separator />
               <div className="space-y-2">
-                <Label className="text-xs font-medium">Priamy link</Label>
+                <Label className="text-xs font-medium">{t.webForms.directLink}</Label>
                 <Input readOnly value={getFormUrl(embedDialogForm.slug)} className="font-mono text-xs" data-testid="input-embed-url" />
                 <Button size="sm" variant="outline" onClick={() => copyToClipboard(getFormUrl(embedDialogForm.slug))} data-testid="btn-copy-direct">
-                  <Copy className="h-3 w-3 mr-1" /> Kopírovať
+                  <Copy className="h-3 w-3 mr-1" /> {t.webForms.copy}
                 </Button>
               </div>
             </div>
@@ -520,6 +551,10 @@ function SectionFieldsBuilder({
   editSections: any[]; setEditSections: (s: any[]) => void;
   editFields: any[]; setEditFields: (f: any[]) => void;
 }) {
+  const { t } = useI18n();
+  const FIELD_TYPES = getFieldTypes(t);
+  const CUSTOMER_FIELDS = getCustomerFields(t);
+  const SPECIAL_FIELDS = getSpecialFields(t);
   const [editingField, setEditingField] = useState<any>(null);
   const [editingFieldIdx, setEditingFieldIdx] = useState<number>(-1);
 
@@ -561,7 +596,7 @@ function SectionFieldsBuilder({
       _key: `custom-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       customerField: null,
       fieldType: "text",
-      label: "Nové pole",
+      label: t.webForms.newField,
       isRequired: false,
       sortOrder: editFields.length,
       sectionId,
@@ -618,7 +653,7 @@ function SectionFieldsBuilder({
   const addSection = () => {
     setEditSections([...editSections, {
       id: `new-${Date.now()}`,
-      title: "Nová sekcia",
+      title: t.webForms.newSection,
       sortOrder: editSections.length,
       columns: 2,
       isVisible: true,
@@ -688,12 +723,12 @@ function SectionFieldsBuilder({
                 }}>
                   <SelectTrigger className="h-7 w-20 text-xs"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="1">1 stĺp.</SelectItem>
-                    <SelectItem value="2">2 stĺp.</SelectItem>
-                    <SelectItem value="3">3 stĺp.</SelectItem>
+                    <SelectItem value="1">{t.webForms.col1}</SelectItem>
+                    <SelectItem value="2">{t.webForms.col2}</SelectItem>
+                    <SelectItem value="3">{t.webForms.col3}</SelectItem>
                   </SelectContent>
                 </Select>
-                <Badge variant="secondary" className="text-[10px]">{sectionFields.length} polí</Badge>
+                <Badge variant="secondary" className="text-[10px]">{sectionFields.length} {t.webForms.fieldsCount}</Badge>
                 <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive hover:text-destructive" onClick={() => deleteSection(editSections.findIndex(s => s.id === section.id))}>
                   <X className="h-3 w-3" />
                 </Button>
@@ -742,7 +777,7 @@ function SectionFieldsBuilder({
 
               {sectionFields.length === 0 && (
                 <div className="text-center py-4 text-xs text-muted-foreground border border-dashed rounded-lg">
-                  Prázdna sekcia - pridajte polia
+                  {t.webForms.emptySection}
                 </div>
               )}
 
@@ -753,7 +788,7 @@ function SectionFieldsBuilder({
                   </Button>
                 ))}
                 <Button size="sm" variant="ghost" className="h-6 text-[10px] text-muted-foreground hover:text-foreground" onClick={() => addFieldToSection(section.id)}>
-                  <Plus className="h-2.5 w-2.5 mr-0.5" /> Vlastné pole
+                  <Plus className="h-2.5 w-2.5 mr-0.5" /> {t.webForms.customField}
                 </Button>
               </div>
             </div>
@@ -764,7 +799,7 @@ function SectionFieldsBuilder({
       {orphanFields.length > 0 && (
         <div className="border rounded-xl overflow-hidden border-orange-200">
           <div className="bg-orange-50 px-4 py-2.5 flex items-center gap-2">
-            <span className="text-sm font-semibold text-orange-700">Polia bez sekcie</span>
+            <span className="text-sm font-semibold text-orange-700">{t.webForms.fieldsNoSection}</span>
             <Badge variant="secondary" className="text-[10px]">{orphanFields.length}</Badge>
           </div>
           <div className="p-3 space-y-1">
@@ -772,9 +807,9 @@ function SectionFieldsBuilder({
               <div key={field._key || field.id || fi} className="flex items-center gap-2 p-2 border rounded-lg bg-gray-50 hover:bg-blue-50 transition-colors cursor-pointer" onClick={() => openFieldEditor(field, field._globalIdx)}>
                 <span className="text-xs font-medium flex-1">{field.label}</span>
                 <Select value="_move" onValueChange={v => { if (v !== "_move") moveFieldToSection(field._globalIdx, v); }}>
-                  <SelectTrigger className="h-6 w-[140px] text-[10px]"><SelectValue placeholder="Presunúť do sekcie" /></SelectTrigger>
+                  <SelectTrigger className="h-6 w-[140px] text-[10px]"><SelectValue placeholder={t.webForms.moveToSection} /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="_move" disabled>Presunúť do...</SelectItem>
+                    <SelectItem value="_move" disabled>{t.webForms.moveTo}</SelectItem>
                     {editSections.map(s => <SelectItem key={s.id} value={s.id}>{s.title}</SelectItem>)}
                   </SelectContent>
                 </Select>
@@ -789,13 +824,13 @@ function SectionFieldsBuilder({
 
       <div className="flex gap-2">
         <Button size="sm" variant="outline" onClick={addSection} className="flex-1">
-          <Plus className="h-3 w-3 mr-1" /> Pridať sekciu
+          <Plus className="h-3 w-3 mr-1" /> {t.webForms.addSection}
         </Button>
       </div>
 
       {availableFields.length > 0 && (
         <div>
-          <Label className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider block mb-2">Dostupné polia na pridanie</Label>
+          <Label className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider block mb-2">{t.webForms.availableFields}</Label>
           <div className="flex flex-wrap gap-1">
             {availableFields.map(f => (
               <Button key={f.key} size="sm" variant="outline" className="h-6 text-[10px]" onClick={() => addFieldToSection(editSections[0]?.id || null, f)}>
@@ -811,7 +846,7 @@ function SectionFieldsBuilder({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Pencil className="h-4 w-4" />
-              Upraviť pole: {editingField?.label}
+              {t.webForms.editFieldTitle} {editingField?.label}
             </DialogTitle>
           </DialogHeader>
           {editingField && (
@@ -834,6 +869,8 @@ function FieldEditDialog({ field, setField, sections, sectionColumns, onSave, on
   field: any; setField: (f: any) => void; sections: any[]; sectionColumns: number;
   onSave: () => void; onCancel: () => void;
 }) {
+  const { t } = useI18n();
+  const FIELD_TYPES = getFieldTypes(t);
   const rules = parseValidationRules(field.validationRules);
 
   const updateRules = (key: string, value: any) => {
@@ -848,11 +885,11 @@ function FieldEditDialog({ field, setField, sections, sectionColumns, onSave, on
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1">
-          <Label className="text-xs">Názov poľa</Label>
+          <Label className="text-xs">{t.webForms.fieldName}</Label>
           <Input value={field.label} onChange={e => setField({ ...field, label: e.target.value })} className="h-8 text-sm" />
         </div>
         <div className="space-y-1">
-          <Label className="text-xs">Typ poľa</Label>
+          <Label className="text-xs">{t.webForms.fieldType}</Label>
           <Select value={field.fieldType} onValueChange={v => setField({ ...field, fieldType: v })}>
             <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
             <SelectContent>{FIELD_TYPES.map(ft => <SelectItem key={ft.value} value={ft.value}>{ft.label}</SelectItem>)}</SelectContent>
@@ -862,23 +899,23 @@ function FieldEditDialog({ field, setField, sections, sectionColumns, onSave, on
 
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1">
-          <Label className="text-xs">Sekcia</Label>
+          <Label className="text-xs">{t.webForms.sectionLabel}</Label>
           <Select value={field.sectionId || "_none"} onValueChange={v => setField({ ...field, sectionId: v === "_none" ? null : v })}>
             <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="_none">Bez sekcie</SelectItem>
+              <SelectItem value="_none">{t.webForms.noSection}</SelectItem>
               {sections.map(s => <SelectItem key={s.id} value={s.id}>{s.title}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
         <div className="space-y-1">
-          <Label className="text-xs">Šírka poľa</Label>
+          <Label className="text-xs">{t.webForms.fieldWidth}</Label>
           <Select value={String(field.columnSpan || 1)} onValueChange={v => setField({ ...field, columnSpan: Number(v) })}>
             <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="1">1 stĺpec</SelectItem>
-              {maxCols >= 2 && <SelectItem value="2">2 stĺpce (celý riadok)</SelectItem>}
-              {maxCols >= 3 && <SelectItem value="3">3 stĺpce (celý riadok)</SelectItem>}
+              <SelectItem value="1">{t.webForms.oneCol}</SelectItem>
+              {maxCols >= 2 && <SelectItem value="2">{t.webForms.twoCols}</SelectItem>}
+              {maxCols >= 3 && <SelectItem value="3">{t.webForms.threeCols}</SelectItem>}
             </SelectContent>
           </Select>
         </div>
@@ -886,49 +923,49 @@ function FieldEditDialog({ field, setField, sections, sectionColumns, onSave, on
 
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1">
-          <Label className="text-xs">Placeholder</Label>
+          <Label className="text-xs">{t.webForms.placeholder}</Label>
           <Input value={field.placeholder || ""} onChange={e => setField({ ...field, placeholder: e.target.value })} className="h-8 text-sm" placeholder="Napr. Zadajte meno..." />
         </div>
         <div className="space-y-1">
-          <Label className="text-xs">Nápoveď (help text)</Label>
+          <Label className="text-xs">{t.webForms.helpText}</Label>
           <Input value={field.helpText || ""} onChange={e => setField({ ...field, helpText: e.target.value })} className="h-8 text-sm" placeholder="Napr. Formát: +421..." />
         </div>
       </div>
 
       <div className="space-y-1">
-        <Label className="text-xs">Predvolená hodnota</Label>
+        <Label className="text-xs">{t.webForms.defaultValue}</Label>
         <Input value={field.defaultValue || ""} onChange={e => setField({ ...field, defaultValue: e.target.value })} className="h-8 text-sm" />
       </div>
 
       {field.fieldType === "select" && (
         <div className="space-y-1">
-          <Label className="text-xs">Možnosti (každá na nový riadok)</Label>
+          <Label className="text-xs">{t.webForms.optionsPerLine}</Label>
           <Textarea value={field.options || ""} onChange={e => setField({ ...field, options: e.target.value })} rows={3} className="text-sm" placeholder={"Možnosť 1\nMožnosť 2\nMožnosť 3"} />
         </div>
       )}
 
       <Separator />
       <div>
-        <Label className="text-xs font-semibold mb-3 block">Validácia a viditeľnosť</Label>
+        <Label className="text-xs font-semibold mb-3 block">{t.webForms.validationVisibility}</Label>
         <div className="grid grid-cols-2 gap-3 mb-3">
           <div className="flex items-center gap-2">
             <Switch checked={field.isRequired} onCheckedChange={checked => setField({ ...field, isRequired: checked })} />
-            <Label className="text-xs">Povinné pole</Label>
+            <Label className="text-xs">{t.webForms.requiredField}</Label>
           </div>
           <div className="flex items-center gap-2">
             <Switch checked={field.isVisible !== false} onCheckedChange={checked => setField({ ...field, isVisible: checked })} />
-            <Label className="text-xs">Viditeľné</Label>
+            <Label className="text-xs">{t.webForms.visible}</Label>
           </div>
         </div>
 
         {(field.fieldType === "text" || field.fieldType === "textarea" || field.fieldType === "tel") && (
           <div className="grid grid-cols-2 gap-3 mb-3">
             <div className="space-y-1">
-              <Label className="text-[11px] text-muted-foreground">Min. dĺžka</Label>
+              <Label className="text-[11px] text-muted-foreground">{t.webForms.minLength}</Label>
               <Input type="number" value={rules.minLength || ""} onChange={e => updateRules("minLength", e.target.value ? Number(e.target.value) : "")} className="h-7 text-sm" placeholder="napr. 2" />
             </div>
             <div className="space-y-1">
-              <Label className="text-[11px] text-muted-foreground">Max. dĺžka</Label>
+              <Label className="text-[11px] text-muted-foreground">{t.webForms.maxLength}</Label>
               <Input type="number" value={rules.maxLength || ""} onChange={e => updateRules("maxLength", e.target.value ? Number(e.target.value) : "")} className="h-7 text-sm" placeholder="napr. 100" />
             </div>
           </div>
@@ -937,11 +974,11 @@ function FieldEditDialog({ field, setField, sections, sectionColumns, onSave, on
         {field.fieldType === "number" && (
           <div className="grid grid-cols-2 gap-3 mb-3">
             <div className="space-y-1">
-              <Label className="text-[11px] text-muted-foreground">Min. hodnota</Label>
+              <Label className="text-[11px] text-muted-foreground">{t.webForms.minValue}</Label>
               <Input type="number" value={rules.min ?? ""} onChange={e => updateRules("min", e.target.value ? Number(e.target.value) : "")} className="h-7 text-sm" />
             </div>
             <div className="space-y-1">
-              <Label className="text-[11px] text-muted-foreground">Max. hodnota</Label>
+              <Label className="text-[11px] text-muted-foreground">{t.webForms.maxValue}</Label>
               <Input type="number" value={rules.max ?? ""} onChange={e => updateRules("max", e.target.value ? Number(e.target.value) : "")} className="h-7 text-sm" />
             </div>
           </div>
@@ -949,37 +986,37 @@ function FieldEditDialog({ field, setField, sections, sectionColumns, onSave, on
 
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1">
-            <Label className="text-[11px] text-muted-foreground">Vzor validácie</Label>
+            <Label className="text-[11px] text-muted-foreground">{t.webForms.validationPattern}</Label>
             <Select value={rules.pattern || "_none"} onValueChange={v => updateRules("pattern", v === "_none" ? "" : v)}>
               <SelectTrigger className="h-7 text-sm"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="_none">Žiadny</SelectItem>
-                <SelectItem value="email">Email</SelectItem>
-                <SelectItem value="phone">Telefónne číslo</SelectItem>
-                <SelectItem value="postalCode">PSČ</SelectItem>
-                <SelectItem value="nationalId">Rodné číslo</SelectItem>
-                <SelectItem value="iban">IBAN</SelectItem>
-                <SelectItem value="custom">Vlastný regex</SelectItem>
+                <SelectItem value="_none">{t.webForms.patternNone}</SelectItem>
+                <SelectItem value="email">{t.webForms.patternEmail}</SelectItem>
+                <SelectItem value="phone">{t.webForms.patternPhone}</SelectItem>
+                <SelectItem value="postalCode">{t.webForms.patternPostal}</SelectItem>
+                <SelectItem value="nationalId">{t.webForms.patternNationalId}</SelectItem>
+                <SelectItem value="iban">{t.webForms.patternIban}</SelectItem>
+                <SelectItem value="custom">{t.webForms.patternCustom}</SelectItem>
               </SelectContent>
             </Select>
           </div>
           {rules.pattern === "custom" && (
             <div className="space-y-1">
-              <Label className="text-[11px] text-muted-foreground">Regex vzor</Label>
+              <Label className="text-[11px] text-muted-foreground">{t.webForms.regexPattern}</Label>
               <Input value={rules.customPattern || ""} onChange={e => updateRules("customPattern", e.target.value)} className="h-7 text-sm font-mono" placeholder="^[A-Z].*" />
             </div>
           )}
         </div>
 
         <div className="space-y-1 mt-3">
-          <Label className="text-[11px] text-muted-foreground">Vlastná chybová správa</Label>
+          <Label className="text-[11px] text-muted-foreground">{t.webForms.customErrorMsg}</Label>
           <Input value={rules.errorMessage || ""} onChange={e => updateRules("errorMessage", e.target.value)} className="h-7 text-sm" placeholder="Napr. Zadajte platné telefónne číslo" />
         </div>
       </div>
 
       <div className="flex justify-end gap-2 pt-3 border-t">
-        <Button variant="outline" size="sm" onClick={onCancel}>Zrušiť</Button>
-        <Button size="sm" onClick={onSave}><CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Uložiť pole</Button>
+        <Button variant="outline" size="sm" onClick={onCancel}>{t.webForms.cancel}</Button>
+        <Button size="sm" onClick={onSave}><CheckCircle2 className="h-3.5 w-3.5 mr-1" /> {t.webForms.saveField}</Button>
       </div>
     </div>
   );
@@ -1048,7 +1085,7 @@ function LayoutPreview({ sections, fields, formData }: { sections: any[]; fields
       <div className="border-t pt-1 space-y-0.5">
         <div className="flex items-center gap-1"><div className="w-2 h-2 rounded border border-gray-300" /><span className="text-[7px] text-gray-400">GDPR</span></div>
       </div>
-      <div className="rounded h-5 flex items-center justify-center text-white text-[8px] font-semibold" style={{ backgroundColor: brandColor }}>Odoslať</div>
+      <div className="rounded h-5 flex items-center justify-center text-white text-[8px] font-semibold" style={{ backgroundColor: brandColor }}>{t.webForms.submit}</div>
     </div>
   );
 
@@ -1127,6 +1164,7 @@ function LayoutPreview({ sections, fields, formData }: { sections: any[]; fields
 }
 
 function ConfirmEmailPreview({ formData, editSections, editFields }: { formData: any; editSections: any[]; editFields: any[] }) {
+  const { t } = useI18n();
   const brandColor = formData.brandColor || "#16a34a";
   const emailLayout = formData.confirmEmailLayout || "modern";
   const greeting = (formData.confirmEmailGreeting || "Dobrý deň p. {{priezvisko}},")
@@ -1145,7 +1183,7 @@ function ConfirmEmailPreview({ formData, editSections, editFields }: { formData:
     else if (f.fieldType === "tel" || f.customerField === "phone" || f.customerField === "mobile") sampleData[key] = "+421 900 123 456";
     else if (f.customerField === "firstName") sampleData[key] = "Jana";
     else if (f.customerField === "lastName") sampleData[key] = "Nováková";
-    else sampleData[key] = "vzorová hodnota";
+    else sampleData[key] = t.webForms.sampleValue;
   });
 
   const sectionMap = new Map(editSections.map((s: any) => [s.id, s]));
@@ -1161,7 +1199,7 @@ function ConfirmEmailPreview({ formData, editSections, editFields }: { formData:
     if (formData.confirmEmailShowData === false) return null;
     return (
       <div style={{ margin: "20px 0", padding: "16px", background: "#f9fafb", borderRadius: "10px", border: "1px solid #e5e7eb" }}>
-        <p style={{ margin: "0 0 10px 0", color: "#6b7280", fontSize: "10px", textTransform: "uppercase", letterSpacing: "1px", fontWeight: 600 }}>Kópia vyplnených údajov</p>
+        <p style={{ margin: "0 0 10px 0", color: "#6b7280", fontSize: "10px", textTransform: "uppercase", letterSpacing: "1px", fontWeight: 600 }}>{t.webForms.dataCopy}</p>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <tbody>
             {Object.entries(grouped).map(([secId, secFields]) => {
@@ -1173,7 +1211,7 @@ function ConfirmEmailPreview({ formData, editSections, editFields }: { formData:
                   </td></tr>
                 )}
                 {secFields.map((field: any) => {
-                  const val = sampleData[field.customerField || field.label] || "vzorová hodnota";
+                  const val = sampleData[field.customerField || field.label] || t.webForms.sampleValue;
                   return (
                     <tr key={field._key || field.id}>
                       <td style={{ padding: "4px 8px 4px 0", color: "#6b7280", fontSize: "11px", whiteSpace: "nowrap", verticalAlign: "top" }}>{field.label}</td>
@@ -1199,7 +1237,7 @@ function ConfirmEmailPreview({ formData, editSections, editFields }: { formData:
   );
 
   const renderCopyright = () => (
-    <p style={{ margin: "12px 0 0 0", textAlign: "center", color: "#9ca3af", fontSize: "9px" }}>&copy; {new Date().getFullYear()} {signatureText}. Tento e-mail bol odoslaný automaticky.</p>
+    <p style={{ margin: "12px 0 0 0", textAlign: "center", color: "#9ca3af", fontSize: "9px" }}>&copy; {new Date().getFullYear()} {signatureText}. {t.webForms.autoEmailNote}</p>
   );
 
   if (emailLayout === "minimal") {
@@ -1303,6 +1341,9 @@ function ConfirmEmailPreview({ formData, editSections, editFields }: { formData:
 }
 
 function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void }) {
+  const { t, locale } = useI18n();
+  const FORM_WIDTHS = getFormWidths(t);
+  const FORM_LAYOUTS = getFormLayouts(t);
   const { toast } = useToast();
   const [formData, setFormData] = useState<any>({});
   const [editFields, setEditFields] = useState<any[]>([]);
@@ -1343,12 +1384,12 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/web-forms"] });
       queryClient.invalidateQueries({ queryKey: ["/api/web-forms", form.id] });
-      toast({ title: "Formulár uložený" });
+      toast({ title: t.webForms.formSaved });
       onClose();
     },
     onError: (e: any) => {
       setSaveError(e.message);
-      toast({ title: "Chyba pri ukladaní", description: e.message, variant: "destructive" });
+      toast({ title: t.webForms.saveError, description: e.message, variant: "destructive" });
     },
   });
 
@@ -1403,7 +1444,7 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
     <Sheet open onOpenChange={(o) => !o && onClose()}>
       <SheetContent className="sm:max-w-[1200px] overflow-y-auto">
         <SheetHeader>
-          <SheetTitle>Upraviť formulár: {form.name}</SheetTitle>
+          <SheetTitle>{t.webForms.editFormTitle} {form.name}</SheetTitle>
         </SheetHeader>
         <div className="mt-6">
           <div className="flex gap-5">
@@ -1411,17 +1452,17 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
           <Tabs defaultValue="builder">
             <TabsList className="grid grid-cols-5 w-full">
               <TabsTrigger value="builder" data-testid="tab-builder">
-                <LayoutGrid className="h-3.5 w-3.5 mr-1" /> Štruktúra
+                <LayoutGrid className="h-3.5 w-3.5 mr-1" /> {t.webForms.tabStructure}
               </TabsTrigger>
               <TabsTrigger value="design" data-testid="tab-design">
-                <Palette className="h-3.5 w-3.5 mr-1" /> Dizajn
+                <Palette className="h-3.5 w-3.5 mr-1" /> {t.webForms.tabDesign}
               </TabsTrigger>
               <TabsTrigger value="settings" data-testid="tab-settings">
-                <Settings className="h-3.5 w-3.5 mr-1" /> Základné
+                <Settings className="h-3.5 w-3.5 mr-1" /> {t.webForms.tabBasic}
               </TabsTrigger>
-              <TabsTrigger value="texts" data-testid="tab-texts">Texty & GDPR</TabsTrigger>
+              <TabsTrigger value="texts" data-testid="tab-texts">{t.webForms.tabTexts}</TabsTrigger>
               <TabsTrigger value="email" data-testid="tab-email">
-                <Mail className="h-3.5 w-3.5 mr-1" /> Email
+                <Mail className="h-3.5 w-3.5 mr-1" /> {t.webForms.tabEmail}
               </TabsTrigger>
             </TabsList>
 
@@ -1436,7 +1477,7 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
 
             <TabsContent value="design" className="mt-4 space-y-6">
               <div>
-                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Layout stránky</h4>
+                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">{t.webForms.pageLayout}</h4>
                 <div className="grid grid-cols-5 gap-2">
                   {FORM_LAYOUTS.map(layout => (
                     <button
@@ -1459,17 +1500,17 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
               <Separator />
 
               <div>
-                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Farby</h4>
+                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">{t.webForms.colors}</h4>
                 <div className="grid grid-cols-3 gap-3">
-                  <ColorInput label="Hlavná farba (header)" value={formData.brandColor || "#16a34a"} onChange={v => setFormData({ ...formData, brandColor: v })} />
-                  <ColorInput label="Farba písma (header)" value={formData.textColor || "#ffffff"} onChange={v => setFormData({ ...formData, textColor: v })} />
-                  <ColorInput label="Farba nadpisov sekcií" value={formData.sectionColor || formData.brandColor || "#16a34a"} onChange={v => setFormData({ ...formData, sectionColor: v })} />
+                  <ColorInput label={t.webForms.mainColorHeader} value={formData.brandColor || "#16a34a"} onChange={v => setFormData({ ...formData, brandColor: v })} />
+                  <ColorInput label={t.webForms.fontColorHeader} value={formData.textColor || "#ffffff"} onChange={v => setFormData({ ...formData, textColor: v })} />
+                  <ColorInput label={t.webForms.sectionHeadingColor} value={formData.sectionColor || formData.brandColor || "#16a34a"} onChange={v => setFormData({ ...formData, sectionColor: v })} />
                 </div>
                 <div className="grid grid-cols-3 gap-3 mt-3">
-                  <ColorInput label="Pozadie stránky" value={formData.bgColor || "#f3f4f6"} onChange={v => setFormData({ ...formData, bgColor: v })} />
-                  <ColorInput label="Farba nadpisu" value={formData.headingColor || "#ffffff"} onChange={v => setFormData({ ...formData, headingColor: v })} />
+                  <ColorInput label={t.webForms.pageBackground} value={formData.bgColor || "#f3f4f6"} onChange={v => setFormData({ ...formData, bgColor: v })} />
+                  <ColorInput label={t.webForms.headingColor} value={formData.headingColor || "#ffffff"} onChange={v => setFormData({ ...formData, headingColor: v })} />
                   <div className="space-y-1">
-                    <Label className="text-[11px] text-muted-foreground">Šírka formulára</Label>
+                    <Label className="text-[11px] text-muted-foreground">{t.webForms.formWidth}</Label>
                     <Select value={formData.formWidth || "3xl"} onValueChange={v => setFormData({ ...formData, formWidth: v })}>
                       <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                       <SelectContent>{FORM_WIDTHS.map(w => <SelectItem key={w.value} value={w.value}>{w.label}</SelectItem>)}</SelectContent>
@@ -1482,27 +1523,27 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
 
               <div>
                 <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                  <Type className="h-3.5 w-3.5" /> Typografia
+                  <Type className="h-3.5 w-3.5" /> {t.webForms.typography}
                 </h4>
                 <div className="space-y-4">
                   <div className="space-y-1.5">
-                    <Label className="text-[11px] font-medium">Nadpis formulára</Label>
+                    <Label className="text-[11px] font-medium">{t.webForms.formTitleTypo}</Label>
                     <FontStyleEditor prefix="title" formData={formData} setFormData={setFormData} />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-[11px] font-medium">Podnadpis</Label>
+                    <Label className="text-[11px] font-medium">{t.webForms.subtitleTypo}</Label>
                     <FontStyleEditor prefix="subtitle" formData={formData} setFormData={setFormData} />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-[11px] font-medium">Nadpisy sekcií</Label>
+                    <Label className="text-[11px] font-medium">{t.webForms.sectionHeadings}</Label>
                     <FontStyleEditor prefix="section" formData={formData} setFormData={setFormData} showFamily={false} />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-[11px] font-medium">Popisky polí</Label>
+                    <Label className="text-[11px] font-medium">{t.webForms.fieldLabelsTypo}</Label>
                     <FontStyleEditor prefix="label" formData={formData} setFormData={setFormData} showFamily={false} showItalic={false} />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-[11px] font-medium">Tlačidlo odoslať</Label>
+                    <Label className="text-[11px] font-medium">{t.webForms.submitButton}</Label>
                     <FontStyleEditor prefix="button" formData={formData} setFormData={setFormData} showFamily={false} showItalic={false} />
                   </div>
                 </div>
@@ -1512,34 +1553,34 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
             <TabsContent value="settings" className="space-y-4 mt-4">
               <div className="grid gap-3 grid-cols-2">
                 <div className="space-y-1">
-                  <Label className="text-xs">Názov formulára</Label>
+                  <Label className="text-xs">{t.webForms.formName}</Label>
                   <Input value={formData.name || ""} onChange={e => setFormData({ ...formData, name: e.target.value })} data-testid="input-form-name" />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Slug (URL)</Label>
+                  <Label className="text-xs">{t.webForms.slugUrl}</Label>
                   <Input value={formData.slug || ""} onChange={e => setFormData({ ...formData, slug: e.target.value })} data-testid="input-form-slug" />
                 </div>
               </div>
               <div className="grid gap-3 grid-cols-2">
                 <div className="space-y-1">
-                  <Label className="text-xs">Krajina</Label>
+                  <Label className="text-xs">{t.webForms.country}</Label>
                   <Select value={formData.countryCode} onValueChange={v => setFormData({ ...formData, countryCode: v })}>
                     <SelectTrigger data-testid="select-form-country"><SelectValue /></SelectTrigger>
-                    <SelectContent>{COUNTRIES.map(c => <SelectItem key={c.code} value={c.code}>{c.flag} {c.name}</SelectItem>)}</SelectContent>
+                    <SelectContent>{COUNTRIES_DATA.map(c => <SelectItem key={c.code} value={c.code}>{c.flag} {getCountryName(c.code, locale)}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Jazyk</Label>
+                  <Label className="text-xs">{t.webForms.language}</Label>
                   <Select value={formData.language || "sk"} onValueChange={v => setFormData({ ...formData, language: v })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="sk">Slovenčina</SelectItem>
-                      <SelectItem value="cs">Čeština</SelectItem>
-                      <SelectItem value="hu">Maďarčina</SelectItem>
-                      <SelectItem value="ro">Rumunčina</SelectItem>
-                      <SelectItem value="it">Taliančina</SelectItem>
-                      <SelectItem value="de">Nemčina</SelectItem>
-                      <SelectItem value="en">Angličtina</SelectItem>
+                      <SelectItem value="sk">{t.webForms.langSk}</SelectItem>
+                      <SelectItem value="cs">{t.webForms.langCs}</SelectItem>
+                      <SelectItem value="hu">{t.webForms.langHu}</SelectItem>
+                      <SelectItem value="ro">{t.webForms.langRo}</SelectItem>
+                      <SelectItem value="it">{t.webForms.langIt}</SelectItem>
+                      <SelectItem value="de">{t.webForms.langDe}</SelectItem>
+                      <SelectItem value="en">{t.webForms.langEn}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -1547,8 +1588,8 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
               <Separator />
               <div className="flex items-center justify-between">
                 <div>
-                  <h4 className="text-sm font-medium">Progress pipeline</h4>
-                  <p className="text-[11px] text-muted-foreground">Zobrazí progress bar a motivačné správy medzi sekciami</p>
+                  <h4 className="text-sm font-medium">{t.webForms.progressPipeline}</h4>
+                  <p className="text-[11px] text-muted-foreground">{t.webForms.progressPipelineDesc}</p>
                 </div>
                 <Switch
                   checked={formData.showProgressPipeline !== false}
@@ -1560,32 +1601,32 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
 
             <TabsContent value="texts" className="space-y-4 mt-4">
               <div className="space-y-1">
-                <Label className="text-xs">Nadpis formulára</Label>
+                <Label className="text-xs">{t.webForms.formTitleTypo}</Label>
                 <Input value={formData.headerTitle || ""} onChange={e => setFormData({ ...formData, headerTitle: e.target.value })} data-testid="input-header-title" />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">Podnadpis</Label>
+                <Label className="text-xs">{t.webForms.subtitleTypo}</Label>
                 <Textarea value={formData.headerSubtitle || ""} onChange={e => setFormData({ ...formData, headerSubtitle: e.target.value })} rows={2} data-testid="input-header-subtitle" />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">Kontaktné informácie (pod nadpisom)</Label>
+                <Label className="text-xs">{t.webForms.contactInfo}</Label>
                 <Input value={formData.contactInfo || ""} onChange={e => setFormData({ ...formData, contactInfo: e.target.value })} placeholder="Napr. Tel.: +421 2 321 654 00 | info@cordbloodcenter.sk" data-testid="input-contact-info" />
               </div>
               <Separator />
               <div className="space-y-1">
-                <Label className="text-xs">GDPR text</Label>
+                <Label className="text-xs">{t.webForms.gdprText}</Label>
                 <Textarea value={formData.gdprText || ""} onChange={e => setFormData({ ...formData, gdprText: e.target.value })} rows={3} data-testid="input-gdpr-text" />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">GDPR marketing text</Label>
+                <Label className="text-xs">{t.webForms.gdprMarketing}</Label>
                 <Textarea value={formData.gdprMarketingText || ""} onChange={e => setFormData({ ...formData, gdprMarketingText: e.target.value })} rows={2} />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">GDPR tehotenstvo text</Label>
+                <Label className="text-xs">{t.webForms.gdprPregnancy}</Label>
                 <Textarea value={formData.gdprPregnancyText || ""} onChange={e => setFormData({ ...formData, gdprPregnancyText: e.target.value })} rows={2} />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">Správa po odoslaní</Label>
+                <Label className="text-xs">{t.webForms.successMessage}</Label>
                 <Textarea value={formData.successMessage || ""} onChange={e => setFormData({ ...formData, successMessage: e.target.value })} rows={2} />
               </div>
             </TabsContent>
@@ -1593,8 +1634,8 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
             <TabsContent value="email" className="space-y-4 mt-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h4 className="text-sm font-medium">Potvrdzujúci email</h4>
-                  <p className="text-[11px] text-muted-foreground">Email sa odošle zákazníkovi po odoslaní formulára</p>
+                  <h4 className="text-sm font-medium">{t.webForms.confirmEmail}</h4>
+                  <p className="text-[11px] text-muted-foreground">{t.webForms.confirmEmailDesc}</p>
                 </div>
                 <Switch
                   checked={formData.confirmEmailEnabled !== false}
@@ -1608,18 +1649,18 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-start gap-2">
                     <Info className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
                     <p className="text-[11px] text-blue-700">
-                      Dostupné premenné: <code className="bg-blue-100 px-1 rounded">{"{{meno}}"}</code> <code className="bg-blue-100 px-1 rounded">{"{{priezvisko}}"}</code> <code className="bg-blue-100 px-1 rounded">{"{{email}}"}</code>. Email sa odosiela z emailu nastaveného v Billing Company pre danú krajinu.
+                      {t.webForms.availableVarsInfo} <code className="bg-blue-100 px-1 rounded">{"{{meno}}"}</code> <code className="bg-blue-100 px-1 rounded">{"{{priezvisko}}"}</code> <code className="bg-blue-100 px-1 rounded">{"{{email}}"}</code>. {t.webForms.availableVarsNote}
                     </p>
                   </div>
                   <div>
-                    <Label className="text-xs mb-2 block">Layout emailu</Label>
+                    <Label className="text-xs mb-2 block">{t.webForms.emailLayout}</Label>
                     <div className="grid grid-cols-5 gap-2">
                       {([
-                        { value: "modern", label: "Modern", desc: "Gradient header + biely obsah" },
-                        { value: "minimal", label: "Minimal", desc: "Čistý bez headeru" },
-                        { value: "sidebar", label: "Sidebar", desc: "Farebný pruh vľavo" },
-                        { value: "elegant", label: "Elegant", desc: "Jemné linky, ľahký štýl" },
-                        { value: "bold", label: "Bold", desc: "Veľký farebný header" },
+                        { value: "modern", label: t.webForms.emailModern, desc: t.webForms.emailModernDesc },
+                        { value: "minimal", label: t.webForms.emailMinimal, desc: t.webForms.emailMinimalDesc },
+                        { value: "sidebar", label: t.webForms.emailSidebar, desc: t.webForms.emailSidebarDesc },
+                        { value: "elegant", label: t.webForms.emailElegant, desc: t.webForms.emailElegantDesc },
+                        { value: "bold", label: t.webForms.emailBold, desc: t.webForms.emailBoldDesc },
                       ] as const).map(l => (
                         <button
                           key={l.value}
@@ -1635,17 +1676,17 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
                     </div>
                     <p className="text-[10px] text-muted-foreground mt-1.5">
                       {({
-                        modern: "Gradient header s logom a bielym obsahom",
-                        minimal: "Čistý dizajn bez headeru, iba farebný nadpis",
-                        sidebar: "Farebný pruh vľavo s elegantným obsahom",
-                        elegant: "Jemné gradientové linky, ľahký štýl",
-                        bold: "Veľký farebný header s pozdravom",
+                        modern: t.webForms.emailModernDesc,
+                        minimal: t.webForms.emailMinimalDesc,
+                        sidebar: t.webForms.emailSidebarDesc,
+                        elegant: t.webForms.emailElegantDesc,
+                        bold: t.webForms.emailBoldDesc,
                       } as Record<string, string>)[formData.confirmEmailLayout || "modern"]}
                     </p>
                   </div>
                   <Separator />
                   <div className="space-y-1">
-                    <Label className="text-xs">Predmet emailu</Label>
+                    <Label className="text-xs">{t.webForms.emailSubject}</Label>
                     <Input
                       value={formData.confirmEmailSubject || ""}
                       onChange={e => setFormData({ ...formData, confirmEmailSubject: e.target.value })}
@@ -1654,7 +1695,7 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs">Pozdrav</Label>
+                    <Label className="text-xs">{t.webForms.greeting}</Label>
                     <Input
                       value={formData.confirmEmailGreeting || ""}
                       onChange={e => setFormData({ ...formData, confirmEmailGreeting: e.target.value })}
@@ -1663,7 +1704,7 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs">Hlavný text emailu</Label>
+                    <Label className="text-xs">{t.webForms.emailBody}</Label>
                     <Textarea
                       value={formData.confirmEmailBody || ""}
                       onChange={e => setFormData({ ...formData, confirmEmailBody: e.target.value })}
@@ -1674,8 +1715,8 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
                   </div>
                   <div className="flex items-center justify-between">
                     <div>
-                      <Label className="text-xs">Zobraziť kópiu vyplnených údajov</Label>
-                      <p className="text-[10px] text-muted-foreground">Zákazník uvidí v emaili zhrnutie odoslaných polí</p>
+                      <Label className="text-xs">{t.webForms.showDataCopy}</Label>
+                      <p className="text-[10px] text-muted-foreground">{t.webForms.showDataCopyDesc}</p>
                     </div>
                     <Switch
                       checked={formData.confirmEmailShowData !== false}
@@ -1684,7 +1725,7 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs">Päta emailu</Label>
+                    <Label className="text-xs">{t.webForms.emailFooter}</Label>
                     <Textarea
                       value={formData.confirmEmailFooter || ""}
                       onChange={e => setFormData({ ...formData, confirmEmailFooter: e.target.value })}
@@ -1694,7 +1735,7 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs">Podpis</Label>
+                    <Label className="text-xs">{t.webForms.signatureLabel}</Label>
                     <Input
                       value={formData.confirmEmailSignature || ""}
                       onChange={e => setFormData({ ...formData, confirmEmailSignature: e.target.value })}
@@ -1704,12 +1745,12 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
                   </div>
                   <Separator />
                   <div>
-                    <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Náhľad emailu</h4>
+                    <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">{t.webForms.emailPreview}</h4>
                     <ConfirmEmailPreview formData={formData} editSections={editSections} editFields={editFields} />
                   </div>
                   <Separator />
                   <div>
-                    <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Odoslať testovací email</h4>
+                    <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">{t.webForms.sendTestEmail}</h4>
                     <div className="flex gap-2">
                       <Input
                         value={testEmailAddr}
@@ -1728,12 +1769,12 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
                             const res = await apiRequest("POST", `/api/web-forms/${form.id}/test-email`, { testEmail: testEmailAddr });
                             const data = await res.json();
                             if (data.success) {
-                              toast({ title: "Testovací email odoslaný", description: `Email bol odoslaný na ${testEmailAddr} z ${data.fromEmail}` });
+                              toast({ title: t.webForms.testEmailSent, description: `Email bol odoslaný na ${testEmailAddr} z ${data.fromEmail}` });
                             } else {
-                              toast({ title: "Chyba", description: data.error || "Nepodarilo sa odoslať", variant: "destructive" });
+                              toast({ title: t.webForms.error, description: data.error || t.webForms.sendFailed, variant: "destructive" });
                             }
                           } catch (e: any) {
-                            toast({ title: "Chyba", description: e.message || "Nepodarilo sa odoslať", variant: "destructive" });
+                            toast({ title: t.webForms.error, description: e.message || t.webForms.sendFailed, variant: "destructive" });
                           } finally {
                             setTestEmailSending(false);
                           }
@@ -1742,7 +1783,7 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
                         {testEmailSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                       </Button>
                     </div>
-                    <p className="text-[10px] text-muted-foreground mt-1.5">Email sa odošle s testovacími údajmi (meno: Test Testovací). Predmet bude mať prefix [TEST].</p>
+                    <p className="text-[10px] text-muted-foreground mt-1.5">{t.webForms.testEmailDesc}</p>
                   </div>
                 </>
               )}
@@ -1754,9 +1795,9 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
             <div className="w-[260px] shrink-0 sticky top-0">
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Náhľad</span>
+                  <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{t.webForms.preview}</span>
                   <Badge variant="outline" className="text-[9px]">
-                    {FORM_LAYOUTS.find(l => l.value === (formData.formLayout || "standard"))?.label || "Štandard"}
+                    {FORM_LAYOUTS.find(l => l.value === (formData.formLayout || "standard"))?.label || t.webForms.layoutStandard}
                   </Badge>
                 </div>
                 <LayoutPreview sections={editSections} fields={editFields} formData={formData} />
@@ -1766,15 +1807,15 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
 
           {saveError && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 mt-4">
-              Chyba: {saveError}
+              {t.webForms.error}: {saveError}
             </div>
           )}
 
           <div className="flex justify-end gap-2 pt-4 mt-4 border-t">
-            <Button variant="outline" onClick={onClose}>Zrušiť</Button>
+            <Button variant="outline" onClick={onClose}>{t.webForms.cancel}</Button>
             <Button onClick={handleSave} disabled={updateMutation.isPending} data-testid="btn-save-form">
               {updateMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
-              Uložiť
+              {t.webForms.save}
             </Button>
           </div>
         </div>
@@ -1784,6 +1825,7 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
 }
 
 function SubmissionsSheet({ formId, onClose }: { formId: string; onClose: () => void }) {
+  const { t } = useI18n();
   const { data: submissions = [], isLoading } = useQuery<WebFormSubmission[]>({
     queryKey: ["/api/web-forms", formId, "submissions"],
     queryFn: async () => {
@@ -1808,47 +1850,47 @@ function SubmissionsSheet({ formId, onClose }: { formId: string; onClose: () => 
   const [selectedSubmission, setSelectedSubmission] = useState<any>(null);
 
   const fieldLabels: Record<string, string> = {
-    firstName: "Meno",
-    lastName: "Priezvisko",
-    email: "Email",
-    phone: "Telefón",
-    mobile: "Mobil",
-    dateOfBirth: "Dátum narodenia",
-    nationalId: "Rodné číslo",
-    address: "Adresa",
-    city: "Mesto",
-    postalCode: "PSČ",
-    region: "Kraj",
-    country: "Krajina",
-    useCorrespondenceAddress: "Korešpondenčná adresa",
-    corrName: "Korešp. meno",
-    corrAddress: "Korešp. adresa",
-    corrCity: "Korešp. mesto",
-    corrPostalCode: "Korešp. PSČ",
-    corrRegion: "Korešp. kraj",
-    corrCountry: "Korešp. krajina",
-    productSetId: "Produkt",
-    hospitalId: "Nemocnica",
-    healthInsuranceId: "Zdravotná poisťovňa",
-    expectedDeliveryDate: "Predpokladaný termín pôrodu",
-    expectedDueDate: "Predpokladaný termín pôrodu",
-    paymentMethod: "Spôsob platby",
-    howDidYouHear: "Ako ste sa o nás dozvedeli",
-    newsletter: "Newsletter",
-    notes: "Poznámky",
-    partnerName: "Meno partnera",
-    partnerPhone: "Telefón partnera",
-    partnerEmail: "Email partnera",
-    gynecologist: "Gynekológ",
-    gynecologistPhone: "Telefón gynekológa",
-    iban: "IBAN",
+    firstName: t.webForms.firstName,
+    lastName: t.webForms.lastName,
+    email: t.webForms.email,
+    phone: t.webForms.phone,
+    mobile: t.webForms.mobile,
+    dateOfBirth: t.webForms.dateOfBirth,
+    nationalId: t.webForms.nationalId,
+    address: t.webForms.submAddress,
+    city: t.webForms.city,
+    postalCode: t.webForms.postalCode,
+    region: t.webForms.region,
+    country: t.webForms.country,
+    useCorrespondenceAddress: t.webForms.submCorrespondenceAddr,
+    corrName: t.webForms.submCorrName,
+    corrAddress: t.webForms.submCorrAddress,
+    corrCity: t.webForms.submCorrCity,
+    corrPostalCode: t.webForms.submCorrPostal,
+    corrRegion: t.webForms.submCorrRegion,
+    corrCountry: t.webForms.submCorrCountry,
+    productSetId: t.webForms.submProduct,
+    hospitalId: t.webForms.submHospital,
+    healthInsuranceId: t.webForms.submInsurance,
+    expectedDeliveryDate: t.webForms.submDueDate,
+    expectedDueDate: t.webForms.submDueDate,
+    paymentMethod: t.webForms.submPayment,
+    howDidYouHear: t.webForms.submHowHeard,
+    newsletter: t.webForms.newsletterLabel,
+    notes: t.webForms.submNotes,
+    partnerName: t.webForms.submPartnerName,
+    partnerPhone: t.webForms.submPartnerPhone,
+    partnerEmail: t.webForms.submPartnerEmail,
+    gynecologist: t.webForms.submGynecologist,
+    gynecologistPhone: t.webForms.submGynecologistPhone,
+    iban: t.webForms.submIban,
   };
 
   const paymentLabels: Record<string, string> = {
-    bank_transfer: "Bankový prevod",
-    installments: "Splátky",
-    cash: "Hotovosť",
-    card: "Kartou",
+    bank_transfer: t.webForms.payBankTransfer,
+    installments: t.webForms.payInstallments,
+    cash: t.webForms.payCash,
+    card: t.webForms.payCard,
   };
 
   const formatValue = (key: string, value: any): string => {
@@ -1876,14 +1918,13 @@ function SubmissionsSheet({ formId, onClose }: { formId: string; onClose: () => 
       }
     }
     if (key === "useCorrespondenceAddress") {
-      return value ? "Áno" : "Nie";
+      return value ? t.webForms.yes : t.webForms.no;
     }
     if (key === "newsletter") {
-      return value === true || value === "true" ? "Áno" : "Nie";
+      return value === true || value === "true" ? t.webForms.yes : t.webForms.no;
     }
     if (key === "country") {
-      const countries: Record<string, string> = { SK: "Slovensko", CZ: "Česko", HU: "Maďarsko", AT: "Rakúsko", PL: "Poľsko" };
-      return countries[value] || String(value);
+      return getCountryName(value, "sk") || String(value);
     }
     return String(value);
   };
@@ -1892,13 +1933,13 @@ function SubmissionsSheet({ formId, onClose }: { formId: string; onClose: () => 
     <Sheet open onOpenChange={(o) => !o && onClose()}>
       <SheetContent className="sm:max-w-[800px] overflow-y-auto">
         <SheetHeader>
-          <SheetTitle>Žiadosti z formulára ({submissions.length})</SheetTitle>
+          <SheetTitle>{t.webForms.formSubmissions} ({submissions.length})</SheetTitle>
         </SheetHeader>
         <div className="mt-6">
           {isLoading ? (
             <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin" /></div>
           ) : submissions.length === 0 ? (
-            <div className="text-center py-10 text-sm text-muted-foreground">Žiadne žiadosti</div>
+            <div className="text-center py-10 text-sm text-muted-foreground">{t.webForms.noSubmissions}</div>
           ) : (
             <div className="space-y-2">
               {submissions.map(sub => {
@@ -1913,9 +1954,9 @@ function SubmissionsSheet({ formId, onClose }: { formId: string; onClose: () => 
                       </div>
                       <div className="flex items-center gap-2">
                         {sub.isNewCustomer ? (
-                          <Badge variant="default" className="text-[10px]">Nová klientka</Badge>
+                          <Badge variant="default" className="text-[10px]">{t.webForms.newClient}</Badge>
                         ) : (
-                          <Badge variant="secondary" className="text-[10px]">Existujúca</Badge>
+                          <Badge variant="secondary" className="text-[10px]">{t.webForms.existingClient}</Badge>
                         )}
                         {sub.isOtpVerified && <Badge variant="outline" className="text-[10px] border-green-300 text-green-700">OTP</Badge>}
                         <Badge variant="outline" className="text-[10px]">{sub.status}</Badge>
@@ -1934,7 +1975,7 @@ function SubmissionsSheet({ formId, onClose }: { formId: string; onClose: () => 
         {selectedSubmission && (
           <Dialog open onOpenChange={(o) => !o && setSelectedSubmission(null)}>
             <DialogContent className="max-w-md">
-              <DialogHeader><DialogTitle>Detail žiadosti</DialogTitle></DialogHeader>
+              <DialogHeader><DialogTitle>{t.webForms.submissionDetail}</DialogTitle></DialogHeader>
               <div className="space-y-2 max-h-[60vh] overflow-y-auto">
                 {Object.entries(JSON.parse(selectedSubmission.data || "{}")).map(([key, value]) => (
                   <div key={key} className="flex justify-between text-sm border-b pb-1">
