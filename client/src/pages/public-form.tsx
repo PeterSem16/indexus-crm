@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, CheckCircle2, AlertCircle, Send, Shield } from "lucide-react";
+import { Loader2, CheckCircle2, AlertCircle, Send, Shield, Sparkles, PartyPopper, Star, Rocket, Heart } from "lucide-react";
 
 interface FormConfig {
   form: any;
@@ -215,6 +215,35 @@ export default function PublicFormPage() {
   }, [fields, sections]);
 
   const getFieldKey = (field: any) => field.customerField || field.id;
+
+  const sectionProgress = useMemo(() => {
+    const corrFieldKeys = ["corrName","corrAddress","corrCity","corrPostalCode","corrRegion","corrCountry"];
+    return groupedFields.map((group, idx) => {
+      const visibleFields = group.fields.filter((f: any) => {
+        if (corrFieldKeys.includes(f.customerField) && !formValues.useCorrespondenceAddress) return false;
+        return true;
+      });
+      const requiredFields = visibleFields.filter((f: any) => f.isRequired);
+      const filledRequired = requiredFields.filter((f: any) => {
+        const key = getFieldKey(f);
+        const val = formValues[key];
+        return val && (typeof val !== "string" || val.trim().length > 0);
+      });
+      const allFields = visibleFields;
+      const filledAll = allFields.filter((f: any) => {
+        const key = getFieldKey(f);
+        const val = formValues[key];
+        return val && (typeof val !== "string" || val.trim().length > 0);
+      });
+      const requiredDone = requiredFields.length === 0 || filledRequired.length === requiredFields.length;
+      const pct = allFields.length > 0 ? Math.round((filledAll.length / allFields.length) * 100) : 0;
+      return { idx, requiredDone, pct, filledAll: filledAll.length, totalAll: allFields.length, sectionTitle: group.section?.title };
+    });
+  }, [groupedFields, formValues]);
+
+  const totalSections = sectionProgress.length;
+  const completedSections = sectionProgress.filter(s => s.requiredDone && s.pct >= 80).length;
+  const overallPct = totalSections > 0 ? Math.round(sectionProgress.reduce((sum, s) => sum + s.pct, 0) / totalSections) : 0;
 
   const updateField = (key: string, value: any) => {
     setFormValues(prev => ({ ...prev, [key]: value }));
@@ -671,6 +700,24 @@ export default function PublicFormPage() {
     </div>
   );
 
+  const motivationalMessages = useMemo(() => {
+    const msgs = [
+      { icon: Sparkles, texts: ["Skvelý začiatok! ✨", "Ste na dobrej ceste!", "Prvý krok je za vami!"] },
+      { icon: Star, texts: ["Výborne, pokračujte! ⭐", "Darí sa vám skvele!", "Už to ide ako po masle!"] },
+      { icon: Rocket, texts: ["Raketa! Už len kúsok! 🚀", "Super tempo!", "Ste úžasní, už skoro!"] },
+      { icon: Heart, texts: ["Takmer hotové! 💚", "Posledný krok!", "Úplný záver, hurá!"] },
+      { icon: PartyPopper, texts: ["Hotovo, gratulujeme! 🎉", "Všetko vyplnené!", "Perfektná práca!"] },
+    ];
+    return msgs;
+  }, []);
+
+  const getMotivationalMessage = (sectionIdx: number, completed: boolean, pct: number) => {
+    if (!completed && pct < 30) return null;
+    const msgSet = motivationalMessages[Math.min(sectionIdx, motivationalMessages.length - 1)];
+    const textIdx = pct >= 100 ? 2 : pct >= 50 ? 1 : 0;
+    return { Icon: msgSet.icon, text: msgSet.texts[textIdx] };
+  };
+
   const renderFormContent = () => (
     <>
             {isOtpVerified && (
@@ -680,21 +727,78 @@ export default function PublicFormPage() {
               </div>
             )}
 
+            {totalSections > 1 && (
+              <div className="pb-2" data-testid="progress-pipeline">
+                <div className="flex items-center gap-1.5 mb-2">
+                  {sectionProgress.map((sp, i) => {
+                    const done = sp.requiredDone && sp.pct >= 80;
+                    const active = sp.pct > 0 && sp.pct < 80;
+                    return (
+                      <div key={i} className="flex items-center flex-1 gap-1.5">
+                        <div className="flex-1 relative">
+                          <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
+                            <div
+                              className="h-full rounded-full transition-all duration-700 ease-out"
+                              style={{
+                                width: `${sp.pct}%`,
+                                background: done ? brandColor : active ? `linear-gradient(90deg, ${brandColor}88, ${brandColor}cc)` : "#e5e7eb",
+                              }}
+                            />
+                          </div>
+                        </div>
+                        {i < totalSections - 1 && (
+                          <div
+                            className="shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold transition-all duration-500"
+                            style={{
+                              backgroundColor: done ? brandColor : "white",
+                              color: done ? "white" : sp.pct > 0 ? brandColor : "#d1d5db",
+                              border: `2px solid ${done ? brandColor : sp.pct > 0 ? brandColor + "66" : "#e5e7eb"}`,
+                              transform: done ? "scale(1.1)" : "scale(1)",
+                            }}
+                          >
+                            {done ? <CheckCircle2 className="h-3 w-3" /> : i + 1}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+                {overallPct > 0 && (
+                  <div className="flex items-center justify-between">
+                    <p className="text-[11px] text-gray-400">
+                      {completedSections}/{totalSections} {totalSections === 1 ? "sekcia" : completedSections < 5 ? "sekcie" : "sekcií"}
+                    </p>
+                    <p className="text-[11px] font-medium" style={{ color: overallPct >= 80 ? brandColor : "#6b7280" }}>
+                      {overallPct}%
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
             {groupedFields.map((group, gi) => {
               const cols = group.section?.columns || 2;
               const gridCols = cols === 1 ? "grid-cols-1" : cols === 3 ? "grid-cols-1 sm:grid-cols-3" : "grid-cols-1 sm:grid-cols-2";
+              const sp = sectionProgress[gi];
+              const sectionDone = sp && sp.requiredDone && sp.pct >= 80;
+              const motivation = sp ? getMotivationalMessage(gi, sectionDone, sp.pct) : null;
 
               return (
                 <div key={gi} className="space-y-5">
                   {group.section?.title && (
                     <div className="flex items-center gap-3 pt-2">
                       <div className="h-[2px] flex-1 rounded-full" style={{ backgroundColor: sectionColor + "25" }} />
-                      <h3
-                        className="uppercase tracking-[0.15em] px-3 whitespace-nowrap"
-                        style={{ color: sectionColor, ...sectionTitleStyle }}
-                      >
-                        {group.section.title}
-                      </h3>
+                      <div className="flex items-center gap-2 px-3">
+                        {sectionDone && (
+                          <CheckCircle2 className="h-4 w-4 shrink-0 transition-all duration-500" style={{ color: brandColor }} />
+                        )}
+                        <h3
+                          className="uppercase tracking-[0.15em] whitespace-nowrap transition-colors duration-300"
+                          style={{ color: sectionDone ? brandColor : sectionColor, ...sectionTitleStyle }}
+                        >
+                          {group.section.title}
+                        </h3>
+                      </div>
                       <div className="h-[2px] flex-1 rounded-full" style={{ backgroundColor: sectionColor + "25" }} />
                     </div>
                   )}
@@ -711,9 +815,42 @@ export default function PublicFormPage() {
                       );
                     })}
                   </div>
+                  {motivation && sectionDone && gi < totalSections - 1 && (
+                    <div
+                      className="flex items-center gap-2.5 py-2.5 px-4 rounded-xl text-sm transition-all duration-500 animate-in fade-in slide-in-from-bottom-2"
+                      style={{ backgroundColor: brandColor + "08", border: `1px solid ${brandColor}18` }}
+                      data-testid={`motivation-${gi}`}
+                    >
+                      <motivation.Icon className="h-4 w-4 shrink-0" style={{ color: brandColor }} />
+                      <span className="font-medium" style={{ color: brandColor }}>{motivation.text}</span>
+                      <span className="text-gray-400 text-xs ml-auto">
+                        {totalSections - gi - 1 === 1 ? "Ešte 1 krok" : `Ešte ${totalSections - gi - 1} kroky`}
+                      </span>
+                    </div>
+                  )}
                 </div>
               );
             })}
+
+            {overallPct >= 80 && totalSections > 1 && (
+              <div
+                className="flex items-center gap-3 p-4 rounded-xl transition-all duration-700 animate-in fade-in slide-in-from-bottom-3"
+                style={{ backgroundColor: brandColor + "0a", border: `1px dashed ${brandColor}30` }}
+                data-testid="completion-celebration"
+              >
+                <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: brandColor + "15" }}>
+                  <PartyPopper className="h-4 w-4" style={{ color: brandColor }} />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold" style={{ color: brandColor }}>
+                    {overallPct >= 100 ? "Všetko vyplnené! 🎉" : "Skoro hotové! Už len dokončiť posledné detaily."}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {overallPct >= 100 ? "Stačí potvrdiť súhlasy a odoslať formulár." : `${overallPct}% formulára je vyplnených.`}
+                  </p>
+                </div>
+              </div>
+            )}
 
             <div className="border-t border-gray-200 pt-6 space-y-4">
               {f.gdprText && (
