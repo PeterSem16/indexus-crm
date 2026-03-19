@@ -19,7 +19,7 @@ import {
   Plus, FileText, Globe, Copy, Trash2, Settings, Eye,
   GripVertical, ChevronDown, ChevronRight, Loader2, CheckCircle2, X, Code,
   Clock, Users, ClipboardList, ArrowUp, ArrowDown, EyeOff,
-  Columns, LayoutGrid, Maximize2, Palette, Type, Italic, Pencil
+  Columns, LayoutGrid, Maximize2, Palette, Type, Italic, Pencil, Mail, Info
 } from "lucide-react";
 import type { WebForm, WebFormSubmission } from "@shared/schema";
 
@@ -1099,6 +1099,87 @@ function LayoutPreview({ sections, fields, formData }: { sections: any[]; fields
   );
 }
 
+function ConfirmEmailPreview({ formData, editSections, editFields }: { formData: any; editSections: any[]; editFields: any[] }) {
+  const brandColor = formData.brandColor || "#16a34a";
+  const greeting = (formData.confirmEmailGreeting || "Dobrý deň p. {{priezvisko}},")
+    .replace(/\{\{priezvisko\}\}/g, "Nováková").replace(/\{\{meno\}\}/g, "Jana").replace(/\{\{email\}\}/g, "jana@example.com");
+  const bodyText = (formData.confirmEmailBody || "ďakujeme za Váš záujem. Čoskoro Vás budeme kontaktovať.")
+    .replace(/\{\{priezvisko\}\}/g, "Nováková").replace(/\{\{meno\}\}/g, "Jana").replace(/\{\{email\}\}/g, "jana@example.com");
+  const footerText = formData.confirmEmailFooter || "V prípade akýchkoľvek otázok nás neváhajte kontaktovať.";
+  const signatureText = formData.confirmEmailSignature || "Cord Blood Center";
+
+  const sampleData: Record<string, string> = {};
+  editFields.forEach((f: any) => {
+    const key = f.customerField || f.label;
+    if (f.fieldType === "date") sampleData[key] = "15.06.2026";
+    else if (f.fieldType === "email" || f.customerField === "email") sampleData[key] = "jana@example.com";
+    else if (f.fieldType === "tel" || f.customerField === "phone" || f.customerField === "mobile") sampleData[key] = "+421 900 123 456";
+    else if (f.customerField === "firstName") sampleData[key] = "Jana";
+    else if (f.customerField === "lastName") sampleData[key] = "Nováková";
+    else sampleData[key] = "vzorová hodnota";
+  });
+
+  const sectionMap = new Map(editSections.map((s: any) => [s.id, s]));
+  const grouped: Record<string, any[]> = {};
+  const sorted = [...editFields].sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0));
+  for (const field of sorted) {
+    const key = field.sectionId || "__none";
+    if (!grouped[key]) grouped[key] = [];
+    grouped[key].push(field);
+  }
+
+  return (
+    <div className="border rounded-xl overflow-hidden shadow-sm" style={{ backgroundColor: "#f3f4f6" }}>
+      <div className="p-4">
+        <div className="max-w-[520px] mx-auto">
+          <div style={{ background: `linear-gradient(135deg, ${brandColor}, ${brandColor}dd)`, padding: "24px 28px", borderRadius: "12px 12px 0 0", textAlign: "center" }}>
+            <h2 style={{ margin: 0, color: "#fff", fontSize: "16px", fontWeight: 700 }}>{formData.headerTitle || "Potvrdenie registrácie"}</h2>
+          </div>
+          <div style={{ background: "#fff", padding: "28px", borderRadius: "0 0 12px 12px", boxShadow: "0 2px 16px rgba(0,0,0,0.06)" }}>
+            <p style={{ margin: "0 0 12px 0", color: "#111827", fontSize: "13px", lineHeight: 1.6 }}>{greeting}</p>
+            <p style={{ margin: "0 0 20px 0", color: "#374151", fontSize: "12px", lineHeight: 1.7 }}>{bodyText}</p>
+
+            {formData.confirmEmailShowData !== false && (
+              <div style={{ margin: "20px 0", padding: "16px", background: "#f9fafb", borderRadius: "10px", border: "1px solid #e5e7eb" }}>
+                <p style={{ margin: "0 0 10px 0", color: "#6b7280", fontSize: "10px", textTransform: "uppercase", letterSpacing: "1px", fontWeight: 600 }}>Kópia vyplnených údajov</p>
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <tbody>
+                    {Object.entries(grouped).map(([secId, secFields]) => {
+                      const sec = sectionMap.get(secId);
+                      return (
+                        <>{sec?.title && (
+                          <tr key={`sec-${secId}`}><td colSpan={2} style={{ padding: "10px 0 6px 0", borderBottom: `2px solid ${brandColor}22` }}>
+                            <strong style={{ color: brandColor, textTransform: "uppercase", fontSize: "9px", letterSpacing: "1px" }}>{sec.title}</strong>
+                          </td></tr>
+                        )}
+                        {secFields.map((field: any) => {
+                          const val = sampleData[field.customerField || field.label] || "vzorová hodnota";
+                          return (
+                            <tr key={field._key || field.id}>
+                              <td style={{ padding: "4px 8px 4px 0", color: "#6b7280", fontSize: "11px", whiteSpace: "nowrap", verticalAlign: "top" }}>{field.label}</td>
+                              <td style={{ padding: "4px 0", color: "#111827", fontSize: "11px" }}>{val}</td>
+                            </tr>
+                          );
+                        })}</>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            <p style={{ margin: "20px 0 0 0", color: "#6b7280", fontSize: "11px", lineHeight: 1.6 }}>{footerText}</p>
+            <div style={{ margin: "16px 0 0 0", padding: "12px 0 0 0", borderTop: "1px solid #e5e7eb" }}>
+              <p style={{ margin: 0, color: "#111827", fontSize: "11px", fontWeight: 600 }}>{signatureText}</p>
+            </div>
+          </div>
+          <p style={{ margin: "12px 0 0 0", textAlign: "center", color: "#9ca3af", fontSize: "9px" }}>&copy; {new Date().getFullYear()} {signatureText}. Tento e-mail bol odoslaný automaticky.</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void }) {
   const { toast } = useToast();
   const [formData, setFormData] = useState<any>({});
@@ -1204,7 +1285,7 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
           <div className="flex gap-5">
             <div className="flex-1 min-w-0 space-y-6">
           <Tabs defaultValue="builder">
-            <TabsList className="grid grid-cols-4 w-full">
+            <TabsList className="grid grid-cols-5 w-full">
               <TabsTrigger value="builder" data-testid="tab-builder">
                 <LayoutGrid className="h-3.5 w-3.5 mr-1" /> Štruktúra
               </TabsTrigger>
@@ -1215,6 +1296,9 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
                 <Settings className="h-3.5 w-3.5 mr-1" /> Základné
               </TabsTrigger>
               <TabsTrigger value="texts" data-testid="tab-texts">Texty & GDPR</TabsTrigger>
+              <TabsTrigger value="email" data-testid="tab-email">
+                <Mail className="h-3.5 w-3.5 mr-1" /> Email
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="builder" className="mt-4">
@@ -1368,6 +1452,94 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
                 <Label className="text-xs">Správa po odoslaní</Label>
                 <Textarea value={formData.successMessage || ""} onChange={e => setFormData({ ...formData, successMessage: e.target.value })} rows={2} />
               </div>
+            </TabsContent>
+
+            <TabsContent value="email" className="space-y-4 mt-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-sm font-medium">Potvrdzujúci email</h4>
+                  <p className="text-[11px] text-muted-foreground">Email sa odošle zákazníkovi po odoslaní formulára</p>
+                </div>
+                <Switch
+                  checked={formData.confirmEmailEnabled !== false}
+                  onCheckedChange={v => setFormData({ ...formData, confirmEmailEnabled: v })}
+                  data-testid="switch-confirm-email"
+                />
+              </div>
+              {formData.confirmEmailEnabled !== false && (
+                <>
+                  <Separator />
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-start gap-2">
+                    <Info className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
+                    <p className="text-[11px] text-blue-700">
+                      Dostupné premenné: <code className="bg-blue-100 px-1 rounded">{"{{meno}}"}</code> <code className="bg-blue-100 px-1 rounded">{"{{priezvisko}}"}</code> <code className="bg-blue-100 px-1 rounded">{"{{email}}"}</code>. Email sa odosiela z emailu nastaveného v Billing Company pre danú krajinu.
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Predmet emailu</Label>
+                    <Input
+                      value={formData.confirmEmailSubject || ""}
+                      onChange={e => setFormData({ ...formData, confirmEmailSubject: e.target.value })}
+                      placeholder="Potvrdenie registrácie - Cord Blood Center"
+                      data-testid="input-email-subject"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Pozdrav</Label>
+                    <Input
+                      value={formData.confirmEmailGreeting || ""}
+                      onChange={e => setFormData({ ...formData, confirmEmailGreeting: e.target.value })}
+                      placeholder="Dobrý deň p. {{priezvisko}},"
+                      data-testid="input-email-greeting"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Hlavný text emailu</Label>
+                    <Textarea
+                      value={formData.confirmEmailBody || ""}
+                      onChange={e => setFormData({ ...formData, confirmEmailBody: e.target.value })}
+                      placeholder="ďakujeme za Váš záujem. Čoskoro Vás budeme kontaktovať."
+                      rows={3}
+                      data-testid="input-email-body"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label className="text-xs">Zobraziť kópiu vyplnených údajov</Label>
+                      <p className="text-[10px] text-muted-foreground">Zákazník uvidí v emaili zhrnutie odoslaných polí</p>
+                    </div>
+                    <Switch
+                      checked={formData.confirmEmailShowData !== false}
+                      onCheckedChange={v => setFormData({ ...formData, confirmEmailShowData: v })}
+                      data-testid="switch-email-show-data"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Päta emailu</Label>
+                    <Textarea
+                      value={formData.confirmEmailFooter || ""}
+                      onChange={e => setFormData({ ...formData, confirmEmailFooter: e.target.value })}
+                      placeholder="V prípade akýchkoľvek otázok nás neváhajte kontaktovať."
+                      rows={2}
+                      data-testid="input-email-footer"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Podpis</Label>
+                    <Input
+                      value={formData.confirmEmailSignature || ""}
+                      onChange={e => setFormData({ ...formData, confirmEmailSignature: e.target.value })}
+                      placeholder="Cord Blood Center"
+                      data-testid="input-email-signature"
+                    />
+                  </div>
+                  <Separator />
+                  <div>
+                    <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Náhľad emailu</h4>
+                    <ConfirmEmailPreview formData={formData} editSections={editSections} editFields={editFields} />
+                  </div>
+                </>
+              )}
             </TabsContent>
 
           </Tabs>

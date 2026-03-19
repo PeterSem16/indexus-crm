@@ -1,0 +1,1000 @@
+      const articles = await storage.getSopArticlesByCampaign(req.params.campaignId);
+      res.json(articles);
+    } catch (error) {
+      console.error("Error fetching campaign SOP articles:", error);
+      res.status(500).json({ error: "Failed to fetch campaign SOP articles" });
+    }
+  });
+
+  app.get("/api/sop/articles/:id", requireAuth, async (req, res) => {
+    try {
+      const article = await storage.getSopArticle(req.params.id);
+      if (!article) return res.status(404).json({ error: "Article not found" });
+      res.json(article);
+    } catch (error) {
+      console.error("Error fetching SOP article:", error);
+      res.status(500).json({ error: "Failed to fetch SOP article" });
+    }
+  });
+
+  app.post("/api/sop/articles", requireAuth, async (req, res) => {
+    try {
+      const parsed = insertSopArticleSchema.parse({ ...req.body, createdBy: req.session.user?.id?.toString() });
+      const article = await storage.createSopArticle(parsed);
+      res.status(201).json(article);
+    } catch (error: any) {
+      if (error?.name === "ZodError") return res.status(400).json({ error: "Validation failed", details: error.errors });
+      console.error("Error creating SOP article:", error);
+      res.status(500).json({ error: "Failed to create SOP article" });
+    }
+  });
+
+  app.patch("/api/sop/articles/:id", requireAuth, async (req, res) => {
+    try {
+      const parsed = insertSopArticleSchema.partial().parse(req.body);
+      const updated = await storage.updateSopArticle(req.params.id, parsed);
+      if (!updated) return res.status(404).json({ error: "Article not found" });
+      res.json(updated);
+    } catch (error: any) {
+      if (error?.name === "ZodError") return res.status(400).json({ error: "Validation failed", details: error.errors });
+      console.error("Error updating SOP article:", error);
+      res.status(500).json({ error: "Failed to update SOP article" });
+    }
+  });
+
+  app.delete("/api/sop/articles/:id", requireAuth, async (req, res) => {
+    try {
+      const deleted = await storage.deleteSopArticle(req.params.id);
+      if (!deleted) return res.status(404).json({ error: "Article not found" });
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting SOP article:", error);
+      res.status(500).json({ error: "Failed to delete SOP article" });
+    }
+  });
+
+  app.post("/api/sop/articles/:id/read", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      const read = await storage.markSopArticleRead(req.params.id, userId);
+      res.json(read);
+    } catch (error) {
+      console.error("Error marking SOP article as read:", error);
+      res.status(500).json({ error: "Failed to mark article as read" });
+    }
+  });
+
+
+  app.post("/api/sop/articles/:id/copy-translate", requireAuth, async (req, res) => {
+    try {
+      const { targetCountryCode, translate } = req.body;
+      const VALID_CODES = ["SK", "CZ", "US", "HU", "RO", "IT", "DE", "GB"];
+      if (!targetCountryCode || !VALID_CODES.includes(targetCountryCode)) return res.status(400).json({ error: "Invalid targetCountryCode" });
+
+      const source = await storage.getSopArticle(req.params.id);
+      if (!source) return res.status(404).json({ error: "Article not found" });
+
+      const LANG_NAMES: Record<string, string> = {
+        SK: "Slovak", CZ: "Czech", US: "English", HU: "Hungarian",
+        RO: "Romanian", IT: "Italian", DE: "German", GB: "English"
+      };
+      const sourceLangName = LANG_NAMES[(source.countryCode || "SK").toUpperCase()] || source.countryCode || "Slovak";
+      const targetLangName = LANG_NAMES[targetCountryCode.toUpperCase()] || targetCountryCode;
+
+      let title = source.title;
+      let content = source.content;
+      let summary = source.summary || "";
+
+      if (translate) {
+        const openaiInstance = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+        const prompt = `Translate the following from ${sourceLangName} to ${targetLangName}. Keep all HTML tags exactly as they are. Return ONLY the translated text, nothing else.`;
+
+        const translateText = async (text: string, isHtml: boolean): Promise<string> => {
+          if (!text || text.trim().length === 0) return text;
+          const completion = await openaiInstance.chat.completions.create({
+            model: "gpt-4o-mini",
+            messages: [
+              { role: "system", content: prompt + (isHtml ? " The text contains HTML markup - preserve all HTML tags exactly." : "") },
+              { role: "user", content: text }
+            ],
+            temperature: 0.3,
+          });
+          return completion.choices[0]?.message?.content || text;
+        };
+
+        const [translatedTitle, translatedContent, translatedSummary] = await Promise.all([
+          translateText(title, false),
+          translateText(content, true),
+          summary ? translateText(summary, false) : Promise.resolve(""),
+        ]);
+
+        title = translatedTitle;
+        content = translatedContent;
+        summary = translatedSummary;
+      }
+
+      const newArticle = await storage.createSopArticle({
+        categoryId: source.categoryId,
+        title,
+        content,
+        summary: summary || null,
+        priority: source.priority,
+        countryCode: targetCountryCode,
+        isPublished: source.isPublished,
+        isPinned: false,
+        tags: source.tags || [],
+        createdBy: req.session.user?.id?.toString(),
+      });
+
+      res.status(201).json(newArticle);
+    } catch (error) {
+      console.error("Error copying/translating SOP article:", error);
+      res.status(500).json({ error: "Failed to copy article" });
+    }
+  });
+
+  app.get("/api/sop/articles/:id/reads", requireAuth, async (req, res) => {
+    try {
+      const reads = await storage.getSopArticleReads(req.params.id);
+      res.json(reads);
+    } catch (error) {
+      console.error("Error fetching SOP article reads:", error);
+      res.status(500).json({ error: "Failed to fetch article reads" });
+    }
+  });
+
+  app.get("/api/sop/user-reads", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      const reads = await storage.getUserSopReads(userId);
+      res.json(reads);
+    } catch (error) {
+      console.error("Error fetching user SOP reads:", error);
+      res.status(500).json({ error: "Failed to fetch user reads" });
+    }
+  });
+
+  app.post("/api/sop/articles/:id/campaigns", requireAuth, async (req, res) => {
+    try {
+      const { campaignId } = req.body;
+      if (!campaignId) return res.status(400).json({ error: "campaignId required" });
+      await storage.linkSopArticleToCampaign(req.params.id, campaignId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error linking SOP article to campaign:", error);
+      res.status(500).json({ error: "Failed to link article to campaign" });
+    }
+  });
+
+  app.delete("/api/sop/articles/:id/campaigns/:campaignId", requireAuth, async (req, res) => {
+    try {
+      await storage.unlinkSopArticleFromCampaign(req.params.id, req.params.campaignId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error unlinking SOP article from campaign:", error);
+      res.status(500).json({ error: "Failed to unlink article from campaign" });
+    }
+  });
+
+  app.get("/api/sop/articles/:id/campaigns", requireAuth, async (req, res) => {
+    try {
+      const campaignIds = await storage.getSopCampaignLinks(req.params.id);
+      res.json(campaignIds);
+    } catch (error) {
+      console.error("Error fetching SOP campaign links:", error);
+      res.status(500).json({ error: "Failed to fetch campaign links" });
+    }
+  });
+
+  registerInboundRoutes(app, requireAuth);
+
+  app.get("/api/web-forms", requireAuth, async (_req, res) => {
+    try { res.json(await storage.getWebForms()); }
+    catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.get("/api/web-forms/:id", requireAuth, async (req, res) => {
+    try {
+      const form = await storage.getWebForm(req.params.id);
+      if (!form) return res.status(404).json({ error: "Form not found" });
+      const sections = await storage.getWebFormSections(form.id);
+      const fields = await storage.getWebFormFields(form.id);
+      res.json({ ...form, sections, fields });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/web-forms", requireAuth, async (req, res) => {
+    try {
+      const { sections, fields, ...formData } = req.body;
+      const userId = req.session.user!.id;
+      const form = await storage.createWebForm({ ...formData, createdBy: userId });
+      if (sections && Array.isArray(sections)) {
+        for (const s of sections) await storage.createWebFormSection({ ...s, formId: form.id });
+      }
+      if (fields && Array.isArray(fields)) {
+        for (const f of fields) await storage.createWebFormField({ ...f, formId: form.id });
+      }
+      res.json(form);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.patch("/api/web-forms/:id", requireAuth, async (req, res) => {
+    try {
+      const { sections, fields, ...raw } = req.body;
+      const ALLOWED_FORM_KEYS = [
+        "name","slug","countryCode","language","description","headerTitle","headerSubtitle",
+        "gdprText","gdprMarketingText","gdprPregnancyText","successMessage",
+        "brandColor","textColor","headingColor","sectionColor","bgColor","formWidth","formLayout","logoUrl","isActive","contactInfo",
+        "titleFontSize","titleFontWeight","titleFontStyle","titleFontFamily",
+        "subtitleFontSize","subtitleFontWeight","subtitleFontStyle","subtitleFontFamily",
+        "sectionFontSize","sectionFontWeight","sectionFontStyle",
+        "labelFontSize","labelFontWeight","buttonFontSize","buttonFontWeight",
+      ];
+      const formData: Record<string, any> = {};
+      for (const k of ALLOWED_FORM_KEYS) {
+        if (k in raw) formData[k] = raw[k];
+      }
+      console.log("[WebForm PATCH]", req.params.id, "keys:", Object.keys(formData).join(","), "sections:", sections?.length, "fields:", fields?.length);
+      const form = await storage.updateWebForm(req.params.id, formData as any);
+      if (sections && Array.isArray(sections)) {
+        await storage.deleteWebFormSectionsByFormId(form.id);
+        const oldToNewSectionId = new Map<string, string>();
+        for (const s of sections) {
+          const { id: oldSectionId, ...sData } = s;
+          const created = await storage.createWebFormSection({ ...sData, formId: form.id });
+          if (oldSectionId && created?.id) {
+            oldToNewSectionId.set(oldSectionId, created.id);
+          }
+        }
+        if (fields && Array.isArray(fields)) {
+          await storage.deleteWebFormFieldsByFormId(form.id);
+          for (const f of fields) {
+            const { id: _fId, ...fData } = f;
+            if (fData.sectionId && oldToNewSectionId.has(fData.sectionId)) {
+              fData.sectionId = oldToNewSectionId.get(fData.sectionId);
+            }
+            await storage.createWebFormField({ ...fData, formId: form.id });
+          }
+        }
+      } else if (fields && Array.isArray(fields)) {
+        await storage.deleteWebFormFieldsByFormId(form.id);
+        for (const f of fields) {
+          const { id: _fId, ...fData } = f;
+          await storage.createWebFormField({ ...fData, formId: form.id });
+        }
+      }
+      const updatedSections = await storage.getWebFormSections(form.id);
+      const updatedFields = await storage.getWebFormFields(form.id);
+      res.json({ ...form, sections: updatedSections, fields: updatedFields });
+    } catch (e: any) {
+      console.error("[WebForm PATCH ERROR]", e.message, e.stack);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.delete("/api/web-forms/:id", requireAuth, async (req, res) => {
+    try {
+      await storage.deleteWebFormFieldsByFormId(req.params.id);
+      await storage.deleteWebFormSectionsByFormId(req.params.id);
+      await storage.deleteWebForm(req.params.id);
+      res.json({ success: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.get("/api/web-forms/:id/submissions", requireAuth, async (req, res) => {
+    try { res.json(await storage.getWebFormSubmissions(req.params.id)); }
+    catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.get("/api/web-forms/:id/audit-log", requireAuth, async (req, res) => {
+    try { res.json(await storage.getWebFormAuditLogs(req.params.id)); }
+    catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.get("/api/public/web-form/:slug", async (req, res) => {
+    try {
+      const form = await storage.getWebFormBySlug(req.params.slug);
+      if (!form || !form.isActive) return res.status(404).json({ error: "Form not found" });
+      const sections = await storage.getWebFormSections(form.id);
+      const fields = await storage.getWebFormFields(form.id);
+      const hicsRaw = await db.select().from((await import("@shared/schema")).healthInsuranceCompanies)
+        .where(eq((await import("@shared/schema")).healthInsuranceCompanies.countryCode, form.countryCode));
+      const hospitalsRaw = await db.select().from((await import("@shared/schema")).hospitals)
+        .where(and(eq((await import("@shared/schema")).hospitals.countryCode, form.countryCode), eq((await import("@shared/schema")).hospitals.isActive, true)));
+      const productSetsRaw = await db.select().from((await import("@shared/schema")).productSets)
+        .where(and(eq((await import("@shared/schema")).productSets.countryCode, form.countryCode), eq((await import("@shared/schema")).productSets.isActive, true)));
+      res.json({
+        form: { ...form, sections, fields },
+        healthInsuranceCompanies: hicsRaw,
+        hospitals: hospitalsRaw.map(h => ({ id: h.id, name: h.name, fullName: h.fullName, city: h.city })),
+        productSets: productSetsRaw.map(p => ({ id: p.id, name: p.name, totalGrossAmount: p.totalGrossAmount, currency: p.currency })),
+      });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/public/web-form/:slug/check-customer", async (req, res) => {
+    try {
+      const { firstName, lastName, email } = req.body;
+      if (!firstName || !lastName || !email) return res.status(400).json({ error: "Missing fields" });
+      const form = await storage.getWebFormBySlug(req.params.slug);
+      if (!form || !form.isActive) return res.status(404).json({ error: "Form not found" });
+      const results = await db.select().from((await import("@shared/schema")).customers)
+        .where(and(
+          sql`LOWER(${(await import("@shared/schema")).customers.firstName}) = LOWER(${firstName})`,
+          sql`LOWER(${(await import("@shared/schema")).customers.lastName}) = LOWER(${lastName})`,
+          sql`LOWER(${(await import("@shared/schema")).customers.email}) = LOWER(${email})`,
+        )).limit(1);
+      if (results.length > 0) {
+        res.json({ found: true });
+      } else {
+        res.json({ found: false });
+      }
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/public/web-form/:slug/send-otp", async (req, res) => {
+    try {
+      const { email } = req.body;
+      if (!email) return res.status(400).json({ error: "Email required" });
+      const form = await storage.getWebFormBySlug(req.params.slug);
+      if (!form || !form.isActive) return res.status(404).json({ error: "Form not found" });
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+      await storage.createWebFormOtp({ formId: form.id, email, code, expiresAt });
+      await storage.createWebFormAuditLog({ formId: form.id, action: "otp_sent", details: JSON.stringify({ email }), ipAddress: req.ip || null });
+      try {
+        const userId = await db.select({ id: (await import("@shared/schema")).users.id }).from((await import("@shared/schema")).users).limit(1);
+        if (userId.length > 0) {
+          const ms365Connection = await storage.getUserMs365Connection(userId[0].id);
+          if (ms365Connection?.isConnected) {
+            const { decryptTokenSafe } = await import("./lib/token-crypto");
+            const accessToken = decryptTokenSafe(ms365Connection.accessToken);
+            const { getValidAccessToken, sendEmail } = await import("./lib/ms365");
+            const tokenResult = await getValidAccessToken(accessToken, ms365Connection.tokenExpiresAt, ms365Connection.refreshToken ? decryptTokenSafe(ms365Connection.refreshToken) : null);
+            if (tokenResult) {
+              await sendEmail(tokenResult.accessToken, [email], "Overovací kód - Cord Blood Center", `<div style="font-family:Arial,sans-serif;max-width:400px;margin:0 auto;padding:20px;text-align:center"><h2>Váš overovací kód</h2><p style="font-size:32px;font-weight:bold;letter-spacing:8px;padding:20px;background:#f0f9ff;border-radius:8px">${code}</p><p>Kód platí 10 minút.</p></div>`, true);
+            }
+          }
+        }
+      } catch (emailError) {
+        console.error("[WebForm OTP] Failed to send email:", emailError);
+      }
+      res.json({ success: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/public/web-form/:slug/verify-otp", async (req, res) => {
+    try {
+      const { email, code } = req.body;
+      if (!email || !code) return res.status(400).json({ error: "Missing fields" });
+      const form = await storage.getWebFormBySlug(req.params.slug);
+      if (!form || !form.isActive) return res.status(404).json({ error: "Form not found" });
+      const otp = await storage.getWebFormOtp(form.id, email, code);
+      if (!otp) return res.status(400).json({ error: "Invalid code" });
+      if (new Date() > otp.expiresAt) return res.status(400).json({ error: "Code expired" });
+      await storage.markWebFormOtpUsed(otp.id);
+      const crypto = await import("crypto");
+      const verificationToken = crypto.randomBytes(32).toString("hex");
+      await storage.createWebFormAuditLog({ formId: form.id, action: "otp_verified", details: JSON.stringify({ email, verificationToken }), ipAddress: req.ip || null });
+      const schema = await import("@shared/schema");
+      const [customer] = await db.select().from(schema.customers)
+        .where(sql`LOWER(${schema.customers.email}) = LOWER(${email})`)
+        .limit(1);
+      if (customer) {
+        const safeData = {
+          phone: customer.phone, mobile: customer.mobile, address: customer.address,
+          city: customer.city, postalCode: customer.postalCode, country: customer.country,
+          dateOfBirth: customer.dateOfBirth, nationalId: customer.nationalId,
+          healthInsuranceId: customer.healthInsuranceId, bankAccount: customer.bankAccount,
+          bankName: customer.bankName, bankSwift: customer.bankSwift,
+        };
+        res.json({ verified: true, customerData: safeData, customerId: customer.id, clientStatus: customer.clientStatus, verificationToken });
+      } else {
+        res.json({ verified: true, verificationToken });
+      }
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/public/web-form/:slug/submit", async (req, res) => {
+    try {
+      const form = await storage.getWebFormBySlug(req.params.slug);
+      if (!form || !form.isActive) return res.status(404).json({ error: "Form not found" });
+      const { formData, customerId, verificationToken } = req.body;
+      if (!formData) return res.status(400).json({ error: "No form data" });
+
+      let isOtpVerified = false;
+      if (customerId && verificationToken) {
+        const auditLogs = await storage.getWebFormAuditLogs(form.id);
+        const matchingLog = auditLogs.find(log => {
+          if (log.action !== "otp_verified") return false;
+          try {
+            const details = JSON.parse(log.details || "{}");
+            return details.verificationToken === verificationToken;
+          } catch { return false; }
+        });
+        if (!matchingLog) return res.status(403).json({ error: "Invalid verification token" });
+        isOtpVerified = true;
+      }
+
+      const schema = await import("@shared/schema");
+      let targetCustomerId: string | null = null;
+      let isNewCustomer = false;
+
+      if (customerId && isOtpVerified) {
+        targetCustomerId = customerId;
+        const [existing] = await db.select().from(schema.customers).where(eq(schema.customers.id, targetCustomerId!)).limit(1);
+        if (existing) {
+          const updateData: any = {};
+          if (formData.phone && !existing.phone) updateData.phone = formData.phone;
+          if (formData.mobile && !existing.mobile) updateData.mobile = formData.mobile;
+          if (formData.address) updateData.address = formData.address;
+          if (formData.city) updateData.city = formData.city;
+          if (formData.postalCode) updateData.postalCode = formData.postalCode;
+          if (formData.dateOfBirth) updateData.dateOfBirth = new Date(formData.dateOfBirth);
+          if (formData.nationalId) updateData.nationalId = formData.nationalId;
+          if (formData.healthInsuranceId) updateData.healthInsuranceId = formData.healthInsuranceId;
+          if (formData.bankAccount) updateData.bankAccount = formData.bankAccount;
+          if (formData.bankName) updateData.bankName = formData.bankName;
+          if (formData.bankSwift) updateData.bankSwift = formData.bankSwift;
+          updateData.status = "web_request";
+          if (Object.keys(updateData).length > 0) {
+            await db.update(schema.customers).set(updateData).where(eq(schema.customers.id, targetCustomerId));
+          }
+          await storage.createActivityLog({
+            userId: "system",
+            action: "web_form_submission",
+            entityType: "customer",
+            entityId: targetCustomerId,
+            entityName: `${existing.firstName} ${existing.lastName}`,
+            details: JSON.stringify({ formId: form.id, formName: form.name, type: "existing_customer", status: "web_request", data: formData }),
+          });
+        }
+      } else {
+        if (!formData.firstName || !formData.lastName || !formData.email) {
+          return res.status(400).json({ error: "Missing required customer fields" });
+        }
+        const [newCustomer] = await db.insert(schema.customers).values({
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          maidenName: formData.maidenName || null,
+          titleBefore: formData.titleBefore || null,
+          titleAfter: formData.titleAfter || null,
+          email: formData.email,
+          phone: formData.phone || null,
+          mobile: formData.mobile || null,
+          dateOfBirth: formData.dateOfBirth ? new Date(formData.dateOfBirth) : null,
+          nationalId: formData.nationalId || null,
+          country: form.countryCode,
+          city: formData.city || null,
+          address: formData.address || null,
+          postalCode: formData.postalCode || null,
+          region: formData.region || null,
+          healthInsuranceId: formData.healthInsuranceId || null,
+          bankAccount: formData.bankAccount || null,
+          bankName: formData.bankName || null,
+          bankSwift: formData.bankSwift || null,
+          clientStatus: "potential",
+          status: "pending",
+          serviceType: formData.serviceType || null,
+          newsletter: formData.newsletter || false,
+        }).returning();
+        targetCustomerId = newCustomer.id;
+        isNewCustomer = true;
+        await storage.createActivityLog({
+          userId: "system",
+          action: "web_form_submission",
+          entityType: "customer",
+          entityId: newCustomer.id,
+          entityName: `${newCustomer.firstName} ${newCustomer.lastName}`,
+          details: JSON.stringify({ formId: form.id, formName: form.name, type: "new_customer", status: "potential/pending", data: formData }),
+        });
+      }
+
+      const submission = await storage.createWebFormSubmission({
+        formId: form.id,
+        data: JSON.stringify({ ...formData, productSetId: formData.productSetId, hospitalId: formData.hospitalId, howDidYouHear: formData.howDidYouHear }),
+        ipAddress: req.ip || null,
+        userAgent: req.headers["user-agent"] || null,
+        status: "processed",
+        customerId: targetCustomerId,
+        isNewCustomer,
+        isOtpVerified: isOtpVerified || false,
+        processedAt: new Date(),
+      });
+      await storage.createWebFormAuditLog({
+        formId: form.id, submissionId: submission.id,
+        action: "form_submitted",
+        details: JSON.stringify({ customerId: targetCustomerId, isNewCustomer, isOtpVerified }),
+        ipAddress: req.ip || null,
+      });
+      res.json({ success: true, submissionId: submission.id, isNewCustomer, customerId: targetCustomerId });
+    } catch (e: any) {
+      console.error("[WebForm Submit] Error:", e);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  setTimeout(() => {
+    autoConnectAri().catch(err => console.error("[ARI AutoConnect] Error:", err.message));
+  }, 10000);
+
+  return httpServer;
+}
+
+// Helper function to apply customer criteria
+interface CriteriaCondition {
+  id: string;
+  field: string;
+  operator: string;
+  value: string | string[];
+}
+
+interface CriteriaGroup {
+  id: string;
+  logic: "AND" | "OR";
+  conditions: CriteriaCondition[];
+}
+
+function evaluateCondition(item: Record<string, any>, condition: CriteriaCondition): boolean {
+  const rawValue = item[condition.field];
+  const condValue = condition.value;
+  const strValue = String(rawValue ?? "");
+  const strCondValue = String(condValue);
+
+  switch (condition.operator) {
+    case "equals":
+      if (condValue === "true") return rawValue === true || strValue === "true";
+      if (condValue === "false") return rawValue === false || strValue === "false";
+      return strValue === strCondValue;
+    case "notEquals":
+      if (condValue === "true") return rawValue !== true && strValue !== "true";
+      if (condValue === "false") return rawValue !== false && strValue !== "false";
+      return strValue !== strCondValue;
+    case "contains":
+      return strValue.toLowerCase().includes(strCondValue.toLowerCase());
+    case "notContains":
+      return !strValue.toLowerCase().includes(strCondValue.toLowerCase());
+    case "startsWith":
+      return strValue.toLowerCase().startsWith(strCondValue.toLowerCase());
+    case "endsWith":
+      return strValue.toLowerCase().endsWith(strCondValue.toLowerCase());
+    case "isEmpty":
+      return rawValue === null || rawValue === undefined || strValue === "";
+    case "isNotEmpty":
+      return rawValue !== null && rawValue !== undefined && strValue !== "";
+    case "in": {
+      const inValues = Array.isArray(condValue) ? condValue : strCondValue.split(",").map(s => s.trim());
+      return inValues.includes(strValue);
+    }
+    case "notIn": {
+      const notInValues = Array.isArray(condValue) ? condValue : strCondValue.split(",").map(s => s.trim());
+      return !notInValues.includes(strValue);
+    }
+    default:
+      return true;
+  }
+}
+
+function evaluateGroup(item: Record<string, any>, group: CriteriaGroup): boolean {
+  if (group.conditions.length === 0) return true;
+  if (group.logic === "AND") {
+    return group.conditions.every(cond => evaluateCondition(item, cond));
+  } else {
+    return group.conditions.some(cond => evaluateCondition(item, cond));
+  }
+}
+
+function applyCriteriaGroups(items: any[], criteria: CriteriaGroup[]): any[] {
+  if (!Array.isArray(criteria) || criteria.length === 0) return items;
+  return items.filter(item => criteria.every(group => evaluateGroup(item, group)));
+}
+
+function applyGenericFilters(items: any[], filters: Record<string, any>): any[] {
+  if (!filters || Object.keys(filters).length === 0) return items;
+  return items.filter(item => {
+    for (const [key, value] of Object.entries(filters)) {
+      if (value === undefined || value === null || value === "") continue;
+      const itemValue = item[key];
+      if (itemValue === undefined || itemValue === null) return false;
+      if (Array.isArray(value)) {
+        if (!value.includes(String(itemValue))) return false;
+      } else if (typeof value === "boolean") {
+        if (Boolean(itemValue) !== value) return false;
+      } else {
+        if (!String(itemValue).toLowerCase().includes(String(value).toLowerCase())) return false;
+      }
+    }
+    return true;
+  });
+}
+
+function applyCustomerCriteria(customers: Customer[], criteria: CriteriaGroup[]): Customer[] {
+  return applyCriteriaGroups(customers, criteria);
+}
+
+// Automation execution engine
+async function executeAutomationAction(
+  rule: any,
+  deal: any,
+  userId?: string
+): Promise<{ action: string; details: string }> {
+  const actionConfig = rule.actionConfig || {};
+  
+  switch (rule.actionType) {
+    case "create_activity": {
+      const activityType = actionConfig.activityType || "task";
+      const subject = actionConfig.activitySubject || "Automatická úloha";
+      const dueInDays = actionConfig.dueDays || 1;
+      const dueDate = new Date();
+      dueDate.setDate(dueDate.getDate() + dueInDays);
+      
+      await storage.createDealActivity({
+        dealId: deal.id,
+        type: activityType,
+        subject,
+        dueDate,
+        completed: false,
+        createdBy: userId,
+      });
+      return { action: "create_activity", details: `Vytvorená aktivita: ${subject}` };
+    }
+
+    case "send_email": {
+      const emailSubject = actionConfig.emailSubject || "Automatický email";
+      const emailBody = actionConfig.emailBody || "";
+      // In production, this would send actual email via SendGrid/etc
+      console.log(`[Automation] Would send email to deal ${deal.id}: ${emailSubject}`);
+      return { action: "send_email", details: `Email pripravený: ${emailSubject}` };
+    }
+
+    case "assign_owner": {
+      const assignUserId = actionConfig.assignUserId;
+      if (assignUserId) {
+        await storage.updateDeal(deal.id, { ownerId: assignUserId });
+        return { action: "assign_owner", details: `Deal priradený používateľovi ${assignUserId}` };
+      }
+      return { action: "assign_owner", details: "Nebolo možné priradiť - chýba používateľ" };
+    }
+
+    case "update_deal": {
+      const updateField = actionConfig.updateField;
+      const updateValue = actionConfig.updateValue;
+      if (updateField && updateValue) {
+        const updateData: Record<string, any> = {};
+        if (updateField === "probability") {
+          updateData[updateField] = parseInt(updateValue);
+        } else {
+          updateData[updateField] = updateValue;
+        }
+        await storage.updateDeal(deal.id, updateData);
+        return { action: "update_deal", details: `Aktualizované pole ${updateField} na ${updateValue}` };
+      }
+      return { action: "update_deal", details: "Nebolo možné aktualizovať - chýba konfigurácia" };
+    }
+
+    case "move_stage": {
+      const targetStageId = actionConfig.targetStageId;
+      if (targetStageId) {
+        await storage.updateDeal(deal.id, { stageId: targetStageId });
+        return { action: "move_stage", details: `Deal presunutý do fázy ${targetStageId}` };
+      }
+      return { action: "move_stage", details: "Nebolo možné presunúť - chýba cieľová fáza" };
+    }
+
+    case "add_note": {
+      const noteText = actionConfig.noteText || "Automatická poznámka";
+      await storage.createDealNote({
+        dealId: deal.id,
+        content: noteText,
+        createdBy: userId,
+      });
+      return { action: "add_note", details: `Pridaná poznámka: ${noteText.substring(0, 50)}...` };
+    }
+
+    default:
+      return { action: rule.actionType, details: "Neznámy typ akcie" };
+  }
+}
+
+// Trigger automations based on event type
+async function triggerAutomations(
+  triggerType: string,
+  deal: any,
+  userId?: string,
+  context?: { fromStageId?: string; toStageId?: string }
+): Promise<void> {
+  try {
+    // Get pipeline from deal's stage
+    const stage = await storage.getPipelineStage(deal.stageId);
+    if (!stage) return;
+
+    // Get all active automation rules for this pipeline
+    const rules = await storage.getAutomationRules(stage.pipelineId);
+    const activeRules = rules.filter(r => r.isActive && r.triggerType === triggerType);
+
+    for (const rule of activeRules) {
+      let shouldTrigger = true;
+
+      // Check trigger conditions for stage_changed
+      if (triggerType === "stage_changed" && context) {
+        const triggerConfig = rule.triggerConfig || {};
+        if (triggerConfig.fromStageId && triggerConfig.fromStageId !== context.fromStageId) {
+          shouldTrigger = false;
+        }
+        if (triggerConfig.toStageId && triggerConfig.toStageId !== context.toStageId) {
+          shouldTrigger = false;
+        }
+      }
+
+      if (shouldTrigger) {
+        console.log(`[Automation] Triggering rule "${rule.name}" for deal ${deal.id}`);
+        await executeAutomationAction(rule, deal, userId);
+        await storage.updateAutomationRule(rule.id, {
+          executionCount: (rule.executionCount || 0) + 1,
+          lastExecutedAt: new Date(),
+        });
+      }
+    }
+  } catch (error) {
+    console.error("Error triggering automations:", error);
+  }
+}
+
+// Trigger automations for customer updates
+async function triggerCustomerAutomations(
+  customer: any,
+  changedFields: string[],
+  oldCustomer: any,
+  userId?: string
+): Promise<void> {
+  try {
+    // Get all pipelines and their automation rules
+    const pipelines = await storage.getAllPipelines();
+    
+    for (const pipeline of pipelines) {
+      const rules = await storage.getAutomationRules(pipeline.id);
+      const customerRules = rules.filter(r => r.isActive && r.triggerType === "customer_updated");
+      
+      for (const rule of customerRules) {
+        const triggerConfig = rule.triggerConfig || {} as any;
+        const trackedFields = triggerConfig.trackedFields || [];
+        
+        // Check if any tracked field was changed
+        const matchingFields = changedFields.filter(f => trackedFields.includes(f));
+        
+        if (matchingFields.length > 0) {
+          // Check specific value conditions if configured
+          let valueConditionsMet = true;
+          
+          // Check status value condition
+          if (matchingFields.includes("status") && triggerConfig.statusValue && triggerConfig.statusValue !== "any") {
+            if (customer.status !== triggerConfig.statusValue) {
+              valueConditionsMet = false;
+              console.log(`[Automation] Rule "${rule.name}" skipped: status "${customer.status}" does not match required "${triggerConfig.statusValue}"`);
+            }
+          }
+          
+          // Check clientStatus value condition
+          if (matchingFields.includes("clientStatus") && triggerConfig.clientStatusValue && triggerConfig.clientStatusValue !== "any") {
+            if (customer.clientStatus !== triggerConfig.clientStatusValue) {
+              valueConditionsMet = false;
+              console.log(`[Automation] Rule "${rule.name}" skipped: clientStatus "${customer.clientStatus}" does not match required "${triggerConfig.clientStatusValue}"`);
+            }
+          }
+          
+          // Check leadScore range condition
+          if (matchingFields.includes("leadScore") && triggerConfig.leadScoreRange && triggerConfig.leadScoreRange !== "any") {
+            const score = customer.leadScore || 0;
+            const [minStr, maxStr] = triggerConfig.leadScoreRange.split("-");
+            const min = parseInt(minStr, 10);
+            const max = parseInt(maxStr, 10);
+            if (score < min || score > max) {
+              valueConditionsMet = false;
+              console.log(`[Automation] Rule "${rule.name}" skipped: leadScore ${score} not in range ${min}-${max}`);
+            }
+          }
+          
+          if (valueConditionsMet) {
+            console.log(`[Automation] Customer rule "${rule.name}" triggered by fields: ${matchingFields.join(", ")}`);
+            
+            // Execute the action with customer context
+            await executeCustomerAutomationAction(rule, customer, pipeline, userId);
+            await storage.updateAutomationRule(rule.id, {
+              executionCount: (rule.executionCount || 0) + 1,
+              lastExecutedAt: new Date(),
+            });
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.error("Error triggering customer automations:", error);
+  }
+}
+
+// Execute automation action for customer-triggered automations
+async function executeCustomerAutomationAction(
+  rule: any,
+  customer: any,
+  pipeline: any,
+  userId?: string
+): Promise<{ action: string; details: string }> {
+  const actionConfig = rule.actionConfig || {};
+  
+  switch (rule.actionType) {
+    case "create_deal": {
+      const stageId = actionConfig.dealStageId;
+      if (!stageId) {
+        return { action: "create_deal", details: "Chýba cieľová fáza pre deal" };
+      }
+      
+      // Get stage to find pipelineId
+      const stage = await storage.getPipelineStage(stageId);
+      if (!stage) {
+        return { action: "create_deal", details: "Fáza nebola nájdená" };
+      }
+      
+      // Create deal title from template
+      let dealTitle = actionConfig.dealTitle || "{customer_name} - Konverzia";
+      dealTitle = dealTitle.replace("{customer_name}", `${customer.firstName} ${customer.lastName}`);
+      
+      const dealId = `deal_${Date.now()}`;
+      await storage.createDeal({
+        id: dealId,
+        title: dealTitle,
+        pipelineId: stage.pipelineId,
+        stageId: stageId,
+        customerId: customer.id,
+        countryCode: customer.country || "SK",
+        source: "automation",
+        assignedUserId: userId,
+      });
+      
+      return { 
+        action: "create_deal", 
+        details: `Vytvorený deal "${dealTitle}" pre zákazníka ${customer.firstName} ${customer.lastName}` 
+      };
+    }
+    
+    case "add_note": {
+      return { action: "add_note", details: "Poznámka pridaná (vyžaduje existujúci deal)" };
+    }
+    
+    default:
+      return { action: rule.actionType, details: "Akcia nie je podporovaná pre zákazníkov" };
+  }
+}
+
+// ==================== EXECUTIVE SUMMARIES ====================
+
+async function gatherCollectionStats(countryCode: string | null, periodStart: Date, periodEnd: Date) {
+  const conditions = [
+    gte(collections.createdAt, periodStart),
+    lte(collections.createdAt, periodEnd),
+  ];
+  if (countryCode) {
+    conditions.push(eq(collections.countryCode, countryCode));
+  }
+
+  const allCollections = await db.select().from(collections).where(and(...conditions));
+  const total = allCollections.length;
+
+  const byCountry: Record<string, number> = {};
+  const byState: Record<string, number> = {};
+  const byMonth: Record<string, number> = {};
+  const byGender: Record<string, number> = {};
+  let withHospital = 0;
+  let withLabResults = 0;
+
+  for (const c of allCollections) {
+    const cc = c.countryCode || "unknown";
+    byCountry[cc] = (byCountry[cc] || 0) + 1;
+
+    const st = c.state || "unknown";
+    byState[st] = (byState[st] || 0) + 1;
+
+    const monthKey = c.createdAt ? `${c.createdAt.getFullYear()}-${String(c.createdAt.getMonth() + 1).padStart(2, '0')}` : "unknown";
+    byMonth[monthKey] = (byMonth[monthKey] || 0) + 1;
+
+    const g = c.childGender || "unknown";
+    byGender[g] = (byGender[g] || 0) + 1;
+
+    if (c.hospitalId) withHospital++;
+  }
+
+  const collectionIds = allCollections.map(c => c.id);
+  if (collectionIds.length > 0) {
+    const labResults = await db.select({ collectionId: collectionLabResults.collectionId })
+      .from(collectionLabResults)
+      .where(inArray(collectionLabResults.collectionId, collectionIds));
+    withLabResults = new Set(labResults.map(r => r.collectionId)).size;
+  }
+
+  const prevPeriodDuration = periodEnd.getTime() - periodStart.getTime();
+  const prevStart = new Date(periodStart.getTime() - prevPeriodDuration);
+  const prevEnd = new Date(periodStart);
+  const prevConditions = [
+    gte(collections.createdAt, prevStart),
+    lte(collections.createdAt, prevEnd),
+  ];
+  if (countryCode) {
+    prevConditions.push(eq(collections.countryCode, countryCode));
+  }
+  const prevCollections = await db.select({ id: collections.id }).from(collections).where(and(...prevConditions));
+  const prevTotal = prevCollections.length;
+
+  return {
+    total,
+    prevTotal,
+    byCountry,
+    byState,
+    byMonth,
+    byGender,
+    withHospital,
+    withLabResults,
+    periodStartStr: periodStart.toISOString(),
+    periodEndStr: periodEnd.toISOString(),
+  };
+}
+
+async function generateExecutiveSummaryWithAI(stats: any, countryCode: string | null, periodType: string, userLocale: string) {
+  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+  const localeMap: Record<string, string> = {
+    en: "English", sk: "Slovak", cs: "Czech", hu: "Hungarian", ro: "Romanian", it: "Italian", de: "German"
+  };
+  const language = localeMap[userLocale] || "English";
+
+  const prompt = `You are a medical business intelligence analyst for a cord blood banking company called INDEXUS.
+Analyze the following collection data and generate an executive summary in ${language}.
+
+DATA:
+- Period: ${stats.periodStartStr} to ${stats.periodEndStr} (${periodType})
+- Total collections this period: ${stats.total}
+- Previous period total: ${stats.prevTotal}
+- Collections by country: ${JSON.stringify(stats.byCountry)}
+- Collections by state/status: ${JSON.stringify(stats.byState)}
+- Collections by month: ${JSON.stringify(stats.byMonth)}
+- Child gender distribution: ${JSON.stringify(stats.byGender)}
+- Collections with hospital assigned: ${stats.withHospital}
+- Collections with lab results: ${stats.withLabResults}
+${countryCode ? `- Filtered for country: ${countryCode}` : "- All countries"}
+
+Generate a JSON response with this exact structure:
+{
+  "title": "Brief title for this executive summary",
+  "summaryText": "2-4 paragraph executive summary highlighting overall performance, key observations, and recommendations. Use professional business language.",
+  "trends": [
+    { "key": "trend_identifier", "direction": "up|down|stable", "value": "numeric or text value", "description": "Brief trend description" }
+  ],
+  "anomalies": [
+    { "severity": "high|medium|low", "title": "Anomaly title", "description": "What makes this unusual", "metric": "affected metric name" }
+  ],
+  "kpis": [
+    { "label": "KPI name", "value": "current value", "change": "+X or -X", "changePercent": "X%" }
+  ]
+}
+
+IMPORTANT:
+- Include 3-6 trends (volume changes, country distribution shifts, status pipeline efficiency, etc.)
+- Include 1-4 anomalies if any exist (unusual patterns, spikes, drops, data quality issues)
+- Include 4-8 KPIs (total collections, growth rate, lab completion rate, hospital coverage, gender ratio, etc.)
+- If there is very little data, still provide a professional summary noting the limited dataset and suggesting data collection improvements
+- All text must be in ${language}
+- Return ONLY valid JSON, no markdown`;
+
+  const response = await openai.chat.completions.create({
+    model: "gpt-4o",
+    messages: [{ role: "user", content: prompt }],
+    temperature: 0.3,
+    max_tokens: 3000,
+    response_format: { type: "json_object" },
+  });
+
+  const content = response.choices[0]?.message?.content;
+  if (!content) throw new Error("Empty GPT response");
+
+  return JSON.parse(content);
+}

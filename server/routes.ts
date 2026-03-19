@@ -32967,6 +32967,8 @@ Return ONLY the JSON object.`
         "subtitleFontSize","subtitleFontWeight","subtitleFontStyle","subtitleFontFamily",
         "sectionFontSize","sectionFontWeight","sectionFontStyle",
         "labelFontSize","labelFontWeight","buttonFontSize","buttonFontWeight",
+        "confirmEmailEnabled","confirmEmailSubject","confirmEmailGreeting","confirmEmailBody",
+        "confirmEmailShowData","confirmEmailFooter","confirmEmailSignature",
       ];
       const formData: Record<string, any> = {};
       for (const k of ALLOWED_FORM_KEYS) {
@@ -33245,6 +33247,96 @@ Return ONLY the JSON object.`
         details: JSON.stringify({ customerId: targetCustomerId, isNewCustomer, isOtpVerified }),
         ipAddress: req.ip || null,
       });
+      if (form.confirmEmailEnabled !== false && formData.email) {
+        try {
+          const billingCompanies = await storage.getBillingDetailsByCountry(form.countryCode);
+          const billingCompany = billingCompanies.find(b => b.webFromEmail) || billingCompanies[0];
+          const fromEmail = billingCompany?.webFromEmail;
+          const companyName = billingCompany?.companyName || "Cord Blood Center";
+
+          const userId = await db.select({ id: (await import("@shared/schema")).users.id }).from((await import("@shared/schema")).users).limit(1);
+          if (userId.length > 0 && fromEmail) {
+            const ms365Connection = await storage.getUserMs365Connection(userId[0].id);
+            if (ms365Connection?.isConnected) {
+              const { decryptTokenSafe } = await import("./lib/token-crypto");
+              const accessToken = decryptTokenSafe(ms365Connection.accessToken);
+              const { getValidAccessToken, sendEmailFromSharedMailbox } = await import("./lib/ms365");
+              const tokenResult = await getValidAccessToken(accessToken, ms365Connection.tokenExpiresAt, ms365Connection.refreshToken ? decryptTokenSafe(ms365Connection.refreshToken) : null);
+              if (tokenResult) {
+                const brandColor = form.brandColor || "#16a34a";
+                const lastName = formData.lastName || "";
+                const greeting = (form.confirmEmailGreeting || `Dobrý deň p. {{priezvisko}},`).replace(/\{\{priezvisko\}\}/g, lastName).replace(/\{\{meno\}\}/g, formData.firstName || "").replace(/\{\{email\}\}/g, formData.email || "");
+                const bodyText = (form.confirmEmailBody || "ďakujeme za Váš záujem. Čoskoro Vás budeme kontaktovať.").replace(/\{\{priezvisko\}\}/g, lastName).replace(/\{\{meno\}\}/g, formData.firstName || "").replace(/\{\{email\}\}/g, formData.email || "");
+                const footerText = form.confirmEmailFooter || `V prípade akýchkoľvek otázok nás neváhajte kontaktovať.`;
+                const signatureText = form.confirmEmailSignature || companyName;
+                const subject = (form.confirmEmailSubject || `Potvrdenie registrácie - ${companyName}`).replace(/\{\{priezvisko\}\}/g, lastName).replace(/\{\{meno\}\}/g, formData.firstName || "").replace(/\{\{email\}\}/g, formData.email || "");
+
+                const formFieldsSections = form.confirmEmailShowData !== false ? await (async () => {
+                  const sections = await storage.getWebFormSectionsByFormId(form.id);
+                  const fields = await storage.getWebFormFieldsByFormId(form.id);
+                  const sorted = fields.sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0));
+                  let html = "";
+                  const sectionMap = new Map(sections.map((s: any) => [s.id, s]));
+                  const grouped: Record<string, any[]> = {};
+                  for (const field of sorted) {
+                    const key = field.sectionId || "__none";
+                    if (!grouped[key]) grouped[key] = [];
+                    grouped[key].push(field);
+                  }
+                  for (const [secId, secFields] of Object.entries(grouped)) {
+                    const sec = sectionMap.get(secId);
+                    if (sec?.title) {
+                      html += `<tr><td colspan="2" style="padding:16px 0 8px 0;border-bottom:2px solid ${brandColor}22;"><strong style="color:${brandColor};text-transform:uppercase;font-size:12px;letter-spacing:1px;">${sec.title}</strong></td></tr>`;
+                    }
+                    for (const field of secFields) {
+                      const val = formData[field.customerField || field.label] || formData[field.id] || "";
+                      if (val) {
+                        html += `<tr><td style="padding:6px 12px 6px 0;color:#6b7280;font-size:13px;white-space:nowrap;vertical-align:top;">${field.label}</td><td style="padding:6px 0;color:#111827;font-size:13px;">${val}</td></tr>`;
+                      }
+                    }
+                  }
+                  return html;
+                })() : "";
+
+                const emailHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head><body style="margin:0;padding:0;background-color:#f3f4f6;font-family:'Segoe UI',Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f3f4f6;padding:32px 16px;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
+  <tr><td style="background:linear-gradient(135deg,${brandColor},${brandColor}dd);padding:32px 40px;border-radius:16px 16px 0 0;text-align:center;">
+    ${billingCompany?.postalName ? `<p style="margin:0 0 4px 0;color:#ffffffbb;font-size:12px;text-transform:uppercase;letter-spacing:2px;">${billingCompany.postalName}</p>` : ''}
+    <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;">${form.headerTitle || 'Potvrdenie registrácie'}</h1>
+  </td></tr>
+  <tr><td style="background:#ffffff;padding:40px;border-radius:0 0 16px 16px;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+    <p style="margin:0 0 16px 0;color:#111827;font-size:15px;line-height:1.6;">${greeting}</p>
+    <p style="margin:0 0 24px 0;color:#374151;font-size:14px;line-height:1.7;">${bodyText}</p>
+    ${formFieldsSections ? `
+    <div style="margin:24px 0;padding:20px;background:#f9fafb;border-radius:12px;border:1px solid #e5e7eb;">
+      <p style="margin:0 0 12px 0;color:#6b7280;font-size:12px;text-transform:uppercase;letter-spacing:1px;font-weight:600;">Kópia vyplnených údajov</p>
+      <table width="100%" cellpadding="0" cellspacing="0">${formFieldsSections}</table>
+    </div>` : ''}
+    <p style="margin:24px 0 0 0;color:#6b7280;font-size:13px;line-height:1.6;">${footerText}</p>
+    <div style="margin:24px 0 0 0;padding:16px 0 0 0;border-top:1px solid #e5e7eb;">
+      <p style="margin:0;color:#111827;font-size:13px;font-weight:600;">${signatureText}</p>
+      ${billingCompany?.phone ? `<p style="margin:4px 0 0 0;color:#6b7280;font-size:12px;">Tel: ${billingCompany.phone}</p>` : ''}
+      ${billingCompany?.email ? `<p style="margin:2px 0 0 0;color:#6b7280;font-size:12px;">${billingCompany.email}</p>` : ''}
+    </div>
+  </td></tr>
+  <tr><td style="padding:16px;text-align:center;">
+    <p style="margin:0;color:#9ca3af;font-size:11px;">&copy; ${new Date().getFullYear()} ${companyName}. Tento e-mail bol odoslaný automaticky.</p>
+  </td></tr>
+</table>
+</td></tr></table></body></html>`;
+
+                await sendEmailFromSharedMailbox(tokenResult.accessToken, fromEmail, [formData.email], subject, emailHtml, true);
+                console.log(`[WebForm] Confirmation email sent to ${formData.email} from ${fromEmail}`);
+              }
+            }
+          }
+        } catch (emailError) {
+          console.error("[WebForm] Failed to send confirmation email:", emailError);
+        }
+      }
+
       res.json({ success: true, submissionId: submission.id, isNewCustomer, customerId: targetCustomerId });
     } catch (e: any) {
       console.error("[WebForm Submit] Error:", e);
