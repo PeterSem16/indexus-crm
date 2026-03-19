@@ -344,9 +344,11 @@ export default function PublicFormPage() {
         setOtpError(data.error === "Code expired" ? "Kód expiroval. Vyžiadajte nový." : "Neplatný kód. Skúste znova.");
         return;
       }
+      const custId = data.customerId || null;
+      const token = data.verificationToken || null;
       setIsOtpVerified(true);
-      if (data.verificationToken) setVerificationToken(data.verificationToken);
-      if (data.customerId) setExistingCustomerId(data.customerId);
+      if (token) setVerificationToken(token);
+      if (custId) setExistingCustomerId(custId);
       if (data.customerData) {
         setFormValues(prev => {
           const updated = { ...prev };
@@ -356,7 +358,27 @@ export default function PublicFormPage() {
           return updated;
         });
       }
-      setStep("form");
+      setStep("submitting");
+      try {
+        console.log("[WebForm] Auto-submitting after OTP verification...", { customerId: custId, hasToken: !!token });
+        const submitRes = await fetch(`/api/public/web-form/${slug}/submit`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            formData: { ...formValues, newsletter: newsletterAccepted },
+            customerId: custId,
+            verificationToken: token,
+          }),
+        });
+        const submitData = await submitRes.json();
+        console.log("[WebForm] Auto-submit response:", submitRes.status, submitData);
+        if (!submitRes.ok) throw new Error(submitData.error || "Submission failed");
+        setStep("success");
+      } catch (e: any) {
+        console.error("[WebForm] Auto-submit error:", e.message);
+        setSubmitError(e.message);
+        setStep("error");
+      }
     } catch {
       setOtpError("Chyba overenia. Skúste znova.");
     } finally {
