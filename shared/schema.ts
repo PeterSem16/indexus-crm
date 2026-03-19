@@ -6224,6 +6224,7 @@ export const webForms = pgTable("web_forms", {
   sectionColor: text("section_color"),
   bgColor: text("bg_color").notNull().default("#f3f4f6"),
   formWidth: text("form_width").notNull().default("3xl"),
+  formLayout: text("form_layout").notNull().default("standard"),
   titleFontSize: text("title_font_size").notNull().default("2xl"),
   titleFontWeight: text("title_font_weight").notNull().default("bold"),
   titleFontStyle: text("title_font_style").notNull().default("normal"),

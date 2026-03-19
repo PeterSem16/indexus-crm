@@ -649,30 +649,28 @@ export default function PublicFormPage() {
   };
 
   const errorCount = Object.keys(errors).length;
+  const formLayout = f.formLayout || "standard";
 
-  return (
-    <div className="min-h-screen" style={{ backgroundColor: bgColor }} data-testid="public-form-container">
-      <div className="w-full py-8 px-4" style={{ backgroundColor: brandColor }}>
-        <div className={`${widthClass} mx-auto text-center`}>
-          <h1 className="mb-3" style={{ color: headingColor, ...titleStyle }} data-testid="text-form-header">
-            {f.headerTitle || "Registračný formulár"}
-          </h1>
-          {f.headerSubtitle && (
-            <p className="leading-relaxed mb-2" style={{ color: textColor + "dd", ...subtitleStyle }}>
-              {f.headerSubtitle}
-            </p>
-          )}
-          {f.contactInfo && (
-            <p className="text-xs md:text-sm mt-2" style={{ color: textColor + "aa" }}>
-              {f.contactInfo}
-            </p>
-          )}
-        </div>
-      </div>
+  const renderHeader = (extraClass?: string) => (
+    <div className={`text-center ${extraClass || ""}`}>
+      <h1 className="mb-3" style={{ color: headingColor, ...titleStyle }} data-testid="text-form-header">
+        {f.headerTitle || "Registračný formulár"}
+      </h1>
+      {f.headerSubtitle && (
+        <p className="leading-relaxed mb-2" style={{ color: textColor + "dd", ...subtitleStyle }}>
+          {f.headerSubtitle}
+        </p>
+      )}
+      {f.contactInfo && (
+        <p className="text-xs md:text-sm mt-2" style={{ color: textColor + "aa" }}>
+          {f.contactInfo}
+        </p>
+      )}
+    </div>
+  );
 
-      <div className={`${widthClass} mx-auto -mt-6 px-4 pb-12`}>
-        <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
-          <div className="p-6 md:p-10 space-y-8">
+  const renderFormContent = () => (
+    <>
             {isOtpVerified && (
               <div className="flex items-center gap-2 p-3 rounded-lg text-sm" style={{ backgroundColor: brandColor + "10", color: brandColor }}>
                 <CheckCircle2 className="h-4 w-4 shrink-0" />
@@ -779,12 +777,126 @@ export default function PublicFormPage() {
                 <><Send className="h-5 w-5 mr-2" /> Odoslať žiadosť</>
               )}
             </Button>
+    </>
+  );
+
+  const renderFooter = () => (
+    <p className="text-center text-xs text-gray-400 mt-6">
+      &copy; {new Date().getFullYear()} Cord Blood Center Group.
+    </p>
+  );
+
+  if (formLayout === "minimal") {
+    return (
+      <div className="min-h-screen bg-white" data-testid="public-form-container">
+        <div className={`${widthClass} mx-auto px-4 py-8`}>
+          <div className="text-center mb-8">
+            <h1 className="mb-3" style={{ color: brandColor, ...titleStyle }} data-testid="text-form-header">
+              {f.headerTitle || "Registračný formulár"}
+            </h1>
+            {f.headerSubtitle && (
+              <p className="leading-relaxed mb-2 text-gray-600" style={subtitleStyle}>{f.headerSubtitle}</p>
+            )}
+            {f.contactInfo && (
+              <p className="text-xs md:text-sm mt-2 text-gray-400">{f.contactInfo}</p>
+            )}
+          </div>
+          <div className="space-y-8">
+            {renderFormContent()}
+          </div>
+          {renderFooter()}
+        </div>
+      </div>
+    );
+  }
+
+  if (formLayout === "split") {
+    return (
+      <div className="min-h-screen flex" style={{ backgroundColor: bgColor }} data-testid="public-form-container">
+        <div className="hidden lg:flex lg:w-[400px] xl:w-[480px] shrink-0 flex-col justify-center p-12" style={{ backgroundColor: brandColor }}>
+          <h1 className="mb-4" style={{ color: headingColor, ...titleStyle }} data-testid="text-form-header">
+            {f.headerTitle || "Registračný formulár"}
+          </h1>
+          {f.headerSubtitle && (
+            <p className="leading-relaxed mb-4" style={{ color: textColor + "dd", ...subtitleStyle }}>{f.headerSubtitle}</p>
+          )}
+          {f.contactInfo && (
+            <p className="text-xs md:text-sm mt-4" style={{ color: textColor + "aa" }}>{f.contactInfo}</p>
+          )}
+        </div>
+        <div className="flex-1 overflow-y-auto">
+          <div className="lg:hidden w-full py-6 px-4 text-center" style={{ backgroundColor: brandColor }}>
+            {renderHeader()}
+          </div>
+          <div className="max-w-3xl mx-auto px-4 py-8">
+            <div className="bg-white rounded-2xl shadow-xl p-6 md:p-10 space-y-8">
+              {renderFormContent()}
+            </div>
+            {renderFooter()}
           </div>
         </div>
+      </div>
+    );
+  }
 
-        <p className="text-center text-xs text-gray-400 mt-6">
-          &copy; {new Date().getFullYear()} Cord Blood Center Group.
-        </p>
+  if (formLayout === "card") {
+    return (
+      <div className="min-h-screen flex items-start justify-center p-4 md:p-8" style={{ backgroundColor: brandColor + "12", backgroundImage: `radial-gradient(circle at 30% 20%, ${brandColor}15 0%, transparent 60%)` }} data-testid="public-form-container">
+        <div className={`${widthClass} w-full`}>
+          <div className="text-center mb-6 pt-4">
+            <h1 className="mb-3" style={{ color: brandColor, ...titleStyle }} data-testid="text-form-header">
+              {f.headerTitle || "Registračný formulár"}
+            </h1>
+            {f.headerSubtitle && (
+              <p className="leading-relaxed mb-2 text-gray-600" style={subtitleStyle}>{f.headerSubtitle}</p>
+            )}
+            {f.contactInfo && (
+              <p className="text-xs md:text-sm mt-2 text-gray-400">{f.contactInfo}</p>
+            )}
+          </div>
+          <div className="bg-white rounded-2xl shadow-2xl p-6 md:p-10 space-y-8">
+            {renderFormContent()}
+          </div>
+          {renderFooter()}
+        </div>
+      </div>
+    );
+  }
+
+  if (formLayout === "hero") {
+    return (
+      <div className="min-h-screen" style={{ backgroundColor: bgColor }} data-testid="public-form-container">
+        <div className="w-full py-16 md:py-20 px-4" style={{ backgroundColor: brandColor }}>
+          <div className={`${widthClass} mx-auto text-center`}>
+            {renderHeader()}
+          </div>
+        </div>
+        <div className={`${widthClass} mx-auto -mt-10 px-4 pb-12`}>
+          <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
+            <div className="p-6 md:p-10 space-y-8">
+              {renderFormContent()}
+            </div>
+          </div>
+          {renderFooter()}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen" style={{ backgroundColor: bgColor }} data-testid="public-form-container">
+      <div className="w-full py-8 px-4" style={{ backgroundColor: brandColor }}>
+        <div className={`${widthClass} mx-auto text-center`}>
+          {renderHeader()}
+        </div>
+      </div>
+      <div className={`${widthClass} mx-auto -mt-6 px-4 pb-12`}>
+        <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
+          <div className="p-6 md:p-10 space-y-8">
+            {renderFormContent()}
+          </div>
+        </div>
+        {renderFooter()}
       </div>
     </div>
   );

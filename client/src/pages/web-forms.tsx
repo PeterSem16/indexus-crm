@@ -114,6 +114,14 @@ const FORM_WIDTHS = [
   { value: "full", label: "Celá strana" },
 ];
 
+const FORM_LAYOUTS = [
+  { value: "standard", label: "Štandard", desc: "Farebný header s formulárom pod ním" },
+  { value: "minimal", label: "Minimálny", desc: "Biely formulár bez farebného headeru" },
+  { value: "split", label: "Rozdelený", desc: "Farebný panel vľavo, formulár vpravo" },
+  { value: "card", label: "Kartový", desc: "Formulár ako plávajúca karta na pozadí" },
+  { value: "hero", label: "Hero", desc: "Veľký header s obrázkom a formulár pod ním" },
+];
+
 const FONT_SIZES = [
   { value: "xs", label: "XS (12px)" },
   { value: "sm", label: "SM (14px)" },
@@ -190,6 +198,43 @@ function FontStyleEditor({ prefix, formData, setFormData, showFamily, showItalic
           </Select>
         </div>
       )}
+    </div>
+  );
+}
+
+function LayoutIcon({ layout, isActive }: { layout: string; isActive: boolean }) {
+  const color = isActive ? "text-primary" : "text-gray-400";
+  const bg = isActive ? "bg-primary/10" : "bg-gray-100";
+  const accent = isActive ? "bg-primary/40" : "bg-gray-300";
+  const form = isActive ? "bg-primary/15" : "bg-gray-200";
+
+  if (layout === "standard") return (
+    <div className={`w-full h-12 rounded ${bg} flex flex-col overflow-hidden`}>
+      <div className={`h-4 ${accent}`} />
+      <div className={`flex-1 mx-1.5 my-1 rounded-sm ${form}`} />
+    </div>
+  );
+  if (layout === "minimal") return (
+    <div className={`w-full h-12 rounded ${bg} flex flex-col p-1.5`}>
+      <div className={`h-1.5 w-1/2 mx-auto rounded ${accent} mb-1`} />
+      <div className={`flex-1 rounded-sm ${form}`} />
+    </div>
+  );
+  if (layout === "split") return (
+    <div className={`w-full h-12 rounded ${bg} flex overflow-hidden`}>
+      <div className={`w-1/3 ${accent}`} />
+      <div className={`flex-1 m-1 rounded-sm ${form}`} />
+    </div>
+  );
+  if (layout === "card") return (
+    <div className={`w-full h-12 rounded ${accent} flex items-center justify-center p-1.5`}>
+      <div className={`w-full h-full rounded-sm bg-white/80 shadow-sm`} />
+    </div>
+  );
+  return (
+    <div className={`w-full h-12 rounded ${bg} flex flex-col overflow-hidden`}>
+      <div className={`h-6 ${accent}`} />
+      <div className={`flex-1 mx-2 -mt-1 rounded-sm ${form} shadow-sm`} />
     </div>
   );
 }
@@ -918,6 +963,7 @@ function LayoutPreview({ sections, fields, formData }: { sections: any[]; fields
   const textColor = formData.textColor || "#ffffff";
   const sectionColor = formData.sectionColor || brandColor;
   const bgColor = formData.bgColor || "#f3f4f6";
+  const layout = formData.formLayout || "standard";
 
   const grouped = useMemo(() => {
     const result: Array<{ section: any; fields: any[] }> = [];
@@ -942,48 +988,112 @@ function LayoutPreview({ sections, fields, formData }: { sections: any[]; fields
     return result;
   }, [sections, fields]);
 
+  const renderFields = () => (
+    <div className="space-y-2">
+      {grouped.map((group, gi) => {
+        const cols = group.section?.columns || 2;
+        return (
+          <div key={gi}>
+            {group.section?.title && (
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <div className="h-px flex-1" style={{ backgroundColor: sectionColor + "30" }} />
+                <span className="text-[8px] font-bold uppercase tracking-wider whitespace-nowrap" style={{ color: sectionColor }}>{group.section.title}</span>
+                <div className="h-px flex-1" style={{ backgroundColor: sectionColor + "30" }} />
+              </div>
+            )}
+            <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
+              {group.fields.map((field: any, fi: number) => {
+                const span = Math.min(field.columnSpan || 1, cols);
+                return (
+                  <div key={fi} className="border border-dashed border-gray-200 rounded p-1 bg-gray-50/50" style={{ gridColumn: span > 1 ? `span ${span}` : undefined }}>
+                    <div className="flex items-center gap-0.5">
+                      <span className="text-[7px] text-gray-500 truncate">{field.label}</span>
+                      {field.isRequired && <span className="text-red-400 text-[7px]">*</span>}
+                    </div>
+                    <div className="mt-0.5 h-3 rounded bg-gray-100 border border-gray-200" />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+      <div className="border-t pt-1 space-y-0.5">
+        <div className="flex items-center gap-1"><div className="w-2 h-2 rounded border border-gray-300" /><span className="text-[7px] text-gray-400">GDPR</span></div>
+      </div>
+      <div className="rounded h-5 flex items-center justify-center text-white text-[8px] font-semibold" style={{ backgroundColor: brandColor }}>Odoslať</div>
+    </div>
+  );
+
+  const renderHeader = (compact?: boolean) => (
+    <div className={`text-center ${compact ? "py-2 px-3" : "py-3 px-4"}`} style={{ backgroundColor: brandColor }}>
+      <div className={`font-bold ${compact ? "text-[9px]" : "text-[10px]"} mb-0.5`} style={{ color: textColor }}>{formData.headerTitle || "Mám záujem o odber"}</div>
+      {formData.headerSubtitle && <div className="text-[7px] leading-tight" style={{ color: textColor + "cc" }}>{formData.headerSubtitle}</div>}
+    </div>
+  );
+
+  if (layout === "minimal") {
+    return (
+      <div className="rounded-xl overflow-hidden border bg-white">
+        <div className="p-3">
+          <div className="text-center mb-2">
+            <div className="font-bold text-[10px] mb-0.5" style={{ color: brandColor }}>{formData.headerTitle || "Mám záujem o odber"}</div>
+            {formData.headerSubtitle && <div className="text-[7px] text-gray-500 leading-tight">{formData.headerSubtitle}</div>}
+          </div>
+          {renderFields()}
+        </div>
+      </div>
+    );
+  }
+
+  if (layout === "split") {
+    return (
+      <div className="rounded-xl overflow-hidden border flex" style={{ backgroundColor: bgColor }}>
+        <div className="w-1/3 p-2 flex flex-col justify-center" style={{ backgroundColor: brandColor }}>
+          <div className="font-bold text-[8px] mb-1" style={{ color: textColor }}>{formData.headerTitle || "Mám záujem"}</div>
+          {formData.headerSubtitle && <div className="text-[6px] leading-tight" style={{ color: textColor + "bb" }}>{formData.headerSubtitle}</div>}
+        </div>
+        <div className="flex-1 bg-white p-2">
+          {renderFields()}
+        </div>
+      </div>
+    );
+  }
+
+  if (layout === "card") {
+    return (
+      <div className="rounded-xl overflow-hidden border p-3" style={{ backgroundColor: brandColor + "15" }}>
+        <div className="bg-white rounded-lg shadow-sm p-2.5 space-y-2">
+          <div className="text-center">
+            <div className="font-bold text-[10px]" style={{ color: brandColor }}>{formData.headerTitle || "Mám záujem o odber"}</div>
+            {formData.headerSubtitle && <div className="text-[7px] text-gray-500">{formData.headerSubtitle}</div>}
+          </div>
+          {renderFields()}
+        </div>
+      </div>
+    );
+  }
+
+  if (layout === "hero") {
+    return (
+      <div className="rounded-xl overflow-hidden border" style={{ backgroundColor: bgColor }}>
+        <div className="py-5 px-4 text-center" style={{ backgroundColor: brandColor }}>
+          <div className="font-bold text-xs mb-1" style={{ color: textColor }}>{formData.headerTitle || "Mám záujem o odber"}</div>
+          {formData.headerSubtitle && <div className="text-[8px] leading-tight" style={{ color: textColor + "cc" }}>{formData.headerSubtitle}</div>}
+          {formData.contactInfo && <div className="text-[7px] mt-1" style={{ color: textColor + "88" }}>{formData.contactInfo}</div>}
+        </div>
+        <div className="bg-white mx-2 -mt-2 rounded-lg shadow-sm mb-2 p-2.5">
+          {renderFields()}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="rounded-xl overflow-hidden border" style={{ backgroundColor: bgColor }}>
-      <div className="py-4 px-5 text-center" style={{ backgroundColor: brandColor }}>
-        <div className="font-bold text-sm mb-1" style={{ color: textColor }}>{formData.headerTitle || "Mám záujem o odber"}</div>
-        {formData.headerSubtitle && <div className="text-[9px] leading-tight" style={{ color: textColor + "cc" }}>{formData.headerSubtitle}</div>}
-        {formData.contactInfo && <div className="text-[8px] mt-1" style={{ color: textColor + "99" }}>{formData.contactInfo}</div>}
-      </div>
-      <div className="bg-white mx-3 -mt-2 rounded-xl shadow-sm mb-3 overflow-hidden">
-        <div className="p-4 space-y-3">
-          {grouped.map((group, gi) => {
-            const cols = group.section?.columns || 2;
-            return (
-              <div key={gi}>
-                {group.section?.title && (
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="h-px flex-1" style={{ backgroundColor: sectionColor + "30" }} />
-                    <span className="text-[9px] font-bold uppercase tracking-wider" style={{ color: sectionColor }}>{group.section.title}</span>
-                    <div className="h-px flex-1" style={{ backgroundColor: sectionColor + "30" }} />
-                  </div>
-                )}
-                <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
-                  {group.fields.map((field: any, fi: number) => {
-                    const span = Math.min(field.columnSpan || 1, cols);
-                    return (
-                      <div key={fi} className="border border-dashed border-gray-200 rounded-md p-1.5 bg-gray-50/50" style={{ gridColumn: span > 1 ? `span ${span}` : undefined }}>
-                        <div className="flex items-center gap-1">
-                          <span className="text-[9px] text-gray-500 truncate">{field.label}</span>
-                          {field.isRequired && <span className="text-red-400 text-[9px]">*</span>}
-                        </div>
-                        <div className="mt-0.5 h-4 rounded bg-gray-100 border border-gray-200" />
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })}
-          <div className="border-t pt-1.5 space-y-1">
-            <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded border border-gray-300" /><span className="text-[8px] text-gray-400">GDPR súhlas</span></div>
-          </div>
-          <div className="rounded-md h-6 flex items-center justify-center text-white text-[9px] font-semibold" style={{ backgroundColor: brandColor }}>Odoslať žiadosť</div>
-        </div>
+      {renderHeader()}
+      <div className="bg-white mx-2 -mt-1.5 rounded-lg shadow-sm mb-2 p-2.5">
+        {renderFields()}
       </div>
     </div>
   );
@@ -1063,8 +1173,8 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
     }
 
     const cleanSections = editSections.map(s => {
-      const { id: _sId, ...rest } = s;
-      return rest;
+      const cleaned: any = { ...s };
+      return cleaned;
     });
 
     updateMutation.mutate({
@@ -1086,13 +1196,15 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
 
   return (
     <Sheet open onOpenChange={(o) => !o && onClose()}>
-      <SheetContent className="sm:max-w-[1100px] overflow-y-auto">
+      <SheetContent className="sm:max-w-[1200px] overflow-y-auto">
         <SheetHeader>
           <SheetTitle>Upraviť formulár: {form.name}</SheetTitle>
         </SheetHeader>
-        <div className="space-y-6 mt-6">
+        <div className="mt-6">
+          <div className="flex gap-5">
+            <div className="flex-1 min-w-0 space-y-6">
           <Tabs defaultValue="builder">
-            <TabsList className="grid grid-cols-5 w-full">
+            <TabsList className="grid grid-cols-4 w-full">
               <TabsTrigger value="builder" data-testid="tab-builder">
                 <LayoutGrid className="h-3.5 w-3.5 mr-1" /> Štruktúra
               </TabsTrigger>
@@ -1103,9 +1215,6 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
                 <Settings className="h-3.5 w-3.5 mr-1" /> Základné
               </TabsTrigger>
               <TabsTrigger value="texts" data-testid="tab-texts">Texty & GDPR</TabsTrigger>
-              <TabsTrigger value="preview" data-testid="tab-preview">
-                <Eye className="h-3.5 w-3.5 mr-1" /> Náhľad
-              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="builder" className="mt-4">
@@ -1118,6 +1227,29 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
             </TabsContent>
 
             <TabsContent value="design" className="mt-4 space-y-6">
+              <div>
+                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Layout stránky</h4>
+                <div className="grid grid-cols-5 gap-2">
+                  {FORM_LAYOUTS.map(layout => (
+                    <button
+                      key={layout.value}
+                      type="button"
+                      className={`p-2 rounded-lg border-2 text-center transition-all hover:shadow-md ${formData.formLayout === layout.value || (!formData.formLayout && layout.value === "standard") ? "border-primary bg-primary/5 shadow-sm" : "border-gray-200 hover:border-gray-300"}`}
+                      onClick={() => setFormData({ ...formData, formLayout: layout.value })}
+                      data-testid={`layout-${layout.value}`}
+                    >
+                      <LayoutIcon layout={layout.value} isActive={formData.formLayout === layout.value || (!formData.formLayout && layout.value === "standard")} />
+                      <div className="text-[10px] font-medium mt-1.5">{layout.label}</div>
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-1.5">
+                  {FORM_LAYOUTS.find(l => l.value === (formData.formLayout || "standard"))?.desc}
+                </p>
+              </div>
+
+              <Separator />
+
               <div>
                 <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Farby</h4>
                 <div className="grid grid-cols-3 gap-3">
@@ -1238,20 +1370,29 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
               </div>
             </TabsContent>
 
-            <TabsContent value="preview" className="mt-4">
-              <div className="max-w-sm mx-auto">
+          </Tabs>
+          </div>
+
+            <div className="w-[260px] shrink-0 sticky top-0">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Náhľad</span>
+                  <Badge variant="outline" className="text-[9px]">
+                    {FORM_LAYOUTS.find(l => l.value === (formData.formLayout || "standard"))?.label || "Štandard"}
+                  </Badge>
+                </div>
                 <LayoutPreview sections={editSections} fields={editFields} formData={formData} />
               </div>
-            </TabsContent>
-          </Tabs>
+            </div>
+          </div>
 
           {saveError && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 mt-4">
               Chyba: {saveError}
             </div>
           )}
 
-          <div className="flex justify-end gap-2 pt-4 border-t">
+          <div className="flex justify-end gap-2 pt-4 mt-4 border-t">
             <Button variant="outline" onClick={onClose}>Zrušiť</Button>
             <Button onClick={handleSave} disabled={updateMutation.isPending} data-testid="btn-save-form">
               {updateMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}

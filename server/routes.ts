@@ -32962,7 +32962,7 @@ Return ONLY the JSON object.`
       const ALLOWED_FORM_KEYS = [
         "name","slug","countryCode","language","description","headerTitle","headerSubtitle",
         "gdprText","gdprMarketingText","gdprPregnancyText","successMessage",
-        "brandColor","textColor","headingColor","sectionColor","bgColor","formWidth","logoUrl","isActive","contactInfo",
+        "brandColor","textColor","headingColor","sectionColor","bgColor","formWidth","formLayout","logoUrl","isActive","contactInfo",
         "titleFontSize","titleFontWeight","titleFontStyle","titleFontFamily",
         "subtitleFontSize","subtitleFontWeight","subtitleFontStyle","subtitleFontFamily",
         "sectionFontSize","sectionFontWeight","sectionFontStyle",
@@ -32976,12 +32976,25 @@ Return ONLY the JSON object.`
       const form = await storage.updateWebForm(req.params.id, formData as any);
       if (sections && Array.isArray(sections)) {
         await storage.deleteWebFormSectionsByFormId(form.id);
+        const oldToNewSectionId = new Map<string, string>();
         for (const s of sections) {
-          const { id: _secId, ...sData } = s;
-          await storage.createWebFormSection({ ...sData, formId: form.id });
+          const { id: oldSectionId, ...sData } = s;
+          const created = await storage.createWebFormSection({ ...sData, formId: form.id });
+          if (oldSectionId && created?.id) {
+            oldToNewSectionId.set(oldSectionId, created.id);
+          }
         }
-      }
-      if (fields && Array.isArray(fields)) {
+        if (fields && Array.isArray(fields)) {
+          await storage.deleteWebFormFieldsByFormId(form.id);
+          for (const f of fields) {
+            const { id: _fId, ...fData } = f;
+            if (fData.sectionId && oldToNewSectionId.has(fData.sectionId)) {
+              fData.sectionId = oldToNewSectionId.get(fData.sectionId);
+            }
+            await storage.createWebFormField({ ...fData, formId: form.id });
+          }
+        }
+      } else if (fields && Array.isArray(fields)) {
         await storage.deleteWebFormFieldsByFormId(form.id);
         for (const f of fields) {
           const { id: _fId, ...fData } = f;
