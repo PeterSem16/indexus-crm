@@ -6242,6 +6242,7 @@ export const webForms = pgTable("web_forms", {
   buttonFontWeight: text("button_font_weight").notNull().default("semibold"),
   logoUrl: text("logo_url"),
   confirmEmailEnabled: boolean("confirm_email_enabled").notNull().default(true),
+  confirmEmailLayout: text("confirm_email_layout").notNull().default("modern"),
   confirmEmailSubject: text("confirm_email_subject"),
   confirmEmailGreeting: text("confirm_email_greeting"),
   confirmEmailBody: text("confirm_email_body"),

@@ -331,7 +331,9 @@ export default function PublicFormPage() {
 
   const validate = (): boolean => {
     const errs: Record<string, string> = {};
+    const corrFieldKeys = ["corrName","corrAddress","corrCity","corrPostalCode","corrRegion","corrCountry"];
     for (const field of fields) {
+      if (corrFieldKeys.includes(field.customerField) && !formValues.useCorrespondenceAddress) continue;
       const key = getFieldKey(field);
       const err = validateFieldValue(formValues[key], field);
       if (err) errs[key] = err;
@@ -698,6 +700,8 @@ export default function PublicFormPage() {
                   )}
                   <div className={`grid gap-x-5 gap-y-4 ${gridCols}`}>
                     {group.fields.map((field: any) => {
+                      const corrFields = ["corrName","corrAddress","corrCity","corrPostalCode","corrRegion","corrCountry"];
+                      if (corrFields.includes(field.customerField) && !formValues.useCorrespondenceAddress) return null;
                       const span = Math.min(field.columnSpan || 1, cols);
                       const spanClass = span > 1 ? (span >= 3 ? "sm:col-span-3" : "sm:col-span-2") : "";
                       return (

@@ -69,6 +69,13 @@ const CUSTOMER_FIELDS = [
   { key: "bankAccount", label: "IBAN", type: "text", section: "banking" },
   { key: "bankName", label: "Názov banky", type: "text", section: "banking" },
   { key: "bankSwift", label: "SWIFT/BIC", type: "text", section: "banking" },
+  { key: "useCorrespondenceAddress", label: "Iná korešpondenčná adresa", type: "checkbox", section: "address" },
+  { key: "corrName", label: "Meno príjemcu (kor.)", type: "text", section: "correspondence" },
+  { key: "corrAddress", label: "Ulica a číslo (kor.)", type: "text", section: "correspondence" },
+  { key: "corrCity", label: "Mesto (kor.)", type: "text", section: "correspondence" },
+  { key: "corrPostalCode", label: "PSČ (kor.)", type: "text", section: "correspondence" },
+  { key: "corrRegion", label: "Kraj (kor.)", type: "text", section: "correspondence" },
+  { key: "corrCountry", label: "Krajina (kor.)", type: "text", section: "correspondence" },
   { key: "newsletter", label: "Newsletter", type: "checkbox", section: "consent" },
 ];
 
@@ -236,6 +243,26 @@ function LayoutIcon({ layout, isActive }: { layout: string; isActive: boolean })
       <div className={`h-6 ${accent}`} />
       <div className={`flex-1 mx-2 -mt-1 rounded-sm ${form} shadow-sm`} />
     </div>
+  );
+}
+
+function EmailLayoutIcon({ layout, brandColor, isActive }: { layout: string; brandColor: string; isActive: boolean }) {
+  const c = isActive ? brandColor : "#9ca3af";
+  const bg = isActive ? brandColor + "15" : "#f3f4f6";
+  if (layout === "minimal") return (
+    <svg viewBox="0 0 48 36" className="w-full h-8 mx-auto"><rect x="4" y="2" width="40" height="32" rx="3" fill="white" stroke={c} strokeWidth="0.8"/><rect x="8" y="6" width="20" height="2" rx="1" fill={c}/><rect x="8" y="11" width="32" height="1.5" rx="0.5" fill="#e5e7eb"/><rect x="8" y="15" width="32" height="1.5" rx="0.5" fill="#e5e7eb"/><rect x="8" y="19" width="24" height="1.5" rx="0.5" fill="#e5e7eb"/><rect x="8" y="26" width="32" height="6" rx="2" fill={bg} stroke={c} strokeWidth="0.5"/></svg>
+  );
+  if (layout === "sidebar") return (
+    <svg viewBox="0 0 48 36" className="w-full h-8 mx-auto"><rect x="4" y="2" width="4" height="32" rx="2" fill={c}/><rect x="8" y="2" width="36" height="32" rx="0 3 3 0" fill="white" stroke="#e5e7eb" strokeWidth="0.5"/><rect x="12" y="6" width="14" height="1.5" rx="0.5" fill={c} opacity="0.5"/><rect x="12" y="10" width="24" height="2" rx="1" fill="#374151"/><rect x="12" y="15" width="28" height="1.5" rx="0.5" fill="#e5e7eb"/><rect x="12" y="19" width="28" height="1.5" rx="0.5" fill="#e5e7eb"/><rect x="12" y="26" width="28" height="6" rx="2" fill={bg} stroke={c} strokeWidth="0.5"/></svg>
+  );
+  if (layout === "elegant") return (
+    <svg viewBox="0 0 48 36" className="w-full h-8 mx-auto"><rect x="4" y="2" width="40" height="32" rx="3" fill="white" stroke="#e5e7eb" strokeWidth="0.5"/><text x="24" y="8" textAnchor="middle" fontSize="3" fill={c} fontWeight="600">COMPANY</text><line x1="10" y1="10" x2="38" y2="10" stroke={c} strokeWidth="0.5" opacity="0.4"/><rect x="10" y="13" width="28" height="2" rx="1" fill="#374151" opacity="0.3"/><rect x="8" y="18" width="32" height="1.5" rx="0.5" fill="#e5e7eb"/><rect x="8" y="22" width="32" height="1.5" rx="0.5" fill="#e5e7eb"/><line x1="10" y1="28" x2="38" y2="28" stroke={c} strokeWidth="0.5" opacity="0.4"/></svg>
+  );
+  if (layout === "bold") return (
+    <svg viewBox="0 0 48 36" className="w-full h-8 mx-auto"><rect x="4" y="2" width="40" height="14" rx="3 3 0 0" fill={c}/><rect x="12" y="6" width="24" height="3" rx="1" fill="white" opacity="0.9"/><rect x="14" y="10" width="20" height="1.5" rx="0.5" fill="white" opacity="0.5"/><rect x="4" y="16" width="40" height="18" rx="0 0 3 3" fill="white" stroke="#e5e7eb" strokeWidth="0.5"/><rect x="8" y="19" width="32" height="1.5" rx="0.5" fill="#e5e7eb"/><rect x="8" y="23" width="32" height="1.5" rx="0.5" fill="#e5e7eb"/><rect x="8" y="28" width="32" height="4" rx="1.5" fill={bg} stroke={c} strokeWidth="0.5"/></svg>
+  );
+  return (
+    <svg viewBox="0 0 48 36" className="w-full h-8 mx-auto"><rect x="4" y="2" width="40" height="12" rx="3 3 0 0" fill={c}/><rect x="12" y="6" width="24" height="2.5" rx="1" fill="white" opacity="0.9"/><rect x="4" y="14" width="40" height="20" rx="0 0 3 3" fill="white" stroke="#e5e7eb" strokeWidth="0.5"/><rect x="8" y="17" width="32" height="1.5" rx="0.5" fill="#e5e7eb"/><rect x="8" y="21" width="32" height="1.5" rx="0.5" fill="#e5e7eb"/><rect x="8" y="25" width="24" height="1.5" rx="0.5" fill="#e5e7eb"/><rect x="8" y="30" width="32" height="3" rx="1" fill={bg} stroke={c} strokeWidth="0.5"/></svg>
   );
 }
 
@@ -1101,12 +1128,14 @@ function LayoutPreview({ sections, fields, formData }: { sections: any[]; fields
 
 function ConfirmEmailPreview({ formData, editSections, editFields }: { formData: any; editSections: any[]; editFields: any[] }) {
   const brandColor = formData.brandColor || "#16a34a";
+  const emailLayout = formData.confirmEmailLayout || "modern";
   const greeting = (formData.confirmEmailGreeting || "Dobrý deň p. {{priezvisko}},")
     .replace(/\{\{priezvisko\}\}/g, "Nováková").replace(/\{\{meno\}\}/g, "Jana").replace(/\{\{email\}\}/g, "jana@example.com");
   const bodyText = (formData.confirmEmailBody || "ďakujeme za Váš záujem. Čoskoro Vás budeme kontaktovať.")
     .replace(/\{\{priezvisko\}\}/g, "Nováková").replace(/\{\{meno\}\}/g, "Jana").replace(/\{\{email\}\}/g, "jana@example.com");
   const footerText = formData.confirmEmailFooter || "V prípade akýchkoľvek otázok nás neváhajte kontaktovať.";
   const signatureText = formData.confirmEmailSignature || "Cord Blood Center";
+  const title = formData.headerTitle || "Potvrdenie registrácie";
 
   const sampleData: Record<string, string> = {};
   editFields.forEach((f: any) => {
@@ -1128,52 +1157,145 @@ function ConfirmEmailPreview({ formData, editSections, editFields }: { formData:
     grouped[key].push(field);
   }
 
+  const renderDataTable = () => {
+    if (formData.confirmEmailShowData === false) return null;
+    return (
+      <div style={{ margin: "20px 0", padding: "16px", background: "#f9fafb", borderRadius: "10px", border: "1px solid #e5e7eb" }}>
+        <p style={{ margin: "0 0 10px 0", color: "#6b7280", fontSize: "10px", textTransform: "uppercase", letterSpacing: "1px", fontWeight: 600 }}>Kópia vyplnených údajov</p>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <tbody>
+            {Object.entries(grouped).map(([secId, secFields]) => {
+              const sec = sectionMap.get(secId);
+              return (
+                <>{sec?.title && (
+                  <tr key={`sec-${secId}`}><td colSpan={2} style={{ padding: "10px 0 6px 0", borderBottom: `2px solid ${brandColor}22` }}>
+                    <strong style={{ color: brandColor, textTransform: "uppercase", fontSize: "9px", letterSpacing: "1px" }}>{sec.title}</strong>
+                  </td></tr>
+                )}
+                {secFields.map((field: any) => {
+                  const val = sampleData[field.customerField || field.label] || "vzorová hodnota";
+                  return (
+                    <tr key={field._key || field.id}>
+                      <td style={{ padding: "4px 8px 4px 0", color: "#6b7280", fontSize: "11px", whiteSpace: "nowrap", verticalAlign: "top" }}>{field.label}</td>
+                      <td style={{ padding: "4px 0", color: "#111827", fontSize: "11px" }}>{val}</td>
+                    </tr>
+                  );
+                })}</>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
+  const renderFooter = () => (
+    <>
+      <p style={{ margin: "20px 0 0 0", color: "#6b7280", fontSize: "11px", lineHeight: 1.6 }}>{footerText}</p>
+      <div style={{ margin: "16px 0 0 0", padding: "12px 0 0 0", borderTop: "1px solid #e5e7eb" }}>
+        <p style={{ margin: 0, color: "#111827", fontSize: "11px", fontWeight: 600 }}>{signatureText}</p>
+      </div>
+    </>
+  );
+
+  const renderCopyright = () => (
+    <p style={{ margin: "12px 0 0 0", textAlign: "center", color: "#9ca3af", fontSize: "9px" }}>&copy; {new Date().getFullYear()} {signatureText}. Tento e-mail bol odoslaný automaticky.</p>
+  );
+
+  if (emailLayout === "minimal") {
+    return (
+      <div className="border rounded-xl overflow-hidden shadow-sm" style={{ backgroundColor: "#f3f4f6" }}>
+        <div className="p-4">
+          <div className="max-w-[520px] mx-auto">
+            <div style={{ background: "#fff", padding: "28px" }}>
+              <h2 style={{ margin: "0 0 20px 0", color: brandColor, fontSize: "16px", fontWeight: 700, borderBottom: `2px solid ${brandColor}`, paddingBottom: "10px" }}>{title}</h2>
+              <p style={{ margin: "0 0 12px 0", color: "#111827", fontSize: "13px", lineHeight: 1.6 }}>{greeting}</p>
+              <p style={{ margin: "0 0 20px 0", color: "#374151", fontSize: "12px", lineHeight: 1.7 }}>{bodyText}</p>
+              {renderDataTable()}{renderFooter()}
+            </div>
+            {renderCopyright()}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (emailLayout === "sidebar") {
+    return (
+      <div className="border rounded-xl overflow-hidden shadow-sm" style={{ backgroundColor: "#f3f4f6" }}>
+        <div className="p-4">
+          <div className="max-w-[520px] mx-auto flex">
+            <div style={{ width: "6px", background: brandColor, borderRadius: "6px 0 0 6px", flexShrink: 0 }} />
+            <div style={{ background: "#fff", padding: "28px", borderRadius: "0 6px 6px 0", flex: 1 }}>
+              <p style={{ margin: "0 0 4px 0", color: brandColor, fontSize: "9px", textTransform: "uppercase", letterSpacing: "2px", fontWeight: 600 }}>{signatureText}</p>
+              <h2 style={{ margin: "0 0 20px 0", color: "#111827", fontSize: "16px", fontWeight: 700 }}>{title}</h2>
+              <p style={{ margin: "0 0 12px 0", color: "#111827", fontSize: "13px", lineHeight: 1.6 }}>{greeting}</p>
+              <p style={{ margin: "0 0 20px 0", color: "#374151", fontSize: "12px", lineHeight: 1.7 }}>{bodyText}</p>
+              {renderDataTable()}{renderFooter()}
+            </div>
+          </div>
+          {renderCopyright()}
+        </div>
+      </div>
+    );
+  }
+
+  if (emailLayout === "elegant") {
+    return (
+      <div className="border rounded-xl overflow-hidden shadow-sm" style={{ backgroundColor: "#f3f4f6" }}>
+        <div className="p-4">
+          <div className="max-w-[520px] mx-auto">
+            <div style={{ padding: "20px 28px", textAlign: "center" }}>
+              <p style={{ margin: 0, color: brandColor, fontSize: "10px", textTransform: "uppercase", letterSpacing: "3px", fontWeight: 600 }}>{signatureText}</p>
+            </div>
+            <div style={{ height: "1px", background: `linear-gradient(90deg, transparent, ${brandColor}, transparent)`, margin: "0 20px" }} />
+            <div style={{ background: "#fff", padding: "28px" }}>
+              <h2 style={{ margin: "0 0 20px 0", color: "#111827", fontSize: "17px", fontWeight: 300, textAlign: "center" }}>{title}</h2>
+              <p style={{ margin: "0 0 12px 0", color: "#111827", fontSize: "13px", lineHeight: 1.6 }}>{greeting}</p>
+              <p style={{ margin: "0 0 20px 0", color: "#374151", fontSize: "12px", lineHeight: 1.7 }}>{bodyText}</p>
+              {renderDataTable()}{renderFooter()}
+            </div>
+            <div style={{ height: "1px", background: `linear-gradient(90deg, transparent, ${brandColor}, transparent)`, margin: "0 20px" }} />
+            {renderCopyright()}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (emailLayout === "bold") {
+    return (
+      <div className="border rounded-xl overflow-hidden shadow-sm" style={{ backgroundColor: "#f3f4f6" }}>
+        <div className="p-4">
+          <div className="max-w-[520px] mx-auto">
+            <div style={{ background: brandColor, padding: "32px 28px", borderRadius: "12px 12px 0 0", textAlign: "center" }}>
+              <h2 style={{ margin: "0 0 8px 0", color: "#fff", fontSize: "18px", fontWeight: 800 }}>{title}</h2>
+              <p style={{ margin: 0, color: "#ffffffdd", fontSize: "12px" }}>{greeting}</p>
+            </div>
+            <div style={{ background: "#fff", padding: "28px", borderRadius: "0 0 12px 12px" }}>
+              <p style={{ margin: "0 0 20px 0", color: "#374151", fontSize: "12px", lineHeight: 1.7 }}>{bodyText}</p>
+              {renderDataTable()}{renderFooter()}
+            </div>
+            {renderCopyright()}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="border rounded-xl overflow-hidden shadow-sm" style={{ backgroundColor: "#f3f4f6" }}>
       <div className="p-4">
         <div className="max-w-[520px] mx-auto">
           <div style={{ background: `linear-gradient(135deg, ${brandColor}, ${brandColor}dd)`, padding: "24px 28px", borderRadius: "12px 12px 0 0", textAlign: "center" }}>
-            <h2 style={{ margin: 0, color: "#fff", fontSize: "16px", fontWeight: 700 }}>{formData.headerTitle || "Potvrdenie registrácie"}</h2>
+            <h2 style={{ margin: 0, color: "#fff", fontSize: "16px", fontWeight: 700 }}>{title}</h2>
           </div>
           <div style={{ background: "#fff", padding: "28px", borderRadius: "0 0 12px 12px", boxShadow: "0 2px 16px rgba(0,0,0,0.06)" }}>
             <p style={{ margin: "0 0 12px 0", color: "#111827", fontSize: "13px", lineHeight: 1.6 }}>{greeting}</p>
             <p style={{ margin: "0 0 20px 0", color: "#374151", fontSize: "12px", lineHeight: 1.7 }}>{bodyText}</p>
-
-            {formData.confirmEmailShowData !== false && (
-              <div style={{ margin: "20px 0", padding: "16px", background: "#f9fafb", borderRadius: "10px", border: "1px solid #e5e7eb" }}>
-                <p style={{ margin: "0 0 10px 0", color: "#6b7280", fontSize: "10px", textTransform: "uppercase", letterSpacing: "1px", fontWeight: 600 }}>Kópia vyplnených údajov</p>
-                <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                  <tbody>
-                    {Object.entries(grouped).map(([secId, secFields]) => {
-                      const sec = sectionMap.get(secId);
-                      return (
-                        <>{sec?.title && (
-                          <tr key={`sec-${secId}`}><td colSpan={2} style={{ padding: "10px 0 6px 0", borderBottom: `2px solid ${brandColor}22` }}>
-                            <strong style={{ color: brandColor, textTransform: "uppercase", fontSize: "9px", letterSpacing: "1px" }}>{sec.title}</strong>
-                          </td></tr>
-                        )}
-                        {secFields.map((field: any) => {
-                          const val = sampleData[field.customerField || field.label] || "vzorová hodnota";
-                          return (
-                            <tr key={field._key || field.id}>
-                              <td style={{ padding: "4px 8px 4px 0", color: "#6b7280", fontSize: "11px", whiteSpace: "nowrap", verticalAlign: "top" }}>{field.label}</td>
-                              <td style={{ padding: "4px 0", color: "#111827", fontSize: "11px" }}>{val}</td>
-                            </tr>
-                          );
-                        })}</>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            <p style={{ margin: "20px 0 0 0", color: "#6b7280", fontSize: "11px", lineHeight: 1.6 }}>{footerText}</p>
-            <div style={{ margin: "16px 0 0 0", padding: "12px 0 0 0", borderTop: "1px solid #e5e7eb" }}>
-              <p style={{ margin: 0, color: "#111827", fontSize: "11px", fontWeight: 600 }}>{signatureText}</p>
-            </div>
+            {renderDataTable()}{renderFooter()}
           </div>
-          <p style={{ margin: "12px 0 0 0", textAlign: "center", color: "#9ca3af", fontSize: "9px" }}>&copy; {new Date().getFullYear()} {signatureText}. Tento e-mail bol odoslaný automaticky.</p>
+          {renderCopyright()}
         </div>
       </div>
     </div>
@@ -1475,6 +1597,39 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
                       Dostupné premenné: <code className="bg-blue-100 px-1 rounded">{"{{meno}}"}</code> <code className="bg-blue-100 px-1 rounded">{"{{priezvisko}}"}</code> <code className="bg-blue-100 px-1 rounded">{"{{email}}"}</code>. Email sa odosiela z emailu nastaveného v Billing Company pre danú krajinu.
                     </p>
                   </div>
+                  <div>
+                    <Label className="text-xs mb-2 block">Layout emailu</Label>
+                    <div className="grid grid-cols-5 gap-2">
+                      {([
+                        { value: "modern", label: "Modern", desc: "Gradient header + biely obsah" },
+                        { value: "minimal", label: "Minimal", desc: "Čistý bez headeru" },
+                        { value: "sidebar", label: "Sidebar", desc: "Farebný pruh vľavo" },
+                        { value: "elegant", label: "Elegant", desc: "Jemné linky, ľahký štýl" },
+                        { value: "bold", label: "Bold", desc: "Veľký farebný header" },
+                      ] as const).map(l => (
+                        <button
+                          key={l.value}
+                          type="button"
+                          className={`p-2 rounded-lg border-2 text-center transition-all hover:shadow-md ${(formData.confirmEmailLayout || "modern") === l.value ? "border-primary bg-primary/5 shadow-sm" : "border-gray-200 hover:border-gray-300"}`}
+                          onClick={() => setFormData({ ...formData, confirmEmailLayout: l.value })}
+                          data-testid={`email-layout-${l.value}`}
+                        >
+                          <EmailLayoutIcon layout={l.value} brandColor={formData.brandColor || "#16a34a"} isActive={(formData.confirmEmailLayout || "modern") === l.value} />
+                          <div className="text-[10px] font-medium mt-1">{l.label}</div>
+                        </button>
+                      ))}
+                    </div>
+                    <p className="text-[10px] text-muted-foreground mt-1.5">
+                      {({
+                        modern: "Gradient header s logom a bielym obsahom",
+                        minimal: "Čistý dizajn bez headeru, iba farebný nadpis",
+                        sidebar: "Farebný pruh vľavo s elegantným obsahom",
+                        elegant: "Jemné gradientové linky, ľahký štýl",
+                        bold: "Veľký farebný header s pozdravom",
+                      } as Record<string, string>)[formData.confirmEmailLayout || "modern"]}
+                    </p>
+                  </div>
+                  <Separator />
                   <div className="space-y-1">
                     <Label className="text-xs">Predmet emailu</Label>
                     <Input
