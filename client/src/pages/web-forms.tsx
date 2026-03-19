@@ -19,7 +19,8 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import {
   Plus, FileText, Globe, Copy, Trash2, Settings, Eye,
   GripVertical, ChevronDown, ChevronRight, Loader2, CheckCircle2, X, Code,
-  Clock, Users, ClipboardList, ArrowUp, ArrowDown, EyeOff, AlertCircle
+  Clock, Users, ClipboardList, ArrowUp, ArrowDown, EyeOff, AlertCircle,
+  Columns, LayoutGrid, Maximize2
 } from "lucide-react";
 import type { WebForm, WebFormSubmission } from "@shared/schema";
 
@@ -81,27 +82,27 @@ const SPECIAL_FIELDS = [
 ];
 
 const DEFAULT_SECTIONS = [
-  { title: "Údaje o matke", sortOrder: 0 },
-  { title: "Pôrod a odber", sortOrder: 1 },
-  { title: "Ako ste sa o nás dozvedeli", sortOrder: 2 },
+  { title: "Údaje o matke", sortOrder: 0, columns: 2 },
+  { title: "Pôrod a odber", sortOrder: 1, columns: 2 },
+  { title: "Ako ste sa o nás dozvedeli", sortOrder: 2, columns: 1 },
 ];
 
 const DEFAULT_FIELDS = [
-  { customerField: "firstName", fieldType: "text", label: "Meno", isRequired: true, sortOrder: 0, sectionIndex: 0, validationRules: JSON.stringify({ minLength: 2, maxLength: 50 }) },
-  { customerField: "lastName", fieldType: "text", label: "Priezvisko", isRequired: true, sortOrder: 1, sectionIndex: 0, validationRules: JSON.stringify({ minLength: 2, maxLength: 50 }) },
-  { customerField: "email", fieldType: "email", label: "Email", isRequired: true, sortOrder: 2, sectionIndex: 0, validationRules: JSON.stringify({ pattern: "email" }) },
-  { customerField: "phone", fieldType: "tel", label: "Telefón", isRequired: true, sortOrder: 3, sectionIndex: 0, validationRules: JSON.stringify({ pattern: "phone", minLength: 9 }) },
-  { customerField: "address", fieldType: "text", label: "Ulica a číslo", isRequired: false, sortOrder: 4, sectionIndex: 0 },
-  { customerField: "city", fieldType: "text", label: "Mesto", isRequired: false, sortOrder: 5, sectionIndex: 0 },
-  { customerField: "postalCode", fieldType: "text", label: "PSČ", isRequired: false, sortOrder: 6, sectionIndex: 0, validationRules: JSON.stringify({ pattern: "postalCode", maxLength: 10 }) },
-  { customerField: "dateOfBirth", fieldType: "date", label: "Dátum narodenia", isRequired: false, sortOrder: 7, sectionIndex: 0 },
-  { customerField: "nationalId", fieldType: "text", label: "Rodné číslo", isRequired: false, sortOrder: 8, sectionIndex: 0, validationRules: JSON.stringify({ pattern: "nationalId" }) },
-  { customerField: "healthInsuranceId", fieldType: "select_insurance", label: "Zdravotná poisťovňa", isRequired: false, sortOrder: 9, sectionIndex: 0 },
-  { customerField: "productSetId", fieldType: "select_product", label: "Typ odberu", isRequired: true, sortOrder: 0, sectionIndex: 1 },
-  { customerField: "hospitalId", fieldType: "select_hospital", label: "Nemocnica", isRequired: true, sortOrder: 1, sectionIndex: 1 },
-  { customerField: "expectedDeliveryDate", fieldType: "date", label: "Predpokladaný termín pôrodu", isRequired: true, sortOrder: 2, sectionIndex: 1 },
-  { customerField: "paymentMethod", fieldType: "select_payment", label: "Spôsob platby", isRequired: false, sortOrder: 3, sectionIndex: 1 },
-  { customerField: "howDidYouHear", fieldType: "select_source", label: "Ako ste sa o nás dozvedeli", isRequired: false, sortOrder: 0, sectionIndex: 2 },
+  { customerField: "firstName", fieldType: "text", label: "Meno", isRequired: true, sortOrder: 0, sectionIndex: 0, validationRules: JSON.stringify({ minLength: 2, maxLength: 50 }), columnSpan: 1 },
+  { customerField: "lastName", fieldType: "text", label: "Priezvisko", isRequired: true, sortOrder: 1, sectionIndex: 0, validationRules: JSON.stringify({ minLength: 2, maxLength: 50 }), columnSpan: 1 },
+  { customerField: "email", fieldType: "email", label: "Email", isRequired: true, sortOrder: 2, sectionIndex: 0, validationRules: JSON.stringify({ pattern: "email" }), columnSpan: 1 },
+  { customerField: "phone", fieldType: "tel", label: "Telefón", isRequired: true, sortOrder: 3, sectionIndex: 0, validationRules: JSON.stringify({ pattern: "phone", minLength: 9 }), columnSpan: 1 },
+  { customerField: "address", fieldType: "text", label: "Ulica a číslo", isRequired: false, sortOrder: 4, sectionIndex: 0, columnSpan: 2 },
+  { customerField: "city", fieldType: "text", label: "Mesto", isRequired: false, sortOrder: 5, sectionIndex: 0, columnSpan: 1 },
+  { customerField: "postalCode", fieldType: "text", label: "PSČ", isRequired: false, sortOrder: 6, sectionIndex: 0, validationRules: JSON.stringify({ pattern: "postalCode", maxLength: 10 }), columnSpan: 1 },
+  { customerField: "dateOfBirth", fieldType: "date", label: "Dátum narodenia", isRequired: false, sortOrder: 7, sectionIndex: 0, columnSpan: 1 },
+  { customerField: "nationalId", fieldType: "text", label: "Rodné číslo", isRequired: false, sortOrder: 8, sectionIndex: 0, validationRules: JSON.stringify({ pattern: "nationalId" }), columnSpan: 1 },
+  { customerField: "healthInsuranceId", fieldType: "select_insurance", label: "Zdravotná poisťovňa", isRequired: false, sortOrder: 9, sectionIndex: 0, columnSpan: 2 },
+  { customerField: "productSetId", fieldType: "select_product", label: "Typ odberu", isRequired: true, sortOrder: 0, sectionIndex: 1, columnSpan: 2 },
+  { customerField: "hospitalId", fieldType: "select_hospital", label: "Nemocnica", isRequired: true, sortOrder: 1, sectionIndex: 1, columnSpan: 1 },
+  { customerField: "expectedDeliveryDate", fieldType: "date", label: "Predpokladaný termín pôrodu", isRequired: true, sortOrder: 2, sectionIndex: 1, columnSpan: 1 },
+  { customerField: "paymentMethod", fieldType: "select_payment", label: "Spôsob platby", isRequired: false, sortOrder: 3, sectionIndex: 1, columnSpan: 2 },
+  { customerField: "howDidYouHear", fieldType: "select_source", label: "Ako ste sa o nás dozvedeli", isRequired: false, sortOrder: 0, sectionIndex: 2, columnSpan: 1 },
 ];
 
 export default function WebFormsPage() {
@@ -352,11 +353,11 @@ function parseValidationRules(rules: string | null | undefined): Record<string, 
   try { return JSON.parse(rules); } catch { return {}; }
 }
 
-function FieldEditor({ field, index, sectionsOptions, onUpdate, onRemove, onMoveUp, onMoveDown, isFirst, isLast }: {
-  field: any; index: number; sectionsOptions: { id: string; title: string }[];
+function FieldEditor({ field, index, sectionsOptions, onUpdate, onRemove, onMoveUp, onMoveDown, isFirst, isLast, sectionColumns }: {
+  field: any; index: number; sectionsOptions: { id: string; title: string; columns: number }[];
   onUpdate: (idx: number, updated: any) => void; onRemove: (idx: number) => void;
   onMoveUp: (idx: number) => void; onMoveDown: (idx: number) => void;
-  isFirst: boolean; isLast: boolean;
+  isFirst: boolean; isLast: boolean; sectionColumns?: number;
 }) {
   const [expanded, setExpanded] = useState(false);
   const rules = parseValidationRules(field.validationRules);
@@ -368,6 +369,7 @@ function FieldEditor({ field, index, sectionsOptions, onUpdate, onRemove, onMove
   };
 
   const fieldTypeLabel = FIELD_TYPES.find(ft => ft.value === field.fieldType)?.label || field.fieldType;
+  const maxCols = sectionColumns || 2;
 
   return (
     <div className="border rounded-lg bg-card overflow-hidden">
@@ -385,6 +387,7 @@ function FieldEditor({ field, index, sectionsOptions, onUpdate, onRemove, onMove
             <span className="text-sm font-medium truncate">{field.label}</span>
             <Badge variant="outline" className="text-[10px] shrink-0">{fieldTypeLabel}</Badge>
             {field.isRequired && <Badge variant="default" className="text-[10px] shrink-0 bg-red-500">*</Badge>}
+            {(field.columnSpan || 1) > 1 && <Badge variant="secondary" className="text-[10px] shrink-0"><Maximize2 className="h-2.5 w-2.5 mr-0.5" />Celý riadok</Badge>}
             {!field.isVisible && <EyeOff className="h-3 w-3 text-muted-foreground shrink-0" />}
             {(rules.minLength || rules.maxLength || rules.pattern || rules.min || rules.max) && (
               <Badge variant="secondary" className="text-[10px] shrink-0">validácia</Badge>
@@ -419,7 +422,7 @@ function FieldEditor({ field, index, sectionsOptions, onUpdate, onRemove, onMove
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 <div className="space-y-1">
                   <Label className="text-[11px] text-muted-foreground">Sekcia</Label>
                   <Select value={field.sectionId || "_none"} onValueChange={v => onUpdate(index, { ...field, sectionId: v === "_none" ? null : v })}>
@@ -427,6 +430,17 @@ function FieldEditor({ field, index, sectionsOptions, onUpdate, onRemove, onMove
                     <SelectContent>
                       <SelectItem value="_none">Bez sekcie</SelectItem>
                       {sectionsOptions.map(s => <SelectItem key={s.id} value={s.id}>{s.title}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] text-muted-foreground">Šírka poľa</Label>
+                  <Select value={String(field.columnSpan || 1)} onValueChange={v => onUpdate(index, { ...field, columnSpan: Number(v) })}>
+                    <SelectTrigger className="h-7 text-sm"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">1 stĺpec</SelectItem>
+                      {maxCols >= 2 && <SelectItem value="2">2 stĺpce (celý riadok)</SelectItem>}
+                      {maxCols >= 3 && <SelectItem value="3">3 stĺpce (celý riadok)</SelectItem>}
                     </SelectContent>
                   </Select>
                 </div>
@@ -523,6 +537,106 @@ function FieldEditor({ field, index, sectionsOptions, onUpdate, onRemove, onMove
   );
 }
 
+function LayoutPreview({ sections, fields, brandColor }: { sections: any[]; fields: any[]; brandColor: string }) {
+  const grouped = useMemo(() => {
+    const result: Array<{ section: any; fields: any[] }> = [];
+    const fieldsBySection: Map<string, any[]> = new Map();
+    const noSection: any[] = [];
+
+    const sortedFields = [...fields]
+      .filter((f: any) => f.isVisible !== false)
+      .sort((a: any, b: any) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+
+    for (const field of sortedFields) {
+      if (field.sectionId) {
+        const existing = fieldsBySection.get(field.sectionId) || [];
+        existing.push(field);
+        fieldsBySection.set(field.sectionId, existing);
+      } else {
+        noSection.push(field);
+      }
+    }
+
+    const sortedSections = [...sections]
+      .filter((s: any) => s.isVisible !== false)
+      .sort((a: any, b: any) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+
+    for (const sec of sortedSections) {
+      const secFields = fieldsBySection.get(sec.id) || [];
+      if (secFields.length > 0) {
+        result.push({ section: sec, fields: secFields });
+      }
+    }
+    if (noSection.length > 0) {
+      result.push({ section: { title: null, columns: 2 }, fields: noSection });
+    }
+    return result;
+  }, [sections, fields]);
+
+  return (
+    <div className="bg-gray-50 rounded-xl overflow-hidden border">
+      <div className="py-4 px-5 text-center" style={{ backgroundColor: brandColor }}>
+        <div className="text-white/80 text-[10px] font-medium tracking-wider mb-1">CORD BLOOD CENTER</div>
+        <div className="text-white font-bold text-sm">Mám záujem o odber</div>
+      </div>
+
+      <div className="bg-white mx-3 -mt-2 rounded-xl shadow-sm mb-3 overflow-hidden">
+        <div className="p-4 space-y-4">
+          {grouped.map((group, gi) => {
+            const cols = group.section?.columns || 2;
+            return (
+              <div key={gi}>
+                {group.section?.title && (
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="h-px flex-1" style={{ backgroundColor: brandColor + "30" }} />
+                    <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: brandColor }}>
+                      {group.section.title}
+                    </span>
+                    <div className="h-px flex-1" style={{ backgroundColor: brandColor + "30" }} />
+                  </div>
+                )}
+                <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
+                  {group.fields.map((field: any, fi: number) => {
+                    const span = Math.min(field.columnSpan || 1, cols);
+                    return (
+                      <div
+                        key={fi}
+                        className="border border-dashed border-gray-200 rounded-md p-2 bg-gray-50/50"
+                        style={{ gridColumn: span > 1 ? `span ${span}` : undefined }}
+                      >
+                        <div className="flex items-center gap-1">
+                          <span className="text-[10px] text-gray-500 truncate">{field.label}</span>
+                          {field.isRequired && <span className="text-red-400 text-[10px]">*</span>}
+                        </div>
+                        <div className="mt-1 h-5 rounded bg-gray-100 border border-gray-200" />
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+
+          <div className="border-t pt-2 space-y-1.5">
+            <div className="flex items-center gap-1.5">
+              <div className="w-3 h-3 rounded border border-gray-300" />
+              <span className="text-[9px] text-gray-400">GDPR súhlas</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-3 h-3 rounded border border-gray-300" />
+              <span className="text-[9px] text-gray-400">Tehotenstvo</span>
+            </div>
+          </div>
+
+          <div className="rounded-lg h-8 flex items-center justify-center text-white text-[10px] font-semibold" style={{ backgroundColor: brandColor }}>
+            Odoslať žiadosť
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void }) {
   const { toast } = useToast();
   const [formData, setFormData] = useState<any>({ ...form });
@@ -538,8 +652,8 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
 
   useEffect(() => {
     if (formDetail && !hydrated) {
-      setEditSections(formDetail.sections || []);
-      setEditFields(formDetail.fields || []);
+      setEditSections((formDetail.sections || []).map((s: any) => ({ ...s, columns: s.columns || 2 })));
+      setEditFields((formDetail.fields || []).map((f: any) => ({ ...f, columnSpan: f.columnSpan || 1 })));
       setHydrated(true);
     }
   }, [formDetail, hydrated]);
@@ -559,10 +673,15 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
   });
 
   const handleSave = () => {
+    const sectionColMap = new Map(editSections.map((s: any) => [s.id, s.columns || 2]));
+    const normalizedFields = editFields.map((f: any, i: number) => {
+      const maxCols = f.sectionId ? (sectionColMap.get(f.sectionId) || 2) : 2;
+      return { ...f, sortOrder: i, columnSpan: Math.min(f.columnSpan || 1, maxCols) };
+    });
     updateMutation.mutate({
       ...formData,
       sections: editSections,
-      fields: editFields.map((f: any, i: number) => ({ ...f, sortOrder: i })),
+      fields: normalizedFields,
     });
   };
 
@@ -598,6 +717,7 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
       options: null,
       defaultValue: null,
       isVisible: true,
+      columnSpan: 1,
     }]);
   };
 
@@ -615,6 +735,7 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
       options: null,
       defaultValue: null,
       isVisible: true,
+      columnSpan: 1,
     }]);
   };
 
@@ -623,6 +744,7 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
       id: `new-${Date.now()}`,
       title: "Nová sekcia",
       sortOrder: prev.length,
+      columns: 2,
       isVisible: true,
     }]);
   };
@@ -631,20 +753,194 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
   const usedFieldKeys = new Set(editFields.map((f: any) => f.customerField));
   const availableFields = allFieldKeys.filter(f => !usedFieldKeys.has(f.key));
 
+  const getSectionColumns = (sectionId: string | null) => {
+    if (!sectionId) return 2;
+    const sec = editSections.find((s: any) => s.id === sectionId);
+    return sec?.columns || 2;
+  };
+
   return (
     <Sheet open onOpenChange={(o) => !o && onClose()}>
-      <SheetContent className="sm:max-w-[750px] overflow-y-auto">
+      <SheetContent className="sm:max-w-[900px] overflow-y-auto">
         <SheetHeader>
           <SheetTitle>Upraviť formulár: {form.name}</SheetTitle>
         </SheetHeader>
         <div className="space-y-6 mt-6">
-          <Tabs defaultValue="fields">
-            <TabsList className="grid grid-cols-4">
-              <TabsTrigger value="settings">Základné</TabsTrigger>
+          <Tabs defaultValue="layout">
+            <TabsList className="grid grid-cols-5">
+              <TabsTrigger value="layout" data-testid="tab-layout">
+                <LayoutGrid className="h-3.5 w-3.5 mr-1" /> Rozloženie
+              </TabsTrigger>
               <TabsTrigger value="fields">Polia ({editFields.length})</TabsTrigger>
               <TabsTrigger value="sections">Sekcie ({editSections.length})</TabsTrigger>
+              <TabsTrigger value="settings">Základné</TabsTrigger>
               <TabsTrigger value="texts">Texty & GDPR</TabsTrigger>
             </TabsList>
+
+            <TabsContent value="layout" className="mt-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <h4 className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wider">Náhľad rozloženia</h4>
+                  <LayoutPreview
+                    sections={editSections}
+                    fields={editFields}
+                    brandColor={formData.brandColor || "#16a34a"}
+                  />
+                </div>
+
+                <div className="space-y-3">
+                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Sekcie a stĺpce</h4>
+                  {editSections.map((section: any, idx: number) => {
+                    const sectionFields = editFields.filter((f: any) => f.sectionId === section.id);
+                    return (
+                      <div key={idx} className="border rounded-lg p-3 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Input
+                            value={section.title}
+                            onChange={e => {
+                              const updated = [...editSections];
+                              updated[idx] = { ...updated[idx], title: e.target.value };
+                              setEditSections(updated);
+                            }}
+                            className="h-7 text-sm flex-1 font-medium"
+                          />
+                          <div className="flex items-center gap-1 shrink-0">
+                            <Columns className="h-3.5 w-3.5 text-muted-foreground" />
+                            <Select
+                              value={String(section.columns || 2)}
+                              onValueChange={v => {
+                                const updated = [...editSections];
+                                updated[idx] = { ...updated[idx], columns: Number(v) };
+                                setEditSections(updated);
+                              }}
+                            >
+                              <SelectTrigger className="h-7 w-20 text-xs">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="1">1 stĺpec</SelectItem>
+                                <SelectItem value="2">2 stĺpce</SelectItem>
+                                <SelectItem value="3">3 stĺpce</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                        <div className="text-[10px] text-muted-foreground">
+                          {sectionFields.length} polí v sekcii
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                          {sectionFields.map((f: any, fi: number) => (
+                            <Badge key={fi} variant="outline" className="text-[10px]">
+                              {f.label}
+                              {(f.columnSpan || 1) > 1 && <Maximize2 className="h-2.5 w-2.5 ml-0.5" />}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <Button size="sm" variant="outline" onClick={addSection} className="w-full">
+                    <Plus className="h-3 w-3 mr-1" /> Pridať sekciu
+                  </Button>
+
+                  <Separator />
+                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Rýchle pridanie polí</h4>
+                  <div className="flex flex-wrap gap-1">
+                    {availableFields.slice(0, 8).map(f => (
+                      <Button key={f.key} size="sm" variant="outline" className="h-6 text-[10px]" onClick={() => addField(f)}>
+                        <Plus className="h-2.5 w-2.5 mr-0.5" /> {f.label}
+                      </Button>
+                    ))}
+                    <Button size="sm" variant="outline" className="h-6 text-[10px]" onClick={addCustomField}>
+                      <Plus className="h-2.5 w-2.5 mr-0.5" /> Vlastné pole
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="fields" className="space-y-3 mt-4">
+              <div className="space-y-1.5">
+                {editFields.map((field: any, idx: number) => (
+                  <FieldEditor
+                    key={idx}
+                    field={field}
+                    index={idx}
+                    sectionsOptions={editSections.map((s: any) => ({ id: s.id, title: s.title, columns: s.columns || 2 }))}
+                    onUpdate={updateField}
+                    onRemove={removeField}
+                    onMoveUp={(i) => moveField(i, "up")}
+                    onMoveDown={(i) => moveField(i, "down")}
+                    isFirst={idx === 0}
+                    isLast={idx === editFields.length - 1}
+                    sectionColumns={getSectionColumns(field.sectionId)}
+                  />
+                ))}
+              </div>
+
+              <Separator />
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs text-muted-foreground">Pridať zákaznícke pole</Label>
+                  <Button size="sm" variant="outline" className="h-6 text-[10px]" onClick={addCustomField}>
+                    <Plus className="h-2.5 w-2.5 mr-1" /> Vlastné pole
+                  </Button>
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {availableFields.map(f => (
+                    <Button key={f.key} size="sm" variant="outline" className="h-6 text-[10px]" onClick={() => addField(f)}>
+                      <Plus className="h-2.5 w-2.5 mr-1" /> {f.label}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="sections" className="space-y-3 mt-4">
+              {editSections.map((section: any, idx: number) => (
+                <div key={idx} className="flex items-center gap-2 p-3 border rounded-lg">
+                  <GripVertical className="h-4 w-4 text-muted-foreground" />
+                  <Input value={section.title} onChange={e => {
+                    const updated = [...editSections];
+                    updated[idx] = { ...updated[idx], title: e.target.value };
+                    setEditSections(updated);
+                  }} className="h-7 text-sm flex-1" />
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Columns className="h-3.5 w-3.5 text-muted-foreground" />
+                    <Select value={String(section.columns || 2)} onValueChange={v => {
+                      const updated = [...editSections];
+                      updated[idx] = { ...updated[idx], columns: Number(v) };
+                      setEditSections(updated);
+                    }}>
+                      <SelectTrigger className="h-7 w-20 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1">1 stĺp.</SelectItem>
+                        <SelectItem value="2">2 stĺp.</SelectItem>
+                        <SelectItem value="3">3 stĺp.</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Switch checked={section.isVisible !== false} onCheckedChange={checked => {
+                    const updated = [...editSections];
+                    updated[idx] = { ...updated[idx], isVisible: checked };
+                    setEditSections(updated);
+                  }} />
+                  <Label className="text-[10px]">Viditeľná</Label>
+                  <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive" onClick={() => {
+                    const removedId = editSections[idx]?.id;
+                    setEditSections(prev => prev.filter((_, i) => i !== idx));
+                    if (removedId) {
+                      setEditFields(prev => prev.map(f => f.sectionId === removedId ? { ...f, sectionId: null } : f));
+                    }
+                  }}>
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              ))}
+              <Button size="sm" variant="outline" onClick={addSection}>
+                <Plus className="h-3 w-3 mr-1" /> Pridať sekciu
+              </Button>
+            </TabsContent>
 
             <TabsContent value="settings" className="space-y-4 mt-4">
               <div className="grid gap-3 grid-cols-2">
@@ -675,73 +971,6 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
                   </div>
                 </div>
               </div>
-            </TabsContent>
-
-            <TabsContent value="fields" className="space-y-3 mt-4">
-              <div className="space-y-1.5">
-                {editFields.map((field: any, idx: number) => (
-                  <FieldEditor
-                    key={idx}
-                    field={field}
-                    index={idx}
-                    sectionsOptions={editSections.map((s: any) => ({ id: s.id, title: s.title }))}
-                    onUpdate={updateField}
-                    onRemove={removeField}
-                    onMoveUp={(i) => moveField(i, "up")}
-                    onMoveDown={(i) => moveField(i, "down")}
-                    isFirst={idx === 0}
-                    isLast={idx === editFields.length - 1}
-                  />
-                ))}
-              </div>
-
-              <Separator />
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label className="text-xs text-muted-foreground">Pridať zákaznícke pole</Label>
-                  <Button size="sm" variant="outline" className="h-6 text-[10px]" onClick={addCustomField}>
-                    <Plus className="h-2.5 w-2.5 mr-1" /> Vlastné pole
-                  </Button>
-                </div>
-                <div className="flex flex-wrap gap-1">
-                  {availableFields.map(f => (
-                    <Button key={f.key} size="sm" variant="outline" className="h-6 text-[10px]" onClick={() => addField(f)}>
-                      <Plus className="h-2.5 w-2.5 mr-1" /> {f.label}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="sections" className="space-y-3 mt-4">
-              {editSections.map((section: any, idx: number) => (
-                <div key={idx} className="flex items-center gap-2 p-2 border rounded-lg">
-                  <GripVertical className="h-4 w-4 text-muted-foreground" />
-                  <Input value={section.title} onChange={e => {
-                    const updated = [...editSections];
-                    updated[idx] = { ...updated[idx], title: e.target.value };
-                    setEditSections(updated);
-                  }} className="h-7 text-sm flex-1" />
-                  <Switch checked={section.isVisible !== false} onCheckedChange={checked => {
-                    const updated = [...editSections];
-                    updated[idx] = { ...updated[idx], isVisible: checked };
-                    setEditSections(updated);
-                  }} />
-                  <Label className="text-[10px]">Viditeľná</Label>
-                  <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive" onClick={() => {
-                    const removedId = editSections[idx]?.id;
-                    setEditSections(prev => prev.filter((_, i) => i !== idx));
-                    if (removedId) {
-                      setEditFields(prev => prev.map(f => f.sectionId === removedId ? { ...f, sectionId: null } : f));
-                    }
-                  }}>
-                    <X className="h-3 w-3" />
-                  </Button>
-                </div>
-              ))}
-              <Button size="sm" variant="outline" onClick={addSection}>
-                <Plus className="h-3 w-3 mr-1" /> Pridať sekciu
-              </Button>
             </TabsContent>
 
             <TabsContent value="texts" className="space-y-4 mt-4">

@@ -6231,6 +6231,7 @@ export const webFormSections = pgTable("web_form_sections", {
   title: text("title").notNull(),
   description: text("description"),
   sortOrder: integer("sort_order").notNull().default(0),
+  columns: integer("columns").notNull().default(2),
   isVisible: boolean("is_visible").notNull().default(true),
 });
 
@@ -6245,6 +6246,7 @@ export const webFormFields = pgTable("web_form_fields", {
   helpText: text("help_text"),
   isRequired: boolean("is_required").notNull().default(false),
   sortOrder: integer("sort_order").notNull().default(0),
+  columnSpan: integer("column_span").notNull().default(1),
   validationRules: text("validation_rules"),
   options: text("options"),
   defaultValue: text("default_value"),

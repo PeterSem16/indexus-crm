@@ -142,8 +142,8 @@ export default function PublicFormPage() {
   }, [config]);
 
   const groupedFields = useMemo(() => {
-    if (sections.length === 0) return [{ title: null, fields }];
-    const groups: Array<{ title: string | null; fields: any[] }> = [];
+    if (sections.length === 0) return [{ section: { title: null, columns: 2 }, fields }];
+    const groups: Array<{ section: any; fields: any[] }> = [];
     const fieldsBySection: Map<string, any[]> = new Map();
     const noSection: any[] = [];
 
@@ -160,14 +160,14 @@ export default function PublicFormPage() {
     for (const sec of sections) {
       const sectionFields = fieldsBySection.get(sec.id) || [];
       if (sectionFields.length > 0) {
-        groups.push({ title: sec.title, fields: sectionFields });
+        groups.push({ section: sec, fields: sectionFields });
       }
     }
     if (noSection.length > 0) {
-      groups.push({ title: null, fields: noSection });
+      groups.push({ section: { title: null, columns: 2 }, fields: noSection });
     }
     if (groups.length === 0) {
-      groups.push({ title: null, fields });
+      groups.push({ section: { title: null, columns: 2 }, fields });
     }
     return groups;
   }, [fields, sections]);
@@ -438,8 +438,8 @@ export default function PublicFormPage() {
     const helpText = field.helpText;
 
     const fieldWrapper = (children: any) => (
-      <div key={key} className="space-y-1">
-        <Label className="text-sm font-medium">
+      <div key={key} className="space-y-1.5">
+        <Label className="text-sm font-medium text-gray-700">
           {field.label}
           {field.isRequired && <span className="text-red-500 ml-1">*</span>}
         </Label>
@@ -449,11 +449,13 @@ export default function PublicFormPage() {
       </div>
     );
 
+    const inputClass = `h-10 bg-white border-gray-300 focus:border-2 rounded-lg transition-colors ${err ? "border-red-400 focus:border-red-500" : ""}`;
+
     if (field.fieldType === "select_insurance") {
       return fieldWrapper(
         <Select value={val} onValueChange={v => updateField(key, v)}>
-          <SelectTrigger className={err ? "border-red-400" : ""} data-testid={`select-${key}`} onBlur={() => blurField(key)}>
-            <SelectValue placeholder={placeholder || "Vyberte..."} />
+          <SelectTrigger className={inputClass} data-testid={`select-${key}`} onBlur={() => blurField(key)}>
+            <SelectValue placeholder={placeholder || "Vyberte poisťovňu..."} />
           </SelectTrigger>
           <SelectContent>
             {config.healthInsuranceCompanies.map((hic: any) => (
@@ -467,7 +469,7 @@ export default function PublicFormPage() {
     if (field.fieldType === "select_hospital") {
       return fieldWrapper(
         <Select value={val} onValueChange={v => updateField(key, v)}>
-          <SelectTrigger className={err ? "border-red-400" : ""} data-testid={`select-${key}`} onBlur={() => blurField(key)}>
+          <SelectTrigger className={inputClass} data-testid={`select-${key}`} onBlur={() => blurField(key)}>
             <SelectValue placeholder={placeholder || "Vyberte nemocnicu..."} />
           </SelectTrigger>
           <SelectContent>
@@ -482,7 +484,7 @@ export default function PublicFormPage() {
     if (field.fieldType === "select_product") {
       return fieldWrapper(
         <Select value={val} onValueChange={v => updateField(key, v)}>
-          <SelectTrigger className={err ? "border-red-400" : ""} data-testid={`select-${key}`} onBlur={() => blurField(key)}>
+          <SelectTrigger className={inputClass} data-testid={`select-${key}`} onBlur={() => blurField(key)}>
             <SelectValue placeholder={placeholder || "Vyberte typ odberu..."} />
           </SelectTrigger>
           <SelectContent>
@@ -499,7 +501,7 @@ export default function PublicFormPage() {
     if (field.fieldType === "select_source") {
       return fieldWrapper(
         <Select value={val} onValueChange={v => updateField(key, v)}>
-          <SelectTrigger className={err ? "border-red-400" : ""} data-testid={`select-${key}`} onBlur={() => blurField(key)}>
+          <SelectTrigger className={inputClass} data-testid={`select-${key}`} onBlur={() => blurField(key)}>
             <SelectValue placeholder={placeholder || "Vyberte..."} />
           </SelectTrigger>
           <SelectContent>
@@ -514,7 +516,7 @@ export default function PublicFormPage() {
     if (field.fieldType === "select_payment") {
       return fieldWrapper(
         <Select value={val} onValueChange={v => updateField(key, v)}>
-          <SelectTrigger className={err ? "border-red-400" : ""} data-testid={`select-${key}`} onBlur={() => blurField(key)}>
+          <SelectTrigger className={inputClass} data-testid={`select-${key}`} onBlur={() => blurField(key)}>
             <SelectValue placeholder={placeholder || "Vyberte..."} />
           </SelectTrigger>
           <SelectContent>
@@ -530,7 +532,7 @@ export default function PublicFormPage() {
       const opts = (field.options || "").split("\n").filter((o: string) => o.trim());
       return fieldWrapper(
         <Select value={val} onValueChange={v => updateField(key, v)}>
-          <SelectTrigger className={err ? "border-red-400" : ""} data-testid={`select-${key}`} onBlur={() => blurField(key)}>
+          <SelectTrigger className={inputClass} data-testid={`select-${key}`} onBlur={() => blurField(key)}>
             <SelectValue placeholder={placeholder || "Vyberte..."} />
           </SelectTrigger>
           <SelectContent>
@@ -544,13 +546,14 @@ export default function PublicFormPage() {
 
     if (field.fieldType === "checkbox") {
       return (
-        <div key={key} className="flex items-center gap-2">
+        <div key={key} className="flex items-center gap-3 py-1">
           <Checkbox
             checked={!!formValues[key]}
             onCheckedChange={checked => updateField(key, checked)}
             data-testid={`checkbox-${key}`}
+            className="border-gray-300"
           />
-          <Label className="text-sm">{field.label}</Label>
+          <Label className="text-sm text-gray-700 cursor-pointer" onClick={() => updateField(key, !formValues[key])}>{field.label}</Label>
         </div>
       );
     }
@@ -561,7 +564,7 @@ export default function PublicFormPage() {
           value={val}
           onChange={e => updateField(key, e.target.value)}
           onBlur={() => blurField(key)}
-          className={err ? "border-red-400" : ""}
+          className={`bg-white border-gray-300 rounded-lg ${err ? "border-red-400" : ""}`}
           placeholder={placeholder}
           rows={3}
           data-testid={`textarea-${key}`}
@@ -575,7 +578,7 @@ export default function PublicFormPage() {
         value={val}
         onChange={e => updateField(key, e.target.value)}
         onBlur={() => blurField(key)}
-        className={err ? "border-red-400" : ""}
+        className={inputClass}
         placeholder={placeholder}
         data-testid={`input-${key}`}
       />
@@ -585,25 +588,25 @@ export default function PublicFormPage() {
   const errorCount = Object.keys(errors).length;
 
   return (
-    <div className="min-h-screen bg-gray-50" data-testid="public-form-container">
-      <div className="w-full py-6 px-4" style={{ backgroundColor: brandColor }}>
-        <div className="max-w-2xl mx-auto text-center">
-          <div className="flex items-center justify-center gap-2 mb-3">
-            <Baby className="h-8 w-8 text-white" />
-            <span className="text-white/80 text-sm font-medium">CORD BLOOD CENTER</span>
+    <div className="min-h-screen bg-gray-100" data-testid="public-form-container">
+      <div className="w-full py-8 px-4" style={{ backgroundColor: brandColor }}>
+        <div className="max-w-3xl mx-auto text-center">
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <Baby className="h-9 w-9 text-white" />
+            <span className="text-white/90 text-sm font-semibold tracking-wider uppercase">Cord Blood Center</span>
           </div>
-          <h1 className="text-2xl md:text-3xl font-bold text-white mb-2" data-testid="text-form-header">
+          <h1 className="text-2xl md:text-3xl font-bold text-white mb-3" data-testid="text-form-header">
             {config.form.headerTitle || "Registračný formulár"}
           </h1>
           {config.form.headerSubtitle && (
-            <p className="text-white/90 text-sm md:text-base max-w-xl mx-auto">{config.form.headerSubtitle}</p>
+            <p className="text-white/85 text-sm md:text-base max-w-2xl mx-auto leading-relaxed">{config.form.headerSubtitle}</p>
           )}
         </div>
       </div>
 
-      <div className="max-w-2xl mx-auto -mt-4 px-4 pb-12">
-        <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-          <div className="p-6 md:p-8 space-y-6">
+      <div className="max-w-3xl mx-auto -mt-6 px-4 pb-12">
+        <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
+          <div className="p-6 md:p-10 space-y-8">
             {isOtpVerified && (
               <div className="flex items-center gap-2 p-3 rounded-lg text-sm" style={{ backgroundColor: brandColor + "10", color: brandColor }}>
                 <CheckCircle2 className="h-4 w-4 shrink-0" />
@@ -611,30 +614,43 @@ export default function PublicFormPage() {
               </div>
             )}
 
-            {groupedFields.map((group, gi) => (
-              <div key={gi} className="space-y-4">
-                {group.title && (
-                  <div className="flex items-center gap-2 pt-2">
-                    <div className="h-0.5 flex-1 rounded" style={{ backgroundColor: brandColor + "30" }} />
-                    <h3 className="text-sm font-semibold uppercase tracking-wider px-2" style={{ color: brandColor }}>
-                      {group.title}
-                    </h3>
-                    <div className="h-0.5 flex-1 rounded" style={{ backgroundColor: brandColor + "30" }} />
-                  </div>
-                )}
-                <div className="grid gap-4 sm:grid-cols-2">
-                  {group.fields.map(renderField)}
-                </div>
-              </div>
-            ))}
+            {groupedFields.map((group, gi) => {
+              const cols = group.section?.columns || 2;
+              const gridCols = cols === 1 ? "grid-cols-1" : cols === 3 ? "grid-cols-1 sm:grid-cols-3" : "grid-cols-1 sm:grid-cols-2";
 
-            <div className="border-t pt-5 space-y-3">
+              return (
+                <div key={gi} className="space-y-5">
+                  {group.section?.title && (
+                    <div className="flex items-center gap-3 pt-2">
+                      <div className="h-[2px] flex-1 rounded-full" style={{ backgroundColor: brandColor + "25" }} />
+                      <h3 className="text-xs font-bold uppercase tracking-[0.15em] px-3 whitespace-nowrap" style={{ color: brandColor }}>
+                        {group.section.title}
+                      </h3>
+                      <div className="h-[2px] flex-1 rounded-full" style={{ backgroundColor: brandColor + "25" }} />
+                    </div>
+                  )}
+                  <div className={`grid gap-x-5 gap-y-4 ${gridCols}`}>
+                    {group.fields.map((field: any) => {
+                      const span = Math.min(field.columnSpan || 1, cols);
+                      const spanClass = span > 1 ? (span >= 3 ? "sm:col-span-3" : "sm:col-span-2") : "";
+                      return (
+                        <div key={getFieldKey(field)} className={spanClass}>
+                          {renderField(field)}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+
+            <div className="border-t border-gray-200 pt-6 space-y-4">
               {config.form.gdprText && (
-                <div className="flex items-start gap-2">
+                <div className="flex items-start gap-3">
                   <Checkbox
                     checked={gdprAccepted}
                     onCheckedChange={checked => { setGdprAccepted(!!checked); if (errors.gdpr) setErrors(prev => { const e = { ...prev }; delete e.gdpr; return e; }); }}
-                    className="mt-0.5"
+                    className="mt-0.5 border-gray-300"
                     data-testid="checkbox-gdpr"
                   />
                   <Label className="text-xs text-gray-600 leading-relaxed cursor-pointer" onClick={() => setGdprAccepted(!gdprAccepted)}>
@@ -642,14 +658,14 @@ export default function PublicFormPage() {
                   </Label>
                 </div>
               )}
-              {errors.gdpr && <p className="text-xs text-red-500 ml-6 flex items-center gap-1"><AlertCircle className="h-3 w-3" />{errors.gdpr}</p>}
+              {errors.gdpr && <p className="text-xs text-red-500 ml-7 flex items-center gap-1"><AlertCircle className="h-3 w-3" />{errors.gdpr}</p>}
 
               {config.form.gdprPregnancyText && (
-                <div className="flex items-start gap-2">
+                <div className="flex items-start gap-3">
                   <Checkbox
                     checked={pregnancyAccepted}
                     onCheckedChange={checked => { setPregnancyAccepted(!!checked); if (errors.pregnancy) setErrors(prev => { const e = { ...prev }; delete e.pregnancy; return e; }); }}
-                    className="mt-0.5"
+                    className="mt-0.5 border-gray-300"
                     data-testid="checkbox-pregnancy"
                   />
                   <Label className="text-xs text-gray-600 leading-relaxed cursor-pointer" onClick={() => setPregnancyAccepted(!pregnancyAccepted)}>
@@ -657,14 +673,14 @@ export default function PublicFormPage() {
                   </Label>
                 </div>
               )}
-              {errors.pregnancy && <p className="text-xs text-red-500 ml-6 flex items-center gap-1"><AlertCircle className="h-3 w-3" />{errors.pregnancy}</p>}
+              {errors.pregnancy && <p className="text-xs text-red-500 ml-7 flex items-center gap-1"><AlertCircle className="h-3 w-3" />{errors.pregnancy}</p>}
 
               {config.form.gdprMarketingText && (
-                <div className="flex items-start gap-2">
+                <div className="flex items-start gap-3">
                   <Checkbox
                     checked={newsletterAccepted}
                     onCheckedChange={checked => setNewsletterAccepted(!!checked)}
-                    className="mt-0.5"
+                    className="mt-0.5 border-gray-300"
                     data-testid="checkbox-newsletter"
                   />
                   <Label className="text-xs text-gray-600 leading-relaxed cursor-pointer" onClick={() => setNewsletterAccepted(!newsletterAccepted)}>
@@ -682,7 +698,7 @@ export default function PublicFormPage() {
             )}
 
             <Button
-              className="w-full h-12 text-base font-semibold rounded-xl text-white"
+              className="w-full h-12 text-base font-semibold rounded-xl text-white shadow-lg hover:shadow-xl transition-all"
               style={{ backgroundColor: brandColor }}
               onClick={handleSubmit}
               disabled={step === "submitting"}
