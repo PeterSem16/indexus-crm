@@ -33088,7 +33088,9 @@ Return ONLY the JSON object.`
         const billingCompany = billingCompanies.find((b: any) => b.webFromEmail) || billingCompanies[0];
         const fromEmail = billingCompany?.webFromEmail;
         if (fromEmail) {
-          const userId = await db.select({ id: (await import("@shared/schema")).users.id }).from((await import("@shared/schema")).users).limit(1);
+          const { users: usersTableOtp, userMs365Connections: ms365ConnsOtp } = await import("@shared/schema");
+          const { eq: eqOpOtp } = await import("drizzle-orm");
+          const userId = await db.select({ id: usersTableOtp.id }).from(usersTableOtp).innerJoin(ms365ConnsOtp, eqOpOtp(usersTableOtp.id, ms365ConnsOtp.userId)).where(eqOpOtp(ms365ConnsOtp.isConnected, true)).limit(1);
           if (userId.length > 0) {
             const ms365Connection = await storage.getUserMs365Connection(userId[0].id);
             if (ms365Connection?.isConnected) {
@@ -33280,21 +33282,28 @@ Return ONLY the JSON object.`
         details: JSON.stringify({ customerId: targetCustomerId, isNewCustomer, isOtpVerified }),
         ipAddress: req.ip || null,
       });
+      console.log(`[WebForm] Confirm email check: enabled=${form.confirmEmailEnabled}, email=${formData.email}`);
       if (form.confirmEmailEnabled !== false && formData.email) {
         try {
+          console.log(`[WebForm] Starting confirmation email for ${formData.email}, country=${form.countryCode}`);
           const billingCompanies = await storage.getBillingDetailsByCountry(form.countryCode);
           const billingCompany = billingCompanies.find(b => b.webFromEmail) || billingCompanies[0];
           const fromEmail = billingCompany?.webFromEmail;
           const companyName = billingCompany?.companyName || "Cord Blood Center";
 
-          const userId = await db.select({ id: (await import("@shared/schema")).users.id }).from((await import("@shared/schema")).users).limit(1);
+          const { users: usersTable, userMs365Connections } = await import("@shared/schema");
+          const { eq: eqOp, asc: ascOp } = await import("drizzle-orm");
+          const userId = await db.select({ id: usersTable.id }).from(usersTable).innerJoin(userMs365Connections, eqOp(usersTable.id, userMs365Connections.userId)).where(eqOp(userMs365Connections.isConnected, true)).orderBy(ascOp(usersTable.createdAt)).limit(1);
+          console.log(`[WebForm] userId query result: ${userId.length} users with MS365, fromEmail=${fromEmail}`);
           if (userId.length > 0 && fromEmail) {
             const ms365Connection = await storage.getUserMs365Connection(userId[0].id);
+            console.log(`[WebForm] ms365Connection: connected=${ms365Connection?.isConnected}, userId=${userId[0].id}`);
             if (ms365Connection?.isConnected) {
               const { decryptTokenSafe } = await import("./lib/token-crypto");
               const accessToken = decryptTokenSafe(ms365Connection.accessToken);
               const { getValidAccessToken, sendEmailFromSharedMailbox } = await import("./lib/ms365");
               const tokenResult = await getValidAccessToken(accessToken, ms365Connection.tokenExpiresAt, ms365Connection.refreshToken ? decryptTokenSafe(ms365Connection.refreshToken) : null);
+              console.log(`[WebForm] tokenResult: ${tokenResult ? 'valid' : 'null/invalid'}`);
               if (tokenResult) {
                 const brandColor = form.brandColor || "#16a34a";
                 const lastName = formData.lastName || "";
@@ -33305,8 +33314,8 @@ Return ONLY the JSON object.`
                 const subject = (form.confirmEmailSubject || `Potvrdenie registrácie - ${companyName}`).replace(/\{\{priezvisko\}\}/g, lastName).replace(/\{\{meno\}\}/g, formData.firstName || "").replace(/\{\{email\}\}/g, formData.email || "");
 
                 const formFieldsSections = form.confirmEmailShowData !== false ? await (async () => {
-                  const sections = await storage.getWebFormSectionsByFormId(form.id);
-                  const fields = await storage.getWebFormFieldsByFormId(form.id);
+                  const sections = await storage.getWebFormSections(form.id);
+                  const fields = await storage.getWebFormFields(form.id);
                   const sorted = fields.sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0));
                   let html = "";
                   const sectionMap = new Map(sections.map((s: any) => [s.id, s]));
