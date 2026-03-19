@@ -32931,6 +32931,32 @@ Return ONLY the JSON object.`
     catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
+  app.get("/api/web-forms/stats", requireAuth, async (_req, res) => {
+    try {
+      const [forms, submissions] = await Promise.all([
+        storage.getWebForms(),
+        storage.getAllWebFormSubmissions(),
+      ]);
+      const formMap = new Map(forms.map(f => [f.id, f]));
+      const stats = submissions.map(sub => {
+        const form = formMap.get(sub.formId);
+        return {
+          id: sub.id,
+          formId: sub.formId,
+          formName: form?.name || sub.formId,
+          countryCode: form?.countryCode || null,
+          status: sub.status,
+          isNewCustomer: sub.isNewCustomer,
+          isOtpVerified: sub.isOtpVerified,
+          createdAt: sub.createdAt,
+        };
+      });
+      res.json(stats);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   app.get("/api/web-forms/:id", requireAuth, async (req, res) => {
     try {
       const form = await storage.getWebForm(req.params.id);

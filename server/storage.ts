@@ -1125,6 +1125,7 @@ export interface IStorage {
   deleteWebFormFieldsByFormId(formId: string): Promise<void>;
   deleteWebFormSectionsByFormId(formId: string): Promise<void>;
   getWebFormSubmissions(formId: string): Promise<WebFormSubmission[]>;
+  getAllWebFormSubmissions(): Promise<WebFormSubmission[]>;
   getWebFormSubmission(id: string): Promise<WebFormSubmission | undefined>;
   createWebFormSubmission(data: InsertWebFormSubmission): Promise<WebFormSubmission>;
   updateWebFormSubmission(id: string, data: Partial<InsertWebFormSubmission>): Promise<WebFormSubmission>;
@@ -6818,6 +6819,9 @@ export class DatabaseStorage implements IStorage {
   }
   async getWebFormSubmissions(formId: string): Promise<WebFormSubmission[]> {
     return db.select().from(webFormSubmissions).where(eq(webFormSubmissions.formId, formId)).orderBy(desc(webFormSubmissions.createdAt));
+  }
+  async getAllWebFormSubmissions(): Promise<WebFormSubmission[]> {
+    return db.select().from(webFormSubmissions).orderBy(desc(webFormSubmissions.createdAt));
   }
   async getWebFormSubmission(id: string): Promise<WebFormSubmission | undefined> {
     const [sub] = await db.select().from(webFormSubmissions).where(eq(webFormSubmissions.id, id));

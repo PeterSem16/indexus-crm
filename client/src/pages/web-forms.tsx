@@ -19,7 +19,8 @@ import {
   Plus, FileText, Globe, Copy, Trash2, Settings, Eye,
   GripVertical, ChevronDown, ChevronRight, Loader2, CheckCircle2, X, Code,
   Clock, Users, ClipboardList, ArrowUp, ArrowDown, EyeOff,
-  Columns, LayoutGrid, Maximize2, Palette, Type, Italic, Pencil, Mail, Info, Send
+  Columns, LayoutGrid, Maximize2, Palette, Type, Italic, Pencil, Mail, Info, Send,
+  BarChart3, TrendingUp, UserPlus, UserCheck, ShieldCheck, Calendar
 } from "lucide-react";
 import type { WebForm, WebFormSubmission } from "@shared/schema";
 
@@ -322,8 +323,19 @@ export default function WebFormsPage() {
   const [viewingSubmissions, setViewingSubmissions] = useState<string | null>(null);
   const [embedDialogForm, setEmbedDialogForm] = useState<any>(null);
   const [previewFormSlug, setPreviewFormSlug] = useState<string | null>(null);
+  const [statsPeriod, setStatsPeriod] = useState<string>("30");
+  const [showStats, setShowStats] = useState(true);
 
   const { data: forms = [], isLoading } = useQuery<WebForm[]>({ queryKey: ["/api/web-forms"] });
+
+  const { data: statsData = [] } = useQuery<any[]>({
+    queryKey: ["/api/web-forms/stats"],
+    queryFn: async () => {
+      const res = await fetch("/api/web-forms/stats", { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
 
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -398,6 +410,69 @@ export default function WebFormsPage() {
     toast({ title: t.webForms.copiedToClipboard });
   };
 
+  const filteredStats = useMemo(() => {
+    if (!statsData.length) return [];
+    const now = new Date();
+    if (statsPeriod === "all") return statsData;
+    const days = parseInt(statsPeriod);
+    const cutoff = new Date(now.getFullYear(), now.getMonth(), now.getDate() - days + (days === 1 ? 0 : 0));
+    cutoff.setHours(0, 0, 0, 0);
+    if (days === 1) {
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      return statsData.filter((s: any) => new Date(s.createdAt) >= today);
+    }
+    return statsData.filter((s: any) => new Date(s.createdAt) >= cutoff);
+  }, [statsData, statsPeriod]);
+
+  const dailyData = useMemo(() => {
+    const map = new Map<string, { date: string; total: number; newClients: number; existing: number }>();
+    const days = statsPeriod === "all" ? 90 : parseInt(statsPeriod);
+    const now = new Date();
+    for (let i = days - 1; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+      const key = d.toISOString().slice(0, 10);
+      map.set(key, { date: key, total: 0, newClients: 0, existing: 0 });
+    }
+    for (const s of filteredStats) {
+      const key = new Date(s.createdAt).toISOString().slice(0, 10);
+      const entry = map.get(key);
+      if (entry) {
+        entry.total++;
+        if (s.isNewCustomer) entry.newClients++;
+        else entry.existing++;
+      }
+    }
+    return Array.from(map.values());
+  }, [filteredStats, statsPeriod]);
+
+  const statsByForm = useMemo(() => {
+    const map = new Map<string, { formName: string; count: number; newClients: number }>();
+    for (const s of filteredStats) {
+      const e = map.get(s.formId) || { formName: s.formName, count: 0, newClients: 0 };
+      e.count++;
+      if (s.isNewCustomer) e.newClients++;
+      map.set(s.formId, e);
+    }
+    return Array.from(map.values()).sort((a, b) => b.count - a.count);
+  }, [filteredStats]);
+
+  const statsByCountry = useMemo(() => {
+    const map = new Map<string, { code: string; count: number; newClients: number }>();
+    for (const s of filteredStats) {
+      const code = s.countryCode || "??";
+      const e = map.get(code) || { code, count: 0, newClients: 0 };
+      e.count++;
+      if (s.isNewCustomer) e.newClients++;
+      map.set(code, e);
+    }
+    return Array.from(map.values()).sort((a, b) => b.count - a.count);
+  }, [filteredStats]);
+
+  const totalNew = filteredStats.filter((s: any) => s.isNewCustomer).length;
+  const totalExisting = filteredStats.length - totalNew;
+  const totalOtp = filteredStats.filter((s: any) => s.isOtpVerified).length;
+  const maxDaily = Math.max(...dailyData.map(d => d.total), 1);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -405,20 +480,190 @@ export default function WebFormsPage() {
           <h1 className="text-2xl font-bold" data-testid="text-web-forms-title">{t.webForms.title}</h1>
           <p className="text-sm text-muted-foreground">{t.webForms.subtitle}</p>
         </div>
-        <Select onValueChange={handleCreateForm}>
-          <SelectTrigger className="w-[200px]" data-testid="select-create-form">
-            <Plus className="h-4 w-4 mr-2" />
-            <SelectValue placeholder={t.webForms.newForm} />
-          </SelectTrigger>
-          <SelectContent>
-            {COUNTRIES_DATA.map(c => (
-              <SelectItem key={c.code} value={c.code} data-testid={`create-form-${c.code}`}>
-                {c.flag} {getCountryName(c.code, locale)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-2">
+          <Button variant={showStats ? "default" : "outline"} size="sm" onClick={() => setShowStats(!showStats)} data-testid="btn-toggle-stats">
+            <BarChart3 className="h-4 w-4 mr-1" /> {t.webForms.statsTitle}
+          </Button>
+          <Select onValueChange={handleCreateForm}>
+            <SelectTrigger className="w-[200px]" data-testid="select-create-form">
+              <Plus className="h-4 w-4 mr-2" />
+              <SelectValue placeholder={t.webForms.newForm} />
+            </SelectTrigger>
+            <SelectContent>
+              {COUNTRIES_DATA.map(c => (
+                <SelectItem key={c.code} value={c.code} data-testid={`create-form-${c.code}`}>
+                  {c.flag} {getCountryName(c.code, locale)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
+
+      {showStats && (
+        <div className="space-y-4" data-testid="stats-panel">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              <TrendingUp className="h-5 w-5 text-primary" />
+              {t.webForms.statsSubtitle}
+            </h2>
+            <div className="flex gap-1">
+              {[
+                { value: "1", label: t.webForms.statsToday },
+                { value: "7", label: t.webForms.statsLast7Days },
+                { value: "30", label: t.webForms.statsLast30Days },
+                { value: "all", label: t.webForms.statsAllTime },
+              ].map(p => (
+                <Button key={p.value} variant={statsPeriod === p.value ? "default" : "outline"} size="sm" className="text-xs h-7" onClick={() => setStatsPeriod(p.value)} data-testid={`btn-period-${p.value}`}>
+                  {p.label}
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
+            <Card data-testid="stat-total">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-muted-foreground">{t.webForms.statsTotalRegistrations}</p>
+                    <p className="text-2xl font-bold">{filteredStats.length}</p>
+                  </div>
+                  <ClipboardList className="h-8 w-8 text-primary/20" />
+                </div>
+              </CardContent>
+            </Card>
+            <Card data-testid="stat-new">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-muted-foreground">{t.webForms.statsNewClients}</p>
+                    <p className="text-2xl font-bold text-green-600">{totalNew}</p>
+                  </div>
+                  <UserPlus className="h-8 w-8 text-green-600/20" />
+                </div>
+              </CardContent>
+            </Card>
+            <Card data-testid="stat-existing">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-muted-foreground">{t.webForms.statsExistingClients}</p>
+                    <p className="text-2xl font-bold text-blue-600">{totalExisting}</p>
+                  </div>
+                  <UserCheck className="h-8 w-8 text-blue-600/20" />
+                </div>
+              </CardContent>
+            </Card>
+            <Card data-testid="stat-otp">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-muted-foreground">{t.webForms.statsOtpVerified}</p>
+                    <p className="text-2xl font-bold text-violet-600">{totalOtp}</p>
+                  </div>
+                  <ShieldCheck className="h-8 w-8 text-violet-600/20" />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-3">
+            <Card className="lg:col-span-2" data-testid="chart-daily">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">{t.webForms.statsDailyChart}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {filteredStats.length === 0 ? (
+                  <div className="text-center py-8 text-sm text-muted-foreground">{t.webForms.statsNoData}</div>
+                ) : (
+                  <div className="flex items-end gap-[2px] h-[140px]">
+                    {dailyData.map((d, i) => {
+                      const h = Math.max((d.total / maxDaily) * 100, d.total > 0 ? 4 : 0);
+                      const newH = d.newClients > 0 ? Math.max((d.newClients / maxDaily) * 100, 2) : 0;
+                      const existH = h - newH;
+                      const isToday = d.date === new Date().toISOString().slice(0, 10);
+                      return (
+                        <div key={i} className="flex-1 flex flex-col items-center justify-end group relative" data-testid={`bar-${d.date}`}>
+                          <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-popover border rounded px-2 py-1 text-[10px] shadow-md hidden group-hover:block whitespace-nowrap z-10">
+                            <div className="font-medium">{new Date(d.date + "T12:00:00").toLocaleDateString(locale, { day: "numeric", month: "short" })}</div>
+                            <div>{d.total} {t.webForms.statsRegistrations}</div>
+                            {d.newClients > 0 && <div className="text-green-600">{d.newClients} {t.webForms.statsNewClients.toLowerCase()}</div>}
+                          </div>
+                          <div className="w-full flex flex-col" style={{ height: `${h}%` }}>
+                            {existH > 0 && <div className="w-full rounded-t-[2px] bg-blue-400/60" style={{ height: `${(existH / h) * 100}%` }} />}
+                            {newH > 0 && <div className={`w-full ${existH > 0 ? '' : 'rounded-t-[2px]'} rounded-b-[2px] bg-green-500/70`} style={{ height: `${(newH / h) * 100}%` }} />}
+                          </div>
+                          {d.total === 0 && <div className="w-full h-[1px] bg-muted" />}
+                          {isToday && <div className="w-1 h-1 rounded-full bg-primary mt-0.5" />}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                <div className="flex items-center gap-4 mt-3 text-[10px] text-muted-foreground">
+                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-green-500/70" /> {t.webForms.statsNewClients}</span>
+                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-blue-400/60" /> {t.webForms.statsExistingClients}</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            <div className="space-y-4">
+              <Card data-testid="stats-by-form">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">{t.webForms.statsByForm}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {statsByForm.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">{t.webForms.statsNoData}</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {statsByForm.map((f, i) => (
+                        <div key={i} className="flex items-center justify-between text-sm">
+                          <span className="truncate text-xs max-w-[70%]">{f.formName}</span>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="secondary" className="text-[10px]">{f.count}</Badge>
+                            {f.newClients > 0 && <Badge variant="outline" className="text-[10px] text-green-600 border-green-200">{f.newClients} {t.webForms.statsNewClients.toLowerCase()}</Badge>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card data-testid="stats-by-country">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">{t.webForms.statsByCountry}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {statsByCountry.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">{t.webForms.statsNoData}</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {statsByCountry.map((c, i) => {
+                        const cd = COUNTRIES_DATA.find(x => x.code === c.code);
+                        return (
+                          <div key={i} className="flex items-center justify-between text-sm">
+                            <span className="flex items-center gap-1.5 text-xs">
+                              <span>{cd?.flag || "🏳️"}</span>
+                              <span>{getCountryName(c.code, locale)}</span>
+                            </span>
+                            <div className="flex items-center gap-2">
+                              <Badge variant="secondary" className="text-[10px]">{c.count}</Badge>
+                              {c.newClients > 0 && <Badge variant="outline" className="text-[10px] text-green-600 border-green-200">{c.newClients}</Badge>}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </div>
+      )}
 
       {isLoading ? (
         <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
