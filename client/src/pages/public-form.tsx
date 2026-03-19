@@ -15,6 +15,12 @@ interface FormConfig {
   productSets: any[];
 }
 
+function safeStr(val: any): string {
+  if (val === null || val === undefined) return "";
+  if (typeof val === "object") return JSON.stringify(val);
+  return String(val);
+}
+
 type Step = "form" | "otp_check" | "otp_verify" | "submitting" | "success" | "error";
 
 const HOW_DID_YOU_HEAR_OPTIONS = [
@@ -448,7 +454,7 @@ export default function PublicFormPage() {
             <CheckCircle2 className="h-10 w-10" style={{ color: brandColor }} />
           </div>
           <h2 className="text-2xl font-bold mb-3" style={{ color: brandColor }}>Ďakujeme!</h2>
-          <p className="text-gray-600">{f.successMessage || "Vaša žiadosť bola úspešne odoslaná. Budeme vás kontaktovať."}</p>
+          <p className="text-gray-600">{safeStr(f.successMessage) || "Vaša žiadosť bola úspešne odoslaná. Budeme vás kontaktovať."}</p>
         </div>
       </div>
     );
@@ -460,7 +466,7 @@ export default function PublicFormPage() {
         <div className="max-w-md mx-auto text-center p-8 bg-white rounded-2xl shadow-lg">
           <AlertCircle className="h-16 w-16 mx-auto mb-4 text-red-400" />
           <h2 className="text-xl font-bold mb-3 text-red-600">Chyba pri odoslaní</h2>
-          <p className="text-gray-600 mb-4">{submitError || "Nastala chyba. Skúste to prosím znova."}</p>
+          <p className="text-gray-600 mb-4">{safeStr(submitError) || "Nastala chyba. Skúste to prosím znova."}</p>
           <Button onClick={() => setStep("form")} style={{ backgroundColor: brandColor }} className="text-white">Skúsiť znova</Button>
         </div>
       </div>
@@ -474,7 +480,7 @@ export default function PublicFormPage() {
           <div className="text-center mb-6">
             <Shield className="h-12 w-12 mx-auto mb-3" style={{ color: brandColor }} />
             <h2 className="text-xl font-bold">Overenie existujúceho klienta</h2>
-            <p className="text-sm text-gray-500 mt-2">Našli sme existujúci záznam. Pre overenie vašej identity vám zašleme kód na email <strong>{otpEmail}</strong>.</p>
+            <p className="text-sm text-gray-500 mt-2">Našli sme existujúci záznam. Pre overenie vašej identity vám zašleme kód na email <strong>{safeStr(otpEmail)}</strong>.</p>
           </div>
           <div className="space-y-3">
             <Button className="w-full text-white" style={{ backgroundColor: brandColor }} onClick={sendOtp} disabled={otpLoading} data-testid="btn-send-otp">
@@ -484,7 +490,7 @@ export default function PublicFormPage() {
             <Button variant="outline" className="w-full" onClick={() => { setExistingCustomerId(null); setStep("form"); }} data-testid="btn-continue-new">
               Pokračovať ako nový klient
             </Button>
-            {otpError && <p className="text-sm text-red-500 text-center">{otpError}</p>}
+            {otpError && <p className="text-sm text-red-500 text-center">{safeStr(otpError)}</p>}
           </div>
         </div>
       </div>
@@ -498,7 +504,7 @@ export default function PublicFormPage() {
           <div className="text-center mb-6">
             <Shield className="h-12 w-12 mx-auto mb-3" style={{ color: brandColor }} />
             <h2 className="text-xl font-bold">Zadajte overovací kód</h2>
-            <p className="text-sm text-gray-500 mt-2">Kód bol zaslaný na <strong>{otpEmail}</strong>. Platnosť: 10 minút.</p>
+            <p className="text-sm text-gray-500 mt-2">Kód bol zaslaný na <strong>{safeStr(otpEmail)}</strong>. Platnosť: 10 minút.</p>
           </div>
           <div className="space-y-4">
             <Input
@@ -517,7 +523,7 @@ export default function PublicFormPage() {
               <Button variant="link" className="text-xs" onClick={sendOtp} disabled={otpLoading}>Znova zaslať kód</Button>
               <Button variant="link" className="text-xs" onClick={() => { setExistingCustomerId(null); setStep("form"); }}>Pokračovať ako nový klient</Button>
             </div>
-            {otpError && <p className="text-sm text-red-500 text-center">{otpError}</p>}
+            {otpError && <p className="text-sm text-red-500 text-center">{safeStr(otpError)}</p>}
           </div>
         </div>
       </div>
@@ -534,12 +540,12 @@ export default function PublicFormPage() {
     const fieldWrapper = (children: any) => (
       <div key={key} className="space-y-1.5">
         <Label className="text-gray-700" style={labelStyle}>
-          {field.label}
+          {safeStr(field.label)}
           {field.isRequired && <span className="text-red-500 ml-1">*</span>}
         </Label>
         {children}
-        {helpText && !err && <p className="text-[11px] text-gray-400">{helpText}</p>}
-        {err && <p className="text-xs text-red-500 flex items-center gap-1"><AlertCircle className="h-3 w-3" />{err}</p>}
+        {helpText && !err && <p className="text-[11px] text-gray-400">{safeStr(helpText)}</p>}
+        {err && <p className="text-xs text-red-500 flex items-center gap-1"><AlertCircle className="h-3 w-3" />{safeStr(err)}</p>}
       </div>
     );
 
@@ -553,7 +559,7 @@ export default function PublicFormPage() {
           </SelectTrigger>
           <SelectContent>
             {config.healthInsuranceCompanies.map((hic: any) => (
-              <SelectItem key={hic.id} value={hic.id}>{hic.code} - {hic.name}</SelectItem>
+              <SelectItem key={hic.id} value={String(hic.id)}>{safeStr(hic.code)} - {safeStr(hic.name)}</SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -568,7 +574,7 @@ export default function PublicFormPage() {
           </SelectTrigger>
           <SelectContent>
             {config.hospitals.map((h: any) => (
-              <SelectItem key={h.id} value={h.id}>{h.name}{h.city ? ` - ${h.city}` : ""}</SelectItem>
+              <SelectItem key={h.id} value={String(h.id)}>{safeStr(h.name)}{h.city ? ` - ${safeStr(h.city)}` : ""}</SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -583,8 +589,8 @@ export default function PublicFormPage() {
           </SelectTrigger>
           <SelectContent>
             {config.productSets.map((ps: any) => (
-              <SelectItem key={ps.id} value={ps.id}>
-                {ps.name}{ps.totalGrossAmount ? ` (${Number(ps.totalGrossAmount).toLocaleString("sk")} ${ps.currency || "EUR"})` : ""}
+              <SelectItem key={ps.id} value={String(ps.id)}>
+                {safeStr(ps.name)}{ps.totalGrossAmount ? ` (${Number(ps.totalGrossAmount).toLocaleString("sk")} ${safeStr(ps.currency) || "EUR"})` : ""}
               </SelectItem>
             ))}
           </SelectContent>
@@ -647,7 +653,7 @@ export default function PublicFormPage() {
             data-testid={`checkbox-${key}`}
             className="border-gray-300"
           />
-          <Label className="text-sm text-gray-700 cursor-pointer" onClick={() => updateField(key, !formValues[key])}>{field.label}</Label>
+          <Label className="text-sm text-gray-700 cursor-pointer" onClick={() => updateField(key, !formValues[key])}>{safeStr(field.label)}</Label>
         </div>
       );
     }
@@ -685,16 +691,16 @@ export default function PublicFormPage() {
   const renderHeader = (extraClass?: string) => (
     <div className={`text-center ${extraClass || ""}`}>
       <h1 className="mb-3" style={{ color: headingColor, ...titleStyle }} data-testid="text-form-header">
-        {f.headerTitle || "Registračný formulár"}
+        {safeStr(f.headerTitle) || "Registračný formulár"}
       </h1>
       {f.headerSubtitle && (
         <p className="leading-relaxed mb-2" style={{ color: textColor + "dd", ...subtitleStyle }}>
-          {f.headerSubtitle}
+          {safeStr(f.headerSubtitle)}
         </p>
       )}
       {f.contactInfo && (
         <p className="text-xs md:text-sm mt-2" style={{ color: textColor + "aa" }}>
-          {f.contactInfo}
+          {safeStr(f.contactInfo)}
         </p>
       )}
     </div>
@@ -796,7 +802,7 @@ export default function PublicFormPage() {
                           className="uppercase tracking-[0.15em] whitespace-nowrap transition-colors duration-300"
                           style={{ color: sectionDone ? brandColor : sectionColor, ...sectionTitleStyle }}
                         >
-                          {group.section.title}
+                          {safeStr(group.section.title)}
                         </h3>
                       </div>
                       <div className="h-[2px] flex-1 rounded-full" style={{ backgroundColor: sectionColor + "25" }} />
@@ -915,11 +921,11 @@ export default function PublicFormPage() {
                     data-testid="checkbox-gdpr"
                   />
                   <Label className="text-xs text-gray-600 leading-relaxed cursor-pointer" onClick={() => setGdprAccepted(!gdprAccepted)}>
-                    {f.gdprText}
+                    {safeStr(f.gdprText)}
                   </Label>
                 </div>
               )}
-              {errors.gdpr && <p className="text-xs text-red-500 ml-7 flex items-center gap-1"><AlertCircle className="h-3 w-3" />{errors.gdpr}</p>}
+              {errors.gdpr && <p className="text-xs text-red-500 ml-7 flex items-center gap-1"><AlertCircle className="h-3 w-3" />{safeStr(errors.gdpr)}</p>}
 
               {f.gdprPregnancyText && (
                 <div className="flex items-start gap-3">
@@ -930,11 +936,11 @@ export default function PublicFormPage() {
                     data-testid="checkbox-pregnancy"
                   />
                   <Label className="text-xs text-gray-600 leading-relaxed cursor-pointer" onClick={() => setPregnancyAccepted(!pregnancyAccepted)}>
-                    {f.gdprPregnancyText}
+                    {safeStr(f.gdprPregnancyText)}
                   </Label>
                 </div>
               )}
-              {errors.pregnancy && <p className="text-xs text-red-500 ml-7 flex items-center gap-1"><AlertCircle className="h-3 w-3" />{errors.pregnancy}</p>}
+              {errors.pregnancy && <p className="text-xs text-red-500 ml-7 flex items-center gap-1"><AlertCircle className="h-3 w-3" />{safeStr(errors.pregnancy)}</p>}
 
               {f.gdprMarketingText && (
                 <div className="flex items-start gap-3">
@@ -945,7 +951,7 @@ export default function PublicFormPage() {
                     data-testid="checkbox-newsletter"
                   />
                   <Label className="text-xs text-gray-600 leading-relaxed cursor-pointer" onClick={() => setNewsletterAccepted(!newsletterAccepted)}>
-                    {f.gdprMarketingText}
+                    {safeStr(f.gdprMarketingText)}
                   </Label>
                 </div>
               )}
@@ -986,13 +992,13 @@ export default function PublicFormPage() {
         <div className={`${widthClass} mx-auto px-4 py-8`}>
           <div className="text-center mb-8">
             <h1 className="mb-3" style={{ color: brandColor, ...titleStyle }} data-testid="text-form-header">
-              {f.headerTitle || "Registračný formulár"}
+              {safeStr(f.headerTitle) || "Registračný formulár"}
             </h1>
             {f.headerSubtitle && (
-              <p className="leading-relaxed mb-2 text-gray-600" style={subtitleStyle}>{f.headerSubtitle}</p>
+              <p className="leading-relaxed mb-2 text-gray-600" style={subtitleStyle}>{safeStr(f.headerSubtitle)}</p>
             )}
             {f.contactInfo && (
-              <p className="text-xs md:text-sm mt-2 text-gray-400">{f.contactInfo}</p>
+              <p className="text-xs md:text-sm mt-2 text-gray-400">{safeStr(f.contactInfo)}</p>
             )}
           </div>
           <div className="space-y-8">
@@ -1009,13 +1015,13 @@ export default function PublicFormPage() {
       <div className="min-h-screen flex" style={{ backgroundColor: bgColor }} data-testid="public-form-container">
         <div className="hidden lg:flex lg:w-[400px] xl:w-[480px] shrink-0 flex-col justify-center p-12" style={{ backgroundColor: brandColor }}>
           <h1 className="mb-4" style={{ color: headingColor, ...titleStyle }} data-testid="text-form-header">
-            {f.headerTitle || "Registračný formulár"}
+            {safeStr(f.headerTitle) || "Registračný formulár"}
           </h1>
           {f.headerSubtitle && (
-            <p className="leading-relaxed mb-4" style={{ color: textColor + "dd", ...subtitleStyle }}>{f.headerSubtitle}</p>
+            <p className="leading-relaxed mb-4" style={{ color: textColor + "dd", ...subtitleStyle }}>{safeStr(f.headerSubtitle)}</p>
           )}
           {f.contactInfo && (
-            <p className="text-xs md:text-sm mt-4" style={{ color: textColor + "aa" }}>{f.contactInfo}</p>
+            <p className="text-xs md:text-sm mt-4" style={{ color: textColor + "aa" }}>{safeStr(f.contactInfo)}</p>
           )}
         </div>
         <div className="flex-1 overflow-y-auto">
@@ -1039,13 +1045,13 @@ export default function PublicFormPage() {
         <div className={`${widthClass} w-full`}>
           <div className="text-center mb-6 pt-4">
             <h1 className="mb-3" style={{ color: brandColor, ...titleStyle }} data-testid="text-form-header">
-              {f.headerTitle || "Registračný formulár"}
+              {safeStr(f.headerTitle) || "Registračný formulár"}
             </h1>
             {f.headerSubtitle && (
-              <p className="leading-relaxed mb-2 text-gray-600" style={subtitleStyle}>{f.headerSubtitle}</p>
+              <p className="leading-relaxed mb-2 text-gray-600" style={subtitleStyle}>{safeStr(f.headerSubtitle)}</p>
             )}
             {f.contactInfo && (
-              <p className="text-xs md:text-sm mt-2 text-gray-400">{f.contactInfo}</p>
+              <p className="text-xs md:text-sm mt-2 text-gray-400">{safeStr(f.contactInfo)}</p>
             )}
           </div>
           <div className="bg-white rounded-2xl shadow-2xl p-6 md:p-10 space-y-8">
