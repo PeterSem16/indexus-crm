@@ -33084,36 +33084,31 @@ Return ONLY the JSON object.`
       await storage.createWebFormOtp({ formId: form.id, email, code, expiresAt });
       await storage.createWebFormAuditLog({ formId: form.id, action: "otp_sent", details: JSON.stringify({ email }), ipAddress: req.ip || null });
       try {
-        const billingCompanies = await storage.getBillingDetailsByCountry(form.countryCode);
-        const billingCompany = billingCompanies.find((b: any) => b.webFromEmail) || billingCompanies[0];
-        const fromEmail = billingCompany?.webFromEmail;
-        if (fromEmail) {
-          const { users: usersTableOtp, userMs365Connections: ms365ConnsOtp } = await import("@shared/schema");
-          const { eq: eqOpOtp } = await import("drizzle-orm");
-          const userId = await db.select({ id: usersTableOtp.id }).from(usersTableOtp).innerJoin(ms365ConnsOtp, eqOpOtp(usersTableOtp.id, ms365ConnsOtp.userId)).where(eqOpOtp(ms365ConnsOtp.isConnected, true)).limit(1);
-          if (userId.length > 0) {
-            const ms365Connection = await storage.getUserMs365Connection(userId[0].id);
-            if (ms365Connection?.isConnected) {
-              const { decryptTokenSafe } = await import("./lib/token-crypto");
-              const accessToken = decryptTokenSafe(ms365Connection.accessToken);
-              const { getValidAccessToken, sendEmailFromSharedMailbox } = await import("./lib/ms365");
-              const tokenResult = await getValidAccessToken(accessToken, ms365Connection.tokenExpiresAt, ms365Connection.refreshToken ? decryptTokenSafe(ms365Connection.refreshToken) : null);
-              if (tokenResult) {
-                const brandColor = form.brandColor || "#16a34a";
-                const otpHtml = `<div style="font-family:'Segoe UI',Arial,sans-serif;max-width:400px;margin:0 auto;padding:32px;text-align:center;background:#ffffff;border-radius:16px;box-shadow:0 4px 24px rgba(0,0,0,0.08)"><div style="width:48px;height:48px;margin:0 auto 16px;background:${brandColor}15;border-radius:50%;display:flex;align-items:center;justify-content:center"><span style="font-size:24px">🔐</span></div><h2 style="color:#111827;margin:0 0 8px 0;font-size:20px;">Overovací kód</h2><p style="color:#6b7280;font-size:14px;margin:0 0 24px 0;">Použite tento kód na overenie vašej identity</p><p style="font-size:36px;font-weight:bold;letter-spacing:8px;padding:20px;background:${brandColor}08;border:2px dashed ${brandColor}30;border-radius:12px;color:${brandColor};margin:0 0 24px 0">${code}</p><p style="color:#9ca3af;font-size:12px;margin:0">Kód platí 10 minút. Ak ste ho nevyžiadali, ignorujte tento email.</p></div>`;
-                await sendEmailFromSharedMailbox(tokenResult.accessToken, fromEmail, [email], "Overovací kód - Cord Blood Center", otpHtml, true);
-                console.log(`[WebForm OTP] Code sent to ${email} from ${fromEmail}`);
-              } else {
-                console.error("[WebForm OTP] Failed to get valid access token");
-              }
-            } else {
-              console.error("[WebForm OTP] MS365 not connected for user", userId[0].id);
+        const systemConnection = await storage.getSystemMs365Connection(form.countryCode);
+        if (systemConnection && systemConnection.isConnected) {
+          const { getValidAccessToken, sendEmailFromSharedMailbox } = await import("./lib/ms365");
+          const { decryptTokenSafe, encryptTokenWithMarker } = await import("./lib/token-crypto");
+          const decryptedAccessToken = systemConnection.accessToken ? decryptTokenSafe(systemConnection.accessToken) : null;
+          const decryptedRefreshToken = systemConnection.refreshToken ? decryptTokenSafe(systemConnection.refreshToken) : null;
+          const tokenResult = await getValidAccessToken(decryptedAccessToken, systemConnection.tokenExpiresAt, decryptedRefreshToken);
+          if (tokenResult) {
+            if (tokenResult.refreshed) {
+              await storage.updateSystemMs365Connection(form.countryCode, {
+                accessToken: encryptTokenWithMarker(tokenResult.accessToken),
+                refreshToken: tokenResult.refreshToken ? encryptTokenWithMarker(tokenResult.refreshToken) : systemConnection.refreshToken,
+                tokenExpiresAt: tokenResult.expiresOn
+              });
             }
+            const brandColor = form.brandColor || "#16a34a";
+            const otpHtml = `<div style="font-family:'Segoe UI',Arial,sans-serif;max-width:400px;margin:0 auto;padding:32px;text-align:center;background:#ffffff;border-radius:16px;box-shadow:0 4px 24px rgba(0,0,0,0.08)"><div style="width:48px;height:48px;margin:0 auto 16px;background:${brandColor}15;border-radius:50%;display:flex;align-items:center;justify-content:center"><span style="font-size:24px">🔐</span></div><h2 style="color:#111827;margin:0 0 8px 0;font-size:20px;">Overovací kód</h2><p style="color:#6b7280;font-size:14px;margin:0 0 24px 0;">Použite tento kód na overenie vašej identity</p><p style="font-size:36px;font-weight:bold;letter-spacing:8px;padding:20px;background:${brandColor}08;border:2px dashed ${brandColor}30;border-radius:12px;color:${brandColor};margin:0 0 24px 0">${code}</p><p style="color:#9ca3af;font-size:12px;margin:0">Kód platí 10 minút. Ak ste ho nevyžiadali, ignorujte tento email.</p></div>`;
+            const fromEmail = systemConnection.email;
+            await sendEmailFromSharedMailbox(tokenResult.accessToken, fromEmail, [email], "Overovací kód - Cord Blood Center", otpHtml, true);
+            console.log(`[WebForm OTP] Code sent to ${email} from ${fromEmail} via system email`);
           } else {
-            console.error("[WebForm OTP] No users found in DB");
+            console.error("[WebForm OTP] Failed to get valid access token for system email");
           }
         } else {
-          console.error("[WebForm OTP] No webFromEmail configured for country", form.countryCode);
+          console.error("[WebForm OTP] System email not configured/connected for country", form.countryCode);
         }
       } catch (emailError) {
         console.error("[WebForm OTP] Failed to send email:", emailError);
@@ -33288,23 +33283,26 @@ Return ONLY the JSON object.`
           console.log(`[WebForm] Starting confirmation email for ${formData.email}, country=${form.countryCode}`);
           const billingCompanies = await storage.getBillingDetailsByCountry(form.countryCode);
           const billingCompany = billingCompanies.find(b => b.webFromEmail) || billingCompanies[0];
-          const fromEmail = billingCompany?.webFromEmail;
           const companyName = billingCompany?.companyName || "Cord Blood Center";
 
-          const { users: usersTable, userMs365Connections } = await import("@shared/schema");
-          const { eq: eqOp, asc: ascOp } = await import("drizzle-orm");
-          const userId = await db.select({ id: usersTable.id }).from(usersTable).innerJoin(userMs365Connections, eqOp(usersTable.id, userMs365Connections.userId)).where(eqOp(userMs365Connections.isConnected, true)).orderBy(ascOp(usersTable.createdAt)).limit(1);
-          console.log(`[WebForm] userId query result: ${userId.length} users with MS365, fromEmail=${fromEmail}`);
-          if (userId.length > 0 && fromEmail) {
-            const ms365Connection = await storage.getUserMs365Connection(userId[0].id);
-            console.log(`[WebForm] ms365Connection: connected=${ms365Connection?.isConnected}, userId=${userId[0].id}`);
-            if (ms365Connection?.isConnected) {
-              const { decryptTokenSafe } = await import("./lib/token-crypto");
-              const accessToken = decryptTokenSafe(ms365Connection.accessToken);
-              const { getValidAccessToken, sendEmailFromSharedMailbox } = await import("./lib/ms365");
-              const tokenResult = await getValidAccessToken(accessToken, ms365Connection.tokenExpiresAt, ms365Connection.refreshToken ? decryptTokenSafe(ms365Connection.refreshToken) : null);
-              console.log(`[WebForm] tokenResult: ${tokenResult ? 'valid' : 'null/invalid'}`);
-              if (tokenResult) {
+          const systemConnection = await storage.getSystemMs365Connection(form.countryCode);
+          console.log(`[WebForm] systemConnection: connected=${systemConnection?.isConnected}, email=${systemConnection?.email}`);
+          if (systemConnection && systemConnection.isConnected) {
+            const { getValidAccessToken, sendEmailFromSharedMailbox } = await import("./lib/ms365");
+            const { decryptTokenSafe, encryptTokenWithMarker } = await import("./lib/token-crypto");
+            const decryptedAccessToken = systemConnection.accessToken ? decryptTokenSafe(systemConnection.accessToken) : null;
+            const decryptedRefreshToken = systemConnection.refreshToken ? decryptTokenSafe(systemConnection.refreshToken) : null;
+            const tokenResult = await getValidAccessToken(decryptedAccessToken, systemConnection.tokenExpiresAt, decryptedRefreshToken);
+            console.log(`[WebForm] tokenResult: ${tokenResult ? 'valid' : 'null/invalid'}`);
+            if (tokenResult) {
+              if (tokenResult.refreshed) {
+                await storage.updateSystemMs365Connection(form.countryCode, {
+                  accessToken: encryptTokenWithMarker(tokenResult.accessToken),
+                  refreshToken: tokenResult.refreshToken ? encryptTokenWithMarker(tokenResult.refreshToken) : systemConnection.refreshToken,
+                  tokenExpiresAt: tokenResult.expiresOn
+                });
+              }
+              const fromEmail = systemConnection.email;
                 const brandColor = form.brandColor || "#16a34a";
                 const lastName = formData.lastName || "";
                 const greeting = (form.confirmEmailGreeting || `Dobrý deň p. {{priezvisko}},`).replace(/\{\{priezvisko\}\}/g, lastName).replace(/\{\{meno\}\}/g, formData.firstName || "").replace(/\{\{email\}\}/g, formData.email || "");
@@ -33417,8 +33415,7 @@ Return ONLY the JSON object.`
 <tr><td align="center">${emailBody}</td></tr></table></body></html>`;
 
                 await sendEmailFromSharedMailbox(tokenResult.accessToken, fromEmail, [formData.email], subject, emailHtml, true);
-                console.log(`[WebForm] Confirmation email sent to ${formData.email} from ${fromEmail}`);
-              }
+                console.log(`[WebForm] Confirmation email sent to ${formData.email} from ${fromEmail} via system email`);
             }
           }
         } catch (emailError) {
@@ -33443,22 +33440,25 @@ Return ONLY the JSON object.`
 
       const billingCompanies = await storage.getBillingDetailsByCountry(form.countryCode);
       const billingCompany = billingCompanies.find((b: any) => b.webFromEmail) || billingCompanies[0];
-      const fromEmail = billingCompany?.webFromEmail;
       const companyName = billingCompany?.companyName || "Cord Blood Center";
 
-      if (!fromEmail) return res.status(400).json({ error: "No sender email configured for this country" });
+      const systemConnection = await storage.getSystemMs365Connection(form.countryCode);
+      if (!systemConnection || !systemConnection.isConnected) return res.status(400).json({ error: "System email not configured/connected for this country" });
 
-      const userId = req.user?.id;
-      if (!userId) return res.status(401).json({ error: "Unauthorized" });
-
-      const ms365Connection = await storage.getUserMs365Connection(userId);
-      if (!ms365Connection?.isConnected) return res.status(400).json({ error: "MS365 not connected" });
-
-      const { decryptTokenSafe } = await import("./lib/token-crypto");
-      const accessToken = decryptTokenSafe(ms365Connection.accessToken);
+      const { decryptTokenSafe, encryptTokenWithMarker } = await import("./lib/token-crypto");
       const { getValidAccessToken, sendEmailFromSharedMailbox } = await import("./lib/ms365");
-      const tokenResult = await getValidAccessToken(accessToken, ms365Connection.tokenExpiresAt, ms365Connection.refreshToken ? decryptTokenSafe(ms365Connection.refreshToken) : null);
-      if (!tokenResult) return res.status(400).json({ error: "MS365 token expired" });
+      const decryptedAccessToken = systemConnection.accessToken ? decryptTokenSafe(systemConnection.accessToken) : null;
+      const decryptedRefreshToken = systemConnection.refreshToken ? decryptTokenSafe(systemConnection.refreshToken) : null;
+      const tokenResult = await getValidAccessToken(decryptedAccessToken, systemConnection.tokenExpiresAt, decryptedRefreshToken);
+      if (!tokenResult) return res.status(400).json({ error: "System email MS365 token expired" });
+      if (tokenResult.refreshed) {
+        await storage.updateSystemMs365Connection(form.countryCode, {
+          accessToken: encryptTokenWithMarker(tokenResult.accessToken),
+          refreshToken: tokenResult.refreshToken ? encryptTokenWithMarker(tokenResult.refreshToken) : systemConnection.refreshToken,
+          tokenExpiresAt: tokenResult.expiresOn
+        });
+      }
+      const fromEmail = systemConnection.email;
 
       const brandColor = form.brandColor || "#16a34a";
       const greeting = (form.confirmEmailGreeting || `Dobrý deň p. {{priezvisko}},`).replace(/\{\{priezvisko\}\}/g, "Testovací").replace(/\{\{meno\}\}/g, "Test").replace(/\{\{email\}\}/g, testEmail);
@@ -33490,7 +33490,7 @@ Return ONLY the JSON object.`
       const emailHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head><body style="margin:0;padding:0;background-color:#f3f4f6;font-family:'Segoe UI',Arial,sans-serif;"><table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f3f4f6;padding:32px 16px;"><tr><td align="center">${emailBody}</td></tr></table></body></html>`;
 
       await sendEmailFromSharedMailbox(tokenResult.accessToken, fromEmail, [testEmail], subject, emailHtml, true);
-      console.log(`[WebForm] Test email sent to ${testEmail} from ${fromEmail}`);
+      console.log(`[WebForm] Test email sent to ${testEmail} from ${fromEmail} via system email`);
       res.json({ success: true, fromEmail });
     } catch (e: any) {
       console.error("[WebForm TestEmail] Error:", e);
