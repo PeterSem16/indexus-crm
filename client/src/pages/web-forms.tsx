@@ -19,8 +19,8 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import {
   Plus, FileText, Globe, Copy, Trash2, Settings, Eye,
   GripVertical, ChevronDown, ChevronRight, Loader2, CheckCircle2, X, Code,
-  Clock, Users, ClipboardList, ArrowUp, ArrowDown, EyeOff, AlertCircle,
-  Columns, LayoutGrid, Maximize2, Palette
+  Clock, Users, ClipboardList, ArrowUp, ArrowDown, EyeOff,
+  Columns, LayoutGrid, Maximize2, Palette, Type, Bold, Italic
 } from "lucide-react";
 import type { WebForm, WebFormSubmission } from "@shared/schema";
 
@@ -114,6 +114,87 @@ const FORM_WIDTHS = [
   { value: "6xl", label: "3/4 strany (1152px)" },
   { value: "full", label: "Celá strana" },
 ];
+
+const FONT_SIZES = [
+  { value: "xs", label: "XS (12px)" },
+  { value: "sm", label: "SM (14px)" },
+  { value: "base", label: "Base (16px)" },
+  { value: "lg", label: "LG (18px)" },
+  { value: "xl", label: "XL (20px)" },
+  { value: "2xl", label: "2XL (24px)" },
+  { value: "3xl", label: "3XL (30px)" },
+  { value: "4xl", label: "4XL (36px)" },
+];
+
+const FONT_WEIGHTS = [
+  { value: "light", label: "Tenké" },
+  { value: "normal", label: "Normálne" },
+  { value: "medium", label: "Stredné" },
+  { value: "semibold", label: "Polotučné" },
+  { value: "bold", label: "Tučné" },
+  { value: "extrabold", label: "Extra tučné" },
+];
+
+const FONT_FAMILIES = [
+  { value: "inherit", label: "Predvolený" },
+  { value: "'Inter', sans-serif", label: "Inter" },
+  { value: "'Georgia', serif", label: "Georgia (serif)" },
+  { value: "'Arial', sans-serif", label: "Arial" },
+  { value: "'Playfair Display', serif", label: "Playfair Display" },
+  { value: "'Roboto', sans-serif", label: "Roboto" },
+  { value: "'Open Sans', sans-serif", label: "Open Sans" },
+  { value: "'Lato', sans-serif", label: "Lato" },
+  { value: "'Montserrat', sans-serif", label: "Montserrat" },
+];
+
+function FontStyleEditor({ prefix, formData, setFormData, showFamily, showItalic }: {
+  prefix: string; formData: any; setFormData: (d: any) => void;
+  showFamily?: boolean; showItalic?: boolean;
+}) {
+  const sizeKey = `${prefix}FontSize`;
+  const weightKey = `${prefix}FontWeight`;
+  const styleKey = `${prefix}FontStyle`;
+  const familyKey = `${prefix}FontFamily`;
+
+  return (
+    <div className="flex flex-wrap items-end gap-2">
+      <div className="space-y-1">
+        <Label className="text-[10px] text-muted-foreground">Veľkosť</Label>
+        <Select value={formData[sizeKey] || "sm"} onValueChange={v => setFormData({ ...formData, [sizeKey]: v })}>
+          <SelectTrigger className="h-7 w-[100px] text-xs"><SelectValue /></SelectTrigger>
+          <SelectContent>{FONT_SIZES.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}</SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-1">
+        <Label className="text-[10px] text-muted-foreground">Hrúbka</Label>
+        <Select value={formData[weightKey] || "normal"} onValueChange={v => setFormData({ ...formData, [weightKey]: v })}>
+          <SelectTrigger className="h-7 w-[110px] text-xs"><SelectValue /></SelectTrigger>
+          <SelectContent>{FONT_WEIGHTS.map(w => <SelectItem key={w.value} value={w.value}>{w.label}</SelectItem>)}</SelectContent>
+        </Select>
+      </div>
+      {showItalic !== false && (
+        <Button
+          type="button"
+          size="sm"
+          variant={formData[styleKey] === "italic" ? "default" : "outline"}
+          className="h-7 w-7 p-0"
+          onClick={() => setFormData({ ...formData, [styleKey]: formData[styleKey] === "italic" ? "normal" : "italic" })}
+        >
+          <Italic className="h-3.5 w-3.5" />
+        </Button>
+      )}
+      {showFamily !== false && (
+        <div className="space-y-1">
+          <Label className="text-[10px] text-muted-foreground">Font</Label>
+          <Select value={formData[familyKey] || "inherit"} onValueChange={v => setFormData({ ...formData, [familyKey]: v })}>
+            <SelectTrigger className="h-7 w-[130px] text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>{FONT_FAMILIES.map(f => <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>)}</SelectContent>
+          </Select>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function WebFormsPage() {
   const { t } = useI18n();
@@ -607,7 +688,6 @@ function LayoutPreview({ sections, fields, formData }: { sections: any[]; fields
   return (
     <div className="rounded-xl overflow-hidden border" style={{ backgroundColor: bgColor }}>
       <div className="py-4 px-5 text-center" style={{ backgroundColor: brandColor }}>
-        <div className="text-[10px] font-bold tracking-[0.2em] mb-1" style={{ color: textColor + "cc" }}>CORD BLOOD CENTER</div>
         <div className="font-bold text-sm mb-1" style={{ color: textColor }}>{formData.headerTitle || "Mám záujem o odber"}</div>
         {formData.headerSubtitle && <div className="text-[9px] leading-tight" style={{ color: textColor + "cc" }}>{formData.headerSubtitle}</div>}
         {formData.contactInfo && <div className="text-[8px] mt-1" style={{ color: textColor + "99" }}>{formData.contactInfo}</div>}
@@ -681,8 +761,10 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
 
   useEffect(() => {
     if (formDetail && !hydrated) {
-      setEditSections((formDetail.sections || []).map((s: any) => ({ ...s, columns: s.columns || 2 })));
-      setEditFields((formDetail.fields || []).map((f: any, i: number) => ({ ...f, columnSpan: f.columnSpan || 1, _key: f.id || `field-${Date.now()}-${i}` })));
+      const { sections, fields, ...detailFormData } = formDetail;
+      setFormData((prev: any) => ({ ...prev, ...detailFormData }));
+      setEditSections((sections || []).map((s: any) => ({ ...s, columns: s.columns || 2 })));
+      setEditFields((fields || []).map((f: any, i: number) => ({ ...f, columnSpan: f.columnSpan || 1, _key: f.id || `field-${Date.now()}-${i}` })));
       setHydrated(true);
     }
   }, [formDetail, hydrated]);
@@ -708,8 +790,9 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
       const { _key, ...rest } = f;
       return { ...rest, sortOrder: i, columnSpan: Math.min(f.columnSpan || 1, maxCols) };
     });
+    const { sections: _s, fields: _f, ...cleanFormData } = formData;
     updateMutation.mutate({
-      ...formData,
+      ...cleanFormData,
       sections: editSections,
       fields: normalizedFields,
     });
@@ -826,7 +909,7 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
                   {editSections.map((section: any, idx: number) => {
                     const sectionFields = editFields.filter((f: any) => f.sectionId === section.id);
                     return (
-                      <div key={idx} className="border rounded-lg p-3 space-y-2">
+                      <div key={section.id || idx} className="border rounded-lg p-3 space-y-2">
                         <div className="flex items-center gap-2">
                           <Input
                             value={section.title}
@@ -863,7 +946,7 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
                         </div>
                         <div className="flex flex-wrap gap-1">
                           {sectionFields.map((f: any, fi: number) => (
-                            <Badge key={fi} variant="outline" className="text-[10px]">
+                            <Badge key={f._key || f.id || fi} variant="outline" className="text-[10px]">
                               {f.label}
                               {(f.columnSpan || 1) > 1 && <Maximize2 className="h-2.5 w-2.5 ml-0.5" />}
                             </Badge>
@@ -892,26 +975,58 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
               </div>
             </TabsContent>
 
-            <TabsContent value="design" className="mt-4 space-y-5">
+            <TabsContent value="design" className="mt-4 space-y-6">
               <div className="grid grid-cols-5 gap-6">
-                <div className="col-span-3 space-y-4">
-                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Farby a vzhľad</h4>
-                  <div className="grid grid-cols-3 gap-3">
-                    <ColorInput label="Hlavná farba (header)" value={formData.brandColor || "#16a34a"} onChange={v => setFormData({ ...formData, brandColor: v })} />
-                    <ColorInput label="Farba písma (header)" value={formData.textColor || "#ffffff"} onChange={v => setFormData({ ...formData, textColor: v })} />
-                    <ColorInput label="Farba nadpisov sekcií" value={formData.sectionColor || formData.brandColor || "#16a34a"} onChange={v => setFormData({ ...formData, sectionColor: v })} />
+                <div className="col-span-3 space-y-5">
+                  <div>
+                    <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Farby</h4>
+                    <div className="grid grid-cols-3 gap-3">
+                      <ColorInput label="Hlavná farba (header)" value={formData.brandColor || "#16a34a"} onChange={v => setFormData({ ...formData, brandColor: v })} />
+                      <ColorInput label="Farba písma (header)" value={formData.textColor || "#ffffff"} onChange={v => setFormData({ ...formData, textColor: v })} />
+                      <ColorInput label="Farba nadpisov sekcií" value={formData.sectionColor || formData.brandColor || "#16a34a"} onChange={v => setFormData({ ...formData, sectionColor: v })} />
+                    </div>
+                    <div className="grid grid-cols-3 gap-3 mt-3">
+                      <ColorInput label="Pozadie stránky" value={formData.bgColor || "#f3f4f6"} onChange={v => setFormData({ ...formData, bgColor: v })} />
+                      <ColorInput label="Farba nadpisu" value={formData.headingColor || "#ffffff"} onChange={v => setFormData({ ...formData, headingColor: v })} />
+                      <div className="space-y-1">
+                        <Label className="text-[11px] text-muted-foreground">Šírka formulára</Label>
+                        <Select value={formData.formWidth || "3xl"} onValueChange={v => setFormData({ ...formData, formWidth: v })}>
+                          <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {FORM_WIDTHS.map(w => <SelectItem key={w.value} value={w.value}>{w.label}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
                   </div>
-                  <div className="grid grid-cols-3 gap-3">
-                    <ColorInput label="Pozadie stránky" value={formData.bgColor || "#f3f4f6"} onChange={v => setFormData({ ...formData, bgColor: v })} />
-                    <ColorInput label="Farba nadpisu" value={formData.headingColor || "#ffffff"} onChange={v => setFormData({ ...formData, headingColor: v })} />
-                    <div className="space-y-1">
-                      <Label className="text-[11px] text-muted-foreground">Šírka formulára</Label>
-                      <Select value={formData.formWidth || "3xl"} onValueChange={v => setFormData({ ...formData, formWidth: v })}>
-                        <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {FORM_WIDTHS.map(w => <SelectItem key={w.value} value={w.value}>{w.label}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
+
+                  <Separator />
+
+                  <div>
+                    <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                      <Type className="h-3.5 w-3.5" /> Typografia
+                    </h4>
+                    <div className="space-y-4">
+                      <div className="space-y-1.5">
+                        <Label className="text-[11px] font-medium">Nadpis formulára</Label>
+                        <FontStyleEditor prefix="title" formData={formData} setFormData={setFormData} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-[11px] font-medium">Podnadpis</Label>
+                        <FontStyleEditor prefix="subtitle" formData={formData} setFormData={setFormData} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-[11px] font-medium">Nadpisy sekcií</Label>
+                        <FontStyleEditor prefix="section" formData={formData} setFormData={setFormData} showFamily={false} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-[11px] font-medium">Popisky polí</Label>
+                        <FontStyleEditor prefix="label" formData={formData} setFormData={setFormData} showFamily={false} showItalic={false} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-[11px] font-medium">Tlačidlo odoslať</Label>
+                        <FontStyleEditor prefix="button" formData={formData} setFormData={setFormData} showFamily={false} showItalic={false} />
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -961,7 +1076,7 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
 
             <TabsContent value="sections" className="space-y-3 mt-4">
               {editSections.map((section: any, idx: number) => (
-                <div key={idx} className="flex items-center gap-2 p-3 border rounded-lg">
+                <div key={section.id || idx} className="flex items-center gap-2 p-3 border rounded-lg">
                   <GripVertical className="h-4 w-4 text-muted-foreground" />
                   <Input value={section.title} onChange={e => {
                     const updated = [...editSections];

@@ -100,6 +100,24 @@ const WIDTH_MAP: Record<string, string> = {
   full: "max-w-full px-4 sm:px-8",
 };
 
+const FONT_SIZE_MAP: Record<string, string> = {
+  xs: "0.75rem", sm: "0.875rem", base: "1rem", lg: "1.125rem",
+  xl: "1.25rem", "2xl": "1.5rem", "3xl": "1.875rem", "4xl": "2.25rem",
+};
+
+const FONT_WEIGHT_MAP: Record<string, number> = {
+  light: 300, normal: 400, medium: 500, semibold: 600, bold: 700, extrabold: 800,
+};
+
+function fontStyle(size?: string, weight?: string, style?: string, family?: string): React.CSSProperties {
+  const result: React.CSSProperties = {};
+  if (size) result.fontSize = FONT_SIZE_MAP[size] || size;
+  if (weight) result.fontWeight = FONT_WEIGHT_MAP[weight] || 400;
+  if (style === "italic") result.fontStyle = "italic";
+  if (family && family !== "inherit") result.fontFamily = family;
+  return result;
+}
+
 export default function PublicFormPage() {
   const params = useParams<{ slug: string }>();
   const slug = params.slug;
@@ -376,13 +394,20 @@ export default function PublicFormPage() {
     );
   }
 
-  const brandColor = config.form.brandColor || "#16a34a";
-  const textColor = config.form.textColor || "#ffffff";
-  const headingColor = config.form.headingColor || "#ffffff";
-  const sectionColor = config.form.sectionColor || brandColor;
-  const bgColor = config.form.bgColor || "#f3f4f6";
-  const formWidth = config.form.formWidth || "3xl";
+  const f = config.form;
+  const brandColor = f.brandColor || "#16a34a";
+  const textColor = f.textColor || "#ffffff";
+  const headingColor = f.headingColor || "#ffffff";
+  const sectionColor = f.sectionColor || brandColor;
+  const bgColor = f.bgColor || "#f3f4f6";
+  const formWidth = f.formWidth || "3xl";
   const widthClass = WIDTH_MAP[formWidth] || "max-w-3xl";
+
+  const titleStyle = fontStyle(f.titleFontSize || "2xl", f.titleFontWeight || "bold", f.titleFontStyle, f.titleFontFamily);
+  const subtitleStyle = fontStyle(f.subtitleFontSize || "sm", f.subtitleFontWeight || "normal", f.subtitleFontStyle, f.subtitleFontFamily);
+  const sectionTitleStyle = fontStyle(f.sectionFontSize || "xs", f.sectionFontWeight || "bold", f.sectionFontStyle);
+  const labelStyle = fontStyle(f.labelFontSize || "sm", f.labelFontWeight || "medium");
+  const buttonStyle = fontStyle(f.buttonFontSize || "base", f.buttonFontWeight || "semibold");
 
   if (step === "success") {
     return (
@@ -392,7 +417,7 @@ export default function PublicFormPage() {
             <CheckCircle2 className="h-10 w-10" style={{ color: brandColor }} />
           </div>
           <h2 className="text-2xl font-bold mb-3" style={{ color: brandColor }}>Ďakujeme!</h2>
-          <p className="text-gray-600">{config.form.successMessage || "Vaša žiadosť bola úspešne odoslaná. Budeme vás kontaktovať."}</p>
+          <p className="text-gray-600">{f.successMessage || "Vaša žiadosť bola úspešne odoslaná. Budeme vás kontaktovať."}</p>
         </div>
       </div>
     );
@@ -477,7 +502,7 @@ export default function PublicFormPage() {
 
     const fieldWrapper = (children: any) => (
       <div key={key} className="space-y-1.5">
-        <Label className="text-sm font-medium text-gray-700">
+        <Label className="text-gray-700" style={labelStyle}>
           {field.label}
           {field.isRequired && <span className="text-red-500 ml-1">*</span>}
         </Label>
@@ -629,20 +654,17 @@ export default function PublicFormPage() {
     <div className="min-h-screen" style={{ backgroundColor: bgColor }} data-testid="public-form-container">
       <div className="w-full py-8 px-4" style={{ backgroundColor: brandColor }}>
         <div className={`${widthClass} mx-auto text-center`}>
-          <div className="font-bold text-sm tracking-[0.2em] uppercase mb-3" style={{ color: textColor + "cc" }}>
-            CORD BLOOD CENTER
-          </div>
-          <h1 className="text-2xl md:text-3xl font-bold mb-3" style={{ color: headingColor }} data-testid="text-form-header">
-            {config.form.headerTitle || "Registračný formulár"}
+          <h1 className="mb-3" style={{ color: headingColor, ...titleStyle }} data-testid="text-form-header">
+            {f.headerTitle || "Registračný formulár"}
           </h1>
-          {config.form.headerSubtitle && (
-            <p className="text-sm md:text-base leading-relaxed mb-2" style={{ color: textColor + "dd" }}>
-              {config.form.headerSubtitle}
+          {f.headerSubtitle && (
+            <p className="leading-relaxed mb-2" style={{ color: textColor + "dd", ...subtitleStyle }}>
+              {f.headerSubtitle}
             </p>
           )}
-          {config.form.contactInfo && (
+          {f.contactInfo && (
             <p className="text-xs md:text-sm mt-2" style={{ color: textColor + "aa" }}>
-              {config.form.contactInfo}
+              {f.contactInfo}
             </p>
           )}
         </div>
@@ -667,7 +689,10 @@ export default function PublicFormPage() {
                   {group.section?.title && (
                     <div className="flex items-center gap-3 pt-2">
                       <div className="h-[2px] flex-1 rounded-full" style={{ backgroundColor: sectionColor + "25" }} />
-                      <h3 className="text-xs font-bold uppercase tracking-[0.15em] px-3 whitespace-nowrap" style={{ color: sectionColor }}>
+                      <h3
+                        className="uppercase tracking-[0.15em] px-3 whitespace-nowrap"
+                        style={{ color: sectionColor, ...sectionTitleStyle }}
+                      >
                         {group.section.title}
                       </h3>
                       <div className="h-[2px] flex-1 rounded-full" style={{ backgroundColor: sectionColor + "25" }} />
@@ -689,7 +714,7 @@ export default function PublicFormPage() {
             })}
 
             <div className="border-t border-gray-200 pt-6 space-y-4">
-              {config.form.gdprText && (
+              {f.gdprText && (
                 <div className="flex items-start gap-3">
                   <Checkbox
                     checked={gdprAccepted}
@@ -698,13 +723,13 @@ export default function PublicFormPage() {
                     data-testid="checkbox-gdpr"
                   />
                   <Label className="text-xs text-gray-600 leading-relaxed cursor-pointer" onClick={() => setGdprAccepted(!gdprAccepted)}>
-                    {config.form.gdprText}
+                    {f.gdprText}
                   </Label>
                 </div>
               )}
               {errors.gdpr && <p className="text-xs text-red-500 ml-7 flex items-center gap-1"><AlertCircle className="h-3 w-3" />{errors.gdpr}</p>}
 
-              {config.form.gdprPregnancyText && (
+              {f.gdprPregnancyText && (
                 <div className="flex items-start gap-3">
                   <Checkbox
                     checked={pregnancyAccepted}
@@ -713,13 +738,13 @@ export default function PublicFormPage() {
                     data-testid="checkbox-pregnancy"
                   />
                   <Label className="text-xs text-gray-600 leading-relaxed cursor-pointer" onClick={() => setPregnancyAccepted(!pregnancyAccepted)}>
-                    {config.form.gdprPregnancyText}
+                    {f.gdprPregnancyText}
                   </Label>
                 </div>
               )}
               {errors.pregnancy && <p className="text-xs text-red-500 ml-7 flex items-center gap-1"><AlertCircle className="h-3 w-3" />{errors.pregnancy}</p>}
 
-              {config.form.gdprMarketingText && (
+              {f.gdprMarketingText && (
                 <div className="flex items-start gap-3">
                   <Checkbox
                     checked={newsletterAccepted}
@@ -728,7 +753,7 @@ export default function PublicFormPage() {
                     data-testid="checkbox-newsletter"
                   />
                   <Label className="text-xs text-gray-600 leading-relaxed cursor-pointer" onClick={() => setNewsletterAccepted(!newsletterAccepted)}>
-                    {config.form.gdprMarketingText}
+                    {f.gdprMarketingText}
                   </Label>
                 </div>
               )}
@@ -742,8 +767,8 @@ export default function PublicFormPage() {
             )}
 
             <Button
-              className="w-full h-12 text-base font-semibold rounded-xl text-white shadow-lg hover:shadow-xl transition-all"
-              style={{ backgroundColor: brandColor }}
+              className="w-full h-12 rounded-xl text-white shadow-lg hover:shadow-xl transition-all"
+              style={{ backgroundColor: brandColor, ...buttonStyle }}
               onClick={handleSubmit}
               disabled={step === "submitting"}
               data-testid="btn-submit-form"
