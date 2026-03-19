@@ -462,8 +462,8 @@ export default function PublicFormPage() {
   const buttonStyle = fontStyle(f.buttonFontSize || "base", f.buttonFontWeight || "semibold");
 
   if (step === "success") {
-    const firstName = formData.firstName || "";
-    const lastName = formData.lastName || "";
+    const firstName = formValues.firstName || "";
+    const lastName = formValues.lastName || "";
     const personalGreeting = firstName ? ` ${firstName}` : "";
     return (
       <div className="min-h-screen flex items-center justify-center p-4" style={{ backgroundColor: bgColor }} data-testid="text-form-success">
