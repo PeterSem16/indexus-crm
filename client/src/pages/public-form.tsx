@@ -18,16 +18,16 @@ interface FormConfig {
 type Step = "form" | "otp_check" | "otp_verify" | "submitting" | "success" | "error";
 
 const HOW_DID_YOU_HEAR_OPTIONS = [
-  "Inform\u00E1cia od gynekol\u00F3ga", "Inform\u00E1cia od pediatra", "Inform\u00E1cia od in\u00E9ho lek\u00E1ra",
-  "Inform\u00E1cia od zdravotnej sestry", "Inform\u00E1cia od zn\u00E1meho", "\u010Casopis / Noviny",
-  "Infolinka", "Internet", "Na\u0161a bezplatn\u00E1 predn\u00E1\u0161ka", "Plag\u00E1t / Let\u00E1k v \u010Dak\u00E1rni",
-  "R\u00E1dio", "TV", "V p\u00F4rodnici", "In\u00E9 m\u00E9dia",
+  "Informácia od gynekológa", "Informácia od pediatra", "Informácia od iného lekára",
+  "Informácia od zdravotnej sestry", "Informácia od známeho", "Časopis / Noviny",
+  "Infolinka", "Internet", "Naša bezplatná prednáška", "Plagát / Leták v čakárni",
+  "Rádio", "TV", "V pôrodnici", "Iné médiá",
 ];
 
 const PAYMENT_OPTIONS = [
-  { value: "bank_transfer", label: "Bankov\u00FDm prevodom" },
-  { value: "invoice", label: "Na fakt\u00FAru" },
-  { value: "installments", label: "Na spl\u00E1tky" },
+  { value: "bank_transfer", label: "Bankovým prevodom" },
+  { value: "invoice", label: "Na faktúru" },
+  { value: "installments", label: "Na splátky" },
 ];
 
 const VALIDATION_PATTERNS: Record<string, RegExp> = {
@@ -47,7 +47,7 @@ function validateFieldValue(value: any, field: any): string | null {
   const rules = parseRules(field.validationRules);
 
   if (field.isRequired && (!value || (typeof value === "string" && !value.trim()))) {
-    return rules.errorMessage || "Povinn\u00E9 pole";
+    return rules.errorMessage || "Povinné pole";
   }
 
   if (!value || (typeof value === "string" && !value.trim())) return null;
@@ -55,34 +55,34 @@ function validateFieldValue(value: any, field: any): string | null {
   const strVal = String(value);
 
   if (rules.minLength && strVal.length < rules.minLength) {
-    return rules.errorMessage || `Minim\u00E1lne ${rules.minLength} znakov`;
+    return rules.errorMessage || `Minimálne ${rules.minLength} znakov`;
   }
   if (rules.maxLength && strVal.length > rules.maxLength) {
-    return rules.errorMessage || `Maxim\u00E1lne ${rules.maxLength} znakov`;
+    return rules.errorMessage || `Maximálne ${rules.maxLength} znakov`;
   }
   if (rules.min !== undefined && Number(value) < rules.min) {
-    return rules.errorMessage || `Minim\u00E1lna hodnota: ${rules.min}`;
+    return rules.errorMessage || `Minimálna hodnota: ${rules.min}`;
   }
   if (rules.max !== undefined && Number(value) > rules.max) {
-    return rules.errorMessage || `Maxim\u00E1lna hodnota: ${rules.max}`;
+    return rules.errorMessage || `Maximálna hodnota: ${rules.max}`;
   }
 
   if (rules.pattern) {
     if (rules.pattern === "custom" && rules.customPattern) {
       try {
         const re = new RegExp(rules.customPattern);
-        if (!re.test(strVal)) return rules.errorMessage || "Neplatn\u00FD form\u00E1t";
+        if (!re.test(strVal)) return rules.errorMessage || "Neplatný formát";
       } catch {}
     } else if (VALIDATION_PATTERNS[rules.pattern]) {
       if (!VALIDATION_PATTERNS[rules.pattern].test(strVal)) {
         const msgs: Record<string, string> = {
-          email: "Zadajte platn\u00FD email",
-          phone: "Zadajte platn\u00E9 telef\u00F3nne \u010D\u00EDslo",
-          postalCode: "Zadajte platn\u00E9 PS\u010C",
-          nationalId: "Zadajte platn\u00E9 rodn\u00E9 \u010D\u00EDslo",
-          iban: "Zadajte platn\u00FD IBAN",
+          email: "Zadajte platný email",
+          phone: "Zadajte platné telefónne číslo",
+          postalCode: "Zadajte platné PSČ",
+          nationalId: "Zadajte platné rodné číslo",
+          iban: "Zadajte platný IBAN",
         };
-        return rules.errorMessage || msgs[rules.pattern] || "Neplatn\u00FD form\u00E1t";
+        return rules.errorMessage || msgs[rules.pattern] || "Neplatný formát";
       }
     }
   }
@@ -208,7 +208,7 @@ export default function PublicFormPage() {
       if (!res.ok) throw new Error("Failed to send OTP");
       setStep("otp_verify");
     } catch {
-      setOtpError("Nepodarilo sa odosla\u0165 k\u00F3d. Sk\u00FAste znova.");
+      setOtpError("Nepodarilo sa odoslať kód. Skúste znova.");
     } finally {
       setOtpLoading(false);
     }
@@ -225,7 +225,7 @@ export default function PublicFormPage() {
       });
       const data = await res.json();
       if (!res.ok || !data.verified) {
-        setOtpError(data.error === "Code expired" ? "K\u00F3d expiroval. Vy\u017Eiadajte nov\u00FD." : "Neplatn\u00FD k\u00F3d. Sk\u00FAste znova.");
+        setOtpError(data.error === "Code expired" ? "Kód expiroval. Vyžiadajte nový." : "Neplatný kód. Skúste znova.");
         return;
       }
       setIsOtpVerified(true);
@@ -242,7 +242,7 @@ export default function PublicFormPage() {
       }
       setStep("form");
     } catch {
-      setOtpError("Chyba overenia. Sk\u00FAste znova.");
+      setOtpError("Chyba overenia. Skúste znova.");
     } finally {
       setOtpLoading(false);
     }
@@ -255,8 +255,8 @@ export default function PublicFormPage() {
       const err = validateFieldValue(formValues[key], field);
       if (err) errs[key] = err;
     }
-    if (!gdprAccepted && config?.form?.gdprText) errs.gdpr = "Mus\u00EDte s\u00FAhlasi\u0165 so spracovan\u00EDm \u00FAdajov";
-    if (config?.form?.gdprPregnancyText && !pregnancyAccepted) errs.pregnancy = "Povinn\u00E9 potvrdenie";
+    if (!gdprAccepted && config?.form?.gdprText) errs.gdpr = "Musíte súhlasiť so spracovaním údajov";
+    if (config?.form?.gdprPregnancyText && !pregnancyAccepted) errs.pregnancy = "Povinné potvrdenie";
     setErrors(errs);
     const allTouched: Record<string, boolean> = {};
     fields.forEach((f: any) => { allTouched[getFieldKey(f)] = true; });
@@ -306,8 +306,8 @@ export default function PublicFormPage() {
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
           <AlertCircle className="h-16 w-16 mx-auto mb-4 text-gray-300" />
-          <h2 className="text-xl font-semibold text-gray-600">Formul\u00E1r nebol n\u00E1jden\u00FD</h2>
-          <p className="text-gray-400 mt-2">Tento formul\u00E1r neexistuje alebo bol deaktivovan\u00FD.</p>
+          <h2 className="text-xl font-semibold text-gray-600">Formulár nebol nájdený</h2>
+          <p className="text-gray-400 mt-2">Tento formulár neexistuje alebo bol deaktivovaný.</p>
         </div>
       </div>
     );
@@ -322,8 +322,8 @@ export default function PublicFormPage() {
           <div className="w-20 h-20 rounded-full mx-auto mb-6 flex items-center justify-center" style={{ backgroundColor: brandColor + "15" }}>
             <CheckCircle2 className="h-10 w-10" style={{ color: brandColor }} />
           </div>
-          <h2 className="text-2xl font-bold mb-3" style={{ color: brandColor }}>\u010Eakujeme!</h2>
-          <p className="text-gray-600">{config.form.successMessage || "Va\u0161a \u017Eiados\u0165 bola \u00FAspe\u0161ne odoslan\u00E1. Budeme v\u00E1s kontaktova\u0165."}</p>
+          <h2 className="text-2xl font-bold mb-3" style={{ color: brandColor }}>Ďakujeme!</h2>
+          <p className="text-gray-600">{config.form.successMessage || "Vaša žiadosť bola úspešne odoslaná. Budeme vás kontaktovať."}</p>
         </div>
       </div>
     );
@@ -334,9 +334,9 @@ export default function PublicFormPage() {
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="max-w-md mx-auto text-center p-8 bg-white rounded-2xl shadow-lg">
           <AlertCircle className="h-16 w-16 mx-auto mb-4 text-red-400" />
-          <h2 className="text-xl font-bold mb-3 text-red-600">Chyba pri odoslan\u00ED</h2>
-          <p className="text-gray-600 mb-4">{submitError || "Nastala chyba. Sk\u00FAste to pros\u00EDm znova."}</p>
-          <Button onClick={() => setStep("form")} style={{ backgroundColor: brandColor }} className="text-white">Sk\u00FAsi\u0165 znova</Button>
+          <h2 className="text-xl font-bold mb-3 text-red-600">Chyba pri odoslaní</h2>
+          <p className="text-gray-600 mb-4">{submitError || "Nastala chyba. Skúste to prosím znova."}</p>
+          <Button onClick={() => setStep("form")} style={{ backgroundColor: brandColor }} className="text-white">Skúsiť znova</Button>
         </div>
       </div>
     );
@@ -348,16 +348,16 @@ export default function PublicFormPage() {
         <div className="max-w-md w-full bg-white rounded-2xl shadow-lg p-8">
           <div className="text-center mb-6">
             <Shield className="h-12 w-12 mx-auto mb-3" style={{ color: brandColor }} />
-            <h2 className="text-xl font-bold">Overenie existuj\u00FAceho klienta</h2>
-            <p className="text-sm text-gray-500 mt-2">Na\u0161li sme existuj\u00FAci z\u00E1znam. Pre overenie va\u0161ej identity v\u00E1m za\u0161leme k\u00F3d na email <strong>{otpEmail}</strong>.</p>
+            <h2 className="text-xl font-bold">Overenie existujúceho klienta</h2>
+            <p className="text-sm text-gray-500 mt-2">Našli sme existujúci záznam. Pre overenie vašej identity vám zašleme kód na email <strong>{otpEmail}</strong>.</p>
           </div>
           <div className="space-y-3">
             <Button className="w-full text-white" style={{ backgroundColor: brandColor }} onClick={sendOtp} disabled={otpLoading} data-testid="btn-send-otp">
               {otpLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
-              Zasla\u0165 overovac\u00ED k\u00F3d
+              Zaslať overovací kód
             </Button>
             <Button variant="outline" className="w-full" onClick={() => { setExistingCustomerId(null); setStep("form"); }} data-testid="btn-continue-new">
-              Pokra\u010Dova\u0165 ako nov\u00FD klient
+              Pokračovať ako nový klient
             </Button>
             {otpError && <p className="text-sm text-red-500 text-center">{otpError}</p>}
           </div>
@@ -372,8 +372,8 @@ export default function PublicFormPage() {
         <div className="max-w-md w-full bg-white rounded-2xl shadow-lg p-8">
           <div className="text-center mb-6">
             <Shield className="h-12 w-12 mx-auto mb-3" style={{ color: brandColor }} />
-            <h2 className="text-xl font-bold">Zadajte overovac\u00ED k\u00F3d</h2>
-            <p className="text-sm text-gray-500 mt-2">K\u00F3d bol zaslan\u00FD na <strong>{otpEmail}</strong>. Platnos\u0165: 10 min\u00FAt.</p>
+            <h2 className="text-xl font-bold">Zadajte overovací kód</h2>
+            <p className="text-sm text-gray-500 mt-2">Kód bol zaslaný na <strong>{otpEmail}</strong>. Platnosť: 10 minút.</p>
           </div>
           <div className="space-y-4">
             <Input
@@ -386,11 +386,11 @@ export default function PublicFormPage() {
             />
             <Button className="w-full text-white" style={{ backgroundColor: brandColor }} onClick={verifyOtp} disabled={otpCode.length !== 6 || otpLoading} data-testid="btn-verify-otp">
               {otpLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
-              Overi\u0165
+              Overiť
             </Button>
             <div className="flex justify-between">
-              <Button variant="link" className="text-xs" onClick={sendOtp} disabled={otpLoading}>Znova zasla\u0165 k\u00F3d</Button>
-              <Button variant="link" className="text-xs" onClick={() => { setExistingCustomerId(null); setStep("form"); }}>Pokra\u010Dova\u0165 ako nov\u00FD klient</Button>
+              <Button variant="link" className="text-xs" onClick={sendOtp} disabled={otpLoading}>Znova zaslať kód</Button>
+              <Button variant="link" className="text-xs" onClick={() => { setExistingCustomerId(null); setStep("form"); }}>Pokračovať ako nový klient</Button>
             </div>
             {otpError && <p className="text-sm text-red-500 text-center">{otpError}</p>}
           </div>
@@ -593,7 +593,7 @@ export default function PublicFormPage() {
             <span className="text-white/80 text-sm font-medium">CORD BLOOD CENTER</span>
           </div>
           <h1 className="text-2xl md:text-3xl font-bold text-white mb-2" data-testid="text-form-header">
-            {config.form.headerTitle || "Registra\u010Dn\u00FD formul\u00E1r"}
+            {config.form.headerTitle || "Registračný formulár"}
           </h1>
           {config.form.headerSubtitle && (
             <p className="text-white/90 text-sm md:text-base max-w-xl mx-auto">{config.form.headerSubtitle}</p>
@@ -607,7 +607,7 @@ export default function PublicFormPage() {
             {isOtpVerified && (
               <div className="flex items-center gap-2 p-3 rounded-lg text-sm" style={{ backgroundColor: brandColor + "10", color: brandColor }}>
                 <CheckCircle2 className="h-4 w-4 shrink-0" />
-                <span>Identita overen\u00E1. Existuj\u00FAce \u00FAdaje boli predvyplnen\u00E9.</span>
+                <span>Identita overená. Existujúce údaje boli predvyplnené.</span>
               </div>
             )}
 
@@ -677,7 +677,7 @@ export default function PublicFormPage() {
             {errorCount > 0 && Object.values(touched).some(Boolean) && (
               <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
                 <AlertCircle className="h-4 w-4 shrink-0" />
-                <span>Pros\u00EDm opravte {errorCount} {errorCount === 1 ? "chybu" : errorCount < 5 ? "chyby" : "ch\u00FDb"} vo formul\u00E1ri.</span>
+                <span>Prosím opravte {errorCount} {errorCount === 1 ? "chybu" : errorCount < 5 ? "chyby" : "chýb"} vo formulári.</span>
               </div>
             )}
 
@@ -691,7 +691,7 @@ export default function PublicFormPage() {
               {step === "submitting" ? (
                 <><Loader2 className="h-5 w-5 mr-2 animate-spin" /> Odosielam...</>
               ) : (
-                <><Send className="h-5 w-5 mr-2" /> Odosla\u0165 \u017Eiados\u0165</>
+                <><Send className="h-5 w-5 mr-2" /> Odoslať žiadosť</>
               )}
             </Button>
           </div>
