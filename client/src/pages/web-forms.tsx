@@ -1023,6 +1023,7 @@ function FieldEditDialog({ field, setField, sections, sectionColumns, onSave, on
 }
 
 function LayoutPreview({ sections, fields, formData }: { sections: any[]; fields: any[]; formData: any }) {
+  const { t } = useI18n();
   const brandColor = formData.brandColor || "#16a34a";
   const textColor = formData.textColor || "#ffffff";
   const sectionColor = formData.sectionColor || brandColor;
