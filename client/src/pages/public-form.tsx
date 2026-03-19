@@ -462,14 +462,65 @@ export default function PublicFormPage() {
   const buttonStyle = fontStyle(f.buttonFontSize || "base", f.buttonFontWeight || "semibold");
 
   if (step === "success") {
+    const firstName = formData.firstName || "";
+    const lastName = formData.lastName || "";
+    const personalGreeting = firstName ? ` ${firstName}` : "";
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: bgColor }} data-testid="text-form-success">
-        <div className="max-w-md mx-auto text-center p-8 bg-white rounded-2xl shadow-lg">
-          <div className="w-20 h-20 rounded-full mx-auto mb-6 flex items-center justify-center" style={{ backgroundColor: brandColor + "15" }}>
-            <CheckCircle2 className="h-10 w-10" style={{ color: brandColor }} />
+      <div className="min-h-screen flex items-center justify-center p-4" style={{ backgroundColor: bgColor }} data-testid="text-form-success">
+        <div className="max-w-lg w-full mx-auto text-center bg-white rounded-3xl shadow-xl overflow-hidden">
+          <div className="relative py-10 px-8" style={{ background: `linear-gradient(135deg, ${brandColor}08, ${brandColor}15)` }}>
+            <div className="absolute top-4 left-8 opacity-10">
+              <Heart className="h-8 w-8" style={{ color: brandColor }} />
+            </div>
+            <div className="absolute top-6 right-10 opacity-10">
+              <Star className="h-6 w-6" style={{ color: brandColor }} />
+            </div>
+            <div className="absolute bottom-4 left-16 opacity-10">
+              <Sparkles className="h-5 w-5" style={{ color: brandColor }} />
+            </div>
+            <div className="w-20 h-20 rounded-full mx-auto mb-5 flex items-center justify-center" style={{ backgroundColor: brandColor + "20" }}>
+              <Heart className="h-10 w-10" style={{ color: brandColor, fill: brandColor, opacity: 0.9 }} />
+            </div>
+            <h2 className="text-2xl font-bold mb-2" style={{ color: brandColor }} data-testid="text-success-title">
+              Ďakujeme{personalGreeting}!
+            </h2>
+            <p className="text-gray-500 text-sm">Vaša registrácia bola úspešne prijatá</p>
           </div>
-          <h2 className="text-2xl font-bold mb-3" style={{ color: brandColor }}>Ďakujeme!</h2>
-          <p className="text-gray-600">{safeStr(f.successMessage) || "Vaša žiadosť bola úspešne odoslaná. Budeme vás kontaktovať."}</p>
+          <div className="px-8 py-8 space-y-5">
+            <div className="flex items-start gap-4 text-left p-4 rounded-xl" style={{ backgroundColor: brandColor + "06" }}>
+              <div className="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center mt-0.5" style={{ backgroundColor: brandColor + "15" }}>
+                <CheckCircle2 className="h-5 w-5" style={{ color: brandColor }} />
+              </div>
+              <div>
+                <p className="font-semibold text-gray-800 text-sm mb-1">Všetko je v poriadku</p>
+                <p className="text-gray-500 text-sm leading-relaxed">
+                  Od tejto chvíle sa o všetko postaráme. Začíname pracovať na všetkých procesoch pre zdárne vybavenie vašej objednávky.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-start gap-4 text-left p-4 rounded-xl" style={{ backgroundColor: brandColor + "06" }}>
+              <div className="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center mt-0.5" style={{ backgroundColor: brandColor + "15" }}>
+                <Sparkles className="h-5 w-5" style={{ color: brandColor }} />
+              </div>
+              <div>
+                <p className="font-semibold text-gray-800 text-sm mb-1">Čo bude nasledovať</p>
+                <p className="text-gray-500 text-sm leading-relaxed">
+                  V najbližších dňoch vás bude kontaktovať náš tím, aby sme spoločne dohodli všetky podrobnosti. Sme tu pre vás na každom kroku.
+                </p>
+              </div>
+            </div>
+            <div className="pt-3 pb-1">
+              <div className="inline-flex items-center gap-2 px-5 py-3 rounded-full" style={{ backgroundColor: brandColor + "10" }}>
+                <Heart className="h-4 w-4" style={{ color: brandColor, fill: brandColor }} />
+                <p className="text-sm font-medium" style={{ color: brandColor }}>
+                  Prajeme vám krásne obdobie a pôrod bez komplikácií
+                </p>
+              </div>
+            </div>
+            {f.successMessage && (
+              <p className="text-gray-500 text-xs pt-2">{safeStr(f.successMessage)}</p>
+            )}
+          </div>
         </div>
       </div>
     );
