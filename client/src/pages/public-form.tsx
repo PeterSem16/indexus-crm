@@ -141,6 +141,37 @@ export default function PublicFormPage() {
       .sort((a: any, b: any) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
   }, [config]);
 
+  const groupedFields = useMemo(() => {
+    if (sections.length === 0) return [{ title: null, fields }];
+    const groups: Array<{ title: string | null; fields: any[] }> = [];
+    const fieldsBySection: Map<string, any[]> = new Map();
+    const noSection: any[] = [];
+
+    for (const field of fields) {
+      if (field.sectionId) {
+        const existing = fieldsBySection.get(field.sectionId) || [];
+        existing.push(field);
+        fieldsBySection.set(field.sectionId, existing);
+      } else {
+        noSection.push(field);
+      }
+    }
+
+    for (const sec of sections) {
+      const sectionFields = fieldsBySection.get(sec.id) || [];
+      if (sectionFields.length > 0) {
+        groups.push({ title: sec.title, fields: sectionFields });
+      }
+    }
+    if (noSection.length > 0) {
+      groups.push({ title: null, fields: noSection });
+    }
+    if (groups.length === 0) {
+      groups.push({ title: null, fields });
+    }
+    return groups;
+  }, [fields, sections]);
+
   const getFieldKey = (field: any) => field.customerField || field.id;
 
   const updateField = (key: string, value: any) => {
@@ -550,37 +581,6 @@ export default function PublicFormPage() {
       />
     );
   };
-
-  const groupedFields = useMemo(() => {
-    if (sections.length === 0) return [{ title: null, fields }];
-    const groups: Array<{ title: string | null; fields: any[] }> = [];
-    const fieldsBySection: Map<string, any[]> = new Map();
-    const noSection: any[] = [];
-
-    for (const field of fields) {
-      if (field.sectionId) {
-        const existing = fieldsBySection.get(field.sectionId) || [];
-        existing.push(field);
-        fieldsBySection.set(field.sectionId, existing);
-      } else {
-        noSection.push(field);
-      }
-    }
-
-    for (const sec of sections) {
-      const sectionFields = fieldsBySection.get(sec.id) || [];
-      if (sectionFields.length > 0) {
-        groups.push({ title: sec.title, fields: sectionFields });
-      }
-    }
-    if (noSection.length > 0) {
-      groups.push({ title: null, fields: noSection });
-    }
-    if (groups.length === 0) {
-      groups.push({ title: null, fields });
-    }
-    return groups;
-  }, [fields, sections]);
 
   const errorCount = Object.keys(errors).length;
 
