@@ -1836,16 +1836,27 @@ function SubmissionsSheet({ formId, onClose }: { formId: string; onClose: () => 
     },
   });
 
-  const { data: refData } = useQuery<{ hospitals: any[]; healthInsuranceCompanies: any[]; productSets: any[] }>({
-    queryKey: ["/api/web-forms", formId, "ref-data"],
+  const { data: formDetail } = useQuery<any>({
+    queryKey: ["/api/web-forms", formId, "detail"],
     queryFn: async () => {
+      const res = await fetch(`/api/web-forms/${formId}`, { credentials: "include" });
+      if (!res.ok) return null;
+      return res.json();
+    },
+  });
+
+  const { data: refData } = useQuery<{ hospitals: any[]; healthInsuranceCompanies: any[]; productSets: any[] }>({
+    queryKey: ["/api/web-forms", formId, "ref-data", formDetail?.countryCode],
+    queryFn: async () => {
+      const countryCode = formDetail?.countryCode || "";
       const [h, hi, ps] = await Promise.all([
-        fetch("/api/hospitals", { credentials: "include" }).then(r => r.ok ? r.json() : []),
-        fetch("/api/health-insurance", { credentials: "include" }).then(r => r.ok ? r.json() : []),
+        fetch(`/api/hospitals${countryCode ? `?countries=${countryCode}` : ""}`, { credentials: "include" }).then(r => r.ok ? r.json() : []),
+        fetch("/api/config/health-insurance", { credentials: "include" }).then(r => r.ok ? r.json() : []),
         fetch("/api/product-sets", { credentials: "include" }).then(r => r.ok ? r.json() : []),
       ]);
       return { hospitals: h, healthInsuranceCompanies: hi, productSets: ps };
     },
+    enabled: !!formDetail,
   });
 
   const [selectedSubmission, setSelectedSubmission] = useState<any>(null);
@@ -1977,14 +1988,18 @@ function SubmissionsSheet({ formId, onClose }: { formId: string; onClose: () => 
           <Dialog open onOpenChange={(o) => !o && setSelectedSubmission(null)}>
             <DialogContent className="max-w-md">
               <DialogHeader><DialogTitle>{t.webForms.submissionDetail}</DialogTitle></DialogHeader>
-              <div className="space-y-2 max-h-[60vh] overflow-y-auto">
-                {Object.entries(JSON.parse(selectedSubmission.data || "{}")).map(([key, value]) => (
-                  <div key={key} className="flex justify-between text-sm border-b pb-1">
-                    <span className="text-muted-foreground">{fieldLabels[key] || key}</span>
-                    <span className="font-medium text-right max-w-[60%]">{formatValue(key, value)}</span>
-                  </div>
-                ))}
-              </div>
+              {!refData ? (
+                <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin" /></div>
+              ) : (
+                <div className="space-y-2 max-h-[60vh] overflow-y-auto">
+                  {Object.entries(JSON.parse(selectedSubmission.data || "{}")).map(([key, value]) => (
+                    <div key={key} className="flex justify-between text-sm border-b pb-1">
+                      <span className="text-muted-foreground">{fieldLabels[key] || key}</span>
+                      <span className="font-medium text-right max-w-[60%]">{formatValue(key, value)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </DialogContent>
           </Dialog>
         )}
