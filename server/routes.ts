@@ -32967,6 +32967,7 @@ Return ONLY the JSON object.`
         "subtitleFontSize","subtitleFontWeight","subtitleFontStyle","subtitleFontFamily",
         "sectionFontSize","sectionFontWeight","sectionFontStyle",
         "labelFontSize","labelFontWeight","buttonFontSize","buttonFontWeight",
+        "showProgressPipeline",
         "confirmEmailEnabled","confirmEmailLayout","confirmEmailSubject","confirmEmailGreeting","confirmEmailBody",
         "confirmEmailShowData","confirmEmailFooter","confirmEmailSignature",
       ];
@@ -33403,6 +33404,71 @@ Return ONLY the JSON object.`
       res.json({ success: true, submissionId: submission.id, isNewCustomer, customerId: targetCustomerId });
     } catch (e: any) {
       console.error("[WebForm Submit] Error:", e);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post("/api/web-forms/:id/test-email", requireAuth, async (req, res) => {
+    try {
+      const { testEmail } = req.body;
+      if (!testEmail) return res.status(400).json({ error: "Email is required" });
+
+      const form = await storage.getWebFormById(req.params.id);
+      if (!form) return res.status(404).json({ error: "Form not found" });
+
+      const billingCompanies = await storage.getBillingDetailsByCountry(form.countryCode);
+      const billingCompany = billingCompanies.find((b: any) => b.webFromEmail) || billingCompanies[0];
+      const fromEmail = billingCompany?.webFromEmail;
+      const companyName = billingCompany?.companyName || "Cord Blood Center";
+
+      if (!fromEmail) return res.status(400).json({ error: "No sender email configured for this country" });
+
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
+      const ms365Connection = await storage.getUserMs365Connection(userId);
+      if (!ms365Connection?.isConnected) return res.status(400).json({ error: "MS365 not connected" });
+
+      const { decryptTokenSafe } = await import("./lib/token-crypto");
+      const accessToken = decryptTokenSafe(ms365Connection.accessToken);
+      const { getValidAccessToken, sendEmailFromSharedMailbox } = await import("./lib/ms365");
+      const tokenResult = await getValidAccessToken(accessToken, ms365Connection.tokenExpiresAt, ms365Connection.refreshToken ? decryptTokenSafe(ms365Connection.refreshToken) : null);
+      if (!tokenResult) return res.status(400).json({ error: "MS365 token expired" });
+
+      const brandColor = form.brandColor || "#16a34a";
+      const greeting = (form.confirmEmailGreeting || `Dobrý deň p. {{priezvisko}},`).replace(/\{\{priezvisko\}\}/g, "Testovací").replace(/\{\{meno\}\}/g, "Test").replace(/\{\{email\}\}/g, testEmail);
+      const bodyText = (form.confirmEmailBody || "ďakujeme za Váš záujem. Čoskoro Vás budeme kontaktovať.").replace(/\{\{priezvisko\}\}/g, "Testovací").replace(/\{\{meno\}\}/g, "Test").replace(/\{\{email\}\}/g, testEmail);
+      const footerText = form.confirmEmailFooter || `V prípade akýchkoľvek otázok nás neváhajte kontaktovať.`;
+      const signatureText = form.confirmEmailSignature || companyName;
+      const subject = "[TEST] " + ((form.confirmEmailSubject || `Potvrdenie registrácie - ${companyName}`).replace(/\{\{priezvisko\}\}/g, "Testovací").replace(/\{\{meno\}\}/g, "Test").replace(/\{\{email\}\}/g, testEmail));
+
+      const title = "Potvrdenie registrácie";
+      const copyright = `<p style="margin:0;color:#9ca3af;font-size:11px;">&copy; ${new Date().getFullYear()} ${companyName}. Všetky práva vyhradené.</p>`;
+      const companyLine = billingCompany?.postalName || companyName;
+      const footerBlock = `<div style="margin-top:24px;padding-top:16px;border-top:1px solid #e5e7eb;"><p style="margin:0 0 4px 0;color:#6b7280;font-size:13px;line-height:1.6;">${footerText}</p><p style="margin:0;color:#374151;font-size:13px;font-weight:600;">${signatureText}</p></div>`;
+      const dataBlock = `<div style="margin:24px 0;padding:16px;background:#f9fafb;border-radius:8px;border:1px solid #e5e7eb;"><p style="margin:0;color:#6b7280;font-size:12px;text-transform:uppercase;letter-spacing:1px;font-weight:600;">Testovací údaje</p><table style="width:100%;margin-top:12px;"><tr><td style="padding:6px 8px;color:#6b7280;font-size:12px;width:40%;">Meno</td><td style="padding:6px 8px;color:#111827;font-size:13px;">Test Testovací</td></tr><tr><td style="padding:6px 8px;color:#6b7280;font-size:12px;width:40%;">Email</td><td style="padding:6px 8px;color:#111827;font-size:13px;">${testEmail}</td></tr></table></div>`;
+
+      const emailLayout = form.confirmEmailLayout || "modern";
+      let emailBody = "";
+      if (emailLayout === 'minimal') {
+        emailBody = `<table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;"><tr><td style="background:#ffffff;padding:40px;border-radius:16px;box-shadow:0 4px 24px rgba(0,0,0,0.08);"><h1 style="margin:0 0 24px 0;color:${brandColor};font-size:22px;font-weight:700;">${title}</h1><p style="margin:0 0 16px 0;color:#111827;font-size:15px;line-height:1.6;">${greeting}</p><p style="margin:0 0 24px 0;color:#374151;font-size:14px;line-height:1.7;">${bodyText}</p>${dataBlock}${footerBlock}</td></tr><tr><td style="padding:16px;text-align:center;">${copyright}</td></tr></table>`;
+      } else if (emailLayout === 'sidebar') {
+        emailBody = `<table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;"><tr><td width="8" style="background:${brandColor};border-radius:16px 0 0 16px;"></td><td style="background:#ffffff;padding:40px;border-radius:0 16px 16px 0;box-shadow:0 4px 24px rgba(0,0,0,0.08);"><p style="margin:0 0 8px 0;color:${brandColor};font-size:12px;text-transform:uppercase;letter-spacing:2px;font-weight:600;">${companyLine}</p><h1 style="margin:0 0 24px 0;color:#111827;font-size:22px;font-weight:700;">${title}</h1><p style="margin:0 0 16px 0;color:#111827;font-size:15px;line-height:1.6;">${greeting}</p><p style="margin:0 0 24px 0;color:#374151;font-size:14px;line-height:1.7;">${bodyText}</p>${dataBlock}${footerBlock}</td></tr><tr><td colspan="2" style="padding:16px;text-align:center;">${copyright}</td></tr></table>`;
+      } else if (emailLayout === 'elegant') {
+        emailBody = `<table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;"><tr><td style="padding:32px 40px;text-align:center;"><p style="margin:0;color:${brandColor};font-size:12px;text-transform:uppercase;letter-spacing:3px;font-weight:600;">${companyLine}</p></td></tr><tr><td style="padding:0 40px;"><div style="height:1px;background:linear-gradient(90deg,transparent,${brandColor},transparent);"></div></td></tr><tr><td style="padding:32px 40px;background:#ffffff;"><h1 style="margin:0 0 24px 0;color:#111827;font-size:22px;font-weight:300;text-align:center;">${title}</h1><p style="margin:0 0 16px 0;color:#111827;font-size:15px;line-height:1.6;">${greeting}</p><p style="margin:0 0 24px 0;color:#374151;font-size:14px;line-height:1.7;">${bodyText}</p>${dataBlock}${footerBlock}</td></tr><tr><td style="padding:0 40px;"><div style="height:1px;background:linear-gradient(90deg,transparent,${brandColor},transparent);"></div></td></tr><tr><td style="padding:16px;text-align:center;">${copyright}</td></tr></table>`;
+      } else if (emailLayout === 'bold') {
+        emailBody = `<table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;"><tr><td style="background:${brandColor};padding:48px 40px;text-align:center;border-radius:16px 16px 0 0;">${billingCompany?.postalName ? `<p style="margin:0 0 8px 0;color:#ffffffbb;font-size:11px;text-transform:uppercase;letter-spacing:2px;">${billingCompany.postalName}</p>` : ''}<h1 style="margin:0 0 12px 0;color:#ffffff;font-size:26px;font-weight:800;">${title}</h1><p style="margin:0;color:#ffffffdd;font-size:14px;">${greeting}</p></td></tr><tr><td style="background:#ffffff;padding:40px;border-radius:0 0 16px 16px;"><p style="margin:0 0 24px 0;color:#374151;font-size:14px;line-height:1.7;">${bodyText}</p>${dataBlock}${footerBlock}</td></tr><tr><td style="padding:16px;text-align:center;">${copyright}</td></tr></table>`;
+      } else {
+        emailBody = `<table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;"><tr><td style="background:linear-gradient(135deg,${brandColor},${brandColor}dd);padding:32px 40px;border-radius:16px 16px 0 0;text-align:center;">${billingCompany?.postalName ? `<p style="margin:0 0 4px 0;color:#ffffffbb;font-size:12px;text-transform:uppercase;letter-spacing:2px;">${billingCompany.postalName}</p>` : ''}<h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;">${title}</h1></td></tr><tr><td style="background:#ffffff;padding:40px;border-radius:0 0 16px 16px;box-shadow:0 4px 24px rgba(0,0,0,0.08);"><p style="margin:0 0 16px 0;color:#111827;font-size:15px;line-height:1.6;">${greeting}</p><p style="margin:0 0 24px 0;color:#374151;font-size:14px;line-height:1.7;">${bodyText}</p>${dataBlock}${footerBlock}</td></tr><tr><td style="padding:16px;text-align:center;">${copyright}</td></tr></table>`;
+      }
+
+      const emailHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head><body style="margin:0;padding:0;background-color:#f3f4f6;font-family:'Segoe UI',Arial,sans-serif;"><table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f3f4f6;padding:32px 16px;"><tr><td align="center">${emailBody}</td></tr></table></body></html>`;
+
+      await sendEmailFromSharedMailbox(tokenResult.accessToken, fromEmail, [testEmail], subject, emailHtml, true);
+      console.log(`[WebForm] Test email sent to ${testEmail} from ${fromEmail}`);
+      res.json({ success: true, fromEmail });
+    } catch (e: any) {
+      console.error("[WebForm TestEmail] Error:", e);
       res.status(500).json({ error: e.message });
     }
   });

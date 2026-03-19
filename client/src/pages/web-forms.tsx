@@ -19,7 +19,7 @@ import {
   Plus, FileText, Globe, Copy, Trash2, Settings, Eye,
   GripVertical, ChevronDown, ChevronRight, Loader2, CheckCircle2, X, Code,
   Clock, Users, ClipboardList, ArrowUp, ArrowDown, EyeOff,
-  Columns, LayoutGrid, Maximize2, Palette, Type, Italic, Pencil, Mail, Info
+  Columns, LayoutGrid, Maximize2, Palette, Type, Italic, Pencil, Mail, Info, Send
 } from "lucide-react";
 import type { WebForm, WebFormSubmission } from "@shared/schema";
 
@@ -1309,6 +1309,8 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
   const [editSections, setEditSections] = useState<any[]>([]);
   const [hydrated, setHydrated] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [testEmailAddr, setTestEmailAddr] = useState("");
+  const [testEmailSending, setTestEmailSending] = useState(false);
 
   const { data: formDetail, isLoading: detailLoading } = useQuery<any>({
     queryKey: ["/api/web-forms", form.id],
@@ -1542,6 +1544,18 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
                   </Select>
                 </div>
               </div>
+              <Separator />
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-sm font-medium">Progress pipeline</h4>
+                  <p className="text-[11px] text-muted-foreground">Zobrazí progress bar a motivačné správy medzi sekciami</p>
+                </div>
+                <Switch
+                  checked={formData.showProgressPipeline !== false}
+                  onCheckedChange={v => setFormData({ ...formData, showProgressPipeline: v })}
+                  data-testid="switch-progress-pipeline"
+                />
+              </div>
             </TabsContent>
 
             <TabsContent value="texts" className="space-y-4 mt-4">
@@ -1692,6 +1706,43 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
                   <div>
                     <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Náhľad emailu</h4>
                     <ConfirmEmailPreview formData={formData} editSections={editSections} editFields={editFields} />
+                  </div>
+                  <Separator />
+                  <div>
+                    <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Odoslať testovací email</h4>
+                    <div className="flex gap-2">
+                      <Input
+                        value={testEmailAddr}
+                        onChange={e => setTestEmailAddr(e.target.value)}
+                        placeholder="vas@email.sk"
+                        className="text-sm"
+                        data-testid="input-test-email"
+                      />
+                      <Button
+                        size="sm"
+                        disabled={!testEmailAddr || testEmailSending}
+                        data-testid="btn-send-test-email"
+                        onClick={async () => {
+                          setTestEmailSending(true);
+                          try {
+                            const res = await apiRequest("POST", `/api/web-forms/${form.id}/test-email`, { testEmail: testEmailAddr });
+                            const data = await res.json();
+                            if (data.success) {
+                              toast({ title: "Testovací email odoslaný", description: `Email bol odoslaný na ${testEmailAddr} z ${data.fromEmail}` });
+                            } else {
+                              toast({ title: "Chyba", description: data.error || "Nepodarilo sa odoslať", variant: "destructive" });
+                            }
+                          } catch (e: any) {
+                            toast({ title: "Chyba", description: e.message || "Nepodarilo sa odoslať", variant: "destructive" });
+                          } finally {
+                            setTestEmailSending(false);
+                          }
+                        }}
+                      >
+                        {testEmailSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground mt-1.5">Email sa odošle s testovacími údajmi (meno: Test Testovací). Predmet bude mať prefix [TEST].</p>
                   </div>
                 </>
               )}

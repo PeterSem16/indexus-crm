@@ -411,6 +411,21 @@ export default function PublicFormPage() {
     }
   };
 
+  const motivationalMessages = useMemo(() => [
+    { icon: Sparkles, texts: ["Skvelý začiatok! ✨", "Ste na dobrej ceste!", "Prvý krok je za vami!"] },
+    { icon: Star, texts: ["Výborne, pokračujte! ⭐", "Darí sa vám skvele!", "Už to ide ako po masle!"] },
+    { icon: Rocket, texts: ["Raketa! Už len kúsok! 🚀", "Super tempo!", "Ste úžasní, už skoro!"] },
+    { icon: Heart, texts: ["Takmer hotové! 💚", "Posledný krok!", "Úplný záver, hurá!"] },
+    { icon: PartyPopper, texts: ["Hotovo, gratulujeme! 🎉", "Všetko vyplnené!", "Perfektná práca!"] },
+  ], []);
+
+  const getMotivationalMessage = (sectionIdx: number, completed: boolean, pct: number) => {
+    if (!completed && pct < 30) return null;
+    const msgSet = motivationalMessages[Math.min(sectionIdx, motivationalMessages.length - 1)];
+    const textIdx = pct >= 100 ? 2 : pct >= 50 ? 1 : 0;
+    return { Icon: msgSet.icon, text: msgSet.texts[textIdx] };
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -706,24 +721,6 @@ export default function PublicFormPage() {
     </div>
   );
 
-  const motivationalMessages = useMemo(() => {
-    const msgs = [
-      { icon: Sparkles, texts: ["Skvelý začiatok! ✨", "Ste na dobrej ceste!", "Prvý krok je za vami!"] },
-      { icon: Star, texts: ["Výborne, pokračujte! ⭐", "Darí sa vám skvele!", "Už to ide ako po masle!"] },
-      { icon: Rocket, texts: ["Raketa! Už len kúsok! 🚀", "Super tempo!", "Ste úžasní, už skoro!"] },
-      { icon: Heart, texts: ["Takmer hotové! 💚", "Posledný krok!", "Úplný záver, hurá!"] },
-      { icon: PartyPopper, texts: ["Hotovo, gratulujeme! 🎉", "Všetko vyplnené!", "Perfektná práca!"] },
-    ];
-    return msgs;
-  }, []);
-
-  const getMotivationalMessage = (sectionIdx: number, completed: boolean, pct: number) => {
-    if (!completed && pct < 30) return null;
-    const msgSet = motivationalMessages[Math.min(sectionIdx, motivationalMessages.length - 1)];
-    const textIdx = pct >= 100 ? 2 : pct >= 50 ? 1 : 0;
-    return { Icon: msgSet.icon, text: msgSet.texts[textIdx] };
-  };
-
   const renderFormContent = () => (
     <>
             {isOtpVerified && (
@@ -733,7 +730,7 @@ export default function PublicFormPage() {
               </div>
             )}
 
-            {totalSections > 1 && (
+            {totalSections > 1 && f.showProgressPipeline !== false && (
               <div className="pb-2" data-testid="progress-pipeline">
                 <div className="flex items-center gap-1.5 mb-2">
                   {sectionProgress.map((sp, i) => {
@@ -874,7 +871,7 @@ export default function PublicFormPage() {
                       </div>
                     );
                   })()}
-                  {motivation && sectionDone && gi < totalSections - 1 && (
+                  {f.showProgressPipeline !== false && motivation && sectionDone && gi < totalSections - 1 && (
                     <div
                       className="flex items-center gap-2.5 py-2.5 px-4 rounded-xl text-sm transition-all duration-500 animate-in fade-in slide-in-from-bottom-2"
                       style={{ backgroundColor: brandColor + "08", border: `1px solid ${brandColor}18` }}
@@ -891,7 +888,7 @@ export default function PublicFormPage() {
               );
             })}
 
-            {overallPct >= 80 && totalSections > 1 && (
+            {f.showProgressPipeline !== false && overallPct >= 80 && totalSections > 1 && (
               <div
                 className="flex items-center gap-3 p-4 rounded-xl transition-all duration-700 animate-in fade-in slide-in-from-bottom-3"
                 style={{ backgroundColor: brandColor + "0a", border: `1px dashed ${brandColor}30` }}
