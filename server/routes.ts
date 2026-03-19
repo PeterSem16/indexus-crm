@@ -33084,18 +33084,34 @@ Return ONLY the JSON object.`
       await storage.createWebFormOtp({ formId: form.id, email, code, expiresAt });
       await storage.createWebFormAuditLog({ formId: form.id, action: "otp_sent", details: JSON.stringify({ email }), ipAddress: req.ip || null });
       try {
-        const userId = await db.select({ id: (await import("@shared/schema")).users.id }).from((await import("@shared/schema")).users).limit(1);
-        if (userId.length > 0) {
-          const ms365Connection = await storage.getUserMs365Connection(userId[0].id);
-          if (ms365Connection?.isConnected) {
-            const { decryptTokenSafe } = await import("./lib/token-crypto");
-            const accessToken = decryptTokenSafe(ms365Connection.accessToken);
-            const { getValidAccessToken, sendEmail } = await import("./lib/ms365");
-            const tokenResult = await getValidAccessToken(accessToken, ms365Connection.tokenExpiresAt, ms365Connection.refreshToken ? decryptTokenSafe(ms365Connection.refreshToken) : null);
-            if (tokenResult) {
-              await sendEmail(tokenResult.accessToken, [email], "Overovací kód - Cord Blood Center", `<div style="font-family:Arial,sans-serif;max-width:400px;margin:0 auto;padding:20px;text-align:center"><h2>Váš overovací kód</h2><p style="font-size:32px;font-weight:bold;letter-spacing:8px;padding:20px;background:#f0f9ff;border-radius:8px">${code}</p><p>Kód platí 10 minút.</p></div>`, true);
+        const billingCompanies = await storage.getBillingDetailsByCountry(form.countryCode);
+        const billingCompany = billingCompanies.find((b: any) => b.webFromEmail) || billingCompanies[0];
+        const fromEmail = billingCompany?.webFromEmail;
+        if (fromEmail) {
+          const userId = await db.select({ id: (await import("@shared/schema")).users.id }).from((await import("@shared/schema")).users).limit(1);
+          if (userId.length > 0) {
+            const ms365Connection = await storage.getUserMs365Connection(userId[0].id);
+            if (ms365Connection?.isConnected) {
+              const { decryptTokenSafe } = await import("./lib/token-crypto");
+              const accessToken = decryptTokenSafe(ms365Connection.accessToken);
+              const { getValidAccessToken, sendEmailFromSharedMailbox } = await import("./lib/ms365");
+              const tokenResult = await getValidAccessToken(accessToken, ms365Connection.tokenExpiresAt, ms365Connection.refreshToken ? decryptTokenSafe(ms365Connection.refreshToken) : null);
+              if (tokenResult) {
+                const brandColor = form.brandColor || "#16a34a";
+                const otpHtml = `<div style="font-family:'Segoe UI',Arial,sans-serif;max-width:400px;margin:0 auto;padding:32px;text-align:center;background:#ffffff;border-radius:16px;box-shadow:0 4px 24px rgba(0,0,0,0.08)"><div style="width:48px;height:48px;margin:0 auto 16px;background:${brandColor}15;border-radius:50%;display:flex;align-items:center;justify-content:center"><span style="font-size:24px">🔐</span></div><h2 style="color:#111827;margin:0 0 8px 0;font-size:20px;">Overovací kód</h2><p style="color:#6b7280;font-size:14px;margin:0 0 24px 0;">Použite tento kód na overenie vašej identity</p><p style="font-size:36px;font-weight:bold;letter-spacing:8px;padding:20px;background:${brandColor}08;border:2px dashed ${brandColor}30;border-radius:12px;color:${brandColor};margin:0 0 24px 0">${code}</p><p style="color:#9ca3af;font-size:12px;margin:0">Kód platí 10 minút. Ak ste ho nevyžiadali, ignorujte tento email.</p></div>`;
+                await sendEmailFromSharedMailbox(tokenResult.accessToken, fromEmail, [email], "Overovací kód - Cord Blood Center", otpHtml, true);
+                console.log(`[WebForm OTP] Code sent to ${email} from ${fromEmail}`);
+              } else {
+                console.error("[WebForm OTP] Failed to get valid access token");
+              }
+            } else {
+              console.error("[WebForm OTP] MS365 not connected for user", userId[0].id);
             }
+          } else {
+            console.error("[WebForm OTP] No users found in DB");
           }
+        } else {
+          console.error("[WebForm OTP] No webFromEmail configured for country", form.countryCode);
         }
       } catch (emailError) {
         console.error("[WebForm OTP] Failed to send email:", emailError);
