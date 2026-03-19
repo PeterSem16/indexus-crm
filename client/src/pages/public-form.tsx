@@ -806,6 +806,7 @@ export default function PublicFormPage() {
                     {group.fields.map((field: any) => {
                       const corrFields = ["corrName","corrAddress","corrCity","corrPostalCode","corrRegion","corrCountry"];
                       if (corrFields.includes(field.customerField) && !formValues.useCorrespondenceAddress) return null;
+                      if (field.customerField === "useCorrespondenceAddress") return null;
                       const span = Math.min(field.columnSpan || 1, cols);
                       const spanClass = span > 1 ? (span >= 3 ? "sm:col-span-3" : "sm:col-span-2") : "";
                       return (
@@ -815,6 +816,58 @@ export default function PublicFormPage() {
                       );
                     })}
                   </div>
+                  {(() => {
+                    const hasAddressFields = group.fields.some((f: any) => ["address","city","postalCode","region"].includes(f.customerField));
+                    if (!hasAddressFields) return null;
+                    return (
+                      <div className="mt-4 space-y-4" data-testid="correspondence-address-block">
+                        <div className="flex items-center gap-3 py-1">
+                          <Checkbox
+                            checked={!!formValues.useCorrespondenceAddress}
+                            onCheckedChange={(checked) => updateField("useCorrespondenceAddress", checked)}
+                            data-testid="checkbox-useCorrespondenceAddress"
+                            className="border-gray-300"
+                          />
+                          <Label
+                            className="text-sm text-gray-700 cursor-pointer"
+                            onClick={() => updateField("useCorrespondenceAddress", !formValues.useCorrespondenceAddress)}
+                          >
+                            Iná korešpondenčná adresa
+                          </Label>
+                        </div>
+                        {formValues.useCorrespondenceAddress && (
+                          <div className={`grid gap-x-5 gap-y-4 ${gridCols} pl-1 border-l-2 transition-all duration-300 animate-in fade-in slide-in-from-top-2`} style={{ borderColor: brandColor + "30" }}>
+                            {[
+                              { key: "corrName", label: "Meno príjemcu", span: 2 },
+                              { key: "corrAddress", label: "Ulica a číslo", span: 2 },
+                              { key: "corrCity", label: "Mesto", span: 1 },
+                              { key: "corrPostalCode", label: "PSČ", span: 1 },
+                            ].map(cf => {
+                              const existingField = group.fields.find((f: any) => f.customerField === cf.key);
+                              if (existingField) return (
+                                <div key={cf.key} className={cf.span > 1 ? "sm:col-span-2" : ""}>
+                                  {renderField(existingField)}
+                                </div>
+                              );
+                              return (
+                                <div key={cf.key} className={cf.span > 1 ? "sm:col-span-2" : ""}>
+                                  <div className="space-y-1.5">
+                                    <Label className="text-gray-700" style={labelStyle}>{cf.label}</Label>
+                                    <Input
+                                      value={formValues[cf.key] || ""}
+                                      onChange={e => updateField(cf.key, e.target.value)}
+                                      className="h-10 bg-white border-gray-300 focus:border-2 rounded-lg"
+                                      data-testid={`input-${cf.key}`}
+                                    />
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                   {motivation && sectionDone && gi < totalSections - 1 && (
                     <div
                       className="flex items-center gap-2.5 py-2.5 px-4 rounded-xl text-sm transition-all duration-500 animate-in fade-in slide-in-from-bottom-2"

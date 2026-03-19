@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, Fragment } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useI18n } from "@/i18n";
@@ -1167,8 +1167,8 @@ function ConfirmEmailPreview({ formData, editSections, editFields }: { formData:
             {Object.entries(grouped).map(([secId, secFields]) => {
               const sec = sectionMap.get(secId);
               return (
-                <>{sec?.title && (
-                  <tr key={`sec-${secId}`}><td colSpan={2} style={{ padding: "10px 0 6px 0", borderBottom: `2px solid ${brandColor}22` }}>
+                <Fragment key={secId}>{sec?.title && (
+                  <tr><td colSpan={2} style={{ padding: "10px 0 6px 0", borderBottom: `2px solid ${brandColor}22` }}>
                     <strong style={{ color: brandColor, textTransform: "uppercase", fontSize: "9px", letterSpacing: "1px" }}>{sec.title}</strong>
                   </td></tr>
                 )}
@@ -1180,7 +1180,7 @@ function ConfirmEmailPreview({ formData, editSections, editFields }: { formData:
                       <td style={{ padding: "4px 0", color: "#111827", fontSize: "11px" }}>{val}</td>
                     </tr>
                   );
-                })}</>
+                })}</Fragment>
               );
             })}
           </tbody>
