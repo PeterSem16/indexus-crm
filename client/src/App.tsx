@@ -272,34 +272,34 @@ function PublicRoutes() {
   return null;
 }
 
-function App() {
+function AppShell() {
   const [location] = useLocation();
   const isPublicRoute = location.startsWith("/f/") || location.startsWith("/sign/") || location.startsWith("/s/") || location.startsWith("/audit-timeline/");
 
   if (isPublicRoute) {
     return (
-      <QueryClientProvider client={queryClient}>
-        <ThemeProvider>
-          <TooltipProvider>
-            <ErrorBoundary>
-              <PublicRoutes />
-            </ErrorBoundary>
-            <Toaster />
-          </TooltipProvider>
-        </ThemeProvider>
-      </QueryClientProvider>
+      <ErrorBoundary>
+        <PublicRoutes />
+      </ErrorBoundary>
     );
   }
 
   return (
+    <AuthProvider>
+      <SipProvider>
+        <AppRouter />
+      </SipProvider>
+    </AuthProvider>
+  );
+}
+
+function App() {
+  return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <TooltipProvider>
-          <AuthProvider>
-            <SipProvider>
-              <AppRouter />
-            </SipProvider>
-          </AuthProvider>
+          <AppShell />
+          <Toaster />
         </TooltipProvider>
       </ThemeProvider>
     </QueryClientProvider>
