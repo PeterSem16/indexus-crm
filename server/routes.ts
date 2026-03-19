@@ -32926,6 +32926,294 @@ Return ONLY the JSON object.`
 
   registerInboundRoutes(app, requireAuth);
 
+  app.get("/api/web-forms", requireAuth, async (_req, res) => {
+    try { res.json(await storage.getWebForms()); }
+    catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.get("/api/web-forms/:id", requireAuth, async (req, res) => {
+    try {
+      const form = await storage.getWebForm(req.params.id);
+      if (!form) return res.status(404).json({ error: "Form not found" });
+      const sections = await storage.getWebFormSections(form.id);
+      const fields = await storage.getWebFormFields(form.id);
+      res.json({ ...form, sections, fields });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/web-forms", requireAuth, async (req, res) => {
+    try {
+      const { sections, fields, ...formData } = req.body;
+      const userId = req.session.user!.id;
+      const form = await storage.createWebForm({ ...formData, createdBy: userId });
+      if (sections && Array.isArray(sections)) {
+        for (const s of sections) await storage.createWebFormSection({ ...s, formId: form.id });
+      }
+      if (fields && Array.isArray(fields)) {
+        for (const f of fields) await storage.createWebFormField({ ...f, formId: form.id });
+      }
+      res.json(form);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.patch("/api/web-forms/:id", requireAuth, async (req, res) => {
+    try {
+      const { sections, fields, ...formData } = req.body;
+      const form = await storage.updateWebForm(req.params.id, formData);
+      if (sections && Array.isArray(sections)) {
+        await storage.deleteWebFormSectionsByFormId(form.id);
+        for (const s of sections) await storage.createWebFormSection({ ...s, formId: form.id });
+      }
+      if (fields && Array.isArray(fields)) {
+        await storage.deleteWebFormFieldsByFormId(form.id);
+        for (const f of fields) await storage.createWebFormField({ ...f, formId: form.id });
+      }
+      res.json(form);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.delete("/api/web-forms/:id", requireAuth, async (req, res) => {
+    try {
+      await storage.deleteWebFormFieldsByFormId(req.params.id);
+      await storage.deleteWebFormSectionsByFormId(req.params.id);
+      await storage.deleteWebForm(req.params.id);
+      res.json({ success: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.get("/api/web-forms/:id/submissions", requireAuth, async (req, res) => {
+    try { res.json(await storage.getWebFormSubmissions(req.params.id)); }
+    catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.get("/api/web-forms/:id/audit-log", requireAuth, async (req, res) => {
+    try { res.json(await storage.getWebFormAuditLogs(req.params.id)); }
+    catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.get("/api/public/web-form/:slug", async (req, res) => {
+    try {
+      const form = await storage.getWebFormBySlug(req.params.slug);
+      if (!form || !form.isActive) return res.status(404).json({ error: "Form not found" });
+      const sections = await storage.getWebFormSections(form.id);
+      const fields = await storage.getWebFormFields(form.id);
+      const hicsRaw = await db.select().from((await import("@shared/schema")).healthInsuranceCompanies)
+        .where(eq((await import("@shared/schema")).healthInsuranceCompanies.countryCode, form.countryCode));
+      const hospitalsRaw = await db.select().from((await import("@shared/schema")).hospitals)
+        .where(and(eq((await import("@shared/schema")).hospitals.countryCode, form.countryCode), eq((await import("@shared/schema")).hospitals.isActive, true)));
+      const productSetsRaw = await db.select().from((await import("@shared/schema")).productSets)
+        .where(and(eq((await import("@shared/schema")).productSets.countryCode, form.countryCode), eq((await import("@shared/schema")).productSets.isActive, true)));
+      res.json({
+        form: { ...form, sections, fields },
+        healthInsuranceCompanies: hicsRaw,
+        hospitals: hospitalsRaw.map(h => ({ id: h.id, name: h.name, fullName: h.fullName, city: h.city })),
+        productSets: productSetsRaw.map(p => ({ id: p.id, name: p.name, totalGrossAmount: p.totalGrossAmount, currency: p.currency })),
+      });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/public/web-form/:slug/check-customer", async (req, res) => {
+    try {
+      const { firstName, lastName, email } = req.body;
+      if (!firstName || !lastName || !email) return res.status(400).json({ error: "Missing fields" });
+      const form = await storage.getWebFormBySlug(req.params.slug);
+      if (!form || !form.isActive) return res.status(404).json({ error: "Form not found" });
+      const results = await db.select().from((await import("@shared/schema")).customers)
+        .where(and(
+          sql`LOWER(${(await import("@shared/schema")).customers.firstName}) = LOWER(${firstName})`,
+          sql`LOWER(${(await import("@shared/schema")).customers.lastName}) = LOWER(${lastName})`,
+          sql`LOWER(${(await import("@shared/schema")).customers.email}) = LOWER(${email})`,
+        )).limit(1);
+      if (results.length > 0) {
+        res.json({ found: true });
+      } else {
+        res.json({ found: false });
+      }
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/public/web-form/:slug/send-otp", async (req, res) => {
+    try {
+      const { email } = req.body;
+      if (!email) return res.status(400).json({ error: "Email required" });
+      const form = await storage.getWebFormBySlug(req.params.slug);
+      if (!form || !form.isActive) return res.status(404).json({ error: "Form not found" });
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+      await storage.createWebFormOtp({ formId: form.id, email, code, expiresAt });
+      await storage.createWebFormAuditLog({ formId: form.id, action: "otp_sent", details: JSON.stringify({ email }), ipAddress: req.ip || null });
+      try {
+        const userId = await db.select({ id: (await import("@shared/schema")).users.id }).from((await import("@shared/schema")).users).limit(1);
+        if (userId.length > 0) {
+          const ms365Connection = await storage.getUserMs365Connection(userId[0].id);
+          if (ms365Connection?.isConnected) {
+            const { decryptTokenSafe } = await import("./lib/token-crypto");
+            const accessToken = decryptTokenSafe(ms365Connection.accessToken);
+            const { getValidAccessToken, sendEmail } = await import("./lib/ms365");
+            const tokenResult = await getValidAccessToken(accessToken, ms365Connection.tokenExpiresAt, ms365Connection.refreshToken ? decryptTokenSafe(ms365Connection.refreshToken) : null);
+            if (tokenResult) {
+              await sendEmail(tokenResult.accessToken, [email], "Overovací kód - Cord Blood Center", `<div style="font-family:Arial,sans-serif;max-width:400px;margin:0 auto;padding:20px;text-align:center"><h2>Váš overovací kód</h2><p style="font-size:32px;font-weight:bold;letter-spacing:8px;padding:20px;background:#f0f9ff;border-radius:8px">${code}</p><p>Kód platí 10 minút.</p></div>`, true);
+            }
+          }
+        }
+      } catch (emailError) {
+        console.error("[WebForm OTP] Failed to send email:", emailError);
+      }
+      res.json({ success: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/public/web-form/:slug/verify-otp", async (req, res) => {
+    try {
+      const { email, code } = req.body;
+      if (!email || !code) return res.status(400).json({ error: "Missing fields" });
+      const form = await storage.getWebFormBySlug(req.params.slug);
+      if (!form || !form.isActive) return res.status(404).json({ error: "Form not found" });
+      const otp = await storage.getWebFormOtp(form.id, email, code);
+      if (!otp) return res.status(400).json({ error: "Invalid code" });
+      if (new Date() > otp.expiresAt) return res.status(400).json({ error: "Code expired" });
+      await storage.markWebFormOtpUsed(otp.id);
+      const crypto = await import("crypto");
+      const verificationToken = crypto.randomBytes(32).toString("hex");
+      await storage.createWebFormAuditLog({ formId: form.id, action: "otp_verified", details: JSON.stringify({ email, verificationToken }), ipAddress: req.ip || null });
+      const schema = await import("@shared/schema");
+      const [customer] = await db.select().from(schema.customers)
+        .where(sql`LOWER(${schema.customers.email}) = LOWER(${email})`)
+        .limit(1);
+      if (customer) {
+        const safeData = {
+          phone: customer.phone, mobile: customer.mobile, address: customer.address,
+          city: customer.city, postalCode: customer.postalCode, country: customer.country,
+          dateOfBirth: customer.dateOfBirth, nationalId: customer.nationalId,
+          healthInsuranceId: customer.healthInsuranceId, bankAccount: customer.bankAccount,
+          bankName: customer.bankName, bankSwift: customer.bankSwift,
+        };
+        res.json({ verified: true, customerData: safeData, customerId: customer.id, clientStatus: customer.clientStatus, verificationToken });
+      } else {
+        res.json({ verified: true, verificationToken });
+      }
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/public/web-form/:slug/submit", async (req, res) => {
+    try {
+      const form = await storage.getWebFormBySlug(req.params.slug);
+      if (!form || !form.isActive) return res.status(404).json({ error: "Form not found" });
+      const { formData, customerId, verificationToken } = req.body;
+      if (!formData) return res.status(400).json({ error: "No form data" });
+
+      let isOtpVerified = false;
+      if (customerId && verificationToken) {
+        const auditLogs = await storage.getWebFormAuditLogs(form.id);
+        const matchingLog = auditLogs.find(log => {
+          if (log.action !== "otp_verified") return false;
+          try {
+            const details = JSON.parse(log.details || "{}");
+            return details.verificationToken === verificationToken;
+          } catch { return false; }
+        });
+        if (!matchingLog) return res.status(403).json({ error: "Invalid verification token" });
+        isOtpVerified = true;
+      }
+
+      const schema = await import("@shared/schema");
+      let targetCustomerId: string | null = null;
+      let isNewCustomer = false;
+
+      if (customerId && isOtpVerified) {
+        targetCustomerId = customerId;
+        const [existing] = await db.select().from(schema.customers).where(eq(schema.customers.id, targetCustomerId!)).limit(1);
+        if (existing) {
+          const updateData: any = {};
+          if (formData.phone && !existing.phone) updateData.phone = formData.phone;
+          if (formData.mobile && !existing.mobile) updateData.mobile = formData.mobile;
+          if (formData.address) updateData.address = formData.address;
+          if (formData.city) updateData.city = formData.city;
+          if (formData.postalCode) updateData.postalCode = formData.postalCode;
+          if (formData.dateOfBirth) updateData.dateOfBirth = new Date(formData.dateOfBirth);
+          if (formData.nationalId) updateData.nationalId = formData.nationalId;
+          if (formData.healthInsuranceId) updateData.healthInsuranceId = formData.healthInsuranceId;
+          if (formData.bankAccount) updateData.bankAccount = formData.bankAccount;
+          if (formData.bankName) updateData.bankName = formData.bankName;
+          if (formData.bankSwift) updateData.bankSwift = formData.bankSwift;
+          updateData.status = "web_request";
+          if (Object.keys(updateData).length > 0) {
+            await db.update(schema.customers).set(updateData).where(eq(schema.customers.id, targetCustomerId));
+          }
+          await storage.createActivityLog({
+            userId: "system",
+            action: "web_form_submission",
+            entityType: "customer",
+            entityId: targetCustomerId,
+            entityName: `${existing.firstName} ${existing.lastName}`,
+            details: JSON.stringify({ formId: form.id, formName: form.name, type: "existing_customer", status: "web_request", data: formData }),
+          });
+        }
+      } else {
+        if (!formData.firstName || !formData.lastName || !formData.email) {
+          return res.status(400).json({ error: "Missing required customer fields" });
+        }
+        const [newCustomer] = await db.insert(schema.customers).values({
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          maidenName: formData.maidenName || null,
+          titleBefore: formData.titleBefore || null,
+          titleAfter: formData.titleAfter || null,
+          email: formData.email,
+          phone: formData.phone || null,
+          mobile: formData.mobile || null,
+          dateOfBirth: formData.dateOfBirth ? new Date(formData.dateOfBirth) : null,
+          nationalId: formData.nationalId || null,
+          country: form.countryCode,
+          city: formData.city || null,
+          address: formData.address || null,
+          postalCode: formData.postalCode || null,
+          region: formData.region || null,
+          healthInsuranceId: formData.healthInsuranceId || null,
+          bankAccount: formData.bankAccount || null,
+          bankName: formData.bankName || null,
+          bankSwift: formData.bankSwift || null,
+          clientStatus: "potential",
+          status: "pending",
+          serviceType: formData.serviceType || null,
+          newsletter: formData.newsletter || false,
+        }).returning();
+        targetCustomerId = newCustomer.id;
+        isNewCustomer = true;
+        await storage.createActivityLog({
+          userId: "system",
+          action: "web_form_submission",
+          entityType: "customer",
+          entityId: newCustomer.id,
+          entityName: `${newCustomer.firstName} ${newCustomer.lastName}`,
+          details: JSON.stringify({ formId: form.id, formName: form.name, type: "new_customer", status: "potential/pending", data: formData }),
+        });
+      }
+
+      const submission = await storage.createWebFormSubmission({
+        formId: form.id,
+        data: JSON.stringify({ ...formData, productSetId: formData.productSetId, hospitalId: formData.hospitalId, howDidYouHear: formData.howDidYouHear }),
+        ipAddress: req.ip || null,
+        userAgent: req.headers["user-agent"] || null,
+        status: "processed",
+        customerId: targetCustomerId,
+        isNewCustomer,
+        isOtpVerified: isOtpVerified || false,
+        processedAt: new Date(),
+      });
+      await storage.createWebFormAuditLog({
+        formId: form.id, submissionId: submission.id,
+        action: "form_submitted",
+        details: JSON.stringify({ customerId: targetCustomerId, isNewCustomer, isOtpVerified }),
+        ipAddress: req.ip || null,
+      });
+      res.json({ success: true, submissionId: submission.id, isNewCustomer, customerId: targetCustomerId });
+    } catch (e: any) {
+      console.error("[WebForm Submit] Error:", e);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   setTimeout(() => {
     autoConnectAri().catch(err => console.error("[ARI AutoConnect] Error:", err.message));
   }, 10000);

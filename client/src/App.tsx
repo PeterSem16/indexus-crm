@@ -52,6 +52,8 @@ import CampaignReportsPage from "@/pages/campaign-reports";
 import CustomerInvoicesPage from "@/pages/customer-invoices";
 import AgentWorkspacePage from "@/pages/agent-workspace";
 import SopManagementPage from "@/pages/sop-management";
+import WebFormsPage from "@/pages/web-forms";
+import PublicFormPage from "@/pages/public-form";
 import { AgentSessionProvider } from "@/contexts/agent-session-context";
 import NotFound from "@/pages/not-found";
 import { Loader2 } from "lucide-react";
@@ -112,6 +114,14 @@ function AppRouter() {
       <Switch>
         <Route path="/sign/:token" component={PublicSigningPage} />
         <Route path="/s/:token" component={PublicSigningPage} />
+      </Switch>
+    );
+  }
+
+  if (location.startsWith("/f/")) {
+    return (
+      <Switch>
+        <Route path="/f/:slug" component={PublicFormPage} />
       </Switch>
     );
   }
@@ -228,6 +238,7 @@ function AuthenticatedApp() {
                     <Route path="/notifications" component={NotificationCenterPage} />
                     <Route path="/mobile-preview" component={MobilePreview} />
                     <Route path="/sop" component={SopManagementPage} />
+                    <Route path="/web-forms" component={WebFormsPage} />
                     <Route path="/agent-workspace">
                       <ErrorBoundary>
                         <AgentSessionProvider>

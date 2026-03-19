@@ -6203,3 +6203,104 @@ export const insertMobileContactSchema = createInsertSchema(mobileContacts).omit
 
 export type MobileContact = typeof mobileContacts.$inferSelect;
 export type InsertMobileContact = z.infer<typeof insertMobileContactSchema>;
+
+export const webForms = pgTable("web_forms", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  slug: text("slug").notNull(),
+  countryCode: text("country_code").notNull(),
+  language: text("language").notNull().default("sk"),
+  description: text("description"),
+  headerTitle: text("header_title"),
+  headerSubtitle: text("header_subtitle"),
+  gdprText: text("gdpr_text"),
+  gdprMarketingText: text("gdpr_marketing_text"),
+  gdprPregnancyText: text("gdpr_pregnancy_text"),
+  successMessage: text("success_message"),
+  brandColor: text("brand_color").default("#16a34a"),
+  logoUrl: text("logo_url"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdBy: varchar("created_by"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const webFormSections = pgTable("web_form_sections", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  formId: varchar("form_id").notNull(),
+  title: text("title").notNull(),
+  description: text("description"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  isVisible: boolean("is_visible").notNull().default(true),
+});
+
+export const webFormFields = pgTable("web_form_fields", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  formId: varchar("form_id").notNull(),
+  sectionId: varchar("section_id"),
+  customerField: text("customer_field"),
+  fieldType: text("field_type").notNull().default("text"),
+  label: text("label").notNull(),
+  placeholder: text("placeholder"),
+  helpText: text("help_text"),
+  isRequired: boolean("is_required").notNull().default(false),
+  sortOrder: integer("sort_order").notNull().default(0),
+  validationRules: text("validation_rules"),
+  options: text("options"),
+  defaultValue: text("default_value"),
+  isVisible: boolean("is_visible").notNull().default(true),
+});
+
+export const webFormSubmissions = pgTable("web_form_submissions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  formId: varchar("form_id").notNull(),
+  data: text("data").notNull(),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  status: text("status").notNull().default("pending"),
+  customerId: varchar("customer_id"),
+  isNewCustomer: boolean("is_new_customer").notNull().default(false),
+  isOtpVerified: boolean("is_otp_verified").notNull().default(false),
+  processedAt: timestamp("processed_at"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const webFormOtp = pgTable("web_form_otp", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  formId: varchar("form_id").notNull(),
+  email: text("email").notNull(),
+  code: text("code").notNull(),
+  isUsed: boolean("is_used").notNull().default(false),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const webFormAuditLog = pgTable("web_form_audit_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  formId: varchar("form_id"),
+  submissionId: varchar("submission_id"),
+  action: text("action").notNull(),
+  details: text("details"),
+  ipAddress: text("ip_address"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const insertWebFormSchema = createInsertSchema(webForms).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertWebFormSectionSchema = createInsertSchema(webFormSections).omit({ id: true });
+export const insertWebFormFieldSchema = createInsertSchema(webFormFields).omit({ id: true });
+export const insertWebFormSubmissionSchema = createInsertSchema(webFormSubmissions).omit({ id: true, createdAt: true });
+export const insertWebFormOtpSchema = createInsertSchema(webFormOtp).omit({ id: true, createdAt: true });
+export const insertWebFormAuditLogSchema = createInsertSchema(webFormAuditLog).omit({ id: true, createdAt: true });
+
+export type WebForm = typeof webForms.$inferSelect;
+export type InsertWebForm = z.infer<typeof insertWebFormSchema>;
+export type WebFormSection = typeof webFormSections.$inferSelect;
+export type InsertWebFormSection = z.infer<typeof insertWebFormSectionSchema>;
+export type WebFormField = typeof webFormFields.$inferSelect;
+export type InsertWebFormField = z.infer<typeof insertWebFormFieldSchema>;
+export type WebFormSubmission = typeof webFormSubmissions.$inferSelect;
+export type InsertWebFormSubmission = z.infer<typeof insertWebFormSubmissionSchema>;
+export type WebFormOtp = typeof webFormOtp.$inferSelect;
+export type InsertWebFormOtp = z.infer<typeof insertWebFormOtpSchema>;
+export type WebFormAuditLog = typeof webFormAuditLog.$inferSelect;
+export type InsertWebFormAuditLog = z.infer<typeof insertWebFormAuditLogSchema>;

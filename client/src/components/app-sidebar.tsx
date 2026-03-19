@@ -100,6 +100,7 @@ export function AppSidebar() {
     { title: t.nav.users, url: "/users", icon: UserCog, testId: "users", moduleKey: "users" },
     { title: t.nav.settings, url: "/settings", icon: Settings, testId: "settings", moduleKey: "settings" },
     { title: t.nav.konfigurator, url: "/configurator", icon: Cog, testId: "konfigurator", moduleKey: "configurator" },
+    { title: t.nav.webForms || "Web Formuláre", url: "/web-forms", icon: FileText, testId: "web-forms", moduleKey: "settings" },
   ];
 
   const showNexusOmni = canAccessModule("email");

@@ -147,7 +147,14 @@ import {
   sopCategories, sopArticles, sopArticleReads, sopCampaignArticles,
   type SopCategory, type InsertSopCategory,
   type SopArticle, type InsertSopArticle,
-  type SopArticleRead, 
+  type SopArticleRead,
+  webForms, webFormSections, webFormFields, webFormSubmissions, webFormOtp, webFormAuditLog,
+  type WebForm, type InsertWebForm,
+  type WebFormSection, type InsertWebFormSection,
+  type WebFormField, type InsertWebFormField,
+  type WebFormSubmission, type InsertWebFormSubmission,
+  type WebFormOtp, type InsertWebFormOtp,
+  type WebFormAuditLog, type InsertWebFormAuditLog,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, inArray, sql, desc, and, or, asc, gte, lte, lt, isNull, isNotNull } from "drizzle-orm";
@@ -1100,6 +1107,32 @@ export interface IStorage {
   linkSopArticleToCampaign(articleId: string, campaignId: string): Promise<void>;
   unlinkSopArticleFromCampaign(articleId: string, campaignId: string): Promise<boolean>;
   getSopCampaignLinks(articleId: string): Promise<string[]>;
+
+  getWebForms(): Promise<WebForm[]>;
+  getWebForm(id: string): Promise<WebForm | undefined>;
+  getWebFormBySlug(slug: string): Promise<WebForm | undefined>;
+  createWebForm(data: InsertWebForm): Promise<WebForm>;
+  updateWebForm(id: string, data: Partial<InsertWebForm>): Promise<WebForm>;
+  deleteWebForm(id: string): Promise<boolean>;
+  getWebFormSections(formId: string): Promise<WebFormSection[]>;
+  createWebFormSection(data: InsertWebFormSection): Promise<WebFormSection>;
+  updateWebFormSection(id: string, data: Partial<InsertWebFormSection>): Promise<WebFormSection>;
+  deleteWebFormSection(id: string): Promise<boolean>;
+  getWebFormFields(formId: string): Promise<WebFormField[]>;
+  createWebFormField(data: InsertWebFormField): Promise<WebFormField>;
+  updateWebFormField(id: string, data: Partial<InsertWebFormField>): Promise<WebFormField>;
+  deleteWebFormField(id: string): Promise<boolean>;
+  deleteWebFormFieldsByFormId(formId: string): Promise<void>;
+  deleteWebFormSectionsByFormId(formId: string): Promise<void>;
+  getWebFormSubmissions(formId: string): Promise<WebFormSubmission[]>;
+  getWebFormSubmission(id: string): Promise<WebFormSubmission | undefined>;
+  createWebFormSubmission(data: InsertWebFormSubmission): Promise<WebFormSubmission>;
+  updateWebFormSubmission(id: string, data: Partial<InsertWebFormSubmission>): Promise<WebFormSubmission>;
+  createWebFormOtp(data: InsertWebFormOtp): Promise<WebFormOtp>;
+  getWebFormOtp(formId: string, email: string, code: string): Promise<WebFormOtp | undefined>;
+  markWebFormOtpUsed(id: string): Promise<void>;
+  createWebFormAuditLog(data: InsertWebFormAuditLog): Promise<WebFormAuditLog>;
+  getWebFormAuditLogs(formId: string): Promise<WebFormAuditLog[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -6722,6 +6755,102 @@ export class DatabaseStorage implements IStorage {
     const links = await db.select().from(sopCampaignArticles)
       .where(eq(sopCampaignArticles.articleId, articleId));
     return links.map(l => l.campaignId);
+  }
+
+  async getWebForms(): Promise<WebForm[]> {
+    return db.select().from(webForms).orderBy(desc(webForms.createdAt));
+  }
+  async getWebForm(id: string): Promise<WebForm | undefined> {
+    const [form] = await db.select().from(webForms).where(eq(webForms.id, id));
+    return form || undefined;
+  }
+  async getWebFormBySlug(slug: string): Promise<WebForm | undefined> {
+    const [form] = await db.select().from(webForms).where(eq(webForms.slug, slug));
+    return form || undefined;
+  }
+  async createWebForm(data: InsertWebForm): Promise<WebForm> {
+    const [form] = await db.insert(webForms).values(data).returning();
+    return form;
+  }
+  async updateWebForm(id: string, data: Partial<InsertWebForm>): Promise<WebForm> {
+    const [form] = await db.update(webForms).set({ ...data, updatedAt: new Date() }).where(eq(webForms.id, id)).returning();
+    return form;
+  }
+  async deleteWebForm(id: string): Promise<boolean> {
+    const result = await db.delete(webForms).where(eq(webForms.id, id)).returning();
+    return result.length > 0;
+  }
+  async getWebFormSections(formId: string): Promise<WebFormSection[]> {
+    return db.select().from(webFormSections).where(eq(webFormSections.formId, formId)).orderBy(asc(webFormSections.sortOrder));
+  }
+  async createWebFormSection(data: InsertWebFormSection): Promise<WebFormSection> {
+    const [section] = await db.insert(webFormSections).values(data).returning();
+    return section;
+  }
+  async updateWebFormSection(id: string, data: Partial<InsertWebFormSection>): Promise<WebFormSection> {
+    const [section] = await db.update(webFormSections).set(data).where(eq(webFormSections.id, id)).returning();
+    return section;
+  }
+  async deleteWebFormSection(id: string): Promise<boolean> {
+    const result = await db.delete(webFormSections).where(eq(webFormSections.id, id)).returning();
+    return result.length > 0;
+  }
+  async getWebFormFields(formId: string): Promise<WebFormField[]> {
+    return db.select().from(webFormFields).where(eq(webFormFields.formId, formId)).orderBy(asc(webFormFields.sortOrder));
+  }
+  async createWebFormField(data: InsertWebFormField): Promise<WebFormField> {
+    const [field] = await db.insert(webFormFields).values(data).returning();
+    return field;
+  }
+  async updateWebFormField(id: string, data: Partial<InsertWebFormField>): Promise<WebFormField> {
+    const [field] = await db.update(webFormFields).set(data).where(eq(webFormFields.id, id)).returning();
+    return field;
+  }
+  async deleteWebFormField(id: string): Promise<boolean> {
+    const result = await db.delete(webFormFields).where(eq(webFormFields.id, id)).returning();
+    return result.length > 0;
+  }
+  async deleteWebFormFieldsByFormId(formId: string): Promise<void> {
+    await db.delete(webFormFields).where(eq(webFormFields.formId, formId));
+  }
+  async deleteWebFormSectionsByFormId(formId: string): Promise<void> {
+    await db.delete(webFormSections).where(eq(webFormSections.formId, formId));
+  }
+  async getWebFormSubmissions(formId: string): Promise<WebFormSubmission[]> {
+    return db.select().from(webFormSubmissions).where(eq(webFormSubmissions.formId, formId)).orderBy(desc(webFormSubmissions.createdAt));
+  }
+  async getWebFormSubmission(id: string): Promise<WebFormSubmission | undefined> {
+    const [sub] = await db.select().from(webFormSubmissions).where(eq(webFormSubmissions.id, id));
+    return sub || undefined;
+  }
+  async createWebFormSubmission(data: InsertWebFormSubmission): Promise<WebFormSubmission> {
+    const [sub] = await db.insert(webFormSubmissions).values(data).returning();
+    return sub;
+  }
+  async updateWebFormSubmission(id: string, data: Partial<InsertWebFormSubmission>): Promise<WebFormSubmission> {
+    const [sub] = await db.update(webFormSubmissions).set(data).where(eq(webFormSubmissions.id, id)).returning();
+    return sub;
+  }
+  async createWebFormOtp(data: InsertWebFormOtp): Promise<WebFormOtp> {
+    const [otp] = await db.insert(webFormOtp).values(data).returning();
+    return otp;
+  }
+  async getWebFormOtp(formId: string, email: string, code: string): Promise<WebFormOtp | undefined> {
+    const [otp] = await db.select().from(webFormOtp)
+      .where(and(eq(webFormOtp.formId, formId), eq(webFormOtp.email, email), eq(webFormOtp.code, code), eq(webFormOtp.isUsed, false)))
+      .orderBy(desc(webFormOtp.createdAt))
+      .limit(1);
+    return otp || undefined;
+  }
+  async markWebFormOtpUsed(id: string): Promise<void> {
+    await db.update(webFormOtp).set({ isUsed: true }).where(eq(webFormOtp.id, id));
+  }
+  async createWebFormAuditLog(data: InsertWebFormAuditLog): Promise<WebFormAuditLog> {
+    const [log] = await db.insert(webFormAuditLog).values(data).returning();
+    return log;
+  }
+  async getWebFormAuditLogs(formId: string): Promise<WebFormAuditLog[]> {
+    return db.select().from(webFormAuditLog).where(eq(webFormAuditLog.formId, formId)).orderBy(desc(webFormAuditLog.createdAt));
   }
 }
 
