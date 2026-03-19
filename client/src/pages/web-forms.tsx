@@ -15,12 +15,11 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   Plus, FileText, Globe, Copy, Trash2, Settings, Eye,
   GripVertical, ChevronDown, ChevronRight, Loader2, CheckCircle2, X, Code,
   Clock, Users, ClipboardList, ArrowUp, ArrowDown, EyeOff,
-  Columns, LayoutGrid, Maximize2, Palette, Type, Bold, Italic
+  Columns, LayoutGrid, Maximize2, Palette, Type, Italic, Pencil
 } from "lucide-react";
 import type { WebForm, WebFormSubmission } from "@shared/schema";
 
@@ -174,8 +173,7 @@ function FontStyleEditor({ prefix, formData, setFormData, showFamily, showItalic
       </div>
       {showItalic !== false && (
         <Button
-          type="button"
-          size="sm"
+          type="button" size="sm"
           variant={formData[styleKey] === "italic" ? "default" : "outline"}
           className="h-7 w-7 p-0"
           onClick={() => setFormData({ ...formData, [styleKey]: formData[styleKey] === "italic" ? "normal" : "italic" })}
@@ -194,6 +192,23 @@ function FontStyleEditor({ prefix, formData, setFormData, showFamily, showItalic
       )}
     </div>
   );
+}
+
+function ColorInput({ value, onChange, label }: { value: string; onChange: (v: string) => void; label: string }) {
+  return (
+    <div className="space-y-1">
+      <Label className="text-[11px] text-muted-foreground">{label}</Label>
+      <div className="flex gap-1.5">
+        <input type="color" value={value || "#000000"} onChange={e => onChange(e.target.value)} className="h-8 w-10 rounded border cursor-pointer shrink-0" />
+        <Input value={value || ""} onChange={e => onChange(e.target.value)} className="h-8 text-xs font-mono flex-1" />
+      </div>
+    </div>
+  );
+}
+
+function parseValidationRules(rules: string | null | undefined): Record<string, any> {
+  if (!rules) return {};
+  try { return JSON.parse(rules); } catch { return {}; }
 }
 
 export default function WebFormsPage() {
@@ -245,14 +260,12 @@ export default function WebFormsPage() {
     const country = COUNTRIES.find(c => c.code === countryCode);
     if (!country) return;
     const slug = `${countryCode.toLowerCase()}-registracia`;
-
     const sectionIds = DEFAULT_SECTIONS.map((_, i) => `sec-${Date.now()}-${i}`);
     const sectionsWithIds = DEFAULT_SECTIONS.map((s, i) => ({ ...s, id: sectionIds[i] }));
     const fieldsWithSectionIds = DEFAULT_FIELDS.map(({ sectionIndex, ...f }) => ({
       ...f,
       sectionId: sectionIndex !== undefined ? sectionIds[sectionIndex] : null,
     }));
-
     createMutation.mutate({
       name: `Registrácia - ${country.name}`,
       slug,
@@ -277,7 +290,6 @@ export default function WebFormsPage() {
   };
 
   const getFormUrl = (slug: string) => `${window.location.origin}/f/${slug}`;
-
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     toast({ title: "Skopírované do schránky" });
@@ -334,11 +346,7 @@ export default function WebFormsPage() {
                       <Badge variant={form.isActive ? "default" : "secondary"} className="text-[10px]">
                         {form.isActive ? "Aktívny" : "Neaktívny"}
                       </Badge>
-                      <Switch
-                        checked={form.isActive}
-                        onCheckedChange={(checked) => toggleActiveMutation.mutate({ id: form.id, isActive: checked })}
-                        data-testid={`switch-active-${form.id}`}
-                      />
+                      <Switch checked={form.isActive} onCheckedChange={(checked) => toggleActiveMutation.mutate({ id: form.id, isActive: checked })} data-testid={`switch-active-${form.id}`} />
                     </div>
                   </div>
                 </CardHeader>
@@ -394,12 +402,7 @@ export default function WebFormsPage() {
               </DialogTitle>
             </DialogHeader>
             <div className="flex-1 overflow-hidden">
-              <iframe
-                src={`/f/${previewFormSlug}`}
-                className="w-full h-full border-0"
-                style={{ height: "calc(90vh - 60px)" }}
-                data-testid="iframe-preview"
-              />
+              <iframe src={`/f/${previewFormSlug}`} className="w-full h-full border-0" style={{ height: "calc(90vh - 60px)" }} data-testid="iframe-preview" />
             </div>
           </DialogContent>
         </Dialog>
@@ -433,212 +436,478 @@ export default function WebFormsPage() {
         </DialogContent>
       </Dialog>
 
-      {editingForm && (
-        <FormEditorSheet form={editingForm} onClose={() => setEditingForm(null)} />
-      )}
-
-      {viewingSubmissions && (
-        <SubmissionsSheet formId={viewingSubmissions} onClose={() => setViewingSubmissions(null)} />
-      )}
+      {editingForm && <FormEditorSheet form={editingForm} onClose={() => setEditingForm(null)} />}
+      {viewingSubmissions && <SubmissionsSheet formId={viewingSubmissions} onClose={() => setViewingSubmissions(null)} />}
     </div>
   );
 }
 
-function parseValidationRules(rules: string | null | undefined): Record<string, any> {
-  if (!rules) return {};
-  try { return JSON.parse(rules); } catch { return {}; }
-}
-
-function ColorInput({ value, onChange, label }: { value: string; onChange: (v: string) => void; label: string }) {
-  return (
-    <div className="space-y-1">
-      <Label className="text-[11px] text-muted-foreground">{label}</Label>
-      <div className="flex gap-1.5">
-        <input type="color" value={value || "#000000"} onChange={e => onChange(e.target.value)} className="h-8 w-10 rounded border cursor-pointer shrink-0" />
-        <Input value={value || ""} onChange={e => onChange(e.target.value)} className="h-8 text-xs font-mono flex-1" />
-      </div>
-    </div>
-  );
-}
-
-function FieldEditor({ field, index, sectionsOptions, onUpdate, onRemove, onMoveUp, onMoveDown, isFirst, isLast, sectionColumns }: {
-  field: any; index: number; sectionsOptions: { id: string; title: string; columns: number }[];
-  onUpdate: (idx: number, updated: any) => void; onRemove: (idx: number) => void;
-  onMoveUp: (idx: number) => void; onMoveDown: (idx: number) => void;
-  isFirst: boolean; isLast: boolean; sectionColumns?: number;
+function SectionFieldsBuilder({
+  editSections, setEditSections, editFields, setEditFields
+}: {
+  editSections: any[]; setEditSections: (s: any[]) => void;
+  editFields: any[]; setEditFields: (f: any[]) => void;
 }) {
-  const [expanded, setExpanded] = useState(false);
+  const [editingField, setEditingField] = useState<any>(null);
+  const [editingFieldIdx, setEditingFieldIdx] = useState<number>(-1);
+
+  const allFieldKeys = [...CUSTOMER_FIELDS, ...SPECIAL_FIELDS];
+  const usedFieldKeys = new Set(editFields.map((f: any) => f.customerField));
+  const availableFields = allFieldKeys.filter(f => !usedFieldKeys.has(f.key));
+
+  const fieldsBySection = useMemo(() => {
+    const map = new Map<string | null, any[]>();
+    editFields.forEach((f, idx) => {
+      const secId = f.sectionId || null;
+      const existing = map.get(secId) || [];
+      existing.push({ ...f, _globalIdx: idx });
+      map.set(secId, existing);
+    });
+    for (const [key, fields] of map.entries()) {
+      fields.sort((a: any, b: any) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+    }
+    return map;
+  }, [editFields]);
+
+  const addFieldToSection = (sectionId: string | null, fieldDef?: any) => {
+    const newField = fieldDef ? {
+      _key: `new-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      customerField: fieldDef.key,
+      fieldType: fieldDef.type,
+      label: fieldDef.label,
+      isRequired: false,
+      sortOrder: editFields.length,
+      sectionId,
+      placeholder: "",
+      helpText: "",
+      validationRules: null,
+      options: null,
+      defaultValue: null,
+      isVisible: true,
+      columnSpan: 1,
+    } : {
+      _key: `custom-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      customerField: null,
+      fieldType: "text",
+      label: "Nové pole",
+      isRequired: false,
+      sortOrder: editFields.length,
+      sectionId,
+      placeholder: "",
+      helpText: "",
+      validationRules: null,
+      options: null,
+      defaultValue: null,
+      isVisible: true,
+      columnSpan: 1,
+    };
+    setEditFields([...editFields, newField]);
+  };
+
+  const moveFieldInSection = (globalIdx: number, direction: "up" | "down") => {
+    const field = editFields[globalIdx];
+    const secId = field.sectionId || null;
+    const sectionFields = (fieldsBySection.get(secId) || []);
+    const localIdx = sectionFields.findIndex((f: any) => f._globalIdx === globalIdx);
+    const targetLocalIdx = direction === "up" ? localIdx - 1 : localIdx + 1;
+    if (targetLocalIdx < 0 || targetLocalIdx >= sectionFields.length) return;
+    const targetGlobalIdx = sectionFields[targetLocalIdx]._globalIdx;
+    const arr = [...editFields];
+    const tempSort = arr[globalIdx].sortOrder;
+    arr[globalIdx] = { ...arr[globalIdx], sortOrder: arr[targetGlobalIdx].sortOrder };
+    arr[targetGlobalIdx] = { ...arr[targetGlobalIdx], sortOrder: tempSort };
+    setEditFields(arr);
+  };
+
+  const removeField = (globalIdx: number) => {
+    setEditFields(editFields.filter((_, i) => i !== globalIdx));
+  };
+
+  const moveFieldToSection = (globalIdx: number, newSectionId: string | null) => {
+    const arr = [...editFields];
+    arr[globalIdx] = { ...arr[globalIdx], sectionId: newSectionId };
+    setEditFields(arr);
+  };
+
+  const openFieldEditor = (field: any, idx: number) => {
+    setEditingField({ ...field });
+    setEditingFieldIdx(idx);
+  };
+
+  const saveFieldEdit = () => {
+    if (editingFieldIdx < 0) return;
+    const arr = [...editFields];
+    arr[editingFieldIdx] = { ...editingField };
+    setEditFields(arr);
+    setEditingField(null);
+    setEditingFieldIdx(-1);
+  };
+
+  const addSection = () => {
+    setEditSections([...editSections, {
+      id: `new-${Date.now()}`,
+      title: "Nová sekcia",
+      sortOrder: editSections.length,
+      columns: 2,
+      isVisible: true,
+    }]);
+  };
+
+  const moveSectionUp = (idx: number) => {
+    if (idx <= 0) return;
+    const arr = [...editSections];
+    [arr[idx - 1], arr[idx]] = [arr[idx], arr[idx - 1]];
+    arr.forEach((s, i) => s.sortOrder = i);
+    setEditSections(arr);
+  };
+
+  const moveSectionDown = (idx: number) => {
+    if (idx >= editSections.length - 1) return;
+    const arr = [...editSections];
+    [arr[idx], arr[idx + 1]] = [arr[idx + 1], arr[idx]];
+    arr.forEach((s, i) => s.sortOrder = i);
+    setEditSections(arr);
+  };
+
+  const deleteSection = (idx: number) => {
+    const removedId = editSections[idx]?.id;
+    setEditSections(editSections.filter((_, i) => i !== idx));
+    if (removedId) {
+      setEditFields(editFields.map(f => f.sectionId === removedId ? { ...f, sectionId: null } : f));
+    }
+  };
+
+  const sortedSections = [...editSections].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+  const orphanFields = fieldsBySection.get(null) || [];
+
+  return (
+    <div className="space-y-4">
+      {sortedSections.map((section, sIdx) => {
+        const sectionFields = fieldsBySection.get(section.id) || [];
+        const cols = section.columns || 2;
+        return (
+          <div key={section.id} className="border rounded-xl overflow-hidden" data-testid={`section-${section.id}`}>
+            <div className="bg-muted/40 px-4 py-2.5 flex items-center gap-2">
+              <div className="flex items-center gap-0.5 shrink-0">
+                <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => moveSectionUp(sIdx)} disabled={sIdx === 0}>
+                  <ArrowUp className="h-3 w-3" />
+                </Button>
+                <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => moveSectionDown(sIdx)} disabled={sIdx === sortedSections.length - 1}>
+                  <ArrowDown className="h-3 w-3" />
+                </Button>
+              </div>
+              <Input
+                value={section.title}
+                onChange={e => {
+                  const arr = [...editSections];
+                  const realIdx = editSections.findIndex(s => s.id === section.id);
+                  arr[realIdx] = { ...arr[realIdx], title: e.target.value };
+                  setEditSections(arr);
+                }}
+                className="h-7 text-sm font-semibold flex-1 bg-transparent border-none shadow-none focus-visible:ring-0 px-1"
+              />
+              <div className="flex items-center gap-1.5 shrink-0">
+                <Columns className="h-3.5 w-3.5 text-muted-foreground" />
+                <Select value={String(cols)} onValueChange={v => {
+                  const arr = [...editSections];
+                  const realIdx = editSections.findIndex(s => s.id === section.id);
+                  arr[realIdx] = { ...arr[realIdx], columns: Number(v) };
+                  setEditSections(arr);
+                }}>
+                  <SelectTrigger className="h-7 w-20 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">1 stĺp.</SelectItem>
+                    <SelectItem value="2">2 stĺp.</SelectItem>
+                    <SelectItem value="3">3 stĺp.</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Badge variant="secondary" className="text-[10px]">{sectionFields.length} polí</Badge>
+                <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive hover:text-destructive" onClick={() => deleteSection(editSections.findIndex(s => s.id === section.id))}>
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+            </div>
+
+            <div className="p-3">
+              <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
+                {sectionFields.map((field: any, fi: number) => {
+                  const span = Math.min(field.columnSpan || 1, cols);
+                  const typeLabel = FIELD_TYPES.find(ft => ft.value === field.fieldType)?.label || field.fieldType;
+                  return (
+                    <div
+                      key={field._key || field.id || fi}
+                      className="border border-dashed border-gray-300 rounded-lg p-2 bg-gray-50/50 hover:bg-blue-50/50 hover:border-blue-300 transition-colors group cursor-pointer"
+                      style={{ gridColumn: span > 1 ? `span ${span}` : undefined }}
+                      onClick={() => openFieldEditor(field, field._globalIdx)}
+                      data-testid={`field-card-${field.customerField || fi}`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span className="text-xs font-medium text-gray-700 truncate">{field.label}</span>
+                          {field.isRequired && <span className="text-red-500 text-[10px] font-bold shrink-0">*</span>}
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Button size="icon" variant="ghost" className="h-5 w-5" onClick={(e) => { e.stopPropagation(); moveFieldInSection(field._globalIdx, "up"); }} disabled={fi === 0}>
+                            <ArrowUp className="h-2.5 w-2.5" />
+                          </Button>
+                          <Button size="icon" variant="ghost" className="h-5 w-5" onClick={(e) => { e.stopPropagation(); moveFieldInSection(field._globalIdx, "down"); }} disabled={fi === sectionFields.length - 1}>
+                            <ArrowDown className="h-2.5 w-2.5" />
+                          </Button>
+                          <Button size="icon" variant="ghost" className="h-5 w-5 text-destructive" onClick={(e) => { e.stopPropagation(); removeField(field._globalIdx); }}>
+                            <X className="h-2.5 w-2.5" />
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 mt-1">
+                        <Badge variant="outline" className="text-[9px] h-4">{typeLabel}</Badge>
+                        {(field.columnSpan || 1) > 1 && <Badge variant="secondary" className="text-[9px] h-4"><Maximize2 className="h-2 w-2 mr-0.5" /> {field.columnSpan}</Badge>}
+                        {!field.isVisible && <EyeOff className="h-2.5 w-2.5 text-muted-foreground" />}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {sectionFields.length === 0 && (
+                <div className="text-center py-4 text-xs text-muted-foreground border border-dashed rounded-lg">
+                  Prázdna sekcia - pridajte polia
+                </div>
+              )}
+
+              <div className="mt-2 flex flex-wrap gap-1">
+                {availableFields.slice(0, 5).map(f => (
+                  <Button key={f.key} size="sm" variant="ghost" className="h-6 text-[10px] text-muted-foreground hover:text-foreground" onClick={() => addFieldToSection(section.id, f)}>
+                    <Plus className="h-2.5 w-2.5 mr-0.5" /> {f.label}
+                  </Button>
+                ))}
+                <Button size="sm" variant="ghost" className="h-6 text-[10px] text-muted-foreground hover:text-foreground" onClick={() => addFieldToSection(section.id)}>
+                  <Plus className="h-2.5 w-2.5 mr-0.5" /> Vlastné pole
+                </Button>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+
+      {orphanFields.length > 0 && (
+        <div className="border rounded-xl overflow-hidden border-orange-200">
+          <div className="bg-orange-50 px-4 py-2.5 flex items-center gap-2">
+            <span className="text-sm font-semibold text-orange-700">Polia bez sekcie</span>
+            <Badge variant="secondary" className="text-[10px]">{orphanFields.length}</Badge>
+          </div>
+          <div className="p-3 space-y-1">
+            {orphanFields.map((field: any, fi: number) => (
+              <div key={field._key || field.id || fi} className="flex items-center gap-2 p-2 border rounded-lg bg-gray-50 hover:bg-blue-50 transition-colors cursor-pointer" onClick={() => openFieldEditor(field, field._globalIdx)}>
+                <span className="text-xs font-medium flex-1">{field.label}</span>
+                <Select value="_move" onValueChange={v => { if (v !== "_move") moveFieldToSection(field._globalIdx, v); }}>
+                  <SelectTrigger className="h-6 w-[140px] text-[10px]"><SelectValue placeholder="Presunúť do sekcie" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_move" disabled>Presunúť do...</SelectItem>
+                    {editSections.map(s => <SelectItem key={s.id} value={s.id}>{s.title}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <Button size="icon" variant="ghost" className="h-5 w-5 text-destructive" onClick={(e) => { e.stopPropagation(); removeField(field._globalIdx); }}>
+                  <X className="h-2.5 w-2.5" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="flex gap-2">
+        <Button size="sm" variant="outline" onClick={addSection} className="flex-1">
+          <Plus className="h-3 w-3 mr-1" /> Pridať sekciu
+        </Button>
+      </div>
+
+      {availableFields.length > 0 && (
+        <div>
+          <Label className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider block mb-2">Dostupné polia na pridanie</Label>
+          <div className="flex flex-wrap gap-1">
+            {availableFields.map(f => (
+              <Button key={f.key} size="sm" variant="outline" className="h-6 text-[10px]" onClick={() => addFieldToSection(editSections[0]?.id || null, f)}>
+                <Plus className="h-2.5 w-2.5 mr-0.5" /> {f.label}
+              </Button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <Dialog open={!!editingField} onOpenChange={(o) => { if (!o) { setEditingField(null); setEditingFieldIdx(-1); } }}>
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Pencil className="h-4 w-4" />
+              Upraviť pole: {editingField?.label}
+            </DialogTitle>
+          </DialogHeader>
+          {editingField && (
+            <FieldEditDialog
+              field={editingField}
+              setField={setEditingField}
+              sections={editSections}
+              sectionColumns={(editSections.find((s: any) => s.id === editingField.sectionId)?.columns) || 2}
+              onSave={saveFieldEdit}
+              onCancel={() => { setEditingField(null); setEditingFieldIdx(-1); }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function FieldEditDialog({ field, setField, sections, sectionColumns, onSave, onCancel }: {
+  field: any; setField: (f: any) => void; sections: any[]; sectionColumns: number;
+  onSave: () => void; onCancel: () => void;
+}) {
   const rules = parseValidationRules(field.validationRules);
 
   const updateRules = (key: string, value: any) => {
     const newRules = { ...rules, [key]: value };
     if (value === "" || value === null || value === undefined || value === false) delete newRules[key];
-    onUpdate(index, { ...field, validationRules: JSON.stringify(newRules) });
+    setField({ ...field, validationRules: JSON.stringify(newRules) });
   };
 
-  const fieldTypeLabel = FIELD_TYPES.find(ft => ft.value === field.fieldType)?.label || field.fieldType;
-  const maxCols = sectionColumns || 2;
-  const sectionName = field.sectionId ? sectionsOptions.find(s => s.id === field.sectionId)?.title : null;
+  const maxCols = sectionColumns;
 
   return (
-    <div className="border rounded-lg bg-card overflow-hidden">
-      <div className="flex items-center gap-1 px-2 py-1.5">
-        <GripVertical className="h-4 w-4 text-muted-foreground shrink-0 cursor-grab" />
-        <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0" onClick={() => onMoveUp(index)} disabled={isFirst}>
-          <ArrowUp className="h-3 w-3" />
-        </Button>
-        <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0" onClick={() => onMoveDown(index)} disabled={isLast}>
-          <ArrowDown className="h-3 w-3" />
-        </Button>
-        <Collapsible open={expanded} onOpenChange={setExpanded} className="flex-1 min-w-0">
-          <CollapsibleTrigger className="flex items-center gap-1.5 w-full text-left px-1 py-0.5 hover:bg-muted/50 rounded">
-            {expanded ? <ChevronDown className="h-3 w-3 shrink-0" /> : <ChevronRight className="h-3 w-3 shrink-0" />}
-            <span className="text-sm font-medium truncate">{field.label}</span>
-            <Badge variant="outline" className="text-[10px] shrink-0">{fieldTypeLabel}</Badge>
-            {field.isRequired && <Badge variant="default" className="text-[10px] shrink-0 bg-red-500">*</Badge>}
-            {sectionName && <Badge variant="secondary" className="text-[9px] shrink-0 max-w-[100px] truncate">{sectionName}</Badge>}
-            {(field.columnSpan || 1) > 1 && <Badge variant="secondary" className="text-[10px] shrink-0"><Maximize2 className="h-2.5 w-2.5" /></Badge>}
-            {!field.isVisible && <EyeOff className="h-3 w-3 text-muted-foreground shrink-0" />}
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <div className="mt-2 space-y-3 pb-2 px-1">
-              <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1">
-                  <Label className="text-[11px] text-muted-foreground">Názov poľa</Label>
-                  <Input value={field.label} onChange={e => onUpdate(index, { ...field, label: e.target.value })} className="h-7 text-sm" />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-[11px] text-muted-foreground">Typ poľa</Label>
-                  <Select value={field.fieldType} onValueChange={v => onUpdate(index, { ...field, fieldType: v })}>
-                    <SelectTrigger className="h-7 text-sm"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {FIELD_TYPES.map(ft => <SelectItem key={ft.value} value={ft.value}>{ft.label}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1">
+          <Label className="text-xs">Názov poľa</Label>
+          <Input value={field.label} onChange={e => setField({ ...field, label: e.target.value })} className="h-8 text-sm" />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Typ poľa</Label>
+          <Select value={field.fieldType} onValueChange={v => setField({ ...field, fieldType: v })}>
+            <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+            <SelectContent>{FIELD_TYPES.map(ft => <SelectItem key={ft.value} value={ft.value}>{ft.label}</SelectItem>)}</SelectContent>
+          </Select>
+        </div>
+      </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1">
-                  <Label className="text-[11px] text-muted-foreground">Placeholder</Label>
-                  <Input value={field.placeholder || ""} onChange={e => onUpdate(index, { ...field, placeholder: e.target.value })} className="h-7 text-sm" placeholder="Napr. Zadajte meno..." />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-[11px] text-muted-foreground">Nápoveď (help text)</Label>
-                  <Input value={field.helpText || ""} onChange={e => onUpdate(index, { ...field, helpText: e.target.value })} className="h-7 text-sm" placeholder="Napr. Formát: +421..." />
-                </div>
-              </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1">
+          <Label className="text-xs">Sekcia</Label>
+          <Select value={field.sectionId || "_none"} onValueChange={v => setField({ ...field, sectionId: v === "_none" ? null : v })}>
+            <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="_none">Bez sekcie</SelectItem>
+              {sections.map(s => <SelectItem key={s.id} value={s.id}>{s.title}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Šírka poľa</Label>
+          <Select value={String(field.columnSpan || 1)} onValueChange={v => setField({ ...field, columnSpan: Number(v) })}>
+            <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="1">1 stĺpec</SelectItem>
+              {maxCols >= 2 && <SelectItem value="2">2 stĺpce (celý riadok)</SelectItem>}
+              {maxCols >= 3 && <SelectItem value="3">3 stĺpce (celý riadok)</SelectItem>}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
 
-              <div className="grid grid-cols-3 gap-2">
-                <div className="space-y-1">
-                  <Label className="text-[11px] text-muted-foreground">Sekcia</Label>
-                  <Select value={field.sectionId || "_none"} onValueChange={v => onUpdate(index, { ...field, sectionId: v === "_none" ? null : v })}>
-                    <SelectTrigger className="h-7 text-sm"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="_none">Bez sekcie</SelectItem>
-                      {sectionsOptions.map(s => <SelectItem key={s.id} value={s.id}>{s.title}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-[11px] text-muted-foreground">Šírka poľa</Label>
-                  <Select value={String(field.columnSpan || 1)} onValueChange={v => onUpdate(index, { ...field, columnSpan: Number(v) })}>
-                    <SelectTrigger className="h-7 text-sm"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="1">1 stĺpec</SelectItem>
-                      {maxCols >= 2 && <SelectItem value="2">2 stĺpce (celý riadok)</SelectItem>}
-                      {maxCols >= 3 && <SelectItem value="3">3 stĺpce (celý riadok)</SelectItem>}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-[11px] text-muted-foreground">Predvolená hodnota</Label>
-                  <Input value={field.defaultValue || ""} onChange={e => onUpdate(index, { ...field, defaultValue: e.target.value })} className="h-7 text-sm" />
-                </div>
-              </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1">
+          <Label className="text-xs">Placeholder</Label>
+          <Input value={field.placeholder || ""} onChange={e => setField({ ...field, placeholder: e.target.value })} className="h-8 text-sm" placeholder="Napr. Zadajte meno..." />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Nápoveď (help text)</Label>
+          <Input value={field.helpText || ""} onChange={e => setField({ ...field, helpText: e.target.value })} className="h-8 text-sm" placeholder="Napr. Formát: +421..." />
+        </div>
+      </div>
 
-              {field.fieldType === "select" && (
-                <div className="space-y-1">
-                  <Label className="text-[11px] text-muted-foreground">Možnosti (každá na nový riadok)</Label>
-                  <Textarea value={field.options || ""} onChange={e => onUpdate(index, { ...field, options: e.target.value })} rows={3} className="text-sm" placeholder={"Možnosť 1\nMožnosť 2\nMožnosť 3"} />
-                </div>
-              )}
+      <div className="space-y-1">
+        <Label className="text-xs">Predvolená hodnota</Label>
+        <Input value={field.defaultValue || ""} onChange={e => setField({ ...field, defaultValue: e.target.value })} className="h-8 text-sm" />
+      </div>
 
-              <Separator />
-              <div>
-                <Label className="text-[11px] text-muted-foreground font-semibold mb-2 block">Validácia</Label>
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="flex items-center gap-1.5">
-                    <Switch checked={field.isRequired} onCheckedChange={checked => onUpdate(index, { ...field, isRequired: checked })} />
-                    <Label className="text-[11px]">Povinné</Label>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <Switch checked={field.isVisible !== false} onCheckedChange={checked => onUpdate(index, { ...field, isVisible: checked })} />
-                    <Label className="text-[11px]">Viditeľné</Label>
-                  </div>
-                </div>
+      {field.fieldType === "select" && (
+        <div className="space-y-1">
+          <Label className="text-xs">Možnosti (každá na nový riadok)</Label>
+          <Textarea value={field.options || ""} onChange={e => setField({ ...field, options: e.target.value })} rows={3} className="text-sm" placeholder={"Možnosť 1\nMožnosť 2\nMožnosť 3"} />
+        </div>
+      )}
 
-                {(field.fieldType === "text" || field.fieldType === "textarea" || field.fieldType === "tel") && (
-                  <div className="grid grid-cols-2 gap-2 mt-2">
-                    <div className="space-y-1">
-                      <Label className="text-[11px] text-muted-foreground">Min. dĺžka</Label>
-                      <Input type="number" value={rules.minLength || ""} onChange={e => updateRules("minLength", e.target.value ? Number(e.target.value) : "")} className="h-7 text-sm" placeholder="napr. 2" />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-[11px] text-muted-foreground">Max. dĺžka</Label>
-                      <Input type="number" value={rules.maxLength || ""} onChange={e => updateRules("maxLength", e.target.value ? Number(e.target.value) : "")} className="h-7 text-sm" placeholder="napr. 100" />
-                    </div>
-                  </div>
-                )}
+      <Separator />
+      <div>
+        <Label className="text-xs font-semibold mb-3 block">Validácia a viditeľnosť</Label>
+        <div className="grid grid-cols-2 gap-3 mb-3">
+          <div className="flex items-center gap-2">
+            <Switch checked={field.isRequired} onCheckedChange={checked => setField({ ...field, isRequired: checked })} />
+            <Label className="text-xs">Povinné pole</Label>
+          </div>
+          <div className="flex items-center gap-2">
+            <Switch checked={field.isVisible !== false} onCheckedChange={checked => setField({ ...field, isVisible: checked })} />
+            <Label className="text-xs">Viditeľné</Label>
+          </div>
+        </div>
 
-                {field.fieldType === "number" && (
-                  <div className="grid grid-cols-2 gap-2 mt-2">
-                    <div className="space-y-1">
-                      <Label className="text-[11px] text-muted-foreground">Min. hodnota</Label>
-                      <Input type="number" value={rules.min ?? ""} onChange={e => updateRules("min", e.target.value ? Number(e.target.value) : "")} className="h-7 text-sm" />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-[11px] text-muted-foreground">Max. hodnota</Label>
-                      <Input type="number" value={rules.max ?? ""} onChange={e => updateRules("max", e.target.value ? Number(e.target.value) : "")} className="h-7 text-sm" />
-                    </div>
-                  </div>
-                )}
-
-                <div className="grid grid-cols-2 gap-2 mt-2">
-                  <div className="space-y-1">
-                    <Label className="text-[11px] text-muted-foreground">Vzor validácie</Label>
-                    <Select value={rules.pattern || "_none"} onValueChange={v => updateRules("pattern", v === "_none" ? "" : v)}>
-                      <SelectTrigger className="h-7 text-sm"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="_none">Žiadny</SelectItem>
-                        <SelectItem value="email">Email</SelectItem>
-                        <SelectItem value="phone">Telefónne číslo</SelectItem>
-                        <SelectItem value="postalCode">PSČ</SelectItem>
-                        <SelectItem value="nationalId">Rodné číslo</SelectItem>
-                        <SelectItem value="iban">IBAN</SelectItem>
-                        <SelectItem value="custom">Vlastný regex</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  {rules.pattern === "custom" && (
-                    <div className="space-y-1">
-                      <Label className="text-[11px] text-muted-foreground">Regex vzor</Label>
-                      <Input value={rules.customPattern || ""} onChange={e => updateRules("customPattern", e.target.value)} className="h-7 text-sm font-mono" placeholder="^[A-Z].*" />
-                    </div>
-                  )}
-                </div>
-
-                <div className="space-y-1 mt-2">
-                  <Label className="text-[11px] text-muted-foreground">Vlastná chybová správa</Label>
-                  <Input value={rules.errorMessage || ""} onChange={e => updateRules("errorMessage", e.target.value)} className="h-7 text-sm" placeholder="Napr. Zadajte platné telefónne číslo" />
-                </div>
-              </div>
+        {(field.fieldType === "text" || field.fieldType === "textarea" || field.fieldType === "tel") && (
+          <div className="grid grid-cols-2 gap-3 mb-3">
+            <div className="space-y-1">
+              <Label className="text-[11px] text-muted-foreground">Min. dĺžka</Label>
+              <Input type="number" value={rules.minLength || ""} onChange={e => updateRules("minLength", e.target.value ? Number(e.target.value) : "")} className="h-7 text-sm" placeholder="napr. 2" />
             </div>
-          </CollapsibleContent>
-        </Collapsible>
-        <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive hover:text-destructive shrink-0" onClick={() => onRemove(index)}>
-          <X className="h-3 w-3" />
-        </Button>
+            <div className="space-y-1">
+              <Label className="text-[11px] text-muted-foreground">Max. dĺžka</Label>
+              <Input type="number" value={rules.maxLength || ""} onChange={e => updateRules("maxLength", e.target.value ? Number(e.target.value) : "")} className="h-7 text-sm" placeholder="napr. 100" />
+            </div>
+          </div>
+        )}
+
+        {field.fieldType === "number" && (
+          <div className="grid grid-cols-2 gap-3 mb-3">
+            <div className="space-y-1">
+              <Label className="text-[11px] text-muted-foreground">Min. hodnota</Label>
+              <Input type="number" value={rules.min ?? ""} onChange={e => updateRules("min", e.target.value ? Number(e.target.value) : "")} className="h-7 text-sm" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[11px] text-muted-foreground">Max. hodnota</Label>
+              <Input type="number" value={rules.max ?? ""} onChange={e => updateRules("max", e.target.value ? Number(e.target.value) : "")} className="h-7 text-sm" />
+            </div>
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <Label className="text-[11px] text-muted-foreground">Vzor validácie</Label>
+            <Select value={rules.pattern || "_none"} onValueChange={v => updateRules("pattern", v === "_none" ? "" : v)}>
+              <SelectTrigger className="h-7 text-sm"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_none">Žiadny</SelectItem>
+                <SelectItem value="email">Email</SelectItem>
+                <SelectItem value="phone">Telefónne číslo</SelectItem>
+                <SelectItem value="postalCode">PSČ</SelectItem>
+                <SelectItem value="nationalId">Rodné číslo</SelectItem>
+                <SelectItem value="iban">IBAN</SelectItem>
+                <SelectItem value="custom">Vlastný regex</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {rules.pattern === "custom" && (
+            <div className="space-y-1">
+              <Label className="text-[11px] text-muted-foreground">Regex vzor</Label>
+              <Input value={rules.customPattern || ""} onChange={e => updateRules("customPattern", e.target.value)} className="h-7 text-sm font-mono" placeholder="^[A-Z].*" />
+            </div>
+          )}
+        </div>
+
+        <div className="space-y-1 mt-3">
+          <Label className="text-[11px] text-muted-foreground">Vlastná chybová správa</Label>
+          <Input value={rules.errorMessage || ""} onChange={e => updateRules("errorMessage", e.target.value)} className="h-7 text-sm" placeholder="Napr. Zadajte platné telefónne číslo" />
+        </div>
+      </div>
+
+      <div className="flex justify-end gap-2 pt-3 border-t">
+        <Button variant="outline" size="sm" onClick={onCancel}>Zrušiť</Button>
+        <Button size="sm" onClick={onSave}><CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Uložiť pole</Button>
       </div>
     </div>
   );
@@ -654,11 +923,7 @@ function LayoutPreview({ sections, fields, formData }: { sections: any[]; fields
     const result: Array<{ section: any; fields: any[] }> = [];
     const fieldsBySection: Map<string, any[]> = new Map();
     const noSection: any[] = [];
-
-    const sortedFields = [...fields]
-      .filter((f: any) => f.isVisible !== false)
-      .sort((a: any, b: any) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
-
+    const sortedFields = [...fields].filter((f: any) => f.isVisible !== false).sort((a: any, b: any) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
     for (const field of sortedFields) {
       if (field.sectionId) {
         const existing = fieldsBySection.get(field.sectionId) || [];
@@ -668,20 +933,12 @@ function LayoutPreview({ sections, fields, formData }: { sections: any[]; fields
         noSection.push(field);
       }
     }
-
-    const sortedSections = [...sections]
-      .filter((s: any) => s.isVisible !== false)
-      .sort((a: any, b: any) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
-
+    const sortedSections = [...sections].filter((s: any) => s.isVisible !== false).sort((a: any, b: any) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
     for (const sec of sortedSections) {
       const secFields = fieldsBySection.get(sec.id) || [];
-      if (secFields.length > 0) {
-        result.push({ section: sec, fields: secFields });
-      }
+      if (secFields.length > 0) result.push({ section: sec, fields: secFields });
     }
-    if (noSection.length > 0) {
-      result.push({ section: { title: null, columns: 2 }, fields: noSection });
-    }
+    if (noSection.length > 0) result.push({ section: { title: null, columns: 2 }, fields: noSection });
     return result;
   }, [sections, fields]);
 
@@ -692,7 +949,6 @@ function LayoutPreview({ sections, fields, formData }: { sections: any[]; fields
         {formData.headerSubtitle && <div className="text-[9px] leading-tight" style={{ color: textColor + "cc" }}>{formData.headerSubtitle}</div>}
         {formData.contactInfo && <div className="text-[8px] mt-1" style={{ color: textColor + "99" }}>{formData.contactInfo}</div>}
       </div>
-
       <div className="bg-white mx-3 -mt-2 rounded-xl shadow-sm mb-3 overflow-hidden">
         <div className="p-4 space-y-3">
           {grouped.map((group, gi) => {
@@ -702,9 +958,7 @@ function LayoutPreview({ sections, fields, formData }: { sections: any[]; fields
                 {group.section?.title && (
                   <div className="flex items-center gap-2 mb-2">
                     <div className="h-px flex-1" style={{ backgroundColor: sectionColor + "30" }} />
-                    <span className="text-[9px] font-bold uppercase tracking-wider" style={{ color: sectionColor }}>
-                      {group.section.title}
-                    </span>
+                    <span className="text-[9px] font-bold uppercase tracking-wider" style={{ color: sectionColor }}>{group.section.title}</span>
                     <div className="h-px flex-1" style={{ backgroundColor: sectionColor + "30" }} />
                   </div>
                 )}
@@ -712,11 +966,7 @@ function LayoutPreview({ sections, fields, formData }: { sections: any[]; fields
                   {group.fields.map((field: any, fi: number) => {
                     const span = Math.min(field.columnSpan || 1, cols);
                     return (
-                      <div
-                        key={fi}
-                        className="border border-dashed border-gray-200 rounded-md p-1.5 bg-gray-50/50"
-                        style={{ gridColumn: span > 1 ? `span ${span}` : undefined }}
-                      >
+                      <div key={fi} className="border border-dashed border-gray-200 rounded-md p-1.5 bg-gray-50/50" style={{ gridColumn: span > 1 ? `span ${span}` : undefined }}>
                         <div className="flex items-center gap-1">
                           <span className="text-[9px] text-gray-500 truncate">{field.label}</span>
                           {field.isRequired && <span className="text-red-400 text-[9px]">*</span>}
@@ -729,17 +979,10 @@ function LayoutPreview({ sections, fields, formData }: { sections: any[]; fields
               </div>
             );
           })}
-
           <div className="border-t pt-1.5 space-y-1">
-            <div className="flex items-center gap-1">
-              <div className="w-2.5 h-2.5 rounded border border-gray-300" />
-              <span className="text-[8px] text-gray-400">GDPR súhlas</span>
-            </div>
+            <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded border border-gray-300" /><span className="text-[8px] text-gray-400">GDPR súhlas</span></div>
           </div>
-
-          <div className="rounded-md h-6 flex items-center justify-center text-white text-[9px] font-semibold" style={{ backgroundColor: brandColor }}>
-            Odoslať žiadosť
-          </div>
+          <div className="rounded-md h-6 flex items-center justify-center text-white text-[9px] font-semibold" style={{ backgroundColor: brandColor }}>Odoslať žiadosť</div>
         </div>
       </div>
     </div>
@@ -748,23 +991,27 @@ function LayoutPreview({ sections, fields, formData }: { sections: any[]; fields
 
 function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void }) {
   const { toast } = useToast();
-  const [formData, setFormData] = useState<any>({ ...form });
+  const [formData, setFormData] = useState<any>({});
+  const [editFields, setEditFields] = useState<any[]>([]);
+  const [editSections, setEditSections] = useState<any[]>([]);
+  const [hydrated, setHydrated] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
-  const { data: formDetail } = useQuery<any>({
+  const { data: formDetail, isLoading: detailLoading } = useQuery<any>({
     queryKey: ["/api/web-forms", form.id],
     staleTime: Infinity,
   });
 
-  const [editFields, setEditFields] = useState<any[]>([]);
-  const [editSections, setEditSections] = useState<any[]>([]);
-  const [hydrated, setHydrated] = useState(false);
-
   useEffect(() => {
     if (formDetail && !hydrated) {
-      const { sections, fields, ...detailFormData } = formDetail;
-      setFormData((prev: any) => ({ ...prev, ...detailFormData }));
+      const { sections, fields, id, createdAt, updatedAt, createdBy, ...editableData } = formDetail;
+      setFormData(editableData);
       setEditSections((sections || []).map((s: any) => ({ ...s, columns: s.columns || 2 })));
-      setEditFields((fields || []).map((f: any, i: number) => ({ ...f, columnSpan: f.columnSpan || 1, _key: f.id || `field-${Date.now()}-${i}` })));
+      setEditFields((fields || []).map((f: any, i: number) => ({
+        ...f,
+        columnSpan: f.columnSpan || 1,
+        _key: f.id || `field-${Date.now()}-${i}`,
+      })));
       setHydrated(true);
     }
   }, [formDetail, hydrated]);
@@ -772,7 +1019,10 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
   const updateMutation = useMutation({
     mutationFn: async (data: any) => {
       const res = await apiRequest("PATCH", `/api/web-forms/${form.id}`, data);
-      if (!res.ok) throw new Error("Failed to update");
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({ error: "Unknown error" }));
+        throw new Error(errData.error || `HTTP ${res.status}`);
+      }
       return res.json();
     },
     onSuccess: () => {
@@ -781,98 +1031,58 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
       toast({ title: "Formulár uložený" });
       onClose();
     },
+    onError: (e: any) => {
+      setSaveError(e.message);
+      toast({ title: "Chyba pri ukladaní", description: e.message, variant: "destructive" });
+    },
   });
 
   const handleSave = () => {
+    setSaveError(null);
     const sectionColMap = new Map(editSections.map((s: any) => [s.id, s.columns || 2]));
-    const normalizedFields = editFields.map((f: any, i: number) => {
-      const maxCols = f.sectionId ? (sectionColMap.get(f.sectionId) || 2) : 2;
-      const { _key, ...rest } = f;
-      return { ...rest, sortOrder: i, columnSpan: Math.min(f.columnSpan || 1, maxCols) };
+
+    let sortOrderCounter = 0;
+    const sortedSections = [...editSections].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+    const normalizedFields: any[] = [];
+
+    for (const sec of sortedSections) {
+      const secFields = editFields
+        .filter(f => f.sectionId === sec.id)
+        .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+      for (const f of secFields) {
+        const { _key, _globalIdx, id: _fId, ...rest } = f;
+        const maxCols = sectionColMap.get(f.sectionId) || 2;
+        normalizedFields.push({ ...rest, sortOrder: sortOrderCounter++, columnSpan: Math.min(f.columnSpan || 1, maxCols) });
+      }
+    }
+
+    const orphans = editFields.filter(f => !f.sectionId).sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+    for (const f of orphans) {
+      const { _key, _globalIdx, id: _fId, ...rest } = f;
+      normalizedFields.push({ ...rest, sortOrder: sortOrderCounter++, columnSpan: Math.min(f.columnSpan || 1, 2) });
+    }
+
+    const cleanSections = editSections.map(s => {
+      const { id: _sId, ...rest } = s;
+      return rest;
     });
-    const { sections: _s, fields: _f, ...cleanFormData } = formData;
+
     updateMutation.mutate({
-      ...cleanFormData,
-      sections: editSections,
+      ...formData,
+      sections: cleanSections,
       fields: normalizedFields,
     });
   };
 
-  const updateField = useCallback((idx: number, updated: any) => {
-    setEditFields(prev => prev.map((f, i) => i === idx ? updated : f));
-  }, []);
-
-  const removeField = useCallback((idx: number) => {
-    setEditFields(prev => prev.filter((_, i) => i !== idx));
-  }, []);
-
-  const moveField = useCallback((idx: number, direction: "up" | "down") => {
-    setEditFields(prev => {
-      const arr = [...prev];
-      const target = direction === "up" ? idx - 1 : idx + 1;
-      if (target < 0 || target >= arr.length) return prev;
-      [arr[idx], arr[target]] = [arr[target], arr[idx]];
-      return arr;
-    });
-  }, []);
-
-  const addField = (fieldDef: typeof CUSTOMER_FIELDS[0] | typeof SPECIAL_FIELDS[0]) => {
-    setEditFields(prev => [...prev, {
-      _key: `new-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      customerField: fieldDef.key,
-      fieldType: fieldDef.type,
-      label: fieldDef.label,
-      isRequired: false,
-      sortOrder: prev.length,
-      sectionId: editSections[0]?.id || null,
-      placeholder: "",
-      helpText: "",
-      validationRules: null,
-      options: null,
-      defaultValue: null,
-      isVisible: true,
-      columnSpan: 1,
-    }]);
-  };
-
-  const addCustomField = () => {
-    setEditFields(prev => [...prev, {
-      _key: `custom-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      customerField: null,
-      fieldType: "text",
-      label: "Nové pole",
-      isRequired: false,
-      sortOrder: prev.length,
-      sectionId: editSections[0]?.id || null,
-      placeholder: "",
-      helpText: "",
-      validationRules: null,
-      options: null,
-      defaultValue: null,
-      isVisible: true,
-      columnSpan: 1,
-    }]);
-  };
-
-  const addSection = () => {
-    setEditSections(prev => [...prev, {
-      id: `new-${Date.now()}`,
-      title: "Nová sekcia",
-      sortOrder: prev.length,
-      columns: 2,
-      isVisible: true,
-    }]);
-  };
-
-  const allFieldKeys = [...CUSTOMER_FIELDS, ...SPECIAL_FIELDS];
-  const usedFieldKeys = new Set(editFields.map((f: any) => f.customerField));
-  const availableFields = allFieldKeys.filter(f => !usedFieldKeys.has(f.key));
-
-  const getSectionColumns = (sectionId: string | null) => {
-    if (!sectionId) return 2;
-    const sec = editSections.find((s: any) => s.id === sectionId);
-    return sec?.columns || 2;
-  };
+  if (detailLoading || !hydrated) {
+    return (
+      <Sheet open onOpenChange={(o) => !o && onClose()}>
+        <SheetContent className="sm:max-w-[1100px]">
+          <div className="flex items-center justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
+        </SheetContent>
+      </Sheet>
+    );
+  }
 
   return (
     <Sheet open onOpenChange={(o) => !o && onClose()}>
@@ -881,243 +1091,82 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
           <SheetTitle>Upraviť formulár: {form.name}</SheetTitle>
         </SheetHeader>
         <div className="space-y-6 mt-6">
-          <Tabs defaultValue="layout">
-            <TabsList className="grid grid-cols-6 w-full">
-              <TabsTrigger value="layout" data-testid="tab-layout">
-                <LayoutGrid className="h-3.5 w-3.5 mr-1" /> Rozloženie
+          <Tabs defaultValue="builder">
+            <TabsList className="grid grid-cols-5 w-full">
+              <TabsTrigger value="builder" data-testid="tab-builder">
+                <LayoutGrid className="h-3.5 w-3.5 mr-1" /> Štruktúra
               </TabsTrigger>
-              <TabsTrigger value="fields">Polia ({editFields.length})</TabsTrigger>
-              <TabsTrigger value="sections">Sekcie ({editSections.length})</TabsTrigger>
-              <TabsTrigger value="design"><Palette className="h-3.5 w-3.5 mr-1" /> Dizajn</TabsTrigger>
-              <TabsTrigger value="settings">Základné</TabsTrigger>
-              <TabsTrigger value="texts">Texty & GDPR</TabsTrigger>
+              <TabsTrigger value="design" data-testid="tab-design">
+                <Palette className="h-3.5 w-3.5 mr-1" /> Dizajn
+              </TabsTrigger>
+              <TabsTrigger value="settings" data-testid="tab-settings">
+                <Settings className="h-3.5 w-3.5 mr-1" /> Základné
+              </TabsTrigger>
+              <TabsTrigger value="texts" data-testid="tab-texts">Texty & GDPR</TabsTrigger>
+              <TabsTrigger value="preview" data-testid="tab-preview">
+                <Eye className="h-3.5 w-3.5 mr-1" /> Náhľad
+              </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="layout" className="mt-4">
-              <div className="grid grid-cols-5 gap-4">
-                <div className="col-span-2">
-                  <h4 className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wider">Náhľad rozloženia</h4>
-                  <LayoutPreview
-                    sections={editSections}
-                    fields={editFields}
-                    formData={formData}
-                  />
-                </div>
-
-                <div className="col-span-3 space-y-3">
-                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Sekcie a stĺpce</h4>
-                  {editSections.map((section: any, idx: number) => {
-                    const sectionFields = editFields.filter((f: any) => f.sectionId === section.id);
-                    return (
-                      <div key={section.id || idx} className="border rounded-lg p-3 space-y-2">
-                        <div className="flex items-center gap-2">
-                          <Input
-                            value={section.title}
-                            onChange={e => {
-                              const updated = [...editSections];
-                              updated[idx] = { ...updated[idx], title: e.target.value };
-                              setEditSections(updated);
-                            }}
-                            className="h-7 text-sm flex-1 font-medium"
-                          />
-                          <div className="flex items-center gap-1 shrink-0">
-                            <Columns className="h-3.5 w-3.5 text-muted-foreground" />
-                            <Select
-                              value={String(section.columns || 2)}
-                              onValueChange={v => {
-                                const updated = [...editSections];
-                                updated[idx] = { ...updated[idx], columns: Number(v) };
-                                setEditSections(updated);
-                              }}
-                            >
-                              <SelectTrigger className="h-7 w-20 text-xs">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="1">1 stĺpec</SelectItem>
-                                <SelectItem value="2">2 stĺpce</SelectItem>
-                                <SelectItem value="3">3 stĺpce</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-                        <div className="text-[10px] text-muted-foreground">
-                          {sectionFields.length} polí v sekcii
-                        </div>
-                        <div className="flex flex-wrap gap-1">
-                          {sectionFields.map((f: any, fi: number) => (
-                            <Badge key={f._key || f.id || fi} variant="outline" className="text-[10px]">
-                              {f.label}
-                              {(f.columnSpan || 1) > 1 && <Maximize2 className="h-2.5 w-2.5 ml-0.5" />}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })}
-                  <Button size="sm" variant="outline" onClick={addSection} className="w-full">
-                    <Plus className="h-3 w-3 mr-1" /> Pridať sekciu
-                  </Button>
-
-                  <Separator />
-                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Rýchle pridanie polí</h4>
-                  <div className="flex flex-wrap gap-1">
-                    {availableFields.slice(0, 10).map(f => (
-                      <Button key={f.key} size="sm" variant="outline" className="h-6 text-[10px]" onClick={() => addField(f)}>
-                        <Plus className="h-2.5 w-2.5 mr-0.5" /> {f.label}
-                      </Button>
-                    ))}
-                    <Button size="sm" variant="outline" className="h-6 text-[10px]" onClick={addCustomField}>
-                      <Plus className="h-2.5 w-2.5 mr-0.5" /> Vlastné pole
-                    </Button>
-                  </div>
-                </div>
-              </div>
+            <TabsContent value="builder" className="mt-4">
+              <SectionFieldsBuilder
+                editSections={editSections}
+                setEditSections={setEditSections}
+                editFields={editFields}
+                setEditFields={setEditFields}
+              />
             </TabsContent>
 
             <TabsContent value="design" className="mt-4 space-y-6">
-              <div className="grid grid-cols-5 gap-6">
-                <div className="col-span-3 space-y-5">
-                  <div>
-                    <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Farby</h4>
-                    <div className="grid grid-cols-3 gap-3">
-                      <ColorInput label="Hlavná farba (header)" value={formData.brandColor || "#16a34a"} onChange={v => setFormData({ ...formData, brandColor: v })} />
-                      <ColorInput label="Farba písma (header)" value={formData.textColor || "#ffffff"} onChange={v => setFormData({ ...formData, textColor: v })} />
-                      <ColorInput label="Farba nadpisov sekcií" value={formData.sectionColor || formData.brandColor || "#16a34a"} onChange={v => setFormData({ ...formData, sectionColor: v })} />
-                    </div>
-                    <div className="grid grid-cols-3 gap-3 mt-3">
-                      <ColorInput label="Pozadie stránky" value={formData.bgColor || "#f3f4f6"} onChange={v => setFormData({ ...formData, bgColor: v })} />
-                      <ColorInput label="Farba nadpisu" value={formData.headingColor || "#ffffff"} onChange={v => setFormData({ ...formData, headingColor: v })} />
-                      <div className="space-y-1">
-                        <Label className="text-[11px] text-muted-foreground">Šírka formulára</Label>
-                        <Select value={formData.formWidth || "3xl"} onValueChange={v => setFormData({ ...formData, formWidth: v })}>
-                          <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            {FORM_WIDTHS.map(w => <SelectItem key={w.value} value={w.value}>{w.label}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  <div>
-                    <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                      <Type className="h-3.5 w-3.5" /> Typografia
-                    </h4>
-                    <div className="space-y-4">
-                      <div className="space-y-1.5">
-                        <Label className="text-[11px] font-medium">Nadpis formulára</Label>
-                        <FontStyleEditor prefix="title" formData={formData} setFormData={setFormData} />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-[11px] font-medium">Podnadpis</Label>
-                        <FontStyleEditor prefix="subtitle" formData={formData} setFormData={setFormData} />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-[11px] font-medium">Nadpisy sekcií</Label>
-                        <FontStyleEditor prefix="section" formData={formData} setFormData={setFormData} showFamily={false} />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-[11px] font-medium">Popisky polí</Label>
-                        <FontStyleEditor prefix="label" formData={formData} setFormData={setFormData} showFamily={false} showItalic={false} />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-[11px] font-medium">Tlačidlo odoslať</Label>
-                        <FontStyleEditor prefix="button" formData={formData} setFormData={setFormData} showFamily={false} showItalic={false} />
-                      </div>
-                    </div>
+              <div>
+                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Farby</h4>
+                <div className="grid grid-cols-3 gap-3">
+                  <ColorInput label="Hlavná farba (header)" value={formData.brandColor || "#16a34a"} onChange={v => setFormData({ ...formData, brandColor: v })} />
+                  <ColorInput label="Farba písma (header)" value={formData.textColor || "#ffffff"} onChange={v => setFormData({ ...formData, textColor: v })} />
+                  <ColorInput label="Farba nadpisov sekcií" value={formData.sectionColor || formData.brandColor || "#16a34a"} onChange={v => setFormData({ ...formData, sectionColor: v })} />
+                </div>
+                <div className="grid grid-cols-3 gap-3 mt-3">
+                  <ColorInput label="Pozadie stránky" value={formData.bgColor || "#f3f4f6"} onChange={v => setFormData({ ...formData, bgColor: v })} />
+                  <ColorInput label="Farba nadpisu" value={formData.headingColor || "#ffffff"} onChange={v => setFormData({ ...formData, headingColor: v })} />
+                  <div className="space-y-1">
+                    <Label className="text-[11px] text-muted-foreground">Šírka formulára</Label>
+                    <Select value={formData.formWidth || "3xl"} onValueChange={v => setFormData({ ...formData, formWidth: v })}>
+                      <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>{FORM_WIDTHS.map(w => <SelectItem key={w.value} value={w.value}>{w.label}</SelectItem>)}</SelectContent>
+                    </Select>
                   </div>
                 </div>
-                <div className="col-span-2">
-                  <h4 className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wider">Náhľad</h4>
-                  <LayoutPreview sections={editSections} fields={editFields} formData={formData} />
-                </div>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="fields" className="space-y-3 mt-4">
-              <div className="space-y-1.5">
-                {editFields.map((field: any, idx: number) => (
-                  <FieldEditor
-                    key={field._key || field.id || idx}
-                    field={field}
-                    index={idx}
-                    sectionsOptions={editSections.map((s: any) => ({ id: s.id, title: s.title, columns: s.columns || 2 }))}
-                    onUpdate={updateField}
-                    onRemove={removeField}
-                    onMoveUp={(i) => moveField(i, "up")}
-                    onMoveDown={(i) => moveField(i, "down")}
-                    isFirst={idx === 0}
-                    isLast={idx === editFields.length - 1}
-                    sectionColumns={getSectionColumns(field.sectionId)}
-                  />
-                ))}
               </div>
 
               <Separator />
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label className="text-xs text-muted-foreground">Pridať zákaznícke pole</Label>
-                  <Button size="sm" variant="outline" className="h-6 text-[10px]" onClick={addCustomField}>
-                    <Plus className="h-2.5 w-2.5 mr-1" /> Vlastné pole
-                  </Button>
-                </div>
-                <div className="flex flex-wrap gap-1">
-                  {availableFields.map(f => (
-                    <Button key={f.key} size="sm" variant="outline" className="h-6 text-[10px]" onClick={() => addField(f)}>
-                      <Plus className="h-2.5 w-2.5 mr-1" /> {f.label}
-                    </Button>
-                  ))}
+
+              <div>
+                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                  <Type className="h-3.5 w-3.5" /> Typografia
+                </h4>
+                <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <Label className="text-[11px] font-medium">Nadpis formulára</Label>
+                    <FontStyleEditor prefix="title" formData={formData} setFormData={setFormData} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-[11px] font-medium">Podnadpis</Label>
+                    <FontStyleEditor prefix="subtitle" formData={formData} setFormData={setFormData} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-[11px] font-medium">Nadpisy sekcií</Label>
+                    <FontStyleEditor prefix="section" formData={formData} setFormData={setFormData} showFamily={false} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-[11px] font-medium">Popisky polí</Label>
+                    <FontStyleEditor prefix="label" formData={formData} setFormData={setFormData} showFamily={false} showItalic={false} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-[11px] font-medium">Tlačidlo odoslať</Label>
+                    <FontStyleEditor prefix="button" formData={formData} setFormData={setFormData} showFamily={false} showItalic={false} />
+                  </div>
                 </div>
               </div>
-            </TabsContent>
-
-            <TabsContent value="sections" className="space-y-3 mt-4">
-              {editSections.map((section: any, idx: number) => (
-                <div key={section.id || idx} className="flex items-center gap-2 p-3 border rounded-lg">
-                  <GripVertical className="h-4 w-4 text-muted-foreground" />
-                  <Input value={section.title} onChange={e => {
-                    const updated = [...editSections];
-                    updated[idx] = { ...updated[idx], title: e.target.value };
-                    setEditSections(updated);
-                  }} className="h-7 text-sm flex-1" />
-                  <div className="flex items-center gap-1 shrink-0">
-                    <Columns className="h-3.5 w-3.5 text-muted-foreground" />
-                    <Select value={String(section.columns || 2)} onValueChange={v => {
-                      const updated = [...editSections];
-                      updated[idx] = { ...updated[idx], columns: Number(v) };
-                      setEditSections(updated);
-                    }}>
-                      <SelectTrigger className="h-7 w-20 text-xs"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="1">1 stĺp.</SelectItem>
-                        <SelectItem value="2">2 stĺp.</SelectItem>
-                        <SelectItem value="3">3 stĺp.</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <Switch checked={section.isVisible !== false} onCheckedChange={checked => {
-                    const updated = [...editSections];
-                    updated[idx] = { ...updated[idx], isVisible: checked };
-                    setEditSections(updated);
-                  }} />
-                  <Label className="text-[10px]">Viditeľná</Label>
-                  <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive" onClick={() => {
-                    const removedId = editSections[idx]?.id;
-                    setEditSections(prev => prev.filter((_, i) => i !== idx));
-                    if (removedId) {
-                      setEditFields(prev => prev.map(f => f.sectionId === removedId ? { ...f, sectionId: null } : f));
-                    }
-                  }}>
-                    <X className="h-3 w-3" />
-                  </Button>
-                </div>
-              ))}
-              <Button size="sm" variant="outline" onClick={addSection}>
-                <Plus className="h-3 w-3 mr-1" /> Pridať sekciu
-              </Button>
             </TabsContent>
 
             <TabsContent value="settings" className="space-y-4 mt-4">
@@ -1136,9 +1185,7 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
                   <Label className="text-xs">Krajina</Label>
                   <Select value={formData.countryCode} onValueChange={v => setFormData({ ...formData, countryCode: v })}>
                     <SelectTrigger data-testid="select-form-country"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {COUNTRIES.map(c => <SelectItem key={c.code} value={c.code}>{c.flag} {c.name}</SelectItem>)}
-                    </SelectContent>
+                    <SelectContent>{COUNTRIES.map(c => <SelectItem key={c.code} value={c.code}>{c.flag} {c.name}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1">
@@ -1190,11 +1237,23 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
                 <Textarea value={formData.successMessage || ""} onChange={e => setFormData({ ...formData, successMessage: e.target.value })} rows={2} />
               </div>
             </TabsContent>
+
+            <TabsContent value="preview" className="mt-4">
+              <div className="max-w-sm mx-auto">
+                <LayoutPreview sections={editSections} fields={editFields} formData={formData} />
+              </div>
+            </TabsContent>
           </Tabs>
+
+          {saveError && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+              Chyba: {saveError}
+            </div>
+          )}
 
           <div className="flex justify-end gap-2 pt-4 border-t">
             <Button variant="outline" onClick={onClose}>Zrušiť</Button>
-            <Button onClick={handleSave} disabled={updateMutation.isPending || !hydrated} data-testid="btn-save-form">
+            <Button onClick={handleSave} disabled={updateMutation.isPending} data-testid="btn-save-form">
               {updateMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
               Uložiť
             </Button>

@@ -32958,18 +32958,43 @@ Return ONLY the JSON object.`
 
   app.patch("/api/web-forms/:id", requireAuth, async (req, res) => {
     try {
-      const { sections, fields, ...formData } = req.body;
-      const form = await storage.updateWebForm(req.params.id, formData);
+      const { sections, fields, ...raw } = req.body;
+      const ALLOWED_FORM_KEYS = [
+        "name","slug","countryCode","language","description","headerTitle","headerSubtitle",
+        "gdprText","gdprMarketingText","gdprPregnancyText","successMessage",
+        "brandColor","textColor","headingColor","sectionColor","bgColor","formWidth","logoUrl","isActive","contactInfo",
+        "titleFontSize","titleFontWeight","titleFontStyle","titleFontFamily",
+        "subtitleFontSize","subtitleFontWeight","subtitleFontStyle","subtitleFontFamily",
+        "sectionFontSize","sectionFontWeight","sectionFontStyle",
+        "labelFontSize","labelFontWeight","buttonFontSize","buttonFontWeight",
+      ];
+      const formData: Record<string, any> = {};
+      for (const k of ALLOWED_FORM_KEYS) {
+        if (k in raw) formData[k] = raw[k];
+      }
+      console.log("[WebForm PATCH]", req.params.id, "keys:", Object.keys(formData).join(","), "sections:", sections?.length, "fields:", fields?.length);
+      const form = await storage.updateWebForm(req.params.id, formData as any);
       if (sections && Array.isArray(sections)) {
         await storage.deleteWebFormSectionsByFormId(form.id);
-        for (const s of sections) await storage.createWebFormSection({ ...s, formId: form.id });
+        for (const s of sections) {
+          const { id: _secId, ...sData } = s;
+          await storage.createWebFormSection({ ...sData, formId: form.id });
+        }
       }
       if (fields && Array.isArray(fields)) {
         await storage.deleteWebFormFieldsByFormId(form.id);
-        for (const f of fields) await storage.createWebFormField({ ...f, formId: form.id });
+        for (const f of fields) {
+          const { id: _fId, ...fData } = f;
+          await storage.createWebFormField({ ...fData, formId: form.id });
+        }
       }
-      res.json(form);
-    } catch (e: any) { res.status(500).json({ error: e.message }); }
+      const updatedSections = await storage.getWebFormSections(form.id);
+      const updatedFields = await storage.getWebFormFields(form.id);
+      res.json({ ...form, sections: updatedSections, fields: updatedFields });
+    } catch (e: any) {
+      console.error("[WebForm PATCH ERROR]", e.message, e.stack);
+      res.status(500).json({ error: e.message });
+    }
   });
 
   app.delete("/api/web-forms/:id", requireAuth, async (req, res) => {
