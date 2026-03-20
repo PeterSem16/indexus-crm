@@ -749,6 +749,52 @@ function countMatchingContacts(contacts: any[], rule: ContactSortRule): number {
   }).length;
 }
 
+function getDistinctFieldValues(contacts: any[], fieldPath: string, contactType: string): string[] {
+  const vals = new Set<string>();
+  for (const c of contacts) {
+    if (contactType && c.contactType !== contactType) continue;
+    const v = resolveContactFieldValue(c, fieldPath);
+    if (v != null && String(v).trim() !== "") {
+      vals.add(String(v));
+    }
+  }
+  return Array.from(vals).sort((a, b) => a.localeCompare(b));
+}
+
+function applySortRulesToContacts(contacts: any[], rules: ContactSortRule[]): any[] {
+  if (!rules || rules.length === 0) return contacts;
+  const sorted = [...contacts];
+  sorted.sort((a, b) => {
+    for (const rule of rules) {
+      const aTypeMatch = !rule.contactType || a.contactType === rule.contactType;
+      const bTypeMatch = !rule.contactType || b.contactType === rule.contactType;
+      if (!aTypeMatch && !bTypeMatch) continue;
+      if (!aTypeMatch) return 1;
+      if (!bTypeMatch) return -1;
+      const aCondMatch = checkRuleCondition(a, rule);
+      const bCondMatch = checkRuleCondition(b, rule);
+      if (!aCondMatch && !bCondMatch) continue;
+      if (!aCondMatch) return 1;
+      if (!bCondMatch) return -1;
+      const aVal = resolveContactFieldValue(a, rule.sortField);
+      const bVal = resolveContactFieldValue(b, rule.sortField);
+      const aStr = aVal == null ? "" : String(aVal);
+      const bStr = bVal == null ? "" : String(bVal);
+      const aNum = parseFloat(aStr);
+      const bNum = parseFloat(bStr);
+      let cmp = 0;
+      if (!isNaN(aNum) && !isNaN(bNum)) {
+        cmp = aNum - bNum;
+      } else {
+        cmp = aStr.localeCompare(bStr);
+      }
+      if (cmp !== 0) return rule.sortDirection === "desc" ? -cmp : cmp;
+    }
+    return 0;
+  });
+  return sorted;
+}
+
 function SortRulesDialog({ campaign, open, onOpenChange, contacts }: { campaign: Campaign; open: boolean; onOpenChange: (open: boolean) => void; contacts: any[] }) {
   const { t } = useI18n();
   const { toast } = useToast();
@@ -848,7 +894,7 @@ function SortRulesDialog({ campaign, open, onOpenChange, contacts }: { campaign:
           </DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 -mx-6 px-6">
+        <ScrollArea className="flex-1 min-h-0 -mx-6 px-6" style={{ maxHeight: "calc(85vh - 180px)" }}>
           <div className="space-y-3 pb-4">
             {sortRules.length === 0 ? (
               <div className="text-center py-10 text-muted-foreground border rounded-lg border-dashed">
@@ -979,9 +1025,27 @@ function SortRulesDialog({ campaign, open, onOpenChange, contacts }: { campaign:
                               </SelectContent>
                             </Select>
                           )}
-                          {rule.conditionField && needsValue(rule.conditionOp) && (
-                            <Input className="h-8 text-xs" placeholder={t.campaigns.detail.sortRuleConditionValue} value={rule.conditionValue} onChange={(e) => updateRule(rule.id, { conditionValue: e.target.value })} data-testid={`sort-rule-${index}-cond-value`} />
-                          )}
+                          {rule.conditionField && needsValue(rule.conditionOp) && (() => {
+                            const distinctVals = getDistinctFieldValues(contacts, rule.conditionField, rule.contactType);
+                            if (distinctVals.length > 0 && distinctVals.length <= 200) {
+                              return (
+                                <div className="relative">
+                                  <Select value={rule.conditionValue || "__custom__"} onValueChange={(v) => updateRule(rule.id, { conditionValue: v === "__custom__" ? "" : v })}>
+                                    <SelectTrigger className="h-8 text-xs" data-testid={`sort-rule-${index}-cond-value`}>
+                                      <SelectValue placeholder={t.campaigns.detail.sortRuleConditionValue} />
+                                    </SelectTrigger>
+                                    <SelectContent className="max-h-48">
+                                      <SelectItem value="__custom__" className="text-muted-foreground italic text-xs">— {t.campaigns.detail.sortRuleConditionValue} —</SelectItem>
+                                      {distinctVals.map(v => (
+                                        <SelectItem key={v} value={v} className="text-xs">{v}</SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              );
+                            }
+                            return <Input className="h-8 text-xs" placeholder={t.campaigns.detail.sortRuleConditionValue} value={rule.conditionValue} onChange={(e) => updateRule(rule.id, { conditionValue: e.target.value })} data-testid={`sort-rule-${index}-cond-value`} />;
+                          })()}
                         </div>
                       </div>
                     </div>
@@ -2367,8 +2431,8 @@ export default function CampaignDetailPage() {
 
   const handleExportContacts = () => {
     const dataToExport = selectedContacts.size > 0
-      ? filteredContacts.filter((c: any) => selectedContacts.has(c.id))
-      : filteredContacts;
+      ? sortedFilteredContacts.filter((c: any) => selectedContacts.has(c.id))
+      : sortedFilteredContacts;
     
     const headers = [t.common.firstName, t.common.lastName, t.common.email, t.common.phone, t.common.status, t.campaigns.detail.result, t.common.code, t.campaigns.detail.attempts, t.campaigns.detail.lastAttempt, t.campaigns.detail.country];
     const rows = dataToExport.map((c: any) => [
@@ -2418,9 +2482,16 @@ export default function CampaignDetailPage() {
   }
 
   const filteredContacts = applyContactFilters(contacts as any, contactFilters);
+  const savedSortRules = useMemo(() => {
+    try {
+      const s = JSON.parse(campaign?.settings || "{}");
+      return Array.isArray(s.contactSortRules) ? s.contactSortRules : [];
+    } catch { return []; }
+  }, [campaign?.settings]);
+  const sortedFilteredContacts = useMemo(() => applySortRulesToContacts(filteredContacts, savedSortRules), [filteredContacts, savedSortRules]);
   const contactsPerPage = 20;
-  const totalContactPages = Math.max(1, Math.ceil(filteredContacts.length / contactsPerPage));
-  const paginatedContacts = filteredContacts.slice((contactsPage - 1) * contactsPerPage, contactsPage * contactsPerPage);
+  const totalContactPages = Math.max(1, Math.ceil(sortedFilteredContacts.length / contactsPerPage));
+  const paginatedContacts = sortedFilteredContacts.slice((contactsPage - 1) * contactsPerPage, contactsPage * contactsPerPage);
 
   const progressPercentage = stats 
     ? ((stats.completedContacts + stats.notInterestedContacts) / Math.max(stats.totalContacts, 1)) * 100
@@ -2981,7 +3052,7 @@ export default function CampaignDetailPage() {
               {totalContactPages > 1 && (
                 <div className="flex items-center justify-between pt-3 px-1">
                   <span className="text-sm text-muted-foreground">
-                    {(contactsPage - 1) * contactsPerPage + 1}–{Math.min(contactsPage * contactsPerPage, filteredContacts.length)} z {filteredContacts.length}
+                    {(contactsPage - 1) * contactsPerPage + 1}–{Math.min(contactsPage * contactsPerPage, sortedFilteredContacts.length)} z {sortedFilteredContacts.length}
                   </span>
                   <div className="flex items-center gap-1">
                     <Button variant="outline" size="sm" disabled={contactsPage <= 1} onClick={() => setContactsPage(1)} data-testid="btn-contacts-first">
