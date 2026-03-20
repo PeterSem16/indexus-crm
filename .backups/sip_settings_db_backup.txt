@@ -1,0 +1,11 @@
+SIP Settings Backup - Fri Mar 20 10:48:01 AM UTC 2026
+id: 9b32147d-148e-4510-a910-7f2a63ae423a
+server: 10.1.2.112
+port: 8089
+ws_port: 8089
+ws_path: /ws
+transport: wss
+realm: asterisk
+is_enabled: true
+
+To restore: UPDATE sip_settings SET server='10.1.2.112', port=8089, ws_port=8089, ws_path='/ws', transport='wss', realm='asterisk' WHERE id='9b32147d-148e-4510-a910-7f2a63ae423a';

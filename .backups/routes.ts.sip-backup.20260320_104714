@@ -14640,18 +14640,10 @@ Return ONLY valid JSON, no markdown code blocks.`,
       console.log("[MobileSIP API] Found extension:", ext.extension, "username:", ext.sipUsername);
 
       const password = decryptSipPassword(ext.sipPasswordHash);
-      const sipServer = sipSettings.server;
-      const wsPort = sipSettings.wsPort || 8089;
-      const wsPath = sipSettings.wsPath || "/ws";
-      const realm = sipSettings.realm || sipServer;
-      console.log("[MobileSIP API] Returning credentials: server=" + sipServer + " wsPort=" + wsPort + " wsPath=" + wsPath + " realm=" + realm + " ext=" + ext.extension);
       res.json({
-        server: sipServer,
-        wsPort,
-        wsPath,
-        port: wsPort,
+        server: (sipSettings as any).sipServer || sipSettings.server,
+        port: (sipSettings as any).sipPort || sipSettings.wsPort || 8089,
         transport: "wss",
-        realm,
         extension: ext.extension,
         username: ext.sipUsername,
         password,

@@ -44,10 +44,7 @@ async function initWebRTC(): Promise<boolean> {
 export interface SipCredentials {
   server: string;
   port: number;
-  wsPort?: number;
-  wsPath?: string;
   transport: string;
-  realm?: string;
   extension: string;
   username: string;
   password: string;
@@ -188,17 +185,15 @@ class MobileSipEngine {
       const { UserAgent, Registerer, RegistererState } = this.sipModule;
       console.log('[MobileSIP] sip.js imported successfully');
 
-      const sipDomain = this.credentials!.realm || this.credentials!.server;
-      const sipUri = `sip:${this.credentials!.extension}@${sipDomain}`;
+      const sipUri = `sip:${this.credentials!.extension}@${this.credentials!.server}`;
       console.log('[MobileSIP] Creating URI:', sipUri);
       const uri = UserAgent.makeURI(sipUri);
       if (!uri) {
         throw new Error('Invalid SIP URI');
       }
 
-      const wsPort = this.credentials!.wsPort || this.credentials!.port || 8089;
-      const wsPath = this.credentials!.wsPath || '/ws';
-      const wsServer = `wss://${this.credentials!.server}:${wsPort}${wsPath}`;
+      const apiHost = API_BASE_URL.replace(/^https?:\/\//, '');
+      const wsServer = `wss://${apiHost}/wss-asterisk/`;
       console.log('[MobileSIP] Connecting to WebSocket:', wsServer);
 
       this.ua = new UserAgent({
@@ -456,8 +451,7 @@ class MobileSipEngine {
 
       if (!this.sipModule) this.sipModule = await import('sip.js');
       const { Inviter, UserAgent: UA } = this.sipModule;
-      const sipDomain = this.credentials!.realm || this.credentials!.server;
-      const targetUri = `sip:${phoneNumber}@${sipDomain}`;
+      const targetUri = `sip:${phoneNumber}@${this.credentials!.server}`;
       this.emit('debug', `INVITE target: ${targetUri}`);
       const target = UA.makeURI(targetUri);
       if (!target) {
