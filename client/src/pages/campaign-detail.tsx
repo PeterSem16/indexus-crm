@@ -591,76 +591,134 @@ type ContactSortRule = {
   conditionValue: string;
 };
 
-const SORT_FIELD_OPTIONS: { value: string; entity: string; labelKey: string }[] = [
-  { value: "createdAt", entity: "contact", labelKey: "sortFieldCreatedAt" },
-  { value: "status", entity: "contact", labelKey: "sortFieldStatus" },
-  { value: "attemptCount", entity: "contact", labelKey: "sortFieldAttemptCount" },
-  { value: "priorityScore", entity: "contact", labelKey: "sortFieldPriorityScore" },
-  { value: "callbackDate", entity: "contact", labelKey: "sortFieldNextContactDate" },
-  { value: "dispositionCode", entity: "contact", labelKey: "sortFieldLastCallResult" },
-  { value: "customer.firstName", entity: "customer", labelKey: "sortFieldName" },
-  { value: "customer.city", entity: "customer", labelKey: "sortFieldCity" },
-  { value: "customer.countryCode", entity: "customer", labelKey: "sortFieldCountry" },
-  { value: "customer.dateOfBirth", entity: "customer", labelKey: "sortFieldDateOfBirth" },
-  { value: "customer.leadStatus", entity: "customer", labelKey: "sortFieldLeadStatus" },
-  { value: "customer.leadScore", entity: "customer", labelKey: "sortFieldLeadScore" },
-  { value: "customer.leadSource", entity: "customer", labelKey: "sortFieldLeadSource" },
-  { value: "customer.contractStatus", entity: "customer", labelKey: "sortFieldContractStatus" },
-  { value: "customer.phone", entity: "customer", labelKey: "sortFieldPhone" },
-  { value: "customer.email", entity: "customer", labelKey: "sortFieldEmail" },
-  { value: "customer.isReferred", entity: "customer", labelKey: "sortFieldIsReferred" },
-  { value: "hospital.name", entity: "hospital", labelKey: "sortFieldName" },
-  { value: "hospital.city", entity: "hospital", labelKey: "sortFieldCity" },
-  { value: "hospital.countryCode", entity: "hospital", labelKey: "sortFieldCountry" },
-  { value: "hospital.isActive", entity: "hospital", labelKey: "sortFieldIsActive" },
-  { value: "hospital.region", entity: "hospital", labelKey: "sortFieldRegion" },
-  { value: "hospital.svetZdravia", entity: "hospital", labelKey: "sortFieldSvetZdravia" },
-  { value: "clinic.name", entity: "clinic", labelKey: "sortFieldName" },
-  { value: "clinic.city", entity: "clinic", labelKey: "sortFieldCity" },
-  { value: "clinic.countryCode", entity: "clinic", labelKey: "sortFieldCountry" },
-  { value: "clinic.isActive", entity: "clinic", labelKey: "sortFieldIsActive" },
-  { value: "collaborator.firstName", entity: "collaborator", labelKey: "sortFieldName" },
-  { value: "collaborator.city", entity: "collaborator", labelKey: "sortFieldCity" },
-  { value: "collaborator.countryCode", entity: "collaborator", labelKey: "sortFieldCountry" },
-  { value: "collaborator.collaboratorType", entity: "collaborator", labelKey: "sortFieldCollaboratorType" },
-  { value: "collaborator.interestCoop", entity: "collaborator", labelKey: "sortFieldInterestCoop" },
-  { value: "collaborator.autoRecruiting", entity: "collaborator", labelKey: "sortFieldAutoRecruiting" },
+type SortFieldOption = { value: string; entity: string; labelKey: string; group: string };
+
+const SORT_FIELD_OPTIONS: SortFieldOption[] = [
+  { value: "createdAt", entity: "contact", labelKey: "sortFieldCreatedAt", group: "Campaign Contact" },
+  { value: "status", entity: "contact", labelKey: "sortFieldStatus", group: "Campaign Contact" },
+  { value: "attemptCount", entity: "contact", labelKey: "sortFieldAttemptCount", group: "Campaign Contact" },
+  { value: "priorityScore", entity: "contact", labelKey: "sortFieldPriorityScore", group: "Campaign Contact" },
+  { value: "callbackDate", entity: "contact", labelKey: "sortFieldNextContactDate", group: "Campaign Contact" },
+  { value: "dispositionCode", entity: "contact", labelKey: "sortFieldLastCallResult", group: "Campaign Contact" },
+  { value: "lastAttemptAt", entity: "contact", labelKey: "sortFieldLastAttemptAt", group: "Campaign Contact" },
+  { value: "contactedAt", entity: "contact", labelKey: "sortFieldContactedAt", group: "Campaign Contact" },
+  { value: "completedAt", entity: "contact", labelKey: "sortFieldCompletedAt", group: "Campaign Contact" },
+  { value: "assignedTo", entity: "contact", labelKey: "sortFieldAssignedTo", group: "Campaign Contact" },
+  { value: "notes", entity: "contact", labelKey: "sortFieldNotes", group: "Campaign Contact" },
+
+  { value: "customer.firstName", entity: "customer", labelKey: "sortFieldName", group: "Customer" },
+  { value: "customer.lastName", entity: "customer", labelKey: "sortFieldLastName", group: "Customer" },
+  { value: "customer.maidenName", entity: "customer", labelKey: "sortFieldMaidenName", group: "Customer" },
+  { value: "customer.phone", entity: "customer", labelKey: "sortFieldPhone", group: "Customer" },
+  { value: "customer.mobile", entity: "customer", labelKey: "sortFieldMobile", group: "Customer" },
+  { value: "customer.email", entity: "customer", labelKey: "sortFieldEmail", group: "Customer" },
+  { value: "customer.dateOfBirth", entity: "customer", labelKey: "sortFieldDateOfBirth", group: "Customer" },
+  { value: "customer.city", entity: "customer", labelKey: "sortFieldCity", group: "Customer" },
+  { value: "customer.address", entity: "customer", labelKey: "sortFieldAddress", group: "Customer" },
+  { value: "customer.postalCode", entity: "customer", labelKey: "sortFieldPostalCode", group: "Customer" },
+  { value: "customer.region", entity: "customer", labelKey: "sortFieldRegion", group: "Customer" },
+  { value: "customer.country", entity: "customer", labelKey: "sortFieldCountry", group: "Customer" },
+  { value: "customer.clientStatus", entity: "customer", labelKey: "sortFieldClientStatus", group: "Customer" },
+  { value: "customer.leadStatus", entity: "customer", labelKey: "sortFieldLeadStatus", group: "Customer" },
+  { value: "customer.leadScore", entity: "customer", labelKey: "sortFieldLeadScore", group: "Customer" },
+  { value: "customer.serviceType", entity: "customer", labelKey: "sortFieldServiceType", group: "Customer" },
+  { value: "customer.newsletter", entity: "customer", labelKey: "sortFieldNewsletter", group: "Customer" },
+  { value: "customer.nationalId", entity: "customer", labelKey: "sortFieldNationalId", group: "Customer" },
+  { value: "customer.notes", entity: "customer", labelKey: "sortFieldNotes", group: "Customer" },
+  { value: "customer.createdAt", entity: "customer", labelKey: "sortFieldCreatedAt", group: "Customer" },
+
+  { value: "hospital.name", entity: "hospital", labelKey: "sortFieldName", group: "Hospital" },
+  { value: "hospital.fullName", entity: "hospital", labelKey: "sortFieldFullName", group: "Hospital" },
+  { value: "hospital.city", entity: "hospital", labelKey: "sortFieldCity", group: "Hospital" },
+  { value: "hospital.countryCode", entity: "hospital", labelKey: "sortFieldCountry", group: "Hospital" },
+  { value: "hospital.region", entity: "hospital", labelKey: "sortFieldRegion", group: "Hospital" },
+  { value: "hospital.phone", entity: "hospital", labelKey: "sortFieldPhone", group: "Hospital" },
+  { value: "hospital.email", entity: "hospital", labelKey: "sortFieldEmail", group: "Hospital" },
+  { value: "hospital.isActive", entity: "hospital", labelKey: "sortFieldIsActive", group: "Hospital" },
+  { value: "hospital.autoRecruiting", entity: "hospital", labelKey: "sortFieldAutoRecruiting", group: "Hospital" },
+  { value: "hospital.svetZdravia", entity: "hospital", labelKey: "sortFieldSvetZdravia", group: "Hospital" },
+  { value: "hospital.contactPerson", entity: "hospital", labelKey: "sortFieldContactPerson", group: "Hospital" },
+  { value: "hospital.createdAt", entity: "hospital", labelKey: "sortFieldCreatedAt", group: "Hospital" },
+
+  { value: "clinic.name", entity: "clinic", labelKey: "sortFieldName", group: "Clinic" },
+  { value: "clinic.doctorName", entity: "clinic", labelKey: "sortFieldDoctorName", group: "Clinic" },
+  { value: "clinic.doctorTitle", entity: "clinic", labelKey: "sortFieldDoctorTitle", group: "Clinic" },
+  { value: "clinic.city", entity: "clinic", labelKey: "sortFieldCity", group: "Clinic" },
+  { value: "clinic.countryCode", entity: "clinic", labelKey: "sortFieldCountry", group: "Clinic" },
+  { value: "clinic.phone", entity: "clinic", labelKey: "sortFieldPhone", group: "Clinic" },
+  { value: "clinic.email", entity: "clinic", labelKey: "sortFieldEmail", group: "Clinic" },
+  { value: "clinic.website", entity: "clinic", labelKey: "sortFieldWebsite", group: "Clinic" },
+  { value: "clinic.isActive", entity: "clinic", labelKey: "sortFieldIsActive", group: "Clinic" },
+  { value: "clinic.isReferredByDoctor", entity: "clinic", labelKey: "sortFieldIsReferredByDoctor", group: "Clinic" },
+  { value: "clinic.isFromConference", entity: "clinic", labelKey: "sortFieldIsFromConference", group: "Clinic" },
+  { value: "clinic.conferenceName", entity: "clinic", labelKey: "sortFieldConferenceName", group: "Clinic" },
+  { value: "clinic.conferenceDate", entity: "clinic", labelKey: "sortFieldConferenceDate", group: "Clinic" },
+  { value: "clinic.leadSource", entity: "clinic", labelKey: "sortFieldLeadSource", group: "Clinic" },
+  { value: "clinic.leadSourceDate", entity: "clinic", labelKey: "sortFieldLeadSourceDate", group: "Clinic" },
+  { value: "clinic.initialStatus", entity: "clinic", labelKey: "sortFieldInitialStatus", group: "Clinic" },
+  { value: "clinic.interestCooperation", entity: "clinic", labelKey: "sortFieldInterestCooperation", group: "Clinic" },
+  { value: "clinic.interestContract", entity: "clinic", labelKey: "sortFieldInterestContract", group: "Clinic" },
+  { value: "clinic.contractStatus", entity: "clinic", labelKey: "sortFieldContractStatus", group: "Clinic" },
+  { value: "clinic.contractSentDate", entity: "clinic", labelKey: "sortFieldContractSentDate", group: "Clinic" },
+  { value: "clinic.contractReturnedDate", entity: "clinic", labelKey: "sortFieldContractReturnedDate", group: "Clinic" },
+  { value: "clinic.lastCallResult", entity: "clinic", labelKey: "sortFieldLastCallResult", group: "Clinic" },
+  { value: "clinic.nextContactDate", entity: "clinic", labelKey: "sortFieldNextContactDate", group: "Clinic" },
+  { value: "clinic.hasFlyers", entity: "clinic", labelKey: "sortFieldHasFlyers", group: "Clinic" },
+  { value: "clinic.flyersSentDate", entity: "clinic", labelKey: "sortFieldFlyersSentDate", group: "Clinic" },
+  { value: "clinic.notes", entity: "clinic", labelKey: "sortFieldNotes", group: "Clinic" },
+  { value: "clinic.createdAt", entity: "clinic", labelKey: "sortFieldCreatedAt", group: "Clinic" },
+
+  { value: "collaborator.firstName", entity: "collaborator", labelKey: "sortFieldName", group: "Collaborator" },
+  { value: "collaborator.lastName", entity: "collaborator", labelKey: "sortFieldLastName", group: "Collaborator" },
+  { value: "collaborator.countryCode", entity: "collaborator", labelKey: "sortFieldCountry", group: "Collaborator" },
+  { value: "collaborator.phone", entity: "collaborator", labelKey: "sortFieldPhone", group: "Collaborator" },
+  { value: "collaborator.email", entity: "collaborator", labelKey: "sortFieldEmail", group: "Collaborator" },
+  { value: "collaborator.collaboratorType", entity: "collaborator", labelKey: "sortFieldCollaboratorType", group: "Collaborator" },
+  { value: "collaborator.isActive", entity: "collaborator", labelKey: "sortFieldCollaboratorIsActive", group: "Collaborator" },
+  { value: "collaborator.svetZdravia", entity: "collaborator", labelKey: "sortFieldSvetZdravia", group: "Collaborator" },
+  { value: "collaborator.clientContact", entity: "collaborator", labelKey: "sortFieldClientContact", group: "Collaborator" },
+  { value: "collaborator.monthRewards", entity: "collaborator", labelKey: "sortFieldMonthRewards", group: "Collaborator" },
+  { value: "collaborator.rewardType", entity: "collaborator", labelKey: "sortFieldRewardType", group: "Collaborator" },
+  { value: "collaborator.mobileAppEnabled", entity: "collaborator", labelKey: "sortFieldMobileAppEnabled", group: "Collaborator" },
+  { value: "collaborator.lastMobileLogin", entity: "collaborator", labelKey: "sortFieldLastMobileLogin", group: "Collaborator" },
+  { value: "collaborator.createdAt", entity: "collaborator", labelKey: "sortFieldCreatedAt", group: "Collaborator" },
 ];
 
 const CONDITION_OPS = [
   { value: "equals", labelKey: "sortRuleEquals" },
   { value: "not_equals", labelKey: "sortRuleNotEquals" },
   { value: "contains", labelKey: "sortRuleContains" },
+  { value: "starts_with", labelKey: "sortRuleStartsWith" },
+  { value: "ends_with", labelKey: "sortRuleEndsWith" },
+  { value: "greater_than", labelKey: "sortRuleGreaterThan" },
+  { value: "less_than", labelKey: "sortRuleLessThan" },
+  { value: "greater_or_equal", labelKey: "sortRuleGreaterOrEqual" },
+  { value: "less_or_equal", labelKey: "sortRuleLessOrEqual" },
   { value: "is_empty", labelKey: "sortRuleIsEmpty" },
   { value: "is_not_empty", labelKey: "sortRuleIsNotEmpty" },
   { value: "is_true", labelKey: "sortRuleIsTrue" },
   { value: "is_false", labelKey: "sortRuleIsFalse" },
 ];
 
-function getFieldLabel(field: { value: string; entity: string; labelKey: string }, t: any): string {
-  const entityLabels: Record<string, string> = { contact: "Contact", customer: "Customer", hospital: "Hospital", clinic: "Clinic", collaborator: "Collaborator" };
-  const label = (t.campaigns.detail as any)[field.labelKey] || field.value;
-  return `${entityLabels[field.entity]} → ${label}`;
+function getFieldLabel(field: SortFieldOption, t: any): string {
+  return (t.campaigns.detail as any)[field.labelKey] || field.value.split(".").pop() || field.value;
 }
 
 function newSortRule(): ContactSortRule {
   return { id: crypto.randomUUID(), contactType: "", sortField: "createdAt", sortDirection: "desc", conditionField: "", conditionOp: "", conditionValue: "" };
 }
 
-function AutoModeCard({ campaign }: { campaign: Campaign }) {
+function SortRulesDialog({ campaign, open, onOpenChange }: { campaign: Campaign; open: boolean; onOpenChange: (open: boolean) => void }) {
   const { t } = useI18n();
   const { toast } = useToast();
-  const [autoMode, setAutoMode] = useState(false);
-  const [autoDelaySeconds, setAutoDelaySeconds] = useState(5);
   const [sortRules, setSortRules] = useState<ContactSortRule[]>([]);
   const [hasChanges, setHasChanges] = useState(false);
 
   useEffect(() => {
+    if (!open) return;
     try {
       if (campaign.settings) {
         const s = JSON.parse(campaign.settings);
-        setAutoMode(!!s.autoMode);
-        setAutoDelaySeconds(s.autoDelaySeconds || 5);
         const LEGACY_FIELD_MAP: Record<string, string> = { dateOfBirth: "customer.dateOfBirth", priorityScore: "priorityScore", createdAt: "createdAt" };
         if (Array.isArray(s.contactSortRules) && s.contactSortRules.length > 0) {
           setSortRules(s.contactSortRules.map((r: any) => ({ ...newSortRule(), ...r, id: r.id || crypto.randomUUID() })));
@@ -671,14 +729,264 @@ function AutoModeCard({ campaign }: { campaign: Campaign }) {
           setSortRules([]);
         }
       } else {
+        setSortRules([]);
+      }
+    } catch {
+      setSortRules([]);
+    }
+    setHasChanges(false);
+  }, [campaign.settings, open]);
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      let existing: Record<string, any> = {};
+      try {
+        if (campaign.settings) existing = JSON.parse(campaign.settings);
+      } catch {}
+      const cleanRules = sortRules.map((r, i) => ({
+        id: r.id, contactType: r.contactType, sortField: r.sortField, sortDirection: r.sortDirection,
+        conditionField: r.conditionField, conditionOp: r.conditionOp, conditionValue: r.conditionValue, priority: i,
+      }));
+      const merged = {
+        ...existing,
+        contactSortRules: cleanRules,
+        contactSortField: cleanRules[0]?.sortField || "createdAt",
+        contactSortOrder: cleanRules[0]?.sortDirection || "desc",
+      };
+      return apiRequest("PATCH", `/api/campaigns/${campaign.id}`, { settings: JSON.stringify(merged) });
+    },
+    onSuccess: () => {
+      toast({ title: t.campaigns.detail.settingsSaved });
+      setHasChanges(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id] });
+      onOpenChange(false);
+    },
+    onError: () => {
+      toast({ title: t.campaigns.detail.error, variant: "destructive" });
+    },
+  });
+
+  const addRule = () => { setSortRules(prev => [...prev, newSortRule()]); setHasChanges(true); };
+  const removeRule = (id: string) => { setSortRules(prev => prev.filter(r => r.id !== id)); setHasChanges(true); };
+  const updateRule = (id: string, updates: Partial<ContactSortRule>) => { setSortRules(prev => prev.map(r => r.id === id ? { ...r, ...updates } : r)); setHasChanges(true); };
+  const moveRule = (index: number, direction: "up" | "down") => {
+    setSortRules(prev => {
+      const arr = [...prev];
+      const target = direction === "up" ? index - 1 : index + 1;
+      if (target < 0 || target >= arr.length) return arr;
+      [arr[index], arr[target]] = [arr[target], arr[index]];
+      return arr;
+    });
+    setHasChanges(true);
+  };
+
+  const filteredFieldOptions = (contactType: string) => {
+    if (!contactType) return SORT_FIELD_OPTIONS;
+    return SORT_FIELD_OPTIONS.filter(f => f.entity === "contact" || f.entity === contactType);
+  };
+
+  const groupedFieldOptions = (contactType: string) => {
+    const fields = filteredFieldOptions(contactType);
+    const groups: Record<string, SortFieldOption[]> = {};
+    fields.forEach(f => { (groups[f.group] = groups[f.group] || []).push(f); });
+    return groups;
+  };
+
+  const needsValue = (op: string) => !["is_empty", "is_not_empty", "is_true", "is_false"].includes(op);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <ArrowUpDown className="w-5 h-5" />
+            {t.campaigns.detail.sortRulesTitle}
+          </DialogTitle>
+          <DialogDescription className="text-sm">
+            {t.campaigns.detail.sortRulesDesc}
+          </DialogDescription>
+        </DialogHeader>
+
+        <ScrollArea className="flex-1 -mx-6 px-6">
+          <div className="space-y-3 pb-4">
+            {sortRules.length === 0 ? (
+              <div className="text-center py-10 text-muted-foreground border rounded-lg border-dashed">
+                <ArrowUpDown className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                <p className="text-sm font-medium">{t.campaigns.detail.sortRuleNoRules}</p>
+                <p className="text-xs mt-1 max-w-md mx-auto">{t.campaigns.detail.sortRuleNoRulesDesc}</p>
+                <Button variant="outline" size="sm" className="mt-4" onClick={addRule} data-testid="button-add-first-sort-rule">
+                  <Plus className="w-4 h-4 mr-1" />
+                  {t.campaigns.detail.sortRuleAdd}
+                </Button>
+              </div>
+            ) : (
+              sortRules.map((rule, index) => {
+                const groups = groupedFieldOptions(rule.contactType);
+                const condGroups = groupedFieldOptions(rule.contactType);
+                return (
+                  <div key={rule.id} className="border rounded-lg bg-muted/20" data-testid={`sort-rule-${index}`}>
+                    <div className="flex items-center justify-between px-3 py-2 border-b bg-muted/40 rounded-t-lg">
+                      <div className="flex items-center gap-2">
+                        <GripVertical className="w-4 h-4 text-muted-foreground/50" />
+                        <Badge variant="outline" className="text-xs font-mono">
+                          #{index + 1}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground">{t.campaigns.detail.sortRulePriority}</span>
+                      </div>
+                      <div className="flex items-center gap-0.5">
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => moveRule(index, "up")} disabled={index === 0} data-testid={`sort-rule-${index}-move-up`}>
+                          <ArrowUp className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => moveRule(index, "down")} disabled={index === sortRules.length - 1} data-testid={`sort-rule-${index}-move-down`}>
+                          <ArrowDown className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={() => removeRule(rule.id)} data-testid={`sort-rule-${index}-remove`}>
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="p-3 space-y-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+                        <div className="space-y-1">
+                          <Label className="text-xs font-medium">{t.campaigns.detail.sortRuleContactType}</Label>
+                          <Select value={rule.contactType || "__all__"} onValueChange={(v) => updateRule(rule.id, { contactType: v === "__all__" ? "" : v, sortField: "createdAt", conditionField: "", conditionOp: "", conditionValue: "" })}>
+                            <SelectTrigger className="h-8 text-xs" data-testid={`sort-rule-${index}-contact-type`}>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="__all__">{t.campaigns.detail.sortRuleAllTypes}</SelectItem>
+                              <SelectItem value="customer">Customer</SelectItem>
+                              <SelectItem value="hospital">Hospital</SelectItem>
+                              <SelectItem value="clinic">Clinic</SelectItem>
+                              <SelectItem value="collaborator">Collaborator</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1 sm:col-span-2">
+                          <Label className="text-xs font-medium">{t.campaigns.detail.sortRuleField}</Label>
+                          <Select value={rule.sortField} onValueChange={(v) => updateRule(rule.id, { sortField: v })}>
+                            <SelectTrigger className="h-8 text-xs" data-testid={`sort-rule-${index}-sort-field`}>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className="max-h-64">
+                              {Object.entries(groups).map(([group, fields]) => (
+                                <div key={group}>
+                                  <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground bg-muted/50">{group}</div>
+                                  {fields.map(f => (
+                                    <SelectItem key={f.value} value={f.value} className="pl-4 text-xs">
+                                      {getFieldLabel(f, t)}
+                                    </SelectItem>
+                                  ))}
+                                </div>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs font-medium">{t.campaigns.detail.sortRuleDirection}</Label>
+                          <Select value={rule.sortDirection} onValueChange={(v) => updateRule(rule.id, { sortDirection: v as "asc" | "desc" })}>
+                            <SelectTrigger className="h-8 text-xs" data-testid={`sort-rule-${index}-direction`}>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="asc">{t.campaigns.detail.sortRuleAsc}</SelectItem>
+                              <SelectItem value="desc">{t.campaigns.detail.sortRuleDesc}</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      <div className="border-t pt-2">
+                        <Label className="text-xs text-muted-foreground mb-1.5 block flex items-center gap-1">
+                          <Filter className="w-3 h-3" />
+                          {t.campaigns.detail.sortRuleCondition}
+                        </Label>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                          <Select value={rule.conditionField || "__none__"} onValueChange={(v) => updateRule(rule.id, { conditionField: v === "__none__" ? "" : v, conditionOp: v === "__none__" ? "" : (rule.conditionOp || "equals"), conditionValue: v === "__none__" ? "" : rule.conditionValue })}>
+                            <SelectTrigger className="h-8 text-xs" data-testid={`sort-rule-${index}-cond-field`}>
+                              <SelectValue placeholder={t.campaigns.detail.sortRuleConditionField} />
+                            </SelectTrigger>
+                            <SelectContent className="max-h-64">
+                              <SelectItem value="__none__">—</SelectItem>
+                              {Object.entries(condGroups).map(([group, fields]) => (
+                                <div key={group}>
+                                  <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground bg-muted/50">{group}</div>
+                                  {fields.map(f => (
+                                    <SelectItem key={f.value} value={f.value} className="pl-4 text-xs">
+                                      {getFieldLabel(f, t)}
+                                    </SelectItem>
+                                  ))}
+                                </div>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          {rule.conditionField && (
+                            <Select value={rule.conditionOp || "equals"} onValueChange={(v) => updateRule(rule.id, { conditionOp: v })}>
+                              <SelectTrigger className="h-8 text-xs" data-testid={`sort-rule-${index}-cond-op`}>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {CONDITION_OPS.map(op => (
+                                  <SelectItem key={op.value} value={op.value}>
+                                    {(t.campaigns.detail as any)[op.labelKey] || op.value}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          )}
+                          {rule.conditionField && needsValue(rule.conditionOp) && (
+                            <Input className="h-8 text-xs" placeholder={t.campaigns.detail.sortRuleConditionValue} value={rule.conditionValue} onChange={(e) => updateRule(rule.id, { conditionValue: e.target.value })} data-testid={`sort-rule-${index}-cond-value`} />
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </ScrollArea>
+
+        <div className="flex items-center justify-between pt-4 border-t">
+          <Button variant="outline" size="sm" onClick={addRule} data-testid="button-add-sort-rule">
+            <Plus className="w-4 h-4 mr-1" />
+            {t.campaigns.detail.sortRuleAdd}
+          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" onClick={() => onOpenChange(false)} data-testid="button-cancel-sort-rules">
+              {t.common.cancel}
+            </Button>
+            <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending || !hasChanges} data-testid="button-save-sort-rules">
+              {saveMutation.isPending ? t.campaigns.detail.saving : t.common.save}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function AutoModeCard({ campaign }: { campaign: Campaign }) {
+  const { t } = useI18n();
+  const { toast } = useToast();
+  const [autoMode, setAutoMode] = useState(false);
+  const [autoDelaySeconds, setAutoDelaySeconds] = useState(5);
+  const [hasChanges, setHasChanges] = useState(false);
+
+  useEffect(() => {
+    try {
+      if (campaign.settings) {
+        const s = JSON.parse(campaign.settings);
+        setAutoMode(!!s.autoMode);
+        setAutoDelaySeconds(s.autoDelaySeconds || 5);
+      } else {
         setAutoMode(false);
         setAutoDelaySeconds(5);
-        setSortRules([]);
       }
     } catch {
       setAutoMode(false);
       setAutoDelaySeconds(5);
-      setSortRules([]);
     }
     setHasChanges(false);
   }, [campaign.settings]);
@@ -689,27 +997,8 @@ function AutoModeCard({ campaign }: { campaign: Campaign }) {
       try {
         if (campaign.settings) existing = JSON.parse(campaign.settings);
       } catch {}
-      const cleanRules = sortRules.map((r, i) => ({
-        id: r.id,
-        contactType: r.contactType,
-        sortField: r.sortField,
-        sortDirection: r.sortDirection,
-        conditionField: r.conditionField,
-        conditionOp: r.conditionOp,
-        conditionValue: r.conditionValue,
-        priority: i,
-      }));
-      const merged = {
-        ...existing,
-        autoMode,
-        autoDelaySeconds,
-        contactSortRules: cleanRules,
-        contactSortField: cleanRules[0]?.sortField || "createdAt",
-        contactSortOrder: cleanRules[0]?.sortDirection || "desc",
-      };
-      return apiRequest("PATCH", `/api/campaigns/${campaign.id}`, {
-        settings: JSON.stringify(merged),
-      });
+      const merged = { ...existing, autoMode, autoDelaySeconds };
+      return apiRequest("PATCH", `/api/campaigns/${campaign.id}`, { settings: JSON.stringify(merged) });
     },
     onSuccess: () => {
       toast({ title: t.campaigns.detail.settingsSaved });
@@ -721,55 +1010,16 @@ function AutoModeCard({ campaign }: { campaign: Campaign }) {
     },
   });
 
-  const addRule = () => {
-    setSortRules(prev => [...prev, newSortRule()]);
-    setHasChanges(true);
-  };
-
-  const removeRule = (id: string) => {
-    setSortRules(prev => prev.filter(r => r.id !== id));
-    setHasChanges(true);
-  };
-
-  const updateRule = (id: string, updates: Partial<ContactSortRule>) => {
-    setSortRules(prev => prev.map(r => r.id === id ? { ...r, ...updates } : r));
-    setHasChanges(true);
-  };
-
-  const moveRule = (index: number, direction: "up" | "down") => {
-    setSortRules(prev => {
-      const arr = [...prev];
-      const targetIndex = direction === "up" ? index - 1 : index + 1;
-      if (targetIndex < 0 || targetIndex >= arr.length) return arr;
-      [arr[index], arr[targetIndex]] = [arr[targetIndex], arr[index]];
-      return arr;
-    });
-    setHasChanges(true);
-  };
-
-  const filteredFieldOptions = (contactType: string) => {
-    if (!contactType) return SORT_FIELD_OPTIONS;
-    return SORT_FIELD_OPTIONS.filter(f => f.entity === "contact" || f.entity === contactType);
-  };
-
-  const needsValue = (op: string) => !["is_empty", "is_not_empty", "is_true", "is_false"].includes(op);
-
   return (
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div>
             <CardTitle>{t.campaigns.detail.autoMode}</CardTitle>
-            <CardDescription>
-              {t.campaigns.detail.autoModeDesc}
-            </CardDescription>
+            <CardDescription>{t.campaigns.detail.autoModeDesc}</CardDescription>
           </div>
           {hasChanges && (
-            <Button
-              onClick={() => saveAutoModeMutation.mutate()}
-              disabled={saveAutoModeMutation.isPending}
-              data-testid="button-save-auto-mode"
-            >
+            <Button onClick={() => saveAutoModeMutation.mutate()} disabled={saveAutoModeMutation.isPending} data-testid="button-save-auto-mode">
               {saveAutoModeMutation.isPending ? t.campaigns.detail.saving : t.common.save}
             </Button>
           )}
@@ -777,207 +1027,17 @@ function AutoModeCard({ campaign }: { campaign: Campaign }) {
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex items-center gap-3">
-          <Switch
-            checked={autoMode}
-            onCheckedChange={(checked) => { setAutoMode(checked); setHasChanges(true); }}
-            data-testid="switch-auto-mode"
-          />
+          <Switch checked={autoMode} onCheckedChange={(checked) => { setAutoMode(checked); setHasChanges(true); }} data-testid="switch-auto-mode" />
           <Label className="text-sm font-medium">{t.campaigns.detail.autoMode}</Label>
         </div>
         {autoMode && (
           <div className="space-y-4 pl-1">
             <div className="space-y-1.5">
               <Label className="text-sm">Oneskorenie (sekundy)</Label>
-              <Input
-                type="number"
-                min={1}
-                max={120}
-                value={autoDelaySeconds}
-                onChange={(e) => { setAutoDelaySeconds(parseInt(e.target.value) || 5); setHasChanges(true); }}
-                className="w-32"
-                data-testid="input-auto-delay"
-              />
+              <Input type="number" min={1} max={120} value={autoDelaySeconds} onChange={(e) => { setAutoDelaySeconds(parseInt(e.target.value) || 5); setHasChanges(true); }} className="w-32" data-testid="input-auto-delay" />
             </div>
           </div>
         )}
-
-        <div className="border-t pt-4 mt-4">
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              <h4 className="text-sm font-semibold flex items-center gap-2">
-                <ArrowUpDown className="w-4 h-4" />
-                {t.campaigns.detail.sortRulesTitle}
-              </h4>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {t.campaigns.detail.sortRulesDesc}
-              </p>
-            </div>
-            <Button variant="outline" size="sm" onClick={addRule} data-testid="button-add-sort-rule">
-              <Plus className="w-4 h-4 mr-1" />
-              {t.campaigns.detail.sortRuleAdd}
-            </Button>
-          </div>
-
-          {sortRules.length === 0 ? (
-            <div className="text-center py-6 text-muted-foreground border rounded-lg border-dashed">
-              <ArrowUpDown className="w-8 h-8 mx-auto mb-2 opacity-40" />
-              <p className="text-sm font-medium">{t.campaigns.detail.sortRuleNoRules}</p>
-              <p className="text-xs mt-1">{t.campaigns.detail.sortRuleNoRulesDesc}</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {sortRules.map((rule, index) => (
-                <div
-                  key={rule.id}
-                  className="border rounded-lg p-3 bg-muted/30 space-y-3"
-                  data-testid={`sort-rule-${index}`}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <Badge variant="secondary" className="text-xs">
-                        #{index + 1}
-                      </Badge>
-                      <span className="text-xs text-muted-foreground">{t.campaigns.detail.sortRulePriority}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 w-7 p-0"
-                        onClick={() => moveRule(index, "up")}
-                        disabled={index === 0}
-                        data-testid={`sort-rule-${index}-move-up`}
-                      >
-                        <ArrowUp className="w-3.5 h-3.5" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 w-7 p-0"
-                        onClick={() => moveRule(index, "down")}
-                        disabled={index === sortRules.length - 1}
-                        data-testid={`sort-rule-${index}-move-down`}
-                      >
-                        <ArrowDown className="w-3.5 h-3.5" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 w-7 p-0 text-destructive hover:text-destructive"
-                        onClick={() => removeRule(rule.id)}
-                        data-testid={`sort-rule-${index}-remove`}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                    <div className="space-y-1">
-                      <Label className="text-xs">{t.campaigns.detail.sortRuleContactType}</Label>
-                      <Select
-                        value={rule.contactType || "__all__"}
-                        onValueChange={(v) => updateRule(rule.id, { contactType: v === "__all__" ? "" : v, sortField: "createdAt" })}
-                      >
-                        <SelectTrigger className="h-8 text-xs" data-testid={`sort-rule-${index}-contact-type`}>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="__all__">{t.campaigns.detail.sortRuleAllTypes}</SelectItem>
-                          <SelectItem value="customer">Customer</SelectItem>
-                          <SelectItem value="hospital">Hospital</SelectItem>
-                          <SelectItem value="clinic">Clinic</SelectItem>
-                          <SelectItem value="collaborator">Collaborator</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">{t.campaigns.detail.sortRuleField}</Label>
-                      <Select
-                        value={rule.sortField}
-                        onValueChange={(v) => updateRule(rule.id, { sortField: v })}
-                      >
-                        <SelectTrigger className="h-8 text-xs" data-testid={`sort-rule-${index}-sort-field`}>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {filteredFieldOptions(rule.contactType).map(f => (
-                            <SelectItem key={f.value} value={f.value}>
-                              {getFieldLabel(f, t)}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">{t.campaigns.detail.sortRuleDirection}</Label>
-                      <Select
-                        value={rule.sortDirection}
-                        onValueChange={(v) => updateRule(rule.id, { sortDirection: v as "asc" | "desc" })}
-                      >
-                        <SelectTrigger className="h-8 text-xs" data-testid={`sort-rule-${index}-direction`}>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="asc">{t.campaigns.detail.sortRuleAsc}</SelectItem>
-                          <SelectItem value="desc">{t.campaigns.detail.sortRuleDesc}</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  <div className="border-t pt-2 mt-1">
-                    <Label className="text-xs text-muted-foreground mb-1.5 block">{t.campaigns.detail.sortRuleCondition}</Label>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                      <Select
-                        value={rule.conditionField || "__none__"}
-                        onValueChange={(v) => updateRule(rule.id, { conditionField: v === "__none__" ? "" : v, conditionOp: v === "__none__" ? "" : (rule.conditionOp || "equals"), conditionValue: v === "__none__" ? "" : rule.conditionValue })}
-                      >
-                        <SelectTrigger className="h-8 text-xs" data-testid={`sort-rule-${index}-cond-field`}>
-                          <SelectValue placeholder={t.campaigns.detail.sortRuleConditionField} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="__none__">—</SelectItem>
-                          {filteredFieldOptions(rule.contactType).map(f => (
-                            <SelectItem key={f.value} value={f.value}>
-                              {getFieldLabel(f, t)}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {rule.conditionField && (
-                        <Select
-                          value={rule.conditionOp || "equals"}
-                          onValueChange={(v) => updateRule(rule.id, { conditionOp: v })}
-                        >
-                          <SelectTrigger className="h-8 text-xs" data-testid={`sort-rule-${index}-cond-op`}>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {CONDITION_OPS.map(op => (
-                              <SelectItem key={op.value} value={op.value}>
-                                {(t.campaigns.detail as any)[op.labelKey] || op.value}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      )}
-                      {rule.conditionField && needsValue(rule.conditionOp) && (
-                        <Input
-                          className="h-8 text-xs"
-                          placeholder={t.campaigns.detail.sortRuleConditionValue}
-                          value={rule.conditionValue}
-                          onChange={(e) => updateRule(rule.id, { conditionValue: e.target.value })}
-                          data-testid={`sort-rule-${index}-cond-value`}
-                        />
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
       </CardContent>
     </Card>
   );
@@ -1787,6 +1847,7 @@ export default function CampaignDetailPage() {
   const [importPhase, setImportPhase] = useState<"upload" | "processing" | null>(null);
   const [updateExisting, setUpdateExisting] = useState(false);
   const [showRequeueDialog, setShowRequeueDialog] = useState(false);
+  const [showSortRulesDialog, setShowSortRulesDialog] = useState(false);
   const [requeueDispositions, setRequeueDispositions] = useState<Set<string>>(new Set());
   const [requeueStatuses, setRequeueStatuses] = useState<Set<string>>(new Set());
   const [requeueCallbackFrom, setRequeueCallbackFrom] = useState("");
@@ -2801,6 +2862,15 @@ export default function CampaignDetailPage() {
               <span className="text-sm text-muted-foreground">
                 {filteredContacts.length} / {contacts.length} kontaktov
               </span>
+              <Button
+                variant="outline"
+                onClick={() => setShowSortRulesDialog(true)}
+                data-testid="button-open-sort-rules"
+              >
+                <ArrowUpDown className="w-4 h-4 mr-2" />
+                {t.campaigns.detail.sortRulesConfigureBtn}
+                {(() => { try { const s = JSON.parse(campaign.settings || "{}"); const c = (s.contactSortRules || []).length; return c > 0 ? <Badge variant="secondary" className="ml-1.5 text-xs px-1.5 py-0">{c}</Badge> : null; } catch { return null; } })()}
+              </Button>
               <Button
                 className="bg-gradient-to-r from-amber-500 to-orange-500 text-white border-amber-600 dark:from-amber-600 dark:to-orange-600 dark:border-amber-700"
                 onClick={() => {
@@ -4148,6 +4218,8 @@ export default function CampaignDetailPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      <SortRulesDialog campaign={campaign} open={showSortRulesDialog} onOpenChange={setShowSortRulesDialog} />
 
       <Dialog open={showRequeueDialog} onOpenChange={(open) => { setShowRequeueDialog(open); if (!open) setRequeuePage(0); }}>
         <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">

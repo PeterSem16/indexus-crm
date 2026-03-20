@@ -4684,6 +4684,12 @@ export default function AgentWorkspacePage() {
         case "equals": return strVal === condVal;
         case "not_equals": return strVal !== condVal;
         case "contains": return strVal.includes(condVal);
+        case "starts_with": return strVal.startsWith(condVal);
+        case "ends_with": return strVal.endsWith(condVal);
+        case "greater_than": { const n = parseFloat(strVal), c = parseFloat(condVal); return !isNaN(n) && !isNaN(c) ? n > c : strVal > condVal; }
+        case "less_than": { const n = parseFloat(strVal), c = parseFloat(condVal); return !isNaN(n) && !isNaN(c) ? n < c : strVal < condVal; }
+        case "greater_or_equal": { const n = parseFloat(strVal), c = parseFloat(condVal); return !isNaN(n) && !isNaN(c) ? n >= c : strVal >= condVal; }
+        case "less_or_equal": { const n = parseFloat(strVal), c = parseFloat(condVal); return !isNaN(n) && !isNaN(c) ? n <= c : strVal <= condVal; }
         case "is_empty": return val == null || strVal === "";
         case "is_not_empty": return val != null && strVal !== "";
         case "is_true": return val === true || strVal === "true" || strVal === "1";
