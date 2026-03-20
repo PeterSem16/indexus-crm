@@ -2482,13 +2482,14 @@ export default function CampaignDetailPage() {
   }
 
   const filteredContacts = applyContactFilters(contacts as any, contactFilters);
-  const savedSortRules = useMemo(() => {
-    try {
-      const s = JSON.parse(campaign?.settings || "{}");
-      return Array.isArray(s.contactSortRules) ? s.contactSortRules : [];
-    } catch { return []; }
-  }, [campaign?.settings]);
-  const sortedFilteredContacts = useMemo(() => applySortRulesToContacts(filteredContacts, savedSortRules), [filteredContacts, savedSortRules]);
+  let parsedSortRules: ContactSortRule[] = [];
+  try {
+    const s = JSON.parse(campaign?.settings || "{}");
+    if (Array.isArray(s.contactSortRules)) parsedSortRules = s.contactSortRules;
+  } catch {}
+  const sortedFilteredContacts = parsedSortRules.length > 0
+    ? applySortRulesToContacts(filteredContacts, parsedSortRules)
+    : filteredContacts;
   const contactsPerPage = 20;
   const totalContactPages = Math.max(1, Math.ceil(sortedFilteredContacts.length / contactsPerPage));
   const paginatedContacts = sortedFilteredContacts.slice((contactsPage - 1) * contactsPerPage, contactsPage * contactsPerPage);
