@@ -4627,7 +4627,7 @@ export default function AgentWorkspacePage() {
   }, [campaigns, selectedCampaignId]);
 
   const campaignAutoSettings = useMemo(() => {
-    if (!selectedCampaign?.settings) return { autoMode: false, autoDelaySeconds: 5, contactSortField: "createdAt", contactSortOrder: "desc" };
+    if (!selectedCampaign?.settings) return { autoMode: false, autoDelaySeconds: 5, contactSortField: "createdAt", contactSortOrder: "desc", contactSortRules: [] as any[] };
     try {
       const s = JSON.parse(selectedCampaign.settings);
       return {
@@ -4635,27 +4635,103 @@ export default function AgentWorkspacePage() {
         autoDelaySeconds: s.autoDelaySeconds || 5,
         contactSortField: s.contactSortField || "createdAt",
         contactSortOrder: s.contactSortOrder || "desc",
+        contactSortRules: Array.isArray(s.contactSortRules) ? s.contactSortRules : [],
       };
-    } catch { return { autoMode: false, autoDelaySeconds: 5, contactSortField: "createdAt", contactSortOrder: "desc" }; }
+    } catch { return { autoMode: false, autoDelaySeconds: 5, contactSortField: "createdAt", contactSortOrder: "desc", contactSortRules: [] as any[] }; }
   }, [selectedCampaign]);
 
   const sortedPendingContacts = useMemo(() => {
-    if (!campaignAutoSettings.autoMode) return pendingCampaignContacts;
-    const field = campaignAutoSettings.contactSortField;
-    const order = campaignAutoSettings.contactSortOrder;
-    return [...pendingCampaignContacts].sort((a, b) => {
-      let aVal: any, bVal: any;
-      if (field === "dateOfBirth") {
-        aVal = a.customer?.dateOfBirth ? new Date(a.customer.dateOfBirth).getTime() : 0;
-        bVal = b.customer?.dateOfBirth ? new Date(b.customer.dateOfBirth).getTime() : 0;
-      } else if (field === "priorityScore") {
-        aVal = (a as any).priorityScore || 0;
-        bVal = (b as any).priorityScore || 0;
-      } else {
-        aVal = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-        bVal = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    const rules = campaignAutoSettings.contactSortRules;
+
+    if (rules.length === 0) {
+      if (!campaignAutoSettings.autoMode) return pendingCampaignContacts;
+      const field = campaignAutoSettings.contactSortField;
+      const order = campaignAutoSettings.contactSortOrder;
+      return [...pendingCampaignContacts].sort((a, b) => {
+        let aVal: any, bVal: any;
+        if (field === "dateOfBirth") {
+          aVal = a.customer?.dateOfBirth ? new Date(a.customer.dateOfBirth).getTime() : 0;
+          bVal = b.customer?.dateOfBirth ? new Date(b.customer.dateOfBirth).getTime() : 0;
+        } else if (field === "priorityScore") {
+          aVal = (a as any).priorityScore || 0;
+          bVal = (b as any).priorityScore || 0;
+        } else {
+          aVal = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          bVal = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        }
+        return order === "desc" ? bVal - aVal : aVal - bVal;
+      });
+    }
+
+    const LEGACY_FIELD_MAP: Record<string, string> = { dateOfBirth: "customer.dateOfBirth", country: "customer.countryCode" };
+    const resolveFieldValue = (contact: any, fieldPath: string): any => {
+      const resolved = LEGACY_FIELD_MAP[fieldPath] || fieldPath;
+      if (resolved.includes(".")) {
+        const [entity, field] = resolved.split(".", 2);
+        const obj = contact[entity];
+        if (!obj) return null;
+        return obj[field] ?? null;
       }
-      return order === "desc" ? bVal - aVal : aVal - bVal;
+      return (contact as any)[resolved] ?? null;
+    };
+
+    const checkCondition = (contact: any, rule: any): boolean => {
+      if (!rule.conditionField || !rule.conditionOp) return true;
+      const val = resolveFieldValue(contact, rule.conditionField);
+      const strVal = val == null ? "" : String(val).toLowerCase();
+      const condVal = (rule.conditionValue || "").toLowerCase();
+      switch (rule.conditionOp) {
+        case "equals": return strVal === condVal;
+        case "not_equals": return strVal !== condVal;
+        case "contains": return strVal.includes(condVal);
+        case "is_empty": return val == null || strVal === "";
+        case "is_not_empty": return val != null && strVal !== "";
+        case "is_true": return val === true || strVal === "true" || strVal === "1";
+        case "is_false": return val === false || strVal === "false" || strVal === "0" || strVal === "";
+        default: return true;
+      }
+    };
+
+    const matchesContactType = (contact: any, contactType: string): boolean => {
+      if (!contactType) return true;
+      return contact.contactType === contactType;
+    };
+
+    const toComparable = (val: any): number | string => {
+      if (val == null) return "";
+      if (typeof val === "boolean") return val ? 1 : 0;
+      if (typeof val === "number") return val;
+      const str = String(val);
+      const d = Date.parse(str);
+      if (!isNaN(d)) return d;
+      const n = Number(str);
+      if (!isNaN(n) && str.trim() !== "") return n;
+      return str.toLowerCase();
+    };
+
+    return [...pendingCampaignContacts].sort((a, b) => {
+      for (const rule of rules) {
+        const aMatch = matchesContactType(a, rule.contactType) && checkCondition(a, rule);
+        const bMatch = matchesContactType(b, rule.contactType) && checkCondition(b, rule);
+
+        if (aMatch && !bMatch) return -1;
+        if (!aMatch && bMatch) return 1;
+
+        if (aMatch && bMatch) {
+          const aVal = toComparable(resolveFieldValue(a, rule.sortField));
+          const bVal = toComparable(resolveFieldValue(b, rule.sortField));
+          let cmp = 0;
+          if (typeof aVal === "number" && typeof bVal === "number") {
+            cmp = aVal - bVal;
+          } else {
+            cmp = String(aVal).localeCompare(String(bVal));
+          }
+          if (cmp !== 0) {
+            return rule.sortDirection === "desc" ? -cmp : cmp;
+          }
+        }
+      }
+      return 0;
     });
   }, [pendingCampaignContacts, campaignAutoSettings]);
 
