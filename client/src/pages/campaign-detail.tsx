@@ -655,6 +655,7 @@ const SORT_FIELD_OPTIONS: SortFieldOption[] = [
   { value: "clinic.conferenceDate", entity: "clinic", labelKey: "sortFieldConferenceDate", group: "Clinic" },
   { value: "clinic.leadSource", entity: "clinic", labelKey: "sortFieldLeadSource", group: "Clinic" },
   { value: "clinic.leadSourceDate", entity: "clinic", labelKey: "sortFieldLeadSourceDate", group: "Clinic" },
+  { value: "clinic.leadSourceNotes", entity: "clinic", labelKey: "sortFieldLeadSourceNotes", group: "Clinic" },
   { value: "clinic.initialStatus", entity: "clinic", labelKey: "sortFieldInitialStatus", group: "Clinic" },
   { value: "clinic.interestCooperation", entity: "clinic", labelKey: "sortFieldInterestCooperation", group: "Clinic" },
   { value: "clinic.interestContract", entity: "clinic", labelKey: "sortFieldInterestContract", group: "Clinic" },
@@ -708,7 +709,47 @@ function newSortRule(): ContactSortRule {
   return { id: crypto.randomUUID(), contactType: "", sortField: "createdAt", sortDirection: "desc", conditionField: "", conditionOp: "", conditionValue: "" };
 }
 
-function SortRulesDialog({ campaign, open, onOpenChange }: { campaign: Campaign; open: boolean; onOpenChange: (open: boolean) => void }) {
+function resolveContactFieldValue(contact: any, fieldPath: string): any {
+  if (fieldPath.includes(".")) {
+    const [entity, field] = fieldPath.split(".", 2);
+    const obj = contact[entity];
+    if (!obj) return null;
+    return obj[field] ?? null;
+  }
+  return contact[fieldPath] ?? null;
+}
+
+function checkRuleCondition(contact: any, rule: ContactSortRule): boolean {
+  if (!rule.conditionField || !rule.conditionOp) return true;
+  const val = resolveContactFieldValue(contact, rule.conditionField);
+  const strVal = val == null ? "" : String(val).toLowerCase();
+  const condVal = (rule.conditionValue || "").toLowerCase();
+  switch (rule.conditionOp) {
+    case "equals": return strVal === condVal;
+    case "not_equals": return strVal !== condVal;
+    case "contains": return strVal.includes(condVal);
+    case "starts_with": return strVal.startsWith(condVal);
+    case "ends_with": return strVal.endsWith(condVal);
+    case "greater_than": { const n = parseFloat(strVal), c = parseFloat(condVal); return !isNaN(n) && !isNaN(c) ? n > c : strVal > condVal; }
+    case "less_than": { const n = parseFloat(strVal), c = parseFloat(condVal); return !isNaN(n) && !isNaN(c) ? n < c : strVal < condVal; }
+    case "greater_or_equal": { const n = parseFloat(strVal), c = parseFloat(condVal); return !isNaN(n) && !isNaN(c) ? n >= c : strVal >= condVal; }
+    case "less_or_equal": { const n = parseFloat(strVal), c = parseFloat(condVal); return !isNaN(n) && !isNaN(c) ? n <= c : strVal <= condVal; }
+    case "is_empty": return val == null || strVal === "";
+    case "is_not_empty": return val != null && strVal !== "";
+    case "is_true": return val === true || strVal === "true" || strVal === "1";
+    case "is_false": return val === false || strVal === "false" || strVal === "0" || strVal === "";
+    default: return true;
+  }
+}
+
+function countMatchingContacts(contacts: any[], rule: ContactSortRule): number {
+  return contacts.filter(c => {
+    if (rule.contactType && c.contactType !== rule.contactType) return false;
+    return checkRuleCondition(c, rule);
+  }).length;
+}
+
+function SortRulesDialog({ campaign, open, onOpenChange, contacts }: { campaign: Campaign; open: boolean; onOpenChange: (open: boolean) => void; contacts: any[] }) {
   const { t } = useI18n();
   const { toast } = useToast();
   const [sortRules, setSortRules] = useState<ContactSortRule[]>([]);
@@ -832,6 +873,9 @@ function SortRulesDialog({ campaign, open, onOpenChange }: { campaign: Campaign;
                           #{index + 1}
                         </Badge>
                         <span className="text-xs text-muted-foreground">{t.campaigns.detail.sortRulePriority}</span>
+                        <Badge variant="secondary" className="text-xs ml-1 bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300" data-testid={`sort-rule-${index}-match-count`}>
+                          {countMatchingContacts(contacts, rule)} / {contacts.length} {t.campaigns.detail.contactsLabel || "kontaktov"}
+                        </Badge>
                       </div>
                       <div className="flex items-center gap-0.5">
                         <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => moveRule(index, "up")} disabled={index === 0} data-testid={`sort-rule-${index}-move-up`}>
@@ -4219,7 +4263,7 @@ export default function CampaignDetailPage() {
         </DialogContent>
       </Dialog>
 
-      <SortRulesDialog campaign={campaign} open={showSortRulesDialog} onOpenChange={setShowSortRulesDialog} />
+      <SortRulesDialog campaign={campaign} open={showSortRulesDialog} onOpenChange={setShowSortRulesDialog} contacts={contacts} />
 
       <Dialog open={showRequeueDialog} onOpenChange={(open) => { setShowRequeueDialog(open); if (!open) setRequeuePage(0); }}>
         <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">

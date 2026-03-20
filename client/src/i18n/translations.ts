@@ -1547,6 +1547,7 @@ export interface Translations {
       sortFieldDoctorTitle: string;
       sortFieldWebsite: string;
       sortFieldLeadSourceDate: string;
+      sortFieldLeadSourceNotes: string;
       sortFieldIsReferredByDoctor: string;
       sortFieldIsFromConference: string;
       sortFieldConferenceName: string;
@@ -7039,6 +7040,7 @@ export const translations: Record<Locale, Translations> = {
         sortFieldDoctorTitle: 'Doctor title',
         sortFieldWebsite: 'Website',
         sortFieldLeadSourceDate: 'Lead source date',
+        sortFieldLeadSourceNotes: 'Lead source notes',
         sortFieldIsReferredByDoctor: 'Referred by doctor',
         sortFieldIsFromConference: 'From conference',
         sortFieldConferenceName: 'Conference name',
@@ -12003,6 +12005,7 @@ export const translations: Record<Locale, Translations> = {
         sortFieldDoctorTitle: 'Titul lekára',
         sortFieldWebsite: 'Webstránka',
         sortFieldLeadSourceDate: 'Dátum zdroja leadu',
+        sortFieldLeadSourceNotes: 'Poznámky zdroja leadu',
         sortFieldIsReferredByDoctor: 'Odporúčaný lekárom',
         sortFieldIsFromConference: 'Z konferencie',
         sortFieldConferenceName: 'Názov konferencie',
@@ -16904,6 +16907,7 @@ export const translations: Record<Locale, Translations> = {
         sortFieldDoctorTitle: 'Titul lékaře',
         sortFieldWebsite: 'Webová stránka',
         sortFieldLeadSourceDate: 'Datum zdroje leadu',
+        sortFieldLeadSourceNotes: 'Poznámky zdroje leadu',
         sortFieldIsReferredByDoctor: 'Doporučený lékařem',
         sortFieldIsFromConference: 'Z konference',
         sortFieldConferenceName: 'Název konference',
@@ -21767,6 +21771,7 @@ export const translations: Record<Locale, Translations> = {
         sortFieldDoctorTitle: 'Orvos titulusa',
         sortFieldWebsite: 'Weboldal',
         sortFieldLeadSourceDate: 'Lead forrás dátuma',
+        sortFieldLeadSourceNotes: 'Lead forrás megjegyzések',
         sortFieldIsReferredByDoctor: 'Orvos által ajánlott',
         sortFieldIsFromConference: 'Konferenciáról',
         sortFieldConferenceName: 'Konferencia neve',
@@ -26629,6 +26634,7 @@ export const translations: Record<Locale, Translations> = {
         sortFieldDoctorTitle: 'Titlul doctorului',
         sortFieldWebsite: 'Website',
         sortFieldLeadSourceDate: 'Data sursei lead',
+        sortFieldLeadSourceNotes: 'Note sursă lead',
         sortFieldIsReferredByDoctor: 'Recomandat de doctor',
         sortFieldIsFromConference: 'De la conferință',
         sortFieldConferenceName: 'Numele conferinței',
@@ -31492,6 +31498,7 @@ export const translations: Record<Locale, Translations> = {
         sortFieldDoctorTitle: 'Titolo del dottore',
         sortFieldWebsite: 'Sito web',
         sortFieldLeadSourceDate: 'Data fonte lead',
+        sortFieldLeadSourceNotes: 'Note fonte lead',
         sortFieldIsReferredByDoctor: 'Referenziato dal dottore',
         sortFieldIsFromConference: 'Da conferenza',
         sortFieldConferenceName: 'Nome conferenza',
@@ -36355,6 +36362,7 @@ export const translations: Record<Locale, Translations> = {
         sortFieldDoctorTitle: 'Arzttitel',
         sortFieldWebsite: 'Webseite',
         sortFieldLeadSourceDate: 'Lead-Quellendatum',
+        sortFieldLeadSourceNotes: 'Lead-Quellennotizen',
         sortFieldIsReferredByDoctor: 'Vom Arzt empfohlen',
         sortFieldIsFromConference: 'Von Konferenz',
         sortFieldConferenceName: 'Konferenzname',
