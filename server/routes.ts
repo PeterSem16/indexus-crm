@@ -1254,6 +1254,77 @@ export async function registerRoutes(
   // Initialize inbound call WebSocket service
   const { inboundCallWs } = await import("./lib/inbound-call-ws");
   inboundCallWs.initialize(httpServer);
+
+  // WebSocket proxy for mobile SIP: /wss-asterisk/ → mediagtw SIP server
+  httpServer.on("upgrade", async (req, socket, head) => {
+    if (req.url?.startsWith("/wss-asterisk")) {
+      try {
+        const sipCfg = await storage.getSipSettings();
+        const targetHost = sipCfg?.server || "mediagtw.cordbloodcenter.com";
+        const targetPort = sipCfg?.wsPort || 8089;
+        const targetPath = sipCfg?.wsPath || "/ws";
+        const targetUrl = `wss://${targetHost}:${targetPort}${targetPath}`;
+        console.log(`[WS-Proxy] Proxying /wss-asterisk/ → ${targetUrl}`);
+
+        const tls = await import("tls");
+        const url = await import("url");
+        const parsed = new url.URL(targetUrl);
+
+        const tlsSocket = tls.connect({
+          host: parsed.hostname,
+          port: parseInt(parsed.port) || 8089,
+          servername: parsed.hostname,
+          rejectUnauthorized: false,
+        }, () => {
+          const wsKey = req.headers["sec-websocket-key"] || "";
+          const wsProtocol = req.headers["sec-websocket-protocol"] || "";
+          let upgradeReq = `GET ${parsed.pathname} HTTP/1.1\r\n`;
+          upgradeReq += `Host: ${parsed.hostname}:${parsed.port}\r\n`;
+          upgradeReq += `Upgrade: websocket\r\n`;
+          upgradeReq += `Connection: Upgrade\r\n`;
+          upgradeReq += `Sec-WebSocket-Key: ${wsKey}\r\n`;
+          upgradeReq += `Sec-WebSocket-Version: 13\r\n`;
+          if (wsProtocol) upgradeReq += `Sec-WebSocket-Protocol: ${wsProtocol}\r\n`;
+          upgradeReq += `\r\n`;
+          tlsSocket.write(upgradeReq);
+
+          let headerBuf = Buffer.alloc(0);
+          let headerParsed = false;
+
+          const onData = (chunk: Buffer) => {
+            if (headerParsed) {
+              socket.write(chunk);
+              return;
+            }
+            headerBuf = Buffer.concat([headerBuf, chunk]);
+            const headerEnd = headerBuf.indexOf("\r\n\r\n");
+            if (headerEnd !== -1) {
+              headerParsed = true;
+              const headerStr = headerBuf.subarray(0, headerEnd + 4).toString();
+              const remainder = headerBuf.subarray(headerEnd + 4);
+              socket.write(headerStr);
+              if (remainder.length > 0) socket.write(remainder);
+              socket.pipe(tlsSocket);
+            }
+          };
+
+          tlsSocket.on("data", onData);
+          tlsSocket.on("end", () => socket.end());
+          tlsSocket.on("error", (e) => { console.error("[WS-Proxy] Target error:", e.message); socket.destroy(); });
+          socket.on("end", () => tlsSocket.end());
+          socket.on("error", (e) => { console.error("[WS-Proxy] Client error:", e.message); tlsSocket.destroy(); });
+        });
+
+        tlsSocket.on("error", (e) => {
+          console.error("[WS-Proxy] TLS connect error:", e.message);
+          socket.destroy();
+        });
+      } catch (e: any) {
+        console.error("[WS-Proxy] Error:", e.message);
+        socket.destroy();
+      }
+    }
+  });
   
   // Start email monitoring service for automatic sentiment analysis
   const { startEmailMonitoring } = await import("./lib/email-monitoring-service");
