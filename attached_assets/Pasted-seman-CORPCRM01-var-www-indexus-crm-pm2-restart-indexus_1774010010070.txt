@@ -1,0 +1,41 @@
+seman@CORPCRM01:/var/www/indexus-crm$ pm2 restart indexus-crm
+Use --update-env to update environment variables
+[PM2] Applying action restartProcessId on app [indexus-crm](ids: [ 0 ])
+[PM2] [indexus-crm](0) ✓
+┌────┬────────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+│ id │ name           │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+├────┼────────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
+│ 0  │ indexus-crm    │ default     │ 1.0.0   │ fork    │ 1010431  │ 0s     │ 2    │ online    │ 0%       │ 16.3mb   │ seman    │ disabled │
+└────┴────────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
+seman@CORPCRM01:/var/www/indexus-crm$ pm2 status
+┌────┬────────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+│ id │ name           │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+├────┼────────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
+│ 0  │ indexus-crm    │ default     │ 1.0.0   │ fork    │ 1010431  │ 53s    │ 2    │ online    │ 0%       │ 127.6mb  │ seman    │ disabled │
+└────┴────────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
+seman@CORPCRM01:/var/www/indexus-crm$ pm2 logs indexus-crm --nostream --lines 50
+[TAILING] Tailing last 50 lines for [indexus-crm] process (change the value with --lines option)
+/home/seman/.pm2/logs/indexus-crm-out.log last 50 lines:
+/home/seman/.pm2/logs/indexus-crm-error.log last 50 lines:
+0|indexus- | Error: DATABASE_URL must be set. Did you forget to provision a database?
+0|indexus- |     at /var/www/indexus-crm/dist/index.cjs:70:298629
+0|indexus- |     at /var/www/indexus-crm/dist/index.cjs:1:230
+0|indexus- |     at /var/www/indexus-crm/dist/index.cjs:141:160302
+0|indexus- |     at /var/www/indexus-crm/dist/index.cjs:1:230
+0|indexus- |     at /var/www/indexus-crm/dist/index.cjs:1012:482
+0|indexus- |     at /var/www/indexus-crm/dist/index.cjs:1:230
+0|indexus- |     at /var/www/indexus-crm/dist/index.cjs:1012:15179
+0|indexus- |     at /var/www/indexus-crm/dist/index.cjs:1:230
+0|indexus- |     at Object.<anonymous> (/var/www/indexus-crm/dist/index.cjs:1012:16395)
+0|indexus- |     at Module._compile (node:internal/modules/cjs/loader:1521:14)
+0|indexus- | Error: DATABASE_URL must be set. Did you forget to provision a database?
+0|indexus- |     at /var/www/indexus-crm/dist/index.cjs:70:298629
+0|indexus- |     at /var/www/indexus-crm/dist/index.cjs:1:230
+0|indexus- |     at /var/www/indexus-crm/dist/index.cjs:141:160302
+0|indexus- |     at /var/www/indexus-crm/dist/index.cjs:1:230
+0|indexus- |     at /var/www/indexus-crm/dist/index.cjs:1012:482
+0|indexus- |     at /var/www/indexus-crm/dist/index.cjs:1:230
+0|indexus- |     at /var/www/indexus-crm/dist/index.cjs:1012:15179
+0|indexus- |     at /var/www/indexus-crm/dist/index.cjs:1:230
+0|indexus- |     at Object.<anonymous> (/var/www/indexus-crm/dist/index.cjs:1012:16395)
+0|indexus- |     at Module._compile (node:internal/modules/cjs/loader:1521:14)
