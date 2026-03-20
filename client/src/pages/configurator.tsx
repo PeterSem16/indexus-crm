@@ -25,7 +25,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Pencil, Trash2, FileText, Settings, Layout, Loader2, Palette, Package, Search, Shield, Copy, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Eye, EyeOff, Lock, Unlock, Check, Hash, Info, X, DollarSign, Percent, Calculator, CreditCard, TrendingUp, Bell, CheckCircle2, XCircle, Key, AlertTriangle, Upload, FileDown, Edit, Save, Download, ArrowUpDown, Paperclip } from "lucide-react";
+import { Plus, Pencil, Trash2, FileText, Settings, Layout, Loader2, Palette, Package, Search, Shield, Copy, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Eye, EyeOff, Lock, Unlock, Check, Hash, Info, X, DollarSign, Percent, Calculator, CreditCard, TrendingUp, Bell, CheckCircle2, XCircle, Key, AlertTriangle, Upload, FileDown, Edit, Save, Download, ArrowUpDown, Paperclip, Globe } from "lucide-react";
 import { COUNTRIES, CURRENCIES, getCurrencySymbol } from "@shared/schema";
 import { InvoiceDesigner, InvoiceDesignerConfig } from "@/components/invoice-designer";
 import { ContractTemplatesManager } from "@/components/contract-templates-manager";
@@ -40,6 +40,7 @@ import { CRM_MODULES, DEPARTMENTS, type ModuleDefinition, type FieldPermission, 
 import { Building2, User, Mail, Phone, Smartphone, RefreshCw, Wallet, MessageSquare, Calendar, Clock, Star, Heart, Users, Folder, Send, Inbox, Archive, Bookmark, Tag, Gift, Briefcase, Building, ShoppingCart, Truck, Zap, Award } from "lucide-react";
 import { DepartmentTree } from "@/components/department-tree";
 import { NotificationRulesManager } from "@/components/notification-center";
+import WebFormsPage from "@/pages/web-forms";
 
 const serviceFormSchema = z.object({
   serviceCode: z.string().min(1, "Service code is required"),
@@ -17973,6 +17974,10 @@ export default function ConfiguratorPage() {
             <Shield className="h-4 w-4 shrink-0" />
             <span className="hidden md:inline">{t.konfigurator.permissionsRoles}</span>
           </TabsTrigger>
+          <TabsTrigger value="web-forms" className="flex items-center gap-2 text-xs sm:text-sm" data-testid="tab-web-forms">
+            <Globe className="h-4 w-4 shrink-0" />
+            <span className="hidden md:inline">{t.konfigurator.webFormsTab || "Web Formuláre"}</span>
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="products">
@@ -18176,6 +18181,18 @@ export default function ConfiguratorPage() {
             </CardHeader>
             <CardContent>
               <PermissionsRolesTab />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="web-forms">
+          <Card>
+            <CardHeader>
+              <CardTitle>{t.konfigurator.webFormsTab || "Web Formuláre"}</CardTitle>
+              <CardDescription>{t.konfigurator.webFormsDescription || "Správa webových registračných formulárov pre všetky krajiny"}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <WebFormsPage embedded />
             </CardContent>
           </Card>
         </TabsContent>

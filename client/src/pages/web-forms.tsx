@@ -315,7 +315,7 @@ function parseValidationRules(rules: string | null | undefined): Record<string, 
   try { return JSON.parse(rules); } catch { return {}; }
 }
 
-export default function WebFormsPage() {
+export default function WebFormsPage({ embedded }: { embedded?: boolean } = {}) {
   const { t, locale } = useI18n();
   const { toast } = useToast();
   const [editingForm, setEditingForm] = useState<any>(null);
@@ -475,29 +475,33 @@ export default function WebFormsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold" data-testid="text-web-forms-title">{t.webForms.title}</h1>
-          <p className="text-sm text-muted-foreground">{t.webForms.subtitle}</p>
+      {!embedded && (
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold" data-testid="text-web-forms-title">{t.webForms.title}</h1>
+            <p className="text-sm text-muted-foreground">{t.webForms.subtitle}</p>
+          </div>
         </div>
+      )}
+      <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Button variant={showStats ? "default" : "outline"} size="sm" onClick={() => setShowStats(!showStats)} data-testid="btn-toggle-stats">
             <BarChart3 className="h-4 w-4 mr-1" /> {t.webForms.statsTitle}
           </Button>
-          <Select onValueChange={handleCreateForm}>
-            <SelectTrigger className="w-[200px]" data-testid="select-create-form">
-              <Plus className="h-4 w-4 mr-2" />
-              <SelectValue placeholder={t.webForms.newForm} />
-            </SelectTrigger>
-            <SelectContent>
-              {COUNTRIES_DATA.map(c => (
-                <SelectItem key={c.code} value={c.code} data-testid={`create-form-${c.code}`}>
-                  {c.flag} {getCountryName(c.code, locale)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
         </div>
+        <Select onValueChange={handleCreateForm}>
+          <SelectTrigger className="w-[200px]" data-testid="select-create-form">
+            <Plus className="h-4 w-4 mr-2" />
+            <SelectValue placeholder={t.webForms.newForm} />
+          </SelectTrigger>
+          <SelectContent>
+            {COUNTRIES_DATA.map(c => (
+              <SelectItem key={c.code} value={c.code} data-testid={`create-form-${c.code}`}>
+                {c.flag} {getCountryName(c.code, locale)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {showStats && (

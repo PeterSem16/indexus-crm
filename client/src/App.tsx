@@ -52,7 +52,6 @@ import CampaignReportsPage from "@/pages/campaign-reports";
 import CustomerInvoicesPage from "@/pages/customer-invoices";
 import AgentWorkspacePage from "@/pages/agent-workspace";
 import SopManagementPage from "@/pages/sop-management";
-import WebFormsPage from "@/pages/web-forms";
 import PublicFormPage from "@/pages/public-form";
 import { AgentSessionProvider } from "@/contexts/agent-session-context";
 import NotFound from "@/pages/not-found";
@@ -212,7 +211,6 @@ function AuthenticatedApp() {
                     <Route path="/notifications" component={NotificationCenterPage} />
                     <Route path="/mobile-preview" component={MobilePreview} />
                     <Route path="/sop" component={SopManagementPage} />
-                    <Route path="/web-forms" component={WebFormsPage} />
                     <Route path="/agent-workspace">
                       <ErrorBoundary>
                         <AgentSessionProvider>

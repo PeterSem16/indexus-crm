@@ -2703,6 +2703,8 @@ export interface Translations {
   konfigurator: {
     title: string;
     description: string;
+    webFormsTab: string;
+    webFormsDescription: string;
     services: string;
     servicesDescription: string;
     numberRanges: string;
@@ -8196,6 +8198,8 @@ export const translations: Record<Locale, Translations> = {
     konfigurator: {
       title: 'Configurator',
       description: 'Configure services, invoice templates, and layouts',
+      webFormsTab: 'Web Forms',
+      webFormsDescription: 'Manage web registration forms for all countries',
       services: 'Services',
       servicesDescription: 'Configure service offerings for each country',
       numberRanges: 'Number Ranges',
@@ -13113,6 +13117,8 @@ export const translations: Record<Locale, Translations> = {
     konfigurator: {
       title: 'Konfigurátor',
       description: 'Konfigurácia služieb, šablón faktúr a rozložení',
+      webFormsTab: 'Web Formuláre',
+      webFormsDescription: 'Správa webových registračných formulárov pre všetky krajiny',
       services: 'Služby',
       servicesDescription: 'Konfigurácia ponuky služieb pre každú krajinu',
       numberRanges: 'Číselné rady',
@@ -18015,6 +18021,8 @@ export const translations: Record<Locale, Translations> = {
     konfigurator: {
       title: 'Konfigurátor',
       description: 'Konfigurace služeb, šablon faktur a rozvržení',
+      webFormsTab: 'Web Formuláře',
+      webFormsDescription: 'Správa webových registračních formulářů pro všechny země',
       services: 'Služby',
       servicesDescription: 'Konfigurace nabídky služeb pro každou zemi',
       numberRanges: 'Číselné řady',
@@ -22879,6 +22887,8 @@ export const translations: Record<Locale, Translations> = {
     konfigurator: {
       title: 'Konfigurátor',
       description: 'Szolgáltatások, számlasablonok és elrendezések konfigurálása',
+      webFormsTab: 'Web Űrlapok',
+      webFormsDescription: 'Webes regisztrációs űrlapok kezelése minden országhoz',
       services: 'Szolgáltatások',
       servicesDescription: 'Szolgáltatási ajánlatok konfigurálása országonként',
       numberRanges: 'Számtartományok',
@@ -27742,6 +27752,8 @@ export const translations: Record<Locale, Translations> = {
     konfigurator: {
       title: 'Configurator',
       description: 'Configurați servicii, șabloane de facturi și aspecte',
+      webFormsTab: 'Formulare Web',
+      webFormsDescription: 'Gestionarea formularelor de înregistrare web pentru toate țările',
       services: 'Servicii',
       servicesDescription: 'Configurați ofertele de servicii pentru fiecare țară',
       numberRanges: 'Intervale numerice',
@@ -32606,6 +32618,8 @@ export const translations: Record<Locale, Translations> = {
     konfigurator: {
       title: 'Configuratore',
       description: 'Configura servizi, modelli di fattura e layout',
+      webFormsTab: 'Moduli Web',
+      webFormsDescription: 'Gestione dei moduli di registrazione web per tutti i paesi',
       services: 'Servizi',
       servicesDescription: 'Configura le offerte di servizi per ogni paese',
       numberRanges: 'Intervalli numerici',
@@ -37470,6 +37484,8 @@ export const translations: Record<Locale, Translations> = {
     konfigurator: {
       title: 'Konfigurator',
       description: 'Dienste, Rechnungsvorlagen und Layouts konfigurieren',
+      webFormsTab: 'Web-Formulare',
+      webFormsDescription: 'Verwaltung von Web-Registrierungsformularen für alle Länder',
       services: 'Dienste',
       servicesDescription: 'Dienstleistungsangebote für jedes Land konfigurieren',
       numberRanges: 'Nummernkreise',
