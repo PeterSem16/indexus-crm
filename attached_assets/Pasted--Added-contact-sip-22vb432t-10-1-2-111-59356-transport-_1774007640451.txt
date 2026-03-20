@@ -1,0 +1,28 @@
+-- Added contact 'sip:22vb432t@10.1.2.111:59356;transport=ws;x-ast-orig-host=rj48gqg41tep.invalid:0' to AOR '2008' with expiration of 300 seconds
+  == Endpoint 2008 is now Reachable
+    -- Contact 2008/sip:22vb432t@10.1.2.111:59356;transport=ws;x-ast-orig-host=rj48gqg41tep.invalid:0 is now Reachable.  RTT: 410.276 msec
+    -- Executing [421948519438@webrtc-indexus:1] NoOp("PJSIP/2008-00000037", "WebRTC outbound caller=2008 dest=421948519438") in new stack
+    -- Executing [421948519438@webrtc-indexus:2] Goto("PJSIP/2008-00000037", "indexus-outbound,421948519438,1") in new stack
+    -- Goto (indexus-outbound,421948519438,1)
+    -- Executing [421948519438@indexus-outbound:1] NoOp("PJSIP/2008-00000037", "Indexus outbound caller=2008 dest=421948519438") in new stack
+    -- Executing [421948519438@indexus-outbound:2] Set("PJSIP/2008-00000037", "ORIG_EXT=2008") in new stack
+    -- Executing [421948519438@indexus-outbound:3] Set("PJSIP/2008-00000037", "CAMPAIGN_CID=") in new stack
+    -- Executing [421948519438@indexus-outbound:4] ExecIf("PJSIP/2008-00000037", "1?Set(CAMPAIGN_CID=)") in new stack
+    -- Executing [421948519438@indexus-outbound:5] ExecIf("PJSIP/2008-00000037", "0?Set(CALLERID(num)=)") in new stack
+    -- Executing [421948519438@indexus-outbound:6] NoOp("PJSIP/2008-00000037", "Outbound CID: ext=2008 campaign_cid= final=2008") in new stack
+    -- Executing [421948519438@indexus-outbound:7] GotoIf("PJSIP/2008-00000037", "0?route-cz,421948519438,1") in new stack
+    -- Executing [421948519438@indexus-outbound:8] GotoIf("PJSIP/2008-00000037", "0?route-hu,421948519438,1") in new stack
+    -- Executing [421948519438@indexus-outbound:9] GotoIf("PJSIP/2008-00000037", "0?route-ro,421948519438,1") in new stack
+    -- Executing [421948519438@indexus-outbound:10] GotoIf("PJSIP/2008-00000037", "1?route-sk,421948519438,1") in new stack
+    -- Goto (route-sk,421948519438,1)
+    -- Executing [421948519438@route-sk:1] NoOp("PJSIP/2008-00000037", "Route via SK legacy server caller=2008 dest=421948519438") in new stack
+    -- Executing [421948519438@route-sk:2] Set("PJSIP/2008-00000037", "OUTNUM=421948519438") in new stack
+    -- Executing [421948519438@route-sk:3] ExecIf("PJSIP/2008-00000037", "1?Set(OUTNUM=0948519438)") in new stack
+    -- Executing [421948519438@route-sk:4] NoOp("PJSIP/2008-00000037", "Normalized SK outbound number=0948519438") in new stack
+    -- Executing [421948519438@route-sk:5] ExecIf("PJSIP/2008-00000037", "0?Set(PJSIP_HEADER(add,X-Campaign-CallerID)=)") in new stack
+    -- Executing [421948519438@route-sk:6] Dial("PJSIP/2008-00000037", "PJSIP/0948519438@trunk-sk-endpoint,60") in new stack
+    -- Called PJSIP/0948519438@trunk-sk-endpoint
+    -- PJSIP/trunk-sk-endpoint-00000038 is ringing
+    -- PJSIP/trunk-sk-endpoint-00000038 is ringing
+    -- PJSIP/trunk-sk-endpoint-00000038 is making progress passing it to PJSIP/2008-00000037
+  == Spawn extension (route-sk, 421948519438, 6) exited non-zero on 'PJSIP/2008-00000037'
