@@ -749,7 +749,34 @@ function countMatchingContacts(contacts: any[], rule: ContactSortRule): number {
   }).length;
 }
 
+const KNOWN_FIELD_VALUES: Record<string, string[]> = {
+  "status": ["pending", "contacted", "completed", "failed", "no_answer", "callback_scheduled", "not_interested"],
+  "customer.clientStatus": ["potential", "acquired", "terminated"],
+  "customer.leadStatus": ["cold", "warm", "hot", "qualified"],
+  "customer.serviceType": ["cord_blood", "cord_tissue", "both"],
+  "clinic.leadSource": ["new_contact", "former_collaborator", "current_collaborator", "doctor_referral", "conference"],
+  "clinic.initialStatus": ["new", "interested", "not_interested", "in_progress", "contracted"],
+  "clinic.interestCooperation": ["yes", "no", "maybe", "pending"],
+  "clinic.interestContract": ["yes", "no", "maybe", "pending"],
+  "clinic.contractStatus": ["draft", "sent", "signed", "returned", "terminated"],
+  "clinic.isReferredByDoctor": ["true", "false"],
+  "clinic.isFromConference": ["true", "false"],
+  "clinic.isActive": ["true", "false"],
+  "clinic.hasFlyers": ["true", "false"],
+  "customer.newsletter": ["true", "false"],
+  "hospital.isActive": ["true", "false"],
+  "hospital.autoRecruiting": ["true", "false"],
+  "hospital.svetZdravia": ["true", "false"],
+  "collaborator.isActive": ["true", "false"],
+  "collaborator.svetZdravia": ["true", "false"],
+  "collaborator.clientContact": ["true", "false"],
+  "collaborator.monthRewards": ["true", "false"],
+  "collaborator.mobileAppEnabled": ["true", "false"],
+};
+
 function getDistinctFieldValues(contacts: any[], fieldPath: string, contactType: string): string[] {
+  const knownVals = KNOWN_FIELD_VALUES[fieldPath];
+  if (knownVals) return knownVals;
   const vals = new Set<string>();
   for (const c of contacts) {
     if (contactType && c.contactType !== contactType) continue;
@@ -758,7 +785,8 @@ function getDistinctFieldValues(contacts: any[], fieldPath: string, contactType:
       vals.add(String(v));
     }
   }
-  return Array.from(vals).sort((a, b) => a.localeCompare(b));
+  const arr = Array.from(vals).sort((a, b) => a.localeCompare(b));
+  return arr.length <= 200 ? arr : [];
 }
 
 function applySortRulesToContacts(contacts: any[], rules: ContactSortRule[]): any[] {
@@ -894,7 +922,7 @@ function SortRulesDialog({ campaign, open, onOpenChange, contacts }: { campaign:
           </DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 min-h-0 -mx-6 px-6" style={{ maxHeight: "calc(85vh - 180px)" }}>
+        <div className="overflow-y-auto -mx-6 px-6" style={{ maxHeight: "calc(85vh - 200px)" }}>
           <div className="space-y-3 pb-4">
             {sortRules.length === 0 ? (
               <div className="text-center py-10 text-muted-foreground border rounded-lg border-dashed">
@@ -1027,21 +1055,19 @@ function SortRulesDialog({ campaign, open, onOpenChange, contacts }: { campaign:
                           )}
                           {rule.conditionField && needsValue(rule.conditionOp) && (() => {
                             const distinctVals = getDistinctFieldValues(contacts, rule.conditionField, rule.contactType);
-                            if (distinctVals.length > 0 && distinctVals.length <= 200) {
+                            if (distinctVals.length > 0) {
                               return (
-                                <div className="relative">
-                                  <Select value={rule.conditionValue || "__custom__"} onValueChange={(v) => updateRule(rule.id, { conditionValue: v === "__custom__" ? "" : v })}>
-                                    <SelectTrigger className="h-8 text-xs" data-testid={`sort-rule-${index}-cond-value`}>
-                                      <SelectValue placeholder={t.campaigns.detail.sortRuleConditionValue} />
-                                    </SelectTrigger>
-                                    <SelectContent className="max-h-48">
-                                      <SelectItem value="__custom__" className="text-muted-foreground italic text-xs">— {t.campaigns.detail.sortRuleConditionValue} —</SelectItem>
-                                      {distinctVals.map(v => (
-                                        <SelectItem key={v} value={v} className="text-xs">{v}</SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                </div>
+                                <Select value={rule.conditionValue || "__custom__"} onValueChange={(v) => updateRule(rule.id, { conditionValue: v === "__custom__" ? "" : v })}>
+                                  <SelectTrigger className="h-8 text-xs" data-testid={`sort-rule-${index}-cond-value`}>
+                                    <SelectValue placeholder={t.campaigns.detail.sortRuleConditionValue} />
+                                  </SelectTrigger>
+                                  <SelectContent className="max-h-52">
+                                    <SelectItem value="__custom__" className="text-muted-foreground italic text-xs">— {t.campaigns.detail.sortRuleConditionValue} —</SelectItem>
+                                    {distinctVals.map(v => (
+                                      <SelectItem key={v} value={v} className="text-xs">{v}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
                               );
                             }
                             return <Input className="h-8 text-xs" placeholder={t.campaigns.detail.sortRuleConditionValue} value={rule.conditionValue} onChange={(e) => updateRule(rule.id, { conditionValue: e.target.value })} data-testid={`sort-rule-${index}-cond-value`} />;
@@ -1054,7 +1080,7 @@ function SortRulesDialog({ campaign, open, onOpenChange, contacts }: { campaign:
               })
             )}
           </div>
-        </ScrollArea>
+        </div>
 
         <div className="flex items-center justify-between pt-4 border-t">
           <Button variant="outline" size="sm" onClick={addRule} data-testid="button-add-sort-rule">
