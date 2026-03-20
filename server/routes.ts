@@ -1196,15 +1196,22 @@ async function persistAgentStatusToDb(userId: string, status: string): Promise<v
 
 const ASTERISK_SK_HOST = "10.9.33.2";
 const ASTERISK_SK_PORT = 8088;
+const ASTERISK_MEDIAGTW_HOST = "mediagtw.cordbloodcenter.com";
+const ASTERISK_MEDIAGTW_PORT = 8088;
 
-async function syncCallerIdToAsteriskServer(host: string, port: number, extension: string, callerId: string | null): Promise<void> {
+async function syncCallerIdToAsteriskServer(host: string, port: number, extension: string, callerId: string | null, credentialsOverride?: { username: string; password: string; protocol: string }): Promise<void> {
   try {
-    const settings = await db.select().from(ariSettings).limit(1);
-    if (settings.length === 0 || !settings[0].username || !settings[0].password) {
-      console.warn(`[AsteriskSync] No ARI credentials found, skipping sync to ${host}`);
-      return;
+    let username: string, password: string, protocol: string;
+    if (credentialsOverride) {
+      ({ username, password, protocol } = credentialsOverride);
+    } else {
+      const settings = await db.select().from(ariSettings).limit(1);
+      if (settings.length === 0 || !settings[0].username || !settings[0].password) {
+        console.warn(`[AsteriskSync] No ARI credentials found, skipping sync to ${host}`);
+        return;
+      }
+      ({ username, password, protocol: protocol } = { username: settings[0].username!, password: settings[0].password!, protocol: settings[0].protocol || "http" });
     }
-    const { username, password, protocol } = settings[0];
     const authHeader = "Basic " + Buffer.from(`${username}:${password}`).toString("base64");
     const baseUrl = `${protocol || "http"}://${host}:${port}`;
 
@@ -1232,16 +1239,24 @@ async function syncCallerIdToAsteriskServer(host: string, port: number, extensio
 }
 
 async function syncCallerIdToAllAsteriskServers(extension: string, callerId: string | null): Promise<void> {
-  const engine = getQueueEngine();
+  const settings = await db.select().from(ariSettings).limit(1);
+  const ariCreds = settings.length > 0 && settings[0].username && settings[0].password
+    ? { username: settings[0].username!, password: settings[0].password!, protocol: settings[0].protocol || "http" }
+    : null;
+
   const promises: Promise<void>[] = [];
 
-  promises.push(syncCallerIdToAsteriskServer(ASTERISK_SK_HOST, ASTERISK_SK_PORT, extension, callerId));
+  promises.push(syncCallerIdToAsteriskServer(ASTERISK_SK_HOST, ASTERISK_SK_PORT, extension, callerId, ariCreds || undefined));
 
+  promises.push(syncCallerIdToAsteriskServer(ASTERISK_MEDIAGTW_HOST, ASTERISK_MEDIAGTW_PORT, extension, callerId, ariCreds || undefined));
+
+  const engine = getQueueEngine();
   if (engine) {
     promises.push(engine.syncCallerIdToAsteriskDB(extension, callerId));
   }
 
   await Promise.allSettled(promises);
+  console.log(`[AsteriskSync] Synced callerid/${extension} = ${callerId || "(removed)"} to all servers (SK + mediagtw${engine ? " + queue-engine" : ""})`);
 }
 
 export async function registerRoutes(
@@ -21869,6 +21884,39 @@ Return ONLY valid JSON, no markdown code blocks.`,
     } catch (error) {
       console.error("Failed to get asterisk caller ID:", error);
       return res.json({ error: "exception", message: error instanceof Error ? error.message : String(error) });
+    }
+  });
+
+  app.post("/api/asterisk/callerid/resync-all", requireAuth, async (req, res) => {
+    try {
+      const allExtensions = await db.select({
+        extension: sipExtensions.extension,
+        collaboratorId: sipExtensions.assignedToCollaboratorId,
+      }).from(sipExtensions).where(isNotNull(sipExtensions.assignedToCollaboratorId));
+
+      const results: Array<{ extension: string; callerId: string | null; status: string }> = [];
+
+      for (const ext of allExtensions) {
+        if (!ext.collaboratorId) continue;
+        const collab = await db.select({ outboundCallerId: collaborators.outboundCallerId })
+          .from(collaborators)
+          .where(eq(collaborators.id, ext.collaboratorId))
+          .limit(1);
+
+        const callerId = collab.length > 0 ? collab[0].outboundCallerId : null;
+        try {
+          await syncCallerIdToAllAsteriskServers(ext.extension, callerId || null);
+          results.push({ extension: ext.extension, callerId: callerId || null, status: "synced" });
+        } catch (err) {
+          results.push({ extension: ext.extension, callerId: callerId || null, status: `error: ${err instanceof Error ? err.message : String(err)}` });
+        }
+      }
+
+      console.log(`[AsteriskSync] Resync-all completed: ${results.length} extensions processed`);
+      res.json({ success: true, synced: results.length, results });
+    } catch (error) {
+      console.error("Failed to resync all caller IDs:", error);
+      res.status(500).json({ error: "Failed to resync caller IDs" });
     }
   });
 
