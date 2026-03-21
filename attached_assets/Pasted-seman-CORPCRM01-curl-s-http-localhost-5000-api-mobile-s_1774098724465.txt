@@ -1,0 +1,28 @@
+seman@CORPCRM01:~$ curl -s http://localhost:5000/api/mobile/sip/credentials \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjb2xsYWJvcmF0b3JJZCI6IjEyOTEwZWQwLWE0ODItNDEzOC1iZGI0LTJiYWMzN2VlMTRmMSIsImNvdW50cnlDb2RlIjoiU0siLCJpYXQiOjE3NzQwOTg2MDYsImV4cCI6MTc3NjY5MDYwNn0.1uracurW_8G7DwwGKA0-jnMfqWYa_NPWS03As8InDxM" 2>&1
+
+pm2 logs indexus-crm --lines 50 --nostream 2>&1 | grep -i "sip\|error\|decrypt"
+{"error":"Failed to get SIP credentials"}/home/seman/.pm2/logs/indexus-crm-error.log last 50 lines:
+0|indexus- | Mobile SIP credentials error: Error: Unsupported state or unable to authenticate data
+0|indexus- |     at decryptSipPassword (/var/www/indexus-crm/dist/index.cjs:604:24092)
+0|indexus- | Mobile SIP credentials error: Error: Unsupported state or unable to authenticate data
+0|indexus- |     at decryptSipPassword (/var/www/indexus-crm/dist/index.cjs:604:24092)
+0|indexus- | Mobile SIP credentials error: Error: Unsupported state or unable to authenticate data
+0|indexus- |     at decryptSipPassword (/var/www/indexus-crm/dist/index.cjs:604:24092)
+0|indexus- | Mobile SIP credentials error: Error: Unsupported state or unable to authenticate data
+0|indexus- |     at decryptSipPassword (/var/www/indexus-crm/dist/index.cjs:604:24092)
+0|indexus- | Mobile SIP credentials error: Error: Unsupported state or unable to authenticate data
+0|indexus- |     at decryptSipPassword (/var/www/indexus-crm/dist/index.cjs:604:24092)
+0|indexus- | Mobile SIP credentials error: Error: Unsupported state or unable to authenticate data
+0|indexus- |     at decryptSipPassword (/var/www/indexus-crm/dist/index.cjs:604:24092)
+0|indexus- | Mobile SIP credentials error: Error: Unsupported state or unable to authenticate data
+0|indexus- |     at decryptSipPassword (/var/www/indexus-crm/dist/index.cjs:604:24092)
+0|indexus- | Mobile SIP credentials error: Error: Unsupported state or unable to authenticate data
+0|indexus- |     at decryptSipPassword (/var/www/indexus-crm/dist/index.cjs:604:24092)
+0|indexus- | [EmailMonitor] Failed to decrypt tokens for user c8c9999c-6881-4ca3-91cc-99d4ec1da6df
+0|indexus- | [EmailMonitor] Failed to decrypt tokens for user 95c58392-d61e-41e2-b5d3-ed1f9d93147d
+0|indexus- | [MobileSIP API] Fetching credentials for collaborator: 12910ed0-a482-4138-bdb4-2bac37ee14f1
+0|indexus- | [MobileSIP API] mobileSipExtensionId: e81dce27-ed3a-4916-9e8f-0b6a64a1c1e2
+0|indexus- | [MobileSIP API] Found extension: 2011 username: 2011
+0|indexus- | 1:11:53 PM [express] GET /api/mobile/sip/credentials 500 in 44ms :: {"error":"Failed to get SIP credentials"}
+seman@CORPCRM01:~$
