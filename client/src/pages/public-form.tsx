@@ -91,7 +91,6 @@ function AutocompleteInput({ value, onChange, onBlur, options, placeholder, clas
     setSearch("");
     setOpen(false);
     setFocused(false);
-    onBlur?.();
   };
 
   return (
@@ -468,17 +467,15 @@ export default function PublicFormPage() {
   const updateField = (key: string, value: any) => {
     setFormValues(prev => ({ ...prev, [key]: value }));
     setTouched(prev => ({ ...prev, [key]: true }));
-    if (errors[key]) {
-      const field = fields.find((f: any) => getFieldKey(f) === key);
-      if (field) {
-        const err = validateFieldValue(value, field);
-        setErrors(prev => {
-          const e = { ...prev };
-          if (err) e[key] = err;
-          else delete e[key];
-          return e;
-        });
-      }
+    const field = fields.find((f: any) => getFieldKey(f) === key);
+    if (field) {
+      const err = validateFieldValue(value, field);
+      setErrors(prev => {
+        const e = { ...prev };
+        if (err) e[key] = err;
+        else delete e[key];
+        return e;
+      });
     }
     if ((key === "firstName" || key === "lastName" || key === "email") && isOtpVerified) {
       setIsOtpVerified(false);
