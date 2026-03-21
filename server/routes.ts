@@ -33197,11 +33197,14 @@ Return ONLY the JSON object.`
         .where(and(eq((await import("@shared/schema")).hospitals.countryCode, form.countryCode), eq((await import("@shared/schema")).hospitals.isActive, true)));
       const productSetsRaw = await db.select().from((await import("@shared/schema")).productSets)
         .where(and(eq((await import("@shared/schema")).productSets.countryCode, form.countryCode), eq((await import("@shared/schema")).productSets.isActive, true)));
+      const clinicsRaw = await db.select().from((await import("@shared/schema")).clinics)
+        .where(and(eq((await import("@shared/schema")).clinics.countryCode, form.countryCode), eq((await import("@shared/schema")).clinics.isActive, true)));
       res.json({
         form: { ...form, sections, fields },
         healthInsuranceCompanies: hicsRaw,
         hospitals: hospitalsRaw.map(h => ({ id: h.id, name: h.name, fullName: h.fullName, city: h.city })),
         productSets: productSetsRaw.map(p => ({ id: p.id, name: p.name, totalGrossAmount: p.totalGrossAmount, currency: p.currency })),
+        clinics: clinicsRaw.map(c => ({ id: c.id, name: c.name, doctorName: c.doctorName, doctorTitle: c.doctorTitle, doctorFirstName: c.doctorFirstName, doctorLastName: c.doctorLastName, city: c.city })),
       });
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });

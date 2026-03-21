@@ -3894,6 +3894,7 @@ export interface Translations {
     fieldAmbulantDoctor: string;
     fieldExpectedDeliveryDate: string;
     fieldHospital: string;
+    fieldGynecologist: string;
     fieldObstetrician: string;
     fieldMultiplePregnancy: string;
     fieldInfoSource: string;
@@ -4894,6 +4895,7 @@ export interface Translations {
       fieldSelect: string;
       fieldInsurance: string;
       fieldHospital: string;
+    fieldGynecologist: string;
       fieldProduct: string;
       fieldSource: string;
       fieldPayment: string;
@@ -9389,6 +9391,7 @@ export const translations: Record<Locale, Translations> = {
       fieldAmbulantDoctor: 'Ambulant Doctor',
       fieldExpectedDeliveryDate: 'Expected Delivery Date',
       fieldHospital: 'Hospital',
+      fieldGynecologist: 'Gynecologist (autocomplete)',
       fieldObstetrician: 'Obstetrician',
       fieldMultiplePregnancy: 'Multiple Pregnancy',
       fieldInfoSource: 'Information Source',
@@ -9877,6 +9880,7 @@ export const translations: Record<Locale, Translations> = {
         fieldSelect: 'Select (custom options)',
         fieldInsurance: 'Health insurance',
         fieldHospital: 'Hospital',
+        fieldGynecologist: 'Gynecologist (autocomplete)',
         fieldProduct: 'Collection type (set)',
         fieldSource: 'How did you hear',
         fieldPayment: 'Payment method',
@@ -14324,6 +14328,7 @@ export const translations: Record<Locale, Translations> = {
       fieldAmbulantDoctor: 'Ambulantný lekár',
       fieldExpectedDeliveryDate: 'Očakávaný dátum pôrodu',
       fieldHospital: 'Nemocnica',
+      fieldGynecologist: 'Gynekológ (autocomplete)',
       fieldObstetrician: 'Pôrodník',
       fieldMultiplePregnancy: 'Viacpočetné tehotenstvo',
       fieldInfoSource: 'Zdroj informácií',
@@ -14812,6 +14817,7 @@ export const translations: Record<Locale, Translations> = {
         fieldSelect: 'Výber (vlastné možnosti)',
         fieldInsurance: 'Zdravotná poisťovňa',
         fieldHospital: 'Nemocnica',
+        fieldGynecologist: 'Gynekológ (autocomplete)',
         fieldProduct: 'Typ odberu (zostava)',
         fieldSource: 'Ako ste sa dozvedeli',
         fieldPayment: 'Spôsob platby',
@@ -19191,6 +19197,7 @@ export const translations: Record<Locale, Translations> = {
       fieldAmbulantDoctor: 'Ambulantní lékař',
       fieldExpectedDeliveryDate: 'Očekávaný datum porodu',
       fieldHospital: 'Nemocnice',
+      fieldGynecologist: 'Gynekolog (autocomplete)',
       fieldObstetrician: 'Porodník',
       fieldMultiplePregnancy: 'Vícečetné těhotenství',
       fieldInfoSource: 'Zdroj informací',
@@ -19679,6 +19686,7 @@ export const translations: Record<Locale, Translations> = {
         fieldSelect: 'Výběr (vlastní možnosti)',
         fieldInsurance: 'Zdravotní pojišťovna',
         fieldHospital: 'Nemocnice',
+        fieldGynecologist: 'Gynekolog (autocomplete)',
         fieldProduct: 'Typ odběru (sestava)',
         fieldSource: 'Jak jste se dozvěděli',
         fieldPayment: 'Způsob platby',
@@ -24057,6 +24065,7 @@ export const translations: Record<Locale, Translations> = {
       fieldAmbulantDoctor: 'Ambuláns orvos',
       fieldExpectedDeliveryDate: 'Várható szülés dátuma',
       fieldHospital: 'Kórház',
+      fieldGynecologist: 'Nőgyógyász (autocomplete)',
       fieldObstetrician: 'Szülész',
       fieldMultiplePregnancy: 'Többes terhesség',
       fieldInfoSource: 'Információforrás',
@@ -24545,6 +24554,7 @@ export const translations: Record<Locale, Translations> = {
         fieldSelect: 'Választás (egyéni lehetőségek)',
         fieldInsurance: 'Egészségbiztosítás',
         fieldHospital: 'Kórház',
+        fieldGynecologist: 'Nőgyógyász (autocomplete)',
         fieldProduct: 'Vétel típusa (készlet)',
         fieldSource: 'Honnan hallott rólunk',
         fieldPayment: 'Fizetési mód',
@@ -28922,6 +28932,7 @@ export const translations: Record<Locale, Translations> = {
       fieldAmbulantDoctor: 'Medic ambulant',
       fieldExpectedDeliveryDate: 'Data estimată a nașterii',
       fieldHospital: 'Spital',
+      fieldGynecologist: 'Ginecolog (autocomplete)',
       fieldObstetrician: 'Obstetrician',
       fieldMultiplePregnancy: 'Sarcină multiplă',
       fieldInfoSource: 'Sursa informației',
@@ -29410,6 +29421,7 @@ export const translations: Record<Locale, Translations> = {
         fieldSelect: 'Selecție (opțiuni personalizate)',
         fieldInsurance: 'Asigurare de sănătate',
         fieldHospital: 'Spital',
+        fieldGynecologist: 'Ginecolog (autocomplete)',
         fieldProduct: 'Tip recoltare (set)',
         fieldSource: 'Cum ați aflat',
         fieldPayment: 'Modalitate de plată',
@@ -33788,6 +33800,7 @@ export const translations: Record<Locale, Translations> = {
       fieldAmbulantDoctor: 'Medico ambulatoriale',
       fieldExpectedDeliveryDate: 'Data prevista del parto',
       fieldHospital: 'Ospedale',
+      fieldGynecologist: 'Ginecologo (autocomplete)',
       fieldObstetrician: 'Ostetrico',
       fieldMultiplePregnancy: 'Gravidanza multipla',
       fieldInfoSource: 'Fonte informazione',
@@ -34276,6 +34289,7 @@ export const translations: Record<Locale, Translations> = {
         fieldSelect: 'Selezione (opzioni personalizzate)',
         fieldInsurance: 'Assicurazione sanitaria',
         fieldHospital: 'Ospedale',
+        fieldGynecologist: 'Ginecologo (autocomplete)',
         fieldProduct: 'Tipo di prelievo (set)',
         fieldSource: 'Come ci ha conosciuti',
         fieldPayment: 'Metodo di pagamento',
@@ -38654,6 +38668,7 @@ export const translations: Record<Locale, Translations> = {
       fieldAmbulantDoctor: 'Ambulanter Arzt',
       fieldExpectedDeliveryDate: 'Voraussichtlicher Geburtstermin',
       fieldHospital: 'Krankenhaus',
+      fieldGynecologist: 'Gynäkologe (Autocomplete)',
       fieldObstetrician: 'Geburtshelfer',
       fieldMultiplePregnancy: 'Mehrlingsschwangerschaft',
       fieldInfoSource: 'Informationsquelle',
@@ -39141,6 +39156,7 @@ export const translations: Record<Locale, Translations> = {
         fieldSelect: 'Auswahl (eigene Optionen)',
         fieldInsurance: 'Krankenversicherung',
         fieldHospital: 'Krankenhaus',
+        fieldGynecologist: 'Gynäkologe (Autocomplete)',
         fieldProduct: 'Entnahmetyp (Set)',
         fieldSource: 'Wie haben Sie von uns erfahren',
         fieldPayment: 'Zahlungsmethode',

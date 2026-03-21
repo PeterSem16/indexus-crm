@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,19 +6,208 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, CheckCircle2, AlertCircle, Send, Shield, Sparkles, PartyPopper, Star, Rocket, Heart } from "lucide-react";
+import { Loader2, CheckCircle2, AlertCircle, Send, Shield, Sparkles, PartyPopper, Star, Rocket, Heart, Search, X, ChevronDown } from "lucide-react";
 
 interface FormConfig {
   form: any;
   healthInsuranceCompanies: any[];
   hospitals: any[];
   productSets: any[];
+  clinics: any[];
+}
+
+const COUNTRY_PHONE_PREFIX: Record<string, string> = {
+  SK: "+421", CZ: "+420", HU: "+36", RO: "+40", IT: "+39", DE: "+49", GB: "+44", AT: "+43", PL: "+48",
+};
+
+const LANG_LOCALE_MAP: Record<string, string> = {
+  sk: "sk-SK", cs: "cs-CZ", hu: "hu-HU", ro: "ro-RO", it: "it-IT", de: "de-DE", en: "en-GB",
+};
+
+function normalizePhone(phone: string, countryCode: string): string {
+  if (!phone) return phone;
+  let p = phone.replace(/\s+/g, "").replace(/^00/, "+");
+  if (p.startsWith("+")) return p;
+  const prefix = COUNTRY_PHONE_PREFIX[countryCode] || "+421";
+  if (p.startsWith("0")) p = p.slice(1);
+  return prefix + p;
+}
+
+function formatDateDisplay(dateStr: string): string {
+  if (!dateStr) return "";
+  const parts = dateStr.split("-");
+  if (parts.length === 3) return `${parts[2]}.${parts[1]}.${parts[0]}`;
+  return dateStr;
+}
+
+function AutocompleteInput({ value, onChange, onBlur, options, placeholder, className, dataTestId, allowCustom, alwaysOptions }: {
+  value: string;
+  onChange: (val: string) => void;
+  onBlur?: () => void;
+  options: Array<{ value: string; label: string; sublabel?: string }>;
+  placeholder?: string;
+  className?: string;
+  dataTestId?: string;
+  allowCustom?: boolean;
+  alwaysOptions?: Array<{ value: string; label: string }>;
+}) {
+  const [search, setSearch] = useState("");
+  const [open, setOpen] = useState(false);
+  const [focused, setFocused] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const selectedLabel = useMemo(() => {
+    const found = options.find(o => o.value === value);
+    if (found) return found.label;
+    if (alwaysOptions) {
+      const ao = alwaysOptions.find(o => o.value === value);
+      if (ao) return ao.label;
+    }
+    return value || "";
+  }, [value, options, alwaysOptions]);
+
+  const filtered = useMemo(() => {
+    if (!search || search.length < 3) return [];
+    const s = search.toLowerCase();
+    return options.filter(o => o.label.toLowerCase().includes(s) || (o.sublabel && o.sublabel.toLowerCase().includes(s))).slice(0, 20);
+  }, [search, options]);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        setOpen(false);
+        setFocused(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const handleSelect = (val: string) => {
+    onChange(val);
+    setSearch("");
+    setOpen(false);
+    inputRef.current?.blur();
+  };
+
+  return (
+    <div ref={wrapperRef} className="relative">
+      {!focused && value ? (
+        <div
+          className={`flex items-center justify-between cursor-pointer ${className || ""}`}
+          onClick={() => { setFocused(true); setSearch(""); setOpen(true); setTimeout(() => inputRef.current?.focus(), 50); }}
+          data-testid={dataTestId}
+        >
+          <span className="truncate text-sm">{selectedLabel}</span>
+          <div className="flex items-center gap-1">
+            <X className="h-3.5 w-3.5 text-gray-400 hover:text-gray-600" onClick={(e) => { e.stopPropagation(); onChange(""); setSearch(""); }} />
+            <ChevronDown className="h-3.5 w-3.5 text-gray-400" />
+          </div>
+        </div>
+      ) : (
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+          <input
+            ref={inputRef}
+            type="text"
+            value={search}
+            onChange={e => { setSearch(e.target.value); setOpen(true); }}
+            onFocus={() => { setFocused(true); setOpen(true); }}
+            onBlur={() => {
+              setTimeout(() => {
+                if (allowCustom && search && search.length >= 3 && !value) {
+                  onChange(search);
+                }
+                if (!wrapperRef.current?.contains(document.activeElement)) {
+                  setFocused(false);
+                  setOpen(false);
+                  onBlur?.();
+                }
+              }, 200);
+            }}
+            placeholder={placeholder || "Zadajte min. 3 znaky..."}
+            className={`pl-9 ${className || ""}`}
+            data-testid={dataTestId}
+          />
+        </div>
+      )}
+      {open && (filtered.length > 0 || (alwaysOptions && alwaysOptions.length > 0) || (allowCustom && search.length >= 3)) && (
+        <div className="absolute z-50 w-full mt-1 bg-white rounded-lg border border-gray-200 shadow-lg max-h-60 overflow-y-auto">
+          {alwaysOptions && alwaysOptions.map(ao => (
+            <button
+              key={ao.value}
+              type="button"
+              className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 border-b border-gray-100"
+              onMouseDown={(e) => { e.preventDefault(); handleSelect(ao.value); }}
+            >
+              {ao.label}
+            </button>
+          ))}
+          {filtered.map(opt => (
+            <button
+              key={opt.value}
+              type="button"
+              className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
+              onMouseDown={(e) => { e.preventDefault(); handleSelect(opt.value); }}
+            >
+              <span>{opt.label}</span>
+              {opt.sublabel && <span className="text-xs text-gray-400 ml-2">{opt.sublabel}</span>}
+            </button>
+          ))}
+          {allowCustom && search.length >= 3 && !filtered.find(f => f.label.toLowerCase() === search.toLowerCase()) && (
+            <button
+              type="button"
+              className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 text-blue-600 border-t border-gray-100"
+              onMouseDown={(e) => { e.preventDefault(); handleSelect(search); }}
+            >
+              Použiť: "{search}"
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function safeStr(val: any): string {
   if (val === null || val === undefined) return "";
   if (typeof val === "object") return JSON.stringify(val);
   return String(val);
+}
+
+function sanitizeHtml(html: string): string {
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  const allowedTags = new Set(["B", "I", "U", "STRONG", "EM", "A", "BR", "P", "SPAN", "UL", "OL", "LI", "DIV"]);
+  const walk = (node: Node) => {
+    const children = Array.from(node.childNodes);
+    for (const child of children) {
+      if (child.nodeType === Node.ELEMENT_NODE) {
+        const el = child as HTMLElement;
+        if (!allowedTags.has(el.tagName)) {
+          el.replaceWith(...Array.from(el.childNodes));
+          continue;
+        }
+        const attrs = Array.from(el.attributes);
+        for (const attr of attrs) {
+          if (attr.name === "href" && el.tagName === "A") {
+            if (!/^https?:\/\//i.test(attr.value)) el.removeAttribute("href");
+            el.setAttribute("target", "_blank");
+            el.setAttribute("rel", "noopener noreferrer");
+          } else if (attr.name !== "class" && attr.name !== "style") {
+            el.removeAttribute(attr.name);
+          }
+        }
+        if (el.hasAttribute("style")) {
+          const s = el.getAttribute("style") || "";
+          if (/expression|javascript|url\s*\(/i.test(s)) el.removeAttribute("style");
+        }
+        walk(el);
+      }
+    }
+  };
+  walk(doc.body);
+  return doc.body.innerHTML;
 }
 
 type Step = "form" | "otp_check" | "otp_verify" | "submitting" | "success" | "error";
@@ -144,6 +333,25 @@ export default function PublicFormPage() {
   const [isOtpVerified, setIsOtpVerified] = useState(false);
   const [verificationToken, setVerificationToken] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState("");
+
+  const isEmbedded = useMemo(() => {
+    if (typeof window === "undefined") return false;
+    const params = new URLSearchParams(window.location.search);
+    return params.get("embed") === "1" || window.self !== window.top;
+  }, []);
+
+  useEffect(() => {
+    if (isEmbedded) {
+      document.documentElement.style.scrollbarWidth = "none";
+      const styleEl = document.createElement("style");
+      styleEl.textContent = "::-webkit-scrollbar { display: none; }";
+      document.head.appendChild(styleEl);
+      return () => {
+        document.documentElement.style.scrollbarWidth = "";
+        styleEl.remove();
+      };
+    }
+  }, [isEmbedded]);
 
   useEffect(() => {
     if (!slug) return;
@@ -280,7 +488,16 @@ export default function PublicFormPage() {
     setTouched(prev => ({ ...prev, [key]: true }));
     const field = fields.find((f: any) => getFieldKey(f) === key);
     if (field) {
-      const err = validateFieldValue(formValues[key], field);
+      if (field.fieldType === "tel" && formValues[key]) {
+        const normalized = normalizePhone(formValues[key], config?.form?.countryCode || "SK");
+        if (normalized !== formValues[key]) {
+          setFormValues(prev => ({ ...prev, [key]: normalized }));
+        }
+      }
+      const currentVal = field.fieldType === "tel" && formValues[key]
+        ? normalizePhone(formValues[key], config?.form?.countryCode || "SK")
+        : formValues[key];
+      const err = validateFieldValue(currentVal, field);
       setErrors(prev => {
         const e = { ...prev };
         if (err) e[key] = err;
@@ -483,6 +700,8 @@ export default function PublicFormPage() {
   const bgColor = f.bgColor || "#f3f4f6";
   const formWidth = f.formWidth || "3xl";
   const widthClass = WIDTH_MAP[formWidth] || "max-w-3xl";
+  const formLang = f.language || "sk";
+  const formLocale = LANG_LOCALE_MAP[formLang] || "sk-SK";
 
   const titleStyle = fontStyle(f.titleFontSize || "2xl", f.titleFontWeight || "bold", f.titleFontStyle, f.titleFontFamily);
   const subtitleStyle = fontStyle(f.subtitleFontSize || "sm", f.subtitleFontWeight || "normal", f.subtitleFontStyle, f.subtitleFontFamily);
@@ -662,17 +881,47 @@ export default function PublicFormPage() {
     }
 
     if (field.fieldType === "select_hospital") {
+      const hospitalOptions = config.hospitals.map((h: any) => ({
+        value: String(h.id),
+        label: safeStr(h.name) + (h.city ? ` - ${safeStr(h.city)}` : ""),
+        sublabel: h.city || "",
+      }));
       return fieldWrapper(
-        <Select value={val} onValueChange={v => updateField(key, v)}>
-          <SelectTrigger className={inputClass} data-testid={`select-${key}`} onBlur={() => blurField(key)}>
-            <SelectValue placeholder={placeholder || "Vyberte nemocnicu..."} />
-          </SelectTrigger>
-          <SelectContent>
-            {config.hospitals.map((h: any) => (
-              <SelectItem key={h.id} value={String(h.id)}>{safeStr(h.name)}{h.city ? ` - ${safeStr(h.city)}` : ""}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <AutocompleteInput
+          value={val}
+          onChange={v => updateField(key, v)}
+          onBlur={() => blurField(key)}
+          options={hospitalOptions}
+          placeholder={placeholder || "Zadajte min. 3 znaky pre vyhľadanie nemocnice..."}
+          className={inputClass}
+          dataTestId={`select-${key}`}
+          allowCustom
+          alwaysOptions={[{ value: "__neviem__", label: "Neviem / Ešte som si nevybrala" }]}
+        />
+      );
+    }
+
+    if (field.fieldType === "select_gynecologist") {
+      const gynOptions = (config.clinics || []).map((c: any) => {
+        const doctorName = c.doctorName || [c.doctorTitle, c.doctorFirstName, c.doctorLastName].filter(Boolean).join(" ");
+        const clinicName = c.name || "";
+        return {
+          value: String(c.id),
+          label: doctorName || clinicName,
+          sublabel: doctorName ? clinicName + (c.city ? ` - ${c.city}` : "") : (c.city || ""),
+        };
+      }).filter((o: any) => o.label);
+      return fieldWrapper(
+        <AutocompleteInput
+          value={val}
+          onChange={v => updateField(key, v)}
+          onBlur={() => blurField(key)}
+          options={gynOptions}
+          placeholder={placeholder || "Zadajte meno gynekológa alebo kliniky..."}
+          className={inputClass}
+          dataTestId={`select-${key}`}
+          allowCustom
+        />
       );
     }
 
@@ -997,9 +1246,17 @@ export default function PublicFormPage() {
                     className="mt-0.5 border-gray-300"
                     data-testid="checkbox-gdpr"
                   />
-                  <Label className="text-xs text-gray-600 leading-relaxed cursor-pointer" onClick={() => setGdprAccepted(!gdprAccepted)}>
-                    {safeStr(f.gdprText)}
-                  </Label>
+                  {/<[a-z][\s\S]*>/i.test(f.gdprText) ? (
+                    <Label
+                      className="text-xs text-gray-600 leading-relaxed cursor-pointer [&_a]:text-blue-600 [&_a]:underline [&_strong]:font-semibold [&_em]:italic [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4"
+                      onClick={() => setGdprAccepted(!gdprAccepted)}
+                      dangerouslySetInnerHTML={{ __html: sanitizeHtml(f.gdprText) }}
+                    />
+                  ) : (
+                    <Label className="text-xs text-gray-600 leading-relaxed cursor-pointer" onClick={() => setGdprAccepted(!gdprAccepted)}>
+                      {safeStr(f.gdprText)}
+                    </Label>
+                  )}
                 </div>
               )}
               {errors.gdpr && <p className="text-xs text-red-500 ml-7 flex items-center gap-1"><AlertCircle className="h-3 w-3" />{safeStr(errors.gdpr)}</p>}
@@ -1012,9 +1269,17 @@ export default function PublicFormPage() {
                     className="mt-0.5 border-gray-300"
                     data-testid="checkbox-pregnancy"
                   />
-                  <Label className="text-xs text-gray-600 leading-relaxed cursor-pointer" onClick={() => setPregnancyAccepted(!pregnancyAccepted)}>
-                    {safeStr(f.gdprPregnancyText)}
-                  </Label>
+                  {/<[a-z][\s\S]*>/i.test(f.gdprPregnancyText) ? (
+                    <Label
+                      className="text-xs text-gray-600 leading-relaxed cursor-pointer [&_a]:text-blue-600 [&_a]:underline [&_strong]:font-semibold [&_em]:italic"
+                      onClick={() => setPregnancyAccepted(!pregnancyAccepted)}
+                      dangerouslySetInnerHTML={{ __html: sanitizeHtml(f.gdprPregnancyText) }}
+                    />
+                  ) : (
+                    <Label className="text-xs text-gray-600 leading-relaxed cursor-pointer" onClick={() => setPregnancyAccepted(!pregnancyAccepted)}>
+                      {safeStr(f.gdprPregnancyText)}
+                    </Label>
+                  )}
                 </div>
               )}
               {errors.pregnancy && <p className="text-xs text-red-500 ml-7 flex items-center gap-1"><AlertCircle className="h-3 w-3" />{safeStr(errors.pregnancy)}</p>}
@@ -1027,9 +1292,17 @@ export default function PublicFormPage() {
                     className="mt-0.5 border-gray-300"
                     data-testid="checkbox-newsletter"
                   />
-                  <Label className="text-xs text-gray-600 leading-relaxed cursor-pointer" onClick={() => setNewsletterAccepted(!newsletterAccepted)}>
-                    {safeStr(f.gdprMarketingText)}
-                  </Label>
+                  {/<[a-z][\s\S]*>/i.test(f.gdprMarketingText) ? (
+                    <Label
+                      className="text-xs text-gray-600 leading-relaxed cursor-pointer [&_a]:text-blue-600 [&_a]:underline [&_strong]:font-semibold [&_em]:italic"
+                      onClick={() => setNewsletterAccepted(!newsletterAccepted)}
+                      dangerouslySetInnerHTML={{ __html: sanitizeHtml(f.gdprMarketingText) }}
+                    />
+                  ) : (
+                    <Label className="text-xs text-gray-600 leading-relaxed cursor-pointer" onClick={() => setNewsletterAccepted(!newsletterAccepted)}>
+                      {safeStr(f.gdprMarketingText)}
+                    </Label>
+                  )}
                 </div>
               )}
             </div>
@@ -1063,9 +1336,21 @@ export default function PublicFormPage() {
     </p>
   );
 
+  const placeholderStyle = `
+    .public-form-root input::placeholder,
+    .public-form-root textarea::placeholder {
+      color: #b0b0b0 !important;
+      opacity: 1 !important;
+    }
+    .public-form-root input[type="date"]:invalid::-webkit-datetime-edit {
+      color: #b0b0b0;
+    }
+  `;
+
   if (formLayout === "minimal") {
     return (
-      <div className="min-h-screen bg-white" data-testid="public-form-container">
+      <div className="min-h-screen bg-white public-form-root" lang={formLang} data-testid="public-form-container">
+        <style>{placeholderStyle}</style>
         <div className={`${widthClass} mx-auto px-4 py-8`}>
           <div className="text-center mb-8">
             <h1 className="mb-3" style={{ color: brandColor, ...titleStyle }} data-testid="text-form-header">
@@ -1089,7 +1374,8 @@ export default function PublicFormPage() {
 
   if (formLayout === "split") {
     return (
-      <div className="min-h-screen flex" style={{ backgroundColor: bgColor }} data-testid="public-form-container">
+      <div className="min-h-screen flex public-form-root" lang={formLang} style={{ backgroundColor: bgColor }} data-testid="public-form-container">
+        <style>{placeholderStyle}</style>
         <div className="hidden lg:flex lg:w-[400px] xl:w-[480px] shrink-0 flex-col justify-center p-12" style={{ backgroundColor: brandColor }}>
           <h1 className="mb-4" style={{ color: headingColor, ...titleStyle }} data-testid="text-form-header">
             {safeStr(f.headerTitle) || "Registračný formulár"}
@@ -1118,7 +1404,8 @@ export default function PublicFormPage() {
 
   if (formLayout === "card") {
     return (
-      <div className="min-h-screen flex items-start justify-center p-4 md:p-8" style={{ backgroundColor: brandColor + "12", backgroundImage: `radial-gradient(circle at 30% 20%, ${brandColor}15 0%, transparent 60%)` }} data-testid="public-form-container">
+      <div className="min-h-screen flex items-start justify-center p-4 md:p-8 public-form-root" lang={formLang} style={{ backgroundColor: brandColor + "12", backgroundImage: `radial-gradient(circle at 30% 20%, ${brandColor}15 0%, transparent 60%)` }} data-testid="public-form-container">
+        <style>{placeholderStyle}</style>
         <div className={`${widthClass} w-full`}>
           <div className="text-center mb-6 pt-4">
             <h1 className="mb-3" style={{ color: brandColor, ...titleStyle }} data-testid="text-form-header">
@@ -1142,7 +1429,8 @@ export default function PublicFormPage() {
 
   if (formLayout === "hero") {
     return (
-      <div className="min-h-screen" style={{ backgroundColor: bgColor }} data-testid="public-form-container">
+      <div className="min-h-screen public-form-root" lang={formLang} style={{ backgroundColor: bgColor }} data-testid="public-form-container">
+        <style>{placeholderStyle}</style>
         <div className="w-full py-16 md:py-20 px-4" style={{ backgroundColor: brandColor }}>
           <div className={`${widthClass} mx-auto text-center`}>
             {renderHeader()}
@@ -1161,7 +1449,8 @@ export default function PublicFormPage() {
   }
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: bgColor }} data-testid="public-form-container">
+    <div className="min-h-screen public-form-root" lang={formLang} style={{ backgroundColor: bgColor }} data-testid="public-form-container">
+      <style>{placeholderStyle}</style>
       <div className="w-full py-8 px-4" style={{ backgroundColor: brandColor }}>
         <div className={`${widthClass} mx-auto text-center`}>
           {renderHeader()}

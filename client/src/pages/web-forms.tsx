@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect, Fragment } from "react";
+import { useState, useMemo, useCallback, useEffect, Fragment, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useI18n } from "@/i18n";
@@ -59,6 +59,7 @@ function getFieldTypes(t: any) {
     { value: "select", label: t.webForms.fieldSelect },
     { value: "select_insurance", label: t.webForms.fieldInsurance },
     { value: "select_hospital", label: t.webForms.fieldHospital },
+    { value: "select_gynecologist", label: t.webForms.fieldGynecologist || "Gynekológ (autocomplete)" },
     { value: "select_product", label: t.webForms.fieldProduct },
     { value: "select_source", label: t.webForms.fieldSource },
     { value: "select_payment", label: t.webForms.fieldPayment },
@@ -102,6 +103,7 @@ function getSpecialFields(t: any) {
   return [
     { key: "productSetId", label: t.webForms.productType, type: "select_product", section: "delivery" },
     { key: "hospitalId", label: t.webForms.hospital, type: "select_hospital", section: "delivery" },
+    { key: "gynecologistClinicId", label: t.webForms.fieldGynecologist || "Gynekológ", type: "select_gynecologist", section: "delivery" },
     { key: "expectedDeliveryDate", label: t.webForms.expectedDueDate, type: "date", section: "delivery" },
     { key: "howDidYouHear", label: t.webForms.howDidYouHear, type: "select_source", section: "source" },
     { key: "paymentMethod", label: t.webForms.paymentMethod, type: "select_payment", section: "delivery" },
@@ -237,6 +239,84 @@ function FontStyleEditor({ prefix, formData, setFormData, showFamily, showItalic
           </Select>
         </div>
       )}
+    </div>
+  );
+}
+
+function RichTextEditor({ value, onChange, rows, dataTestId }: { value: string; onChange: (val: string) => void; rows?: number; dataTestId?: string }) {
+  const editorRef = useRef<HTMLDivElement>(null);
+  const [mode, setMode] = useState<"visual" | "html">("visual");
+
+  useEffect(() => {
+    if (editorRef.current && mode === "visual") {
+      if (editorRef.current.innerHTML !== value) {
+        editorRef.current.innerHTML = value || "";
+      }
+    }
+  }, [value, mode]);
+
+  const execCmd = (cmd: string, val?: string) => {
+    document.execCommand(cmd, false, val);
+    if (editorRef.current) {
+      onChange(editorRef.current.innerHTML);
+    }
+  };
+
+  const insertLink = () => {
+    const url = prompt("URL odkazu:", "https://");
+    if (url) execCmd("createLink", url);
+  };
+
+  if (mode === "html") {
+    return (
+      <div className="space-y-1">
+        <div className="flex items-center gap-1 border border-gray-200 rounded-t-md p-1 bg-gray-50">
+          <button type="button" className="px-2 py-0.5 text-[10px] rounded bg-gray-200 font-medium" onClick={() => setMode("visual")}>
+            Vizuálny
+          </button>
+          <button type="button" className="px-2 py-0.5 text-[10px] rounded bg-primary text-white font-medium">
+            HTML
+          </button>
+        </div>
+        <textarea
+          value={value || ""}
+          onChange={e => onChange(e.target.value)}
+          rows={rows || 4}
+          className="w-full border border-gray-200 rounded-b-md p-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-primary"
+          data-testid={dataTestId}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-0">
+      <div className="flex items-center gap-1 border border-gray-200 rounded-t-md p-1 bg-gray-50 flex-wrap">
+        <button type="button" className="px-1.5 py-0.5 text-xs rounded hover:bg-gray-200 font-bold" onClick={() => execCmd("bold")} title="Tučné">B</button>
+        <button type="button" className="px-1.5 py-0.5 text-xs rounded hover:bg-gray-200 italic" onClick={() => execCmd("italic")} title="Kurzíva">I</button>
+        <button type="button" className="px-1.5 py-0.5 text-xs rounded hover:bg-gray-200 underline" onClick={() => execCmd("underline")} title="Podčiarknuté">U</button>
+        <span className="w-px h-4 bg-gray-300 mx-0.5" />
+        <button type="button" className="px-1.5 py-0.5 text-[10px] rounded hover:bg-gray-200" onClick={insertLink} title="Odkaz">🔗</button>
+        <button type="button" className="px-1.5 py-0.5 text-[10px] rounded hover:bg-gray-200" onClick={() => execCmd("insertUnorderedList")} title="Odrážky">•</button>
+        <button type="button" className="px-1.5 py-0.5 text-[10px] rounded hover:bg-gray-200" onClick={() => execCmd("insertOrderedList")} title="Číslovanie">1.</button>
+        <span className="flex-1" />
+        <button type="button" className="px-2 py-0.5 text-[10px] rounded bg-primary text-white font-medium" onClick={() => setMode("visual")}>
+          Vizuálny
+        </button>
+        <button type="button" className="px-2 py-0.5 text-[10px] rounded bg-gray-200 font-medium" onClick={() => setMode("html")}>
+          HTML
+        </button>
+      </div>
+      <div
+        ref={editorRef}
+        contentEditable
+        className="w-full border border-t-0 border-gray-200 rounded-b-md p-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary min-h-[60px] [&_a]:text-blue-600 [&_a]:underline"
+        style={{ minHeight: (rows || 3) * 20 + "px" }}
+        onInput={() => {
+          if (editorRef.current) onChange(editorRef.current.innerHTML);
+        }}
+        data-testid={dataTestId}
+      />
     </div>
   );
 }
@@ -768,10 +848,10 @@ export default function WebFormsPage({ embedded }: { embedded?: boolean } = {}) 
               <div className="space-y-2">
                 <Label className="text-xs font-medium">{t.webForms.iframeRecommended}</Label>
                 <Textarea readOnly rows={3} className="font-mono text-xs"
-                  value={`<iframe src="${getFormUrl(embedDialogForm.slug)}" width="100%" height="900" frameborder="0" style="border:none;max-width:800px;margin:0 auto;display:block"></iframe>`}
+                  value={`<iframe src="${getFormUrl(embedDialogForm.slug)}?embed=1" width="100%" height="900" frameborder="0" style="border:none;max-width:800px;margin:0 auto;display:block"></iframe>`}
                   data-testid="textarea-embed-iframe"
                 />
-                <Button size="sm" variant="outline" onClick={() => copyToClipboard(`<iframe src="${getFormUrl(embedDialogForm.slug)}" width="100%" height="900" frameborder="0" style="border:none;max-width:800px;margin:0 auto;display:block"></iframe>`)} data-testid="btn-copy-iframe">
+                <Button size="sm" variant="outline" onClick={() => copyToClipboard(`<iframe src="${getFormUrl(embedDialogForm.slug)}?embed=1" width="100%" height="900" frameborder="0" style="border:none;max-width:800px;margin:0 auto;display:block"></iframe>`)} data-testid="btn-copy-iframe">
                   <Copy className="h-3 w-3 mr-1" /> {t.webForms.copy}
                 </Button>
               </div>
@@ -1865,15 +1945,15 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
               <Separator />
               <div className="space-y-1">
                 <Label className="text-xs">{t.webForms.gdprText}</Label>
-                <Textarea value={formData.gdprText || ""} onChange={e => setFormData({ ...formData, gdprText: e.target.value })} rows={3} data-testid="input-gdpr-text" />
+                <RichTextEditor value={formData.gdprText || ""} onChange={v => setFormData({ ...formData, gdprText: v })} rows={4} dataTestId="input-gdpr-text" />
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">{t.webForms.gdprMarketing}</Label>
-                <Textarea value={formData.gdprMarketingText || ""} onChange={e => setFormData({ ...formData, gdprMarketingText: e.target.value })} rows={2} />
+                <RichTextEditor value={formData.gdprMarketingText || ""} onChange={v => setFormData({ ...formData, gdprMarketingText: v })} rows={3} />
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">{t.webForms.gdprPregnancy}</Label>
-                <Textarea value={formData.gdprPregnancyText || ""} onChange={e => setFormData({ ...formData, gdprPregnancyText: e.target.value })} rows={2} />
+                <RichTextEditor value={formData.gdprPregnancyText || ""} onChange={v => setFormData({ ...formData, gdprPregnancyText: v })} rows={3} />
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">{t.webForms.successMessage}</Label>
