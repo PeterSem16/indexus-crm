@@ -840,37 +840,139 @@ export default function WebFormsPage({ embedded }: { embedded?: boolean } = {}) 
         </Dialog>
       )}
 
-      <Dialog open={!!embedDialogForm} onOpenChange={(o) => !o && setEmbedDialogForm(null)}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader><DialogTitle>{t.webForms.embedTitle}</DialogTitle></DialogHeader>
-          {embedDialogForm && (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label className="text-xs font-medium">{t.webForms.iframeRecommended}</Label>
-                <Textarea readOnly rows={3} className="font-mono text-xs"
-                  value={`<iframe src="${getFormUrl(embedDialogForm.slug)}?embed=1" width="100%" height="900" frameborder="0" style="border:none;max-width:800px;margin:0 auto;display:block"></iframe>`}
-                  data-testid="textarea-embed-iframe"
-                />
-                <Button size="sm" variant="outline" onClick={() => copyToClipboard(`<iframe src="${getFormUrl(embedDialogForm.slug)}?embed=1" width="100%" height="900" frameborder="0" style="border:none;max-width:800px;margin:0 auto;display:block"></iframe>`)} data-testid="btn-copy-iframe">
-                  <Copy className="h-3 w-3 mr-1" /> {t.webForms.copy}
-                </Button>
-              </div>
-              <Separator />
-              <div className="space-y-2">
-                <Label className="text-xs font-medium">{t.webForms.directLink}</Label>
-                <Input readOnly value={getFormUrl(embedDialogForm.slug)} className="font-mono text-xs" data-testid="input-embed-url" />
-                <Button size="sm" variant="outline" onClick={() => copyToClipboard(getFormUrl(embedDialogForm.slug))} data-testid="btn-copy-direct">
-                  <Copy className="h-3 w-3 mr-1" /> {t.webForms.copy}
-                </Button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      {embedDialogForm && <EmbedCodeDialog form={embedDialogForm} onClose={() => setEmbedDialogForm(null)} getFormUrl={getFormUrl} copyToClipboard={copyToClipboard} t={t} />}
 
       {editingForm && <FormEditorSheet form={editingForm} onClose={() => setEditingForm(null)} />}
       {viewingSubmissions && <SubmissionsSheet formId={viewingSubmissions} onClose={() => setViewingSubmissions(null)} />}
     </div>
+  );
+}
+
+function EmbedCodeDialog({ form, onClose, getFormUrl, copyToClipboard, t }: {
+  form: any; onClose: () => void; getFormUrl: (slug: string) => string;
+  copyToClipboard: (text: string) => void; t: any;
+}) {
+  const [embedWidth, setEmbedWidth] = useState("100%");
+  const [embedHeight, setEmbedHeight] = useState("900");
+  const [embedMaxWidth, setEmbedMaxWidth] = useState("800");
+  const [embedScrolling, setEmbedScrolling] = useState("auto");
+  const [embedBorder, setEmbedBorder] = useState(false);
+  const [embedBorderRadius, setEmbedBorderRadius] = useState("0");
+  const [embedShadow, setEmbedShadow] = useState(false);
+  const [embedCentered, setEmbedCentered] = useState(true);
+  const [embedLazy, setEmbedLazy] = useState(false);
+
+  const buildIframeCode = () => {
+    const styles: string[] = [];
+    if (!embedBorder) styles.push("border:none");
+    if (embedMaxWidth && embedMaxWidth !== "0") styles.push(`max-width:${embedMaxWidth}px`);
+    if (embedCentered) styles.push("margin:0 auto", "display:block");
+    if (embedBorderRadius && embedBorderRadius !== "0") styles.push(`border-radius:${embedBorderRadius}px`);
+    if (embedShadow) styles.push("box-shadow:0 4px 24px rgba(0,0,0,0.12)");
+
+    const attrs: string[] = [
+      `src="${getFormUrl(form.slug)}?embed=1"`,
+      `width="${embedWidth}"`,
+      `height="${embedHeight}"`,
+      `frameborder="${embedBorder ? "1" : "0"}"`,
+    ];
+    if (embedScrolling !== "auto") attrs.push(`scrolling="${embedScrolling}"`);
+    if (embedLazy) attrs.push(`loading="lazy"`);
+    if (styles.length) attrs.push(`style="${styles.join(";")}"`);
+
+    return `<iframe ${attrs.join(" ")}></iframe>`;
+  };
+
+  const iframeCode = buildIframeCode();
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogHeader><DialogTitle>{t.webForms.embedTitle}</DialogTitle></DialogHeader>
+        <div className="space-y-5">
+          <div>
+            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 block">Iframe</Label>
+            <div className="grid grid-cols-3 gap-3 mb-3">
+              <div className="space-y-1">
+                <Label className="text-[11px] text-muted-foreground">Width</Label>
+                <Select value={embedWidth} onValueChange={setEmbedWidth}>
+                  <SelectTrigger className="h-8 text-xs" data-testid="select-embed-width"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="100%">100%</SelectItem>
+                    <SelectItem value="90%">90%</SelectItem>
+                    <SelectItem value="80%">80%</SelectItem>
+                    <SelectItem value="600">600px</SelectItem>
+                    <SelectItem value="800">800px</SelectItem>
+                    <SelectItem value="1024">1024px</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[11px] text-muted-foreground">Height (px)</Label>
+                <Input className="h-8 text-xs" type="number" value={embedHeight} onChange={e => setEmbedHeight(e.target.value)} data-testid="input-embed-height" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[11px] text-muted-foreground">Max width (px)</Label>
+                <Input className="h-8 text-xs" type="number" value={embedMaxWidth} onChange={e => setEmbedMaxWidth(e.target.value)} data-testid="input-embed-maxwidth" />
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-3 mb-3">
+              <div className="space-y-1">
+                <Label className="text-[11px] text-muted-foreground">Scrolling</Label>
+                <Select value={embedScrolling} onValueChange={setEmbedScrolling}>
+                  <SelectTrigger className="h-8 text-xs" data-testid="select-embed-scrolling"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="auto">Auto</SelectItem>
+                    <SelectItem value="yes">Yes</SelectItem>
+                    <SelectItem value="no">No</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[11px] text-muted-foreground">Border radius (px)</Label>
+                <Input className="h-8 text-xs" type="number" value={embedBorderRadius} onChange={e => setEmbedBorderRadius(e.target.value)} data-testid="input-embed-radius" />
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-4 mb-3">
+              <label className="flex items-center gap-2 text-xs cursor-pointer" data-testid="check-embed-border">
+                <input type="checkbox" checked={embedBorder} onChange={e => setEmbedBorder(e.target.checked)} className="rounded" />
+                Border
+              </label>
+              <label className="flex items-center gap-2 text-xs cursor-pointer" data-testid="check-embed-shadow">
+                <input type="checkbox" checked={embedShadow} onChange={e => setEmbedShadow(e.target.checked)} className="rounded" />
+                Shadow
+              </label>
+              <label className="flex items-center gap-2 text-xs cursor-pointer" data-testid="check-embed-centered">
+                <input type="checkbox" checked={embedCentered} onChange={e => setEmbedCentered(e.target.checked)} className="rounded" />
+                Centered
+              </label>
+              <label className="flex items-center gap-2 text-xs cursor-pointer" data-testid="check-embed-lazy">
+                <input type="checkbox" checked={embedLazy} onChange={e => setEmbedLazy(e.target.checked)} className="rounded" />
+                Lazy loading
+              </label>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-xs font-medium">{t.webForms.iframeRecommended}</Label>
+            <Textarea readOnly rows={4} className="font-mono text-xs bg-gray-50" value={iframeCode} data-testid="textarea-embed-iframe" />
+            <Button size="sm" variant="outline" onClick={() => copyToClipboard(iframeCode)} data-testid="btn-copy-iframe">
+              <Copy className="h-3 w-3 mr-1" /> {t.webForms.copy}
+            </Button>
+          </div>
+
+          <Separator />
+
+          <div className="space-y-2">
+            <Label className="text-xs font-medium">{t.webForms.directLink}</Label>
+            <Input readOnly value={getFormUrl(form.slug)} className="font-mono text-xs" data-testid="input-embed-url" />
+            <Button size="sm" variant="outline" onClick={() => copyToClipboard(getFormUrl(form.slug))} data-testid="btn-copy-direct">
+              <Copy className="h-3 w-3 mr-1" /> {t.webForms.copy}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
