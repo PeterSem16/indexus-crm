@@ -4340,18 +4340,15 @@ export default function EmailClientPage() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => { setSmartSearchOpen(true); setTimeout(() => smartSearchInputRef.current?.focus(), 100); }}
-            className={cn("flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm cursor-pointer transition-all",
+            className={cn("group flex items-center gap-2.5 px-4 py-2 rounded-xl text-sm cursor-pointer transition-all duration-200 shadow-sm hover:shadow-md",
               aiSearchEnabled
-                ? "bg-gradient-to-r from-violet-500/5 to-purple-500/5 border-violet-500/20 text-violet-700 dark:text-violet-300 hover:from-violet-500/10 hover:to-purple-500/10"
-                : "bg-muted/50 text-muted-foreground border-border hover:bg-accent hover:text-foreground"
+                ? "bg-gradient-to-r from-violet-500/10 to-purple-500/10 border border-violet-500/20 text-violet-700 dark:text-violet-300 hover:from-violet-500/15 hover:to-purple-500/15 hover:border-violet-500/30"
+                : "bg-background border border-border/60 text-muted-foreground hover:bg-accent/50 hover:text-foreground hover:border-border"
             )}
             data-testid="button-smart-search"
           >
-            {aiSearchEnabled ? <BrainCircuit className="h-3.5 w-3.5" /> : <Search className="h-3.5 w-3.5" />}
-            <span className="hidden md:inline">{aiSearchEnabled ? t.nexusOmni.search.aiSearch : t.nexusOmni.search.searchInEmails}...</span>
-            <kbd className="hidden md:inline-flex items-center gap-0.5 rounded border bg-muted px-1.5 text-[10px] font-mono text-muted-foreground">
-              Ctrl K
-            </kbd>
+            {aiSearchEnabled ? <BrainCircuit className="h-4 w-4 group-hover:scale-110 transition-transform" /> : <Search className="h-4 w-4 group-hover:scale-110 transition-transform" />}
+            <span className="hidden md:inline">{aiSearchEnabled ? t.nexusOmni.search.aiSearch : t.nexusOmni.search.searchInEmails}</span>
           </button>
           {activeTab === "email" && (
             <Button variant="outline" size="icon" onClick={openSignatureEditor} data-testid="button-signature">
