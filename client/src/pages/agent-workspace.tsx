@@ -742,7 +742,7 @@ function TaskListPanel({
           })}
           {filteredCampaigns.length === 0 && (
             <div className="text-center py-3 w-full">
-              <p className="text-xs text-muted-foreground">{t.agentWorkspace.noCampaigns || "No campaigns"}</p>
+              <p className="text-xs text-muted-foreground">{t.agentWorkspace.noCampaigns || "No missions"}</p>
             </div>
           )}
         </div>
@@ -5978,7 +5978,7 @@ export default function AgentWorkspacePage() {
                   {loginCampaigns.length === 0 ? (
                     <div className="text-center py-4">
                       <Megaphone className="h-8 w-8 mx-auto text-muted-foreground/30 mb-2" />
-                      <p className="text-xs text-muted-foreground">{t.agentWorkspace.noCampaigns || "No campaigns available"}</p>
+                      <p className="text-xs text-muted-foreground">{t.agentWorkspace.noCampaigns || "No missions available"}</p>
                     </div>
                   ) : (
                     loginCampaigns.map((campaign) => {
@@ -6037,7 +6037,7 @@ export default function AgentWorkspacePage() {
               </ScrollArea>
               {selectedLoginCampaignIds.length > 0 && (
                 <p className="text-xs text-muted-foreground mt-1.5">
-                  {selectedLoginCampaignIds.length} {selectedLoginCampaignIds.length === 1 ? "campaign" : "campaigns"} selected
+                  {selectedLoginCampaignIds.length} {selectedLoginCampaignIds.length === 1 ? "mission" : "missions"} selected
                 </p>
               )}
             </div>
