@@ -254,18 +254,18 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {visibleAdminItems.length > 0 && (
+        {visibleNexusItems.length > 0 && (
           <>
             <SidebarSeparator className="my-2" />
             <SidebarGroup>
+              <SidebarGroupLabel className="text-xs uppercase tracking-wider text-muted-foreground mb-2">
+                NEXUS
+              </SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
-                  {visibleAdminItems.map((item) => (
+                  {visibleNexusItems.map((item) => (
                     <SidebarMenuItem key={item.testId}>
-                      <SidebarMenuButton 
-                        asChild 
-                        isActive={location === item.url}
-                      >
+                      <SidebarMenuButton asChild isActive={location === item.url}>
                         <Link href={item.url} data-testid={`nav-${item.testId}`}>
                           <item.icon className="h-4 w-4" />
                           <span>{item.title}</span>
@@ -279,18 +279,18 @@ export function AppSidebar() {
           </>
         )}
 
-        {visibleNexusItems.length > 0 && (
+        {visibleAdminItems.length > 0 && (
           <>
             <SidebarSeparator className="my-2" />
             <SidebarGroup>
-              <SidebarGroupLabel className="text-xs uppercase tracking-wider text-muted-foreground mb-2">
-                NEXUS
-              </SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
-                  {visibleNexusItems.map((item) => (
+                  {visibleAdminItems.map((item) => (
                     <SidebarMenuItem key={item.testId}>
-                      <SidebarMenuButton asChild isActive={location === item.url}>
+                      <SidebarMenuButton 
+                        asChild 
+                        isActive={location === item.url}
+                      >
                         <Link href={item.url} data-testid={`nav-${item.testId}`}>
                           <item.icon className="h-4 w-4" />
                           <span>{item.title}</span>
