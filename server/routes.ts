@@ -4489,6 +4489,84 @@ Format the output in clean HTML with headings (h3), bullet lists (ul/li), and bo
     }
   });
 
+  app.post("/api/nexus/ai-search", requireAuth, async (req, res) => {
+    try {
+      if (!process.env.OPENAI_API_KEY) {
+        return res.status(400).json({ error: "OpenAI not configured" });
+      }
+      const { query, locale } = req.body;
+      if (!query || typeof query !== "string" || query.trim().length < 3) {
+        return res.status(400).json({ error: "Query too short" });
+      }
+
+      const today = new Date().toISOString().split("T")[0];
+
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o",
+        temperature: 0.1,
+        max_tokens: 800,
+        messages: [
+          {
+            role: "system",
+            content: `You are an AI search assistant for NEXUS Omni email/communication client used in a cord blood banking company (Cordbloodcenter). Parse the user's natural language search request into structured search parameters for Microsoft 365 Graph API email search.
+
+Today's date is ${today}.
+
+Return a JSON object with:
+- "searchQuery": the main text/keyword to search for in MS365 (supports KQL syntax like from:, subject:, hasAttachments:true, importance:high). Can be empty if only date filters apply.
+- "from": specific sender email or name to filter by (empty string if not specified)
+- "hasAttachments": true/false/null (null if not specified)
+- "attachmentName": specific attachment filename or type to search for (empty string if not specified)
+- "importance": "high"/"normal"/"low" or empty string if not specified
+- "dateFrom": ISO date string YYYY-MM-DD or empty string. Interpret relative dates like "last week", "yesterday", "last month" relative to today.
+- "dateTo": ISO date string YYYY-MM-DD or empty string.
+- "explanation": A brief natural language explanation of what you understood and will search for, in the user's language (locale: ${locale || "sk"}).
+- "suggestions": Array of 3-5 follow-up search suggestions. Each has "label" (short display text in user's language) and "query" (the natural language query to re-submit). Make suggestions contextually relevant and progressively more specific/creative.
+- "channels": Array of channels to search in: "email", "sms", "tasks", "chats". Default ["email"] unless user specifies otherwise.
+- "searchScope": "all" or specific mailbox hint (empty = all)
+
+IMPORTANT: Build the searchQuery using MS365 KQL syntax where appropriate. For example:
+- "from:john@example.com" for sender filtering
+- "hasAttachments:true" for attachment filtering
+- "subject:invoice" for subject filtering
+- Combine multiple: "from:peter hasAttachments:true invoice"
+
+Always respond with valid JSON only, no markdown.`
+          },
+          { role: "user", content: query }
+        ],
+      });
+
+      const content = response.choices[0]?.message?.content || "{}";
+      let raw: any;
+      try {
+        const cleaned = content.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+        raw = JSON.parse(cleaned);
+      } catch {
+        raw = {};
+      }
+
+      const parsed = {
+        searchQuery: typeof raw.searchQuery === "string" ? raw.searchQuery : query,
+        from: typeof raw.from === "string" ? raw.from : "",
+        hasAttachments: typeof raw.hasAttachments === "boolean" ? raw.hasAttachments : null,
+        attachmentName: typeof raw.attachmentName === "string" ? raw.attachmentName : "",
+        importance: typeof raw.importance === "string" ? raw.importance : "",
+        dateFrom: typeof raw.dateFrom === "string" ? raw.dateFrom : "",
+        dateTo: typeof raw.dateTo === "string" ? raw.dateTo : "",
+        explanation: typeof raw.explanation === "string" ? raw.explanation : query,
+        suggestions: Array.isArray(raw.suggestions) ? raw.suggestions.filter((s: any) => s && typeof s.label === "string" && typeof s.query === "string").slice(0, 5) : [],
+        channels: Array.isArray(raw.channels) ? raw.channels.filter((c: any) => typeof c === "string") : ["email"],
+        searchScope: typeof raw.searchScope === "string" ? raw.searchScope : "all",
+      };
+
+      res.json(parsed);
+    } catch (error) {
+      console.error("[AI Search] Error:", error);
+      res.status(500).json({ error: "AI search failed" });
+    }
+  });
+
   // Get single email detail
   app.get("/api/users/:userId/ms365-email/:emailId", requireAuth, async (req, res) => {
     try {

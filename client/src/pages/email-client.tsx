@@ -147,6 +147,10 @@ import {
   MoreHorizontal,
   BarChart3,
   TrendingUp,
+  BrainCircuit,
+  Filter,
+  MailSearch,
+  FileSearch,
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
@@ -2583,6 +2587,24 @@ export default function EmailClientPage() {
   });
   const [searchDateFrom, setSearchDateFrom] = useState("");
   const [searchDateTo, setSearchDateTo] = useState("");
+  const [aiSearchEnabled, setAiSearchEnabled] = useState(() => {
+    try { return localStorage.getItem("nexus-ai-search") !== "false"; } catch { return true; }
+  });
+  const [aiSearchLoading, setAiSearchLoading] = useState(false);
+  const [aiSearchResult, setAiSearchResult] = useState<{
+    searchQuery: string;
+    from: string;
+    hasAttachments: boolean | null;
+    attachmentName: string;
+    importance: string;
+    dateFrom: string;
+    dateTo: string;
+    explanation: string;
+    suggestions: { label: string; query: string }[];
+    channels: string[];
+    searchScope: string;
+  } | null>(null);
+  const [aiSuggestions, setAiSuggestions] = useState<{ label: string; query: string }[]>([]);
   const [searchPanelExpanded, setSearchPanelExpanded] = useState(false);
   const [listPanelExpanded, setListPanelExpanded] = useState(false);
   const [nexusFullscreen, setNexusFullscreen] = useState(false);
@@ -3625,6 +3647,56 @@ export default function EmailClientPage() {
     setSmartSearchQuery("");
   };
 
+  const handleAiSearch = async (query: string) => {
+    if (!query || query.trim().length < 3) return;
+    setAiSearchLoading(true);
+    setAiSearchResult(null);
+    try {
+      const response = await fetch("/api/nexus/ai-search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ query: query.trim(), locale }),
+      });
+      if (!response.ok) throw new Error("AI search failed");
+      const result = await response.json();
+      setAiSearchResult(result);
+      setAiSuggestions(result.suggestions || []);
+    } catch {
+      setAiSearchResult(null);
+      setAiSuggestions([]);
+      executeSmartSearch(query);
+    } finally {
+      setAiSearchLoading(false);
+    }
+  };
+
+  const executeAiResult = (result: typeof aiSearchResult) => {
+    if (!result) return;
+    const q = result.searchQuery || "";
+    const df = result.dateFrom || "";
+    const dt = result.dateTo || "";
+    if (q && q.length >= 2) addRecentSearch(smartSearchQuery.trim());
+    setSearchQuery(q);
+    setDebouncedSearchQuery(q);
+    setSearchDateFrom(df);
+    setSearchDateTo(dt);
+    setSearchMailbox(result.searchScope === "all" ? "all" : (result.searchScope || smartSearchMailbox));
+    setIsSearching(true);
+    setSelectedEmail(null);
+    setSmartSearchOpen(false);
+    setSmartSearchQuery("");
+    setAiSearchResult(null);
+  };
+
+  const toggleAiSearch = () => {
+    const next = !aiSearchEnabled;
+    setAiSearchEnabled(next);
+    localStorage.setItem("nexus-ai-search", String(next));
+    setAiSearchResult(null);
+    setAiSuggestions([]);
+  };
+
   const clearRecentSearches = () => {
     setRecentSearches([]);
     localStorage.removeItem("nexus-recent-searches");
@@ -4262,11 +4334,15 @@ export default function EmailClientPage() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => { setSmartSearchOpen(true); setTimeout(() => smartSearchInputRef.current?.focus(), 100); }}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg border bg-muted/50 text-muted-foreground hover:bg-accent hover:text-foreground transition-all text-sm cursor-pointer"
+            className={cn("flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm cursor-pointer transition-all",
+              aiSearchEnabled
+                ? "bg-gradient-to-r from-violet-500/5 to-purple-500/5 border-violet-500/20 text-violet-700 dark:text-violet-300 hover:from-violet-500/10 hover:to-purple-500/10"
+                : "bg-muted/50 text-muted-foreground border-border hover:bg-accent hover:text-foreground"
+            )}
             data-testid="button-smart-search"
           >
-            <Search className="h-3.5 w-3.5" />
-            <span className="hidden md:inline">{t.nexusOmni.search.searchInEmails}...</span>
+            {aiSearchEnabled ? <BrainCircuit className="h-3.5 w-3.5" /> : <Search className="h-3.5 w-3.5" />}
+            <span className="hidden md:inline">{aiSearchEnabled ? t.nexusOmni.search.aiSearch : t.nexusOmni.search.searchInEmails}...</span>
             <kbd className="hidden md:inline-flex items-center gap-0.5 rounded border bg-muted px-1.5 text-[10px] font-mono text-muted-foreground">
               Ctrl K
             </kbd>
@@ -5508,30 +5584,54 @@ export default function EmailClientPage() {
         </div>
       )}
 
-      <Dialog open={smartSearchOpen} onOpenChange={setSmartSearchOpen}>
+      <Dialog open={smartSearchOpen} onOpenChange={(open) => { setSmartSearchOpen(open); if (!open) { setAiSearchResult(null); setAiSearchLoading(false); } }}>
           <DialogContent hideCloseButton className="max-w-3xl p-0 gap-0 overflow-hidden rounded-2xl border shadow-2xl" data-testid="smart-search-dialog">
             <DialogHeader className="sr-only">
               <DialogTitle>{t.nexusOmni.search.searchInEmails}</DialogTitle>
               <DialogDescription>{t.nexusOmni.search.placeholder}</DialogDescription>
             </DialogHeader>
 
-            <div className="px-5 pt-4 pb-3 space-y-3">
+            <div className={cn("px-5 pt-4 pb-3 space-y-3 transition-colors", aiSearchEnabled && "bg-gradient-to-r from-violet-500/5 via-purple-500/5 to-fuchsia-500/5")}>
               <div className="flex items-center gap-2">
+                <button
+                  onClick={toggleAiSearch}
+                  className={cn("h-12 w-12 rounded-xl flex items-center justify-center transition-all shrink-0 border",
+                    aiSearchEnabled
+                      ? "bg-gradient-to-br from-violet-500 to-purple-600 text-white border-violet-400 shadow-lg shadow-violet-500/20"
+                      : "bg-muted text-muted-foreground border-border hover:bg-accent"
+                  )}
+                  data-testid="toggle-ai-search"
+                  title={aiSearchEnabled ? t.nexusOmni.search.aiModeOn : t.nexusOmni.search.aiModeOff}
+                >
+                  <BrainCircuit className="h-5 w-5" />
+                </button>
                 <div className="relative group flex-1">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground/50 transition-colors group-focus-within:text-primary" />
+                  {aiSearchEnabled ? (
+                    <Sparkles className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-violet-500/60 transition-colors group-focus-within:text-violet-500" />
+                  ) : (
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground/50 transition-colors group-focus-within:text-primary" />
+                  )}
                   <Input
                     ref={smartSearchInputRef}
-                    placeholder={t.nexusOmni.search.placeholder}
+                    placeholder={aiSearchEnabled ? t.nexusOmni.search.aiSearchPlaceholder : t.nexusOmni.search.placeholder}
                     value={smartSearchQuery}
-                    onChange={(e) => setSmartSearchQuery(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter") executeSmartSearch(smartSearchQuery); if (e.key === "Escape") setSmartSearchOpen(false); }}
-                    className="pl-12 pr-10 h-12 text-base rounded-xl border-0 bg-muted/50 focus-visible:ring-1 focus-visible:ring-primary/30 shadow-inner"
+                    onChange={(e) => { setSmartSearchQuery(e.target.value); setAiSearchResult(null); }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && smartSearchQuery.trim().length >= (aiSearchEnabled ? 3 : 2)) {
+                        if (aiSearchEnabled) handleAiSearch(smartSearchQuery);
+                        else executeSmartSearch(smartSearchQuery);
+                      }
+                      if (e.key === "Escape") setSmartSearchOpen(false);
+                    }}
+                    className={cn("pl-12 pr-10 h-12 text-base rounded-xl border-0 shadow-inner focus-visible:ring-1",
+                      aiSearchEnabled ? "bg-violet-500/5 focus-visible:ring-violet-500/30" : "bg-muted/50 focus-visible:ring-primary/30"
+                    )}
                     autoFocus
                     data-testid="input-smart-search"
                   />
                   {smartSearchQuery.length > 0 && (
                     <button
-                      onClick={() => { setSmartSearchQuery(""); smartSearchInputRef.current?.focus(); }}
+                      onClick={() => { setSmartSearchQuery(""); setAiSearchResult(null); smartSearchInputRef.current?.focus(); }}
                       className="absolute right-3 top-1/2 -translate-y-1/2 h-7 w-7 rounded-lg bg-muted hover:bg-muted-foreground/20 flex items-center justify-center transition-all"
                       data-testid="clear-search-input"
                     >
@@ -5585,6 +5685,7 @@ export default function EmailClientPage() {
                   </div>
                 </div>
 
+                {!aiSearchEnabled && (
                 <div className="space-y-1.5">
                   <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60 px-1">{t.nexusOmni.common.date}</span>
                   <div className="grid grid-cols-2 gap-2">
@@ -5608,15 +5709,155 @@ export default function EmailClientPage() {
                     />
                   </div>
                 </div>
+                )}
+
+                {aiSearchEnabled && (
+                <div className="space-y-1.5">
+                  <span className="text-[10px] font-semibold uppercase tracking-widest text-violet-500/60 px-1 flex items-center gap-1">
+                    <BrainCircuit className="h-3 w-3" />
+                    {t.nexusOmni.search.aiMode}
+                  </span>
+                  <p className="text-[11px] text-muted-foreground/70 px-1 leading-relaxed">
+                    {t.nexusOmni.search.tryAsking}: &ldquo;{locale === "sk" ? "Nájdi emaily s faktúrami za posledný mesiac" : locale === "cs" ? "Najdi emaily s fakturami za poslední měsíc" : "Find emails with invoices from last month"}&rdquo;
+                  </p>
+                </div>
+                )}
               </div>
             </div>
 
             <div className="h-px bg-border" />
 
-            <ScrollArea className="max-h-[400px]">
+            <ScrollArea className="max-h-[420px]">
               <div className="p-2 space-y-0.5">
-                {smartSearchQuery.trim().length >= 2 && (
+
+                {aiSearchLoading && (
+                  <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                    <div className="relative">
+                      <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-violet-500/20 to-purple-500/20 flex items-center justify-center mb-4">
+                        <BrainCircuit className="h-8 w-8 text-violet-500 animate-pulse" />
+                      </div>
+                      <div className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-violet-500 animate-ping" />
+                    </div>
+                    <p className="text-sm font-medium text-violet-600 dark:text-violet-400">{t.nexusOmni.search.aiSearching}</p>
+                    <p className="text-[11px] text-muted-foreground/50 mt-1">&ldquo;{smartSearchQuery}&rdquo;</p>
+                  </div>
+                )}
+
+                {!aiSearchLoading && aiSearchResult && (
                   <>
+                    <div className="mx-2 mb-2 p-3 rounded-xl bg-gradient-to-r from-violet-500/10 via-purple-500/5 to-fuchsia-500/10 border border-violet-500/20">
+                      <div className="flex items-start gap-3">
+                        <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shrink-0 shadow-sm">
+                          <BrainCircuit className="h-4.5 w-4.5 text-white" />
+                        </div>
+                        <div className="flex-1 min-w-0 space-y-2">
+                          <div>
+                            <p className="text-[10px] font-semibold uppercase tracking-widest text-violet-600 dark:text-violet-400">{t.nexusOmni.search.aiExplanation}</p>
+                            <p className="text-sm text-foreground mt-0.5">{aiSearchResult.explanation}</p>
+                          </div>
+
+                          {(aiSearchResult.from || aiSearchResult.hasAttachments || aiSearchResult.importance || aiSearchResult.dateFrom || aiSearchResult.dateTo || aiSearchResult.attachmentName) && (
+                            <div className="flex flex-wrap gap-1.5">
+                              {aiSearchResult.from && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-700 dark:text-blue-300 text-[11px] font-medium">
+                                  <User className="h-3 w-3" /> {t.nexusOmni.search.fromSender}: {aiSearchResult.from}
+                                </span>
+                              )}
+                              {aiSearchResult.hasAttachments && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-green-500/10 text-green-700 dark:text-green-300 text-[11px] font-medium">
+                                  <Paperclip className="h-3 w-3" /> {t.nexusOmni.search.withAttachment}
+                                </span>
+                              )}
+                              {aiSearchResult.attachmentName && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 text-[11px] font-medium">
+                                  <FileSearch className="h-3 w-3" /> {aiSearchResult.attachmentName}
+                                </span>
+                              )}
+                              {aiSearchResult.importance && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-red-500/10 text-red-700 dark:text-red-300 text-[11px] font-medium">
+                                  <Flame className="h-3 w-3" /> {t.nexusOmni.search.highImportance}
+                                </span>
+                              )}
+                              {(aiSearchResult.dateFrom || aiSearchResult.dateTo) && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 text-[11px] font-medium">
+                                  <CalendarDays className="h-3 w-3" /> {aiSearchResult.dateFrom || "..."} — {aiSearchResult.dateTo || "..."}
+                                </span>
+                              )}
+                              {Array.isArray(aiSearchResult.channels) && aiSearchResult.channels.length > 0 && aiSearchResult.channels.some(c => c !== "email") && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-700 dark:text-purple-300 text-[11px] font-medium">
+                                  <MailSearch className="h-3 w-3" /> {aiSearchResult.channels.join(", ")}
+                                </span>
+                              )}
+                            </div>
+                          )}
+
+                          {aiSearchResult.searchQuery && (
+                            <p className="text-[10px] text-muted-foreground/50 font-mono truncate">MS365: {aiSearchResult.searchQuery}</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => executeAiResult(aiSearchResult)}
+                      className="w-full flex items-center gap-3 mx-2 px-4 py-3 rounded-xl bg-gradient-to-r from-violet-500 to-purple-600 text-white hover:from-violet-600 hover:to-purple-700 transition-all shadow-md shadow-violet-500/20 group"
+                      style={{ width: "calc(100% - 16px)" }}
+                      data-testid="execute-ai-search"
+                    >
+                      <Search className="h-5 w-5" />
+                      <div className="flex-1 min-w-0 text-left">
+                        <p className="text-sm font-semibold">{t.nexusOmni.search.executeAiSearch}</p>
+                        <p className="text-[11px] text-white/70 truncate">{aiSearchResult.searchQuery || `${aiSearchResult.dateFrom} — ${aiSearchResult.dateTo}`}</p>
+                      </div>
+                      <ArrowRight className="h-5 w-5 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
+                    </button>
+
+                    {Array.isArray(aiSearchResult.suggestions) && aiSearchResult.suggestions.length > 0 && (
+                      <>
+                        <div className="px-3 pt-4 pb-1">
+                          <span className="text-[10px] font-semibold uppercase tracking-widest text-violet-500/60 flex items-center gap-1.5">
+                            <Sparkles className="h-3 w-3" />
+                            {t.nexusOmni.search.aiSuggestions}
+                          </span>
+                        </div>
+                        {aiSearchResult.suggestions.map((suggestion, idx) => (
+                          <button
+                            key={idx}
+                            onClick={() => { setSmartSearchQuery(suggestion.query); handleAiSearch(suggestion.query); }}
+                            className="w-full flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-violet-500/5 transition-all text-left group"
+                            data-testid={`ai-suggestion-${idx}`}
+                          >
+                            <div className="h-8 w-8 rounded-lg bg-violet-500/10 flex items-center justify-center shrink-0">
+                              <Wand2 className="h-4 w-4 text-violet-500" />
+                            </div>
+                            <p className="text-sm truncate flex-1">{suggestion.label}</p>
+                            <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                          </button>
+                        ))}
+                      </>
+                    )}
+                  </>
+                )}
+
+                {!aiSearchLoading && !aiSearchResult && smartSearchQuery.trim().length >= 2 && (
+                  <>
+                  {aiSearchEnabled && (
+                    <button
+                      onClick={() => handleAiSearch(smartSearchQuery)}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-violet-500/5 transition-all text-left group border border-violet-500/20 mx-0"
+                      data-testid="ai-search-execute"
+                    >
+                      <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shrink-0 shadow-sm">
+                        <BrainCircuit className="h-4 w-4 text-white" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{t.nexusOmni.search.executeAiSearch}: &ldquo;<span className="text-violet-600 dark:text-violet-400">{smartSearchQuery}</span>&rdquo;</p>
+                        <p className="text-[11px] text-muted-foreground">{t.nexusOmni.search.aiMode}</p>
+                      </div>
+                      <ArrowRight className="h-4 w-4 text-violet-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </button>
+                  )}
+
                   <button
                     onClick={() => executeSmartSearch(smartSearchQuery)}
                     className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-accent transition-all text-left group"
@@ -5626,7 +5867,7 @@ export default function EmailClientPage() {
                       <Search className="h-4 w-4 text-primary" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{t.nexusOmni.search.searchInEmailsQuery} "<span className="text-primary">{smartSearchQuery}</span>"</p>
+                      <p className="text-sm font-medium truncate">{t.nexusOmni.search.searchInEmailsQuery} &ldquo;<span className="text-primary">{smartSearchQuery}</span>&rdquo;</p>
                       <p className="text-[11px] text-muted-foreground">{smartSearchMailbox === "all" ? t.nexusOmni.search.searchAllMailboxesLabel : smartSearchMailbox}</p>
                     </div>
                     <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -5763,10 +6004,40 @@ export default function EmailClientPage() {
                       </>
                     );
                   })()}
+
+                  {getSmartSuggestions().filter(s => s.label.toLowerCase().includes(smartSearchQuery.toLowerCase()) || s.query.toLowerCase().includes(smartSearchQuery.toLowerCase())).map((suggestion, idx) => (
+                    <button
+                      key={`filtered-${idx}`}
+                      onClick={() => executeSmartSearch(suggestion.query)}
+                      className="w-full flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-accent transition-all text-left group"
+                      data-testid={`filtered-suggestion-${idx}`}
+                    >
+                      <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                        <Sparkles className="h-4 w-4 text-muted-foreground/50" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm truncate">{suggestion.label}</p>
+                      </div>
+                    </button>
+                  ))}
+
+                  {recentSearches.filter(r => r.toLowerCase().includes(smartSearchQuery.toLowerCase())).map((recent, idx) => (
+                    <button
+                      key={`recent-filtered-${idx}`}
+                      onClick={() => executeSmartSearch(recent)}
+                      className="w-full flex items-center gap-3 px-3 py-1.5 rounded-xl hover:bg-accent transition-all text-left group"
+                      data-testid={`recent-filtered-${idx}`}
+                    >
+                      <div className="h-7 w-7 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                        <History className="h-3.5 w-3.5 text-muted-foreground/50" />
+                      </div>
+                      <p className="text-sm truncate flex-1 text-muted-foreground">{recent}</p>
+                    </button>
+                  ))}
                   </>
                 )}
 
-                {selectedEmail && smartSearchQuery.length === 0 && (
+                {!aiSearchLoading && !aiSearchResult && selectedEmail && smartSearchQuery.length === 0 && (
                   <>
                     <div className="px-3 pt-2 pb-1">
                       <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60 flex items-center gap-1.5">
@@ -5807,8 +6078,34 @@ export default function EmailClientPage() {
                   </>
                 )}
 
-                {!selectedEmail && smartSearchQuery.length === 0 && (
+                {!aiSearchLoading && !aiSearchResult && !selectedEmail && smartSearchQuery.length === 0 && (
                   <>
+                    {aiSearchEnabled && aiSuggestions.length > 0 && (
+                      <>
+                        <div className="px-3 pt-2 pb-1">
+                          <span className="text-[10px] font-semibold uppercase tracking-widest text-violet-500/60 flex items-center gap-1.5">
+                            <Sparkles className="h-3 w-3" />
+                            {t.nexusOmni.search.aiSuggestions}
+                          </span>
+                        </div>
+                        {aiSuggestions.map((suggestion, idx) => (
+                          <button
+                            key={`ai-prev-${idx}`}
+                            onClick={() => { setSmartSearchQuery(suggestion.query); handleAiSearch(suggestion.query); }}
+                            className="w-full flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-violet-500/5 transition-all text-left group"
+                            data-testid={`ai-prev-suggestion-${idx}`}
+                          >
+                            <div className="h-8 w-8 rounded-lg bg-violet-500/10 flex items-center justify-center shrink-0">
+                              <Wand2 className="h-4 w-4 text-violet-500" />
+                            </div>
+                            <p className="text-sm truncate flex-1">{suggestion.label}</p>
+                            <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                          </button>
+                        ))}
+                        <div className="h-px bg-border mx-3 my-1.5" />
+                      </>
+                    )}
+
                     <div className="px-3 pt-2 pb-1">
                       <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60 flex items-center gap-1.5">
                         <Zap className="h-3 w-3" />
@@ -5862,7 +6159,7 @@ export default function EmailClientPage() {
                   </>
                 )}
 
-                {recentSearches.length > 0 && smartSearchQuery.length === 0 && (
+                {!aiSearchLoading && !aiSearchResult && recentSearches.length > 0 && smartSearchQuery.length === 0 && (
                   <>
                     <div className="h-px bg-border mx-3 my-1.5" />
                     <div className="px-3 pt-1 pb-1 flex items-center justify-between">
@@ -5891,53 +6188,24 @@ export default function EmailClientPage() {
                   </>
                 )}
 
-                {smartSearchQuery.trim().length > 0 && smartSearchQuery.trim().length < 2 && (
+                {!aiSearchLoading && !aiSearchResult && smartSearchQuery.trim().length > 0 && smartSearchQuery.trim().length < 2 && (
                   <div className="flex flex-col items-center justify-center py-10 text-muted-foreground">
                     <Search className="h-8 w-8 mb-3 opacity-20" />
                     <p className="text-sm text-muted-foreground/60">{t.nexusOmni.search.enterMin2Chars}</p>
                   </div>
-                )}
-
-                {smartSearchQuery.trim().length >= 2 && (
-                  <>
-                    {getSmartSuggestions().filter(s => s.label.toLowerCase().includes(smartSearchQuery.toLowerCase()) || s.query.toLowerCase().includes(smartSearchQuery.toLowerCase())).map((suggestion, idx) => (
-                      <button
-                        key={`filtered-${idx}`}
-                        onClick={() => executeSmartSearch(suggestion.query)}
-                        className="w-full flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-accent transition-all text-left group"
-                        data-testid={`filtered-suggestion-${idx}`}
-                      >
-                        <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center shrink-0">
-                          <Sparkles className="h-4 w-4 text-muted-foreground/50" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm truncate">{suggestion.label}</p>
-                        </div>
-                      </button>
-                    ))}
-
-                    {recentSearches.filter(r => r.toLowerCase().includes(smartSearchQuery.toLowerCase())).map((recent, idx) => (
-                      <button
-                        key={`recent-filtered-${idx}`}
-                        onClick={() => executeSmartSearch(recent)}
-                        className="w-full flex items-center gap-3 px-3 py-1.5 rounded-xl hover:bg-accent transition-all text-left group"
-                        data-testid={`recent-filtered-${idx}`}
-                      >
-                        <div className="h-7 w-7 rounded-lg bg-muted flex items-center justify-center shrink-0">
-                          <History className="h-3.5 w-3.5 text-muted-foreground/50" />
-                        </div>
-                        <p className="text-sm truncate flex-1 text-muted-foreground">{recent}</p>
-                      </button>
-                    ))}
-                  </>
                 )}
               </div>
             </ScrollArea>
 
             <div className="px-4 py-2 border-t bg-muted/30 flex items-center justify-between">
               <div className="flex items-center gap-3 text-[10px] text-muted-foreground/50">
-                <span className="flex items-center gap-1"><kbd className="px-1.5 py-0.5 bg-card border rounded text-[9px] font-mono">↵</kbd> {t.nexusOmni.search.searchAction}</span>
+                <span className="flex items-center gap-1"><kbd className="px-1.5 py-0.5 bg-card border rounded text-[9px] font-mono">↵</kbd> {aiSearchEnabled ? t.nexusOmni.search.executeAiSearch : t.nexusOmni.search.searchAction}</span>
                 <span className="flex items-center gap-1"><kbd className="px-1.5 py-0.5 bg-card border rounded text-[9px] font-mono">Esc</kbd> {t.nexusOmni.search.closeAction}</span>
+                {aiSearchEnabled && (
+                  <span className="flex items-center gap-1 text-violet-500">
+                    <BrainCircuit className="h-3 w-3" /> {t.nexusOmni.search.aiModeOn}
+                  </span>
+                )}
               </div>
               {isSearching && (
                 <button
