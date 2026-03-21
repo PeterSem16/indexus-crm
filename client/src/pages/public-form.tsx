@@ -56,6 +56,7 @@ function AutocompleteInput({ value, onChange, onBlur, options, placeholder, clas
   const [focused, setFocused] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const justSelectedRef = useRef(false);
 
   const selectedLabel = useMemo(() => {
     const found = options.find(o => o.value === value);
@@ -85,10 +86,12 @@ function AutocompleteInput({ value, onChange, onBlur, options, placeholder, clas
   }, []);
 
   const handleSelect = (val: string) => {
+    justSelectedRef.current = true;
     onChange(val);
     setSearch("");
     setOpen(false);
-    inputRef.current?.blur();
+    setFocused(false);
+    onBlur?.();
   };
 
   return (
@@ -101,7 +104,7 @@ function AutocompleteInput({ value, onChange, onBlur, options, placeholder, clas
         >
           <span className="truncate text-sm">{selectedLabel}</span>
           <div className="flex items-center gap-1.5">
-            <X className="h-4 w-4 text-gray-400 hover:text-gray-600 cursor-pointer" onClick={(e) => { e.stopPropagation(); onChange(""); setSearch(""); }} />
+            <X className="h-4 w-4 text-gray-400 hover:text-gray-600 cursor-pointer" onClick={(e) => { e.stopPropagation(); onChange(""); setSearch(""); setFocused(false); }} />
             <ChevronDown className="h-4 w-4 text-gray-400" />
           </div>
         </div>
@@ -116,15 +119,18 @@ function AutocompleteInput({ value, onChange, onBlur, options, placeholder, clas
             onFocus={() => { setFocused(true); setOpen(true); }}
             onBlur={() => {
               setTimeout(() => {
-                if (allowCustom && search && search.length >= 3 && !value) {
+                if (justSelectedRef.current) {
+                  justSelectedRef.current = false;
+                  return;
+                }
+                if (wrapperRef.current?.contains(document.activeElement)) return;
+                if (allowCustom && search && search.length >= 3) {
                   onChange(search);
                 }
-                if (!wrapperRef.current?.contains(document.activeElement)) {
-                  setFocused(false);
-                  setOpen(false);
-                  onBlur?.();
-                }
-              }, 200);
+                setFocused(false);
+                setOpen(false);
+                onBlur?.();
+              }, 150);
             }}
             placeholder={placeholder || "Zadajte min. 3 znaky..."}
             className={`w-full h-10 bg-white border border-gray-300 rounded-lg pl-9 pr-3 text-sm transition-colors focus:outline-none focus:border-2 focus:border-blue-500 ${className || ""}`}
@@ -139,7 +145,7 @@ function AutocompleteInput({ value, onChange, onBlur, options, placeholder, clas
               key={ao.value}
               type="button"
               className="w-full text-left px-3 py-2.5 text-sm hover:bg-gray-50 border-b border-gray-100 transition-colors"
-              onMouseDown={(e) => { e.preventDefault(); handleSelect(ao.value); }}
+              onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); handleSelect(ao.value); }}
             >
               {ao.label}
             </button>
@@ -149,7 +155,7 @@ function AutocompleteInput({ value, onChange, onBlur, options, placeholder, clas
               key={opt.value}
               type="button"
               className="w-full text-left px-3 py-2.5 text-sm hover:bg-gray-50 transition-colors"
-              onMouseDown={(e) => { e.preventDefault(); handleSelect(opt.value); }}
+              onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); handleSelect(opt.value); }}
             >
               <span>{opt.label}</span>
               {opt.sublabel && <span className="text-xs text-gray-400 ml-2">{opt.sublabel}</span>}
@@ -159,7 +165,7 @@ function AutocompleteInput({ value, onChange, onBlur, options, placeholder, clas
             <button
               type="button"
               className="w-full text-left px-3 py-2.5 text-sm hover:bg-blue-50 text-blue-600 border-t border-gray-100 transition-colors"
-              onMouseDown={(e) => { e.preventDefault(); handleSelect(search); }}
+              onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); handleSelect(search); }}
             >
               Použiť: "{search}"
             </button>
