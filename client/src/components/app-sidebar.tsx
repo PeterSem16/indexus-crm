@@ -24,7 +24,9 @@ import {
   BarChart3,
   Syringe,
   ArrowDown,
-  Headphones
+  Headphones,
+  Zap,
+  Target
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { usePermissions } from "@/contexts/permissions-context";
@@ -77,10 +79,14 @@ export function AppSidebar() {
 
   const mainNavItems = [
     { title: t.nav.dashboard, url: "/", icon: LayoutDashboard, testId: "dashboard", moduleKey: "dashboard" },
-    { title: "Agent Workspace", url: "/agent-workspace", icon: Headphones, testId: "agent-workspace", moduleKey: "campaigns", roles: ["callCenter", "admin"] },
     { title: t.nav.hospitalsAndClinics, url: "/hospitals", icon: Building2, testId: "hospitals", moduleKey: "hospitals" },
-    { title: t.nav.campaigns, url: "/campaigns", icon: Megaphone, testId: "campaigns", moduleKey: "campaigns" },
     { title: "Pipeline", url: "/pipeline", icon: Kanban, testId: "pipeline", moduleKey: "pipeline" },
+  ];
+
+  const nexusNavItems = [
+    { title: "NEXUS Omni", url: "/email", icon: Network, testId: "nexus-omni", moduleKey: "email" },
+    { title: "NEXUS Pulse", url: "/agent-workspace", icon: Zap, testId: "nexus-pulse", moduleKey: "campaigns", roles: ["callCenter", "admin"] },
+    { title: "NEXUS Missions", url: "/campaigns", icon: Target, testId: "nexus-missions", moduleKey: "campaigns" },
   ];
 
   const customerSubItems = [
@@ -102,8 +108,6 @@ export function AppSidebar() {
     { title: t.nav.konfigurator, url: "/configurator", icon: Cog, testId: "konfigurator", moduleKey: "configurator" },
   ];
 
-  const showNexusOmni = canAccessModule("email");
-
   const userRoleName = sidebarRoles.find(r => r.id === user?.roleId)?.name;
   const visibleMainItems = mainNavItems.filter(item => {
     const hasModuleAccess = canAccessModule(item.moduleKey);
@@ -112,6 +116,12 @@ export function AppSidebar() {
     return hasModuleAccess && hasRoleAccess;
   });
   const visibleAdminItems = adminNavItems.filter(item => canAccessModule(item.moduleKey));
+  const visibleNexusItems = nexusNavItems.filter(item => {
+    const hasModuleAccess = canAccessModule(item.moduleKey);
+    const itemRoles = (item as any).roles as string[] | undefined;
+    const hasRoleAccess = !itemRoles || itemRoles.includes(user?.role || "") || (userRoleName && itemRoles.some(r => r.toLowerCase().replace(/\s+/g, '') === userRoleName.toLowerCase().replace(/\s+/g, '')));
+    return hasModuleAccess && hasRoleAccess;
+  });
 
   const handleLogout = async () => {
     await logout();
@@ -269,20 +279,25 @@ export function AppSidebar() {
           </>
         )}
 
-        {showNexusOmni && (
+        {visibleNexusItems.length > 0 && (
           <>
             <SidebarSeparator className="my-2" />
             <SidebarGroup>
+              <SidebarGroupLabel className="text-xs uppercase tracking-wider text-muted-foreground mb-2">
+                NEXUS
+              </SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
-                  <SidebarMenuItem>
-                    <SidebarMenuButton asChild isActive={location === "/email"}>
-                      <Link href="/email" data-testid="nav-nexus-omni">
-                        <Network className="h-4 w-4" />
-                        <span>Nexus Omni</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
+                  {visibleNexusItems.map((item) => (
+                    <SidebarMenuItem key={item.testId}>
+                      <SidebarMenuButton asChild isActive={location === item.url}>
+                        <Link href={item.url} data-testid={`nav-${item.testId}`}>
+                          <item.icon className="h-4 w-4" />
+                          <span>{item.title}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ))}
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
