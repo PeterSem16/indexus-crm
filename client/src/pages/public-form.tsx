@@ -95,19 +95,19 @@ function AutocompleteInput({ value, onChange, onBlur, options, placeholder, clas
     <div ref={wrapperRef} className="relative">
       {!focused && value ? (
         <div
-          className={`flex items-center justify-between cursor-pointer ${className || ""}`}
+          className={`flex items-center justify-between cursor-pointer bg-white border border-gray-300 rounded-lg h-10 px-3 ${className || ""}`}
           onClick={() => { setFocused(true); setSearch(""); setOpen(true); setTimeout(() => inputRef.current?.focus(), 50); }}
           data-testid={dataTestId}
         >
           <span className="truncate text-sm">{selectedLabel}</span>
-          <div className="flex items-center gap-1">
-            <X className="h-3.5 w-3.5 text-gray-400 hover:text-gray-600" onClick={(e) => { e.stopPropagation(); onChange(""); setSearch(""); }} />
-            <ChevronDown className="h-3.5 w-3.5 text-gray-400" />
+          <div className="flex items-center gap-1.5">
+            <X className="h-4 w-4 text-gray-400 hover:text-gray-600 cursor-pointer" onClick={(e) => { e.stopPropagation(); onChange(""); setSearch(""); }} />
+            <ChevronDown className="h-4 w-4 text-gray-400" />
           </div>
         </div>
       ) : (
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
           <input
             ref={inputRef}
             type="text"
@@ -127,7 +127,7 @@ function AutocompleteInput({ value, onChange, onBlur, options, placeholder, clas
               }, 200);
             }}
             placeholder={placeholder || "Zadajte min. 3 znaky..."}
-            className={`pl-9 ${className || ""}`}
+            className={`w-full h-10 bg-white border border-gray-300 rounded-lg pl-9 pr-3 text-sm transition-colors focus:outline-none focus:border-2 focus:border-blue-500 ${className || ""}`}
             data-testid={dataTestId}
           />
         </div>
@@ -138,7 +138,7 @@ function AutocompleteInput({ value, onChange, onBlur, options, placeholder, clas
             <button
               key={ao.value}
               type="button"
-              className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 border-b border-gray-100"
+              className="w-full text-left px-3 py-2.5 text-sm hover:bg-gray-50 border-b border-gray-100 transition-colors"
               onMouseDown={(e) => { e.preventDefault(); handleSelect(ao.value); }}
             >
               {ao.label}
@@ -148,7 +148,7 @@ function AutocompleteInput({ value, onChange, onBlur, options, placeholder, clas
             <button
               key={opt.value}
               type="button"
-              className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
+              className="w-full text-left px-3 py-2.5 text-sm hover:bg-gray-50 transition-colors"
               onMouseDown={(e) => { e.preventDefault(); handleSelect(opt.value); }}
             >
               <span>{opt.label}</span>
@@ -158,7 +158,7 @@ function AutocompleteInput({ value, onChange, onBlur, options, placeholder, clas
           {allowCustom && search.length >= 3 && !filtered.find(f => f.label.toLowerCase() === search.toLowerCase()) && (
             <button
               type="button"
-              className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 text-blue-600 border-t border-gray-100"
+              className="w-full text-left px-3 py-2.5 text-sm hover:bg-blue-50 text-blue-600 border-t border-gray-100 transition-colors"
               onMouseDown={(e) => { e.preventDefault(); handleSelect(search); }}
             >
               Použiť: "{search}"
@@ -698,6 +698,8 @@ export default function PublicFormPage() {
   const headingColor = f.headingColor || "#ffffff";
   const sectionColor = f.sectionColor || brandColor;
   const bgColor = f.bgColor || "#f3f4f6";
+  const placeholderColor = f.placeholderColor || "#b0b0b0";
+  const dateFormat = f.dateFormat || "dd.mm.yyyy";
   const formWidth = f.formWidth || "3xl";
   const widthClass = WIDTH_MAP[formWidth] || "max-w-3xl";
   const formLang = f.language || "sk";
@@ -1339,11 +1341,11 @@ export default function PublicFormPage() {
   const placeholderStyle = `
     .public-form-root input::placeholder,
     .public-form-root textarea::placeholder {
-      color: #b0b0b0 !important;
+      color: ${placeholderColor} !important;
       opacity: 1 !important;
     }
     .public-form-root input[type="date"]:invalid::-webkit-datetime-edit {
-      color: #b0b0b0;
+      color: ${placeholderColor};
     }
   `;
 

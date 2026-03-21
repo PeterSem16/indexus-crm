@@ -4987,6 +4987,8 @@ export interface Translations {
       pageBackground: string;
       headingColor: string;
       formWidth: string;
+      placeholderColor: string;
+      dateFormat: string;
       typography: string;
       formTitleTypo: string;
       subtitleTypo: string;
@@ -9972,6 +9974,8 @@ export const translations: Record<Locale, Translations> = {
         pageBackground: 'Page background',
         headingColor: 'Heading color',
         formWidth: 'Form width',
+        placeholderColor: 'Placeholder color',
+        dateFormat: 'Date format',
         typography: 'Typography',
         formTitleTypo: 'Form title',
         subtitleTypo: 'Subtitle',
@@ -14909,6 +14913,8 @@ export const translations: Record<Locale, Translations> = {
         pageBackground: 'Pozadie stránky',
         headingColor: 'Farba nadpisu',
         formWidth: 'Šírka formulára',
+        placeholderColor: 'Farba placeholdera',
+        dateFormat: 'Formát dátumu',
         typography: 'Typografia',
         formTitleTypo: 'Nadpis formulára',
         subtitleTypo: 'Podnadpis',
@@ -19778,6 +19784,8 @@ export const translations: Record<Locale, Translations> = {
         pageBackground: 'Pozadí stránky',
         headingColor: 'Barva nadpisu',
         formWidth: 'Šířka formuláře',
+        placeholderColor: 'Barva placeholderu',
+        dateFormat: 'Formát data',
         typography: 'Typografie',
         formTitleTypo: 'Nadpis formuláře',
         subtitleTypo: 'Podnadpis',
@@ -24646,6 +24654,8 @@ export const translations: Record<Locale, Translations> = {
         pageBackground: 'Oldal háttere',
         headingColor: 'Címszín',
         formWidth: 'Űrlap szélessége',
+        placeholderColor: 'Placeholder szín',
+        dateFormat: 'Dátum formátum',
         typography: 'Tipográfia',
         formTitleTypo: 'Űrlap címe',
         subtitleTypo: 'Alcím',
@@ -29513,6 +29523,8 @@ export const translations: Record<Locale, Translations> = {
         pageBackground: 'Fundal pagină',
         headingColor: 'Culoare titlu',
         formWidth: 'Lățime formular',
+        placeholderColor: 'Culoare placeholder',
+        dateFormat: 'Format dată',
         typography: 'Tipografie',
         formTitleTypo: 'Titlu formular',
         subtitleTypo: 'Subtitlu',
@@ -34381,6 +34393,8 @@ export const translations: Record<Locale, Translations> = {
         pageBackground: 'Sfondo pagina',
         headingColor: 'Colore titolo',
         formWidth: 'Larghezza modulo',
+        placeholderColor: 'Colore placeholder',
+        dateFormat: 'Formato data',
         typography: 'Tipografia',
         formTitleTypo: 'Titolo modulo',
         subtitleTypo: 'Sottotitolo',
@@ -39248,6 +39262,8 @@ export const translations: Record<Locale, Translations> = {
         pageBackground: 'Seitenhintergrund',
         headingColor: 'Überschriftfarbe',
         formWidth: 'Formularbreite',
+        placeholderColor: 'Platzhalterfarbe',
+        dateFormat: 'Datumsformat',
         typography: 'Typografie',
         formTitleTypo: 'Formulartitel',
         subtitleTypo: 'Untertitel',

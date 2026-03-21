@@ -1839,11 +1839,26 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
                 <div className="grid grid-cols-3 gap-3 mt-3">
                   <ColorInput label={t.webForms.pageBackground} value={formData.bgColor || "#f3f4f6"} onChange={v => setFormData({ ...formData, bgColor: v })} />
                   <ColorInput label={t.webForms.headingColor} value={formData.headingColor || "#ffffff"} onChange={v => setFormData({ ...formData, headingColor: v })} />
+                  <ColorInput label={t.webForms.placeholderColor} value={formData.placeholderColor || "#b0b0b0"} onChange={v => setFormData({ ...formData, placeholderColor: v })} />
+                </div>
+                <div className="grid grid-cols-3 gap-3 mt-3">
                   <div className="space-y-1">
                     <Label className="text-[11px] text-muted-foreground">{t.webForms.formWidth}</Label>
                     <Select value={formData.formWidth || "3xl"} onValueChange={v => setFormData({ ...formData, formWidth: v })}>
                       <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                       <SelectContent>{FORM_WIDTHS.map(w => <SelectItem key={w.value} value={w.value}>{w.label}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[11px] text-muted-foreground">{t.webForms.dateFormat}</Label>
+                    <Select value={formData.dateFormat || "dd.mm.yyyy"} onValueChange={v => setFormData({ ...formData, dateFormat: v })}>
+                      <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="dd.mm.yyyy">DD.MM.YYYY</SelectItem>
+                        <SelectItem value="dd/mm/yyyy">DD/MM/YYYY</SelectItem>
+                        <SelectItem value="mm/dd/yyyy">MM/DD/YYYY</SelectItem>
+                        <SelectItem value="yyyy-mm-dd">YYYY-MM-DD</SelectItem>
+                      </SelectContent>
                     </Select>
                   </div>
                 </div>
