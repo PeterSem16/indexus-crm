@@ -3341,13 +3341,17 @@ export default function EmailClientPage() {
         setAiSearchResult(null);
         setAiSearchLoading(false);
       }
+      if (e.key === "Escape" && signatureDialogOpen) {
+        setSignatureDialogOpen(false);
+        return;
+      }
       if (e.key === "Escape" && !smartSearchOpen && nexusFullscreen) {
         setNexusFullscreen(false);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [smartSearchOpen, activeTab, nexusFullscreen]);
+  }, [smartSearchOpen, activeTab, nexusFullscreen, signatureDialogOpen]);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -5763,7 +5767,7 @@ export default function EmailClientPage() {
 
                 {aiSearchEnabled && smartSearchQuery.length === 0 && (
                   <p className="text-[11px] text-muted-foreground/60 leading-relaxed">
-                    {t.nexusOmni.search.tryAsking}: \u201e{locale === "sk" ? "Nájdi emaily s faktúrami za posledný mesiac" : locale === "cs" ? "Najdi emaily s fakturami za poslední měsíc" : "Find emails with invoices from last month"}\u201c
+                    {t.nexusOmni.search.tryAsking}: &bdquo;{locale === "sk" ? "Nájdi emaily s faktúrami za posledný mesiac" : locale === "cs" ? "Najdi emaily s fakturami za poslední měsíc" : "Find emails with invoices from last month"}&ldquo;
                   </p>
                 )}
               </div>
@@ -5780,7 +5784,7 @@ export default function EmailClientPage() {
                         <div className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-violet-500 animate-ping" />
                       </div>
                       <p className="text-sm font-medium text-violet-600 dark:text-violet-400">{t.nexusOmni.search.aiSearching}</p>
-                      <p className="text-[11px] text-muted-foreground/50 mt-1">\u201e{smartSearchQuery}\u201c</p>
+                      <p className="text-[11px] text-muted-foreground/50 mt-1">&bdquo;{smartSearchQuery}&ldquo;</p>
                     </div>
                   )}
 
@@ -5821,7 +5825,7 @@ export default function EmailClientPage() {
                                 )}
                                 {(aiSearchResult.dateFrom || aiSearchResult.dateTo) && (
                                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 text-[11px] font-medium">
-                                    <CalendarDays className="h-3 w-3" /> {aiSearchResult.dateFrom || "..."} \u2014 {aiSearchResult.dateTo || "..."}
+                                    <CalendarDays className="h-3 w-3" /> {aiSearchResult.dateFrom || "..."} &mdash; {aiSearchResult.dateTo || "..."}
                                   </span>
                                 )}
                                 {Array.isArray(aiSearchResult.channels) && aiSearchResult.channels.length > 0 && aiSearchResult.channels.some(c => c !== "email") && (
@@ -5847,7 +5851,7 @@ export default function EmailClientPage() {
                         <Search className="h-5 w-5" />
                         <div className="flex-1 min-w-0 text-left">
                           <p className="text-sm font-semibold">{t.nexusOmni.search.executeAiSearch}</p>
-                          <p className="text-[11px] text-white/60 truncate">{aiSearchResult.searchQuery || `${aiSearchResult.dateFrom} \u2014 ${aiSearchResult.dateTo}`}</p>
+                          <p className="text-[11px] text-white/60 truncate">{aiSearchResult.searchQuery || `${aiSearchResult.dateFrom} — ${aiSearchResult.dateTo}`}</p>
                         </div>
                         <ArrowRight className="h-5 w-5 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
                       </button>
@@ -5891,7 +5895,7 @@ export default function EmailClientPage() {
                           <BrainCircuit className="h-4.5 w-4.5 text-white" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{t.nexusOmni.search.executeAiSearch}: \u201e<span className="text-violet-600 dark:text-violet-400">{smartSearchQuery}</span>\u201c</p>
+                          <p className="text-sm font-medium truncate">{t.nexusOmni.search.executeAiSearch}: &bdquo;<span className="text-violet-600 dark:text-violet-400">{smartSearchQuery}</span>&ldquo;</p>
                           <p className="text-[11px] text-muted-foreground">{t.nexusOmni.search.aiMode}</p>
                         </div>
                         <ArrowRight className="h-4 w-4 text-violet-500 opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -5907,7 +5911,7 @@ export default function EmailClientPage() {
                         <Search className="h-4.5 w-4.5 text-primary" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{t.nexusOmni.search.searchInEmailsQuery} \u201e<span className="text-primary">{smartSearchQuery}</span>\u201c</p>
+                        <p className="text-sm font-medium truncate">{t.nexusOmni.search.searchInEmailsQuery} &bdquo;<span className="text-primary">{smartSearchQuery}</span>&ldquo;</p>
                         <p className="text-[11px] text-muted-foreground">{smartSearchMailbox === "all" ? t.nexusOmni.search.searchAllMailboxesLabel : smartSearchMailbox}</p>
                       </div>
                       <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -6238,7 +6242,7 @@ export default function EmailClientPage() {
 
               <div className="shrink-0 px-4 py-2.5 border-t bg-muted/20 flex items-center justify-between">
                 <div className="flex items-center gap-3 text-[10px] text-muted-foreground/40">
-                  <span className="flex items-center gap-1"><kbd className="px-1.5 py-0.5 bg-card border rounded text-[9px] font-mono">\u21b5</kbd> {aiSearchEnabled ? t.nexusOmni.search.executeAiSearch : t.nexusOmni.search.searchAction}</span>
+                  <span className="flex items-center gap-1"><kbd className="px-1.5 py-0.5 bg-card border rounded text-[9px] font-mono">&#x21b5;</kbd> {aiSearchEnabled ? t.nexusOmni.search.executeAiSearch : t.nexusOmni.search.searchAction}</span>
                   <span className="flex items-center gap-1"><kbd className="px-1.5 py-0.5 bg-card border rounded text-[9px] font-mono">Esc</kbd> {t.nexusOmni.search.closeAction}</span>
                   {aiSearchEnabled && (
                     <span className="flex items-center gap-1 text-violet-500/70">
@@ -6584,41 +6588,56 @@ export default function EmailClientPage() {
           </DialogContent>
         </Dialog>
 
-            <Dialog open={signatureDialogOpen} onOpenChange={setSignatureDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[85vh] p-0 gap-0 overflow-hidden">
-          <div className="flex h-[75vh]">
-            <div className="w-48 border-r bg-muted/30 flex flex-col py-2 shrink-0">
-              <DialogHeader className="px-4 pb-3 pt-2">
-                <DialogTitle className="text-base">{t.nexusOmni.settings.settingsTitle}</DialogTitle>
-              </DialogHeader>
-              {[
-                { key: "accounts" as const, label: t.nexusOmni.settings.accounts, icon: <UserCircle className="h-4 w-4" /> },
-                { key: "messages" as const, label: t.nexusOmni.common.messages, icon: <LayoutList className="h-4 w-4" /> },
-                { key: "compose" as const, label: t.nexusOmni.settings.compose, icon: <Type className="h-4 w-4" /> },
-                { key: "tags" as const, label: t.nexusOmni.settings.tags, icon: <Tag className="h-4 w-4" /> },
-                { key: "ai" as const, label: t.nexusOmni.settings.ai, icon: <Sparkles className="h-4 w-4" /> },
-                { key: "notifications" as const, label: t.nexusOmni.settings.notifications, icon: <Volume2 className="h-4 w-4" /> },
-                { key: "chats" as const, label: t.nexusOmni.tabs.chats, icon: <MessagesSquare className="h-4 w-4" /> },
-                { key: "tasks" as const, label: t.nexusOmni.tabs.tasks, icon: <ListTodo className="h-4 w-4" /> },
-                { key: "appearance" as const, label: t.nexusOmni.settings.appearance, icon: <Palette className="h-4 w-4" /> },
-              ].map(item => (
-                <button
-                  key={item.key}
-                  onClick={() => setSettingsTab(item.key)}
-                  className={`flex items-center gap-2.5 px-4 py-2 text-sm transition-colors text-left ${settingsTab === item.key ? "bg-primary/10 text-primary font-medium border-r-2 border-primary" : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"}`}
-                  data-testid={`settings-nav-${item.key}`}
-                >
-                  {item.icon}
-                  {item.label}
-                </button>
-              ))}
+      {signatureDialogOpen && (
+        <>
+          <div
+            className="fixed inset-0 z-60 bg-black/30 backdrop-blur-[2px] animate-in fade-in duration-200"
+            onClick={() => setSignatureDialogOpen(false)}
+            data-testid="settings-backdrop"
+          />
+          <div className="fixed inset-y-0 right-0 z-61 w-[720px] max-w-[90vw] bg-background border-l shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col">
+            <div className="shrink-0 flex items-center justify-between px-5 py-3.5 border-b bg-muted/30">
+              <div className="flex items-center gap-2.5">
+                <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <Settings className="h-4 w-4 text-primary" />
+                </div>
+                <h2 className="text-base font-semibold">{t.nexusOmni.settings.settingsTitle}</h2>
+              </div>
+              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={() => setSignatureDialogOpen(false)} data-testid="settings-close">
+                <X className="h-4 w-4" />
+              </Button>
             </div>
-            <div className="flex-1 overflow-auto p-6">
-              {renderSettingsContent()}
+            <div className="flex flex-1 min-h-0">
+              <div className="w-48 border-r bg-muted/20 flex flex-col py-2 shrink-0 overflow-auto">
+                {[
+                  { key: "accounts" as const, label: t.nexusOmni.settings.accounts, icon: <UserCircle className="h-4 w-4" /> },
+                  { key: "messages" as const, label: t.nexusOmni.common.messages, icon: <LayoutList className="h-4 w-4" /> },
+                  { key: "compose" as const, label: t.nexusOmni.settings.compose, icon: <Type className="h-4 w-4" /> },
+                  { key: "tags" as const, label: t.nexusOmni.settings.tags, icon: <Tag className="h-4 w-4" /> },
+                  { key: "ai" as const, label: t.nexusOmni.settings.ai, icon: <Sparkles className="h-4 w-4" /> },
+                  { key: "notifications" as const, label: t.nexusOmni.settings.notifications, icon: <Volume2 className="h-4 w-4" /> },
+                  { key: "chats" as const, label: t.nexusOmni.tabs.chats, icon: <MessagesSquare className="h-4 w-4" /> },
+                  { key: "tasks" as const, label: t.nexusOmni.tabs.tasks, icon: <ListTodo className="h-4 w-4" /> },
+                  { key: "appearance" as const, label: t.nexusOmni.settings.appearance, icon: <Palette className="h-4 w-4" /> },
+                ].map(item => (
+                  <button
+                    key={item.key}
+                    onClick={() => setSettingsTab(item.key)}
+                    className={`flex items-center gap-2.5 px-4 py-2 text-sm transition-colors text-left ${settingsTab === item.key ? "bg-primary/10 text-primary font-medium border-r-2 border-primary" : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"}`}
+                    data-testid={`settings-nav-${item.key}`}
+                  >
+                    {item.icon}
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+              <div className="flex-1 overflow-auto p-6">
+                {renderSettingsContent()}
+              </div>
             </div>
           </div>
-        </DialogContent>
-      </Dialog>
+        </>
+      )}
 
       {renderEmailModal()}
 
