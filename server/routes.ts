@@ -33775,11 +33775,11 @@ ${contextFields.length > 0 ? `Kontext ostatných vyplnených polí:\n${contextFi
 Analyzuj zadanú hodnotu a vráť JSON pole s návrhmi (suggestions). Každý návrh musí mať:
 - "type": "error" | "warning" | "info" | "tip"
 - "message": krátka správa v slovenčine (max 120 znakov)
-- "suggestion": IBA opravená hodnota pripravená na vloženie do poľa (napr. "Jana", "+421 912 345 678", "seman@gmail.com"). NIKDY nepíš vety ako "Opraviť na..." alebo "Zmeniť na..." — iba čistú hodnotu. Ak oprava nie je možná, daj null.
+- "suggestion": IBA opravená hodnota pripravená na vloženie do poľa (napr. "Jana", "0912 345 678", "seman@gmail.com"). NIKDY nepíš vety ako "Opraviť na..." alebo "Zmeniť na..." — iba čistú hodnotu. Ak oprava nie je možná, daj null.
 
 Pravidlá kontroly:
 1. MENO/PRIEZVISKO: Skontroluj preklepy (veľké písmeno na začiatku, žiadne čísla, diakritika OK). Ak je meno nezvyčajné ale validné, neopravuj.
-2. TELEFÓN: Pre SK formát +421 9XX XXX XXX, pre CZ +420 XXX XXX XXX. Upozorni na nesprávny formát.
+2. TELEFÓN: Pre SK formát 0921 XXX XXX (bez +421, iba národný formát), pre CZ 0XXX XXX XXX (bez +420). Ak používateľ zadá s +421 alebo +420, navrhni opravu bez medzinárodnej predvoľby. Formát: 09XX XXX XXX.
 3. EMAIL: Skontroluj základný formát, bežné preklepy domén (gmial->gmail, hotmal->hotmail).
 4. DÁTUM PÔRODU: Musí byť v budúcnosti (po ${today}). Ak je viac ako 9 mesiacov v budúcnosti, upozorni. Ak je v minulosti, chyba. Ak je blízko, daj tip o príprave.
 5. PSČ: Pre SK 5-miestne (napr. 81101), pre CZ 5-miestne (napr. 11000). Ak poznáš mesto z kontextu, navrhni správne PSČ.

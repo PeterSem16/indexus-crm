@@ -492,6 +492,31 @@ export default function PublicFormPage() {
         return e;
       });
     }
+    if ((key === "nationalId" || key === "birthNumber") && value && typeof value === "string") {
+      const cleaned = value.replace(/\s/g, "");
+      const match = cleaned.match(/^(\d{2})(\d{2})(\d{2})\/?(\d{3,4})$/);
+      if (match) {
+        let yy = parseInt(match[1], 10);
+        let mm = parseInt(match[2], 10);
+        const dd = parseInt(match[3], 10);
+        if (mm > 50) mm -= 50;
+        if (mm > 20) mm -= 20;
+        const year = yy >= 0 && yy <= 30 ? 2000 + yy : 1900 + yy;
+        const mmStr = String(mm).padStart(2, "0");
+        const ddStr = String(dd).padStart(2, "0");
+        const dob = `${year}-${mmStr}-${ddStr}`;
+        const dobDate = new Date(dob);
+        if (mm >= 1 && mm <= 12 && dd >= 1 && dd <= 31
+          && dobDate.getFullYear() === year && dobDate.getMonth() === mm - 1 && dobDate.getDate() === dd
+          && dobDate < new Date()) {
+          setFormValues(prev => prev.dateOfBirth ? prev : { ...prev, dateOfBirth: dob });
+        }
+        if (!cleaned.includes("/")) {
+          const formatted = cleaned.slice(0, 6) + "/" + cleaned.slice(6);
+          setFormValues(prev => ({ ...prev, [key]: formatted }));
+        }
+      }
+    }
     if (key === "expectedDeliveryDate" && (!value || !config?.form?.pregnancyAdviceEnabled)) {
       setPregnancyAdvice(null);
     }
@@ -987,7 +1012,7 @@ export default function PublicFormPage() {
           {safeStr(field.label)}
           {field.isRequired && <span className="text-red-500 ml-1">*</span>}
           {fieldAiLoading && (
-            <span className="ml-2 inline-flex items-center gap-1 text-[10px] text-violet-500 font-normal">
+            <span className="ml-2 inline-flex items-center gap-1 text-[10px] font-normal" style={{ color: brandColor }}>
               {config?.form?.lauraAvatarUrl ? (
                 <img src={config.form.lauraAvatarUrl} alt="Laura" className="h-3.5 w-3.5 rounded-full object-cover animate-pulse" />
               ) : (
@@ -1003,23 +1028,30 @@ export default function PublicFormPage() {
         {fieldAiSuggestions.length > 0 && (
           <div className="space-y-1.5 mt-1">
             {fieldAiSuggestions.map((s, i) => {
-              const colors = s.type === "error" ? { bg: "bg-red-50", border: "border-red-200", text: "text-red-700", icon: "text-red-500" }
-                : s.type === "warning" ? { bg: "bg-amber-50", border: "border-amber-200", text: "text-amber-700", icon: "text-amber-500" }
-                : s.type === "tip" ? { bg: "bg-violet-50", border: "border-violet-200", text: "text-violet-700", icon: "text-violet-500" }
-                : { bg: "bg-blue-50", border: "border-blue-200", text: "text-blue-700", icon: "text-blue-500" };
+              const isError = s.type === "error";
+              const isWarning = s.type === "warning";
+              const useBrand = !isError && !isWarning;
+              const cardStyle = useBrand
+                ? { backgroundColor: brandColor + "08", borderColor: brandColor + "30", color: brandColor }
+                : {};
+              const cardClass = isError ? "bg-red-50 border-red-200"
+                : isWarning ? "bg-amber-50 border-amber-200" : "";
+              const textClass = isError ? "text-red-700" : isWarning ? "text-amber-700" : "";
+              const iconClass = isError ? "text-red-500" : isWarning ? "text-amber-500" : "";
               return (
-                <div key={i} className={`flex items-start gap-2 p-2 rounded-lg border ${colors.bg} ${colors.border} animate-in fade-in slide-in-from-top-1 duration-300`}>
+                <div key={i} className={`flex items-start gap-2 p-2 rounded-lg border ${cardClass} animate-in fade-in slide-in-from-top-1 duration-300`} style={cardStyle}>
                   {config?.form?.lauraAvatarUrl ? (
                     <img src={config.form.lauraAvatarUrl} alt="Laura" className="h-5 w-5 rounded-full object-cover shrink-0 mt-0.5 shadow-sm" />
                   ) : (
-                    <Sparkles className={`h-3.5 w-3.5 shrink-0 mt-0.5 ${colors.icon}`} />
+                    <Sparkles className={`h-3.5 w-3.5 shrink-0 mt-0.5 ${iconClass}`} style={useBrand ? { color: brandColor } : {}} />
                   )}
                   <div className="flex-1 min-w-0">
-                    <p className={`text-[11px] leading-relaxed ${colors.text}`}>{s.message}</p>
+                    <p className={`text-[11px] leading-relaxed ${textClass}`} style={useBrand ? { color: brandColor } : {}}>{s.message}</p>
                     {s.suggestion && (
                       <button
                         type="button"
-                        className={`mt-1 text-[11px] font-medium ${colors.icon} hover:underline flex items-center gap-1`}
+                        className={`mt-1 text-[11px] font-medium ${iconClass} hover:underline flex items-center gap-1`}
+                        style={useBrand ? { color: brandColor } : {}}
                         onClick={() => {
                           updateField(key, s.suggestion!);
                           setAiSuggestions(prev => { const n = { ...prev }; delete n[key]; return n; });
@@ -1032,7 +1064,8 @@ export default function PublicFormPage() {
                     {s.autoFill && typeof s.autoFill === "object" && Object.keys(s.autoFill).length > 0 && (
                       <button
                         type="button"
-                        className={`mt-1 text-[11px] font-medium ${colors.icon} hover:underline flex items-center gap-1`}
+                        className={`mt-1 text-[11px] font-medium ${iconClass} hover:underline flex items-center gap-1`}
+                        style={useBrand ? { color: brandColor } : {}}
                         onClick={() => {
                           for (const [fillKey, fillVal] of Object.entries(s.autoFill)) {
                             if (typeof fillVal === "string") updateField(fillKey, fillVal);
@@ -1255,15 +1288,15 @@ export default function PublicFormPage() {
   const renderFormContent = () => (
     <>
             {config?.form?.aiAssistantEnabled && (
-              <div className="flex items-center justify-center gap-2 py-2.5 px-5 rounded-full bg-gradient-to-r from-violet-50 to-purple-50 border border-violet-200 mx-auto w-fit shadow-sm" data-testid="badge-ai-assistant">
+              <div className="flex items-center justify-center gap-2 py-2.5 px-5 rounded-full mx-auto w-fit shadow-sm" style={{ backgroundColor: brandColor + "08", border: `1px solid ${brandColor}25` }} data-testid="badge-ai-assistant">
                 {config.form.lauraAvatarUrl ? (
-                  <img src={config.form.lauraAvatarUrl} alt="Laura" className="h-7 w-7 rounded-full object-cover border border-violet-200 shadow-sm" />
+                  <img src={config.form.lauraAvatarUrl} alt="Laura" className="h-7 w-7 rounded-full object-cover shadow-sm" style={{ border: `1px solid ${brandColor}30` }} />
                 ) : (
-                  <div className="h-7 w-7 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-sm">
+                  <div className="h-7 w-7 rounded-full flex items-center justify-center shadow-sm" style={{ backgroundColor: brandColor }}>
                     <Sparkles className="h-3.5 w-3.5 text-white" />
                   </div>
                 )}
-                <span className="text-[11px] font-medium text-violet-700">{(LAURA_TEXTS[formLang] || LAURA_TEXTS.en).badge}</span>
+                <span className="text-[11px] font-medium" style={{ color: brandColor }}>{(LAURA_TEXTS[formLang] || LAURA_TEXTS.en).badge}</span>
               </div>
             )}
 
