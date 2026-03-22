@@ -7389,7 +7389,7 @@ export default function CustomersPage() {
 
             <Tabs defaultValue="data" className="flex-1 flex flex-col min-h-0">
               <div className="flex flex-1 min-h-0">
-                <div className="w-48 border-r bg-muted/20 flex flex-col py-2 shrink-0">
+                <TabsList className="w-48 border-r bg-muted/20 flex flex-col py-2 shrink-0 h-auto rounded-none items-stretch">
                   {[
                     { value: "data", icon: <FileEdit className="h-4 w-4" />, label: t.customers.tabs?.data || "Data" },
                     { value: "history", icon: <History className="h-4 w-4" />, label: t.customers.tabs?.history || "History" },
@@ -7405,7 +7405,7 @@ export default function CustomersPage() {
                       {tab.label}
                     </TabsTrigger>
                   ))}
-                </div>
+                </TabsList>
 
                 <div className="flex-1 overflow-auto p-6">
                   <TabsContent value="data" className="m-0">
