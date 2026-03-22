@@ -33787,8 +33787,9 @@ Pravidlá kontroly:
 3. EMAIL: Skontroluj základný formát, bežné preklepy domén (gmial->gmail, hotmal->hotmail).
 4. DÁTUM PÔRODU: Musí byť v budúcnosti (po ${today}). Ak je viac ako 9 mesiacov v budúcnosti, upozorni. Ak je v minulosti, chyba. Ak je blízko, daj tip o príprave.
 5. PSČ: Pre SK 5-miestne (napr. 81101), pre CZ 5-miestne (napr. 11000). Ak poznáš mesto z kontextu, navrhni správne PSČ.
-6. ADRESA/ULICA: Skontroluj preklepy. Ak poznáš ulicu a mesto, navrhni PSČ cez autoFill.
-7. MESTO: Ak je zadané mesto a poznáš ho, navrhni PSČ cez autoFill (kľúč "postalCode").
+6. ADRESA/ULICA: Prvé písmeno MUSÍ byť veľké (napr. "hlavná 5" → "Hlavná 5", "štefánikova 12" → "Štefánikova 12"). Vždy navrhni opravu ak prvé písmeno je malé. Skontroluj preklepy. Ak poznáš ulicu a mesto, navrhni PSČ cez autoFill.
+7. MESTO: Prvé písmeno musí byť veľké (napr. "bratislava" → "Bratislava", "košice" → "Košice"). Skontroluj preklepy v názve mesta. Ak poznáš mesto, navrhni PSČ cez autoFill (kľúč "postalCode").
+10. DÁTUM NARODENIA (dateOfBirth): Dátum narodenia je VŽDY v minulosti — to je normálne, NIKDY neupozorňuj že dátum je v minulosti. Skontroluj iba či je dátum reálny (napr. nie budúci dátum, nie starší ako 120 rokov).
 8. KOREŠPONDENČNÁ ADRESA (corrName/corrAddress/corrCity/corrPostalCode): Rovnaké pravidlá ako pre hlavnú adresu. Skontroluj meno, ulicu, mesto, PSČ. Ak poznáš mesto, navrhni PSČ cez autoFill (kľúč "corrPostalCode"). Ak poznáš ulicu a mesto korešpondenčnej adresy, navrhni PSČ.
 9. RODNÉ ČÍSLO (nationalId/birthNumber): Pre SK/CZ formát XXXXXX/XXXX (6 číslic lomka 3-4 číslice, napr. 690516/9183). Ak chýba lomka, navrhni opravu s lomkou. Skontroluj dátum v prvých 6 čísliciach. Pre HU formát je 11-miestne číslo. Pre iné krajiny skontroluj bežný formát.
 
