@@ -33752,11 +33752,17 @@ Return ONLY the JSON object.`
       if (!ALLOWED_FIELD_TYPES.includes(safeType)) return res.json({ suggestions: [] });
       const contextFields: string[] = [];
       if (allValues) {
-        if (allValues.firstName) contextFields.push(`Meno: ${allValues.firstName}`);
-        if (allValues.lastName) contextFields.push(`Priezvisko: ${allValues.lastName}`);
-        if (allValues.email) contextFields.push(`Email: ${allValues.email}`);
-        if (allValues.phone) contextFields.push(`Telefón: ${allValues.phone}`);
-        if (allValues.expectedDeliveryDate) contextFields.push(`Predpokladaný dátum pôrodu: ${allValues.expectedDeliveryDate}`);
+        if (allValues.firstName) contextFields.push(`Meno: ${String(allValues.firstName).slice(0, 100)}`);
+        if (allValues.lastName) contextFields.push(`Priezvisko: ${String(allValues.lastName).slice(0, 100)}`);
+        if (allValues.email) contextFields.push(`Email: ${String(allValues.email).slice(0, 100)}`);
+        if (allValues.phone) contextFields.push(`Telefón: ${String(allValues.phone).slice(0, 50)}`);
+        if (allValues.expectedDeliveryDate) contextFields.push(`Predpokladaný dátum pôrodu: ${String(allValues.expectedDeliveryDate).slice(0, 20)}`);
+        if (allValues.address) contextFields.push(`Ulica: ${String(allValues.address).slice(0, 200)}`);
+        if (allValues.city) contextFields.push(`Mesto: ${String(allValues.city).slice(0, 100)}`);
+        if (allValues.postalCode) contextFields.push(`PSČ: ${String(allValues.postalCode).slice(0, 20)}`);
+        if (allValues.region) contextFields.push(`Kraj: ${String(allValues.region).slice(0, 100)}`);
+        if (allValues.nationalId) contextFields.push(`Rodné číslo: ${String(allValues.nationalId).slice(0, 20)}`);
+        if (allValues.birthNumber) contextFields.push(`Rodné číslo: ${String(allValues.birthNumber).slice(0, 20)}`);
       }
       const today = new Date().toISOString().split("T")[0];
       const countryCode = form.countryCode || "SK";
@@ -33776,8 +33782,13 @@ Pravidlá kontroly:
 2. TELEFÓN: Pre SK formát +421 9XX XXX XXX, pre CZ +420 XXX XXX XXX. Upozorni na nesprávny formát.
 3. EMAIL: Skontroluj základný formát, bežné preklepy domén (gmial->gmail, hotmal->hotmail).
 4. DÁTUM PÔRODU: Musí byť v budúcnosti (po ${today}). Ak je viac ako 9 mesiacov v budúcnosti, upozorni. Ak je v minulosti, chyba. Ak je blízko, daj tip o príprave.
-5. PSČ: Pre SK 5-miestne, pre CZ 5-miestne (XXX XX).
-6. ADRESA: Skontroluj zrejmé preklepy v názvoch miest.
+5. PSČ: Pre SK 5-miestne (napr. 81101), pre CZ 5-miestne (napr. 11000). Ak poznáš mesto z kontextu, navrhni správne PSČ.
+6. ADRESA/ULICA: Skontroluj preklepy. Ak poznáš ulicu a mesto, navrhni PSČ cez autoFill.
+7. MESTO: Ak je zadané mesto a poznáš ho, navrhni PSČ cez autoFill (kľúč "postalCode").
+8. RODNÉ ČÍSLO (nationalId/birthNumber): Pre SK/CZ formát XXXXXX/XXXX (6 číslic lomka 3-4 číslice, napr. 690516/9183). Ak chýba lomka, navrhni opravu s lomkou. Skontroluj dátum v prvých 6 čísliciach. Pre HU formát je 11-miestne číslo. Pre iné krajiny skontroluj bežný formát.
+
+Každý návrh môže mať aj voliteľné pole:
+- "autoFill": objekt s kľúčmi polí a hodnotami na automatické vyplnenie (napr. {"postalCode": "81101", "city": "Bratislava"}). Použi ak z kontextu vieš doplniť súvisiace polia.
 
 Ak je všetko v poriadku, vráť prázdne pole [].
 Ak máš tip alebo radu súvisiacu s tehotenstvom/odberom pupočníkovej krvi, pridaj ho ako "tip".
@@ -33806,11 +33817,21 @@ DÔLEŽITÉ: Vráť IBA JSON pole, žiadny iný text.`;
               sug = sug.replace(/^(Opravi[tť]\s+(na\s+)?|Zmeni[tť]\s+(na\s+)?|Použi[tť]\s+)/i, "").replace(/^['"""„]+|['"""]+$/g, "").trim();
               if (!sug) sug = null;
             }
-            return { type: s.type, message: String(s.message).slice(0, 200), suggestion: sug };
+            let autoFill: Record<string, string> | null = null;
+            if (s.autoFill && typeof s.autoFill === "object") {
+              autoFill = {};
+              for (const [k, v] of Object.entries(s.autoFill)) {
+                if (typeof k === "string" && typeof v === "string" && k.length < 50 && v.length < 200) {
+                  autoFill[k] = v;
+                }
+              }
+              if (Object.keys(autoFill).length === 0) autoFill = null;
+            }
+            return { type: s.type, message: String(s.message).slice(0, 200), suggestion: sug, autoFill };
           });
         }
       } catch { suggestions = []; }
-      res.json({ suggestions });
+      res.json({ suggestions, lauraAvatarUrl: form.lauraAvatarUrl || null });
     } catch (e: any) {
       console.error("[WebForm AI Validate]", e.message);
       res.json({ suggestions: [] });

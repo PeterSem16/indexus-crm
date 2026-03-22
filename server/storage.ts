@@ -6766,7 +6766,7 @@ export class DatabaseStorage implements IStorage {
     return form || undefined;
   }
   async getWebFormBySlug(slug: string): Promise<WebForm | undefined> {
-    const [form] = await db.select().from(webForms).where(eq(webForms.slug, slug));
+    const [form] = await db.select().from(webForms).where(and(eq(webForms.slug, slug), eq(webForms.isActive, true))).orderBy(desc(webForms.updatedAt));
     return form || undefined;
   }
   async createWebForm(data: InsertWebForm): Promise<WebForm> {

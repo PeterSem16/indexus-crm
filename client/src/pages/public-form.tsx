@@ -349,7 +349,7 @@ export default function PublicFormPage() {
   const [verificationToken, setVerificationToken] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState("");
   const [pregnancyAdvice, setPregnancyAdvice] = useState<{ trimester: number; week: number; daysRemaining: number; tips: string[] } | null>(null);
-  const [aiSuggestions, setAiSuggestions] = useState<Record<string, { type: string; message: string; suggestion: string | null }[]>>({});
+  const [aiSuggestions, setAiSuggestions] = useState<Record<string, { type: string; message: string; suggestion: string | null; autoFill?: Record<string, string> | null }[]>>({});
   const [aiLoading, setAiLoading] = useState<Record<string, boolean>>({});
   const aiDebounceRef = useRef<Record<string, any>>({});
   const aiAbortRef = useRef<Record<string, AbortController>>({});
@@ -579,6 +579,25 @@ export default function PublicFormPage() {
           const data = await resp.json();
           if (data.suggestions && data.suggestions.length > 0) {
             setAiSuggestions(prev => ({ ...prev, [key]: data.suggestions }));
+            const allFills: Record<string, string> = {};
+            for (const s of data.suggestions) {
+              if (s.autoFill && typeof s.autoFill === "object") {
+                for (const [fillKey, fillVal] of Object.entries(s.autoFill)) {
+                  if (typeof fillVal === "string" && fillVal) {
+                    allFills[fillKey] = fillVal;
+                  }
+                }
+              }
+            }
+            if (Object.keys(allFills).length > 0) {
+              setFormValues(prev => {
+                const updated = { ...prev };
+                for (const [k, v] of Object.entries(allFills)) {
+                  if (!prev[k]) updated[k] = v;
+                }
+                return updated;
+              });
+            }
           } else {
             setAiSuggestions(prev => { const n = { ...prev }; delete n[key]; return n; });
           }
@@ -1008,6 +1027,21 @@ export default function PublicFormPage() {
                         data-testid={`button-ai-apply-${key}`}
                       >
                         Použiť opravu: {s.suggestion}
+                      </button>
+                    )}
+                    {s.autoFill && typeof s.autoFill === "object" && Object.keys(s.autoFill).length > 0 && (
+                      <button
+                        type="button"
+                        className={`mt-1 text-[11px] font-medium ${colors.icon} hover:underline flex items-center gap-1`}
+                        onClick={() => {
+                          for (const [fillKey, fillVal] of Object.entries(s.autoFill)) {
+                            if (typeof fillVal === "string") updateField(fillKey, fillVal);
+                          }
+                          setAiSuggestions(prev => { const n = { ...prev }; delete n[key]; return n; });
+                        }}
+                        data-testid={`button-ai-autofill-${key}`}
+                      >
+                        Doplniť: {Object.values(s.autoFill).join(", ")}
                       </button>
                     )}
                   </div>
