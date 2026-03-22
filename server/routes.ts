@@ -33277,6 +33277,9 @@ Return ONLY the JSON object.`
         .where(and(eq((await import("@shared/schema")).hospitals.countryCode, form.countryCode), eq((await import("@shared/schema")).hospitals.isActive, true)));
       const productSetsRaw = await db.select().from((await import("@shared/schema")).productSets)
         .where(and(eq((await import("@shared/schema")).productSets.countryCode, form.countryCode), eq((await import("@shared/schema")).productSets.isActive, true)));
+      const productsRaw = await db.select().from((await import("@shared/schema")).products)
+        .where(eq((await import("@shared/schema")).products.isActive, true));
+      const countryProducts = productsRaw.filter(p => p.countries && p.countries.includes(form.countryCode));
       const clinicsRaw = await db.select().from((await import("@shared/schema")).clinics)
         .where(and(eq((await import("@shared/schema")).clinics.countryCode, form.countryCode), eq((await import("@shared/schema")).clinics.isActive, true)));
       res.json({
@@ -33284,6 +33287,7 @@ Return ONLY the JSON object.`
         healthInsuranceCompanies: hicsRaw,
         hospitals: hospitalsRaw.map(h => ({ id: h.id, name: h.name, fullName: h.fullName, city: h.city })),
         productSets: productSetsRaw.map(p => ({ id: p.id, name: p.name, totalGrossAmount: p.totalGrossAmount, currency: p.currency })),
+        products: countryProducts.map(p => ({ id: p.id, name: p.name, description: p.description })),
         clinics: clinicsRaw.map(c => ({ id: c.id, name: c.name, doctorName: c.doctorName, doctorTitle: c.doctorTitle, doctorFirstName: c.doctorFirstName, doctorLastName: c.doctorLastName, city: c.city })),
       });
     } catch (e: any) { res.status(500).json({ error: e.message }); }
@@ -33588,9 +33592,12 @@ Return ONLY the JSON object.`
                     .where(eq(schema.hospitals.countryCode, form.countryCode));
                   const productSets = await db.select().from(schema.productSets)
                     .where(eq(schema.productSets.countryCode, form.countryCode));
+                  const allProducts = await db.select().from(schema.products)
+                    .where(eq(schema.products.isActive, true));
                   const insuranceMap = new Map(insuranceCompanies.map((c: any) => [c.id, c.name]));
                   const hospitalMap = new Map(hospitals.map((h: any) => [h.id, h.name]));
                   const productSetMap = new Map(productSets.map((p: any) => [p.id, p.name]));
+                  const productMap = new Map(allProducts.map((p: any) => [p.id, p.name]));
                   const paymentMethodLabels: Record<string, string> = {
                     bank_transfer: "Bankový prevod", cash: "Hotovosť", card: "Kartou",
                     invoice: "Faktúra", installments: "Splátky", other: "Iné",
@@ -33600,7 +33607,7 @@ Return ONLY the JSON object.`
                     const strVal = String(val);
                     if (customerField === "healthInsuranceId") return insuranceMap.get(strVal) || strVal;
                     if (customerField === "hospitalId") return hospitalMap.get(strVal) || strVal;
-                    if (customerField === "productSetId") return productSetMap.get(strVal) || strVal;
+                    if (customerField === "productSetId") return productSetMap.get(strVal) || productMap.get(strVal) || strVal;
                     if (customerField === "paymentMethod") return paymentMethodLabels[strVal] || strVal;
                     if ((customerField === "dateOfBirth" || customerField === "expectedDueDate") && strVal.match(/^\d{4}-\d{2}-\d{2}/)) {
                       const parts = strVal.substring(0, 10).split("-");

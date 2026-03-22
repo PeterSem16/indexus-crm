@@ -13,6 +13,7 @@ interface FormConfig {
   healthInsuranceCompanies: any[];
   hospitals: any[];
   productSets: any[];
+  products: any[];
   clinics: any[];
 }
 
@@ -1169,19 +1170,29 @@ export default function PublicFormPage() {
     }
 
     if (field.fieldType === "select_product") {
+      const productsList = config.products && config.products.length > 0 ? config.products : config.productSets;
+      const selectedProduct = productsList.find((p: any) => String(p.id) === val);
       return fieldWrapper(
-        <Select value={val} onValueChange={v => updateField(key, v)}>
-          <SelectTrigger className={inputClass} data-testid={`select-${key}`} onBlur={() => blurField(key)}>
-            <SelectValue placeholder={placeholder || "Vyberte typ odberu..."} />
-          </SelectTrigger>
-          <SelectContent>
-            {config.productSets.map((ps: any) => (
-              <SelectItem key={ps.id} value={String(ps.id)}>
-                {safeStr(ps.name)}{ps.totalGrossAmount ? ` (${Number(ps.totalGrossAmount).toLocaleString("sk")} ${safeStr(ps.currency) || "EUR"})` : ""}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="space-y-2">
+          <Select value={val} onValueChange={v => updateField(key, v)}>
+            <SelectTrigger className={inputClass} data-testid={`select-${key}`} onBlur={() => blurField(key)}>
+              <SelectValue placeholder={placeholder || "Vyberte typ odberu..."} />
+            </SelectTrigger>
+            <SelectContent>
+              {productsList.map((ps: any) => (
+                <SelectItem key={ps.id} value={String(ps.id)}>
+                  {safeStr(ps.name)}{ps.totalGrossAmount ? ` (${Number(ps.totalGrossAmount).toLocaleString("sk")} ${safeStr(ps.currency) || "EUR"})` : ""}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {selectedProduct?.description && (
+            <div className="rounded-lg border p-3 text-sm" style={{ borderColor: `${brandColor}30`, backgroundColor: `${brandColor}08` }}>
+              <p style={{ color: brandColor }} className="font-medium text-xs mb-1">Popis produktu</p>
+              <p className="text-gray-600 dark:text-gray-300">{safeStr(selectedProduct.description)}</p>
+            </div>
+          )}
+        </div>
       );
     }
 
