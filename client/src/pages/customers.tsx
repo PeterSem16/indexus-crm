@@ -7301,192 +7301,165 @@ export default function CustomersPage() {
         </>
       )}
 
-      <Sheet open={!!editingCustomer} onOpenChange={() => setEditingCustomer(null)}>
-        <SheetContent 
-          side="right" 
-          className="!w-full !max-w-none sm:!max-w-3xl lg:!max-w-4xl xl:!max-w-5xl !p-0 flex flex-col overflow-hidden border-l shadow-2xl"
-        >
-          {editingCustomer && (
-            <>
-              <div className="sticky top-0 z-[999] bg-gradient-to-r from-primary/10 via-primary/5 to-background border-b px-6 py-4 relative">
-                <div className="flex items-center gap-4 flex-wrap pr-20">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 ring-2 ring-primary/20">
-                    <UserCircle className="h-8 w-8 text-primary" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h2 className="text-xl font-bold tracking-tight truncate" data-testid="text-customer-drawer-name">
-                      {editingCustomer.firstName} {editingCustomer.lastName}
-                    </h2>
-                    <div className="flex items-center gap-2 mt-1 flex-wrap">
-                      <Badge variant="outline" className="text-xs" data-testid="badge-customer-drawer-country">
-                        {getCountryFlag(editingCustomer.country)} {editingCustomer.country}
-                      </Badge>
-                      <Badge 
-                        variant="secondary" 
-                        className="text-xs"
-                        data-testid="badge-customer-drawer-client-status"
-                      >
-                        {editingCustomer.isClient ? t.customers.details.client : t.customers.details.prospect}
-                      </Badge>
-                      <StatusBadge status={editingCustomer.status} />
-                      {(() => {
-                        const score = editingCustomer.leadScore || 0;
-                        let label = t.leadScoring.statuses.cold;
-                        let colorClass = "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300";
-                        if (score >= 80) {
-                          label = t.leadScoring.statuses.hot;
-                          colorClass = "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300";
-                        } else if (score >= 60) {
-                          label = t.leadScoring.statuses.qualified;
-                          colorClass = "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300";
-                        } else if (score >= 40) {
-                          label = t.leadScoring.statuses.warm;
-                          colorClass = "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300";
-                        }
-                        return (
-                          <Badge className={`text-xs ${colorClass}`} data-testid="badge-customer-drawer-leadscore">
-                            {label}
-                          </Badge>
-                        );
-                      })()}
-                      {editingCustomer.phone && isRegistered && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => {
-                            if (makeCall && editingCustomer.phone) {
-                              const customerName = [editingCustomer.firstName, editingCustomer.lastName].filter(Boolean).join(" ");
-                              callContext.setAutoRecord(false);
-                              makeCall({
-                                phoneNumber: editingCustomer.phone,
-                                customerId: editingCustomer.id,
-                                customerName: customerName || undefined,
-                              });
-                            }
-                          }}
-                          data-testid="button-call-from-drawer"
-                        >
-                          <Phone className="h-4 w-4" />
-                        </Button>
-                      )}
-                      {editingCustomer.phone && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => {
-                            const phones = [editingCustomer.phone];
-                            if (editingCustomer.phone2) phones.push(editingCustomer.phone2);
-                            setSelectedPhones(phones.filter(Boolean) as string[]);
-                            setSmsDialogCustomer(editingCustomer);
-                            setSmsDialogOpenedAt(Date.now());
-                          }}
-                          data-testid="button-sms-from-drawer"
-                        >
-                          <MessageSquare className="h-4 w-4" />
-                        </Button>
-                      )}
-                      {editingCustomer.email && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => {
-                            const emails = [editingCustomer.email];
-                            if (editingCustomer.email2) emails.push(editingCustomer.email2);
-                            setSelectedEmails(emails.filter(Boolean) as string[]);
-                            setEmailDialogCustomer(editingCustomer);
-                            setEmailDialogOpenedAt(Date.now());
-                          }}
-                          data-testid="button-email-from-drawer"
-                        >
-                          <Mail className="h-4 w-4" />
-                        </Button>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => setViewingCustomer(editingCustomer)}
-                        data-testid="button-view-customer-details"
-                        title={t.customers.detailsTitle}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
+      {editingCustomer && (
+        <>
+          <div
+            className="fixed inset-0 z-50 bg-black/30 backdrop-blur-[2px] animate-in fade-in duration-200"
+            onClick={() => setEditingCustomer(null)}
+            data-testid="customer-edit-backdrop"
+          />
+          <div className="fixed inset-y-0 right-0 z-[51] w-[820px] max-w-[95vw] bg-background border-l shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col">
+            <div className="shrink-0 flex items-center justify-between px-5 py-3.5 border-b bg-muted/30">
+              <div className="flex items-center gap-3">
+                <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <UserCircle className="h-4.5 w-4.5 text-primary" />
                 </div>
-                <div className="absolute right-2 top-3 flex items-center gap-1 flex-wrap">
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    onClick={() => setEditingCustomer(null)}
-                    data-testid="button-close-customer-drawer"
-                  >
-                    <X className="h-5 w-5" />
-                  </Button>
+                <div>
+                  <h2 className="text-base font-semibold" data-testid="text-customer-drawer-name">
+                    {editingCustomer.firstName} {editingCustomer.lastName}
+                  </h2>
+                  <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0" data-testid="badge-customer-drawer-country">
+                      {getCountryFlag(editingCustomer.country)} {editingCustomer.country}
+                    </Badge>
+                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0" data-testid="badge-customer-drawer-client-status">
+                      {editingCustomer.isClient ? t.customers.details.client : t.customers.details.prospect}
+                    </Badge>
+                    <StatusBadge status={editingCustomer.status} />
+                    {(() => {
+                      const score = editingCustomer.leadScore || 0;
+                      let label = t.leadScoring.statuses.cold;
+                      let colorClass = "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300";
+                      if (score >= 80) { label = t.leadScoring.statuses.hot; colorClass = "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"; }
+                      else if (score >= 60) { label = t.leadScoring.statuses.qualified; colorClass = "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"; }
+                      else if (score >= 40) { label = t.leadScoring.statuses.warm; colorClass = "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300"; }
+                      return <Badge className={`text-[10px] px-1.5 py-0 ${colorClass}`} data-testid="badge-customer-drawer-leadscore">{label}</Badge>;
+                    })()}
+                  </div>
                 </div>
               </div>
-              
-              {editingCustomer.phone && isRegistered && (
-                <CustomerCallStrip
-                  phone={editingCustomer.phone}
-                  customerId={editingCustomer.id}
-                  customerName={[editingCustomer.firstName, editingCustomer.lastName].filter(Boolean).join(" ")}
-                  callContext={callContext}
-                  makeCall={makeCall}
-                  testIdPrefix="edit"
-                  t={t}
-                />
-              )}
+              <div className="flex items-center gap-1">
+                {editingCustomer.phone && isRegistered && (
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => {
+                    if (makeCall && editingCustomer.phone) {
+                      const customerName = [editingCustomer.firstName, editingCustomer.lastName].filter(Boolean).join(" ");
+                      callContext.setAutoRecord(false);
+                      makeCall({ phoneNumber: editingCustomer.phone, customerId: editingCustomer.id, customerName: customerName || undefined });
+                    }
+                  }} data-testid="button-call-from-drawer"><Phone className="h-4 w-4" /></Button>
+                )}
+                {editingCustomer.phone && (
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => {
+                    const phones = [editingCustomer.phone];
+                    if (editingCustomer.phone2) phones.push(editingCustomer.phone2);
+                    setSelectedPhones(phones.filter(Boolean) as string[]);
+                    setSmsDialogCustomer(editingCustomer);
+                    setSmsDialogOpenedAt(Date.now());
+                  }} data-testid="button-sms-from-drawer"><MessageSquare className="h-4 w-4" /></Button>
+                )}
+                {editingCustomer.email && (
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => {
+                    const emails = [editingCustomer.email];
+                    if (editingCustomer.email2) emails.push(editingCustomer.email2);
+                    setSelectedEmails(emails.filter(Boolean) as string[]);
+                    setEmailDialogCustomer(editingCustomer);
+                    setEmailDialogOpenedAt(Date.now());
+                  }} data-testid="button-email-from-drawer"><Mail className="h-4 w-4" /></Button>
+                )}
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setViewingCustomer(editingCustomer)} data-testid="button-view-customer-details" title={t.customers.detailsTitle}>
+                  <Eye className="h-4 w-4" />
+                </Button>
+                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={() => setEditingCustomer(null)} data-testid="button-close-customer-drawer">
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
 
-              <Tabs defaultValue="data" className="flex-1 flex flex-col overflow-hidden">
-                <div className="px-6 pt-4 pb-2 border-b bg-background/80 backdrop-blur-sm">
-                  <TabsList className="grid w-full grid-cols-3 h-11">
-                    <TabsTrigger value="data" className="flex items-center gap-2">
-                      <FileEdit className="h-4 w-4" />
-                      <span className="hidden sm:inline">{t.customers.tabs?.data || "Data"}</span>
+            {editingCustomer.phone && isRegistered && (
+              <CustomerCallStrip
+                phone={editingCustomer.phone}
+                customerId={editingCustomer.id}
+                customerName={[editingCustomer.firstName, editingCustomer.lastName].filter(Boolean).join(" ")}
+                callContext={callContext}
+                makeCall={makeCall}
+                testIdPrefix="edit"
+                t={t}
+              />
+            )}
+
+            <Tabs defaultValue="data" className="flex-1 flex flex-col min-h-0">
+              <div className="flex flex-1 min-h-0">
+                <div className="w-48 border-r bg-muted/20 flex flex-col py-2 shrink-0">
+                  {[
+                    { value: "data", icon: <FileEdit className="h-4 w-4" />, label: t.customers.tabs?.data || "Data" },
+                    { value: "history", icon: <History className="h-4 w-4" />, label: t.customers.tabs?.history || "History" },
+                    { value: "campaigns", icon: <Target className="h-4 w-4" />, label: "Kampane" },
+                  ].map(tab => (
+                    <TabsTrigger
+                      key={tab.value}
+                      value={tab.value}
+                      className="flex items-center gap-2.5 px-4 py-2.5 text-sm transition-colors text-left justify-start rounded-none border-0 data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:font-medium data-[state=active]:border-r-2 data-[state=active]:border-primary data-[state=active]:shadow-none text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                      data-testid={`tab-${tab.value}`}
+                    >
+                      {tab.icon}
+                      {tab.label}
                     </TabsTrigger>
-                    <TabsTrigger value="history" className="flex items-center gap-2">
-                      <History className="h-4 w-4" />
-                      <span className="hidden sm:inline">{t.customers.tabs?.history || "History"}</span>
-                    </TabsTrigger>
-                    <TabsTrigger value="campaigns" className="flex items-center gap-2" data-testid="tab-campaigns">
-                      <Target className="h-4 w-4" />
-                      <span className="hidden sm:inline">Kampane</span>
-                    </TabsTrigger>
-                  </TabsList>
+                  ))}
                 </div>
-                
-                <TabsContent value="data" className="flex-1 overflow-y-auto px-6 py-4 m-0">
-                  <CustomerForm
-                    initialData={editingCustomer}
-                    onSubmit={(data) => updateMutation.mutate({ ...data, id: editingCustomer.id })}
-                    isLoading={updateMutation.isPending}
-                    onCancel={() => setEditingCustomer(null)}
-                  />
-                </TabsContent>
-                
-                <TabsContent value="history" className="flex-1 overflow-y-auto px-6 py-4 m-0">
-                  <CustomerHistoryTimeline customerId={editingCustomer.id} customerName={`${editingCustomer.firstName} ${editingCustomer.lastName}`} />
-                </TabsContent>
-                
-                <TabsContent value="campaigns" className="flex-1 overflow-y-auto px-6 py-4 m-0">
-                  <EntityCampaignTimeline entityType="customer" entityId={editingCustomer.id} entityName={`${editingCustomer.firstName} ${editingCustomer.lastName}`} />
-                </TabsContent>
-              </Tabs>
-            </>
-          )}
-        </SheetContent>
-      </Sheet>
 
-      <Sheet open={!!viewingCustomer} onOpenChange={() => setViewingCustomer(null)}>
-        <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>{t.customers.detailsTitle}</SheetTitle>
-            <SheetDescription>
-              {t.customers.detailsDescription}
-            </SheetDescription>
-          </SheetHeader>
-          {viewingCustomer && (
-            <>
+                <div className="flex-1 overflow-auto p-6">
+                  <TabsContent value="data" className="m-0">
+                    <CustomerForm
+                      initialData={editingCustomer}
+                      onSubmit={(data) => updateMutation.mutate({ ...data, id: editingCustomer.id })}
+                      isLoading={updateMutation.isPending}
+                      onCancel={() => setEditingCustomer(null)}
+                    />
+                  </TabsContent>
+                  <TabsContent value="history" className="m-0">
+                    <CustomerHistoryTimeline customerId={editingCustomer.id} customerName={`${editingCustomer.firstName} ${editingCustomer.lastName}`} />
+                  </TabsContent>
+                  <TabsContent value="campaigns" className="m-0">
+                    <EntityCampaignTimeline entityType="customer" entityId={editingCustomer.id} entityName={`${editingCustomer.firstName} ${editingCustomer.lastName}`} />
+                  </TabsContent>
+                </div>
+              </div>
+            </Tabs>
+          </div>
+        </>
+      )}
+
+      {viewingCustomer && (
+        <>
+          <div
+            className="fixed inset-0 z-50 bg-black/30 backdrop-blur-[2px] animate-in fade-in duration-200"
+            onClick={() => setViewingCustomer(null)}
+            data-testid="customer-view-backdrop"
+          />
+          <div className="fixed inset-y-0 right-0 z-[51] w-[720px] max-w-[95vw] bg-background border-l shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col">
+            <div className="shrink-0 flex items-center justify-between px-5 py-3.5 border-b bg-muted/30">
+              <div className="flex items-center gap-3">
+                <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <Eye className="h-4.5 w-4.5 text-primary" />
+                </div>
+                <div>
+                  <h2 className="text-base font-semibold">
+                    {viewingCustomer.firstName} {viewingCustomer.lastName}
+                  </h2>
+                  <p className="text-xs text-muted-foreground">{t.customers.detailsTitle}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-1">
+                <Button variant="outline" size="sm" onClick={() => { setViewingCustomer(null); setEditingCustomer(viewingCustomer); }} data-testid="button-edit-from-view">
+                  <Pencil className="h-3.5 w-3.5 mr-1.5" />
+                  {t.common.edit}
+                </Button>
+                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={() => setViewingCustomer(null)} data-testid="button-close-view-customer">
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-auto p-6">
               {viewingCustomer.phone && isRegistered && (
                 <CustomerCallStrip
                   phone={viewingCustomer.phone}
@@ -7499,17 +7472,17 @@ export default function CustomersPage() {
                   className="mb-4 rounded-md"
                 />
               )}
-              <CustomerDetailsContent 
-                customer={viewingCustomer} 
+              <CustomerDetailsContent
+                customer={viewingCustomer}
                 onEdit={() => {
                   setViewingCustomer(null);
                   setEditingCustomer(viewingCustomer);
                 }}
               />
-            </>
-          )}
-        </SheetContent>
-      </Sheet>
+            </div>
+          </div>
+        </>
+      )}
 
       <AlertDialog open={!!deletingCustomer} onOpenChange={() => setDeletingCustomer(null)}>
         <AlertDialogContent>
