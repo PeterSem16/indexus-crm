@@ -33404,11 +33404,17 @@ Return ONLY the JSON object.`
         if (hosp) resolvedHospitalName = hosp.name || null;
       }
       let resolvedGynName = formData.gynecologistName || null;
-      if (formData.gynecologistClinicId && !resolvedGynName) {
+      let resolvedGynPhone = formData.gynecologistPhone || null;
+      let resolvedGynEmail = formData.gynecologistEmail || null;
+      if (formData.gynecologistClinicId) {
         const [clinic] = await db.select().from(schema.clinics).where(eq(schema.clinics.id, formData.gynecologistClinicId)).limit(1);
         if (clinic) {
-          const parts = [clinic.doctorTitle, clinic.doctorFirstName, clinic.doctorLastName].filter(Boolean);
-          resolvedGynName = parts.length > 0 ? parts.join(" ") : (clinic.doctorName || clinic.name || null);
+          if (!resolvedGynName) {
+            const parts = [clinic.doctorTitle, clinic.doctorFirstName, clinic.doctorLastName].filter(Boolean);
+            resolvedGynName = parts.length > 0 ? parts.join(" ") : (clinic.doctorName || clinic.name || null);
+          }
+          if (!resolvedGynPhone && clinic.phone) resolvedGynPhone = clinic.phone;
+          if (!resolvedGynEmail && clinic.email) resolvedGynEmail = clinic.email;
         }
       }
 
@@ -33460,15 +33466,12 @@ Return ONLY the JSON object.`
             if (formData.corrCountry) updateData.corrCountry = formData.corrCountry;
           }
           if (resolvedGynName) updateData.gynecologistName = resolvedGynName;
-          if (formData.gynecologistPhone) updateData.gynecologistPhone = formData.gynecologistPhone;
-          if (formData.gynecologistEmail) updateData.gynecologistEmail = formData.gynecologistEmail;
+          if (resolvedGynPhone) updateData.gynecologistPhone = resolvedGynPhone;
+          if (resolvedGynEmail) updateData.gynecologistEmail = resolvedGynEmail;
           if (formData.expectedDeliveryDate) updateData.expectedDeliveryDate = new Date(formData.expectedDeliveryDate);
           if (resolvedHospitalName) updateData.hospitalName = resolvedHospitalName;
           updateData.registrationSource = "web_form";
           updateData.registrationDate = new Date();
-          if (!existing.leadSource) updateData.leadSource = "Internet";
-          if (!existing.leadSourceDate) updateData.leadSourceDate = new Date();
-          if (!existing.leadSourceNotes) updateData.leadSourceNotes = `Webový formulár: ${form.name}`;
           if (existing.clientStatus === "potential") {
             updateData.clientStatus = "in_process";
           }
@@ -33522,12 +33525,9 @@ Return ONLY the JSON object.`
           newsletter: formData.newsletter || false,
           registrationSource: "web_form",
           registrationDate: new Date(),
-          leadSource: "Internet",
-          leadSourceDate: new Date(),
-          leadSourceNotes: `Webový formulár: ${form.name}`,
           gynecologistName: resolvedGynName,
-          gynecologistPhone: formData.gynecologistPhone || null,
-          gynecologistEmail: formData.gynecologistEmail || null,
+          gynecologistPhone: resolvedGynPhone,
+          gynecologistEmail: resolvedGynEmail,
           expectedDeliveryDate: formData.expectedDeliveryDate ? new Date(formData.expectedDeliveryDate) : null,
           hospitalName: resolvedHospitalName,
         }).returning();
@@ -33541,6 +33541,52 @@ Return ONLY the JSON object.`
           entityName: `${newCustomer.firstName} ${newCustomer.lastName}`,
           details: JSON.stringify({ formId: form.id, formName: form.name, type: "new_customer", status: "in_process/active", data: formData }),
         });
+      }
+
+      if (targetCustomerId) {
+        const resolvedProductId = formData.productSetId || null;
+        const [existingCase] = await db.select().from(schema.customerPotentialCases)
+          .where(eq(schema.customerPotentialCases.customerId, targetCustomerId)).limit(1);
+        const caseData: any = {
+          caseStatus: "Prebieha",
+          salesChannel: "I",
+          infoSource: "Internet",
+          marketingAction: form.name,
+          updatedAt: new Date(),
+        };
+        if (resolvedProductId) caseData.productId = resolvedProductId;
+        if (formData.paymentMethod) caseData.paymentType = formData.paymentMethod;
+        if (formData.hospitalId) caseData.hospitalId = formData.hospitalId;
+        if (formData.expectedDeliveryDate) {
+          const dd = new Date(formData.expectedDeliveryDate);
+          caseData.expectedDateDay = dd.getDate();
+          caseData.expectedDateMonth = dd.getMonth() + 1;
+          caseData.expectedDateYear = dd.getFullYear();
+        }
+        if (formData.newsletter !== undefined) caseData.newsletterOptIn = !!formData.newsletter;
+
+        if (existingCase) {
+          await db.update(schema.customerPotentialCases).set(caseData)
+            .where(eq(schema.customerPotentialCases.customerId, targetCustomerId));
+        } else {
+          await db.insert(schema.customerPotentialCases).values({
+            customerId: targetCustomerId,
+            ...caseData,
+          });
+        }
+
+        if (resolvedProductId) {
+          const existingProducts = await db.select().from(schema.customerProducts)
+            .where(eq(schema.customerProducts.customerId, targetCustomerId));
+          const alreadyHas = existingProducts.some(p => p.productId === resolvedProductId);
+          if (!alreadyHas) {
+            await db.insert(schema.customerProducts).values({
+              customerId: targetCustomerId,
+              productId: resolvedProductId,
+              quantity: 1,
+            });
+          }
+        }
       }
 
       const forwardedFor = req.headers["x-forwarded-for"];
