@@ -1325,6 +1325,23 @@ export const insertCustomerSchema = createInsertSchema(customers).omit({
   serviceType: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
   assignedUserId: z.string().optional().nullable(),
+  // Pregnancy / Case
+  gynecologistName: z.string().optional().nullable(),
+  gynecologistPhone: z.string().optional().nullable(),
+  gynecologistEmail: z.string().optional().nullable(),
+  expectedDeliveryDate: z.union([z.date(), z.string()]).optional().nullable().transform((val) => {
+    if (!val) return null;
+    if (typeof val === 'string') return new Date(val);
+    return val;
+  }),
+  hospitalName: z.string().optional().nullable(),
+  // Registration
+  registrationSource: z.string().optional().nullable(),
+  registrationDate: z.union([z.date(), z.string()]).optional().nullable().transform((val) => {
+    if (!val) return null;
+    if (typeof val === 'string') return new Date(val);
+    return val;
+  }),
 });
 
 // Configuration table schemas

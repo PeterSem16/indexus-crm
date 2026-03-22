@@ -7052,6 +7052,36 @@ export default function CustomersPage() {
         )}
       </PageHeader>
 
+      {(() => {
+        const statusCounts = {
+          potential: allCustomers.filter(c => c.clientStatus === "potential").length,
+          in_process: allCustomers.filter(c => c.clientStatus === "in_process").length,
+          acquired: allCustomers.filter(c => c.clientStatus === "acquired").length,
+          terminated: allCustomers.filter(c => c.clientStatus === "terminated").length,
+        };
+        const tiles = [
+          { key: "potential", label: t.customers.clientStatuses?.potential || "Potenciálny", count: statusCounts.potential, bg: "bg-blue-50 dark:bg-blue-950", border: "border-blue-200 dark:border-blue-800", text: "text-blue-700 dark:text-blue-300", countColor: "text-blue-900 dark:text-blue-100" },
+          { key: "in_process", label: t.customers.clientStatuses?.inProcess || "V procese", count: statusCounts.in_process, bg: "bg-red-50 dark:bg-red-950", border: "border-red-300 dark:border-red-800", text: "text-red-700 dark:text-red-300", countColor: "text-red-900 dark:text-red-100" },
+          { key: "acquired", label: t.customers.clientStatuses?.acquired || "Získaný", count: statusCounts.acquired, bg: "bg-green-50 dark:bg-green-950", border: "border-green-200 dark:border-green-800", text: "text-green-700 dark:text-green-300", countColor: "text-green-900 dark:text-green-100" },
+          { key: "terminated", label: t.customers.clientStatuses?.terminated || "Ukončený", count: statusCounts.terminated, bg: "bg-gray-50 dark:bg-gray-900", border: "border-gray-200 dark:border-gray-700", text: "text-gray-600 dark:text-gray-400", countColor: "text-gray-800 dark:text-gray-200" },
+        ];
+        return (
+          <div className="grid grid-cols-4 gap-4" data-testid="status-tiles">
+            {tiles.map(tile => (
+              <div
+                key={tile.key}
+                onClick={() => setClientStatusFilter(clientStatusFilter === tile.key ? "_all" : tile.key)}
+                className={`cursor-pointer rounded-xl border-2 p-4 transition-all hover:shadow-md ${tile.bg} ${clientStatusFilter === tile.key ? `${tile.border} ring-2 ring-offset-1 ring-current shadow-md` : `${tile.border} opacity-80 hover:opacity-100`}`}
+                data-testid={`tile-status-${tile.key}`}
+              >
+                <div className={`text-3xl font-bold ${tile.countColor}`}>{tile.count}</div>
+                <div className={`text-sm font-medium mt-1 ${tile.text}`}>{tile.label}</div>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
+
       <Card>
         <CardContent className="p-4">
           <div className="space-y-4">
