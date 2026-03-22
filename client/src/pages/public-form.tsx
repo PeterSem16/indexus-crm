@@ -36,11 +36,13 @@ const LAURA_TEXTS: Record<string, { badge: string; checking: string }> = {
 
 function normalizePhone(phone: string, countryCode: string): string {
   if (!phone) return phone;
-  let p = phone.replace(/\s+/g, "").replace(/^00/, "+");
-  if (p.startsWith("+")) return p;
-  const prefix = COUNTRY_PHONE_PREFIX[countryCode] || "+421";
+  let p = phone.replace(/\s+/g, "");
+  if (p.startsWith("+")) p = p.slice(1);
+  if (p.startsWith("00")) p = p.slice(2);
+  const rawPrefix = (COUNTRY_PHONE_PREFIX[countryCode] || "+421").replace("+", "");
+  if (p.startsWith(rawPrefix)) return p;
   if (p.startsWith("0")) p = p.slice(1);
-  return prefix + p;
+  return rawPrefix + p;
 }
 
 function formatDateDisplay(dateStr: string): string {
@@ -532,30 +534,27 @@ export default function PublicFormPage() {
       if (currentWeek >= 0 && daysRemaining > -42) {
         const tri = currentWeek <= 12 ? 1 : currentWeek <= 27 ? 2 : 3;
         const tips: string[] = [];
+        tips.push("Začnite sa pripravovať na pôrod a zvážte možnosti odberu pupočníkovej krvi.");
         if (tri === 1) {
           tips.push(
             "Začnite s užívaním kyseliny listovej (400 µg denne), ak ste tak ešte neurobili.",
             "Objednajte sa na prvé prenatálne vyšetrenie u gynekológa.",
             "Vyhýbajte sa alkoholu, fajčeniu a surovému mäsu/rybám.",
-            "Dbajte na dostatočný príjem tekutín a vyváženú stravu.",
-            "Informujte sa o možnostiach uchovávania pupočníkovej krvi.",
+            "Informujte sa o možnostiach uchovávania pupočníkovej krvi — čím skôr sa rozhodnete, tým lepšie.",
           );
         } else if (tri === 2) {
           tips.push(
             "Absolvujte morfologický ultrazvuk (18.–22. týždeň).",
             "Screening gestačného diabetu (24.–28. týždeň) — glukózový tolerančný test.",
-            "Začnite s pravidelnými cvičeniami pre tehotné (joga, plávanie).",
-            "Zvážte odber pupočníkovej krvi — je ideálny čas na rozhodnutie.",
+            "Zvážte odber pupočníkovej krvi — je ideálny čas na rozhodnutie a registráciu.",
             "Dbajte na príjem železa a vápnika v strave.",
           );
         } else {
           tips.push(
             "Pripravte si pôrodnú tašku a plán pôrodu.",
-            "Absolvujte pravidelné CTG monitorovanie plodu.",
             "Informujte svoju pôrodnicu o plánovanom odbere pupočníkovej krvi.",
-            "Kontaktujte nás pre koordináciu odberu — zabezpečíme odberový set.",
+            "Kontaktujte nás pre koordináciu odberu — zabezpečíme odberový set do vašej pôrodnice.",
             "Sledujte pohyby plodu — minimálne 10 pohybov za 2 hodiny.",
-            "Doprajte si odpočinok a spánok na ľavom boku.",
           );
         }
         setPregnancyAdvice({ trimester: tri, week: currentWeek, daysRemaining: Math.max(0, daysRemaining), tips });
