@@ -33441,7 +33441,17 @@ Return ONLY the JSON object.`
             if (formData.corrRegion) updateData.corrRegion = formData.corrRegion;
             if (formData.corrCountry) updateData.corrCountry = formData.corrCountry;
           }
-          updateData.status = "web_request";
+          if (formData.gynecologistName) updateData.gynecologistName = formData.gynecologistName;
+          if (formData.gynecologistPhone) updateData.gynecologistPhone = formData.gynecologistPhone;
+          if (formData.gynecologistEmail) updateData.gynecologistEmail = formData.gynecologistEmail;
+          if (formData.expectedDeliveryDate) updateData.expectedDeliveryDate = new Date(formData.expectedDeliveryDate);
+          if (formData.hospitalName) updateData.hospitalName = formData.hospitalName;
+          updateData.registrationSource = "web_form";
+          updateData.registrationDate = new Date();
+          if (existing.clientStatus === "potential") {
+            updateData.clientStatus = "in_process";
+          }
+          updateData.status = "active";
           if (Object.keys(updateData).length > 0) {
             await db.update(schema.customers).set(updateData).where(eq(schema.customers.id, targetCustomerId));
           }
@@ -33485,10 +33495,17 @@ Return ONLY the JSON object.`
           corrPostalCode: formData.useCorrespondenceAddress ? (formData.corrPostalCode || null) : null,
           corrRegion: formData.useCorrespondenceAddress ? (formData.corrRegion || null) : null,
           corrCountry: formData.useCorrespondenceAddress ? (formData.corrCountry || null) : null,
-          clientStatus: "potential",
-          status: "pending",
+          clientStatus: "in_process",
+          status: "active",
           serviceType: formData.serviceType || null,
           newsletter: formData.newsletter || false,
+          registrationSource: "web_form",
+          registrationDate: new Date(),
+          gynecologistName: formData.gynecologistName || null,
+          gynecologistPhone: formData.gynecologistPhone || null,
+          gynecologistEmail: formData.gynecologistEmail || null,
+          expectedDeliveryDate: formData.expectedDeliveryDate ? new Date(formData.expectedDeliveryDate) : null,
+          hospitalName: formData.hospitalName || null,
         }).returning();
         targetCustomerId = newCustomer.id;
         isNewCustomer = true;
@@ -33498,7 +33515,7 @@ Return ONLY the JSON object.`
           entityType: "customer",
           entityId: newCustomer.id,
           entityName: `${newCustomer.firstName} ${newCustomer.lastName}`,
-          details: JSON.stringify({ formId: form.id, formName: form.name, type: "new_customer", status: "potential/pending", data: formData }),
+          details: JSON.stringify({ formId: form.id, formName: form.name, type: "new_customer", status: "in_process/active", data: formData }),
         });
       }
 

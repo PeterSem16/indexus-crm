@@ -94,6 +94,20 @@ app.use((req, res, next) => {
       ALTER TABLE customers ADD COLUMN IF NOT EXISTS hospital_name TEXT;
     `);
     console.log('[migration] Customer columns ensured');
+
+    await pool.query(`
+      UPDATE customers 
+      SET client_status = 'in_process', 
+          registration_source = 'web_form',
+          registration_date = COALESCE(
+            (SELECT MIN(s.created_at) FROM web_form_submissions s WHERE s.customer_id = customers.id),
+            NOW()
+          )
+      WHERE id IN (SELECT DISTINCT customer_id FROM web_form_submissions WHERE customer_id IS NOT NULL)
+        AND client_status = 'potential'
+        AND (registration_source IS NULL OR registration_source = '');
+    `);
+    console.log('[migration] Updated web form customers to in_process');
   } catch (e: any) {
     console.error('[migration] Error:', e.message);
   }
