@@ -483,14 +483,27 @@ export default function PublicFormPage() {
   const completedSections = sectionProgress.filter(s => s.requiredDone && s.pct >= 80).length;
   const overallPct = totalSections > 0 ? Math.round(sectionProgress.reduce((sum, s) => sum + s.pct, 0) / totalSections) : 0;
 
+  const SKIP_CAPITALIZE = ["email", "postalCode", "corrPostalCode", "nationalId", "birthNumber", "bankAccount", "bankSwift", "bankName", "phone", "mobile", "gynecologistPhone", "gynecologistEmail", "iban", "password"];
   const NAME_FIELDS = ["firstName", "lastName", "corrName", "motherFirstName", "motherLastName", "fatherFirstName", "fatherLastName", "partnerFirstName", "partnerLastName"];
+  const autoCapitalizeFirst = (val: string) => {
+    if (!val) return val;
+    return val.charAt(0).toUpperCase() + val.slice(1);
+  };
   const autoCapitalizeName = (val: string) => {
     if (!val) return val;
     return val.replace(/(^|\s|-)(\p{Ll})/gu, (_m, pre, ch) => pre + ch.toUpperCase());
   };
   const updateField = (key: string, value: any) => {
-    if (NAME_FIELDS.includes(key) && typeof value === "string") {
-      value = autoCapitalizeName(value);
+    if (typeof value === "string" && value.length > 0 && !SKIP_CAPITALIZE.includes(key)) {
+      const field = fields.find((f: any) => getFieldKey(f) === key);
+      const ft = field?.fieldType || "";
+      if (ft === "text" || ft === "textarea" || ft === "") {
+        if (NAME_FIELDS.includes(key)) {
+          value = autoCapitalizeName(value);
+        } else {
+          value = autoCapitalizeFirst(value);
+        }
+      }
     }
     setFormValues(prev => ({ ...prev, [key]: value }));
     setTouched(prev => ({ ...prev, [key]: true }));
