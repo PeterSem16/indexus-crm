@@ -6880,9 +6880,9 @@ export default function CustomersPage() {
       cell: (customer: Customer) => {
         const statusColors: Record<string, string> = {
           potential: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
-          in_process: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300",
+          in_process: "bg-red-600 text-white dark:bg-red-700 dark:text-white font-semibold",
           acquired: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
-          terminated: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300",
+          terminated: "bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-400",
         };
         const statusLabels: Record<string, string> = {
           potential: t.customers.clientStatuses?.potential || "Potential",
@@ -6894,6 +6894,41 @@ export default function CustomersPage() {
           <Badge className={statusColors[customer.clientStatus] || statusColors.potential}>
             {statusLabels[customer.clientStatus] || customer.clientStatus}
           </Badge>
+        );
+      },
+    },
+    {
+      key: "trimester",
+      header: "Trimester",
+      cell: (customer: Customer) => {
+        if (!customer.expectedDeliveryDate) return <span className="text-muted-foreground">-</span>;
+        const edd = new Date(customer.expectedDeliveryDate);
+        const now = new Date();
+        const GESTATION_DAYS = 280;
+        const conceptionDate = new Date(edd.getTime() - GESTATION_DAYS * 24 * 60 * 60 * 1000);
+        const lmp = new Date(conceptionDate.getTime() - 14 * 24 * 60 * 60 * 1000);
+        const daysSinceLMP = Math.floor((now.getTime() - lmp.getTime()) / (24 * 60 * 60 * 1000));
+        const currentWeek = Math.floor(daysSinceLMP / 7);
+        const daysRemaining = Math.floor((edd.getTime() - now.getTime()) / (24 * 60 * 60 * 1000));
+        if (daysRemaining < -42 || currentWeek < 0) return <span className="text-muted-foreground">-</span>;
+        let tri = currentWeek <= 12 ? 1 : currentWeek <= 27 ? 2 : 3;
+        const triColors = [
+          "bg-pink-100 text-pink-800 border-pink-300 dark:bg-pink-900 dark:text-pink-200",
+          "bg-purple-100 text-purple-800 border-purple-300 dark:bg-purple-900 dark:text-purple-200",
+          "bg-indigo-100 text-indigo-800 border-indigo-300 dark:bg-indigo-900 dark:text-indigo-200",
+        ];
+        return (
+          <div className="flex flex-col gap-0.5">
+            <Badge variant="outline" className={`${triColors[tri - 1]} text-[11px] font-semibold`}>
+              {tri}. tri · {currentWeek}t
+            </Badge>
+            {daysRemaining > 0 && (
+              <span className="text-[10px] text-muted-foreground">{daysRemaining}d do pôrodu</span>
+            )}
+            {daysRemaining <= 0 && daysRemaining >= -42 && (
+              <span className="text-[10px] text-orange-600 font-medium">Po termíne</span>
+            )}
+          </div>
         );
       },
     },
