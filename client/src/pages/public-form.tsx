@@ -525,39 +525,43 @@ export default function PublicFormPage() {
     if (key === "expectedDeliveryDate" && value && config?.form?.pregnancyAdviceEnabled) {
       const edd = new Date(value);
       const now = new Date();
-      const GESTATION_DAYS = 280;
-      const conceptionDate = new Date(edd.getTime() - GESTATION_DAYS * 24 * 60 * 60 * 1000);
-      const lmp = new Date(conceptionDate.getTime() - 14 * 24 * 60 * 60 * 1000);
-      const daysSinceLMP = Math.floor((now.getTime() - lmp.getTime()) / (24 * 60 * 60 * 1000));
-      const currentWeek = Math.floor(daysSinceLMP / 7);
       const daysRemaining = Math.floor((edd.getTime() - now.getTime()) / (24 * 60 * 60 * 1000));
-      if (currentWeek >= 0 && daysRemaining > -42) {
-        const tri = currentWeek <= 12 ? 1 : currentWeek <= 27 ? 2 : 3;
-        const tips: string[] = [];
-        tips.push("Začnite sa pripravovať na pôrod a zvážte možnosti odberu pupočníkovej krvi.");
-        if (tri === 1) {
-          tips.push(
-            "Začnite s užívaním kyseliny listovej (400 µg denne), ak ste tak ešte neurobili.",
-            "Objednajte sa na prvé prenatálne vyšetrenie u gynekológa.",
-            "Vyhýbajte sa alkoholu, fajčeniu a surovému mäsu/rybám.",
-            "Informujte sa o možnostiach uchovávania pupočníkovej krvi — čím skôr sa rozhodnete, tým lepšie.",
-          );
-        } else if (tri === 2) {
-          tips.push(
-            "Absolvujte morfologický ultrazvuk (18.–22. týždeň).",
-            "Screening gestačného diabetu (24.–28. týždeň) — glukózový tolerančný test.",
-            "Zvážte odber pupočníkovej krvi — je ideálny čas na rozhodnutie a registráciu.",
-            "Dbajte na príjem železa a vápnika v strave.",
-          );
-        } else {
-          tips.push(
-            "Pripravte si pôrodnú tašku a plán pôrodu.",
-            "Informujte svoju pôrodnicu o plánovanom odbere pupočníkovej krvi.",
-            "Kontaktujte nás pre koordináciu odberu — zabezpečíme odberový set do vašej pôrodnice.",
-            "Sledujte pohyby plodu — minimálne 10 pohybov za 2 hodiny.",
-          );
+      if (daysRemaining < 0) {
+        setPregnancyAdvice(null);
+      } else {
+        const GESTATION_DAYS = 280;
+        const conceptionDate = new Date(edd.getTime() - GESTATION_DAYS * 24 * 60 * 60 * 1000);
+        const lmp = new Date(conceptionDate.getTime() - 14 * 24 * 60 * 60 * 1000);
+        const daysSinceLMP = Math.floor((now.getTime() - lmp.getTime()) / (24 * 60 * 60 * 1000));
+        const currentWeek = Math.floor(daysSinceLMP / 7);
+        if (currentWeek >= 0) {
+          const tri = currentWeek <= 12 ? 1 : currentWeek <= 27 ? 2 : 3;
+          const tips: string[] = [];
+          tips.push("Začnite sa pripravovať na pôrod a zvážte možnosti odberu pupočníkovej krvi.");
+          if (tri === 1) {
+            tips.push(
+              "Začnite s užívaním kyseliny listovej (400 µg denne), ak ste tak ešte neurobili.",
+              "Objednajte sa na prvé prenatálne vyšetrenie u gynekológa.",
+              "Vyhýbajte sa alkoholu, fajčeniu a surovému mäsu/rybám.",
+              "Informujte sa o možnostiach uchovávania pupočníkovej krvi — čím skôr sa rozhodnete, tým lepšie.",
+            );
+          } else if (tri === 2) {
+            tips.push(
+              "Absolvujte morfologický ultrazvuk (18.–22. týždeň).",
+              "Screening gestačného diabetu (24.–28. týždeň) — glukózový tolerančný test.",
+              "Zvážte odber pupočníkovej krvi — je ideálny čas na rozhodnutie a registráciu.",
+              "Dbajte na príjem železa a vápnika v strave.",
+            );
+          } else {
+            tips.push(
+              "Pripravte si pôrodnú tašku a plán pôrodu.",
+              "Informujte svoju pôrodnicu o plánovanom odbere pupočníkovej krvi.",
+              "Kontaktujte nás pre koordináciu odberu — zabezpečíme odberový set do vašej pôrodnice.",
+              "Sledujte pohyby plodu — minimálne 10 pohybov za 2 hodiny.",
+            );
+          }
+          setPregnancyAdvice({ trimester: tri, week: currentWeek, daysRemaining, tips });
         }
-        setPregnancyAdvice({ trimester: tri, week: currentWeek, daysRemaining: Math.max(0, daysRemaining), tips });
       }
     }
     if ((key === "firstName" || key === "lastName" || key === "email") && isOtpVerified) {
