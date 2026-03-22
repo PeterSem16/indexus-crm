@@ -6322,6 +6322,7 @@ export const webFormSubmissions = pgTable("web_form_submissions", {
   data: text("data").notNull(),
   ipAddress: text("ip_address"),
   userAgent: text("user_agent"),
+  metadata: text("metadata"),
   status: text("status").notNull().default("pending"),
   customerId: varchar("customer_id"),
   isNewCustomer: boolean("is_new_customer").notNull().default(false),

@@ -396,6 +396,7 @@ export default function PublicFormPage() {
       .then(r => { if (!r.ok) throw new Error("Not found"); return r.json(); })
       .then(data => {
         setConfig(data);
+        (window as any).__formStartTime = Date.now();
         const defaults: Record<string, any> = {};
         (data.form?.fields || []).forEach((f: any) => {
           if (f.defaultValue) defaults[f.customerField || f.id] = f.defaultValue;
@@ -804,6 +805,26 @@ export default function PublicFormPage() {
     setStep("submitting");
     setSubmitError("");
     try {
+      const clientMetadata: Record<string, any> = {
+        screenWidth: window.screen?.width,
+        screenHeight: window.screen?.height,
+        viewportWidth: window.innerWidth,
+        viewportHeight: window.innerHeight,
+        language: navigator.language,
+        languages: navigator.languages ? [...navigator.languages] : [],
+        platform: (navigator as any).userAgentData?.platform || navigator.platform || "",
+        mobile: (navigator as any).userAgentData?.mobile ?? (window.innerWidth < 768),
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        timezoneOffset: new Date().getTimezoneOffset(),
+        referrer: document.referrer || "",
+        pageUrl: window.location.href,
+        cookiesEnabled: navigator.cookieEnabled,
+        onLine: navigator.onLine,
+        devicePixelRatio: window.devicePixelRatio,
+        touchSupport: "ontouchstart" in window || navigator.maxTouchPoints > 0,
+        submittedAt: new Date().toISOString(),
+        formFillingDurationSec: Math.round((Date.now() - (window as any).__formStartTime || Date.now()) / 1000),
+      };
       console.log("[WebForm] Submitting...", { customerId: existingCustomerId, isOtpVerified, hasToken: !!verificationToken });
       const res = await fetch(`/api/public/web-form/${slug}/submit`, {
         method: "POST",
@@ -812,6 +833,7 @@ export default function PublicFormPage() {
           formData: { ...formValues, newsletter: newsletterAccepted },
           customerId: existingCustomerId,
           verificationToken,
+          clientMetadata,
         }),
       });
       const data = await res.json();

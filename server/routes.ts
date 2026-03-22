@@ -33393,7 +33393,7 @@ Return ONLY the JSON object.`
     try {
       const form = await storage.getWebFormBySlug(req.params.slug);
       if (!form || !form.isActive) return res.status(404).json({ error: "Form not found" });
-      const { formData, customerId, verificationToken } = req.body;
+      const { formData, customerId, verificationToken, clientMetadata } = req.body;
       console.log(`[WebForm Submit] slug=${req.params.slug}, customerId=${customerId || 'none'}, hasToken=${!!verificationToken}, email=${formData?.email}`);
       if (!formData) return res.status(400).json({ error: "No form data" });
 
@@ -33523,11 +33523,31 @@ Return ONLY the JSON object.`
         });
       }
 
+      const forwardedFor = req.headers["x-forwarded-for"];
+      const realIp = typeof forwardedFor === "string" ? forwardedFor.split(",")[0].trim() : (req.ip || req.socket?.remoteAddress || null);
+      const serverMetadata: Record<string, any> = {
+        ip: realIp,
+        forwardedFor: forwardedFor || null,
+        userAgent: req.headers["user-agent"] || null,
+        acceptLanguage: req.headers["accept-language"] || null,
+        origin: req.headers["origin"] || null,
+        referer: req.headers["referer"] || null,
+        host: req.headers["host"] || null,
+        contentLength: req.headers["content-length"] || null,
+        secChUa: req.headers["sec-ch-ua"] || null,
+        secChUaPlatform: req.headers["sec-ch-ua-platform"] || null,
+        secChUaMobile: req.headers["sec-ch-ua-mobile"] || null,
+        serverTimestamp: new Date().toISOString(),
+        formSlug: req.params.slug,
+        formCountry: form.countryCode,
+      };
+      const combinedMetadata = { server: serverMetadata, client: clientMetadata || {} };
       const submission = await storage.createWebFormSubmission({
         formId: form.id,
         data: JSON.stringify({ ...formData, productSetId: formData.productSetId, hospitalId: formData.hospitalId, howDidYouHear: formData.howDidYouHear }),
-        ipAddress: req.ip || null,
+        ipAddress: realIp,
         userAgent: req.headers["user-agent"] || null,
+        metadata: JSON.stringify(combinedMetadata),
         status: "processed",
         customerId: targetCustomerId,
         isNewCustomer,

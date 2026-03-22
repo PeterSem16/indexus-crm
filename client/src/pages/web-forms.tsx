@@ -2530,6 +2530,44 @@ function SubmissionsSheet({ formId, onClose }: { formId: string; onClose: () => 
                       <span className="font-medium text-right max-w-[60%]">{formatValue(key, value)}</span>
                     </div>
                   ))}
+                  {selectedSubmission.metadata && (() => {
+                    try {
+                      const meta = JSON.parse(selectedSubmission.metadata);
+                      const server = meta.server || {};
+                      const client = meta.client || {};
+                      const metaItems: [string, string][] = [];
+                      if (server.ip) metaItems.push(["IP adresa", server.ip]);
+                      if (server.forwardedFor) metaItems.push(["X-Forwarded-For", server.forwardedFor]);
+                      if (server.acceptLanguage) metaItems.push(["Jazyk prehliadača", server.acceptLanguage.split(",")[0]]);
+                      if (client.timezone) metaItems.push(["Časová zóna", client.timezone]);
+                      if (client.language) metaItems.push(["Jazyk klienta", client.language]);
+                      if (client.platform) metaItems.push(["Platforma", client.platform]);
+                      if (client.mobile !== undefined) metaItems.push(["Mobilné zariadenie", client.mobile ? "Áno" : "Nie"]);
+                      if (client.screenWidth && client.screenHeight) metaItems.push(["Rozlíšenie obrazovky", `${client.screenWidth}×${client.screenHeight}`]);
+                      if (client.viewportWidth && client.viewportHeight) metaItems.push(["Veľkosť okna", `${client.viewportWidth}×${client.viewportHeight}`]);
+                      if (client.touchSupport !== undefined) metaItems.push(["Dotykový displej", client.touchSupport ? "Áno" : "Nie"]);
+                      if (client.referrer) metaItems.push(["Referrer", client.referrer]);
+                      if (client.formFillingDurationSec) {
+                        const dur = client.formFillingDurationSec;
+                        const min = Math.floor(dur / 60);
+                        const sec = dur % 60;
+                        metaItems.push(["Doba vyplňovania", min > 0 ? `${min} min ${sec} s` : `${sec} s`]);
+                      }
+                      if (server.userAgent) metaItems.push(["User Agent", server.userAgent]);
+                      if (metaItems.length === 0) return null;
+                      return (
+                        <div className="mt-4 pt-3 border-t">
+                          <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide">Metadáta odoslania</p>
+                          {metaItems.map(([label, val]) => (
+                            <div key={label} className="flex justify-between text-xs border-b pb-1 mb-1">
+                              <span className="text-muted-foreground">{label}</span>
+                              <span className="font-medium text-right max-w-[65%] break-all">{val}</span>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    } catch { return null; }
+                  })()}
                 </div>
               )}
             </DialogContent>
