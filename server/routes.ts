@@ -33769,7 +33769,7 @@ ${contextFields.length > 0 ? `Kontext ostatných vyplnených polí:\n${contextFi
 Analyzuj zadanú hodnotu a vráť JSON pole s návrhmi (suggestions). Každý návrh musí mať:
 - "type": "error" | "warning" | "info" | "tip"
 - "message": krátka správa v slovenčine (max 120 znakov)
-- "suggestion": navrhovaná oprava (ak je relevantná, inak null)
+- "suggestion": IBA opravená hodnota pripravená na vloženie do poľa (napr. "Jana", "+421 912 345 678", "seman@gmail.com"). NIKDY nepíš vety ako "Opraviť na..." alebo "Zmeniť na..." — iba čistú hodnotu. Ak oprava nie je možná, daj null.
 
 Pravidlá kontroly:
 1. MENO/PRIEZVISKO: Skontroluj preklepy (veľké písmeno na začiatku, žiadne čísla, diakritika OK). Ak je meno nezvyčajné ale validné, neopravuj.
@@ -33800,11 +33800,14 @@ DÔLEŽITÉ: Vráť IBA JSON pole, žiadny iný text.`;
           suggestions = raw.slice(0, 5).filter((s: any) =>
             s && typeof s.type === "string" && ["error","warning","info","tip"].includes(s.type)
             && typeof s.message === "string" && s.message.length <= 200
-          ).map((s: any) => ({
-            type: s.type,
-            message: String(s.message).slice(0, 200),
-            suggestion: s.suggestion && typeof s.suggestion === "string" ? String(s.suggestion).slice(0, 200) : null,
-          }));
+          ).map((s: any) => {
+            let sug = s.suggestion && typeof s.suggestion === "string" ? String(s.suggestion).slice(0, 200) : null;
+            if (sug) {
+              sug = sug.replace(/^(Opravi[tť]\s+(na\s+)?|Zmeni[tť]\s+(na\s+)?|Použi[tť]\s+)/i, "").replace(/^['"""„]+|['"""]+$/g, "").trim();
+              if (!sug) sug = null;
+            }
+            return { type: s.type, message: String(s.message).slice(0, 200), suggestion: sug };
+          });
         }
       } catch { suggestions = []; }
       res.json({ suggestions });
