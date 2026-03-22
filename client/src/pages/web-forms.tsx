@@ -2072,6 +2072,18 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
                 <Label className="text-xs">{t.webForms.gdprPregnancy}</Label>
                 <RichTextEditor value={formData.gdprPregnancyText || ""} onChange={v => setFormData({ ...formData, gdprPregnancyText: v })} rows={3} />
               </div>
+              <Separator />
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-sm font-medium">Medicínske rady podľa termínu pôrodu</h4>
+                  <p className="text-[11px] text-muted-foreground">Po vyplnení predpokladaného termínu pôrodu sa zobrazí popup s odporúčaniami podľa trimestra</p>
+                </div>
+                <Switch
+                  checked={formData.pregnancyAdviceEnabled === true}
+                  onCheckedChange={v => setFormData({ ...formData, pregnancyAdviceEnabled: v })}
+                  data-testid="switch-pregnancy-advice"
+                />
+              </div>
               <div className="space-y-1">
                 <Label className="text-xs">{t.webForms.successMessage}</Label>
                 <Textarea value={formData.successMessage || ""} onChange={e => setFormData({ ...formData, successMessage: e.target.value })} rows={2} />

@@ -338,6 +338,7 @@ export default function PublicFormPage() {
   const [isOtpVerified, setIsOtpVerified] = useState(false);
   const [verificationToken, setVerificationToken] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState("");
+  const [pregnancyAdvice, setPregnancyAdvice] = useState<{ trimester: number; week: number; daysRemaining: number; tips: string[] } | null>(null);
 
   const isEmbedded = useMemo(() => {
     if (typeof window === "undefined") return false;
@@ -476,6 +477,50 @@ export default function PublicFormPage() {
         else delete e[key];
         return e;
       });
+    }
+    if (key === "expectedDeliveryDate" && (!value || !config?.form?.pregnancyAdviceEnabled)) {
+      setPregnancyAdvice(null);
+    }
+    if (key === "expectedDeliveryDate" && value && config?.form?.pregnancyAdviceEnabled) {
+      const edd = new Date(value);
+      const now = new Date();
+      const GESTATION_DAYS = 280;
+      const conceptionDate = new Date(edd.getTime() - GESTATION_DAYS * 24 * 60 * 60 * 1000);
+      const lmp = new Date(conceptionDate.getTime() - 14 * 24 * 60 * 60 * 1000);
+      const daysSinceLMP = Math.floor((now.getTime() - lmp.getTime()) / (24 * 60 * 60 * 1000));
+      const currentWeek = Math.floor(daysSinceLMP / 7);
+      const daysRemaining = Math.floor((edd.getTime() - now.getTime()) / (24 * 60 * 60 * 1000));
+      if (currentWeek >= 0 && daysRemaining > -42) {
+        const tri = currentWeek <= 12 ? 1 : currentWeek <= 27 ? 2 : 3;
+        const tips: string[] = [];
+        if (tri === 1) {
+          tips.push(
+            "Začnite s užívaním kyseliny listovej (400 µg denne), ak ste tak ešte neurobili.",
+            "Objednajte sa na prvé prenatálne vyšetrenie u gynekológa.",
+            "Vyhýbajte sa alkoholu, fajčeniu a surovému mäsu/rybám.",
+            "Dbajte na dostatočný príjem tekutín a vyváženú stravu.",
+            "Informujte sa o možnostiach uchovávania pupočníkovej krvi.",
+          );
+        } else if (tri === 2) {
+          tips.push(
+            "Absolvujte morfologický ultrazvuk (18.–22. týždeň).",
+            "Screening gestačného diabetu (24.–28. týždeň) — glukózový tolerančný test.",
+            "Začnite s pravidelnými cvičeniami pre tehotné (joga, plávanie).",
+            "Zvážte odber pupočníkovej krvi — je ideálny čas na rozhodnutie.",
+            "Dbajte na príjem železa a vápnika v strave.",
+          );
+        } else {
+          tips.push(
+            "Pripravte si pôrodnú tašku a plán pôrodu.",
+            "Absolvujte pravidelné CTG monitorovanie plodu.",
+            "Informujte svoju pôrodnicu o plánovanom odbere pupočníkovej krvi.",
+            "Kontaktujte nás pre koordináciu odberu — zabezpečíme odberový set.",
+            "Sledujte pohyby plodu — minimálne 10 pohybov za 2 hodiny.",
+            "Doprajte si odpočinok a spánok na ľavom boku.",
+          );
+        }
+        setPregnancyAdvice({ trimester: tri, week: currentWeek, daysRemaining: Math.max(0, daysRemaining), tips });
+      }
     }
     if ((key === "firstName" || key === "lastName" || key === "email") && isOtpVerified) {
       setIsOtpVerified(false);
@@ -1057,6 +1102,53 @@ export default function PublicFormPage() {
 
   const renderFormContent = () => (
     <>
+            {pregnancyAdvice && (
+              <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
+                <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-300">
+                  <div className="p-6" style={{ background: `linear-gradient(135deg, ${brandColor}15, ${brandColor}05)` }}>
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="h-12 w-12 rounded-full flex items-center justify-center text-white text-lg font-bold" style={{ backgroundColor: brandColor }}>
+                        {pregnancyAdvice.trimester}
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-bold text-gray-900">{pregnancyAdvice.trimester}. trimester — {pregnancyAdvice.week}. týždeň</h3>
+                        <p className="text-sm text-gray-500">
+                          {pregnancyAdvice.daysRemaining > 0 ? `${pregnancyAdvice.daysRemaining} dní do predpokladaného pôrodu` : "Po termíne pôrodu"}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="px-6 pb-2 pt-4">
+                    <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                      <Heart className="h-4 w-4" style={{ color: brandColor }} />
+                      Odporúčania pre vaše obdobie tehotenstva
+                    </h4>
+                    <ul className="space-y-3">
+                      {pregnancyAdvice.tips.map((tip, i) => (
+                        <li key={i} className="flex items-start gap-3">
+                          <div className="mt-0.5 h-6 w-6 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0" style={{ backgroundColor: brandColor }}>
+                            {i + 1}
+                          </div>
+                          <p className="text-sm text-gray-700 leading-relaxed">{tip}</p>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div className="p-6 pt-4">
+                    <button
+                      type="button"
+                      onClick={() => setPregnancyAdvice(null)}
+                      className="w-full py-3 rounded-xl text-white font-semibold text-sm transition-all hover:opacity-90"
+                      style={{ backgroundColor: brandColor }}
+                      data-testid="button-close-pregnancy-advice"
+                    >
+                      Rozumiem, ďakujem
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {isOtpVerified && (
               <div className="flex items-center gap-2 p-3 rounded-lg text-sm" style={{ backgroundColor: brandColor + "10", color: brandColor }}>
                 <CheckCircle2 className="h-4 w-4 shrink-0" />

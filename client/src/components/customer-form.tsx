@@ -459,9 +459,9 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCa
                           className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                           data-testid="select-status"
                         >
-                          <option value="active">{t.customers.active}</option>
-                          <option value="pending">{t.customers.pending}</option>
-                          <option value="inactive">{t.customers.inactive}</option>
+                          <option value="active">Aktívny</option>
+                          <option value="pending">Čakajúci</option>
+                          <option value="inactive">Neaktívny</option>
                         </select>
                       </FormControl>
                       <FormMessage />
@@ -478,7 +478,7 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCa
                           className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                           data-testid="select-service-type"
                         >
-                          <option value="">{t.customers.none}</option>
+                          <option value="">Neuvedené</option>
                           <option value="cord_blood">{t.customers.serviceTypes?.cordBlood || "Pupočníková krv"}</option>
                           <option value="cord_tissue">{t.customers.serviceTypes?.cordTissue || "Pupočníkové tkanivo"}</option>
                           <option value="both">{t.customers.serviceTypes?.both || "Oboje"}</option>

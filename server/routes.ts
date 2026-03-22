@@ -33200,7 +33200,7 @@ Return ONLY the JSON object.`
         "subtitleFontSize","subtitleFontWeight","subtitleFontStyle","subtitleFontFamily",
         "sectionFontSize","sectionFontWeight","sectionFontStyle",
         "labelFontSize","labelFontWeight","buttonFontSize","buttonFontWeight",
-        "showProgressPipeline",
+        "showProgressPipeline","pregnancyAdviceEnabled",
         "confirmEmailEnabled","confirmEmailLayout","confirmEmailSubject","confirmEmailGreeting","confirmEmailBody",
         "confirmEmailShowData","confirmEmailFooter","confirmEmailSignature",
       ];
