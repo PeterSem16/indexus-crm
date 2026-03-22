@@ -8,8 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { PhoneNumberField } from "@/components/phone-number-field";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Progress } from "@/components/ui/progress";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
   Form,
   FormControl,
@@ -28,7 +27,7 @@ import {
 } from "@/components/ui/select";
 import { COUNTRIES, WORLD_COUNTRIES, CLIENT_STATUSES } from "@shared/schema";
 import type { Customer, ComplaintType, CooperationType, VipStatus, HealthInsurance } from "@shared/schema";
-import { ChevronLeft, ChevronRight, Check, User, Phone, MapPin, BarChart3, Building2, ClipboardCheck, CalendarIcon } from "lucide-react";
+import { ChevronLeft, ChevronRight, Check, User, Phone, MapPin, BarChart3, Building2, ClipboardCheck, CalendarIcon, X } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/i18n/I18nProvider";
@@ -1108,129 +1107,123 @@ export function CustomerFormWizard({ initialData, onSubmit, isLoading, onCancel 
 
   return (
     <Form {...form}>
-      <form onSubmit={(e) => e.preventDefault()}>
-        <Card className="w-full">
-          <CardHeader className="pb-4">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between text-sm text-muted-foreground">
-                <span>
-                  {t.wizard?.stepOf?.replace("{current}", String(currentStep + 1)).replace("{total}", String(WIZARD_STEPS.length)) || `Step ${currentStep + 1} of ${WIZARD_STEPS.length}`}
-                </span>
-                <span>{Math.round(progress)}%</span>
-              </div>
-              <Progress value={progress} className="h-2" />
+      <form onSubmit={(e) => e.preventDefault()} className="flex flex-col h-full">
+        <div className="shrink-0 flex items-center justify-between px-5 py-3.5 border-b bg-muted/30">
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center">
+              <User className="h-4.5 w-4.5 text-primary" />
             </div>
+            <div>
+              <h2 className="text-base font-semibold">
+                {initialData
+                  ? `${initialData.firstName} ${initialData.lastName}`
+                  : t.customers.addCustomer}
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                {t.customers.description}
+              </p>
+            </div>
+          </div>
+          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={onCancel} data-testid="wizard-button-close">
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
 
-            <div className="flex flex-wrap gap-2 pt-4">
-              {WIZARD_STEPS.map((step, index) => {
-                const isCompleted = completedSteps.has(index);
-                const isCurrent = index === currentStep;
-                const isClickable = index < currentStep || isCompleted || completedSteps.has(index - 1);
-                const Icon = step.icon;
-                
-                return (
-                  <button
-                    key={step.id}
-                    type="button"
-                    onClick={() => handleStepClick(index)}
-                    disabled={!isClickable}
-                    className={cn(
-                      "flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors",
-                      isCurrent && "bg-primary text-primary-foreground",
-                      isCompleted && !isCurrent && "bg-primary/10 text-primary",
-                      !isCurrent && !isCompleted && "bg-muted text-muted-foreground",
-                      isClickable && !isCurrent && "hover-elevate cursor-pointer",
-                      !isClickable && "cursor-not-allowed opacity-50"
+        <div className="flex flex-1 min-h-0">
+          <div className="w-48 border-r bg-muted/20 flex flex-col py-2 shrink-0 overflow-auto">
+            {WIZARD_STEPS.map((step, index) => {
+              const isCompleted = completedSteps.has(index);
+              const isCurrent = index === currentStep;
+              const isClickable = index < currentStep || isCompleted || completedSteps.has(index - 1);
+              const Icon = step.icon;
+
+              return (
+                <button
+                  key={step.id}
+                  type="button"
+                  onClick={() => handleStepClick(index)}
+                  disabled={!isClickable}
+                  className={cn(
+                    "flex items-center gap-2.5 px-4 py-2.5 text-sm transition-colors text-left",
+                    isCurrent && "bg-primary/10 text-primary font-medium border-r-2 border-primary",
+                    isCompleted && !isCurrent && "text-foreground hover:bg-accent/50",
+                    !isCurrent && !isCompleted && "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
+                    !isClickable && "cursor-not-allowed opacity-40"
+                  )}
+                  data-testid={`wizard-step-${step.id}`}
+                >
+                  <span className={cn(
+                    "flex h-6 w-6 items-center justify-center rounded-full text-xs shrink-0",
+                    isCurrent && "bg-primary text-primary-foreground",
+                    isCompleted && !isCurrent && "bg-primary/20 text-primary",
+                    !isCurrent && !isCompleted && "bg-muted-foreground/10"
+                  )}>
+                    {isCompleted ? <Check className="h-3 w-3" /> : <Icon className="h-3 w-3" />}
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    {getStepTitle(step.id)}
+                    {step.isOptional && (
+                      <span className="text-[10px] text-muted-foreground/60">({t.wizard?.optional || "opt."})</span>
                     )}
-                    data-testid={`wizard-step-${step.id}`}
-                  >
-                    <span className={cn(
-                      "flex h-6 w-6 items-center justify-center rounded-full text-xs",
-                      isCurrent && "bg-primary-foreground text-primary",
-                      isCompleted && !isCurrent && "bg-primary text-primary-foreground",
-                      !isCurrent && !isCompleted && "bg-muted-foreground/20"
-                    )}>
-                      {isCompleted ? <Check className="h-3 w-3" /> : <Icon className="h-3 w-3" />}
-                    </span>
-                    <span className="hidden md:inline">{getStepTitle(step.id)}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </CardHeader>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
 
-          <CardContent className="space-y-6">
-            <div className="border-b pb-4">
-              <h3 className="text-lg font-semibold flex items-center gap-2">
-                <StepIcon className="h-5 w-5" />
+          <div className="flex-1 flex flex-col min-h-0">
+            <div className="shrink-0 px-6 py-3 border-b bg-background">
+              <h3 className="text-sm font-semibold flex items-center gap-2">
+                <StepIcon className="h-4 w-4 text-primary" />
                 {getStepTitle(currentStepInfo.id)}
                 {currentStepInfo.isOptional && (
-                  <Badge variant="outline" className="text-xs">
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0">
                     {t.wizard?.optional || "Optional"}
                   </Badge>
                 )}
               </h3>
-              <p className="text-sm text-muted-foreground mt-1">
+              <p className="text-xs text-muted-foreground mt-0.5">
                 {getStepDescription(currentStepInfo.id)}
               </p>
             </div>
-            
-            <div className="min-h-[300px]">
+
+            <div className="flex-1 overflow-auto p-6">
               {renderStepContent()}
             </div>
-          </CardContent>
 
-          <CardFooter className="flex flex-wrap justify-between gap-2 border-t pt-4">
-            <div>
-              {onCancel && (
+            <div className="shrink-0 border-t bg-background/95 backdrop-blur-sm px-6 py-3 flex items-center justify-between shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span>
+                  {t.wizard?.stepOf?.replace("{current}", String(currentStep + 1)).replace("{total}", String(WIZARD_STEPS.length)) || `${currentStep + 1} / ${WIZARD_STEPS.length}`}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                {!isFirstStep && (
+                  <Button type="button" variant="outline" size="sm" onClick={handlePrevious} disabled={isLoading} data-testid="wizard-previous">
+                    <ChevronLeft className="h-4 w-4 mr-1" />
+                    {t.wizard?.previous || "Previous"}
+                  </Button>
+                )}
+                {currentStepInfo.isOptional && !isLastStep && (
+                  <Button type="button" variant="ghost" size="sm" onClick={handleSkip} disabled={isLoading} data-testid="wizard-skip">
+                    {t.wizard?.skip || "Skip"}
+                  </Button>
+                )}
                 <Button
                   type="button"
-                  variant="outline"
-                  onClick={onCancel}
+                  size="sm"
+                  onClick={handleNext}
                   disabled={isLoading}
-                  data-testid="wizard-cancel"
+                  className="shadow-md"
+                  data-testid="wizard-next"
                 >
-                  {t.wizard?.cancel || "Cancel"}
+                  {isLastStep ? (isLoading ? t.customers.fields.saving : t.wizard?.complete || "Complete") : t.wizard?.next || "Next"}
+                  {!isLastStep && <ChevronRight className="h-4 w-4 ml-1" />}
                 </Button>
-              )}
+              </div>
             </div>
-            
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handlePrevious}
-                disabled={isFirstStep || isLoading}
-                data-testid="wizard-previous"
-              >
-                <ChevronLeft className="h-4 w-4 mr-1" />
-                {t.wizard?.previous || "Previous"}
-              </Button>
-              
-              {currentStepInfo.isOptional && !isLastStep && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={handleSkip}
-                  disabled={isLoading}
-                  data-testid="wizard-skip"
-                >
-                  {t.wizard?.skip || "Skip"}
-                </Button>
-              )}
-              
-              <Button
-                type="button"
-                onClick={handleNext}
-                disabled={isLoading}
-                data-testid="wizard-next"
-              >
-                {isLastStep ? (isLoading ? t.customers.fields.saving : t.wizard?.complete || "Complete") : t.wizard?.next || "Next"}
-                {!isLastStep && <ChevronRight className="h-4 w-4 ml-1" />}
-              </Button>
-            </div>
-          </CardFooter>
-        </Card>
+          </div>
+        </div>
       </form>
     </Form>
   );

@@ -7276,53 +7276,30 @@ export default function CustomersPage() {
         </CardContent>
       </Card>
 
-      <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-        <DialogContent className={useWizardForm ? "max-w-4xl max-h-[90vh] overflow-y-auto" : "max-w-2xl max-h-[90vh] overflow-y-auto"}>
-          <DialogHeader>
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <DialogTitle>{t.customers.addCustomer}</DialogTitle>
-                <DialogDescription>
-                  {t.customers.description}
-                </DialogDescription>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant={useWizardForm ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setUseWizardForm(true)}
-                  data-testid="button-wizard-mode"
-                >
-                  <ListChecks className="h-4 w-4 mr-1" />
-                  {t.wizard?.steps?.review ? t.wizard.steps.review.split(' ')[0] : "Wizard"}
-                </Button>
-                <Button
-                  variant={!useWizardForm ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setUseWizardForm(false)}
-                  data-testid="button-simple-mode"
-                >
-                  <FileEdit className="h-4 w-4 mr-1" />
-                  {t.common?.form || "Form"}
-                </Button>
-              </div>
-            </div>
-          </DialogHeader>
-          {useWizardForm ? (
-            <CustomerFormWizard
-              onSubmit={(data) => createMutation.mutate(data as CustomerFormData)}
-              isLoading={createMutation.isPending}
-              onCancel={() => setIsFormOpen(false)}
-            />
-          ) : (
-            <CustomerForm
-              onSubmit={(data) => createMutation.mutate(data)}
-              isLoading={createMutation.isPending}
-              onCancel={() => setIsFormOpen(false)}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
+      {isFormOpen && (
+        <>
+          <div
+            className="fixed inset-0 z-50 bg-black/30 backdrop-blur-[2px] animate-in fade-in duration-200"
+            onClick={() => setIsFormOpen(false)}
+            data-testid="customer-form-backdrop"
+          />
+          <div className="fixed inset-y-0 right-0 z-[51] w-[820px] max-w-[95vw] bg-background border-l shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col">
+            {useWizardForm ? (
+              <CustomerFormWizard
+                onSubmit={(data) => createMutation.mutate(data as CustomerFormData)}
+                isLoading={createMutation.isPending}
+                onCancel={() => setIsFormOpen(false)}
+              />
+            ) : (
+              <CustomerForm
+                onSubmit={(data) => createMutation.mutate(data)}
+                isLoading={createMutation.isPending}
+                onCancel={() => setIsFormOpen(false)}
+              />
+            )}
+          </div>
+        </>
+      )}
 
       <Sheet open={!!editingCustomer} onOpenChange={() => setEditingCustomer(null)}>
         <SheetContent 
