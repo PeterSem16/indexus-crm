@@ -7308,7 +7308,7 @@ export default function CustomersPage() {
             onClick={() => setEditingCustomer(null)}
             data-testid="customer-edit-backdrop"
           />
-          <div className="fixed inset-y-0 right-0 z-[51] w-[820px] max-w-[95vw] bg-background border-l shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col">
+          <div className="fixed inset-y-0 right-0 z-[51] w-[960px] max-w-[95vw] bg-background border-l shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col">
             <div className="shrink-0 flex items-center justify-between px-5 py-3.5 border-b bg-muted/30">
               <div className="flex items-center gap-3">
                 <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center">
@@ -7388,42 +7388,38 @@ export default function CustomersPage() {
             )}
 
             <Tabs defaultValue="data" className="flex-1 flex flex-col min-h-0">
-              <div className="flex flex-1 min-h-0">
-                <TabsList className="w-48 border-r bg-muted/20 flex flex-col py-2 shrink-0 h-auto rounded-none items-stretch">
-                  {[
-                    { value: "data", icon: <FileEdit className="h-4 w-4" />, label: t.customers.tabs?.data || "Data" },
-                    { value: "history", icon: <History className="h-4 w-4" />, label: t.customers.tabs?.history || "History" },
-                    { value: "campaigns", icon: <Target className="h-4 w-4" />, label: "Kampane" },
-                  ].map(tab => (
-                    <TabsTrigger
-                      key={tab.value}
-                      value={tab.value}
-                      className="flex items-center gap-2.5 px-4 py-2.5 text-sm transition-colors text-left justify-start rounded-none border-0 data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:font-medium data-[state=active]:border-r-2 data-[state=active]:border-primary data-[state=active]:shadow-none text-muted-foreground hover:bg-accent/50 hover:text-foreground"
-                      data-testid={`tab-${tab.value}`}
-                    >
-                      {tab.icon}
-                      {tab.label}
-                    </TabsTrigger>
-                  ))}
-                </TabsList>
+              <TabsList className="shrink-0 border-b bg-muted/30 h-auto p-0 rounded-none flex gap-0">
+                {[
+                  { value: "data", icon: <FileEdit className="h-3.5 w-3.5" />, label: t.customers.tabs?.data || "Data" },
+                  { value: "history", icon: <History className="h-3.5 w-3.5" />, label: t.customers.tabs?.history || "History" },
+                  { value: "campaigns", icon: <Target className="h-3.5 w-3.5" />, label: "Kampane" },
+                ].map(tab => (
+                  <TabsTrigger
+                    key={tab.value}
+                    value={tab.value}
+                    className="flex items-center gap-2 px-4 py-2.5 text-sm rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none text-muted-foreground hover:text-foreground"
+                    data-testid={`tab-${tab.value}`}
+                  >
+                    {tab.icon}
+                    {tab.label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
 
-                <div className="flex-1 overflow-auto p-6">
-                  <TabsContent value="data" className="m-0">
-                    <CustomerForm
-                      initialData={editingCustomer}
-                      onSubmit={(data) => updateMutation.mutate({ ...data, id: editingCustomer.id })}
-                      isLoading={updateMutation.isPending}
-                      onCancel={() => setEditingCustomer(null)}
-                    />
-                  </TabsContent>
-                  <TabsContent value="history" className="m-0">
-                    <CustomerHistoryTimeline customerId={editingCustomer.id} customerName={`${editingCustomer.firstName} ${editingCustomer.lastName}`} />
-                  </TabsContent>
-                  <TabsContent value="campaigns" className="m-0">
-                    <EntityCampaignTimeline entityType="customer" entityId={editingCustomer.id} entityName={`${editingCustomer.firstName} ${editingCustomer.lastName}`} />
-                  </TabsContent>
-                </div>
-              </div>
+              <TabsContent value="data" className="flex-1 m-0 min-h-0">
+                <CustomerForm
+                  initialData={editingCustomer}
+                  onSubmit={(data) => updateMutation.mutate({ ...data, id: editingCustomer.id })}
+                  isLoading={updateMutation.isPending}
+                  onCancel={() => setEditingCustomer(null)}
+                />
+              </TabsContent>
+              <TabsContent value="history" className="flex-1 m-0 min-h-0 overflow-auto p-6">
+                <CustomerHistoryTimeline customerId={editingCustomer.id} customerName={`${editingCustomer.firstName} ${editingCustomer.lastName}`} />
+              </TabsContent>
+              <TabsContent value="campaigns" className="flex-1 m-0 min-h-0 overflow-auto p-6">
+                <EntityCampaignTimeline entityType="customer" entityId={editingCustomer.id} entityName={`${editingCustomer.firstName} ${editingCustomer.lastName}`} />
+              </TabsContent>
             </Tabs>
           </div>
         </>

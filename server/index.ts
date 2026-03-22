@@ -5,6 +5,7 @@ import { createServer } from "http";
 import { startAlertEvaluator } from "./alert-evaluator";
 import { startSessionCleanup } from "./session-cleanup";
 import { startScheduledReportRunner } from "./scheduled-report-runner";
+import { pool } from "./db";
 
 process.on('SIGHUP', () => {
   console.log('[server] Received SIGHUP, shutting down...');
@@ -82,6 +83,20 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  try {
+    await pool.query(`
+      ALTER TABLE customers ADD COLUMN IF NOT EXISTS gynecologist_name TEXT;
+      ALTER TABLE customers ADD COLUMN IF NOT EXISTS gynecologist_phone TEXT;
+      ALTER TABLE customers ADD COLUMN IF NOT EXISTS gynecologist_email TEXT;
+      ALTER TABLE customers ADD COLUMN IF NOT EXISTS expected_delivery_date TIMESTAMP;
+      ALTER TABLE customers ADD COLUMN IF NOT EXISTS registration_source TEXT;
+      ALTER TABLE customers ADD COLUMN IF NOT EXISTS registration_date TIMESTAMP;
+    `);
+    console.log('[migration] Customer columns ensured');
+  } catch (e: any) {
+    console.error('[migration] Error:', e.message);
+  }
+
   await registerRoutes(httpServer, app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

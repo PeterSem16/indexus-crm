@@ -444,6 +444,16 @@ export const customers = pgTable("customers", {
   bankSwift: text("bank_swift"), // SWIFT kód
   healthInsuranceId: varchar("health_insurance_id"), // FK to health_insurance_companies
   
+  // Pregnancy / Gynecologist info
+  gynecologistName: text("gynecologist_name"),
+  gynecologistPhone: text("gynecologist_phone"),
+  gynecologistEmail: text("gynecologist_email"),
+  expectedDeliveryDate: timestamp("expected_delivery_date"),
+  
+  // Registration source
+  registrationSource: text("registration_source"), // web_form, phone, email, in_person, referral
+  registrationDate: timestamp("registration_date"),
+  
   // Client status
   clientStatus: text("client_status").notNull().default("potential"), // potential, acquired, terminated
   
