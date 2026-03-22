@@ -388,6 +388,7 @@ export type ClinicEvent = typeof clinicEvents.$inferSelect;
 // Client status types
 export const CLIENT_STATUSES = [
   { value: "potential", label: "Potenciálny klient" },
+  { value: "in_process", label: "V procese" },
   { value: "acquired", label: "Získaný klient" },
   { value: "terminated", label: "Ukončený klient" },
 ] as const;

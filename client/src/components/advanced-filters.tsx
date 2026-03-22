@@ -168,6 +168,7 @@ export function AdvancedFilters({ module, filters, onFiltersChange, onClear }: A
                     <SelectContent>
                       <SelectItem value="all" data-testid="filter-status-all">{t.common?.all || "All"}</SelectItem>
                       <SelectItem value="potential" data-testid="filter-status-potential">{t.clients?.clientStatuses?.potential || "Potential"}</SelectItem>
+                      <SelectItem value="in_process" data-testid="filter-status-in-process">{t.clients?.clientStatuses?.inProcess || "V procese"}</SelectItem>
                       <SelectItem value="acquired" data-testid="filter-status-acquired">{t.clients?.clientStatuses?.acquired || "Acquired"}</SelectItem>
                       <SelectItem value="terminated" data-testid="filter-status-terminated">{t.clients?.clientStatuses?.terminated || "Terminated"}</SelectItem>
                     </SelectContent>

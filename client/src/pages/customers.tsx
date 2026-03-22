@@ -3824,9 +3824,9 @@ export function CustomerDetailsContent({
         </>
       )}
 
-      <Tabs defaultValue={visibleTabs ? (visibleTabs.includes("potential") && customer.clientStatus === "acquired" ? "potential" : visibleTabs.find(t => t !== "potential") || visibleTabs[0]) : "overview"} className="w-full">
+      <Tabs defaultValue={visibleTabs ? (visibleTabs.includes("potential") && (customer.clientStatus === "acquired" || customer.clientStatus === "in_process") ? "potential" : visibleTabs.find(t => t !== "potential") || visibleTabs[0]) : "overview"} className="w-full">
         <TabsList className={`sticky top-0 z-50 grid w-full ${(() => {
-          const allTabs = ["overview", ...(customer.clientStatus === "acquired" ? ["potential"] : []), "documents", "communicate", "notes", "gdpr", "history"];
+          const allTabs = ["overview", ...((customer.clientStatus === "acquired" || customer.clientStatus === "in_process") ? ["potential"] : []), "documents", "communicate", "notes", "gdpr", "history"];
           const shown = visibleTabs ? allTabs.filter(t => visibleTabs.includes(t)) : allTabs;
           const colsMap: Record<number, string> = { 1: "grid-cols-1", 2: "grid-cols-2", 3: "grid-cols-3", 4: "grid-cols-4", 5: "grid-cols-5", 6: "grid-cols-6", 7: "grid-cols-7", 8: "grid-cols-8", 9: "grid-cols-9" };
           return colsMap[shown.length] || "grid-cols-7";
@@ -3837,7 +3837,7 @@ export function CustomerDetailsContent({
             {t.customers.tabs.overview}
           </TabsTrigger>
           )}
-          {customer.clientStatus === "acquired" && (!visibleTabs || visibleTabs.includes("potential")) && (
+          {(customer.clientStatus === "acquired" || customer.clientStatus === "in_process") && (!visibleTabs || visibleTabs.includes("potential")) && (
             <TabsTrigger value="potential" data-testid="tab-potential">
               <Baby className="h-4 w-4 mr-2" />
               {t.customers.tabs.case}
@@ -4174,7 +4174,7 @@ export function CustomerDetailsContent({
           )}
         </TabsContent>
 
-        {customer.clientStatus === "acquired" && (
+        {(customer.clientStatus === "acquired" || customer.clientStatus === "in_process") && (
           <TabsContent value="potential" className="mt-4">
             <EmbeddedPotentialCaseForm customer={customer} />
           </TabsContent>
@@ -6825,6 +6825,7 @@ export default function CustomersPage() {
   const getClientStatusLabel = (status: string) => {
     switch (status) {
       case "potential": return t.customers.clientStatuses?.potential;
+      case "in_process": return t.customers.clientStatuses?.inProcess || "V procese";
       case "acquired": return t.customers.clientStatuses?.acquired;
       case "terminated": return t.customers.clientStatuses?.terminated;
       default: return t.common.unknown;
@@ -6879,11 +6880,13 @@ export default function CustomersPage() {
       cell: (customer: Customer) => {
         const statusColors: Record<string, string> = {
           potential: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
+          in_process: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300",
           acquired: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
           terminated: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300",
         };
         const statusLabels: Record<string, string> = {
           potential: t.customers.clientStatuses?.potential || "Potential",
+          in_process: t.customers.clientStatuses?.inProcess || "V procese",
           acquired: t.customers.clientStatuses?.acquired || "Acquired",
           terminated: t.customers.clientStatuses?.terminated || "Terminated",
         };
@@ -7145,6 +7148,7 @@ export default function CustomersPage() {
                     <SelectContent>
                       <SelectItem value="_all">{t.common.all}</SelectItem>
                       <SelectItem value="potential">{t.customers.clientStatuses?.potential}</SelectItem>
+                      <SelectItem value="in_process">{t.customers.clientStatuses?.inProcess || "V procese"}</SelectItem>
                       <SelectItem value="acquired">{t.customers.clientStatuses?.acquired}</SelectItem>
                       <SelectItem value="terminated">{t.customers.clientStatuses?.terminated}</SelectItem>
                     </SelectContent>

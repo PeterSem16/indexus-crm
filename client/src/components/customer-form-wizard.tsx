@@ -1020,6 +1020,7 @@ export function CustomerFormWizard({ initialData, onSubmit, isLoading, onCancel 
                       </FormControl>
                       <SelectContent>
                         <SelectItem value="potential">{t.customers.clientStatuses?.potential || "Potential"}</SelectItem>
+                        <SelectItem value="in_process">{t.customers.clientStatuses?.inProcess || "V procese"}</SelectItem>
                         <SelectItem value="acquired">{t.customers.clientStatuses?.acquired || "Acquired"}</SelectItem>
                         <SelectItem value="terminated">{t.customers.clientStatuses?.terminated || "Terminated"}</SelectItem>
                       </SelectContent>

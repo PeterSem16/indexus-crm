@@ -33,6 +33,7 @@ const getFieldOptions = (t: Translations) => [
   { value: "country", label: t.campaigns.criteriaBuilder.fields.country, type: "select", options: COUNTRIES.map(c => ({ value: c.code, label: c.name })) },
   { value: "clientStatus", label: t.campaigns.criteriaBuilder.fields.clientStatus, type: "select", options: [
     { value: "potential", label: t.campaigns.filter.clientStatuses.potential },
+    { value: "in_process", label: t.campaigns.filter.clientStatuses.inProcess || "V procese" },
     { value: "acquired", label: t.campaigns.filter.clientStatuses.acquired },
     { value: "terminated", label: t.campaigns.filter.clientStatuses.terminated },
   ]},

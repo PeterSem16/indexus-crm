@@ -751,7 +751,7 @@ function countMatchingContacts(contacts: any[], rule: ContactSortRule): number {
 
 const KNOWN_FIELD_VALUES: Record<string, string[]> = {
   "status": ["pending", "contacted", "completed", "failed", "no_answer", "callback_scheduled", "not_interested"],
-  "customer.clientStatus": ["potential", "acquired", "terminated"],
+  "customer.clientStatus": ["potential", "in_process", "acquired", "terminated"],
   "customer.leadStatus": ["cold", "warm", "hot", "qualified"],
   "customer.serviceType": ["cord_blood", "cord_tissue", "both"],
   "clinic.leadSource": ["new_contact", "former_collaborator", "current_collaborator", "doctor_referral", "conference"],

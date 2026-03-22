@@ -16045,9 +16045,11 @@ Return ONLY valid JSON, no markdown code blocks.`,
       
       const data = await storage.upsertCustomerPotentialCase(caseData);
       
-      // If case status is set (not empty), automatically update customer's clientStatus to "acquired" and status to "active"
       if (caseData.caseStatus && caseData.caseStatus.trim() !== "") {
-        await storage.updateCustomer(customerId, { clientStatus: "acquired", status: "active" });
+        const customer = await storage.getCustomer(customerId);
+        if (customer && customer.clientStatus === "potential") {
+          await storage.updateCustomer(customerId, { clientStatus: "in_process", status: "active" });
+        }
       }
       
       res.json(data);

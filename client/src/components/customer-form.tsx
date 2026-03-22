@@ -107,6 +107,7 @@ export type CustomerFormData = z.infer<typeof customerFormSchema>;
 
 const PIPELINE_STAGES = [
   { key: "potential", label: "Potenciálny", color: "bg-blue-500", textColor: "text-blue-700 dark:text-blue-300", bgLight: "bg-blue-50 dark:bg-blue-950/30", borderColor: "border-blue-300 dark:border-blue-700" },
+  { key: "in_process", label: "V procese", color: "bg-orange-500", textColor: "text-orange-700 dark:text-orange-300", bgLight: "bg-orange-50 dark:bg-orange-950/30", borderColor: "border-orange-300 dark:border-orange-700" },
   { key: "acquired", label: "Získaný", color: "bg-emerald-500", textColor: "text-emerald-700 dark:text-emerald-300", bgLight: "bg-emerald-50 dark:bg-emerald-950/30", borderColor: "border-emerald-300 dark:border-emerald-700" },
   { key: "terminated", label: "Ukončený", color: "bg-red-500", textColor: "text-red-700 dark:text-red-300", bgLight: "bg-red-50 dark:bg-red-950/30", borderColor: "border-red-300 dark:border-red-700" },
 ];
@@ -124,7 +125,6 @@ const SECTIONS = [
   { id: "personal", label: "Osobné údaje", icon: User },
   { id: "contact", label: "Kontakt", icon: PhoneCall },
   { id: "addresses", label: "Adresy", icon: MapPin },
-  { id: "pregnancy", label: "Tehotenstvo", icon: Baby },
   { id: "marketing", label: "Marketing", icon: Briefcase },
   { id: "finance", label: "Financie", icon: Building2 },
   { id: "notes", label: "Poznámky", icon: FileText },
@@ -206,7 +206,7 @@ function getTrimesterInfo(expectedDeliveryDate: Date | null | undefined): { trim
 
   if (daysRemaining < -42 || currentWeek < 0) return null;
   if (daysRemaining < 0) {
-    return { trimester: 3, week: currentWeek, daysRemaining: 0, gestationalAge: `${currentWeek}+${dayInWeek}`, details: "Po termíne" };
+    return { trimester: 3, week: currentWeek, daysRemaining: 0, gestationalAge: `${currentWeek}+${dayInWeek}`, details: "Po termíne pôrodu" };
   }
 
   let trimester: number;
@@ -310,8 +310,10 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCa
     hi => hi.countryCode === selectedCountry || !selectedCountry
   );
 
+  const showCaseSection = clientStatus === "in_process" || clientStatus === "acquired";
+
   const visibleSections = SECTIONS.filter(s => {
-    if (s.id === "case") return initialData?.clientStatus === "acquired";
+    if (s.id === "case") return showCaseSection;
     return true;
   });
 
@@ -363,14 +365,13 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCa
                 </div>
               </div>
               <div className="flex gap-0.5 h-1.5 rounded-full overflow-hidden bg-black/5 dark:bg-white/5">
-                {[1, 2, 3].map(t => (
+                {[1, 2, 3].map(tri => (
                   <div
-                    key={t}
+                    key={tri}
                     className={cn(
                       "flex-1 rounded-full transition-all",
-                      t <= trimesterInfo.trimester ? trimesterColors[t - 1].bar : "bg-transparent"
+                      tri <= trimesterInfo.trimester ? trimesterColors[tri - 1].bar : "bg-transparent"
                     )}
-                    style={t === trimesterInfo.trimester ? { width: `${((trimesterInfo.week - (t === 1 ? 0 : t === 2 ? 13 : 28)) / (t === 1 ? 13 : t === 2 ? 14 : 12)) * 100}%`, flex: 'none', maxWidth: '33.33%' } : undefined}
                   />
                 ))}
               </div>
@@ -421,7 +422,7 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCa
                           type="button"
                           onClick={() => form.setValue("clientStatus", stage.key)}
                           className={cn(
-                            "flex-1 relative flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg border-2 transition-all text-sm font-medium cursor-pointer",
+                            "flex-1 relative flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-lg border-2 transition-all text-xs font-medium cursor-pointer",
                             isActive
                               ? `${stage.bgLight} ${stage.borderColor} ${stage.textColor} shadow-sm`
                               : isPast
@@ -431,16 +432,16 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCa
                           data-testid={`pipeline-stage-${stage.key}`}
                         >
                           {isActive ? (
-                            <CheckCircle2 className="h-4 w-4 shrink-0" />
+                            <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
                           ) : isPast ? (
-                            <CheckCircle2 className="h-4 w-4 shrink-0 opacity-50" />
+                            <CheckCircle2 className="h-3.5 w-3.5 shrink-0 opacity-50" />
                           ) : (
-                            <Circle className="h-4 w-4 shrink-0 opacity-40" />
+                            <Circle className="h-3.5 w-3.5 shrink-0 opacity-40" />
                           )}
                           {stage.label}
                         </button>
                         {idx < PIPELINE_STAGES.length - 1 && (
-                          <ChevronRight className="h-4 w-4 text-muted-foreground/30 shrink-0 mx-0.5" />
+                          <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/30 shrink-0 mx-0.5" />
                         )}
                       </div>
                     );
@@ -451,14 +452,18 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCa
                   <FormField control={form.control} name="status" render={({ field }) => (
                     <FormItem>
                       <FormLabel>{t.customers.status}</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl><SelectTrigger data-testid="select-status"><SelectValue /></SelectTrigger></FormControl>
-                        <SelectContent>
-                          <SelectItem value="active">{t.customers.active}</SelectItem>
-                          <SelectItem value="pending">{t.customers.pending}</SelectItem>
-                          <SelectItem value="inactive">{t.customers.inactive}</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <FormControl>
+                        <select
+                          value={field.value || "pending"}
+                          onChange={(e) => field.onChange(e.target.value)}
+                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                          data-testid="select-status"
+                        >
+                          <option value="active">{t.customers.active}</option>
+                          <option value="pending">{t.customers.pending}</option>
+                          <option value="inactive">{t.customers.inactive}</option>
+                        </select>
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />
@@ -466,15 +471,19 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCa
                   <FormField control={form.control} name="serviceType" render={({ field }) => (
                     <FormItem>
                       <FormLabel>{t.customers.fields?.serviceType || "Typ služby"}</FormLabel>
-                      <Select onValueChange={(val) => field.onChange(val === "__none__" ? null : val)} value={field.value || "__none__"}>
-                        <FormControl><SelectTrigger data-testid="select-service-type"><SelectValue placeholder={t.customers.none} /></SelectTrigger></FormControl>
-                        <SelectContent>
-                          <SelectItem value="__none__">{t.customers.none}</SelectItem>
-                          <SelectItem value="cord_blood">{t.customers.serviceTypes?.cordBlood || "Pupočníková krv"}</SelectItem>
-                          <SelectItem value="cord_tissue">{t.customers.serviceTypes?.cordTissue || "Pupočníkové tkanivo"}</SelectItem>
-                          <SelectItem value="both">{t.customers.serviceTypes?.both || "Oboje"}</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <FormControl>
+                        <select
+                          value={field.value || ""}
+                          onChange={(e) => field.onChange(e.target.value || undefined)}
+                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                          data-testid="select-service-type"
+                        >
+                          <option value="">{t.customers.none}</option>
+                          <option value="cord_blood">{t.customers.serviceTypes?.cordBlood || "Pupočníková krv"}</option>
+                          <option value="cord_tissue">{t.customers.serviceTypes?.cordTissue || "Pupočníkové tkanivo"}</option>
+                          <option value="both">{t.customers.serviceTypes?.both || "Oboje"}</option>
+                        </select>
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />
@@ -482,17 +491,21 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCa
                   <FormField control={form.control} name="registrationSource" render={({ field }) => (
                     <FormItem>
                       <FormLabel>Zdroj registrácie</FormLabel>
-                      <Select onValueChange={(val) => field.onChange(val === "__none__" ? "" : val)} value={field.value || "__none__"}>
-                        <FormControl><SelectTrigger data-testid="select-registration-source"><SelectValue /></SelectTrigger></FormControl>
-                        <SelectContent>
-                          <SelectItem value="__none__">Neuvedené</SelectItem>
-                          <SelectItem value="web_form">Webový formulár</SelectItem>
-                          <SelectItem value="phone">Telefonicky</SelectItem>
-                          <SelectItem value="email">Emailom</SelectItem>
-                          <SelectItem value="in_person">Osobne</SelectItem>
-                          <SelectItem value="referral">Odporúčanie</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <FormControl>
+                        <select
+                          value={field.value || ""}
+                          onChange={(e) => field.onChange(e.target.value)}
+                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                          data-testid="select-registration-source"
+                        >
+                          <option value="">Neuvedené</option>
+                          <option value="web_form">Webový formulár</option>
+                          <option value="phone">Telefonicky</option>
+                          <option value="email">Emailom</option>
+                          <option value="in_person">Osobne</option>
+                          <option value="referral">Odporúčanie</option>
+                        </select>
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />
@@ -658,7 +671,7 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCa
                   {!isHidden("country") && (
                     <FormField control={form.control} name="country" render={({ field }) => (
                       <FormItem><FormLabel>{t.customers.country} *</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value} disabled={isReadonly("country")}>
+                        <Select onValueChange={field.onChange} value={field.value}>
                           <FormControl><SelectTrigger data-testid="select-country" className={isReadonly("country") ? "bg-muted" : ""}><SelectValue /></SelectTrigger></FormControl>
                           <SelectContent>{WORLD_COUNTRIES.map((c) => (<SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>))}</SelectContent>
                         </Select><FormMessage />
@@ -696,59 +709,6 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCa
                     </div>
                   </div>
                 )}
-              </div>
-            )}
-
-            {activeSection === "pregnancy" && (
-              <div>
-                <SectionHeader
-                  icon={Baby}
-                  title="Tehotenstvo / Gynekológ"
-                  badge={
-                    (initialData as any)?.gynecologistName || (initialData as any)?.expectedDeliveryDate ? (
-                      <Badge variant="outline" className="bg-pink-50 dark:bg-pink-950/30 text-pink-700 dark:text-pink-300 border-pink-200 dark:border-pink-800 text-xs">
-                        <Stethoscope className="h-3 w-3 mr-1" />
-                        Vyplnené
-                      </Badge>
-                    ) : null
-                  }
-                />
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField control={form.control} name="gynecologistName" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Gynekológ - meno</FormLabel>
-                      <FormControl><Input placeholder="MUDr. ..." {...field} data-testid="input-gynecologist-name" /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
-                  <FormField control={form.control} name="gynecologistPhone" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Gynekológ - telefón</FormLabel>
-                      <FormControl><PhoneNumberField value={field.value} onChange={field.onChange} defaultCountryCode={selectedCountry || "SK"} data-testid="input-gynecologist-phone" /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
-                  <FormField control={form.control} name="gynecologistEmail" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Gynekológ - email</FormLabel>
-                      <FormControl><Input type="email" placeholder="gynekolog@..." {...field} data-testid="input-gynecologist-email" /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
-                  <DateDropdowns form={form} fieldName="expectedDeliveryDate" label="Predpokladaný dátum pôrodu" />
-                  <FormField control={form.control} name="hospitalName" render={({ field }) => (
-                    <FormItem className="col-span-2">
-                      <FormLabel>
-                        <div className="flex items-center gap-1.5">
-                          <Hospital className="h-3.5 w-3.5" />
-                          Nemocnica / Pôrodnica
-                        </div>
-                      </FormLabel>
-                      <FormControl><Input placeholder="Názov nemocnice..." {...field} data-testid="input-hospital-name" /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
-                </div>
               </div>
             )}
 
@@ -856,10 +816,62 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCa
               </div>
             )}
 
-            {activeSection === "case" && initialData?.clientStatus === "acquired" && initialData && (
+            {activeSection === "case" && showCaseSection && (
               <div>
                 <SectionHeader icon={Heart} title="Case" />
-                <EmbeddedPotentialCaseForm customer={initialData} />
+
+                <div className="mb-6 p-4 rounded-lg border bg-muted/20">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Baby className="h-4 w-4 text-pink-600 dark:text-pink-400" />
+                    <h4 className="text-sm font-semibold text-foreground">Tehotenstvo / Gynekológ</h4>
+                    {((initialData as any)?.gynecologistName || (initialData as any)?.expectedDeliveryDate) && (
+                      <Badge variant="outline" className="bg-pink-50 dark:bg-pink-950/30 text-pink-700 dark:text-pink-300 border-pink-200 dark:border-pink-800 text-xs ml-auto">
+                        <Stethoscope className="h-3 w-3 mr-1" />
+                        Vyplnené
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField control={form.control} name="gynecologistName" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Gynekológ - meno</FormLabel>
+                        <FormControl><Input placeholder="MUDr. ..." {...field} data-testid="input-gynecologist-name" /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <FormField control={form.control} name="gynecologistPhone" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Gynekológ - telefón</FormLabel>
+                        <FormControl><PhoneNumberField value={field.value} onChange={field.onChange} defaultCountryCode={selectedCountry || "SK"} data-testid="input-gynecologist-phone" /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <FormField control={form.control} name="gynecologistEmail" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Gynekológ - email</FormLabel>
+                        <FormControl><Input type="email" placeholder="gynekolog@..." {...field} data-testid="input-gynecologist-email" /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <DateDropdowns form={form} fieldName="expectedDeliveryDate" label="Predpokladaný dátum pôrodu" />
+                    <FormField control={form.control} name="hospitalName" render={({ field }) => (
+                      <FormItem className="col-span-2">
+                        <FormLabel>
+                          <div className="flex items-center gap-1.5">
+                            <Hospital className="h-3.5 w-3.5" />
+                            Nemocnica / Pôrodnica
+                          </div>
+                        </FormLabel>
+                        <FormControl><Input placeholder="Názov nemocnice..." {...field} data-testid="input-hospital-name" /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                  </div>
+                </div>
+
+                {initialData && (
+                  <EmbeddedPotentialCaseForm customer={initialData} />
+                )}
               </div>
             )}
           </div>

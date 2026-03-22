@@ -52,6 +52,7 @@ const CUSTOMER_FIELDS = [
   { value: "address", label: "Adresa", type: "text" },
   { value: "clientStatus", label: "Stav klienta", type: "select", options: [
     { value: "potential", label: "Potenciálny" },
+    { value: "in_process", label: "V procese" },
     { value: "acquired", label: "Získaný" },
     { value: "terminated", label: "Ukončený" },
   ]},
