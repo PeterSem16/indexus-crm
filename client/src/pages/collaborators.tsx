@@ -2509,49 +2509,22 @@ export default function CollaboratorsPage() {
         </CardContent>
       </Card>
 
-      <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <DialogTitle>
-                  {selectedCollaborator ? t.collaborators.editCollaborator : t.collaborators.addCollaborator}
-                </DialogTitle>
-                <DialogDescription>
-                  {selectedCollaborator ? t.collaborators.editCollaborator : t.collaborators.addCollaborator}
-                </DialogDescription>
-              </div>
-              {!selectedCollaborator && (
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant={useWizardForm ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setUseWizardForm(true)}
-                    data-testid="button-wizard-mode"
-                  >
-                    <ListChecks className="h-4 w-4 mr-1" />
-                    {t.common.wizard}
-                  </Button>
-                  <Button
-                    variant={!useWizardForm ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setUseWizardForm(false)}
-                    data-testid="button-simple-mode"
-                  >
-                    <FileEdit className="h-4 w-4 mr-1" />
-                    {t.common.form}
-                  </Button>
-                </div>
-              )}
-            </div>
-          </DialogHeader>
-          <CollaboratorFormWizard
-            initialData={selectedCollaborator || undefined}
-            onSuccess={() => setIsFormOpen(false)}
-            onCancel={() => setIsFormOpen(false)}
+      {isFormOpen && (
+        <>
+          <div
+            className="fixed inset-0 z-50 bg-black/30 backdrop-blur-[2px] animate-in fade-in duration-200"
+            onClick={() => setIsFormOpen(false)}
+            data-testid="collaborator-form-backdrop"
           />
-        </DialogContent>
-      </Dialog>
+          <div className="fixed inset-y-0 right-0 z-[51] w-[820px] max-w-[95vw] bg-background border-l shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col">
+            <CollaboratorFormWizard
+              initialData={selectedCollaborator || undefined}
+              onSuccess={() => setIsFormOpen(false)}
+              onCancel={() => setIsFormOpen(false)}
+            />
+          </div>
+        </>
+      )}
 
       <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
         <AlertDialogContent>
