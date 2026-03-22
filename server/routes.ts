@@ -33397,6 +33397,21 @@ Return ONLY the JSON object.`
       console.log(`[WebForm Submit] slug=${req.params.slug}, customerId=${customerId || 'none'}, hasToken=${!!verificationToken}, email=${formData?.email}`);
       if (!formData) return res.status(400).json({ error: "No form data" });
 
+      const schema = await import("@shared/schema");
+      let resolvedHospitalName = formData.hospitalName || null;
+      if (formData.hospitalId && !resolvedHospitalName) {
+        const [hosp] = await db.select().from(schema.hospitals).where(eq(schema.hospitals.id, formData.hospitalId)).limit(1);
+        if (hosp) resolvedHospitalName = hosp.name || null;
+      }
+      let resolvedGynName = formData.gynecologistName || null;
+      if (formData.gynecologistClinicId && !resolvedGynName) {
+        const [clinic] = await db.select().from(schema.clinics).where(eq(schema.clinics.id, formData.gynecologistClinicId)).limit(1);
+        if (clinic) {
+          const parts = [clinic.doctorTitle, clinic.doctorFirstName, clinic.doctorLastName].filter(Boolean);
+          resolvedGynName = parts.length > 0 ? parts.join(" ") : (clinic.doctorName || clinic.name || null);
+        }
+      }
+
       let isOtpVerified = false;
       if (customerId && verificationToken) {
         const auditLogs = await storage.getWebFormAuditLogs(form.id);
@@ -33416,7 +33431,6 @@ Return ONLY the JSON object.`
         console.log(`[WebForm Submit] OTP verified successfully for customer ${customerId}`);
       }
 
-      const schema = await import("@shared/schema");
       let targetCustomerId: string | null = null;
       let isNewCustomer = false;
 
@@ -33445,13 +33459,16 @@ Return ONLY the JSON object.`
             if (formData.corrRegion) updateData.corrRegion = formData.corrRegion;
             if (formData.corrCountry) updateData.corrCountry = formData.corrCountry;
           }
-          if (formData.gynecologistName) updateData.gynecologistName = formData.gynecologistName;
+          if (resolvedGynName) updateData.gynecologistName = resolvedGynName;
           if (formData.gynecologistPhone) updateData.gynecologistPhone = formData.gynecologistPhone;
           if (formData.gynecologistEmail) updateData.gynecologistEmail = formData.gynecologistEmail;
           if (formData.expectedDeliveryDate) updateData.expectedDeliveryDate = new Date(formData.expectedDeliveryDate);
-          if (formData.hospitalName) updateData.hospitalName = formData.hospitalName;
+          if (resolvedHospitalName) updateData.hospitalName = resolvedHospitalName;
           updateData.registrationSource = "web_form";
           updateData.registrationDate = new Date();
+          if (!existing.leadSource) updateData.leadSource = "Internet";
+          if (!existing.leadSourceDate) updateData.leadSourceDate = new Date();
+          if (!existing.leadSourceNotes) updateData.leadSourceNotes = `Webový formulár: ${form.name}`;
           if (existing.clientStatus === "potential") {
             updateData.clientStatus = "in_process";
           }
@@ -33505,11 +33522,14 @@ Return ONLY the JSON object.`
           newsletter: formData.newsletter || false,
           registrationSource: "web_form",
           registrationDate: new Date(),
-          gynecologistName: formData.gynecologistName || null,
+          leadSource: "Internet",
+          leadSourceDate: new Date(),
+          leadSourceNotes: `Webový formulár: ${form.name}`,
+          gynecologistName: resolvedGynName,
           gynecologistPhone: formData.gynecologistPhone || null,
           gynecologistEmail: formData.gynecologistEmail || null,
           expectedDeliveryDate: formData.expectedDeliveryDate ? new Date(formData.expectedDeliveryDate) : null,
-          hospitalName: formData.hospitalName || null,
+          hospitalName: resolvedHospitalName,
         }).returning();
         targetCustomerId = newCustomer.id;
         isNewCustomer = true;
@@ -33558,8 +33578,26 @@ Return ONLY the JSON object.`
         formId: form.id, submissionId: submission.id,
         action: "form_submitted",
         details: JSON.stringify({ customerId: targetCustomerId, isNewCustomer, isOtpVerified }),
-        ipAddress: req.ip || null,
+        ipAddress: realIp || null,
       });
+      if (targetCustomerId) {
+        await storage.createActivityLog({
+          userId: "system",
+          action: "marketing_action",
+          entityType: "customer",
+          entityId: targetCustomerId,
+          entityName: `${formData.firstName || ""} ${formData.lastName || ""}`.trim(),
+          details: JSON.stringify({
+            type: "web_form_registration",
+            source: "Internet",
+            formName: form.name,
+            formSlug: req.params.slug,
+            formCountry: form.countryCode,
+            isNewCustomer,
+            message: `Registrácia cez webový formulár "${form.name}"`,
+          }),
+        });
+      }
       console.log(`[WebForm] Confirm email check: enabled=${form.confirmEmailEnabled}, email=${formData.email}`);
       if (form.confirmEmailEnabled !== false && formData.email) {
         try {

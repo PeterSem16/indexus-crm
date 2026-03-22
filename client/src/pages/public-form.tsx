@@ -997,9 +997,17 @@ export default function PublicFormPage() {
       <div className="min-h-screen flex items-center justify-center p-4" style={{ backgroundColor: bgColor }}>
         <div className="max-w-md w-full bg-white rounded-2xl shadow-lg p-8">
           <div className="text-center mb-6">
-            <Shield className="h-12 w-12 mx-auto mb-3" style={{ color: brandColor }} />
-            <h2 className="text-xl font-bold">Overenie existujúceho klienta</h2>
-            <p className="text-sm text-gray-500 mt-2">Našli sme existujúci záznam. Pre overenie vašej identity vám zašleme kód na email <strong>{safeStr(otpEmail)}</strong>.</p>
+            {config?.form?.lauraAvatarUrl ? (
+              <div className="relative inline-block mb-3">
+                <img src={config.form.lauraAvatarUrl} alt="Laura" className="h-16 w-16 rounded-full object-cover shadow-md" style={{ border: `3px solid ${brandColor}` }} />
+                <Shield className="h-5 w-5 absolute -bottom-1 -right-1 rounded-full bg-white p-0.5 shadow-sm" style={{ color: brandColor }} />
+              </div>
+            ) : (
+              <Shield className="h-12 w-12 mx-auto mb-3" style={{ color: brandColor }} />
+            )}
+            <h2 className="text-xl font-bold">Vitajte späť!</h2>
+            <p className="text-sm text-gray-500 mt-2">Evidujeme váš záznam v našom systéme. Pre vašu bezpečnosť overíme vašu identitu zaslaním kódu na email <strong>{safeStr(otpEmail)}</strong>.</p>
+            <p className="text-xs mt-2" style={{ color: brandColor }}>Overenie trvá len chvíľu a chráni vaše osobné údaje.</p>
           </div>
           <div className="space-y-3">
             <Button className="w-full text-white" style={{ backgroundColor: brandColor }} onClick={sendOtp} disabled={otpLoading} data-testid="btn-send-otp">
@@ -1021,9 +1029,17 @@ export default function PublicFormPage() {
       <div className="min-h-screen flex items-center justify-center p-4" style={{ backgroundColor: bgColor }}>
         <div className="max-w-md w-full bg-white rounded-2xl shadow-lg p-8">
           <div className="text-center mb-6">
-            <Shield className="h-12 w-12 mx-auto mb-3" style={{ color: brandColor }} />
-            <h2 className="text-xl font-bold">Zadajte overovací kód</h2>
-            <p className="text-sm text-gray-500 mt-2">Kód bol zaslaný na <strong>{safeStr(otpEmail)}</strong>. Platnosť: 10 minút.</p>
+            {config?.form?.lauraAvatarUrl ? (
+              <div className="relative inline-block mb-3">
+                <img src={config.form.lauraAvatarUrl} alt="Laura" className="h-16 w-16 rounded-full object-cover shadow-md" style={{ border: `3px solid ${brandColor}` }} />
+                <CheckCircle2 className="h-5 w-5 absolute -bottom-1 -right-1 rounded-full bg-white p-0.5 shadow-sm" style={{ color: brandColor }} />
+              </div>
+            ) : (
+              <Shield className="h-12 w-12 mx-auto mb-3" style={{ color: brandColor }} />
+            )}
+            <h2 className="text-xl font-bold">Posledný krok overenia</h2>
+            <p className="text-sm text-gray-500 mt-2">Na váš email <strong>{safeStr(otpEmail)}</strong> sme odoslali 6-miestny overovací kód. Zadajte ho nižšie pre dokončenie overenia.</p>
+            <p className="text-xs mt-2" style={{ color: brandColor }}>Kód je platný 10 minút. Ak ho nevidíte, skontrolujte priečinok spam.</p>
           </div>
           <div className="space-y-4">
             <Input
@@ -1036,7 +1052,7 @@ export default function PublicFormPage() {
             />
             <Button className="w-full text-white" style={{ backgroundColor: brandColor }} onClick={verifyOtp} disabled={otpCode.length !== 6 || otpLoading} data-testid="btn-verify-otp">
               {otpLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
-              Overiť
+              Overiť a pokračovať
             </Button>
             <div className="flex justify-between">
               <Button variant="link" className="text-xs" onClick={sendOtp} disabled={otpLoading}>Znova zaslať kód</Button>
@@ -1552,15 +1568,21 @@ export default function PublicFormPage() {
                   })()}
                   {f.showProgressPipeline !== false && motivation && sectionDone && gi < totalSections - 1 && (
                     <div
-                      className="flex items-center gap-2.5 py-2.5 px-4 rounded-xl text-sm transition-all duration-500 animate-in fade-in slide-in-from-bottom-2"
+                      className="flex items-center gap-3 py-3 px-4 rounded-xl text-sm transition-all duration-500 animate-in fade-in slide-in-from-bottom-2"
                       style={{ backgroundColor: brandColor + "08", border: `1px solid ${brandColor}18` }}
                       data-testid={`motivation-${gi}`}
                     >
-                      <motivation.Icon className="h-4 w-4 shrink-0" style={{ color: brandColor }} />
-                      <span className="font-medium" style={{ color: brandColor }}>{motivation.text}</span>
-                      <span className="text-gray-400 text-xs ml-auto">
-                        {totalSections - gi - 1 === 1 ? "Ešte 1 krok" : `Ešte ${totalSections - gi - 1} kroky`}
-                      </span>
+                      {config?.form?.lauraAvatarUrl ? (
+                        <img src={config.form.lauraAvatarUrl} alt="Laura" className="h-8 w-8 rounded-full object-cover shadow-sm shrink-0" style={{ border: `2px solid ${brandColor}40` }} />
+                      ) : (
+                        <motivation.Icon className="h-4 w-4 shrink-0" style={{ color: brandColor }} />
+                      )}
+                      <div className="flex flex-col">
+                        <span className="font-medium" style={{ color: brandColor }}>{motivation.text}</span>
+                        <span className="text-gray-400 text-xs">
+                          {totalSections - gi - 1 === 1 ? "Zostáva vám posledná sekcia" : `Zostávajú vám ešte ${totalSections - gi - 1} sekcie`}
+                        </span>
+                      </div>
                     </div>
                   )}
                 </div>
