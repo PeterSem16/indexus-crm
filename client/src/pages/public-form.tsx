@@ -482,7 +482,15 @@ export default function PublicFormPage() {
   const completedSections = sectionProgress.filter(s => s.requiredDone && s.pct >= 80).length;
   const overallPct = totalSections > 0 ? Math.round(sectionProgress.reduce((sum, s) => sum + s.pct, 0) / totalSections) : 0;
 
+  const NAME_FIELDS = ["firstName", "lastName", "corrName", "motherFirstName", "motherLastName", "fatherFirstName", "fatherLastName", "partnerFirstName", "partnerLastName"];
+  const autoCapitalizeName = (val: string) => {
+    if (!val) return val;
+    return val.replace(/(^|\s|-)(\p{Ll})/gu, (_m, pre, ch) => pre + ch.toUpperCase());
+  };
   const updateField = (key: string, value: any) => {
+    if (NAME_FIELDS.includes(key) && typeof value === "string") {
+      value = autoCapitalizeName(value);
+    }
     setFormValues(prev => ({ ...prev, [key]: value }));
     setTouched(prev => ({ ...prev, [key]: true }));
     const field = fields.find((f: any) => getFieldKey(f) === key);
