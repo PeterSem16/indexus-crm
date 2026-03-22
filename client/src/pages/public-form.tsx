@@ -339,6 +339,10 @@ export default function PublicFormPage() {
   const [verificationToken, setVerificationToken] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState("");
   const [pregnancyAdvice, setPregnancyAdvice] = useState<{ trimester: number; week: number; daysRemaining: number; tips: string[] } | null>(null);
+  const [aiSuggestions, setAiSuggestions] = useState<Record<string, { type: string; message: string; suggestion: string | null }[]>>({});
+  const [aiLoading, setAiLoading] = useState<Record<string, boolean>>({});
+  const aiDebounceRef = useRef<Record<string, any>>({});
+  const aiAbortRef = useRef<Record<string, AbortController>>({});
 
   const isEmbedded = useMemo(() => {
     if (typeof window === "undefined") return false;
@@ -532,6 +536,50 @@ export default function PublicFormPage() {
     }
   };
 
+  const triggerAiValidation = (key: string) => {
+    if (!config?.form?.aiAssistantEnabled || !slug) return;
+    const field = fields.find((f: any) => getFieldKey(f) === key);
+    if (!field) return;
+    const val = formValues[key];
+    if (!val || val === "") {
+      setAiSuggestions(prev => { const n = { ...prev }; delete n[key]; return n; });
+      return;
+    }
+    if (["select_insurance", "select_hospital", "select_product", "select_source", "select_payment", "checkbox", "select_gynecologist"].includes(field.fieldType)) return;
+    if (aiDebounceRef.current[key]) clearTimeout(aiDebounceRef.current[key]);
+    aiDebounceRef.current[key] = setTimeout(async () => {
+      if (aiAbortRef.current[key]) aiAbortRef.current[key].abort();
+      const controller = new AbortController();
+      aiAbortRef.current[key] = controller;
+      setAiLoading(prev => ({ ...prev, [key]: true }));
+      try {
+        const resp = await fetch(`/api/public/web-form/${slug}/ai-validate`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            fieldKey: key,
+            fieldLabel: field.label || key,
+            fieldType: field.fieldType || "text",
+            value: val,
+            allValues: formValues,
+          }),
+          signal: controller.signal,
+        });
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data.suggestions && data.suggestions.length > 0) {
+            setAiSuggestions(prev => ({ ...prev, [key]: data.suggestions }));
+          } else {
+            setAiSuggestions(prev => { const n = { ...prev }; delete n[key]; return n; });
+          }
+        }
+      } catch (e: any) {
+        if (e.name !== "AbortError") {}
+      }
+      setAiLoading(prev => ({ ...prev, [key]: false }));
+    }, 600);
+  };
+
   const blurField = (key: string) => {
     setTouched(prev => ({ ...prev, [key]: true }));
     const field = fields.find((f: any) => getFieldKey(f) === key);
@@ -553,6 +601,7 @@ export default function PublicFormPage() {
         return e;
       });
     }
+    triggerAiValidation(key);
   };
 
   const checkExistingCustomer = async (): Promise<boolean> => {
@@ -901,15 +950,65 @@ export default function PublicFormPage() {
     const placeholder = field.placeholder || "";
     const helpText = field.helpText;
 
+    const fieldAiSuggestions = aiSuggestions[key] || [];
+    const fieldAiLoading = aiLoading[key] || false;
     const fieldWrapper = (children: any) => (
       <div key={key} className="space-y-1.5">
         <Label className="text-gray-700" style={labelStyle}>
           {safeStr(field.label)}
           {field.isRequired && <span className="text-red-500 ml-1">*</span>}
+          {fieldAiLoading && (
+            <span className="ml-2 inline-flex items-center gap-1 text-[10px] text-violet-500 font-normal">
+              <Sparkles className="h-3 w-3 animate-pulse" /> AI kontroluje...
+            </span>
+          )}
         </Label>
         {children}
         {helpText && !err && <p className="text-[11px] text-gray-400">{safeStr(helpText)}</p>}
         {err && <p className="text-xs text-red-500 flex items-center gap-1"><AlertCircle className="h-3 w-3" />{safeStr(err)}</p>}
+        {fieldAiSuggestions.length > 0 && (
+          <div className="space-y-1.5 mt-1">
+            {fieldAiSuggestions.map((s, i) => {
+              const colors = s.type === "error" ? { bg: "bg-red-50", border: "border-red-200", text: "text-red-700", icon: "text-red-500" }
+                : s.type === "warning" ? { bg: "bg-amber-50", border: "border-amber-200", text: "text-amber-700", icon: "text-amber-500" }
+                : s.type === "tip" ? { bg: "bg-violet-50", border: "border-violet-200", text: "text-violet-700", icon: "text-violet-500" }
+                : { bg: "bg-blue-50", border: "border-blue-200", text: "text-blue-700", icon: "text-blue-500" };
+              return (
+                <div key={i} className={`flex items-start gap-2 p-2 rounded-lg border ${colors.bg} ${colors.border} animate-in fade-in slide-in-from-top-1 duration-300`}>
+                  <Sparkles className={`h-3.5 w-3.5 shrink-0 mt-0.5 ${colors.icon}`} />
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-[11px] leading-relaxed ${colors.text}`}>{s.message}</p>
+                    {s.suggestion && (
+                      <button
+                        type="button"
+                        className={`mt-1 text-[11px] font-medium ${colors.icon} hover:underline flex items-center gap-1`}
+                        onClick={() => {
+                          updateField(key, s.suggestion!);
+                          setAiSuggestions(prev => { const n = { ...prev }; delete n[key]; return n; });
+                        }}
+                        data-testid={`button-ai-apply-${key}`}
+                      >
+                        Použiť opravu: {s.suggestion}
+                      </button>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    className="shrink-0 text-gray-400 hover:text-gray-600"
+                    onClick={() => setAiSuggestions(prev => {
+                      const arr = [...(prev[key] || [])];
+                      arr.splice(i, 1);
+                      if (arr.length === 0) { const n = { ...prev }; delete n[key]; return n; }
+                      return { ...prev, [key]: arr };
+                    })}
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     );
 
@@ -1102,6 +1201,15 @@ export default function PublicFormPage() {
 
   const renderFormContent = () => (
     <>
+            {config?.form?.aiAssistantEnabled && (
+              <div className="flex items-center justify-center gap-2 py-2 px-4 rounded-full bg-gradient-to-r from-violet-50 to-purple-50 border border-violet-200 mx-auto w-fit" data-testid="badge-ai-assistant">
+                <div className="h-5 w-5 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
+                  <Sparkles className="h-3 w-3 text-white" />
+                </div>
+                <span className="text-[11px] font-medium text-violet-700">AI Asistent aktívny — pomáham s kontrolou údajov</span>
+              </div>
+            )}
+
             {pregnancyAdvice && (
               <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
                 <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-300">

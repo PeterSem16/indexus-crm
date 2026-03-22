@@ -20,7 +20,7 @@ import {
   GripVertical, ChevronDown, ChevronRight, Loader2, CheckCircle2, X, Code,
   Clock, Users, ClipboardList, ArrowUp, ArrowDown, EyeOff,
   Columns, LayoutGrid, Maximize2, Palette, Type, Italic, Pencil, Mail, Info, Send,
-  BarChart3, TrendingUp, UserPlus, UserCheck, ShieldCheck, Calendar
+  BarChart3, TrendingUp, UserPlus, UserCheck, ShieldCheck, Calendar, Sparkles
 } from "lucide-react";
 import type { WebForm, WebFormSubmission } from "@shared/schema";
 
@@ -2082,6 +2082,23 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
                   checked={formData.pregnancyAdviceEnabled === true}
                   onCheckedChange={v => setFormData({ ...formData, pregnancyAdviceEnabled: v })}
                   data-testid="switch-pregnancy-advice"
+                />
+              </div>
+              <Separator />
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
+                    <Sparkles className="h-4 w-4 text-white" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-medium">AI Asistent</h4>
+                    <p className="text-[11px] text-muted-foreground">AI kontroluje správnosť údajov, opravuje preklepy a radí počas vyplňovania</p>
+                  </div>
+                </div>
+                <Switch
+                  checked={formData.aiAssistantEnabled === true}
+                  onCheckedChange={v => setFormData({ ...formData, aiAssistantEnabled: v })}
+                  data-testid="switch-ai-assistant"
                 />
               </div>
               <div className="space-y-1">

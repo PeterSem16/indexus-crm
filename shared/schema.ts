@@ -6272,6 +6272,7 @@ export const webForms = pgTable("web_forms", {
   logoUrl: text("logo_url"),
   showProgressPipeline: boolean("show_progress_pipeline").notNull().default(true),
   pregnancyAdviceEnabled: boolean("pregnancy_advice_enabled").notNull().default(false),
+  aiAssistantEnabled: boolean("ai_assistant_enabled").notNull().default(false),
   confirmEmailEnabled: boolean("confirm_email_enabled").notNull().default(true),
   confirmEmailLayout: text("confirm_email_layout").notNull().default("modern"),
   confirmEmailSubject: text("confirm_email_subject"),

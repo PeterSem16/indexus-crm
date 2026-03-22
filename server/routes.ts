@@ -33200,7 +33200,7 @@ Return ONLY the JSON object.`
         "subtitleFontSize","subtitleFontWeight","subtitleFontStyle","subtitleFontFamily",
         "sectionFontSize","sectionFontWeight","sectionFontStyle",
         "labelFontSize","labelFontWeight","buttonFontSize","buttonFontWeight",
-        "showProgressPipeline","pregnancyAdviceEnabled",
+        "showProgressPipeline","pregnancyAdviceEnabled","aiAssistantEnabled",
         "confirmEmailEnabled","confirmEmailLayout","confirmEmailSubject","confirmEmailGreeting","confirmEmailBody",
         "confirmEmailShowData","confirmEmailFooter","confirmEmailSignature",
       ];
@@ -33713,6 +33713,104 @@ Return ONLY the JSON object.`
     } catch (e: any) {
       console.error("[WebForm Submit] Error:", e);
       res.status(500).json({ error: e.message });
+    }
+  });
+
+  const aiRateLimits = new Map<string, { count: number; resetAt: number }>();
+  app.post("/api/public/web-form/:slug/ai-validate", async (req, res) => {
+    try {
+      const clientIp = req.ip || req.socket.remoteAddress || "unknown";
+      const rateLimitKey = `${clientIp}:${req.params.slug}`;
+      const now = Date.now();
+      const rateEntry = aiRateLimits.get(rateLimitKey);
+      if (rateEntry && rateEntry.resetAt > now) {
+        if (rateEntry.count >= 30) {
+          return res.status(429).json({ error: "Too many requests", suggestions: [] });
+        }
+        rateEntry.count++;
+      } else {
+        aiRateLimits.set(rateLimitKey, { count: 1, resetAt: now + 60000 });
+      }
+      if (aiRateLimits.size > 10000) {
+        for (const [k, v] of aiRateLimits) { if (v.resetAt < now) aiRateLimits.delete(k); }
+      }
+      const form = await storage.getWebFormBySlug(req.params.slug);
+      if (!form || !form.isActive || !form.aiAssistantEnabled) {
+        return res.status(404).json({ error: "AI not available" });
+      }
+      if (!process.env.OPENAI_API_KEY) {
+        return res.status(500).json({ error: "AI not configured" });
+      }
+      const { fieldKey, fieldLabel, fieldType, value, allValues } = req.body;
+      if (!fieldKey || typeof fieldKey !== "string" || fieldKey.length > 100) return res.json({ suggestions: [] });
+      if (value === undefined || value === null || value === "") return res.json({ suggestions: [] });
+      const valStr = String(value).slice(0, 500);
+      if (typeof fieldLabel !== "string" || typeof fieldType !== "string") return res.json({ suggestions: [] });
+      const safeLabel = String(fieldLabel).slice(0, 100);
+      const safeType = String(fieldType).slice(0, 50);
+      const ALLOWED_FIELD_TYPES = ["text","email","tel","date","number","textarea"];
+      if (!ALLOWED_FIELD_TYPES.includes(safeType)) return res.json({ suggestions: [] });
+      const contextFields: string[] = [];
+      if (allValues) {
+        if (allValues.firstName) contextFields.push(`Meno: ${allValues.firstName}`);
+        if (allValues.lastName) contextFields.push(`Priezvisko: ${allValues.lastName}`);
+        if (allValues.email) contextFields.push(`Email: ${allValues.email}`);
+        if (allValues.phone) contextFields.push(`Telefón: ${allValues.phone}`);
+        if (allValues.expectedDeliveryDate) contextFields.push(`Predpokladaný dátum pôrodu: ${allValues.expectedDeliveryDate}`);
+      }
+      const today = new Date().toISOString().split("T")[0];
+      const countryCode = form.countryCode || "SK";
+      const prompt = `Si AI asistent pre registračný formulár krvnej banky pupočníkovej krvi v krajine ${countryCode}. Dnes je ${today}.
+
+Používateľ vyplnil pole "${safeLabel}" (typ: ${safeType}, kľúč: ${fieldKey}) s hodnotou: "${valStr}"
+
+${contextFields.length > 0 ? `Kontext ostatných vyplnených polí:\n${contextFields.join("\n")}` : ""}
+
+Analyzuj zadanú hodnotu a vráť JSON pole s návrhmi (suggestions). Každý návrh musí mať:
+- "type": "error" | "warning" | "info" | "tip"
+- "message": krátka správa v slovenčine (max 120 znakov)
+- "suggestion": navrhovaná oprava (ak je relevantná, inak null)
+
+Pravidlá kontroly:
+1. MENO/PRIEZVISKO: Skontroluj preklepy (veľké písmeno na začiatku, žiadne čísla, diakritika OK). Ak je meno nezvyčajné ale validné, neopravuj.
+2. TELEFÓN: Pre SK formát +421 9XX XXX XXX, pre CZ +420 XXX XXX XXX. Upozorni na nesprávny formát.
+3. EMAIL: Skontroluj základný formát, bežné preklepy domén (gmial->gmail, hotmal->hotmail).
+4. DÁTUM PÔRODU: Musí byť v budúcnosti (po ${today}). Ak je viac ako 9 mesiacov v budúcnosti, upozorni. Ak je v minulosti, chyba. Ak je blízko, daj tip o príprave.
+5. PSČ: Pre SK 5-miestne, pre CZ 5-miestne (XXX XX).
+6. ADRESA: Skontroluj zrejmé preklepy v názvoch miest.
+
+Ak je všetko v poriadku, vráť prázdne pole [].
+Ak máš tip alebo radu súvisiacu s tehotenstvom/odberom pupočníkovej krvi, pridaj ho ako "tip".
+DÔLEŽITÉ: Vráť IBA JSON pole, žiadny iný text.`;
+
+      const OpenAI = (await import("openai")).default;
+      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.3,
+        max_tokens: 500,
+      });
+      const content = response.choices[0]?.message?.content?.trim() || "[]";
+      let suggestions: any[] = [];
+      try {
+        const jsonMatch = content.match(/\[[\s\S]*\]/);
+        const raw = jsonMatch ? JSON.parse(jsonMatch[0]) : [];
+        if (Array.isArray(raw)) {
+          suggestions = raw.slice(0, 5).filter((s: any) =>
+            s && typeof s.type === "string" && ["error","warning","info","tip"].includes(s.type)
+            && typeof s.message === "string" && s.message.length <= 200
+          ).map((s: any) => ({
+            type: s.type,
+            message: String(s.message).slice(0, 200),
+            suggestion: s.suggestion && typeof s.suggestion === "string" ? String(s.suggestion).slice(0, 200) : null,
+          }));
+        }
+      } catch { suggestions = []; }
+      res.json({ suggestions });
+    } catch (e: any) {
+      console.error("[WebForm AI Validate]", e.message);
+      res.json({ suggestions: [] });
     }
   });
 
