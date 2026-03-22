@@ -91,6 +91,7 @@ app.use((req, res, next) => {
       ALTER TABLE customers ADD COLUMN IF NOT EXISTS expected_delivery_date TIMESTAMP;
       ALTER TABLE customers ADD COLUMN IF NOT EXISTS registration_source TEXT;
       ALTER TABLE customers ADD COLUMN IF NOT EXISTS registration_date TIMESTAMP;
+      ALTER TABLE customers ADD COLUMN IF NOT EXISTS hospital_name TEXT;
     `);
     console.log('[migration] Customer columns ensured');
   } catch (e: any) {

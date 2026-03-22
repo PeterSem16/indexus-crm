@@ -449,6 +449,7 @@ export const customers = pgTable("customers", {
   gynecologistPhone: text("gynecologist_phone"),
   gynecologistEmail: text("gynecologist_email"),
   expectedDeliveryDate: timestamp("expected_delivery_date"),
+  hospitalName: text("hospital_name"),
   
   // Registration source
   registrationSource: text("registration_source"), // web_form, phone, email, in_person, referral
