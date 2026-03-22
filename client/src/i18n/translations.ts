@@ -5065,6 +5065,12 @@ export interface Translations {
       gdprMarketing: string;
       gdprPregnancy: string;
       successMessage: string;
+      lauraAssistant: string;
+      lauraAssistantDesc: string;
+      lauraAvatar: string;
+      lauraAvatarDesc: string;
+      lauraBadge: string;
+      lauraChecking: string;
       confirmEmail: string;
       confirmEmailDesc: string;
       availableVarsInfo: string;
@@ -10052,6 +10058,12 @@ export const translations: Record<Locale, Translations> = {
         gdprMarketing: 'GDPR marketing text',
         gdprPregnancy: 'GDPR pregnancy text',
         successMessage: 'Message after submission',
+        lauraAssistant: 'Laura Assistant',
+        lauraAssistantDesc: 'Laura checks data accuracy, corrects typos and provides advice during filling',
+        lauraAvatar: 'Laura avatar',
+        lauraAvatarDesc: 'Upload a custom avatar for Laura to personalize the assistant',
+        lauraBadge: 'Laura is here to help — I verify your details as you type',
+        lauraChecking: 'Laura is checking...',
         confirmEmail: 'Confirmation email',
         confirmEmailDesc: 'Email sent to customer after form submission',
         availableVarsInfo: 'Available variables:',
@@ -14991,6 +15003,12 @@ export const translations: Record<Locale, Translations> = {
         gdprMarketing: 'GDPR marketing text',
         gdprPregnancy: 'GDPR tehotenstvo text',
         successMessage: 'Správa po odoslaní',
+        lauraAssistant: 'Laura Asistentka',
+        lauraAssistantDesc: 'Laura kontroluje správnosť údajov, opravuje preklepy a radí počas vyplňovania',
+        lauraAvatar: 'Avatar Laury',
+        lauraAvatarDesc: 'Nahrajte vlastný avatar pre Lauru a prispôsobte si asistentku',
+        lauraBadge: 'Laura je tu pre vás — overujem vaše údaje počas vyplňovania',
+        lauraChecking: 'Laura overuje...',
         confirmEmail: 'Potvrdzujúci email',
         confirmEmailDesc: 'Email sa odošle zákazníkovi po odoslaní formulára',
         availableVarsInfo: 'Dostupné premenné:',
@@ -19862,6 +19880,12 @@ export const translations: Record<Locale, Translations> = {
         gdprMarketing: 'GDPR marketing text',
         gdprPregnancy: 'GDPR těhotenství text',
         successMessage: 'Zpráva po odeslání',
+        lauraAssistant: 'Laura Asistentka',
+        lauraAssistantDesc: 'Laura kontroluje správnost údajů, opravuje překlepy a radí během vyplňování',
+        lauraAvatar: 'Avatar Laury',
+        lauraAvatarDesc: 'Nahrajte vlastní avatar pro Lauru a přizpůsobte si asistentku',
+        lauraBadge: 'Laura je tu pro vás — ověřuji vaše údaje během vyplňování',
+        lauraChecking: 'Laura ověřuje...',
         confirmEmail: 'Potvrzující email',
         confirmEmailDesc: 'Email se odešle zákazníkovi po odeslání formuláře',
         availableVarsInfo: 'Dostupné proměnné:',
@@ -24732,6 +24756,12 @@ export const translations: Record<Locale, Translations> = {
         gdprMarketing: 'GDPR marketing szöveg',
         gdprPregnancy: 'GDPR terhesség szöveg',
         successMessage: 'Üzenet beküldés után',
+        lauraAssistant: 'Laura Asszisztens',
+        lauraAssistantDesc: 'Laura ellenőrzi az adatok helyességét, javítja az elgépeléseket és tanácsot ad a kitöltés során',
+        lauraAvatar: 'Laura avatárja',
+        lauraAvatarDesc: 'Töltsön fel egyéni avatárt Laura számára a személyre szabáshoz',
+        lauraBadge: 'Laura segít önnek — ellenőrzöm az adatait kitöltés közben',
+        lauraChecking: 'Laura ellenőrzi...',
         confirmEmail: 'Visszaigazoló email',
         confirmEmailDesc: 'Email küldése az ügyfélnek az űrlap beküldése után',
         availableVarsInfo: 'Elérhető változók:',
@@ -29601,6 +29631,12 @@ export const translations: Record<Locale, Translations> = {
         gdprMarketing: 'Text GDPR marketing',
         gdprPregnancy: 'Text GDPR sarcină',
         successMessage: 'Mesaj după trimitere',
+        lauraAssistant: 'Laura Asistent',
+        lauraAssistantDesc: 'Laura verifică corectitudinea datelor, corectează greșelile și oferă sfaturi în timpul completării',
+        lauraAvatar: 'Avatarul Laurei',
+        lauraAvatarDesc: 'Încărcați un avatar personalizat pentru Laura pentru a personaliza asistentul',
+        lauraBadge: 'Laura vă ajută — verific datele dvs. în timp ce completați',
+        lauraChecking: 'Laura verifică...',
         confirmEmail: 'Email de confirmare',
         confirmEmailDesc: 'Email trimis clientului după trimiterea formularului',
         availableVarsInfo: 'Variabile disponibile:',
@@ -34471,6 +34507,12 @@ export const translations: Record<Locale, Translations> = {
         gdprMarketing: 'Testo GDPR marketing',
         gdprPregnancy: 'Testo GDPR gravidanza',
         successMessage: 'Messaggio dopo l\'invio',
+        lauraAssistant: 'Laura Assistente',
+        lauraAssistantDesc: 'Laura verifica la correttezza dei dati, corregge errori di battitura e fornisce consigli durante la compilazione',
+        lauraAvatar: 'Avatar di Laura',
+        lauraAvatarDesc: 'Carica un avatar personalizzato per Laura per personalizzare l\'assistente',
+        lauraBadge: 'Laura è qui per aiutarti — verifico i tuoi dati mentre compili',
+        lauraChecking: 'Laura sta verificando...',
         confirmEmail: 'Email di conferma',
         confirmEmailDesc: 'Email inviata al cliente dopo l\'invio del modulo',
         availableVarsInfo: 'Variabili disponibili:',
@@ -39340,6 +39382,12 @@ export const translations: Record<Locale, Translations> = {
         gdprMarketing: 'DSGVO-Marketing-Text',
         gdprPregnancy: 'DSGVO-Schwangerschaftstext',
         successMessage: 'Nachricht nach dem Absenden',
+        lauraAssistant: 'Laura Assistentin',
+        lauraAssistantDesc: 'Laura überprüft die Datenrichtigkeit, korrigiert Tippfehler und gibt Ratschläge beim Ausfüllen',
+        lauraAvatar: 'Lauras Avatar',
+        lauraAvatarDesc: 'Laden Sie einen benutzerdefinierten Avatar für Laura hoch, um die Assistentin zu personalisieren',
+        lauraBadge: 'Laura ist für Sie da — ich überprüfe Ihre Daten beim Ausfüllen',
+        lauraChecking: 'Laura überprüft...',
         confirmEmail: 'Bestätigungs-E-Mail',
         confirmEmailDesc: 'E-Mail wird nach dem Absenden des Formulars an den Kunden gesendet',
         availableVarsInfo: 'Verfügbare Variablen:',

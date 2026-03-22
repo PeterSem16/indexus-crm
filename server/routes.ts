@@ -33200,7 +33200,7 @@ Return ONLY the JSON object.`
         "subtitleFontSize","subtitleFontWeight","subtitleFontStyle","subtitleFontFamily",
         "sectionFontSize","sectionFontWeight","sectionFontStyle",
         "labelFontSize","labelFontWeight","buttonFontSize","buttonFontWeight",
-        "showProgressPipeline","pregnancyAdviceEnabled","aiAssistantEnabled",
+        "showProgressPipeline","pregnancyAdviceEnabled","aiAssistantEnabled","lauraAvatarUrl",
         "confirmEmailEnabled","confirmEmailLayout","confirmEmailSubject","confirmEmailGreeting","confirmEmailBody",
         "confirmEmailShowData","confirmEmailFooter","confirmEmailSignature",
       ];
@@ -33760,7 +33760,7 @@ Return ONLY the JSON object.`
       }
       const today = new Date().toISOString().split("T")[0];
       const countryCode = form.countryCode || "SK";
-      const prompt = `Si AI asistent pre registračný formulár krvnej banky pupočníkovej krvi v krajine ${countryCode}. Dnes je ${today}.
+      const prompt = `Si Laura — priateľská AI asistentka pre registračný formulár krvnej banky pupočníkovej krvi v krajine ${countryCode}. Dnes je ${today}.
 
 Používateľ vyplnil pole "${safeLabel}" (typ: ${safeType}, kľúč: ${fieldKey}) s hodnotou: "${valStr}"
 
@@ -33814,6 +33814,19 @@ DÔLEŽITÉ: Vráť IBA JSON pole, žiadny iný text.`;
     } catch (e: any) {
       console.error("[WebForm AI Validate]", e.message);
       res.json({ suggestions: [] });
+    }
+  });
+
+  app.post("/api/web-forms/:id/laura-avatar", requireAuth, uploadAvatar.single("avatar"), async (req, res) => {
+    try {
+      const form = await storage.getWebForm(req.params.id);
+      if (!form) return res.status(404).json({ error: "Form not found" });
+      if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+      const avatarUrl = `/uploads/avatars/${req.file.filename}`;
+      await storage.updateWebForm(req.params.id, { lauraAvatarUrl: avatarUrl } as any);
+      res.json({ success: true, lauraAvatarUrl: avatarUrl });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
     }
   });
 

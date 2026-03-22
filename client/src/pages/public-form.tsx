@@ -24,6 +24,16 @@ const LANG_LOCALE_MAP: Record<string, string> = {
   sk: "sk-SK", cs: "cs-CZ", hu: "hu-HU", ro: "ro-RO", it: "it-IT", de: "de-DE", en: "en-GB",
 };
 
+const LAURA_TEXTS: Record<string, { badge: string; checking: string }> = {
+  sk: { badge: "Laura je tu pre vás — overujem vaše údaje počas vyplňovania", checking: "Laura overuje..." },
+  cs: { badge: "Laura je tu pro vás — ověřuji vaše údaje během vyplňování", checking: "Laura ověřuje..." },
+  en: { badge: "Laura is here to help — I verify your details as you type", checking: "Laura is checking..." },
+  hu: { badge: "Laura segít önnek — ellenőrzöm az adatait kitöltés közben", checking: "Laura ellenőrzi..." },
+  ro: { badge: "Laura vă ajută — verific datele dvs. în timp ce completați", checking: "Laura verifică..." },
+  it: { badge: "Laura è qui per aiutarti — verifico i tuoi dati mentre compili", checking: "Laura sta verificando..." },
+  de: { badge: "Laura ist für Sie da — ich überprüfe Ihre Daten beim Ausfüllen", checking: "Laura überprüft..." },
+};
+
 function normalizePhone(phone: string, countryCode: string): string {
   if (!phone) return phone;
   let p = phone.replace(/\s+/g, "").replace(/^00/, "+");
@@ -959,7 +969,12 @@ export default function PublicFormPage() {
           {field.isRequired && <span className="text-red-500 ml-1">*</span>}
           {fieldAiLoading && (
             <span className="ml-2 inline-flex items-center gap-1 text-[10px] text-violet-500 font-normal">
-              <Sparkles className="h-3 w-3 animate-pulse" /> AI kontroluje...
+              {config?.form?.lauraAvatarUrl ? (
+                <img src={config.form.lauraAvatarUrl} alt="Laura" className="h-3.5 w-3.5 rounded-full object-cover animate-pulse" />
+              ) : (
+                <Sparkles className="h-3 w-3 animate-pulse" />
+              )}
+              {(LAURA_TEXTS[formLang] || LAURA_TEXTS.en).checking}
             </span>
           )}
         </Label>
@@ -975,7 +990,11 @@ export default function PublicFormPage() {
                 : { bg: "bg-blue-50", border: "border-blue-200", text: "text-blue-700", icon: "text-blue-500" };
               return (
                 <div key={i} className={`flex items-start gap-2 p-2 rounded-lg border ${colors.bg} ${colors.border} animate-in fade-in slide-in-from-top-1 duration-300`}>
-                  <Sparkles className={`h-3.5 w-3.5 shrink-0 mt-0.5 ${colors.icon}`} />
+                  {config?.form?.lauraAvatarUrl ? (
+                    <img src={config.form.lauraAvatarUrl} alt="Laura" className="h-5 w-5 rounded-full object-cover shrink-0 mt-0.5 shadow-sm" />
+                  ) : (
+                    <Sparkles className={`h-3.5 w-3.5 shrink-0 mt-0.5 ${colors.icon}`} />
+                  )}
                   <div className="flex-1 min-w-0">
                     <p className={`text-[11px] leading-relaxed ${colors.text}`}>{s.message}</p>
                     {s.suggestion && (
@@ -1202,11 +1221,15 @@ export default function PublicFormPage() {
   const renderFormContent = () => (
     <>
             {config?.form?.aiAssistantEnabled && (
-              <div className="flex items-center justify-center gap-2 py-2 px-4 rounded-full bg-gradient-to-r from-violet-50 to-purple-50 border border-violet-200 mx-auto w-fit" data-testid="badge-ai-assistant">
-                <div className="h-5 w-5 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
-                  <Sparkles className="h-3 w-3 text-white" />
-                </div>
-                <span className="text-[11px] font-medium text-violet-700">AI Asistent aktívny — pomáham s kontrolou údajov</span>
+              <div className="flex items-center justify-center gap-2 py-2.5 px-5 rounded-full bg-gradient-to-r from-violet-50 to-purple-50 border border-violet-200 mx-auto w-fit shadow-sm" data-testid="badge-ai-assistant">
+                {config.form.lauraAvatarUrl ? (
+                  <img src={config.form.lauraAvatarUrl} alt="Laura" className="h-7 w-7 rounded-full object-cover border border-violet-200 shadow-sm" />
+                ) : (
+                  <div className="h-7 w-7 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-sm">
+                    <Sparkles className="h-3.5 w-3.5 text-white" />
+                  </div>
+                )}
+                <span className="text-[11px] font-medium text-violet-700">{(LAURA_TEXTS[formLang] || LAURA_TEXTS.en).badge}</span>
               </div>
             )}
 

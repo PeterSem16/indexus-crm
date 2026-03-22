@@ -2087,12 +2087,16 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
               <Separator />
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
-                    <Sparkles className="h-4 w-4 text-white" />
-                  </div>
+                  {formData.lauraAvatarUrl ? (
+                    <img src={formData.lauraAvatarUrl} alt="Laura" className="h-8 w-8 rounded-lg object-cover" />
+                  ) : (
+                    <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
+                      <Sparkles className="h-4 w-4 text-white" />
+                    </div>
+                  )}
                   <div>
-                    <h4 className="text-sm font-medium">AI Asistent</h4>
-                    <p className="text-[11px] text-muted-foreground">AI kontroluje správnosť údajov, opravuje preklepy a radí počas vyplňovania</p>
+                    <h4 className="text-sm font-medium">{t.webForms.lauraAssistant}</h4>
+                    <p className="text-[11px] text-muted-foreground">{t.webForms.lauraAssistantDesc}</p>
                   </div>
                 </div>
                 <Switch
@@ -2101,6 +2105,59 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
                   data-testid="switch-ai-assistant"
                 />
               </div>
+              {formData.aiAssistantEnabled && (
+                <div className="ml-10 space-y-2">
+                  <Label className="text-xs">{t.webForms.lauraAvatar}</Label>
+                  <p className="text-[11px] text-muted-foreground">{t.webForms.lauraAvatarDesc}</p>
+                  <div className="flex items-center gap-3">
+                    {formData.lauraAvatarUrl ? (
+                      <div className="relative">
+                        <img src={formData.lauraAvatarUrl} alt="Laura" className="h-14 w-14 rounded-xl object-cover border-2 border-violet-200 shadow-sm" />
+                        <button
+                          type="button"
+                          className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-red-500 text-white flex items-center justify-center hover:bg-red-600"
+                          onClick={() => setFormData({ ...formData, lauraAvatarUrl: null })}
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="h-14 w-14 rounded-xl bg-gradient-to-br from-violet-100 to-purple-100 border-2 border-dashed border-violet-300 flex items-center justify-center">
+                        <Sparkles className="h-5 w-5 text-violet-400" />
+                      </div>
+                    )}
+                    <label className="cursor-pointer">
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/gif,image/webp"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          const fd = new FormData();
+                          fd.append("avatar", file);
+                          try {
+                            const resp = await fetch(`/api/web-forms/${form.id}/laura-avatar`, {
+                              method: "POST",
+                              body: fd,
+                            });
+                            if (resp.ok) {
+                              const data = await resp.json();
+                              setFormData({ ...formData, lauraAvatarUrl: data.lauraAvatarUrl });
+                            }
+                          } catch {}
+                          e.target.value = "";
+                        }}
+                        data-testid="input-laura-avatar"
+                      />
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-50 text-violet-700 text-xs font-medium hover:bg-violet-100 transition-colors border border-violet-200">
+                        <Pencil className="h-3 w-3" />
+                        {formData.lauraAvatarUrl ? "Zmeniť" : "Nahrať"}
+                      </span>
+                    </label>
+                  </div>
+                </div>
+              )}
               <div className="space-y-1">
                 <Label className="text-xs">{t.webForms.successMessage}</Label>
                 <Textarea value={formData.successMessage || ""} onChange={e => setFormData({ ...formData, successMessage: e.target.value })} rows={2} />
