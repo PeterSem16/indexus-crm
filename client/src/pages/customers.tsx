@@ -6574,6 +6574,7 @@ export default function CustomersPage() {
       const serializedData = {
         ...data,
         dateOfBirth: data.dateOfBirth ? data.dateOfBirth.toISOString() : null,
+        expectedDeliveryDate: (data as any).expectedDeliveryDate ? new Date((data as any).expectedDeliveryDate).toISOString() : null,
       };
       return apiRequest("POST", "/api/customers", serializedData);
     },
@@ -6592,6 +6593,7 @@ export default function CustomersPage() {
       const serializedData = {
         ...data,
         dateOfBirth: data.dateOfBirth ? data.dateOfBirth.toISOString() : null,
+        expectedDeliveryDate: (data as any).expectedDeliveryDate ? new Date((data as any).expectedDeliveryDate).toISOString() : null,
       };
       return apiRequest("PATCH", `/api/customers/${serializedData.id}`, serializedData);
     },
