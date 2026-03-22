@@ -33763,6 +33763,10 @@ Return ONLY the JSON object.`
         if (allValues.region) contextFields.push(`Kraj: ${String(allValues.region).slice(0, 100)}`);
         if (allValues.nationalId) contextFields.push(`Rodné číslo: ${String(allValues.nationalId).slice(0, 20)}`);
         if (allValues.birthNumber) contextFields.push(`Rodné číslo: ${String(allValues.birthNumber).slice(0, 20)}`);
+        if (allValues.corrName) contextFields.push(`Korešpondenčná adresa — Meno: ${String(allValues.corrName).slice(0, 100)}`);
+        if (allValues.corrAddress) contextFields.push(`Korešpondenčná adresa — Ulica: ${String(allValues.corrAddress).slice(0, 200)}`);
+        if (allValues.corrCity) contextFields.push(`Korešpondenčná adresa — Mesto: ${String(allValues.corrCity).slice(0, 100)}`);
+        if (allValues.corrPostalCode) contextFields.push(`Korešpondenčná adresa — PSČ: ${String(allValues.corrPostalCode).slice(0, 20)}`);
       }
       const today = new Date().toISOString().split("T")[0];
       const countryCode = form.countryCode || "SK";
@@ -33785,7 +33789,8 @@ Pravidlá kontroly:
 5. PSČ: Pre SK 5-miestne (napr. 81101), pre CZ 5-miestne (napr. 11000). Ak poznáš mesto z kontextu, navrhni správne PSČ.
 6. ADRESA/ULICA: Skontroluj preklepy. Ak poznáš ulicu a mesto, navrhni PSČ cez autoFill.
 7. MESTO: Ak je zadané mesto a poznáš ho, navrhni PSČ cez autoFill (kľúč "postalCode").
-8. RODNÉ ČÍSLO (nationalId/birthNumber): Pre SK/CZ formát XXXXXX/XXXX (6 číslic lomka 3-4 číslice, napr. 690516/9183). Ak chýba lomka, navrhni opravu s lomkou. Skontroluj dátum v prvých 6 čísliciach. Pre HU formát je 11-miestne číslo. Pre iné krajiny skontroluj bežný formát.
+8. KOREŠPONDENČNÁ ADRESA (corrName/corrAddress/corrCity/corrPostalCode): Rovnaké pravidlá ako pre hlavnú adresu. Skontroluj meno, ulicu, mesto, PSČ. Ak poznáš mesto, navrhni PSČ cez autoFill (kľúč "corrPostalCode"). Ak poznáš ulicu a mesto korešpondenčnej adresy, navrhni PSČ.
+9. RODNÉ ČÍSLO (nationalId/birthNumber): Pre SK/CZ formát XXXXXX/XXXX (6 číslic lomka 3-4 číslice, napr. 690516/9183). Ak chýba lomka, navrhni opravu s lomkou. Skontroluj dátum v prvých 6 čísliciach. Pre HU formát je 11-miestne číslo. Pre iné krajiny skontroluj bežný formát.
 
 Každý návrh môže mať aj voliteľné pole:
 - "autoFill": objekt s kľúčmi polí a hodnotami na automatické vyplnenie (napr. {"postalCode": "81101", "city": "Bratislava"}). Použi ak z kontextu vieš doplniť súvisiace polia.

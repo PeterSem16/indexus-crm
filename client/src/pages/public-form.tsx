@@ -570,9 +570,14 @@ export default function PublicFormPage() {
     }
   };
 
+  const corrFieldLabels: Record<string, string> = { corrName: "Meno príjemcu", corrAddress: "Ulica a číslo", corrCity: "Mesto", corrPostalCode: "PSČ" };
+
   const triggerAiValidation = (key: string) => {
     if (!config?.form?.aiAssistantEnabled || !slug) return;
-    const field = fields.find((f: any) => getFieldKey(f) === key);
+    let field = fields.find((f: any) => getFieldKey(f) === key);
+    if (!field && corrFieldLabels[key]) {
+      field = { customerField: key, fieldType: "text", label: corrFieldLabels[key] };
+    }
     if (!field) return;
     const val = formValues[key];
     if (!val || val === "") {
@@ -1475,17 +1480,10 @@ export default function PublicFormPage() {
                                   {renderField(existingField)}
                                 </div>
                               );
+                              const syntheticField = { customerField: cf.key, fieldType: "text", label: cf.label, isRequired: false, columnSpan: cf.span, sortOrder: 0 };
                               return (
                                 <div key={cf.key} className={cf.span > 1 ? "sm:col-span-2" : ""}>
-                                  <div className="space-y-1.5">
-                                    <Label className="text-gray-700" style={labelStyle}>{cf.label}</Label>
-                                    <Input
-                                      value={formValues[cf.key] || ""}
-                                      onChange={e => updateField(cf.key, e.target.value)}
-                                      className="h-10 bg-white border-gray-300 focus:border-2 rounded-lg"
-                                      data-testid={`input-${cf.key}`}
-                                    />
-                                  </div>
+                                  {renderField(syntheticField)}
                                 </div>
                               );
                             })}
