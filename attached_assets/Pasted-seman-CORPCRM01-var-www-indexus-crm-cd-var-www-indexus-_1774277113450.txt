@@ -1,0 +1,83 @@
+seman@CORPCRM01:/var/www/indexus-crm$ cd /var/www/indexus-crm/script/migration && node test-mssql-connection.cjs
+=== ISCBC MSSQL Connection Test ===
+Server: 10.1.2.2\undefined
+Database: CBC
+User: cbcuser
+
+Connecting...
+Connected successfully!
+
+SQL Server Version:
+Microsoft SQL Server 2008 R2 (SP2) - 10.50.4042.0 (X64)
+	Mar 26 2015 21:18:04
+	Copyright (c) Microsoft Corporation
+	Standard Edition (64-bit) on Windows NT 6.1 <X64> (Build 7601: Service Pack 1) (Hypervisor)
+
+
+=== Record Counts ===
+  Clients                                      208360
+  CollaboratorAgreements                        71409
+  Collaborators                                 29856
+  CollectionCollaborators                      344716
+  CollectionEvaluationResults                 9218352
+  CollectionStatuses                               10
+  CollectionTransports                              1
+  Companies                                        15
+  Contacts                                          3
+  Contracts                                    263925
+  ContractServices                            1233748
+  ContractStateHistories                       623707
+  Couriers                                         10
+  ExchangeRates                                 44580
+  Hospitals                                      2227
+  InvoiceItems                                2945755
+  Invoices                                    2792844
+  InvoiceStateHistories                       6586196
+  Laboratories                                      5
+  MailAddresses                               1646998
+  MarketProductInstances                          522
+  MarketProducts                                   59
+  PersonalData                                2070605
+  Persons                                      613055
+  PotentialClients                             285281
+  Products                                          1
+  RealizedPayments                            4159995
+  RecordChanges                                     0
+  Remarks                                     2479266
+  Representants                                   116
+  Rewards                                      145337
+  Rewards3                                          0
+  RewardsCZ                                       315
+  ServiceCollections                           197975
+  ServiceCollectionStateHistories              546373
+  ScheduledPayments                           3285124
+  TOTAL                                      39796741
+
+=== Collection Statuses ===
+  1: REG_CSU_NEW - New
+  2: REG_CSU_WAITING_FOR_CONTRACT - Waiting for contract
+  3: REG_CSU_PAIRED - Paired
+  4: REG_CSU_EVALUATED - Evaluated
+  5: REG_CSU_DOCTOR_EVALUATING - Doctor evaluating
+  6: REG_CSU_WAITING_FOR_DECISION - Waiting for decision
+  7: REG_CSU_GENERATING_CERTIFICATES - Generating certificates
+  8: REG_CSU_STORED - Stored
+  9: REG_CSU_RELEASED - Released
+  10: REG_CSU_TRANSFERRED - Transferred
+
+=== Contract Statuses ===
+  1: REG_CSA_NEW - New
+  2: REG_CSA_FILLED - Filled
+  3: REG_CSA_GENERATED - Generated
+  4: REG_CSA_SENT_PACKAGE - Sent
+  5: REG_CSA_CONFIRMED_RECEPTION - Recepted
+  6: REG_CSA_RETURNED - Returned
+  7: REG_CSA_VALIDATED - Validated
+  8: REG_CSA_REALIZED - Realized
+  9: REG_CSA_CANCELLED - Cancelled
+  10: REG_CSA_TERMINATED - Terminated
+  11: REG_CSA_MOVED - Moved
+
+=== Invoice Statuses ===
+Connection failed: ist is not defined
+seman@CORPCRM01:/var/www/indexus-crm/script/migration$

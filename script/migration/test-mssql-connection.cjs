@@ -110,7 +110,7 @@ async function testConnection() {
       'SELECT ist_id, ist_code, ist_default_name, ist_order FROM InvoiceStatuses ORDER BY ist_order'
     );
     for (const row of iStatuses.recordset) {
-      console.log(`  ${row.ist_id}: ${ist.ist_code} - ${row.ist_default_name}`);
+      console.log(`  ${row.ist_id}: ${row.ist_code} - ${row.ist_default_name}`);
     }
 
     console.log('\n=== Companies (Countries/Entities) ===');
