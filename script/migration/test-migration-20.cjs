@@ -536,7 +536,8 @@ async function step4_collaborators() {
            pd.pda_title_prefix, pd.pda_first_name, pd.pda_last_name,
            pd.pda_maiden_name, pd.pda_title_suffix, pd.pda_birth_date,
            pd.pda_id_number, pd.pda_email, pd.pda_mobile, pd.pda_mobile2,
-           pd.pda_phone_number, pd.pda_other_contact
+           pd.pda_phone_number, pd.pda_other_contact,
+           pd.pda_health_insurance_code, pd.pda_health_insurance_company
     FROM Collaborators d
     LEFT JOIN CollaboratorTypes ct ON ct.cty_id = d.cty_id
     LEFT JOIN PersonalData pd ON pd.per_id = d.per_id AND pd.pda_valid = 1
@@ -574,6 +575,11 @@ async function step4_collaborators() {
     ])
   );
 
+  const healthInsLookup = {};
+  const pgHI = await pgPool.query('SELECT id, code, country_code FROM health_insurance_companies');
+  for (const r of pgHI.rows) healthInsLookup[`${r.code}_${r.country_code}`] = r.id;
+
+  let hiMatched = 0, hiUnmatched = 0;
   let inserted = 0, skipped = 0, errors = 0;
   for (const row of collabs.recordset) {
     try {
@@ -587,6 +593,14 @@ async function step4_collaborators() {
 
       const hospIds = (hospMap[row.doc_id] || []).map(legId => hospitalLookup[legId]).filter(Boolean);
 
+      let healthInsId = null;
+      if (row.pda_health_insurance_code) {
+        const hiKey = `${row.pda_health_insurance_code}_${countryCode}`;
+        healthInsId = healthInsLookup[hiKey] || null;
+        if (healthInsId) hiMatched++;
+        else hiUnmatched++;
+      }
+
       await pgPool.query(`
         INSERT INTO collaborators (
           legacy_id, country_code, country_codes, first_name, last_name,
@@ -595,9 +609,9 @@ async function step4_collaborators() {
           phone, mobile, mobile_2, other_contact, email,
           bank_account_iban, swift_code, ico, dic, ic_dph,
           client_contact, is_active, svet_zdravia, month_rewards,
-          note, collaborator_type, hospital_ids,
+          note, collaborator_type, hospital_ids, health_insurance_id,
           created_at, updated_at
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32)
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33)
       `, [
         String(row.doc_id), countryCode, [countryCode],
         firstName, lastName,
@@ -612,7 +626,7 @@ async function step4_collaborators() {
         row.doc_active === true || row.doc_active === 1,
         row.doc_svet_zdravia === true || row.doc_svet_zdravia === 1,
         row.doc_monthly_rewards === true || row.doc_monthly_rewards === 1,
-        row.doc_note, normalizeCollaboratorType(row.cty_code), hospIds,
+        row.doc_note, normalizeCollaboratorType(row.cty_code), hospIds, healthInsId,
         row.doc_inserted || new Date(), new Date(),
       ]);
       inserted++;
@@ -622,6 +636,7 @@ async function step4_collaborators() {
     }
   }
   log(`\n  → ${inserted} vložených, ${skipped} preskočených, ${errors} chýb`);
+  if (hiMatched || hiUnmatched) log(`  Zdravotné poisťovne: ${hiMatched} priradených, ${hiUnmatched} nenájdených v INDEXUS`);
 }
 
 // ============================================================
@@ -640,12 +655,15 @@ async function step4b_agreements() {
   let agreements;
   try {
     agreements = await mssqlPool.request().query(`
-      SELECT ca.cag_id, ca.doc_id, ca.com_id, ca.cag_contract_number,
-             ca.cag_valid_from, ca.cag_valid_to,
-             ca.cag_sent, ca.cag_returned, ca.cag_valid, ca.cag_inserted,
-             c.com_name, c.com_country_code
+      SELECT ca.cag_id, ca.doc_id, ca.com_id, ca.cag_number,
+             ca.cag_from, ca.cag_to,
+             ca.cag_agreement_sent, ca.cag_agreement_returned,
+             ca.cag_valid, ca.cag_inserted, ca.afo_id,
+             c.com_name, c.com_country_code,
+             af.afo_code
       FROM CollaboratorAgreements ca
       LEFT JOIN Companies c ON c.com_id = ca.com_id
+      LEFT JOIN AgreementForms af ON af.afo_id = ca.afo_id
       WHERE ca.doc_id IN (${docIds.join(',')})
       ORDER BY ca.cag_id DESC
     `);
@@ -659,15 +677,16 @@ async function step4b_agreements() {
   const showLimit = Math.min(10, agreements.recordset.length);
   if (showLimit > 0) {
     table(
-      ['cag_id', 'doc_id', 'Company', 'Contract#', 'ValidFrom', 'ValidTo', 'Sent', 'Returned', 'Valid'],
+      ['cag_id', 'doc_id', 'Company', 'Number', 'From', 'To', 'Sent', 'Returned', 'Valid', 'Form'],
       agreements.recordset.slice(0, showLimit).map(r => [
         r.cag_id, r.doc_id, r.com_name || '—',
-        r.cag_contract_number || '—',
-        r.cag_valid_from ? new Date(r.cag_valid_from).toLocaleDateString('sk') : '—',
-        r.cag_valid_to ? new Date(r.cag_valid_to).toLocaleDateString('sk') : '—',
-        r.cag_sent ? new Date(r.cag_sent).toLocaleDateString('sk') : '—',
-        r.cag_returned ? new Date(r.cag_returned).toLocaleDateString('sk') : '—',
+        r.cag_number || '—',
+        r.cag_from ? new Date(r.cag_from).toLocaleDateString('sk') : '—',
+        r.cag_to ? new Date(r.cag_to).toLocaleDateString('sk') : '—',
+        r.cag_agreement_sent ? new Date(r.cag_agreement_sent).toLocaleDateString('sk') : '—',
+        r.cag_agreement_returned ? new Date(r.cag_agreement_returned).toLocaleDateString('sk') : '—',
         r.cag_valid != null ? String(r.cag_valid) : '—',
+        r.afo_code || '—',
       ])
     );
   }
@@ -681,10 +700,10 @@ async function step4b_agreements() {
       const collaboratorId = collabLookup[String(row.doc_id)];
       if (!collaboratorId) { skipped++; continue; }
 
-      const vFrom = row.cag_valid_from ? new Date(row.cag_valid_from) : null;
-      const vTo = row.cag_valid_to ? new Date(row.cag_valid_to) : null;
-      const sent = row.cag_sent ? new Date(row.cag_sent) : null;
-      const returned = row.cag_returned ? new Date(row.cag_returned) : null;
+      const vFrom = row.cag_from ? new Date(row.cag_from) : null;
+      const vTo = row.cag_to ? new Date(row.cag_to) : null;
+      const sent = row.cag_agreement_sent ? new Date(row.cag_agreement_sent) : null;
+      const returned = row.cag_agreement_returned ? new Date(row.cag_agreement_returned) : null;
 
       await pgPool.query(`
         INSERT INTO collaborator_agreements (
@@ -693,14 +712,15 @@ async function step4b_agreements() {
           valid_to_day, valid_to_month, valid_to_year,
           agreement_sent_day, agreement_sent_month, agreement_sent_year,
           agreement_returned_day, agreement_returned_month, agreement_returned_year,
-          is_valid, created_at
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+          agreement_form, is_valid, created_at
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
       `, [
-        String(row.cag_id), collaboratorId, row.cag_contract_number,
+        String(row.cag_id), collaboratorId, row.cag_number,
         vFrom ? vFrom.getDate() : null, vFrom ? vFrom.getMonth() + 1 : null, vFrom ? vFrom.getFullYear() : null,
         vTo ? vTo.getDate() : null, vTo ? vTo.getMonth() + 1 : null, vTo ? vTo.getFullYear() : null,
         sent ? sent.getDate() : null, sent ? sent.getMonth() + 1 : null, sent ? sent.getFullYear() : null,
         returned ? returned.getDate() : null, returned ? returned.getMonth() + 1 : null, returned ? returned.getFullYear() : null,
+        row.afo_code || null,
         row.cag_valid === true || row.cag_valid === 1,
         row.cag_inserted || new Date(),
       ]);
@@ -915,7 +935,7 @@ async function step6_collections() {
       sc.sco_state_detail, sc.sco_sterility, sc.sco_lab_evaluation, sc.sco_paired, sc.sco_evaluated,
       sc.sco_stored, sc.sco_transferred, sc.sco_released,
       sc.sco_waiting_for_dispose, sc.sco_disposed,
-      sc.sco_doctors_note, sc.sco_note, sc.sco_inserted, sc.sco_updated,
+      sc.sco_doctors_note, sc.sco_note, sc.sco_responsible_coordinator, sc.sco_inserted, sc.sco_updated,
       sc.csu_id, sc.com_id, sc.hos_id,
       h.lab_id as hos_lab_id
     FROM ServiceCollections sc
@@ -964,13 +984,13 @@ async function step6_collections() {
           collection_date, hospital_id,
           cord_blood_collector_id, tissue_collector_id, placenta_collector_id, assistant_nurse_id,
           second_nurse_id,
-          laboratory_id, contract_id,
+          laboratory_id, contract_id, responsible_coordinator_id,
           status, state,
           status_paired_at, status_evaluated_at, status_verified_at,
           status_stored_at, status_transferred_at, status_released_at,
           status_awaiting_disposal_at, status_disposed_at,
           doctor_note, note, created_at, updated_at
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38)
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39)
       `, [
         String(row.sco_id), row.sco_collection_unit_number, countryCode,
         customerId,
@@ -984,7 +1004,7 @@ async function step6_collections() {
         collabLookup[cc.blood] || null, collabLookup[cc.tissue] || null,
         collabLookup[cc.placenta] || null, collabLookup[cc.assistant] || null,
         collabLookup[cc.secondNurse] || null,
-        labId, conId,
+        labId, conId, row.sco_responsible_coordinator || null,
         cbcStatusRemap[row.csu_id] || row.csu_id, String(cbcStatusRemap[row.csu_id] || row.csu_id),
         row.sco_paired, row.sco_lab_evaluation, row.sco_sterility,
         row.sco_stored, row.sco_transferred, row.sco_released,
@@ -1311,6 +1331,7 @@ async function step7_verification() {
     { name: 'Customers (migrated)', query: "SELECT COUNT(*) as cnt FROM customers WHERE internal_id IS NOT NULL" },
     { name: 'Collections (migrated)', query: "SELECT COUNT(*) as cnt FROM collections WHERE legacy_id IS NOT NULL" },
     { name: 'Lab Results (migrated)', query: "SELECT COUNT(*) as cnt FROM collection_lab_results" },
+    { name: 'Agreements (migrated)', query: "SELECT COUNT(*) as cnt FROM collaborator_agreements WHERE collaborator_id IN (SELECT id FROM collaborators WHERE legacy_id IS NOT NULL)" },
     { name: 'Cases (migrated)', query: "SELECT COUNT(*) as cnt FROM customer_potential_cases WHERE customer_id IN (SELECT id FROM customers WHERE internal_id IS NOT NULL)" },
   ];
 
@@ -1393,14 +1414,15 @@ async function step7_verification() {
       COUNT(child_first_name) as with_child_name,
       COUNT(child_gender) as with_child_gender,
       COUNT(doctor_note) as with_doctor_note,
-      COUNT(note) as with_note
+      COUNT(note) as with_note,
+      COUNT(responsible_coordinator_id) as with_coordinator
     FROM collections WHERE legacy_id IS NOT NULL
   `);
   const s = collStats.rows[0];
   log(`  Štatistika priradení (${s.total} odberov):`);
   log(`    hospital=${s.with_hospital}, lab=${s.with_lab}, contract=${s.with_contract}, customer=${s.with_customer}`);
   log(`    blood=${s.with_blood}, tissue=${s.with_tissue}, placenta=${s.with_placenta}, assistant=${s.with_assistant}, 2ndNurse=${s.with_second_nurse}`);
-  log(`    child_name=${s.with_child_name}, child_gender=${s.with_child_gender}, doctor_note=${s.with_doctor_note}, note=${s.with_note}`);
+  log(`    child_name=${s.with_child_name}, child_gender=${s.with_child_gender}, doctor_note=${s.with_doctor_note}, note=${s.with_note}, coordinator=${s.with_coordinator}`);
 
   log('\n--- Cases v INDEXUS ---');
   const cases = await pgPool.query(`
