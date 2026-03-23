@@ -157,6 +157,7 @@ export default function CollectionsPage() {
   const [cbuAiLoading, setCbuAiLoading] = useState(false);
   const [cbuAuditLogs, setCbuAuditLogs] = useState<any[]>([]);
   const [cbuAuditLoading, setCbuAuditLoading] = useState(false);
+  const [cbuVerifiedData, setCbuVerifiedData] = useState<any>(null);
   
   const dateFnsLocale = dateLocales[locale] || enUS;
 
@@ -282,11 +283,14 @@ export default function CollectionsPage() {
   });
 
   const [cbuDownloading, setCbuDownloading] = useState<string | null>(null);
-  const [labOtpStep, setLabOtpStep] = useState<"idle" | "sending" | "verify">("idle");
+  const [labOtpStep, setLabOtpStep] = useState<"idle" | "sending" | "verify" | "results">("idle");
   const [labOtpCode, setLabOtpCode] = useState("");
   const [labOtpReportType, setLabOtpReportType] = useState<"medical" | "full">("medical");
   const [labOtpLang, setLabOtpLang] = useState<"sk" | "en">("sk");
   const [labOtpVerifying, setLabOtpVerifying] = useState(false);
+  const [labVerifiedData, setLabVerifiedData] = useState<any>(null);
+  const [labAiAnalysis, setLabAiAnalysis] = useState<string | null>(null);
+  const [labAiLoading, setLabAiLoading] = useState(false);
 
   const handleDownloadCbuReport = async (reportType: "medical" | "full", language: "sk" | "en") => {
     if (!collectionId || !collection?.cbuNumber) return;
@@ -329,34 +333,63 @@ export default function CollectionsPage() {
         toast({ title: t.common.error, description: data.error, variant: "destructive" });
         return;
       }
-      const byteCharacters = atob(data.file);
-      const byteNumbers = new Array(byteCharacters.length);
-      for (let i = 0; i < byteCharacters.length; i++) {
-        byteNumbers[i] = byteCharacters.charCodeAt(i);
-      }
-      const byteArray = new Uint8Array(byteNumbers);
-      const blob = new Blob([byteArray], { type: data.mimeType });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = data.filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      toast({ title: t.collections?.lab?.reportDownloaded || "Report downloaded" });
-      setLabOtpStep("idle");
-      setLabOtpCode("");
+      setLabVerifiedData(data);
+      setLabOtpStep("results");
+      setLabAiAnalysis(null);
     } catch (error: any) {
-      toast({ title: t.common.error, description: error?.message || "Download failed", variant: "destructive" });
+      toast({ title: t.common.error, description: error?.message || "Verification failed", variant: "destructive" });
     } finally {
       setLabOtpVerifying(false);
+    }
+  };
+
+  const handleLabDownloadXls = () => {
+    if (!labVerifiedData?.file) return;
+    const byteCharacters = atob(labVerifiedData.file);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], { type: labVerifiedData.mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = labVerifiedData.filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast({ title: t.collections?.lab?.reportDownloaded || "Report downloaded" });
+  };
+
+  const handleLabAiAnalysis = async () => {
+    if (!collection?.cbuNumber) return;
+    setLabAiLoading(true);
+    setLabAiAnalysis(null);
+    try {
+      const res = await apiRequest("POST", "/api/cbu-reports/ai-analysis", {
+        cbuNumber: collection.cbuNumber,
+        reportType: labOtpReportType,
+        language: labOtpLang,
+      });
+      const data = await res.json();
+      if (data.error) {
+        toast({ title: t.common.error, description: data.error, variant: "destructive" });
+        return;
+      }
+      setLabAiAnalysis(data.analysis);
+    } catch (error: any) {
+      toast({ title: t.common.error, description: error?.message || "AI analysis failed", variant: "destructive" });
+    } finally {
+      setLabAiLoading(false);
     }
   };
 
   const handleCbuViewerOpen = () => {
     setShowCbuViewer(true);
     setCbuViewerStep("search");
+    setCbuVerifiedData(null);
     setCbuSearchNumber("");
     setCbuPreviewData(null);
     setCbuOtpCode("");
@@ -431,27 +464,34 @@ export default function CollectionsPage() {
         toast({ title: t.common.error, description: data.error, variant: "destructive" });
         return;
       }
-      const byteCharacters = atob(data.file);
-      const byteNumbers = new Array(byteCharacters.length);
-      for (let i = 0; i < byteCharacters.length; i++) {
-        byteNumbers[i] = byteCharacters.charCodeAt(i);
-      }
-      const byteArray = new Uint8Array(byteNumbers);
-      const blob = new Blob([byteArray], { type: data.mimeType });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = data.filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      toast({ title: locale === "sk" ? "Report stiahnutý" : "Report downloaded" });
+      setCbuVerifiedData(data);
+      setCbuViewerStep("preview");
+      setCbuAiAnalysis(null);
     } catch (error: any) {
-      toast({ title: t.common.error, description: error?.message || "Download failed", variant: "destructive" });
+      toast({ title: t.common.error, description: error?.message || "Verification failed", variant: "destructive" });
     } finally {
       setCbuDownloadingOtp(false);
     }
+  };
+
+  const handleCbuDownloadXls = () => {
+    if (!cbuVerifiedData?.file) return;
+    const byteCharacters = atob(cbuVerifiedData.file);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], { type: cbuVerifiedData.mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = cbuVerifiedData.filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast({ title: locale === "sk" ? "Report stiahnutý" : "Report downloaded" });
   };
 
   const handleCbuAiAnalysis = async () => {
@@ -1520,8 +1560,8 @@ export default function CollectionsPage() {
             </div>
             <p className="text-xs text-muted-foreground">
               {locale === "sk"
-                ? "Na váš email bol odoslaný 6-miestny overovací kód. Zadajte ho pre autorizáciu stiahnutia reportu."
-                : "A 6-digit verification code has been sent to your email. Enter it to authorize the report download."}
+                ? "Na váš email bol odoslaný 6-miestny overovací kód. Zadajte ho pre zobrazenie výsledkov."
+                : "A 6-digit verification code has been sent to your email. Enter it to view the results."}
             </p>
             <div className="flex items-center gap-3">
               <Input
@@ -1538,8 +1578,8 @@ export default function CollectionsPage() {
                 disabled={labOtpVerifying || labOtpCode.length !== 6}
                 data-testid="button-lab-otp-verify"
               >
-                {labOtpVerifying ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
-                {locale === "sk" ? "Overiť a stiahnuť" : "Verify & Download"}
+                {labOtpVerifying ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Eye className="h-4 w-4 mr-2" />}
+                {locale === "sk" ? "Overiť a zobraziť" : "Verify & View"}
               </Button>
               <Button
                 variant="ghost"
@@ -1553,11 +1593,141 @@ export default function CollectionsPage() {
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <AlertTriangle className="h-3 w-3" />
               {locale === "sk"
-                ? "Kód je platný 10 minút. Stiahnutie bude zaznamenané v audit logu."
-                : "Code is valid for 10 minutes. Download will be recorded in the audit log."}
+                ? "Kód je platný 10 minút. Prístup bude zaznamenaný v audit logu."
+                : "Code is valid for 10 minutes. Access will be recorded in the audit log."}
             </div>
           </div>
         )}
+
+        {labOtpStep === "results" && labVerifiedData && (() => {
+          const lr = labVerifiedData.labResult || {};
+          const getUsabilityColor = (val: string | null) => {
+            if (!val) return "text-muted-foreground";
+            const v = val.toLowerCase();
+            if (v.includes("použiteľn") || v.includes("usable") || v === "yes" || v === "áno") return "text-green-600 dark:text-green-400";
+            if (v.includes("nepoužiteľ") || v.includes("unusable") || v === "no" || v === "nie") return "text-red-600 dark:text-red-400";
+            return "text-amber-600 dark:text-amber-400";
+          };
+          const getSterilityColor = (val: string | null) => {
+            if (!val) return "text-muted-foreground";
+            const v = val.toLowerCase();
+            if (v.includes("negat") || v.includes("steril") || v === "ok") return "text-green-600 dark:text-green-400";
+            if (v.includes("pozit") || v.includes("posit") || v.includes("kontam")) return "text-red-600 dark:text-red-400";
+            return "text-amber-600 dark:text-amber-400";
+          };
+          const ResultCard = ({ icon, title, children }: { icon: any; title: string; children: any }) => (
+            <div className="border rounded-lg p-4 bg-card">
+              <div className="flex items-center gap-2 mb-3">
+                {icon}
+                <span className="font-medium text-sm">{title}</span>
+              </div>
+              {children}
+            </div>
+          );
+          const ResultRow = ({ label, value, colorFn }: { label: string; value: string | null; colorFn?: (v: string | null) => string }) => (
+            <div className="flex items-center justify-between py-1.5 border-b border-dashed last:border-0">
+              <span className="text-xs text-muted-foreground">{label}</span>
+              <span className={`text-sm font-medium ${colorFn ? colorFn(value) : ""}`}>{value || "—"}</span>
+            </div>
+          );
+
+          return (
+            <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                    <Check className="h-4 w-4 text-green-600 dark:text-green-400" />
+                  </div>
+                  <div>
+                    <span className="text-sm font-medium">{locale === "sk" ? "OTP overené" : "OTP Verified"}</span>
+                    <span className="text-xs text-muted-foreground block">
+                      {labVerifiedData.collection?.clientFirstName} {labVerifiedData.collection?.clientLastName}
+                      {labVerifiedData.collection?.cbuNumber && ` • ${labVerifiedData.collection.cbuNumber}`}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" onClick={handleLabAiAnalysis} disabled={labAiLoading} data-testid="button-lab-results-ai">
+                    {labAiLoading ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Brain className="h-4 w-4 mr-1" />}
+                    AI
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={handleLabDownloadXls} data-testid="button-lab-results-download-xls">
+                    <Download className="h-4 w-4 mr-1" />
+                    XLS
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => { setLabOtpStep("idle"); setLabVerifiedData(null); setLabAiAnalysis(null); setLabOtpCode(""); }}>
+                    {t.common.cancel}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <ResultCard icon={<Stethoscope className="h-4 w-4 text-blue-500" />} title={locale === "sk" ? "Základné parametre" : "Basic Parameters"}>
+                  <ResultRow label={locale === "sk" ? "Objem" : "Volume"} value={lr.volume} />
+                  <ResultRow label="TNC" value={lr.tncCount} />
+                  <ResultRow label={locale === "sk" ? "Použiteľnosť" : "Usability"} value={lr.usability} colorFn={getUsabilityColor} />
+                  <ResultRow label="Status" value={lr.status} />
+                  <ResultRow label={locale === "sk" ? "Objem v bagu" : "Volume in Bag"} value={lr.volumeInBag} />
+                </ResultCard>
+
+                <ResultCard icon={<Microscope className="h-4 w-4 text-purple-500" />} title={locale === "sk" ? "Sterilita" : "Sterility"}>
+                  <ResultRow label={locale === "sk" ? "Sterilita" : "Sterility"} value={lr.sterility} colorFn={getSterilityColor} />
+                  <ResultRow label={locale === "sk" ? "Typ sterility" : "Sterility Type"} value={lr.sterilityType} />
+                  <ResultRow label={locale === "sk" ? "Výsledok" : "Result"} value={lr.resultOfSterility} colorFn={getSterilityColor} />
+                  <ResultRow label={locale === "sk" ? "Výsledok Bag B" : "Result Bag B"} value={lr.resultOfSterilityBagB} colorFn={getSterilityColor} />
+                  <ResultRow label={locale === "sk" ? "Infekčné agens" : "Infection Agents"} value={lr.infectionAgents} />
+                </ResultCard>
+
+                <ResultCard icon={<FlaskConical className="h-4 w-4 text-emerald-500" />} title="Bag A">
+                  <ResultRow label={locale === "sk" ? "Objem" : "Volume"} value={lr.bagAVolume} />
+                  <ResultRow label="TNC" value={lr.bagATnc} />
+                  <ResultRow label={locale === "sk" ? "Použiteľnosť" : "Usability"} value={lr.bagAUsability} colorFn={getUsabilityColor} />
+                </ResultCard>
+
+                <ResultCard icon={<FlaskConical className="h-4 w-4 text-orange-500" />} title="Bag B">
+                  <ResultRow label={locale === "sk" ? "Objem" : "Volume"} value={lr.bagBVolume} />
+                  <ResultRow label="TNC" value={lr.bagBTnc} />
+                  <ResultRow label={locale === "sk" ? "Použiteľnosť" : "Usability"} value={lr.bagBUsability} colorFn={getUsabilityColor} />
+                </ResultCard>
+              </div>
+
+              {(lr.tissueProcessed || lr.tissueSterility || lr.tissueUsability || lr.umbilicalTissue) && (
+                <ResultCard icon={<Heart className="h-4 w-4 text-rose-500" />} title={locale === "sk" ? "Tkanivo" : "Tissue"}>
+                  <div className="grid grid-cols-2 gap-x-6">
+                    <ResultRow label={locale === "sk" ? "Spracované" : "Processed"} value={lr.tissueProcessed} />
+                    <ResultRow label={locale === "sk" ? "Sterilita" : "Sterility"} value={lr.tissueSterility} colorFn={getSterilityColor} />
+                    <ResultRow label={locale === "sk" ? "Použiteľnosť" : "Usability"} value={lr.tissueUsability} colorFn={getUsabilityColor} />
+                    <ResultRow label={locale === "sk" ? "Pupočníkové tkanivo" : "Umbilical Tissue"} value={lr.umbilicalTissue} />
+                  </div>
+                </ResultCard>
+              )}
+
+              {lr.labNote && (
+                <div className="border rounded-lg p-3 bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800">
+                  <div className="flex items-start gap-2">
+                    <Info className="h-4 w-4 mt-0.5 text-amber-600 shrink-0" />
+                    <div>
+                      <span className="text-xs font-medium text-amber-800 dark:text-amber-200">{locale === "sk" ? "Poznámka laboratória" : "Lab Note"}</span>
+                      <p className="text-sm text-amber-700 dark:text-amber-300 mt-0.5">{lr.labNote}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {labAiAnalysis && (
+                <div className="border rounded-lg p-4 bg-violet-50 dark:bg-violet-950/20 border-violet-200 dark:border-violet-800">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Brain className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+                    <span className="text-sm font-medium text-violet-800 dark:text-violet-200">AI {locale === "sk" ? "Analýza" : "Analysis"}</span>
+                  </div>
+                  <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap text-sm leading-relaxed">
+                    {labAiAnalysis}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
       </div>
 
       <div className="flex justify-end pt-4 border-t">
@@ -3268,7 +3438,7 @@ export default function CollectionsPage() {
                     </Button>
                   </div>
 
-                  {cbuPreviewData && (
+                  {cbuPreviewData && !cbuVerifiedData && (
                     <div className="space-y-4">
                       {cbuPreviewData.collection && (
                         <Card className="border-primary/20">
@@ -3305,52 +3475,190 @@ export default function CollectionsPage() {
                         </CardHeader>
                         <CardContent>
                           <div className="bg-muted/50 rounded-lg p-6 text-center border border-dashed">
-                            <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+                            <Shield className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
                             <p className="text-sm font-medium">{cbuPreviewData.filename}</p>
-                            <p className="text-xs text-muted-foreground mt-1">{cbuPreviewData.mimeType}</p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {locale === "sk" ? "Výsledky sú chránené OTP overením" : "Results are protected by OTP verification"}
+                            </p>
                             <div className="flex items-center justify-center gap-3 mt-4">
                               <Button
-                                variant="outline"
                                 size="sm"
                                 onClick={handleCbuRequestOtp}
                                 disabled={cbuOtpSending}
                                 data-testid="button-cbu-request-download"
                               >
-                                {cbuOtpSending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Lock className="h-4 w-4 mr-2" />}
-                                {locale === "sk" ? "Stiahnuť s OTP" : "Download with OTP"}
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={handleCbuAiAnalysis}
-                                disabled={cbuAiLoading}
-                                data-testid="button-cbu-ai-analysis"
-                              >
-                                {cbuAiLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Brain className="h-4 w-4 mr-2" />}
-                                AI {locale === "sk" ? "Analýza" : "Analysis"}
+                                {cbuOtpSending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Eye className="h-4 w-4 mr-2" />}
+                                {locale === "sk" ? "Zobraziť s OTP" : "View with OTP"}
                               </Button>
                             </div>
                           </div>
                         </CardContent>
                       </Card>
-
-                      {cbuAiAnalysis && (
-                        <Card className="border-violet-200 dark:border-violet-800">
-                          <CardHeader className="pb-2">
-                            <CardTitle className="text-base flex items-center gap-2 text-violet-700 dark:text-violet-300">
-                              <Brain className="h-4 w-4" />
-                              AI {locale === "sk" ? "Analýza výsledkov" : "Results Analysis"}
-                            </CardTitle>
-                          </CardHeader>
-                          <CardContent>
-                            <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap text-sm leading-relaxed">
-                              {cbuAiAnalysis}
-                            </div>
-                          </CardContent>
-                        </Card>
-                      )}
                     </div>
                   )}
+
+                  {cbuVerifiedData && (() => {
+                    const lr = cbuVerifiedData.labResult || {};
+                    const col = cbuVerifiedData.collection || cbuPreviewData?.collection || {};
+                    const getUsabilityColor = (val: string | null) => {
+                      if (!val) return "text-muted-foreground";
+                      const v = val.toLowerCase();
+                      if (v.includes("použiteľn") || v.includes("usable") || v === "yes" || v === "áno") return "text-green-600 dark:text-green-400";
+                      if (v.includes("nepoužiteľ") || v.includes("unusable") || v === "no" || v === "nie") return "text-red-600 dark:text-red-400";
+                      return "text-amber-600 dark:text-amber-400";
+                    };
+                    const getSterilityColor = (val: string | null) => {
+                      if (!val) return "text-muted-foreground";
+                      const v = val.toLowerCase();
+                      if (v.includes("negat") || v.includes("steril") || v === "ok") return "text-green-600 dark:text-green-400";
+                      if (v.includes("pozit") || v.includes("posit") || v.includes("kontam")) return "text-red-600 dark:text-red-400";
+                      return "text-amber-600 dark:text-amber-400";
+                    };
+                    const CbuResultRow = ({ label, value, colorFn }: { label: string; value: string | null; colorFn?: (v: string | null) => string }) => (
+                      <div className="flex items-center justify-between py-1.5 border-b border-dashed last:border-0">
+                        <span className="text-xs text-muted-foreground">{label}</span>
+                        <span className={`text-sm font-medium ${colorFn ? colorFn(value) : ""}`}>{value || "—"}</span>
+                      </div>
+                    );
+
+                    return (
+                      <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                              <Check className="h-4 w-4 text-green-600 dark:text-green-400" />
+                            </div>
+                            <div>
+                              <span className="text-sm font-medium">{locale === "sk" ? "OTP overené" : "OTP Verified"}</span>
+                              <span className="text-xs text-muted-foreground block">
+                                {col.clientFirstName} {col.clientLastName}
+                                {col.cbuNumber && ` • ${col.cbuNumber}`}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button variant="outline" size="sm" onClick={handleCbuAiAnalysis} disabled={cbuAiLoading} data-testid="button-cbu-results-ai">
+                              {cbuAiLoading ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Brain className="h-4 w-4 mr-1" />}
+                              AI
+                            </Button>
+                            <Button variant="outline" size="sm" onClick={handleCbuDownloadXls} data-testid="button-cbu-results-download-xls">
+                              <Download className="h-4 w-4 mr-1" />
+                              XLS
+                            </Button>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <Card>
+                            <CardHeader className="pb-2 pt-3 px-4">
+                              <CardTitle className="text-sm flex items-center gap-2">
+                                <Stethoscope className="h-4 w-4 text-blue-500" />
+                                {locale === "sk" ? "Základné parametre" : "Basic Parameters"}
+                              </CardTitle>
+                            </CardHeader>
+                            <CardContent className="px-4 pb-3">
+                              <CbuResultRow label={locale === "sk" ? "Objem" : "Volume"} value={lr.volume} />
+                              <CbuResultRow label="TNC" value={lr.tncCount} />
+                              <CbuResultRow label={locale === "sk" ? "Použiteľnosť" : "Usability"} value={lr.usability} colorFn={getUsabilityColor} />
+                              <CbuResultRow label="Status" value={lr.status} />
+                              <CbuResultRow label={locale === "sk" ? "Objem v bagu" : "Volume in Bag"} value={lr.volumeInBag} />
+                            </CardContent>
+                          </Card>
+
+                          <Card>
+                            <CardHeader className="pb-2 pt-3 px-4">
+                              <CardTitle className="text-sm flex items-center gap-2">
+                                <Microscope className="h-4 w-4 text-purple-500" />
+                                {locale === "sk" ? "Sterilita" : "Sterility"}
+                              </CardTitle>
+                            </CardHeader>
+                            <CardContent className="px-4 pb-3">
+                              <CbuResultRow label={locale === "sk" ? "Sterilita" : "Sterility"} value={lr.sterility} colorFn={getSterilityColor} />
+                              <CbuResultRow label={locale === "sk" ? "Typ sterility" : "Sterility Type"} value={lr.sterilityType} />
+                              <CbuResultRow label={locale === "sk" ? "Výsledok" : "Result"} value={lr.resultOfSterility} colorFn={getSterilityColor} />
+                              <CbuResultRow label={locale === "sk" ? "Výsledok Bag B" : "Result Bag B"} value={lr.resultOfSterilityBagB} colorFn={getSterilityColor} />
+                              <CbuResultRow label={locale === "sk" ? "Infekčné agens" : "Infection Agents"} value={lr.infectionAgents} />
+                            </CardContent>
+                          </Card>
+
+                          <Card>
+                            <CardHeader className="pb-2 pt-3 px-4">
+                              <CardTitle className="text-sm flex items-center gap-2">
+                                <FlaskConical className="h-4 w-4 text-emerald-500" />
+                                Bag A
+                              </CardTitle>
+                            </CardHeader>
+                            <CardContent className="px-4 pb-3">
+                              <CbuResultRow label={locale === "sk" ? "Objem" : "Volume"} value={lr.bagAVolume} />
+                              <CbuResultRow label="TNC" value={lr.bagATnc} />
+                              <CbuResultRow label={locale === "sk" ? "Použiteľnosť" : "Usability"} value={lr.bagAUsability} colorFn={getUsabilityColor} />
+                            </CardContent>
+                          </Card>
+
+                          <Card>
+                            <CardHeader className="pb-2 pt-3 px-4">
+                              <CardTitle className="text-sm flex items-center gap-2">
+                                <FlaskConical className="h-4 w-4 text-orange-500" />
+                                Bag B
+                              </CardTitle>
+                            </CardHeader>
+                            <CardContent className="px-4 pb-3">
+                              <CbuResultRow label={locale === "sk" ? "Objem" : "Volume"} value={lr.bagBVolume} />
+                              <CbuResultRow label="TNC" value={lr.bagBTnc} />
+                              <CbuResultRow label={locale === "sk" ? "Použiteľnosť" : "Usability"} value={lr.bagBUsability} colorFn={getUsabilityColor} />
+                            </CardContent>
+                          </Card>
+                        </div>
+
+                        {(lr.tissueProcessed || lr.tissueSterility || lr.tissueUsability || lr.umbilicalTissue) && (
+                          <Card>
+                            <CardHeader className="pb-2 pt-3 px-4">
+                              <CardTitle className="text-sm flex items-center gap-2">
+                                <Heart className="h-4 w-4 text-rose-500" />
+                                {locale === "sk" ? "Tkanivo" : "Tissue"}
+                              </CardTitle>
+                            </CardHeader>
+                            <CardContent className="px-4 pb-3">
+                              <div className="grid grid-cols-2 gap-x-6">
+                                <CbuResultRow label={locale === "sk" ? "Spracované" : "Processed"} value={lr.tissueProcessed} />
+                                <CbuResultRow label={locale === "sk" ? "Sterilita" : "Sterility"} value={lr.tissueSterility} colorFn={getSterilityColor} />
+                                <CbuResultRow label={locale === "sk" ? "Použiteľnosť" : "Usability"} value={lr.tissueUsability} colorFn={getUsabilityColor} />
+                                <CbuResultRow label={locale === "sk" ? "Pupočníkové tkanivo" : "Umbilical Tissue"} value={lr.umbilicalTissue} />
+                              </div>
+                            </CardContent>
+                          </Card>
+                        )}
+
+                        {lr.labNote && (
+                          <div className="border rounded-lg p-3 bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800">
+                            <div className="flex items-start gap-2">
+                              <Info className="h-4 w-4 mt-0.5 text-amber-600 shrink-0" />
+                              <div>
+                                <span className="text-xs font-medium text-amber-800 dark:text-amber-200">{locale === "sk" ? "Poznámka laboratória" : "Lab Note"}</span>
+                                <p className="text-sm text-amber-700 dark:text-amber-300 mt-0.5">{lr.labNote}</p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {cbuAiAnalysis && (
+                          <Card className="border-violet-200 dark:border-violet-800">
+                            <CardHeader className="pb-2">
+                              <CardTitle className="text-base flex items-center gap-2 text-violet-700 dark:text-violet-300">
+                                <Brain className="h-4 w-4" />
+                                AI {locale === "sk" ? "Analýza výsledkov" : "Results Analysis"}
+                              </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                              <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap text-sm leading-relaxed">
+                                {cbuAiAnalysis}
+                              </div>
+                            </CardContent>
+                          </Card>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </>
               )}
 
@@ -3361,12 +3669,12 @@ export default function CollectionsPage() {
                       <Shield className="h-8 w-8 text-primary" />
                     </div>
                     <h3 className="text-lg font-semibold">
-                      {locale === "sk" ? "OTP overenie pre stiahnutie" : "OTP Verification for Download"}
+                      {locale === "sk" ? "OTP overenie pre zobrazenie výsledkov" : "OTP Verification to View Results"}
                     </h3>
                     <p className="text-sm text-muted-foreground mt-2">
                       {locale === "sk"
-                        ? "Na váš email bol odoslaný 6-miestny overovací kód. Zadajte ho nižšie pre autorizáciu stiahnutia."
-                        : "A 6-digit verification code has been sent to your email. Enter it below to authorize the download."}
+                        ? "Na váš email bol odoslaný 6-miestny overovací kód. Zadajte ho nižšie pre autorizáciu zobrazenia."
+                        : "A 6-digit verification code has been sent to your email. Enter it below to authorize viewing."}
                     </p>
                   </div>
 
@@ -3395,9 +3703,9 @@ export default function CollectionsPage() {
                       {cbuDownloadingOtp ? (
                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                       ) : (
-                        <Download className="h-4 w-4 mr-2" />
+                        <Eye className="h-4 w-4 mr-2" />
                       )}
-                      {locale === "sk" ? "Overiť a stiahnuť" : "Verify & Download"}
+                      {locale === "sk" ? "Overiť a zobraziť" : "Verify & View"}
                     </Button>
 
                     <div className="text-center">

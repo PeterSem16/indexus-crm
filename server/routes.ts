@@ -30650,6 +30650,12 @@ Guidelines:
         return res.status(502).json({ error: labData.error || "LAB API error" });
       }
 
+      let labResults: any[] = [];
+      if (collection) {
+        labResults = await storage.getCollectionLabResultsByCollection(collection.id);
+      }
+      const latestResult = labResults[0] || {};
+
       await db.insert(cbuReportAudit).values({
         userId: user?.id,
         userName: user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() : null,
@@ -30658,7 +30664,7 @@ Guidelines:
         collectionId: collection?.id || null,
         reportType,
         language,
-        action: "download",
+        action: "view_results",
         otpVerified: true,
         ipAddress: req.ip || req.headers["x-forwarded-for"]?.toString() || null,
       });
@@ -30667,6 +30673,39 @@ Guidelines:
         filename: labData.filename,
         mimeType: labData.mime_type,
         file: labData.file,
+        collection: collection ? {
+          id: collection.id,
+          clientFirstName: collection.clientFirstName,
+          clientLastName: collection.clientLastName,
+          cbuNumber: collection.cbuNumber,
+          collectionDate: collection.collectionDate,
+          state: collection.state,
+          countryCode: collection.countryCode,
+        } : null,
+        labResult: {
+          volume: latestResult.volume || null,
+          tncCount: latestResult.tncCount || null,
+          usability: latestResult.usability || null,
+          status: latestResult.status || null,
+          sterility: latestResult.sterility || null,
+          sterilityType: latestResult.sterilityType || null,
+          resultOfSterility: latestResult.resultOfSterility || null,
+          resultOfSterilityBagB: latestResult.resultOfSterilityBagB || null,
+          infectionAgents: latestResult.infectionAgents || null,
+          bagAVolume: latestResult.bagAVolume || null,
+          bagATnc: latestResult.bagATnc || null,
+          bagAUsability: latestResult.bagAUsability || null,
+          bagBVolume: latestResult.bagBVolume || null,
+          bagBTnc: latestResult.bagBTnc || null,
+          bagBUsability: latestResult.bagBUsability || null,
+          tissueProcessed: latestResult.tissueProcessed || null,
+          tissueSterility: latestResult.tissueSterility || null,
+          tissueUsability: latestResult.tissueUsability || null,
+          umbilicalTissue: latestResult.umbilicalTissue || null,
+          volumeInBag: latestResult.volumeInBag || null,
+          resultsDate: latestResult.resultsDate || null,
+          labNote: latestResult.labNote || null,
+        },
       });
     } catch (error) {
       console.error("Error verifying download:", error);
