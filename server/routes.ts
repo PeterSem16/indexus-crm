@@ -30780,21 +30780,14 @@ Return ONLY the JSON object.`
 
   // Zod schema for lab results API request validation
   const labResultApiSchema = z.object({
-    collectionId: z.string().uuid().optional(),
+    collectionId: z.string().optional(),
     externalCollectionRef: z.string().min(1).optional(),
     clientResultId: z.string().min(1).optional(),
     
-    // Required fields
-    resultsDate: dateStringSchema,
-    usability: z.enum(["usable", "unusable", "conditionally_usable", "pending"]),
-    // Status: numeric ID from collection_statuses table (e.g. "5"..."14")
-    // or legacy string values for backwards compatibility
-    status: z.union([
-      z.string().regex(/^\d+$/, "Status must be a numeric ID from collection_statuses table"),
-      z.enum(["pending", "completed", "rejected", "under_review"]),
-    ]),
+    resultsDate: dateStringSchema.optional(),
+    usability: z.string().optional(),
+    status: z.union([z.string(), z.number().transform(String)]).optional(),
     
-    // Optional fields with date validation where applicable
     labNote: z.string().optional(),
     cbu: z.string().optional(),
     collectionFor: z.string().optional(),
@@ -30816,12 +30809,12 @@ Return ONLY the JSON object.`
     infectionAgents: z.string().optional(),
     letterToPediatrician: z.string().optional(),
     finalAnalyses: z.string().optional(),
-    tncCount: z.string().optional(),
-    maxWeight: z.string().optional(),
-    volume: z.string().optional(),
-    volumeInBag: z.string().optional(),
-    volumeInSyringesBagB: z.string().optional(),
-    volumeOfCpdInSyr: z.string().optional(),
+    tncCount: z.union([z.string(), z.number().transform(String)]).optional(),
+    maxWeight: z.union([z.string(), z.number().transform(String)]).optional(),
+    volume: z.union([z.string(), z.number().transform(String)]).optional(),
+    volumeInBag: z.union([z.string(), z.number().transform(String)]).optional(),
+    volumeInSyringesBagB: z.union([z.string(), z.number().transform(String)]).optional(),
+    volumeOfCpdInSyr: z.union([z.string(), z.number().transform(String)]).optional(),
     umbilicalTissue: z.string().optional(),
     tissueProcessed: z.string().optional(),
     tissueSterility: z.string().optional(),
@@ -30830,15 +30823,15 @@ Return ONLY the JSON object.`
     transferredTo: z.string().optional(),
     tissueUsability: z.string().optional(),
     bagAUsability: z.string().optional(),
-    bagAVolume: z.string().optional(),
-    bagATnc: z.string().optional(),
+    bagAVolume: z.union([z.string(), z.number().transform(String)]).optional(),
+    bagATnc: z.union([z.string(), z.number().transform(String)]).optional(),
     bagAAtbSensit: z.string().optional(),
     bagABacteriaRisk: z.string().optional(),
     bagAInfectionAgent: z.string().optional(),
     bagASignificance: z.string().optional(),
     bagBUsability: z.string().optional(),
-    bagBVolume: z.string().optional(),
-    bagBTnc: z.string().optional(),
+    bagBVolume: z.union([z.string(), z.number().transform(String)]).optional(),
+    bagBTnc: z.union([z.string(), z.number().transform(String)]).optional(),
     bagBAtbSensit: z.string().optional(),
     bagBBacteriaRisk: z.string().optional(),
     bagBInfectionAgent: z.string().optional(),
@@ -31297,45 +31290,39 @@ Return ONLY the JSON object.`
   // ========================================
   // Schema for collection updates via external API - all fields optional
   const collectionApiSchema = z.object({
-    // Reference fields (at least one required for updates)
-    collectionId: z.string().uuid().optional(),
-    externalCollectionRef: z.string().min(1).optional(), // CBU number
+    collectionId: z.string().optional(),
+    externalCollectionRef: z.string().min(1).optional(),
     
-    // Company and product
     legacyId: z.string().optional(),
     cbuNumber: z.string().optional(),
-    billingCompanyId: z.string().uuid().optional(),
-    productId: z.string().uuid().optional(),
-    billsetId: z.string().uuid().optional(),
-    countryCode: z.string().length(2).optional(),
+    billingCompanyId: z.string().optional(),
+    productId: z.string().optional(),
+    billsetId: z.string().optional(),
+    countryCode: z.string().optional(),
     
-    // Client (Klientka)
-    customerId: z.string().uuid().optional(),
+    customerId: z.string().optional(),
     clientFirstName: z.string().optional(),
     clientLastName: z.string().optional(),
     clientPhone: z.string().optional(),
     clientMobile: z.string().optional(),
     clientBirthNumber: z.string().optional(),
-    clientBirthDay: z.number().min(1).max(31).optional(),
-    clientBirthMonth: z.number().min(1).max(12).optional(),
-    clientBirthYear: z.number().min(1900).max(2100).optional(),
+    clientBirthDay: z.union([z.number(), z.string().transform(Number)]).optional(),
+    clientBirthMonth: z.union([z.number(), z.string().transform(Number)]).optional(),
+    clientBirthYear: z.union([z.number(), z.string().transform(Number)]).optional(),
     
-    // Child (Dieta)
     childFirstName: z.string().optional(),
     childLastName: z.string().optional(),
-    childGender: z.enum(["male", "female", "M", "F", "m", "f"]).optional(),
+    childGender: z.string().optional(),
     
-    // Collection (Odber) - staff IDs
     collectionDate: dateStringSchema.optional(),
-    hospitalId: z.string().uuid().optional(),
-    cordBloodCollectorId: z.string().uuid().optional(),
-    tissueCollectorId: z.string().uuid().optional(),
-    placentaCollectorId: z.string().uuid().optional(),
-    assistantNurseId: z.string().uuid().optional(),
-    secondNurseId: z.string().uuid().optional(),
-    representativeId: z.string().uuid().optional(),
+    hospitalId: z.string().optional(),
+    cordBloodCollectorId: z.string().optional(),
+    tissueCollectorId: z.string().optional(),
+    placentaCollectorId: z.string().optional(),
+    assistantNurseId: z.string().optional(),
+    secondNurseId: z.string().optional(),
+    representativeId: z.string().optional(),
     
-    // Status dates
     statusCreatedAt: dateStringSchema.optional(),
     statusPairedAt: dateStringSchema.optional(),
     statusEvaluatedAt: dateStringSchema.optional(),
@@ -31346,20 +31333,41 @@ Return ONLY the JSON object.`
     statusAwaitingDisposalAt: dateStringSchema.optional(),
     statusDisposedAt: dateStringSchema.optional(),
     
-    // State and certificate
     state: z.string().optional(),
     certificate: z.string().optional(),
-    laboratoryId: z.string().uuid().optional(),
-    responsibleCoordinatorId: z.string().uuid().optional(),
-    contractId: z.string().uuid().optional(),
+    laboratoryId: z.string().optional(),
+    responsibleCoordinatorId: z.string().optional(),
+    contractId: z.string().optional(),
     
-    // Status code (numeric ID from collection_statuses table)
     status: z.union([z.number().int(), z.string().regex(/^\d+$/).transform(Number)]).optional(),
     
-    // Notes
     doctorNote: z.string().optional(),
     note: z.string().optional(),
   });
+
+  const collectionAllowedFields = new Set([
+    'legacyId', 'cbuNumber', 'billingCompanyId', 'productId', 'billsetId', 'countryCode',
+    'customerId', 'clientFirstName', 'clientLastName', 'clientPhone', 'clientMobile',
+    'clientBirthNumber', 'clientBirthDay', 'clientBirthMonth', 'clientBirthYear',
+    'childFirstName', 'childLastName', 'childGender',
+    'collectionDate', 'hospitalId', 'cordBloodCollectorId', 'tissueCollectorId',
+    'placentaCollectorId', 'assistantNurseId', 'secondNurseId', 'representativeId',
+    'statusCreatedAt', 'statusPairedAt', 'statusEvaluatedAt', 'statusVerifiedAt',
+    'statusStoredAt', 'statusTransferredAt', 'statusReleasedAt',
+    'statusAwaitingDisposalAt', 'statusDisposedAt',
+    'state', 'certificate', 'laboratoryId', 'responsibleCoordinatorId', 'contractId',
+    'status', 'doctorNote', 'note'
+  ]);
+
+  const filterCollectionFields = (data: any) => {
+    const filtered: any = {};
+    for (const key of Object.keys(data)) {
+      if (collectionAllowedFields.has(key)) {
+        filtered[key] = data[key];
+      }
+    }
+    return filtered;
+  };
 
   // Helper to parse dates in collection data
   const parseCollectionDates = (data: any) => {
@@ -31403,9 +31411,18 @@ Return ONLY the JSON object.`
         });
       }
 
+      const labResults = await storage.getCollectionLabResultsByCollection(collection.id);
+      const latestLabResult = labResults.length > 0 ? labResults[0] : null;
+
       res.json({
         success: true,
-        data: collection
+        data: {
+          id: collection.id,
+          cbu: collection.cbuNumber,
+          collection,
+          labResult: latestLabResult,
+          labResults
+        }
       });
 
     } catch (error) {
@@ -31446,9 +31463,18 @@ Return ONLY the JSON object.`
         });
       }
 
+      const labResults = await storage.getCollectionLabResultsByCollection(collection.id);
+      const latestLabResult = labResults.length > 0 ? labResults[0] : null;
+
       res.json({
         success: true,
-        data: collection
+        data: {
+          id: collection.id,
+          cbu: collection.cbuNumber,
+          collection,
+          labResult: latestLabResult,
+          labResults
+        }
       });
 
     } catch (error) {
@@ -31507,7 +31533,7 @@ Return ONLY the JSON object.`
       }
 
       const { collectionId, externalCollectionRef, ...updateData } = parseResult.data;
-      const parsedData = parseCollectionDates(updateData);
+      const parsedData = filterCollectionFields(parseCollectionDates(updateData));
 
       const result = await storage.updateCollection(req.params.id, parsedData);
 
@@ -31515,9 +31541,10 @@ Return ONLY the JSON object.`
         success: true,
         data: {
           id: result?.id,
+          cbu: (result as any)?.cbuNumber || null,
           updatedAt: result?.updatedAt
         },
-        message: "Collection updated successfully"
+        message: "Collection updated"
       });
 
     } catch (error) {
@@ -31532,7 +31559,88 @@ Return ONLY the JSON object.`
     }
   });
 
-  // POST /api/v1/collections - Create new collection (all fields optional except countryCode)
+  // PATCH /api/v1/collections - Update collection by body (cbuNumber or deliveryId)
+  app.patch("/api/v1/collections", requireApiKey, async (req, res) => {
+    try {
+      const apiKey = (req as any).apiKey;
+      if (!hasPermission(apiKey, "lab_results:write")) {
+        return res.status(403).json({
+          success: false,
+          error: {
+            code: "FORBIDDEN",
+            message: "API key does not have lab_results:write permission"
+          }
+        });
+      }
+
+      const { cbuNumber, deliveryId, collectionId: bodyCollectionId, ...bodyData } = req.body;
+
+      let existing: any = null;
+      if (bodyCollectionId) {
+        existing = await storage.getCollection(bodyCollectionId);
+      }
+      if (!existing && deliveryId) {
+        existing = await storage.getCollection(deliveryId);
+        if (!existing) existing = await storage.getCollectionByLegacyId(String(deliveryId));
+      }
+      if (!existing && cbuNumber) {
+        existing = await storage.getCollectionByCbuNumber(cbuNumber);
+      }
+
+      if (!existing) {
+        return res.status(404).json({
+          success: false,
+          error: {
+            code: "COLLECTION_NOT_FOUND",
+            message: "Collection not found by cbuNumber, deliveryId, or collectionId"
+          }
+        });
+      }
+
+      const parseResult = collectionApiSchema.partial().safeParse(bodyData);
+      if (!parseResult.success) {
+        const errors = parseResult.error.errors.map((e: any) => ({
+          field: e.path.join("."),
+          message: e.message
+        }));
+        return res.status(422).json({
+          success: false,
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "Validation failed",
+            details: errors
+          }
+        });
+      }
+
+      const { collectionId: _cid, externalCollectionRef: _ecr, ...updateFields } = parseResult.data;
+      const parsedData = filterCollectionFields(parseCollectionDates(updateFields));
+
+      const result = await storage.updateCollection(existing.id, parsedData);
+
+      res.json({
+        success: true,
+        data: {
+          id: result?.id,
+          cbu: (result as any)?.cbuNumber || existing.cbuNumber || null,
+          updatedAt: result?.updatedAt
+        },
+        message: "Collection updated"
+      });
+
+    } catch (error) {
+      console.error("Error updating collection by body:", error);
+      res.status(500).json({
+        success: false,
+        error: {
+          code: "INTERNAL_ERROR",
+          message: "Failed to update collection"
+        }
+      });
+    }
+  });
+
+  // POST /api/v1/collections - Create new collection
   app.post("/api/v1/collections", requireApiKey, async (req, res) => {
     try {
       const apiKey = (req as any).apiKey;
@@ -31546,18 +31654,13 @@ Return ONLY the JSON object.`
         });
       }
 
-      // For creation, countryCode is required
-      const createSchema = collectionApiSchema.extend({
-        countryCode: z.string().length(2)
-      });
-
-      const parseResult = createSchema.safeParse(req.body);
+      const parseResult = collectionApiSchema.safeParse(req.body);
       if (!parseResult.success) {
         const errors = parseResult.error.errors.map(e => ({
           field: e.path.join("."),
           message: e.message
         }));
-        return res.status(400).json({
+        return res.status(422).json({
           success: false,
           error: {
             code: "VALIDATION_ERROR",
@@ -31567,8 +31670,35 @@ Return ONLY the JSON object.`
         });
       }
 
-      const { collectionId, externalCollectionRef, ...createData } = parseResult.data;
-      const parsedData = parseCollectionDates(createData);
+      const { collectionId, externalCollectionRef, cbuNumber, ...createData } = parseResult.data;
+
+      if (cbuNumber) {
+        const existingByCbu = await storage.getCollectionByCbuNumber(cbuNumber);
+        if (existingByCbu) {
+          const parsedData = filterCollectionFields(parseCollectionDates(createData));
+          const result = await storage.updateCollection(existingByCbu.id, parsedData);
+          return res.json({
+            success: true,
+            data: {
+              id: result?.id || existingByCbu.id,
+              cbu: cbuNumber,
+            },
+            message: "Collection updated (existing CBU)"
+          });
+        }
+      }
+
+      if (!createData.countryCode && !((parseResult.data as any).countryCode)) {
+        return res.status(422).json({
+          success: false,
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "countryCode is required for creating a new collection"
+          }
+        });
+      }
+
+      const parsedData = filterCollectionFields(parseCollectionDates({ ...createData, cbuNumber }));
 
       const result = await storage.createCollection(parsedData as any);
 
@@ -31576,10 +31706,10 @@ Return ONLY the JSON object.`
         success: true,
         data: {
           id: result.id,
-          cbuNumber: result.cbuNumber,
+          cbu: result.cbuNumber || cbuNumber || null,
           createdAt: result.createdAt
         },
-        message: "Collection created successfully"
+        message: "Collection created"
       });
 
     } catch (error) {

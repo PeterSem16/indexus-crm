@@ -1,0 +1,240 @@
+LAB - Indexus sync
+
+Follow
+1
+
+Edit
+
+
+Pavlicko David
+15. 3.
+Indexus sync – developer guide
+This document describes how the LAB app integrates with the Indexus external API: inbound sync (Indexus → LAB), outbound sync (LAB → Indexus), endpoints, and parameters.
+
+Overview
+| Direction | Description |
+
+|-----------|-------------|
+
+| Inbound | Indexus calls this app to create or update deliveries. Requests hit /api/indexus/*. Saves from these requests do not trigger outbound sync (avoids circular sync). |
+
+| Outbound | When a delivery is created or updated inside this app (e.g. via the delivery form), the app syncs the delivery to Indexus (collections + lab results). |
+
+Authentication
+Inbound (Indexus → LAB)
+All /api/indexus/* routes require a Bearer token in the Authorization header.
+
+The token must equal INDEXUS_API_KEY from .env (same key used for outbound calls).
+
+```http
+
+Authorization: Bearer YOUR_INDEXUS_API_KEY
+
+```
+
+Outbound (LAB → Indexus)
+This app uses the same INDEXUS_API_KEY as Bearer token when calling the Indexus API.
+
+If INDEXUS_API_KEY is empty, outbound sync is skipped (no-op).
+
+Inbound API (this app)
+Base URL: your LAB app, e.g. https://your-lab-app.example.com
+
+Prefix: /api/indexus
+
+Middleware: indexus.api (Bearer token check)
+
+All responses are JSON.
+
+Endpoints
+
+| Method | Path | Description |
+
+|--------|------|-------------|
+
+| GET | /api/indexus/collections/{id} | Get delivery by LAB collection/delivery ID (numeric). |
+
+| GET | /api/indexus/collections/by-cbu?cbu={cbu} | Get delivery by CBU number (unique). |
+
+| POST | /api/indexus/collections | Create a new delivery. If cbuNumber is sent and already exists, an update is performed instead. |
+
+| PATCH | /api/indexus/collections/{id} | Update delivery by ID. |
+
+| PATCH | /api/indexus/collections | Update by body: deliveryId or cbuNumber (and optionally lab_id). |
+
+GET – parameters and response
+
+By ID: path parameter id (integer).
+
+By CBU: query parameter cbu (string).
+
+Response (200):
+
+
+ 
+{
+
+  "id": 194245,
+
+  "cbu": "0114502189",
+
+  "collection": { ... },
+
+  "labResult": { ... }
+
+}
+
+collection and labResult are in Indexus API shape (same structure used for outbound sync).
+
+Errors: 404 – delivery not found; 401 – missing/invalid Bearer token; 503 – inbound API not configured (no INDEXUS_API_KEY).
+
+POST (create) – request body
+
+Required:
+
+| Parameter    | Type    | Description |
+
+|-------------|---------|-------------|
+
+| lab_id    | integer | Lab ID: 1, 2, 3, or 4. |
+
+Optional (flat or under collection / labResult):
+
+| Parameter              | Type    | Maps to / notes |
+
+|------------------------|---------|------------------|
+
+| cbuNumber            | string  | If provided and an existing delivery has this CBU, update is performed instead of create. |
+
+| clientFirstName      | string  | dodanie.meno_matky |
+
+| clientLastName       | string  | dodanie.priezvisko_matky |
+
+| clientBirthNumber    | string  | dodanie.rodne_cislo |
+
+| collectionDate       | date/ISO8601 | rozpis.datum_porodu (+ time → cas_porodu) |
+
+| status               | integer | rozpis.aktualny_stav (FK; invalid IDs are stripped) |
+
+| odobrane_pre         | integer | dodanie.transplantat_odobrany_pre (FK to dodavatel_firma) |
+
+| transplantat_odobrany_pre | integer | Same as odobrane_pre |
+
+| datum_dorucenia      | date/ISO8601 | rozpis.datum_dorucenia |
+
+| deliveryDate         | date/ISO8601 | Same as datum_dorucenia |
+
+| cas_dorucenia        | string (e.g. HH:MM) | rozpis.cas_dorucenia |
+
+| deliveryTime         | string  | Same as cas_dorucenia |
+
+| note / labNote     | string  | rozpis.poznamka |
+
+| collection           | object  | Merged with root for field mapping. |
+
+| labResult            | object  | Merged with root for field mapping. |
+
+On create, the API sets defaults so the new delivery appears in the delivery list:
+
+sec_cislo – from lab + next CBU sequence (legacy SK format for lab 1).
+
+zaevidovane – today’s date.
+
+datum_spracovania – from payload or datum_porodu or today.
+
+CBU is generated from the next sequence for the given lab_id; it is not taken from the body on create (unless an update is done because cbuNumber matched).
+
+Response (201):
+
+
+ 
+{
+
+  "id": 194245,
+
+  "cbu": "0114502189",
+
+  "message": "Delivery created"
+
+}
+
+Errors: 422 – validation errors (e.g. invalid lab_id); 500 – server error (e.g. DB constraint).
+
+PATCH (update) – request body
+
+Delivery to update is identified by:
+
+Route path id (e.g. /api/indexus/collections/194245), or
+
+Body deliveryId, or
+
+Body cbuNumber (and optionally lab_id to narrow search).
+
+Optional (same field names as POST):
+
+clientFirstName, clientLastName, clientBirthNumber, collectionDate, status, odobrane_pre, transplantat_odobrany_pre, datum_dorucenia, deliveryDate, cas_dorucenia, collection, labResult, etc.
+
+Only sent fields are mapped and updated; invalid FK values are filtered out.
+
+Response (200):
+
+
+ 
+{
+
+  "id": 194245,
+
+  "cbu": "0114502189",
+
+  "message": "Delivery updated"
+
+}
+
+Errors: 404 – delivery not found; 422 – validation errors; 500 – server error.
+
+Outbound sync (LAB → Indexus)
+When: After a delivery (Dodanie) or its related rozpis (RozpisDodania) is saved from within the app (e.g. delivery form). Sync is deferred to the end of the request; at most one sync per delivery per request.
+
+Skipped when: The save was triggered by an inbound Indexus request. The app sets an internal flag (indexus_inbound_sync) so that SyncsToIndexusApi does not run, avoiding circular sync.
+
+What it does:
+
+1. Collection: Ensure the collection exists in Indexus (GET by CBU; if 404, POST create; else PATCH update).
+
+2. Lab result: POST to Indexus /lab-results (or PATCH if 409 DUPLICATE_RESULT).
+
+Config: Uses INDEXUS_API_KEY, INDEXUS_BASE_URL, INDEXUS_VERIFY_SSL. If INDEXUS_API_KEY is empty, outbound sync is a no-op.
+Implementation: App\Traits\SyncsToIndexusApi on Dodanie and RozpisDodania; App\Services\IndexusApiService::syncDelivery().
+
+Field mapping (summary)
+Inbound: IndexusApiService::mapInboundPayloadToDelivery() maps request body (flat or collection/labResult) to dodanie and rozpis arrays. Dates/times are parsed from ISO8601; status → aktualny_stav; odobrane_pre → transplantat_odobrany_pre; sterility/usability strings are mapped to DB IDs.
+
+Outbound: IndexusApiService::buildSyncFields() builds collection and labResult payloads from Dodanie + RozpisDodania for Indexus POST/PATCH. Full mapping lives in that method.
+
+Foreign keys (aktualny_stav, transplantat_odobrany_pre, sterility, usability, etc.) are validated on inbound; values that do not exist in the referenced tables are removed before create/update to avoid FK errors.
+
+Configuration
+| Env variable          | Description |
+
+|-----------------------|-------------|
+
+| INDEXUS_API_KEY     | Bearer token: used for inbound auth (Indexus calling this app) and outbound calls (this app calling Indexus). Required for both. |
+
+| INDEXUS_BASE_URL    | Indexus API base URL (default: https://indexus.cordbloodcenter.com/api/v1). |
+
+| INDEXUS_VERIFY_SSL  | Set to false only for local/dev if needed (e.g. SSL cert issues). |
+
+| INDEXUS_CBU_PREFIX  | Optional prefix for CBU sent to Indexus (e.g. CBU-). |
+
+Config is under config/services.php → indexus.
+
+Postman
+Use the included collection and environment for manual testing:
+
+Collection: postman/Indexus-Sync-LAB.postman_collection.json
+- Inbound: GET by ID/CBU, POST create, PATCH update by ID or CBU.
+
+- Outbound: examples for calling the external Indexus API (GET/POST/PATCH collections and lab-results).
+
+Environment: postman/Indexus-Sync-LAB.postman_environment.json
+Set lab_app_base_url (this app) and INDEXUS_API_KEY (Bearer token).

@@ -1,0 +1,319 @@
+{
+  "info": {
+    "_postman_id": "indexus-sync-lab-001",
+    "name": "Indexus Sync (LAB App)",
+    "description": "External Indexus synchronization: **Inbound** (Indexus → this app: POST/PATCH collections on this app) and **Outbound** (this app → Indexus: GET/POST/PATCH collections and lab-results on Indexus API).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "lab_app_base_url",
+      "value": "http://127.0.0.1:8000",
+      "type": "string"
+    },
+    {
+      "key": "indexus_base_url",
+      "value": "https://indexus.cordbloodcenter.com/api/v1",
+      "type": "string"
+    },
+    {
+      "key": "indexus_api_key",
+      "value": "{{INDEXUS_API_KEY}}",
+      "type": "string"
+    },
+    {
+      "key": "collection_id",
+      "value": "194245",
+      "type": "string"
+    },
+    {
+      "key": "cbu_number",
+      "value": "0114502189",
+      "type": "string"
+    },
+    {
+      "key": "indexus_collection_id",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Inbound (Indexus → LAB)",
+      "description": "Indexus calls **this app** to create or update deliveries. Uses Bearer token (INDEXUS_API_KEY). Saves do not trigger outbound sync back to Indexus.",
+      "item": [
+        {
+          "name": "Get collection by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{indexus_api_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{lab_app_base_url}}/api/indexus/collections/{{collection_id}}",
+              "host": ["{{lab_app_base_url}}"],
+              "path": ["api", "indexus", "collections", "{{collection_id}}"]
+            },
+            "description": "Get a collection by LAB collection_id. Returns id, cbu, collection (Indexus shape), and labResult."
+          }
+        },
+        {
+          "name": "Get collection by CBU",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{indexus_api_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{lab_app_base_url}}/api/indexus/collections/by-cbu?cbu={{cbu_number}}",
+              "host": ["{{lab_app_base_url}}"],
+              "path": ["api", "indexus", "collections", "by-cbu"],
+              "query": [
+                {
+                  "key": "cbu",
+                  "value": "{{cbu_number}}"
+                }
+              ]
+            },
+            "description": "Get a delivery by CBU number (unique). Query: cbu. Returns id, cbu, collection, and labResult."
+          }
+        },
+        {
+          "name": "Create delivery (store)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{indexus_api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"lab_id\": 1,\n  \"clientFirstName\": \"Maria\",\n  \"clientLastName\": \"Testova\",\n  \"clientBirthNumber\": \"9501011234\",\n  \"collectionDate\": \"2025-03-15T10:30:00Z\",\n  \"datum_dorucenia\": \"2025-03-16\",\n  \"cas_dorucenia\": \"14:00\",\n  \"odobrane_pre\": 14,\n  \"status\": 1,\n  \"note\": \"Inbound test from Postman\"\n}"
+            },
+            "url": {
+              "raw": "{{lab_app_base_url}}/api/indexus/collections",
+              "host": ["{{lab_app_base_url}}"],
+              "path": ["api", "indexus", "collections"]
+            },
+            "description": "Create a new delivery in LAB. Required: `lab_id` (1–4). Optional: `cbuNumber` (if existing, performs update instead), `odobrane_pre` (transplantat_odobrany_pre, FK to dodavatel_firma), `datum_dorucenia` / `deliveryDate`, `cas_dorucenia` / `deliveryTime`. The API sets `sec_cislo`, `zaevidovane`, and `datum_spracovania` (from payload or defaults) so the new delivery appears in the /delivery list. Payload can be flat or nested under `collection` / `labResult`."
+          }
+        },
+        {
+          "name": "Update delivery by ID",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{indexus_api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clientFirstName\": \"Maria\",\n  \"clientLastName\": \"Testova Updated\",\n  \"clientBirthNumber\": \"9501011234\",\n  \"collectionDate\": \"2025-03-15T10:30:00Z\",\n  \"datum_dorucenia\": \"2025-03-16\",\n  \"cas_dorucenia\": \"14:00\",\n  \"odobrane_pre\": 14,\n  \"status\": 2,\n  \"note\": \"Updated via inbound API\",\n  \"volume\": 85.5,\n  \"tncCount\": \"1.2e8\",\n  \"resultOfSterility\": \"negative\",\n  \"usability\": \"usable\"\n}"
+            },
+            "url": {
+              "raw": "{{lab_app_base_url}}/api/indexus/collections/{{collection_id}}",
+              "host": ["{{lab_app_base_url}}"],
+              "path": ["api", "indexus", "collections", "{{collection_id}}"]
+            },
+            "description": "Update an existing collection by LAB collection_id (route parameter). Set `collection_id` variable."
+          }
+        },
+        {
+          "name": "Update delivery by CBU (body)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{indexus_api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cbuNumber\": \"{{cbu_number}}\",\n  \"lab_id\": 1,\n  \"datum_dorucenia\": \"2025-03-16\",\n  \"cas_dorucenia\": \"14:00\",\n  \"odobrane_pre\": 14,\n  \"status\": 2,\n  \"note\": \"Updated by CBU\",\n  \"volume\": 90,\n  \"resultOfSterility\": \"negative\"\n}"
+            },
+            "url": {
+              "raw": "{{lab_app_base_url}}/api/indexus/collections",
+              "host": ["{{lab_app_base_url}}"],
+              "path": ["api", "indexus", "collections"]
+            },
+            "description": "Update an existing delivery by CBU (and optional lab_id) in the request body. No ID in URL."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Outbound (LAB → Indexus)",
+      "description": "**This app** calls the Indexus external API to sync collections and lab results. Uses same Bearer token (INDEXUS_API_KEY). These are the endpoints IndexusApiService uses when syncing a delivery.",
+      "item": [
+        {
+          "name": "Get collection by CBU",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{indexus_api_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{indexus_base_url}}/collections/by-cbu/{{cbu_number}}",
+              "host": ["{{indexus_base_url}}"],
+              "path": ["collections", "by-cbu", "{{cbu_number}}"]
+            },
+            "description": "Check if a collection exists in Indexus by CBU. Returns 404 if not found. Used before create/update."
+          }
+        },
+        {
+          "name": "Create collection",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{indexus_api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"countryCode\": \"SK\",\n  \"cbuNumber\": \"{{cbu_number}}\",\n  \"clientFirstName\": \"Maria\",\n  \"clientLastName\": \"Testova\",\n  \"clientBirthNumber\": \"9501011234\",\n  \"collectionDate\": \"2025-03-15T10:30:00.000Z\",\n  \"state\": \"evaluated\",\n  \"status\": 1,\n  \"note\": \"Outbound test\",\n  \"childFirstName\": \"Child\",\n  \"childLastName\": \"Example\",\n  \"childGender\": \"female\"\n}"
+            },
+            "url": {
+              "raw": "{{indexus_base_url}}/collections",
+              "host": ["{{indexus_base_url}}"],
+              "path": ["collections"]
+            },
+            "description": "Create a new collection in Indexus. Requires countryCode and cbuNumber. Response includes data.id for the new collection."
+          }
+        },
+        {
+          "name": "Update collection",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{indexus_api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clientFirstName\": \"Maria\",\n  \"clientLastName\": \"Testova Updated\",\n  \"clientBirthNumber\": \"9501011234\",\n  \"collectionDate\": \"2025-03-15T10:30:00.000Z\",\n  \"state\": \"evaluated\",\n  \"status\": 2,\n  \"note\": \"Updated via outbound sync\"\n}"
+            },
+            "url": {
+              "raw": "{{indexus_base_url}}/collections/{{indexus_collection_id}}",
+              "host": ["{{indexus_base_url}}"],
+              "path": ["collections", "{{indexus_collection_id}}"]
+            },
+            "description": "Update an existing collection in Indexus by its UUID. Set indexus_collection_id from Get by CBU or Create response (data.id)."
+          }
+        },
+        {
+          "name": "Create lab result",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{indexus_api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"collectionId\": \"{{indexus_collection_id}}\",\n  \"externalCollectionRef\": \"{{cbu_number}}\",\n  \"clientResultId\": \"LAB-1\",\n  \"cbu\": \"{{cbu_number}}\",\n  \"resultsDate\": \"2025-03-15T12:00:00.000Z\",\n  \"usability\": \"usable\",\n  \"status\": \"1\",\n  \"firstName\": \"Maria\",\n  \"surname\": \"Testova\",\n  \"idBirthNumber\": \"9501011234\",\n  \"dateOfCollection\": \"2025-03-15\",\n  \"timeOfCollection\": \"10:30\",\n  \"volume\": \"85\",\n  \"tncCount\": \"1.2e8\",\n  \"resultOfSterility\": \"negative\",\n  \"sterility\": \"negative\"\n}"
+            },
+            "url": {
+              "raw": "{{indexus_base_url}}/lab-results",
+              "host": ["{{indexus_base_url}}"],
+              "path": ["lab-results"]
+            },
+            "description": "Create a lab result linked to a collection. Requires collectionId, clientResultId, cbu. On 409 DUPLICATE_RESULT, use PATCH lab result with existingId."
+          }
+        },
+        {
+          "name": "Update lab result",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{indexus_api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usability\": \"usable\",\n  \"status\": \"2\",\n  \"volume\": \"90\",\n  \"tncCount\": \"1.5e8\",\n  \"resultOfSterility\": \"negative\",\n  \"labNote\": \"Updated lab result\"\n}"
+            },
+            "url": {
+              "raw": "{{indexus_base_url}}/lab-results/:lab_result_id",
+              "host": ["{{indexus_base_url}}"],
+              "path": ["lab-results", ":lab_result_id"],
+              "variable": [
+                {
+                  "key": "lab_result_id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Update an existing lab result in Indexus by its UUID. Use the existingId from a 409 response when creating, or from Indexus."
+          }
+        }
+      ]
+    }
+  ]
+}
