@@ -207,6 +207,47 @@ async function step1_testConnection() {
     );
   } catch (err) { log(`  WARN: AgreementTypes: ${err.message}`); }
 
+  log('\n--- Diagnostika CBC: ServiceCollections stĺpce (representative, nurse, agent) ---');
+  try {
+    const scoCols = await mssqlPool.request().query(`
+      SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_NAME = 'ServiceCollections'
+      AND (COLUMN_NAME LIKE '%rep%' OR COLUMN_NAME LIKE '%nurse%' OR COLUMN_NAME LIKE '%agent%'
+           OR COLUMN_NAME LIKE '%emp%' OR COLUMN_NAME LIKE '%usr%' OR COLUMN_NAME LIKE '%sales%'
+           OR COLUMN_NAME LIKE '%obch%' OR COLUMN_NAME LIKE '%second%')
+      ORDER BY COLUMN_NAME
+    `);
+    if (scoCols.recordset.length > 0) {
+      log('  ServiceCollections relevant stĺpce: ' + scoCols.recordset.map(r => r.COLUMN_NAME).join(', '));
+    } else {
+      log('  Žiadne rep/nurse/agent/emp stĺpce v ServiceCollections');
+    }
+  } catch (err) { log(`  WARN: SC cols: ${err.message}`); }
+
+  log('\n--- Diagnostika CBC: Contracts stĺpce (representative, agent, sales) ---');
+  try {
+    const conCols = await mssqlPool.request().query(`
+      SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_NAME = 'Contracts'
+      AND (COLUMN_NAME LIKE '%rep%' OR COLUMN_NAME LIKE '%agent%' OR COLUMN_NAME LIKE '%sales%'
+           OR COLUMN_NAME LIKE '%obch%' OR COLUMN_NAME LIKE '%emp%' OR COLUMN_NAME LIKE '%usr%')
+      ORDER BY COLUMN_NAME
+    `);
+    if (conCols.recordset.length > 0) {
+      log('  Contracts relevant stĺpce: ' + conCols.recordset.map(r => r.COLUMN_NAME).join(', '));
+      const conSample = await mssqlPool.request().query(`
+        SELECT TOP 5 ${conCols.recordset.map(r => r.COLUMN_NAME).join(', ')}
+        FROM Contracts WHERE con_id IN (
+          SELECT TOP 5 con_id FROM ContractServices WHERE sco_id IS NOT NULL ORDER BY con_id DESC
+        )
+      `);
+      log('  Contracts sample (s odberom):');
+      table(conCols.recordset.map(r => r.COLUMN_NAME), conSample.recordset.map(r => conCols.recordset.map(c => r[c.COLUMN_NAME])));
+    } else {
+      log('  Žiadne rep/agent/sales stĺpce v Contracts');
+    }
+  } catch (err) { log(`  WARN: Contracts cols: ${err.message}`); }
+
   log('\n--- Diagnostika CBC: Hospital active values ---');
   try {
     const hospActive = await mssqlPool.request().query(`
@@ -619,8 +660,27 @@ async function step6_collections() {
     if (code.includes('BLOOD') || code.includes('KRV')) collabMap[r.sco_id].blood = String(r.doc_id);
     else if (code.includes('TISSUE') || code.includes('TKANIV')) collabMap[r.sco_id].tissue = String(r.doc_id);
     else if (code.includes('PLACENT')) collabMap[r.sco_id].placenta = String(r.doc_id);
+    else if (code.includes('SECOND') || code.includes('DRUH')) collabMap[r.sco_id].secondNurse = String(r.doc_id);
     else if (code.includes('ASSIST') || code.includes('ASIST')) collabMap[r.sco_id].assistant = String(r.doc_id);
+    else {
+      if (!collabMap[r.sco_id]._unmatched) collabMap[r.sco_id]._unmatched = [];
+      collabMap[r.sco_id]._unmatched.push(code);
+    }
   }
+
+  const collabStats = { blood: 0, tissue: 0, placenta: 0, assistant: 0, secondNurse: 0, unmatched: 0 };
+  const unmatchedCodes = new Set();
+  for (const scoId of Object.keys(collabMap)) {
+    const cc = collabMap[scoId];
+    if (cc.blood) collabStats.blood++;
+    if (cc.tissue) collabStats.tissue++;
+    if (cc.placenta) collabStats.placenta++;
+    if (cc.assistant) collabStats.assistant++;
+    if (cc.secondNurse) collabStats.secondNurse++;
+    if (cc._unmatched) { collabStats.unmatched += cc._unmatched.length; cc._unmatched.forEach(c => unmatchedCodes.add(c)); }
+  }
+  log(`  Collaborator priradenia: blood=${collabStats.blood}, tissue=${collabStats.tissue}, placenta=${collabStats.placenta}, assistant=${collabStats.assistant}, secondNurse=${collabStats.secondNurse}`);
+  if (unmatchedCodes.size > 0) log(`  ⚠ Nepriradené kódy: ${[...unmatchedCodes].join(', ')}`);
 
   const clientMap = {};
   const clientRows = await mssqlPool.request().query(`
@@ -683,12 +743,13 @@ async function step6_collections() {
           child_first_name, child_last_name, child_gender,
           collection_date, hospital_id,
           cord_blood_collector_id, tissue_collector_id, placenta_collector_id, assistant_nurse_id,
+          second_nurse_id,
           status, state,
           status_paired_at, status_evaluated_at, status_verified_at,
           status_stored_at, status_transferred_at, status_released_at,
           status_awaiting_disposal_at, status_disposed_at,
           doctor_note, note, created_at, updated_at
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35)
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36)
       `, [
         String(row.sco_id), row.sco_collection_unit_number, countryCode,
         customerId,
@@ -701,6 +762,7 @@ async function step6_collections() {
         row.sco_collection_made, hospitalId,
         collabLookup[cc.blood] || null, collabLookup[cc.tissue] || null,
         collabLookup[cc.placenta] || null, collabLookup[cc.assistant] || null,
+        collabLookup[cc.secondNurse] || null,
         cbcStatusRemap[row.csu_id] || row.csu_id, String(cbcStatusRemap[row.csu_id] || row.csu_id),
         row.sco_paired, row.sco_lab_evaluation, row.sco_sterility,
         row.sco_stored, row.sco_transferred, row.sco_released,
