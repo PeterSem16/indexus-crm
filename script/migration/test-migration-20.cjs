@@ -287,36 +287,73 @@ async function step1_testConnection() {
         }
       } catch (e) { log(`  WARN: ${rt.TABLE_NAME}: ${e.message}`); }
     }
-    const repoFiles = await mssqlPool.request().query(`
-      SELECT TOP 10 fr.rep_id, fr.rep_location, fr.rep_filename, fr.rep_filesize, fr.rep_inserted, fr.rep_deleted
-      FROM FileRepositories fr
-      INNER JOIN CollaboratorAgreements ca ON ca.cag_repository = fr.rep_id
-      ORDER BY fr.rep_id DESC
+    const repoCount = await mssqlPool.request().query(`SELECT COUNT(*) as cnt FROM FileRepositories`);
+    log(`  FileRepositories celkom: ${repoCount.recordset[0].cnt} záznamov`);
+
+    const repoTypes = await mssqlPool.request().query(`
+      SELECT COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH
+      FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_NAME = 'FileRepositories' ORDER BY ORDINAL_POSITION
     `);
-    if (repoFiles.recordset.length > 0) {
-      log(`  FileRepositories vzorky (pre dohody):`);
+    log(`  FileRepositories dátové typy:`);
+    for (const r of repoTypes.recordset) {
+      log(`    ${r.COLUMN_NAME}: ${r.DATA_TYPE}${r.CHARACTER_MAXIMUM_LENGTH ? '(' + r.CHARACTER_MAXIMUM_LENGTH + ')' : ''}`);
+    }
+
+    const cagTypes = await mssqlPool.request().query(`
+      SELECT COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH
+      FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_NAME = 'CollaboratorAgreements' AND COLUMN_NAME = 'cag_repository'
+    `);
+    if (cagTypes.recordset.length > 0) {
+      const ct = cagTypes.recordset[0];
+      log(`  cag_repository typ: ${ct.DATA_TYPE}${ct.CHARACTER_MAXIMUM_LENGTH ? '(' + ct.CHARACTER_MAXIMUM_LENGTH + ')' : ''}`);
+    }
+
+    const repRange = await mssqlPool.request().query(`SELECT MIN(rep_id) as min_id, MAX(rep_id) as max_id FROM FileRepositories`);
+    if (repRange.recordset[0].min_id != null) {
+      log(`  FileRepositories rep_id rozsah: ${repRange.recordset[0].min_id} .. ${repRange.recordset[0].max_id}`);
+    } else {
+      log(`  FileRepositories: tabuľka je PRÁZDNA`);
+    }
+
+    const cagRange = await mssqlPool.request().query(`
+      SELECT MIN(cag_repository) as min_val, MAX(cag_repository) as max_val
+      FROM CollaboratorAgreements WHERE cag_repository IS NOT NULL
+    `);
+    log(`  cag_repository rozsah: ${cagRange.recordset[0].min_val} .. ${cagRange.recordset[0].max_val}`);
+
+    const repoAny = await mssqlPool.request().query(`
+      SELECT TOP 5 rep_id,
+        CASE WHEN rep_location IS NULL THEN 'NULL'
+             WHEN DATALENGTH(rep_location) > 100 THEN '[BLOB ' + CAST(DATALENGTH(rep_location) AS VARCHAR) + ' bytes]'
+             ELSE CAST(rep_location AS VARCHAR(200)) END as rep_location_str,
+        rep_filename, rep_filesize, rep_deleted
+      FROM FileRepositories ORDER BY rep_id DESC
+    `);
+    if (repoAny.recordset.length > 0) {
+      log(`  FileRepositories posledné 5 záznamy:`);
       table(['rep_id', 'rep_location', 'rep_filename', 'rep_filesize', 'rep_deleted'],
-        repoFiles.recordset.map(r => [
+        repoAny.recordset.map(r => [
           r.rep_id,
-          r.rep_location ? String(r.rep_location).substring(0, 60) : '—',
+          r.rep_location_str || '—',
           r.rep_filename ? String(r.rep_filename).substring(0, 40) : '—',
           r.rep_filesize || '—',
           r.rep_deleted ? 'YES' : 'no',
         ]));
-    } else {
-      log('  FileRepositories: žiadne záznamy pre dohody');
     }
 
-    const repoAny = await mssqlPool.request().query(`SELECT TOP 3 * FROM FileRepositories ORDER BY rep_id DESC`);
-    if (repoAny.recordset.length > 0) {
-      log(`  FileRepositories posledné 3 záznamy:`);
-      const cols = Object.keys(repoAny.recordset[0]);
-      table(cols, repoAny.recordset.map(r => cols.map(c => {
-        const v = r[c];
-        if (v == null) return '—';
-        if (Buffer.isBuffer(v)) return `[BLOB ${v.length}B]`;
-        return String(v).substring(0, 50);
-      })));
+    const matchTest = await mssqlPool.request().query(`
+      SELECT TOP 5 ca.cag_id, ca.cag_repository,
+        (SELECT COUNT(*) FROM FileRepositories fr WHERE fr.rep_id = ca.cag_repository) as found_in_repo
+      FROM CollaboratorAgreements ca
+      WHERE ca.cag_repository IS NOT NULL
+      ORDER BY ca.cag_id DESC
+    `);
+    if (matchTest.recordset.length > 0) {
+      log(`  Test zhody cag_repository → FileRepositories:`);
+      table(['cag_id', 'cag_repository', 'found_in_repo'],
+        matchTest.recordset.map(r => [r.cag_id, r.cag_repository, r.found_in_repo]));
     }
   } catch (err) { log(`  WARN: Repository diagnostika: ${err.message}`); }
 
