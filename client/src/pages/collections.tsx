@@ -1414,8 +1414,122 @@ export default function CollectionsPage() {
 
   const labT = t.collections?.lab || {};
 
-  const renderLabResultsForm = () => (
+  const renderLabResultsForm = () => {
+    const lr = labResult || labFormData;
+    const hasData = lr && (lr.usability || lr.volume || lr.sterility || lr.status || lr.cbu || lr.firstName || lr.surname || lr.bagAUsability || lr.tncCount);
+    const getUsabilityColor = (val: string | null | undefined) => {
+      if (!val) return "text-muted-foreground";
+      const v = val.toLowerCase();
+      if (v.includes("usab") || v.includes("použiteľ") || v.includes("vhodn")) return "text-emerald-600 dark:text-emerald-400";
+      if (v.includes("nepoužiteľ") || v.includes("nevhodn") || v.includes("unsuitable")) return "text-red-600 dark:text-red-400";
+      return "text-amber-600 dark:text-amber-400";
+    };
+    const getSterilityColor = (val: string | null | undefined) => {
+      if (!val) return "text-muted-foreground";
+      const v = val.toLowerCase();
+      if (v.includes("negat") || v.includes("sterile") || v.includes("steríln")) return "text-emerald-600 dark:text-emerald-400";
+      if (v.includes("pozit") || v.includes("positive") || v.includes("nesteríln")) return "text-red-600 dark:text-red-400";
+      return "text-amber-600 dark:text-amber-400";
+    };
+    const getStatusColor = (val: string | null | undefined) => {
+      if (!val) return "text-muted-foreground";
+      const v = val.toLowerCase();
+      if (v.includes("stored") || v.includes("uložen")) return "text-emerald-600 dark:text-emerald-400";
+      if (v.includes("released") || v.includes("transferred")) return "text-blue-600 dark:text-blue-400";
+      return "text-foreground";
+    };
+    const ResultCard = ({ icon, title, children }: { icon: any; title: string; children: any }) => (
+      <div className="border rounded-lg p-4 bg-card hover:shadow-sm transition-shadow">
+        <div className="flex items-center gap-2 mb-3 pb-2 border-b">
+          {icon}
+          <span className="font-medium text-sm">{title}</span>
+        </div>
+        {children}
+      </div>
+    );
+    const ResultRow = ({ label, value, colorFn, suffix }: { label: string; value: string | null | undefined; colorFn?: (v: string | null | undefined) => string; suffix?: string }) => (
+      <div className="flex justify-between items-center py-1.5">
+        <span className="text-xs text-muted-foreground">{label}</span>
+        <span className={`text-sm font-medium ${colorFn ? colorFn(value) : "text-foreground"}`}>{value ? `${value}${suffix || ""}` : "—"}</span>
+      </div>
+    );
+
+    return (
     <div className="space-y-6">
+      {hasData && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2 bg-primary/10 rounded-lg">
+              <FlaskConical className="h-5 w-5 text-primary" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-semibold">{locale === "sk" ? "Laboratórne výsledky" : "Laboratory Results"}</h3>
+              <p className="text-xs text-muted-foreground">{lr.cbu ? `CBU: ${lr.cbu}` : ""} {lr.firstName && lr.surname ? `• ${lr.firstName} ${lr.surname}` : ""} {lr.status ? `• ${lr.status}` : ""}</p>
+            </div>
+            {lr.status && (
+              <Badge variant="outline" className={`text-xs font-medium ${getStatusColor(lr.status)}`}>
+                {lr.status}
+              </Badge>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <ResultCard icon={<Stethoscope className="h-4 w-4 text-blue-500" />} title={locale === "sk" ? "Základné parametre" : "Basic Parameters"}>
+              <ResultRow label={locale === "sk" ? "Použiteľnosť" : "Usability"} value={lr.usability} colorFn={getUsabilityColor} />
+              <ResultRow label={locale === "sk" ? "Objem odobratej krvi" : "Blood Volume"} value={lr.volume} suffix=" ml" />
+              <ResultRow label={locale === "sk" ? "Objem v bagu" : "Volume in Bag"} value={lr.volumeInBag} suffix=" ml" />
+              <ResultRow label={locale === "sk" ? "Celkový TNC (×10⁷)" : "Total TNC (×10⁷)"} value={lr.tncCount} />
+              <ResultRow label={locale === "sk" ? "Spracovanie" : "Processing"} value={lr.processing} />
+              <ResultRow label={locale === "sk" ? "Odber pre" : "Collection For"} value={lr.collectionFor} />
+              <ResultRow label={locale === "sk" ? "Spracovanie transplantátu" : "Transplant Processing"} value={lr.transplantProcessing} />
+            </ResultCard>
+
+            <ResultCard icon={<Microscope className="h-4 w-4 text-purple-500" />} title={locale === "sk" ? "Sterilita a infekcia" : "Sterility & Infection"}>
+              <ResultRow label={locale === "sk" ? "Výsledok sterility" : "Sterility Result"} value={lr.resultOfSterility || lr.sterility} colorFn={getSterilityColor} />
+              <ResultRow label={locale === "sk" ? "Sterilita Bag B" : "Sterility Bag B"} value={lr.resultOfSterilityBagB} colorFn={getSterilityColor} />
+              <ResultRow label={locale === "sk" ? "Infekčné agens" : "Infection Agents"} value={lr.infectionAgents} />
+              <ResultRow label={locale === "sk" ? "Preradené do" : "Transferred To"} value={lr.transferredTo} />
+            </ResultCard>
+
+            <ResultCard icon={<FlaskConical className="h-4 w-4 text-emerald-500" />} title={locale === "sk" ? "Bag A (Standard)" : "Bag A (Standard)"}>
+              <ResultRow label={locale === "sk" ? "Použiteľnosť / BB" : "Usability / BB"} value={lr.bagAUsability} />
+              <ResultRow label={locale === "sk" ? "Objem" : "Volume"} value={lr.bagAVolume} suffix=" ml" />
+              <ResultRow label="TNC" value={lr.bagATnc} />
+            </ResultCard>
+
+            <ResultCard icon={<FlaskConical className="h-4 w-4 text-orange-500" />} title={locale === "sk" ? "Bag B (Premium)" : "Bag B (Premium)"}>
+              <ResultRow label={locale === "sk" ? "Použiteľnosť" : "Usability"} value={lr.bagBUsability} colorFn={getUsabilityColor} />
+              <ResultRow label={locale === "sk" ? "Objem" : "Volume"} value={lr.bagBVolume} suffix=" ml" />
+              <ResultRow label="TNC" value={lr.bagBTnc} />
+            </ResultCard>
+          </div>
+
+          {(lr.tissueProcessed || lr.tissueSterility || lr.tissueUsability || lr.umbilicalTissue || lr.premiumStatus) && (
+            <ResultCard icon={<Heart className="h-4 w-4 text-rose-500" />} title={locale === "sk" ? "Tkanivo / Premium" : "Tissue / Premium"}>
+              <div className="grid grid-cols-2 gap-x-6">
+                <ResultRow label={locale === "sk" ? "Spracované" : "Processed"} value={lr.tissueProcessed} />
+                <ResultRow label={locale === "sk" ? "Sterilita" : "Sterility"} value={lr.tissueSterility} colorFn={getSterilityColor} />
+                <ResultRow label={locale === "sk" ? "Použiteľnosť" : "Usability"} value={lr.tissueUsability} colorFn={getUsabilityColor} />
+                <ResultRow label={locale === "sk" ? "Transplantát" : "Transplant"} value={lr.umbilicalTissue} />
+                <ResultRow label={locale === "sk" ? "Premium stav" : "Premium Status"} value={lr.premiumStatus} />
+              </div>
+            </ResultCard>
+          )}
+
+          {lr.labNote && (
+            <div className="border rounded-lg p-3 bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800">
+              <div className="flex items-start gap-2">
+                <Info className="h-4 w-4 mt-0.5 text-amber-600 shrink-0" />
+                <div>
+                  <span className="text-xs font-medium text-amber-800 dark:text-amber-200">{locale === "sk" ? "Poznámka laboratória" : "Lab Note"}</span>
+                  <p className="text-sm text-amber-700 dark:text-amber-300 mt-0.5">{lr.labNote}</p>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="rounded-xl border bg-gradient-to-br from-muted/30 to-muted/10 p-5 space-y-4">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-primary/10 rounded-lg">
@@ -1863,7 +1977,8 @@ export default function CollectionsPage() {
         </div>
       )}
     </div>
-  );
+    );
+  };
 
   if (isNew) {
     return (

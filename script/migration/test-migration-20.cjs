@@ -721,51 +721,68 @@ async function step6_collections() {
       if (existing.rows.length > 0) continue;
 
       try {
+        const noteText = findField(fields, 'note') || null;
+        const cbcCbu = findField(fields, 'cbu');
+        const cbcProduct = findField(fields, 'product');
+        const labstate = findField(fields, 'labstate');
+        const datePorod = findField(fields, 'datum porodu');
+        const casPorod = findField(fields, 'cas porodu');
+        const sterilityDate = findField(fields, 'sterility');
+        const evaluatedDate = findField(fields, 'evaluated');
+        const certDate = findField(fields, 'certif v ec vytlaceny');
+
         await pgPool.query(`
           INSERT INTO collection_lab_results (
             collection_id, client_result_id,
-            usability, sterility, sterility_type, result_of_sterility,
+            usability, sterility, sterility_type, result_of_sterility, result_of_sterility_bag_b,
             volume, volume_in_bag, tnc_count, max_weight,
-            infection_agents, transplant_processing,
+            infection_agents, transplant_processing, transferred_to,
             umbilical_tissue, tissue_processed, tissue_sterility,
-            tissue_usability, tissue_infection_agents,
+            tissue_usability, tissue_infection_agents, premium_status,
             bag_a_usability, bag_a_volume, bag_a_tnc,
             bag_b_usability, bag_b_volume, bag_b_tnc,
             first_name, surname, id_birth_number,
-            processing, collection_for, status, final_analyses,
+            cbu, processing, collection_for, status, final_analyses,
+            date_of_collection, time_of_collection,
             lab_note
-          ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31)
+          ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37)
         `, [
           collectionId, scoId,
-          findField(fields, 'Standard_pouzitelnost', 'TP_pouzitelnost', 'usability', 'pouzitelnost'),
-          findField(fields, 'TP_sterilita_vysledok', 'sterility', 'sterilita'),
+          findField(fields, 'standard_pouzitelnost', 'usability', 'pouzitelnost'),
+          findField(fields, 'sterilita vysledok', 'TP_sterilita_vysledok', 'sterilita'),
           findField(fields, 'sterility_type', 'typ_sterility'),
-          findField(fields, 'TP_sterilita_vysledok', 'result_of_sterility'),
-          findField(fields, 'Standard_objem_odobratej_krvi', 'volume', 'objem'),
-          findField(fields, 'Objem PLK', 'volume_in_bag', 'objem_vo_vaku'),
-          findField(fields, 'tnc', 'tnc_count'),
+          findField(fields, 'sterilita vysledok', 'TP_sterilita_vysledok', 'result_of_sterility'),
+          findField(fields, 'p_sterilita vysledok'),
+          findField(fields, 'objem odobratej krvi', 'Standard_objem_odobratej_krvi', 'volume', 'objem'),
+          findField(fields, 'objem plk', 'Objem PLK', 'volume_in_bag'),
+          findField(fields, 'celkovy pocet zmraz bb_1x10e7', 'tnc', 'tnc_count'),
           findField(fields, 'max_weight', 'hmotnost'),
-          findField(fields, 'TP_infekcne_agens', 'infection_agents', 'infekcne_agens'),
-          findField(fields, 'transplantat_preradenyDo', 'transplant_processing'),
-          findField(fields, 'umbilical_tissue', 'pupocnikove_tkanivo'),
-          findField(fields, 'tissue_processed', 'tkanivo_spracovane'),
+          findField(fields, 'infekcne agens', 'TP_infekcne_agens', 'infection_agents'),
+          findField(fields, 'spracovanie transplantatu', 'transplant_processing'),
+          findField(fields, 'transplantat_preradenyDo', 'transferred_to'),
+          findField(fields, 'transplantat', 'umbilical_tissue'),
+          findField(fields, 'tp', 'tissue_processed'),
           findField(fields, 'tissue_sterility', 'sterilita_tkaniva'),
-          findField(fields, 'Premium_pouzitelnost', 'tissue_usability', 'pouzitelnost_tkaniva'),
-          findField(fields, 'tissue_infection_agents', 'infekcne_agensy_tkaniva'),
-          findField(fields, 'Standard_BB', 'bag_a_usability', 'pouzitelnost_vak_a'),
-          findField(fields, 'bag_a_volume', 'objem_vak_a'),
-          findField(fields, 'bag_a_tnc', 'tnc_vak_a'),
-          findField(fields, 'bag_b_usability', 'pouzitelnost_vak_b'),
-          findField(fields, 'bag_b_volume', 'objem_vak_b'),
-          findField(fields, 'bag_b_tnc', 'tnc_vak_b'),
-          findField(fields, 'Meno matky', 'first_name', 'meno'),
-          findField(fields, 'Priezvisko matky', 'surname', 'priezvisko'),
-          findField(fields, 'id_birth_number', 'rodne_cislo'),
-          findField(fields, 'spracovanieXX', 'processing', 'spracovanie'),
-          findField(fields, 'transplantat odobrany pre', 'collection_for', 'odber_pre'),
-          findField(fields, 'Premium_stav', 'status', 'stav'),
-          findField(fields, 'final_analyses', 'zaverecne_analyzy'),
-          JSON.stringify(fields),
+          findField(fields, 'Premium_pouzitelnost', 'tissue_usability'),
+          findField(fields, 'tissue_infection_agents'),
+          findField(fields, 'Premium_stav', 'premium_status'),
+          findField(fields, 'standard_bb', 'Standard_BB', 'kriterium na certifikat'),
+          findField(fields, 'premium_objem_odobratej_krvi', 'bag_a_volume'),
+          findField(fields, 'bag_a_tnc'),
+          findField(fields, 'usability2', 'TP_pouzitelnost', 'bag_b_usability'),
+          findField(fields, 'bag_b_volume'),
+          findField(fields, 'bag_b_tnc'),
+          findField(fields, 'meno matky', 'Meno matky', 'first_name'),
+          findField(fields, 'priezvisko matky', 'Priezvisko matky', 'surname'),
+          findField(fields, 'rodne cislo', 'id_birth_number'),
+          cbcCbu,
+          findField(fields, 'spracovaniexx', 'spracovanieXX', 'processing'),
+          findField(fields, 'transplantat odobrany pre', 'collection_for'),
+          labstate || findField(fields, 'Premium_stav', 'status'),
+          findField(fields, 'transpl dovysetrovany', 'final_analyses'),
+          datePorod ? new Date(datePorod) : null,
+          casPorod,
+          noteText,
         ]);
         labInserted++;
       } catch (err) {
