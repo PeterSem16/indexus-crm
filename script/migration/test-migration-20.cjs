@@ -245,6 +245,11 @@ async function step2_referenceData() {
     7:  { name: 'Uskladnený',             code: '1.6', branch: 1, sortOrder: 7 },
     8:  { name: 'Released',               code: '1.7', branch: 1, sortOrder: 8 },
     9:  { name: 'Transferred',            code: '1.8', branch: 1, sortOrder: 9 },
+    11: { name: 'Likvidácia',             code: '2',   branch: 2, sortOrder: 1 },
+    12: { name: 'V preprave - likvidácia', code: '2.1', branch: 2, sortOrder: 2 },
+    13: { name: 'Na spracovaní - likvidácia', code: '2.2', branch: 2, sortOrder: 3 },
+    14: { name: 'Na vyhodnotení - likvidácia', code: '2.3', branch: 2, sortOrder: 4 },
+    15: { name: 'Zlikvidovaný',           code: '2.4', branch: 2, sortOrder: 5 },
   };
 
   log('  Mapovanie CBC → INDEXUS statusov (zjednotené):');
