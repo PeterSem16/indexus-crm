@@ -1,0 +1,252 @@
+seman@CORPCRM01:/var/www/indexus-crm$ cd /var/www/indexus-crm/script/migration && node test-migration-20.cjs
+
+╔══════════════════════════════════════════════════════════════════╗
+║   CBC → INDEXUS  Testovací migračný scenár (20 záznamov)       ║
+║   BEZ: Invoices, Billing Companies, Rewards                    ║
+╚══════════════════════════════════════════════════════════════════╝
+
+
+══════════════════════════════════════════════════════════════════════
+  STEP 1: Test pripojenia + vzorky dát z CBC
+══════════════════════════════════════════════════════════════════════
+[2026-03-23T15:08:28.501Z] ✓ Pripojené k MSSQL (CBC)
+[2026-03-23T15:08:28.515Z] ✓ Pripojené k PostgreSQL (INDEXUS)
+[2026-03-23T15:08:28.633Z]
+Počty záznamov v CBC:
+  Tabuľka                     | Počet
+  ────────────────────────────┼────────
+  Clients                     | 191998
+  Collaborators               | 29856
+  CollectionEvaluationResults | 9218352
+  CollectionStatuses          | 10
+  Hospitals                   | 2227
+  Laboratories                | 5
+  ServiceCollections          | 197975
+[2026-03-23T15:08:28.633Z]
+Ukážka telefónnych formátov v CBC (PersonalData):
+  Mobil (RAW)   | Normalized       | Telefón (RAW) | Email (RAW)
+  ──────────────┼──────────────────┼───────────────┼──────────────────────────────
+  608132830     | +421 608 132 830 | —             | pavlina.borastero@gmail.com
+  770811572     | +421 770 811 572 | —             | corinavalentina003@gmail.com
+  743330029     | +421 743 330 029 | —             | budur.liviu@yahoo.com
+  792574441     | +421 792 574 441 | —             | dragomirandreea1991@yahoo.com
+  792574445     | +421 792 574 445 | —             | dragomiralin1988@yahoo.com
+  740027312     | +421 740 027 312 | —             | molnar_edit@yahoo.com
+  0908/771339   | +421 908 771 339 | —             | sesztak.ede@gmail.com
+  +420724775637 | +420 724 775 637 | —             | rhaluzikova@gmail.com
+  0905/701008   | +421 905 701 008 | —             | —
+  30/4323275    | +421 304 323 275 | —             | joejtdorottya@gmail.com
+
+══════════════════════════════════════════════════════════════════════
+  STEP 2: Referenčné dáta (StatusyOdberov, Laboratóriá)
+══════════════════════════════════════════════════════════════════════
+[2026-03-23T15:08:28.638Z] --- CollectionStatuses ---
+  ID | Kód                            | Názov                   | Poradie
+  ───┼────────────────────────────────┼─────────────────────────┼────────
+  1  | REG_CSU_NEW                    | New                     | 1
+  2  | REG_CSU_WAITING_FOR_CONTRACT   | Waiting for contract    | 2
+  3  | REG_CSU_PAIRED                 | Paired                  | 3
+  4  | REG_CSU_EVALUATED              | Evaluated               | 4
+  5  | REG_CSU_DOCTOR_EVALUATING      | Doctor evaluating       | 5
+  6  | REG_CSU_WAITING_FOR_DECISION   | Waiting for decision    | 6
+  7  | REG_CSU_GENERATING_CERTIFICATE | Generating certificates | 7
+  8  | REG_CSU_STORED                 | Stored                  | 8
+  9  | REG_CSU_RELEASED               | Released                | 9
+  10 | REG_CSU_TRANSFERRED            | Transferred             | 10
+[2026-03-23T15:08:28.648Z]   → 4 vložených, 6 preskočených
+[2026-03-23T15:08:28.648Z]
+--- Laboratories ---
+  ID | Názov            | Krajina    | Telefón | Email
+  ───┼──────────────────┼────────────┼─────────┼──────────────────────────
+  1  | Bratislava (SK)  | COUNTRY_SK | 123     | liska@cordbloodcenter.com
+  2  | Modletice (CZ)   | COUNTRY_CZ | 123     | liska@cordbloodcenter.com
+  3  | Cluj Napoca (RO) | COUNTRY_RO | 123     | liska@cordbloodcenter.com
+  4  | Bucharest (RO)   | COUNTRY_RO | 123     | liska@cordbloodcenter.com
+  6  | Germany (DE)     | COUNTRY_DE | 123     | liska@cordbloodcenter.com
+[2026-03-23T15:08:28.654Z]   → 5 vložených, 0 preskočených
+
+══════════════════════════════════════════════════════════════════════
+  STEP 3: Nemocnice (TOP 20)
+══════════════════════════════════════════════════════════════════════
+[2026-03-23T15:08:28.664Z] Zdrojové dáta z CBC:
+  hos_id | Názov                          | Mesto       | PSČ    | Krajina    | Lab             | Aktívna
+  ───────┼────────────────────────────────┼─────────────┼────────┼────────────┼─────────────────┼────────
+  1      | neznáma nemocnica              | ???         | ???    | COUNTRY_SK | Bratislava (SK) | áno
+  2      | NsP Antolská                   | ???         | ???    | COUNTRY_SK | Bratislava (SK) | nie
+  3      | NsP Koch                       | ???         | ???    | COUNTRY_SK | Bratislava (SK) | nie
+  4      | NsP Kramáre                    | ???         | ???    | COUNTRY_SK | Bratislava (SK) | nie
+  5      | NsP Ružinov                    | ???         | ???    | COUNTRY_SK | Bratislava (SK) | nie
+  6      | GPN Bratislava                 | ???         | ???    | COUNTRY_SK | Bratislava (SK) | nie
+  7      | Do not use / Budapest - Bajcsy | -           | -      | COUNTRY_HU | Bratislava (SK) | nie
+  8      | Do not use / Budapest - SOTE I | -           | -      | COUNTRY_HU | Bratislava (SK) | nie
+  9      | Do not use / Cegléd            | -           | -      | COUNTRY_HU | Bratislava (SK) | nie
+  10     | Do not use / Celldömölk - Keme | -           | -      | COUNTRY_HU | Bratislava (SK) | nie
+  11     | Do not use / Csorna            | -           | -      | COUNTRY_HU | Bratislava (SK) | nie
+  12     | Do not use / Debrecen          | -           | -      | COUNTRY_HU | Bratislava (SK) | nie
+  13     | Do not use / Budapest - Jahn F | -           | -      | COUNTRY_HU | Bratislava (SK) | nie
+  14     | Dolný Kubín                    | Dolný Kubín | 026 14 | COUNTRY_SK | Bratislava (SK) | áno
+  15     | Do not use / Dunaújváros       | -           | -      | COUNTRY_HU | Bratislava (SK) | nie
+  16     | Do not use / Győr              | -           | -      | COUNTRY_HU | Bratislava (SK) | nie
+  17     | Do not usel / Budapest - Állam | -           | -      | COUNTRY_HU | Bratislava (SK) | nie
+  18     | Do not use / Budapest - SOTE I | -           | -      | COUNTRY_HU | Bratislava (SK) | nie
+  19     | Do not use / Budapest - SOTE I | -           | -      | COUNTRY_HU | Bratislava (SK) | nie
+  20     | Do not use / Budapest - Szent  | -           | -      | COUNTRY_HU | Bratislava (SK) | nie
+[2026-03-23T15:08:28.678Z]
+  → 20 vložených, 0 preskočených, 0 chýb
+
+══════════════════════════════════════════════════════════════════════
+  STEP 4: Spolupracovníci (TOP 20)
+══════════════════════════════════════════════════════════════════════
+[2026-03-23T15:08:28.824Z] Zdrojové dáta z CBC:
+  doc_id | Meno      | Priezvisko             | Typ            | Mobil (RAW)  | → Normalized     | Email                       | Krajina
+  ───────┼───────────┼────────────────────────┼────────────────┼──────────────┼──────────────────┼─────────────────────────────┼───────────
+  1      | —         | neznámy spolupracovník | REG_CTY_OTHER  | —            | —                | —                           | COUNTRY_SK
+  2      | Slávka    | Horváthová             | REG_CTY_OTHER  | —            | —                | —                           | COUNTRY_SK
+  3      | Miroslava | Krajčírová             | REG_CTY_OTHER  | —            | —                | Krajcirova@eurocord.sk      | COUNTRY_SK
+  4      | Alžbeta   | Jankovichová           | REG_CTY_OTHER  | —            | —                | Jankovichova@eurocord.sk    | COUNTRY_SK
+  5      | Kristína  | Grancová               | REG_CTY_OTHER  | —            | —                | Grancova@eurocord.sk        | COUNTRY_SK
+  6      | Daniela   | Mihalová               | REG_CTY_OTHER  | —            | —                | Mihalova@eurocord.sk        | COUNTRY_SK
+  7      | Veronika  | Mattová                | REG_CTY_NURSE  | 0907/079090  | +421 907 079 090 | mattova.veronika@centrum.sk | COUNTRY_SK
+  8      | Pavol     | Rako                   | REG_CTY_OTHER  | —            | —                | Rako@eurocord.sk            | COUNTRY_SK
+  9      | Katarína  | Marcineková            | REG_CTY_OTHER  | —            | —                | Marcinekova@eurocord.sk     | COUNTRY_SK
+  10     | Dominika  | Kotlárová              | REG_CTY_OTHER  | —            | —                | Kotlarova@eurocord.sk       | COUNTRY_SK
+  11     | Barbora   | Báršoňová              | REG_CTY_CC     | —            | —                | _@eurocord.sk               | COUNTRY_SK
+  12     | Bohuslava | Jakubíková             | REG_CTY_OTHER  | —            | —                | _@eurocord.sk               | COUNTRY_SK
+  13     | CCNR      | Crystal call Nitra     | REG_CTY_OTHER  | —            | —                | ccnr@eurocord.sk            | COUNTRY_SK
+  14     | ECCBA     | eCall Bratislava       | REG_CTY_OTHER  | —            | —                | eccba@eurocord.sk           | COUNTRY_SK
+  15     | Zuzana    | Pružincová             | REG_CTY_NURSE  | 0915/631058  | +421 915 631 058 | zsebenova@gmail.com         | COUNTRY_SK
+  16     | Ctirad    | Mokráš                 | REG_CTY_DOCTOR | 0905/649 250 | +421 905 649 250 | ctirad101@gmail.com         | COUNTRY_SK
+  17     | Róbert    | Čerňák                 | REG_CTY_DOCTOR | —            | —                | —                           | COUNTRY_SK
+  18     | Anna      | Lacková                | REG_CTY_OTHER  | —            | —                | —                           | COUNTRY_SK
+  19     | Gabriela  | Meszárošová            | REG_CTY_OTHER  | —            | —                | —                           | COUNTRY_SK
+  20     | Zuzana    | Kleinová               | REG_CTY_DOCTOR | 0903/480552  | +421 903 480 552 | zuzanaklein@gmail.com       | COUNTRY_SK
+[2026-03-23T15:08:28.846Z]
+  → 20 vložených, 0 preskočených, 0 chýb
+
+══════════════════════════════════════════════════════════════════════
+  STEP 5: Klientky/Zákazníci (TOP 20)
+══════════════════════════════════════════════════════════════════════
+[2026-03-23T15:08:29.464Z] Zdrojové dáta z CBC:
+  cli_id | Meno     | Priezvisko          | Mobil (RAW) | → Normalized     | Email                    | Mesto           | Krajina
+  ───────┼──────────┼─────────────────────┼─────────────┼──────────────────┼──────────────────────────┼─────────────────┼───────────
+  2      | Tatiana  | Holková             | 776189049   | +421 776 189 049 | ivan.holko@atlas.cz      | Preseľany       | COUNTRY_SK
+  4      | Diana    | Rovnianska          | 0905/490943 | +421 905 490 943 | rovniansky@gmail.com     | Senec           | COUNTRY_SK
+  5      | Ivica    | Škarbová            | 0           | —                | —                        | Bratislava      | COUNTRY_SK
+  6      | Andrea   | Havlátová Rajczyová | 0903/663949 | +421 903 663 949 | andrea@ak-havlatova.sk   | Košice          | COUNTRY_SK
+  7      | Erika    | Semanová            | 0908/622846 | +421 908 622 846 | —                        | Levoča          | COUNTRY_SK
+  8      | Kristína | Králová             | 0917/536354 | +421 917 536 354 | kralova.kristi@gmail.com | Bernolákovo     | COUNTRY_SK
+  9      | Ivana    | Hudcovičová         | 0905/879017 | +421 905 879 017 | ivarado@nextra.sk        | Bratislava      | COUNTRY_SK
+  11     | Slávka   | Vrábliková          | 0903/234358 | +421 903 234 358 | —                        | Bratislava      | COUNTRY_SK
+  14     | Natália  | Kaščáková           | 0905/393352 | +421 905 393 352 | nkascakova@gmail.com     | Modra-Kráľová   | COUNTRY_SK
+  16     | Jana     | Gašparovičová       | 0908/708472 | +421 908 708 472 | —                        | Bratislava      | COUNTRY_SK
+  17     | Zuzana   | Rajczyová           | —           | —                | —                        | Réca            | COUNTRY_SK
+  18     | Xénia    | Činčurová           | 0904/868375 | +421 904 868 375 | xeniacinci@gmail.com     | Chorvátsky Grob | COUNTRY_SK
+  21     | Katarína | Tarišková           | 0905/305892 | +421 905 305 892 | —                        | Kozárovce       | COUNTRY_SK
+  22     | Lýdia    | Kavická             | 0905/426727 | +421 905 426 727 | lydia.kavicka@gmail.com  | Lozorno         | COUNTRY_SK
+  23     | Andrea   | Cikláminiová        | 0903/234322 | +421 903 234 322 | —                        | Bratislava      | COUNTRY_SK
+  24     | Andrea   | Cikláminiová        | 0903/234322 | +421 903 234 322 | —                        | Bratislava      | COUNTRY_SK
+  25     | Adriana  | Hájková             | 0905/385949 | +421 905 385 949 | adrianahajkova@yahoo.com | Bratislava      | COUNTRY_SK
+  26     | Ingrid   | Grellnethová        | 0908/768705 | +421 908 768 705 | —                        | Bratislava      | COUNTRY_SK
+  27     | Iva      | Koruk               | 0902/495802 | +421 902 495 802 | ivakoruk@gmail.com       | Trnava          | COUNTRY_SK
+  28     | Jana     | Hostačná            | 0918/901785 | +421 918 901 785 | hostynka1@azet.sk        | Bratislava      | COUNTRY_SK
+[2026-03-23T15:08:29.494Z]
+  → 20 vložených, 0 preskočených, 0 chýb
+
+══════════════════════════════════════════════════════════════════════
+  STEP 6: Odbery + Lab výsledky (TOP 20)
+══════════════════════════════════════════════════════════════════════
+[2026-03-23T15:08:30.621Z] Zdrojové dáta z CBC:
+  sco_id | CBU#        | Klientka                   | Mobil (RAW) | → Normalized     | Dieťa                | Dátum       | Status
+  ───────┼─────────────┼────────────────────────────┼─────────────┼──────────────────┼──────────────────────┼─────────────┼───────
+  198274 | 40080932974 | Sidonia Andrada OLTEANU    | 770401569   | +421 770 401 569 | Matei Gabriel TROACA | 9. 3. 2026  | 3
+  198273 | 40090335220 | Florina Alina TENEA        | —           | —                | —                    | 21. 3. 2026 | 2
+  198272 | 40090335219 | Cristina ROMANIUC          | —           | —                | —                    | 20. 3. 2026 | 3
+  198271 | 0400753289  | Tereza Míková              | 733788741   | +421 733 788 741 | Adéla Míková         | 19. 3. 2026 | 3
+  198270 | 0114509881  | Henrieta Doleži            | 0907/477933 | +421 907 477 933 | Dalila Doleži        | 19. 3. 2026 | 3
+  198269 | 0114509775  | Simona Bučková             | 0904/211735 | +421 904 211 735 | Samuel Bučko         | 17. 3. 2026 | 3
+  198268 | 40080932976 | Andrada Ioana CROITORU     | —           | —                | —                    | 17. 3. 2026 | 3
+  198267 | 0114509669  | Lucia Izáková              | 0910/440240 | +421 910 440 240 | Igor Izák            | 14. 3. 2026 | 3
+  198266 | 0114509553  | Eva Šrameková              | 0905298485  | +421 905 298 485 | Adam Novodvorský     | 13. 3. 2026 | 3
+  198265 | 40090335218 | Cornelia STOICA            | —           | —                | —                    | 15. 3. 2026 | 2
+  198264 | 40090335217 | Georgiana Catalina SCIRLET | —           | —                | —                    | 16. 3. 2026 | 2
+  198263 | 40090335216 | Oana Georgiana MACAVEI     | —           | —                | —                    | 16. 3. 2026 | 3
+  198262 | 40090335215 | Bogdana Elena TOMA         | —           | —                | —                    | 15. 3. 2026 | 3
+  198261 | 40080932975 | Ioana Daniela DANCILA      | —           | —                | David George DANCILA | 12. 3. 2026 | 3
+  198260 | 40090335214 | Valentina HONCHAROVA       | —           | —                | Melissa HONCHAROVA   | 11. 3. 2026 | 3
+  198259 | 40090335213 | Andreea BUCIU              | —           | —                | —                    | 11. 3. 2026 | 3
+  198258 | 40090335211 | Alina BOJAN                | —           | —                | Vlad Andrei BOJAN    | 7. 3. 2026  | 8
+  198257 | 0114509447  | Chiara Spišáková           | —           | —                | Márk Nagy            | 9. 3. 2026  | 3
+  198256 | 0400753173  | Judita Hunáková            | —           | —                | Oliver Hunák         | 10. 3. 2002 | 3
+  198255 | 0114509331  | Halina Paulenka            | —           | —                | Jonas Paulenka       | 5. 3. 2026  | 3
+[2026-03-23T15:08:30.638Z]   ERROR sco_id=198274: INSERT has more target columns than expressions
+[2026-03-23T15:08:30.646Z]   ERROR sco_id=198273: INSERT has more target columns than expressions
+[2026-03-23T15:08:30.653Z]   ERROR sco_id=198272: INSERT has more target columns than expressions
+[2026-03-23T15:08:30.667Z]   ERROR sco_id=198271: INSERT has more target columns than expressions
+[2026-03-23T15:08:30.674Z]   ERROR sco_id=198270: INSERT has more target columns than expressions
+[2026-03-23T15:08:30.680Z]   ERROR sco_id=198269: INSERT has more target columns than expressions
+[2026-03-23T15:08:30.686Z]   ERROR sco_id=198268: INSERT has more target columns than expressions
+[2026-03-23T15:08:30.692Z]   ERROR sco_id=198267: INSERT has more target columns than expressions
+[2026-03-23T15:08:30.699Z]   ERROR sco_id=198266: INSERT has more target columns than expressions
+[2026-03-23T15:08:30.705Z]   ERROR sco_id=198265: INSERT has more target columns than expressions
+[2026-03-23T15:08:30.711Z]   ERROR sco_id=198264: INSERT has more target columns than expressions
+[2026-03-23T15:08:30.717Z]   ERROR sco_id=198263: INSERT has more target columns than expressions
+[2026-03-23T15:08:30.723Z]   ERROR sco_id=198262: INSERT has more target columns than expressions
+[2026-03-23T15:08:30.729Z]   ERROR sco_id=198261: INSERT has more target columns than expressions
+[2026-03-23T15:08:30.735Z]   ERROR sco_id=198260: INSERT has more target columns than expressions
+[2026-03-23T15:08:30.740Z]   ERROR sco_id=198259: INSERT has more target columns than expressions
+[2026-03-23T15:08:30.747Z]   ERROR sco_id=198258: INSERT has more target columns than expressions
+[2026-03-23T15:08:30.753Z]   ERROR sco_id=198257: INSERT has more target columns than expressions
+[2026-03-23T15:08:30.759Z]   ERROR sco_id=198256: INSERT has more target columns than expressions
+[2026-03-23T15:08:30.765Z]   ERROR sco_id=198255: INSERT has more target columns than expressions
+[2026-03-23T15:08:30.765Z]
+  Odbery: 0 vložených, 0 preskočených, 20 chýb
+[2026-03-23T15:08:30.765Z]
+--- Lab výsledky pre prenesené odbery ---
+[2026-03-23T15:08:30.781Z]   Lab výsledky: 0 vložených
+
+══════════════════════════════════════════════════════════════════════
+  STEP 7: Verifikácia — porovnanie prenesených dát
+══════════════════════════════════════════════════════════════════════
+[2026-03-23T15:08:30.784Z] Počty v INDEXUS po migrácii:
+  Entita                   | Počet
+  ─────────────────────────┼──────
+  CollectionStatuses       | 14
+  Laboratories             | 9
+  Hospitals (migrated)     | 20
+  Collaborators (migrated) | 23
+  Customers (migrated)     | 20
+  Collections (migrated)   | 2456
+  Lab Results (migrated)   | 2462
+[2026-03-23T15:08:30.784Z]
+--- Nemocnice v INDEXUS ---
+  LegacyID | Názov                          | Mesto       | PSČ    | Krajina    | Aktívna
+  ─────────┼────────────────────────────────┼─────────────┼────────┼────────────┼────────
+  1        | neznáma nemocnica              | ???         | ???    | COUNTRY_SK | áno
+  2        | NsP Antolská                   | ???         | ???    | COUNTRY_SK | nie
+  3        | NsP Koch                       | ???         | ???    | COUNTRY_SK | nie
+  4        | NsP Kramáre                    | ???         | ???    | COUNTRY_SK | nie
+  5        | NsP Ružinov                    | ???         | ???    | COUNTRY_SK | nie
+  6        | GPN Bratislava                 | ???         | ???    | COUNTRY_SK | nie
+  7        | Do not use / Budapest - Bajcsy | —           | -      | COUNTRY_HU | nie
+  8        | Do not use / Budapest - SOTE I | —           | -      | COUNTRY_HU | nie
+  9        | Do not use / Cegléd            | —           | -      | COUNTRY_HU | nie
+  10       | Do not use / Celldömölk - Keme | —           | -      | COUNTRY_HU | nie
+  11       | Do not use / Csorna            | —           | -      | COUNTRY_HU | nie
+  12       | Do not use / Debrecen          | —           | -      | COUNTRY_HU | nie
+  13       | Do not use / Budapest - Jahn F | —           | -      | COUNTRY_HU | nie
+  14       | Dolný Kubín                    | Dolný Kubín | 026 14 | COUNTRY_SK | áno
+  15       | Do not use / Dunaújváros       | —           | -      | COUNTRY_HU | nie
+  16       | Do not use / Győr              | —           | -      | COUNTRY_HU | nie
+  17       | Do not usel / Budapest - Állam | —           | -      | COUNTRY_HU | nie
+  18       | Do not use / Budapest - SOTE I | —           | -      | COUNTRY_HU | nie
+  19       | Do not use / Budapest - SOTE I | —           | -      | COUNTRY_HU | nie
+  20       | Do not use / Budapest - Szent  | —           | -      | COUNTRY_HU | nie
+[2026-03-23T15:08:30.787Z]
+--- Spolupracovníci v INDEXUS ---
+[2026-03-23T15:08:30.789Z] FATAL: invalid input syntax for type integer: ""
+error: invalid input syntax for type integer: ""
+    at /var/www/indexus-crm/node_modules/pg-pool/index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async step7_verification (/var/www/indexus-crm/script/migration/test-migration-20.cjs:656:19)
+    at async main (/var/www/indexus-crm/script/migration/test-migration-20.cjs:729:5)
+seman@CORPCRM01:/var/www/indexus-crm/script/migration$
