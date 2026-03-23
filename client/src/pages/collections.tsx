@@ -485,7 +485,7 @@ export default function CollectionsPage() {
             collectionFor: labResultData.collectionFor || prev.collectionFor,
             processing: labResultData.processing || prev.processing,
             sterility: labResultData.sterility || prev.sterility,
-            resultOfSterilityBagA: labResultData.resultOfSterilityBagA || prev.resultOfSterilityBagA,
+            resultOfSterility: labResultData.resultOfSterility || labResultData.resultOfSterilityBagA || prev.resultOfSterility,
             resultOfSterilityBagB: labResultData.resultOfSterilityBagB || prev.resultOfSterilityBagB,
             bagAVolume: labResultData.bagAVolume || prev.bagAVolume,
             bagATnc: labResultData.bagATnc || prev.bagATnc,

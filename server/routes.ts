@@ -30140,14 +30140,33 @@ Guidelines:
   // Create/update collection lab results
   app.post("/api/collections/:id/lab-results", requireAuth, async (req, res) => {
     try {
+      const validFields = [
+        "collectionId", "clientResultId", "usability", "resultsDate", "labNote",
+        "cbu", "collectionFor", "processing", "title", "firstName", "surname",
+        "idBirthNumber", "dateOfCollection", "timeOfCollection", "dateOfPrintingResults",
+        "dateOfSendingResults", "sterility", "sterilityType", "reasonForCharge",
+        "transplantProcessing", "resultOfSterility", "resultOfSterilityBagB",
+        "infectionAgents", "letterToPediatrician", "status", "finalAnalyses",
+        "tncCount", "maxWeight", "volume", "volumeInBag", "volumeInSyringesBagB",
+        "volumeOfCpdInSyr", "umbilicalTissue", "tissueProcessed", "tissueSterility",
+        "tissueInfectionAgents", "premiumStatus", "transferredTo", "tissueUsability",
+        "bagAUsability", "bagAVolume", "bagATnc", "bagAAtbSensit", "bagABacteriaRisk",
+        "bagAInfectionAgent", "bagASignificance", "bagBUsability", "bagBVolume",
+        "bagBTnc", "bagBAtbSensit", "bagBBacteriaRisk", "bagBInfectionAgent", "bagBSignificance"
+      ];
+      const filteredData: Record<string, any> = {};
+      for (const key of validFields) {
+        if (key in req.body) filteredData[key] = req.body[key];
+      }
+
       const existing = await storage.getCollectionLabResult(req.params.id);
       let labResult;
       
       if (existing) {
-        labResult = await storage.updateCollectionLabResult(existing.id, req.body);
+        labResult = await storage.updateCollectionLabResult(existing.id, filteredData);
       } else {
         labResult = await storage.createCollectionLabResult({
-          ...req.body,
+          ...filteredData,
           collectionId: req.params.id
         });
       }
