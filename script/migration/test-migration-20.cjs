@@ -61,6 +61,13 @@ function table(headers, rows) {
   }
 }
 
+function normalizeCountryCode(cbcCode) {
+  if (!cbcCode) return 'SK';
+  const s = String(cbcCode).trim();
+  if (s.startsWith('COUNTRY_')) return s.replace('COUNTRY_', '');
+  return s;
+}
+
 function decomposeBirthDate(dateVal) {
   if (!dateVal) return { day: null, month: null, year: null };
   const d = new Date(dateVal);
@@ -160,7 +167,7 @@ async function step2_referenceData() {
     await pgPool.query(`
       INSERT INTO laboratories (name, country_code, is_active)
       VALUES ($1, $2, true)
-    `, [row.lab_name, row.lab_country_code || 'SK']);
+    `, [row.lab_name, normalizeCountryCode(row.lab_country_code)]);
     lInserted++;
   }
   log(`  → ${lInserted} vložených, ${lSkipped} preskočených`);
@@ -202,7 +209,7 @@ async function step3_hospitals() {
       const existing = await pgPool.query('SELECT id FROM hospitals WHERE legacy_id = $1', [String(row.hos_id)]);
       if (existing.rows.length > 0) { skipped++; continue; }
 
-      const countryCode = row.add_country || row.lab_country_code || 'SK';
+      const countryCode = normalizeCountryCode(row.add_country || row.lab_country_code);
       const labId = row.lab_name ? (labLookup[row.lab_name] || null) : null;
 
       await pgPool.query(`
@@ -289,7 +296,7 @@ async function step4_collaborators() {
       const existing = await pgPool.query('SELECT id FROM collaborators WHERE legacy_id = $1', [String(row.doc_id)]);
       if (existing.rows.length > 0) { skipped++; continue; }
 
-      const countryCode = countryMap[row.doc_id] || 'SK';
+      const countryCode = normalizeCountryCode(countryMap[row.doc_id]);
       const firstName = normalizeName(row.pda_first_name) || 'N/A';
       const lastName = normalizeName(row.pda_last_name) || 'N/A';
       const birth = decomposeBirthDate(row.pda_birth_date);
@@ -389,7 +396,7 @@ async function step5_customers() {
       const existing = await pgPool.query('SELECT id FROM customers WHERE internal_id = $1', [String(row.cli_id)]);
       if (existing.rows.length > 0) { skipped++; continue; }
 
-      const country = row.perm_country || row.com_country_code || 'SK';
+      const country = normalizeCountryCode(row.perm_country || row.com_country_code);
       const firstName = normalizeName(row.pda_first_name) || 'N/A';
       const lastName = normalizeName(row.pda_last_name) || 'N/A';
       const email = normalizeEmail(row.pda_email) || `legacy_${row.cli_id}@import.local`;
@@ -425,7 +432,7 @@ async function step5_customers() {
         row.cli_mailinglist === true || row.cli_mailinglist === 1,
         country, normalizeCity(row.perm_city), row.perm_street, normalizePostalCode(row.perm_zip, country), row.perm_area,
         hasCorr, row.corr_name, row.corr_street, normalizeCity(row.corr_city),
-        normalizePostalCode(row.corr_zip, row.corr_country || country), row.corr_area, row.corr_country,
+        normalizePostalCode(row.corr_zip, normalizeCountryCode(row.corr_country) || country), row.corr_area, normalizeCountryCode(row.corr_country),
         bankAccount, row.pda_account_bank_code, row.pda_bank_name, row.pda_SWIFT,
         clientStatus, 'active', row.cli_note, row.cli_rating || 0,
         row.cli_inserted || new Date(),
@@ -517,7 +524,7 @@ async function step6_collections() {
       const existing = await pgPool.query('SELECT id FROM collections WHERE legacy_id = $1', [String(row.sco_id)]);
       if (existing.rows.length > 0) { skipped++; continue; }
 
-      const countryCode = companyCountry[row.com_id] || 'SK';
+      const countryCode = normalizeCountryCode(companyCountry[row.com_id]);
       const hospitalId = hospitalLookup[String(row.hos_id)] || null;
       const customerId = customerLookup[clientMap[row.sco_id]] || null;
       const birth = decomposeBirthDate(row.sco_client_birth_date);
