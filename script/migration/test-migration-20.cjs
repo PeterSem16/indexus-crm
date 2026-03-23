@@ -542,7 +542,7 @@ async function step4_collaborators() {
         firstName, lastName,
         row.pda_title_prefix, normalizeName(row.pda_maiden_name), row.pda_title_suffix,
         normalizeNationalId(row.pda_id_number), birth.day, birth.month, birth.year, row.doc_birth_place,
-        normalizePhone(row.pda_phone_number, countryCode),
+        normalizePhone(row.pda_phone_number, countryCode) || normalizePhone(row.pda_mobile, countryCode),
         normalizePhone(row.pda_mobile, countryCode),
         normalizePhone(row.pda_mobile2, countryCode),
         row.pda_other_contact, normalizeEmail(row.pda_email),
