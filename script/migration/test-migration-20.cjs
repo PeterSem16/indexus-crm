@@ -196,7 +196,7 @@ async function step1_testConnection() {
   log('\n--- Diagnostika CBC: CollaborationAgreementTypes ---');
   try {
     const agtTypes = await mssqlPool.request().query(`
-      SELECT agt_id, agt_code, agt_default_name, COUNT(cc.sco_id) as cnt
+      SELECT at2.agt_id, at2.agt_code, at2.agt_default_name, COUNT(cc.sco_id) as cnt
       FROM CollaborationAgreementTypes at2
       LEFT JOIN CollectionCollaborators cc ON cc.agt_id = at2.agt_id
       GROUP BY at2.agt_id, at2.agt_code, at2.agt_default_name
@@ -355,22 +355,30 @@ async function step2_referenceData() {
 // STEP 3: Hospitals (TOP 20)
 // ============================================================
 async function step3_hospitals() {
-  separator(`STEP 3: Nemocnice (TOP ${LIMIT})`);
+  separator(`STEP 3: Nemocnice (referencované z TOP ${LIMIT} odberov)`);
+
+  const referencedHosIds = await mssqlPool.request().query(`
+    SELECT DISTINCT hos_id FROM (SELECT TOP ${LIMIT} hos_id FROM ServiceCollections ORDER BY sco_id DESC) sub
+    WHERE hos_id IS NOT NULL
+  `);
+  const hosIdList = referencedHosIds.recordset.map(r => r.hos_id);
+  log(`  Referencované nemocnice z odberov: ${hosIdList.length} unikátnych hos_id`);
 
   const labLookup = {};
   const pgLabs = await pgPool.query('SELECT id, name FROM laboratories');
   for (const r of pgLabs.rows) labLookup[r.name] = r.id;
 
-  const hospitals = await mssqlPool.request().query(`
-    SELECT TOP ${LIMIT} h.hos_id, h.hos_name, h.hos_full_name, h.hos_active,
+  const hospitals = hosIdList.length > 0 ? await mssqlPool.request().query(`
+    SELECT h.hos_id, h.hos_name, h.hos_full_name, h.hos_active,
            h.hos_svet_zdravia, h.hos_inserted,
            a.add_street_and_number, a.add_city, a.add_zip, a.add_area, a.add_country,
            l.lab_name, l.lab_country_code
     FROM Hospitals h
     LEFT JOIN MailAddresses a ON a.add_id = h.add_id AND a.add_valid = 1
     LEFT JOIN Laboratories l ON l.lab_id = h.lab_id
+    WHERE h.hos_id IN (${hosIdList.join(',')})
     ORDER BY h.hos_id DESC
-  `);
+  `) : { recordset: [] };
 
   const showLimit = Math.min(10, hospitals.recordset.length);
   log(`Zdrojové dáta z CBC (prvých ${showLimit} z ${hospitals.recordset.length}):`);
@@ -418,14 +426,22 @@ async function step3_hospitals() {
 // STEP 4: Collaborators (TOP 20)
 // ============================================================
 async function step4_collaborators() {
-  separator(`STEP 4: Spolupracovníci (TOP ${LIMIT})`);
+  separator(`STEP 4: Spolupracovníci (referencovaní z TOP ${LIMIT} odberov)`);
 
   const hospitalLookup = {};
   const pgH = await pgPool.query('SELECT id, legacy_id FROM hospitals WHERE legacy_id IS NOT NULL');
   for (const r of pgH.rows) hospitalLookup[r.legacy_id] = r.id;
 
-  const collabs = await mssqlPool.request().query(`
-    SELECT TOP ${LIMIT} d.doc_id, d.per_id, d.doc_active, d.doc_note,
+  const referencedDocIds = await mssqlPool.request().query(`
+    SELECT DISTINCT cc.doc_id FROM CollectionCollaborators cc
+    WHERE cc.sco_id IN (SELECT TOP ${LIMIT} sco_id FROM ServiceCollections ORDER BY sco_id DESC)
+    AND cc.doc_id IS NOT NULL
+  `);
+  const docIdList = referencedDocIds.recordset.map(r => r.doc_id);
+  log(`  Referencovaní spolupracovníci z odberov: ${docIdList.length} unikátnych doc_id`);
+
+  const collabs = docIdList.length > 0 ? await mssqlPool.request().query(`
+    SELECT d.doc_id, d.per_id, d.doc_active, d.doc_note,
            d.doc_IBAN, d.doc_SWIFT, d.doc_ICO, d.doc_DIC, d.doc_IC_DPH,
            d.doc_birth_place, d.doc_client_contract, d.doc_svet_zdravia,
            d.doc_monthly_rewards, d.doc_inserted,
@@ -437,8 +453,9 @@ async function step4_collaborators() {
     FROM Collaborators d
     LEFT JOIN CollaboratorTypes ct ON ct.cty_id = d.cty_id
     LEFT JOIN PersonalData pd ON pd.per_id = d.per_id AND pd.pda_valid = 1
+    WHERE d.doc_id IN (${docIdList.join(',')})
     ORDER BY d.doc_id DESC
-  `);
+  `) : { recordset: [] };
 
   const collabCountries = await mssqlPool.request().query(`
     SELECT DISTINCT ca.doc_id, c.com_country_code
@@ -524,10 +541,19 @@ async function step4_collaborators() {
 // STEP 5: Customers (TOP 20)
 // ============================================================
 async function step5_customers() {
-  separator(`STEP 5: Klientky/Zákazníci (TOP ${LIMIT})`);
+  separator(`STEP 5: Klientky/Zákazníci (referencovaní z TOP ${LIMIT} odberov)`);
 
-  const clients = await mssqlPool.request().query(`
-    SELECT TOP ${LIMIT} c.cli_id, c.com_id, c.cli_children, c.cli_mailinglist,
+  const referencedCliIds = await mssqlPool.request().query(`
+    SELECT DISTINCT c.cli_id FROM ContractServices cs
+    JOIN Contracts c ON c.con_id = cs.con_id
+    WHERE cs.sco_id IN (SELECT TOP ${LIMIT} sco_id FROM ServiceCollections ORDER BY sco_id DESC)
+    AND c.cli_id IS NOT NULL
+  `);
+  const cliIdList = referencedCliIds.recordset.map(r => r.cli_id);
+  log(`  Referencovaní klienti z odberov: ${cliIdList.length} unikátnych cli_id`);
+
+  const clients = cliIdList.length > 0 ? await mssqlPool.request().query(`
+    SELECT c.cli_id, c.com_id, c.cli_children, c.cli_mailinglist,
            c.cli_note, c.cli_rating, c.cli_inserted,
            comp.com_country_code,
            pd.pda_title_prefix, pd.pda_first_name, pd.pda_last_name,
@@ -548,18 +574,18 @@ async function step5_customers() {
     LEFT JOIN Companies comp ON comp.com_id = c.com_id
     LEFT JOIN MailAddresses a_perm ON a_perm.per_id = p.per_id AND a_perm.add_valid = 1 AND a_perm.mat_id = 1
     LEFT JOIN MailAddresses a_corr ON a_corr.per_id = p.per_id AND a_corr.add_valid = 1 AND a_corr.mat_id = 3
-    WHERE (c.cli_deleted = 0 OR c.cli_deleted IS NULL)
-      AND (pd.pda_mobile IS NOT NULL AND pd.pda_mobile != '' AND pd.pda_mobile != '0')
+    WHERE c.cli_id IN (${cliIdList.join(',')})
+      AND (c.cli_deleted = 0 OR c.cli_deleted IS NULL)
     ORDER BY c.cli_id DESC
-  `);
+  `) : { recordset: [] };
 
   const cliIds = clients.recordset.map(r => r.cli_id);
-  const clientContracts = await mssqlPool.request().query(`
+  const clientContracts = cliIds.length > 0 ? await mssqlPool.request().query(`
     SELECT con.cli_id, cs.csa_code
     FROM Contracts con
     JOIN ContractStatuses cs ON cs.csa_id = con.csa_id
     WHERE con.cli_id IN (${cliIds.join(',')})
-  `);
+  `) : { recordset: [] };
   const contractStatusMap = {};
   for (const r of clientContracts.recordset) contractStatusMap[r.cli_id] = r.csa_code;
 
@@ -1133,22 +1159,43 @@ async function step7_verification() {
   log('\n--- Odbery v INDEXUS ---');
   const colls = await pgPool.query(`
     SELECT c.legacy_id, c.cbu_number, c.client_first_name, c.client_last_name, c.client_mobile,
-           c.child_first_name, c.collection_date, h.name as hospital_name, c.status, c.country_code
+           c.child_first_name, c.collection_date, h.name as hospital_name, c.status, c.country_code,
+           cb.first_name as cb_name, tc.first_name as tc_name,
+           pc.first_name as pc_name, an.first_name as an_name, sn.first_name as sn_name
     FROM collections c
     LEFT JOIN hospitals h ON h.id = c.hospital_id
+    LEFT JOIN collaborators cb ON cb.id = c.cord_blood_collector_id
+    LEFT JOIN collaborators tc ON tc.id = c.tissue_collector_id
+    LEFT JOIN collaborators pc ON pc.id = c.placenta_collector_id
+    LEFT JOIN collaborators an ON an.id = c.assistant_nurse_id
+    LEFT JOIN collaborators sn ON sn.id = c.second_nurse_id
     WHERE c.legacy_id IS NOT NULL AND c.legacy_id != '' ORDER BY c.legacy_id DESC LIMIT 10
   `);
   table(
-    ['LegacyID', 'CBU#', 'Klientka', 'Mobil', 'Dieťa', 'Dátum', 'Nemocnica', 'Status', 'Krajina'],
+    ['LegacyID', 'CBU#', 'Klientka', 'Nemocnica', 'Blood', 'Tissue', 'Placenta', 'Assist', '2ndNurse', 'Status'],
     colls.rows.map(r => [
       r.legacy_id, r.cbu_number,
       `${r.client_first_name || ''} ${r.client_last_name || ''}`.trim(),
-      r.client_mobile,
-      r.child_first_name,
-      r.collection_date ? new Date(r.collection_date).toLocaleDateString('sk') : '—',
-      r.hospital_name, r.status, r.country_code,
+      r.hospital_name || '—',
+      r.cb_name || '—', r.tc_name || '—', r.pc_name || '—', r.an_name || '—', r.sn_name || '—',
+      r.status,
     ])
   );
+
+  const collStats = await pgPool.query(`
+    SELECT
+      COUNT(*) as total,
+      COUNT(hospital_id) as with_hospital,
+      COUNT(cord_blood_collector_id) as with_blood,
+      COUNT(tissue_collector_id) as with_tissue,
+      COUNT(placenta_collector_id) as with_placenta,
+      COUNT(assistant_nurse_id) as with_assistant,
+      COUNT(second_nurse_id) as with_second_nurse,
+      COUNT(customer_id) as with_customer
+    FROM collections WHERE legacy_id IS NOT NULL
+  `);
+  const s = collStats.rows[0];
+  log(`  Štatistika priradení: ${s.total} odberov, hospital=${s.with_hospital}, blood=${s.with_blood}, tissue=${s.with_tissue}, placenta=${s.with_placenta}, assistant=${s.with_assistant}, 2ndNurse=${s.with_second_nurse}, customer=${s.with_customer}`);
 
   log('\n--- Cases v INDEXUS ---');
   const cases = await pgPool.query(`
