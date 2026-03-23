@@ -224,6 +224,67 @@ async function step1_testConnection() {
     );
   } catch (err) { log(`  WARN: AgreementTypes: ${err.message}`); }
 
+  log('\n--- Diagnostika CBC: CollaboratorAgreements stĺpce ---');
+  try {
+    const caCols = await mssqlPool.request().query(`
+      SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_NAME = 'CollaboratorAgreements'
+      ORDER BY ORDINAL_POSITION
+    `);
+    if (caCols.recordset.length > 0) {
+      log('  CollaboratorAgreements stĺpce: ' + caCols.recordset.map(r => r.COLUMN_NAME).join(', '));
+      const caSample = await mssqlPool.request().query(`SELECT TOP 3 * FROM CollaboratorAgreements ORDER BY cag_id DESC`);
+      if (caSample.recordset.length > 0) {
+        const cols = Object.keys(caSample.recordset[0]);
+        table(cols, caSample.recordset.map(r => cols.map(c => r[c] != null ? String(r[c]).substring(0, 30) : '—')));
+      }
+    } else {
+      log('  CollaboratorAgreements tabuľka neexistuje');
+    }
+  } catch (err) { log(`  WARN: CollaboratorAgreements: ${err.message}`); }
+
+  log('\n--- Diagnostika CBC: Collaborators stĺpce (health, marital, insurance) ---');
+  try {
+    const docCols = await mssqlPool.request().query(`
+      SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_NAME = 'Collaborators'
+      AND (COLUMN_NAME LIKE '%health%' OR COLUMN_NAME LIKE '%insur%' OR COLUMN_NAME LIKE '%marit%'
+           OR COLUMN_NAME LIKE '%poistn%' OR COLUMN_NAME LIKE '%stav%' OR COLUMN_NAME LIKE '%zdrav%')
+      ORDER BY COLUMN_NAME
+    `);
+    if (docCols.recordset.length > 0) {
+      log('  Collaborators health/marital stĺpce: ' + docCols.recordset.map(r => r.COLUMN_NAME).join(', '));
+    } else {
+      log('  Žiadne health/marital stĺpce v Collaborators');
+    }
+  } catch (err) { log(`  WARN: Collab health: ${err.message}`); }
+
+  log('\n--- Diagnostika CBC: PersonalData stĺpce (health, marital, insurance) ---');
+  try {
+    const pdCols = await mssqlPool.request().query(`
+      SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_NAME = 'PersonalData'
+      AND (COLUMN_NAME LIKE '%health%' OR COLUMN_NAME LIKE '%insur%' OR COLUMN_NAME LIKE '%marit%'
+           OR COLUMN_NAME LIKE '%poistn%' OR COLUMN_NAME LIKE '%stav%' OR COLUMN_NAME LIKE '%zdrav%')
+      ORDER BY COLUMN_NAME
+    `);
+    if (pdCols.recordset.length > 0) {
+      log('  PersonalData health/marital stĺpce: ' + pdCols.recordset.map(r => r.COLUMN_NAME).join(', '));
+    } else {
+      log('  Žiadne health/marital stĺpce v PersonalData');
+    }
+  } catch (err) { log(`  WARN: PD health: ${err.message}`); }
+
+  log('\n--- Diagnostika CBC: Companies stĺpce (billing, fakturacna) ---');
+  try {
+    const comCols = await mssqlPool.request().query(`
+      SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_NAME = 'Companies'
+      ORDER BY ORDINAL_POSITION
+    `);
+    log('  Companies stĺpce: ' + comCols.recordset.map(r => r.COLUMN_NAME).join(', '));
+  } catch (err) { log(`  WARN: Companies: ${err.message}`); }
+
   log('\n--- Diagnostika CBC: ServiceCollections stĺpce (representative, nurse, certificate, coordinator) ---');
   try {
     const scoCols = await mssqlPool.request().query(`
@@ -558,6 +619,95 @@ async function step4_collaborators() {
     } catch (err) {
       errors++;
       log(`  ERROR doc_id=${row.doc_id}: ${err.message}`);
+    }
+  }
+  log(`\n  → ${inserted} vložených, ${skipped} preskočených, ${errors} chýb`);
+}
+
+// ============================================================
+// STEP 4.5: Collaborator Agreements
+// ============================================================
+async function step4b_agreements() {
+  separator('STEP 4.5: Dohody spolupracovníkov (CollaboratorAgreements)');
+
+  const collabLookup = {};
+  const pgC = await pgPool.query('SELECT id, legacy_id FROM collaborators WHERE legacy_id IS NOT NULL');
+  for (const r of pgC.rows) collabLookup[r.legacy_id] = r.id;
+
+  const docIds = Object.keys(collabLookup);
+  if (docIds.length === 0) { log('  Žiadni spolupracovníci, preskakujem'); return; }
+
+  let agreements;
+  try {
+    agreements = await mssqlPool.request().query(`
+      SELECT ca.cag_id, ca.doc_id, ca.com_id, ca.cag_contract_number,
+             ca.cag_valid_from, ca.cag_valid_to,
+             ca.cag_sent, ca.cag_returned, ca.cag_valid, ca.cag_inserted,
+             c.com_name, c.com_country_code
+      FROM CollaboratorAgreements ca
+      LEFT JOIN Companies c ON c.com_id = ca.com_id
+      WHERE ca.doc_id IN (${docIds.join(',')})
+      ORDER BY ca.cag_id DESC
+    `);
+  } catch (err) {
+    log(`  WARN: CollaboratorAgreements query: ${err.message}`);
+    return;
+  }
+
+  log(`  Nájdených ${agreements.recordset.length} dohôd pre ${docIds.length} spolupracovníkov`);
+
+  const showLimit = Math.min(10, agreements.recordset.length);
+  if (showLimit > 0) {
+    table(
+      ['cag_id', 'doc_id', 'Company', 'Contract#', 'ValidFrom', 'ValidTo', 'Sent', 'Returned', 'Valid'],
+      agreements.recordset.slice(0, showLimit).map(r => [
+        r.cag_id, r.doc_id, r.com_name || '—',
+        r.cag_contract_number || '—',
+        r.cag_valid_from ? new Date(r.cag_valid_from).toLocaleDateString('sk') : '—',
+        r.cag_valid_to ? new Date(r.cag_valid_to).toLocaleDateString('sk') : '—',
+        r.cag_sent ? new Date(r.cag_sent).toLocaleDateString('sk') : '—',
+        r.cag_returned ? new Date(r.cag_returned).toLocaleDateString('sk') : '—',
+        r.cag_valid != null ? String(r.cag_valid) : '—',
+      ])
+    );
+  }
+
+  let inserted = 0, skipped = 0, errors = 0;
+  for (const row of agreements.recordset) {
+    try {
+      const existing = await pgPool.query('SELECT id FROM collaborator_agreements WHERE legacy_id = $1', [String(row.cag_id)]);
+      if (existing.rows.length > 0) { skipped++; continue; }
+
+      const collaboratorId = collabLookup[String(row.doc_id)];
+      if (!collaboratorId) { skipped++; continue; }
+
+      const vFrom = row.cag_valid_from ? new Date(row.cag_valid_from) : null;
+      const vTo = row.cag_valid_to ? new Date(row.cag_valid_to) : null;
+      const sent = row.cag_sent ? new Date(row.cag_sent) : null;
+      const returned = row.cag_returned ? new Date(row.cag_returned) : null;
+
+      await pgPool.query(`
+        INSERT INTO collaborator_agreements (
+          legacy_id, collaborator_id, contract_number,
+          valid_from_day, valid_from_month, valid_from_year,
+          valid_to_day, valid_to_month, valid_to_year,
+          agreement_sent_day, agreement_sent_month, agreement_sent_year,
+          agreement_returned_day, agreement_returned_month, agreement_returned_year,
+          is_valid, created_at
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+      `, [
+        String(row.cag_id), collaboratorId, row.cag_contract_number,
+        vFrom ? vFrom.getDate() : null, vFrom ? vFrom.getMonth() + 1 : null, vFrom ? vFrom.getFullYear() : null,
+        vTo ? vTo.getDate() : null, vTo ? vTo.getMonth() + 1 : null, vTo ? vTo.getFullYear() : null,
+        sent ? sent.getDate() : null, sent ? sent.getMonth() + 1 : null, sent ? sent.getFullYear() : null,
+        returned ? returned.getDate() : null, returned ? returned.getMonth() + 1 : null, returned ? returned.getFullYear() : null,
+        row.cag_valid === true || row.cag_valid === 1,
+        row.cag_inserted || new Date(),
+      ]);
+      inserted++;
+    } catch (err) {
+      errors++;
+      log(`  ERROR cag_id=${row.cag_id}: ${err.message}`);
     }
   }
   log(`\n  → ${inserted} vložených, ${skipped} preskočených, ${errors} chýb`);
@@ -1305,6 +1455,7 @@ async function main() {
     await step2_referenceData();
     await step3_hospitals();
     await step4_collaborators();
+    await step4b_agreements();
     await step5_customers();
     await step6_collections();
     await step6b_cases();
