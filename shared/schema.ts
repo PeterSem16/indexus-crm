@@ -6374,3 +6374,38 @@ export type WebFormOtp = typeof webFormOtp.$inferSelect;
 export type InsertWebFormOtp = z.infer<typeof insertWebFormOtpSchema>;
 export type WebFormAuditLog = typeof webFormAuditLog.$inferSelect;
 export type InsertWebFormAuditLog = z.infer<typeof insertWebFormAuditLogSchema>;
+
+export const cbuReportAudit = pgTable("cbu_report_audit", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id),
+  userName: text("user_name"),
+  userEmail: text("user_email"),
+  cbuNumber: text("cbu_number").notNull(),
+  collectionId: varchar("collection_id"),
+  reportType: text("report_type").notNull(),
+  language: text("language").notNull(),
+  action: text("action").notNull(),
+  otpVerified: boolean("otp_verified").notNull().default(false),
+  ipAddress: text("ip_address"),
+  aiAnalysisRequested: boolean("ai_analysis_requested").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const cbuReportOtp = pgTable("cbu_report_otp", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  cbuNumber: text("cbu_number").notNull(),
+  reportType: text("report_type").notNull(),
+  language: text("language").notNull(),
+  otpCode: text("otp_code").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  used: boolean("used").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const insertCbuReportAuditSchema = createInsertSchema(cbuReportAudit).omit({ id: true, createdAt: true });
+export const insertCbuReportOtpSchema = createInsertSchema(cbuReportOtp).omit({ id: true, createdAt: true });
+export type CbuReportAudit = typeof cbuReportAudit.$inferSelect;
+export type InsertCbuReportAudit = z.infer<typeof insertCbuReportAuditSchema>;
+export type CbuReportOtp = typeof cbuReportOtp.$inferSelect;
+export type InsertCbuReportOtp = z.infer<typeof insertCbuReportOtpSchema>;

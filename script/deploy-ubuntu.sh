@@ -69,6 +69,36 @@ ALTER TABLE laboratories ADD COLUMN IF NOT EXISTS api_key TEXT;
 ALTER TABLE laboratories ADD COLUMN IF NOT EXISTS linked_api_key_id VARCHAR;
 ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS raw_key TEXT;
 
+-- CBU Report Audit
+CREATE TABLE IF NOT EXISTS cbu_report_audit (
+  id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id VARCHAR,
+  user_name TEXT,
+  user_email TEXT,
+  cbu_number TEXT NOT NULL,
+  collection_id VARCHAR,
+  report_type TEXT NOT NULL,
+  language TEXT NOT NULL,
+  action TEXT NOT NULL,
+  otp_verified BOOLEAN NOT NULL DEFAULT false,
+  ip_address TEXT,
+  ai_analysis_requested BOOLEAN NOT NULL DEFAULT false,
+  created_at TIMESTAMP NOT NULL DEFAULT now()
+);
+
+-- CBU Report OTP
+CREATE TABLE IF NOT EXISTS cbu_report_otp (
+  id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id VARCHAR NOT NULL,
+  cbu_number TEXT NOT NULL,
+  report_type TEXT NOT NULL,
+  language TEXT NOT NULL,
+  otp_code TEXT NOT NULL,
+  expires_at TIMESTAMP NOT NULL,
+  used BOOLEAN NOT NULL DEFAULT false,
+  created_at TIMESTAMP NOT NULL DEFAULT now()
+);
+
 -- Customer products (ak neexistuje)
 CREATE TABLE IF NOT EXISTS customer_products (
   id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),

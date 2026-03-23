@@ -31,7 +31,7 @@ import {
   campaignDispositions, insertCampaignDispositionSchema,
   DEFAULT_PHONE_DISPOSITIONS, DEFAULT_EMAIL_DISPOSITIONS, DEFAULT_SMS_DISPOSITIONS, DISPOSITION_NAME_TRANSLATIONS,
   callLogs, campaignContacts, campaignContactHistory, campaignContactSessions, campaigns, customers, users, entityCampaignTimeline, mobileContacts, collaborators,
-  collections, executiveSummaries, collectionLabResults, collectionSprievodnyList,
+  collections, executiveSummaries, collectionLabResults, collectionSprievodnyList, cbuReportAudit, cbuReportOtp,
   insertSopCategorySchema, insertSopArticleSchema,
   agentSessions, agentSessionActivities, agentBreaks, scheduledReports, agentQueueStatus,
   inboundCallLogs, inboundQueues, ariSettings, sipExtensions, clinicReferrals, clinicEvents,
@@ -30256,6 +30256,379 @@ Guidelines:
     } catch (error) {
       console.error("Error downloading CBU report:", error);
       res.status(500).json({ error: "Failed to download CBU report" });
+    }
+  });
+
+  // ============================================================
+  // CBU Report Viewer — Preview, OTP, Download, Audit
+  // ============================================================
+
+  // POST /api/cbu-reports/preview — Fetch CBU report data for preview (no download)
+  app.post("/api/cbu-reports/preview", requireAuth, async (req, res) => {
+    try {
+      const { cbuNumber, reportType, language } = req.body;
+      if (!cbuNumber || typeof cbuNumber !== "string") {
+        return res.status(400).json({ error: "CBU number is required" });
+      }
+      if (!reportType || !["medical", "full"].includes(reportType)) {
+        return res.status(400).json({ error: "reportType must be 'medical' or 'full'" });
+      }
+      if (!language || !["sk", "en"].includes(language)) {
+        return res.status(400).json({ error: "language must be 'sk' or 'en'" });
+      }
+
+      const collection = await storage.getCollectionByCbuNumber(cbuNumber);
+      const user = (req as any).user || req.session?.user;
+
+      let labApiUrl: string | null = null;
+      let labApiKey: string | null = null;
+
+      const findLabApiConfig = async (lab: any) => {
+        if (lab.apiUrl) labApiUrl = lab.apiUrl;
+        if (lab.linkedApiKeyId) {
+          const linkedKey = await storage.getApiKeyById(lab.linkedApiKeyId);
+          if (linkedKey && (linkedKey as any).rawKey && linkedKey.isActive) {
+            labApiKey = (linkedKey as any).rawKey;
+          }
+        }
+        if (!labApiKey && lab.apiKey) labApiKey = lab.apiKey;
+      };
+
+      if (collection?.laboratoryId) {
+        const lab = await storage.getLaboratory(collection.laboratoryId);
+        if (lab) await findLabApiConfig(lab);
+      }
+      if (!labApiUrl || !labApiKey) {
+        const allLabs = await storage.getAllLaboratories();
+        const cc = collection?.countryCode;
+        const configuredLab = allLabs.find((l: any) => l.isActive && l.apiUrl && (l.linkedApiKeyId || l.apiKey) && (!cc || l.countryCode === cc))
+          || allLabs.find((l: any) => l.isActive && l.apiUrl && (l.linkedApiKeyId || l.apiKey));
+        if (configuredLab) { labApiUrl = null; labApiKey = null; await findLabApiConfig(configuredLab); }
+      }
+
+      if (!labApiUrl || !labApiKey) {
+        return res.status(400).json({ error: "Laboratory API not configured" });
+      }
+
+      const apiEndpoint = labApiUrl.replace(/\/+$/, "") + "/api/indexus/reports/cbu";
+      const labResponse = await fetch(apiEndpoint, {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${labApiKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ cbu: cbuNumber, report_type: reportType, language }),
+      });
+
+      let labData: any;
+      try {
+        const responseText = await labResponse.text();
+        labData = JSON.parse(responseText);
+      } catch {
+        return res.status(502).json({ error: "Laboratory API returned an invalid response" });
+      }
+
+      if (!labResponse.ok || labData.status !== "OK") {
+        return res.status(labResponse.status === 404 ? 404 : 502).json({
+          error: labData.error || `LAB API returned status ${labResponse.status}`,
+        });
+      }
+
+      await db.insert(cbuReportAudit).values({
+        userId: user?.id,
+        userName: user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() : null,
+        userEmail: user?.email,
+        cbuNumber,
+        collectionId: collection?.id || null,
+        reportType,
+        language,
+        action: "preview",
+        otpVerified: false,
+        ipAddress: req.ip || req.headers["x-forwarded-for"]?.toString() || null,
+      });
+
+      res.json({
+        filename: labData.filename,
+        mimeType: labData.mime_type,
+        file: labData.file,
+        collection: collection ? {
+          id: collection.id,
+          clientFirstName: collection.clientFirstName,
+          clientLastName: collection.clientLastName,
+          cbuNumber: collection.cbuNumber,
+          collectionDate: collection.collectionDate,
+          state: collection.state,
+          countryCode: collection.countryCode,
+        } : null,
+      });
+    } catch (error) {
+      console.error("Error previewing CBU report:", error);
+      res.status(500).json({ error: "Failed to fetch CBU report" });
+    }
+  });
+
+  // POST /api/cbu-reports/ai-analysis — AI analysis of lab results
+  app.post("/api/cbu-reports/ai-analysis", requireAuth, async (req, res) => {
+    try {
+      const { cbuNumber, reportType, language } = req.body;
+      if (!cbuNumber) return res.status(400).json({ error: "CBU number is required" });
+      if (!process.env.OPENAI_API_KEY) return res.status(400).json({ error: "AI analysis not available" });
+
+      const collection = await storage.getCollectionByCbuNumber(cbuNumber);
+      let labResults: any[] = [];
+      if (collection) {
+        labResults = await storage.getCollectionLabResultsByCollection(collection.id);
+      }
+
+      if (!labResults.length && !collection) {
+        return res.status(404).json({ error: "No data found for this CBU number" });
+      }
+
+      const latestResult = labResults[0] || {};
+
+      const prompt = language === "sk"
+        ? `Si odborný lekársky analytik pre pupočníkovú krv. Analyzuj tieto laboratórne výsledky a poskytni stručné, profesionálne hodnotenie v slovenčine. Použi odborný ale zrozumiteľný jazyk. Rozdeľ analýzu na sekcie: Celkové hodnotenie, Kľúčové parametre, Odporúčania.`
+        : `You are an expert medical analyst for cord blood banking. Analyze these laboratory results and provide a concise, professional assessment in English. Use medical terminology but keep it understandable. Divide analysis into sections: Overall Assessment, Key Parameters, Recommendations.`;
+
+      const dataForAnalysis = {
+        cbuNumber,
+        clientName: collection ? `${collection.clientFirstName || ""} ${collection.clientLastName || ""}`.trim() : "N/A",
+        collectionDate: collection?.collectionDate || "N/A",
+        volume: latestResult.volume || "N/A",
+        tncCount: latestResult.tncCount || "N/A",
+        usability: latestResult.usability || "N/A",
+        sterility: latestResult.resultOfSterility || "N/A",
+        sterilityBagB: latestResult.resultOfSterilityBagB || "N/A",
+        bagAVolume: latestResult.bagAVolume || "N/A",
+        bagATnc: latestResult.bagATnc || "N/A",
+        bagAUsability: latestResult.bagAUsability || "N/A",
+        bagBVolume: latestResult.bagBVolume || "N/A",
+        bagBTnc: latestResult.bagBTnc || "N/A",
+        bagBUsability: latestResult.bagBUsability || "N/A",
+        tissueProcessed: latestResult.tissueProcessed || "N/A",
+        tissueSterility: latestResult.tissueSterility || "N/A",
+        tissueUsability: latestResult.tissueUsability || "N/A",
+        umbilicalTissue: latestResult.umbilicalTissue || "N/A",
+        status: latestResult.status || "N/A",
+        resultsDate: latestResult.resultsDate || "N/A",
+        infectionAgents: latestResult.infectionAgents || "N/A",
+      };
+
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          { role: "system", content: prompt },
+          { role: "user", content: `Laboratory Results Data:\n${JSON.stringify(dataForAnalysis, null, 2)}` }
+        ],
+        max_tokens: 1500,
+        temperature: 0.3,
+      });
+
+      const analysis = response.choices[0]?.message?.content || "Analysis unavailable";
+
+      const user = (req as any).user || req.session?.user;
+      await db.insert(cbuReportAudit).values({
+        userId: user?.id,
+        userName: user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() : null,
+        userEmail: user?.email,
+        cbuNumber,
+        collectionId: collection?.id || null,
+        reportType: reportType || "ai_analysis",
+        language: language || "en",
+        action: "ai_analysis",
+        otpVerified: false,
+        ipAddress: req.ip || req.headers["x-forwarded-for"]?.toString() || null,
+        aiAnalysisRequested: true,
+      });
+
+      res.json({ analysis, dataUsed: dataForAnalysis });
+    } catch (error) {
+      console.error("Error generating AI analysis:", error);
+      res.status(500).json({ error: "Failed to generate AI analysis" });
+    }
+  });
+
+  // POST /api/cbu-reports/request-otp — Send OTP for download authorization
+  app.post("/api/cbu-reports/request-otp", requireAuth, async (req, res) => {
+    try {
+      const { cbuNumber, reportType, language } = req.body;
+      if (!cbuNumber || !reportType || !language) {
+        return res.status(400).json({ error: "cbuNumber, reportType, and language are required" });
+      }
+
+      const user = (req as any).user || req.session?.user;
+      if (!user?.email) {
+        return res.status(400).json({ error: "User email not available for OTP delivery" });
+      }
+
+      const crypto = await import("crypto");
+      const otpCode = String(Math.floor(100000 + Math.random() * 900000));
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+      await db.insert(cbuReportOtp).values({
+        userId: user.id,
+        cbuNumber,
+        reportType,
+        language,
+        otpCode,
+        expiresAt,
+        used: false,
+      });
+
+      try {
+        const { getValidAccessToken, sendEmail } = await import("./lib/ms365");
+        const tokenResult = await getValidAccessToken(user.id, db);
+        if (tokenResult?.accessToken) {
+          const subject = language === "sk"
+            ? `CBU Report - Overovací kód: ${otpCode}`
+            : `CBU Report - Verification Code: ${otpCode}`;
+          const body = language === "sk"
+            ? `<div style="font-family:Arial,sans-serif;max-width:500px;margin:0 auto;padding:20px;">
+                <h2 style="color:#991b1b;">Overovací kód pre CBU Report</h2>
+                <p>Vaš overovací kód pre stiahnutie CBU reportu (${cbuNumber}):</p>
+                <div style="background:#f3f4f6;padding:20px;text-align:center;border-radius:8px;margin:20px 0;">
+                  <span style="font-size:32px;font-weight:bold;letter-spacing:8px;color:#991b1b;">${otpCode}</span>
+                </div>
+                <p style="color:#6b7280;font-size:13px;">Kód je platný 10 minút. Ak ste o tento kód nežiadali, ignorujte túto správu.</p>
+              </div>`
+            : `<div style="font-family:Arial,sans-serif;max-width:500px;margin:0 auto;padding:20px;">
+                <h2 style="color:#991b1b;">CBU Report Verification Code</h2>
+                <p>Your verification code to download the CBU report (${cbuNumber}):</p>
+                <div style="background:#f3f4f6;padding:20px;text-align:center;border-radius:8px;margin:20px 0;">
+                  <span style="font-size:32px;font-weight:bold;letter-spacing:8px;color:#991b1b;">${otpCode}</span>
+                </div>
+                <p style="color:#6b7280;font-size:13px;">This code is valid for 10 minutes. If you did not request this, please ignore this message.</p>
+              </div>`;
+
+          await sendEmail(tokenResult.accessToken, [user.email], subject, body, true);
+        }
+      } catch (emailError) {
+        console.error("Failed to send OTP email via MS365:", emailError);
+      }
+
+      res.json({ success: true, message: "OTP sent to your email", expiresIn: 600 });
+    } catch (error) {
+      console.error("Error requesting OTP:", error);
+      res.status(500).json({ error: "Failed to send OTP" });
+    }
+  });
+
+  // POST /api/cbu-reports/verify-download — Verify OTP and return report for download
+  app.post("/api/cbu-reports/verify-download", requireAuth, async (req, res) => {
+    try {
+      const { cbuNumber, reportType, language, otpCode } = req.body;
+      if (!cbuNumber || !reportType || !language || !otpCode) {
+        return res.status(400).json({ error: "All fields including OTP code are required" });
+      }
+
+      const user = (req as any).user || req.session?.user;
+
+      const [otpRecord] = await db.select().from(cbuReportOtp)
+        .where(and(
+          eq(cbuReportOtp.userId, user.id),
+          eq(cbuReportOtp.cbuNumber, cbuNumber),
+          eq(cbuReportOtp.reportType, reportType),
+          eq(cbuReportOtp.language, language),
+          eq(cbuReportOtp.otpCode, otpCode),
+          eq(cbuReportOtp.used, false),
+        ))
+        .orderBy(desc(cbuReportOtp.createdAt))
+        .limit(1);
+
+      if (!otpRecord) {
+        return res.status(401).json({ error: "Invalid OTP code" });
+      }
+
+      if (new Date() > otpRecord.expiresAt) {
+        return res.status(401).json({ error: "OTP code has expired" });
+      }
+
+      await db.update(cbuReportOtp).set({ used: true }).where(eq(cbuReportOtp.id, otpRecord.id));
+
+      const collection = await storage.getCollectionByCbuNumber(cbuNumber);
+
+      let labApiUrl: string | null = null;
+      let labApiKey: string | null = null;
+      const findLabApiConfig2 = async (lab: any) => {
+        if (lab.apiUrl) labApiUrl = lab.apiUrl;
+        if (lab.linkedApiKeyId) {
+          const linkedKey = await storage.getApiKeyById(lab.linkedApiKeyId);
+          if (linkedKey && (linkedKey as any).rawKey && linkedKey.isActive) labApiKey = (linkedKey as any).rawKey;
+        }
+        if (!labApiKey && lab.apiKey) labApiKey = lab.apiKey;
+      };
+      if (collection?.laboratoryId) {
+        const lab = await storage.getLaboratory(collection.laboratoryId);
+        if (lab) await findLabApiConfig2(lab);
+      }
+      if (!labApiUrl || !labApiKey) {
+        const allLabs = await storage.getAllLaboratories();
+        const cc = collection?.countryCode;
+        const cfgLab = allLabs.find((l: any) => l.isActive && l.apiUrl && (l.linkedApiKeyId || l.apiKey) && (!cc || l.countryCode === cc))
+          || allLabs.find((l: any) => l.isActive && l.apiUrl && (l.linkedApiKeyId || l.apiKey));
+        if (cfgLab) { labApiUrl = null; labApiKey = null; await findLabApiConfig2(cfgLab); }
+      }
+
+      if (!labApiUrl || !labApiKey) {
+        return res.status(400).json({ error: "Laboratory API not configured" });
+      }
+
+      const apiEndpoint = labApiUrl.replace(/\/+$/, "") + "/api/indexus/reports/cbu";
+      const labResponse = await fetch(apiEndpoint, {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${labApiKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ cbu: cbuNumber, report_type: reportType, language }),
+      });
+
+      let labData: any;
+      try { labData = JSON.parse(await labResponse.text()); } catch {
+        return res.status(502).json({ error: "Laboratory API returned an invalid response" });
+      }
+
+      if (!labResponse.ok || labData.status !== "OK") {
+        return res.status(502).json({ error: labData.error || "LAB API error" });
+      }
+
+      await db.insert(cbuReportAudit).values({
+        userId: user?.id,
+        userName: user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() : null,
+        userEmail: user?.email,
+        cbuNumber,
+        collectionId: collection?.id || null,
+        reportType,
+        language,
+        action: "download",
+        otpVerified: true,
+        ipAddress: req.ip || req.headers["x-forwarded-for"]?.toString() || null,
+      });
+
+      res.json({
+        filename: labData.filename,
+        mimeType: labData.mime_type,
+        file: labData.file,
+      });
+    } catch (error) {
+      console.error("Error verifying download:", error);
+      res.status(500).json({ error: "Failed to verify and download report" });
+    }
+  });
+
+  // GET /api/cbu-reports/audit — Get audit log
+  app.get("/api/cbu-reports/audit", requireAuth, async (req, res) => {
+    try {
+      const cbuNumber = req.query.cbu as string;
+      const limit = parseInt(req.query.limit as string) || 50;
+
+      let query = db.select().from(cbuReportAudit).orderBy(desc(cbuReportAudit.createdAt)).limit(limit);
+      if (cbuNumber) {
+        query = db.select().from(cbuReportAudit)
+          .where(eq(cbuReportAudit.cbuNumber, cbuNumber))
+          .orderBy(desc(cbuReportAudit.createdAt))
+          .limit(limit) as any;
+      }
+
+      const logs = await query;
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching audit log:", error);
+      res.status(500).json({ error: "Failed to fetch audit log" });
     }
   });
 

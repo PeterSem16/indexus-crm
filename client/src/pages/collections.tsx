@@ -23,7 +23,7 @@ import {
   Users, Clock, LayoutDashboard, List, TrendingUp, Globe, Activity, ChevronLeft, ChevronRight, Download,
   Loader2, RefreshCw, ChevronDown, BarChart3, Target, Sparkles, AlertTriangle,
   ArrowUpRight, ArrowDownRight, Minus, Info, HelpCircle, TrendingDown, Upload, ScanLine, Phone, Pencil,
-  Heart, Stethoscope, Microscope, Building
+  Heart, Stethoscope, Microscope, Building, Shield, KeyRound, Brain, ClipboardList, Lock, Send, FileSearch
 } from "lucide-react";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, LineChart, Line } from "recharts";
 import { Link, useLocation, useRoute } from "wouter";
@@ -142,6 +142,21 @@ export default function CollectionsPage() {
   const [esExpandedId, setEsExpandedId] = useState<string | null>(null);
   const [esDeleteId, setEsDeleteId] = useState<string | null>(null);
   const [esShowInfo, setEsShowInfo] = useState<boolean>(false);
+  const [showCbuViewer, setShowCbuViewer] = useState(false);
+  const [cbuViewerStep, setCbuViewerStep] = useState<"search" | "preview" | "otp" | "audit">("search");
+  const [cbuSearchNumber, setCbuSearchNumber] = useState("");
+  const [cbuReportType, setCbuReportType] = useState<"medical" | "full">("medical");
+  const [cbuReportLang, setCbuReportLang] = useState<"sk" | "en">("sk");
+  const [cbuPreviewData, setCbuPreviewData] = useState<any>(null);
+  const [cbuPreviewLoading, setCbuPreviewLoading] = useState(false);
+  const [cbuOtpCode, setCbuOtpCode] = useState("");
+  const [cbuOtpSending, setCbuOtpSending] = useState(false);
+  const [cbuOtpSent, setCbuOtpSent] = useState(false);
+  const [cbuDownloadingOtp, setCbuDownloadingOtp] = useState(false);
+  const [cbuAiAnalysis, setCbuAiAnalysis] = useState<string | null>(null);
+  const [cbuAiLoading, setCbuAiLoading] = useState(false);
+  const [cbuAuditLogs, setCbuAuditLogs] = useState<any[]>([]);
+  const [cbuAuditLoading, setCbuAuditLoading] = useState(false);
   
   const dateFnsLocale = dateLocales[locale] || enUS;
 
@@ -300,6 +315,146 @@ export default function CollectionsPage() {
       toast({ title: t.common.error, description: msg, variant: "destructive" });
     } finally {
       setCbuDownloading(null);
+    }
+  };
+
+  const handleCbuViewerOpen = () => {
+    setShowCbuViewer(true);
+    setCbuViewerStep("search");
+    setCbuSearchNumber("");
+    setCbuPreviewData(null);
+    setCbuOtpCode("");
+    setCbuOtpSent(false);
+    setCbuAiAnalysis(null);
+    setCbuAuditLogs([]);
+  };
+
+  const handleCbuPreview = async () => {
+    if (!cbuSearchNumber.trim()) return;
+    setCbuPreviewLoading(true);
+    setCbuPreviewData(null);
+    setCbuAiAnalysis(null);
+    try {
+      const res = await apiRequest("POST", "/api/cbu-reports/preview", {
+        cbuNumber: cbuSearchNumber.trim(),
+        reportType: cbuReportType,
+        language: cbuReportLang,
+      });
+      const data = await res.json();
+      if (data.error) {
+        toast({ title: t.common.error, description: data.error, variant: "destructive" });
+        return;
+      }
+      setCbuPreviewData(data);
+      setCbuViewerStep("preview");
+    } catch (error: any) {
+      toast({ title: t.common.error, description: error?.message || "Failed to fetch report", variant: "destructive" });
+    } finally {
+      setCbuPreviewLoading(false);
+    }
+  };
+
+  const handleCbuRequestOtp = async () => {
+    setCbuOtpSending(true);
+    try {
+      const res = await apiRequest("POST", "/api/cbu-reports/request-otp", {
+        cbuNumber: cbuSearchNumber.trim(),
+        reportType: cbuReportType,
+        language: cbuReportLang,
+      });
+      const data = await res.json();
+      if (data.error) {
+        toast({ title: t.common.error, description: data.error, variant: "destructive" });
+        return;
+      }
+      setCbuOtpSent(true);
+      setCbuViewerStep("otp");
+      toast({ title: locale === "sk" ? "OTP kód odoslaný na váš email" : "OTP code sent to your email" });
+    } catch (error: any) {
+      toast({ title: t.common.error, description: error?.message || "Failed to send OTP", variant: "destructive" });
+    } finally {
+      setCbuOtpSending(false);
+    }
+  };
+
+  const handleCbuVerifyDownload = async () => {
+    if (!cbuOtpCode || cbuOtpCode.length !== 6) {
+      toast({ title: t.common.error, description: locale === "sk" ? "Zadajte 6-miestny kód" : "Enter 6-digit code", variant: "destructive" });
+      return;
+    }
+    setCbuDownloadingOtp(true);
+    try {
+      const res = await apiRequest("POST", "/api/cbu-reports/verify-download", {
+        cbuNumber: cbuSearchNumber.trim(),
+        reportType: cbuReportType,
+        language: cbuReportLang,
+        otpCode: cbuOtpCode,
+      });
+      const data = await res.json();
+      if (data.error) {
+        toast({ title: t.common.error, description: data.error, variant: "destructive" });
+        return;
+      }
+      const byteCharacters = atob(data.file);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: data.mimeType });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = data.filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast({ title: locale === "sk" ? "Report stiahnutý" : "Report downloaded" });
+    } catch (error: any) {
+      toast({ title: t.common.error, description: error?.message || "Download failed", variant: "destructive" });
+    } finally {
+      setCbuDownloadingOtp(false);
+    }
+  };
+
+  const handleCbuAiAnalysis = async () => {
+    setCbuAiLoading(true);
+    setCbuAiAnalysis(null);
+    try {
+      const res = await apiRequest("POST", "/api/cbu-reports/ai-analysis", {
+        cbuNumber: cbuSearchNumber.trim(),
+        reportType: cbuReportType,
+        language: cbuReportLang,
+      });
+      const data = await res.json();
+      if (data.error) {
+        toast({ title: t.common.error, description: data.error, variant: "destructive" });
+        return;
+      }
+      setCbuAiAnalysis(data.analysis);
+    } catch (error: any) {
+      toast({ title: t.common.error, description: error?.message || "AI analysis failed", variant: "destructive" });
+    } finally {
+      setCbuAiLoading(false);
+    }
+  };
+
+  const handleCbuAuditLog = async () => {
+    setCbuAuditLoading(true);
+    setCbuViewerStep("audit");
+    try {
+      const url = cbuSearchNumber.trim()
+        ? `/api/cbu-reports/audit?cbu=${encodeURIComponent(cbuSearchNumber.trim())}`
+        : "/api/cbu-reports/audit";
+      const res = await fetch(url, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch audit log");
+      const data = await res.json();
+      setCbuAuditLogs(data);
+    } catch (error: any) {
+      toast({ title: t.common.error, description: error?.message || "Failed to load audit log", variant: "destructive" });
+    } finally {
+      setCbuAuditLoading(false);
     }
   };
 
@@ -2759,6 +2914,14 @@ export default function CollectionsPage() {
           </Button>
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={handleCbuViewerOpen}
+            data-testid="button-cbu-report-viewer"
+          >
+            <FileSearch className="h-4 w-4 mr-2" />
+            CBU Report
+          </Button>
           <Button 
             variant="outline" 
             onClick={handleExportCSV}
@@ -2901,6 +3064,344 @@ export default function CollectionsPage() {
               {t.common.delete}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showCbuViewer} onOpenChange={(open) => { if (!open) { setShowCbuViewer(false); setCbuViewerStep("search"); } }}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileSearch className="h-5 w-5 text-primary" />
+              CBU Report Viewer
+            </DialogTitle>
+            <DialogDescription>
+              {locale === "sk"
+                ? "Vyhľadajte, prezrite a stiahnite CBU reporty s OTP overením"
+                : "Search, preview and download CBU reports with OTP verification"}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex items-center gap-1 border-b pb-2">
+            <Button
+              variant={cbuViewerStep === "search" || cbuViewerStep === "preview" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setCbuViewerStep(cbuPreviewData ? "preview" : "search")}
+              data-testid="cbu-tab-report"
+            >
+              <FileText className="h-4 w-4 mr-1" />
+              Report
+            </Button>
+            <Button
+              variant={cbuViewerStep === "otp" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setCbuViewerStep("otp")}
+              disabled={!cbuPreviewData}
+              data-testid="cbu-tab-download"
+            >
+              <Lock className="h-4 w-4 mr-1" />
+              {locale === "sk" ? "Stiahnutie" : "Download"}
+            </Button>
+            <Button
+              variant={cbuViewerStep === "audit" ? "default" : "ghost"}
+              size="sm"
+              onClick={handleCbuAuditLog}
+              data-testid="cbu-tab-audit"
+            >
+              <ClipboardList className="h-4 w-4 mr-1" />
+              Audit Log
+            </Button>
+          </div>
+
+          <ScrollArea className="flex-1 min-h-0">
+            <div className="pr-4 pb-4 space-y-4">
+              {(cbuViewerStep === "search" || cbuViewerStep === "preview") && (
+                <>
+                  <div className="grid grid-cols-[1fr_auto_auto_auto] gap-3 items-end">
+                    <div>
+                      <Label className="text-xs font-medium mb-1 block">
+                        {locale === "sk" ? "CBU číslo" : "CBU Number"}
+                      </Label>
+                      <Input
+                        value={cbuSearchNumber}
+                        onChange={(e) => setCbuSearchNumber(e.target.value)}
+                        placeholder={locale === "sk" ? "Zadajte CBU číslo..." : "Enter CBU number..."}
+                        onKeyDown={(e) => e.key === "Enter" && handleCbuPreview()}
+                        data-testid="input-cbu-search"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs font-medium mb-1 block">
+                        {locale === "sk" ? "Typ" : "Type"}
+                      </Label>
+                      <Select value={cbuReportType} onValueChange={(v: any) => setCbuReportType(v)}>
+                        <SelectTrigger className="w-[140px]" data-testid="select-cbu-report-type">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="medical">Medical</SelectItem>
+                          <SelectItem value="full">Full</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-xs font-medium mb-1 block">
+                        {locale === "sk" ? "Jazyk" : "Language"}
+                      </Label>
+                      <Select value={cbuReportLang} onValueChange={(v: any) => setCbuReportLang(v)}>
+                        <SelectTrigger className="w-[100px]" data-testid="select-cbu-report-lang">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="sk">SK</SelectItem>
+                          <SelectItem value="en">EN</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Button
+                      onClick={handleCbuPreview}
+                      disabled={cbuPreviewLoading || !cbuSearchNumber.trim()}
+                      data-testid="button-cbu-search"
+                    >
+                      {cbuPreviewLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                    </Button>
+                  </div>
+
+                  {cbuPreviewData && (
+                    <div className="space-y-4">
+                      {cbuPreviewData.collection && (
+                        <Card className="border-primary/20">
+                          <CardContent className="p-4">
+                            <div className="grid grid-cols-3 gap-4 text-sm">
+                              <div>
+                                <span className="text-muted-foreground block text-xs">{locale === "sk" ? "Klient" : "Client"}</span>
+                                <span className="font-medium">{cbuPreviewData.collection.clientFirstName} {cbuPreviewData.collection.clientLastName}</span>
+                              </div>
+                              <div>
+                                <span className="text-muted-foreground block text-xs">CBU</span>
+                                <span className="font-medium font-mono">{cbuPreviewData.collection.cbuNumber}</span>
+                              </div>
+                              <div>
+                                <span className="text-muted-foreground block text-xs">{locale === "sk" ? "Dátum odberu" : "Collection Date"}</span>
+                                <span className="font-medium">{cbuPreviewData.collection.collectionDate || "—"}</span>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )}
+
+                      <Card>
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-base flex items-center justify-between">
+                            <span className="flex items-center gap-2">
+                              <FileText className="h-4 w-4 text-primary" />
+                              {cbuPreviewData.filename}
+                            </span>
+                            <Badge variant="outline" className="text-xs">
+                              {cbuReportType === "medical" ? "Medical" : "Full"} • {cbuReportLang.toUpperCase()}
+                            </Badge>
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="bg-muted/50 rounded-lg p-6 text-center border border-dashed">
+                            <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+                            <p className="text-sm font-medium">{cbuPreviewData.filename}</p>
+                            <p className="text-xs text-muted-foreground mt-1">{cbuPreviewData.mimeType}</p>
+                            <div className="flex items-center justify-center gap-3 mt-4">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={handleCbuRequestOtp}
+                                disabled={cbuOtpSending}
+                                data-testid="button-cbu-request-download"
+                              >
+                                {cbuOtpSending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Lock className="h-4 w-4 mr-2" />}
+                                {locale === "sk" ? "Stiahnuť s OTP" : "Download with OTP"}
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={handleCbuAiAnalysis}
+                                disabled={cbuAiLoading}
+                                data-testid="button-cbu-ai-analysis"
+                              >
+                                {cbuAiLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Brain className="h-4 w-4 mr-2" />}
+                                AI {locale === "sk" ? "Analýza" : "Analysis"}
+                              </Button>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {cbuAiAnalysis && (
+                        <Card className="border-violet-200 dark:border-violet-800">
+                          <CardHeader className="pb-2">
+                            <CardTitle className="text-base flex items-center gap-2 text-violet-700 dark:text-violet-300">
+                              <Brain className="h-4 w-4" />
+                              AI {locale === "sk" ? "Analýza výsledkov" : "Results Analysis"}
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap text-sm leading-relaxed">
+                              {cbuAiAnalysis}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
+
+              {cbuViewerStep === "otp" && (
+                <div className="space-y-6">
+                  <div className="text-center py-4">
+                    <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                      <Shield className="h-8 w-8 text-primary" />
+                    </div>
+                    <h3 className="text-lg font-semibold">
+                      {locale === "sk" ? "OTP overenie pre stiahnutie" : "OTP Verification for Download"}
+                    </h3>
+                    <p className="text-sm text-muted-foreground mt-2">
+                      {locale === "sk"
+                        ? "Na váš email bol odoslaný 6-miestny overovací kód. Zadajte ho nižšie pre autorizáciu stiahnutia."
+                        : "A 6-digit verification code has been sent to your email. Enter it below to authorize the download."}
+                    </p>
+                  </div>
+
+                  <div className="max-w-xs mx-auto space-y-4">
+                    <div>
+                      <Label className="text-sm font-medium mb-2 block text-center">
+                        {locale === "sk" ? "Overovací kód" : "Verification Code"}
+                      </Label>
+                      <Input
+                        value={cbuOtpCode}
+                        onChange={(e) => setCbuOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                        placeholder="000000"
+                        className="text-center text-2xl tracking-[0.5em] font-mono h-14"
+                        maxLength={6}
+                        data-testid="input-cbu-otp"
+                        onKeyDown={(e) => e.key === "Enter" && cbuOtpCode.length === 6 && handleCbuVerifyDownload()}
+                      />
+                    </div>
+
+                    <Button
+                      className="w-full"
+                      onClick={handleCbuVerifyDownload}
+                      disabled={cbuDownloadingOtp || cbuOtpCode.length !== 6}
+                      data-testid="button-cbu-verify-download"
+                    >
+                      {cbuDownloadingOtp ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Download className="h-4 w-4 mr-2" />
+                      )}
+                      {locale === "sk" ? "Overiť a stiahnuť" : "Verify & Download"}
+                    </Button>
+
+                    <div className="text-center">
+                      <Button
+                        variant="link"
+                        size="sm"
+                        onClick={handleCbuRequestOtp}
+                        disabled={cbuOtpSending}
+                        data-testid="button-cbu-resend-otp"
+                      >
+                        {cbuOtpSending ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Send className="h-3 w-3 mr-1" />}
+                        {locale === "sk" ? "Odoslať kód znova" : "Resend code"}
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3 text-xs text-amber-800 dark:text-amber-200">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                      <div>
+                        <p className="font-medium">
+                          {locale === "sk" ? "Bezpečnostné upozornenie" : "Security Notice"}
+                        </p>
+                        <p className="mt-1">
+                          {locale === "sk"
+                            ? "Kód je platný 10 minút. Stiahnutie bude zaznamenané v audit logu vrátane vášho mena, IP adresy a času."
+                            : "Code is valid for 10 minutes. Download will be recorded in the audit log including your name, IP address, and timestamp."}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {cbuViewerStep === "audit" && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-medium flex items-center gap-2">
+                      <ClipboardList className="h-4 w-4" />
+                      {locale === "sk" ? "Audit Log" : "Audit Log"}
+                      {cbuSearchNumber.trim() && (
+                        <Badge variant="outline" className="text-xs font-mono">{cbuSearchNumber.trim()}</Badge>
+                      )}
+                    </h3>
+                    <Button variant="ghost" size="sm" onClick={handleCbuAuditLog} disabled={cbuAuditLoading}>
+                      <RefreshCw className={`h-3 w-3 ${cbuAuditLoading ? "animate-spin" : ""}`} />
+                    </Button>
+                  </div>
+
+                  {cbuAuditLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : cbuAuditLogs.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground text-sm">
+                      {locale === "sk" ? "Žiadne záznamy" : "No records found"}
+                    </div>
+                  ) : (
+                    <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                      {cbuAuditLogs.map((log: any, idx: number) => (
+                        <div key={log.id || idx} className="flex items-start gap-3 p-3 rounded-lg border bg-card text-sm">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
+                            log.action === "download" ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300" :
+                            log.action === "ai_analysis" ? "bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300" :
+                            "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
+                          }`}>
+                            {log.action === "download" ? <Download className="h-4 w-4" /> :
+                             log.action === "ai_analysis" ? <Brain className="h-4 w-4" /> :
+                             <Eye className="h-4 w-4" />}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-medium">{log.userName || "Unknown"}</span>
+                              <Badge variant="outline" className="text-xs">
+                                {log.action === "download" ? (locale === "sk" ? "Stiahnutie" : "Download") :
+                                 log.action === "ai_analysis" ? "AI" :
+                                 (locale === "sk" ? "Náhľad" : "Preview")}
+                              </Badge>
+                              {log.otpVerified && (
+                                <Badge variant="outline" className="text-xs text-green-600 border-green-300">
+                                  <Shield className="h-3 w-3 mr-1" />
+                                  OTP
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="text-xs text-muted-foreground mt-1">
+                              <span className="font-mono">{log.cbuNumber}</span>
+                              <span className="mx-1">•</span>
+                              <span>{log.reportType} ({log.language?.toUpperCase()})</span>
+                              <span className="mx-1">•</span>
+                              <span>{log.createdAt ? format(new Date(log.createdAt), "dd.MM.yyyy HH:mm", { locale: dateFnsLocale }) : "—"}</span>
+                            </div>
+                            {log.ipAddress && (
+                              <div className="text-xs text-muted-foreground mt-0.5">
+                                IP: {log.ipAddress}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </ScrollArea>
         </DialogContent>
       </Dialog>
     </div>
