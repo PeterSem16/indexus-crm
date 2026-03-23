@@ -1,0 +1,53 @@
+seman@CORPCRM01:/var/www/indexus-crm$ grep -A3 "Diagnostika\|Lab Result\|Contracts ALL\|Hospital active\|Hospital adresy\|STEP 5\|STEP 6\|STEP 7\|vložených\|ERROR\|HOTOVO" /tmp/migration-v2.txt
+[2026-03-23T15:53:09.963Z]   → 0 vložených, 10 preskočených
+[2026-03-23T15:53:09.963Z]
+--- Laboratories ---
+  ID | Názov            | Krajina    | Telefón | Email
+--
+[2026-03-23T15:53:09.967Z]   → 0 vložených, 5 preskočených
+
+══════════════════════════════════════════════════════════════════════
+  STEP 3: Nemocnice (TOP 20)
+--
+  → 20 vložených, 0 preskočených, 0 chýb
+
+══════════════════════════════════════════════════════════════════════
+  STEP 4: Spolupracovníci (TOP 20)
+--
+  → 20 vložených, 0 preskočených, 0 chýb
+
+══════════════════════════════════════════════════════════════════════
+  STEP 5: Klientky/Zákazníci (TOP 20)
+══════════════════════════════════════════════════════════════════════
+[2026-03-23T15:53:10.728Z] Zdrojové dáta z CBC:
+  cli_id | Meno     | Priezvisko          | Mobil (RAW) | → Normalized     | Email                    | Mesto           | Krajina
+--
+  → 20 vložených, 0 preskočených, 0 chýb
+
+══════════════════════════════════════════════════════════════════════
+  STEP 6: Odbery + Lab výsledky (TOP 20)
+══════════════════════════════════════════════════════════════════════
+[2026-03-23T15:53:11.854Z] Zdrojové dáta z CBC:
+  sco_id | CBU#        | Klientka                   | Mobil (RAW) | → Normalized     | Dieťa                | Dátum       | Status
+--
+  Odbery: 20 vložených, 0 preskočených, 0 chýb
+[2026-03-23T15:53:11.881Z]
+--- Lab výsledky pre prenesené odbery ---
+[2026-03-23T15:53:11.885Z]   Lab výsledky: 1 vložených
+
+══════════════════════════════════════════════════════════════════════
+  STEP 7: Verifikácia — porovnanie prenesených dát
+══════════════════════════════════════════════════════════════════════
+[2026-03-23T15:53:11.886Z] Počty v INDEXUS po migrácii:
+  Entita                   | Počet
+--
+  Lab Results (migrated)   | 9
+[2026-03-23T15:53:11.886Z]
+--- Nemocnice v INDEXUS ---
+  LegacyID | Názov                          | Mesto       | PSČ    | Krajina | Aktívna
+--
+  HOTOVO
+══════════════════════════════════════════════════════════════════════
+[2026-03-23T15:53:11.896Z] Testovací prenos 20 záznamov bol úspešne dokončený.
+[2026-03-23T15:53:11.896Z] Skontrolujte výsledky vyššie a overte dáta v INDEXUS CRM.
+seman@CORPCRM01:/var/www/indexus-crm$
