@@ -29,7 +29,7 @@ const MSSQL_CONFIG = {
   database: 'CBC',
   options: { encrypt: false, trustServerCertificate: true },
   connectionTimeout: 15000,
-  requestTimeout: 60000,
+  requestTimeout: 120000,
 };
 
 const PG_CONFIG = {
@@ -40,7 +40,7 @@ const PG_CONFIG = {
   password: 'HanyurIfKisck',
 };
 
-const LIMIT = 20;
+const LIMIT = parseInt(process.env.MIGRATION_LIMIT || '20', 10);
 let mssqlPool, pgPool;
 
 function log(msg) { console.log(`[${new Date().toISOString()}] ${msg}`); }
@@ -293,10 +293,11 @@ async function step3_hospitals() {
     ORDER BY h.hos_id DESC
   `);
 
-  log('Zdrojové dáta z CBC:');
+  const showLimit = Math.min(10, hospitals.recordset.length);
+  log(`Zdrojové dáta z CBC (prvých ${showLimit} z ${hospitals.recordset.length}):`);
   table(
     ['hos_id', 'Názov', 'Mesto', 'PSČ', 'Krajina', 'Lab', 'Aktívna'],
-    hospitals.recordset.map(r => [
+    hospitals.recordset.slice(0, showLimit).map(r => [
       r.hos_id, r.hos_name, r.add_city, r.add_zip,
       r.add_country || r.lab_country_code || '?', r.lab_name, r.hos_active ? 'áno' : 'nie'
     ])
@@ -379,10 +380,11 @@ async function step4_collaborators() {
     log(`  WARN: CollaboratorsHospitals: ${err.message}`);
   }
 
-  log('Zdrojové dáta z CBC:');
+  const showLimitC = Math.min(10, collabs.recordset.length);
+  log(`Zdrojové dáta z CBC (prvých ${showLimitC} z ${collabs.recordset.length}):`);
   table(
     ['doc_id', 'Meno', 'Priezvisko', 'Typ', 'Mobil (RAW)', '→ Normalized', 'Email', 'Krajina'],
-    collabs.recordset.map(r => [
+    collabs.recordset.slice(0, showLimitC).map(r => [
       r.doc_id, r.pda_first_name, r.pda_last_name, r.cty_code,
       r.pda_mobile, normalizePhone(r.pda_mobile, countryMap[r.doc_id] || 'SK'),
       r.pda_email, countryMap[r.doc_id] || 'SK',
@@ -467,7 +469,8 @@ async function step5_customers() {
     LEFT JOIN Companies comp ON comp.com_id = c.com_id
     LEFT JOIN MailAddresses a_perm ON a_perm.per_id = p.per_id AND a_perm.add_valid = 1 AND a_perm.mat_id = 1
     LEFT JOIN MailAddresses a_corr ON a_corr.per_id = p.per_id AND a_corr.add_valid = 1 AND a_corr.mat_id = 3
-    WHERE c.cli_deleted = 0 OR c.cli_deleted IS NULL
+    WHERE (c.cli_deleted = 0 OR c.cli_deleted IS NULL)
+      AND (pd.pda_mobile IS NOT NULL AND pd.pda_mobile != '' AND pd.pda_mobile != '0')
     ORDER BY c.cli_id DESC
   `);
 
@@ -481,10 +484,11 @@ async function step5_customers() {
   const contractStatusMap = {};
   for (const r of clientContracts.recordset) contractStatusMap[r.cli_id] = r.csa_code;
 
-  log('Zdrojové dáta z CBC:');
+  const showLimitCli = Math.min(10, clients.recordset.length);
+  log(`Zdrojové dáta z CBC (prvých ${showLimitCli} z ${clients.recordset.length}):`);
   table(
     ['cli_id', 'Meno', 'Priezvisko', 'Mobil (RAW)', '→ Normalized', 'Email', 'Mesto', 'Krajina'],
-    clients.recordset.map(r => [
+    clients.recordset.slice(0, showLimitCli).map(r => [
       r.cli_id, r.pda_first_name, r.pda_last_name,
       r.pda_mobile, normalizePhone(r.pda_mobile, normalizeCountryCode(r.perm_country || r.com_country_code)),
       r.pda_email, r.perm_city, normalizeCountryCode(r.perm_country || r.com_country_code),
@@ -605,10 +609,11 @@ async function step6_collections() {
     ORDER BY sco_id DESC
   `);
 
-  log('Zdrojové dáta z CBC:');
+  const showLimitSco = Math.min(10, collections.recordset.length);
+  log(`Zdrojové dáta z CBC (prvých ${showLimitSco} z ${collections.recordset.length}):`);
   table(
     ['sco_id', 'CBU#', 'Klientka', 'Mobil (RAW)', '→ Normalized', 'Dieťa', 'Dátum', 'Status'],
-    collections.recordset.map(r => [
+    collections.recordset.slice(0, showLimitSco).map(r => [
       r.sco_id, r.sco_collection_unit_number,
       `${r.sco_client_first_name || ''} ${r.sco_client_last_name || ''}`.trim(),
       r.sco_client_mobile,
@@ -981,7 +986,7 @@ async function step7_verification() {
   log('\n--- Nemocnice v INDEXUS ---');
   const hospitals = await pgPool.query(`
     SELECT legacy_id, name, city, postal_code, country_code, is_active
-    FROM hospitals WHERE legacy_id IS NOT NULL AND legacy_id != '' ORDER BY legacy_id LIMIT 20
+    FROM hospitals WHERE legacy_id IS NOT NULL AND legacy_id != '' ORDER BY legacy_id LIMIT 10
   `);
   table(
     ['LegacyID', 'Názov', 'Mesto', 'PSČ', 'Krajina', 'Aktívna'],
@@ -991,7 +996,7 @@ async function step7_verification() {
   log('\n--- Spolupracovníci v INDEXUS ---');
   const collabs = await pgPool.query(`
     SELECT legacy_id, first_name, last_name, mobile, email, birth_number, country_code, collaborator_type
-    FROM collaborators WHERE legacy_id IS NOT NULL AND legacy_id != '' ORDER BY legacy_id LIMIT 20
+    FROM collaborators WHERE legacy_id IS NOT NULL AND legacy_id != '' ORDER BY legacy_id LIMIT 10
   `);
   table(
     ['LegacyID', 'Meno', 'Priezvisko', 'Mobil', 'Email', 'RČ', 'Krajina', 'Typ'],
@@ -1014,7 +1019,7 @@ async function step7_verification() {
            c.child_first_name, c.collection_date, h.name as hospital_name, c.status, c.country_code
     FROM collections c
     LEFT JOIN hospitals h ON h.id = c.hospital_id
-    WHERE c.legacy_id IS NOT NULL AND c.legacy_id != '' ORDER BY c.legacy_id DESC LIMIT 20
+    WHERE c.legacy_id IS NOT NULL AND c.legacy_id != '' ORDER BY c.legacy_id DESC LIMIT 10
   `);
   table(
     ['LegacyID', 'CBU#', 'Klientka', 'Mobil', 'Dieťa', 'Dátum', 'Nemocnica', 'Status', 'Krajina'],
@@ -1037,7 +1042,7 @@ async function step7_verification() {
     FROM customer_potential_cases cpc
     JOIN customers cu ON cu.id = cpc.customer_id
     WHERE cu.internal_id IS NOT NULL
-    ORDER BY cu.internal_id LIMIT 20
+    ORDER BY cu.internal_id LIMIT 10
   `);
   table(
     ['CliID', 'Klientka', 'Otec meno', 'Otec priezvisko', 'Otec mobil', 'Otec email', 'Krajina', 'Produkt'],
@@ -1071,7 +1076,7 @@ async function step7_verification() {
 async function main() {
   console.log('');
   console.log('╔══════════════════════════════════════════════════════════════════╗');
-  console.log('║   CBC → INDEXUS  Testovací migračný scenár (20 záznamov)       ║');
+  console.log(`║   CBC → INDEXUS  Testovací migračný scenár (${LIMIT} záznamov)`.padEnd(66) + '║');
   console.log('║   BEZ: Invoices, Billing Companies, Rewards                    ║');
   console.log('╚══════════════════════════════════════════════════════════════════╝');
   console.log('');
