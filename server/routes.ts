@@ -30183,9 +30183,21 @@ Guidelines:
 
       if (collection.laboratoryId) {
         const lab = await storage.getLaboratory(collection.laboratoryId);
-        if (lab) {
-          labApiUrl = lab.apiUrl || null;
-          labApiKey = lab.apiKey || null;
+        if (lab && lab.apiUrl && lab.apiKey) {
+          labApiUrl = lab.apiUrl;
+          labApiKey = lab.apiKey;
+        }
+      }
+
+      if (!labApiUrl || !labApiKey) {
+        const allLabs = await storage.getAllLaboratories();
+        const countryCode = (collection as any).countryCode;
+        const configuredLab = allLabs.find((l: any) => 
+          l.apiUrl && l.apiKey && l.isActive && (!countryCode || l.countryCode === countryCode)
+        ) || allLabs.find((l: any) => l.apiUrl && l.apiKey && l.isActive);
+        if (configuredLab) {
+          labApiUrl = (configuredLab as any).apiUrl;
+          labApiKey = (configuredLab as any).apiKey;
         }
       }
 
