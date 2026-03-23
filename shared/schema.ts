@@ -267,6 +267,7 @@ export const laboratories = pgTable("laboratories", {
   isActive: boolean("is_active").notNull().default(true),
   apiUrl: text("api_url"),
   apiKey: text("api_key"),
+  linkedApiKeyId: varchar("linked_api_key_id"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
@@ -5124,6 +5125,7 @@ export const apiKeys = pgTable("api_keys", {
   name: text("name").notNull(),
   keyHash: text("key_hash").notNull(),
   keyPrefix: text("key_prefix").notNull(),
+  rawKey: text("raw_key"),
   
   permissions: text("permissions").array().notNull().default(sql`ARRAY['lab_results:write']::text[]`),
   rateLimit: integer("rate_limit").notNull().default(60),

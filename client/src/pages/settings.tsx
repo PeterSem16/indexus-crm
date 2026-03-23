@@ -1439,6 +1439,14 @@ interface LabItem {
   isActive: boolean;
   apiUrl?: string | null;
   apiKey?: string | null;
+  linkedApiKeyId?: string | null;
+}
+
+interface ApiKeyItem {
+  id: string;
+  name: string;
+  keyPrefix: string;
+  isActive: boolean;
 }
 
 function LaboratoryConfigManager({ countries }: { countries: readonly { code: string; name: string; flag?: string }[] }) {
@@ -1451,11 +1459,16 @@ function LaboratoryConfigManager({ countries }: { countries: readonly { code: st
   const [editCountryCode, setEditCountryCode] = useState("");
   const [editApiUrl, setEditApiUrl] = useState("");
   const [editApiKey, setEditApiKey] = useState("");
+  const [editLinkedApiKeyId, setEditLinkedApiKeyId] = useState("");
   const [showApiKey, setShowApiKey] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const { data: labs = [], isLoading } = useQuery<LabItem[]>({
     queryKey: ["/api/config/laboratories"],
+  });
+
+  const { data: availableApiKeys = [] } = useQuery<ApiKeyItem[]>({
+    queryKey: ["/api/api-keys"],
   });
 
   const createMutation = useMutation({
@@ -1473,7 +1486,7 @@ function LaboratoryConfigManager({ countries }: { countries: readonly { code: st
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, ...data }: { id: string; name: string; countryCode: string; apiUrl: string | null; apiKey: string | null }) =>
+    mutationFn: ({ id, ...data }: { id: string; name: string; countryCode: string; apiUrl: string | null; apiKey: string | null; linkedApiKeyId: string | null }) =>
       apiRequest("PATCH", `/api/config/laboratories/${id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/config/laboratories"] });
@@ -1515,6 +1528,7 @@ function LaboratoryConfigManager({ countries }: { countries: readonly { code: st
     setEditCountryCode(lab.countryCode);
     setEditApiUrl(lab.apiUrl || "");
     setEditApiKey(lab.apiKey || "");
+    setEditLinkedApiKeyId(lab.linkedApiKeyId || "");
     setShowApiKey(false);
   };
 
@@ -1526,6 +1540,7 @@ function LaboratoryConfigManager({ countries }: { countries: readonly { code: st
       countryCode: editCountryCode,
       apiUrl: editApiUrl.trim() || null,
       apiKey: editApiKey.trim() || null,
+      linkedApiKeyId: (editLinkedApiKeyId && editLinkedApiKeyId !== "none") ? editLinkedApiKeyId : null,
     });
   };
 
@@ -1632,29 +1647,21 @@ function LaboratoryConfigManager({ countries }: { countries: readonly { code: st
             <div className="space-y-2">
               <Label className="flex items-center gap-2">
                 <Shield className="h-4 w-4" />
-                API Key
+                API Key (Configurator)
               </Label>
-              <div className="flex gap-2">
-                <Input
-                  type={showApiKey ? "text" : "password"}
-                  value={editApiKey}
-                  onChange={(e) => setEditApiKey(e.target.value)}
-                  placeholder="Bearer token"
-                  className="flex-1"
-                  data-testid="input-edit-lab-api-key"
-                />
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="ghost"
-                  onClick={() => setShowApiKey(!showApiKey)}
-                  data-testid="button-toggle-api-key"
-                >
-                  {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </Button>
-              </div>
+              <Select value={editLinkedApiKeyId} onValueChange={setEditLinkedApiKeyId}>
+                <SelectTrigger data-testid="select-edit-lab-api-key">
+                  <SelectValue placeholder="Select API Key from Configurator" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">-- None --</SelectItem>
+                  {availableApiKeys.filter((k: ApiKeyItem) => k.isActive).map((k: ApiKeyItem) => (
+                    <SelectItem key={k.id} value={k.id}>{k.name} ({k.keyPrefix}...)</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <p className="text-xs text-muted-foreground">
-                {t.settings.labApiKeyHint || "API authentication key (Bearer token) for the laboratory"}
+                {t.settings.labApiKeyHint || "Select the API key from Configurator → API Keys that is used for LAB communication"}
               </p>
             </div>
             <div className="flex justify-end gap-2 pt-2">

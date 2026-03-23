@@ -1012,6 +1012,7 @@ export interface IStorage {
   updateCollectionLabResult(id: string, data: Partial<InsertCollectionLabResult>): Promise<CollectionLabResult | undefined>;
   
   // API Keys
+  getApiKeyById(id: string): Promise<ApiKey | undefined>;
   getApiKeyByHash(keyHash: string): Promise<ApiKey | undefined>;
   getApiKeyByPrefix(prefix: string): Promise<ApiKey | undefined>;
   getAllApiKeys(): Promise<ApiKey[]>;
@@ -6247,6 +6248,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   // API Keys
+  async getApiKeyById(id: string): Promise<ApiKey | undefined> {
+    const [result] = await db.select().from(apiKeys)
+      .where(eq(apiKeys.id, id));
+    return result || undefined;
+  }
+
   async getApiKeyByHash(keyHash: string): Promise<ApiKey | undefined> {
     const [result] = await db.select().from(apiKeys)
       .where(eq(apiKeys.keyHash, keyHash));

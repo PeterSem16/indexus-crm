@@ -66,6 +66,8 @@ CREATE TABLE IF NOT EXISTS customer_potential_cases (
 -- Laboratories API fields
 ALTER TABLE laboratories ADD COLUMN IF NOT EXISTS api_url TEXT;
 ALTER TABLE laboratories ADD COLUMN IF NOT EXISTS api_key TEXT;
+ALTER TABLE laboratories ADD COLUMN IF NOT EXISTS linked_api_key_id VARCHAR;
+ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS raw_key TEXT;
 
 -- Customer products (ak neexistuje)
 CREATE TABLE IF NOT EXISTS customer_products (

@@ -30181,28 +30181,39 @@ Guidelines:
       let labApiUrl: string | null = null;
       let labApiKey: string | null = null;
 
-      if (collection.laboratoryId) {
-        const lab = await storage.getLaboratory(collection.laboratoryId);
-        if (lab && lab.apiUrl && lab.apiKey) {
-          labApiUrl = lab.apiUrl;
+      const findLabConfig = async (lab: any) => {
+        if (lab.apiUrl) labApiUrl = lab.apiUrl;
+        if (lab.linkedApiKeyId) {
+          const linkedKey = await storage.getApiKeyById(lab.linkedApiKeyId);
+          if (linkedKey && (linkedKey as any).rawKey && linkedKey.isActive) {
+            labApiKey = (linkedKey as any).rawKey;
+          }
+        }
+        if (!labApiKey && lab.apiKey) {
           labApiKey = lab.apiKey;
         }
+      };
+
+      if (collection.laboratoryId) {
+        const lab = await storage.getLaboratory(collection.laboratoryId);
+        if (lab) await findLabConfig(lab);
       }
 
       if (!labApiUrl || !labApiKey) {
         const allLabs = await storage.getAllLaboratories();
         const countryCode = (collection as any).countryCode;
         const configuredLab = allLabs.find((l: any) => 
-          l.apiUrl && l.apiKey && l.isActive && (!countryCode || l.countryCode === countryCode)
-        ) || allLabs.find((l: any) => l.apiUrl && l.apiKey && l.isActive);
+          l.isActive && l.apiUrl && (l.linkedApiKeyId || l.apiKey) && (!countryCode || l.countryCode === countryCode)
+        ) || allLabs.find((l: any) => l.isActive && l.apiUrl && (l.linkedApiKeyId || l.apiKey));
         if (configuredLab) {
-          labApiUrl = (configuredLab as any).apiUrl;
-          labApiKey = (configuredLab as any).apiKey;
+          labApiUrl = null;
+          labApiKey = null;
+          await findLabConfig(configuredLab);
         }
       }
 
       if (!labApiUrl || !labApiKey) {
-        return res.status(400).json({ error: "Laboratory API not configured. Set API URL and API Key in Settings → Laboratories." });
+        return res.status(400).json({ error: "Laboratory API not configured. Set API URL and linked API Key in Settings → Laboratories." });
       }
 
       const apiEndpoint = labApiUrl.replace(/\/+$/, "") + "/api/indexus/reports/cbu";
@@ -31838,6 +31849,7 @@ Return ONLY the JSON object.`
         name,
         keyHash,
         keyPrefix,
+        rawKey: apiKey,
         permissions: permissions || ["lab_results:write"],
         rateLimit: rateLimit || 60,
         isActive: true,
@@ -31861,6 +31873,32 @@ Return ONLY the JSON object.`
     } catch (error) {
       console.error("Error creating API key:", error);
       res.status(500).json({ error: "Failed to create API key" });
+    }
+  });
+
+  // PATCH /api/api-keys/:id/set-raw-key - Store/update raw key for outbound LAB API calls
+  app.patch("/api/api-keys/:id/set-raw-key", requireAuth, requireAdminOrManager, async (req, res) => {
+    try {
+      const { rawKey } = req.body;
+      if (!rawKey || typeof rawKey !== "string") {
+        return res.status(400).json({ error: "rawKey is required" });
+      }
+      await db.update(apiKeys).set({ rawKey }).where(eq(apiKeys.id, req.params.id));
+      res.json({ success: true, message: "Raw key stored for outbound API calls" });
+    } catch (error) {
+      console.error("Error setting raw key:", error);
+      res.status(500).json({ error: "Failed to set raw key" });
+    }
+  });
+
+  // GET /api/api-keys/:id/has-raw-key - Check if raw key is stored
+  app.get("/api/api-keys/:id/has-raw-key", requireAuth, requireAdminOrManager, async (req, res) => {
+    try {
+      const key = await storage.getApiKeyById(req.params.id);
+      if (!key) return res.status(404).json({ error: "API key not found" });
+      res.json({ hasRawKey: !!(key as any).rawKey });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to check raw key" });
     }
   });
 
