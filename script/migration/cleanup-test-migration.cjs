@@ -20,6 +20,8 @@ async function main() {
   console.log('=== Cleanup testovacích migračných dát ===\n');
 
   const tables = [
+    { name: 'communication_messages (legacy)', query: "DELETE FROM communication_messages WHERE provider = 'cbc_legacy'" },
+    { name: 'customer_notes (legacy)', query: "DELETE FROM customer_notes WHERE legacy_id IS NOT NULL" },
     { name: 'collection_lab_results', query: "DELETE FROM collection_lab_results WHERE collection_id IN (SELECT id FROM collections WHERE legacy_id IS NOT NULL)" },
     { name: 'customer_potential_cases', query: "DELETE FROM customer_potential_cases WHERE customer_id IN (SELECT id FROM customers WHERE internal_id IS NOT NULL)" },
     { name: 'collections (migrated)', query: "DELETE FROM collections WHERE legacy_id IS NOT NULL" },

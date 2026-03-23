@@ -972,8 +972,9 @@ export const scheduledInvoices = pgTable("scheduled_invoices", {
 export const customerNotes = pgTable("customer_notes", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   customerId: varchar("customer_id").notNull(),
-  userId: varchar("user_id").notNull(), // who created the note
+  userId: varchar("user_id").notNull(),
   content: text("content").notNull(),
+  legacyId: varchar("legacy_id"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 

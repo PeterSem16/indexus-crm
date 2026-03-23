@@ -254,72 +254,45 @@ async function step1_testConnection() {
     log(`  FileRepositories: ${repoCount.recordset[0].cnt} záznamov (PRÁZDNA — súbory sa budú riešiť manuálne)`);
   } catch (err) { log(`  WARN: Repository diagnostika: ${err.message}`); }
 
-  log('\n--- Diagnostika CBC: Historické dáta klientov ---');
+  log('\n--- Diagnostika CBC: Historické dáta klientov (zhrnutie) ---');
   try {
-    const histTables = await mssqlPool.request().query(`
-      SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
-      WHERE TABLE_NAME LIKE '%Client%' OR TABLE_NAME LIKE '%Customer%'
-         OR TABLE_NAME LIKE '%History%' OR TABLE_NAME LIKE '%Note%'
-         OR TABLE_NAME LIKE '%Comment%' OR TABLE_NAME LIKE '%Log%'
-         OR TABLE_NAME LIKE '%Activity%' OR TABLE_NAME LIKE '%Communication%'
-         OR TABLE_NAME LIKE '%Contact%' OR TABLE_NAME LIKE '%Task%'
-         OR TABLE_NAME LIKE '%Event%' OR TABLE_NAME LIKE '%Call%'
-         OR TABLE_NAME LIKE '%Email%' OR TABLE_NAME LIKE '%SMS%'
-         OR TABLE_NAME LIKE '%Payment%' OR TABLE_NAME LIKE '%Storage%'
-         OR TABLE_NAME LIKE '%Campaign%' OR TABLE_NAME LIKE '%Potential%'
-      ORDER BY TABLE_NAME
+    const remarksCnt = await mssqlPool.request().query(`SELECT COUNT(*) as cnt FROM Remarks`);
+    const phoneCnt = await mssqlPool.request().query(`SELECT COUNT(*) as cnt FROM PhoneCommunications`);
+    log(`  Remarks: ${remarksCnt.recordset[0].cnt} záznamov`);
+    log(`  PhoneCommunications: ${phoneCnt.recordset[0].cnt} záznamov`);
+
+    const remarkCols = await mssqlPool.request().query(`
+      SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_NAME = 'Remarks' ORDER BY ORDINAL_POSITION
     `);
-    log(`  Tabuľky súvisiace s klientmi/históriou: ${histTables.recordset.map(r => r.TABLE_NAME).join(', ')}`);
-
-    for (const ht of histTables.recordset) {
-      try {
-        const htCount = await mssqlPool.request().query(`SELECT COUNT(*) as cnt FROM [${ht.TABLE_NAME}]`);
-        const htCols = await mssqlPool.request().query(`
-          SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
-          WHERE TABLE_NAME = '${ht.TABLE_NAME}' ORDER BY ORDINAL_POSITION
-        `);
-        const colNames = htCols.recordset.map(r => r.COLUMN_NAME);
-        const hasCliId = colNames.some(c => c === 'cli_id' || c === 'con_id' || c === 'pot_id');
-        log(`  ${ht.TABLE_NAME}: ${htCount.recordset[0].cnt} záznamov${hasCliId ? ' (má FK na klienta/kontrakt)' : ''}`);
-        log(`    Stĺpce: ${colNames.join(', ')}`);
-
-        if (htCount.recordset[0].cnt > 0) {
-          const htSample = await mssqlPool.request().query(`SELECT TOP 2 * FROM [${ht.TABLE_NAME}] ORDER BY 1 DESC`);
-          if (htSample.recordset.length > 0) {
-            const cols = Object.keys(htSample.recordset[0]);
-            table(cols, htSample.recordset.map(r => cols.map(c => {
-              const v = r[c];
-              if (v == null) return '—';
-              if (Buffer.isBuffer(v)) return `[BLOB ${v.length}B]`;
-              const s = String(v);
-              return s.length > 35 ? s.substring(0, 35) + '…' : s;
-            })));
-          }
-        }
-      } catch (e) { log(`    WARN: ${ht.TABLE_NAME}: ${e.message}`); }
+    log(`  Remarks stĺpce: ${remarkCols.recordset.map(r => `${r.COLUMN_NAME}(${r.DATA_TYPE})`).join(', ')}`);
+    const remarkSample = await mssqlPool.request().query(`SELECT TOP 3 * FROM Remarks ORDER BY rem_id DESC`);
+    if (remarkSample.recordset.length > 0) {
+      const cols = Object.keys(remarkSample.recordset[0]);
+      table(cols, remarkSample.recordset.map(r => cols.map(c => {
+        const v = r[c]; if (v == null) return '—';
+        const s = String(v); return s.length > 40 ? s.substring(0, 40) + '…' : s;
+      })));
     }
 
-    const allTables = await mssqlPool.request().query(`
-      SELECT t.TABLE_NAME, c.COLUMN_NAME
-      FROM INFORMATION_SCHEMA.TABLES t
-      JOIN INFORMATION_SCHEMA.COLUMNS c ON c.TABLE_NAME = t.TABLE_NAME
-      WHERE c.COLUMN_NAME IN ('cli_id', 'con_id')
-        AND t.TABLE_NAME NOT IN (${histTables.recordset.map(r => `'${r.TABLE_NAME}'`).join(',') || "'_none_'"})
-      ORDER BY t.TABLE_NAME
+    const phoneSample = await mssqlPool.request().query(`
+      SELECT TOP 3 pho_id, pot_id, cnt_id, con_id, cli_id, phr_id,
+             pho_call_date, pho_caller, pho_number, pho_note, pho_deleted
+      FROM PhoneCommunications ORDER BY pho_id DESC
     `);
-    if (allTables.recordset.length > 0) {
-      log(`\n  Ďalšie tabuľky s cli_id/con_id (zatiaľ nezobrazené):`);
-      const grouped = {};
-      for (const r of allTables.recordset) {
-        if (!grouped[r.TABLE_NAME]) grouped[r.TABLE_NAME] = [];
-        grouped[r.TABLE_NAME].push(r.COLUMN_NAME);
-      }
-      for (const [tbl, cols] of Object.entries(grouped)) {
-        try {
-          const cnt = await mssqlPool.request().query(`SELECT COUNT(*) as cnt FROM [${tbl}]`);
-          log(`    ${tbl} (${cols.join(', ')}): ${cnt.recordset[0].cnt} záznamov`);
-        } catch (e) { log(`    ${tbl}: ${e.message}`); }
-      }
+    if (phoneSample.recordset.length > 0) {
+      log(`  PhoneCommunications vzorky:`);
+      const cols = Object.keys(phoneSample.recordset[0]);
+      table(cols, phoneSample.recordset.map(r => cols.map(c => {
+        const v = r[c]; if (v == null) return '—';
+        const s = String(v); return s.length > 35 ? s.substring(0, 35) + '…' : s;
+      })));
+    }
+
+    const phoneResultTypes = await mssqlPool.request().query(`SELECT * FROM PhoneCallResults ORDER BY phr_id`);
+    log(`  PhoneCallResults (výsledky hovorov):`);
+    for (const r of phoneResultTypes.recordset) {
+      log(`    ${r.phr_id}: ${r.phr_code} = ${r.phr_default_name}`);
     }
   } catch (err) { log(`  WARN: Historické dáta diagnostika: ${err.message}`); }
 
@@ -1396,10 +1369,205 @@ async function step6b_cases() {
 }
 
 // ============================================================
-// STEP 7: Verification — Detail comparison
+// STEP 8: Remarks → customer_notes
 // ============================================================
-async function step7_verification() {
-  separator('STEP 7: Verifikácia — porovnanie prenesených dát');
+async function step8_remarks() {
+  separator('STEP 8: Remarks (poznámky) → customer_notes');
+
+  await pgPool.query(`ALTER TABLE customer_notes ADD COLUMN IF NOT EXISTS legacy_id VARCHAR`);
+
+  const migratedCustomers = await pgPool.query(`
+    SELECT id, internal_id FROM customers WHERE internal_id IS NOT NULL AND internal_id != ''
+  `);
+  if (migratedCustomers.rows.length === 0) {
+    log('  Žiadni migrovaní klienti — preskakujem.');
+    return;
+  }
+  const customerMap = {};
+  for (const c of migratedCustomers.rows) {
+    customerMap[c.internal_id] = c.id;
+  }
+  const cliIds = Object.keys(customerMap).join(',');
+
+  const contractToCustomer = {};
+  const contracts = await mssqlPool.request().query(`
+    SELECT con_id, cli_id FROM Contracts WHERE cli_id IN (${cliIds})
+  `);
+  for (const c of contracts.recordset) {
+    contractToCustomer[String(c.con_id)] = customerMap[String(c.cli_id)];
+  }
+
+  const remarks = await mssqlPool.request().query(`
+    SELECT rem_id, cli_id, con_id, rem_date, rem_login, rem_note
+    FROM Remarks
+    WHERE (cli_id IN (${cliIds}) OR con_id IN (${Object.keys(contractToCustomer).join(',') || '0'}))
+      AND (rem_deleted = 0 OR rem_deleted IS NULL)
+      AND rem_note IS NOT NULL AND LTRIM(RTRIM(rem_note)) != ''
+    ORDER BY rem_id
+  `);
+  log(`  Nájdených ${remarks.recordset.length} poznámok pre ${migratedCustomers.rows.length} klientov`);
+
+  let inserted = 0, skipped = 0, errors = 0;
+  for (const r of remarks.recordset) {
+    let customerId = null;
+    if (r.cli_id) customerId = customerMap[String(r.cli_id)];
+    if (!customerId && r.con_id) customerId = contractToCustomer[String(r.con_id)];
+    if (!customerId) { skipped++; continue; }
+
+    const existing = await pgPool.query(
+      `SELECT id FROM customer_notes WHERE legacy_id = $1`, [String(r.rem_id)]
+    );
+    if (existing.rows.length > 0) { skipped++; continue; }
+
+    try {
+      await pgPool.query(`
+        INSERT INTO customer_notes (id, customer_id, user_id, content, legacy_id, created_at)
+        VALUES (gen_random_uuid(), $1, $2, $3, $4, $5)
+      `, [
+        customerId,
+        r.rem_login || 'system',
+        r.rem_note,
+        String(r.rem_id),
+        r.rem_date || new Date(),
+      ]);
+      inserted++;
+    } catch (err) {
+      errors++;
+      if (errors <= 3) log(`  ERROR rem_id=${r.rem_id}: ${err.message}`);
+    }
+  }
+  log(`  Remarks: ${inserted} vložených, ${skipped} preskočených, ${errors} chýb`);
+
+  const sampleNotes = await pgPool.query(`
+    SELECT cn.legacy_id, cn.user_id, cn.content, cn.created_at, cu.internal_id
+    FROM customer_notes cn
+    JOIN customers cu ON cu.id = cn.customer_id
+    WHERE cn.legacy_id IS NOT NULL
+    ORDER BY cn.created_at DESC LIMIT 5
+  `);
+  if (sampleNotes.rows.length > 0) {
+    table(
+      ['RemID', 'KlientID', 'Autor', 'Dátum', 'Poznámka'],
+      sampleNotes.rows.map(r => [
+        r.legacy_id, r.internal_id, r.user_id,
+        r.created_at ? new Date(r.created_at).toISOString().substring(0, 16) : '—',
+        r.content ? (r.content.length > 60 ? r.content.substring(0, 60) + '…' : r.content) : '—',
+      ])
+    );
+  }
+}
+
+// ============================================================
+// STEP 9: PhoneCommunications → communication_messages
+// ============================================================
+async function step9_phoneCommunications() {
+  separator('STEP 9: PhoneCommunications (telefonáty) → communication_messages');
+
+  const migratedCustomers = await pgPool.query(`
+    SELECT id, internal_id FROM customers WHERE internal_id IS NOT NULL AND internal_id != ''
+  `);
+  if (migratedCustomers.rows.length === 0) {
+    log('  Žiadni migrovaní klienti — preskakujem.');
+    return;
+  }
+  const customerMap = {};
+  for (const c of migratedCustomers.rows) {
+    customerMap[c.internal_id] = c.id;
+  }
+  const cliIds = Object.keys(customerMap).join(',');
+
+  const contractToCustomer = {};
+  const contracts = await mssqlPool.request().query(`
+    SELECT con_id, cli_id FROM Contracts WHERE cli_id IN (${cliIds})
+  `);
+  for (const c of contracts.recordset) {
+    contractToCustomer[String(c.con_id)] = customerMap[String(c.cli_id)];
+  }
+
+  let phoneResultMap = {};
+  try {
+    const phoneResults = await mssqlPool.request().query(`SELECT phr_id, phr_code, phr_default_name FROM PhoneCallResults`);
+    for (const r of phoneResults.recordset) {
+      phoneResultMap[String(r.phr_id)] = r.phr_default_name || r.phr_code || '';
+    }
+  } catch (e) { log(`  WARN: PhoneCallResults: ${e.message}`); }
+
+  const phones = await mssqlPool.request().query(`
+    SELECT pho_id, pot_id, con_id, cli_id, phr_id,
+           pho_call_date, pho_caller, pho_number, pho_note
+    FROM PhoneCommunications
+    WHERE (cli_id IN (${cliIds}) OR con_id IN (${Object.keys(contractToCustomer).join(',') || '0'}))
+      AND (pho_deleted = 0 OR pho_deleted IS NULL)
+    ORDER BY pho_id
+  `);
+  log(`  Nájdených ${phones.recordset.length} hovorov pre ${migratedCustomers.rows.length} klientov`);
+
+  let inserted = 0, skipped = 0, errors = 0;
+  for (const p of phones.recordset) {
+    let customerId = null;
+    if (p.cli_id) customerId = customerMap[String(p.cli_id)];
+    if (!customerId && p.con_id) customerId = contractToCustomer[String(p.con_id)];
+    if (!customerId) { skipped++; continue; }
+
+    const extId = 'cbc_pho_' + p.pho_id;
+    const existing = await pgPool.query(
+      `SELECT id FROM communication_messages WHERE external_id = $1`, [extId]
+    );
+    if (existing.rows.length > 0) { skipped++; continue; }
+
+    const callResult = p.phr_id ? (phoneResultMap[String(p.phr_id)] || '') : '';
+    const noteText = [p.pho_note, callResult ? `[Výsledok: ${callResult}]` : ''].filter(Boolean).join(' ');
+
+    try {
+      await pgPool.query(`
+        INSERT INTO communication_messages (
+          id, customer_id, user_id, type, direction, content,
+          recipient_phone, status, external_id, provider, sent_at, created_at
+        ) VALUES (
+          gen_random_uuid(), $1, $2, 'phone', 'outbound', $3,
+          $4, 'delivered', $5, 'cbc_legacy', $6, $7
+        )
+      `, [
+        customerId,
+        p.pho_caller || 'system',
+        noteText || '(bez poznámky)',
+        p.pho_number || null,
+        extId,
+        p.pho_call_date || new Date(),
+        p.pho_call_date || new Date(),
+      ]);
+      inserted++;
+    } catch (err) {
+      errors++;
+      if (errors <= 3) log(`  ERROR pho_id=${p.pho_id}: ${err.message}`);
+    }
+  }
+  log(`  PhoneCommunications: ${inserted} vložených, ${skipped} preskočených, ${errors} chýb`);
+
+  const samplePhones = await pgPool.query(`
+    SELECT cm.external_id, cm.user_id, cm.recipient_phone, cm.content, cm.sent_at, cu.internal_id
+    FROM communication_messages cm
+    JOIN customers cu ON cu.id = cm.customer_id
+    WHERE cm.provider = 'cbc_legacy'
+    ORDER BY cm.sent_at DESC LIMIT 5
+  `);
+  if (samplePhones.rows.length > 0) {
+    table(
+      ['PhoID', 'KlientID', 'Volajúci', 'Číslo', 'Dátum', 'Poznámka'],
+      samplePhones.rows.map(r => [
+        r.external_id, r.internal_id, r.user_id, r.recipient_phone || '—',
+        r.sent_at ? new Date(r.sent_at).toISOString().substring(0, 16) : '—',
+        r.content ? (r.content.length > 50 ? r.content.substring(0, 50) + '…' : r.content) : '—',
+      ])
+    );
+  }
+}
+
+// ============================================================
+// STEP 10: Verification — Detail comparison
+// ============================================================
+async function step10_verification() {
+  separator('STEP 10: Verifikácia — porovnanie prenesených dát');
 
   const counts = [
     { name: 'CollectionStatuses', query: 'SELECT COUNT(*) as cnt FROM collection_statuses' },
@@ -1411,6 +1579,8 @@ async function step7_verification() {
     { name: 'Lab Results (migrated)', query: "SELECT COUNT(*) as cnt FROM collection_lab_results" },
     { name: 'Agreements (migrated)', query: "SELECT COUNT(*) as cnt FROM collaborator_agreements WHERE collaborator_id IN (SELECT id FROM collaborators WHERE legacy_id IS NOT NULL)" },
     { name: 'Cases (migrated)', query: "SELECT COUNT(*) as cnt FROM customer_potential_cases WHERE customer_id IN (SELECT id FROM customers WHERE internal_id IS NOT NULL)" },
+    { name: 'Notes (migrated)', query: "SELECT COUNT(*) as cnt FROM customer_notes WHERE legacy_id IS NOT NULL" },
+    { name: 'PhoneCalls (migrated)', query: "SELECT COUNT(*) as cnt FROM communication_messages WHERE provider = 'cbc_legacy'" },
   ];
 
   const countRows = [];
@@ -1559,7 +1729,9 @@ async function main() {
     await step5_customers();
     await step6_collections();
     await step6b_cases();
-    await step7_verification();
+    await step8_remarks();
+    await step9_phoneCommunications();
+    await step10_verification();
 
     separator('HOTOVO');
     log('Testovací prenos 20 záznamov bol úspešne dokončený.');
