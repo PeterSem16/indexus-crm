@@ -193,6 +193,20 @@ async function step1_testConnection() {
     );
   } catch (err) { log(`  WARN: Father columns: ${err.message}`); }
 
+  log('\n--- Diagnostika CBC: CollaborationAgreementTypes ---');
+  try {
+    const agtTypes = await mssqlPool.request().query(`
+      SELECT agt_id, agt_code, agt_default_name, COUNT(cc.sco_id) as cnt
+      FROM CollaborationAgreementTypes at2
+      LEFT JOIN CollectionCollaborators cc ON cc.agt_id = at2.agt_id
+      GROUP BY at2.agt_id, at2.agt_code, at2.agt_default_name
+      ORDER BY at2.agt_id
+    `);
+    table(['agt_id', 'Kód', 'Názov', 'Počet použití'],
+      agtTypes.recordset.map(r => [r.agt_id, r.agt_code, r.agt_default_name, r.cnt])
+    );
+  } catch (err) { log(`  WARN: AgreementTypes: ${err.message}`); }
+
   log('\n--- Diagnostika CBC: Hospital active values ---');
   try {
     const hospActive = await mssqlPool.request().query(`
