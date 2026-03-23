@@ -30129,8 +30129,8 @@ Guidelines:
   // Get collection lab results
   app.get("/api/collections/:id/lab-results", requireAuth, async (req, res) => {
     try {
-      const labResult = await storage.getCollectionLabResult(req.params.id);
-      res.json(labResult || null);
+      const labResults = await storage.getCollectionLabResultsByCollection(req.params.id);
+      res.json(labResults);
     } catch (error) {
       console.error("Error fetching lab results:", error);
       res.status(500).json({ error: "Failed to fetch lab results" });
