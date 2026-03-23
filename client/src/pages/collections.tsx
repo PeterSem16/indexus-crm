@@ -2129,68 +2129,6 @@ export default function CollectionsPage() {
                   <div className="flex items-center justify-center py-12">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
                   </div>
-                ) : labResult && !labFormUnlocked ? (
-                  <div className="space-y-6">
-                    <div className="flex flex-col items-center justify-center py-16 text-center space-y-4">
-                      <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center">
-                        <Shield className="h-10 w-10 text-primary" />
-                      </div>
-                      <h3 className="text-lg font-semibold">
-                        {locale === "sk" ? "Medicínske údaje chránené OTP" : "Medical Data Protected by OTP"}
-                      </h3>
-                      <p className="text-sm text-muted-foreground max-w-md">
-                        {locale === "sk"
-                          ? "Laboratórne výsledky obsahujú citlivé medicínske informácie. Pre zobrazenie a úpravu je potrebné OTP overenie."
-                          : "Laboratory results contain sensitive medical information. OTP verification is required to view and edit."}
-                      </p>
-
-                      {labOtpStep === "idle" && (
-                        <Button onClick={handleLabFormUnlockOtp} data-testid="button-lab-form-unlock">
-                          <Shield className="h-4 w-4 mr-2" />
-                          {locale === "sk" ? "Overiť prístup cez OTP" : "Verify Access via OTP"}
-                        </Button>
-                      )}
-
-                      {labOtpStep === "sending" && (
-                        <div className="flex items-center gap-2">
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          <span className="text-sm">{locale === "sk" ? "Odosielam OTP kód..." : "Sending OTP code..."}</span>
-                        </div>
-                      )}
-
-                      {labOtpStep === "form_verify" && (
-                        <div className="space-y-4 w-full max-w-xs">
-                          <p className="text-xs text-muted-foreground">
-                            {locale === "sk"
-                              ? "Na váš email bol odoslaný 6-miestny overovací kód."
-                              : "A 6-digit verification code has been sent to your email."}
-                          </p>
-                          <Input
-                            value={labOtpCode}
-                            onChange={(e) => setLabOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                            placeholder="000000"
-                            className="text-center text-2xl tracking-[0.5em] font-mono h-14"
-                            maxLength={6}
-                            data-testid="input-lab-form-otp"
-                            onKeyDown={(e) => e.key === "Enter" && labOtpCode.length === 6 && handleLabFormVerifyOtp()}
-                          />
-                          <Button
-                            className="w-full"
-                            onClick={handleLabFormVerifyOtp}
-                            disabled={labOtpVerifying || labOtpCode.length !== 6}
-                            data-testid="button-lab-form-verify"
-                          >
-                            {labOtpVerifying ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Eye className="h-4 w-4 mr-2" />}
-                            {locale === "sk" ? "Overiť a zobraziť" : "Verify & View"}
-                          </Button>
-                          <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
-                            <AlertTriangle className="h-3 w-3" />
-                            {locale === "sk" ? "Kód je platný 10 minút" : "Code is valid for 10 minutes"}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
                 ) : (
                   renderLabResultsForm()
                 )}
