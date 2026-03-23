@@ -452,3 +452,242 @@ Phase 5 - Historical/Audit (optional):
   22. Remarks → customer_notes / notes
   23. RecordChanges → audit trail
 ```
+
+---
+
+## 8. Complete ISCBC Table Inventory (150 tables)
+
+### Category A: CORE BUSINESS (Migrating) - 22 tables
+| Table | Records Target | Notes |
+|-------|---------------|-------|
+| Companies | billing_details | CBC branch entities (SK, CZ, HU, AT...) |
+| CompanyDetails | billing_details | Extended company info, addresses |
+| CompanyAccounts | billing_details | Bank accounts per company |
+| Clients | customers | Mother/parent records |
+| Persons | customers | Person identity records |
+| PersonalData | customers | Contact, banking, health data |
+| PotentialClients | customers | Lead registrations |
+| Contracts | contracts (NEW) | Service contracts |
+| ContractServices | contract_services | Services linked to contracts |
+| ServiceCollections | collections | Cord blood collections |
+| CollectionCollaborators | collections (FK) | Who performed collection |
+| CollectionEvaluationResults | collection_lab_results | Lab evaluation data |
+| Hospitals | hospitals | Collection hospitals |
+| Collaborators | collaborators | Doctors, nurses |
+| CollaboratorsHospitals | collaborators.hospital_ids | M:N hospital assignments |
+| CollaboratorAgreements | collaborator_agreements | Agreements with collaborators |
+| Laboratories | laboratories | Processing labs |
+| Invoices | invoices | Financial invoices |
+| InvoiceItems | invoice_items | Line items on invoices |
+| RealizedPayments | invoice_payments | Actual payments received |
+| ScheduledPayments | scheduled_invoices | Payment schedules |
+| MailAddresses | customer/collaborator fields | Physical addresses |
+
+### Category B: REFERENCE/LOOKUP (Migrating) - 28 tables
+| Table | Notes |
+|-------|-------|
+| CollectionStatuses | Collection status codes |
+| ContractStatuses | Contract status codes |
+| InvoiceStatuses | Invoice status codes |
+| InvoiceTypes | Invoice type codes |
+| CollaboratorTypes | Doctor/nurse/midwife types |
+| CollaborationAgreementTypes | Agreement role types |
+| CollectionTypes | Collection types |
+| CollectionTransferTypes | Transfer types |
+| CollectionUsabilities | Usability ratings |
+| CollectionLaboratoryStates | Lab processing states |
+| ContactStatuses | Contact/lead statuses |
+| ContactSources | Lead sources |
+| PotentialClientStatuses | Lead status codes |
+| DocumentStatuses | Document workflow statuses |
+| DocumentTypes | Document categories |
+| ContractTerminationReasons | Termination reasons |
+| ContractsRelationTypes | Contract relationship types |
+| PersonsContractsRelationTypes | Person-contract roles |
+| PersonMaritalStatuses | Marital status codes |
+| PaymentTypes | Payment method types (installments) |
+| Products | Base product definitions |
+| MarketProducts | Country-specific products |
+| MarketProductInstances | Product versions/instances |
+| Currencies | Currency codes |
+| Countries | Country codes |
+| ExchangeRates | Currency exchange rates |
+| VATs | VAT rates per service |
+| HealthInsurance (via codes) | Insurance company codes |
+
+### Category C: REWARDS SYSTEM - 20 tables
+| Table | Notes |
+|-------|-------|
+| Rewards | SK reward payments to collaborators |
+| Rewards3 | Reward payments v3 |
+| RewardsCZ | CZ-specific rewards |
+| RewardStatuses | Reward status codes |
+| RewardTypes | Reward type codes |
+| RewardTemplates | Reward calculation templates |
+| RewardTemplateItems | Template line items |
+| RewardTemplateItemConditions | Conditional reward rules |
+| RewardCollaborators | Collaborator reward config |
+| RewardCollectionBlood | Per-collection blood rewards (SK) |
+| RewardCollectionBloodCZ | Per-collection blood rewards (CZ) |
+| RewardRecruiting | Recruiting rewards |
+| RewardHospitalBA | Hospital rewards (Bratislava) |
+| RewardHospitalQuarter | Quarterly hospital rewards |
+| RewardDonatedGrafts | Donated graft rewards |
+| RewardNurseManager | Nurse manager rewards |
+| RewardHistory | Reward change history |
+| RewardImports/Lines | Reward import files |
+| RewardProcess | Reward batch processing |
+| RewardSKHospitals* | SK hospital reward config |
+
+### Category D: CONTRACT TEMPLATES & PRICING - 15 tables
+| Table | Notes |
+|-------|-------|
+| ContractTemplates | Contract document templates |
+| ContractTemplateFields | Template field definitions |
+| ContractTemplateServices | Services in templates |
+| ContractAmendmentTemplates | Amendment templates |
+| ContractAmendmentTemplateFields | Amendment field defs |
+| ContractAmendmentTemplateServices | Services in amendments |
+| ContractNumberSequencies | Contract number generators |
+| PriceLists | Service price lists |
+| PriceListPayments | Payment schedules in price lists |
+| PriceListSurcharges | Surcharge definitions |
+| SurchargeTypes | Surcharge type codes |
+| DiscountCategories | Discount categories |
+| ScheduleTemplates | Payment schedule templates |
+| SchedulePaymentTemplates | Template payment items |
+| CollectionKitsTypes | Collection kit types |
+
+### Category E: DOCUMENTS & COMMUNICATIONS - 12 tables
+| Table | Notes |
+|-------|-------|
+| DocumentTemplates | Document generation templates |
+| DocumentTemplateFields | Template fields |
+| ContractDocuments | Generated contract documents |
+| ExternalDocuments | External uploaded documents |
+| Certificates | CBU certificates |
+| Amendments | Contract amendments |
+| EmailQueue | Email sending queue |
+| SMSQueue | SMS sending queue |
+| CoverLetterQueue | Cover letter queue |
+| CollectionAnnouncementQueue | Announcement queue |
+| CollectionAnnouncements | Collection announcements |
+| FileRepositories | File storage references |
+
+### Category F: HISTORY & AUDIT - 12 tables
+| Table | Notes |
+|-------|-------|
+| ContractStateHistories | Contract status changes |
+| ServiceCollectionStateHistories | Collection status changes |
+| InvoiceStateHistories | Invoice status changes |
+| DocumentStateHistories | Document status changes |
+| ContractFormStateHistories | Form status changes |
+| AmendmentStateHistories | Amendment status changes |
+| AoPStateHistories | Payment application changes |
+| RecordChanges | Generic record change log |
+| RecordChangeDetails | Field-level change details |
+| RecordChangeTypes | Change type codes |
+| HistoryContractServices | Service price history |
+| HistoryContractServicePayments | Payment price history |
+
+### Category G: ACCOUNTING & INTEGRATION - 18 tables
+| Table | Notes |
+|-------|-------|
+| IOAccountings | Accounting system integrations |
+| IOAccountingResults | Accounting sync results |
+| AccountingExportFiles | Exported accounting files |
+| AccountingImportFiles/Lines/Values | Imported accounting data |
+| AccountingSoftTypes | Accounting software types |
+| IOCRMs/Results | CRM integration configs |
+| CRMExportFiles/ImportFiles/Lines/Values | CRM sync data |
+| IOLabs/Results | Laboratory integrations |
+| LaboratoryExportFiles | Lab export files |
+| LaboratoryImportFiles/Lines/Values | Lab import data |
+| LaboratoryRegisters | Lab register references |
+| IOExports/Results/ExportFiles | Generic export configs |
+| PaymentImports/Lines | Payment import files |
+| QRConfiguration | QR code settings per company |
+
+### Category H: APPLICATION OF PAYMENTS (AoP) - 8 tables
+| Table | Notes |
+|-------|-------|
+| ApplicationOfPayments | Debt collection cases |
+| AoPDocuments | AoP documents |
+| AoPInvoices | Linked invoices |
+| AoPRounds | Collection rounds |
+| AoPRoundTypes | Round type codes |
+| AoPResults | Case outcomes |
+| AoPRoundResults | Round outcomes |
+| AoPAccounts | Special accounts for AoP |
+
+### Category I: STORAGE CAMPAIGNS - 6 tables
+| Table | Notes |
+|-------|-------|
+| StorageCampaigns | Storage extension campaigns |
+| StorageCampaignDocuments | Campaign documents |
+| StorageCampaignEmails | Campaign emails |
+| StorageCampaignServices | Campaign services |
+| StorageCampaingRecords | Campaign client records |
+| StorageUpdates/Details | Update processing |
+
+### Category J: NOT MIGRATING - 15 tables
+| Table | Reason |
+|-------|--------|
+| BSPList* (8 tables) | UI configuration (views, columns, filters) |
+| BSPProcess* (4 tables) | Background process management |
+| UISettings | User interface preferences |
+| LOCALIZATIONSTRINGS | App localization strings |
+| LOCALIZATIONIMAGES | App localization images |
+| sysdiagrams | SQL Server diagrams |
+| WelcomeTasks/ToRoles | Dashboard widget config |
+| *Test tables | Test copies |
+| *Backup tables | Data backups |
+| DbChanges | Schema change log |
+| Logs/LogSeverities | Application logs |
+
+---
+
+## 9. Migration Scripts
+
+### Prerequisites (Ubuntu server)
+```bash
+cd /path/to/indexus-crm/script/migration
+npm install mssql pg
+```
+
+### Running
+```bash
+# Full migration (interactive)
+bash run-migration.sh
+
+# Or step by step:
+node test-mssql-connection.js     # Step 0: Test connection
+node migrate-phase1-reference.js  # Step 1: Reference data
+node migrate-phase2-core.js       # Step 2: Hospitals, Collaborators, Customers
+node migrate-phase3-collections.js # Step 3: Collections & Lab Results
+node migrate-phase4-invoices.js   # Step 4: Invoices & Payments
+node verify-migration.js          # Step 5: Verification
+```
+
+### Safety Features
+- All scripts are **idempotent** (skip already-migrated records via legacy_id check)
+- All scripts use **legacy_id** field to link back to MSSQL source IDs
+- Errors are logged but don't stop the migration (best-effort)
+- Verification script compares counts between source and target
+
+### Schema Changes Needed Before Migration
+1. Ensure `billing_details` table has: `legacy_id`, `code`, `entity_code`, `invoice_barcode_letter`, `currency` columns
+2. Ensure `collection_statuses` table has: `legacy_id`, `code`, `description` columns
+3. Create `contracts` table if not present (Phase 3+)
+
+---
+
+## 10. Key Decisions & Notes
+
+1. **Email uniqueness**: Some clients in ISCBC may share emails or have no email. Migration uses `legacy_{cli_id}@import.local` as fallback.
+2. **Country resolution**: Determined via Companies.com_country_code → billing_details.country_code chain.
+3. **Client status mapping**: Based on latest ContractStatuses code (REALIZED→acquired, TERMINATED→terminated, etc.)
+4. **Collaborator type**: Stored as text from CollaboratorTypes.cty_code (e.g., 'DOCTOR', 'NURSE', 'MIDWIFE')
+5. **Rewards system**: Complex multi-table structure with country-specific variants. Consider creating a separate `collaborator_rewards` table.
+6. **Contracts table**: ISCBC Contracts doesn't have a direct INDEXUS equivalent. Needs new table creation.
+7. **File migration**: FileRepositories references need separate file copy process (not covered in data migration).
