@@ -151,6 +151,45 @@ async function step1_testConnection() {
       ORDER BY ORDINAL_POSITION
     `);
     log('  Contracts ALL: ' + allContractCols.recordset.map(r => r.COLUMN_NAME).join(', '));
+
+    const fatherTables = await mssqlPool.request().query(`
+      SELECT TABLE_NAME, COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE COLUMN_NAME LIKE '%father%' OR COLUMN_NAME LIKE '%otec%'
+      ORDER BY TABLE_NAME, COLUMN_NAME
+    `);
+    if (fatherTables.recordset.length > 0) {
+      log('  Tabuľky s otcovskými stĺpcami:');
+      for (const r of fatherTables.recordset) log(`    ${r.TABLE_NAME}.${r.COLUMN_NAME}`);
+    } else {
+      log('  Žiadne tabuľky s otcovskými stĺpcami v CBC');
+    }
+
+    const potTable = await mssqlPool.request().query(`
+      SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_NAME = 'PotentialClients' OR TABLE_NAME = 'Potentials'
+      ORDER BY TABLE_NAME, ORDINAL_POSITION
+    `);
+    if (potTable.recordset.length > 0) {
+      log('  PotentialClients stĺpce: ' + potTable.recordset.map(r => r.COLUMN_NAME).join(', '));
+    }
+
+    const scoFatherCols = await mssqlPool.request().query(`
+      SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_NAME = 'ServiceCollections' AND (COLUMN_NAME LIKE '%father%' OR COLUMN_NAME LIKE '%otec%' OR COLUMN_NAME LIKE '%child%' OR COLUMN_NAME LIKE '%dieta%')
+      ORDER BY COLUMN_NAME
+    `);
+    if (scoFatherCols.recordset.length > 0) {
+      log('  ServiceCollections child/father stĺpce: ' + scoFatherCols.recordset.map(r => r.COLUMN_NAME).join(', '));
+    }
+
+    const conSample = await mssqlPool.request().query(`
+      SELECT TOP 3 con_id, cli_id, hos_id, pot_id, con_expected_collection_date, con_pregnancy_type
+      FROM Contracts WHERE pot_id IS NOT NULL ORDER BY con_id DESC
+    `);
+    log('  Contracts sample (s pot_id):');
+    table(['con_id', 'cli_id', 'hos_id', 'pot_id', 'Expected Date', 'Pregnancy'],
+      conSample.recordset.map(r => [r.con_id, r.cli_id, r.hos_id, r.pot_id, r.con_expected_collection_date, r.con_pregnancy_type])
+    );
   } catch (err) { log(`  WARN: Father columns: ${err.message}`); }
 
   log('\n--- Diagnostika CBC: Hospital active values ---');
