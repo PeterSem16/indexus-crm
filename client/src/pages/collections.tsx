@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useI18n } from "@/i18n";
 import { useCountryFilter } from "@/contexts/country-filter-context";
 import { format } from "date-fns";
-import { CHART_PALETTE, COUNTRY_CHART_COLORS, CHART_COLORS } from "@/lib/chart-colors";
+import { CHART_PALETTE, COUNTRY_CHART_COLORS, CHART_COLORS, PASTEL_CHART_COLORS } from "@/lib/chart-colors";
 import { sk, cs, hu, ro, it, de, enUS, type Locale } from "date-fns/locale";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
@@ -1934,11 +1934,55 @@ export default function CollectionsPage() {
 
     return (
       <div className="p-6 space-y-6">
-        <PageHeader
-          title={collection?.cbuNumber || t.common.edit}
-          description={`${collection?.clientFirstName || ""} ${collection?.clientLastName || ""}`}
-          backUrl="/collections"
-        />
+        <div className="flex items-start gap-4">
+          <Button variant="ghost" size="icon" className="mt-1 shrink-0" onClick={() => setLocation("/collections")} data-testid="button-back-to-list">
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-3 flex-wrap">
+              <h1 className="text-2xl font-bold tracking-tight">
+                {collection?.clientFirstName || ""} {collection?.clientLastName || ""}
+              </h1>
+              {collection?.state && (
+                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusBadgeStyle(collection.state)}`}>
+                  {getStateLabel(collection.state)}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-4 mt-1.5 text-sm text-muted-foreground flex-wrap">
+              {collection?.cbuNumber && (
+                <span className="flex items-center gap-1.5 font-mono text-xs bg-muted/50 px-2 py-0.5 rounded">
+                  <Syringe className="h-3 w-3" />
+                  {collection.cbuNumber}
+                </span>
+              )}
+              {collection?.childFirstName && (
+                <span className="flex items-center gap-1">
+                  <Baby className="h-3.5 w-3.5" />
+                  {collection.childFirstName} {collection.childLastName}
+                </span>
+              )}
+              {collection?.countryCode && (
+                <span className="flex items-center gap-1">
+                  <Globe className="h-3.5 w-3.5" />
+                  {collection.countryCode}
+                </span>
+              )}
+              {collection?.collectionDate && (
+                <span className="flex items-center gap-1">
+                  <Calendar className="h-3.5 w-3.5" />
+                  {format(new Date(collection.collectionDate), "dd.MM.yyyy")}
+                </span>
+              )}
+              {collection?.hospitalId && (
+                <span className="flex items-center gap-1">
+                  <Building2 className="h-3.5 w-3.5" />
+                  {getHospitalName(collection.hospitalId)}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
         
         <Card className="mb-6 overflow-hidden border-0 shadow-sm bg-gradient-to-r from-card to-muted/20">
           <CardContent className="p-0">
@@ -2570,7 +2614,7 @@ export default function CollectionsPage() {
   const countryData = selectedCountries.map(code => ({
     name: code,
     value: filteredCollections.filter(c => c.countryCode === code).length,
-    fill: COUNTRY_CHART_COLORS[code] || CHART_COLORS.primary
+    fill: COUNTRY_CHART_COLORS[code] || PASTEL_CHART_COLORS[0]
   })).filter(d => d.value > 0).sort((a, b) => b.value - a.value);
   
   const hospitalData = hospitals
@@ -2704,7 +2748,7 @@ export default function CollectionsPage() {
                       {statusData.map((_, index) => (
                         <Cell 
                           key={`cell-${index}`} 
-                          fill={CHART_COLORS[index % CHART_COLORS.length]}
+                          fill={PASTEL_CHART_COLORS[index % PASTEL_CHART_COLORS.length]}
                           stroke="transparent"
                         />
                       ))}
@@ -2725,7 +2769,7 @@ export default function CollectionsPage() {
                     <div key={item.state} className="flex items-center gap-2 text-sm">
                       <div 
                         className="w-3 h-3 rounded-full shrink-0" 
-                        style={{ backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }}
+                        style={{ backgroundColor: PASTEL_CHART_COLORS[index % PASTEL_CHART_COLORS.length] }}
                       />
                       <span className="text-muted-foreground whitespace-nowrap">{item.name}</span>
                       <span className="font-medium">{item.value}</span>
@@ -2829,9 +2873,9 @@ export default function CollectionsPage() {
                 <Line 
                   type="monotone" 
                   dataKey="count" 
-                  stroke="#6B1C3B" 
+                  stroke="#F9A8D4" 
                   strokeWidth={3}
-                  dot={{ fill: "#6B1C3B", strokeWidth: 2, r: 4 }}
+                  dot={{ fill: "#F9A8D4", strokeWidth: 2, r: 4 }}
                   activeDot={{ r: 6, stroke: "#fff", strokeWidth: 2 }}
                 />
               </LineChart>
@@ -2871,7 +2915,7 @@ export default function CollectionsPage() {
                   />
                   <Bar 
                     dataKey="value" 
-                    fill="#6B1C3B"
+                    fill="#F9A8D4"
                     radius={[0, 4, 4, 0]}
                     barSize={18}
                   />

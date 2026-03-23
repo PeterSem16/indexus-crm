@@ -18,59 +18,74 @@ export const CHART_COLORS = {
   neutralLightest: '#EBD3B5',
 };
 
+export const PASTEL_CHART_COLORS = [
+  '#F9A8D4',
+  '#93C5FD',
+  '#86EFAC',
+  '#FCD34D',
+  '#C4B5FD',
+  '#FCA5A5',
+  '#67E8F9',
+  '#FDBA74',
+  '#A5B4FC',
+  '#6EE7B7',
+];
+
 export const CHART_PALETTE = [
-  '#6B1C3B',
-  '#8B3A5B',
-  '#AB587B',
-  '#CB769B',
-  '#EB94BB',
-  '#F5D0DE',
-  '#4A2030',
-  '#9B2C5B',
+  '#F9A8D4',
+  '#93C5FD',
+  '#86EFAC',
+  '#FCD34D',
+  '#C4B5FD',
+  '#FCA5A5',
+  '#67E8F9',
+  '#FDBA74',
 ];
 
 export const CHART_PALETTE_EXTENDED = [
-  '#6B1C3B',
-  '#8B3A5B',
-  '#AB587B',
-  '#CB769B',
-  '#EB94BB',
-  '#F5D0DE',
-  '#4A2030',
-  '#7A3050',
-  '#9B2C5B',
-  '#BB4C7B',
+  '#F9A8D4',
+  '#93C5FD',
+  '#86EFAC',
+  '#FCD34D',
+  '#C4B5FD',
+  '#FCA5A5',
+  '#67E8F9',
+  '#FDBA74',
+  '#A5B4FC',
+  '#6EE7B7',
 ];
 
 export const STATUS_COLORS = {
-  completed: '#6B1C3B',
-  success: '#6B1C3B',
-  active: '#8B3A5B',
-  inProgress: '#AB587B',
-  pending: '#CB769B',
-  scheduled: '#EB94BB',
-  cancelled: '#4A2030',
-  failed: '#7A3050',
-  noAnswer: '#9B2C5B',
-  notInterested: '#BB4C7B',
+  completed: '#86EFAC',
+  success: '#86EFAC',
+  active: '#93C5FD',
+  inProgress: '#FCD34D',
+  pending: '#FDBA74',
+  scheduled: '#C4B5FD',
+  cancelled: '#FCA5A5',
+  failed: '#FCA5A5',
+  noAnswer: '#F9A8D4',
+  notInterested: '#67E8F9',
 };
 
 export const ACTIVITY_COLORS = {
-  calls: '#6B1C3B',
-  voice: '#6B1C3B',
-  emails: '#8B3A5B',
-  sms: '#AB587B',
-  sessions: '#CB769B',
+  calls: '#F9A8D4',
+  voice: '#F9A8D4',
+  emails: '#93C5FD',
+  sms: '#86EFAC',
+  sessions: '#FCD34D',
 };
 
 export const COUNTRY_CHART_COLORS: Record<string, string> = {
-  SK: '#6B1C3B',
-  CZ: '#8B3A5B',
-  HU: '#AB587B',
-  RO: '#CB769B',
-  IT: '#EB94BB',
-  DE: '#4A2030',
-  US: '#9B2C5B',
+  SK: '#F9A8D4',
+  CZ: '#93C5FD',
+  HU: '#86EFAC',
+  RO: '#FCD34D',
+  IT: '#C4B5FD',
+  DE: '#67E8F9',
+  US: '#FDBA74',
+  AT: '#A5B4FC',
+  PL: '#6EE7B7',
 };
 
 export function getChartColor(index: number): string {
@@ -82,5 +97,5 @@ export function getExtendedChartColor(index: number): string {
 }
 
 export function getCountryChartColor(countryCode: string): string {
-  return COUNTRY_CHART_COLORS[countryCode] || CHART_COLORS.primary;
+  return COUNTRY_CHART_COLORS[countryCode] || PASTEL_CHART_COLORS[0];
 }
