@@ -733,11 +733,12 @@ async function step6_collections() {
   for (const r of compRows.recordset) companyCountry[r.com_id] = normalizeCountryCode(r.com_country_code);
 
   const labLookup = {};
-  const pgLabs = await pgPool.query('SELECT id, legacy_id, name FROM laboratories');
-  for (const r of pgLabs.rows) {
-    if (r.legacy_id) labLookup[r.legacy_id] = r.id;
-    labLookup[r.name] = r.id;
-  }
+  const pgLabs = await pgPool.query('SELECT id, name FROM laboratories');
+  for (const r of pgLabs.rows) labLookup[r.name] = r.id;
+
+  const cbcLabNames = {};
+  const cbcLabs = await mssqlPool.request().query('SELECT lab_id, lab_name FROM Laboratories');
+  for (const r of cbcLabs.recordset) cbcLabNames[r.lab_id] = r.lab_name;
 
   const collections = await mssqlPool.request().query(`
     SELECT TOP ${LIMIT} sc.sco_id, sc.sco_collection_unit_number, sc.sco_collection_made,
@@ -782,7 +783,8 @@ async function step6_collections() {
       const birth = decomposeBirthDate(row.sco_client_birth_date);
       const cc = collabMap[row.sco_id] || {};
 
-      const labId = row.hos_lab_id ? (labLookup[String(row.hos_lab_id)] || null) : null;
+      const cbcLabName = row.hos_lab_id ? cbcLabNames[row.hos_lab_id] : null;
+      const labId = cbcLabName ? (labLookup[cbcLabName] || null) : null;
       const conId = contractMap[row.sco_id] || null;
 
       await pgPool.query(`
