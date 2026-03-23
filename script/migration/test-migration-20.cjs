@@ -243,6 +243,52 @@ async function step1_testConnection() {
     }
   } catch (err) { log(`  WARN: CollaboratorAgreements: ${err.message}`); }
 
+  log('\n--- Diagnostika CBC: Repository/Súbory dohôd ---');
+  try {
+    const repoStats = await mssqlPool.request().query(`
+      SELECT COUNT(*) as total, COUNT(cag_repository) as with_repo
+      FROM CollaboratorAgreements
+    `);
+    log(`  cag_repository: ${repoStats.recordset[0].with_repo} z ${repoStats.recordset[0].total} má hodnotu`);
+
+    const repoSamples = await mssqlPool.request().query(`
+      SELECT TOP 5 cag_id, doc_id, cag_number, cag_repository
+      FROM CollaboratorAgreements WHERE cag_repository IS NOT NULL
+      ORDER BY cag_id DESC
+    `);
+    if (repoSamples.recordset.length > 0) {
+      table(['cag_id', 'doc_id', 'cag_number', 'cag_repository'],
+        repoSamples.recordset.map(r => [r.cag_id, r.doc_id, r.cag_number || '—', String(r.cag_repository)]));
+    }
+
+    const repoTables = await mssqlPool.request().query(`
+      SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
+      WHERE TABLE_NAME LIKE '%Repositor%' OR TABLE_NAME LIKE '%Document%' OR TABLE_NAME LIKE '%File%' OR TABLE_NAME LIKE '%Blob%' OR TABLE_NAME LIKE '%Attachment%'
+      ORDER BY TABLE_NAME
+    `);
+    log(`  Tabuľky súvisiace so súbormi: ${repoTables.recordset.map(r => r.TABLE_NAME).join(', ') || 'žiadne'}`);
+
+    for (const rt of repoTables.recordset) {
+      try {
+        const rtCols = await mssqlPool.request().query(`
+          SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+          WHERE TABLE_NAME = '${rt.TABLE_NAME}' ORDER BY ORDINAL_POSITION
+        `);
+        log(`  ${rt.TABLE_NAME} stĺpce: ${rtCols.recordset.map(r => r.COLUMN_NAME).join(', ')}`);
+        const rtSample = await mssqlPool.request().query(`SELECT TOP 2 * FROM [${rt.TABLE_NAME}] ORDER BY 1 DESC`);
+        if (rtSample.recordset.length > 0) {
+          const cols = Object.keys(rtSample.recordset[0]);
+          table(cols, rtSample.recordset.map(r => cols.map(c => {
+            const v = r[c];
+            if (v == null) return '—';
+            if (Buffer.isBuffer(v)) return `[BLOB ${v.length} bytes]`;
+            return String(v).substring(0, 40);
+          })));
+        }
+      } catch (e) { log(`  WARN: ${rt.TABLE_NAME}: ${e.message}`); }
+    }
+  } catch (err) { log(`  WARN: Repository diagnostika: ${err.message}`); }
+
   log('\n--- Diagnostika CBC: Collaborators stĺpce (health, marital, insurance) ---');
   try {
     const docCols = await mssqlPool.request().query(`
