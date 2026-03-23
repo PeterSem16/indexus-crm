@@ -44,6 +44,23 @@ const LIMIT = parseInt(process.env.MIGRATION_LIMIT || '20', 10);
 let mssqlPool, pgPool;
 const cbcStatusRemap = { 1: 1, 2: 2, 3: 3, 4: 4, 5: 4, 6: 4, 7: 5, 8: 6, 9: 7, 10: 8 };
 
+const cbcCollaboratorTypeMap = {
+  'REG_CTY_DOCTOR': 'doctor',
+  'REG_CTY_NURSE': 'nurse',
+  'REG_CTY_OTHER': 'other',
+  'REG_CTY_RESIDENT': 'resident',
+  'REG_CTY_HEAD_NURSE': 'headNurse',
+  'REG_CTY_EXTERNAL': 'external',
+  'REG_CTY_REPRESENTATIVE': 'representative',
+  'REG_CTY_BM': 'bm',
+  'REG_CTY_VEDONO': 'vedono',
+  'REG_CTY_CALL_CENTER': 'callCenter',
+};
+function normalizeCollaboratorType(cbcType) {
+  if (!cbcType) return 'other';
+  return cbcCollaboratorTypeMap[cbcType] || cbcCollaboratorTypeMap[cbcType.toUpperCase()] || 'other';
+}
+
 function log(msg) { console.log(`[${new Date().toISOString()}] ${msg}`); }
 function separator(title) {
   console.log('');
@@ -534,7 +551,7 @@ async function step4_collaborators() {
         row.doc_active === true || row.doc_active === 1,
         row.doc_svet_zdravia === true || row.doc_svet_zdravia === 1,
         row.doc_monthly_rewards === true || row.doc_monthly_rewards === 1,
-        row.doc_note, row.cty_code, hospIds,
+        row.doc_note, normalizeCollaboratorType(row.cty_code), hospIds,
         row.doc_inserted || new Date(), new Date(),
       ]);
       inserted++;
