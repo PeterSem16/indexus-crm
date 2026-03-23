@@ -116,6 +116,66 @@ async function step1_testConnection() {
       r.pda_email,
     ])
   );
+
+  log('\n--- Diagnostika CBC: Lab Result Kódy (TOP 30) ---');
+  try {
+    const labCodes = await mssqlPool.request().query(`
+      SELECT TOP 30 cet.cet_code, cet.cet_field_name, cet.cet_order, COUNT(*) as cnt
+      FROM CollectionEvaluationTemplates cet
+      JOIN CollectionEvaluationResults cer ON cer.cet_id = cet.cet_id
+      GROUP BY cet.cet_code, cet.cet_field_name, cet.cet_order
+      ORDER BY cet.cet_order
+    `);
+    table(
+      ['cet_code', 'cet_field_name', 'Poradie', 'Počet'],
+      labCodes.recordset.map(r => [r.cet_code, r.cet_field_name, r.cet_order, r.cnt])
+    );
+  } catch (err) { log(`  WARN: Lab codes: ${err.message}`); }
+
+  log('\n--- Diagnostika CBC: Otec (Contracts/Father) ---');
+  try {
+    const fatherCols = await mssqlPool.request().query(`
+      SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_NAME = 'Contracts' AND COLUMN_NAME LIKE '%father%'
+      ORDER BY COLUMN_NAME
+    `);
+    if (fatherCols.recordset.length > 0) {
+      log('  Contracts stĺpce s "father": ' + fatherCols.recordset.map(r => r.COLUMN_NAME).join(', '));
+    } else {
+      log('  Contracts: žiadne stĺpce s "father"');
+    }
+
+    const allContractCols = await mssqlPool.request().query(`
+      SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_NAME = 'Contracts'
+      ORDER BY ORDINAL_POSITION
+    `);
+    log('  Contracts ALL: ' + allContractCols.recordset.map(r => r.COLUMN_NAME).join(', '));
+  } catch (err) { log(`  WARN: Father columns: ${err.message}`); }
+
+  log('\n--- Diagnostika CBC: Hospital active values ---');
+  try {
+    const hospActive = await mssqlPool.request().query(`
+      SELECT hos_active, COUNT(*) as cnt FROM Hospitals GROUP BY hos_active
+    `);
+    table(['hos_active', 'Počet'], hospActive.recordset.map(r => [String(r.hos_active), r.cnt]));
+  } catch (err) { log(`  WARN: Hospital active: ${err.message}`); }
+
+  log('\n--- Diagnostika CBC: Hospital adresy (sample) ---');
+  try {
+    const hospAddr = await mssqlPool.request().query(`
+      SELECT TOP 5 h.hos_id, h.hos_name, h.add_id,
+             a.add_city, a.add_street_and_number, a.add_zip, a.add_country, a.add_valid
+      FROM Hospitals h
+      LEFT JOIN MailAddresses a ON a.add_id = h.add_id
+      WHERE h.hos_active = 1
+      ORDER BY h.hos_id DESC
+    `);
+    table(
+      ['hos_id', 'Názov', 'add_id', 'Mesto', 'Ulica', 'PSČ', 'Krajina', 'Valid'],
+      hospAddr.recordset.map(r => [r.hos_id, r.hos_name, r.add_id, r.add_city, r.add_street_and_number, r.add_zip, r.add_country, r.add_valid])
+    );
+  } catch (err) { log(`  WARN: Hospital addr: ${err.message}`); }
 }
 
 // ============================================================
@@ -219,7 +279,7 @@ async function step3_hospitals() {
         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
       `, [
         String(row.hos_id), row.hos_name, row.hos_full_name,
-        row.hos_active === true || row.hos_active === 1,
+        !!row.hos_active,
         row.add_street_and_number, normalizeCity(row.add_city),
         normalizePostalCode(row.add_zip, countryCode), row.add_area,
         countryCode, labId,
@@ -267,7 +327,7 @@ async function step4_collaborators() {
     JOIN Companies c ON c.com_id = ca.com_id
   `);
   const countryMap = {};
-  for (const r of collabCountries.recordset) countryMap[r.doc_id] = r.com_country_code;
+  for (const r of collabCountries.recordset) countryMap[r.doc_id] = normalizeCountryCode(r.com_country_code);
 
   let hospMap = {};
   try {
@@ -286,7 +346,7 @@ async function step4_collaborators() {
     collabs.recordset.map(r => [
       r.doc_id, r.pda_first_name, r.pda_last_name, r.cty_code,
       r.pda_mobile, normalizePhone(r.pda_mobile, countryMap[r.doc_id] || 'SK'),
-      r.pda_email, countryMap[r.doc_id] || '?',
+      r.pda_email, countryMap[r.doc_id] || 'SK',
     ])
   );
 
@@ -385,8 +445,8 @@ async function step5_customers() {
     ['cli_id', 'Meno', 'Priezvisko', 'Mobil (RAW)', '→ Normalized', 'Email', 'Mesto', 'Krajina'],
     clients.recordset.map(r => [
       r.cli_id, r.pda_first_name, r.pda_last_name,
-      r.pda_mobile, normalizePhone(r.pda_mobile, r.perm_country || r.com_country_code || 'SK'),
-      r.pda_email, r.perm_city, r.perm_country || r.com_country_code || '?',
+      r.pda_mobile, normalizePhone(r.pda_mobile, normalizeCountryCode(r.perm_country || r.com_country_code)),
+      r.pda_email, r.perm_city, normalizeCountryCode(r.perm_country || r.com_country_code),
     ])
   );
 
@@ -425,7 +485,7 @@ async function step5_customers() {
       `, [
         String(row.cli_id),
         row.pda_title_prefix, firstName, lastName, normalizeName(row.pda_maiden_name), row.pda_title_suffix,
-        normalizePhone(row.pda_phone_number, country), normalizePhone(row.pda_mobile, country),
+        normalizePhone(row.pda_phone_number, country) || normalizePhone(row.pda_mobile, country), normalizePhone(row.pda_mobile, country),
         normalizePhone(row.pda_mobile2, country), row.pda_other_contact,
         email, normalizeEmail(row.pda_email2),
         normalizeNationalId(row.pda_id_number), row.pda_id_card, row.pda_birth_date,
@@ -488,7 +548,7 @@ async function step6_collections() {
 
   const companyCountry = {};
   const compRows = await mssqlPool.request().query('SELECT com_id, com_country_code FROM Companies');
-  for (const r of compRows.recordset) companyCountry[r.com_id] = r.com_country_code;
+  for (const r of compRows.recordset) companyCountry[r.com_id] = normalizeCountryCode(r.com_country_code);
 
   const collections = await mssqlPool.request().query(`
     SELECT TOP ${LIMIT} sco_id, sco_collection_unit_number, sco_collection_made,
@@ -511,7 +571,7 @@ async function step6_collections() {
       r.sco_id, r.sco_collection_unit_number,
       `${r.sco_client_first_name || ''} ${r.sco_client_last_name || ''}`.trim(),
       r.sco_client_mobile,
-      normalizePhone(r.sco_client_mobile, companyCountry[r.com_id] || 'SK'),
+      normalizePhone(r.sco_client_mobile, companyCountry[r.com_id] || 'SK'),  
       `${r.sco_child_first_name || ''} ${r.sco_child_last_name || ''}`.trim(),
       r.sco_collection_made ? new Date(r.sco_collection_made).toLocaleDateString('sk') : '—',
       r.csu_id,
@@ -549,7 +609,7 @@ async function step6_collections() {
         String(row.sco_id), row.sco_collection_unit_number, countryCode,
         customerId,
         normalizeName(row.sco_client_first_name), normalizeName(row.sco_client_last_name),
-        normalizePhone(row.sco_client_phone_number, countryCode),
+        normalizePhone(row.sco_client_phone_number, countryCode) || normalizePhone(row.sco_client_mobile, countryCode),
         normalizePhone(row.sco_client_mobile, countryCode),
         normalizeNationalId(row.sco_client_id_number),
         birth.day, birth.month, birth.year,
@@ -596,6 +656,16 @@ async function step6_collections() {
       grouped[r.sco_id][code] = value;
     }
 
+    const findField = (fields, ...keys) => {
+      for (const k of keys) {
+        const lower = k.toLowerCase();
+        for (const [fk, fv] of Object.entries(fields)) {
+          if (fk.toLowerCase() === lower || fk.toLowerCase().includes(lower)) return fv;
+        }
+      }
+      return null;
+    };
+
     let labInserted = 0;
     for (const [scoId, fields] of Object.entries(grouped)) {
       const collectionId = collLookup[scoId];
@@ -606,14 +676,49 @@ async function step6_collections() {
 
       try {
         await pgPool.query(`
-          INSERT INTO collection_lab_results (collection_id, usability, sterility, volume, tnc_count, lab_note)
-          VALUES ($1, $2, $3, $4, $5, $6)
+          INSERT INTO collection_lab_results (
+            collection_id, client_result_id,
+            usability, sterility, sterility_type, result_of_sterility,
+            volume, volume_in_bag, tnc_count, max_weight,
+            infection_agents, transplant_processing,
+            umbilical_tissue, tissue_processed, tissue_sterility,
+            tissue_usability, tissue_infection_agents,
+            bag_a_usability, bag_a_volume, bag_a_tnc,
+            bag_b_usability, bag_b_volume, bag_b_tnc,
+            first_name, surname, id_birth_number,
+            processing, collection_for, status, final_analyses,
+            lab_note
+          ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31)
         `, [
-          collectionId,
-          fields['usability'] || fields['pouzitelnost'] || null,
-          fields['sterility'] || fields['sterilita'] || null,
-          fields['volume'] || fields['objem'] || null,
-          fields['tnc'] || fields['tnc_count'] || null,
+          collectionId, scoId,
+          findField(fields, 'usability', 'pouzitelnost', 'cbu_usability'),
+          findField(fields, 'sterility', 'sterilita', 'cbu_sterility'),
+          findField(fields, 'sterility_type', 'typ_sterility'),
+          findField(fields, 'result_of_sterility', 'vysledok_sterility'),
+          findField(fields, 'volume', 'objem', 'cbu_volume'),
+          findField(fields, 'volume_in_bag', 'objem_vo_vaku'),
+          findField(fields, 'tnc', 'tnc_count', 'cbu_tnc'),
+          findField(fields, 'max_weight', 'hmotnost', 'vaha'),
+          findField(fields, 'infection_agents', 'infekcne_agensy'),
+          findField(fields, 'transplant_processing', 'transplantacne_spracovanie'),
+          findField(fields, 'umbilical_tissue', 'pupocnikove_tkanivo'),
+          findField(fields, 'tissue_processed', 'tkanivo_spracovane'),
+          findField(fields, 'tissue_sterility', 'sterilita_tkaniva'),
+          findField(fields, 'tissue_usability', 'pouzitelnost_tkaniva'),
+          findField(fields, 'tissue_infection_agents', 'infekcne_agensy_tkaniva'),
+          findField(fields, 'bag_a_usability', 'pouzitelnost_vak_a'),
+          findField(fields, 'bag_a_volume', 'objem_vak_a'),
+          findField(fields, 'bag_a_tnc', 'tnc_vak_a'),
+          findField(fields, 'bag_b_usability', 'pouzitelnost_vak_b'),
+          findField(fields, 'bag_b_volume', 'objem_vak_b'),
+          findField(fields, 'bag_b_tnc', 'tnc_vak_b'),
+          findField(fields, 'first_name', 'meno', 'klient_meno'),
+          findField(fields, 'surname', 'priezvisko', 'klient_priezvisko'),
+          findField(fields, 'id_birth_number', 'rodne_cislo'),
+          findField(fields, 'processing', 'spracovanie'),
+          findField(fields, 'collection_for', 'odber_pre'),
+          findField(fields, 'status', 'stav'),
+          findField(fields, 'final_analyses', 'zaverecne_analyzy'),
           JSON.stringify(fields),
         ]);
         labInserted++;
@@ -621,7 +726,7 @@ async function step6_collections() {
         log(`  ERROR lab sco_id=${scoId}: ${err.message}`);
       }
     }
-    log(`  Lab výsledky: ${labInserted} vložených`);
+    log(`  Lab výsledky: ${labInserted} vložených (z ${Object.keys(grouped).length} skupín)`);
   }
 }
 
