@@ -297,7 +297,10 @@ export default function CollectionsPage() {
   const [labAiLoading, setLabAiLoading] = useState(false);
 
   const handleDownloadCbuReport = async (reportType: "medical" | "full", language: "sk" | "en") => {
-    if (!collectionId || !collection?.cbuNumber) return;
+    if (!collectionId || !collection?.cbuNumber) {
+      toast({ title: t.common.error, description: locale === "sk" ? "CBU číslo nie je dostupné" : "CBU number not available", variant: "destructive" });
+      return;
+    }
     setLabOtpReportType(reportType);
     setLabOtpLang(language);
     setLabOtpStep("sending");
@@ -463,6 +466,29 @@ export default function CollectionsPage() {
       });
       if (source === "lab_tab" && collectionId) {
         queryClient.invalidateQueries({ queryKey: ["/api/collections", collectionId, "lab-results"] });
+        if (labResultData) {
+          setLabFormData((prev: any) => ({
+            ...prev,
+            usability: labResultData.usability || prev.usability,
+            cbu: labResultData.cbu || prev.cbu,
+            collectionFor: labResultData.collectionFor || prev.collectionFor,
+            processing: labResultData.processing || prev.processing,
+            sterility: labResultData.sterility || prev.sterility,
+            resultOfSterilityBagA: labResultData.resultOfSterilityBagA || prev.resultOfSterilityBagA,
+            resultOfSterilityBagB: labResultData.resultOfSterilityBagB || prev.resultOfSterilityBagB,
+            bagAVolume: labResultData.bagAVolume || prev.bagAVolume,
+            bagATnc: labResultData.bagATnc || prev.bagATnc,
+            bagAUsability: labResultData.bagAUsability || prev.bagAUsability,
+            bagBVolume: labResultData.bagBVolume || prev.bagBVolume,
+            bagBTnc: labResultData.bagBTnc || prev.bagBTnc,
+            bagBUsability: labResultData.bagBUsability || prev.bagBUsability,
+            tissueProcessed: labResultData.tissueProcessed || prev.tissueProcessed,
+            tissueSterility: labResultData.tissueSterility || prev.tissueSterility,
+            tissueUsability: labResultData.tissueUsability || prev.tissueUsability,
+            umbilicalTissue: labResultData.umbilicalTissue || prev.umbilicalTissue,
+            labNote: labResultData.labNote || prev.labNote,
+          }));
+        }
       }
     } catch (error: any) {
       toast({ title: t.common.error, description: error?.message || "Save failed", variant: "destructive" });
@@ -1581,12 +1607,12 @@ export default function CollectionsPage() {
                   <Download className="h-4 w-4 mr-1" />
                   XLS
                 </Button>
-                <Button variant="outline" size="sm" onClick={handleLabAiAnalysis} data-testid="button-lab-ai-analysis">
-                  <Brain className="h-4 w-4 mr-1" />
+                <Button variant="outline" size="sm" onClick={handleLabAiAnalysis} disabled={labAiLoading} data-testid="button-lab-ai-analysis">
+                  {labAiLoading ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Brain className="h-4 w-4 mr-1" />}
                   AI {locale === "sk" ? "Analýza" : "Analysis"}
                 </Button>
-                <Button variant="outline" size="sm" onClick={() => handleSaveToLabResults(labFormData.cbu || "", lr, "lab_tab")} data-testid="button-lab-save-to-results">
-                  <Save className="h-4 w-4 mr-1" />
+                <Button variant="outline" size="sm" onClick={() => handleSaveToLabResults(collection?.cbuNumber || labFormData.cbu || "", lr, "lab_tab")} disabled={labSaving} data-testid="button-lab-save-to-results">
+                  {labSaving ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Save className="h-4 w-4 mr-1" />}
                   {locale === "sk" ? "Uložiť do INDEXUS" : "Save to INDEXUS"}
                 </Button>
                 <Button variant="ghost" size="sm" className="ml-auto" onClick={() => { setLabOtpStep("idle"); setLabOtpCode(""); setLabAiAnalysis(null); }} data-testid="button-lab-results-close">
@@ -1812,16 +1838,18 @@ export default function CollectionsPage() {
         </div>
       </div>
 
-      <div className="flex justify-end pt-4 border-t">
-        <Button 
-          onClick={handleSaveLabResults} 
-          disabled={labResultMutation.isPending}
-          data-testid="button-save-lab-results"
-        >
-          {labResultMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
-          {t.common.save}
-        </Button>
-      </div>
+      {labOtpStep !== "results" && (
+        <div className="flex justify-end pt-4 border-t">
+          <Button 
+            onClick={handleSaveLabResults} 
+            disabled={labResultMutation.isPending}
+            data-testid="button-save-lab-results"
+          >
+            {labResultMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
+            {t.common.save}
+          </Button>
+        </div>
+      )}
     </div>
   );
 
