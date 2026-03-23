@@ -1894,7 +1894,7 @@ function CustomerHistoryTimeline({
 
   const getUserName = (userId: string) => {
     const user = users.find((u: any) => u.id === userId);
-    return user?.fullName || user?.username || "Systém";
+    return user?.fullName || user?.username || userId || "Systém";
   };
 
   // Combine all events into unified timeline

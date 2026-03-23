@@ -9787,7 +9787,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
       const userMap = new Map(users.map(u => [u.id, u]));
       const notesWithUser = notes.map(note => ({
         ...note,
-        userName: userMap.get(note.userId)?.name || userMap.get(note.userId)?.username || "Unknown",
+        userName: userMap.get(note.userId)?.name || userMap.get(note.userId)?.username || note.userId || "Unknown",
       }));
       res.json(notesWithUser);
     } catch (error) {
