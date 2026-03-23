@@ -1,0 +1,18 @@
+
+    server/routes.ts:24924:8:
+      24924 │         'číslo op': 'idCardNumber', 'číslo občanského průkazu': 'idCardNumber',
+                  id                  |            collection_id             | client_result_id  | usability  |      volume      |           status            | cbu_number  | client_first_name | client_last_name
+--------------------------------------+--------------------------------------+-------------------+------------+------------------+-----------------------------+-------------+-------------------+-------------------
+ 0687634d-fae7-450e-b53c-649fbec13d24 | 639cb90d-3c8c-46f3-bb0e-ba73ca5bd45a | LAB-194250        | usable     |                  | pending                     | 0114502514  | Michaela          | Sýkorová
+ 983e0315-5577-433b-85ac-337b9e975e47 | ea476fa0-8c08-4f9f-b353-1e539e8ebb20 | LAB-194290        | usable     |                  | pending                     | 0114507139  | Miriam            | Pavelková
+ 51ec4324-1d31-4b40-abb9-52ea6a4c1ea6 | 917d5052-ae03-466c-84ed-1afea4eede5a | LAB-RESULT-194289 | usable     |                  | pending                     | 0114507023  |                   | Kubíková
+ 38518f76-652d-40c7-bb27-fc8a2ea1291c | c1c4b04c-2a70-4170-bd17-88738fa33b27 | 198180            | usable     | 52,3098847711947 | A a B spracované samostatne | 40090335176 | Cosmina Madalina  | Amarii
+ 278d4e11-5553-46c1-8bed-3ba5ebb586d2 | 3889d45f-2aa7-46fc-b073-46b8a0dbcb36 | 198181            | usable     | 48,2509489748414 | A a B spracované samostatne | 40090335177 | Anca              | Enache
+ a3b96e45-7b20-4cda-bcf6-0f2c943cb485 | c8d9ff95-b5ee-4e82-be56-f16ab679e87a | 198182            | usable     | 74,0494311082499 | B odber neodobratý          | 40080932964 | Andrea            | Nema
+ f149959d-757c-45c1-a205-93529f111da0 | 2696d104-03be-4574-b148-7ec12553565f | LAB-194289        | usable     |                  | pending                     |             |                   |
+ 5375ceb4-009e-42b7-80e2-ae4cf9178856 | 494efefc-85b4-4fc7-a7fe-a71a8ee55bbe | LAB-194160        | usable     |                  | pending                     | 0114459948  | Katarína          | Simanová Strížová
+ 8aa5a20e-e2cc-4463-8a34-94eaa69f7010 | d2b4826c-d029-4aef-a4c8-89847d62ee64 | LAB-194291        | usable     |                  | 7                           | 0114507245  | Valentina Umberta | Balsamo
+ 7a13100c-2542-4475-9866-92ff61fedd12 | dadb2469-f3e0-4f58-b980-5da4fe281453 | 198174            | použiteľný | 20,8174910382173 | A a B spracované samostatne | 0114507023  | Lucia             | Kubíková
+(10 rows)
+
+(END)
