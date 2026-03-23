@@ -282,13 +282,48 @@ export default function CollectionsPage() {
   });
 
   const [cbuDownloading, setCbuDownloading] = useState<string | null>(null);
+  const [labOtpStep, setLabOtpStep] = useState<"idle" | "sending" | "verify">("idle");
+  const [labOtpCode, setLabOtpCode] = useState("");
+  const [labOtpReportType, setLabOtpReportType] = useState<"medical" | "full">("medical");
+  const [labOtpLang, setLabOtpLang] = useState<"sk" | "en">("sk");
+  const [labOtpVerifying, setLabOtpVerifying] = useState(false);
 
   const handleDownloadCbuReport = async (reportType: "medical" | "full", language: "sk" | "en") => {
-    if (!collectionId) return;
-    const key = `${reportType}_${language}`;
-    setCbuDownloading(key);
+    if (!collectionId || !collection?.cbuNumber) return;
+    setLabOtpReportType(reportType);
+    setLabOtpLang(language);
+    setLabOtpStep("sending");
+    setLabOtpCode("");
     try {
-      const res = await apiRequest("POST", `/api/collections/${collectionId}/cbu-report`, { reportType, language });
+      const res = await apiRequest("POST", "/api/cbu-reports/request-otp", {
+        cbuNumber: collection.cbuNumber,
+        reportType,
+        language,
+      });
+      const data = await res.json();
+      if (data.error) {
+        toast({ title: t.common.error, description: data.error, variant: "destructive" });
+        setLabOtpStep("idle");
+        return;
+      }
+      setLabOtpStep("verify");
+      toast({ title: locale === "sk" ? "OTP kód odoslaný na váš email" : "OTP code sent to your email" });
+    } catch (error: any) {
+      toast({ title: t.common.error, description: error?.message || "Failed to send OTP", variant: "destructive" });
+      setLabOtpStep("idle");
+    }
+  };
+
+  const handleLabOtpVerifyDownload = async () => {
+    if (!collection?.cbuNumber || !labOtpCode || labOtpCode.length !== 6) return;
+    setLabOtpVerifying(true);
+    try {
+      const res = await apiRequest("POST", "/api/cbu-reports/verify-download", {
+        cbuNumber: collection.cbuNumber,
+        reportType: labOtpReportType,
+        language: labOtpLang,
+        otpCode: labOtpCode,
+      });
       const data = await res.json();
       if (data.error) {
         toast({ title: t.common.error, description: data.error, variant: "destructive" });
@@ -310,11 +345,12 @@ export default function CollectionsPage() {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
       toast({ title: t.collections?.lab?.reportDownloaded || "Report downloaded" });
+      setLabOtpStep("idle");
+      setLabOtpCode("");
     } catch (error: any) {
-      const msg = error?.message || "Failed to download report";
-      toast({ title: t.common.error, description: msg, variant: "destructive" });
+      toast({ title: t.common.error, description: error?.message || "Download failed", variant: "destructive" });
     } finally {
-      setCbuDownloading(null);
+      setLabOtpVerifying(false);
     }
   };
 
@@ -1415,47 +1451,113 @@ export default function CollectionsPage() {
 
       <div className="space-y-4 pt-4 border-t">
         <h3 className="text-lg font-medium flex items-center gap-2">
-          <Download className="h-5 w-5" />
+          <Shield className="h-5 w-5" />
           {labT.downloadCbuReport || "Download CBU Report"}
+          <Badge variant="outline" className="text-xs font-normal ml-1">
+            <Lock className="h-3 w-3 mr-1" />
+            OTP
+          </Badge>
         </h3>
-        <div className="grid grid-cols-2 gap-3">
-          <Button
-            variant="outline"
-            onClick={() => handleDownloadCbuReport("medical", "sk")}
-            disabled={!!cbuDownloading}
-            data-testid="button-download-cbu-medical-sk"
-          >
-            {cbuDownloading === "medical_sk" ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
-            {labT.medicalReportSk || "Medical Report (SK)"}
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => handleDownloadCbuReport("medical", "en")}
-            disabled={!!cbuDownloading}
-            data-testid="button-download-cbu-medical-en"
-          >
-            {cbuDownloading === "medical_en" ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
-            {labT.medicalReportEn || "Medical Report (EN)"}
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => handleDownloadCbuReport("full", "sk")}
-            disabled={!!cbuDownloading}
-            data-testid="button-download-cbu-full-sk"
-          >
-            {cbuDownloading === "full_sk" ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
-            {labT.fullReportSk || "Full Report (SK)"}
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => handleDownloadCbuReport("full", "en")}
-            disabled={!!cbuDownloading}
-            data-testid="button-download-cbu-full-en"
-          >
-            {cbuDownloading === "full_en" ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
-            {labT.fullReportEn || "Full Report (EN)"}
-          </Button>
-        </div>
+
+        {labOtpStep === "idle" && (
+          <div className="grid grid-cols-2 gap-3">
+            <Button
+              variant="outline"
+              onClick={() => handleDownloadCbuReport("medical", "sk")}
+              disabled={labOtpStep !== "idle"}
+              data-testid="button-download-cbu-medical-sk"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              {labT.medicalReportSk || "Medical Report (SK)"}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => handleDownloadCbuReport("medical", "en")}
+              disabled={labOtpStep !== "idle"}
+              data-testid="button-download-cbu-medical-en"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              {labT.medicalReportEn || "Medical Report (EN)"}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => handleDownloadCbuReport("full", "sk")}
+              disabled={labOtpStep !== "idle"}
+              data-testid="button-download-cbu-full-sk"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              {labT.fullReportSk || "Full Report (SK)"}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => handleDownloadCbuReport("full", "en")}
+              disabled={labOtpStep !== "idle"}
+              data-testid="button-download-cbu-full-en"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              {labT.fullReportEn || "Full Report (EN)"}
+            </Button>
+          </div>
+        )}
+
+        {labOtpStep === "sending" && (
+          <div className="flex items-center justify-center py-6 gap-3 text-muted-foreground">
+            <Loader2 className="h-5 w-5 animate-spin" />
+            <span className="text-sm">{locale === "sk" ? "Odosielam OTP kód na váš email..." : "Sending OTP code to your email..."}</span>
+          </div>
+        )}
+
+        {labOtpStep === "verify" && (
+          <div className="border rounded-lg p-4 bg-muted/30 space-y-4">
+            <div className="flex items-center gap-2 text-sm">
+              <Shield className="h-4 w-4 text-primary" />
+              <span className="font-medium">
+                {locale === "sk" ? "OTP overenie" : "OTP Verification"}
+              </span>
+              <Badge variant="outline" className="text-xs ml-auto">
+                {labOtpReportType === "medical" ? "Medical" : "Full"} • {labOtpLang.toUpperCase()}
+              </Badge>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {locale === "sk"
+                ? "Na váš email bol odoslaný 6-miestny overovací kód. Zadajte ho pre autorizáciu stiahnutia reportu."
+                : "A 6-digit verification code has been sent to your email. Enter it to authorize the report download."}
+            </p>
+            <div className="flex items-center gap-3">
+              <Input
+                value={labOtpCode}
+                onChange={(e) => setLabOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                placeholder="000000"
+                className="text-center text-lg tracking-[0.4em] font-mono w-48"
+                maxLength={6}
+                data-testid="input-lab-otp-code"
+                onKeyDown={(e) => e.key === "Enter" && labOtpCode.length === 6 && handleLabOtpVerifyDownload()}
+              />
+              <Button
+                onClick={handleLabOtpVerifyDownload}
+                disabled={labOtpVerifying || labOtpCode.length !== 6}
+                data-testid="button-lab-otp-verify"
+              >
+                {labOtpVerifying ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
+                {locale === "sk" ? "Overiť a stiahnuť" : "Verify & Download"}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => { setLabOtpStep("idle"); setLabOtpCode(""); }}
+                data-testid="button-lab-otp-cancel"
+              >
+                {t.common.cancel}
+              </Button>
+            </div>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <AlertTriangle className="h-3 w-3" />
+              {locale === "sk"
+                ? "Kód je platný 10 minút. Stiahnutie bude zaznamenané v audit logu."
+                : "Code is valid for 10 minutes. Download will be recorded in the audit log."}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="flex justify-end pt-4 border-t">
