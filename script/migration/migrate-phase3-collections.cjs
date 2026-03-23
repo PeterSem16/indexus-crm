@@ -7,6 +7,7 @@
  */
 const sql = require('mssql');
 const { Pool } = require('pg');
+const { normalizePhone, normalizeName, normalizeNationalId } = require('./consolidate-contacts.cjs');
 
 const MSSQL_CONFIG = {
   user: 'cbcuser',
@@ -179,11 +180,11 @@ async function migrateCollections() {
         companyInfo.id || null,
         companyInfo.countryCode || 'SK',
         customerId,
-        row.sco_client_first_name, row.sco_client_last_name,
-        row.sco_client_phone_number, row.sco_client_mobile,
-        row.sco_client_id_number,
+        normalizeName(row.sco_client_first_name), normalizeName(row.sco_client_last_name),
+        normalizePhone(row.sco_client_phone_number, companyInfo.countryCode || 'SK'), normalizePhone(row.sco_client_mobile, companyInfo.countryCode || 'SK'),
+        normalizeNationalId(row.sco_client_id_number),
         birth.day, birth.month, birth.year,
-        row.sco_child_first_name, row.sco_child_last_name, row.sco_child_sex,
+        normalizeName(row.sco_child_first_name), normalizeName(row.sco_child_last_name), row.sco_child_sex,
         row.sco_collection_made, hospitalId,
         bloodCollId, tissueCollId, placentaCollId, assistantId,
         row.csu_id, row.sco_state_detail,

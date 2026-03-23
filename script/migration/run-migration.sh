@@ -18,7 +18,7 @@ echo "========================================"
 
 echo ""
 echo "Step 0: Testing MSSQL connection..."
-node "$SCRIPT_DIR/test-mssql-connection.js" 2>&1 | tee "$LOG_DIR/step0_test_$TIMESTAMP.log"
+node "$SCRIPT_DIR/test-mssql-connection.cjs" 2>&1 | tee "$LOG_DIR/step0_test_$TIMESTAMP.log"
 echo ""
 
 read -p "Connection test passed. Continue with migration? (y/n) " -n 1 -r
@@ -30,23 +30,27 @@ fi
 
 echo ""
 echo "Step 1: Phase 1 - Reference Data (Companies, Statuses, Labs)"
-node "$SCRIPT_DIR/migrate-phase1-reference.js" 2>&1 | tee "$LOG_DIR/step1_reference_$TIMESTAMP.log"
+node "$SCRIPT_DIR/migrate-phase1-reference.cjs" 2>&1 | tee "$LOG_DIR/step1_reference_$TIMESTAMP.log"
 
 echo ""
 echo "Step 2: Phase 2 - Core Entities (Hospitals, Collaborators, Customers)"
-node "$SCRIPT_DIR/migrate-phase2-core.js" 2>&1 | tee "$LOG_DIR/step2_core_$TIMESTAMP.log"
+node "$SCRIPT_DIR/migrate-phase2-core.cjs" 2>&1 | tee "$LOG_DIR/step2_core_$TIMESTAMP.log"
 
 echo ""
 echo "Step 3: Phase 3 - Collections & Lab Results"
-node "$SCRIPT_DIR/migrate-phase3-collections.js" 2>&1 | tee "$LOG_DIR/step3_collections_$TIMESTAMP.log"
+node "$SCRIPT_DIR/migrate-phase3-collections.cjs" 2>&1 | tee "$LOG_DIR/step3_collections_$TIMESTAMP.log"
 
 echo ""
 echo "Step 4: Phase 4 - Invoices & Payments"
-node "$SCRIPT_DIR/migrate-phase4-invoices.js" 2>&1 | tee "$LOG_DIR/step4_invoices_$TIMESTAMP.log"
+node "$SCRIPT_DIR/migrate-phase4-invoices.cjs" 2>&1 | tee "$LOG_DIR/step4_invoices_$TIMESTAMP.log"
 
 echo ""
-echo "Step 5: Verification"
-node "$SCRIPT_DIR/verify-migration.js" 2>&1 | tee "$LOG_DIR/step5_verify_$TIMESTAMP.log"
+echo "Step 5: Contact Data Consolidation (phones, emails, names, addresses)"
+node "$SCRIPT_DIR/consolidate-contacts.cjs" 2>&1 | tee "$LOG_DIR/step5_consolidate_$TIMESTAMP.log"
+
+echo ""
+echo "Step 6: Verification"
+node "$SCRIPT_DIR/verify-migration.cjs" 2>&1 | tee "$LOG_DIR/step6_verify_$TIMESTAMP.log"
 
 echo ""
 echo "========================================"

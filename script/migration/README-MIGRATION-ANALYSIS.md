@@ -661,19 +661,65 @@ npm install mssql pg
 bash run-migration.sh
 
 # Or step by step:
-node test-mssql-connection.js     # Step 0: Test connection
-node migrate-phase1-reference.js  # Step 1: Reference data
-node migrate-phase2-core.js       # Step 2: Hospitals, Collaborators, Customers
-node migrate-phase3-collections.js # Step 3: Collections & Lab Results
-node migrate-phase4-invoices.js   # Step 4: Invoices & Payments
-node verify-migration.js          # Step 5: Verification
+node test-mssql-connection.cjs      # Step 0: Test connection
+node migrate-phase1-reference.cjs   # Step 1: Reference data
+node migrate-phase2-core.cjs        # Step 2: Hospitals, Collaborators, Customers
+node migrate-phase3-collections.cjs # Step 3: Collections & Lab Results
+node migrate-phase4-invoices.cjs    # Step 4: Invoices & Payments
+node consolidate-contacts.cjs      # Step 5: Contact data consolidation
+node verify-migration.cjs           # Step 6: Verification
 ```
+
+> **Note:** All scripts use `.cjs` extension because the project has `"type": "module"` in package.json.
+> The `.cjs` extension forces CommonJS mode, which is required for `require()` and `module.exports`.
+
+### Contact Data Consolidation (`consolidate-contacts.cjs`)
+After migration, this script normalizes all contact data to INDEXUS standards:
+
+**Phone numbers** — All formats unified to `+421 903 123 456`:
+- `0903123456` → `+421 903 123 456`
+- `+421903123456` → `+421 903 123 456`
+- `00420777888999` → `+420 777 888 999`
+- `06301234567` (HU) → `+36 301 234 567`
+- Garbage values (N/A, xxx, ---, dots) → `null`
+
+**Emails** — Cleaned and validated:
+- Whitespace removal, lowercase conversion
+- Common typo fixes (`@gmailcom` → `@gmail.com`)
+- Double `@` correction
+- Garbage values removed
+- Duplicate detection across customers
+
+**Names** — Title case normalization:
+- `JANA NOVÁKOVÁ` → `Jana Nováková`
+- `jana nováková` → `Jana Nováková`
+- Garbage values (N/A, xxx) removed
+
+**National IDs (Rodné číslo)** — Format `XXXXXX/XXXX`:
+- `8505121234` → `850512/1234`
+- `850512/1234` (already correct) → unchanged
+
+**Postal codes** — Country-specific format:
+- SK/CZ: `85101` → `851 01`
+- HU: `1052` (4 digits, unchanged)
+- DE/IT: `10115` (5 digits, unchanged)
+
+**Cities** — ALL CAPS normalization:
+- `BRATISLAVA` → `Bratislava`
+- `ČESKÉ BUDĚJOVICE` → `České Budějovice`
+
+**Duplicate detection** — Reports:
+- Customers sharing the same email
+- Customers sharing the same mobile number
+
+The normalization functions are also imported by Phase 2 and Phase 3 scripts, so data is normalized inline during import.
 
 ### Safety Features
 - All scripts are **idempotent** (skip already-migrated records via legacy_id check)
 - All scripts use **legacy_id** field to link back to MSSQL source IDs
 - Errors are logged but don't stop the migration (best-effort)
 - Verification script compares counts between source and target
+- Contact consolidation runs as a separate post-migration step and also inline during import
 
 ### Schema Changes Needed Before Migration
 1. Ensure `billing_details` table has: `legacy_id`, `code`, `entity_code`, `invoice_barcode_letter`, `currency` columns

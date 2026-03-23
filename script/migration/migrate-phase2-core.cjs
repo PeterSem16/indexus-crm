@@ -7,6 +7,7 @@
  */
 const sql = require('mssql');
 const { Pool } = require('pg');
+const { normalizePhone, normalizeEmail, normalizeName, normalizeNationalId, normalizePostalCode, normalizeCity } = require('./consolidate-contacts.cjs');
 
 const MSSQL_CONFIG = {
   user: 'cbcuser',
@@ -187,9 +188,9 @@ async function migrateCollaborators() {
       );
       if (existing.rows.length > 0) { stats.skipped++; continue; }
 
-      const firstName = row.pda_first_name || 'N/A';
-      const lastName = row.pda_last_name || 'N/A';
       const countryCode = countryMap[row.doc_id] || 'SK';
+      const firstName = normalizeName(row.pda_first_name) || 'N/A';
+      const lastName = normalizeName(row.pda_last_name) || 'N/A';
       const birth = decomposeBirthDate(row.pda_birth_date);
 
       // Map hospital legacy IDs to INDEXUS IDs
@@ -214,10 +215,10 @@ async function migrateCollaborators() {
         countryCode,
         [countryCode],
         firstName, lastName,
-        row.pda_title_prefix, row.pda_maiden_name, row.pda_title_suffix,
-        row.pda_id_number, birth.day, birth.month, birth.year, row.doc_birth_place,
-        row.pda_phone_number, row.pda_mobile, row.pda_mobile2,
-        row.pda_other_contact, row.pda_email,
+        row.pda_title_prefix, normalizeName(row.pda_maiden_name), row.pda_title_suffix,
+        normalizeNationalId(row.pda_id_number), birth.day, birth.month, birth.year, row.doc_birth_place,
+        normalizePhone(row.pda_phone_number, countryCode), normalizePhone(row.pda_mobile, countryCode), normalizePhone(row.pda_mobile2, countryCode),
+        row.pda_other_contact, normalizeEmail(row.pda_email),
         row.doc_IBAN, row.doc_SWIFT, row.doc_ICO, row.doc_DIC, row.doc_IC_DPH,
         row.doc_client_contract === true || row.doc_client_contract === 1,
         row.doc_active === true || row.doc_active === 1,
@@ -293,10 +294,10 @@ async function migrateCustomers() {
       );
       if (existing.rows.length > 0) { stats.skipped++; continue; }
 
-      const firstName = row.pda_first_name || 'N/A';
-      const lastName = row.pda_last_name || 'N/A';
-      const email = row.pda_email || `legacy_${row.cli_id}@import.local`;
       const country = row.perm_country || row.com_country_code || 'SK';
+      const firstName = normalizeName(row.pda_first_name) || 'N/A';
+      const lastName = normalizeName(row.pda_last_name) || 'N/A';
+      const email = normalizeEmail(row.pda_email) || `legacy_${row.cli_id}@import.local`;
 
       // Determine clientStatus
       let clientStatus = 'potential';
@@ -329,13 +330,13 @@ async function migrateCustomers() {
         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36)
       `, [
         String(row.cli_id),
-        row.pda_title_prefix, firstName, lastName, row.pda_maiden_name, row.pda_title_suffix,
-        row.pda_phone_number, row.pda_mobile, row.pda_mobile2, row.pda_other_contact,
-        email, row.pda_email2,
-        row.pda_id_number, row.pda_id_card, row.pda_birth_date,
+        row.pda_title_prefix, firstName, lastName, normalizeName(row.pda_maiden_name), row.pda_title_suffix,
+        normalizePhone(row.pda_phone_number, country), normalizePhone(row.pda_mobile, country), normalizePhone(row.pda_mobile2, country), row.pda_other_contact,
+        email, normalizeEmail(row.pda_email2),
+        normalizeNationalId(row.pda_id_number), row.pda_id_card, row.pda_birth_date,
         row.cli_mailinglist === true || row.cli_mailinglist === 1,
-        country, row.perm_city, row.perm_street, row.perm_zip, row.perm_area,
-        hasCorr, row.corr_name, row.corr_street, row.corr_city, row.corr_zip, row.corr_area, row.corr_country,
+        country, normalizeCity(row.perm_city), row.perm_street, normalizePostalCode(row.perm_zip, country), row.perm_area,
+        hasCorr, row.corr_name, row.corr_street, normalizeCity(row.corr_city), normalizePostalCode(row.corr_zip, row.corr_country || country), row.corr_area, row.corr_country,
         bankAccount, row.pda_account_bank_code, row.pda_bank_name, row.pda_SWIFT,
         clientStatus, 'active', row.cli_note,
         row.cli_rating || 0,
