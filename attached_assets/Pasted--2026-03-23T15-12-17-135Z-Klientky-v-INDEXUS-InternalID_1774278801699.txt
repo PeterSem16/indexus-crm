@@ -1,0 +1,40 @@
+[2026-03-23T15:12:17.135Z]
+--- Klientky v INDEXUS ---
+  InternalID | Meno     | Priezvisko          | Mobil            | Email                    | RČ          | Mesto           | PSČ    | Krajina    | Status
+  ───────────┼──────────┼─────────────────────┼──────────────────┼──────────────────────────┼─────────────┼─────────────────┼────────┼────────────┼───────────
+  11         | Slávka   | Vrábliková          | +421 903 234 358 | legacy_11@import.local   | 775303/6148 | Bratislava      | 821 07 | COUNTRY_SK | acquired
+  14         | Natália  | Kaščáková           | +421 905 393 352 | nkascakova@gmail.com     | 725526/0375 | Modra-Kráľová   | 900 02 | COUNTRY_SK | acquired
+  16         | Jana     | Gašparovičová       | +421 908 708 472 | legacy_16@import.local   | 685826/7163 | Bratislava      | 811 02 | COUNTRY_SK | acquired
+  17         | Zuzana   | Rajczyová           | —                | legacy_17@import.local   | 795626/8441 | Réca            | 925 26 | COUNTRY_SK | acquired
+  18         | Xénia    | Činčurová           | +421 904 868 375 | xeniacinci@gmail.com     | 675429/7022 | Chorvátsky Grob | 900 25 | COUNTRY_SK | acquired
+  2          | Tatiana  | Holková             | +421 776 189 049 | ivan.holko@atlas.cz      | —           | Preseľany       | 95612  | COUNTRY_SK | terminated
+  21         | Katarína | Tarišková           | +421 905 305 892 | legacy_21@import.local   | 775724/6695 | Kozárovce       | 935 22 | COUNTRY_SK | in_process
+  22         | Lýdia    | Kavická             | +421 905 426 727 | lydia.kavicka@gmail.com  | 785820/6202 | Lozorno         | 900 55 | COUNTRY_SK | acquired
+  23         | Andrea   | Cikláminiová        | +421 903 234 322 | legacy_23@import.local   | —           | Bratislava      | 821 07 | COUNTRY_SK | terminated
+  24         | Andrea   | Cikláminiová        | +421 903 234 322 | legacy_24@import.local   | —           | Bratislava      | 821 07 | COUNTRY_SK | terminated
+  25         | Adriana  | Hájková             | +421 905 385 949 | adrianahajkova@yahoo.com | 706207/8628 | Bratislava      | 841 05 | COUNTRY_SK | acquired
+  26         | Ingrid   | Grellnethová        | +421 908 768 705 | legacy_26@import.local   | —           | Bratislava      | 851 01 | COUNTRY_SK | terminated
+  27         | Iva      | Koruk               | +421 902 495 802 | ivakoruk@gmail.com       | 765122/7980 | Trnava          | 917 01 | COUNTRY_SK | acquired
+  28         | Jana     | Hostačná            | +421 918 901 785 | hostynka1@azet.sk        | 706108/7132 | Bratislava      | 851 04 | COUNTRY_SK | acquired
+  4          | Diana    | Rovnianska          | +421 905 490 943 | rovniansky@gmail.com     | —           | Senec           | 903 01 | COUNTRY_SK | acquired
+  5          | Ivica    | Škarbová            | —                | legacy_5@import.local    | —           | Bratislava      | 83102  | COUNTRY_SK | acquired
+  6          | Andrea   | Havlátová Rajczyová | +421 903 663 949 | andrea@ak-havlatova.sk   | —           | Košice          | 040 18 | COUNTRY_SK | terminated
+  7          | Erika    | Semanová            | +421 908 622 846 | legacy_7@import.local    | —           | Levoča          | 054 01 | COUNTRY_SK | acquired
+  8          | Kristína | Králová             | +421 917 536 354 | kralova.kristi@gmail.com | 855805/6419 | Bernolákovo     | 900 27 | COUNTRY_SK | terminated
+  9          | Ivana    | Hudcovičová         | +421 905 879 017 | ivarado@nextra.sk        | 796203/6137 | Bratislava      | 821 02 | COUNTRY_SK | acquired
+[2026-03-23T15:12:17.136Z]
+--- Odbery v INDEXUS ---
+  LegacyID | CBU# | Klientka | Mobil | Dieťa | Dátum | Nemocnica | Status | Krajina
+  ─────────┼──────┼──────────┼───────┼───────┼───────┼───────────┼────────┼────────
+[2026-03-23T15:12:17.136Z]
+--- Krížová kontrola (CBC vs INDEXUS) ---
+
+══════════════════════════════════════════════════════════════════════
+  HOTOVO
+══════════════════════════════════════════════════════════════════════
+[2026-03-23T15:12:17.137Z] Testovací prenos 20 záznamov bol úspešne dokončený.
+[2026-03-23T15:12:17.137Z] Skontrolujte výsledky vyššie a overte dáta v INDEXUS CRM.
+[2026-03-23T15:12:17.137Z]
+[2026-03-23T15:12:17.137Z] Ak chcete vymazať testovacích 20 záznamov:
+[2026-03-23T15:12:17.137Z]   node cleanup-test-migration.cjs
+seman@CORPCRM01:/var/www/indexus-crm/script/migration$
