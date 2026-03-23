@@ -30472,35 +30472,99 @@ Guidelines:
         used: false,
       });
 
-      try {
-        const { getValidAccessToken, sendEmail } = await import("./lib/ms365");
-        const tokenResult = await getValidAccessToken(user.id, db);
-        if (tokenResult?.accessToken) {
-          const subject = language === "sk"
-            ? `CBU Report - Overovací kód: ${otpCode}`
-            : `CBU Report - Verification Code: ${otpCode}`;
-          const body = language === "sk"
-            ? `<div style="font-family:Arial,sans-serif;max-width:500px;margin:0 auto;padding:20px;">
-                <h2 style="color:#991b1b;">Overovací kód pre CBU Report</h2>
-                <p>Vaš overovací kód pre stiahnutie CBU reportu (${cbuNumber}):</p>
-                <div style="background:#f3f4f6;padding:20px;text-align:center;border-radius:8px;margin:20px 0;">
-                  <span style="font-size:32px;font-weight:bold;letter-spacing:8px;color:#991b1b;">${otpCode}</span>
-                </div>
-                <p style="color:#6b7280;font-size:13px;">Kód je platný 10 minút. Ak ste o tento kód nežiadali, ignorujte túto správu.</p>
-              </div>`
-            : `<div style="font-family:Arial,sans-serif;max-width:500px;margin:0 auto;padding:20px;">
-                <h2 style="color:#991b1b;">CBU Report Verification Code</h2>
-                <p>Your verification code to download the CBU report (${cbuNumber}):</p>
-                <div style="background:#f3f4f6;padding:20px;text-align:center;border-radius:8px;margin:20px 0;">
-                  <span style="font-size:32px;font-weight:bold;letter-spacing:8px;color:#991b1b;">${otpCode}</span>
-                </div>
-                <p style="color:#6b7280;font-size:13px;">This code is valid for 10 minutes. If you did not request this, please ignore this message.</p>
-              </div>`;
+      const subject = language === "sk"
+        ? `CBU Report - Overovací kód: ${otpCode}`
+        : `CBU Report - Verification Code: ${otpCode}`;
+      const emailBody = language === "sk"
+        ? `<div style="font-family:Arial,sans-serif;max-width:500px;margin:0 auto;padding:20px;">
+            <h2 style="color:#991b1b;">Overovací kód pre CBU Report</h2>
+            <p>Váš overovací kód pre stiahnutie CBU reportu (${cbuNumber}):</p>
+            <div style="background:#f3f4f6;padding:20px;text-align:center;border-radius:8px;margin:20px 0;">
+              <span style="font-size:32px;font-weight:bold;letter-spacing:8px;color:#991b1b;">${otpCode}</span>
+            </div>
+            <p style="color:#6b7280;font-size:13px;">Kód je platný 10 minút. Ak ste o tento kód nežiadali, ignorujte túto správu.</p>
+          </div>`
+        : `<div style="font-family:Arial,sans-serif;max-width:500px;margin:0 auto;padding:20px;">
+            <h2 style="color:#991b1b;">CBU Report Verification Code</h2>
+            <p>Your verification code to download the CBU report (${cbuNumber}):</p>
+            <div style="background:#f3f4f6;padding:20px;text-align:center;border-radius:8px;margin:20px 0;">
+              <span style="font-size:32px;font-weight:bold;letter-spacing:8px;color:#991b1b;">${otpCode}</span>
+            </div>
+            <p style="color:#6b7280;font-size:13px;">This code is valid for 10 minutes. If you did not request this, please ignore this message.</p>
+          </div>`;
 
-          await sendEmail(tokenResult.accessToken, [user.email], subject, body, true);
+      let emailSent = false;
+
+      // 1. Try system MS365 email (by country code from collection or all countries)
+      try {
+        const collection = await storage.getCollectionByCbuNumber(cbuNumber);
+        const countryCodes = collection?.countryCode ? [collection.countryCode] : [];
+        if (!countryCodes.length) {
+          const allSystemConns = await storage.getAllSystemMs365Connections();
+          for (const sc of allSystemConns) { if (sc.isConnected) countryCodes.push(sc.countryCode); }
         }
-      } catch (emailError) {
-        console.error("Failed to send OTP email via MS365:", emailError);
+
+        for (const cc of countryCodes) {
+          if (emailSent) break;
+          const systemConnection = await storage.getSystemMs365Connection(cc);
+          if (systemConnection && systemConnection.isConnected) {
+            try {
+              const { getValidAccessToken: getSystemToken, sendEmail: sendMs365Email } = await import("./lib/ms365");
+              const { decryptTokenSafe, encryptTokenWithMarker } = await import("./lib/token-crypto");
+              const decryptedAccessToken = systemConnection.accessToken ? decryptTokenSafe(systemConnection.accessToken) : null;
+              const decryptedRefreshToken = systemConnection.refreshToken ? decryptTokenSafe(systemConnection.refreshToken) : null;
+              const tokenResult = await getSystemToken(decryptedAccessToken, systemConnection.tokenExpiresAt, decryptedRefreshToken);
+              if (tokenResult) {
+                if (tokenResult.refreshed) {
+                  await storage.updateSystemMs365Connection(cc, {
+                    accessToken: encryptTokenWithMarker(tokenResult.accessToken),
+                    refreshToken: tokenResult.refreshToken ? encryptTokenWithMarker(tokenResult.refreshToken) : systemConnection.refreshToken,
+                    tokenExpiresAt: tokenResult.expiresOn
+                  });
+                }
+                await sendMs365Email(tokenResult.accessToken, [user.email], subject, emailBody, true);
+                console.log(`[CBU-OTP] Sent OTP email via system MS365 (${systemConnection.email}) to ${user.email}`);
+                emailSent = true;
+              }
+            } catch (sysErr) {
+              console.error(`[CBU-OTP] System MS365 (${cc}) failed:`, (sysErr as Error).message);
+            }
+          }
+        }
+      } catch (sysLookupErr) {
+        console.error("[CBU-OTP] System MS365 lookup failed:", sysLookupErr);
+      }
+
+      // 2. Fallback to user's own MS365 connection
+      if (!emailSent) {
+        try {
+          const userMs365 = await storage.getUserMs365Connection(user.id);
+          if (userMs365 && userMs365.isConnected) {
+            const { getValidAccessToken: getUserToken, sendEmail: sendUserEmail } = await import("./lib/ms365");
+            const { decryptTokenSafe: decryptUser, encryptTokenWithMarker: encryptUser } = await import("./lib/token-crypto");
+            const uAccessToken = userMs365.accessToken ? decryptUser(userMs365.accessToken) : null;
+            const uRefreshToken = userMs365.refreshToken ? decryptUser(userMs365.refreshToken) : null;
+            const tokenResult = await getUserToken(uAccessToken, userMs365.tokenExpiresAt, uRefreshToken);
+            if (tokenResult) {
+              if (tokenResult.refreshed) {
+                await storage.updateUserMs365Connection(user.id, {
+                  accessToken: encryptUser(tokenResult.accessToken),
+                  refreshToken: tokenResult.refreshToken ? encryptUser(tokenResult.refreshToken) : userMs365.refreshToken,
+                  tokenExpiresAt: tokenResult.expiresOn
+                });
+              }
+              await sendUserEmail(tokenResult.accessToken, [user.email], subject, emailBody, true);
+              console.log(`[CBU-OTP] Sent OTP email via user MS365 to ${user.email}`);
+              emailSent = true;
+            }
+          }
+        } catch (userErr) {
+          console.error("[CBU-OTP] User MS365 fallback failed:", (userErr as Error).message);
+        }
+      }
+
+      if (!emailSent) {
+        console.warn(`[CBU-OTP] Could not send OTP email to ${user.email} - no MS365 connection available`);
       }
 
       res.json({ success: true, message: "OTP sent to your email", expiresIn: 600 });
