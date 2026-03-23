@@ -1,0 +1,224 @@
+Indexus Report API
+
+Follow
+1
+
+Edit
+
+
+Kovac Lukas
+sobota
+Indexus Report API
+This API generates CBU reports and returns the generated XLSX file in a JSON response as Base64.
+
+Endpoint
+POST /api/indexus/reports/cbu
+
+Authentication
+Authenticate using the same API authentication as the other Indexus endpoints.
+
+Send the API key in the Authorization header as a Bearer token:
+
+
+ Authorization: Bearer YOUR_API_KEY
+Request format
+Content type:
+
+
+ Content-Type: application/json
+Request body:
+
+
+ {
+  "cbu": "000123456",
+  "report_type": "medical",
+  "language": "en"
+}
+Request parameters
+cbu
+
+Required. String.
+
+CBU number of the requested collection. Leading zeroes are allowed. The API trims leading zeroes before database lookup.
+
+Examples:
+
+"000123456"
+"123456"
+report_type
+
+Required. String.
+
+Allowed values:
+
+"medical"
+"full"
+Meaning:
+
+medical = shortened report
+full = complete report including all extended fields
+language
+
+Required. String.
+
+Allowed values:
+
+"sk"
+"en"
+Meaning:
+
+sk = Slovak report
+en = English report
+Success response
+HTTP status: 200 OK
+
+
+ {
+  "status": "OK",
+  "filename": "CBU_123456_medical_en_2026-03-21_14-30-00.xlsx",
+  "mime_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "file": "UEsDBBQAAAAI..."
+}
+Response fields
+
+status
+
+Always "OK" on success.
+
+filename
+
+Generated file name.
+
+mime_type
+
+MIME type of the generated file.
+
+Expected value:
+
+
+ application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+file
+
+Base64-encoded content of the generated XLSX file.
+
+To obtain the actual file, decode this Base64 value and save it as a file using the returned filename.
+
+Error responses
+All errors return JSON.
+
+Invalid authentication
+
+HTTP status: 401 Unauthorized
+
+
+ {
+  "status": "FAIL",
+  "error": "Unauthenticated."
+}
+Depending on the existing authentication middleware configuration, the exact message may differ.
+
+Validation error
+
+HTTP status: 422 Unprocessable Entity
+
+
+ {
+  "status": "FAIL",
+  "error": "The given data was invalid.",
+  "details": {
+    "cbu": [
+      "The cbu field is required."
+    ]
+  }
+}
+Typical reasons:
+
+missing cbu
+missing report_type
+missing language
+invalid report_type
+invalid language
+CBU not found
+
+HTTP status: 404 Not Found
+
+
+ {
+  "status": "FAIL",
+  "error": "CBU not found."
+}
+Internal server error
+
+HTTP status: 500 Internal Server Error
+
+
+ {
+  "status": "FAIL",
+  "error": "Failed to generate report."
+}
+Example request
+cURL
+
+
+ curl -X POST "https://your-domain.tld/api/indexus/reports/cbu" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "cbu": "000123456",
+    "report_type": "medical",
+    "language": "en"
+  }'
+How to save the returned file
+The API does not return the XLSX file directly as a binary download.
+It always returns JSON. On success, the XLSX file is included in the file field as Base64.
+
+Client flow:
+
+Send POST request.
+Parse JSON response.
+Check whether status is "OK".
+Read filename.
+Decode file from Base64.
+Save decoded bytes into a file using filename.
+Example client logic
+Pseudo-code:
+
+
+ response = POST /api/indexus/reports/cbu
+
+if response.status_code != 200:
+    parse JSON
+    handle error
+else:
+    parse JSON
+    if json.status != "OK":
+        handle error
+    else:
+        bytes = base64_decode(json.file)
+        save bytes to json.filename
+Supported report variants
+The following combinations are supported:
+
+medical + sk
+medical + en
+full + sk
+full + en
+Notes
+Generated files are kept on the server after generation.
+Leading zeroes in cbu are accepted.
+Database lookup is performed using the CBU number without leading zeroes.
+Response format is always JSON, both on success and on error.
+Summary
+Use this endpoint when you need to generate a CBU report programmatically.
+
+Send:
+
+Bearer authentication
+CBU number
+report type
+language
+Receive:
+
+JSON status
+generated filename
+XLSX file encoded as Base64
