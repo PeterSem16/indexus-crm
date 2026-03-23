@@ -730,33 +730,33 @@ async function step6_collections() {
           ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31)
         `, [
           collectionId, scoId,
-          findField(fields, 'usability', 'pouzitelnost', 'cbu_usability'),
-          findField(fields, 'sterility', 'sterilita', 'cbu_sterility'),
+          findField(fields, 'Standard_pouzitelnost', 'TP_pouzitelnost', 'usability', 'pouzitelnost'),
+          findField(fields, 'TP_sterilita_vysledok', 'sterility', 'sterilita'),
           findField(fields, 'sterility_type', 'typ_sterility'),
-          findField(fields, 'result_of_sterility', 'vysledok_sterility'),
-          findField(fields, 'volume', 'objem', 'cbu_volume'),
-          findField(fields, 'volume_in_bag', 'objem_vo_vaku'),
-          findField(fields, 'tnc', 'tnc_count', 'cbu_tnc'),
-          findField(fields, 'max_weight', 'hmotnost', 'vaha'),
-          findField(fields, 'infection_agents', 'infekcne_agensy'),
-          findField(fields, 'transplant_processing', 'transplantacne_spracovanie'),
+          findField(fields, 'TP_sterilita_vysledok', 'result_of_sterility'),
+          findField(fields, 'Standard_objem_odobratej_krvi', 'volume', 'objem'),
+          findField(fields, 'Objem PLK', 'volume_in_bag', 'objem_vo_vaku'),
+          findField(fields, 'tnc', 'tnc_count'),
+          findField(fields, 'max_weight', 'hmotnost'),
+          findField(fields, 'TP_infekcne_agens', 'infection_agents', 'infekcne_agens'),
+          findField(fields, 'transplantat_preradenyDo', 'transplant_processing'),
           findField(fields, 'umbilical_tissue', 'pupocnikove_tkanivo'),
           findField(fields, 'tissue_processed', 'tkanivo_spracovane'),
           findField(fields, 'tissue_sterility', 'sterilita_tkaniva'),
-          findField(fields, 'tissue_usability', 'pouzitelnost_tkaniva'),
+          findField(fields, 'Premium_pouzitelnost', 'tissue_usability', 'pouzitelnost_tkaniva'),
           findField(fields, 'tissue_infection_agents', 'infekcne_agensy_tkaniva'),
-          findField(fields, 'bag_a_usability', 'pouzitelnost_vak_a'),
+          findField(fields, 'Standard_BB', 'bag_a_usability', 'pouzitelnost_vak_a'),
           findField(fields, 'bag_a_volume', 'objem_vak_a'),
           findField(fields, 'bag_a_tnc', 'tnc_vak_a'),
           findField(fields, 'bag_b_usability', 'pouzitelnost_vak_b'),
           findField(fields, 'bag_b_volume', 'objem_vak_b'),
           findField(fields, 'bag_b_tnc', 'tnc_vak_b'),
-          findField(fields, 'first_name', 'meno', 'klient_meno'),
-          findField(fields, 'surname', 'priezvisko', 'klient_priezvisko'),
+          findField(fields, 'Meno matky', 'first_name', 'meno'),
+          findField(fields, 'Priezvisko matky', 'surname', 'priezvisko'),
           findField(fields, 'id_birth_number', 'rodne_cislo'),
-          findField(fields, 'processing', 'spracovanie'),
-          findField(fields, 'collection_for', 'odber_pre'),
-          findField(fields, 'status', 'stav'),
+          findField(fields, 'spracovanieXX', 'processing', 'spracovanie'),
+          findField(fields, 'transplantat odobrany pre', 'collection_for', 'odber_pre'),
+          findField(fields, 'Premium_stav', 'status', 'stav'),
           findField(fields, 'final_analyses', 'zaverecne_analyzy'),
           JSON.stringify(fields),
         ]);
@@ -767,6 +767,174 @@ async function step6_collections() {
     }
     log(`  Lab výsledky: ${labInserted} vložených (z ${Object.keys(grouped).length} skupín)`);
   }
+}
+
+// ============================================================
+// STEP 6.5: Cases (customer_potential_cases) — father data
+// ============================================================
+async function step6b_cases() {
+  separator('STEP 6.5: Cases — otcovské dáta (cez PotentialClients)');
+
+  const customerLookup = {};
+  const pgCust = await pgPool.query('SELECT id, internal_id FROM customers WHERE internal_id IS NOT NULL');
+  for (const r of pgCust.rows) customerLookup[r.internal_id] = r.id;
+
+  const hospitalLookup = {};
+  const pgH = await pgPool.query('SELECT id, legacy_id FROM hospitals WHERE legacy_id IS NOT NULL');
+  for (const r of pgH.rows) hospitalLookup[r.legacy_id] = r.id;
+
+  const collabLookup = {};
+  const pgCol = await pgPool.query('SELECT id, legacy_id FROM collaborators WHERE legacy_id IS NOT NULL');
+  for (const r of pgCol.rows) collabLookup[r.legacy_id] = r.id;
+
+  const migratedCustomerIds = Object.keys(customerLookup);
+  if (migratedCustomerIds.length === 0) {
+    log('  Žiadni migrovaní zákazníci — skip');
+    return;
+  }
+
+  const cliIdList = migratedCustomerIds.join(',');
+  const potData = await mssqlPool.request().query(`
+    SELECT
+      c.cli_id, c.con_id, c.hos_id, c.doc_id,
+      c.con_expected_collection_date, c.con_pregnancy_type,
+      pc.pot_id, pc.per_id_father, pc.pot_father_address_country_ft,
+      pc.pot_product_ft, pc.pot_marketproduct_ft, pc.pot_payment_type_ft,
+      pc.pot_exp_birth_date, pc.pot_pregnancy_type, pc.pot_children,
+      pc.pot_gift_card, pc.pot_previous_contracts,
+      pc.pot_registration_type_ft, pc.pot_first_information_source_ft,
+      pc.per_id AS pot_per_id_mother
+    FROM Contracts c
+    JOIN PotentialClients pc ON pc.pot_id = c.pot_id
+    WHERE c.cli_id IN (${cliIdList})
+      AND c.pot_id IS NOT NULL
+    ORDER BY c.con_id DESC
+  `);
+
+  const fatherPerIds = potData.recordset
+    .filter(r => r.per_id_father)
+    .map(r => r.per_id_father);
+
+  const fatherData = {};
+  if (fatherPerIds.length > 0) {
+    const fatherRows = await mssqlPool.request().query(`
+      SELECT pd.per_id, pd.per_first_name, pd.per_last_name, pd.per_title,
+             pd.per_phone_number, pd.per_mobile, pd.per_email,
+             ma.add_street, ma.add_city, ma.add_zip, ma.add_country_code
+      FROM PersonalData pd
+      LEFT JOIN MailAddresses ma ON ma.per_id = pd.per_id AND ma.add_valid = 1
+      WHERE pd.per_id IN (${fatherPerIds.join(',')})
+    `);
+    for (const r of fatherRows.recordset) {
+      fatherData[r.per_id] = r;
+    }
+  }
+
+  const childFatherData = {};
+  try {
+    const cfRows = await mssqlPool.request().query(`
+      SELECT cf.* FROM ChildFather cf
+      JOIN Contracts c ON c.con_id = cf.con_id
+      WHERE c.cli_id IN (${cliIdList})
+    `);
+    for (const r of cfRows.recordset) {
+      childFatherData[r.con_id] = r;
+    }
+  } catch (e) {
+    log(`  WARN: ChildFather tabuľka: ${e.message}`);
+  }
+
+  log('Zdrojové dáta z CBC:');
+  table(
+    ['cli_id', 'Otec (meno)', 'Otec (priezvisko)', 'Otec mobil', 'Otec email', 'Krajina otca', 'Produkt', 'Tehotenstvo'],
+    potData.recordset.slice(0, 20).map(r => {
+      const f = fatherData[r.per_id_father] || {};
+      return [
+        r.cli_id,
+        f.per_first_name || '—',
+        f.per_last_name || '—',
+        f.per_mobile || '—',
+        f.per_email || '—',
+        r.pot_father_address_country_ft || '—',
+        r.pot_product_ft || '—',
+        r.pot_pregnancy_type || r.con_pregnancy_type || '—',
+      ];
+    })
+  );
+
+  let inserted = 0, skipped = 0, errors = 0;
+  const processed = new Set();
+  for (const row of potData.recordset) {
+    const cliIdStr = String(row.cli_id);
+    if (processed.has(cliIdStr)) continue;
+    processed.add(cliIdStr);
+
+    const customerId = customerLookup[cliIdStr];
+    if (!customerId) continue;
+
+    try {
+      const existing = await pgPool.query('SELECT id FROM customer_potential_cases WHERE customer_id = $1', [customerId]);
+      if (existing.rows.length > 0) { skipped++; continue; }
+
+      const f = fatherData[row.per_id_father] || {};
+      const cf = childFatherData[row.con_id] || {};
+      const fatherName = f.per_first_name || cf.FatherName || null;
+      const fatherCountry = normalizeCountryCode(row.pot_father_address_country_ft || (f.add_country_code ? f.add_country_code : null));
+
+      const expDate = row.con_expected_collection_date || row.pot_exp_birth_date;
+      let expDay = null, expMonth = null, expYear = null;
+      if (expDate) {
+        const d = new Date(expDate);
+        expDay = d.getDate();
+        expMonth = d.getMonth() + 1;
+        expYear = d.getFullYear();
+      }
+
+      const pregnancyType = row.pot_pregnancy_type || row.con_pregnancy_type;
+      const isMultiple = pregnancyType && parseInt(pregnancyType) > 1;
+
+      await pgPool.query(`
+        INSERT INTO customer_potential_cases (
+          customer_id,
+          expected_date_day, expected_date_month, expected_date_year,
+          hospital_id, obstetrician_id,
+          is_multiple_pregnancy, child_count,
+          father_first_name, father_last_name, father_title_before,
+          father_phone, father_mobile, father_email,
+          father_street, father_city, father_postal_code, father_country,
+          product_type, payment_type, gift_voucher,
+          existing_contracts, info_source, notes
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
+      `, [
+        customerId,
+        expDay, expMonth, expYear,
+        hospitalLookup[String(row.hos_id)] || null,
+        collabLookup[String(row.doc_id)] || null,
+        isMultiple || false, row.pot_children || 1,
+        normalizeName(fatherName),
+        normalizeName(f.per_last_name),
+        f.per_title || null,
+        normalizePhone(f.per_phone_number, fatherCountry || 'SK') || normalizePhone(f.per_mobile, fatherCountry || 'SK'),
+        normalizePhone(f.per_mobile, fatherCountry || 'SK'),
+        normalizeEmail(f.per_email),
+        f.add_street || null,
+        normalizeCity(f.add_city),
+        normalizePostalCode(f.add_zip),
+        fatherCountry,
+        row.pot_product_ft || null,
+        row.pot_payment_type_ft || null,
+        row.pot_gift_card || null,
+        row.pot_previous_contracts || null,
+        row.pot_first_information_source_ft || null,
+        null,
+      ]);
+      inserted++;
+    } catch (err) {
+      errors++;
+      log(`  ERROR cli_id=${row.cli_id}: ${err.message}`);
+    }
+  }
+  log(`\n  Cases: ${inserted} vložených, ${skipped} preskočených, ${errors} chýb`);
 }
 
 // ============================================================
@@ -783,6 +951,7 @@ async function step7_verification() {
     { name: 'Customers (migrated)', query: "SELECT COUNT(*) as cnt FROM customers WHERE internal_id IS NOT NULL" },
     { name: 'Collections (migrated)', query: "SELECT COUNT(*) as cnt FROM collections WHERE legacy_id IS NOT NULL" },
     { name: 'Lab Results (migrated)', query: "SELECT COUNT(*) as cnt FROM collection_lab_results" },
+    { name: 'Cases (migrated)', query: "SELECT COUNT(*) as cnt FROM customer_potential_cases WHERE customer_id IN (SELECT id FROM customers WHERE internal_id IS NOT NULL)" },
   ];
 
   const countRows = [];
@@ -843,6 +1012,27 @@ async function step7_verification() {
     ])
   );
 
+  log('\n--- Cases v INDEXUS ---');
+  const cases = await pgPool.query(`
+    SELECT cpc.customer_id, cu.internal_id, cu.first_name, cu.last_name,
+           cpc.father_first_name, cpc.father_last_name, cpc.father_mobile, cpc.father_email,
+           cpc.father_country, cpc.product_type, cpc.payment_type,
+           cpc.expected_date_day, cpc.expected_date_month, cpc.expected_date_year
+    FROM customer_potential_cases cpc
+    JOIN customers cu ON cu.id = cpc.customer_id
+    WHERE cu.internal_id IS NOT NULL
+    ORDER BY cu.internal_id LIMIT 20
+  `);
+  table(
+    ['CliID', 'Klientka', 'Otec meno', 'Otec priezvisko', 'Otec mobil', 'Otec email', 'Krajina', 'Produkt'],
+    cases.rows.map(r => [
+      r.internal_id,
+      `${r.first_name || ''} ${r.last_name || ''}`.trim(),
+      r.father_first_name, r.father_last_name, r.father_mobile, r.father_email,
+      r.father_country, r.product_type,
+    ])
+  );
+
   log('\n--- Krížová kontrola (CBC vs INDEXUS) ---');
   const sampleColls = await pgPool.query("SELECT legacy_id, cbu_number, client_first_name, client_last_name FROM collections WHERE legacy_id IS NOT NULL LIMIT 5");
   for (const row of sampleColls.rows) {
@@ -877,6 +1067,7 @@ async function main() {
     await step4_collaborators();
     await step5_customers();
     await step6_collections();
+    await step6b_cases();
     await step7_verification();
 
     separator('HOTOVO');

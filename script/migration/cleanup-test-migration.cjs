@@ -21,6 +21,7 @@ async function main() {
 
   const tables = [
     { name: 'collection_lab_results', query: "DELETE FROM collection_lab_results WHERE collection_id IN (SELECT id FROM collections WHERE legacy_id IS NOT NULL)" },
+    { name: 'customer_potential_cases', query: "DELETE FROM customer_potential_cases WHERE customer_id IN (SELECT id FROM customers WHERE internal_id IS NOT NULL)" },
     { name: 'collections (migrated)', query: "DELETE FROM collections WHERE legacy_id IS NOT NULL" },
     { name: 'customers (migrated)', query: "DELETE FROM customers WHERE internal_id IS NOT NULL" },
     { name: 'collaborators (migrated)', query: "DELETE FROM collaborators WHERE legacy_id IS NOT NULL" },
