@@ -1230,9 +1230,14 @@ async function step6b_cases() {
       c.con_expected_collection_date, c.con_pregnancy_type,
       pc.pot_id, pc.per_id_father, pc.pot_father_address_country_ft,
       pc.pot_product_ft, pc.pot_marketproduct_ft, pc.pot_payment_type_ft,
-      pc.pot_exp_birth_date, pc.pot_pregnancy_type, pc.pot_children,
+      pc.pot_exp_birth_date, pc.pot_exp_hospital_ft, pc.pot_exp_doctor_ft,
+      pc.pot_recruiting_ft, pc.pot_pregnancy_type, pc.pot_children,
       pc.pot_gift_card, pc.pot_previous_contracts,
       pc.pot_registration_type_ft, pc.pot_first_information_source_ft,
+      pc.pot_cbc_reason_ft, pc.pot_marketing_action_ft, pc.pot_marketing_code_ft,
+      pc.pot_mailinglist, pc.pot_note,
+      pc.doc_id_exp, pc.doc_id_recruit, pc.hos_id AS pot_hos_id,
+      pc.cos_id,
       pc.per_id AS pot_per_id_mother
     FROM Contracts c
     JOIN PotentialClients pc ON pc.pot_id = c.pot_id
@@ -1274,6 +1279,24 @@ async function step6b_cases() {
   } catch (e) {
     log(`  WARN: ChildFather tabuľka: ${e.message}`);
   }
+
+  const gynDocIds = potData.recordset.filter(r => r.doc_id_exp).map(r => r.doc_id_exp);
+  const gynData = {};
+  if (gynDocIds.length > 0) {
+    const gynRows = await mssqlPool.request().query(`
+      SELECT d.doc_id,
+             pd.pda_first_name, pd.pda_last_name, pd.pda_title_prefix,
+             pd.pda_mobile, pd.pda_phone_number, pd.pda_email
+      FROM Collaborators d
+      JOIN Persons p ON p.per_id = d.per_id
+      LEFT JOIN PersonalData pd ON pd.per_id = p.per_id AND pd.pda_valid = 1
+      WHERE d.doc_id IN (${gynDocIds.join(',')})
+    `);
+    for (const r of gynRows.recordset) {
+      gynData[r.doc_id] = r;
+    }
+  }
+  log(`  Gynekológovia nájdení: ${Object.keys(gynData).length} z ${gynDocIds.length} doc_id_exp`);
 
   log('Zdrojové dáta z CBC:');
   table(
@@ -1324,6 +1347,15 @@ async function step6b_cases() {
       const pregnancyType = row.pot_pregnancy_type || row.con_pregnancy_type;
       const isMultiple = pregnancyType && parseInt(pregnancyType) > 1;
 
+      const contactDate = row.con_expected_collection_date || row.pot_exp_birth_date;
+      let ctDay = null, ctMonth = null, ctYear = null;
+      if (contactDate) {
+        const cd = new Date(contactDate);
+        if (!isNaN(cd.getTime())) {
+          ctDay = cd.getDate(); ctMonth = cd.getMonth() + 1; ctYear = cd.getFullYear();
+        }
+      }
+
       await pgPool.query(`
         INSERT INTO customer_potential_cases (
           customer_id,
@@ -1334,12 +1366,15 @@ async function step6b_cases() {
           father_phone, father_mobile, father_email,
           father_street, father_city, father_postal_code, father_country,
           product_type, payment_type, gift_voucher,
-          existing_contracts, info_source, notes
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
+          contact_date_day, contact_date_month, contact_date_year,
+          existing_contracts, recruiting,
+          sales_channel, info_source, marketing_action, marketing_code,
+          newsletter_opt_in, notes
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32)
       `, [
         customerId,
         expDay, expMonth, expYear,
-        hospitalLookup[String(row.hos_id)] || null,
+        hospitalLookup[String(row.pot_hos_id || row.hos_id)] || null,
         collabLookup[String(row.doc_id)] || null,
         isMultiple || false, row.pot_children || 1,
         normalizeName(fatherName),
@@ -1355,10 +1390,38 @@ async function step6b_cases() {
         row.pot_product_ft || null,
         row.pot_payment_type_ft || null,
         row.pot_gift_card || null,
+        ctDay, ctMonth, ctYear,
         row.pot_previous_contracts || null,
+        row.pot_recruiting_ft || null,
+        row.pot_registration_type_ft || null,
         row.pot_first_information_source_ft || null,
-        null,
+        row.pot_marketing_action_ft || null,
+        row.pot_marketing_code_ft || null,
+        row.pot_mailinglist === true || row.pot_mailinglist === 1,
+        row.pot_note || null,
       ]);
+
+      const gyn = gynData[row.doc_id_exp] || {};
+      const gynName = gyn.pda_first_name || gyn.pda_last_name
+        ? [gyn.pda_title_prefix, gyn.pda_first_name, gyn.pda_last_name].filter(Boolean).join(' ')
+        : (row.pot_exp_doctor_ft || null);
+      const gynPhone = normalizePhone(gyn.pda_mobile || gyn.pda_phone_number, 'SK') || null;
+      const gynEmail = normalizeEmail(gyn.pda_email) || null;
+      const expDateTs = expDate ? new Date(expDate) : null;
+      const hospitalName = row.pot_exp_hospital_ft || null;
+
+      if (gynName || gynPhone || gynEmail || expDateTs || hospitalName) {
+        await pgPool.query(`
+          UPDATE customers SET
+            gynecologist_name = COALESCE($2, gynecologist_name),
+            gynecologist_phone = COALESCE($3, gynecologist_phone),
+            gynecologist_email = COALESCE($4, gynecologist_email),
+            expected_delivery_date = COALESCE($5, expected_delivery_date),
+            hospital_name = COALESCE($6, hospital_name)
+          WHERE id = $1
+        `, [customerId, gynName, gynPhone, gynEmail, expDateTs, hospitalName]);
+      }
+
       inserted++;
     } catch (err) {
       errors++;
@@ -1677,21 +1740,52 @@ async function step10_verification() {
     SELECT cpc.customer_id, cu.internal_id, cu.first_name, cu.last_name,
            cpc.father_first_name, cpc.father_last_name, cpc.father_mobile, cpc.father_email,
            cpc.father_country, cpc.product_type, cpc.payment_type,
-           cpc.expected_date_day, cpc.expected_date_month, cpc.expected_date_year
+           cpc.expected_date_day, cpc.expected_date_month, cpc.expected_date_year,
+           cpc.recruiting, cpc.sales_channel, cpc.info_source,
+           cpc.marketing_action, cpc.marketing_code, cpc.newsletter_opt_in, cpc.notes,
+           cu.gynecologist_name, cu.gynecologist_phone, cu.gynecologist_email,
+           cu.expected_delivery_date, cu.hospital_name as cust_hospital_name
     FROM customer_potential_cases cpc
     JOIN customers cu ON cu.id = cpc.customer_id
     WHERE cu.internal_id IS NOT NULL
     ORDER BY cu.internal_id LIMIT 10
   `);
   table(
-    ['CliID', 'Klientka', 'Otec meno', 'Otec priezvisko', 'Otec mobil', 'Otec email', 'Krajina', 'Produkt'],
+    ['CliID', 'Klientka', 'Produkt', 'Platba', 'Gynekológ', 'Recruiting', 'SalesChannel', 'InfoSource', 'Marketing', 'Newsletter'],
     cases.rows.map(r => [
       r.internal_id,
       `${r.first_name || ''} ${r.last_name || ''}`.trim(),
-      r.father_first_name, r.father_last_name, r.father_mobile, r.father_email,
-      r.father_country, r.product_type,
+      r.product_type || '—', r.payment_type || '—',
+      r.gynecologist_name || '—',
+      r.recruiting || '—', r.sales_channel || '—', r.info_source || '—',
+      r.marketing_action || '—',
+      r.newsletter_opt_in ? 'áno' : 'nie',
     ])
   );
+  const casesWithData = await pgPool.query(`
+    SELECT
+      COUNT(*) as total,
+      COUNT(cpc.product_type) as with_product,
+      COUNT(cpc.payment_type) as with_payment,
+      COUNT(cpc.recruiting) as with_recruiting,
+      COUNT(cpc.sales_channel) as with_sales_channel,
+      COUNT(cpc.info_source) as with_info_source,
+      COUNT(cpc.marketing_action) as with_marketing,
+      COUNT(cpc.marketing_code) as with_code,
+      COUNT(cpc.notes) as with_notes,
+      COUNT(cu.gynecologist_name) as with_gyn_name,
+      COUNT(cu.gynecologist_phone) as with_gyn_phone,
+      COUNT(cu.expected_delivery_date) as with_exp_date,
+      COUNT(cu.hospital_name) as with_hospital_name
+    FROM customer_potential_cases cpc
+    JOIN customers cu ON cu.id = cpc.customer_id
+    WHERE cu.internal_id IS NOT NULL
+  `);
+  const cd = casesWithData.rows[0];
+  log(`  Cases štatistika (${cd.total} celkom):`);
+  log(`    product=${cd.with_product}, payment=${cd.with_payment}, recruiting=${cd.with_recruiting}`);
+  log(`    salesChannel=${cd.with_sales_channel}, infoSource=${cd.with_info_source}, marketing=${cd.with_marketing}, code=${cd.with_code}`);
+  log(`    notes=${cd.with_notes}, gynName=${cd.with_gyn_name}, gynPhone=${cd.with_gyn_phone}, expDate=${cd.with_exp_date}, hospital=${cd.with_hospital_name}`);
 
   log('\n--- Krížová kontrola (CBC vs INDEXUS) ---');
   const sampleColls = await pgPool.query("SELECT legacy_id, cbu_number, client_first_name, client_last_name FROM collections WHERE legacy_id IS NOT NULL LIMIT 5");
