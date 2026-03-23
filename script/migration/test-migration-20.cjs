@@ -287,6 +287,37 @@ async function step1_testConnection() {
         }
       } catch (e) { log(`  WARN: ${rt.TABLE_NAME}: ${e.message}`); }
     }
+    const repoFiles = await mssqlPool.request().query(`
+      SELECT TOP 10 fr.rep_id, fr.rep_location, fr.rep_filename, fr.rep_filesize, fr.rep_inserted, fr.rep_deleted
+      FROM FileRepositories fr
+      INNER JOIN CollaboratorAgreements ca ON ca.cag_repository = fr.rep_id
+      ORDER BY fr.rep_id DESC
+    `);
+    if (repoFiles.recordset.length > 0) {
+      log(`  FileRepositories vzorky (pre dohody):`);
+      table(['rep_id', 'rep_location', 'rep_filename', 'rep_filesize', 'rep_deleted'],
+        repoFiles.recordset.map(r => [
+          r.rep_id,
+          r.rep_location ? String(r.rep_location).substring(0, 60) : '—',
+          r.rep_filename ? String(r.rep_filename).substring(0, 40) : '—',
+          r.rep_filesize || '—',
+          r.rep_deleted ? 'YES' : 'no',
+        ]));
+    } else {
+      log('  FileRepositories: žiadne záznamy pre dohody');
+    }
+
+    const repoAny = await mssqlPool.request().query(`SELECT TOP 3 * FROM FileRepositories ORDER BY rep_id DESC`);
+    if (repoAny.recordset.length > 0) {
+      log(`  FileRepositories posledné 3 záznamy:`);
+      const cols = Object.keys(repoAny.recordset[0]);
+      table(cols, repoAny.recordset.map(r => cols.map(c => {
+        const v = r[c];
+        if (v == null) return '—';
+        if (Buffer.isBuffer(v)) return `[BLOB ${v.length}B]`;
+        return String(v).substring(0, 50);
+      })));
+    }
   } catch (err) { log(`  WARN: Repository diagnostika: ${err.message}`); }
 
   log('\n--- Diagnostika CBC: Collaborators stĺpce (health, marital, insurance) ---');
