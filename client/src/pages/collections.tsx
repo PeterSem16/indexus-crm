@@ -136,6 +136,10 @@ export default function CollectionsPage() {
   const [formData, setFormData] = useState<CollectionFormData>(initialFormData);
   const [activeTab, setActiveTab] = useState("client");
   const [viewMode, setViewMode] = useState<"dashboard" | "list" | "calendar" | "executive">("dashboard");
+  const [listPage, setListPage] = useState(1);
+  const [listSortField, setListSortField] = useState<string>("collectionDate");
+  const [listSortDir, setListSortDir] = useState<"asc" | "desc">("desc");
+  const listPageSize = 15;
   const [calendarMonth, setCalendarMonth] = useState(new Date());
   const [esCountry, setEsCountry] = useState<string>("all");
   const [esPeriod, setEsPeriod] = useState<string>("monthly");
@@ -845,21 +849,28 @@ export default function CollectionsPage() {
     },
   });
 
-  const filteredCollections = collections.filter((c) => {
+  const countryFilteredCollections = collections.filter((c) => {
     if (selectedCountries.length > 0 && !selectedCountries.includes(c.countryCode)) {
       return false;
     }
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      return (
-        c.cbuNumber?.toLowerCase().includes(query) ||
-        c.clientFirstName?.toLowerCase().includes(query) ||
-        c.clientLastName?.toLowerCase().includes(query) ||
-        c.childFirstName?.toLowerCase().includes(query) ||
-        c.childLastName?.toLowerCase().includes(query)
-      );
-    }
     return true;
+  });
+
+  const filteredCollections = countryFilteredCollections.filter((c) => {
+    if (!searchQuery) return true;
+    const query = searchQuery.toLowerCase();
+    const statusObj = collectionStatuses.find(s => String(s.id) === c.state);
+    const stateLabel = (statusObj?.name || c.state || "").toLowerCase();
+    return (
+      (c.cbuNumber || "").toLowerCase().includes(query) ||
+      (c.clientFirstName || "").toLowerCase().includes(query) ||
+      (c.clientLastName || "").toLowerCase().includes(query) ||
+      (c.childFirstName || "").toLowerCase().includes(query) ||
+      (c.childLastName || "").toLowerCase().includes(query) ||
+      (c.countryCode || "").toLowerCase().includes(query) ||
+      stateLabel.includes(query) ||
+      (c.collectionDate ? format(new Date(c.collectionDate), "dd.MM.yyyy") : "").includes(query)
+    );
   });
 
   const notAvailable = t.common.noData;
@@ -884,9 +895,20 @@ export default function CollectionsPage() {
 
   const getStateLabel = (state: string | null) => {
     if (!state) return notAvailable;
-    // Find status by ID (state contains the ID as string)
     const status = collectionStatuses.find(s => String(s.id) === state);
     return status?.name || state || notAvailable;
+  };
+
+  const getStatusBadgeStyle = (state: string | null) => {
+    if (!state) return "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300";
+    const status = collectionStatuses.find(s => String(s.id) === state);
+    const branch = status?.branch || 0;
+    const sortOrder = status?.sortOrder || 0;
+    if (branch === 2) return "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 border-red-200 dark:border-red-800";
+    if (sortOrder >= 1.4) return "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800";
+    if (sortOrder >= 1.2) return "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border-blue-200 dark:border-blue-800";
+    if (sortOrder >= 1) return "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 border-amber-200 dark:border-amber-800";
+    return "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300 border-violet-200 dark:border-violet-800";
   };
 
   const handleDelete = (col: Collection) => {
@@ -1356,6 +1378,226 @@ export default function CollectionsPage() {
 
   const renderLabResultsForm = () => (
     <div className="space-y-6">
+      <div className="rounded-xl border bg-gradient-to-br from-muted/30 to-muted/10 p-5 space-y-4">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-primary/10 rounded-lg">
+            <FileText className="h-5 w-5 text-primary" />
+          </div>
+          <div className="flex-1">
+            <h3 className="font-semibold">{labT.downloadCbuReport || "CBU Report"}</h3>
+            <p className="text-xs text-muted-foreground">{locale === "sk" ? "Stiahnutie vyžaduje OTP overenie" : "Download requires OTP verification"}</p>
+          </div>
+          <Badge variant="outline" className="text-xs font-normal">
+            <Lock className="h-3 w-3 mr-1" />
+            OTP
+          </Badge>
+        </div>
+
+        {labOtpStep === "idle" && (
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleDownloadCbuReport("medical", "sk")}
+              className="justify-start"
+              data-testid="button-download-cbu-medical-sk"
+            >
+              <FileText className="h-4 w-4 mr-2 text-blue-500" />
+              {labT.medicalReportSk || "Medical Report (SK)"}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleDownloadCbuReport("medical", "en")}
+              className="justify-start"
+              data-testid="button-download-cbu-medical-en"
+            >
+              <FileText className="h-4 w-4 mr-2 text-blue-500" />
+              {labT.medicalReportEn || "Medical Report (EN)"}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleDownloadCbuReport("full", "sk")}
+              className="justify-start"
+              data-testid="button-download-cbu-full-sk"
+            >
+              <Download className="h-4 w-4 mr-2 text-emerald-500" />
+              {labT.fullReportSk || "Full Report (SK)"}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleDownloadCbuReport("full", "en")}
+              className="justify-start"
+              data-testid="button-download-cbu-full-en"
+            >
+              <Download className="h-4 w-4 mr-2 text-emerald-500" />
+              {labT.fullReportEn || "Full Report (EN)"}
+            </Button>
+          </div>
+        )}
+
+        {labOtpStep === "sending" && (
+          <div className="flex items-center justify-center py-4 gap-3 text-muted-foreground">
+            <Loader2 className="h-5 w-5 animate-spin" />
+            <span className="text-sm">{locale === "sk" ? "Odosielam OTP kód na váš email..." : "Sending OTP code to your email..."}</span>
+          </div>
+        )}
+
+        {labOtpStep === "verify" && (
+          <div className="border rounded-lg p-4 bg-background/80 space-y-3">
+            <div className="flex items-center gap-2 text-sm">
+              <Shield className="h-4 w-4 text-primary" />
+              <span className="font-medium">{locale === "sk" ? "OTP overenie" : "OTP Verification"}</span>
+              <Badge variant="outline" className="text-xs ml-auto">
+                {labOtpReportType === "medical" ? "Medical" : "Full"} • {labOtpLang.toUpperCase()}
+              </Badge>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {locale === "sk"
+                ? "Na váš email bol odoslaný 6-miestny overovací kód."
+                : "A 6-digit verification code has been sent to your email."}
+            </p>
+            <div className="flex items-center gap-3">
+              <Input
+                value={labOtpCode}
+                onChange={(e) => setLabOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                placeholder="000000"
+                className="text-center text-lg tracking-[0.4em] font-mono w-48"
+                maxLength={6}
+                data-testid="input-lab-otp-code"
+                onKeyDown={(e) => e.key === "Enter" && labOtpCode.length === 6 && handleLabOtpVerifyDownload()}
+              />
+              <Button
+                onClick={handleLabOtpVerifyDownload}
+                disabled={labOtpVerifying || labOtpCode.length !== 6}
+                data-testid="button-lab-otp-verify"
+              >
+                {labOtpVerifying ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4 mr-1" />}
+                {locale === "sk" ? "Overiť" : "Verify"}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {labOtpStep === "results" && (() => {
+          const lr = labVerifiedData?.labResult || labResult || labFormData;
+          const getUsabilityColor = (val: string | null) => {
+            if (!val) return "text-muted-foreground";
+            const v = val.toLowerCase();
+            if (v.includes("vhodn") || v.includes("suitable") || v.includes("pass")) return "text-emerald-600 dark:text-emerald-400";
+            if (v.includes("nevhodn") || v.includes("unsuitable") || v.includes("fail")) return "text-red-600 dark:text-red-400";
+            return "text-amber-600 dark:text-amber-400";
+          };
+          const getSterilityColor = (val: string | null) => {
+            if (!val) return "text-muted-foreground";
+            const v = val.toLowerCase();
+            if (v.includes("steríln") || v.includes("sterile") || v.includes("negative") || v.includes("negatív")) return "text-emerald-600 dark:text-emerald-400";
+            if (v.includes("nesteríln") || v.includes("non-sterile") || v.includes("positive") || v.includes("pozitív")) return "text-red-600 dark:text-red-400";
+            return "text-amber-600 dark:text-amber-400";
+          };
+          const ResultCard = ({ icon, title, children }: { icon: any; title: string; children: any }) => (
+            <div className="border rounded-lg p-4 bg-card hover:shadow-sm transition-shadow">
+              <div className="flex items-center gap-2 mb-3 pb-2 border-b">
+                {icon}
+                <span className="font-medium text-sm">{title}</span>
+              </div>
+              {children}
+            </div>
+          );
+          const ResultRow = ({ label, value, colorFn }: { label: string; value: string | null; colorFn?: (v: string | null) => string }) => (
+            <div className="flex justify-between items-center py-1.5">
+              <span className="text-xs text-muted-foreground">{label}</span>
+              <span className={`text-sm font-medium ${colorFn ? colorFn(value) : "text-foreground"}`}>{value || "—"}</span>
+            </div>
+          );
+
+          return (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <ResultCard icon={<Stethoscope className="h-4 w-4 text-blue-500" />} title={locale === "sk" ? "Základné parametre" : "Basic Parameters"}>
+                  <ResultRow label={locale === "sk" ? "Použiteľnosť" : "Usability"} value={lr.usability} colorFn={getUsabilityColor} />
+                  <ResultRow label={locale === "sk" ? "Spracovanie" : "Processing"} value={lr.processing} />
+                  <ResultRow label={locale === "sk" ? "Odber pre" : "Collection For"} value={lr.collectionFor} />
+                </ResultCard>
+
+                <ResultCard icon={<Microscope className="h-4 w-4 text-purple-500" />} title={locale === "sk" ? "Sterilita" : "Sterility"}>
+                  <ResultRow label={locale === "sk" ? "Sterilita" : "Sterility"} value={lr.sterility} colorFn={getSterilityColor} />
+                  <ResultRow label={locale === "sk" ? "Výsledok Bag A" : "Result Bag A"} value={lr.resultOfSterilityBagA} colorFn={getSterilityColor} />
+                  <ResultRow label={locale === "sk" ? "Výsledok Bag B" : "Result Bag B"} value={lr.resultOfSterilityBagB} colorFn={getSterilityColor} />
+                </ResultCard>
+
+                <ResultCard icon={<FlaskConical className="h-4 w-4 text-emerald-500" />} title="Bag A">
+                  <ResultRow label={locale === "sk" ? "Objem" : "Volume"} value={lr.bagAVolume} />
+                  <ResultRow label="TNC" value={lr.bagATnc} />
+                  <ResultRow label={locale === "sk" ? "Použiteľnosť" : "Usability"} value={lr.bagAUsability} colorFn={getUsabilityColor} />
+                </ResultCard>
+
+                <ResultCard icon={<FlaskConical className="h-4 w-4 text-orange-500" />} title="Bag B">
+                  <ResultRow label={locale === "sk" ? "Objem" : "Volume"} value={lr.bagBVolume} />
+                  <ResultRow label="TNC" value={lr.bagBTnc} />
+                  <ResultRow label={locale === "sk" ? "Použiteľnosť" : "Usability"} value={lr.bagBUsability} colorFn={getUsabilityColor} />
+                </ResultCard>
+              </div>
+
+              {(lr.tissueProcessed || lr.tissueSterility || lr.tissueUsability || lr.umbilicalTissue) && (
+                <ResultCard icon={<Heart className="h-4 w-4 text-rose-500" />} title={locale === "sk" ? "Tkanivo" : "Tissue"}>
+                  <div className="grid grid-cols-2 gap-x-6">
+                    <ResultRow label={locale === "sk" ? "Spracované" : "Processed"} value={lr.tissueProcessed} />
+                    <ResultRow label={locale === "sk" ? "Sterilita" : "Sterility"} value={lr.tissueSterility} colorFn={getSterilityColor} />
+                    <ResultRow label={locale === "sk" ? "Použiteľnosť" : "Usability"} value={lr.tissueUsability} colorFn={getUsabilityColor} />
+                    <ResultRow label={locale === "sk" ? "Pupočníkové tkanivo" : "Umbilical Tissue"} value={lr.umbilicalTissue} />
+                  </div>
+                </ResultCard>
+              )}
+
+              {lr.labNote && (
+                <div className="border rounded-lg p-3 bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800">
+                  <div className="flex items-start gap-2">
+                    <Info className="h-4 w-4 mt-0.5 text-amber-600 shrink-0" />
+                    <div>
+                      <span className="text-xs font-medium text-amber-800 dark:text-amber-200">{locale === "sk" ? "Poznámka laboratória" : "Lab Note"}</span>
+                      <p className="text-sm text-amber-700 dark:text-amber-300 mt-0.5">{lr.labNote}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {labAiAnalysis && (
+                <div className="border rounded-lg p-4 bg-violet-50 dark:bg-violet-950/20 border-violet-200 dark:border-violet-800">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Brain className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+                    <span className="text-sm font-medium text-violet-800 dark:text-violet-200">AI {locale === "sk" ? "Analýza" : "Analysis"}</span>
+                  </div>
+                  <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap text-sm leading-relaxed">
+                    {labAiAnalysis}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-center gap-2 pt-2 border-t">
+                <Button variant="outline" size="sm" onClick={handleLabDownloadXls} data-testid="button-lab-download-xls">
+                  <Download className="h-4 w-4 mr-1" />
+                  XLS
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleLabAiAnalysis} data-testid="button-lab-ai-analysis">
+                  <Brain className="h-4 w-4 mr-1" />
+                  AI {locale === "sk" ? "Analýza" : "Analysis"}
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => handleSaveToLabResults(labFormData.cbu || "", lr, "lab_tab")} data-testid="button-lab-save-to-results">
+                  <Save className="h-4 w-4 mr-1" />
+                  {locale === "sk" ? "Uložiť do INDEXUS" : "Save to INDEXUS"}
+                </Button>
+                <Button variant="ghost" size="sm" className="ml-auto" onClick={() => { setLabOtpStep("idle"); setLabOtpCode(""); setLabAiAnalysis(null); }} data-testid="button-lab-results-close">
+                  {locale === "sk" ? "Zavrieť" : "Close"}
+                </Button>
+              </div>
+            </div>
+          );
+        })()}
+      </div>
+
       <div className="space-y-4">
         <h3 className="text-lg font-medium">{labT.basicInfo}</h3>
         <div className="grid grid-cols-2 gap-4">
@@ -1570,264 +1812,13 @@ export default function CollectionsPage() {
         </div>
       </div>
 
-      <div className="space-y-4 pt-4 border-t">
-        <h3 className="text-lg font-medium flex items-center gap-2">
-          <Shield className="h-5 w-5" />
-          {labT.downloadCbuReport || "Download CBU Report"}
-          <Badge variant="outline" className="text-xs font-normal ml-1">
-            <Lock className="h-3 w-3 mr-1" />
-            OTP
-          </Badge>
-        </h3>
-
-        {labOtpStep === "idle" && (
-          <div className="grid grid-cols-2 gap-3">
-            <Button
-              variant="outline"
-              onClick={() => handleDownloadCbuReport("medical", "sk")}
-              disabled={labOtpStep !== "idle"}
-              data-testid="button-download-cbu-medical-sk"
-            >
-              <Download className="h-4 w-4 mr-2" />
-              {labT.medicalReportSk || "Medical Report (SK)"}
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => handleDownloadCbuReport("medical", "en")}
-              disabled={labOtpStep !== "idle"}
-              data-testid="button-download-cbu-medical-en"
-            >
-              <Download className="h-4 w-4 mr-2" />
-              {labT.medicalReportEn || "Medical Report (EN)"}
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => handleDownloadCbuReport("full", "sk")}
-              disabled={labOtpStep !== "idle"}
-              data-testid="button-download-cbu-full-sk"
-            >
-              <Download className="h-4 w-4 mr-2" />
-              {labT.fullReportSk || "Full Report (SK)"}
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => handleDownloadCbuReport("full", "en")}
-              disabled={labOtpStep !== "idle"}
-              data-testid="button-download-cbu-full-en"
-            >
-              <Download className="h-4 w-4 mr-2" />
-              {labT.fullReportEn || "Full Report (EN)"}
-            </Button>
-          </div>
-        )}
-
-        {labOtpStep === "sending" && (
-          <div className="flex items-center justify-center py-6 gap-3 text-muted-foreground">
-            <Loader2 className="h-5 w-5 animate-spin" />
-            <span className="text-sm">{locale === "sk" ? "Odosielam OTP kód na váš email..." : "Sending OTP code to your email..."}</span>
-          </div>
-        )}
-
-        {labOtpStep === "verify" && (
-          <div className="border rounded-lg p-4 bg-muted/30 space-y-4">
-            <div className="flex items-center gap-2 text-sm">
-              <Shield className="h-4 w-4 text-primary" />
-              <span className="font-medium">
-                {locale === "sk" ? "OTP overenie" : "OTP Verification"}
-              </span>
-              <Badge variant="outline" className="text-xs ml-auto">
-                {labOtpReportType === "medical" ? "Medical" : "Full"} • {labOtpLang.toUpperCase()}
-              </Badge>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {locale === "sk"
-                ? "Na váš email bol odoslaný 6-miestny overovací kód. Zadajte ho pre zobrazenie výsledkov."
-                : "A 6-digit verification code has been sent to your email. Enter it to view the results."}
-            </p>
-            <div className="flex items-center gap-3">
-              <Input
-                value={labOtpCode}
-                onChange={(e) => setLabOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                placeholder="000000"
-                className="text-center text-lg tracking-[0.4em] font-mono w-48"
-                maxLength={6}
-                data-testid="input-lab-otp-code"
-                onKeyDown={(e) => e.key === "Enter" && labOtpCode.length === 6 && handleLabOtpVerifyDownload()}
-              />
-              <Button
-                onClick={handleLabOtpVerifyDownload}
-                disabled={labOtpVerifying || labOtpCode.length !== 6}
-                data-testid="button-lab-otp-verify"
-              >
-                {labOtpVerifying ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Eye className="h-4 w-4 mr-2" />}
-                {locale === "sk" ? "Overiť a zobraziť" : "Verify & View"}
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => { setLabOtpStep("idle"); setLabOtpCode(""); }}
-                data-testid="button-lab-otp-cancel"
-              >
-                {t.common.cancel}
-              </Button>
-            </div>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <AlertTriangle className="h-3 w-3" />
-              {locale === "sk"
-                ? "Kód je platný 10 minút. Prístup bude zaznamenaný v audit logu."
-                : "Code is valid for 10 minutes. Access will be recorded in the audit log."}
-            </div>
-          </div>
-        )}
-
-        {labOtpStep === "results" && labVerifiedData && (() => {
-          const lr = labVerifiedData.labResult || {};
-          const getUsabilityColor = (val: string | null) => {
-            if (!val) return "text-muted-foreground";
-            const v = val.toLowerCase();
-            if (v.includes("použiteľn") || v.includes("usable") || v === "yes" || v === "áno") return "text-green-600 dark:text-green-400";
-            if (v.includes("nepoužiteľ") || v.includes("unusable") || v === "no" || v === "nie") return "text-red-600 dark:text-red-400";
-            return "text-amber-600 dark:text-amber-400";
-          };
-          const getSterilityColor = (val: string | null) => {
-            if (!val) return "text-muted-foreground";
-            const v = val.toLowerCase();
-            if (v.includes("negat") || v.includes("steril") || v === "ok") return "text-green-600 dark:text-green-400";
-            if (v.includes("pozit") || v.includes("posit") || v.includes("kontam")) return "text-red-600 dark:text-red-400";
-            return "text-amber-600 dark:text-amber-400";
-          };
-          const ResultCard = ({ icon, title, children }: { icon: any; title: string; children: any }) => (
-            <div className="border rounded-lg p-4 bg-card">
-              <div className="flex items-center gap-2 mb-3">
-                {icon}
-                <span className="font-medium text-sm">{title}</span>
-              </div>
-              {children}
-            </div>
-          );
-          const ResultRow = ({ label, value, colorFn }: { label: string; value: string | null; colorFn?: (v: string | null) => string }) => (
-            <div className="flex items-center justify-between py-1.5 border-b border-dashed last:border-0">
-              <span className="text-xs text-muted-foreground">{label}</span>
-              <span className={`text-sm font-medium ${colorFn ? colorFn(value) : ""}`}>{value || "—"}</span>
-            </div>
-          );
-
-          return (
-            <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-                    <Check className="h-4 w-4 text-green-600 dark:text-green-400" />
-                  </div>
-                  <div>
-                    <span className="text-sm font-medium">{locale === "sk" ? "OTP overené" : "OTP Verified"}</span>
-                    <span className="text-xs text-muted-foreground block">
-                      {labVerifiedData.collection?.clientFirstName} {labVerifiedData.collection?.clientLastName}
-                      {labVerifiedData.collection?.cbuNumber && ` • ${labVerifiedData.collection.cbuNumber}`}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm" onClick={handleLabAiAnalysis} disabled={labAiLoading} data-testid="button-lab-results-ai">
-                    {labAiLoading ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Brain className="h-4 w-4 mr-1" />}
-                    AI
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={handleLabDownloadXls} data-testid="button-lab-results-download-xls">
-                    <Download className="h-4 w-4 mr-1" />
-                    XLS
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => collection?.cbuNumber && handleSaveToLabResults(collection.cbuNumber, labVerifiedData?.labResult, "lab_tab")}
-                    disabled={labSaving}
-                    data-testid="button-lab-results-save"
-                  >
-                    {labSaving ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Save className="h-4 w-4 mr-1" />}
-                    {locale === "sk" ? "Uložiť" : "Save"}
-                  </Button>
-                  <Button variant="ghost" size="sm" onClick={() => { setLabOtpStep("idle"); setLabVerifiedData(null); setLabAiAnalysis(null); setLabOtpCode(""); }}>
-                    {t.common.cancel}
-                  </Button>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <ResultCard icon={<Stethoscope className="h-4 w-4 text-blue-500" />} title={locale === "sk" ? "Základné parametre" : "Basic Parameters"}>
-                  <ResultRow label={locale === "sk" ? "Objem" : "Volume"} value={lr.volume} />
-                  <ResultRow label="TNC" value={lr.tncCount} />
-                  <ResultRow label={locale === "sk" ? "Použiteľnosť" : "Usability"} value={lr.usability} colorFn={getUsabilityColor} />
-                  <ResultRow label="Status" value={lr.status} />
-                  <ResultRow label={locale === "sk" ? "Objem v bagu" : "Volume in Bag"} value={lr.volumeInBag} />
-                </ResultCard>
-
-                <ResultCard icon={<Microscope className="h-4 w-4 text-purple-500" />} title={locale === "sk" ? "Sterilita" : "Sterility"}>
-                  <ResultRow label={locale === "sk" ? "Sterilita" : "Sterility"} value={lr.sterility} colorFn={getSterilityColor} />
-                  <ResultRow label={locale === "sk" ? "Typ sterility" : "Sterility Type"} value={lr.sterilityType} />
-                  <ResultRow label={locale === "sk" ? "Výsledok" : "Result"} value={lr.resultOfSterility} colorFn={getSterilityColor} />
-                  <ResultRow label={locale === "sk" ? "Výsledok Bag B" : "Result Bag B"} value={lr.resultOfSterilityBagB} colorFn={getSterilityColor} />
-                  <ResultRow label={locale === "sk" ? "Infekčné agens" : "Infection Agents"} value={lr.infectionAgents} />
-                </ResultCard>
-
-                <ResultCard icon={<FlaskConical className="h-4 w-4 text-emerald-500" />} title="Bag A">
-                  <ResultRow label={locale === "sk" ? "Objem" : "Volume"} value={lr.bagAVolume} />
-                  <ResultRow label="TNC" value={lr.bagATnc} />
-                  <ResultRow label={locale === "sk" ? "Použiteľnosť" : "Usability"} value={lr.bagAUsability} colorFn={getUsabilityColor} />
-                </ResultCard>
-
-                <ResultCard icon={<FlaskConical className="h-4 w-4 text-orange-500" />} title="Bag B">
-                  <ResultRow label={locale === "sk" ? "Objem" : "Volume"} value={lr.bagBVolume} />
-                  <ResultRow label="TNC" value={lr.bagBTnc} />
-                  <ResultRow label={locale === "sk" ? "Použiteľnosť" : "Usability"} value={lr.bagBUsability} colorFn={getUsabilityColor} />
-                </ResultCard>
-              </div>
-
-              {(lr.tissueProcessed || lr.tissueSterility || lr.tissueUsability || lr.umbilicalTissue) && (
-                <ResultCard icon={<Heart className="h-4 w-4 text-rose-500" />} title={locale === "sk" ? "Tkanivo" : "Tissue"}>
-                  <div className="grid grid-cols-2 gap-x-6">
-                    <ResultRow label={locale === "sk" ? "Spracované" : "Processed"} value={lr.tissueProcessed} />
-                    <ResultRow label={locale === "sk" ? "Sterilita" : "Sterility"} value={lr.tissueSterility} colorFn={getSterilityColor} />
-                    <ResultRow label={locale === "sk" ? "Použiteľnosť" : "Usability"} value={lr.tissueUsability} colorFn={getUsabilityColor} />
-                    <ResultRow label={locale === "sk" ? "Pupočníkové tkanivo" : "Umbilical Tissue"} value={lr.umbilicalTissue} />
-                  </div>
-                </ResultCard>
-              )}
-
-              {lr.labNote && (
-                <div className="border rounded-lg p-3 bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800">
-                  <div className="flex items-start gap-2">
-                    <Info className="h-4 w-4 mt-0.5 text-amber-600 shrink-0" />
-                    <div>
-                      <span className="text-xs font-medium text-amber-800 dark:text-amber-200">{locale === "sk" ? "Poznámka laboratória" : "Lab Note"}</span>
-                      <p className="text-sm text-amber-700 dark:text-amber-300 mt-0.5">{lr.labNote}</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {labAiAnalysis && (
-                <div className="border rounded-lg p-4 bg-violet-50 dark:bg-violet-950/20 border-violet-200 dark:border-violet-800">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Brain className="h-4 w-4 text-violet-600 dark:text-violet-400" />
-                    <span className="text-sm font-medium text-violet-800 dark:text-violet-200">AI {locale === "sk" ? "Analýza" : "Analysis"}</span>
-                  </div>
-                  <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap text-sm leading-relaxed">
-                    {labAiAnalysis}
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })()}
-      </div>
-
       <div className="flex justify-end pt-4 border-t">
         <Button 
           onClick={handleSaveLabResults} 
           disabled={labResultMutation.isPending}
           data-testid="button-save-lab-results"
         >
-          <Check className="h-4 w-4 mr-2" />
+          {labResultMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
           {t.common.save}
         </Button>
       </div>
@@ -1921,7 +1912,7 @@ export default function CollectionsPage() {
           backUrl="/collections"
         />
         
-        <Card className="mb-6 overflow-hidden">
+        <Card className="mb-6 overflow-hidden border-0 shadow-sm bg-gradient-to-r from-card to-muted/20">
           <CardContent className="p-0">
             {(() => {
               const branch1Statuses = collectionStatuses.filter(s => s.branch === 1).sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
@@ -1929,34 +1920,41 @@ export default function CollectionsPage() {
               const currentStatus = collectionStatuses.find(s => String(s.id) === collection?.state);
               const currentBranch = currentStatus?.branch || 0;
               const currentSortOrder = currentStatus?.sortOrder || 0;
+              const branch1Progress = currentBranch === 1 ? Math.min(100, ((currentSortOrder) / (branch1Statuses[branch1Statuses.length - 1]?.sortOrder || 1)) * 100) : 0;
+              const branch2Progress = currentBranch === 2 ? Math.min(100, ((currentSortOrder) / (branch2Statuses[branch2Statuses.length - 1]?.sortOrder || 1)) * 100) : 0;
               
               return (
                 <div className="grid grid-cols-2 gap-0">
-                  <div className={`p-6 ${currentBranch === 1 ? 'bg-primary/10 border-b-4 border-primary' : 'bg-muted/30'}`}>
-                    <div className="flex items-center gap-2 mb-4">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center ${currentBranch === 1 ? 'bg-primary text-white' : 'bg-muted'}`}>
-                        <Check className="h-4 w-4" />
+                  <div className={`p-5 ${currentBranch === 1 ? 'bg-gradient-to-br from-emerald-50 to-teal-50/50 dark:from-emerald-950/20 dark:to-teal-950/10' : 'bg-muted/20'}`}>
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-sm ${currentBranch === 1 ? 'bg-gradient-to-br from-emerald-500 to-teal-600 text-white' : 'bg-muted text-muted-foreground'}`}>
+                        <Check className="h-5 w-5" />
                       </div>
-                      <h3 className={`font-semibold text-lg ${currentBranch === 1 ? 'text-primary' : 'text-muted-foreground'}`}>
-                        Vydaný odber
-                      </h3>
+                      <div>
+                        <h3 className={`font-semibold ${currentBranch === 1 ? 'text-emerald-700 dark:text-emerald-300' : 'text-muted-foreground'}`}>
+                          {locale === "sk" ? "Vydaný odber" : "Active Collection"}
+                        </h3>
+                        {currentBranch === 1 && <p className="text-xs text-emerald-600/70 dark:text-emerald-400/70">{Math.round(branch1Progress)}%</p>}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1">
-                      {branch1Statuses.map((status, index) => {
+                    <div className="relative mb-3">
+                      <div className="h-1.5 bg-muted/50 rounded-full overflow-hidden">
+                        <div className="h-full bg-gradient-to-r from-emerald-400 to-teal-500 rounded-full transition-all duration-500" style={{ width: `${branch1Progress}%` }} />
+                      </div>
+                    </div>
+                    <div className="flex items-start justify-between gap-0.5">
+                      {branch1Statuses.map((status) => {
                         const isActive = currentBranch === 1 && (status.sortOrder || 0) <= currentSortOrder;
                         const isCurrent = String(status.id) === collection?.state;
                         return (
                           <div key={status.id} className="flex-1 flex flex-col items-center">
-                            <div className="flex items-center w-full">
-                              <div className={`w-full h-1 ${index === 0 ? 'rounded-l' : ''} ${index === branch1Statuses.length - 1 ? 'rounded-r' : ''} ${isActive ? 'bg-primary' : 'bg-muted'}`} />
-                            </div>
-                            <div className={`mt-2 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
-                              isCurrent ? 'bg-primary text-white ring-4 ring-primary/30 scale-125' : 
-                              isActive ? 'bg-primary text-white' : 'bg-muted text-muted-foreground'
+                            <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold transition-all ${
+                              isCurrent ? 'bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-md scale-110' :
+                              isActive ? 'bg-emerald-200 dark:bg-emerald-800 text-emerald-700 dark:text-emerald-200' : 'bg-muted/60 text-muted-foreground'
                             }`}>
                               {status.code}
                             </div>
-                            <span className={`mt-1 text-xs text-center leading-tight ${isCurrent ? 'font-bold text-primary' : isActive ? 'text-foreground' : 'text-muted-foreground'}`}>
+                            <span className={`mt-1.5 text-[10px] text-center leading-tight max-w-[60px] ${isCurrent ? 'font-bold text-emerald-700 dark:text-emerald-300' : isActive ? 'text-foreground/80' : 'text-muted-foreground/60'}`}>
                               {status.name}
                             </span>
                           </div>
@@ -1965,31 +1963,36 @@ export default function CollectionsPage() {
                     </div>
                   </div>
                   
-                  <div className={`p-6 border-l ${currentBranch === 2 ? 'bg-destructive/10 border-b-4 border-destructive' : 'bg-muted/30'}`}>
-                    <div className="flex items-center gap-2 mb-4">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center ${currentBranch === 2 ? 'bg-destructive text-white' : 'bg-muted'}`}>
-                        <Activity className="h-4 w-4" />
+                  <div className={`p-5 border-l ${currentBranch === 2 ? 'bg-gradient-to-br from-red-50 to-orange-50/50 dark:from-red-950/20 dark:to-orange-950/10' : 'bg-muted/10'}`}>
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-sm ${currentBranch === 2 ? 'bg-gradient-to-br from-red-500 to-orange-600 text-white' : 'bg-muted text-muted-foreground'}`}>
+                        <Activity className="h-5 w-5" />
                       </div>
-                      <h3 className={`font-semibold text-lg ${currentBranch === 2 ? 'text-destructive' : 'text-muted-foreground'}`}>
-                        Likvidácia
-                      </h3>
+                      <div>
+                        <h3 className={`font-semibold ${currentBranch === 2 ? 'text-red-700 dark:text-red-300' : 'text-muted-foreground'}`}>
+                          {locale === "sk" ? "Likvidácia" : "Disposal"}
+                        </h3>
+                        {currentBranch === 2 && <p className="text-xs text-red-600/70 dark:text-red-400/70">{Math.round(branch2Progress)}%</p>}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1">
-                      {branch2Statuses.map((status, index) => {
+                    <div className="relative mb-3">
+                      <div className="h-1.5 bg-muted/50 rounded-full overflow-hidden">
+                        <div className="h-full bg-gradient-to-r from-red-400 to-orange-500 rounded-full transition-all duration-500" style={{ width: `${branch2Progress}%` }} />
+                      </div>
+                    </div>
+                    <div className="flex items-start justify-between gap-0.5">
+                      {branch2Statuses.map((status) => {
                         const isActive = currentBranch === 2 && (status.sortOrder || 0) <= currentSortOrder;
                         const isCurrent = String(status.id) === collection?.state;
                         return (
                           <div key={status.id} className="flex-1 flex flex-col items-center">
-                            <div className="flex items-center w-full">
-                              <div className={`w-full h-1 ${index === 0 ? 'rounded-l' : ''} ${index === branch2Statuses.length - 1 ? 'rounded-r' : ''} ${isActive ? 'bg-destructive' : 'bg-muted'}`} />
-                            </div>
-                            <div className={`mt-2 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
-                              isCurrent ? 'bg-destructive text-white ring-4 ring-destructive/30 scale-125' : 
-                              isActive ? 'bg-destructive text-white' : 'bg-muted text-muted-foreground'
+                            <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold transition-all ${
+                              isCurrent ? 'bg-gradient-to-br from-red-500 to-orange-600 text-white shadow-md scale-110' :
+                              isActive ? 'bg-red-200 dark:bg-red-800 text-red-700 dark:text-red-200' : 'bg-muted/60 text-muted-foreground'
                             }`}>
                               {status.code}
                             </div>
-                            <span className={`mt-1 text-xs text-center leading-tight ${isCurrent ? 'font-bold text-destructive' : isActive ? 'text-foreground' : 'text-muted-foreground'}`}>
+                            <span className={`mt-1.5 text-[10px] text-center leading-tight max-w-[60px] ${isCurrent ? 'font-bold text-red-700 dark:text-red-300' : isActive ? 'text-foreground/80' : 'text-muted-foreground/60'}`}>
                               {status.name}
                             </span>
                           </div>
@@ -2594,54 +2597,54 @@ export default function CollectionsPage() {
   const renderDashboard = () => (
     <div className="space-y-6">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card>
+        <Card className="border-0 bg-gradient-to-br from-rose-50 to-pink-50 dark:from-rose-950/30 dark:to-pink-950/30 shadow-sm">
           <CardContent className="pt-6">
             <div className="flex items-center gap-4">
-              <div className="p-3 bg-primary/10 rounded-lg">
-                <Syringe className="h-6 w-6 text-primary" />
+              <div className="p-3 bg-rose-100 dark:bg-rose-900/40 rounded-xl">
+                <Syringe className="h-6 w-6 text-rose-600 dark:text-rose-400" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">{dashboardT.totalCollections}</p>
-                <p className="text-2xl font-bold">{filteredCollections.length}</p>
+                <p className="text-sm text-rose-600/70 dark:text-rose-400/70">{dashboardT.totalCollections}</p>
+                <p className="text-2xl font-bold text-rose-800 dark:text-rose-200">{filteredCollections.length}</p>
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="border-0 bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30 shadow-sm">
           <CardContent className="pt-6">
             <div className="flex items-center gap-4">
-              <div className="p-3 bg-primary/10 rounded-lg">
-                <TrendingUp className="h-6 w-6 text-primary" />
+              <div className="p-3 bg-emerald-100 dark:bg-emerald-900/40 rounded-xl">
+                <TrendingUp className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">{dashboardT.thisMonth}</p>
-                <p className="text-2xl font-bold">{thisMonth}</p>
+                <p className="text-sm text-emerald-600/70 dark:text-emerald-400/70">{dashboardT.thisMonth}</p>
+                <p className="text-2xl font-bold text-emerald-800 dark:text-emerald-200">{thisMonth}</p>
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="border-0 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 shadow-sm">
           <CardContent className="pt-6">
             <div className="flex items-center gap-4">
-              <div className="p-3 bg-secondary/30 rounded-lg">
-                <Calendar className="h-6 w-6 text-secondary-foreground" />
+              <div className="p-3 bg-blue-100 dark:bg-blue-900/40 rounded-xl">
+                <Calendar className="h-6 w-6 text-blue-600 dark:text-blue-400" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">{dashboardT.lastMonth}</p>
-                <p className="text-2xl font-bold">{lastMonth}</p>
+                <p className="text-sm text-blue-600/70 dark:text-blue-400/70">{dashboardT.lastMonth}</p>
+                <p className="text-2xl font-bold text-blue-800 dark:text-blue-200">{lastMonth}</p>
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="border-0 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30 shadow-sm">
           <CardContent className="pt-6">
             <div className="flex items-center gap-4">
-              <div className="p-3 bg-muted rounded-lg">
-                <FlaskConical className="h-6 w-6 text-muted-foreground" />
+              <div className="p-3 bg-amber-100 dark:bg-amber-900/40 rounded-xl">
+                <FlaskConical className="h-6 w-6 text-amber-600 dark:text-amber-400" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">{dashboardT.pendingLabResults}</p>
-                <p className="text-2xl font-bold">{pendingLab}</p>
+                <p className="text-sm text-amber-600/70 dark:text-amber-400/70">{dashboardT.pendingLabResults}</p>
+                <p className="text-2xl font-bold text-amber-800 dark:text-amber-200">{pendingLab}</p>
               </div>
             </div>
           </CardContent>
@@ -3375,102 +3378,161 @@ export default function CollectionsPage() {
       ) : viewMode === "calendar" ? (
         renderCalendar()
       ) : (
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-4">
-            <div className="flex items-center gap-2 flex-1">
-              <div className="relative flex-1 max-w-sm">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder={t.common.search}
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                  data-testid="input-search-collections"
-                />
+        (() => {
+          const sorted = [...filteredCollections].sort((a, b) => {
+            let va: any = "";
+            let vb: any = "";
+            if (listSortField === "cbuNumber") { va = a.cbuNumber || ""; vb = b.cbuNumber || ""; }
+            else if (listSortField === "name") { va = `${a.clientFirstName} ${a.clientLastName}`; vb = `${b.clientFirstName} ${b.clientLastName}`; }
+            else if (listSortField === "country") { va = a.countryCode || ""; vb = b.countryCode || ""; }
+            else if (listSortField === "state") { va = getStateLabel(a.state); vb = getStateLabel(b.state); }
+            else if (listSortField === "collectionDate") { va = a.collectionDate ? new Date(a.collectionDate).getTime() : 0; vb = b.collectionDate ? new Date(b.collectionDate).getTime() : 0; }
+            if (typeof va === "string") { return listSortDir === "asc" ? va.localeCompare(vb) : vb.localeCompare(va); }
+            return listSortDir === "asc" ? va - vb : vb - va;
+          });
+
+          const totalPages = Math.max(1, Math.ceil(sorted.length / listPageSize));
+          const safePage = Math.min(listPage, totalPages);
+          const paginated = sorted.slice((safePage - 1) * listPageSize, safePage * listPageSize);
+
+          const SortHeader = ({ field, children }: { field: string; children: any }) => (
+            <th
+              className="text-left py-3 px-3 font-medium cursor-pointer select-none hover:text-primary transition-colors"
+              onClick={() => { if (listSortField === field) { setListSortDir(d => d === "asc" ? "desc" : "asc"); } else { setListSortField(field); setListSortDir("asc"); } setListPage(1); }}
+            >
+              <div className="flex items-center gap-1">
+                {children}
+                {listSortField === field && (
+                  listSortDir === "asc" ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />
+                )}
               </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-          {isLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-            </div>
-          ) : filteredCollections.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-              <Syringe className="h-12 w-12 mb-4 opacity-50" />
-              <p>{t.common.noData}</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left py-3 px-2 font-medium">{t.collections?.cbuNumber}</th>
-                    <th className="text-left py-3 px-2 font-medium">{t.common.name}</th>
-                    <th className="text-left py-3 px-2 font-medium">{t.common.country}</th>
-                    <th className="text-left py-3 px-2 font-medium">{t.collaborators?.fields?.billingCompany}</th>
-                    <th className="text-left py-3 px-2 font-medium">{t.collections?.status}</th>
-                    <th className="text-right py-3 px-2 font-medium">{t.common.actions}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredCollections.map((col) => (
-                    <tr 
-                      key={col.id} 
-                      className="border-b hover:bg-muted/50 cursor-pointer"
-                      onClick={() => setLocation(`/collections/${col.id}`)}
-                      data-testid={`row-collection-${col.id}`}
-                    >
-                      <td className="py-3 px-2 font-mono">{col.cbuNumber || notAvailable}</td>
-                      <td className="py-3 px-2">
-                        <div className="flex flex-col">
-                          <span className="font-medium">
-                            {col.clientFirstName} {col.clientLastName}
-                          </span>
-                          {col.childFirstName && (
-                            <span className="text-xs text-muted-foreground">
-                              {col.childFirstName} {col.childLastName}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="py-3 px-2">
-                        <Badge variant="outline">{col.countryCode}</Badge>
-                      </td>
-                      <td className="py-3 px-2">{getBillingCompanyName(col.billingCompanyId)}</td>
-                      <td className="py-3 px-2">
-                        <Badge variant={col.state === "stored" ? "default" : "secondary"}>
-                          {getStateLabel(col.state)}
-                        </Badge>
-                      </td>
-                      <td className="py-3 px-2 text-right">
-                        <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setLocation(`/collections/${col.id}`)}
-                            data-testid={`button-view-collection-${col.id}`}
-                          >
-                            <Eye className="h-4 w-4" />
+            </th>
+          );
+
+          return (
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-4">
+                <div className="flex items-center gap-2 flex-1">
+                  <div className="relative flex-1 max-w-md">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder={locale === "sk" ? "Hľadať podľa mena, CBU, krajiny, stavu..." : "Search by name, CBU, country, status..."}
+                      value={searchQuery}
+                      onChange={(e) => { setSearchQuery(e.target.value); setListPage(1); }}
+                      className="pl-10"
+                      data-testid="input-search-collections"
+                    />
+                  </div>
+                  <span className="text-xs text-muted-foreground whitespace-nowrap">{sorted.length} {locale === "sk" ? "záznamov" : "records"}</span>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {isLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                  </div>
+                ) : sorted.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                    <Syringe className="h-12 w-12 mb-4 opacity-50" />
+                    <p>{t.common.noData}</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b bg-muted/30">
+                            <SortHeader field="cbuNumber">{t.collections?.cbuNumber}</SortHeader>
+                            <SortHeader field="name">{t.common.name}</SortHeader>
+                            <SortHeader field="country">{t.common.country}</SortHeader>
+                            <SortHeader field="collectionDate">{t.collections?.collectionDate || (locale === "sk" ? "Dátum" : "Date")}</SortHeader>
+                            <SortHeader field="state">{t.collections?.status}</SortHeader>
+                            <th className="text-right py-3 px-3 font-medium">{t.common.actions}</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {paginated.map((col) => (
+                            <tr
+                              key={col.id}
+                              className="border-b hover:bg-muted/50 cursor-pointer transition-colors"
+                              onClick={() => setLocation(`/collections/${col.id}`)}
+                              data-testid={`row-collection-${col.id}`}
+                            >
+                              <td className="py-3 px-3 font-mono text-xs">{col.cbuNumber || notAvailable}</td>
+                              <td className="py-3 px-3">
+                                <div className="flex flex-col">
+                                  <span className="font-medium">{col.clientFirstName} {col.clientLastName}</span>
+                                  {col.childFirstName && (
+                                    <span className="text-xs text-muted-foreground">{col.childFirstName} {col.childLastName}</span>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="py-3 px-3">
+                                <Badge variant="outline" className="text-xs">{col.countryCode}</Badge>
+                              </td>
+                              <td className="py-3 px-3 text-xs text-muted-foreground">
+                                {col.collectionDate ? format(new Date(col.collectionDate), "dd.MM.yyyy", { locale: dateFnsLocale }) : "—"}
+                              </td>
+                              <td className="py-3 px-3">
+                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusBadgeStyle(col.state)}`}>
+                                  {getStateLabel(col.state)}
+                                </span>
+                              </td>
+                              <td className="py-3 px-3 text-right">
+                                <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                                  <Button variant="ghost" size="icon" onClick={() => setLocation(`/collections/${col.id}`)} data-testid={`button-view-collection-${col.id}`}>
+                                    <Eye className="h-4 w-4" />
+                                  </Button>
+                                  <Button variant="ghost" size="icon" onClick={() => handleDelete(col)} data-testid={`button-delete-collection-${col.id}`}>
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {totalPages > 1 && (
+                      <div className="flex items-center justify-between pt-4 border-t mt-4">
+                        <span className="text-xs text-muted-foreground">
+                          {locale === "sk" ? `Strana ${safePage} z ${totalPages}` : `Page ${safePage} of ${totalPages}`}
+                        </span>
+                        <div className="flex items-center gap-1">
+                          <Button variant="outline" size="sm" disabled={safePage <= 1} onClick={() => setListPage(p => Math.max(1, p - 1))} data-testid="button-list-prev">
+                            <ChevronLeft className="h-4 w-4" />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDelete(col)}
-                            data-testid={`button-delete-collection-${col.id}`}
-                          >
-                            <Trash2 className="h-4 w-4" />
+                          {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
+                            let pageNum: number;
+                            if (totalPages <= 7) { pageNum = i + 1; }
+                            else if (safePage <= 4) { pageNum = i + 1; }
+                            else if (safePage >= totalPages - 3) { pageNum = totalPages - 6 + i; }
+                            else { pageNum = safePage - 3 + i; }
+                            return (
+                              <Button
+                                key={pageNum}
+                                variant={pageNum === safePage ? "default" : "outline"}
+                                size="sm"
+                                className="w-8 h-8 p-0"
+                                onClick={() => setListPage(pageNum)}
+                              >
+                                {pageNum}
+                              </Button>
+                            );
+                          })}
+                          <Button variant="outline" size="sm" disabled={safePage >= totalPages} onClick={() => setListPage(p => Math.min(totalPages, p + 1))} data-testid="button-list-next">
+                            <ChevronRight className="h-4 w-4" />
                           </Button>
                         </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                      </div>
+                    )}
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          );
+        })()
       )}
 
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
