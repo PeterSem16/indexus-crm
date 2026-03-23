@@ -659,11 +659,9 @@ async function step4b_agreements() {
              ca.cag_from, ca.cag_to,
              ca.cag_agreement_sent, ca.cag_agreement_returned,
              ca.cag_valid, ca.cag_inserted, ca.afo_id,
-             c.com_name, c.com_country_code,
-             af.afo_code
+             c.com_name, c.com_country_code
       FROM CollaboratorAgreements ca
       LEFT JOIN Companies c ON c.com_id = ca.com_id
-      LEFT JOIN AgreementForms af ON af.afo_id = ca.afo_id
       WHERE ca.doc_id IN (${docIds.join(',')})
       ORDER BY ca.cag_id DESC
     `);
@@ -686,7 +684,7 @@ async function step4b_agreements() {
         r.cag_agreement_sent ? new Date(r.cag_agreement_sent).toLocaleDateString('sk') : '—',
         r.cag_agreement_returned ? new Date(r.cag_agreement_returned).toLocaleDateString('sk') : '—',
         r.cag_valid != null ? String(r.cag_valid) : '—',
-        r.afo_code || '—',
+        r.afo_id != null ? String(r.afo_id) : '—',
       ])
     );
   }
@@ -720,7 +718,7 @@ async function step4b_agreements() {
         vTo ? vTo.getDate() : null, vTo ? vTo.getMonth() + 1 : null, vTo ? vTo.getFullYear() : null,
         sent ? sent.getDate() : null, sent ? sent.getMonth() + 1 : null, sent ? sent.getFullYear() : null,
         returned ? returned.getDate() : null, returned ? returned.getMonth() + 1 : null, returned ? returned.getFullYear() : null,
-        row.afo_code || null,
+        row.afo_id != null ? String(row.afo_id) : null,
         row.cag_valid === true || row.cag_valid === 1,
         row.cag_inserted || new Date(),
       ]);
