@@ -7,7 +7,7 @@ import { useI18n } from "@/i18n";
 import { useAuth } from "@/contexts/auth-context";
 import { COUNTRIES, type ComplaintType, type CooperationType, type VipStatus, type HealthInsurance, type LeadScoringCriteria } from "@shared/schema";
 import { Separator } from "@/components/ui/separator";
-import { Droplets, Globe, Shield, Save, Loader2, Plus, Trash2, Settings2, Heart, FlaskConical, Pencil, Star, Target, RefreshCw, Phone, Upload, FileText, CheckCircle, AlertCircle, Users, User, Check, Server } from "lucide-react";
+import { Droplets, Globe, Shield, Save, Loader2, Plus, Trash2, Settings2, Heart, FlaskConical, Pencil, Star, Target, RefreshCw, Phone, Upload, FileText, CheckCircle, AlertCircle, Users, User, Check, Server, Eye, EyeOff, Link2 } from "lucide-react";
 import { AriSettingsTab } from "@/components/configurator/AriSettingsTab";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
@@ -1313,14 +1313,7 @@ export default function SettingsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <ConfigListManager
-                title={t.settings.laboratories}
-                description={t.settings.laboratoriesDesc}
-                apiPath="/api/config/laboratories"
-                queryKey="/api/config/laboratories"
-                requireCountry={true}
-                countries={userCountries}
-              />
+              <LaboratoryConfigManager countries={userCountries} />
             </CardContent>
           </Card>
         </TabsContent>
@@ -1435,6 +1428,258 @@ export default function SettingsPage() {
         </TabsContent>
 
       </Tabs>
+    </div>
+  );
+}
+
+interface LabItem {
+  id: string;
+  name: string;
+  countryCode: string;
+  isActive: boolean;
+  apiUrl?: string | null;
+  apiKey?: string | null;
+}
+
+function LaboratoryConfigManager({ countries }: { countries: readonly { code: string; name: string; flag?: string }[] }) {
+  const { t } = useI18n();
+  const { toast } = useToast();
+  const [newName, setNewName] = useState("");
+  const [newCountryCode, setNewCountryCode] = useState<string>("");
+  const [editingLab, setEditingLab] = useState<LabItem | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editCountryCode, setEditCountryCode] = useState("");
+  const [editApiUrl, setEditApiUrl] = useState("");
+  const [editApiKey, setEditApiKey] = useState("");
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  const { data: labs = [], isLoading } = useQuery<LabItem[]>({
+    queryKey: ["/api/config/laboratories"],
+  });
+
+  const createMutation = useMutation({
+    mutationFn: (data: { name: string; countryCode: string }) =>
+      apiRequest("POST", "/api/config/laboratories", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/config/laboratories"] });
+      setNewName("");
+      setNewCountryCode("");
+      toast({ title: t.settings.itemAdded });
+    },
+    onError: () => {
+      toast({ title: t.settings.addFailed, variant: "destructive" });
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, ...data }: { id: string; name: string; countryCode: string; apiUrl: string | null; apiKey: string | null }) =>
+      apiRequest("PATCH", `/api/config/laboratories/${id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/config/laboratories"] });
+      setEditingLab(null);
+      toast({ title: t.settings.itemUpdated });
+    },
+    onError: () => {
+      toast({ title: t.settings.updateFailed, variant: "destructive" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/config/laboratories/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/config/laboratories"] });
+      setDeleteId(null);
+      toast({ title: t.settings.itemDeleted });
+    },
+    onError: () => {
+      toast({ title: t.settings.deleteFailed, variant: "destructive" });
+    },
+  });
+
+  const handleAdd = () => {
+    if (!newName.trim()) {
+      toast({ title: t.settings.nameRequired, variant: "destructive" });
+      return;
+    }
+    if (!newCountryCode) {
+      toast({ title: t.settings.countryRequired || "Country is required", variant: "destructive" });
+      return;
+    }
+    createMutation.mutate({ name: newName.trim(), countryCode: newCountryCode });
+  };
+
+  const handleStartEdit = (lab: LabItem) => {
+    setEditingLab(lab);
+    setEditName(lab.name);
+    setEditCountryCode(lab.countryCode);
+    setEditApiUrl(lab.apiUrl || "");
+    setEditApiKey(lab.apiKey || "");
+    setShowApiKey(false);
+  };
+
+  const handleSaveEdit = () => {
+    if (!editingLab || !editName.trim()) return;
+    updateMutation.mutate({
+      id: editingLab.id,
+      name: editName.trim(),
+      countryCode: editCountryCode,
+      apiUrl: editApiUrl.trim() || null,
+      apiKey: editApiKey.trim() || null,
+    });
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-2">
+        <Input
+          placeholder={t.settings.addNewItem || "Name"}
+          value={newName}
+          onChange={(e) => setNewName(e.target.value)}
+          className="flex-1"
+          data-testid="input-new-lab-name"
+        />
+        <Select value={newCountryCode} onValueChange={setNewCountryCode}>
+          <SelectTrigger className="w-[140px]" data-testid="select-new-lab-country">
+            <SelectValue placeholder={t.settings.country || "Country"} />
+          </SelectTrigger>
+          <SelectContent>
+            {countries.map(c => (
+              <SelectItem key={c.code} value={c.code}>{c.flag} {c.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button onClick={handleAdd} disabled={createMutation.isPending} data-testid="button-add-lab">
+          <Plus className="h-4 w-4 mr-1" />
+          {t.common.add || "Add"}
+        </Button>
+      </div>
+
+      <div className="space-y-2">
+        {labs.map((lab) => (
+          <div key={lab.id} className="flex items-center justify-between p-3 border rounded-lg">
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <span className="font-medium">{lab.name}</span>
+                <Badge variant="outline">{countries.find(c => c.code === lab.countryCode)?.flag} {lab.countryCode}</Badge>
+                {lab.apiUrl && <Badge variant="secondary" className="text-xs"><Link2 className="h-3 w-3 mr-1" />API</Badge>}
+              </div>
+            </div>
+            <div className="flex gap-1">
+              <Button size="icon" variant="ghost" onClick={() => handleStartEdit(lab)} data-testid={`button-edit-lab-${lab.id}`}>
+                <Pencil className="h-4 w-4" />
+              </Button>
+              <Button size="icon" variant="ghost" onClick={() => setDeleteId(lab.id)} data-testid={`button-delete-lab-${lab.id}`}>
+                <Trash2 className="h-4 w-4 text-destructive" />
+              </Button>
+            </div>
+          </div>
+        ))}
+        {labs.length === 0 && (
+          <div className="text-center py-8 text-muted-foreground">
+            {t.settings.noItems || "No items"}
+          </div>
+        )}
+      </div>
+
+      <Dialog open={!!editingLab} onOpenChange={(open) => { if (!open) setEditingLab(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t.common.edit} - {editingLab?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>{t.settings.name || "Name"}</Label>
+              <Input value={editName} onChange={(e) => setEditName(e.target.value)} data-testid="input-edit-lab-name" />
+            </div>
+            <div className="space-y-2">
+              <Label>{t.settings.country || "Country"}</Label>
+              <Select value={editCountryCode} onValueChange={setEditCountryCode}>
+                <SelectTrigger data-testid="select-edit-lab-country">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {countries.map(c => (
+                    <SelectItem key={c.code} value={c.code}>{c.flag} {c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Separator />
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <Link2 className="h-4 w-4" />
+                API URL
+              </Label>
+              <Input
+                value={editApiUrl}
+                onChange={(e) => setEditApiUrl(e.target.value)}
+                placeholder="https://lab.example.com"
+                data-testid="input-edit-lab-api-url"
+              />
+              <p className="text-xs text-muted-foreground">
+                {t.settings.labApiUrlHint || "Base URL of the laboratory API for CBU report downloads"}
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <Shield className="h-4 w-4" />
+                API Key
+              </Label>
+              <div className="flex gap-2">
+                <Input
+                  type={showApiKey ? "text" : "password"}
+                  value={editApiKey}
+                  onChange={(e) => setEditApiKey(e.target.value)}
+                  placeholder="Bearer token"
+                  className="flex-1"
+                  data-testid="input-edit-lab-api-key"
+                />
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => setShowApiKey(!showApiKey)}
+                  data-testid="button-toggle-api-key"
+                >
+                  {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {t.settings.labApiKeyHint || "API authentication key (Bearer token) for the laboratory"}
+              </p>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setEditingLab(null)}>{t.common.cancel}</Button>
+              <Button onClick={handleSaveEdit} disabled={updateMutation.isPending} data-testid="button-save-lab-edit">
+                {updateMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                {t.common.save}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={!!deleteId} onOpenChange={(open) => { if (!open) setDeleteId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t.settings.confirmDeleteTitle || "Delete?"}</AlertDialogTitle>
+            <AlertDialogDescription>{t.settings.confirmDeleteDescription || "This action cannot be undone."}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t.common.cancel}</AlertDialogCancel>
+            <AlertDialogAction onClick={() => deleteId && deleteMutation.mutate(deleteId)}>{t.common.delete}</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

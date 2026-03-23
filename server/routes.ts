@@ -30159,6 +30159,83 @@ Guidelines:
     }
   });
 
+  // Download CBU report from LAB API
+  app.post("/api/collections/:id/cbu-report", requireAuth, async (req, res) => {
+    try {
+      const { reportType, language } = req.body as { reportType: string; language: string };
+      if (!reportType || !["medical", "full"].includes(reportType)) {
+        return res.status(400).json({ error: "Invalid report_type. Must be 'medical' or 'full'." });
+      }
+      if (!language || !["sk", "en"].includes(language)) {
+        return res.status(400).json({ error: "Invalid language. Must be 'sk' or 'en'." });
+      }
+
+      const collection = await storage.getCollection(req.params.id);
+      if (!collection) {
+        return res.status(404).json({ error: "Collection not found" });
+      }
+      if (!collection.cbuNumber) {
+        return res.status(400).json({ error: "Collection has no CBU number" });
+      }
+
+      let labApiUrl: string | null = null;
+      let labApiKey: string | null = null;
+
+      if (collection.laboratoryId) {
+        const lab = await storage.getLaboratory(collection.laboratoryId);
+        if (lab) {
+          labApiUrl = lab.apiUrl || null;
+          labApiKey = lab.apiKey || null;
+        }
+      }
+
+      if (!labApiUrl || !labApiKey) {
+        return res.status(400).json({ error: "Laboratory API not configured. Set API URL and API Key in Settings → Laboratories." });
+      }
+
+      const apiEndpoint = labApiUrl.replace(/\/+$/, "") + "/api/indexus/reports/cbu";
+      const labResponse = await fetch(apiEndpoint, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${labApiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          cbu: collection.cbuNumber,
+          report_type: reportType,
+          language: language,
+        }),
+      });
+
+      let labData: any;
+      try {
+        const responseText = await labResponse.text();
+        labData = JSON.parse(responseText);
+      } catch {
+        console.error("LAB API returned non-JSON response, status:", labResponse.status);
+        return res.status(502).json({ error: "Laboratory API returned an invalid response" });
+      }
+
+      if (!labResponse.ok || labData.status !== "OK") {
+        const errorMsg = labData.error || `LAB API returned status ${labResponse.status}`;
+        console.error("LAB API error:", errorMsg, labData.details || "");
+        return res.status(labResponse.status === 404 ? 404 : 502).json({ 
+          error: errorMsg,
+          details: labData.details || undefined,
+        });
+      }
+
+      res.json({
+        filename: labData.filename,
+        mimeType: labData.mime_type,
+        file: labData.file,
+      });
+    } catch (error) {
+      console.error("Error downloading CBU report:", error);
+      res.status(500).json({ error: "Failed to download CBU report" });
+    }
+  });
+
   // ============================================================
   // Sprievodný list (Accompanying Document) Routes
   // ============================================================

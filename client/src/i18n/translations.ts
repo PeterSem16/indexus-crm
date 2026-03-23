@@ -2645,6 +2645,8 @@ export interface Translations {
     contactAdminToChange: string;
     laboratories: string;
     laboratoriesDesc: string;
+    labApiUrlHint: string;
+    labApiKeyHint: string;
     aboutNexus: string;
     crmDescription: string;
     version: string;
@@ -6246,6 +6248,12 @@ export const translations: Record<Locale, Translations> = {
         tissueSection: 'Umbilical Tissue',
         bagASection: 'Bag A',
         bagBSection: 'Bag B',
+        downloadCbuReport: 'Download CBU Report',
+        medicalReportSk: 'Medical Report (SK)',
+        medicalReportEn: 'Medical Report (EN)',
+        fullReportSk: 'Full Report (SK)',
+        fullReportEn: 'Full Report (EN)',
+        reportDownloaded: 'Report downloaded successfully',
       },
       sprievodny: {
           title: 'Accompanying Document',
@@ -8173,6 +8181,8 @@ export const translations: Record<Locale, Translations> = {
       contactAdminToChange: 'Contact administrator to change these settings',
       laboratories: 'Laboratories',
       laboratoriesDesc: 'Manage laboratories for each country',
+      labApiUrlHint: 'Base URL of the laboratory API for CBU report downloads',
+      labApiKeyHint: 'API authentication key (Bearer token) for the laboratory',
       aboutNexus: 'About INDEXUS',
       crmDescription: 'CRM System for cord blood banks',
       version: 'Version',
@@ -11215,6 +11225,12 @@ export const translations: Record<Locale, Translations> = {
         tissueSection: 'Pupočníkové tkanivo',
         bagASection: 'Vak A',
         bagBSection: 'Vak B',
+        downloadCbuReport: 'Stiahnuť CBU report',
+        medicalReportSk: 'Medicínsky report (SK)',
+        medicalReportEn: 'Medicínsky report (EN)',
+        fullReportSk: 'Kompletný report (SK)',
+        fullReportEn: 'Kompletný report (EN)',
+        reportDownloaded: 'Report úspešne stiahnutý',
       },
       sprievodny: {
           title: 'Sprievodný list',
@@ -13102,6 +13118,8 @@ export const translations: Record<Locale, Translations> = {
       contactAdminToChange: 'Pre zmenu týchto nastavení kontaktujte administrátora',
       laboratories: 'Laboratóriá',
       laboratoriesDesc: 'Spravujte laboratóriá pre jednotlivé krajiny',
+      labApiUrlHint: 'Základná URL adresa API laboratória pre sťahovanie CBU reportov',
+      labApiKeyHint: 'API autentifikačný kľúč (Bearer token) pre laboratórium',
       aboutNexus: 'O INDEXUS',
       crmDescription: 'CRM systém pre banky pupočníkovej krvi',
       version: 'Verzia',
@@ -18016,6 +18034,8 @@ export const translations: Record<Locale, Translations> = {
       contactAdminToChange: 'Pro změnu těchto nastavení kontaktujte administrátora',
       laboratories: 'Laboratoře',
       laboratoriesDesc: 'Spravujte laboratoře pro jednotlivé země',
+      labApiUrlHint: 'Základní URL adresa API laboratoře pro stahování CBU reportů',
+      labApiKeyHint: 'API autentizační klíč (Bearer token) pro laboratoř',
       aboutNexus: 'O INDEXUS',
       crmDescription: 'CRM systém pro banky pupečníkové krve',
       version: 'Verze',
@@ -22892,6 +22912,8 @@ export const translations: Record<Locale, Translations> = {
       contactAdminToChange: 'A beállítások módosításához lépjen kapcsolatba az adminisztrátorral',
       laboratories: 'Laboratóriumok',
       laboratoriesDesc: 'Laboratóriumok kezelése országonként',
+      labApiUrlHint: 'A laboratóriumi API alap URL-je a CBU jelentések letöltéséhez',
+      labApiKeyHint: 'API hitelesítési kulcs (Bearer token) a laboratóriumhoz',
       aboutNexus: 'Az INDEXUS-ról',
       crmDescription: 'CRM rendszer köldökzsinórvér-bankoknak',
       version: 'Verzió',
@@ -27767,6 +27789,8 @@ export const translations: Record<Locale, Translations> = {
       contactAdminToChange: 'Contactați administratorul pentru a modifica aceste setări',
       laboratories: 'Laboratoare',
       laboratoriesDesc: 'Gestionați laboratoarele pentru fiecare țară',
+      labApiUrlHint: 'URL-ul de bază al API-ului laboratorului pentru descărcarea rapoartelor CBU',
+      labApiKeyHint: 'Cheie de autentificare API (Bearer token) pentru laborator',
       aboutNexus: 'Despre INDEXUS',
       crmDescription: 'Sistem CRM pentru băncile de sânge din cordon',
       version: 'Versiune',
@@ -32643,6 +32667,8 @@ export const translations: Record<Locale, Translations> = {
       contactAdminToChange: 'Contatta l\'amministratore per modificare queste impostazioni',
       laboratories: 'Laboratori',
       laboratoriesDesc: 'Gestisci i laboratori per ogni paese',
+      labApiUrlHint: 'URL di base dell\'API del laboratorio per il download dei report CBU',
+      labApiKeyHint: 'Chiave di autenticazione API (Bearer token) per il laboratorio',
       aboutNexus: 'Informazioni su INDEXUS',
       crmDescription: 'Sistema CRM per banche del sangue cordonale',
       version: 'Versione',
@@ -37519,6 +37545,8 @@ export const translations: Record<Locale, Translations> = {
       contactAdminToChange: 'Kontaktieren Sie den Administrator, um diese Einstellungen zu ändern',
       laboratories: 'Labore',
       laboratoriesDesc: 'Labore für jedes Land verwalten',
+      labApiUrlHint: 'Basis-URL der Labor-API für CBU-Berichtdownloads',
+      labApiKeyHint: 'API-Authentifizierungsschlüssel (Bearer Token) für das Labor',
       aboutNexus: 'Über INDEXUS',
       crmDescription: 'CRM-System für Nabelschnurblut-Banken',
       version: 'Version',

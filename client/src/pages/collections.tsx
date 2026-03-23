@@ -266,6 +266,43 @@ export default function CollectionsPage() {
     },
   });
 
+  const [cbuDownloading, setCbuDownloading] = useState<string | null>(null);
+
+  const handleDownloadCbuReport = async (reportType: "medical" | "full", language: "sk" | "en") => {
+    if (!collectionId) return;
+    const key = `${reportType}_${language}`;
+    setCbuDownloading(key);
+    try {
+      const res = await apiRequest("POST", `/api/collections/${collectionId}/cbu-report`, { reportType, language });
+      const data = await res.json();
+      if (data.error) {
+        toast({ title: t.common.error, description: data.error, variant: "destructive" });
+        return;
+      }
+      const byteCharacters = atob(data.file);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: data.mimeType });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = data.filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast({ title: t.collections?.lab?.reportDownloaded || "Report downloaded" });
+    } catch (error: any) {
+      const msg = error?.message || "Failed to download report";
+      toast({ title: t.common.error, description: msg, variant: "destructive" });
+    } finally {
+      setCbuDownloading(null);
+    }
+  };
+
   const { data: sprievodnyData, isLoading: isLoadingSprievodny } = useQuery<CollectionSprievodnyList | null>({
     queryKey: ["/api/collections", collectionId, "sprievodny-list"],
     queryFn: async () => {
@@ -1218,6 +1255,51 @@ export default function CollectionsPage() {
               />
             </div>
           </div>
+        </div>
+      </div>
+
+      <div className="space-y-4 pt-4 border-t">
+        <h3 className="text-lg font-medium flex items-center gap-2">
+          <Download className="h-5 w-5" />
+          {labT.downloadCbuReport || "Download CBU Report"}
+        </h3>
+        <div className="grid grid-cols-2 gap-3">
+          <Button
+            variant="outline"
+            onClick={() => handleDownloadCbuReport("medical", "sk")}
+            disabled={!!cbuDownloading}
+            data-testid="button-download-cbu-medical-sk"
+          >
+            {cbuDownloading === "medical_sk" ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
+            {labT.medicalReportSk || "Medical Report (SK)"}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => handleDownloadCbuReport("medical", "en")}
+            disabled={!!cbuDownloading}
+            data-testid="button-download-cbu-medical-en"
+          >
+            {cbuDownloading === "medical_en" ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
+            {labT.medicalReportEn || "Medical Report (EN)"}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => handleDownloadCbuReport("full", "sk")}
+            disabled={!!cbuDownloading}
+            data-testid="button-download-cbu-full-sk"
+          >
+            {cbuDownloading === "full_sk" ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
+            {labT.fullReportSk || "Full Report (SK)"}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => handleDownloadCbuReport("full", "en")}
+            disabled={!!cbuDownloading}
+            data-testid="button-download-cbu-full-en"
+          >
+            {cbuDownloading === "full_en" ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
+            {labT.fullReportEn || "Full Report (EN)"}
+          </Button>
         </div>
       </div>
 

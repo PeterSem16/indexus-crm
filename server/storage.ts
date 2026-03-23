@@ -454,6 +454,7 @@ export interface IStorage {
   deleteHealthInsurance(id: string): Promise<boolean>;
 
   // Laboratories
+  getLaboratory(id: string): Promise<Laboratory | undefined>;
   getAllLaboratories(): Promise<Laboratory[]>;
   getLaboratoriesByCountry(countryCode: string): Promise<Laboratory[]>;
   createLaboratory(data: InsertLaboratory): Promise<Laboratory>;
@@ -2697,6 +2698,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Laboratories
+  async getLaboratory(id: string): Promise<Laboratory | undefined> {
+    const [lab] = await db.select().from(laboratories).where(eq(laboratories.id, id));
+    return lab;
+  }
+
   async getAllLaboratories(): Promise<Laboratory[]> {
     return db.select().from(laboratories).orderBy(laboratories.name);
   }

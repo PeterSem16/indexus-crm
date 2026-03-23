@@ -265,6 +265,8 @@ export const laboratories = pgTable("laboratories", {
   name: text("name").notNull(),
   countryCode: text("country_code").notNull(),
   isActive: boolean("is_active").notNull().default(true),
+  apiUrl: text("api_url"),
+  apiKey: text("api_key"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 

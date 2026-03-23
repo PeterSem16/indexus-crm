@@ -63,6 +63,10 @@ CREATE TABLE IF NOT EXISTS customer_potential_cases (
   updated_at TIMESTAMP NOT NULL DEFAULT now()
 );
 
+-- Laboratories API fields
+ALTER TABLE laboratories ADD COLUMN IF NOT EXISTS api_url TEXT;
+ALTER TABLE laboratories ADD COLUMN IF NOT EXISTS api_key TEXT;
+
 -- Customer products (ak neexistuje)
 CREATE TABLE IF NOT EXISTS customer_products (
   id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -102,14 +106,6 @@ echo "  $(date '+%Y-%m-%d %H:%M:%S')"
 echo "============================================"
 echo ""
 echo "Zmeny v tejto verzii:"
-echo "  - Gynekológ: meno + telefón + email z databázy kliník"
-echo "  - Nemocnica: názov z databázy nemocníc"
-echo "  - Case status: automaticky 'Prebieha'"
-echo "  - Sales channel: 'I' (Internet)"
-echo "  - Marketing action: názov webového formulára"
-echo "  - Produkt: priradený v záložke Products"
-echo "  - Spôsob platby: prenesený z formulára"
-echo "  - Metadáta: IP, prehliadač, rozlíšenie, doba vyplňovania"
-echo "  - Prvé písmeno veľké pri textových poliach"
-echo "  - Laura avatar v OTP overovacích krokoch"
-echo "  - Produkty z konfigurátora s popismi"
+echo "  - CBU Report: sťahovanie XLSX reportov z LAB API"
+echo "  - Laboratóriá: nové polia apiUrl a apiKey v nastaveniach"
+echo "  - Odbery: 4 tlačidlá na stiahnutie reportov (medical/full × SK/EN)"
