@@ -1,0 +1,53 @@
+seman@CORPCRM01:/var/www/indexus-crm/script/migration$ grep -A3 "vložených\|Cases:\|Štatistika\|STEP 7\|Počty v INDEXUS\|HOTOVO\|ERROR\|FATAL" /tmp/migration-100.txt
+[2026-03-23T16:27:10.739Z]   → 0 vložených, 10 preskočených
+[2026-03-23T16:27:10.739Z]
+--- Laboratories ---
+  ID | Názov            | Krajina    | Telefón | Email
+--
+[2026-03-23T16:27:10.742Z]   → 0 vložených, 5 preskočených
+
+══════════════════════════════════════════════════════════════════════
+  STEP 3: Nemocnice (TOP 100)
+--
+  → 100 vložených, 0 preskočených, 0 chýb
+
+══════════════════════════════════════════════════════════════════════
+  STEP 4: Spolupracovníci (TOP 100)
+--
+  → 100 vložených, 0 preskočených, 0 chýb
+
+══════════════════════════════════════════════════════════════════════
+  STEP 5: Klientky/Zákazníci (TOP 100)
+--
+  → 100 vložených, 0 preskočených, 0 chýb
+
+══════════════════════════════════════════════════════════════════════
+  STEP 6: Odbery + Lab výsledky (TOP 100)
+--
+  Odbery: 100 vložených, 0 preskočených, 0 chýb
+[2026-03-23T16:27:12.402Z]
+--- Lab výsledky pre prenesené odbery ---
+[2026-03-23T16:27:12.541Z]   Lab výsledky: 67 vložených (z 67 skupín)
+
+══════════════════════════════════════════════════════════════════════
+  STEP 6.5: Cases — otcovské dáta (cez PotentialClients)
+--
+[2026-03-23T16:27:12.554Z]   Štatistika: 103 contracts, 19 s otcom (per_id_father), 0 s krajinou otca
+[2026-03-23T16:27:12.745Z] Zdrojové dáta z CBC:
+  cli_id | Otec (meno) | Otec (priezvisko) | Otec mobil | Otec email | Krajina otca | Produkt                    | Tehotenstvo
+  ───────┼─────────────┼───────────────────┼────────────┼────────────┼──────────────┼────────────────────────────┼────────────
+--
+  Cases: 100 vložených, 0 preskočených, 0 chýb
+
+══════════════════════════════════════════════════════════════════════
+  STEP 7: Verifikácia — porovnanie prenesených dát
+══════════════════════════════════════════════════════════════════════
+[2026-03-23T16:27:12.797Z] Počty v INDEXUS po migrácii:
+  Entita                   | Počet
+  ─────────────────────────┼──────
+  CollectionStatuses       | 14
+--
+  HOTOVO
+══════════════════════════════════════════════════════════════════════
+[2026-03-23T16:27:12.810Z] Testovací prenos 20 záznamov bol úspešne dokončený.
+[2026-03-23T16:27:12.810Z] Skontrolujte výsledky vyššie a overte dáta v INDEXUS
