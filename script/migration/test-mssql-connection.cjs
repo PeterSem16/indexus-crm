@@ -15,7 +15,6 @@ const config = {
   options: {
     encrypt: false,
     trustServerCertificate: true,
-    instanceName: 'MSSQLSTD',
   },
   connectionTimeout: 15000,
   requestTimeout: 30000,
