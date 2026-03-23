@@ -30333,7 +30333,7 @@ Guidelines:
 
       await db.insert(cbuReportAudit).values({
         userId: user?.id,
-        userName: user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() : null,
+        userName: user?.fullName || user?.username || null,
         userEmail: user?.email,
         cbuNumber,
         collectionId: collection?.id || null,
@@ -30426,7 +30426,7 @@ Guidelines:
       const user = (req as any).user || req.session?.user;
       await db.insert(cbuReportAudit).values({
         userId: user?.id,
-        userName: user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() : null,
+        userName: user?.fullName || user?.username || null,
         userEmail: user?.email,
         cbuNumber,
         collectionId: collection?.id || null,
@@ -30658,7 +30658,7 @@ Guidelines:
 
       await db.insert(cbuReportAudit).values({
         userId: user?.id,
-        userName: user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() : null,
+        userName: user?.fullName || user?.username || null,
         userEmail: user?.email,
         cbuNumber,
         collectionId: collection?.id || null,
@@ -30710,6 +30710,76 @@ Guidelines:
     } catch (error) {
       console.error("Error verifying download:", error);
       res.status(500).json({ error: "Failed to verify and download report" });
+    }
+  });
+
+  // POST /api/cbu-reports/save-to-lab — Save LAB API results to INDEXUS lab results
+  app.post("/api/cbu-reports/save-to-lab", requireAuth, async (req, res) => {
+    try {
+      const { cbuNumber, labResult } = req.body;
+      if (!cbuNumber || !labResult) {
+        return res.status(400).json({ error: "CBU number and lab result data are required" });
+      }
+
+      const collection = await storage.getCollectionByCbuNumber(cbuNumber);
+      if (!collection) {
+        return res.status(404).json({ error: "Collection not found for this CBU number" });
+      }
+
+      const existingResults = await storage.getCollectionLabResultsByCollection(collection.id);
+      const user = (req as any).user || req.session?.user;
+
+      const labData: any = {
+        collectionId: collection.id,
+        cbu: cbuNumber,
+        usability: labResult.usability || null,
+        volume: labResult.volume || null,
+        tncCount: labResult.tncCount || null,
+        status: labResult.status || null,
+        sterility: labResult.sterility || null,
+        sterilityType: labResult.sterilityType || null,
+        resultOfSterility: labResult.resultOfSterility || null,
+        resultOfSterilityBagB: labResult.resultOfSterilityBagB || null,
+        infectionAgents: labResult.infectionAgents || null,
+        bagAVolume: labResult.bagAVolume || null,
+        bagATnc: labResult.bagATnc || null,
+        bagAUsability: labResult.bagAUsability || null,
+        bagBVolume: labResult.bagBVolume || null,
+        bagBTnc: labResult.bagBTnc || null,
+        bagBUsability: labResult.bagBUsability || null,
+        tissueProcessed: labResult.tissueProcessed || null,
+        tissueSterility: labResult.tissueSterility || null,
+        tissueUsability: labResult.tissueUsability || null,
+        umbilicalTissue: labResult.umbilicalTissue || null,
+        volumeInBag: labResult.volumeInBag || null,
+        labNote: labResult.labNote || null,
+        resultsDate: labResult.resultsDate ? new Date(labResult.resultsDate) : new Date(),
+      };
+
+      let saved;
+      if (existingResults.length > 0) {
+        saved = await storage.updateCollectionLabResult(existingResults[0].id, labData);
+      } else {
+        saved = await storage.createCollectionLabResult(labData);
+      }
+
+      await db.insert(cbuReportAudit).values({
+        userId: user?.id,
+        userName: user?.fullName || user?.username || null,
+        userEmail: user?.email,
+        cbuNumber,
+        collectionId: collection.id,
+        reportType: "lab_save",
+        language: "sk",
+        action: "save_to_lab",
+        otpVerified: true,
+        ipAddress: req.ip || req.headers["x-forwarded-for"]?.toString() || null,
+      });
+
+      res.json({ success: true, updated: existingResults.length > 0, labResult: saved });
+    } catch (error) {
+      console.error("Error saving to lab results:", error);
+      res.status(500).json({ error: "Failed to save lab results" });
     }
   });
 

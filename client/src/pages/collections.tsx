@@ -23,7 +23,7 @@ import {
   Users, Clock, LayoutDashboard, List, TrendingUp, Globe, Activity, ChevronLeft, ChevronRight, Download,
   Loader2, RefreshCw, ChevronDown, BarChart3, Target, Sparkles, AlertTriangle,
   ArrowUpRight, ArrowDownRight, Minus, Info, HelpCircle, TrendingDown, Upload, ScanLine, Phone, Pencil,
-  Heart, Stethoscope, Microscope, Building, Shield, KeyRound, Brain, ClipboardList, Lock, Send, FileSearch
+  Heart, Stethoscope, Microscope, Building, Shield, KeyRound, Brain, ClipboardList, Lock, Send, FileSearch, Save
 } from "lucide-react";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, LineChart, Line } from "recharts";
 import { Link, useLocation, useRoute } from "wouter";
@@ -283,7 +283,7 @@ export default function CollectionsPage() {
   });
 
   const [cbuDownloading, setCbuDownloading] = useState<string | null>(null);
-  const [labOtpStep, setLabOtpStep] = useState<"idle" | "sending" | "verify" | "results">("idle");
+  const [labOtpStep, setLabOtpStep] = useState<"idle" | "sending" | "verify" | "results" | "form_verify">("idle");
   const [labOtpCode, setLabOtpCode] = useState("");
   const [labOtpReportType, setLabOtpReportType] = useState<"medical" | "full">("medical");
   const [labOtpLang, setLabOtpLang] = useState<"sk" | "en">("sk");
@@ -363,6 +363,56 @@ export default function CollectionsPage() {
     toast({ title: t.collections?.lab?.reportDownloaded || "Report downloaded" });
   };
 
+  const handleLabFormUnlockOtp = async () => {
+    if (!collection?.cbuNumber) return;
+    setLabOtpStep("sending");
+    try {
+      const res = await apiRequest("POST", "/api/cbu-reports/request-otp", {
+        cbuNumber: collection.cbuNumber,
+        reportType: "medical",
+        language: locale === "sk" ? "sk" : "en",
+      });
+      const data = await res.json();
+      if (data.error) {
+        toast({ title: t.common.error, description: data.error, variant: "destructive" });
+        setLabOtpStep("idle");
+        return;
+      }
+      toast({ title: locale === "sk" ? "OTP kód odoslaný" : "OTP code sent" });
+      setLabOtpStep("form_verify");
+      setLabOtpCode("");
+    } catch (error: any) {
+      toast({ title: t.common.error, description: error?.message || "OTP request failed", variant: "destructive" });
+      setLabOtpStep("idle");
+    }
+  };
+
+  const handleLabFormVerifyOtp = async () => {
+    if (!collection?.cbuNumber || !labOtpCode || labOtpCode.length !== 6) return;
+    setLabOtpVerifying(true);
+    try {
+      const res = await apiRequest("POST", "/api/cbu-reports/verify-download", {
+        cbuNumber: collection.cbuNumber,
+        reportType: "medical",
+        language: locale === "sk" ? "sk" : "en",
+        otpCode: labOtpCode,
+      });
+      const data = await res.json();
+      if (data.error) {
+        toast({ title: t.common.error, description: data.error, variant: "destructive" });
+        return;
+      }
+      setLabFormUnlocked(true);
+      setLabOtpStep("idle");
+      setLabOtpCode("");
+      toast({ title: locale === "sk" ? "Prístup overený" : "Access verified" });
+    } catch (error: any) {
+      toast({ title: t.common.error, description: error?.message || "Verification failed", variant: "destructive" });
+    } finally {
+      setLabOtpVerifying(false);
+    }
+  };
+
   const handleLabAiAnalysis = async () => {
     if (!collection?.cbuNumber) return;
     setLabAiLoading(true);
@@ -383,6 +433,37 @@ export default function CollectionsPage() {
       toast({ title: t.common.error, description: error?.message || "AI analysis failed", variant: "destructive" });
     } finally {
       setLabAiLoading(false);
+    }
+  };
+
+  const [labSaving, setLabSaving] = useState(false);
+  const [labFormUnlocked, setLabFormUnlocked] = useState(false);
+
+  const handleSaveToLabResults = async (cbuNumber: string, labResultData: any, source: "lab_tab" | "cbu_viewer") => {
+    setLabSaving(true);
+    try {
+      const res = await apiRequest("POST", "/api/cbu-reports/save-to-lab", {
+        cbuNumber,
+        labResult: labResultData,
+      });
+      const data = await res.json();
+      if (data.error) {
+        toast({ title: t.common.error, description: data.error, variant: "destructive" });
+        return;
+      }
+      toast({
+        title: locale === "sk" ? "Výsledky uložené" : "Results saved",
+        description: locale === "sk"
+          ? (data.updated ? "Výsledky boli aktualizované v INDEXUS Lab Results" : "Výsledky boli uložené do INDEXUS Lab Results")
+          : (data.updated ? "Results updated in INDEXUS Lab Results" : "Results saved to INDEXUS Lab Results"),
+      });
+      if (source === "lab_tab" && collectionId) {
+        queryClient.invalidateQueries({ queryKey: ["/api/collections", collectionId, "lab-results"] });
+      }
+    } catch (error: any) {
+      toast({ title: t.common.error, description: error?.message || "Save failed", variant: "destructive" });
+    } finally {
+      setLabSaving(false);
     }
   };
 
@@ -1655,6 +1736,16 @@ export default function CollectionsPage() {
                     <Download className="h-4 w-4 mr-1" />
                     XLS
                   </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => collection?.cbuNumber && handleSaveToLabResults(collection.cbuNumber, labVerifiedData?.labResult, "lab_tab")}
+                    disabled={labSaving}
+                    data-testid="button-lab-results-save"
+                  >
+                    {labSaving ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Save className="h-4 w-4 mr-1" />}
+                    {locale === "sk" ? "Uložiť" : "Save"}
+                  </Button>
                   <Button variant="ghost" size="sm" onClick={() => { setLabOtpStep("idle"); setLabVerifiedData(null); setLabAiAnalysis(null); setLabOtpCode(""); }}>
                     {t.common.cancel}
                   </Button>
@@ -1950,6 +2041,68 @@ export default function CollectionsPage() {
                 {isLoadingLabResults ? (
                   <div className="flex items-center justify-center py-12">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                  </div>
+                ) : labResult && !labFormUnlocked ? (
+                  <div className="space-y-6">
+                    <div className="flex flex-col items-center justify-center py-16 text-center space-y-4">
+                      <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center">
+                        <Shield className="h-10 w-10 text-primary" />
+                      </div>
+                      <h3 className="text-lg font-semibold">
+                        {locale === "sk" ? "Medicínske údaje chránené OTP" : "Medical Data Protected by OTP"}
+                      </h3>
+                      <p className="text-sm text-muted-foreground max-w-md">
+                        {locale === "sk"
+                          ? "Laboratórne výsledky obsahujú citlivé medicínske informácie. Pre zobrazenie a úpravu je potrebné OTP overenie."
+                          : "Laboratory results contain sensitive medical information. OTP verification is required to view and edit."}
+                      </p>
+
+                      {labOtpStep === "idle" && (
+                        <Button onClick={handleLabFormUnlockOtp} data-testid="button-lab-form-unlock">
+                          <Shield className="h-4 w-4 mr-2" />
+                          {locale === "sk" ? "Overiť prístup cez OTP" : "Verify Access via OTP"}
+                        </Button>
+                      )}
+
+                      {labOtpStep === "sending" && (
+                        <div className="flex items-center gap-2">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <span className="text-sm">{locale === "sk" ? "Odosielam OTP kód..." : "Sending OTP code..."}</span>
+                        </div>
+                      )}
+
+                      {labOtpStep === "form_verify" && (
+                        <div className="space-y-4 w-full max-w-xs">
+                          <p className="text-xs text-muted-foreground">
+                            {locale === "sk"
+                              ? "Na váš email bol odoslaný 6-miestny overovací kód."
+                              : "A 6-digit verification code has been sent to your email."}
+                          </p>
+                          <Input
+                            value={labOtpCode}
+                            onChange={(e) => setLabOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                            placeholder="000000"
+                            className="text-center text-2xl tracking-[0.5em] font-mono h-14"
+                            maxLength={6}
+                            data-testid="input-lab-form-otp"
+                            onKeyDown={(e) => e.key === "Enter" && labOtpCode.length === 6 && handleLabFormVerifyOtp()}
+                          />
+                          <Button
+                            className="w-full"
+                            onClick={handleLabFormVerifyOtp}
+                            disabled={labOtpVerifying || labOtpCode.length !== 6}
+                            data-testid="button-lab-form-verify"
+                          >
+                            {labOtpVerifying ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Eye className="h-4 w-4 mr-2" />}
+                            {locale === "sk" ? "Overiť a zobraziť" : "Verify & View"}
+                          </Button>
+                          <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                            <AlertTriangle className="h-3 w-3" />
+                            {locale === "sk" ? "Kód je platný 10 minút" : "Code is valid for 10 minutes"}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 ) : (
                   renderLabResultsForm()
@@ -3454,7 +3607,7 @@ export default function CollectionsPage() {
                               </div>
                               <div>
                                 <span className="text-muted-foreground block text-xs">{locale === "sk" ? "Dátum odberu" : "Collection Date"}</span>
-                                <span className="font-medium">{cbuPreviewData.collection.collectionDate || "—"}</span>
+                                <span className="font-medium">{cbuPreviewData.collection.collectionDate ? format(new Date(cbuPreviewData.collection.collectionDate), "dd.MM.yyyy", { locale: dateFnsLocale }) : "—"}</span>
                               </div>
                             </div>
                           </CardContent>
@@ -3544,6 +3697,16 @@ export default function CollectionsPage() {
                             <Button variant="outline" size="sm" onClick={handleCbuDownloadXls} data-testid="button-cbu-results-download-xls">
                               <Download className="h-4 w-4 mr-1" />
                               XLS
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleSaveToLabResults(cbuSearchNumber.trim(), cbuVerifiedData?.labResult, "cbu_viewer")}
+                              disabled={labSaving}
+                              data-testid="button-cbu-results-save"
+                            >
+                              {labSaving ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Save className="h-4 w-4 mr-1" />}
+                              {locale === "sk" ? "Uložiť" : "Save"}
                             </Button>
                           </div>
                         </div>
@@ -3768,20 +3931,25 @@ export default function CollectionsPage() {
                       {cbuAuditLogs.map((log: any, idx: number) => (
                         <div key={log.id || idx} className="flex items-start gap-3 p-3 rounded-lg border bg-card text-sm">
                           <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
-                            log.action === "download" ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300" :
+                            log.action === "download" || log.action === "view_results" ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300" :
                             log.action === "ai_analysis" ? "bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300" :
+                            log.action === "save_to_lab" ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300" :
                             "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
                           }`}>
                             {log.action === "download" ? <Download className="h-4 w-4" /> :
+                             log.action === "view_results" ? <Eye className="h-4 w-4" /> :
                              log.action === "ai_analysis" ? <Brain className="h-4 w-4" /> :
+                             log.action === "save_to_lab" ? <Save className="h-4 w-4" /> :
                              <Eye className="h-4 w-4" />}
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-medium">{log.userName || "Unknown"}</span>
+                              <span className="font-medium">{log.userName || (locale === "sk" ? "Neznámy" : "Unknown")}</span>
                               <Badge variant="outline" className="text-xs">
                                 {log.action === "download" ? (locale === "sk" ? "Stiahnutie" : "Download") :
+                                 log.action === "view_results" ? (locale === "sk" ? "Zobrazenie" : "View") :
                                  log.action === "ai_analysis" ? "AI" :
+                                 log.action === "save_to_lab" ? (locale === "sk" ? "Uloženie" : "Save") :
                                  (locale === "sk" ? "Náhľad" : "Preview")}
                               </Badge>
                               {log.otpVerified && (
