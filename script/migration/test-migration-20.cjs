@@ -1,19 +1,19 @@
 #!/usr/bin/env node
 /**
- * ISCBC → INDEXUS Test Migration (20 records per entity)
+ * CBC → INDEXUS Test Migration (20 records per entity)
  * 
  * Testovací scenár:
- *   Step 1: Test connection + zobraz vzorky dát z ISCBC
+ *   Step 1: Test connection + zobraz vzorky dát z CBC
  *   Step 2: Reference data (CollectionStatuses, Laboratories)
  *   Step 3: Hospitals (TOP 20)
  *   Step 4: Collaborators (TOP 20)
  *   Step 5: Customers/Clients (TOP 20)
  *   Step 6: Collections + Lab Results (TOP 20)
  *   Step 7: Verification — porovnanie zdrojových vs prenesených dát
- * 
- * Run on Ubuntu: node test-migration-20.cjs
+ *
+ * Run on Ubuntu: cd /var/www/indexus-crm/script/migration && node test-migration-20.cjs
  * Requires: npm install mssql pg
- * 
+ *
  * BEZPEČNÉ: Neprepisuje existujúce dáta (skip ak legacy_id existuje)
  * BEZ: Invoices, Billing Companies, Rewards
  */
@@ -51,9 +51,9 @@ function separator(title) {
   console.log('═'.repeat(70));
 }
 function table(headers, rows) {
-  const widths = headers.map((h, i) => Math.max(h.length, ...rows.map(r => String(r[i] || '').length)));
-  const maxWidth = 120;
-  const adjustedWidths = widths.map(w => Math.min(w, 30));
+  const adjustedWidths = headers.map((h, i) =>
+    Math.min(30, Math.max(h.length, ...rows.map(r => String(r[i] || '').length)))
+  );
   console.log('  ' + headers.map((h, i) => h.padEnd(adjustedWidths[i])).join(' | '));
   console.log('  ' + adjustedWidths.map(w => '─'.repeat(w)).join('─┼─'));
   for (const row of rows) {
@@ -71,16 +71,15 @@ function decomposeBirthDate(dateVal) {
 // STEP 1: Test Connection + Show Source Data Samples
 // ============================================================
 async function step1_testConnection() {
-  separator('STEP 1: Test pripojenia + vzorky dát z ISCBC');
+  separator('STEP 1: Test pripojenia + vzorky dát z CBC');
 
   mssqlPool = await sql.connect(MSSQL_CONFIG);
-  log('✓ Pripojené k MSSQL (ISCBC)');
+  log('✓ Pripojené k MSSQL (CBC)');
 
   pgPool = new Pool(PG_CONFIG);
   await pgPool.query('SELECT 1');
   log('✓ Pripojené k PostgreSQL (INDEXUS)');
 
-  // Record counts
   const counts = await mssqlPool.request().query(`
     SELECT 'CollectionStatuses' as t, COUNT(*) as cnt FROM CollectionStatuses
     UNION ALL SELECT 'Laboratories', COUNT(*) FROM Laboratories
@@ -92,11 +91,10 @@ async function step1_testConnection() {
     ORDER BY 1
   `);
 
-  log('\nPočty záznamov v ISCBC:');
+  log('\nPočty záznamov v CBC:');
   table(['Tabuľka', 'Počet'], counts.recordset.map(r => [r.t, r.cnt]));
 
-  // Sample phones/emails to show what needs normalization
-  log('\nUkážka telefónnych formátov v ISCBC (PersonalData):');
+  log('\nUkážka telefónnych formátov v CBC (PersonalData):');
   const phones = await mssqlPool.request().query(`
     SELECT TOP 10 pda_mobile, pda_phone_number, pda_email
     FROM PersonalData WHERE pda_valid = 1 AND pda_mobile IS NOT NULL AND pda_mobile != ''
@@ -119,16 +117,15 @@ async function step1_testConnection() {
 async function step2_referenceData() {
   separator('STEP 2: Referenčné dáta (StatusyOdberov, Laboratóriá)');
 
-  // 2a: Collection Statuses
   log('--- CollectionStatuses ---');
   const statuses = await mssqlPool.request().query(`
-    SELECT csu_id, csu_code, csu_default_name, csu_order, csu_branch
+    SELECT csu_id, csu_code, csu_default_name, csu_order
     FROM CollectionStatuses ORDER BY csu_order
   `);
 
   table(
-    ['ID', 'Kód', 'Názov', 'Poradie', 'Vetva'],
-    statuses.recordset.map(r => [r.csu_id, r.csu_code, r.csu_default_name, r.csu_order, r.csu_branch])
+    ['ID', 'Kód', 'Názov', 'Poradie'],
+    statuses.recordset.map(r => [r.csu_id, r.csu_code, r.csu_default_name, r.csu_order])
   );
 
   let sInserted = 0, sSkipped = 0;
@@ -139,21 +136,20 @@ async function step2_referenceData() {
     await pgPool.query(`
       INSERT INTO collection_statuses (id, name, code, branch, sort_order, is_active)
       VALUES ($1, $2, $3, $4, $5, true)
-    `, [row.csu_id, row.csu_default_name, row.csu_code || '', row.csu_branch || 1, row.csu_order || 0]);
+    `, [row.csu_id, row.csu_default_name, row.csu_code || '', 1, row.csu_order || 0]);
     sInserted++;
   }
   log(`  → ${sInserted} vložených, ${sSkipped} preskočených`);
 
-  // 2b: Laboratories
   log('\n--- Laboratories ---');
   const labs = await mssqlPool.request().query(`
-    SELECT lab_id, lab_name, lab_country_code, lab_active
+    SELECT lab_id, lab_name, lab_full_name, lab_country_code, lab_phone, lab_email
     FROM Laboratories ORDER BY lab_id
   `);
 
   table(
-    ['ID', 'Názov', 'Krajina', 'Aktívne'],
-    labs.recordset.map(r => [r.lab_id, r.lab_name, r.lab_country_code, r.lab_active ? 'áno' : 'nie'])
+    ['ID', 'Názov', 'Krajina', 'Telefón', 'Email'],
+    labs.recordset.map(r => [r.lab_id, r.lab_name, r.lab_country_code, r.lab_phone, r.lab_email])
   );
 
   let lInserted = 0, lSkipped = 0;
@@ -163,8 +159,8 @@ async function step2_referenceData() {
 
     await pgPool.query(`
       INSERT INTO laboratories (name, country_code, is_active)
-      VALUES ($1, $2, $3)
-    `, [row.lab_name, row.lab_country_code || 'SK', row.lab_active === true || row.lab_active === 1]);
+      VALUES ($1, $2, true)
+    `, [row.lab_name, row.lab_country_code || 'SK']);
     lInserted++;
   }
   log(`  → ${lInserted} vložených, ${lSkipped} preskočených`);
@@ -191,7 +187,7 @@ async function step3_hospitals() {
     ORDER BY h.hos_id
   `);
 
-  log('Zdrojové dáta z ISCBC:');
+  log('Zdrojové dáta z CBC:');
   table(
     ['hos_id', 'Názov', 'Mesto', 'PSČ', 'Krajina', 'Lab', 'Aktívna'],
     hospitals.recordset.map(r => [
@@ -258,7 +254,6 @@ async function step4_collaborators() {
     ORDER BY d.doc_id
   `);
 
-  // Get country from agreements
   const collabCountries = await mssqlPool.request().query(`
     SELECT DISTINCT ca.doc_id, c.com_country_code
     FROM CollaboratorAgreements ca
@@ -267,15 +262,18 @@ async function step4_collaborators() {
   const countryMap = {};
   for (const r of collabCountries.recordset) countryMap[r.doc_id] = r.com_country_code;
 
-  // Get hospital mappings
-  const collabHospitals = await mssqlPool.request().query('SELECT doc_id, hos_id FROM CollaboratorsHospitals');
-  const hospMap = {};
-  for (const r of collabHospitals.recordset) {
-    if (!hospMap[r.doc_id]) hospMap[r.doc_id] = [];
-    hospMap[r.doc_id].push(String(r.hos_id));
+  let hospMap = {};
+  try {
+    const collabHospitals = await mssqlPool.request().query('SELECT doc_id, hos_id FROM CollaboratorsHospitals');
+    for (const r of collabHospitals.recordset) {
+      if (!hospMap[r.doc_id]) hospMap[r.doc_id] = [];
+      hospMap[r.doc_id].push(String(r.hos_id));
+    }
+  } catch (err) {
+    log(`  WARN: CollaboratorsHospitals: ${err.message}`);
   }
 
-  log('Zdrojové dáta z ISCBC:');
+  log('Zdrojové dáta z CBC:');
   table(
     ['doc_id', 'Meno', 'Priezvisko', 'Typ', 'Mobil (RAW)', '→ Normalized', 'Email', 'Krajina'],
     collabs.recordset.map(r => [
@@ -361,15 +359,12 @@ async function step5_customers() {
     JOIN Persons p ON p.per_id = c.per_id
     LEFT JOIN PersonalData pd ON pd.per_id = p.per_id AND pd.pda_valid = 1
     LEFT JOIN Companies comp ON comp.com_id = c.com_id
-    LEFT JOIN MailAddresses a_perm ON a_perm.per_id = p.per_id AND a_perm.add_valid = 1
-      AND a_perm.mat_id IN (SELECT mat_id FROM MailAddressTypes WHERE mat_code = 'PERMANENT')
-    LEFT JOIN MailAddresses a_corr ON a_corr.per_id = p.per_id AND a_corr.add_valid = 1
-      AND a_corr.mat_id IN (SELECT mat_id FROM MailAddressTypes WHERE mat_code = 'MAIL')
+    LEFT JOIN MailAddresses a_perm ON a_perm.per_id = p.per_id AND a_perm.add_valid = 1 AND a_perm.mat_id = 1
+    LEFT JOIN MailAddresses a_corr ON a_corr.per_id = p.per_id AND a_corr.add_valid = 1 AND a_corr.mat_id = 3
     WHERE c.cli_deleted = 0 OR c.cli_deleted IS NULL
     ORDER BY c.cli_id
   `);
 
-  // Contract status map
   const clientContracts = await mssqlPool.request().query(`
     SELECT con.cli_id, cs.csa_code
     FROM Contracts con
@@ -378,7 +373,7 @@ async function step5_customers() {
   const contractStatusMap = {};
   for (const r of clientContracts.recordset) contractStatusMap[r.cli_id] = r.csa_code;
 
-  log('Zdrojové dáta z ISCBC:');
+  log('Zdrojové dáta z CBC:');
   table(
     ['cli_id', 'Meno', 'Priezvisko', 'Mobil (RAW)', '→ Normalized', 'Email', 'Mesto', 'Krajina'],
     clients.recordset.map(r => [
@@ -402,8 +397,8 @@ async function step5_customers() {
       let clientStatus = 'potential';
       const csaCode = contractStatusMap[row.cli_id];
       if (csaCode) {
-        if (['REALIZED', 'CONFIRMED', 'RETURNED', 'VALIDATED'].includes(csaCode)) clientStatus = 'acquired';
-        else if (['TERMINATED', 'CANCELLED'].includes(csaCode)) clientStatus = 'terminated';
+        if (['REG_CSA_REALIZED', 'REG_CSA_CONFIRMED_RECEPTION', 'REG_CSA_RETURNED', 'REG_CSA_VALIDATED'].includes(csaCode)) clientStatus = 'acquired';
+        else if (['REG_CSA_TERMINATED', 'REG_CSA_CANCELLED'].includes(csaCode)) clientStatus = 'terminated';
         else clientStatus = 'in_process';
       }
 
@@ -450,7 +445,6 @@ async function step5_customers() {
 async function step6_collections() {
   separator(`STEP 6: Odbery + Lab výsledky (TOP ${LIMIT})`);
 
-  // Build lookups
   const hospitalLookup = {};
   const pgH = await pgPool.query('SELECT id, legacy_id FROM hospitals WHERE legacy_id IS NOT NULL');
   for (const r of pgH.rows) hospitalLookup[r.legacy_id] = r.id;
@@ -463,12 +457,11 @@ async function step6_collections() {
   const pgCust = await pgPool.query('SELECT id, internal_id FROM customers WHERE internal_id IS NOT NULL');
   for (const r of pgCust.rows) customerLookup[r.internal_id] = r.id;
 
-  // Get collaborator mappings for these collections
   const collabMap = {};
   const collabRows = await mssqlPool.request().query(`
-    SELECT cc.sco_id, cc.doc_id, at.agt_code
+    SELECT cc.sco_id, cc.doc_id, at2.agt_code
     FROM CollectionCollaborators cc
-    LEFT JOIN CollaborationAgreementTypes at ON at.agt_id = cc.agt_id
+    LEFT JOIN CollaborationAgreementTypes at2 ON at2.agt_id = cc.agt_id
   `);
   for (const r of collabRows.recordset) {
     if (!collabMap[r.sco_id]) collabMap[r.sco_id] = {};
@@ -479,7 +472,6 @@ async function step6_collections() {
     else if (code.includes('ASSIST') || code.includes('ASIST')) collabMap[r.sco_id].assistant = String(r.doc_id);
   }
 
-  // Get client IDs
   const clientMap = {};
   const clientRows = await mssqlPool.request().query(`
     SELECT cs.sco_id, c.cli_id
@@ -487,7 +479,6 @@ async function step6_collections() {
   `);
   for (const r of clientRows.recordset) clientMap[r.sco_id] = String(r.cli_id);
 
-  // Get country from company
   const companyCountry = {};
   const compRows = await mssqlPool.request().query('SELECT com_id, com_country_code FROM Companies');
   for (const r of compRows.recordset) companyCountry[r.com_id] = r.com_country_code;
@@ -506,7 +497,7 @@ async function step6_collections() {
     ORDER BY sco_id DESC
   `);
 
-  log('Zdrojové dáta z ISCBC:');
+  log('Zdrojové dáta z CBC:');
   table(
     ['sco_id', 'CBU#', 'Klientka', 'Mobil (RAW)', '→ Normalized', 'Dieťa', 'Dátum', 'Status'],
     collections.recordset.map(r => [
@@ -574,7 +565,6 @@ async function step6_collections() {
   }
   log(`\n  Odbery: ${inserted} vložených, ${skipped} preskočených, ${errors} chýb`);
 
-  // Lab results for these collections
   log('\n--- Lab výsledky pre prenesené odbery ---');
   const collLookup = {};
   const pgColls = await pgPool.query('SELECT id, legacy_id FROM collections WHERE legacy_id IS NOT NULL');
@@ -634,7 +624,6 @@ async function step6_collections() {
 async function step7_verification() {
   separator('STEP 7: Verifikácia — porovnanie prenesených dát');
 
-  // Count migrated records
   const counts = [
     { name: 'CollectionStatuses', query: 'SELECT COUNT(*) as cnt FROM collection_statuses' },
     { name: 'Laboratories', query: 'SELECT COUNT(*) as cnt FROM laboratories' },
@@ -653,7 +642,6 @@ async function step7_verification() {
   log('Počty v INDEXUS po migrácii:');
   table(['Entita', 'Počet'], countRows);
 
-  // Detail: Show hospitals in INDEXUS
   log('\n--- Nemocnice v INDEXUS ---');
   const hospitals = await pgPool.query(`
     SELECT legacy_id, name, city, postal_code, country_code, is_active
@@ -664,7 +652,6 @@ async function step7_verification() {
     hospitals.rows.map(r => [r.legacy_id, r.name, r.city, r.postal_code, r.country_code, r.is_active ? 'áno' : 'nie'])
   );
 
-  // Detail: Show collaborators in INDEXUS
   log('\n--- Spolupracovníci v INDEXUS ---');
   const collabs = await pgPool.query(`
     SELECT legacy_id, first_name, last_name, mobile, email, birth_number, country_code, collaborator_type
@@ -675,7 +662,6 @@ async function step7_verification() {
     collabs.rows.map(r => [r.legacy_id, r.first_name, r.last_name, r.mobile, r.email, r.birth_number, r.country_code, r.collaborator_type])
   );
 
-  // Detail: Show customers in INDEXUS
   log('\n--- Klientky v INDEXUS ---');
   const customers = await pgPool.query(`
     SELECT internal_id, first_name, last_name, mobile, email, national_id, city, postal_code, country, client_status
@@ -686,7 +672,6 @@ async function step7_verification() {
     customers.rows.map(r => [r.internal_id, r.first_name, r.last_name, r.mobile, r.email, r.national_id, r.city, r.postal_code, r.country, r.client_status])
   );
 
-  // Detail: Show collections in INDEXUS
   log('\n--- Odbery v INDEXUS ---');
   const colls = await pgPool.query(`
     SELECT c.legacy_id, c.cbu_number, c.client_first_name, c.client_last_name, c.client_mobile,
@@ -707,8 +692,7 @@ async function step7_verification() {
     ])
   );
 
-  // Cross-check: Verify a few records against MSSQL source
-  log('\n--- Krížová kontrola (ISCBC vs INDEXUS) ---');
+  log('\n--- Krížová kontrola (CBC vs INDEXUS) ---');
   const sampleColls = await pgPool.query("SELECT legacy_id, cbu_number, client_first_name, client_last_name FROM collections WHERE legacy_id IS NOT NULL LIMIT 5");
   for (const row of sampleColls.rows) {
     const source = await mssqlPool.request().query(`
@@ -719,7 +703,7 @@ async function step7_verification() {
       const s = source.recordset[0];
       const cbuMatch = (row.cbu_number || '') === (s.sco_collection_unit_number || '');
       const nameMatch = (row.client_first_name || '').toLowerCase() === (normalizeName(s.sco_client_first_name) || '').toLowerCase();
-      log(`  sco_id=${row.legacy_id}: CBU ${cbuMatch ? '✓' : '✗'} | Meno ${nameMatch ? '✓' : '✗'} | ISCBC: "${s.sco_client_first_name} ${s.sco_client_last_name}" → INDEXUS: "${row.client_first_name} ${row.client_last_name}"`);
+      log(`  sco_id=${row.legacy_id}: CBU ${cbuMatch ? '✓' : '✗'} | Meno ${nameMatch ? '✓' : '✗'} | CBC: "${s.sco_client_first_name} ${s.sco_client_last_name}" → INDEXUS: "${row.client_first_name} ${row.client_last_name}"`);
     }
   }
 }
@@ -730,7 +714,7 @@ async function step7_verification() {
 async function main() {
   console.log('');
   console.log('╔══════════════════════════════════════════════════════════════════╗');
-  console.log('║   ISCBC → INDEXUS  Testovací migračný scenár (20 záznamov)     ║');
+  console.log('║   CBC → INDEXUS  Testovací migračný scenár (20 záznamov)       ║');
   console.log('║   BEZ: Invoices, Billing Companies, Rewards                    ║');
   console.log('╚══════════════════════════════════════════════════════════════════╝');
   console.log('');
@@ -747,9 +731,6 @@ async function main() {
     separator('HOTOVO');
     log('Testovací prenos 20 záznamov bol úspešne dokončený.');
     log('Skontrolujte výsledky vyššie a overte dáta v INDEXUS CRM.');
-    log('');
-    log('Ak sú dáta OK, môžete spustiť plnú migráciu:');
-    log('  bash run-migration.sh');
     log('');
     log('Ak chcete vymazať testovacích 20 záznamov:');
     log('  node cleanup-test-migration.cjs');
