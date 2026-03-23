@@ -833,8 +833,9 @@ async function step6b_cases() {
   const fatherData = {};
   if (fatherPerIds.length > 0) {
     const fatherRows = await mssqlPool.request().query(`
-      SELECT pd.per_id, pd.per_first_name, pd.per_last_name, pd.per_title,
-             pd.per_phone_number, pd.per_mobile, pd.per_email,
+      SELECT pd.per_id, pd.pda_first_name as per_first_name, pd.pda_last_name as per_last_name,
+             pd.pda_title_prefix as per_title,
+             pd.pda_phone_number as per_phone_number, pd.pda_mobile as per_mobile, pd.pda_email as per_email,
              ma.add_street_and_number as add_street, ma.add_city, ma.add_zip, ma.add_country
       FROM PersonalData pd
       LEFT JOIN MailAddresses ma ON ma.per_id = pd.per_id AND ma.add_valid = 1
