@@ -1,0 +1,441 @@
+create mode 100644 attached_assets/Pasted--2026-03-23T16-01-43-275Z-Contracts-iadne-st-pce-s-fath_1774281717189.txt
+=== Cleanup testovacích migračných dát ===
+
+  collection_lab_results: 1 záznamov vymazaných
+  customer_potential_cases: 0 záznamov vymazaných
+  collections (migrated): 20 záznamov vymazaných
+  customers (migrated): 20 záznamov vymazaných
+  collaborators (migrated): 20 záznamov vymazaných
+  hospitals (migrated): 20 záznamov vymazaných
+
+✓ Cleanup dokončený. Referenčné dáta (statuses, labs) ponechané.
+
+╔══════════════════════════════════════════════════════════════════╗
+║   CBC → INDEXUS  Testovací migračný scenár (20 záznamov)       ║
+║   BEZ: Invoices, Billing Companies, Rewards                    ║
+╚══════════════════════════════════════════════════════════════════╝
+
+
+══════════════════════════════════════════════════════════════════════
+  STEP 1: Test pripojenia + vzorky dát z CBC
+══════════════════════════════════════════════════════════════════════
+[2026-03-23T16:07:10.831Z] ✓ Pripojené k MSSQL (CBC)
+[2026-03-23T16:07:10.844Z] ✓ Pripojené k PostgreSQL (INDEXUS)
+[2026-03-23T16:07:10.963Z]
+Počty záznamov v CBC:
+  Tabuľka                     | Počet
+  ────────────────────────────┼────────
+  Clients                     | 191999
+  Collaborators               | 29856
+  CollectionEvaluationResults | 9218352
+  CollectionStatuses          | 10
+  Hospitals                   | 2227
+  Laboratories                | 5
+  ServiceCollections          | 197975
+[2026-03-23T16:07:10.964Z]
+Ukážka telefónnych formátov v CBC (PersonalData):
+  Mobil (RAW)   | Normalized       | Telefón (RAW) | Email (RAW)
+  ──────────────┼──────────────────┼───────────────┼──────────────────────────────
+  774361096     | +421 774 361 096 | —             | honzik.philipp@gmail.com
+  724941440     | +421 724 941 440 | —             | petvales@email.cz
+  608132830     | +421 608 132 830 | —             | pavlina.borastero@gmail.com
+  770811572     | +421 770 811 572 | —             | corinavalentina003@gmail.com
+  743330029     | +421 743 330 029 | —             | budur.liviu@yahoo.com
+  792574441     | +421 792 574 441 | —             | dragomirandreea1991@yahoo.com
+  792574445     | +421 792 574 445 | —             | dragomiralin1988@yahoo.com
+  740027312     | +421 740 027 312 | —             | molnar_edit@yahoo.com
+  0908/771339   | +421 908 771 339 | —             | sesztak.ede@gmail.com
+  +420724775637 | +420 724 775 637 | —             | rhaluzikova@gmail.com
+[2026-03-23T16:07:10.967Z]
+--- Diagnostika CBC: Lab Result Kódy (TOP 30) ---
+  cet_code   | cet_field_name                | Poradie | Počet
+  ───────────┼───────────────────────────────┼─────────┼───────
+  —          | Premium_stav                  | 1       | 2391
+  —          | Standard_pouzitelnost         | 1       | 2855
+  PRODUCT    | BSP_PRODUCT                   | 1       | 186232
+  USABILITY2 | TP_pouzitelnost               | 1       | 5981
+  —          | TP_infekcne_agens             | 2       | 2391
+  —          | transplantat_preradenyDo      | 2       | 5981
+  CBU        | CBU iden c                    | 2       | 186232
+  USABILITY2 | TP_pouzitelnost               | 2       | 2855
+  —          | Premium_stav                  | 3       | 5981
+  —          | TP_sterilita_vysledok         | 3       | 2391
+  —          | transplantat odobrany pre     | 3       | 186232
+  —          | transplantat_preradenyDo      | 3       | 2855
+  —          | Premium_pouzitelnost          | 4       | 2855
+  —          | spracovanieXX                 | 4       | 186232
+  —          | Standard_objem_odobratej_krvi | 4       | 5979
+  —          | Standard_pouzitelnost         | 4       | 387
+  —          | Premium_pouzitelnost          | 5       | 5979
+  —          | Standard_BB                   | 5       | 2855
+  —          | Titl                          | 5       | 186232
+  USABILITY2 | TP_pouzitelnost               | 5       | 387
+  —          | Meno matky                    | 6       | 186232
+  —          | Premium_objem_odobratej_krvi  | 6       | 2855
+  —          | Standard_pouzitelnost         | 6       | 5979
+  —          | transplantat_preradenyDo      | 6       | 2391
+  —          | objem vsetkych striekaciek    | 7       | 2391
+  —          | Priezvisko matky              | 7       | 186232
+  —          | Standard_objem_odobratej_krvi | 7       | 2855
+  —          | TP_infekcne_agens             | 7       | 5981
+  —          | CPD v striekacke              | 8       | 5981
+  —          | Objem PLK                     | 8       | 2391
+[2026-03-23T16:07:11.420Z]
+--- Diagnostika CBC: Otec (Contracts/Father) ---
+[2026-03-23T16:07:11.423Z]   Contracts: žiadne stĺpce s "father"
+[2026-03-23T16:07:11.425Z]   Contracts ALL: con_id, hos_id, cli_id, add_id, tre_id, pot_id, csa_id, doc_id, cte_id, dst_id, con_number, con_expected_collection_date, con_pregnancy_type, con_repository, con_gift_card, con_contacted, con_filled, con_generated, con_sent, con_confirmed, con_returned, con_validated, con_realized, con_terminated, con_cancelled, con_invoicing_postponed, con_invoices_by_email, con_invoices_by_letter, con_inserted, con_inserted_by, con_updated, con_updated_by, con_note, ckt_id, con_collection_kit_number, con_collection_kit_expired, con_collection_kit_sent, con_collection_kit_courrier, con_saving_bank, rfo_id, con_refinancing_detail, rer_id, con_indicated, mpi_id_initialized, con_uuid, con_dialcom_campaign, con_dialcom_operator, con_dialcom_status, CON_RETURNED_MIGRATION_CONTRACT, CON_RETURNED_MIGRATION_CONTRACT_DATE, doc_id_physician, fct_id, con_firstcall_operator, con_cbtc_invoice_sent, mcs_id, con_dialcom_cancel_request, CON_TERMINATION_RECEIVED, CON_TERMINATION_RECEIVED_REASON, CON_TerminationRequested, CON_TerminationDocsSent, CON_TerminationNoticeDate, CON_NoticePeriod, CON_Disposal, CON_SettlementDate, CON_Settler, CON_Disposal_Str
+[2026-03-23T16:07:11.436Z]   Tabuľky s otcovskými stĺpcami:
+[2026-03-23T16:07:11.436Z]     ChildFather.FatherName
+[2026-03-23T16:07:11.436Z]     PotentialClients.per_id_father
+[2026-03-23T16:07:11.436Z]     PotentialClients.pot_father_address_country_ft
+[2026-03-23T16:07:11.438Z]   PotentialClients stĺpce: pot_id, sre_id, rty_id, pcs_id, per_id_father, cnt_id, com_id, mac_id, doc_id_exp, hos_id, fis_id, per_id, mpi_id, doc_id_recruit, pty_id, cos_id, cli_id, pot_product_ft, pot_marketproduct_ft, pot_payment_type_ft, pot_exp_birth_date, pot_exp_hospital_ft, pot_exp_doctor_ft, pot_recruiting_ft, pot_pregnancy_type, pot_previous_contracts, pot_gift_card, pot_children, pot_registration_type_ft, pot_first_information_source_ft, pot_cbc_reason_ft, pot_marketing_action_ft, pot_street_address_country_ft, pot_correspondence_address_country_ft, pot_father_address_country_ft, pot_mailinglist, pot_inserted, pot_inserted_by, pot_updated, pot_updated_by, pot_note, pot_deleted, pot_ext_id, mco_id, pot_marketing_code_ft, POT_FORCE_READONLY
+[2026-03-23T16:07:11.440Z]   ServiceCollections child/father stĺpce: sco_child_first_name, sco_child_last_name, sco_child_sex
+[2026-03-23T16:07:11.443Z]   Contracts sample (s pot_id):
+  con_id | cli_id | hos_id | pot_id | Expected Date                  | Pregnancy
+  ───────┼────────┼────────┼────────┼────────────────────────────────┼──────────
+  263958 | 208378 | 436    | 285326 | Mon Mar 23 2026 00:00:00 GMT+0 | 1
+  263957 | 208377 | 479    | 285323 | Wed Apr 29 2026 00:00:00 GMT+0 | 1
+  263956 | 200976 | 26     | 285329 | Sat May 09 2026 00:00:00 GMT+0 | 1
+[2026-03-23T16:07:11.443Z]
+--- Diagnostika CBC: Hospital active values ---
+  hos_active | Počet
+  ───────────┼──────
+  false      | 315
+  true       | 1912
+[2026-03-23T16:07:11.445Z]
+--- Diagnostika CBC: Hospital adresy (sample) ---
+  hos_id | Názov                          | add_id  | Mesto     | Ulica                          | PSČ    | Krajina    | Valid
+  ───────┼────────────────────────────────┼─────────┼───────────┼────────────────────────────────┼────────┼────────────┼──────
+  3696   | TM - Deta - Orasenesc          | 1638363 | Deta      | Str. Mihai Viteazu nr. 10      | 305200 | COUNTRY_RO | true
+  3695   | Ambulantný lekár               | 1622131 | Slovensko | Slovensko                      | —      | COUNTRY_SK | true
+  3694   | CJ - Medicover Hospital        | 1571416 | Suceagu   | Principala                     | 407062 | COUNTRY_RO | true
+  3693   | MD - Medpark                   | 1551645 | Chisinau  | Strada Andrei Doga 24, Chişină | 2024   | COUNTRY_MD | true
+  3692   | Klinik Floridsdorf / ehm. Kran | 1534704 | Wien      | Brünner Str. 68                | 1210   | COUNTRY_AT | true
+
+══════════════════════════════════════════════════════════════════════
+  STEP 2: Referenčné dáta (StatusyOdberov, Laboratóriá)
+══════════════════════════════════════════════════════════════════════
+[2026-03-23T16:07:11.448Z] --- CollectionStatuses ---
+  ID | Kód                            | Názov                   | Poradie
+  ───┼────────────────────────────────┼─────────────────────────┼────────
+  1  | REG_CSU_NEW                    | New                     | 1
+  2  | REG_CSU_WAITING_FOR_CONTRACT   | Waiting for contract    | 2
+  3  | REG_CSU_PAIRED                 | Paired                  | 3
+  4  | REG_CSU_EVALUATED              | Evaluated               | 4
+  5  | REG_CSU_DOCTOR_EVALUATING      | Doctor evaluating       | 5
+  6  | REG_CSU_WAITING_FOR_DECISION   | Waiting for decision    | 6
+  7  | REG_CSU_GENERATING_CERTIFICATE | Generating certificates | 7
+  8  | REG_CSU_STORED                 | Stored                  | 8
+  9  | REG_CSU_RELEASED               | Released                | 9
+  10 | REG_CSU_TRANSFERRED            | Transferred             | 10
+[2026-03-23T16:07:11.454Z]   → 0 vložených, 10 preskočených
+[2026-03-23T16:07:11.454Z]
+--- Laboratories ---
+  ID | Názov            | Krajina    | Telefón | Email
+  ───┼──────────────────┼────────────┼─────────┼──────────────────────────
+  1  | Bratislava (SK)  | COUNTRY_SK | 123     | liska@cordbloodcenter.com
+  2  | Modletice (CZ)   | COUNTRY_CZ | 123     | liska@cordbloodcenter.com
+  3  | Cluj Napoca (RO) | COUNTRY_RO | 123     | liska@cordbloodcenter.com
+  4  | Bucharest (RO)   | COUNTRY_RO | 123     | liska@cordbloodcenter.com
+  6  | Germany (DE)     | COUNTRY_DE | 123     | liska@cordbloodcenter.com
+[2026-03-23T16:07:11.457Z]   → 0 vložených, 5 preskočených
+
+══════════════════════════════════════════════════════════════════════
+  STEP 3: Nemocnice (TOP 20)
+══════════════════════════════════════════════════════════════════════
+[2026-03-23T16:07:11.460Z] Zdrojové dáta z CBC:
+  hos_id | Názov                          | Mesto       | PSČ    | Krajina    | Lab             | Aktívna
+  ───────┼────────────────────────────────┼─────────────┼────────┼────────────┼─────────────────┼────────
+  1      | neznáma nemocnica              | ???         | ???    | COUNTRY_SK | Bratislava (SK) | áno
+  2      | NsP Antolská                   | ???         | ???    | COUNTRY_SK | Bratislava (SK) | nie
+  3      | NsP Koch                       | ???         | ???    | COUNTRY_SK | Bratislava (SK) | nie
+  4      | NsP Kramáre                    | ???         | ???    | COUNTRY_SK | Bratislava (SK) | nie
+  5      | NsP Ružinov                    | ???         | ???    | COUNTRY_SK | Bratislava (SK) | nie
+  6      | GPN Bratislava                 | ???         | ???    | COUNTRY_SK | Bratislava (SK) | nie
+  7      | Do not use / Budapest - Bajcsy | -           | -      | COUNTRY_HU | Bratislava (SK) | nie
+  8      | Do not use / Budapest - SOTE I | -           | -      | COUNTRY_HU | Bratislava (SK) | nie
+  9      | Do not use / Cegléd            | -           | -      | COUNTRY_HU | Bratislava (SK) | nie
+  10     | Do not use / Celldömölk - Keme | -           | -      | COUNTRY_HU | Bratislava (SK) | nie
+  11     | Do not use / Csorna            | -           | -      | COUNTRY_HU | Bratislava (SK) | nie
+  12     | Do not use / Debrecen          | -           | -      | COUNTRY_HU | Bratislava (SK) | nie
+  13     | Do not use / Budapest - Jahn F | -           | -      | COUNTRY_HU | Bratislava (SK) | nie
+  14     | Dolný Kubín                    | Dolný Kubín | 026 14 | COUNTRY_SK | Bratislava (SK) | áno
+  15     | Do not use / Dunaújváros       | -           | -      | COUNTRY_HU | Bratislava (SK) | nie
+  16     | Do not use / Győr              | -           | -      | COUNTRY_HU | Bratislava (SK) | nie
+  17     | Do not usel / Budapest - Állam | -           | -      | COUNTRY_HU | Bratislava (SK) | nie
+  18     | Do not use / Budapest - SOTE I | -           | -      | COUNTRY_HU | Bratislava (SK) | nie
+  19     | Do not use / Budapest - SOTE I | -           | -      | COUNTRY_HU | Bratislava (SK) | nie
+  20     | Do not use / Budapest - Szent  | -           | -      | COUNTRY_HU | Bratislava (SK) | nie
+[2026-03-23T16:07:11.475Z]
+  → 20 vložených, 0 preskočených, 0 chýb
+
+══════════════════════════════════════════════════════════════════════
+  STEP 4: Spolupracovníci (TOP 20)
+══════════════════════════════════════════════════════════════════════
+[2026-03-23T16:07:11.628Z] Zdrojové dáta z CBC:
+  doc_id | Meno      | Priezvisko             | Typ            | Mobil (RAW)  | → Normalized     | Email                       | Krajina
+  ───────┼───────────┼────────────────────────┼────────────────┼──────────────┼──────────────────┼─────────────────────────────┼────────
+  1      | —         | neznámy spolupracovník | REG_CTY_OTHER  | —            | —                | —                           | SK
+  2      | Slávka    | Horváthová             | REG_CTY_OTHER  | —            | —                | —                           | SK
+  3      | Miroslava | Krajčírová             | REG_CTY_OTHER  | —            | —                | Krajcirova@eurocord.sk      | SK
+  4      | Alžbeta   | Jankovichová           | REG_CTY_OTHER  | —            | —                | Jankovichova@eurocord.sk    | SK
+  5      | Kristína  | Grancová               | REG_CTY_OTHER  | —            | —                | Grancova@eurocord.sk        | SK
+  6      | Daniela   | Mihalová               | REG_CTY_OTHER  | —            | —                | Mihalova@eurocord.sk        | SK
+  7      | Veronika  | Mattová                | REG_CTY_NURSE  | 0907/079090  | +421 907 079 090 | mattova.veronika@centrum.sk | SK
+  8      | Pavol     | Rako                   | REG_CTY_OTHER  | —            | —                | Rako@eurocord.sk            | SK
+  9      | Katarína  | Marcineková            | REG_CTY_OTHER  | —            | —                | Marcinekova@eurocord.sk     | SK
+  10     | Dominika  | Kotlárová              | REG_CTY_OTHER  | —            | —                | Kotlarova@eurocord.sk       | SK
+  11     | Barbora   | Báršoňová              | REG_CTY_CC     | —            | —                | _@eurocord.sk               | SK
+  12     | Bohuslava | Jakubíková             | REG_CTY_OTHER  | —            | —                | _@eurocord.sk               | SK
+  13     | CCNR      | Crystal call Nitra     | REG_CTY_OTHER  | —            | —                | ccnr@eurocord.sk            | SK
+  14     | ECCBA     | eCall Bratislava       | REG_CTY_OTHER  | —            | —                | eccba@eurocord.sk           | SK
+  15     | Zuzana    | Pružincová             | REG_CTY_NURSE  | 0915/631058  | +421 915 631 058 | zsebenova@gmail.com         | SK
+  16     | Ctirad    | Mokráš                 | REG_CTY_DOCTOR | 0905/649 250 | +421 905 649 250 | ctirad101@gmail.com         | SK
+  17     | Róbert    | Čerňák                 | REG_CTY_DOCTOR | —            | —                | —                           | SK
+  18     | Anna      | Lacková                | REG_CTY_OTHER  | —            | —                | —                           | SK
+  19     | Gabriela  | Meszárošová            | REG_CTY_OTHER  | —            | —                | —                           | SK
+  20     | Zuzana    | Kleinová               | REG_CTY_DOCTOR | 0903/480552  | +421 903 480 552 | zuzanaklein@gmail.com       | SK
+[2026-03-23T16:07:11.643Z]
+  → 20 vložených, 0 preskočených, 0 chýb
+
+══════════════════════════════════════════════════════════════════════
+  STEP 5: Klientky/Zákazníci (TOP 20)
+══════════════════════════════════════════════════════════════════════
+[2026-03-23T16:07:12.198Z] Zdrojové dáta z CBC:
+  cli_id | Meno     | Priezvisko          | Mobil (RAW) | → Normalized     | Email                    | Mesto           | Krajina
+  ───────┼──────────┼─────────────────────┼─────────────┼──────────────────┼──────────────────────────┼─────────────────┼────────
+  2      | Tatiana  | Holková             | 776189049   | +421 776 189 049 | ivan.holko@atlas.cz      | Preseľany       | SK
+  4      | Diana    | Rovnianska          | 0905/490943 | +421 905 490 943 | rovniansky@gmail.com     | Senec           | SK
+  5      | Ivica    | Škarbová            | 0           | —                | —                        | Bratislava      | SK
+  6      | Andrea   | Havlátová Rajczyová | 0903/663949 | +421 903 663 949 | andrea@ak-havlatova.sk   | Košice          | SK
+  7      | Erika    | Semanová            | 0908/622846 | +421 908 622 846 | —                        | Levoča          | SK
+  8      | Kristína | Králová             | 0917/536354 | +421 917 536 354 | kralova.kristi@gmail.com | Bernolákovo     | SK
+  9      | Ivana    | Hudcovičová         | 0905/879017 | +421 905 879 017 | ivarado@nextra.sk        | Bratislava      | SK
+  11     | Slávka   | Vrábliková          | 0903/234358 | +421 903 234 358 | —                        | Bratislava      | SK
+  14     | Natália  | Kaščáková           | 0905/393352 | +421 905 393 352 | nkascakova@gmail.com     | Modra-Kráľová   | SK
+  16     | Jana     | Gašparovičová       | 0908/708472 | +421 908 708 472 | —                        | Bratislava      | SK
+  17     | Zuzana   | Rajczyová           | —           | —                | —                        | Réca            | SK
+  18     | Xénia    | Činčurová           | 0904/868375 | +421 904 868 375 | xeniacinci@gmail.com     | Chorvátsky Grob | SK
+  21     | Katarína | Tarišková           | 0905/305892 | +421 905 305 892 | —                        | Kozárovce       | SK
+  22     | Lýdia    | Kavická             | 0905/426727 | +421 905 426 727 | lydia.kavicka@gmail.com  | Lozorno         | SK
+  23     | Andrea   | Cikláminiová        | 0903/234322 | +421 903 234 322 | —                        | Bratislava      | SK
+  24     | Andrea   | Cikláminiová        | 0903/234322 | +421 903 234 322 | —                        | Bratislava      | SK
+  25     | Adriana  | Hájková             | 0905/385949 | +421 905 385 949 | adrianahajkova@yahoo.com | Bratislava      | SK
+  26     | Ingrid   | Grellnethová        | 0908/768705 | +421 908 768 705 | —                        | Bratislava      | SK
+  27     | Iva      | Koruk               | 0902/495802 | +421 902 495 802 | ivakoruk@gmail.com       | Trnava          | SK
+  28     | Jana     | Hostačná            | 0918/901785 | +421 918 901 785 | hostynka1@azet.sk        | Bratislava      | SK
+[2026-03-23T16:07:12.223Z]
+  → 20 vložených, 0 preskočených, 0 chýb
+
+══════════════════════════════════════════════════════════════════════
+  STEP 6: Odbery + Lab výsledky (TOP 20)
+══════════════════════════════════════════════════════════════════════
+[2026-03-23T16:07:13.342Z] Zdrojové dáta z CBC:
+  sco_id | CBU#        | Klientka                   | Mobil (RAW) | → Normalized     | Dieťa                | Dátum       | Status
+  ───────┼─────────────┼────────────────────────────┼─────────────┼──────────────────┼──────────────────────┼─────────────┼───────
+  198274 | 40080932974 | Sidonia Andrada OLTEANU    | 770401569   | +40 770 401 569  | Matei Gabriel TROACA | 9. 3. 2026  | 3
+  198273 | 40090335220 | Florina Alina TENEA        | —           | —                | —                    | 21. 3. 2026 | 2
+  198272 | 40090335219 | Cristina ROMANIUC          | —           | —                | —                    | 20. 3. 2026 | 3
+  198271 | 0400753289  | Tereza Míková              | 733788741   | +420 733 788 741 | Adéla Míková         | 19. 3. 2026 | 3
+  198270 | 0114509881  | Henrieta Doleži            | 0907/477933 | +421 907 477 933 | Dalila Doleži        | 19. 3. 2026 | 3
+  198269 | 0114509775  | Simona Bučková             | 0904/211735 | +421 904 211 735 | Samuel Bučko         | 17. 3. 2026 | 3
+  198268 | 40080932976 | Andrada Ioana CROITORU     | —           | —                | —                    | 17. 3. 2026 | 3
+  198267 | 0114509669  | Lucia Izáková              | 0910/440240 | +421 910 440 240 | Igor Izák            | 14. 3. 2026 | 3
+  198266 | 0114509553  | Eva Šrameková              | 0905298485  | +421 905 298 485 | Adam Novodvorský     | 13. 3. 2026 | 3
+  198265 | 40090335218 | Cornelia STOICA            | —           | —                | —                    | 15. 3. 2026 | 2
+  198264 | 40090335217 | Georgiana Catalina SCIRLET | —           | —                | —                    | 16. 3. 2026 | 2
+  198263 | 40090335216 | Oana Georgiana MACAVEI     | —           | —                | —                    | 16. 3. 2026 | 3
+  198262 | 40090335215 | Bogdana Elena TOMA         | —           | —                | —                    | 15. 3. 2026 | 3
+  198261 | 40080932975 | Ioana Daniela DANCILA      | —           | —                | David George DANCILA | 12. 3. 2026 | 3
+  198260 | 40090335214 | Valentina HONCHAROVA       | —           | —                | Melissa HONCHAROVA   | 11. 3. 2026 | 3
+  198259 | 40090335213 | Andreea BUCIU              | —           | —                | —                    | 11. 3. 2026 | 3
+  198258 | 40090335211 | Alina BOJAN                | —           | —                | Vlad Andrei BOJAN    | 7. 3. 2026  | 8
+  198257 | 0114509447  | Chiara Spišáková           | —           | —                | Márk Nagy            | 9. 3. 2026  | 3
+  198256 | 0400753173  | Judita Hunáková            | —           | —                | Oliver Hunák         | 10. 3. 2002 | 3
+  198255 | 0114509331  | Halina Paulenka            | —           | —                | Jonas Paulenka       | 5. 3. 2026  | 3
+[2026-03-23T16:07:13.369Z]
+  Odbery: 20 vložených, 0 preskočených, 0 chýb
+[2026-03-23T16:07:13.369Z]
+--- Lab výsledky pre prenesené odbery ---
+[2026-03-23T16:07:13.373Z]   Lab výsledky: 1 vložených (z 1 skupín)
+
+══════════════════════════════════════════════════════════════════════
+  STEP 6.5: Cases — otcovské dáta (cez PotentialClients)
+══════════════════════════════════════════════════════════════════════
+[2026-03-23T16:07:13.390Z] Zdrojové dáta z CBC:
+  cli_id | Otec (meno) | Otec (priezvisko) | Otec mobil | Otec email | Krajina otca | Produkt | Tehotenstvo
+  ───────┼─────────────┼───────────────────┼────────────┼────────────┼──────────────┼─────────┼────────────
+  8      | —           | —                 | —          | —          | —            | —       | 1
+  28     | —           | —                 | —          | —          | —            | —       | 1
+  27     | —           | —                 | —          | —          | —            | —       | 1
+  26     | —           | —                 | —          | —          | —            | —       | 1
+  25     | —           | —                 | —          | —          | —            | —       | 1
+  24     | —           | —                 | —          | —          | —            | —       | 1
+  23     | —           | —                 | —          | —          | —            | —       | 1
+  22     | —           | —                 | —          | —          | —            | —       | 1
+  21     | —           | —                 | —          | —          | —            | —       | 1
+  18     | —           | —                 | —          | —          | —            | —       | 1
+  17     | —           | —                 | —          | —          | —            | —       | 1
+  16     | —           | —                 | —          | —          | —            | —       | 1
+  14     | —           | —                 | —          | —          | —            | —       | 1
+  11     | —           | —                 | —          | —          | —            | —       | 1
+  9      | —           | —                 | —          | —          | —            | —       | 1
+  8      | —           | —                 | —          | —          | —            | —       | 1
+  7      | —           | —                 | —          | —          | —            | —       | 1
+  6      | —           | —                 | —          | —          | —            | —       | 1
+  5      | —           | —                 | —          | —          | —            | —       | 1
+  4      | —           | —                 | —          | —          | —            | —       | 1
+[2026-03-23T16:07:13.403Z]
+  Cases: 20 vložených, 0 preskočených, 0 chýb
+
+══════════════════════════════════════════════════════════════════════
+  STEP 7: Verifikácia — porovnanie prenesených dát
+══════════════════════════════════════════════════════════════════════
+[2026-03-23T16:07:13.406Z] Počty v INDEXUS po migrácii:
+  Entita                   | Počet
+  ─────────────────────────┼──────
+  CollectionStatuses       | 14
+  Laboratories             | 9
+  Hospitals (migrated)     | 20
+  Collaborators (migrated) | 20
+  Customers (migrated)     | 20
+  Collections (migrated)   | 20
+  Lab Results (migrated)   | 9
+  Cases (migrated)         | 20
+[2026-03-23T16:07:13.406Z]
+--- Nemocnice v INDEXUS ---
+  LegacyID | Názov                          | Mesto       | PSČ    | Krajina | Aktívna
+  ─────────┼────────────────────────────────┼─────────────┼────────┼─────────┼────────
+  1        | neznáma nemocnica              | ???         | ???    | SK      | áno
+  10       | Do not use / Celldömölk - Keme | —           | -      | HU      | nie
+  11       | Do not use / Csorna            | —           | -      | HU      | nie
+  12       | Do not use / Debrecen          | —           | -      | HU      | nie
+  13       | Do not use / Budapest - Jahn F | —           | -      | HU      | nie
+  14       | Dolný Kubín                    | Dolný Kubín | 026 14 | SK      | áno
+  15       | Do not use / Dunaújváros       | —           | -      | HU      | nie
+  16       | Do not use / Győr              | —           | -      | HU      | nie
+  17       | Do not usel / Budapest - Állam | —           | -      | HU      | nie
+  18       | Do not use / Budapest - SOTE I | —           | -      | HU      | nie
+  19       | Do not use / Budapest - SOTE I | —           | -      | HU      | nie
+  2        | NsP Antolská                   | ???         | ???    | SK      | nie
+  20       | Do not use / Budapest - Szent  | —           | -      | HU      | nie
+  3        | NsP Koch                       | ???         | ???    | SK      | nie
+  4        | NsP Kramáre                    | ???         | ???    | SK      | nie
+  5        | NsP Ružinov                    | ???         | ???    | SK      | nie
+  6        | GPN Bratislava                 | ???         | ???    | SK      | nie
+  7        | Do not use / Budapest - Bajcsy | —           | -      | HU      | nie
+  8        | Do not use / Budapest - SOTE I | —           | -      | HU      | nie
+  9        | Do not use / Cegléd            | —           | -      | HU      | nie
+[2026-03-23T16:07:13.407Z]
+--- Spolupracovníci v INDEXUS ---
+  LegacyID | Meno      | Priezvisko             | Mobil            | Email                       | RČ          | Krajina | Typ
+  ─────────┼───────────┼────────────────────────┼──────────────────┼─────────────────────────────┼─────────────┼─────────┼───────────────
+  1        | N/A       | Neznámy Spolupracovník | —                | —                           | —           | SK      | REG_CTY_OTHER
+  10       | Dominika  | Kotlárová              | —                | kotlarova@eurocord.sk       | —           | SK      | REG_CTY_OTHER
+  11       | Barbora   | Báršoňová              | —                | _@eurocord.sk               | —           | SK      | REG_CTY_CC
+  12       | Bohuslava | Jakubíková             | —                | _@eurocord.sk               | —           | SK      | REG_CTY_OTHER
+  13       | Ccnr      | Crystal call Nitra     | —                | ccnr@eurocord.sk            | —           | SK      | REG_CTY_OTHER
+  14       | Eccba     | eCall Bratislava       | —                | eccba@eurocord.sk           | —           | SK      | REG_CTY_OTHER
+  15       | Zuzana    | Pružincová             | +421 915 631 058 | zsebenova@gmail.com         | 846020/6139 | SK      | REG_CTY_NURSE
+  16       | Ctirad    | Mokráš                 | +421 905 649 250 | ctirad101@gmail.com         | 640801/6494 | SK      | REG_CTY_DOCTOR
+  17       | Róbert    | Čerňák                 | —                | —                           | —           | SK      | REG_CTY_DOCTOR
+  18       | Anna      | Lacková                | —                | —                           | —           | SK      | REG_CTY_OTHER
+  19       | Gabriela  | Meszárošová            | —                | —                           | —           | SK      | REG_CTY_OTHER
+  2        | Slávka    | Horváthová             | —                | —                           | —           | SK      | REG_CTY_OTHER
+  20       | Zuzana    | Kleinová               | +421 903 480 552 | zuzanaklein@gmail.com       | 865426/6555 | SK      | REG_CTY_DOCTOR
+  3        | Miroslava | Krajčírová             | —                | krajcirova@eurocord.sk      | —           | SK      | REG_CTY_OTHER
+  4        | Alžbeta   | Jankovichová           | —                | jankovichova@eurocord.sk    | —           | SK      | REG_CTY_OTHER
+  5        | Kristína  | Grancová               | —                | grancova@eurocord.sk        | —           | SK      | REG_CTY_OTHER
+  6        | Daniela   | Mihalová               | —                | mihalova@eurocord.sk        | —           | SK      | REG_CTY_OTHER
+  7        | Veronika  | Mattová                | +421 907 079 090 | mattova.veronika@centrum.sk | 905526/9465 | SK      | REG_CTY_NURSE
+  8        | Pavol     | Rako                   | —                | rako@eurocord.sk            | —           | SK      | REG_CTY_OTHER
+  9        | Katarína  | Marcineková            | —                | marcinekova@eurocord.sk     | —           | SK      | REG_CTY_OTHER
+[2026-03-23T16:07:13.408Z]
+--- Klientky v INDEXUS ---
+  InternalID | Meno     | Priezvisko          | Mobil            | Email                    | RČ          | Mesto           | PSČ    | Krajina | Status
+  ───────────┼──────────┼─────────────────────┼──────────────────┼──────────────────────────┼─────────────┼─────────────────┼────────┼─────────┼───────────
+  11         | Slávka   | Vrábliková          | +421 903 234 358 | legacy_11@import.local   | 775303/6148 | Bratislava      | 821 07 | SK      | acquired
+  14         | Natália  | Kaščáková           | +421 905 393 352 | nkascakova@gmail.com     | 725526/0375 | Modra-Kráľová   | 900 02 | SK      | acquired
+  16         | Jana     | Gašparovičová       | +421 908 708 472 | legacy_16@import.local   | 685826/7163 | Bratislava      | 811 02 | SK      | acquired
+  17         | Zuzana   | Rajczyová           | —                | legacy_17@import.local   | 795626/8441 | Réca            | 925 26 | SK      | acquired
+  18         | Xénia    | Činčurová           | +421 904 868 375 | xeniacinci@gmail.com     | 675429/7022 | Chorvátsky Grob | 900 25 | SK      | acquired
+  2          | Tatiana  | Holková             | +421 776 189 049 | ivan.holko@atlas.cz      | —           | Preseľany       | 956 12 | SK      | terminated
+  21         | Katarína | Tarišková           | +421 905 305 892 | legacy_21@import.local   | 775724/6695 | Kozárovce       | 935 22 | SK      | in_process
+  22         | Lýdia    | Kavická             | +421 905 426 727 | lydia.kavicka@gmail.com  | 785820/6202 | Lozorno         | 900 55 | SK      | acquired
+  23         | Andrea   | Cikláminiová        | +421 903 234 322 | legacy_23@import.local   | —           | Bratislava      | 821 07 | SK      | terminated
+  24         | Andrea   | Cikláminiová        | +421 903 234 322 | legacy_24@import.local   | —           | Bratislava      | 821 07 | SK      | terminated
+  25         | Adriana  | Hájková             | +421 905 385 949 | adrianahajkova@yahoo.com | 706207/8628 | Bratislava      | 841 05 | SK      | acquired
+  26         | Ingrid   | Grellnethová        | +421 908 768 705 | legacy_26@import.local   | —           | Bratislava      | 851 01 | SK      | terminated
+  27         | Iva      | Koruk               | +421 902 495 802 | ivakoruk@gmail.com       | 765122/7980 | Trnava          | 917 01 | SK      | acquired
+  28         | Jana     | Hostačná            | +421 918 901 785 | hostynka1@azet.sk        | 706108/7132 | Bratislava      | 851 04 | SK      | acquired
+  4          | Diana    | Rovnianska          | +421 905 490 943 | rovniansky@gmail.com     | —           | Senec           | 903 01 | SK      | acquired
+  5          | Ivica    | Škarbová            | —                | legacy_5@import.local    | —           | Bratislava      | 831 02 | SK      | acquired
+  6          | Andrea   | Havlátová Rajczyová | +421 903 663 949 | andrea@ak-havlatova.sk   | —           | Košice          | 040 18 | SK      | terminated
+  7          | Erika    | Semanová            | +421 908 622 846 | legacy_7@import.local    | —           | Levoča          | 054 01 | SK      | acquired
+  8          | Kristína | Králová             | +421 917 536 354 | kralova.kristi@gmail.com | 855805/6419 | Bernolákovo     | 900 27 | SK      | terminated
+  9          | Ivana    | Hudcovičová         | +421 905 879 017 | ivarado@nextra.sk        | 796203/6137 | Bratislava      | 821 02 | SK      | acquired
+[2026-03-23T16:07:13.409Z]
+--- Odbery v INDEXUS ---
+  LegacyID | CBU#        | Klientka                   | Mobil            | Dieťa         | Dátum       | Nemocnica | Status | Krajina
+  ─────────┼─────────────┼────────────────────────────┼──────────────────┼───────────────┼─────────────┼───────────┼────────┼────────
+  198274   | 40080932974 | Sidonia Andrada Olteanu    | +40 770 401 569  | Matei Gabriel | 9. 3. 2026  | —         | 3      | RO
+  198273   | 40090335220 | Florina Alina Tenea        | —                | —             | 21. 3. 2026 | —         | 2      | RO
+  198272   | 40090335219 | Cristina Romaniuc          | —                | —             | 20. 3. 2026 | —         | 3      | RO
+  198271   | 0400753289  | Tereza Míková              | +420 733 788 741 | Adéla         | 19. 3. 2026 | —         | 3      | CZ
+  198270   | 0114509881  | Henrieta Doleži            | +421 907 477 933 | Dalila        | 19. 3. 2026 | —         | 3      | SK
+  198269   | 0114509775  | Simona Bučková             | +421 904 211 735 | Samuel        | 17. 3. 2026 | —         | 3      | SK
+  198268   | 40080932976 | Andrada Ioana Croitoru     | —                | —             | 17. 3. 2026 | —         | 3      | RO
+  198267   | 0114509669  | Lucia Izáková              | +421 910 440 240 | Igor          | 14. 3. 2026 | —         | 3      | SK
+  198266   | 0114509553  | Eva Šrameková              | +421 905 298 485 | Adam          | 13. 3. 2026 | —         | 3      | SK
+  198265   | 40090335218 | Cornelia Stoica            | —                | —             | 15. 3. 2026 | —         | 2      | RO
+  198264   | 40090335217 | Georgiana Catalina Scirlet | —                | —             | 16. 3. 2026 | —         | 2      | RO
+  198263   | 40090335216 | Oana Georgiana Macavei     | —                | —             | 16. 3. 2026 | —         | 3      | RO
+  198262   | 40090335215 | Bogdana Elena Toma         | —                | —             | 15. 3. 2026 | —         | 3      | RO
+  198261   | 40080932975 | Ioana Daniela Dancila      | —                | David George  | 12. 3. 2026 | —         | 3      | RO
+  198260   | 40090335214 | Valentina Honcharova       | —                | Melissa       | 11. 3. 2026 | —         | 3      | MD
+  198259   | 40090335213 | Andreea Buciu              | —                | —             | 11. 3. 2026 | —         | 3      | RO
+  198258   | 40090335211 | Alina Bojan                | —                | Vlad Andrei   | 7. 3. 2026  | —         | 8      | RO
+  198257   | 0114509447  | Chiara Spišáková           | —                | Márk          | 9. 3. 2026  | —         | 3      | SK
+  198256   | 0400753173  | Judita Hunáková            | —                | Oliver        | 10. 3. 2002 | —         | 3      | CZ
+  198255   | 0114509331  | Halina Paulenka            | —                | Jonas         | 5. 3. 2026  | —         | 3      | AT
+[2026-03-23T16:07:13.410Z]
+--- Cases v INDEXUS ---
+  CliID | Klientka                   | Otec meno  | Otec priezvisko | Otec mobil | Otec email | Krajina | Produkt
+  ──────┼────────────────────────────┼────────────┼─────────────────┼────────────┼────────────┼─────────┼────────
+  11    | Slávka Vrábliková          | —          | —               | —          | —          | SK      | —
+  14    | Natália Kaščáková          | —          | —               | —          | —          | SK      | —
+  16    | Jana Gašparovičová         | —          | —               | —          | —          | SK      | —
+  17    | Zuzana Rajczyová           | —          | —               | —          | —          | SK      | —
+  18    | Xénia Činčurová            | —          | —               | —          | —          | SK      | —
+  2     | Tatiana Holková            | —          | —               | —          | —          | SK      | —
+  21    | Katarína Tarišková         | —          | —               | —          | —          | SK      | —
+  22    | Lýdia Kavická              | ???        | —               | —          | —          | SK      | —
+  23    | Andrea Cikláminiová        | —          | —               | —          | —          | SK      | —
+  24    | Andrea Cikláminiová        | —          | —               | —          | —          | SK      | —
+  25    | Adriana Hájková            | —          | —               | —          | —          | SK      | —
+  26    | Ingrid Grellnethová        | —          | —               | —          | —          | SK      | —
+  27    | Iva Koruk                  | —          | —               | —          | —          | SK      | —
+  28    | Jana Hostačná              | ???        | —               | —          | —          | SK      | —
+  4     | Diana Rovnianska           | ???        | —               | —          | —          | SK      | —
+  5     | Ivica Škarbová             | —          | —               | —          | —          | SK      | —
+  6     | Andrea Havlátová Rajczyová | Antal      | —               | —          | —          | SK      | —
+  7     | Erika Semanová             | —          | —               | —          | —          | SK      | —
+  8     | Kristína Králová           | Matúš Král | —               | —          | —          | SK      | —
+  9     | Ivana Hudcovičová          | —          | —               | —          | —          | SK      | —
+[2026-03-23T16:07:13.411Z]
+--- Krížová kontrola (CBC vs INDEXUS) ---
+[2026-03-23T16:07:13.413Z]   sco_id=198274: CBU ✓ | Meno ✓ | CBC: "Sidonia Andrada OLTEANU" → INDEXUS: "Sidonia Andrada Olteanu"
+[2026-03-23T16:07:13.414Z]   sco_id=198273: CBU ✓ | Meno ✓ | CBC: "Florina Alina TENEA" → INDEXUS: "Florina Alina Tenea"
+[2026-03-23T16:07:13.416Z]   sco_id=198272: CBU ✓ | Meno ✓ | CBC: "Cristina ROMANIUC" → INDEXUS: "Cristina Romaniuc"
+[2026-03-23T16:07:13.416Z]   sco_id=198271: CBU ✓ | Meno ✓ | CBC: "Tereza Míková" → INDEXUS: "Tereza Míková"
+[2026-03-23T16:07:13.417Z]   sco_id=198270: CBU ✓ | Meno ✓ | CBC: "Henrieta Doleži" → INDEXUS: "Henrieta Doleži"
+
+══════════════════════════════════════════════════════════════════════
+  HOTOVO
+══════════════════════════════════════════════════════════════════════
+[2026-03-23T16:07:13.417Z] Testovací prenos 20 záznamov bol úspešne dokončený.
+[2026-03-23T16:07:13.417Z] Skontrolujte výsledky vyššie a overte dáta v INDEXUS CRM.
+[2026-03-23T16:07:13.417Z]
+[2026-03-23T16:07:13.417Z] Ak chcete vymazať testovacích 20 záznamov:
+[2026-03-23T16:07:13.417Z]   node cleanup-test-migration.cjs
+seman@CORPCRM01:/var/www/indexus-crm/script/migration$

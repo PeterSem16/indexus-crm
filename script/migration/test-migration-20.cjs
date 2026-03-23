@@ -290,7 +290,7 @@ async function step3_hospitals() {
     FROM Hospitals h
     LEFT JOIN MailAddresses a ON a.add_id = h.add_id AND a.add_valid = 1
     LEFT JOIN Laboratories l ON l.lab_id = h.lab_id
-    ORDER BY h.hos_id
+    ORDER BY h.hos_id DESC
   `);
 
   log('Zdrojové dáta z CBC:');
@@ -357,7 +357,7 @@ async function step4_collaborators() {
     FROM Collaborators d
     LEFT JOIN CollaboratorTypes ct ON ct.cty_id = d.cty_id
     LEFT JOIN PersonalData pd ON pd.per_id = d.per_id AND pd.pda_valid = 1
-    ORDER BY d.doc_id
+    ORDER BY d.doc_id DESC
   `);
 
   const collabCountries = await mssqlPool.request().query(`
@@ -468,13 +468,15 @@ async function step5_customers() {
     LEFT JOIN MailAddresses a_perm ON a_perm.per_id = p.per_id AND a_perm.add_valid = 1 AND a_perm.mat_id = 1
     LEFT JOIN MailAddresses a_corr ON a_corr.per_id = p.per_id AND a_corr.add_valid = 1 AND a_corr.mat_id = 3
     WHERE c.cli_deleted = 0 OR c.cli_deleted IS NULL
-    ORDER BY c.cli_id
+    ORDER BY c.cli_id DESC
   `);
 
+  const cliIds = clients.recordset.map(r => r.cli_id);
   const clientContracts = await mssqlPool.request().query(`
     SELECT con.cli_id, cs.csa_code
     FROM Contracts con
     JOIN ContractStatuses cs ON cs.csa_id = con.csa_id
+    WHERE con.cli_id IN (${cliIds.join(',')})
   `);
   const contractStatusMap = {};
   for (const r of clientContracts.recordset) contractStatusMap[r.cli_id] = r.csa_code;
@@ -794,6 +796,19 @@ async function step6b_cases() {
   }
 
   const cliIdList = migratedCustomerIds.join(',');
+
+  const fatherStats = await mssqlPool.request().query(`
+    SELECT
+      COUNT(*) as total,
+      COUNT(pc.per_id_father) as with_father,
+      COUNT(pc.pot_father_address_country_ft) as with_father_country
+    FROM Contracts c
+    JOIN PotentialClients pc ON pc.pot_id = c.pot_id
+    WHERE c.cli_id IN (${cliIdList})
+  `);
+  const fs = fatherStats.recordset[0];
+  log(`  Štatistika: ${fs.total} contracts, ${fs.with_father} s otcom (per_id_father), ${fs.with_father_country} s krajinou otca`);
+
   const potData = await mssqlPool.request().query(`
     SELECT
       c.cli_id, c.con_id, c.hos_id, c.doc_id,
