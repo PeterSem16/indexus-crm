@@ -835,7 +835,7 @@ async function step6b_cases() {
     const fatherRows = await mssqlPool.request().query(`
       SELECT pd.per_id, pd.per_first_name, pd.per_last_name, pd.per_title,
              pd.per_phone_number, pd.per_mobile, pd.per_email,
-             ma.add_street, ma.add_city, ma.add_zip, ma.add_country_code
+             ma.add_street_and_number as add_street, ma.add_city, ma.add_zip, ma.add_country
       FROM PersonalData pd
       LEFT JOIN MailAddresses ma ON ma.per_id = pd.per_id AND ma.add_valid = 1
       WHERE pd.per_id IN (${fatherPerIds.join(',')})
@@ -894,7 +894,7 @@ async function step6b_cases() {
       const f = fatherData[row.per_id_father] || {};
       const cf = childFatherData[row.con_id] || {};
       const fatherName = f.per_first_name || cf.FatherName || null;
-      const fatherCountry = normalizeCountryCode(row.pot_father_address_country_ft || (f.add_country_code ? f.add_country_code : null));
+      const fatherCountry = normalizeCountryCode(row.pot_father_address_country_ft || (f.add_country ? f.add_country : null));
 
       const expDate = row.con_expected_collection_date || row.pot_exp_birth_date;
       let expDay = null, expMonth = null, expYear = null;

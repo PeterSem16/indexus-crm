@@ -1,0 +1,60 @@
+seman@CORPCRM01:/var/www/indexus-crm/script/migration$ grep -A5 "STEP 4\|STEP 5\|STEP 6\|STEP 6.5\|STEP 7\|Cases:\|Lab výsledky:\|Štatistika:\|HOTOVO\|ERROR\|vložených" /tmp/migration-v4.txt
+[2026-03-23T16:15:13.636Z]   → 0 vložených, 10 preskočených
+[2026-03-23T16:15:13.636Z]
+--- Laboratories ---
+  ID | Názov            | Krajina    | Telefón | Email
+  ───┼──────────────────┼────────────┼─────────┼──────────────────────────
+  1  | Bratislava (SK)  | COUNTRY_SK | 123     | liska@cordbloodcenter.com
+--
+[2026-03-23T16:15:13.639Z]   → 0 vložených, 5 preskočených
+
+══════════════════════════════════════════════════════════════════════
+  STEP 3: Nemocnice (TOP 20)
+══════════════════════════════════════════════════════════════════════
+[2026-03-23T16:15:13.649Z] Zdrojové dáta z CBC:
+--
+  → 20 vložených, 0 preskočených, 0 chýb
+
+══════════════════════════════════════════════════════════════════════
+  STEP 4: Spolupracovníci (TOP 20)
+══════════════════════════════════════════════════════════════════════
+[2026-03-23T16:15:13.809Z] Zdrojové dáta z CBC:
+  doc_id | Meno       | Priezvisko   | Typ            | Mobil (RAW)   | → Normalized     | Email                      | Krajina
+  ───────┼────────────┼──────────────┼────────────────┼───────────────┼──────────────────┼────────────────────────────┼────────
+  29865  | Zuzana     | Pavlíčková   | REG_CTY_OTHER  | —             | —                | —                          | SK
+--
+  → 20 vložených, 0 preskočených, 0 chýb
+
+══════════════════════════════════════════════════════════════════════
+  STEP 5: Klientky/Zákazníci (TOP 20)
+══════════════════════════════════════════════════════════════════════
+[2026-03-23T16:15:13.862Z] Zdrojové dáta z CBC:
+  cli_id | Meno               | Priezvisko | Mobil (RAW)   | → Normalized     | Email                       | Mesto               | Krajina
+  ───────┼────────────────────┼────────────┼───────────────┼──────────────────┼─────────────────────────────┼─────────────────────┼────────
+  208378 | Lucie              | Philippová | 774361096     | +420 774 361 096 | honzik.philipp@gmail.com    | Praha 4 Modřany     | CZ
+--
+  → 20 vložených, 0 preskočených, 0 chýb
+
+══════════════════════════════════════════════════════════════════════
+  STEP 6: Odbery + Lab výsledky (TOP 20)
+══════════════════════════════════════════════════════════════════════
+[2026-03-23T16:15:15.032Z] Zdrojové dáta z CBC:
+  sco_id | CBU#        | Klientka                   | Mobil (RAW) | → Normalized     | Dieťa                | Dátum       | Status
+  ───────┼─────────────┼────────────────────────────┼─────────────┼──────────────────┼──────────────────────┼─────────────┼───────
+  198274 | 40080932974 | Sidonia Andrada OLTEANU    | 770401569   | +40 770 401 569  | Matei Gabriel TROACA | 9. 3. 2026  | 3
+--
+  Odbery: 20 vložených, 0 preskočených, 0 chýb
+[2026-03-23T16:15:15.062Z]
+--- Lab výsledky pre prenesené odbery ---
+[2026-03-23T16:15:15.067Z]   Lab výsledky: 1 vložených (z 1 skupín)
+
+══════════════════════════════════════════════════════════════════════
+  STEP 6.5: Cases — otcovské dáta (cez PotentialClients)
+══════════════════════════════════════════════════════════════════════
+[2026-03-23T16:15:15.073Z]   Štatistika: 21 contracts, 3 s otcom (per_id_father), 0 s krajinou otca
+[2026-03-23T16:15:15.083Z] FATAL: Invalid column name 'add_country_code'.
+RequestError: Invalid column name 'add_country_code'.
+    at handleError (/var/www/indexus-crm/node_modules/mssql/lib/tedious/request.js:384:15)
+    at Connection.emit (node:events:524:28)
+    at Connection.emit (/var/www/indexus-crm/node_modules/tedious/lib/connection.js:1013:18)
+seman@CORPCRM01:/var/www/indexus-crm/script/migration$
