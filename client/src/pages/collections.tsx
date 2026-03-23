@@ -23,7 +23,7 @@ import {
   Users, Clock, LayoutDashboard, List, TrendingUp, Globe, Activity, ChevronLeft, ChevronRight, Download,
   Loader2, RefreshCw, ChevronDown, BarChart3, Target, Sparkles, AlertTriangle,
   ArrowUpRight, ArrowDownRight, Minus, Info, HelpCircle, TrendingDown, Upload, ScanLine, Phone, Pencil,
-  Heart, Stethoscope, Microscope, Building, Shield, KeyRound, Brain, ClipboardList, Lock, Send, FileSearch, Save
+  Heart, Stethoscope, Microscope, Building, Shield, KeyRound, Brain, ClipboardList, Lock, Send, FileSearch, Save, X
 } from "lucide-react";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, LineChart, Line } from "recharts";
 import { Link, useLocation, useRoute } from "wouter";
@@ -139,6 +139,7 @@ export default function CollectionsPage() {
   const [listPage, setListPage] = useState(1);
   const [listSortField, setListSortField] = useState<string>("collectionDate");
   const [listSortDir, setListSortDir] = useState<"asc" | "desc">("desc");
+  const [listStatusFilter, setListStatusFilter] = useState<string | null>(null);
   const listPageSize = 15;
   const [calendarMonth, setCalendarMonth] = useState(new Date());
   const [esCountry, setEsCountry] = useState<string>("all");
@@ -3462,7 +3463,10 @@ export default function CollectionsPage() {
         renderCalendar()
       ) : (
         (() => {
-          const sorted = [...filteredCollections].sort((a, b) => {
+          const statusFiltered = listStatusFilter
+            ? filteredCollections.filter(c => c.state === listStatusFilter)
+            : filteredCollections;
+          const sorted = [...statusFiltered].sort((a, b) => {
             let va: any = "";
             let vb: any = "";
             if (listSortField === "cbuNumber") { va = a.cbuNumber || ""; vb = b.cbuNumber || ""; }
@@ -3492,7 +3496,56 @@ export default function CollectionsPage() {
             </th>
           );
 
+          const getStatusTileStyle = (status: CollectionStatusType) => {
+            const branch = status.branch || 0;
+            const so = status.sortOrder || 0;
+            if (branch === 2) return { bg: "from-red-50 to-red-100/50 dark:from-red-950/30 dark:to-red-900/20", border: "border-red-200 dark:border-red-800", text: "text-red-700 dark:text-red-300", count: "text-red-800 dark:text-red-200" };
+            if (so >= 1.4) return { bg: "from-emerald-50 to-emerald-100/50 dark:from-emerald-950/30 dark:to-emerald-900/20", border: "border-emerald-200 dark:border-emerald-800", text: "text-emerald-700 dark:text-emerald-300", count: "text-emerald-800 dark:text-emerald-200" };
+            if (so >= 1.2) return { bg: "from-blue-50 to-blue-100/50 dark:from-blue-950/30 dark:to-blue-900/20", border: "border-blue-200 dark:border-blue-800", text: "text-blue-700 dark:text-blue-300", count: "text-blue-800 dark:text-blue-200" };
+            if (so >= 1) return { bg: "from-amber-50 to-amber-100/50 dark:from-amber-950/30 dark:to-amber-900/20", border: "border-amber-200 dark:border-amber-800", text: "text-amber-700 dark:text-amber-300", count: "text-amber-800 dark:text-amber-200" };
+            return { bg: "from-violet-50 to-violet-100/50 dark:from-violet-950/30 dark:to-violet-900/20", border: "border-violet-200 dark:border-violet-800", text: "text-violet-700 dark:text-violet-300", count: "text-violet-800 dark:text-violet-200" };
+          };
+
+          const statusTiles = collectionStatuses
+            .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
+            .map(status => ({
+              ...status,
+              count: filteredCollections.filter(c => c.state === String(status.id)).length,
+              style: getStatusTileStyle(status),
+            }));
+
           return (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
+                <div
+                  onClick={() => { setListStatusFilter(null); setListPage(1); }}
+                  className={`cursor-pointer rounded-xl border p-3 transition-all hover:shadow-md ${
+                    listStatusFilter === null
+                      ? "bg-gradient-to-br from-gray-100 to-gray-200/50 dark:from-gray-800 dark:to-gray-700/50 border-primary ring-2 ring-primary/30 shadow-sm"
+                      : "bg-gradient-to-br from-gray-50 to-gray-100/50 dark:from-gray-900/30 dark:to-gray-800/20 border-gray-200 dark:border-gray-700 hover:border-gray-300"
+                  }`}
+                  data-testid="tile-status-all"
+                >
+                  <div className="text-2xl font-bold text-gray-800 dark:text-gray-200">{filteredCollections.length}</div>
+                  <div className="text-xs font-medium text-gray-600 dark:text-gray-400 truncate">{locale === "sk" ? "Všetky" : "All"}</div>
+                </div>
+                {statusTiles.map(st => (
+                  <div
+                    key={st.id}
+                    onClick={() => { setListStatusFilter(listStatusFilter === String(st.id) ? null : String(st.id)); setListPage(1); }}
+                    className={`cursor-pointer rounded-xl border p-3 transition-all hover:shadow-md ${
+                      listStatusFilter === String(st.id)
+                        ? `bg-gradient-to-br ${st.style.bg} ${st.style.border} ring-2 ring-primary/30 shadow-sm`
+                        : `bg-gradient-to-br ${st.style.bg} ${st.style.border} hover:shadow-sm opacity-80 hover:opacity-100`
+                    }`}
+                    data-testid={`tile-status-${st.id}`}
+                  >
+                    <div className={`text-2xl font-bold ${st.style.count}`}>{st.count}</div>
+                    <div className={`text-xs font-medium ${st.style.text} truncate`}>{st.name}</div>
+                  </div>
+                ))}
+              </div>
+
             <Card>
               <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-4">
                 <div className="flex items-center gap-2 flex-1">
@@ -3506,6 +3559,12 @@ export default function CollectionsPage() {
                       data-testid="input-search-collections"
                     />
                   </div>
+                  {listStatusFilter && (
+                    <Button variant="ghost" size="sm" onClick={() => { setListStatusFilter(null); setListPage(1); }} className="text-xs" data-testid="button-clear-status-filter">
+                      <X className="h-3 w-3 mr-1" />
+                      {getStateLabel(listStatusFilter)}
+                    </Button>
+                  )}
                   <span className="text-xs text-muted-foreground whitespace-nowrap">{sorted.length} {locale === "sk" ? "záznamov" : "records"}</span>
                 </div>
               </CardHeader>
@@ -3614,6 +3673,7 @@ export default function CollectionsPage() {
                 )}
               </CardContent>
             </Card>
+            </div>
           );
         })()
       )}
