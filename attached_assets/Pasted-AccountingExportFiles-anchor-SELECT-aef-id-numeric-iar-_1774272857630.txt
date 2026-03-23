@@ -1,0 +1,3606 @@
+AccountingExportFiles [#anchor] [SELECT]
+aef_id - numeric
+iar_id - numeric --> IOAccountingResults - iar_id
+aef_filename - varchar
+aef_hash - varchar
+aef_generated - datetime
+aef_filesize - numeric
+aef_exported_invoices - numeric
+aef_exported_payment_schedules - numeric
+aef_exported_clients - numeric
+AccountingImportFiles [#anchor] [SELECT]
+aif_id - numeric
+<-- AccountingImportLines - aif_id
+iar_id - numeric --> IOAccountingResults - iar_id
+aif_filename - varchar
+aif_hash - varchar
+aif_processed - datetime
+aif_filesize - numeric
+aif_imported_payments_new - numeric
+aif_imported_payments_update - numeric
+aif_imported_payments_delete - numeric
+AccountingImportLines [#anchor] [SELECT]
+ail_id - numeric
+<-- AccountingImportLineValues - ail_id
+aif_id - numeric --> AccountingImportFiles - aif_id
+ail_acc_id - varchar
+ail_line_type - varchar
+ail_raw_data - varchar
+ail_error_text - varchar
+AccountingImportLineValues [#anchor] [SELECT]
+aiv_id - numeric
+ail_id - numeric --> AccountingImportLines - ail_id
+aiv_field_name - varchar
+aiv_value - varchar
+AccountingSoftTypes [#anchor] [SELECT]
+ast_id - numeric
+<-- IOAccountings - ast_id
+<-- ServiceInstanceInvoicings - ast_id
+ast_name - nvarchar
+ast_inserted - datetime
+ast_inserted_by - varchar
+ActHistory [#anchor] [SELECT]
+rah_id - numeric
+rac_id - numeric --> Acts - rac_id
+rah_amount - money
+rah_operation - nvarchar
+rah_date - datetime
+rah_user - varchar
+rah_remark - nvarchar
+ActRemarks [#anchor] [SELECT]
+rar_id - numeric
+rac_id - numeric --> Acts - rac_id
+rar_login - varchar
+rar_remark - nvarchar
+rar_date - datetime
+rar_deleted - bit
+Acts [#anchor] [SELECT]
+rac_id - numeric
+<-- ActHistory - rac_id
+<-- ActRemarks - rac_id
+com_id - numeric --> Companies - com_id
+com_id_paying - numeric
+crt_id - numeric
+rba_id - numeric --> Batches - rba_id
+entity_id_reward - numeric
+agreement_id_reward - numeric
+hos_id_bound - numeric --> Hospitals - hos_id
+con_id_bound - numeric --> Contracts - con_id
+sco_id_bound - numeric --> ServiceCollections - sco_id
+rac_state - varchar
+cur_code - varchar
+rac_amount - money
+rac_due_date - datetime
+rac_due_date_type - varchar
+rac_name - nvarchar
+rac_internal_note - nvarchar
+rac_public_note - nvarchar
+rac_proposed - datetime
+rac_proposed_by - varchar
+rac_approved - datetime
+rac_approved_by - varchar
+rac_paid - datetime
+rac_cancelled - datetime
+AgreementForms [#anchor] [SELECT]
+afo_id - numeric
+<-- CollaboratorAgreements - afo_id
+com_id - numeric --> Companies - com_id
+afo_name - nvarchar
+afo_organization - bit
+afo_rewarding_by_invoice - bit
+afo_description - nvarchar
+AgreementTypes [#anchor] [SELECT]
+agr_id - numeric
+agt_id - numeric --> CollaborationAgreementTypes - agt_id
+cag_id - numeric --> CollaboratorAgreements - cag_id
+Amendments [#anchor] [SELECT]
+ame_id - numeric
+<-- AmendmentStateHistories - ame_id
+cat_id - numeric --> ContractAmendmentTemplates - cat_id
+con_id - numeric --> Contracts - con_id
+dst_id - numeric --> DocumentStatuses - dst_id
+ame_number - int
+ame_repository - numeric
+ame_inserted - datetime
+ame_inserted_by - varchar
+ame_note - nvarchar
+AmendmentStateHistories [#anchor] [SELECT]
+ash_id - numeric
+ame_id - numeric --> Amendments - ame_id
+dst_id - numeric --> DocumentStatuses - dst_id
+ash_changed - datetime
+ash_changed_by - varchar
+ash_note - nvarchar
+AnnouncementTypes [#anchor] [SELECT]
+ant_id - numeric
+<-- CollectionTransports - ant_id_to_courier
+<-- CollectionTransports - ant_id_to_lab
+ant_code - varchar
+ant_default_name - nvarchar
+ant_order - int
+ant_description - nvarchar
+AoPAccounts [#anchor] [SELECT]
+aoa_id - numeric
+com_id_contract - numeric --> Companies - com_id
+com_id_invoice - numeric --> Companies - com_id
+aoa_iban - nvarchar
+aoa_note - nvarchar
+AoPCustomEmails [#anchor] [SELECT]
+eml_id - numeric
+cli_id - numeric
+pda_first_name - varchar
+pda_last_name - varchar
+pda_email - varchar
+pda_mobile - varchar
+suma_po_splatnosti - numeric
+najstarsie_dni_po_splatnosti - numeric
+cur_code_home - varchar
+inserted - datetime
+day_number - numeric
+active - numeric
+AoPDocuments [#anchor] [SELECT]
+ado_id - numeric
+dte_id - numeric --> DocumentTemplates - dte_id
+aop_id - numeric --> ApplicationOfPayments - aop_id
+dst_id - numeric --> DocumentStatuses - dst_id
+ado_name - nvarchar
+ado_repository - numeric
+ado_inserted - datetime
+ado_inserted_by - varchar
+ado_note - nvarchar
+AoPInvoices [#anchor] [SELECT]
+inv_id - numeric --> Invoices - inv_id
+aop_id - numeric --> ApplicationOfPayments - aop_id
+AoPResults [#anchor] [SELECT]
+are_id - numeric
+<-- AoPStateHistories - are_id
+<-- ApplicationOfPayments - are_id
+are_code - varchar
+are_default_name - nvarchar
+are_order - int
+are_description - nvarchar
+AoPRoundResults [#anchor] [SELECT]
+arr_id - numeric
+<-- AoPRounds - arr_id
+<-- AoPStateHistories - arr_id
+arr_code - varchar
+arr_default_name - nvarchar
+arr_order - int
+arr_description - nvarchar
+AoPRounds [#anchor] [SELECT]
+apr_id - numeric
+apt_id - numeric --> AoPRoundTypes - apt_id
+aop_id - numeric --> ApplicationOfPayments - aop_id
+arr_id - numeric --> AoPRoundResults - arr_id
+apr_round_seq - int
+apr_started - datetime
+apr_reminder_sent - datetime
+apr_cc_call_planned - datetime
+apr_closed - datetime
+apr_note - nvarchar
+apr_promised_pay - datetime
+AoPRoundTypes [#anchor] [SELECT]
+apt_id - numeric
+<-- AoPRounds - apt_id
+apt_code - varchar
+apt_default_name - nvarchar
+apt_order - int
+apt_description - nvarchar
+AoPStateHistories [#anchor] [SELECT]
+psh_id - numeric
+are_id - numeric --> AoPResults - are_id
+arr_id - numeric --> AoPRoundResults - arr_id
+aop_id - numeric --> ApplicationOfPayments - aop_id
+psh_changed - datetime
+psh_changed_by - varchar
+psh_round - int
+psh_debt - money
+psh_note - nvarchar
+ApplicationOfPayments [#anchor] [SELECT]
+aop_id - numeric
+<-- AoPDocuments - aop_id
+<-- AoPInvoices - aop_id
+<-- AoPRounds - aop_id
+<-- AoPStateHistories - aop_id
+are_id - numeric --> AoPResults - are_id
+cli_id - numeric --> Clients - cli_id
+aop_max_number_of_rounds - int
+aop_case_opened - datetime
+aop_case_opened_by - varchar
+aop_case_closed - datetime
+aop_case_closed_by - varchar
+aop_name - nvarchar
+AUniversal2024 [#anchor] [SELECT]
+t_doc_id - int
+t_param1 - nvarchar
+t_param2 - nvarchar
+t_param3 - nvarchar
+t_param4 - nvarchar
+t_param5 - nvarchar
+t_param6 - nvarchar
+t_param7 - nvarchar
+t_param8 - nvarchar
+t_param9 - nvarchar
+t_param10 - nvarchar
+t_param11 - nvarchar
+t_param12 - nvarchar
+t_param13 - nvarchar
+t_param14 - nvarchar
+t_param15 - nvarchar
+t_param16 - nvarchar
+t_param17 - nvarchar
+t_param18 - nvarchar
+t_param19 - nvarchar
+t_param20 - nvarchar
+t_param21 - nvarchar
+AUniversal2025 [#anchor] [SELECT]
+t_doc_id - int
+t_param1 - nvarchar
+t_param2 - nvarchar
+t_param3 - nvarchar
+t_param4 - nvarchar
+t_param5 - nvarchar
+t_param6 - nvarchar
+t_param7 - nvarchar
+t_param8 - nvarchar
+t_param9 - nvarchar
+t_param10 - nvarchar
+t_param11 - nvarchar
+t_param12 - nvarchar
+t_param13 - nvarchar
+t_param14 - nvarchar
+t_param15 - nvarchar
+t_param16 - nvarchar
+t_param17 - nvarchar
+t_param18 - nvarchar
+t_param19 - nvarchar
+t_param20 - nvarchar
+t_param21 - nvarchar
+AutoInvoiceConfiguration [#anchor] [SELECT]
+aic_id - int
+aic_country_code - varchar
+aic_code - varchar
+aic_for_year - int
+sin_id - int
+dte_id - int
+acc_id - int
+aic_inserted - datetime
+aic_inserted_by - varchar
+aic_updated - datetime
+aic_updated_by - varchar
+aic_deleted - bit
+cte_ids - varchar
+AutoInvoiceDebts [#anchor] [SELECT]
+inv_invoice_number - numeric
+con_number - varchar
+AutoInvoiceDebtsRaw [#anchor] [SELECT]
+aidr_id - int
+aidr_companies - varchar
+aidr_con_number - varchar
+aidr_invoice_number - varchar
+aidr_date_of_delivery - date
+aidr_date_of_issue - date
+aidr_inserted - date
+aidr_due_date - date
+aidr_variable_symbol - varchar
+aidr_ser_name - varchar
+aidr_amount_cur_home_with_vat - numeric
+aidr_paid_cur_home - numeric
+aidr_debt_cur_home - numeric
+aidr_debt_cur_home_total - numeric
+aidr_amount_cur_account_with_vat - numeric
+aidr_paid_cur_account - numeric
+aidr_debt_cur_account - numeric
+aidr_debt_cur_account_total - numeric
+AutoInvoiceExceptionCZ [#anchor] [SELECT]
+aie_con_number - varchar
+aie_inserted - date
+aie_inserted_by - nchar
+AutoInvoiceProcess [#anchor] [SELECT]
+aip_id - int
+aip_country - varchar
+aip_company_code - varchar
+aip_number_process - int
+aip_name_process - varchar
+aip_inserted - datetime
+aip_inserted_by - varchar
+aip_description - varchar
+aip_row_counts_update - int
+aip_dte_name - varchar
+AutoInvoiceScripts [#anchor] [SELECT]
+aic_id - int
+aic_country - varchar
+aic_script_number - int
+aic_company_code - varchar
+aic_inserted - datetime
+aic_inserted_by - varchar
+aic_dispatch_date - datetime
+aic_date_of_payment - datetime
+aic_date_of_issue - datetime
+aic_description - varchar
+aic_row_counts - int
+aic_dte_id - int
+Batches [#anchor] [SELECT]
+rba_id - numeric
+<-- Acts - rba_id
+ree_id - numeric
+com_id - numeric --> Companies - com_id
+com_id_paying - numeric --> Companies - com_id
+rba_state - varchar
+rba_name - nvarchar
+rba_remark - nvarchar
+rba_from_date - datetime
+rba_to_date - datetime
+rba_opened - datetime
+rba_opened_by - varchar
+rba_composed - datetime
+rba_composed_by - varchar
+rba_paid - datetime
+rba_cancelled - datetime
+rba_snapshot - numeric
+rba_summary - numeric
+BoundRewardedEntities [#anchor] [SELECT]
+bre_id - numeric
+<-- CompanyRewardTypes - bre_id
+ree_id - numeric --> Entities - ree_id
+reb_id - numeric --> Bounds - reb_id
+bre_code - nvarchar
+bre_default_name - nvarchar
+bre_query - nvarchar
+Bounds [#anchor] [SELECT]
+reb_id - numeric
+<-- BoundRewardedEntities - reb_id
+<-- CompanyRewardTypes - reb_id
+reb_code - varchar
+reb_default_name - varchar
+reb_order - int
+reb_description - varchar
+BSPListFilterConditions [#anchor] [SELECT]
+fco_id - numeric
+<-- BSPListFilterConditions - fco_id_op1
+<-- BSPListFilterConditions - fco_id_op2
+uvf_id - numeric --> BSPListViewUserFilters - uvf_id
+fco_display_name - varchar
+vfi_id_op1 - numeric --> BSPListViewFilters - vfi_id
+fco_id_op1 - numeric --> BSPListFilterConditions - fco_id
+vco_id_op1 - numeric --> BSPListViewColumns - vco_id
+fco_operator - varchar
+fco_value_op2 - varchar
+fco_id_op2 - numeric --> BSPListFilterConditions - fco_id
+vfi_id_op2 - numeric --> BSPListViewFilters - vfi_id
+fco_is_filter - bit
+vco_id_op2 - numeric
+BSPListUserEnhancedFilters [#anchor] [SELECT]
+uef_id - numeric
+vie_id - numeric --> BSPListViews - vie_id
+usr_login - varchar
+uef_filter - varchar
+uef_name - varchar
+uef_visible - bit
+uef_default - bit
+BSPListUserViewColumns [#anchor] [SELECT]
+uvc_id - numeric
+uvi_id - numeric --> BSPListUserViews - uvi_id
+vco_id - numeric --> BSPListViewColumns - vco_id
+uvc_display_name - varchar
+uvc_position - smallint
+uvc_visible - bit
+uvc_width - int
+BSPListUserViews [#anchor] [SELECT]
+uvi_id - numeric
+<-- BSPListUserViewColumns - uvi_id
+usr_login - varchar
+vie_id - numeric --> BSPListViews - vie_id
+uvi_priority - int
+BSPListViewColumns [#anchor] [SELECT]
+vco_id - numeric
+<-- BSPListFilterConditions - vco_id_op1
+<-- BSPListUserViewColumns - vco_id
+vie_id - numeric --> BSPListViews - vie_id
+vco_pam_name - varchar
+vco_column_name - varchar
+vco_alias - varchar
+vco_display_code - varchar
+vco_is_primary_key - bit
+vco_position - smallint
+vco_visible - bit
+vco_width - int
+vco_format - varchar
+vco_alignment - varchar
+vco_quick_filter_type - varchar
+vco_data_type - varchar
+vco_back_color - varchar
+vco_fore_color - varchar
+vco_grouptotal_label_code - varchar
+vco_grouptotal_function - varchar
+vco_localization_assembly - varchar
+vco_localization_default_column_name - varchar
+vco_localization_default_alias - varchar
+vco_localization_query - varchar
+BSPListViewFilters [#anchor] [SELECT]
+vfi_id - numeric
+<-- BSPListFilterConditions - vfi_id_op1
+<-- BSPListFilterConditions - vfi_id_op2
+<-- BSPListViewParameters - vfi_id
+vie_id - numeric --> BSPListViews - vie_id
+vfi_code - varchar
+vfi_display_code - varchar
+vfi_subquery - varchar
+vfi_priority - smallint
+vfi_visible - bit
+vfi_objectbased - bit
+vfi_description - varchar
+BSPListViewOrgUnits [#anchor] [SELECT]
+org_code - varchar
+vie_id - numeric --> BSPListViews - vie_id
+BSPListViewParameters [#anchor] [SELECT]
+lvp_id - numeric
+vie_id - numeric --> BSPListViews - vie_id
+vfi_id - numeric --> BSPListViewFilters - vfi_id
+lvp_parameter_code - varchar
+lvp_data_type - varchar
+uvf_id - numeric --> BSPListViewUserFilters - uvf_id
+BSPListViews [#anchor] [SELECT]
+vie_id - numeric
+<-- BSPListUserEnhancedFilters - vie_id
+<-- BSPListUserViews - vie_id
+<-- BSPListViewColumns - vie_id
+<-- BSPListViewFilters - vie_id
+<-- BSPListViewOrgUnits - vie_id
+<-- BSPListViewParameters - vie_id
+<-- BSPListViewUserFilters - vie_id
+obt_id - int
+vie_code - varchar
+vie_display_code - varchar
+vie_query - varchar
+vie_priority - smallint
+vie_show_total_row - bit
+vie_show_quickfilter_row - bit
+vie_show_groupby_row - bit
+vie_show_filters - bit
+vie_export_excel - int
+vie_export_print - int
+vie_visible - bit
+vie_objectbased - bit
+vie_description - varchar
+BSPListViewUserFilters [#anchor] [SELECT]
+uvf_id - numeric
+<-- BSPListFilterConditions - uvf_id
+<-- BSPListViewParameters - uvf_id
+vie_id - numeric --> BSPListViews - vie_id
+usr_login - varchar
+uvf_name - varchar
+uvf_subquery - varchar
+uvf_priority - smallint
+uvf_visible - bit
+uvf_objectbased - bit
+uvf_description - varchar
+BSPProcessApplications [#anchor] [SELECT]
+app_id - numeric
+<-- BSPProcesses - app_id
+app_code - varchar
+app_name - varchar
+app_exe - varchar
+app_robot - bit
+app_service - bit
+app_heartbeat_interval - int
+app_loop_interval - varchar
+app_min_version - varchar
+app_active - bit
+app_description - nvarchar
+BSPProcessDetails [#anchor] [SELECT]
+pde_id - numeric
+pro_id - numeric --> BSPProcesses - pro_id
+pde_item_type - varchar
+pde_date - datetime
+pde_ok - int
+pde_error - int
+pde_remark - nvarchar
+BSPProcesses [#anchor] [SELECT]
+pro_id - numeric
+<-- BSPProcessDetails - pro_id
+app_id - numeric --> BSPProcessApplications - app_id
+pro_pid - int
+pro_version - varchar
+pro_login - varchar
+pro_computer - varchar
+pro_ip - varchar
+pro_start - datetime
+pro_finish - datetime
+pro_heartbeat - datetime
+pro_quit_flag - bit
+pro_message_to_process - nvarchar
+pro_next_run - datetime
+pro_last_ok - int
+pro_last_error - int
+pro_last_remark - nvarchar
+pro_total_ok - int
+pro_total_error - int
+pro_description - nvarchar
+BSPProcessParameters [#anchor] [SELECT]
+ppa_id - numeric
+ppa_key - varchar
+ppa_value - nvarchar
+ppa_description - nvarchar
+CBCSelectionReasons [#anchor] [SELECT]
+sre_id - numeric
+<-- PotentialClients - sre_id
+sre_code - varchar
+sre_default_name - nvarchar
+sre_order - int
+sre_description - nvarchar
+ceptra_clients [#anchor] [SELECT]
+cpt_id - numeric
+cpt_name - nvarchar
+cpt_street - nvarchar
+cpt_city - nvarchar
+Certificates [#anchor] [SELECT]
+cer_id - numeric
+dte_id - numeric --> DocumentTemplates - dte_id
+dst_id - numeric --> DocumentStatuses - dst_id
+sco_id - numeric --> ServiceCollections - sco_id
+cer_repository - numeric
+cer_generated - datetime
+cer_sent - datetime
+cer_received - datetime
+cer_valid - bit
+cer_note - nvarchar
+cer_inserted - datetime
+cer_inserted_by - varchar
+Clients [#anchor] [SELECT]
+cli_id - numeric
+<-- ApplicationOfPayments - cli_id
+<-- ContactUpdates - cli_id
+<-- Contracts - cli_id
+<-- MergedClients - cli_id_new
+<-- MergedClients - cli_id_old
+<-- OldIDClients - cli_id
+<-- PhoneCallUpdates - cli_id
+<-- PotentialClients - cli_id
+<-- Remarks - cli_id
+<-- StorageCampaingRecords - cli_id
+<-- StorageUpdates - cli_id
+com_id - numeric --> Companies - com_id
+pot_id - numeric --> PotentialClients - pot_id
+per_id - numeric --> Persons - per_id
+cli_children - tinyint
+cli_mailinglist - bit
+cli_inserted - datetime
+cli_inserted_by - varchar
+cli_updated - datetime
+cli_updated_by - varchar
+cli_deleted - bit
+cli_note - nvarchar
+cli_marketing_signed_tx - bit
+cli_marketing_no_voucher - bit
+mcom_id - numeric --> MarketingComplaints - mcom_id
+mcoo_id - numeric --> MarketingCooperations - mcoo_id
+mvip_id - numeric --> MarketingVIPs - mvip_id
+cli_marketing_note - nvarchar
+cli_rating - int
+cli_agree_marketing_news - bit
+cli_agree_sales_news - bit
+Clones [#anchor] [SELECT]
+id - int
+inv_id_original - int
+inv_id_clone - int
+clo_company - nvarchar
+clo_note - nvarchar
+clo_remark - nvarchar
+CollaborationAgreementTypes [#anchor] [SELECT]
+agt_id - numeric
+<-- AgreementTypes - agt_id
+<-- CollectionCollaborators - agt_id
+<-- ContractRecruitments - agt_id
+<-- SetUpCollaborators - agt_id
+agt_code - varchar
+agt_default_name - nvarchar
+agt_order - int
+agt_description - nvarchar
+CollaboratorAgreements [#anchor] [SELECT]
+cag_id - numeric
+<-- AgreementTypes - cag_id
+com_id - numeric --> Companies - com_id
+doc_id - numeric --> Collaborators - doc_id
+cag_number - varchar
+cag_from - datetime
+cag_to - datetime
+cag_valid - bit
+cag_repository - numeric
+cag_questionaire_returned - datetime
+cag_agreement_sent - datetime
+cag_agreement_returned - datetime
+cag_social_insurance_registration - datetime
+cag_social_insurance_cancel - datetime
+cag_note - nvarchar
+cag_inserted - datetime
+cag_inserted_by - varchar
+cag_updated - datetime
+cag_updated_by - varchar
+afo_id - numeric --> AgreementForms - afo_id
+Collaborators [#anchor] [SELECT]
+doc_id - numeric
+<-- CollaboratorAgreements - doc_id
+<-- CollaboratorsHospitals - doc_id
+<-- CollectionCollaborators - doc_id
+<-- ContractRecruitments - doc_id
+<-- Contracts - doc_id
+<-- Contracts - doc_id_physician
+<-- OldIDCollaborators - doc_id
+<-- PhoneCommunications - doc_id
+<-- PotentialClients - doc_id_exp
+<-- PotentialClients - doc_id_recruit
+<-- Remarks - doc_id
+<-- Rewards - doc_id
+<-- Rewards3 - doc_id
+<-- RewardsCZ - doc_id
+add_id - numeric --> MailAddresses - add_id
+cty_id - numeric --> CollaboratorTypes - cty_id
+per_id - numeric --> Persons - per_id
+rer_id - numeric --> Representants - rer_id
+doc_active - bit
+doc_note - nvarchar
+doc_inserted - datetime
+doc_inserted_by - varchar
+doc_updated - datetime
+doc_updated_by - varchar
+add_id_firm - numeric --> MailAddresses - add_id
+doc_bank_name - nvarchar
+doc_account_number - varchar
+doc_account_bank_code - varchar
+doc_IBAN - varchar
+doc_SWIFT - varchar
+doc_ICO - varchar
+doc_DIC - varchar
+doc_IC_DPH - varchar
+doc_birth_place - nvarchar
+doc_client_contract - bit
+doc_svet_zdravia - bit
+doc_ztp - datetime
+doc_pension_retired - datetime
+doc_pension_disabled - datetime
+doc_pension_widowed - datetime
+doc_monthly_rewards - bit
+doc_agreement_type - nvarchar
+CollaboratorsHospitals [#anchor] [SELECT]
+doc_id - numeric --> Collaborators - doc_id
+hos_id - numeric --> Hospitals - hos_id
+ch_position - varchar
+CollaboratorTypes [#anchor] [SELECT]
+cty_id - numeric
+<-- Collaborators - cty_id
+<-- SetUpCollaborators - cty_id
+cty_code - varchar
+cty_default_name - nvarchar
+cty_order - int
+cty_description - nvarchar
+CollectionAnnouncementQueue [#anchor] [SELECT]
+caq_id - numeric
+com_id - numeric --> Companies - com_id
+caq_date - datetime
+caq_from - varchar
+caq_subject - varchar
+caq_body - varchar
+caq_processed - datetime
+caq_processed_by - varchar
+caq_result - varchar
+caq_note - nvarchar
+CollectionAnnouncements [#anchor] [SELECT]
+can_id - numeric
+com_id - numeric --> Companies - com_id
+ctr_id - numeric --> CollectionTransports - ctr_id
+hos_id - numeric --> Hospitals - hos_id
+sco_id - numeric --> ServiceCollections - sco_id
+can_client_id - numeric
+can_client_first_name - nvarchar
+can_client_last_name - nvarchar
+can_collection_time - datetime
+can_announcement_time - datetime
+can_who_announced - nvarchar
+can_deleted - bit
+can_inserted - datetime
+can_inserted_by - varchar
+can_updated - datetime
+can_updated_by - varchar
+can_note - nvarchar
+CollectionCollaborators [#anchor] [SELECT]
+doc_id - numeric --> Collaborators - doc_id
+sco_id - numeric --> ServiceCollections - sco_id
+agt_id - numeric --> CollaborationAgreementTypes - agt_id
+cco_reward_id - numeric
+CollectionEvaluationResults [#anchor] [SELECT]
+cev_id - numeric
+cet_id - numeric --> CollectionEvaluationTemplates - cet_id
+sco_id - numeric --> ServiceCollections - sco_id
+cev_value_number - numeric
+cev_value_text - nvarchar
+cev_value_text_update - nvarchar
+CollectionEvaluationTemplates [#anchor] [SELECT]
+cet_id - numeric
+<-- CollectionEvaluationResults - cet_id
+sin_id - numeric --> ServiceInstances - sin_id
+cet_name - nvarchar
+cet_code - varchar
+cet_datatype - varchar
+cet_field_name - nvarchar
+cet_lab_registry_type - varchar
+cet_order - int
+cet_critical - bit
+CollectionKitsTypes [#anchor] [SELECT]
+ckt_id - numeric
+<-- ContractServices - ckt_id
+<-- HospitalsCollectionKits - ckt_id
+<-- ServiceInstancesCollectionKitTypes - ckt_id
+<-- ServicesCollectionKitTypes - ckt_id
+ckt_name - nvarchar
+ckt_description - nvarchar
+com_id - numeric --> Companies - com_id
+ckt_active - bit
+CollectionLaboratoryStates [#anchor] [SELECT]
+cls_id - numeric
+<-- ServiceCollections - cls_id
+cls_lab_id - int
+cls_code - varchar
+cls_default_name - nvarchar
+cls_order - int
+cls_description - nvarchar
+CollectionQuantity [#anchor] [SELECT]
+cqu_id - int
+rco_id - int --> SetUpCollaborators - rco_id
+cot_id - int --> CollectionTypes - cot_id
+sin_id - numeric --> ServiceInstances - sin_id
+cqu_01 - numeric
+cqu_02 - numeric
+cqu_03 - numeric
+cqu_04 - numeric
+cqu_valid_from - date
+cqu_valid_to - date
+cqu_inserted - datetime
+cqu_inserted_by - varchar
+cqu_updated - datetime
+cqu_deleted - bit
+cqu_updated_by - varchar
+CollectionStatuses [#anchor] [SELECT]
+csu_id - numeric
+<-- ServiceCollections - csu_id
+<-- ServiceCollectionStateHistories - csu_id
+csu_code - varchar
+csu_default_name - nvarchar
+csu_order - int
+csu_description - nvarchar
+CollectionTransferTypes [#anchor] [SELECT]
+ctt_id - numeric
+<-- ServiceCollections - ctt_id
+ctt_code - varchar
+ctt_default_name - nvarchar
+ctt_order - int
+ctt_description - nvarchar
+CollectionTransports [#anchor] [SELECT]
+ctr_id - numeric
+<-- CollectionAnnouncements - ctr_id
+cou_id - numeric --> Couriers - cou_id
+lab_id - numeric --> Laboratories - lab_id
+ant_id_to_courier - numeric --> AnnouncementTypes - ant_id
+ant_id_to_lab - numeric --> AnnouncementTypes - ant_id
+ctr_announced_to_courier - datetime
+ctr_announced_to_courier_by - varchar
+ctr_announced_to_lab - datetime
+ctr_announced_to_lab_by - varchar
+ctr_order_number - varchar
+ctr_confirmed_by_courier - bit
+ctr_arrived_to_lab - datetime
+ctr_inserted - datetime
+ctr_inserted_by - varchar
+ctr_updated - datetime
+ctr_updated_by - varchar
+ctr_note - nvarchar
+CollectionTypes [#anchor] [SELECT]
+cot_id - int
+<-- CollectionQuantity - cot_id
+cot_code - varchar
+cot_default_name - nvarchar
+cot_order - int
+cot_description - nvarchar
+CollectionUsabilities [#anchor] [SELECT]
+usa_id - numeric
+<-- ServiceCollections - usa_id
+usa_lab_id - int
+usa_code - varchar
+usa_default_name - nvarchar
+usa_order - int
+usa_description - nvarchar
+Companies [#anchor] [SELECT]
+com_id - numeric
+<-- Acts - com_id
+<-- AgreementForms - com_id
+<-- AoPAccounts - com_id_contract
+<-- AoPAccounts - com_id_invoice
+<-- Batches - com_id
+<-- Batches - com_id_paying
+<-- Clients - com_id
+<-- CollaboratorAgreements - com_id
+<-- CollectionAnnouncementQueue - com_id
+<-- CollectionAnnouncements - com_id
+<-- CollectionKitsTypes - com_id
+<-- CompaniesRepresentants - com_id
+<-- CompanyAccounts - com_id
+<-- CompanyDetails - com_id
+<-- CompanyRewardTypes - com_id
+<-- Contacts - com_id
+<-- ContactSources - com_id
+<-- ContractAmendmentTemplates - com_id
+<-- ContractNumberSequencies - com_id
+<-- ContractTemplates - com_id
+<-- Couriers - com_id
+<-- CoverLetterQueue - com_id
+<-- DocumentTemplates - com_id
+<-- EmailQueue - com_id
+<-- HospitalAgreements - com_id
+<-- InMailsQueue - com_id
+<-- InvoiceNumberSequencies - com_id
+<-- IOAccountings - com_id
+<-- IOCRMs - com_id
+<-- IOLabs - com_id
+<-- Logs - com_id
+<-- MarketingActions - com_id
+<-- MarketingCodes - com_id
+<-- MarketProducts - com_id
+<-- OutMailsQueue - com_id
+<-- Parameters - com_id
+<-- PaymentTypes - com_id
+<-- PotentialClients - com_id
+<-- RefinancingOptions - com_id
+<-- RewardTemplates - com_id
+<-- ServiceCollections - com_id
+<-- ServiceCollections - com_id_transferred
+<-- ServiceInstanceInvoicings - com_id
+<-- Services - com_id
+<-- SMSQueue - com_id
+<-- StorageCampaigns - com_id
+<-- StorageCampaignServices - com_id_invoicing
+<-- SurchargeTypes - com_id
+<-- VATs - com_id_accounting
+<-- WebRegistrationQueue - com_id
+cur_code - varchar --> Currencies - cur_code
+com_ext_id - numeric
+com_sec_org_code - varchar
+com_code - varchar
+com_name - nvarchar
+com_country_code - varchar
+com_entity_code - varchar
+com_invoice_barcode_letter - varchar
+CompaniesRepresentants [#anchor] [SELECT]
+rer_id - numeric --> Representants - rer_id
+com_id - numeric --> Companies - com_id
+cor_area - nvarchar
+CompanyAccounts [#anchor] [SELECT]
+acc_id - numeric
+<-- Invoices - acc_id
+<-- ServiceInstanceInvoicings - acc_id
+com_id - numeric --> Companies - com_id
+cur_code - varchar --> Currencies - cur_code
+acc_name - nvarchar
+acc_bank_name - nvarchar
+acc_account_number - varchar
+acc_account_bank_code - varchar
+acc_IBAN - varchar
+acc_SWIFT - varchar
+acc_active - bit
+acc_from - datetime
+acc_to - datetime
+acc_remark - nvarchar
+CompanyDetails [#anchor] [SELECT]
+cod_id - numeric
+add_id_residence - numeric --> MailAddresses - add_id
+add_id_mail - numeric --> MailAddresses - add_id
+com_id - numeric --> Companies - com_id
+cod_full_name - nvarchar
+cod_phone_contact - varchar
+cod_email - varchar
+cod_ico - varchar
+cod_dic - varchar
+cod_vat_dic - varchar
+cod_web_from_email - varchar
+cod_coverletter_to_email - varchar
+cod_default_language - varchar
+cod_from - datetime
+cod_to - datetime
+cod_active - bit
+cod_inserted - datetime
+cod_inserted_by - varchar
+cod_updated - datetime
+cod_updated_by - varchar
+cod_collection_kit_to_client - bit
+cod_manual_payments - bit
+cod_empty_child_name - bit
+cod_mandatory_uid - bit
+CompanyRewardTypes [#anchor] [SELECT]
+crt_id - numeric
+<-- RewardTemplateItems - crt_id
+com_id - numeric --> Companies - com_id
+ree_id - numeric --> Entities - ree_id
+reb_id - numeric --> Bounds - reb_id
+bre_id - numeric --> BoundRewardedEntities - bre_id
+crt_bound_cardinality - int
+crt_name - nvarchar
+crt_period - nvarchar
+crt_dates - nvarchar
+crt_description - nvarchar
+Contacts [#anchor] [SELECT]
+cnt_id - numeric
+<-- PotentialClients - cnt_id
+<-- Remarks - cnt_id
+cst_id - numeric --> ContactStatuses - cst_id
+cos_id - numeric --> ContactSources - cos_id
+com_id - numeric --> Companies - com_id
+pro_id - numeric --> Products - pro_id
+mac_id - numeric --> MarketingActions - mac_id
+cnt_title_prefix - nvarchar
+cnt_first_name - nvarchar
+cnt_middle_name - nvarchar
+cnt_last_name - nvarchar
+cnt_title_suffix - nvarchar
+cnt_mobile - varchar
+cnt_phone_number - varchar
+cnt_email - varchar
+cnt_inserted - datetime
+cnt_inserted_by - varchar
+cnt_updated - datetime
+cnt_updated_by - varchar
+cnt_deleted - bit
+cnt_note - nvarchar
+ContactSources [#anchor] [SELECT]
+cos_id - numeric
+<-- Contacts - cos_id
+<-- PotentialClients - cos_id
+com_id - numeric --> Companies - com_id
+cos_name - nvarchar
+cos_active - bit
+cos_order - int
+cos_description - nvarchar
+ContactStatuses [#anchor] [SELECT]
+cst_id - numeric
+<-- Contacts - cst_id
+cst_code - varchar
+cst_default_name - nvarchar
+cst_order - int
+cst_description - nvarchar
+ContactUpdates [#anchor] [SELECT]
+cup_id - numeric
+cli_id - numeric --> Clients - cli_id
+cup_dialcom_id - varchar
+cup_no_voucher - bit
+cup_mobile - varchar
+cup_mobile2 - varchar
+cup_email - varchar
+cup_email2 - varchar
+cup_main_street_and_number - varchar
+cup_main_city - varchar
+cup_main_zip - varchar
+cup_main_area - varchar
+cup_main_country - varchar
+cup_corr_name - varchar
+cup_corr_street_and_number - varchar
+cup_corr_city - varchar
+cup_corr_zip - varchar
+cup_corr_area - varchar
+cup_corr_country - varchar
+cup_inserted - datetime
+cup_inserted_by - varchar
+cup_processed_result - varchar
+cup_message - varchar
+cup_processed - datetime
+cup_processed_by - varchar
+cup_first_name - nvarchar
+cup_last_name - nvarchar
+cup_other_contact - nvarchar
+cup_phone_number - varchar
+cup_title_prefix - nvarchar
+cup_title_suffix - nvarchar
+cup_middle_name - nvarchar
+cup_maiden_name - nvarchar
+cup_birth_date - datetime
+cup_id_number - varchar
+cup_mobile3 - varchar
+cup_mobile4 - varchar
+cup_mobile5 - varchar
+cup_email3 - varchar
+cup_email4 - varchar
+cup_email5 - varchar
+ContactUpdatesTest [#anchor] [SELECT]
+cup_id - numeric
+cli_id - numeric
+cup_dialcom_id - varchar
+cup_no_voucher - bit
+cup_mobile - varchar
+cup_mobile2 - varchar
+cup_email - varchar
+cup_email2 - varchar
+cup_main_street_and_number - varchar
+cup_main_city - varchar
+cup_main_zip - varchar
+cup_main_area - varchar
+cup_main_country - varchar
+cup_corr_name - varchar
+cup_corr_street_and_number - varchar
+cup_corr_city - varchar
+cup_corr_zip - varchar
+cup_corr_area - varchar
+cup_corr_country - varchar
+cup_inserted - datetime
+cup_inserted_by - varchar
+cup_processed_result - varchar
+cup_message - varchar
+cup_processed - datetime
+cup_processed_by - varchar
+cup_first_name - nvarchar
+cup_last_name - nvarchar
+cup_other_contact - nvarchar
+cup_phone_number - varchar
+cup_title_prefix - nvarchar
+cup_title_suffix - nvarchar
+cup_middle_name - nvarchar
+cup_maiden_name - nvarchar
+cup_birth_date - datetime
+cup_id_number - varchar
+cup_mobile3 - varchar
+cup_mobile4 - varchar
+cup_mobile5 - varchar
+cup_email3 - varchar
+cup_email4 - varchar
+cup_email5 - varchar
+ContractAmendmentTemplateFields [#anchor] [SELECT]
+caf_id - numeric
+cat_id - numeric --> ContractAmendmentTemplates - cat_id
+caf_template_placeholder - varchar
+caf_template_query_field - varchar
+caf_system_key - nvarchar
+caf_value_subquery - varchar
+caf_format - varchar
+caf_datatype - varchar
+caf_is_table - bit
+ContractAmendmentTemplates [#anchor] [SELECT]
+cat_id - numeric
+<-- Amendments - cat_id
+<-- ContractAmendmentTemplateFields - cat_id
+<-- ContractAmendmentTemplateServices - cat_id
+<-- PriceListPayments - cat_id
+<-- PriceLists - cat_id
+<-- PriceListSurcharges - cat_id
+com_id - numeric --> Companies - com_id
+mpi_id - numeric --> MarketProductInstances - mpi_id
+cat_template_number - varchar
+cat_name - nvarchar
+cat_copies_to_send - int
+cat_sign_by_client - bit
+cat_sign_by_cbc - bit
+cat_repository - numeric
+cat_template_queries - varchar
+cat_from - datetime
+cat_to - datetime
+cat_active - bit
+cat_inserted - datetime
+cat_inserted_by - varchar
+cat_updated - datetime
+cat_updated_by - varchar
+cat_description - nvarchar
+ContractAmendmentTemplateServices [#anchor] [SELECT]
+cas_id - numeric
+cat_id - numeric --> ContractAmendmentTemplates - cat_id
+sin_id - numeric --> ServiceInstances - sin_id
+cas_cancellation_sanction - money
+cas_overdue_penalty - money
+cas_sms_aop_fee - money
+cas_letter_aop_fee - money
+cas_inflation_increase - bit
+cas_other_sanction - nvarchar
+ContractDocuments [#anchor] [SELECT]
+cdo_id - numeric
+<-- DocumentStateHistories - cdo_id
+dte_id - numeric --> DocumentTemplates - dte_id
+con_id - numeric --> Contracts - con_id
+dst_id - numeric --> DocumentStatuses - dst_id
+cdo_name - nvarchar
+cdo_repository - numeric
+cdo_inserted - datetime
+cdo_inserted_by - varchar
+cdo_note - nvarchar
+ContractFormStateHistories [#anchor] [SELECT]
+osh_id - numeric
+dst_id - numeric --> DocumentStatuses - dst_id
+con_id - numeric --> Contracts - con_id
+osh_changed - datetime
+osh_changed_by - varchar
+osh_note - nvarchar
+ContractNumberSequencies [#anchor] [SELECT]
+cns_id - numeric
+<-- ContractTemplatesContractNumberSequencies - cns_id
+com_id - numeric --> Companies - com_id
+cns_name - nvarchar
+cns_year - int
+cns_preprinted - bit
+cns_prefix - varchar
+cns_suffix - varchar
+cns_number_of_digits - int
+cns_contract_number_from - varchar
+cns_contract_number_to - varchar
+cns_last_sequence - varchar
+cns_description - nvarchar
+ContractRecruitments [#anchor] [SELECT]
+doc_id - numeric --> Collaborators - doc_id
+con_id - numeric --> Contracts - con_id
+agt_id - numeric --> CollaborationAgreementTypes - agt_id
+mpi_id - numeric --> MarketProductInstances - mpi_id
+cor_inserted - datetime
+cor_inserted_by - varchar
+cor_reward_id - numeric
+ContractRelations [#anchor] [SELECT]
+con_id - numeric --> Contracts - con_id
+con_id_related - numeric --> Contracts - con_id
+ccr_id - numeric --> ContractsRelationTypes - ccr_id
+crs_note - nvarchar
+Contracts [#anchor] [SELECT]
+con_id - numeric
+<-- Acts - con_id_bound
+<-- Amendments - con_id
+<-- ContractDocuments - con_id
+<-- ContractFormStateHistories - con_id
+<-- ContractRecruitments - con_id
+<-- ContractRelations - con_id
+<-- ContractRelations - con_id_related
+<-- ContractServices - con_id
+<-- ContractsPersons - con_id
+<-- ContractStateHistories - con_id
+<-- ExternalDocuments - con_id
+<-- MergedClientsContracts - con_id
+<-- OldIDContracts - con_id
+<-- PhoneCallUpdates - con_id
+<-- Prepayments - con_id
+<-- Remarks - con_id
+<-- Rewards - con_id
+<-- Rewards3 - con_id
+<-- RewardsCZ - con_id
+<-- StorageCampaingRecords - con_id
+hos_id - numeric --> Hospitals - hos_id
+cli_id - numeric --> Clients - cli_id
+add_id - numeric --> MailAddresses - add_id
+tre_id - numeric --> ContractTerminationReasons - tre_id
+pot_id - numeric --> PotentialClients - pot_id
+csa_id - numeric --> ContractStatuses - csa_id
+doc_id - numeric --> Collaborators - doc_id
+cte_id - numeric --> ContractTemplates - cte_id
+dst_id - numeric --> DocumentStatuses - dst_id
+con_number - varchar
+con_expected_collection_date - datetime
+con_pregnancy_type - tinyint
+con_repository - numeric
+con_gift_card - varchar
+con_contacted - datetime
+con_filled - datetime
+con_generated - datetime
+con_sent - datetime2
+con_confirmed - datetime
+con_returned - datetime
+con_validated - datetime
+con_realized - datetime
+con_terminated - datetime
+con_cancelled - datetime
+con_invoicing_postponed - bit
+con_invoices_by_email - bit
+con_invoices_by_letter - bit
+con_inserted - datetime
+con_inserted_by - varchar
+con_updated - datetime
+con_updated_by - varchar
+con_note - nvarchar
+ckt_id - numeric
+con_collection_kit_number - varchar
+con_collection_kit_expired - datetime
+con_collection_kit_sent - datetime
+con_collection_kit_courrier - varchar
+con_saving_bank - nvarchar
+rfo_id - numeric --> RefinancingOptions - rfo_id
+con_refinancing_detail - varchar
+rer_id - numeric --> Representants - rer_id
+con_indicated - bit
+mpi_id_initialized - numeric --> MarketProductInstances - mpi_id
+con_uuid - numeric
+con_dialcom_campaign - nvarchar
+con_dialcom_operator - nvarchar
+con_dialcom_status - nvarchar
+CON_RETURNED_MIGRATION_CONTRACT - bit
+CON_RETURNED_MIGRATION_CONTRACT_DATE - datetime
+doc_id_physician - numeric --> Collaborators - doc_id
+fct_id - numeric --> FirstCallTypes - fct_id
+con_firstcall_operator - varchar
+con_cbtc_invoice_sent - bit
+mcs_id - numeric --> MigrationContractStates - mcs_id
+con_dialcom_cancel_request - bit
+CON_TERMINATION_RECEIVED - datetime
+CON_TERMINATION_RECEIVED_REASON - nvarchar
+CON_TerminationRequested - datetime
+CON_TerminationDocsSent - bit
+CON_TerminationNoticeDate - datetime
+CON_NoticePeriod - int
+CON_Disposal - bit
+CON_SettlementDate - datetime
+CON_Settler - nvarchar
+CON_Disposal_Str - nvarchar
+ContractServiceInflations [#anchor] [SELECT]
+csi_id - numeric
+cse_id - numeric --> ContractServices - cse_id
+csi_original_price - money
+csi_inflated_price - money
+csi_year - int
+csi_rate - numeric
+hcs_id_before - numeric
+hcs_id_after - numeric
+css_id_after - numeric
+csi_inserted - datetime
+csi_inserted_by - varchar
+csi_rollback - bit
+ContractServiceNotificationEvents [#anchor] [SELECT]
+net_id - numeric --> NotificationEventTemplates - net_id
+cse_id - numeric --> ContractServices - cse_id
+sne_raised - datetime
+sne_handled - datetime
+sne_handled_by - varchar
+ContractServicePayments [#anchor] [SELECT]
+csp_id - numeric
+<-- HistoryContractServicePayments - csp_id
+plp_id - numeric --> PriceListPayments - plp_id
+cse_id - numeric --> ContractServices - cse_id
+csp_original_price - money
+csp_actual_price - money
+ContractServices [#anchor] [SELECT]
+cse_id - numeric
+<-- ContractServiceInflations - cse_id
+<-- ContractServiceNotificationEvents - cse_id
+<-- ContractServicePayments - cse_id
+<-- ContractServiceSurcharges - cse_id
+<-- HistoryContractServices - cse_id
+<-- Invoices - cse_id
+sin_id - numeric --> ServiceInstances - sin_id
+ckt_id - numeric --> CollectionKitsTypes - ckt_id
+pri_id - numeric --> PriceLists - pri_id
+sco_id - numeric --> ServiceCollections - sco_id
+con_id - numeric --> Contracts - con_id
+cse_original_price - money
+cse_actual_price - money
+cse_active - bit
+cse_collection_kit_sent - datetime
+cse_invoicing_finished - bit
+cse_inserted - datetime
+cse_inserted_by - varchar
+cse_updated - datetime
+cse_updated_by - varchar
+cse_note - nvarchar
+scs_id - numeric
+sup_id - numeric
+cse_rollback - bit
+ContractServiceSchedulePayments [#anchor] [SELECT]
+csy_id - numeric
+<-- ScheduledPayments - csy_id
+csh_id - numeric --> ContractServiceSchedules - csh_id
+csy_name - nvarchar
+csy_installments_id - int
+csy_amount - money
+csy_paymentdate_field - varchar
+csy_days_from_field_value - int
+csy_days_from_previous - int
+csy_inserted - datetime
+csy_inserted_by - varchar
+ContractServiceSchedules [#anchor] [SELECT]
+csh_id - numeric
+<-- ContractServiceSchedulePayments - csh_id
+sch_id - numeric --> ScheduleTemplates - sch_id
+hcs_id - numeric --> HistoryContractServices - hcs_id
+csh_name - nvarchar
+csh_preliminary_schedule - bit
+csh_generate_after - datetime
+csh_inserted - datetime
+csh_inserted_by - varchar
+ContractServiceSurcharges [#anchor] [SELECT]
+css_id - numeric
+<-- HistoryContractServiceSurcharges - css_id
+cse_id - numeric --> ContractServices - cse_id
+pls_id - numeric --> PriceListSurcharges - pls_id
+css_original_price - money
+css_actual_price - money
+css_additional_data - varchar
+ContractsPersons [#anchor] [SELECT]
+con_id - numeric --> Contracts - con_id
+per_id - numeric --> Persons - per_id
+pcr_id - numeric --> PersonsContractsRelationTypes - pcr_id
+cop_note - varchar
+ContractsRelationTypes [#anchor] [SELECT]
+ccr_id - numeric
+<-- ContractRelations - ccr_id
+ccr_code - varchar
+ccr_default_name - nvarchar
+ccr_order - int
+ccr_description - nvarchar
+ContractStateHistories [#anchor] [SELECT]
+nsh_id - numeric
+csa_id - numeric --> ContractStatuses - csa_id
+con_id - numeric --> Contracts - con_id
+nsh_changed - datetime
+nsh_changed_by - varchar
+nsh_note - nvarchar
+ContractStatuses [#anchor] [SELECT]
+csa_id - numeric
+<-- Contracts - csa_id
+<-- ContractStateHistories - csa_id
+csa_code - varchar
+csa_default_name - nvarchar
+csa_order - int
+csa_description - nvarchar
+ContractTemplateFields [#anchor] [SELECT]
+ctf_id - numeric
+cte_id - numeric --> ContractTemplates - cte_id
+ctf_template_placeholder - varchar
+ctf_template_query_field - varchar
+ctf_system_key - nvarchar
+ctf_value_subquery - varchar
+ctf_format - varchar
+ctf_datatype - varchar
+ctf_is_table - bit
+ContractTemplates [#anchor] [SELECT]
+cte_id - numeric
+<-- Contracts - cte_id
+<-- ContractTemplateFields - cte_id
+<-- ContractTemplatesContractNumberSequencies - cte_id
+<-- ContractTemplateServices - cte_id
+mpi_id - numeric --> MarketProductInstances - mpi_id
+cur_code - varchar --> Currencies - cur_code
+com_id - numeric --> Companies - com_id
+cte_template_number - varchar
+cte_name - nvarchar
+cte_contract_number_from - numeric
+cte_contract_number_to - numeric
+cte_copies_to_send - int
+cte_sign_by_client - bit
+cte_sign_by_cbc - bit
+cte_repository - numeric
+cte_template_queries - varchar
+cte_from - datetime
+cte_to - datetime
+cte_active - bit
+cte_inserted - datetime
+cte_inserted_by - varchar
+cte_updated - datetime
+cte_updated_by - varchar
+cte_description - nvarchar
+ContractTemplatesContractNumberSequencies [#anchor] [SELECT]
+cte_id - numeric --> ContractTemplates - cte_id
+cns_id - numeric --> ContractNumberSequencies - cns_id
+ContractTemplateServices [#anchor] [SELECT]
+cts_id - numeric
+cte_id - numeric --> ContractTemplates - cte_id
+sin_id - numeric --> ServiceInstances - sin_id
+cts_cancellation_sanction - money
+cts_overdue_penalty - money
+cts_sms_aop_fee - money
+cts_letter_aop_fee - money
+cts_inflation_increase - bit
+cts_other_sanction - nvarchar
+ContractTerminationReasons [#anchor] [SELECT]
+tre_id - numeric
+<-- Contracts - tre_id
+tre_code - varchar
+tre_default_name - nvarchar
+tre_order - int
+tre_description - nvarchar
+Countries [#anchor] [SELECT]
+cri_id - numeric
+cri_code - varchar
+cri_default_name - nvarchar
+cri_order - int
+cri_description - nvarchar
+Couriers [#anchor] [SELECT]
+cou_id - numeric
+<-- CollectionTransports - cou_id
+com_id - numeric --> Companies - com_id
+cou_name - nvarchar
+cou_phone - varchar
+cou_email - varchar
+cou_active - bit
+cou_inserted - datetime
+cou_inserted_by - varchar
+cou_updated - datetime
+cou_updated_by - varchar
+cou_description - nvarchar
+CoverLetterQueue [#anchor] [SELECT]
+clq_id - numeric
+com_id - numeric --> Companies - com_id
+lab_id - numeric --> Laboratories - lab_id
+clq_date - datetime
+clq_from - varchar
+clq_subject - varchar
+clq_body - varchar
+clq_attachment - numeric
+clq_processed - datetime
+clq_processed_by - varchar
+clq_result - varchar
+clq_note - nvarchar
+CRMExportFiles [#anchor] [SELECT]
+cef_id - numeric
+icr_id - numeric --> IOCRMResults - icr_id
+cef_filename - varchar
+cef_hash - varchar
+cef_generated - datetime
+cef_filesize - numeric
+cef_exported_collaborants - numeric
+cef_exported_hospitals - numeric
+cef_exported_collections - numeric
+CRMImportFiles [#anchor] [SELECT]
+cif_id - numeric
+<-- CRMImportLines - cif_id
+icr_id - numeric --> IOCRMResults - icr_id
+cif_filename - varchar
+cif_hash - varchar
+cif_processed - datetime
+cif_filesize - numeric
+cif_imported_lines - numeric
+CRMImportLines [#anchor] [SELECT]
+cil_id - numeric
+<-- CRMImportLineValues - cil_id
+cif_id - numeric --> CRMImportFiles - cif_id
+cil_crm_id - varchar
+cil_line_type - varchar
+cil_raw_data - varchar
+CRMImportLineValues [#anchor] [SELECT]
+civ_id - numeric
+cil_id - numeric --> CRMImportLines - cil_id
+civ_field_name - varchar
+civ_value - varchar
+CRMTypes [#anchor] [SELECT]
+crm_id - numeric
+<-- IOCRMs - crm_id
+crm_name - nvarchar
+crm_inserted - datetime
+crm_inserted_by - varchar
+Currencies [#anchor] [SELECT]
+cur_code - varchar
+<-- Companies - cur_code
+<-- CompanyAccounts - cur_code
+<-- ContractTemplates - cur_code
+<-- ExchangeRates - cur_code_from
+<-- ExchangeRates - cur_code_to
+<-- Invoices - cur_code_home
+<-- Invoices - cur_code_account
+<-- Rewards - cur_code
+<-- Rewards3 - cur_code
+<-- RewardsCZ - cur_code
+cur_name - varchar
+DbChanges [#anchor] [SELECT]
+Id - int
+User - nvarchar
+Description - nvarchar
+Changed - datetime
+DiscountCategories [#anchor] [SELECT]
+dis_id - numeric
+<-- SurchargeTypes - dis_id
+dis_code - varchar
+dis_default_name - varchar
+dis_order - int
+dis_description - varchar
+DocumentStateHistories [#anchor] [SELECT]
+dsh_id - numeric
+dst_id - numeric --> DocumentStatuses - dst_id
+cdo_id - numeric --> ContractDocuments - cdo_id
+dsh_changed - datetime
+dsh_changed_by - varchar
+dsh_note - nvarchar
+DocumentStatuses [#anchor] [SELECT]
+dst_id - numeric
+<-- Amendments - dst_id
+<-- AmendmentStateHistories - dst_id
+<-- AoPDocuments - dst_id
+<-- Certificates - dst_id
+<-- ContractDocuments - dst_id
+<-- ContractFormStateHistories - dst_id
+<-- Contracts - dst_id
+<-- DocumentStateHistories - dst_id
+<-- ExternalDocuments - dst_id
+<-- Invoices - dst_id
+dst_code - varchar
+dst_default_name - nvarchar
+dst_order - int
+dst_description - nvarchar
+DocumentTemplateFields [#anchor] [SELECT]
+dtf_id - numeric
+dte_id - numeric --> DocumentTemplates - dte_id
+dtf_template_placeholder - varchar
+dtf_template_query_field - varchar
+dtf_system_key - nvarchar
+dtf_value_subquery - varchar
+dtf_format - varchar
+dtf_datatype - varchar
+dtf_is_table - bit
+DocumentTemplates [#anchor] [SELECT]
+dte_id - numeric
+<-- AoPDocuments - dte_id
+<-- Certificates - dte_id
+<-- ContractDocuments - dte_id
+<-- DocumentTemplateFields - dte_id
+<-- Invoices - dte_id
+<-- ServiceInstances - dte_id_certificate
+<-- ServicesDocumentTemplates - dte_id
+<-- StorageCampaignDocuments - dte_id_attachment
+<-- StorageCampaignEmails - dte_id_email
+<-- StorageCampaignServices - dte_id_proforma
+<-- StorageCampaignServices - dte_id_invoice
+<-- StorageCampaignServices - dte_id_annex
+dty_id - numeric --> DocumentTypes - dty_id
+com_id - numeric --> Companies - com_id
+dte_template_number - varchar
+dte_name - nvarchar
+dte_copies_to_send - int
+dte_sign_by_client - bit
+dte_sign_by_cbc - bit
+dte_repository - numeric
+dte_template_queries - varchar
+dte_from - datetime
+dte_to - datetime
+dte_active - bit
+dte_is_default - bit
+dte_inserted - datetime
+dte_inserted_by - varchar
+dte_updated - datetime
+dte_updated_by - varchar
+dte_description - nvarchar
+DocumentTypes [#anchor] [SELECT]
+dty_id - numeric
+<-- DocumentTemplates - dty_id
+dty_code - varchar
+dty_default_name - nvarchar
+dty_order - int
+dty_description - nvarchar
+EmailQueue [#anchor] [SELECT]
+emq_id - numeric
+com_id - numeric --> Companies - com_id
+emq_date - datetime
+emq_from_address - varchar
+emq_reply_to_address - varchar
+emq_email_address - varchar
+emq_cc - varchar
+emq_subject - varchar
+emq_body - varchar
+emq_attachment - numeric
+emq_processed - datetime
+emq_processed_by - varchar
+emq_result - varchar
+emq_note - nvarchar
+Entities [#anchor] [SELECT]
+ree_id - numeric
+<-- BoundRewardedEntities - ree_id
+<-- CompanyRewardTypes - ree_id
+<-- EntityAgreementRewardTemplates - ree_id
+<-- RewardTemplates - ree_id
+ree_code - varchar
+ree_default_name - varchar
+ree_order - int
+ree_description - varchar
+EntityAgreementRewardTemplates [#anchor] [SELECT]
+art_id - numeric
+rte_id - numeric --> RewardTemplates - rte_id
+ree_id - numeric --> Entities - ree_id
+entity_id - numeric
+art_priority - int
+ESORealizedPaymentSimulation [#anchor] [SELECT]
+eso_id - numeric
+eso_record_type - varchar
+eso_timestamp - datetime2
+eso_date_of_payment - datetime
+eso_amount_in_domestic_currency - money
+eso_domestic_currency - varchar
+eso_amount_in_foreign_currency - money
+eso_foreign_currency - varchar
+eso_exchange_rate - money
+eso_payment_type - varchar
+eso_recipient_account - varchar
+eso_recipient_bank - varchar
+eso_recipient_IBAN - varchar
+eso_recipient_SWIFT - varchar
+eso_variable_symbol - varchar
+eso_specific_symbol - varchar
+eso_message_to_recipient - varchar
+eso_sender_account - varchar
+eso_sender_bank - varchar
+eso_sender_IBAN - varchar
+eso_sender_SWIFT - varchar
+eso_document_number - varchar
+eso_matched_invoice_id - numeric
+eso_matched_invoice_number - varchar
+eso_comment - nvarchar
+com_id_business - numeric
+com_id_accounting - numeric
+ExchangeLog [#anchor] [SELECT]
+ex_id - int
+ex_date - date
+ex_email - nvarchar
+ex_group - nvarchar
+ex_direction - nvarchar
+ex_count - int
+ExchangeRates [#anchor] [SELECT]
+exc_id - numeric
+cur_code_from - varchar --> Currencies - cur_code
+cur_code_to - varchar --> Currencies - cur_code
+exc_exchange_rate - money
+exc_date - datetime
+ExportFiles [#anchor] [SELECT]
+exf_id - numeric
+ier_id - numeric --> IOExportResults - ier_id
+exf_filename - varchar
+exf_hash - varchar
+exf_generated - datetime
+exf_filesize - numeric
+exf_exported_lines - numeric
+ExternalDocuments [#anchor] [SELECT]
+edo_id - numeric
+con_id - numeric --> Contracts - con_id
+dst_id - numeric --> DocumentStatuses - dst_id
+edo_name - nvarchar
+edo_repository - numeric
+edo_inserted - datetime
+edo_inserted_by - varchar
+edo_note - nvarchar
+FileRepositories [#anchor] [SELECT]
+rep_id - numeric
+rep_location - varchar
+rep_filename - varchar
+rep_hash - varchar
+rep_filesize - numeric
+rep_inserted - datetime
+rep_inserted_by - varchar
+rep_deleted - bit
+FirstCallTypes [#anchor] [SELECT]
+fct_id - numeric
+<-- Contracts - fct_id
+fct_code - varchar
+fct_default_name - nvarchar
+fct_order - int
+fct_description - nvarchar
+FirstInformationSources [#anchor] [SELECT]
+fis_id - numeric
+<-- PotentialClients - fis_id
+fis_code - varchar
+fis_default_name - nvarchar
+fis_order - int
+fis_description - nvarchar
+HistoryContractServicePayments [#anchor] [SELECT]
+hsp_id - numeric
+csp_id - numeric --> ContractServicePayments - csp_id
+hsp_price - money
+hsp_from - datetime
+hsp_to - datetime
+hsp_actual - bit
+hsp_inserted - datetime
+hsp_inserted_by - varchar
+hsp_note - nvarchar
+HistoryContractServices [#anchor] [SELECT]
+hcs_id - numeric
+<-- ContractServiceSchedules - hcs_id
+cse_id - numeric --> ContractServices - cse_id
+hcs_price - money
+hcs_from - datetime
+hcs_to - datetime
+hcs_actual - bit
+hcs_inserted - datetime
+hcs_inserted_by - varchar
+hcs_note - nvarchar
+HistoryContractServiceSurcharges [#anchor] [SELECT]
+hss_id - numeric
+css_id - numeric --> ContractServiceSurcharges - css_id
+hss_price - money
+hss_from - datetime
+hss_to - datetime
+hss_actual - bit
+hss_inserted - datetime
+hss_inserted_by - varchar
+hss_note - nvarchar
+HospitalAgreements [#anchor] [SELECT]
+hag_id - numeric
+com_id - numeric --> Companies - com_id
+hos_id - numeric --> Hospitals - hos_id
+hag_number - varchar
+hag_from - datetime
+hag_to - datetime
+hag_valid - bit
+hag_repository - numeric
+hag_agreement_sent - datetime
+hag_agreement_returned - datetime
+hag_note - nvarchar
+hag_inserted - datetime
+hag_inserted_by - varchar
+hag_updated - datetime
+hag_updated_by - varchar
+HospitalChange [#anchor] [SELECT]
+NEW_ID - int
+OLD_ID - int
+Hospitals [#anchor] [SELECT]
+hos_id - numeric
+<-- Acts - hos_id_bound
+<-- CollaboratorsHospitals - hos_id
+<-- CollectionAnnouncements - hos_id
+<-- Contracts - hos_id
+<-- HospitalAgreements - hos_id
+<-- HospitalsCollectionKits - hos_id
+<-- OldIDHospitals - hos_id
+<-- PhoneCommunications - hos_id
+<-- PotentialClients - hos_id
+<-- Remarks - hos_id
+<-- Rewards - hos_id
+<-- Rewards3 - hos_id
+<-- RewardsCZ - hos_id
+<-- RewardSKHospitalsExceptions - hos_id
+<-- RewardSKHospitalsProvision - hos_id
+<-- ServiceCollections - hos_id
+<-- SetUpCollaborators - hos_id
+rer_id - numeric --> Representants - rer_id
+add_id - numeric --> MailAddresses - add_id
+lab_id - numeric --> Laboratories - lab_id
+hos_name - nvarchar
+hos_full_name - nvarchar
+hos_active - bit
+hos_inserted - datetime
+hos_inserted_by - varchar
+hos_updated - datetime
+hos_updated_by - varchar
+hos_note - nvarchar
+hos_svet_zdravia - bit
+doc_id_auto_recruiting - numeric
+doc_id_responsible_person - numeric
+doc_id_contact_person - numeric
+hos_number_of_collection_rp - int
+hos_number_of_collection_cp - int
+HospitalsCollectionKits [#anchor] [SELECT]
+ckt_id - numeric --> CollectionKitsTypes - ckt_id
+hos_id - numeric --> Hospitals - hos_id
+hoc_count - numeric
+InMailsQueue [#anchor] [SELECT]
+imq_id - numeric
+com_id - numeric --> Companies - com_id
+imq_receive_date - datetime
+imq_inmail_stamp - varchar
+imq_to - varchar
+imq_from - varchar
+imq_remark - nvarchar
+InvoiceItems [#anchor] [SELECT]
+iit_id - numeric
+vat_id - numeric --> VATs - vat_id
+inv_id - numeric --> Invoices - inv_id
+iit_ext_id - numeric
+iit_position - int
+iit_item_accounting_code - varchar
+iit_label - nvarchar
+iit_units - numeric
+iit_unit_code - varchar
+iit_price_per_unit_cur_home_with_vat - money
+iit_price_cur_home_with_vat - money
+iit_price_per_unit_cur_account_with_vat - money
+iit_price_cur_account_with_vat - money
+iit_price_per_unit_cur_home_no_vat - money
+iit_price_cur_home_no_vat - money
+iit_price_per_unit_cur_account_no_vat - money
+iit_price_cur_account_no_vat - money
+iit_note - nvarchar
+InvoiceNumberSequencies [#anchor] [SELECT]
+ins_id - numeric
+<-- ServiceInstancesInvoiceNumberSequencies - ins_id
+com_id - numeric --> Companies - com_id
+ins_name - nvarchar
+ins_year - int
+ins_prefix - varchar
+ins_suffix - varchar
+ins_proforma - bit
+ins_use_service_code - bit
+ins_number_of_digits - int
+ins_invoice_number_from - varchar
+ins_invoice_number_to - varchar
+ins_last_sequence - varchar
+ins_accounting_code - varchar
+ins_description - nvarchar
+InvoicePaymentStatuses [#anchor] [SELECT]
+ips_id - numeric
+<-- ScheduledPayments - ips_id
+ips_code - varchar
+ips_default_name - nvarchar
+ips_order - int
+ips_description - nvarchar
+Invoices [#anchor] [SELECT]
+inv_id - numeric
+<-- AoPInvoices - inv_id
+<-- InvoiceItems - inv_id
+<-- Invoices - inv_id_credit_note_to
+<-- Invoices - inv_id_proforma_link
+<-- InvoiceStateHistories - inv_id
+<-- RealizedPayments - inv_id
+<-- ScheduledPayments - inv_id
+ity_id - numeric --> InvoiceTypes - ity_id
+cur_code_home - varchar --> Currencies - cur_code
+cur_code_account - varchar --> Currencies - cur_code
+acc_id - numeric --> CompanyAccounts - acc_id
+dte_id - numeric --> DocumentTemplates - dte_id
+inv_id_credit_note_to - numeric --> Invoices - inv_id
+inv_id_proforma_link - numeric --> Invoices - inv_id
+ist_id - numeric --> InvoiceStatuses - ist_id
+add_id_invoice - numeric --> MailAddresses - add_id
+add_id_company - numeric --> MailAddresses - add_id
+inv_ext_id - numeric
+add_id_client - numeric --> MailAddresses - add_id
+cse_id - numeric --> ContractServices - cse_id
+inv_type_accounting_code - varchar
+inv_range_accounting_code - varchar
+dst_id - numeric --> DocumentStatuses - dst_id
+inv_invoice_number - varchar
+inv_variable_symbol - varchar
+inv_specific_symbol - varchar
+inv_constant_symbol - varchar
+inv_barcode_identifier - varchar
+inv_date_of_delivery - datetime
+inv_date_of_issue - datetime
+inv_dispatch_date - datetime
+inv_date_of_payment - datetime
+inv_amount_cur_home_no_vat - money
+inv_amount_cur_account_no_vat - money
+inv_amount_cur_home_with_vat - money
+inv_paid_cur_account - money
+inv_amount_cur_account_with_vat - money
+inv_prepaid_cur_account - money
+inv_paid_cur_home - money
+inv_prepaid_cur_home - money
+inv_exchange_rate - money
+inv_exchange_rate_date - datetime
+inv_exported_date - datetime
+inv_fully_paid - datetime
+inv_repository - numeric
+inv_pdf - numeric
+inv_note - nvarchar
+inv_header - nvarchar
+inv_footer - nvarchar
+inv_inserted - datetime
+inv_inserted_by - varchar
+inv_updated - datetime
+inv_updated_by - varchar
+inv_account_timestamp - datetime2
+inv_emailed - bit
+inv_bsp_note - nvarchar
+inv_period_from - datetime
+inv_period_to - datetime
+inv_writeoff - bit
+sup_id - numeric
+inv_campaign_processed - bit
+inv_campaign_error - bit
+InvoicesBackup [#anchor] [SELECT]
+inv_id - varchar
+inv_invoice_number - varchar
+inv_variable_symbol - varchar
+inv_dispatch_date - varchar
+ist_id - varchar
+dst_id - varchar
+InvoicesInflationHUCorrections [#anchor] [SELECT]
+corr_id - int
+con_id - int
+con_number - nvarchar
+csa_id - int
+con_invoice_postponed - bit
+con_price_bad - money
+con_price_initial - money
+last_invoice - date
+real_2014 - money
+real_2015 - money
+real_2016 - money
+real_2017 - money
+real_2018 - money
+real_2019 - money
+real_2020 - money
+real_2021 - money
+real_2022 - money
+real_2023 - money
+correct_2014 - money
+correct_2015 - money
+correct_2016 - money
+correct_2017 - money
+correct_2018 - money
+correct_2019 - money
+correct_2020 - money
+correct_2021 - money
+correct_2022 - money
+correct_2023 - money
+new_price - money
+nedoplatok - money
+solved - bit
+solved_date - date
+cse_id - int
+hcs_id_before - int
+hcs_id_after - int
+css_id_after - int
+InvoiceStateHistories [#anchor] [SELECT]
+ish_id - numeric
+inv_id - numeric --> Invoices - inv_id
+ist_id - numeric --> InvoiceStatuses - ist_id
+ish_changed - datetime
+ish_changed_by - varchar
+ish_note - nvarchar
+InvoiceStatuses [#anchor] [SELECT]
+ist_id - numeric
+<-- Invoices - ist_id
+<-- InvoiceStateHistories - ist_id
+ist_code - varchar
+ist_default_name - nvarchar
+ist_order - int
+ist_description - nvarchar
+InvoiceTypes [#anchor] [SELECT]
+ity_id - numeric
+<-- Invoices - ity_id
+ity_code - varchar
+ity_default_name - nvarchar
+ity_order - int
+ity_description - nvarchar
+IOAccountingResults [#anchor] [SELECT]
+iar_id - numeric
+<-- AccountingExportFiles - iar_id
+<-- AccountingImportFiles - iar_id
+ioa_id - numeric --> IOAccountings - ioa_id
+iar_type - varchar
+iar_result - varchar
+iar_date - datetime
+iar_note - nvarchar
+IOAccountings [#anchor] [SELECT]
+ioa_id - numeric
+<-- IOAccountingResults - ioa_id
+ast_id - numeric --> AccountingSoftTypes - ast_id
+com_id - numeric --> Companies - com_id
+ioa_web_service - bit
+ioa_web_service_address - varchar
+ioa_web_service_username - varchar
+ioa_web_service_password - varchar
+ioa_in_folder - varchar
+ioa_out_folder - varchar
+ioa_active - bit
+ioa_from - datetime
+ioa_to - datetime
+ioa_next_run - datetime
+ioa_next_timestamp - datetime
+ioa_inserted - datetime
+ioa_inserted_by - varchar
+IOCRMResults [#anchor] [SELECT]
+icr_id - numeric
+<-- CRMExportFiles - icr_id
+<-- CRMImportFiles - icr_id
+ioc_id - numeric --> IOCRMs - ioc_id
+icr_type - varchar
+icr_result - varchar
+icr_date - datetime
+icr_note - nvarchar
+IOCRMs [#anchor] [SELECT]
+ioc_id - numeric
+<-- IOCRMResults - ioc_id
+crm_id - numeric --> CRMTypes - crm_id
+com_id - numeric --> Companies - com_id
+ioc_in_folder - varchar
+ioc_out_folder - varchar
+ioc_active - bit
+ioc_from - datetime
+ioc_to - datetime
+ioc_inserted - datetime
+ioc_inserted_by - varchar
+IOExportResults [#anchor] [SELECT]
+ier_id - numeric
+<-- ExportFiles - ier_id
+ioe_id - numeric --> IOExports - ioe_id
+ier_type - varchar
+ier_result - varchar
+ier_date - datetime
+ier_note - varchar
+IOExports [#anchor] [SELECT]
+ioe_id - numeric
+<-- IOExportResults - ioe_id
+ioe_query - varchar
+ioe_name - varchar
+ioe_folder - varchar
+ioe_filename - varchar
+ioe_active - bit
+ioe_from - datetime
+ioe_to - datetime
+ioe_next_run - datetime
+ioe_inserted - datetime
+ioe_inserted_by - varchar
+IOLabResults [#anchor] [SELECT]
+ilr_id - numeric
+<-- LaboratoryExportFiles - ilr_id
+<-- LaboratoryImportFiles - ilr_id
+iol_id - numeric --> IOLabs - iol_id
+ilr_type - varchar
+ilr_result - varchar
+ilr_date - datetime
+ilr_note - nvarchar
+IOLabs [#anchor] [SELECT]
+iol_id - numeric
+<-- IOLabResults - iol_id
+com_id - numeric --> Companies - com_id
+lab_id - numeric --> Laboratories - lab_id
+iol_in_out - varchar
+iol_mdb_access - bit
+iol_lab_mdb_path - varchar
+iol_lab_mdb_security_path - varchar
+iol_lab_mdb_username - varchar
+iol_lab_mdb_password - varchar
+iol_lab_mdb_export_query_name - varchar
+iol_lab_mdb_import_contract_table - varchar
+iol_lab_mdb_import_collaborator_table - varchar
+iol_lab_mdb_import_hospital_table - varchar
+iol_in_folder - varchar
+iol_out_folder - varchar
+iol_active - bit
+iol_from - datetime
+iol_to - datetime
+iol_next_run - datetime
+iol_inserted - datetime
+iol_inserted_by - varchar
+Laboratories [#anchor] [SELECT]
+lab_id - numeric
+<-- CollectionTransports - lab_id
+<-- CoverLetterQueue - lab_id
+<-- Hospitals - lab_id
+<-- IOLabs - lab_id
+<-- LaboratoryRegisters - lab_id
+<-- ServiceCollections - lab_id
+lab_name - nvarchar
+lab_full_name - nvarchar
+lab_phone - varchar
+lab_email - varchar
+lab_coverletter_from_email - varchar
+lab_transfer_file_path - varchar
+lab_country_code - varchar
+lab_inserted - datetime
+lab_inserted_by - varchar
+lab_updated - datetime
+lab_updated_by - varchar
+lab_description - nvarchar
+LaboratoryExportFiles [#anchor] [SELECT]
+lef_id - numeric
+ilr_id - numeric --> IOLabResults - ilr_id
+lef_filename - varchar
+lef_hash - varchar
+lef_generated - datetime
+lef_filesize - numeric
+lef_exported_clients - numeric
+lef_exported_contracts - numeric
+lef_exported_hospitals - numeric
+lef_exported_collaborators - numeric
+LaboratoryImportFiles [#anchor] [SELECT]
+lif_id - numeric
+<-- LaboratoryImportLines - lif_id
+ilr_id - numeric --> IOLabResults - ilr_id
+lif_filename - varchar
+lif_hash - varchar
+lif_processed - datetime
+lif_filesize - numeric
+lif_imported_collections - numeric
+LaboratoryImportLines [#anchor] [SELECT]
+lil_id - numeric
+<-- LaboratoryImportLineValues - lil_id
+lif_id - numeric --> LaboratoryImportFiles - lif_id
+lil_cbu - varchar
+lil_lab_id - varchar
+lil_line_type - varchar
+lil_changed - bit
+lil_raw_data - varchar
+lil_error_text - varchar
+LaboratoryImportLineValues [#anchor] [SELECT]
+liv_id - numeric
+lil_id - numeric --> LaboratoryImportLines - lil_id
+liv_field_name - varchar
+liv_value - nvarchar
+LaboratoryRegisters [#anchor] [SELECT]
+lre_id - numeric
+lab_id - numeric --> Laboratories - lab_id
+lre_mdb - varchar
+lre_register - varchar
+lre_identifier - numeric
+lre_value - nvarchar
+LOCALIZATIONIMAGES [#anchor] [SELECT]
+LOI_ID - numeric
+LOI_ASSEMBLY - varchar
+LOI_KEY - varchar
+LOI_LG - varchar
+LOI_VALUE - image
+LOI_VALUE_PATH - varchar
+LOI_COMMENT - varchar
+LOCALIZATIONSTRINGS [#anchor] [SELECT]
+LOS_ID - numeric
+LOS_ASSEMBLY - varchar
+LOS_KEY - varchar
+LOS_LG - varchar
+LOS_VALUE - varchar
+LOS_COMMENT - varchar
+Logs [#anchor] [SELECT]
+log_id - numeric
+sev_id - numeric --> LogSeverities - sev_id
+com_id - numeric --> Companies - com_id
+log_module - varchar
+log_date - datetime
+log_user - varchar
+log_remark - nvarchar
+log_seen - datetime
+log_seen_by - varchar
+log_seen_remark - nvarchar
+LogSeverities [#anchor] [SELECT]
+sev_id - numeric
+<-- Logs - sev_id
+sev_code - varchar
+sev_default_name - nvarchar
+sev_order - int
+sev_role_to_notify - varchar
+sev_must_be_seen - bit
+sev_description - nvarchar
+MailAddresses [#anchor] [SELECT]
+add_id - numeric
+<-- Collaborators - add_id
+<-- Collaborators - add_id_firm
+<-- CompanyDetails - add_id_residence
+<-- CompanyDetails - add_id_mail
+<-- Contracts - add_id
+<-- Hospitals - add_id
+<-- Invoices - add_id_invoice
+<-- Invoices - add_id_company
+<-- Invoices - add_id_client
+mat_id - numeric --> MailAddressTypes - mat_id
+per_id - numeric --> Persons - per_id
+add_name - nvarchar
+add_street_and_number - nvarchar
+add_city - nvarchar
+add_zip - nvarchar
+add_area - nvarchar
+add_country - nvarchar
+add_from - datetime
+add_to - datetime
+add_valid - bit
+add_source - varchar
+add_source_id - numeric
+MailAddressTypes [#anchor] [SELECT]
+mat_id - numeric
+<-- MailAddresses - mat_id
+mat_code - varchar
+mat_default_name - nvarchar
+mat_order - int
+mat_description - nvarchar
+MarketingActions [#anchor] [SELECT]
+mac_id - numeric
+<-- Contacts - mac_id
+<-- PotentialClients - mac_id
+com_id - numeric --> Companies - com_id
+mac_name - nvarchar
+mac_active - bit
+mac_order - int
+mac_description - nvarchar
+mac_view_in_reports - bit
+MarketingCodes [#anchor] [SELECT]
+mco_id - numeric
+<-- PotentialClients - mco_id
+com_id - numeric --> Companies - com_id
+mco_name - nvarchar
+mco_active - bit
+mco_order - int
+mco_description - nvarchar
+MarketingComplaints [#anchor] [SELECT]
+mcom_id - numeric
+<-- Clients - mcom_id
+mcom_code - varchar
+mcom_default_name - varchar
+mcom_order - int
+mcom_description - nvarchar
+MarketingCooperations [#anchor] [SELECT]
+mcoo_id - numeric
+<-- Clients - mcoo_id
+mcoo_code - nvarchar
+mcoo_default_name - varchar
+mcoo_order - int
+mcoo_description - nvarchar
+MarketingVIPs [#anchor] [SELECT]
+mvip_id - numeric
+<-- Clients - mvip_id
+mvip_code - nvarchar
+mvip_default_name - varchar
+mvip_order - int
+mvip_description - nvarchar
+MarketProductInstances [#anchor] [SELECT]
+mpi_id - numeric
+<-- ContractAmendmentTemplates - mpi_id
+<-- ContractRecruitments - mpi_id
+<-- Contracts - mpi_id_initialized
+<-- ContractTemplates - mpi_id
+<-- MarketProductServiceInstances - mpi_id
+<-- PotentialClients - mpi_id
+mpr_id - numeric --> MarketProducts - mpr_id
+mpi_name - nvarchar
+mpi_from - datetime
+mpi_to - datetime
+mpi_historical_code - varchar
+mpi_active - bit
+mpi_inserted - datetime
+mpi_inserted_by - varchar
+mpi_updated - datetime
+mpi_updated_by - varchar
+mpi_description - nvarchar
+mpi_is_storage_campaign - bit
+MarketProducts [#anchor] [SELECT]
+mpr_id - numeric
+<-- MarketProductInstances - mpr_id
+<-- ServiceCollections - mpr_id
+<-- SurchargeTypes - mpr_id
+com_id - numeric --> Companies - com_id
+pro_id - numeric --> Products - pro_id
+mpr_name - nvarchar
+mpr_active - bit
+mpr_inserted - datetime
+mpr_inserted_by - varchar
+mpr_updated - datetime
+mpr_updated_by - varchar
+mpr_description - nvarchar
+mpr_is_indicated - bit
+MarketProductServiceInstances [#anchor] [SELECT]
+mps_id - numeric
+<-- PriceListPayments - mps_id
+<-- PriceLists - mps_id
+<-- PriceListSurcharges - mps_id
+mpi_id - numeric --> MarketProductInstances - mpi_id
+sin_id - numeric --> ServiceInstances - sin_id
+MergedClients [#anchor] [SELECT]
+mer_id - numeric
+<-- MergedClientsContracts - mer_id
+cli_id_new - numeric --> Clients - cli_id
+cli_id_old - numeric --> Clients - cli_id
+mer_note - nvarchar
+mer_merged - datetime
+mer_merged_by - varchar
+MergedClientsContracts [#anchor] [SELECT]
+con_id - numeric --> Contracts - con_id
+mer_id - numeric --> MergedClients - mer_id
+MigrationContractStates [#anchor] [SELECT]
+mcs_id - numeric
+<-- Contracts - mcs_id
+mcs_code - varchar
+mcs_default_name - nvarchar
+mcs_order - int
+mcs_description - nvarchar
+NotificationEventTemplates [#anchor] [SELECT]
+net_id - numeric
+<-- ContractServiceNotificationEvents - net_id
+sin_id - numeric --> ServiceInstances - sin_id
+net_contract_datefield - varchar
+net_days_to_date - int
+net_flag_to_check - varchar
+net_role_to_notify - varchar
+net_from - datetime
+net_to - datetime
+net_active - bit
+net_inserted - datetime
+net_inserted_by - varchar
+net_updated - datetime
+net_updated_by - varchar
+net_description - nvarchar
+OldIDClients [#anchor] [SELECT]
+ocl_id - numeric
+cli_id - numeric --> Clients - cli_id
+ocl_mdb_id - numeric
+ocl_mdb_file - varchar
+OldIDCollaborators [#anchor] [SELECT]
+odo_id - numeric
+doc_id - numeric --> Collaborators - doc_id
+odo_mdb_id - numeric
+odo_mdb_file - varchar
+OldIDCollections [#anchor] [SELECT]
+oce_id - numeric
+sco_id - numeric --> ServiceCollections - sco_id
+oce_mdb_id - numeric
+oce_mdb_file - varchar
+OldIDContracts [#anchor] [SELECT]
+oco_id - numeric
+con_id - numeric --> Contracts - con_id
+oco_mdb_id - numeric
+oco_mdb_file - varchar
+OldIDHospitals [#anchor] [SELECT]
+oho_id - numeric
+hos_id - numeric --> Hospitals - hos_id
+oho_mdb_id - numeric
+oho_mdb_file - varchar
+OldIDRepresentant [#anchor] [SELECT]
+ore_id - numeric
+rer_id - numeric --> Representants - rer_id
+ore_mdb_id - numeric
+ore_mdb_file - varchar
+OutMailsQueue [#anchor] [SELECT]
+omq_id - numeric
+com_id - numeric --> Companies - com_id
+omq_sent_date - datetime
+omq_outmail_stamp - varchar
+omq_to - varchar
+omq_from - varchar
+omq_remark - nvarchar
+Parameters [#anchor] [SELECT]
+par_id - numeric
+com_id - numeric --> Companies - com_id
+par_key - varchar
+par_value - nvarchar
+par_hidden - bit
+par_description - nvarchar
+PaymentImportLines [#anchor] [SELECT]
+pil_id - numeric
+pai_id - numeric --> PaymentImports - pai_id
+pil_excel_line - int
+pil_client_name - nvarchar
+pil_date - nvarchar
+pil_invoice_number - nvarchar
+pil_zile_number - nvarchar
+pil_amount_total - money
+pil_amount_topay - money
+pil_terme - nvarchar
+pil_user_id - nvarchar
+inv_id - numeric
+pil_error_message - nvarchar
+PaymentImports [#anchor] [SELECT]
+pai_id - numeric
+<-- PaymentImportLines - pai_id
+pai_imported - datetime
+pai_imported_by - nvarchar
+pai_filename - nvarchar
+pai_state - nvarchar
+PaymentTypes [#anchor] [SELECT]
+pty_id - numeric
+<-- PotentialClients - pty_id
+<-- PriceListPayments - pty_id
+com_id - numeric --> Companies - com_id
+pty_name - nvarchar
+pty_installments_count - int
+pty_from - datetime
+pty_to - datetime
+pty_active - bit
+pty_inserted - datetime
+pty_inserted_by - varchar
+pty_description - nvarchar
+PersonalData [#anchor] [SELECT]
+pda_id - numeric
+pms_id - numeric --> PersonMaritalStatuses - pms_id
+per_id - numeric --> Persons - per_id
+pda_title_prefix - nvarchar
+pda_first_name - nvarchar
+pda_middle_name - nvarchar
+pda_last_name - nvarchar
+pda_maiden_name - nvarchar
+pda_title_suffix - nvarchar
+pda_birth_date - datetime
+pda_id_number - varchar
+pda_id_card - varchar
+pda_sex - varchar
+pda_email - varchar
+pda_email2 - varchar
+pda_mobile - varchar
+pda_mobile2 - varchar
+pda_phone_number - varchar
+pda_other_contact - nvarchar
+pda_bank_name - varchar
+pda_account_number - varchar
+pda_account_bank_code - varchar
+pda_IBAN - varchar
+pda_SWIFT - varchar
+pda_health_insurance_code - varchar
+pda_health_insurance_company - varchar
+pda_from - datetime
+pda_to - datetime
+pda_valid - bit
+pda_source - varchar
+pda_source_id - numeric
+pda_mobile3 - varchar
+pda_mobile4 - varchar
+pda_mobile5 - varchar
+pda_email3 - varchar
+pda_email4 - varchar
+pda_email5 - varchar
+PersonMaritalStatuses [#anchor] [SELECT]
+pms_id - numeric
+<-- PersonalData - pms_id
+pms_code - varchar
+pms_default_name - nvarchar
+pms_order - int
+pms_description - nvarchar
+Persons [#anchor] [SELECT]
+per_id - numeric
+<-- Clients - per_id
+<-- Collaborators - per_id
+<-- ContractsPersons - per_id
+<-- MailAddresses - per_id
+<-- PersonalData - per_id
+<-- PotentialClients - per_id_father
+<-- PotentialClients - per_id
+<-- Representants - per_id
+per_note - nvarchar
+PersonsContractsRelationTypes [#anchor] [SELECT]
+pcr_id - numeric
+<-- ContractsPersons - pcr_id
+pcr_code - varchar
+pcr_default_name - nvarchar
+pcr_order - int
+pcr_description - nvarchar
+PhoneCallResults [#anchor] [SELECT]
+phr_id - numeric
+phr_code - varchar
+phr_default_name - nvarchar
+phr_order - int
+phr_description - nvarchar
+PhoneCallUpdates [#anchor] [SELECT]
+pup_id - numeric
+cli_id - numeric --> Clients - cli_id
+con_id - numeric --> Contracts - con_id
+pup_dialcom_id - varchar
+pup_call_result - varchar
+pup_call_date - datetime
+pup_caller - varchar
+pup_number - varchar
+pup_note - nvarchar
+pup_inserted - datetime
+pup_inserted_by - varchar
+pup_processed_result - varchar
+pup_message - varchar
+pup_processed - datetime
+pup_processed_by - varchar
+PhoneCallUpdatesTest [#anchor] [SELECT]
+pup_id - numeric
+cli_id - numeric
+con_id - numeric
+pup_dialcom_id - varchar
+pup_call_result - varchar
+pup_call_date - datetime
+pup_caller - varchar
+pup_number - varchar
+pup_note - nvarchar
+pup_inserted - datetime
+pup_inserted_by - varchar
+pup_processed_result - varchar
+pup_message - varchar
+pup_processed - datetime
+pup_processed_by - varchar
+PhoneCommunications [#anchor] [SELECT]
+pho_id - numeric
+pot_id - numeric
+cnt_id - numeric
+con_id - numeric
+cli_id - numeric
+phr_id - numeric
+pho_call_date - datetime
+pho_caller - varchar
+pho_number - varchar
+pho_note - nvarchar
+pho_deleted - bit
+pho_temp - nvarchar
+pho_source - varchar
+pho_source_id - numeric
+doc_id - numeric --> Collaborators - doc_id
+hos_id - numeric --> Hospitals - hos_id
+PotentialClients [#anchor] [SELECT]
+pot_id - numeric
+<-- Clients - pot_id
+<-- Contracts - pot_id
+<-- Remarks - pot_id
+sre_id - numeric --> CBCSelectionReasons - sre_id
+rty_id - numeric --> RegistrationTypes - rty_id
+pcs_id - numeric --> PotentialClientStatuses - pcs_id
+per_id_father - numeric --> Persons - per_id
+cnt_id - numeric --> Contacts - cnt_id
+com_id - numeric --> Companies - com_id
+mac_id - numeric --> MarketingActions - mac_id
+doc_id_exp - numeric --> Collaborators - doc_id
+hos_id - numeric --> Hospitals - hos_id
+fis_id - numeric --> FirstInformationSources - fis_id
+per_id - numeric --> Persons - per_id
+mpi_id - numeric --> MarketProductInstances - mpi_id
+doc_id_recruit - numeric --> Collaborators - doc_id
+pty_id - numeric --> PaymentTypes - pty_id
+cos_id - numeric --> ContactSources - cos_id
+cli_id - numeric --> Clients - cli_id
+pot_product_ft - nvarchar
+pot_marketproduct_ft - nvarchar
+pot_payment_type_ft - nvarchar
+pot_exp_birth_date - datetime
+pot_exp_hospital_ft - nvarchar
+pot_exp_doctor_ft - nvarchar
+pot_recruiting_ft - nvarchar
+pot_pregnancy_type - tinyint
+pot_previous_contracts - tinyint
+pot_gift_card - varchar
+pot_children - tinyint
+pot_registration_type_ft - nvarchar
+pot_first_information_source_ft - nvarchar
+pot_cbc_reason_ft - nvarchar
+pot_marketing_action_ft - nvarchar
+pot_street_address_country_ft - nvarchar
+pot_correspondence_address_country_ft - nvarchar
+pot_father_address_country_ft - nvarchar
+pot_mailinglist - bit
+pot_inserted - datetime
+pot_inserted_by - varchar
+pot_updated - datetime
+pot_updated_by - varchar
+pot_note - nvarchar
+pot_deleted - bit
+pot_ext_id - numeric
+mco_id - numeric --> MarketingCodes - mco_id
+pot_marketing_code_ft - nvarchar
+POT_FORCE_READONLY - bit
+PotentialClientStatuses [#anchor] [SELECT]
+pcs_id - numeric
+<-- PotentialClients - pcs_id
+pcs_code - varchar
+pcs_default_name - nvarchar
+pcs_order - int
+pcs_description - nvarchar
+pozastavit_fakturaciu [#anchor] [SELECT]
+con_id_pozastavit - numeric
+pf_zadane - datetime
+pf_neaplikovat - bit
+inv_id_odpisana - numeric
+Prepayments [#anchor] [SELECT]
+pre_id - numeric
+con_id - numeric --> Contracts - con_id
+pre_date_of_payment - datetime
+pre_prepaid_amount - money
+pre_note - nvarchar
+PriceListPayments [#anchor] [SELECT]
+plp_id - numeric
+<-- ContractServicePayments - plp_id
+<-- ScheduleTemplates - plp_id
+cat_id - numeric --> ContractAmendmentTemplates - cat_id
+pty_id - numeric --> PaymentTypes - pty_id
+mps_id - numeric --> MarketProductServiceInstances - mps_id
+plp_name - nvarchar
+plp_invoice_item - nvarchar
+plp_price - money
+plp_analytical_account - varchar
+plp_accounting_code - varchar
+plp_from - datetime
+plp_to - datetime
+plp_active - bit
+plp_inserted - datetime
+plp_inserted_by - varchar
+plp_updated - datetime
+plp_updated_by - varchar
+plp_description - nvarchar
+PriceLists [#anchor] [SELECT]
+pri_id - numeric
+<-- ContractServices - pri_id
+<-- ScheduleTemplates - pri_id
+cat_id - numeric --> ContractAmendmentTemplates - cat_id
+mps_id - numeric --> MarketProductServiceInstances - mps_id
+pri_name - nvarchar
+pri_basic_price - money
+pri_analytical_account - varchar
+pri_accounting_code - varchar
+pri_published - datetime
+pri_from - datetime
+pri_to - datetime
+pri_active - bit
+pri_inserted - datetime
+pri_inserted_by - varchar
+pri_updated - datetime
+pri_updated_by - varchar
+pri_description - nvarchar
+PriceListSurcharges [#anchor] [SELECT]
+pls_id - numeric
+<-- ContractServiceSurcharges - pls_id
+sty_id - numeric --> SurchargeTypes - sty_id
+cat_id - numeric --> ContractAmendmentTemplates - cat_id
+mps_id - numeric --> MarketProductServiceInstances - mps_id
+pls_name - nvarchar
+pls_invoice_item_name - nvarchar
+pls_surcharge_fixed - money
+pls_surcharge_percentage - numeric
+pls_analytical_account - varchar
+pls_accounting_code - varchar
+pls_from - datetime
+pls_to - datetime
+pls_active - bit
+pls_inserted - datetime
+pls_inserted_by - varchar
+pls_updated - datetime
+pls_updated_by - varchar
+pls_description - nvarchar
+Products [#anchor] [SELECT]
+pro_id - numeric
+<-- Contacts - pro_id
+<-- MarketProducts - pro_id
+pro_code - varchar
+pro_default_name - nvarchar
+pro_description - nvarchar
+QRConfiguration [#anchor] [SELECT]
+qrc_id - int
+com_id - numeric
+accounting_com_id - numeric
+qrc_iban - nvarchar
+qrc_bic - nvarchar
+qrc_payment_note - nvarchar
+qrc_logo - bit
+qrc_frame - bit
+qrc_color - bit
+qrc_light - bit
+qrc_down - bit
+qrc_size - int
+account_name - nvarchar
+RealizedPayments [#anchor] [SELECT]
+rpa_id - numeric
+inv_id - numeric --> Invoices - inv_id
+spa_id - numeric --> ScheduledPayments - spa_id
+rpa_amount_cur_home - money
+rpa_amount_cur_account - money
+rpa_payment_identifier - varchar
+rpa_accounting_period - datetime
+rpa_date_of_payment - datetime
+rpa_exchange_rate - money
+rpa_accounting_payment_id - varchar
+rpa_accounting_timestamp - datetime
+rpa_detail - nvarchar
+rpa_payment_type - varchar
+rpa_from_account_number - varchar
+rpa_from_account_bank - varchar
+rpa_from_account_IBAN - varchar
+rpa_from_account_SWIFT - varchar
+rpa_to_account_number - varchar
+rpa_to_account_bank - varchar
+rpa_to_account_IBAN - varchar
+rpa_to_account_SWIFT - varchar
+rpa_variable_symbol - varchar
+rpa_specific_symbol - varchar
+rpa_constant_symbol - varchar
+rpa_message - nvarchar
+rpa_note - nvarchar
+rpa_inserted - datetime
+rpa_inserted_by - varchar
+rpa_updated - datetime
+rpa_updated_by - varchar
+RecordChangeDetails [#anchor] [SELECT]
+rcd_id - numeric
+rch_id - numeric --> RecordChanges - rch_id
+rcd_field - varchar
+rcd_old_value - varchar
+rcd_new_value - varchar
+RecordChanges [#anchor] [SELECT]
+rch_id - numeric
+<-- RecordChangeDetails - rch_id
+rct_id - numeric --> RecordChangeTypes - rct_id
+rch_user_login - varchar
+rch_change_date - datetime
+rch_computer_name - varchar
+rch_changed_table - varchar
+rch_changed_row_id - numeric
+RecordChangeTypes [#anchor] [SELECT]
+rct_id - numeric
+<-- RecordChanges - rct_id
+rct_code - varchar
+rct_default_name - nvarchar
+rct_order - int
+rct_description - nvarchar
+RefinancingOptions [#anchor] [SELECT]
+rfo_id - numeric
+<-- Contracts - rfo_id
+com_id - numeric --> Companies - com_id
+rfo_name - nvarchar
+rfo_active - bit
+rfo_order - int
+rfo_description - nvarchar
+RegistrationTypes [#anchor] [SELECT]
+rty_id - numeric
+<-- PotentialClients - rty_id
+rty_code - varchar
+rty_default_name - nvarchar
+rty_order - int
+rty_description - nvarchar
+Remarks [#anchor] [SELECT]
+rem_id - numeric
+cli_id - numeric --> Clients - cli_id
+con_id - numeric --> Contracts - con_id
+cnt_id - numeric --> Contacts - cnt_id
+pot_id - numeric --> PotentialClients - pot_id
+rem_date - datetime
+rem_login - varchar
+rem_note - nvarchar
+rem_deleted - bit
+doc_id - numeric --> Collaborators - doc_id
+hos_id - numeric --> Hospitals - hos_id
+ReportGroups [#anchor] [SELECT]
+rgr_id - numeric
+<-- Reports - rgr_id
+rgr_code - varchar
+rgr_default_name - varchar
+rgr_remark - nvarchar
+ReportParameters [#anchor] [SELECT]
+rpm_id - numeric
+rpt_id - numeric --> Reports - rpt_id
+rpm_code - varchar
+rpm_default_name - varchar
+rpm_datatype - varchar
+rpm_format - varchar
+rpm_default_value - nvarchar
+Reports [#anchor] [SELECT]
+rpt_id - numeric
+<-- ReportParameters - rpt_id
+<-- ReportTables - rpt_id
+rgr_id - numeric --> ReportGroups - rgr_id
+rpt_code - varchar
+rpt_default_name - varchar
+rpt_rdlc - varchar
+rpt_remark - nvarchar
+ReportTableFields [#anchor] [SELECT]
+rfi_id - numeric
+rtb_id - numeric --> ReportTables - rtb_id
+rfi_code - varchar
+rfi_default_name - varchar
+rfi_datatype - varchar
+rfi_format - varchar
+ReportTables [#anchor] [SELECT]
+rtb_id - numeric
+<-- ReportTableFields - rtb_id
+rpt_id - numeric --> Reports - rpt_id
+rtb_code - varchar
+rtb_default_name - varchar
+rtb_dataset - varchar
+rtb_query - varchar
+rtb_method - varchar
+Representants [#anchor] [SELECT]
+rer_id - numeric
+<-- Collaborators - rer_id
+<-- CompaniesRepresentants - rer_id
+<-- Contracts - rer_id
+<-- Hospitals - rer_id
+<-- OldIDRepresentant - rer_id
+<-- ServiceCollections - rer_id
+per_id - numeric --> Persons - per_id
+rer_active - bit
+rer_note - nvarchar
+rer_inserted - datetime
+rer_inserted_by - varchar
+rer_updated - datetime
+rer_updated_by - varchar
+RewardCollaborators [#anchor] [SELECT]
+rco_id - int
+cty_id - numeric
+agt_id - numeric
+hos_id - numeric
+mpr_id - numeric
+rco_xty_recruiting - int
+rco_quarterly_amount - int
+RewardCollectionBlood [#anchor] [SELECT]
+rcb_id - int
+rcb_reward_type_of_paid - int
+con_number - varchar
+csa_code - varchar
+sco_id - int
+sco_collection_unit_number - varchar
+csu_code - varchar
+mpr_id - int
+mpr_name - varchar
+hos_id - int
+hos_name - varchar
+sco_collection_made - datetime
+agt_id - int
+agt_code - varchar
+doc_id - int
+cty_id - int
+cag_number - varchar
+collection_service_total - numeric
+odoberajuci_krv - varchar
+odoberajuci_tkanivo - varchar
+odoberajuci_placenta - varchar
+asistujuci1 - varchar
+asistujuci2 - varchar
+sterilita_datum - datetime
+standard_sterilita_vysledok - varchar
+premium_sterilita_vysledok - varchar
+tkanivo_sterilita_vysledok - varchar
+objem_odobratej_krvi - numeric
+pouzitelnost_krv - varchar
+pouzitelnost_tkanivo - varchar
+agreement_returned - datetime
+rcb_poznamka - varchar
+rew_id - int
+rcb_inserted - datetime
+rcb_inserted_by - varchar
+rcb_updated - datetime
+rcb_updated_by - varchar
+rcb_contract_type - varchar
+rcb_status - int
+rcb_sestra_odber_krvi_asistencia - numeric
+rcb_sestra_odber_tkaniva_pupocnika - numeric
+rcb_sestra_odber_tkaniva_placenty - numeric
+rcb_sestra_odber_krvi_asistencia_antolska - numeric
+rcb_sestra_odber_tkaniva_pupocnika_antolska - numeric
+rcb_sestra_odber_tkaniva_placenty_antolska - numeric
+rcb_lekar_odber_krvi_asistencia - numeric
+rcb_lekar_odber_tkaniva_pupocnika - numeric
+rcb_lekar_odber_tkaniva_placenty - numeric
+rcb_lekar_TN_LV_odber_krvi_asistencia_standard - numeric
+rcb_lekar_TN_LV_odber_krvi_asistencia_premium - numeric
+rcb_lekar_TN_LV_odber_tkaniva_pupocnika - numeric
+rcb_lekar_TN_LV_odber_tkaniva_placenty - numeric
+rcb_lekar_TN_LV_vypocet - numeric
+rcb_lekar_vypocet - numeric
+rcb_sestra_vypocet - numeric
+rcb_sestra_antolska_vypocet - numeric
+rcb_odmena_k_vyplate - numeric
+RewardCollectionBloodCZ [#anchor] [SELECT]
+rcb_id - int
+ret_id - int
+sco_id - int
+sco_collection_made - varchar
+sco_collection_unit_number - varchar
+con_id - nchar
+con_number - varchar
+hos_id - int
+hos_name - varchar
+mpr_id - int
+mpr_name - varchar
+doc_id - int
+add_name - varchar
+pda_first_name - varchar
+pda_last_name - varchar
+pda_email - varchar
+pda_account_number - varchar
+pda_account_bank_code - varchar
+cag_number - varchar
+cag_to - datetime
+cag_agreement_returned - datetime
+rew_id - int
+rcb_inserted - datetime
+rcb_inserted_by - varchar
+rcb_contract_type - varchar
+rcb_status - int
+rcb_odmena_k_vyplate - numeric
+rcb_poznamka - varchar
+RewardDonatedGrafts [#anchor] [SELECT]
+ard_id - int
+ard_type - varchar
+ard_full_name - varchar
+ard_agreement - varchar
+ard_agreement_number - varchar
+ard_amount - varchar
+ard_we_pay - bit
+ard_inserted - datetime
+ard_inserted_by - varchar
+ard_note - varchar
+doc_id - int
+ard_monthly - int
+ard_mudr - int
+ard_returned - int
+ard_processed - int
+ard_date_childbirth - datetime
+ard_volume_of_blood - numeric
+RewardHistory [#anchor] [SELECT]
+reh_id - numeric
+rew_id - numeric --> Rewards - rew_id
+reh_amount - money
+reh_inserted - datetime
+reh_inserted_by - varchar
+reh_note - varchar
+RewardHospitalBA [#anchor] [SELECT]
+arh_id - int
+hos_id - int
+con_id - int
+sco_id - int
+mpr_id - int
+rew_due_date - datetime
+rew_due_date_type - varchar
+rew_amount - int
+arh_objem_krvi - numeric
+arh_sterilita_vysledok - varchar
+arh_transpl_pouzitelny - varchar
+arh_remark - varchar
+arh_inserted - date
+arh_inserted_by - varchar
+RewardHospitalQuarter [#anchor] [SELECT]
+rho_id - int
+ret_id - int
+rho_type_quarter - int
+hos_id - int
+hos_name - varchar
+min_id - int
+collection_made - datetime
+pda_first_name - varchar
+pda_last_name - varchar
+con_number - varchar
+rho_odober_lekar - varchar
+rho_odober_TK_lekar - varchar
+rho_odober_PL_lekar - varchar
+rho_asist1_lekar - varchar
+rho_asist2_lekar - varchar
+collection_unit_number - varchar
+mpi_name - varchar
+mpr_id1 - int
+mpr_name1 - varchar
+mpr_id2 - int
+mpr_name2 - varchar
+bsp_product - varchar
+sterility_date - datetime
+spracovanie_tkaniva - datetime
+sterilita_vysledok_standard - varchar
+sterilita_vysledok_premium - varchar
+sterilita_vysledok_tkanivo - varchar
+objem_odobratej_krvi - numeric
+objem_odobratej_krvi_standard - numeric
+objem_odobratej_krvi_premium - numeric
+pouzitelnost_krv - varchar
+pouzitelnost_standard - varchar
+pouzitelnost_premium - varchar
+pouzitelnost_tkanivo - varchar
+standard_sig_sterilita - varchar
+premium_sig_sterilita - varchar
+res_id - int
+rew_amount - numeric
+sco_sterility - datetime
+rho_inserted - datetime
+rho_inserted_by - varchar
+rho_blood_cont - varchar
+rho_tissue_cont - int
+rho_cena_standard - int
+rho_cena_premium - int
+rho_cena_tkanivo - int
+rho_cena_placenta - int
+rho_objem_ml - int
+rho_final - int
+RewardImportLines [#anchor] [SELECT]
+ril_id - numeric
+rei_id - numeric --> RewardImports - rei_id
+ril_reward_id - numeric
+ril_amount - money
+RewardImports [#anchor] [SELECT]
+rei_id - numeric
+<-- RewardImportLines - rei_id
+rei_imported - datetime
+rei_imported_by - varchar
+rei_filename - varchar
+rei_state - varchar
+RewardNurseManager [#anchor] [SELECT]
+rsn_id - int
+hos_id - int
+doc_id - int
+rsn_due_date - datetime
+rsn_due_date_type - varchar
+rsn_amount - int
+rsn_inserted - date
+rsn_inserted_by - varchar
+RewardProcess [#anchor] [SELECT]
+arp_id - int
+arp_country - varchar
+arp_company_code - varchar
+arp_number_process - int
+arp_name_process - varchar
+arp_inserted - datetime
+arp_description - varchar
+arp_row_counts_update - int
+arp_dte_name - varchar
+RewardRecruiting [#anchor] [SELECT]
+rrr_id - int
+rrr_reward_type - int
+rrr_reward_type_of_paid - int
+doc_monthly_rewards - int
+con_number - varchar
+csa_code - varchar
+sco_collection_unit_number - varchar
+csu_code - varchar
+mpr_name - varchar
+hos_id - int
+doc_id - int
+recruiting_date - datetime
+cag_number - varchar
+collection_service_total - numeric
+sterility_date - datetime
+agreement_returned - datetime
+rrr_poznamka - varchar
+mpi_id - int
+rew_id - int
+rrr_inserted - datetime
+rrr_inserted_by - varchar
+rrr_updated - datetime
+rrr_updated_by - varchar
+rrr_contract_type - varchar
+rrr_status - int
+rrr_recruiting_regular - numeric
+rrr_recruiting_vynimka - varchar
+rrr_odmena_k_vyplate - numeric
+Rewards [#anchor] [SELECT]
+rew_id - numeric
+<-- RewardHistory - rew_id
+hos_id - numeric --> Hospitals - hos_id
+res_id - numeric --> RewardStatuses - res_id
+ret_id - numeric --> RewardTypes - ret_id
+cur_code - varchar --> Currencies - cur_code
+con_id - numeric --> Contracts - con_id
+doc_id - numeric --> Collaborators - doc_id
+sco_id - numeric --> ServiceCollections - sco_id
+rew_due_date - datetime
+rew_due_date_type - varchar
+rew_amount - money
+rew_proposed - datetime
+rew_proposed_by - varchar
+rew_approved - datetime
+rew_approved_by - varchar
+rew_paid - datetime
+rew_cancelled - datetime
+rew_remark - varchar
+rew_indirect_payment - bit
+mpi_id - numeric
+rew_importable - bit
+rew_remark_old - varchar
+rrr_id - int
+rcb_id - int
+ard_id - int
+rsn_id - int
+Rewards3 [#anchor] [SELECT]
+rew_id - numeric
+hos_id - numeric --> Hospitals - hos_id
+res_id - numeric --> RewardStatuses - res_id
+ret_id - numeric --> RewardTypes - ret_id
+cur_code - varchar --> Currencies - cur_code
+con_id - numeric --> Contracts - con_id
+doc_id - numeric --> Collaborators - doc_id
+sco_id - numeric --> ServiceCollections - sco_id
+rew_due_date - datetime
+rew_due_date_type - varchar
+rew_amount - money
+rew_proposed - datetime
+rew_proposed_by - varchar
+rew_approved - datetime
+rew_approved_by - varchar
+rew_paid - datetime
+rew_cancelled - datetime
+rew_remark - varchar
+rew_indirect_payment - bit
+mpi_id - numeric
+rew_importable - bit
+rew_remark_old - varchar
+rrr_id - int
+rcb_id - int
+RewardsCZ [#anchor] [SELECT]
+rew_id - numeric
+hos_id - numeric --> Hospitals - hos_id
+res_id - numeric --> RewardStatuses - res_id
+ret_id - numeric --> RewardTypes - ret_id
+cur_code - varchar --> Currencies - cur_code
+con_id - numeric --> Contracts - con_id
+doc_id - numeric --> Collaborators - doc_id
+sco_id - numeric --> ServiceCollections - sco_id
+rew_due_date - datetime
+rew_due_date_type - varchar
+rew_amount - money
+rew_proposed - datetime
+rew_proposed_by - varchar
+rew_approved - datetime
+rew_approved_by - varchar
+rew_paid - datetime
+rew_cancelled - datetime
+rew_remark - varchar
+rew_indirect_payment - bit
+mpi_id - numeric
+rew_importable - bit
+rew_remark_old - varchar
+rrr_id - int
+rcb_id - int
+ard_id - int
+rsn_id - int
+RewardSKHospitalsExceptions [#anchor] [SELECT]
+rskhe_id - int
+hos_id - numeric --> Hospitals - hos_id
+cqu_id - int
+rskhe_dodatok_na_tkanivo - varchar
+rskhe_datum_podpisu_dodatku - date
+rskhe_cena_premium - numeric
+rskhe_tkanivo - numeric
+rskhe_placenta - numeric
+rskhe_cena_kombinovany_odber - numeric
+rshkp_kontaminovany - varchar
+rshkp_objem_ml - varchar
+RewardSKHospitalsProvision [#anchor] [SELECT]
+rskhp_id - int
+hos_id - numeric --> Hospitals - hos_id
+rskhp_cena_standard - numeric
+rskhp_cena_premium - numeric
+rskhp_cena_tkanivo - numeric
+rskhp_cena_placenta - numeric
+rskhp_cena_kombinovany_odber - numeric
+rskhp_kontaminovany - varchar
+rskhp_objem_ml - varchar
+RewardStatuses [#anchor] [SELECT]
+res_id - numeric
+<-- Rewards - res_id
+<-- Rewards3 - res_id
+<-- RewardsCZ - res_id
+res_code - varchar
+res_default_name - varchar
+res_order - int
+res_description - varchar
+RewardTemplateItemConditions [#anchor] [SELECT]
+rtc_id - numeric
+<-- RewardTemplateItemConditions - rtc_true_rtc_id
+<-- RewardTemplateItemConditions - rtc_false_rtc_id
+rti_id - numeric --> RewardTemplateItems - rti_id
+rtc_root - bit
+rtc_condition - nvarchar
+rtc_description - nvarchar
+rtc_true_reward_value - money
+rtc_true_rtc_id - numeric --> RewardTemplateItemConditions - rtc_id
+rtc_true_internal_note - nvarchar
+rtc_true_public_note - nvarchar
+rtc_false_reward_value - money
+rtc_false_rtc_id - numeric --> RewardTemplateItemConditions - rtc_id
+rtc_false_internal_note - nvarchar
+rtc_false_public_note - nvarchar
+RewardTemplateItems [#anchor] [SELECT]
+rti_id - numeric
+<-- RewardTemplateItemConditions - rti_id
+rte_id - numeric --> RewardTemplates - rte_id
+crt_id - numeric --> CompanyRewardTypes - crt_id
+rti_name - nvarchar
+rti_description - nvarchar
+rti_priority - int
+rti_valid - bit
+RewardTemplates [#anchor] [SELECT]
+rte_id - numeric
+<-- EntityAgreementRewardTemplates - rte_id
+<-- RewardTemplateItems - rte_id
+com_id - numeric --> Companies - com_id
+ree_id - numeric --> Entities - ree_id
+rte_name - nvarchar
+rte_description - nvarchar
+rte_default_priority - int
+rte_valid - bit
+RewardTypes [#anchor] [SELECT]
+ret_id - numeric
+<-- Rewards - ret_id
+<-- Rewards3 - ret_id
+<-- RewardsCZ - ret_id
+ret_code - varchar
+ret_default_name - varchar
+ret_order - int
+ret_description - varchar
+ServiceCollections [#anchor] [SELECT]
+sco_id - numeric
+<-- Acts - sco_id_bound
+<-- Certificates - sco_id
+<-- CollectionAnnouncements - sco_id
+<-- CollectionCollaborators - sco_id
+<-- CollectionEvaluationResults - sco_id
+<-- ContractServices - sco_id
+<-- OldIDCollections - sco_id
+<-- Rewards - sco_id
+<-- Rewards3 - sco_id
+<-- RewardsCZ - sco_id
+<-- ServiceCollectionStateHistories - sco_id
+csu_id - numeric --> CollectionStatuses - csu_id
+mpr_id - numeric --> MarketProducts - mpr_id
+cls_id - numeric --> CollectionLaboratoryStates - cls_id
+usa_id - numeric --> CollectionUsabilities - usa_id
+ctt_id - numeric --> CollectionTransferTypes - ctt_id
+rer_id - numeric --> Representants - rer_id
+com_id - numeric --> Companies - com_id
+lab_id - numeric --> Laboratories - lab_id
+com_id_transferred - numeric --> Companies - com_id
+hos_id - numeric --> Hospitals - hos_id
+sco_collection_unit_number - varchar
+sco_collection_made - datetime
+sco_client_first_name - nvarchar
+sco_client_last_name - nvarchar
+sco_client_phone_number - varchar
+sco_client_mobile - varchar
+sco_client_email - varchar
+sco_client_birth_date - datetime
+sco_client_id_number - varchar
+sco_child_first_name - nvarchar
+sco_child_last_name - nvarchar
+sco_child_sex - varchar
+sco_state_detail - varchar
+sco_responsible_coordinator - varchar
+sco_sterility - datetime
+sco_lab_evaluation - datetime
+sco_paired - datetime
+sco_evaluated - datetime
+sco_stored - datetime
+sco_transferred - datetime
+sco_released - datetime
+sco_waiting_for_dispose - datetime
+sco_disposed - datetime
+sco_doctors_note - nvarchar
+sco_laboratory_note - nvarchar
+sco_cover_letter - numeric
+sco_lab_results_changed - bit
+sco_inserted - datetime
+sco_inserted_by - varchar
+sco_updated - datetime
+sco_updated_by - varchar
+sco_note - nvarchar
+sco_reward_id - numeric
+ServiceCollectionStateHistories [#anchor] [SELECT]
+ssh_id - numeric
+csu_id - numeric --> CollectionStatuses - csu_id
+sco_id - numeric --> ServiceCollections - sco_id
+ssh_changed - datetime
+ssh_changed_by - varchar
+ssh_note - nvarchar
+ServiceInstanceInvoicings [#anchor] [SELECT]
+sii_id - numeric
+com_id - numeric --> Companies - com_id
+sin_id - numeric --> ServiceInstances - sin_id
+acc_id - numeric --> CompanyAccounts - acc_id
+ast_id - numeric --> AccountingSoftTypes - ast_id
+sii_invoicing_proforma - bit
+sii_invoicing_period - int
+sii_invoicing_start_dt_field - varchar
+sii_invoicing_end_dt_field - varchar
+sii_is_first_year_aliquote - bit
+sii_separate_invoices_for_installments - bit
+sii_constant_symbol - varchar
+sii_external_id_offset - numeric
+sii_ledger_account_proforma - nvarchar
+sii_ledger_account - nvarchar
+ServiceInstances [#anchor] [SELECT]
+sin_id - numeric
+<-- CollectionEvaluationTemplates - sin_id
+<-- CollectionQuantity - sin_id
+<-- ContractAmendmentTemplateServices - sin_id
+<-- ContractServices - sin_id
+<-- ContractTemplateServices - sin_id
+<-- MarketProductServiceInstances - sin_id
+<-- NotificationEventTemplates - sin_id
+<-- ServiceInstanceInvoicings - sin_id
+<-- ServiceInstancesCollectionKitTypes - sin_id
+<-- ServiceInstancesInvoiceNumberSequencies - sin_id
+<-- ServicesDocumentTemplates - sin_id
+<-- StorageCampaignServices - sin_id
+dte_id_certificate - numeric --> DocumentTemplates - dte_id
+ser_id - numeric --> Services - ser_id
+sin_name - nvarchar
+sin_from - datetime
+sin_to - datetime
+sin_invoice_identifier - varchar
+sin_active - bit
+sin_inserted - datetime
+sin_inserted_by - varchar
+sin_updated - datetime
+sin_updated_by - varchar
+sin_description - nvarchar
+sin_no_automation - bit
+sin_order_priority - int
+ServiceInstancesCollectionKitTypes [#anchor] [SELECT]
+sin_id - numeric --> ServiceInstances - sin_id
+ckt_id - numeric --> CollectionKitsTypes - ckt_id
+ServiceInstancesInvoiceNumberSequencies [#anchor] [SELECT]
+ins_id - numeric --> InvoiceNumberSequencies - ins_id
+sin_id - numeric --> ServiceInstances - sin_id
+Services [#anchor] [SELECT]
+ser_id - numeric
+<-- ServiceInstances - ser_id
+<-- ServicesCollectionKitTypes - ser_id
+<-- SurchargeTypes - ser_id
+<-- VATs - ser_id
+com_id - numeric --> Companies - com_id
+ser_name - nvarchar
+ser_is_invoicable - bit
+ser_is_collectable - bit
+ser_active - bit
+ser_inserted - datetime
+ser_inserted_by - varchar
+ser_updated - datetime
+ser_updated_by - varchar
+ser_description - nvarchar
+ser_is_storable - bit
+ser_sum_to_storage - bit
+ser_sum_to_collection - bit
+ser_order_priority - int
+ServicesCollectionKitTypes [#anchor] [SELECT]
+ser_id - numeric --> Services - ser_id
+ckt_id - numeric --> CollectionKitsTypes - ckt_id
+ServicesDocumentTemplates [#anchor] [SELECT]
+dte_id - numeric --> DocumentTemplates - dte_id
+sin_id - numeric --> ServiceInstances - sin_id
+SetUpCollaborators [#anchor] [SELECT]
+rco_id - int
+<-- CollectionQuantity - rco_id
+com_id - numeric
+cty_id - numeric --> CollaboratorTypes - cty_id
+agt_id - numeric --> CollaborationAgreementTypes - agt_id
+hos_id - numeric --> Hospitals - hos_id
+rco_xty_recruiting - int
+rco_quarterly_amount - int
+rco_min_reward - numeric
+rco_inserted - datetime
+rco_inserted_by - varchar
+SetUpMarketProducts [#anchor] [SELECT]
+rmp_id - int
+com_id - numeric
+ret_id - numeric
+mpr_id - numeric
+rmp_price - numeric
+rmp_dovp_zod - int
+rmp_inserted - datetime
+rmp_inserted_by - varchar
+rmp_deleted - int
+ScheduledPayments [#anchor] [SELECT]
+spa_id - numeric
+<-- RealizedPayments - spa_id
+csy_id - numeric --> ContractServiceSchedulePayments - csy_id
+ips_id - numeric --> InvoicePaymentStatuses - ips_id
+inv_id - numeric --> Invoices - inv_id
+spa_name - nvarchar
+spa_installments_id - int
+spa_variable_symbol - varchar
+spa_specific_symbol - varchar
+spa_constant_symbol - varchar
+spa_barcode_identifier - varchar
+spa_date_of_payment - datetime
+spa_amount_home - money
+spa_amount_account - money
+spa_paid_home - money
+spa_paid_account - money
+spa_note - nvarchar
+spa_updated - datetime
+spa_updated_by - varchar
+SchedulePaymentTemplates [#anchor] [SELECT]
+stp_id - numeric
+sch_id - numeric --> ScheduleTemplates - sch_id
+stp_name - nvarchar
+stp_installment_id - int
+stp_amount_fixed - money
+stp_amount_percentage - numeric
+stp_rest_value - bit
+stp_paymentdate_field - varchar
+stp_days_from_field_value - int
+stp_days_from_previous - int
+stp_inserted - datetime
+stp_inserted_by - varchar
+ScheduleTemplates [#anchor] [SELECT]
+sch_id - numeric
+<-- ContractServiceSchedules - sch_id
+<-- SchedulePaymentTemplates - sch_id
+pri_id - numeric --> PriceLists - pri_id
+plp_id - numeric --> PriceListPayments - plp_id
+sch_name - nvarchar
+sch_from - datetime
+sch_to - datetime
+sch_active - bit
+sch_inserted - datetime
+sch_inserted_by - varchar
+sch_updated - datetime
+sch_updated_by - varchar
+sch_description - nvarchar
+SMSQueue [#anchor] [SELECT]
+sms_id - numeric
+com_id - numeric --> Companies - com_id
+sms_date - datetime
+sms_cell_number - varchar
+sms_text - varchar
+sms_processed - datetime
+sms_processed_by - varchar
+sms_result - varchar
+sms_note - nvarchar
+StorageCampaignDocuments [#anchor] [SELECT]
+scd_id - numeric
+sca_id - numeric --> StorageCampaigns - sca_id
+scd_dialcom_result - varchar
+scd_storage_period - int
+dte_id_attachment - numeric --> DocumentTemplates - dte_id
+scd_description - nvarchar
+scd_inserted - datetime
+scd_inserted_by - varchar
+scd_dialcom_result_detail - varchar
+scd_attachment_name - varchar
+scd_repository_only - bit
+StorageCampaignEmails [#anchor] [SELECT]
+sce_id - numeric
+sca_id - numeric --> StorageCampaigns - sca_id
+sce_dialcom_result - varchar
+sce_storage_period - int
+dte_id_email - numeric --> DocumentTemplates - dte_id
+sce_subject - nvarchar
+sce_from - nvarchar
+sce_bcc - nvarchar
+sce_description - nvarchar
+sce_inserted - datetime
+sce_inserted_by - varchar
+sce_dialcom_result_detail - varchar
+StorageCampaigns [#anchor] [SELECT]
+sca_id - numeric
+<-- StorageCampaignDocuments - sca_id
+<-- StorageCampaignEmails - sca_id
+<-- StorageCampaignServices - sca_id
+com_id - numeric --> Companies - com_id
+sca_name - nvarchar
+sca_active - bit
+sca_inserted - datetime
+sca_inserted_by - varchar
+StorageCampaignServices [#anchor] [SELECT]
+scs_id - numeric
+sca_id - numeric --> StorageCampaigns - sca_id
+com_id_invoicing - numeric --> Companies - com_id
+sin_id - numeric --> ServiceInstances - sin_id
+scs_storage_period - int
+dte_id_proforma - numeric --> DocumentTemplates - dte_id
+dte_id_invoice - numeric --> DocumentTemplates - dte_id
+scs_description - nvarchar
+scs_inserted - datetime
+scs_inserted_by - varchar
+scs_price_multiplier - int
+scs_installments - int
+dte_id_annex - numeric --> DocumentTemplates - dte_id
+scs_annex_name - varchar
+StorageCampaingRecords [#anchor] [SELECT]
+scr_id - numeric
+cli_id - numeric --> Clients - cli_id
+con_id - numeric --> Contracts - con_id
+scr_note - nvarchar
+scr_inserted - datetime
+scr_inserted_by - varchar
+StorageToEmailsTypes [#anchor] [SELECT]
+stem_id - int
+stem_code - varchar
+stem_default_name - nvarchar
+stem_order - int
+stem_description - nvarchar
+StorageUpdateDetails [#anchor] [SELECT]
+sud_id - numeric
+sud_dialcom_id - varchar
+sud_storage_period - int
+sud_discount - numeric
+sud_price - money
+sud_installments - int
+sud_con_number - varchar
+StorageUpdateDetailsTest [#anchor] [SELECT]
+sud_id - numeric
+sud_dialcom_id - varchar
+sud_storage_period - int
+sud_discount - numeric
+sud_price - money
+sud_installments - int
+sud_con_number - varchar
+StorageUpdates [#anchor] [SELECT]
+sup_id - numeric
+cli_id - numeric --> Clients - cli_id
+sup_dialcom_id - varchar
+sup_con_number - varchar
+sup_dialcom_result - varchar
+sup_storage_period - int
+sup_discount - numeric
+sup_price - money
+sup_installments - int
+sup_inserted - datetime
+sup_inserted_by - varchar
+sup_processed_result - varchar
+sup_message - varchar
+sup_processed - datetime
+sup_processed_by - varchar
+sup_dialcom_result_detail - varchar
+sup_custom_1 - nvarchar
+sup_custom_2 - nvarchar
+sup_custom_3 - nvarchar
+sup_email_to - varchar
+StorageUpdatesTest [#anchor] [SELECT]
+sup_id - numeric
+cli_id - numeric
+sup_dialcom_id - varchar
+sup_con_number - varchar
+sup_dialcom_result - varchar
+sup_storage_period - int
+sup_discount - numeric
+sup_price - money
+sup_installments - int
+sup_inserted - datetime
+sup_inserted_by - varchar
+sup_processed_result - varchar
+sup_message - varchar
+sup_processed - datetime
+sup_processed_by - varchar
+sup_dialcom_result_detail - varchar
+sup_custom_1 - nvarchar
+sup_custom_2 - nvarchar
+sup_custom_3 - nvarchar
+sup_email_to - varchar
+SurchargeTypes [#anchor] [SELECT]
+sty_id - numeric
+<-- PriceListSurcharges - sty_id
+com_id - numeric --> Companies - com_id
+mpr_id - numeric --> MarketProducts - mpr_id
+ser_id - numeric --> Services - ser_id
+sty_name - nvarchar
+sty_is_cummulative - bit
+sty_has_additional_data - bit
+sty_need_verification - bit
+sty_default_surcharge_fixed - money
+sty_default_surcharge_percentage - numeric
+sty_from - datetime
+sty_to - datetime
+sty_active - bit
+sty_inserted - datetime
+sty_inserted_by - varchar
+sty_description - nvarchar
+dis_id - numeric --> DiscountCategories - dis_id
+sysdiagrams [#anchor] [SELECT]
+name - nvarchar
+principal_id - int
+diagram_id - int
+version - int
+definition - varbinary
+UISettings [#anchor] [SELECT]
+uis_id - numeric
+uis_login_name - varchar
+uis_language - varchar
+uis_dashboard - xml
+uis_mainform_top - int
+uis_mainform_left - int
+uis_mainform_height - int
+uis_mainform_width - int
+uis_maximized - bit
+VATs [#anchor] [SELECT]
+vat_id - numeric
+<-- InvoiceItems - vat_id
+ser_id - numeric --> Services - ser_id
+vat_from - datetime
+vat_to - datetime
+vat_rate - numeric
+vat_rate_code - varchar
+vat_accounting_code - varchar
+vat_description - nvarchar
+com_id_accounting - numeric --> Companies - com_id
+VATs_backup [#anchor] [SELECT]
+vat_id - numeric
+ser_id - numeric
+vat_from - datetime
+vat_to - datetime
+vat_rate - numeric
+vat_rate_code - varchar
+vat_accounting_code - varchar
+vat_description - nvarchar
+com_id_accounting - numeric
+WebRegistrationQueue [#anchor] [SELECT]
+wrq_id - numeric
+com_id - numeric --> Companies - com_id
+wrq_lg - varchar
+wrq_date - datetime
+wrq_from - varchar
+wrq_subject - varchar
+wrq_body - nvarchar
+wrq_structured_data - nvarchar
+wrq_processed - datetime
+wrq_processed_by - varchar
+wrq_result - varchar
+wrq_note - nvarchar
+wrq_ext_id - numeric
+WelcomeTasks [#anchor] [SELECT]
+wet_id - numeric
+<-- WelcomeTasksToRoles - wet_id
+wet_code - varchar
+wet_display_code - nvarchar
+wet_label - varchar
+wet_query - varchar
+wet_obj_code - varchar
+wet_listview_code - varchar
+wet_filter_code - varchar
+wet_active - bit
+wet_inserted - datetime
+wet_inserted_by - varchar
+wet_updated - datetime
+wet_updated_by - varchar
+WelcomeTasksToRoles [#anchor] [SELECT]
+ttr_id - numeric
+wet_id - numeric --> WelcomeTasks - wet_id
+ttr_role_id - int
+ttr_priority - int
+ISCBC DB VIEWER
+
+DB:
+  
+
+Hide All Columns
+
+Show All Columns
+
+Show Only References
+
+Generated at 2026-01-22 12:08:44
