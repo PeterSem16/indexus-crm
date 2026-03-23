@@ -1,0 +1,55 @@
+seman@CORPCRM01:/var/www/indexus-crm/script/migration$ grep -A2 "STEP 5\|STEP 6\|vložených\|ERROR\|Odbery:" /tmp/migration-output.txt
+[2026-03-23T15:13:54.970Z]   → 0 vložených, 10 preskočených
+[2026-03-23T15:13:54.970Z]
+--- Laboratories ---
+--
+[2026-03-23T15:13:54.973Z]   → 0 vložených, 5 preskočených
+
+══════════════════════════════════════════════════════════════════════
+--
+  → 20 vložených, 0 preskočených, 0 chýb
+
+══════════════════════════════════════════════════════════════════════
+--
+  → 20 vložených, 0 preskočených, 0 chýb
+
+══════════════════════════════════════════════════════════════════════
+  STEP 5: Klientky/Zákazníci (TOP 20)
+══════════════════════════════════════════════════════════════════════
+[2026-03-23T15:13:55.772Z] Zdrojové dáta z CBC:
+--
+  → 20 vložených, 0 preskočených, 0 chýb
+
+══════════════════════════════════════════════════════════════════════
+  STEP 6: Odbery + Lab výsledky (TOP 20)
+══════════════════════════════════════════════════════════════════════
+[2026-03-23T15:13:56.915Z] Zdrojové dáta z CBC:
+--
+[2026-03-23T15:13:56.934Z]   ERROR sco_id=198274: INSERT has more target columns than expressions
+[2026-03-23T15:13:56.941Z]   ERROR sco_id=198273: INSERT has more target columns than expressions
+[2026-03-23T15:13:56.947Z]   ERROR sco_id=198272: INSERT has more target columns than expressions
+[2026-03-23T15:13:56.952Z]   ERROR sco_id=198271: INSERT has more target columns than expressions
+[2026-03-23T15:13:56.958Z]   ERROR sco_id=198270: INSERT has more target columns than expressions
+[2026-03-23T15:13:56.963Z]   ERROR sco_id=198269: INSERT has more target columns than expressions
+[2026-03-23T15:13:56.969Z]   ERROR sco_id=198268: INSERT has more target columns than expressions
+[2026-03-23T15:13:56.974Z]   ERROR sco_id=198267: INSERT has more target columns than expressions
+[2026-03-23T15:13:56.980Z]   ERROR sco_id=198266: INSERT has more target columns than expressions
+[2026-03-23T15:13:56.985Z]   ERROR sco_id=198265: INSERT has more target columns than expressions
+[2026-03-23T15:13:56.990Z]   ERROR sco_id=198264: INSERT has more target columns than expressions
+[2026-03-23T15:13:56.995Z]   ERROR sco_id=198263: INSERT has more target columns than expressions
+[2026-03-23T15:13:57.001Z]   ERROR sco_id=198262: INSERT has more target columns than expressions
+[2026-03-23T15:13:57.006Z]   ERROR sco_id=198261: INSERT has more target columns than expressions
+[2026-03-23T15:13:57.011Z]   ERROR sco_id=198260: INSERT has more target columns than expressions
+[2026-03-23T15:13:57.016Z]   ERROR sco_id=198259: INSERT has more target columns than expressions
+[2026-03-23T15:13:57.022Z]   ERROR sco_id=198258: INSERT has more target columns than expressions
+[2026-03-23T15:13:57.027Z]   ERROR sco_id=198257: INSERT has more target columns than expressions
+[2026-03-23T15:13:57.032Z]   ERROR sco_id=198256: INSERT has more target columns than expressions
+[2026-03-23T15:13:57.037Z]   ERROR sco_id=198255: INSERT has more target columns than expressions
+[2026-03-23T15:13:57.037Z]
+  Odbery: 0 vložených, 0 preskočených, 20 chýb
+[2026-03-23T15:13:57.037Z]
+--- Lab výsledky pre prenesené odbery ---
+[2026-03-23T15:13:57.043Z]   Lab výsledky: 0 vložených
+
+══════════════════════════════════════════════════════════════════════
+s
