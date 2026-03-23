@@ -207,20 +207,29 @@ async function step1_testConnection() {
     );
   } catch (err) { log(`  WARN: AgreementTypes: ${err.message}`); }
 
-  log('\n--- Diagnostika CBC: ServiceCollections stĺpce (representative, nurse, agent) ---');
+  log('\n--- Diagnostika CBC: ServiceCollections stĺpce (representative, nurse, certificate, coordinator) ---');
   try {
     const scoCols = await mssqlPool.request().query(`
       SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
       WHERE TABLE_NAME = 'ServiceCollections'
       AND (COLUMN_NAME LIKE '%rep%' OR COLUMN_NAME LIKE '%nurse%' OR COLUMN_NAME LIKE '%agent%'
            OR COLUMN_NAME LIKE '%emp%' OR COLUMN_NAME LIKE '%usr%' OR COLUMN_NAME LIKE '%sales%'
-           OR COLUMN_NAME LIKE '%obch%' OR COLUMN_NAME LIKE '%second%')
+           OR COLUMN_NAME LIKE '%obch%' OR COLUMN_NAME LIKE '%second%'
+           OR COLUMN_NAME LIKE '%cert%' OR COLUMN_NAME LIKE '%coord%' OR COLUMN_NAME LIKE '%lab%'
+           OR COLUMN_NAME LIKE '%child%' OR COLUMN_NAME LIKE '%gender%' OR COLUMN_NAME LIKE '%sex%')
       ORDER BY COLUMN_NAME
     `);
     if (scoCols.recordset.length > 0) {
       log('  ServiceCollections relevant stĺpce: ' + scoCols.recordset.map(r => r.COLUMN_NAME).join(', '));
+      const scoSample = await mssqlPool.request().query(`
+        SELECT TOP 5 ${scoCols.recordset.map(r => r.COLUMN_NAME).join(', ')}
+        FROM ServiceCollections ORDER BY sco_id DESC
+      `);
+      table(scoCols.recordset.map(r => r.COLUMN_NAME),
+        scoSample.recordset.map(r => scoCols.recordset.map(c => r[c.COLUMN_NAME] != null ? String(r[c.COLUMN_NAME]).substring(0, 30) : '—'))
+      );
     } else {
-      log('  Žiadne rep/nurse/agent/emp stĺpce v ServiceCollections');
+      log('  Žiadne relevantné stĺpce v ServiceCollections');
     }
   } catch (err) { log(`  WARN: SC cols: ${err.message}`); }
 
@@ -709,28 +718,41 @@ async function step6_collections() {
   if (unmatchedCodes.size > 0) log(`  ⚠ Nepriradené kódy: ${[...unmatchedCodes].join(', ')}`);
 
   const clientMap = {};
+  const contractMap = {};
   const clientRows = await mssqlPool.request().query(`
-    SELECT cs.sco_id, c.cli_id
+    SELECT cs.sco_id, c.cli_id, c.con_id
     FROM ContractServices cs JOIN Contracts c ON c.con_id = cs.con_id WHERE cs.sco_id IS NOT NULL
   `);
-  for (const r of clientRows.recordset) clientMap[r.sco_id] = String(r.cli_id);
+  for (const r of clientRows.recordset) {
+    clientMap[r.sco_id] = String(r.cli_id);
+    contractMap[r.sco_id] = String(r.con_id);
+  }
 
   const companyCountry = {};
   const compRows = await mssqlPool.request().query('SELECT com_id, com_country_code FROM Companies');
   for (const r of compRows.recordset) companyCountry[r.com_id] = normalizeCountryCode(r.com_country_code);
 
+  const labLookup = {};
+  const pgLabs = await pgPool.query('SELECT id, legacy_id, name FROM laboratories');
+  for (const r of pgLabs.rows) {
+    if (r.legacy_id) labLookup[r.legacy_id] = r.id;
+    labLookup[r.name] = r.id;
+  }
+
   const collections = await mssqlPool.request().query(`
-    SELECT TOP ${LIMIT} sco_id, sco_collection_unit_number, sco_collection_made,
-      sco_client_first_name, sco_client_last_name, sco_client_phone_number,
-      sco_client_mobile, sco_client_email, sco_client_birth_date, sco_client_id_number,
-      sco_child_first_name, sco_child_last_name, sco_child_sex,
-      sco_state_detail, sco_sterility, sco_lab_evaluation, sco_paired, sco_evaluated,
-      sco_stored, sco_transferred, sco_released,
-      sco_waiting_for_dispose, sco_disposed,
-      sco_doctors_note, sco_note, sco_inserted, sco_updated,
-      csu_id, com_id, hos_id
-    FROM ServiceCollections
-    ORDER BY sco_id DESC
+    SELECT TOP ${LIMIT} sc.sco_id, sc.sco_collection_unit_number, sc.sco_collection_made,
+      sc.sco_client_first_name, sc.sco_client_last_name, sc.sco_client_phone_number,
+      sc.sco_client_mobile, sc.sco_client_email, sc.sco_client_birth_date, sc.sco_client_id_number,
+      sc.sco_child_first_name, sc.sco_child_last_name, sc.sco_child_sex,
+      sc.sco_state_detail, sc.sco_sterility, sc.sco_lab_evaluation, sc.sco_paired, sc.sco_evaluated,
+      sc.sco_stored, sc.sco_transferred, sc.sco_released,
+      sc.sco_waiting_for_dispose, sc.sco_disposed,
+      sc.sco_doctors_note, sc.sco_note, sc.sco_inserted, sc.sco_updated,
+      sc.csu_id, sc.com_id, sc.hos_id,
+      h.lab_id as hos_lab_id
+    FROM ServiceCollections sc
+    LEFT JOIN Hospitals h ON h.hos_id = sc.hos_id
+    ORDER BY sc.sco_id DESC
   `);
 
   const showLimitSco = Math.min(10, collections.recordset.length);
@@ -760,6 +782,9 @@ async function step6_collections() {
       const birth = decomposeBirthDate(row.sco_client_birth_date);
       const cc = collabMap[row.sco_id] || {};
 
+      const labId = row.hos_lab_id ? (labLookup[String(row.hos_lab_id)] || null) : null;
+      const conId = contractMap[row.sco_id] || null;
+
       await pgPool.query(`
         INSERT INTO collections (
           legacy_id, cbu_number, country_code,
@@ -770,12 +795,13 @@ async function step6_collections() {
           collection_date, hospital_id,
           cord_blood_collector_id, tissue_collector_id, placenta_collector_id, assistant_nurse_id,
           second_nurse_id,
+          laboratory_id, contract_id,
           status, state,
           status_paired_at, status_evaluated_at, status_verified_at,
           status_stored_at, status_transferred_at, status_released_at,
           status_awaiting_disposal_at, status_disposed_at,
           doctor_note, note, created_at, updated_at
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36)
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38)
       `, [
         String(row.sco_id), row.sco_collection_unit_number, countryCode,
         customerId,
@@ -789,6 +815,7 @@ async function step6_collections() {
         collabLookup[cc.blood] || null, collabLookup[cc.tissue] || null,
         collabLookup[cc.placenta] || null, collabLookup[cc.assistant] || null,
         collabLookup[cc.secondNurse] || null,
+        labId, conId,
         cbcStatusRemap[row.csu_id] || row.csu_id, String(cbcStatusRemap[row.csu_id] || row.csu_id),
         row.sco_paired, row.sco_lab_evaluation, row.sco_sterility,
         row.sco_stored, row.sco_transferred, row.sco_released,
@@ -1191,11 +1218,20 @@ async function step7_verification() {
       COUNT(placenta_collector_id) as with_placenta,
       COUNT(assistant_nurse_id) as with_assistant,
       COUNT(second_nurse_id) as with_second_nurse,
-      COUNT(customer_id) as with_customer
+      COUNT(customer_id) as with_customer,
+      COUNT(laboratory_id) as with_lab,
+      COUNT(contract_id) as with_contract,
+      COUNT(child_first_name) as with_child_name,
+      COUNT(child_gender) as with_child_gender,
+      COUNT(doctor_note) as with_doctor_note,
+      COUNT(note) as with_note
     FROM collections WHERE legacy_id IS NOT NULL
   `);
   const s = collStats.rows[0];
-  log(`  Štatistika priradení: ${s.total} odberov, hospital=${s.with_hospital}, blood=${s.with_blood}, tissue=${s.with_tissue}, placenta=${s.with_placenta}, assistant=${s.with_assistant}, 2ndNurse=${s.with_second_nurse}, customer=${s.with_customer}`);
+  log(`  Štatistika priradení (${s.total} odberov):`);
+  log(`    hospital=${s.with_hospital}, lab=${s.with_lab}, contract=${s.with_contract}, customer=${s.with_customer}`);
+  log(`    blood=${s.with_blood}, tissue=${s.with_tissue}, placenta=${s.with_placenta}, assistant=${s.with_assistant}, 2ndNurse=${s.with_second_nurse}`);
+  log(`    child_name=${s.with_child_name}, child_gender=${s.with_child_gender}, doctor_note=${s.with_doctor_note}, note=${s.with_note}`);
 
   log('\n--- Cases v INDEXUS ---');
   const cases = await pgPool.query(`
