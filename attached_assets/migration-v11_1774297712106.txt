@@ -1,0 +1,834 @@
+
+╔══════════════════════════════════════════════════════════════════╗
+║   CBC → INDEXUS  Testovací migračný scenár (100 záznamov)       ║
+║   BEZ: Invoices, Billing Companies, Rewards                    ║
+╚══════════════════════════════════════════════════════════════════╝
+
+
+══════════════════════════════════════════════════════════════════════
+  STEP 1: Test pripojenia + vzorky dát z CBC
+══════════════════════════════════════════════════════════════════════
+[2026-03-23T20:26:52.281Z] ✓ Pripojené k MSSQL (CBC)
+[2026-03-23T20:26:52.295Z] ✓ Pripojené k PostgreSQL (INDEXUS)
+[2026-03-23T20:26:52.417Z] 
+Počty záznamov v CBC:
+  Tabuľka                     | Počet  
+  ────────────────────────────┼────────
+  Clients                     | 191999 
+  Collaborators               | 29856  
+  CollectionEvaluationResults | 9218352
+  CollectionStatuses          | 10     
+  Hospitals                   | 2227   
+  Laboratories                | 5      
+  ServiceCollections          | 197975 
+[2026-03-23T20:26:52.417Z] 
+Ukážka telefónnych formátov v CBC (PersonalData):
+  Mobil (RAW)   | Normalized       | Telefón (RAW) | Email (RAW)                  
+  ──────────────┼──────────────────┼───────────────┼──────────────────────────────
+  774361096     | +421 774 361 096 | —             | honzik.philipp@gmail.com     
+  724941440     | +421 724 941 440 | —             | petvales@email.cz            
+  608132830     | +421 608 132 830 | —             | pavlina.borastero@gmail.com  
+  770811572     | +421 770 811 572 | —             | corinavalentina003@gmail.com 
+  743330029     | +421 743 330 029 | —             | budur.liviu@yahoo.com        
+  792574441     | +421 792 574 441 | —             | dragomirandreea1991@yahoo.com
+  792574445     | +421 792 574 445 | —             | dragomiralin1988@yahoo.com   
+  740027312     | +421 740 027 312 | —             | molnar_edit@yahoo.com        
+  0908/771339   | +421 908 771 339 | —             | sesztak.ede@gmail.com        
+  +420724775637 | +420 724 775 637 | —             | rhaluzikova@gmail.com        
+[2026-03-23T20:26:52.422Z] 
+--- Diagnostika CBC: Lab Result Kódy (TOP 30) ---
+  cet_code   | cet_field_name                | Poradie | Počet 
+  ───────────┼───────────────────────────────┼─────────┼───────
+  —          | Premium_stav                  | 1       | 2391  
+  —          | Standard_pouzitelnost         | 1       | 2855  
+  PRODUCT    | BSP_PRODUCT                   | 1       | 186232
+  USABILITY2 | TP_pouzitelnost               | 1       | 5981  
+  —          | TP_infekcne_agens             | 2       | 2391  
+  —          | transplantat_preradenyDo      | 2       | 5981  
+  CBU        | CBU iden c                    | 2       | 186232
+  USABILITY2 | TP_pouzitelnost               | 2       | 2855  
+  —          | Premium_stav                  | 3       | 5981  
+  —          | TP_sterilita_vysledok         | 3       | 2391  
+  —          | transplantat odobrany pre     | 3       | 186232
+  —          | transplantat_preradenyDo      | 3       | 2855  
+  —          | Premium_pouzitelnost          | 4       | 2855  
+  —          | spracovanieXX                 | 4       | 186232
+  —          | Standard_objem_odobratej_krvi | 4       | 5979  
+  —          | Standard_pouzitelnost         | 4       | 387   
+  —          | Premium_pouzitelnost          | 5       | 5979  
+  —          | Standard_BB                   | 5       | 2855  
+  —          | Titl                          | 5       | 186232
+  USABILITY2 | TP_pouzitelnost               | 5       | 387   
+  —          | Meno matky                    | 6       | 186232
+  —          | Premium_objem_odobratej_krvi  | 6       | 2855  
+  —          | Standard_pouzitelnost         | 6       | 5979  
+  —          | transplantat_preradenyDo      | 6       | 2391  
+  —          | objem vsetkych striekaciek    | 7       | 2391  
+  —          | Priezvisko matky              | 7       | 186232
+  —          | Standard_objem_odobratej_krvi | 7       | 2855  
+  —          | TP_infekcne_agens             | 7       | 5981  
+  —          | CPD v striekacke              | 8       | 5981  
+  —          | Objem PLK                     | 8       | 2391  
+[2026-03-23T20:26:52.914Z] 
+--- Diagnostika CBC: Otec (Contracts/Father) ---
+[2026-03-23T20:26:52.916Z]   Contracts: žiadne stĺpce s "father"
+[2026-03-23T20:26:52.919Z]   Contracts ALL: con_id, hos_id, cli_id, add_id, tre_id, pot_id, csa_id, doc_id, cte_id, dst_id, con_number, con_expected_collection_date, con_pregnancy_type, con_repository, con_gift_card, con_contacted, con_filled, con_generated, con_sent, con_confirmed, con_returned, con_validated, con_realized, con_terminated, con_cancelled, con_invoicing_postponed, con_invoices_by_email, con_invoices_by_letter, con_inserted, con_inserted_by, con_updated, con_updated_by, con_note, ckt_id, con_collection_kit_number, con_collection_kit_expired, con_collection_kit_sent, con_collection_kit_courrier, con_saving_bank, rfo_id, con_refinancing_detail, rer_id, con_indicated, mpi_id_initialized, con_uuid, con_dialcom_campaign, con_dialcom_operator, con_dialcom_status, CON_RETURNED_MIGRATION_CONTRACT, CON_RETURNED_MIGRATION_CONTRACT_DATE, doc_id_physician, fct_id, con_firstcall_operator, con_cbtc_invoice_sent, mcs_id, con_dialcom_cancel_request, CON_TERMINATION_RECEIVED, CON_TERMINATION_RECEIVED_REASON, CON_TerminationRequested, CON_TerminationDocsSent, CON_TerminationNoticeDate, CON_NoticePeriod, CON_Disposal, CON_SettlementDate, CON_Settler, CON_Disposal_Str
+[2026-03-23T20:26:52.930Z]   Tabuľky s otcovskými stĺpcami:
+[2026-03-23T20:26:52.930Z]     ChildFather.FatherName
+[2026-03-23T20:26:52.930Z]     PotentialClients.per_id_father
+[2026-03-23T20:26:52.930Z]     PotentialClients.pot_father_address_country_ft
+[2026-03-23T20:26:52.932Z]   PotentialClients stĺpce: pot_id, sre_id, rty_id, pcs_id, per_id_father, cnt_id, com_id, mac_id, doc_id_exp, hos_id, fis_id, per_id, mpi_id, doc_id_recruit, pty_id, cos_id, cli_id, pot_product_ft, pot_marketproduct_ft, pot_payment_type_ft, pot_exp_birth_date, pot_exp_hospital_ft, pot_exp_doctor_ft, pot_recruiting_ft, pot_pregnancy_type, pot_previous_contracts, pot_gift_card, pot_children, pot_registration_type_ft, pot_first_information_source_ft, pot_cbc_reason_ft, pot_marketing_action_ft, pot_street_address_country_ft, pot_correspondence_address_country_ft, pot_father_address_country_ft, pot_mailinglist, pot_inserted, pot_inserted_by, pot_updated, pot_updated_by, pot_note, pot_deleted, pot_ext_id, mco_id, pot_marketing_code_ft, POT_FORCE_READONLY
+[2026-03-23T20:26:52.934Z]   ServiceCollections child/father stĺpce: sco_child_first_name, sco_child_last_name, sco_child_sex
+[2026-03-23T20:26:52.936Z]   Contracts sample (s pot_id):
+  con_id | cli_id | hos_id | pot_id | Expected Date                  | Pregnancy
+  ───────┼────────┼────────┼────────┼────────────────────────────────┼──────────
+  263958 | 208378 | 436    | 285326 | Mon Mar 23 2026 00:00:00 GMT+0 | 1        
+  263957 | 208377 | 479    | 285323 | Wed Apr 29 2026 00:00:00 GMT+0 | 1        
+  263956 | 200976 | 26     | 285329 | Sat May 09 2026 00:00:00 GMT+0 | 1        
+[2026-03-23T20:26:52.936Z] 
+--- Diagnostika CBC: CollaborationAgreementTypes ---
+  agt_id | Kód                         | Názov               | Počet použití
+  ───────┼─────────────────────────────┼─────────────────────┼──────────────
+  1      | REG_AGT_RECRUITING          | Recruiting          | —            
+  2      | REG_AGT_ASSISTANCE          | Assistance          | 132241       
+  3      | REG_AGT_COLLECTING_BLOOD    | Collecting          | 169266       
+  4      | REG_AGT_INFORMING           | Informing           | —            
+  5      | REG_AGT_GRANT               | Norvegian grant     | —            
+  6      | REG_AGT_PROPHYLAXIS         | Prophylaxis         | —            
+  7      | REG_AGT_NURSE_MANAGER       | Nurse manager       | —            
+  8      | REG_AGT_LECTURE             | Lecture on          | —            
+  9      | REG_AGT_COLLECTING_TISSUE   | Collecting tissue   | 38954        
+  11     | REG_AGT_COLLECTING_PLACENTA | Collecting placenta | 4255         
+  12     | REG_AGT_VEDONO              | Vedono              | —            
+  13     | REG_AGT_ZTP                 | ZŤP preukaz         | —            
+  14     | REG_AGT_PENSION_RETIRED     | Starobný dôchodok   | —            
+  15     | REG_AGT_PENSION_INVALID     | Invalidný dôchodok  | —            
+  16     | REG_AGT_PENSION_WIDOW       | Vdovský dôchodok    | —            
+  17     | REG_AGT_VIP                 | VIP                 | —            
+  18     | REG_AGT_DPA                 | DPA signed          | —            
+  19     | REG_AGT_REWARD_MONTHLY      | Monthly Rewarding   | —            
+  20     | REG_AGT_INTERNAL_EMPLOYEE   | Internal employee   | —            
+  21     | REG_AGT_CONTACT_PERSON      | Contact person      | —            
+  22     | REG_AGT_RESPONSIBLE_PERSON  | Responsible person  | —            
+[2026-03-23T20:26:52.968Z] 
+--- Diagnostika CBC: CollaboratorAgreements stĺpce ---
+[2026-03-23T20:26:52.971Z]   CollaboratorAgreements stĺpce: cag_id, com_id, doc_id, cag_number, cag_from, cag_to, cag_valid, cag_repository, cag_questionaire_returned, cag_agreement_sent, cag_agreement_returned, cag_social_insurance_registration, cag_social_insurance_cancel, cag_note, cag_inserted, cag_inserted_by, cag_updated, cag_updated_by, afo_id
+  cag_id | com_id | doc_id | cag_number            | cag_from                       | cag_to                         | cag_valid | cag_repository | cag_questionaire_returned | cag_agreement_sent             | cag_agreement_returned         | cag_social_insurance_registration | cag_social_insurance_cancel | cag_note | cag_inserted                   | cag_inserted_by | cag_updated                    | cag_updated_by | afo_id
+  ───────┼────────┼────────┼───────────────────────┼────────────────────────────────┼────────────────────────────────┼───────────┼────────────────┼───────────────────────────┼────────────────────────────────┼────────────────────────────────┼────────────────────────────────┼─────────────────────────────┼──────────┼────────────────────────────────┼─────────────────┼────────────────────────────────┼────────────────┼───────
+  75435  | 4      | 5168   | DPP 1256              | Wed Jan 01 2025 00:00:00 GMT+0 | Fri Dec 31 2027 00:00:00 GMT+0 | true      | —              | —                         | Wed Jan 01 2025 00:00:00 GMT+0 | Mon Mar 23 2026 00:00:00 GMT+0 | —                              | —                           | —        | Mon Mar 23 2026 09:53:13 GMT+0 | plapsanska      | Mon Mar 23 2026 09:53:13 GMT+0 | plapsanska     | —     
+  75434  | 2      | 29865  | nemá dohodu           | Thu Jan 01 2026 00:00:00 GMT+0 | Thu Dec 31 2026 00:00:00 GMT+0 | false     | —              | —                         | —                              | —                              | —                              | —                           | —        | Fri Mar 20 2026 12:40:20 GMT+0 | vnagyova        | Fri Mar 20 2026 12:40:20 GMT+0 | vnagyova       | —     
+  75433  | 2      | 27913  | 60686 DOVP TYP15 7,5% | Thu Jan 01 2026 00:00:00 GMT+0 | Thu Dec 31 2026 00:00:00 GMT+0 | true      | —              | —                         | Thu Jan 01 2026 00:00:00 GMT+0 | Sat Feb 28 2026 00:00:00 GMT+0 | —                              | —                           | —        | Fri Mar 20 2026 09:18:19 GMT+0 | plapsanska      | Fri Mar 20 2026 09:18:19 GMT+0 | plapsanska     | 1     
+[2026-03-23T20:26:52.973Z] 
+--- Diagnostika CBC: Repository/Súbory dohôd ---
+[2026-03-23T20:26:52.986Z]   cag_repository: 8674 z 71409 má hodnotu
+[2026-03-23T20:26:52.988Z]   FileRepositories: 0 záznamov (PRÁZDNA — súbory sa budú riešiť manuálne)
+[2026-03-23T20:26:52.988Z] 
+--- Diagnostika CBC: Historické dáta klientov ---
+[2026-03-23T20:26:53.023Z]   Tabuľky súvisiace s klientmi/históriou: ActHistory, AoPCustomEmails, ApplicationOfPayments, ceptra_clients, ClientContactsAT, ClientContactsCZ, ClientContactsHU, ClientContactsIT, ClientContactsRO, ClientContactsSK, Clients, CombinedStorageServicePrice, Contacts, ContactSources, ContactStatuses, ContactUpdates, ContactUpdatesTest, ContractServiceNotificationEvents, ContractServicePayments, ContractServiceSchedulePayments, EmailQueue, ESORealizedPaymentSimulation, ExchangeLog, FirstCallTypes, HistoryContractServicePayments, HistoryContractServices, HistoryContractServiceSurcharges, InvoicePaymentStatuses, InvoiceSchedulesPaymentDates, Logs, LogSeverities, MergedClients, MergedClientsContracts, NotificationEventTemplates, OldIDClients, PaymentImportLines, PaymentImports, PaymentTypes, PhoneCallResults, PhoneCallUpdates, PhoneCallUpdatesTest, PhoneCommunications, PotentialClients, PotentialClientStatuses, Prepayments, PriceListPayments, RealizedPayments, RewardHistory, ScheduledPayments, SchedulePaymentTemplates, SMSQueue, StorageCampaignDocuments, StorageCampaignEmails, StorageCampaigns, StorageCampaignServices, StorageCampaingRecords, StorageCampaingSelectionRO, StorageCampaingSelectionSK, StorageServicePrice, StorageToEmailsTypes, StorageUpdateDetails, StorageUpdateDetailsTest, StorageUpdates, StorageUpdatesTest, vClientContacts, WelcomeTasks, WelcomeTasksToRoles
+[2026-03-23T20:26:53.026Z]     WARN: ActHistory: Invalid object name 'ActHistory'.
+[2026-03-23T20:26:53.041Z]   AoPCustomEmails: 0 záznamov (má FK na klienta/kontrakt)
+[2026-03-23T20:26:53.041Z]     Stĺpce: eml_id, cli_id, pda_first_name, pda_last_name, pda_email, pda_mobile, suma_po_splatnosti, najstarsie_dni_po_splatnosti, cur_code_home, inserted, day_number, active
+[2026-03-23T20:26:53.074Z]   ApplicationOfPayments: 457876 záznamov (má FK na klienta/kontrakt)
+[2026-03-23T20:26:53.074Z]     Stĺpce: aop_id, are_id, cli_id, aop_max_number_of_rounds, aop_case_opened, aop_case_opened_by, aop_case_closed, aop_case_closed_by, aop_name
+  aop_id | are_id | cli_id | aop_max_number_of_rounds | aop_case_opened                | aop_case_opened_by | aop_case_closed | aop_case_closed_by | aop_name
+  ───────┼────────┼────────┼──────────────────────────┼────────────────────────────────┼────────────────────┼─────────────────┼────────────────────┼─────────
+  459100 | 1      | 73870  | —                        | Mon Mar 23 2026 14:35:59 GMT+0 | etoth              | —               | —                  | etoth   
+  459099 | 1      | 46776  | —                        | Mon Mar 23 2026 14:20:13 GMT+0 | cmuresan           | —               | —                  | cmuresan
+[2026-03-23T20:26:53.092Z]   ceptra_clients: 28321 záznamov
+[2026-03-23T20:26:53.092Z]     Stĺpce: cpt_id, cpt_name, cpt_street, cpt_city
+  cpt_id | cpt_name         | cpt_street             | cpt_city          
+  ───────┼──────────────────┼────────────────────────┼───────────────────
+  28321  | Andrea Šťastná   | Ipeľské Predmostie 193 | Ipeľské Predmostie
+  28320  | Katarína Opanská | Lesenice 69            | Lesenice          
+[2026-03-23T20:26:53.375Z]   ClientContactsAT: 636 záznamov
+[2026-03-23T20:26:53.375Z]     Stĺpce: ID, meno, priezvisko, predpokl_datum_porodu, email1, email2, phone, correctedphone, mobile1, correctedmobile1, mobile2, correctedmobile2, othercontact, pot_status, uuid
+  ID        | meno          | priezvisko | predpokl_datum_porodu | email1 | email2 | phone          | correctedphone | mobile1 | correctedmobile1 | mobile2 | correctedmobile2 | othercontact | pot_status | uuid
+  ──────────┼───────────────┼────────────┼───────────────────────┼────────┼────────┼────────────────┼────────────────┼─────────┼──────────────────┼─────────┼──────────────────┼──────────────┼────────────┼─────
+  900613151 | George-Viorel | Cristea    | 2026-05-24            | —      | —      | +4367763776454 | —              | —       | —                | —       | —                | —            | REALIZED   | —   
+  900613078 | Jonas         | Paulenka   | 2026-02-25            | —      | —      | —              | —              | —       | —                | —       | —                | —            | REALIZED   | —   
+[2026-03-23T20:26:54.050Z]   ClientContactsCZ: 39 záznamov
+[2026-03-23T20:26:54.050Z]     Stĺpce: ID, meno, priezvisko, predpokl_datum_porodu, email1, email2, phone, correctedphone, mobile1, correctedmobile1, mobile2, correctedmobile2, othercontact, pot_status, uuid
+  ID        | meno   | priezvisko | predpokl_datum_porodu | email1 | email2 | phone | correctedphone | mobile1 | correctedmobile1 | mobile2 | correctedmobile2 | othercontact | pot_status | uuid
+  ──────────┼────────┼────────────┼───────────────────────┼────────┼────────┼───────┼────────────────┼─────────┼──────────────────┼─────────┼──────────────────┼──────────────┼────────────┼─────
+  900613143 | Adéla  | Míková     | 2026-03-22            | —      | —      | —     | —              | —       | —                | —       | —                | —            | REALIZED   | —   
+  900613087 | Oliver | Hunák      | 2026-03-15            | —      | —      | —     | —              | —       | —                | —       | —                | —            | REALIZED   | —   
+[2026-03-23T20:26:54.949Z]   ClientContactsHU: 12 záznamov
+[2026-03-23T20:26:54.949Z]     Stĺpce: ID, meno, priezvisko, predpokl_datum_porodu, email1, email2, phone, correctedphone, mobile1, correctedmobile1, mobile2, correctedmobile2, othercontact, pot_status, uuid
+  ID        | meno     | priezvisko | predpokl_datum_porodu | email1 | email2 | phone | correctedphone | mobile1 | correctedmobile1 | mobile2 | correctedmobile2 | othercontact | pot_status | uuid
+  ──────────┼──────────┼────────────┼───────────────────────┼────────┼────────┼───────┼────────────────┼─────────┼──────────────────┼─────────┼──────────────────┼──────────────┼────────────┼─────
+  900613082 | -        | -          | 2026-06-11            | —      | —      | —     | —              | —       | —                | —       | —                | —            | REALIZED   | —   
+  900613068 | NEZADÁNO | Szabó      | 2026-03-04            | —      | —      | —     | —              | —       | —                | —       | —                | —            | REALIZED   | —   
+[2026-03-23T20:26:55.622Z]   ClientContactsIT: 0 záznamov
+[2026-03-23T20:26:55.622Z]     Stĺpce: ID, meno, priezvisko, predpokl_datum_porodu, email1, email2, phone, correctedphone, mobile1, correctedmobile1, mobile2, correctedmobile2, othercontact, pot_status, uuid
+[2026-03-23T20:26:56.023Z]   ClientContactsRO: 148 záznamov
+[2026-03-23T20:26:56.023Z]     Stĺpce: ID, meno, priezvisko, predpokl_datum_porodu, email1, email2, phone, correctedphone, mobile1, correctedmobile1, mobile2, correctedmobile2, othercontact, pot_status, uuid
+  ID        | meno        | priezvisko | predpokl_datum_porodu | email1                     | email2 | phone | correctedphone | mobile1   | correctedmobile1 | mobile2 | correctedmobile2 | othercontact | pot_status | uuid
+  ──────────┼─────────────┼────────────┼───────────────────────┼────────────────────────────┼────────┼───────┼────────────────┼───────────┼──────────────────┼─────────┼──────────────────┼──────────────┼────────────┼─────
+  900613160 | Liviu       | Budur      | 2026-03-22            | budur.liviu@yahoo.com      | —      | —     | —              | 743330029 | 743330029        | —       | —                | —            | REALIZED   | —   
+  900613159 | Cornel Alin | Dragomir   | 2026-05-18            | dragomiralin1988@yahoo.com | —      | —     | —              | 792574445 | 792574445        | —       | —                | —            | REALIZED   | —   
+[2026-03-23T20:26:56.848Z]   ClientContactsSK: 42 záznamov
+[2026-03-23T20:26:56.848Z]     Stĺpce: ID, meno, priezvisko, predpokl_datum_porodu, email1, email2, phone, correctedphone, mobile1, correctedmobile1, mobile2, correctedmobile2, othercontact, pot_status, uuid
+  ID        | meno   | priezvisko | predpokl_datum_porodu | email1 | email2 | phone | correctedphone | mobile1 | correctedmobile1 | mobile2 | correctedmobile2 | othercontact | pot_status | uuid
+  ──────────┼────────┼────────────┼───────────────────────┼────────┼────────┼───────┼────────────────┼─────────┼──────────────────┼─────────┼──────────────────┼──────────────┼────────────┼─────
+  900613142 | Dalila | Doleži     | 2026-03-18            | —      | —      | —     | —              | —       | —                | —       | —                | —            | REALIZED   | —   
+  900613136 | Samuel | Bučko      | 2026-03-17            | —      | —      | —     | —              | —       | —                | —       | —                | —            | REALIZED   | —   
+[2026-03-23T20:26:57.290Z]   Clients: 208361 záznamov (má FK na klienta/kontrakt)
+[2026-03-23T20:26:57.291Z]     Stĺpce: cli_id, com_id, pot_id, per_id, cli_children, cli_mailinglist, cli_inserted, cli_inserted_by, cli_updated, cli_updated_by, cli_deleted, cli_note, cli_marketing_signed_tx, cli_marketing_no_voucher, mcom_id, mcoo_id, mvip_id, cli_marketing_note, cli_rating, cli_agree_marketing_news, cli_agree_sales_news
+  cli_id | com_id | pot_id | per_id | cli_children | cli_mailinglist | cli_inserted                   | cli_inserted_by | cli_updated                    | cli_updated_by | cli_deleted | cli_note | cli_marketing_signed_tx | cli_marketing_no_voucher | mcom_id | mcoo_id | mvip_id | cli_marketing_note | cli_rating | cli_agree_marketing_news | cli_agree_sales_news
+  ───────┼────────┼────────┼────────┼──────────────┼─────────────────┼────────────────────────────────┼─────────────────┼────────────────────────────────┼────────────────┼─────────────┼──────────┼─────────────────────────┼──────────────────────────┼─────────┼─────────┼─────────┼────────────────────┼────────────┼──────────────────────────┼─────────────────────
+  208378 | 4      | 285326 | 613153 | 1            | true            | Mon Mar 23 2026 16:36:07 GMT+0 | kdenkova        | Mon Mar 23 2026 16:41:40 GMT+0 | kdenkova       | false       | —        | false                   | false                    | —       | —       | —       | —                  | —          | false                    | false               
+  208377 | 4      | 285323 | 613147 | 1            | true            | Mon Mar 23 2026 15:03:36 GMT+0 | kdenkova        | Mon Mar 23 2026 15:20:28 GMT+0 | kdenkova       | false       | —        | false                   | false                    | —       | —       | —       | —                  | —          | false                    | false               
+[2026-03-23T20:26:57.603Z]   CombinedStorageServicePrice: 263926 záznamov (má FK na klienta/kontrakt)
+[2026-03-23T20:26:57.603Z]     Stĺpce: con_id, storageservicetotal
+  con_id | storageservicetotal
+  ───────┼────────────────────
+  263958 | 19152              
+  263957 | 42963              
+[2026-03-23T20:26:57.683Z]   Contacts: 3 záznamov
+[2026-03-23T20:26:57.683Z]     Stĺpce: cnt_id, cst_id, cos_id, com_id, pro_id, mac_id, cnt_title_prefix, cnt_first_name, cnt_middle_name, cnt_last_name, cnt_title_suffix, cnt_mobile, cnt_phone_number, cnt_email, cnt_inserted, cnt_inserted_by, cnt_updated, cnt_updated_by, cnt_deleted, cnt_note
+  cnt_id | cst_id | cos_id | com_id | pro_id | mac_id | cnt_title_prefix | cnt_first_name | cnt_middle_name | cnt_last_name | cnt_title_suffix | cnt_mobile     | cnt_phone_number | cnt_email            | cnt_inserted                   | cnt_inserted_by | cnt_updated                    | cnt_updated_by | cnt_deleted | cnt_note
+  ───────┼────────┼────────┼────────┼────────┼────────┼──────────────────┼────────────────┼─────────────────┼───────────────┼──────────────────┼────────────────┼──────────────────┼──────────────────────┼────────────────────────────────┼─────────────────┼────────────────────────────────┼────────────────┼─────────────┼─────────
+  3      | 1      | 4      | 8      | 1      | 262    | BEd              | Nina           | —               | Thaler        | —                | —              | 0660/4950370     | ninakoppitsch@gmx.at | Thu Dec 04 2025 10:22:21 GMT+0 | ddrastikova     | Thu Dec 04 2025 10:22:21 GMT+0 | ddrastikova    | false       | —       
+  2      | 5      | 4      | 8      | 1      | 99     | —                | Simone         | —               | Jambura       | —                | 00436505004879 | —                | s.jambura@gmx.at     | Mon Sep 16 2019 14:08:09 GMT+0 | mzapotocna      | Mon Sep 16 2019 14:08:09 GMT+0 | mzapotocna     | false       | —       
+[2026-03-23T20:26:57.694Z]   ContactSources: 20 záznamov
+[2026-03-23T20:26:57.694Z]     Stĺpce: cos_id, com_id, cos_name, cos_active, cos_order, cos_description
+  cos_id | com_id | cos_name             | cos_active | cos_order | cos_description               
+  ───────┼────────┼──────────────────────┼────────────┼───────────┼───────────────────────────────
+  24     | 12     | Vyhraj kočík na webe | true       | 3         | kontakty z marketingovej akcie
+  23     | 12     | PROSAM               | true       | 2         | zakúpené kontakty z Prosamu   
+[2026-03-23T20:26:57.704Z]   ContactStatuses: 6 záznamov
+[2026-03-23T20:26:57.704Z]     Stĺpce: cst_id, cst_code, cst_default_name, cst_order, cst_description
+  cst_id | cst_code          | cst_default_name | cst_order | cst_description               
+  ───────┼───────────────────┼──────────────────┼───────────┼───────────────────────────────
+  6      | REG_CST_CANCELLED | Cancelled        | 6         | Record cancelled without conta
+  5      | REG_CST_REALIZED  | Realized         | 5         | Realized. Contact has interest
+[2026-03-23T20:26:57.709Z]     WARN: ContactUpdates: Invalid object name 'ContactUpdates'.
+[2026-03-23T20:26:57.711Z]     WARN: ContactUpdatesTest: Invalid object name 'ContactUpdatesTest'.
+[2026-03-23T20:26:57.721Z]   ContractServiceNotificationEvents: 0 záznamov
+[2026-03-23T20:26:57.721Z]     Stĺpce: net_id, cse_id, sne_raised, sne_handled, sne_handled_by
+[2026-03-23T20:26:57.763Z]   ContractServicePayments: 867036 záznamov
+[2026-03-23T20:26:57.763Z]     Stĺpce: csp_id, plp_id, cse_id, csp_original_price, csp_actual_price
+  csp_id | plp_id | cse_id  | csp_original_price | csp_actual_price
+  ───────┼────────┼─────────┼────────────────────┼─────────────────
+  867089 | 3083   | 1249939 | 0                  | 0               
+  867088 | 3082   | 1249938 | 0                  | 0               
+[2026-03-23T20:26:57.811Z]   ContractServiceSchedulePayments: 3233089 záznamov
+[2026-03-23T20:26:57.811Z]     Stĺpce: csy_id, csh_id, csy_name, csy_installments_id, csy_amount, csy_paymentdate_field, csy_days_from_field_value, csy_days_from_previous, csy_inserted, csy_inserted_by
+  csy_id  | csh_id  | csy_name              | csy_installments_id | csy_amount | csy_paymentdate_field | csy_days_from_field_value | csy_days_from_previous | csy_inserted                   | csy_inserted_by
+  ────────┼─────────┼───────────────────────┼─────────────────────┼────────────┼───────────────────────┼───────────────────────────┼────────────────────────┼────────────────────────────────┼────────────────
+  3268310 | 2172127 | Úhrada jednou platbou | 1                   | 19152      | Realized              | 14                        | 0                      | Mon Mar 23 2026 16:36:26 GMT+0 | kdenkova       
+  3268309 | 2172126 | Úhrada jednou platbou | 1                   | 52500      | Realized              | 14                        | 0                      | Mon Mar 23 2026 16:36:25 GMT+0 | kdenkova       
+[2026-03-23T20:26:57.825Z]   EmailQueue: 6761 záznamov
+[2026-03-23T20:26:57.825Z]     Stĺpce: emq_id, com_id, emq_date, emq_from_address, emq_reply_to_address, emq_email_address, emq_cc, emq_subject, emq_body, emq_attachment, emq_processed, emq_processed_by, emq_result, emq_note
+  emq_id | com_id | emq_date                       | emq_from_address           | emq_reply_to_address | emq_email_address      | emq_cc | emq_subject     | emq_body        | emq_attachment | emq_processed                  | emq_processed_by | emq_result | emq_note
+  ───────┼────────┼────────────────────────────────┼────────────────────────────┼──────────────────────┼────────────────────────┼────────┼─────────────────┼─────────────────┼────────────────┼────────────────────────────────┼──────────────────┼────────────┼─────────
+  6761   | 2      | Tue May 24 2016 08:58:22 GMT+0 | noreply@cordbloodcenter.sk | —                    | madarasz80@freemail.hu | —      | Email upomienka | Email upomienka | —              | Tue May 24 2016 09:00:07 GMT+0 | Email Service    | OK         | —       
+  6760   | 5      | Mon May 23 2016 14:06:26 GMT+0 | noreply@cordbloodcenter.sk | —                    | ana_vilcea@yahoo.com   | —      | Email upomienka | Email upomienka | —              | Mon May 23 2016 14:07:12 GMT+0 | Email Service    | OK         | —       
+[2026-03-23T20:26:57.838Z]   ESORealizedPaymentSimulation: 0 záznamov
+[2026-03-23T20:26:57.838Z]     Stĺpce: eso_id, eso_record_type, eso_timestamp, eso_date_of_payment, eso_amount_in_domestic_currency, eso_domestic_currency, eso_amount_in_foreign_currency, eso_foreign_currency, eso_exchange_rate, eso_payment_type, eso_recipient_account, eso_recipient_bank, eso_recipient_IBAN, eso_recipient_SWIFT, eso_variable_symbol, eso_specific_symbol, eso_message_to_recipient, eso_sender_account, eso_sender_bank, eso_sender_IBAN, eso_sender_SWIFT, eso_document_number, eso_matched_invoice_id, eso_matched_invoice_number, eso_comment, com_id_business, com_id_accounting
+[2026-03-23T20:26:57.849Z]   ExchangeLog: 6150 záznamov
+[2026-03-23T20:26:57.849Z]     Stĺpce: ex_id, ex_date, ex_email, ex_group, ex_direction, ex_count
+  ex_id | ex_date                        | ex_email                      | ex_group | ex_direction | ex_count
+  ──────┼────────────────────────────────┼───────────────────────────────┼──────────┼──────────────┼─────────
+  6217  | Tue Aug 01 2023 00:00:00 GMT+0 | motoskova@cordbloodcenter.com | INFO     | OUT          | 0       
+  6216  | Tue Aug 01 2023 00:00:00 GMT+0 | motoskova@cordbloodcenter.com | INFO     | IN           | 3       
+[2026-03-23T20:26:57.862Z]   FirstCallTypes: 3 záznamov
+[2026-03-23T20:26:57.862Z]     Stĺpce: fct_id, fct_code, fct_default_name, fct_order, fct_description
+  fct_id | fct_code       | fct_default_name | fct_order | fct_description
+  ───────┼────────────────┼──────────────────┼───────────┼────────────────
+  3      | REG_FCT_CALLED | Already called   | 3         | —              
+  2      | REG_FCT_NOCALL | Without call     | 2         | —              
+[2026-03-23T20:26:57.912Z]   HistoryContractServicePayments: 903858 záznamov
+[2026-03-23T20:26:57.912Z]     Stĺpce: hsp_id, csp_id, hsp_price, hsp_from, hsp_to, hsp_actual, hsp_inserted, hsp_inserted_by, hsp_note
+  hsp_id | csp_id | hsp_price | hsp_from                       | hsp_to | hsp_actual | hsp_inserted                   | hsp_inserted_by | hsp_note
+  ───────┼────────┼───────────┼────────────────────────────────┼────────┼────────────┼────────────────────────────────┼─────────────────┼─────────
+  903935 | 867089 | 0         | Mon Mar 23 2026 16:30:50 GMT+0 | —      | true       | Mon Mar 23 2026 16:36:25 GMT+0 | kdenkova        | —       
+  903934 | 867088 | 0         | Mon Mar 23 2026 16:30:54 GMT+0 | —      | true       | Mon Mar 23 2026 16:36:24 GMT+0 | kdenkova        | —       
+[2026-03-23T20:26:57.950Z]   HistoryContractServices: 2207872 záznamov
+[2026-03-23T20:26:57.950Z]     Stĺpce: hcs_id, cse_id, hcs_price, hcs_from, hcs_to, hcs_actual, hcs_inserted, hcs_inserted_by, hcs_note
+  hcs_id  | cse_id  | hcs_price | hcs_from                       | hcs_to | hcs_actual | hcs_inserted                   | hcs_inserted_by | hcs_note
+  ────────┼─────────┼───────────┼────────────────────────────────┼────────┼────────────┼────────────────────────────────┼─────────────────┼─────────
+  2231174 | 1249939 | 19152     | Mon Mar 23 2026 16:30:50 GMT+0 | —      | true       | Mon Mar 23 2026 16:36:25 GMT+0 | kdenkova        | —       
+  2231173 | 1249938 | 52500     | Mon Mar 23 2026 16:30:54 GMT+0 | —      | true       | Mon Mar 23 2026 16:36:24 GMT+0 | kdenkova        | —       
+[2026-03-23T20:26:57.967Z]   HistoryContractServiceSurcharges: 203056 záznamov
+[2026-03-23T20:26:57.968Z]     Stĺpce: hss_id, css_id, hss_price, hss_from, hss_to, hss_actual, hss_inserted, hss_inserted_by, hss_note
+  hss_id | css_id | hss_price | hss_from                       | hss_to | hss_actual | hss_inserted                   | hss_inserted_by | hss_note
+  ───────┼────────┼───────────┼────────────────────────────────┼────────┼────────────┼────────────────────────────────┼─────────────────┼─────────
+  203066 | 202475 | -1050     | Mon Mar 23 2026 15:46:42 GMT+0 | —      | true       | Mon Mar 23 2026 15:46:59 GMT+0 | rtabacaru       | —       
+  203065 | 202476 | -1050     | Mon Mar 23 2026 15:39:40 GMT+0 | —      | true       | Mon Mar 23 2026 15:40:23 GMT+0 | rtabacaru       | —       
+[2026-03-23T20:26:57.981Z]   InvoicePaymentStatuses: 3 záznamov
+[2026-03-23T20:26:57.981Z]     Stĺpce: ips_id, ips_code, ips_default_name, ips_order, ips_description
+  ips_id | ips_code        | ips_default_name | ips_order | ips_description               
+  ───────┼─────────────────┼──────────────────┼───────────┼───────────────────────────────
+  3      | REG_IPS_OVERDUE | Over due         | 3         | If exists overdue payment     
+  2      | REG_IPS_PAID    | Paid             | 2         | Invoice that is not indue or o
+[2026-03-23T20:27:00.294Z]   InvoiceSchedulesPaymentDates: 2791072 záznamov
+[2026-03-23T20:27:00.294Z]     Stĺpce: inv_id, paymentdate1, paymentdate2, paymentdate3, paymentdate4, paymentdate5, paymentdate6, paymentdate7, paymentdate8, paymentdate9, paymentdate10, paymentdate11, paymentdate12
+  inv_id  | paymentdate1                   | paymentdate2 | paymentdate3 | paymentdate4 | paymentdate5 | paymentdate6 | paymentdate7 | paymentdate8 | paymentdate9 | paymentdate10 | paymentdate11 | paymentdate12
+  ────────┼────────────────────────────────┼──────────────┼──────────────┼──────────────┼──────────────┼──────────────┼──────────────┼──────────────┼──────────────┼───────────────┼───────────────┼──────────────
+  2837753 | Wed Apr 08 2026 00:00:00 GMT+0 | —            | —            | —            | —            | —            | —            | —            | —            | —             | —             | —            
+  2837752 | Wed Apr 08 2026 00:00:00 GMT+0 | —            | —            | —            | —            | —            | —            | —            | —            | —             | —             | —            
+[2026-03-23T20:27:00.350Z]   Logs: 581342 záznamov
+[2026-03-23T20:27:00.350Z]     Stĺpce: log_id, sev_id, com_id, log_module, log_date, log_user, log_remark, log_seen, log_seen_by, log_seen_remark
+  log_id | sev_id | com_id | log_module         | log_date                       | log_user         | log_remark                     | log_seen | log_seen_by | log_seen_remark
+  ───────┼────────┼────────┼────────────────────┼────────────────────────────────┼──────────────────┼────────────────────────────────┼──────────┼─────────────┼────────────────
+  581345 | 1      | —      | ServiceImportLab   | Mon Mar 23 2026 21:10:49 GMT+0 | ServiceImportLab | BSPServiceImportLab task start | —        | —           | —              
+  581344 | 1      | —      | WebServisExportESO | Mon Mar 23 2026 21:00:10 GMT+0 | ceptra_eso       | GetScheduledPayments method re | —        | —           | —              
+[2026-03-23T20:27:00.360Z]   LogSeverities: 6 záznamov
+[2026-03-23T20:27:00.360Z]     Stĺpce: sev_id, sev_code, sev_default_name, sev_order, sev_role_to_notify, sev_must_be_seen, sev_description
+  sev_id | sev_code         | sev_default_name | sev_order | sev_role_to_notify  | sev_must_be_seen | sev_description              
+  ───────┼──────────────────┼──────────────────┼───────────┼─────────────────────┼──────────────────┼──────────────────────────────
+  6      | REG_SEV_SECURITY | Security         | 6         | Administrator       | true             | Security related entries     
+  5      | REG_SEV_SYSTEM   | System           | 5         | SystemAdministrator | true             | System state related problems
+[2026-03-23T20:27:00.372Z]   MergedClients: 16358 záznamov
+[2026-03-23T20:27:00.372Z]     Stĺpce: mer_id, cli_id_new, cli_id_old, mer_note, mer_merged, mer_merged_by
+  mer_id | cli_id_new | cli_id_old | mer_note | mer_merged                     | mer_merged_by
+  ───────┼────────────┼────────────┼──────────┼────────────────────────────────┼──────────────
+  16588  | 208347     | 184545     | —        | Mon Mar 23 2026 12:55:12 GMT+0 | dpetrutiu    
+  16587  | 186223     | 208342     | —        | Mon Mar 23 2026 12:37:58 GMT+0 | dpetrutiu    
+[2026-03-23T20:27:00.383Z]   MergedClientsContracts: 8767 záznamov (má FK na klienta/kontrakt)
+[2026-03-23T20:27:00.383Z]     Stĺpce: con_id, mer_id
+  con_id | mer_id
+  ───────┼───────
+  263914 | 16587 
+  263006 | 16569 
+[2026-03-23T20:27:00.395Z]   NotificationEventTemplates: 0 záznamov
+[2026-03-23T20:27:00.395Z]     Stĺpce: net_id, sin_id, net_contract_datefield, net_days_to_date, net_flag_to_check, net_role_to_notify, net_from, net_to, net_active, net_inserted, net_inserted_by, net_updated, net_updated_by, net_description
+[2026-03-23T20:27:00.411Z]   OldIDClients: 98219 záznamov (má FK na klienta/kontrakt)
+[2026-03-23T20:27:00.411Z]     Stĺpce: ocl_id, cli_id, ocl_mdb_id, ocl_mdb_file
+  ocl_id | cli_id | ocl_mdb_id | ocl_mdb_file
+  ───────┼────────┼────────────┼─────────────
+  98219  | 105955 | 80001097   | CBC_SK      
+  98218  | 105954 | 80001036   | CBC_SK      
+[2026-03-23T20:27:00.451Z]   PaymentImportLines: 525764 záznamov
+[2026-03-23T20:27:00.451Z]     Stĺpce: pil_id, pai_id, pil_excel_line, pil_client_name, pil_date, pil_invoice_number, pil_zile_number, pil_amount_total, pil_amount_topay, pil_terme, pil_user_id, inv_id, pil_error_message
+  pil_id | pai_id | pil_excel_line | pil_client_name    | pil_date   | pil_invoice_number | pil_zile_number | pil_amount_total | pil_amount_topay | pil_terme  | pil_user_id   | inv_id  | pil_error_message
+  ───────┼────────┼────────────────┼────────────────────┼────────────┼────────────────────┼─────────────────┼──────────────────┼──────────────────┼────────────┼───────────────┼─────────┼──────────────────
+  771374 | 24     | 34128          | COBORI Luiza Ioana | 19.09.2018 | 1183018225         | 10              | 680              | 680              | 19.10.2018 | 2821221150012 | 1310230 | —                
+  771373 | 24     | 34127          | CRISTEA Andreea    | 03.08.2017 | 1173015490         | 422             | 339.99           | 339.99           | 02.09.2017 | 2810930170024 | 1116349 | —                
+[2026-03-23T20:27:00.462Z]   PaymentImports: 16 záznamov
+[2026-03-23T20:27:00.462Z]     Stĺpce: pai_id, pai_imported, pai_imported_by, pai_filename, pai_state
+  pai_id | pai_imported                   | pai_imported_by | pai_filename                   | pai_state
+  ───────┼────────────────────────────────┼─────────────────┼────────────────────────────────┼──────────
+  24     | Wed Oct 31 2018 13:59:29 GMT+0 | lliska          | C:\ISCBC\ImportPayment20180807 | payments 
+  18     | Thu Oct 04 2018 18:40:00 GMT+0 | lliska          | C:\ISCBC\ImportPayment20180807 | payments 
+[2026-03-23T20:27:00.475Z]   PaymentTypes: 34 záznamov
+[2026-03-23T20:27:00.475Z]     Stĺpce: pty_id, com_id, pty_name, pty_installments_count, pty_from, pty_to, pty_active, pty_inserted, pty_inserted_by, pty_description
+  pty_id | com_id | pty_name                       | pty_installments_count | pty_from                       | pty_to | pty_active | pty_inserted                   | pty_inserted_by | pty_description               
+  ───────┼────────┼────────────────────────────────┼────────────────────────┼────────────────────────────────┼────────┼────────────┼────────────────────────────────┼─────────────────┼───────────────────────────────
+  34     | 4      | Úhrada v 5-tich splátkach      | 5                      | Mon Jan 20 2025 00:00:00 GMT+0 | —      | true       | Tue Jan 21 2025 08:08:07 GMT+0 | michal.kollar   | —                             
+  33     | 2      | Úhrada v 5-tich mesačných splá | 5                      | Mon Jan 20 2025 00:00:00 GMT+0 | —      | true       | Mon Jan 20 2025 10:48:35 GMT+0 | aczigler        | 5 rovnomerných mesačných splát
+[2026-03-23T20:27:00.487Z]   PhoneCallResults: 6 záznamov
+[2026-03-23T20:27:00.487Z]     Stĺpce: phr_id, phr_code, phr_default_name, phr_order, phr_description
+  phr_id | phr_code           | phr_default_name | phr_order | phr_description
+  ───────┼────────────────────┼──────────────────┼───────────┼────────────────
+  6      | REG_PHR_DONE       | Done             | 6         | —              
+  5      | REG_PHR_CALL_LATER | Call later       | 5         | —              
+[2026-03-23T20:27:00.493Z]     WARN: PhoneCallUpdates: Invalid object name 'PhoneCallUpdates'.
+[2026-03-23T20:27:00.494Z]     WARN: PhoneCallUpdatesTest: Invalid object name 'PhoneCallUpdatesTest'.
+[2026-03-23T20:27:00.565Z]   PhoneCommunications: 1192984 záznamov (má FK na klienta/kontrakt)
+[2026-03-23T20:27:00.565Z]     Stĺpce: pho_id, pot_id, cnt_id, con_id, cli_id, phr_id, pho_call_date, pho_caller, pho_number, pho_note, pho_deleted, pho_temp, pho_source, pho_source_id, doc_id, hos_id
+  pho_id  | pot_id | cnt_id | con_id | cli_id | phr_id | pho_call_date                  | pho_caller | pho_number    | pho_note                       | pho_deleted | pho_temp | pho_source | pho_source_id | doc_id | hos_id
+  ────────┼────────┼────────┼────────┼────────┼────────┼────────────────────────────────┼────────────┼───────────────┼────────────────────────────────┼─────────────┼──────────┼────────────┼───────────────┼────────┼───────
+  1193110 | —      | —      | 263958 | —      | 6      | Mon Mar 23 2026 16:36:45 GMT+0 | kdenkova   | 774361096     | Klient původně vyplnil regsitr | false       | —        | —          | —             | —      | —     
+  1193109 | —      | —      | 120074 | 117779 | 5      | Mon Mar 23 2026 16:01:53 GMT+0 | jmatejkova | +420722945488 | dovoláno,prověří,uhradí,poslán | false       | —        | —          | —             | —      | —     
+[2026-03-23T20:27:00.590Z]   PotentialClients: 285281 záznamov (má FK na klienta/kontrakt)
+[2026-03-23T20:27:00.590Z]     Stĺpce: pot_id, sre_id, rty_id, pcs_id, per_id_father, cnt_id, com_id, mac_id, doc_id_exp, hos_id, fis_id, per_id, mpi_id, doc_id_recruit, pty_id, cos_id, cli_id, pot_product_ft, pot_marketproduct_ft, pot_payment_type_ft, pot_exp_birth_date, pot_exp_hospital_ft, pot_exp_doctor_ft, pot_recruiting_ft, pot_pregnancy_type, pot_previous_contracts, pot_gift_card, pot_children, pot_registration_type_ft, pot_first_information_source_ft, pot_cbc_reason_ft, pot_marketing_action_ft, pot_street_address_country_ft, pot_correspondence_address_country_ft, pot_father_address_country_ft, pot_mailinglist, pot_inserted, pot_inserted_by, pot_updated, pot_updated_by, pot_note, pot_deleted, pot_ext_id, mco_id, pot_marketing_code_ft, POT_FORCE_READONLY
+  pot_id | sre_id | rty_id | pcs_id | per_id_father | cnt_id | com_id | mac_id | doc_id_exp | hos_id | fis_id | per_id | mpi_id | doc_id_recruit | pty_id | cos_id | cli_id | pot_product_ft | pot_marketproduct_ft | pot_payment_type_ft | pot_exp_birth_date             | pot_exp_hospital_ft | pot_exp_doctor_ft | pot_recruiting_ft | pot_pregnancy_type | pot_previous_contracts | pot_gift_card | pot_children | pot_registration_type_ft | pot_first_information_source_ft | pot_cbc_reason_ft | pot_marketing_action_ft | pot_street_address_country_ft | pot_correspondence_address_country_ft | pot_father_address_country_ft | pot_mailinglist | pot_inserted                   | pot_inserted_by | pot_updated                    | pot_updated_by | pot_note                       | pot_deleted | pot_ext_id | mco_id | pot_marketing_code_ft | POT_FORCE_READONLY
+  ───────┼────────┼────────┼────────┼───────────────┼────────┼────────┼────────┼────────────┼────────┼────────┼────────┼────────┼────────────────┼────────┼────────┼────────┼────────────────┼──────────────────────┼─────────────────────┼────────────────────────────────┼─────────────────────┼───────────────────┼───────────────────┼────────────────────┼────────────────────────┼───────────────┼──────────────┼──────────────────────────┼────────────────────────────────┼───────────────────┼─────────────────────────┼───────────────────────────────┼────────────────────────────────┼───────────────────────────────┼─────────────────┼────────────────────────────────┼─────────────────┼────────────────────────────────┼────────────────┼────────────────────────────────┼─────────────┼────────────┼────────┼───────────────────────┼───────────────────
+  285329 | 2      | 1      | 5      | —             | —      | 2      | —      | —          | 26     | 4      | 613158 | 1481   | —              | 1      | —      | 200976 | —              | —                    | —                   | Sat May 09 2026 00:00:00 GMT+0 | —                   | —                 | —                 | 1                  | 0                      | —             | 0            | —                        | —                              | —                 | —                       | —                             | —                              | —                             | false           | Mon Mar 23 2026 14:32:02 GMT+0 | jsabolova       | Mon Mar 23 2026 14:32:02 GMT+0 | jsabolova      | —                              | false       | —          | —      | —                     | false             
+  285328 | —      | 3      | 5      | —             | —      | 5      | —      | —          | 902    | —      | 613157 | 1453   | 13564          | —      | —      | 208376 | —              | —                    | —                   | Thu Apr 30 2026 00:00:00 GMT+0 | —                   | —                 | —                 | 1                  | 0                      | —             | 0            | —                        | —                              | —                 | —                       | HUNEDOARA                     | —                              | —                             | false           | Mon Mar 23 2026 13:23:35 GMT+0 | kpap            | Mon Mar 23 2026 13:23:49 GMT+0 | kpap           | Exp cnt+kit P STandard 12 rate | false       | —          | 123    | —                     | false             
+[2026-03-23T20:27:00.601Z]   PotentialClientStatuses: 7 záznamov
+[2026-03-23T20:27:00.601Z]     Stĺpce: pcs_id, pcs_code, pcs_default_name, pcs_order, pcs_description
+  pcs_id | pcs_code             | pcs_default_name | pcs_order | pcs_description               
+  ───────┼──────────────────────┼──────────────────┼───────────┼───────────────────────────────
+  7      | REG_PCS_CANCELLED    | Cancelled        | 7         | Cancelled case, ie: no valid c
+  6      | REG_PCS_NOT_REALIZED | Not realized     | 6         | Not realized case, client chan
+[2026-03-23T20:27:00.612Z]   Prepayments: 0 záznamov (má FK na klienta/kontrakt)
+[2026-03-23T20:27:00.612Z]     Stĺpce: pre_id, con_id, pre_date_of_payment, pre_prepaid_amount, pre_note
+[2026-03-23T20:27:00.621Z]   PriceListPayments: 3057 záznamov
+[2026-03-23T20:27:00.621Z]     Stĺpce: plp_id, cat_id, pty_id, mps_id, plp_name, plp_invoice_item, plp_price, plp_analytical_account, plp_accounting_code, plp_from, plp_to, plp_active, plp_inserted, plp_inserted_by, plp_updated, plp_updated_by, plp_description
+  plp_id | cat_id | pty_id | mps_id | plp_name         | plp_invoice_item | plp_price | plp_analytical_account | plp_accounting_code | plp_from                       | plp_to | plp_active | plp_inserted                   | plp_inserted_by | plp_updated                    | plp_updated_by | plp_description
+  ───────┼────────┼────────┼────────┼──────────────────┼──────────────────┼───────────┼────────────────────────┼─────────────────────┼────────────────────────────────┼────────┼────────────┼────────────────────────────────┼─────────────────┼────────────────────────────────┼────────────────┼────────────────
+  3455   | —      | 19     | 2230   | 4 payments_2026  | 4 payments_2026  | 0         | —                      | HZ20X               | Wed Feb 11 2026 00:00:00 GMT+0 | —      | true       | Wed Feb 11 2026 14:56:44 GMT+0 | aczigler        | Fri Feb 13 2026 14:47:40 GMT+0 | aczigler       | —              
+  3454   | —      | 16     | 2230   | One time payment | One time payment | 0         | —                      | HZ20X               | Wed Feb 11 2026 00:00:00 GMT+0 | —      | true       | Wed Feb 11 2026 14:56:44 GMT+0 | aczigler        | Fri Feb 13 2026 14:47:40 GMT+0 | aczigler       | —              
+[2026-03-23T20:27:00.676Z]   RealizedPayments: 4159995 záznamov
+[2026-03-23T20:27:00.676Z]     Stĺpce: rpa_id, inv_id, spa_id, rpa_amount_cur_home, rpa_amount_cur_account, rpa_payment_identifier, rpa_accounting_period, rpa_date_of_payment, rpa_exchange_rate, rpa_accounting_payment_id, rpa_accounting_timestamp, rpa_detail, rpa_payment_type, rpa_from_account_number, rpa_from_account_bank, rpa_from_account_IBAN, rpa_from_account_SWIFT, rpa_to_account_number, rpa_to_account_bank, rpa_to_account_IBAN, rpa_to_account_SWIFT, rpa_variable_symbol, rpa_specific_symbol, rpa_constant_symbol, rpa_message, rpa_note, rpa_inserted, rpa_inserted_by, rpa_updated, rpa_updated_by
+  rpa_id  | inv_id  | spa_id | rpa_amount_cur_home | rpa_amount_cur_account | rpa_payment_identifier | rpa_accounting_period          | rpa_date_of_payment            | rpa_exchange_rate | rpa_accounting_payment_id | rpa_accounting_timestamp       | rpa_detail | rpa_payment_type | rpa_from_account_number | rpa_from_account_bank | rpa_from_account_IBAN        | rpa_from_account_SWIFT | rpa_to_account_number | rpa_to_account_bank | rpa_to_account_IBAN | rpa_to_account_SWIFT | rpa_variable_symbol | rpa_specific_symbol | rpa_constant_symbol | rpa_message | rpa_note    | rpa_inserted                   | rpa_inserted_by  | rpa_updated                    | rpa_updated_by  
+  ────────┼─────────┼────────┼─────────────────────┼────────────────────────┼────────────────────────┼────────────────────────────────┼────────────────────────────────┼───────────────────┼───────────────────────────┼────────────────────────────────┼────────────┼──────────────────┼─────────────────────────┼───────────────────────┼──────────────────────────────┼────────────────────────┼───────────────────────┼─────────────────────┼─────────────────────┼──────────────────────┼─────────────────────┼─────────────────────┼─────────────────────┼─────────────┼─────────────┼────────────────────────────────┼──────────────────┼────────────────────────────────┼─────────────────
+  4476697 | 2830053 | —      | 0                   | 0.46                   | KRZ2607504             | Sun Mar 01 2026 00:00:00 GMT+0 | Wed Mar 18 2026 00:00:00 GMT+0 | 0                 | -204093260                | Sun Mar 22 2026 22:58:08 GMT+0 | —          | ID               | 7300000001579001/108    | Citibank Europe plc   | HU85108000073000000015790016 | CITIHUHX               | —                     | —                   | —                   | —                    | 1291200143          | —                   | —                   | eso         | eso         | Mon Mar 23 2026 00:25:36 GMT+0 | ServiceImportAcc | Mon Mar 23 2026 00:25:36 GMT+0 | ServiceImportAcc
+  4476696 | 2830053 | —      | 17124               | 44.1                   | CITIHU260030           | Sun Mar 01 2026 00:00:00 GMT+0 | Wed Mar 18 2026 00:00:00 GMT+0 | 388.2993          | -204092976                | Sun Mar 22 2026 22:58:08 GMT+0 | —          | BA               | 7300000001579001/108    | Citibank Europe plc   | HU85108000073000000015790016 | CITIHUHX               | —                     | —                   | —                   | —                    | 1291200143          | —                   | —                   | —           | 1265002089; | Mon Mar 23 2026 00:25:35 GMT+0 | ServiceImportAcc | Mon Mar 23 2026 00:25:35 GMT+0 | ServiceImportAcc
+[2026-03-23T20:27:00.689Z]   RewardHistory: 0 záznamov
+[2026-03-23T20:27:00.689Z]     Stĺpce: reh_id, rew_id, reh_amount, reh_inserted, reh_inserted_by, reh_note
+[2026-03-23T20:27:00.733Z]   ScheduledPayments: 3285125 záznamov
+[2026-03-23T20:27:00.733Z]     Stĺpce: spa_id, csy_id, ips_id, inv_id, spa_name, spa_installments_id, spa_variable_symbol, spa_specific_symbol, spa_constant_symbol, spa_barcode_identifier, spa_date_of_payment, spa_amount_home, spa_amount_account, spa_paid_home, spa_paid_account, spa_note, spa_updated, spa_updated_by
+  spa_id  | csy_id | ips_id | inv_id  | spa_name | spa_installments_id | spa_variable_symbol | spa_specific_symbol | spa_constant_symbol | spa_barcode_identifier | spa_date_of_payment            | spa_amount_home | spa_amount_account | spa_paid_home | spa_paid_account | spa_note | spa_updated                    | spa_updated_by
+  ────────┼────────┼────────┼─────────┼──────────┼─────────────────────┼─────────────────────┼─────────────────────┼─────────────────────┼────────────────────────┼────────────────────────────────┼─────────────────┼────────────────────┼───────────────┼──────────────────┼──────────┼────────────────────────────────┼───────────────
+  3307607 | —      | 1      | 2837753 | Payment  | 1                   | 1412600037          | —                   | 0008                | —                      | Wed Apr 08 2026 00:00:00 GMT+0 | 4900            | 199.96             | 0             | 0                | —        | Mon Mar 23 2026 16:37:38 GMT+0 | kdenkova      
+  3307606 | —      | 1      | 2837752 | Payment  | 1                   | 1412600036          | —                   | 0008                | —                      | Wed Apr 08 2026 00:00:00 GMT+0 | 4900            | 199.96             | 0             | 0                | —        | Mon Mar 23 2026 15:11:20 GMT+0 | kdenkova      
+[2026-03-23T20:27:00.744Z]   SchedulePaymentTemplates: 21681 záznamov
+[2026-03-23T20:27:00.744Z]     Stĺpce: stp_id, sch_id, stp_name, stp_installment_id, stp_amount_fixed, stp_amount_percentage, stp_rest_value, stp_paymentdate_field, stp_days_from_field_value, stp_days_from_previous, stp_inserted, stp_inserted_by
+  stp_id | sch_id | stp_name              | stp_installment_id | stp_amount_fixed | stp_amount_percentage | stp_rest_value | stp_paymentdate_field | stp_days_from_field_value | stp_days_from_previous | stp_inserted                   | stp_inserted_by
+  ───────┼────────┼───────────────────────┼────────────────────┼──────────────────┼───────────────────────┼────────────────┼───────────────────────┼───────────────────────────┼────────────────────────┼────────────────────────────────┼────────────────
+  24361  | 5727   | Úhrada jednou platbou | 1                  | 16632            | 0                     | false          | Realized              | 14                        | 0                      | Tue Feb 17 2026 15:30:03 GMT+0 | aczigler       
+  24360  | 5726   | Úhrada jednou platbou | 1                  | 31416            | 0                     | false          | Realized              | 14                        | 0                      | Tue Feb 17 2026 15:30:03 GMT+0 | aczigler       
+[2026-03-23T20:27:00.756Z]   SMSQueue: 16795 záznamov
+[2026-03-23T20:27:00.756Z]     Stĺpce: sms_id, com_id, sms_date, sms_cell_number, sms_text, sms_processed, sms_processed_by, sms_result, sms_note
+  sms_id | com_id | sms_date                       | sms_cell_number | sms_text | sms_processed | sms_processed_by | sms_result | sms_note
+  ───────┼────────┼────────────────────────────────┼─────────────────┼──────────┼───────────────┼──────────────────┼────────────┼─────────
+  16795  | 5      | Thu Aug 29 2024 08:39:42 GMT+0 | 734880990       | test     | —             | —                | —          | —       
+  16794  | 5      | Thu Aug 29 2024 08:39:31 GMT+0 | —               | test     | —             | —                | —          | —       
+[2026-03-23T20:27:00.760Z]   StorageCampaignDocuments: 61 záznamov
+[2026-03-23T20:27:00.760Z]     Stĺpce: scd_id, sca_id, scd_dialcom_result, scd_storage_period, dte_id_attachment, scd_description, scd_inserted, scd_inserted_by, scd_dialcom_result_detail, scd_attachment_name, scd_repository_only
+  scd_id | sca_id | scd_dialcom_result | scd_storage_period | dte_id_attachment | scd_description                | scd_inserted                   | scd_inserted_by | scd_dialcom_result_detail | scd_attachment_name         | scd_repository_only
+  ───────┼────────┼────────────────────┼────────────────────┼───────────────────┼────────────────────────────────┼────────────────────────────────┼─────────────────┼───────────────────────────┼─────────────────────────────┼────────────────────
+  75     | 1      | STORAGE            | 10                 | 1825              | BLANK dohoda 10r CBCAG+EC jedn | Wed Mar 08 2023 00:00:00 GMT+0 | lliska          | CBCAG+EC_VSO10ID          | dohoda_10r_skladne_eurocord | false              
+  74     | 1      | STORAGE            | 10                 | 1819              | BLANK dohoda 10r CBCAG jednora | Wed Mar 08 2023 00:00:00 GMT+0 | lliska          | CBCAG+EC_VSO10ID          | dohoda_10r_skladne_cbcag    | false              
+[2026-03-23T20:27:00.772Z]   StorageCampaignEmails: 139 záznamov
+[2026-03-23T20:27:00.772Z]     Stĺpce: sce_id, sca_id, sce_dialcom_result, sce_storage_period, dte_id_email, sce_subject, sce_from, sce_bcc, sce_description, sce_inserted, sce_inserted_by, sce_dialcom_result_detail
+  sce_id | sca_id | sce_dialcom_result | sce_storage_period | dte_id_email | sce_subject                    | sce_from                 | sce_bcc                        | sce_description                | sce_inserted                   | sce_inserted_by | sce_dialcom_result_detail
+  ───────┼────────┼────────────────────┼────────────────────┼──────────────┼────────────────────────────────┼──────────────────────────┼────────────────────────────────┼────────────────────────────────┼────────────────────────────────┼─────────────────┼──────────────────────────
+  153    | 1      | PAID               | 20                 | 1549         | Viacročné skladné  - vyúčtovac | info@cordbloodcenter.com | archivacia@cordbloodcenter.com | konfiguracia PAID emailu pre 2 | Tue Nov 01 2022 00:00:00 GMT+0 | bspadmin        | CBCAG_VSO20ID            
+  152    | 1      | PAID               | 20                 | 1549         | Viacročné skladné  - vyúčtovac | info@cordbloodcenter.com | archivacia@cordbloodcenter.com | konfiguracia PAID emailu pre 2 | Tue Nov 01 2022 00:00:00 GMT+0 | bspadmin        | CBCAG_VSO20D             
+[2026-03-23T20:27:00.789Z]   StorageCampaigns: 1 záznamov
+[2026-03-23T20:27:00.789Z]     Stĺpce: sca_id, com_id, sca_name, sca_active, sca_inserted, sca_inserted_by
+  sca_id | com_id | sca_name                      | sca_active | sca_inserted                   | sca_inserted_by
+  ───────┼────────┼───────────────────────────────┼────────────┼────────────────────────────────┼────────────────
+  1      | 2      | Kampaň viacročné skladne (SK) | true       | Tue Nov 01 2022 00:00:00 GMT+0 | bspadmin       
+[2026-03-23T20:27:00.799Z]   StorageCampaignServices: 19 záznamov
+[2026-03-23T20:27:00.799Z]     Stĺpce: scs_id, sca_id, com_id_invoicing, sin_id, scs_storage_period, dte_id_proforma, dte_id_invoice, scs_description, scs_inserted, scs_inserted_by, scs_price_multiplier, scs_installments, dte_id_annex, scs_annex_name
+  scs_id | sca_id | com_id_invoicing | sin_id | scs_storage_period | dte_id_proforma | dte_id_invoice | scs_description                | scs_inserted                   | scs_inserted_by | scs_price_multiplier | scs_installments | dte_id_annex | scs_annex_name
+  ───────┼────────┼──────────────────┼────────┼────────────────────┼─────────────────┼────────────────┼────────────────────────────────┼────────────────────────────────┼─────────────────┼──────────────────────┼──────────────────┼──────────────┼───────────────
+  23     | 1      | 13               | 161    | 10                 | 1576            | 1580           | TEMP - 10 rocna skladna sluzba | Wed Jan 18 2023 00:00:00 GMT+0 | bspadmin        | 10                   | 10               | 1776         | CBCAG_dohoda  
+  22     | 1      | 1                | 275    | -1                 | 1583            | 1584           | dozivotna skladna sluzba faktu | Tue Nov 01 2022 00:00:00 GMT+0 | bspadmin        | 80                   | 12               | 1604         | CETPRA_dohoda 
+[2026-03-23T20:27:00.814Z]   StorageCampaingRecords: 1200 záznamov (má FK na klienta/kontrakt)
+[2026-03-23T20:27:00.815Z]     Stĺpce: scr_id, cli_id, con_id, scr_note, scr_inserted, scr_inserted_by
+  scr_id | cli_id | con_id | scr_note            | scr_inserted                   | scr_inserted_by
+  ───────┼────────┼────────┼─────────────────────┼────────────────────────────────┼────────────────
+  1200   | 159952 | 194373 | 50rocne - dozivotne | Tue Apr 26 2022 06:41:53 GMT+0 | bspadmin       
+  1199   | 154103 | 193896 | 50rocne - dozivotne | Tue Apr 26 2022 06:41:53 GMT+0 | bspadmin       
+[2026-03-23T20:27:14.109Z]   StorageCampaingSelectionRO: 48158 záznamov (má FK na klienta/kontrakt)
+[2026-03-23T20:27:14.109Z]     Stĺpce: cli_id, com_id, title_prefix, first_name, last_name, title_suffix, mobile, mobile2, phone_number, other_contact, con_id1, con_number1, con_id2, con_number2, con_id3, con_number3, con_id4, con_number4, con_id5, con_number5, contract_count, recent_certificate
+  cli_id | com_id | title_prefix | first_name | last_name | title_suffix | mobile    | mobile2   | phone_number | other_contact | con_id1 | con_number1 | con_id2 | con_number2 | con_id3 | con_number3 | con_id4 | con_number4 | con_id5 | con_number5 | contract_count | recent_certificate            
+  ───────┼────────┼──────────────┼────────────┼───────────┼──────────────┼───────────┼───────────┼──────────────┼───────────────┼─────────┼─────────────┼─────────┼─────────────┼─────────┼─────────────┼─────────┼─────────────┼─────────┼─────────────┼────────────────┼───────────────────────────────
+  208329 | 5      | —            | Oana Anca  | POPESCU   | —            | 765818133 | 727300220 | —            | —             | 263893  | 1332600122  | —       | —           | —       | —           | —       | —           | —       | —           | 1              | Mon Mar 23 2026 07:23:47 GMT+0
+  208328 | 5      | —            | Ana Maria  | VADUVA    | —            | 763206696 | 764160150 | —            | —             | 263892  | 1332600112  | —       | —           | —       | —           | —       | —           | —       | —           | 1              | Mon Mar 23 2026 08:08:38 GMT+0
+[2026-03-23T20:27:19.777Z]   StorageCampaingSelectionSK: 31248 záznamov (má FK na klienta/kontrakt)
+[2026-03-23T20:27:19.777Z]     Stĺpce: cli_id, com_id, title_prefix, first_name, last_name, title_suffix, mobile, mobile2, phone_number, other_contact, con_id1, con_number1, con_id2, con_number2, con_id3, con_number3, con_id4, con_number4, con_id5, con_number5, contract_count, recent_certificate
+  cli_id | com_id | title_prefix | first_name | last_name | title_suffix | mobile    | mobile2   | phone_number | other_contact | con_id1 | con_number1 | con_id2 | con_number2 | con_id3 | con_number3 | con_id4 | con_number4 | con_id5 | con_number5 | contract_count | recent_certificate            
+  ───────┼────────┼──────────────┼────────────┼───────────┼──────────────┼───────────┼───────────┼──────────────┼───────────────┼─────────┼─────────────┼─────────┼─────────────┼─────────┼─────────────┼─────────┼─────────────┼─────────┼─────────────┼────────────────┼───────────────────────────────
+  208252 | 2      | —            | Katarína   | Pišteková | —            | 902297306 | 903487894 | —            | —             | 263786  | 1112600003  | —       | —           | —       | —           | —       | —           | —       | —           | 1              | Sat Mar 21 2026 04:44:49 GMT+0
+  208202 | 2      | —            | Lenka      | Poráčová  | —            | 908023427 | 908656548 | —            | —             | 263720  | 1112500191  | —       | —           | —       | —           | —       | —           | —       | —           | 1              | Sat Jan 31 2026 04:09:46 GMT+0
+[2026-03-23T20:27:21.214Z]   StorageServicePrice: 263926 záznamov (má FK na klienta/kontrakt)
+[2026-03-23T20:27:21.214Z]     Stĺpce: con_id, storageservicetotal
+  con_id | storageservicetotal
+  ───────┼────────────────────
+  263958 | 19152              
+  263957 | 42963              
+[2026-03-23T20:27:21.296Z]   StorageToEmailsTypes: 5 záznamov
+[2026-03-23T20:27:21.296Z]     Stĺpce: stem_id, stem_code, stem_default_name, stem_order, stem_description
+  stem_id | stem_code       | stem_default_name | stem_order | stem_description              
+  ────────┼─────────────────┼───────────────────┼────────────┼───────────────────────────────
+  5       | REG_STEM_EMAIL5 |  Email 5          | 5          | Odoslanie emailu v presonal da
+  4       | REG_STEM_EMAIL4 |  Email 4          | 4          | Odoslanie emailu v presonal da
+[2026-03-23T20:27:21.300Z]     WARN: StorageUpdateDetails: Invalid object name 'StorageUpdateDetails'.
+[2026-03-23T20:27:21.302Z]     WARN: StorageUpdateDetailsTest: Invalid object name 'StorageUpdateDetailsTest'.
+[2026-03-23T20:27:21.303Z]     WARN: StorageUpdates: Invalid object name 'StorageUpdates'.
+[2026-03-23T20:27:21.304Z]     WARN: StorageUpdatesTest: Invalid object name 'StorageUpdatesTest'.
+[2026-03-23T20:27:21.709Z]   vClientContacts: 885 záznamov
+[2026-03-23T20:27:21.710Z]     Stĺpce: ID, meno, priezvisko, predpokl_datum_porodu, email1, email2, phone, correctedphone, mobile1, correctedmobile1, mobile2, correctedmobile2, othercontact, pot_status, uuid, com_id
+  ID        | meno        | priezvisko | predpokl_datum_porodu | email1                     | email2 | phone | correctedphone | mobile1   | correctedmobile1 | mobile2 | correctedmobile2 | othercontact | pot_status | uuid | com_id
+  ──────────┼─────────────┼────────────┼───────────────────────┼────────────────────────────┼────────┼───────┼────────────────┼───────────┼──────────────────┼─────────┼──────────────────┼──────────────┼────────────┼──────┼───────
+  900613160 | Liviu       | Budur      | 2026-03-22            | budur.liviu@yahoo.com      | —      | —     | —              | 743330029 | 743330029        | —       | —                | —            | REALIZED   | —    | 5     
+  900613159 | Cornel Alin | Dragomir   | 2026-05-18            | dragomiralin1988@yahoo.com | —      | —     | —              | 792574445 | 792574445        | —       | —                | —            | REALIZED   | —    | 5     
+[2026-03-23T20:27:22.152Z]   WelcomeTasks: 19 záznamov
+[2026-03-23T20:27:22.152Z]     Stĺpce: wet_id, wet_code, wet_display_code, wet_label, wet_query, wet_obj_code, wet_listview_code, wet_filter_code, wet_active, wet_inserted, wet_inserted_by, wet_updated, wet_updated_by
+  wet_id | wet_code               | wet_display_code            | wet_label              | wet_query                      | wet_obj_code | wet_listview_code    | wet_filter_code             | wet_active | wet_inserted                   | wet_inserted_by | wet_updated                    | wet_updated_by
+  ───────┼────────────────────────┼─────────────────────────────┼────────────────────────┼────────────────────────────────┼──────────────┼──────────────────────┼─────────────────────────────┼────────────┼────────────────────────────────┼─────────────────┼────────────────────────────────┼───────────────
+  19     | CONTRACTS_TO_TERMINATE | TASK_CONTRACTS_TO_TERMINATE | Contracts to terminate | WITH TerminateDates AS ( SELEC | CONTRACT     | ContractsToTerminate | TASK_CONTRACTS_TO_TERMINATE | true       | Tue Jul 08 2025 00:00:00 GMT+0 | vjelen          | Tue Jul 08 2025 00:00:00 GMT+0 | —             
+  18     | CONTRACTS_TO_WITHDRAW  | TASK_CONTRACTS_TO_WITHDRAW  | Invoicing settlement   | SELECT COUNT(*) FROM Contracts | CONTRACT     | ContractsWithdraw    | TASK_CONTRACTS_TO_WITHDRAW  | true       | Tue Apr 01 2025 00:00:00 GMT+0 | vjelen          | Tue Apr 01 2025 00:00:00 GMT+0 | —             
+[2026-03-23T20:27:22.164Z]   WelcomeTasksToRoles: 21 záznamov
+[2026-03-23T20:27:22.164Z]     Stĺpce: ttr_id, wet_id, ttr_role_id, ttr_priority
+  ttr_id | wet_id | ttr_role_id | ttr_priority
+  ───────┼────────┼─────────────┼─────────────
+  21     | 19     | 17          | 100         
+  20     | 18     | 17          | 100         
+[2026-03-23T20:27:22.361Z] 
+  Ďalšie tabuľky s cli_id/con_id (zatiaľ nezobrazené):
+[2026-03-23T20:27:22.366Z]     Amendments (con_id): 39684 záznamov
+[2026-03-23T20:27:22.657Z]     CollectionServicePrice (con_id): 261609 záznamov
+[2026-03-23T20:27:22.933Z]     CombinedCollectionServicePrice (con_id): 263926 záznamov
+[2026-03-23T20:27:22.948Z]     ContractDocuments (con_id): 237913 záznamov
+[2026-03-23T20:27:22.983Z]     ContractFormStateHistories (con_id): 610772 záznamov
+[2026-03-23T20:27:23.002Z]     ContractRecruitments (con_id): 125823 záznamov
+[2026-03-23T20:27:23.010Z]     ContractRelations (con_id): 75430 záznamov
+[2026-03-23T20:27:23.022Z]     Contracts (con_id, cli_id): 263926 záznamov
+[2026-03-23T20:27:23.495Z]     Contracts3Recruiters (con_id): 106847 záznamov
+[2026-03-23T20:27:24.307Z]     Contracts3RecruitersWithNames (con_id): 106847 záznamov
+[2026-03-23T20:27:24.353Z]     ContractServices (con_id): 1233752 záznamov
+[2026-03-23T20:27:24.374Z]     ContractsPersons (con_id): 398441 záznamov
+[2026-03-23T20:27:24.398Z]     ContractStateHistories (con_id): 623712 záznamov
+[2026-03-23T20:27:27.159Z]     DebtorsCZ (cli_id): 1385 záznamov
+[2026-03-23T20:27:31.628Z]     DebtorsEurocord (cli_id): 5173 záznamov
+[2026-03-23T20:27:35.466Z]     DebtorsHU (cli_id): 2379 záznamov
+[2026-03-23T20:27:41.049Z]     DebtorsRO (cli_id): 11893 záznamov
+[2026-03-23T20:27:45.227Z]     DebtorsSKRest (cli_id): 6626 záznamov
+[2026-03-23T20:27:45.231Z]     ExternalDocuments (con_id): 2942 záznamov
+[2026-03-23T20:27:45.399Z]     ChildFather (con_id): 184028 záznamov
+[2026-03-23T20:27:45.403Z]     InvoicesInflationHUCorrections (con_id): 949 záznamov
+[2026-03-23T20:27:46.650Z]     iscbc_ContractCertificateResults (con_id): 197892 záznamov
+[2026-03-23T20:27:47.389Z]     LatestCollectionForContract (con_id): 195574 záznamov
+[2026-03-23T20:27:47.395Z]     OldIDContracts (con_id): 98210 záznamov
+[2026-03-23T20:27:47.424Z]     Remarks (con_id, cli_id): 2479275 záznamov
+[2026-03-23T20:27:47.427Z]     RewardCollectionBloodCZ: Invalid object name 'RewardCollectionBloodCZ'.
+[2026-03-23T20:27:47.428Z]     RewardHospitalBA: Invalid object name 'RewardHospitalBA'.
+[2026-03-23T20:27:47.434Z]     Rewards (con_id): 145337 záznamov
+[2026-03-23T20:27:47.436Z]     Rewards3 (con_id): 0 záznamov
+[2026-03-23T20:27:47.438Z]     RewardsCZ (con_id): 315 záznamov
+[2026-03-23T20:27:47.444Z]     TEMP_CEPTRA_INVOICING_2023 (con_id): 28300 záznamov
+[2026-03-23T20:27:47.452Z]     TEMP_CEPTRA_INVOICING_2023_DATA (con_id): 27103 záznamov
+[2026-03-23T20:27:47.456Z]     TEMP_CEPTRA_INVOICING_2024 (con_id): 26789 záznamov
+[2026-03-23T20:27:47.460Z]     TEMP_CEPTRA_INVOICING_2024_DATA (con_id): 26843 záznamov
+[2026-03-23T20:27:47.463Z]     temp_ceptra_invoicing_2025 (con_id): 26789 záznamov
+[2026-03-23T20:27:47.467Z]     temp_ceptra_invoicing_2025_data (con_id): 24236 záznamov
+[2026-03-23T20:27:47.470Z]     temp_ceptra_invoicing_2026 (con_id): 26789 záznamov
+[2026-03-23T20:27:47.472Z]     temp_ceptra_invoicing_2026_data (con_id): 5223 záznamov
+[2026-03-23T20:27:47.476Z]     TEMP_MASS_INVOICING_2023 (con_id): 11020 záznamov
+[2026-03-23T20:27:47.476Z] 
+--- Diagnostika CBC: Collaborators stĺpce (health, marital, insurance) ---
+[2026-03-23T20:27:47.477Z]   Collaborators health/marital stĺpce: doc_svet_zdravia
+[2026-03-23T20:27:47.477Z] 
+--- Diagnostika CBC: PersonalData stĺpce (health, marital, insurance) ---
+[2026-03-23T20:27:47.479Z]   PersonalData health/marital stĺpce: pda_health_insurance_code, pda_health_insurance_company
+[2026-03-23T20:27:47.479Z] 
+--- Diagnostika CBC: Companies stĺpce (billing, fakturacna) ---
+[2026-03-23T20:27:47.481Z]   Companies stĺpce: com_id, cur_code, com_ext_id, com_sec_org_code, com_code, com_name, com_country_code, com_entity_code, com_invoice_barcode_letter
+[2026-03-23T20:27:47.481Z] 
+--- Diagnostika CBC: ServiceCollections stĺpce (representative, nurse, certificate, coordinator) ---
+[2026-03-23T20:27:47.483Z]   ServiceCollections relevant stĺpce: lab_id, sco_child_first_name, sco_child_last_name, sco_child_sex, sco_lab_evaluation, sco_lab_results_changed, sco_laboratory_note, sco_responsible_coordinator
+  lab_id | sco_child_first_name | sco_child_last_name | sco_child_sex | sco_lab_evaluation | sco_lab_results_changed | sco_laboratory_note | sco_responsible_coordinator
+  ───────┼──────────────────────┼─────────────────────┼───────────────┼────────────────────┼─────────────────────────┼─────────────────────┼────────────────────────────
+  3      | Matei Gabriel        | TROACA              | M             | —                  | false                   | —                   | dionescu                   
+  4      | —                    | —                   | M             | —                  | false                   | —                   | dionescu                   
+  4      | —                    | —                   | F             | —                  | false                   | —                   | dionescu                   
+  2      | Adéla                | Míková              | F             | —                  | false                   | —                   | lhuskova                   
+  1      | Dalila               | Doleži              | F             | —                  | false                   | —                   | vnagyova                   
+[2026-03-23T20:27:47.485Z] 
+--- Diagnostika CBC: Contracts stĺpce (representative, agent, sales) ---
+[2026-03-23T20:27:47.487Z]   Contracts relevant stĺpce: con_repository
+[2026-03-23T20:27:47.488Z]   Contracts sample (s odberom):
+  con_repository
+  ──────────────
+  2805521       
+  -2147483648   
+  2300254       
+  2141104       
+  2805529       
+[2026-03-23T20:27:47.488Z] 
+--- Diagnostika CBC: Hospital active values ---
+  hos_active | Počet
+  ───────────┼──────
+  false      | 315  
+  true       | 1912 
+[2026-03-23T20:27:47.490Z] 
+--- Diagnostika CBC: Hospital adresy (sample) ---
+  hos_id | Názov                          | add_id  | Mesto     | Ulica                          | PSČ    | Krajina    | Valid
+  ───────┼────────────────────────────────┼─────────┼───────────┼────────────────────────────────┼────────┼────────────┼──────
+  3696   | TM - Deta - Orasenesc          | 1638363 | Deta      | Str. Mihai Viteazu nr. 10      | 305200 | COUNTRY_RO | true 
+  3695   | Ambulantný lekár               | 1622131 | Slovensko | Slovensko                      | —      | COUNTRY_SK | true 
+  3694   | CJ - Medicover Hospital        | 1571416 | Suceagu   | Principala                     | 407062 | COUNTRY_RO | true 
+  3693   | MD - Medpark                   | 1551645 | Chisinau  | Strada Andrei Doga 24, Chişină | 2024   | COUNTRY_MD | true 
+  3692   | Klinik Floridsdorf / ehm. Kran | 1534704 | Wien      | Brünner Str. 68                | 1210   | COUNTRY_AT | true 
+
+══════════════════════════════════════════════════════════════════════
+  STEP 2: Referenčné dáta (StatusyOdberov, Laboratóriá)
+══════════════════════════════════════════════════════════════════════
+[2026-03-23T20:27:47.493Z] --- CollectionStatuses ---
+  ID | Kód                            | Názov                   | Poradie
+  ───┼────────────────────────────────┼─────────────────────────┼────────
+  1  | REG_CSU_NEW                    | New                     | 1      
+  2  | REG_CSU_WAITING_FOR_CONTRACT   | Waiting for contract    | 2      
+  3  | REG_CSU_PAIRED                 | Paired                  | 3      
+  4  | REG_CSU_EVALUATED              | Evaluated               | 4      
+  5  | REG_CSU_DOCTOR_EVALUATING      | Doctor evaluating       | 5      
+  6  | REG_CSU_WAITING_FOR_DECISION   | Waiting for decision    | 6      
+  7  | REG_CSU_GENERATING_CERTIFICATE | Generating certificates | 7      
+  8  | REG_CSU_STORED                 | Stored                  | 8      
+  9  | REG_CSU_RELEASED               | Released                | 9      
+  10 | REG_CSU_TRANSFERRED            | Transferred             | 10     
+[2026-03-23T20:27:47.496Z]   Mapovanie CBC → INDEXUS statusov (zjednotené):
+[2026-03-23T20:27:47.496Z]     ID=1 → code=1, name=Vydaný
+[2026-03-23T20:27:47.496Z]     ID=2 → code=1.1, name=V preprave
+[2026-03-23T20:27:47.496Z]     ID=3 → code=1.2, name=Na spracovaní
+[2026-03-23T20:27:47.496Z]     ID=4 → code=1.3, name=Na vyhodnotení
+[2026-03-23T20:27:47.496Z]     ID=5 → code=1.4, name=Evaluated
+[2026-03-23T20:27:47.496Z]     ID=6 → code=1.5, name=Generovanie certifikátov
+[2026-03-23T20:27:47.496Z]     ID=7 → code=1.6, name=Uskladnený
+[2026-03-23T20:27:47.496Z]     ID=8 → code=1.7, name=Released
+[2026-03-23T20:27:47.496Z]     ID=9 → code=1.8, name=Transferred
+[2026-03-23T20:27:47.496Z]     ID=11 → code=2, name=Likvidácia
+[2026-03-23T20:27:47.496Z]     ID=12 → code=2.1, name=V preprave - likvidácia
+[2026-03-23T20:27:47.496Z]     ID=13 → code=2.2, name=Na spracovaní - likvidácia
+[2026-03-23T20:27:47.496Z]     ID=14 → code=2.3, name=Na vyhodnotení - likvidácia
+[2026-03-23T20:27:47.496Z]     ID=15 → code=2.4, name=Zlikvidovaný
+[2026-03-23T20:27:47.496Z]   CBC remap (duplicity zlúčené): {"1":1,"2":2,"3":3,"4":4,"5":4,"6":4,"7":5,"8":6,"9":7,"10":8}
+[2026-03-23T20:27:47.503Z]   Vyčistené staré statusy
+[2026-03-23T20:27:47.511Z]   → 14 statusov vložených (9 zjednotených z 10 CBC)
+[2026-03-23T20:27:47.511Z] 
+--- Laboratories ---
+  ID | Názov            | Krajina    | Telefón | Email                    
+  ───┼──────────────────┼────────────┼─────────┼──────────────────────────
+  1  | Bratislava (SK)  | COUNTRY_SK | 123     | liska@cordbloodcenter.com
+  2  | Modletice (CZ)   | COUNTRY_CZ | 123     | liska@cordbloodcenter.com
+  3  | Cluj Napoca (RO) | COUNTRY_RO | 123     | liska@cordbloodcenter.com
+  4  | Bucharest (RO)   | COUNTRY_RO | 123     | liska@cordbloodcenter.com
+  6  | Germany (DE)     | COUNTRY_DE | 123     | liska@cordbloodcenter.com
+[2026-03-23T20:27:47.514Z]   → 0 vložených, 5 preskočených
+
+══════════════════════════════════════════════════════════════════════
+  STEP 3: Nemocnice (referencované z TOP 100 odberov)
+══════════════════════════════════════════════════════════════════════
+[2026-03-23T20:27:47.516Z]   Referencované nemocnice z odberov: 59 unikátnych hos_id
+[2026-03-23T20:27:47.520Z] Zdrojové dáta z CBC (prvých 10 z 59):
+  hos_id | Názov                          | Mesto      | PSČ   | Krajina    | Lab              | Aktívna
+  ───────┼────────────────────────────────┼────────────┼───────┼────────────┼──────────────────┼────────
+  3693   | MD - Medpark                   | Chisinau   | 2024  | COUNTRY_MD | Bucharest (RO)   | áno    
+  1877   | MD - Clinica Familia           | Chisinau   | x     | COUNTRY_MD | Bucharest (RO)   | áno    
+  1871   | Gyn Med                        | Craiova    | —     | COUNTRY_RO | Cluj Napoca (RO) | áno    
+  1866   | Landesklinikum Mistelbach      | Mistelbach | 2130  | COUNTRY_AT | Bratislava (SK)  | áno    
+  1706   | Milano - San Giuseppe (CBCITA) | Milano     | 20123 | COUNTRY_IT | Bratislava (SK)  | áno    
+  1632   | Cerignola - Tatarella (CBCITA) | Cerignola  | 71042 | COUNTRY_IT | Bratislava (SK)  | áno    
+  1618   | Roma - San Pietro Fate bene Fr | Roma       | 189   | COUNTRY_IT | Bratislava (SK)  | áno    
+  978    | Debrecen - DEKK                | Debrecen   | 4032  | COUNTRY_HU | Bratislava (SK)  | áno    
+  900    | BH - Oradea - Pelican          | Oradea     | ???   | COUNTRY_RO | Bucharest (RO)   | áno    
+  893    | B - Bucuresti - Sanador Privat | Bucuresti  | ???   | COUNTRY_RO | Bucharest (RO)   | áno    
+[2026-03-23T20:27:47.529Z] 
+  → 0 vložených, 59 preskočených, 0 chýb
+
+══════════════════════════════════════════════════════════════════════
+  STEP 4: Spolupracovníci (referencovaní z TOP 100 odberov)
+══════════════════════════════════════════════════════════════════════
+[2026-03-23T20:27:47.532Z]   Referencovaní spolupracovníci z odberov: 162 unikátnych doc_id
+[2026-03-23T20:27:47.674Z] Zdrojové dáta z CBC (prvých 10 z 162):
+  doc_id | Meno       | Priezvisko    | Typ           | Mobil (RAW) | → Normalized | Email | Krajina
+  ───────┼────────────┼───────────────┼───────────────┼─────────────┼──────────────┼───────┼────────
+  29865  | Zuzana     | Pavlíčková    | REG_CTY_OTHER | —           | —            | —     | SK     
+  29860  | Fohleitner | Sophie        | REG_CTY_OTHER | —           | —            | —     | AT     
+  29859  | Bernadett  | Fazekašová    | REG_CTY_OTHER | —           | —            | —     | SK     
+  29858  | Réka       | Udvardi       | REG_CTY_OTHER | —           | —            | —     | HU     
+  29827  | Simona     | Andrejcová    | REG_CTY_OTHER | —           | —            | —     | SK     
+  29810  | Branislav  | Mikolaj       | REG_CTY_OTHER | —           | —            | —     | SK     
+  29809  | Natalia    | SCLIFOS       | REG_CTY_OTHER | —           | —            | —     | MD     
+  29808  | MAREK      | MATAK         | REG_CTY_OTHER | —           | —            | —     | AT     
+  29807  | Petra      | Kneslova      | REG_CTY_OTHER | —           | —            | —     | AT     
+  29806  | Rita       | Balázs-Kállai | REG_CTY_OTHER | —           | —            | —     | HU     
+[2026-03-23T20:27:47.704Z] 
+  → 0 vložených, 162 preskočených, 0 chýb
+
+══════════════════════════════════════════════════════════════════════
+  STEP 4.5: Dohody spolupracovníkov (CollaboratorAgreements)
+══════════════════════════════════════════════════════════════════════
+[2026-03-23T20:27:47.717Z]   Nájdených 613 dohôd pre 162 spolupracovníkov
+  cag_id | doc_id | Company  | Number                | From       | To           | Sent       | Returned    | Valid | Form
+  ───────┼────────┼──────────┼───────────────────────┼────────────┼──────────────┼────────────┼─────────────┼───────┼─────
+  75435  | 5168   | CBC.cz   | DPP 1256              | 1. 1. 2025 | 31. 12. 2027 | 1. 1. 2025 | 23. 3. 2026 | true  | —   
+  75434  | 29865  | Eurocord | nemá dohodu           | 1. 1. 2026 | 31. 12. 2026 | —          | —           | false | —   
+  75433  | 27913  | Eurocord | 60686 DOVP TYP15 7,5% | 1. 1. 2026 | 31. 12. 2026 | 1. 1. 2026 | 28. 2. 2026 | true  | 1   
+  75431  | 2764   | Eurocord | 51338 DOVP TYP15 7,5% | 1. 1. 2026 | 31. 12. 2026 | 1. 1. 2026 | 28. 2. 2026 | true  | 1   
+  75429  | 769    | Eurocord | 51002 DOVP TYP15 7,5% | 1. 1. 2026 | 31. 12. 2026 | 1. 1. 2026 | 28. 2. 2026 | true  | 1   
+  75427  | 1034   | Eurocord | 50364 DOVP TYP15 7,5% | 1. 1. 2026 | 31. 12. 2026 | 1. 1. 2026 | 28. 2. 2026 | true  | 1   
+  75426  | 799    | Eurocord | 50939 DOVP TYP15 7,5% | 1. 1. 2026 | 31. 12. 2026 | 1. 1. 2026 | 28. 2. 2026 | true  | 1   
+  75425  | 26490  | Eurocord | 60495 DOVP TYP15 7,5% | 1. 1. 2026 | 31. 12. 2026 | 1. 1. 2026 | 28. 2. 2026 | true  | 1   
+  75424  | 2947   | Eurocord | 50925 DOVP TYP15 7,5% | 1. 1. 2026 | 31. 12. 2026 | 1. 1. 2026 | 28. 2. 2026 | true  | 1   
+  75423  | 28818  | Eurocord | 60846 DOVP TYP15 7,5% | 1. 1. 2026 | 31. 12. 2026 | 1. 1. 2026 | 28. 2. 2026 | true  | 1   
+[2026-03-23T20:27:47.875Z] 
+  → 0 vložených, 613 preskočených, 0 chýb
+
+══════════════════════════════════════════════════════════════════════
+  STEP 5: Klientky/Zákazníci (referencovaní z TOP 100 odberov)
+══════════════════════════════════════════════════════════════════════
+[2026-03-23T20:27:47.878Z]   Referencovaní klienti z odberov: 97 unikátnych cli_id
+[2026-03-23T20:27:47.884Z] Zdrojové dáta z CBC (prvých 10 z 97):
+  cli_id | Meno          | Priezvisko | Mobil (RAW)   | → Normalized     | Email                       | Mesto            | Krajina
+  ───────┼───────────────┼────────────┼───────────────┼──────────────────┼─────────────────────────────┼──────────────────┼────────
+  208367 | Andrada Ioana | CROITORU   | 756572318     | +40 756 572 318  | andrada.ioana2003@yahoo.com | Craiova          | RO     
+  208361 | Tereza        | Míková     | 733788741     | +420 733 788 741 | tereza.nycova@gmail.com     | Kunice Vidovice  | CZ     
+  208360 | Lucia         | Izáková    | 0910/440240   | +421 910 440 240 | —                           | Bratislava       | SK     
+  208359 | Valentyna     | HONCHAROVA | +380960550070 | +380 960 550 070 | —                           | Chisinau         | MD     
+  208358 | Diana         | KHRAMTSOVA | 730772120     | +40 730 772 120  | idianka353@gmail.com        | Sector 6         | RO     
+  208357 | Irina         | ONTEL      | 786044095     | +40 786 044 095  | ontel.irina@yahoo.com       | Sector 4         | RO     
+  208348 | Simona        | Bučková    | 0904/211735   | +421 904 211 735 | Bucko.matus20@gmail.com     | Humenné          | SK     
+  208343 | Chiara        | Spišáková  | 0908/076770   | +421 908 076 770 | —                           | Kráľovský Chlmec | SK     
+  208338 | Cristina      | ROMANIUC   | 740609702     | +40 740 609 702  | chriss.tursim@gmail.com     | Botosani         | RO     
+  208335 | Henrieta      | Doleži     | 0907/477933   | +421 907 477 933 | —                           | Ružomberok       | SK     
+[2026-03-23T20:27:47.897Z] 
+  → 0 vložených, 97 preskočených, 0 chýb
+
+══════════════════════════════════════════════════════════════════════
+  STEP 6: Odbery + Lab výsledky (TOP 100)
+══════════════════════════════════════════════════════════════════════
+[2026-03-23T20:27:48.748Z]   Collaborator priradenia: blood=169266, tissue=38954, placenta=4255, assistant=118949, secondNurse=0
+[2026-03-23T20:27:49.211Z] Zdrojové dáta z CBC (prvých 10 z 100):
+  sco_id | CBU#        | Klientka                | Mobil (RAW) | → Normalized     | Dieťa                | Dátum       | Status
+  ───────┼─────────────┼─────────────────────────┼─────────────┼──────────────────┼──────────────────────┼─────────────┼───────
+  198274 | 40080932974 | Sidonia Andrada OLTEANU | 770401569   | +40 770 401 569  | Matei Gabriel TROACA | 9. 3. 2026  | 3     
+  198273 | 40090335220 | Florina Alina TENEA     | —           | —                | —                    | 21. 3. 2026 | 2     
+  198272 | 40090335219 | Cristina ROMANIUC       | —           | —                | —                    | 20. 3. 2026 | 3     
+  198271 | 0400753289  | Tereza Míková           | 733788741   | +420 733 788 741 | Adéla Míková         | 19. 3. 2026 | 3     
+  198270 | 0114509881  | Henrieta Doleži         | 0907/477933 | +421 907 477 933 | Dalila Doleži        | 19. 3. 2026 | 3     
+  198269 | 0114509775  | Simona Bučková          | 0904/211735 | +421 904 211 735 | Samuel Bučko         | 17. 3. 2026 | 3     
+  198268 | 40080932976 | Andrada Ioana CROITORU  | —           | —                | —                    | 17. 3. 2026 | 3     
+  198267 | 0114509669  | Lucia Izáková           | 0910/440240 | +421 910 440 240 | Igor Izák            | 14. 3. 2026 | 3     
+  198266 | 0114509553  | Eva Šrameková           | 0905298485  | +421 905 298 485 | Adam Novodvorský     | 13. 3. 2026 | 3     
+  198265 | 40090335218 | Cornelia STOICA         | —           | —                | —                    | 15. 3. 2026 | 2     
+[2026-03-23T20:27:49.223Z] 
+  Odbery: 0 vložených, 100 preskočených, 0 chýb
+[2026-03-23T20:27:49.223Z] 
+--- Lab výsledky pre prenesené odbery ---
+[2026-03-23T20:27:49.274Z]   Lab výsledky: 0 vložených (z 67 skupín)
+
+══════════════════════════════════════════════════════════════════════
+  STEP 6.5: Cases — otcovské dáta (cez PotentialClients)
+══════════════════════════════════════════════════════════════════════
+[2026-03-23T20:27:49.278Z]   Štatistika: 128 contracts, 30 s otcom (per_id_father), 2 s krajinou otca
+[2026-03-23T20:27:49.288Z] Zdrojové dáta z CBC:
+  cli_id | Otec (meno)      | Otec (priezvisko) | Otec mobil | Otec email           | Krajina otca | Produkt                    | Tehotenstvo
+  ───────┼──────────────────┼───────────────────┼────────────┼──────────────────────┼──────────────┼────────────────────────────┼────────────
+  208367 | Vladut           | CROITORU          | —          | —                    | —            | —                          | 1          
+  208360 | —                | —                 | —          | —                    | —            | —                          | 1          
+  208361 | —                | —                 | —          | —                    | —            | —                          | 1          
+  208360 | —                | —                 | —          | —                    | —            | —                          | 1          
+  208359 | Ruslan           | HONCHAROV         | —          | —                    | —            | —                          | 1          
+  208358 | Denis            | KHRAMTSOVA        | —          | —                    | —            | Recoltare sânge din cordon | 1          
+  208357 | Tiberiu          | VASILESCU         | —          | —                    | —            | Recoltare sânge din cordon | 1          
+  208348 | —                | —                 | —          | —                    | —            | —                          | 1          
+  208343 | —                | —                 | —          | —                    | —            | —                          | 1          
+  202329 | —                | —                 | —          | —                    | —            | —                          | 1          
+  185948 | —                | —                 | —          | —                    | —            | —                          | 1          
+  208338 | —                | —                 | —          | —                    | —            | —                          | 1          
+  208335 | —                | —                 | —          | —                    | —            | —                          | 1          
+  186506 | —                | —                 | —          | —                    | —            | —                          | 1          
+  208333 | Iuri             | DOROS             | 079352044  | iura.doros@gmail.com | —            | —                          | 1          
+  208330 | —                | —                 | —          | —                    | —            | —                          | 1          
+  208329 | Eleodor          | BRUJAN            | —          | —                    | —            | Recoltare sânge din cordon | 1          
+  208328 | Cooper Alexandru | MARCU             | —          | —                    | —            | Recoltare sânge din cordon | 1          
+  208327 | Bogdan           | DRACEA            | —          | —                    | —            | Recoltare sânge din cordon | 1          
+  208326 | Valentin Gabriel | BUDA              | —          | —                    | —            | —                          | 1          
+[2026-03-23T20:27:49.298Z] 
+  Cases: 0 vložených, 97 preskočených, 0 chýb
+
+══════════════════════════════════════════════════════════════════════
+  STEP 7: Verifikácia — porovnanie prenesených dát
+══════════════════════════════════════════════════════════════════════
+[2026-03-23T20:27:49.301Z] Počty v INDEXUS po migrácii:
+  Entita                   | Počet
+  ─────────────────────────┼──────
+  CollectionStatuses       | 14   
+  Laboratories             | 9    
+  Hospitals (migrated)     | 59   
+  Collaborators (migrated) | 162  
+  Customers (migrated)     | 97   
+  Collections (migrated)   | 100  
+  Lab Results (migrated)   | 75   
+  Agreements (migrated)    | 613  
+  Cases (migrated)         | 97   
+[2026-03-23T20:27:49.301Z] 
+--- Nemocnice v INDEXUS ---
+  LegacyID | Názov                          | Mesto            | PSČ    | Krajina | Aktívna
+  ─────────┼────────────────────────────────┼──────────────────┼────────┼─────────┼────────
+  118      | Kráľovský Chlmec               | Kráľovský Chlmec | 077 01 | SK      | áno    
+  151      | Ružomberok                     | Ružomberok       | 034 26 | SK      | áno    
+  1618     | Roma - San Pietro Fate bene Fr | Roma             | 189    | IT      | áno    
+  1632     | Cerignola - Tatarella (CBCITA) | Cerignola        | 71042  | IT      | áno    
+  170      | Trnava                         | Trnava           | 917 01 | SK      | áno    
+  1706     | Milano - San Giuseppe (CBCITA) | Milano           | 20123  | IT      | áno    
+  182      | St. Josef Krankenhaus Wien (SJ | Wien             | 1130   | AT      | áno    
+  1866     | Landesklinikum Mistelbach      | Mistelbach       | 2130   | AT      | áno    
+  1871     | Gyn Med                        | Craiova          | —      | RO      | áno    
+  1877     | MD - Clinica Familia           | Chisinau         | x      | MD      | áno    
+[2026-03-23T20:27:49.302Z] 
+--- Spolupracovníci v INDEXUS ---
+  LegacyID | Meno         | Priezvisko | Mobil           | Email                      | RČ | Krajina | Typ   
+  ─────────┼──────────────┼────────────┼─────────────────┼────────────────────────────┼────┼─────────┼───────
+  10007    | Ina          | Moldovan   | +40 744 318 393 | emil.moldovan@brisnet.ro   | —  | RO      | doctor
+  10033    | Cornelia     | Pascu      | +40 744 686 168 | —                          | —  | RO      | doctor
+  10039    | Abdou        | Tarek      | +40 727 762 998 | tarek.abdou@panaitsarbu.ro | —  | RO      | doctor
+  10173    | Cristina     | Dabija     | —               | —                          | —  | RO      | nurse 
+  10176    | Luminita     | Marin      | —               | —                          | —  | RO      | nurse 
+  10195    | Janos        | Turos      | +40 742 814 537 | —                          | —  | RO      | doctor
+  10224    | Maria        | Olaru      | +40 744 578 820 | —                          | —  | RO      | doctor
+  10226    | Geta Daniela | Draghici   | +40 740 010 070 | —                          | —  | RO      | doctor
+  10284    | Ionela       | Anghelescu | +40 722 640 165 | —                          | —  | RO      | doctor
+  10288    | Anda Giana   | Ene        | +40 723 313 009 | —                          | —  | RO      | doctor
+[2026-03-23T20:27:49.302Z] 
+--- Klientky v INDEXUS ---
+  InternalID | Meno              | Priezvisko             | Mobil            | Email                          | RČ          | Mesto                      | PSČ    | Krajina | Status    
+  ───────────┼───────────────────┼────────────────────────┼──────────────────┼────────────────────────────────┼─────────────┼────────────────────────────┼────────┼─────────┼───────────
+  105196     | Alina Florentina  | Dibu                   | +40 751 880 806  | alinadulhac@yahoo.com          | —           | Liesti                     | —      | RO      | acquired  
+  132115     | Karmen            | Perutková Tiffinger    | +421 917 157 792 | tifcar@gmail.com               | 825818/8180 | Malé Bielice - Partizánske | 958 01 | SK      | acquired  
+  176145     | Lucia             | Henzelyová             | +421 915 833 194 | lucydy3@gmail.com              | 875427/9325 | Poprad                     | 058 01 | SK      | in_process
+  176711     | Carmen            | Lazar                  | +40 725 700 981  | carmen.pisica@gmail.com        | —           | Sector 6                   | 061152 | RO      | acquired  
+  176908     | Andrea            | Barák Kotoláči         | +421 915 666 934 | hajnal2005@hotmail.com         | 906118/6860 | Štúrovo                    | 943 01 | SK      | acquired  
+  179460     | Tamara Timeea     | Mates Tempfli          | +40 766 319 887  | tempflitamara@yahoo.com        | —           | Oradea                     | —      | RO      | acquired  
+  185948     | Judita            | Hunáková               | +420 731 525 995 | info@industryfilm.cz           | 865919/0078 | Praha 2                    | 120 00 | CZ      | in_process
+  186506     | Eva               | Šrameková              | +421 905 298 485 | evabukovcova@gmail.com         | 865705/7805 | Trenčín                    | 911 06 | SK      | in_process
+  186701     | Adrienn           | Szabó                  | +36 706 046 299  | adrienn.vinczi@yahoo.com       | 28806080624 | Budapest                   | 1161   | HU      | acquired  
+  187460     | Ioana Daniela     | Dancila                | +40 741 655 058  | ioanadragoman@yahoo.com        | —           | Sibiu                      | 550155 | RO      | acquired  
+  188600     | Carmen Melania    | Iordache               | +40 722 817 573  | karina.1981@yahoo.com          | —           | Filipestii de Targ         | —      | RO      | acquired  
+  194151     | Miriam            | Pavelková              | +421 902 230 220 | kopcovamirka@gmail.com         | 956219/6380 | Rovinka                    | 900 41 | SK      | acquired  
+  197605     | Nadica            | Tatalovikj Cvetanovski | +420 731 440 607 | nadica.tatalovic@gmail.com     | 875468/4576 | Praha                      | 190 00 | CZ      | acquired  
+  198893     | Adrienn           | Mosescu                | +40 769 622 831  | adriennkf@yahoo.com            | —           | Targu Mures                | 540336 | RO      | acquired  
+  200643     | Casandra Gabriela | Badoi Giarap           | +40 751 523 907  | cassandra.gabriella23@gmail.co | —           | Zimnicea                   | 145400 | RO      | acquired  
+  201464     | Irina Maria       | Iacob                  | +40 722 795 060  | irina.plopeanu@yahoo.fr        | —           | Sector 2                   | —      | RO      | acquired  
+  202329     | Andrea            | Illesová Fedorová      | +421 907 023 005 | fandreina@gmail.com            | 825321/9623 | Malý Horeš                 | 076 52 | SK      | in_process
+  203113     | Andrea            | Nema                   | +40 751 320 733  | andrea.techeres@yahoo.com      | —           | Sovata                     | 545500 | RO      | acquired  
+  203786     | Andrea            | Jelínková              | +420 721 573 676 | bednarovaandrejka@gmail.com    | 915220/5579 | Olomouc - Chomoutov        | 783 35 | CZ      | in_process
+  204093     | Nóra              | Lampé                  | +36 206 616 583  | lampenori@gmail.com            | 29301145161 | Debrecen                   | 4027   | HU      | acquired  
+[2026-03-23T20:27:49.303Z] 
+--- Odbery v INDEXUS ---
+  LegacyID | CBU#        | Klientka                | Nemocnica                      | Blood          | Tissue         | Placenta       | Assist          | 2ndNurse | Status
+  ─────────┼─────────────┼─────────────────────────┼────────────────────────────────┼────────────────┼────────────────┼────────────────┼─────────────────┼──────────┼───────
+  198274   | 40080932974 | Sidonia Andrada Olteanu | DJ - Craiova - Madonna Maria P | Elena Loredana | Elena Loredana | Elena Loredana | Alina Roxana    | —        | 3     
+  198273   | 40090335220 | Florina Alina Tenea     | B - Bucuresti - Sanador Privat | Florian        | Florian        | Florian        | Nicoleta Mirela | —        | 2     
+  198272   | 40090335219 | Cristina Romaniuc       | IS - Iasi - Arcadia Privat     | Viorica        | Viorica        | Viorica        | —               | —        | 3     
+  198271   | 0400753289  | Tereza Míková           | Praha - Krč                    | Helena         | Petra          | Petra          | Petra           | —        | 3     
+  198270   | 0114509881  | Henrieta Doleži         | Ružomberok                     | Juraj          | Juraj          | Juraj          | Zuzana          | —        | 3     
+  198269   | 0114509775  | Simona Bučková          | KE-Šaca                        | Erik           | Erik           | Erik           | Alžbeta         | —        | 3     
+  198268   | 40080932976 | Andrada Ioana Croitoru  | DJ - Craiova - Filantropia (Nr | Smarandita     | Smarandita     | —              | Loredana        | —        | 3     
+  198267   | 0114509669  | Lucia Izáková           | UNB Nemocnica Antolská         | Kryštof        | Kryštof        | —              | Iva             | —        | 3     
+  198266   | 0114509553  | Eva Šrameková           | Banská Bystrica                | Boris          | Mária          | —              | Mária           | —        | 3     
+  198265   | 40090335218 | Cornelia Stoica         | B - Bucuresti - Sanador Privat | Abdou          | Abdou          | —              | —               | —        | 2     
+[2026-03-23T20:27:49.310Z]   Štatistika priradení (100 odberov):
+[2026-03-23T20:27:49.310Z]     hospital=100, lab=100, contract=97, customer=97
+[2026-03-23T20:27:49.310Z]     blood=99, tissue=85, placenta=42, assistant=80, 2ndNurse=0
+[2026-03-23T20:27:49.310Z]     child_name=73, child_gender=100, doctor_note=0, note=4, coordinator=100
+[2026-03-23T20:27:49.310Z] 
+--- Cases v INDEXUS ---
+  CliID  | Klientka                    | Otec meno       | Otec priezvisko | Otec mobil | Otec email | Krajina | Produkt
+  ───────┼─────────────────────────────┼─────────────────┼─────────────────┼────────────┼────────────┼─────────┼────────
+  105196 | Alina Florentina Dibu       | Cristinel       | Dibu            | —          | —          | RO      | —      
+  132115 | Karmen Perutková Tiffinger  | —               | —               | —          | —          | SK      | —      
+  176145 | Lucia Henzelyová            | —               | —               | —          | —          | SK      | —      
+  176711 | Carmen Lazar                | Florentin Lazar | —               | —          | —          | SK      | —      
+  176908 | Andrea Barák Kotoláči       | —               | —               | —          | —          | SK      | —      
+  179460 | Tamara Timeea Mates Tempfli | Daniel Mates    | —               | —          | —          | SK      | —      
+  185948 | Judita Hunáková             | —               | —               | —          | —          | SK      | —      
+  186506 | Eva Šrameková               | —               | —               | —          | —          | SK      | —      
+  186701 | Adrienn Szabó               | Róbert Vilmos   | Szabó           | —          | —          | HU      | —      
+  187460 | Ioana Daniela Dancila       | Serban DANCILA  | —               | —          | —          | SK      | —      
+[2026-03-23T20:27:49.311Z] 
+--- Krížová kontrola (CBC vs INDEXUS) ---
+[2026-03-23T20:27:49.312Z]   sco_id=198274: CBU ✓ | Meno ✓ | CBC: "Sidonia Andrada OLTEANU" → INDEXUS: "Sidonia Andrada Olteanu"
+[2026-03-23T20:27:49.314Z]   sco_id=198273: CBU ✓ | Meno ✓ | CBC: "Florina Alina TENEA" → INDEXUS: "Florina Alina Tenea"
+[2026-03-23T20:27:49.315Z]   sco_id=198272: CBU ✓ | Meno ✓ | CBC: "Cristina ROMANIUC" → INDEXUS: "Cristina Romaniuc"
+[2026-03-23T20:27:49.316Z]   sco_id=198271: CBU ✓ | Meno ✓ | CBC: "Tereza Míková" → INDEXUS: "Tereza Míková"
+[2026-03-23T20:27:49.318Z]   sco_id=198270: CBU ✓ | Meno ✓ | CBC: "Henrieta Doleži" → INDEXUS: "Henrieta Doleži"
+
+══════════════════════════════════════════════════════════════════════
+  HOTOVO
+══════════════════════════════════════════════════════════════════════
+[2026-03-23T20:27:49.318Z] Testovací prenos 20 záznamov bol úspešne dokončený.
+[2026-03-23T20:27:49.318Z] Skontrolujte výsledky vyššie a overte dáta v INDEXUS CRM.
+[2026-03-23T20:27:49.318Z] 
+[2026-03-23T20:27:49.318Z] Ak chcete vymazať testovacích 20 záznamov:
+[2026-03-23T20:27:49.318Z]   node cleanup-test-migration.cjs
