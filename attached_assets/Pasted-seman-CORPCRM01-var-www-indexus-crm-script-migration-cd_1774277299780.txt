@@ -1,0 +1,56 @@
+seman@CORPCRM01:/var/www/indexus-crm/script/migration$ cd /var/www/indexus-crm/script/migration && node test-migration-20.cjs
+
+╔══════════════════════════════════════════════════════════════════╗
+║   ISCBC → INDEXUS  Testovací migračný scenár (20 záznamov)     ║
+║   BEZ: Invoices, Billing Companies, Rewards                    ║
+╚══════════════════════════════════════════════════════════════════╝
+
+
+══════════════════════════════════════════════════════════════════════
+  STEP 1: Test pripojenia + vzorky dát z ISCBC
+══════════════════════════════════════════════════════════════════════
+[2026-03-23T14:47:38.297Z] ✓ Pripojené k MSSQL (ISCBC)
+[2026-03-23T14:47:38.311Z] ✓ Pripojené k PostgreSQL (INDEXUS)
+[2026-03-23T14:47:38.434Z]
+Počty záznamov v ISCBC:
+  Tabuľka                     | Počet
+  ────────────────────────────┼────────
+  Clients                     | 191998
+  Collaborators               | 29856
+  CollectionEvaluationResults | 9218352
+  CollectionStatuses          | 10
+  Hospitals                   | 2227
+  Laboratories                | 5
+  ServiceCollections          | 197975
+[2026-03-23T14:47:38.434Z]
+Ukážka telefónnych formátov v ISCBC (PersonalData):
+  Mobil (RAW)   | Normalized       | Telefón (RAW) | Email (RAW)
+  ──────────────┼──────────────────┼───────────────┼──────────────────────────────
+  770811572     | +421 770 811 572 | —             | corinavalentina003@gmail.com
+  743330029     | +421 743 330 029 | —             | budur.liviu@yahoo.com
+  792574441     | +421 792 574 441 | —             | dragomirandreea1991@yahoo.com
+  792574445     | +421 792 574 445 | —             | dragomiralin1988@yahoo.com
+  740027312     | +421 740 027 312 | —             | molnar_edit@yahoo.com
+  0908/771339   | +421 908 771 339 | —             | sesztak.ede@gmail.com
+  +420724775637 | +420 724 775 637 | —             | rhaluzikova@gmail.com
+  0905/701008   | +421 905 701 008 | —             | —
+  30/4323275    | +421 304 323 275 | —             | joejtdorottya@gmail.com
+  0948/765766   | +421 948 765 766 | —             | maria.obusekova@gmail.com
+
+══════════════════════════════════════════════════════════════════════
+  STEP 2: Referenčné dáta (StatusyOdberov, Laboratóriá)
+══════════════════════════════════════════════════════════════════════
+[2026-03-23T14:47:38.440Z] --- CollectionStatuses ---
+[2026-03-23T14:47:38.442Z] FATAL: Invalid column name 'csu_branch'.
+RequestError: Invalid column name 'csu_branch'.
+    at handleError (/var/www/indexus-crm/node_modules/mssql/lib/tedious/request.js:384:15)
+    at Connection.emit (node:events:524:28)
+    at Connection.emit (/var/www/indexus-crm/node_modules/tedious/lib/connection.js:1013:18)
+    at RequestTokenHandler.onErrorMessage (/var/www/indexus-crm/node_modules/tedious/lib/token/handler.js:285:21)
+    at Readable.<anonymous> (/var/www/indexus-crm/node_modules/tedious/lib/token/token-stream-parser.js:19:33)
+    at Readable.emit (node:events:524:28)
+    at addChunk (node:internal/streams/readable:561:12)
+    at readableAddChunkPushObjectMode (node:internal/streams/readable:538:3)
+    at Readable.push (node:internal/streams/readable:393:5)
+    at nextAsync (node:internal/streams/from:194:22)
+seman@CORPCRM01:/var/www/indexus-crm/script/migration$
