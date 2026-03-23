@@ -1,0 +1,39 @@
+#!/usr/bin/env node
+/**
+ * Cleanup testovacích 20 záznamov z INDEXUS
+ * Vymaže iba záznamy s legacy_id/internal_id (= importované z ISCBC)
+ * Run on Ubuntu: node cleanup-test-migration.cjs
+ */
+const { Pool } = require('pg');
+
+const PG_CONFIG = {
+  host: 'localhost',
+  port: 5432,
+  database: 'indexus_crm',
+  user: 'indexus',
+  password: 'HanyurIfKisck',
+};
+
+async function main() {
+  const pool = new Pool(PG_CONFIG);
+
+  console.log('=== Cleanup testovacích migračných dát ===\n');
+
+  const tables = [
+    { name: 'collection_lab_results', query: "DELETE FROM collection_lab_results WHERE collection_id IN (SELECT id FROM collections WHERE legacy_id IS NOT NULL)" },
+    { name: 'collections (migrated)', query: "DELETE FROM collections WHERE legacy_id IS NOT NULL" },
+    { name: 'customers (migrated)', query: "DELETE FROM customers WHERE internal_id IS NOT NULL" },
+    { name: 'collaborators (migrated)', query: "DELETE FROM collaborators WHERE legacy_id IS NOT NULL" },
+    { name: 'hospitals (migrated)', query: "DELETE FROM hospitals WHERE legacy_id IS NOT NULL" },
+  ];
+
+  for (const t of tables) {
+    const result = await pool.query(t.query);
+    console.log(`  ${t.name}: ${result.rowCount} záznamov vymazaných`);
+  }
+
+  console.log('\n✓ Cleanup dokončený. Referenčné dáta (statuses, labs) ponechané.');
+  await pool.end();
+}
+
+main().catch(console.error);
