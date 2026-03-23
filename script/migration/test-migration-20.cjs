@@ -645,7 +645,7 @@ async function step7_verification() {
   log('\n--- Nemocnice v INDEXUS ---');
   const hospitals = await pgPool.query(`
     SELECT legacy_id, name, city, postal_code, country_code, is_active
-    FROM hospitals WHERE legacy_id IS NOT NULL ORDER BY legacy_id::int LIMIT 20
+    FROM hospitals WHERE legacy_id IS NOT NULL AND legacy_id != '' ORDER BY legacy_id LIMIT 20
   `);
   table(
     ['LegacyID', 'Názov', 'Mesto', 'PSČ', 'Krajina', 'Aktívna'],
@@ -655,7 +655,7 @@ async function step7_verification() {
   log('\n--- Spolupracovníci v INDEXUS ---');
   const collabs = await pgPool.query(`
     SELECT legacy_id, first_name, last_name, mobile, email, birth_number, country_code, collaborator_type
-    FROM collaborators WHERE legacy_id IS NOT NULL ORDER BY legacy_id::int LIMIT 20
+    FROM collaborators WHERE legacy_id IS NOT NULL AND legacy_id != '' ORDER BY legacy_id LIMIT 20
   `);
   table(
     ['LegacyID', 'Meno', 'Priezvisko', 'Mobil', 'Email', 'RČ', 'Krajina', 'Typ'],
@@ -665,7 +665,7 @@ async function step7_verification() {
   log('\n--- Klientky v INDEXUS ---');
   const customers = await pgPool.query(`
     SELECT internal_id, first_name, last_name, mobile, email, national_id, city, postal_code, country, client_status
-    FROM customers WHERE internal_id IS NOT NULL ORDER BY internal_id::int LIMIT 20
+    FROM customers WHERE internal_id IS NOT NULL AND internal_id != '' ORDER BY internal_id LIMIT 20
   `);
   table(
     ['InternalID', 'Meno', 'Priezvisko', 'Mobil', 'Email', 'RČ', 'Mesto', 'PSČ', 'Krajina', 'Status'],
@@ -678,7 +678,7 @@ async function step7_verification() {
            c.child_first_name, c.collection_date, h.name as hospital_name, c.status, c.country_code
     FROM collections c
     LEFT JOIN hospitals h ON h.id = c.hospital_id
-    WHERE c.legacy_id IS NOT NULL ORDER BY c.legacy_id::int DESC LIMIT 20
+    WHERE c.legacy_id IS NOT NULL AND c.legacy_id != '' ORDER BY c.legacy_id DESC LIMIT 20
   `);
   table(
     ['LegacyID', 'CBU#', 'Klientka', 'Mobil', 'Dieťa', 'Dátum', 'Nemocnica', 'Status', 'Krajina'],
