@@ -296,6 +296,13 @@ export default function CollectionsPage() {
   const [labAiAnalysis, setLabAiAnalysis] = useState<string | null>(null);
   const [labAiLoading, setLabAiLoading] = useState(false);
 
+  useEffect(() => {
+    setLabOtpStep("idle");
+    setLabOtpCode("");
+    setLabVerifiedData(null);
+    setLabAiAnalysis(null);
+  }, [collectionId]);
+
   const handleDownloadCbuReport = async (reportType: "medical" | "full", language: "sk" | "en") => {
     if (!collectionId || !collection?.cbuNumber) {
       toast({ title: t.common.error, description: locale === "sk" ? "CBU číslo nie je dostupné" : "CBU number not available", variant: "destructive" });
@@ -445,6 +452,10 @@ export default function CollectionsPage() {
 
   const [labSaving, setLabSaving] = useState(false);
   const [labFormUnlocked, setLabFormUnlocked] = useState(false);
+
+  useEffect(() => {
+    setLabFormUnlocked(false);
+  }, [collectionId]);
 
   const handleSaveToLabResults = async (cbuNumber: string, labResultData: any, source: "lab_tab" | "cbu_viewer") => {
     setLabSaving(true);
