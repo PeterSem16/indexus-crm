@@ -26,7 +26,7 @@ const MSSQL_CONFIG = {
   password: 'XqU0nNND',
   server: '10.1.2.2',
   port: 1433,
-  database: 'ISCBC',
+  database: 'CBC',
   options: { encrypt: false, trustServerCertificate: true },
   connectionTimeout: 15000,
   requestTimeout: 60000,
