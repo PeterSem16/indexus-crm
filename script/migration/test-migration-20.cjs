@@ -42,6 +42,7 @@ const PG_CONFIG = {
 
 const LIMIT = parseInt(process.env.MIGRATION_LIMIT || '20', 10);
 let mssqlPool, pgPool;
+const cbcStatusRemap = { 1: 1, 2: 2, 3: 3, 4: 4, 5: 4, 6: 4, 7: 5, 8: 6, 9: 7, 10: 8 };
 
 function log(msg) { console.log(`[${new Date().toISOString()}] ${msg}`); }
 function separator(title) {
@@ -235,51 +236,35 @@ async function step2_referenceData() {
   );
 
   const cbcToIndexusStatus = {
-    1:  { name: 'Vydaný',               code: '1',   branch: 1, sortOrder: 1 },
-    2:  { name: 'V preprave',            code: '1.1', branch: 1, sortOrder: 2 },
-    3:  { name: 'Na spracovaní',         code: '1.2', branch: 1, sortOrder: 3 },
-    4:  { name: 'Na vyhodnotení',        code: '1.3', branch: 1, sortOrder: 4 },
-    5:  { name: 'Evaluated',            code: '1.3', branch: 1, sortOrder: 4 },
-    6:  { name: 'Waiting for decision', code: '1.3', branch: 1, sortOrder: 4 },
-    7:  { name: 'Generovanie certifikátov', code: '1.4', branch: 1, sortOrder: 5 },
-    8:  { name: 'Uskladnený',           code: '1.5', branch: 1, sortOrder: 6 },
-    9:  { name: 'Released',             code: '1.6', branch: 1, sortOrder: 7 },
-    10: { name: 'Transferred',          code: '1.7', branch: 1, sortOrder: 8 },
+    1:  { name: 'Vydaný',                  code: '1',   branch: 1, sortOrder: 1 },
+    2:  { name: 'V preprave',              code: '1.1', branch: 1, sortOrder: 2 },
+    3:  { name: 'Na spracovaní',           code: '1.2', branch: 1, sortOrder: 3 },
+    4:  { name: 'Na vyhodnotení',          code: '1.3', branch: 1, sortOrder: 4 },
+    5:  { name: 'Evaluated',              code: '1.4', branch: 1, sortOrder: 5 },
+    6:  { name: 'Generovanie certifikátov', code: '1.5', branch: 1, sortOrder: 6 },
+    7:  { name: 'Uskladnený',             code: '1.6', branch: 1, sortOrder: 7 },
+    8:  { name: 'Released',               code: '1.7', branch: 1, sortOrder: 8 },
+    9:  { name: 'Transferred',            code: '1.8', branch: 1, sortOrder: 9 },
   };
 
-  log('  Mapovanie CBC → INDEXUS statusov:');
-  for (const row of statuses.recordset) {
-    const mapping = cbcToIndexusStatus[row.csu_id];
-    if (mapping) {
-      log(`    CBC ${row.csu_id} (${row.csu_code}) → INDEXUS code=${mapping.code}, name=${mapping.name}, branch=${mapping.branch}`);
-    }
+  log('  Mapovanie CBC → INDEXUS statusov (zjednotené):');
+  for (const [id, mapping] of Object.entries(cbcToIndexusStatus)) {
+    log(`    ID=${id} → code=${mapping.code}, name=${mapping.name}`);
   }
+  log('  CBC remap (duplicity zlúčené): ' + JSON.stringify(cbcStatusRemap));
 
-  let sInserted = 0, sSkipped = 0, sUpdated = 0;
-  for (const row of statuses.recordset) {
-    const mapping = cbcToIndexusStatus[row.csu_id];
-    if (!mapping) continue;
+  await pgPool.query('DELETE FROM collection_statuses WHERE id > 0');
+  log('  Vyčistené staré statusy');
 
-    const existing = await pgPool.query('SELECT id, code, branch FROM collection_statuses WHERE id = $1', [row.csu_id]);
-    if (existing.rows.length > 0) {
-      if (existing.rows[0].code !== mapping.code || existing.rows[0].branch !== mapping.branch) {
-        await pgPool.query(`
-          UPDATE collection_statuses SET name = $2, code = $3, branch = $4, sort_order = $5
-          WHERE id = $1
-        `, [row.csu_id, mapping.name, mapping.code, mapping.branch, mapping.sortOrder]);
-        sUpdated++;
-      } else {
-        sSkipped++;
-      }
-    } else {
-      await pgPool.query(`
-        INSERT INTO collection_statuses (id, name, code, branch, sort_order, is_active)
-        VALUES ($1, $2, $3, $4, $5, true)
-      `, [row.csu_id, mapping.name, mapping.code, mapping.branch, mapping.sortOrder]);
-      sInserted++;
-    }
+  let sInserted = 0;
+  for (const [id, mapping] of Object.entries(cbcToIndexusStatus)) {
+    await pgPool.query(`
+      INSERT INTO collection_statuses (id, name, code, branch, sort_order, is_active)
+      VALUES ($1, $2, $3, $4, $5, true)
+    `, [parseInt(id), mapping.name, mapping.code, mapping.branch, mapping.sortOrder]);
+    sInserted++;
   }
-  log(`  → ${sInserted} vložených, ${sUpdated} aktualizovaných, ${sSkipped} preskočených`);
+  log(`  → ${sInserted} statusov vložených (9 zjednotených z 10 CBC)`);
 
   log('\n--- Laboratories ---');
   const labs = await mssqlPool.request().query(`
@@ -697,7 +682,7 @@ async function step6_collections() {
         row.sco_collection_made, hospitalId,
         collabLookup[cc.blood] || null, collabLookup[cc.tissue] || null,
         collabLookup[cc.placenta] || null, collabLookup[cc.assistant] || null,
-        row.csu_id, String(row.csu_id),
+        cbcStatusRemap[row.csu_id] || row.csu_id, String(cbcStatusRemap[row.csu_id] || row.csu_id),
         row.sco_paired, row.sco_lab_evaluation, row.sco_sterility,
         row.sco_stored, row.sco_transferred, row.sco_released,
         row.sco_waiting_for_dispose, row.sco_disposed,
