@@ -254,6 +254,75 @@ async function step1_testConnection() {
     log(`  FileRepositories: ${repoCount.recordset[0].cnt} záznamov (PRÁZDNA — súbory sa budú riešiť manuálne)`);
   } catch (err) { log(`  WARN: Repository diagnostika: ${err.message}`); }
 
+  log('\n--- Diagnostika CBC: Historické dáta klientov ---');
+  try {
+    const histTables = await mssqlPool.request().query(`
+      SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
+      WHERE TABLE_NAME LIKE '%Client%' OR TABLE_NAME LIKE '%Customer%'
+         OR TABLE_NAME LIKE '%History%' OR TABLE_NAME LIKE '%Note%'
+         OR TABLE_NAME LIKE '%Comment%' OR TABLE_NAME LIKE '%Log%'
+         OR TABLE_NAME LIKE '%Activity%' OR TABLE_NAME LIKE '%Communication%'
+         OR TABLE_NAME LIKE '%Contact%' OR TABLE_NAME LIKE '%Task%'
+         OR TABLE_NAME LIKE '%Event%' OR TABLE_NAME LIKE '%Call%'
+         OR TABLE_NAME LIKE '%Email%' OR TABLE_NAME LIKE '%SMS%'
+         OR TABLE_NAME LIKE '%Payment%' OR TABLE_NAME LIKE '%Storage%'
+         OR TABLE_NAME LIKE '%Campaign%' OR TABLE_NAME LIKE '%Potential%'
+      ORDER BY TABLE_NAME
+    `);
+    log(`  Tabuľky súvisiace s klientmi/históriou: ${histTables.recordset.map(r => r.TABLE_NAME).join(', ')}`);
+
+    for (const ht of histTables.recordset) {
+      try {
+        const htCount = await mssqlPool.request().query(`SELECT COUNT(*) as cnt FROM [${ht.TABLE_NAME}]`);
+        const htCols = await mssqlPool.request().query(`
+          SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+          WHERE TABLE_NAME = '${ht.TABLE_NAME}' ORDER BY ORDINAL_POSITION
+        `);
+        const colNames = htCols.recordset.map(r => r.COLUMN_NAME);
+        const hasCliId = colNames.some(c => c === 'cli_id' || c === 'con_id' || c === 'pot_id');
+        log(`  ${ht.TABLE_NAME}: ${htCount.recordset[0].cnt} záznamov${hasCliId ? ' (má FK na klienta/kontrakt)' : ''}`);
+        log(`    Stĺpce: ${colNames.join(', ')}`);
+
+        if (htCount.recordset[0].cnt > 0) {
+          const htSample = await mssqlPool.request().query(`SELECT TOP 2 * FROM [${ht.TABLE_NAME}] ORDER BY 1 DESC`);
+          if (htSample.recordset.length > 0) {
+            const cols = Object.keys(htSample.recordset[0]);
+            table(cols, htSample.recordset.map(r => cols.map(c => {
+              const v = r[c];
+              if (v == null) return '—';
+              if (Buffer.isBuffer(v)) return `[BLOB ${v.length}B]`;
+              const s = String(v);
+              return s.length > 35 ? s.substring(0, 35) + '…' : s;
+            })));
+          }
+        }
+      } catch (e) { log(`    WARN: ${ht.TABLE_NAME}: ${e.message}`); }
+    }
+
+    const allTables = await mssqlPool.request().query(`
+      SELECT t.TABLE_NAME, c.COLUMN_NAME
+      FROM INFORMATION_SCHEMA.TABLES t
+      JOIN INFORMATION_SCHEMA.COLUMNS c ON c.TABLE_NAME = t.TABLE_NAME
+      WHERE c.COLUMN_NAME IN ('cli_id', 'con_id')
+        AND t.TABLE_NAME NOT IN (${histTables.recordset.map(r => `'${r.TABLE_NAME}'`).join(',') || "'_none_'"})
+      ORDER BY t.TABLE_NAME
+    `);
+    if (allTables.recordset.length > 0) {
+      log(`\n  Ďalšie tabuľky s cli_id/con_id (zatiaľ nezobrazené):`);
+      const grouped = {};
+      for (const r of allTables.recordset) {
+        if (!grouped[r.TABLE_NAME]) grouped[r.TABLE_NAME] = [];
+        grouped[r.TABLE_NAME].push(r.COLUMN_NAME);
+      }
+      for (const [tbl, cols] of Object.entries(grouped)) {
+        try {
+          const cnt = await mssqlPool.request().query(`SELECT COUNT(*) as cnt FROM [${tbl}]`);
+          log(`    ${tbl} (${cols.join(', ')}): ${cnt.recordset[0].cnt} záznamov`);
+        } catch (e) { log(`    ${tbl}: ${e.message}`); }
+      }
+    }
+  } catch (err) { log(`  WARN: Historické dáta diagnostika: ${err.message}`); }
+
   log('\n--- Diagnostika CBC: Collaborators stĺpce (health, marital, insurance) ---');
   try {
     const docCols = await mssqlPool.request().query(`
