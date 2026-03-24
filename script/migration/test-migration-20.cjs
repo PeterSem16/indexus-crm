@@ -2286,15 +2286,25 @@ async function step11_customerContracts() {
     log('  Template/Product tabuľky: ' + ctRes.recordset.map(r => r.TABLE_NAME).join(', '));
   } catch (err) { log(`  WARN: ${err.message}`); }
 
+  // Get company names via Clients.com_id → Companies
+  const companyMap = {};
+  try {
+    const compRes = await mssqlPool.request().query(`
+      SELECT cl.cli_id, comp.com_name
+      FROM Clients cl
+      JOIN Companies comp ON comp.com_id = cl.com_id
+      WHERE cl.cli_id IN (${cliIds}) AND cl.com_id IS NOT NULL
+    `);
+    for (const r of compRes.recordset) companyMap[String(r.cli_id)] = r.com_name;
+  } catch (err) { log(`  WARN company map: ${err.message}`); }
+
   const contracts = await mssqlPool.request().query(`
     SELECT c.con_id, c.cli_id, c.con_number, c.con_inserted,
            c.con_expected_collection_date,
            cs.csa_code,
-           c.con_note,
-           comp.com_name
+           c.con_note
     FROM Contracts c
     LEFT JOIN ContractStatuses cs ON cs.csa_id = c.csa_id
-    LEFT JOIN Companies comp ON comp.com_id = c.com_id
     WHERE c.cli_id IN (${cliIds})
     ORDER BY c.con_id
   `);
@@ -2304,7 +2314,7 @@ async function step11_customerContracts() {
     table(
       ['con_id', 'cli_id', 'con_number', 'Stav', 'Firma', 'Oč. dátum'],
       contracts.recordset.slice(0, 10).map(r => [
-        r.con_id, r.cli_id, r.con_number || '-', r.csa_code || '-', r.com_name || '-',
+        r.con_id, r.cli_id, r.con_number || '-', r.csa_code || '-', companyMap[String(r.cli_id)] || '-',
         r.con_expected_collection_date ? new Date(r.con_expected_collection_date).toLocaleDateString('sk') : '-'
       ])
     );
@@ -2329,7 +2339,7 @@ async function step11_customerContracts() {
         customerId,
         r.con_number || null,
         r.csa_code || null,
-        r.com_name || null,
+        companyMap[String(r.cli_id)] || null,
         r.con_expected_collection_date || null,
         r.con_note || null,
         JSON.stringify({ con_id: r.con_id, cli_id: r.cli_id, csa_code: r.csa_code }),
