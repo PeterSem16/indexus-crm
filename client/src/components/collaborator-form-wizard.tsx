@@ -3515,6 +3515,11 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
               {isEditMode
                 ? `${initialData?.firstName} ${initialData?.lastName}`
                 : t.collaborators.addCollaborator}
+              {isEditMode && (initialData as any)?.dataSource === 'iscbc' && (
+                <Badge variant="outline" className="ml-2 text-[10px] px-1.5 py-0 bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800">
+                  ISCBC
+                </Badge>
+              )}
             </h2>
             <p className="text-xs text-muted-foreground">
               {isEditMode ? t.collaborators.editCollaborator : t.collaborators.addCollaborator}

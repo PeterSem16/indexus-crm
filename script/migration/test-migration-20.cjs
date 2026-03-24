@@ -770,20 +770,39 @@ async function step4_collaborators() {
   let inserted = 0, skipped = 0, errors = 0, addrInserted = 0, repMatched = 0;
   for (const row of collabs.recordset) {
     try {
-      const existing = await pgPool.query('SELECT id, data_source, representative_id FROM collaborators WHERE legacy_id = $1', [String(row.doc_id)]);
+      const existing = await pgPool.query('SELECT id, data_source, representative_id, health_insurance_id, hospital_ids, bank_account_iban, note FROM collaborators WHERE legacy_id = $1', [String(row.doc_id)]);
       if (existing.rows.length > 0) {
-        // Update existing with data_source + representative + addresses if missing
         const ex = existing.rows[0];
+        const countryCode = normalizeCountryCode(countryMap[row.doc_id]);
         const repName = row.rer_id ? (repLookup[row.rer_id] || null) : null;
-        if (!ex.data_source || (!ex.representative_id && repName)) {
-          await pgPool.query(`UPDATE collaborators SET data_source = COALESCE(data_source, 'iscbc'), representative_id = COALESCE(representative_id, $2), updated_at = now() WHERE id = $1`,
-            [ex.id, repName]);
+        const hospIds = (hospMap[row.doc_id] || []).map(legId => hospitalLookup[legId]).filter(Boolean);
+        const iban = row.doc_IBAN || row.pda_iban || null;
+        const swift = row.doc_SWIFT || row.pda_swift || null;
+
+        let healthInsId = null;
+        if (row.pda_health_insurance_code) {
+          const hiKey = `${row.pda_health_insurance_code}_${countryCode}`;
+          healthInsId = healthInsLookup[hiKey] || null;
+          if (healthInsId) hiMatched++; else hiUnmatched++;
         }
-        // Add missing addresses
-        const existingAddrs = await pgPool.query('SELECT address_type FROM collaborator_addresses WHERE collaborator_id = $1 AND legacy_id IS NOT NULL', [ex.id]);
+
+        await pgPool.query(`UPDATE collaborators SET
+          data_source = COALESCE(data_source, 'iscbc'),
+          representative_id = COALESCE(representative_id, $2),
+          health_insurance_id = COALESCE(health_insurance_id, $3),
+          hospital_ids = CASE WHEN hospital_ids IS NULL OR hospital_ids = '{}' THEN $4::varchar[] ELSE hospital_ids END,
+          bank_account_iban = COALESCE(bank_account_iban, $5),
+          swift_code = COALESCE(swift_code, $6),
+          note = COALESCE(note, $7),
+          updated_at = now()
+        WHERE id = $1`,
+          [ex.id, repName, healthInsId, hospIds.length > 0 ? hospIds : null, iban, swift, row.doc_note]);
+
+        const existingAddrs = await pgPool.query('SELECT address_type FROM collaborator_addresses WHERE collaborator_id = $1', [ex.id]);
         const existingTypes = new Set(existingAddrs.rows.map(r => r.address_type));
         const addrPairs = [
           { addId: row.add_id, type: 'permanent' },
+          { addId: row.add_id, type: 'correspondence' },
           { addId: row.add_id_firm, type: 'company' },
         ];
         for (const ap of addrPairs) {
@@ -791,7 +810,7 @@ async function step4_collaborators() {
           const addr = addressLookup[ap.addId];
           const addrCountry = normalizeCountryCode(addr.add_country);
           await pgPool.query(`INSERT INTO collaborator_addresses (legacy_id, collaborator_id, address_type, name, street_number, city, postal_code, region, country_code) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-            [String(ap.addId), ex.id, ap.type, addr.add_name, addr.add_street_and_number, normalizeCity(addr.add_city), normalizePostalCode(addr.add_zip, addrCountry), addr.add_area, addrCountry]);
+            [String(ap.addId) + (ap.type === 'correspondence' ? '_cor' : ''), ex.id, ap.type, addr.add_name, addr.add_street_and_number, normalizeCity(addr.add_city), normalizePostalCode(addr.add_zip, addrCountry), addr.add_area, addrCountry]);
           addrInserted++;
         }
         if (repName) repMatched++;
@@ -851,9 +870,10 @@ async function step4_collaborators() {
       ]);
       const collabId = res.rows[0].id;
 
-      // Migrate addresses (add_id = personal, add_id_firm = company)
+      // Migrate addresses (add_id = permanent + correspondence, add_id_firm = company)
       const addrPairs = [
         { addId: row.add_id, type: 'permanent' },
+        { addId: row.add_id, type: 'correspondence' },
         { addId: row.add_id_firm, type: 'company' },
       ];
       for (const ap of addrPairs) {
@@ -865,7 +885,7 @@ async function step4_collaborators() {
             legacy_id, collaborator_id, address_type, name, street_number, city, postal_code, region, country_code
           ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
         `, [
-          String(ap.addId), collabId, ap.type,
+          String(ap.addId) + (ap.type === 'correspondence' ? '_cor' : ''), collabId, ap.type,
           addr.add_name, addr.add_street_and_number,
           normalizeCity(addr.add_city), normalizePostalCode(addr.add_zip, addrCountry),
           addr.add_area, addrCountry,
@@ -881,9 +901,21 @@ async function step4_collaborators() {
     }
   }
   log(`\n  → ${inserted} vložených, ${skipped} preskočených, ${errors} chýb`);
-  log(`  Adresy: ${addrInserted} vložených`);
+  log(`  Adresy: ${addrInserted} vložených (permanent + correspondence + company)`);
   log(`  Representants: ${repMatched} priradených`);
-  if (hiMatched || hiUnmatched) log(`  Zdravotné poisťovne: ${hiMatched} priradených, ${hiUnmatched} nenájdených v INDEXUS`);
+  log(`  Zdravotné poisťovne: ${hiMatched} priradených, ${hiUnmatched} nenájdených v INDEXUS`);
+  // Log health insurance diagnostic for unmatched
+  if (hiUnmatched > 0) {
+    const unmatchedHICodes = new Set();
+    for (const row of collabs.recordset) {
+      if (row.pda_health_insurance_code) {
+        const cc = normalizeCountryCode(countryMap[row.doc_id]);
+        const hiKey = `${row.pda_health_insurance_code}_${cc}`;
+        if (!healthInsLookup[hiKey]) unmatchedHICodes.add(`${row.pda_health_insurance_code} (${cc})`);
+      }
+    }
+    log(`  Nenájdené HI kódy: ${[...unmatchedHICodes].join(', ')}`);
+  }
 }
 
 // ============================================================
@@ -1080,8 +1112,22 @@ async function step4c_activities() {
           SELECT TOP 5 rac_id FROM ${tableName}
         `);
         log(`  ✓ Tabuľka nájdená ako: ${tableName}`);
+
+        // Diagnostika: celkový počet a vzorka
+        try {
+          const totalCount = await mssqlPool.request().query(`SELECT COUNT(*) as cnt FROM ${tableName}`);
+          log(`  Acts celkový počet záznamov: ${totalCount.recordset[0].cnt}`);
+          const sample = await mssqlPool.request().query(`SELECT TOP 5 rac_id, agreement_id_reward, rac_name, rac_amount, cur_code, rac_state FROM ${tableName} ORDER BY rac_id DESC`);
+          if (sample.recordset.length > 0) {
+            log(`  Acts vzorky (TOP 5):`);
+            for (const s of sample.recordset) {
+              log(`    rac_id=${s.rac_id}, agreement=${s.agreement_id_reward}, name=${s.rac_name}, amount=${s.rac_amount} ${s.cur_code}, state=${s.rac_state}`);
+            }
+          }
+        } catch (diagErr) { log(`  Acts diagnostika: ${diagErr.message}`); }
+
         acts = await mssqlPool.request().query(`
-          SELECT rac_id, agreement_id_reward, hos_id_bound, sco_id_bound,
+          SELECT rac_id, agreement_id_reward, hos_id_bound, sco_id_bound, con_id_bound,
                  rac_state, cur_code, rac_amount, rac_name,
                  rac_internal_note, rac_public_note,
                  rac_due_date, rac_due_date_type,
@@ -2048,17 +2094,38 @@ async function step10_verification() {
 
   log('\n--- Spolupracovníci v INDEXUS ---');
   const collabs = await pgPool.query(`
-    SELECT legacy_id, first_name, last_name, mobile, email, birth_number, country_code, collaborator_type,
-           representative_id, bank_account_iban, data_source
-    FROM collaborators WHERE legacy_id IS NOT NULL AND legacy_id != '' ORDER BY legacy_id LIMIT 10
+    SELECT c.legacy_id, c.first_name, c.last_name, c.mobile, c.email, c.country_code, c.collaborator_type,
+           c.representative_id, c.bank_account_iban, c.data_source, c.note,
+           c.health_insurance_id, hi.name as hi_name, hi.code as hi_code,
+           array_length(c.hospital_ids, 1) as hosp_count
+    FROM collaborators c
+    LEFT JOIN health_insurance_companies hi ON hi.id = c.health_insurance_id
+    WHERE c.legacy_id IS NOT NULL AND c.legacy_id != '' ORDER BY c.legacy_id LIMIT 10
   `);
   table(
-    ['LegacyID', 'Meno', 'Priezvisko', 'Mobil', 'Email', 'Krajina', 'Typ', 'Representative', 'IBAN', 'Zdroj'],
-    collabs.rows.map(r => [r.legacy_id, r.first_name, r.last_name, r.mobile, r.email, r.country_code,
-      r.collaborator_type, r.representative_id, r.bank_account_iban, r.data_source || '—'])
+    ['LegacyID', 'Meno', 'Priezvisko', 'Mobil', 'Krajina', 'Typ', 'Representative', 'IBAN', 'HI', 'Nemocnice', 'Poznámka', 'Zdroj'],
+    collabs.rows.map(r => [r.legacy_id, r.first_name, r.last_name, r.mobile, r.country_code,
+      r.collaborator_type, r.representative_id || '—', r.bank_account_iban || '—',
+      r.hi_code || '—', r.hosp_count || 0,
+      (r.note || '—').slice(0, 20), r.data_source || '—'])
   );
+  // Stats
+  const collabStats = await pgPool.query(`
+    SELECT
+      COUNT(*) FILTER (WHERE health_insurance_id IS NOT NULL) as with_hi,
+      COUNT(*) FILTER (WHERE representative_id IS NOT NULL) as with_rep,
+      COUNT(*) FILTER (WHERE bank_account_iban IS NOT NULL) as with_iban,
+      COUNT(*) FILTER (WHERE hospital_ids IS NOT NULL AND hospital_ids != '{}') as with_hosp,
+      COUNT(*) FILTER (WHERE note IS NOT NULL AND note != '') as with_note,
+      COUNT(*) FILTER (WHERE data_source = 'iscbc') as from_iscbc,
+      COUNT(*) as total
+    FROM collaborators WHERE legacy_id IS NOT NULL
+  `);
+  const cs = collabStats.rows[0];
+  log(`  Štatistika: HI=${cs.with_hi}/${cs.total}, Rep=${cs.with_rep}/${cs.total}, IBAN=${cs.with_iban}/${cs.total}, Nemocnice=${cs.with_hosp}/${cs.total}, Poznámky=${cs.with_note}/${cs.total}, ISCBC=${cs.from_iscbc}/${cs.total}`);
+
   const addrStats = await pgPool.query(`
-    SELECT address_type, COUNT(*) as cnt FROM collaborator_addresses WHERE legacy_id IS NOT NULL GROUP BY address_type
+    SELECT address_type, COUNT(*) as cnt FROM collaborator_addresses WHERE legacy_id IS NOT NULL GROUP BY address_type ORDER BY address_type
   `);
   if (addrStats.rows.length > 0) {
     log('  Adresy podľa typu: ' + addrStats.rows.map(r => `${r.address_type}=${r.cnt}`).join(', '));
