@@ -1036,7 +1036,7 @@ async function step4b_agreements() {
           social_insurance_registration_day, social_insurance_registration_month, social_insurance_registration_year,
           social_insurance_cancel_day, social_insurance_cancel_month, social_insurance_cancel_year,
           note, created_at
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25)
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26)
       `, [
         String(row.cag_id), collaboratorId, row.cag_number,
         vFrom ? vFrom.getDate() : null, vFrom ? vFrom.getMonth() + 1 : null, vFrom ? vFrom.getFullYear() : null,
