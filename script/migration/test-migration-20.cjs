@@ -2264,6 +2264,16 @@ async function step11_customerContracts() {
   for (const c of migratedCustomers.rows) customerMap[c.internal_id] = c.id;
   const cliIds = Object.keys(customerMap).join(',');
 
+  // Ensure contract_instances table has required columns
+  try {
+    await pgPool.query(`ALTER TABLE contract_instances ADD COLUMN IF NOT EXISTS internal_id varchar(100)`);
+    await pgPool.query(`ALTER TABLE contract_instances ADD COLUMN IF NOT EXISTS data_source text`);
+    await pgPool.query(`ALTER TABLE contract_instances ADD COLUMN IF NOT EXISTS legacy_data jsonb`);
+    await pgPool.query(`ALTER TABLE contract_instances ADD COLUMN IF NOT EXISTS company_name text`);
+    await pgPool.query(`ALTER TABLE contract_instances ADD COLUMN IF NOT EXISTS pregnancy_type text`);
+    log('  ✓ contract_instances stĺpce overené/doplnené');
+  } catch (err) { log(`  WARN ensure columns: ${err.message}`); }
+
   log(`\n--- Diagnostika CBC: Contracts stĺpce ---`);
   try {
     const conColsRes = await mssqlPool.request().query(`
@@ -2302,11 +2312,19 @@ async function step11_customerContracts() {
            c.con_expected_collection_date, c.con_pregnancy_type,
            c.hos_id, c.doc_id, c.pot_id,
            c.con_note,
+           c.con_contacted, c.con_filled, c.con_generated, c.con_sent,
+           c.con_confirmed, c.con_returned, c.con_validated, c.con_realized,
+           c.con_terminated, c.con_cancelled,
+           c.con_gift_card, c.con_indicated,
+           c.con_collection_kit_number, c.con_collection_kit_sent, c.con_collection_kit_expired,
+           c.con_invoicing_postponed, c.con_invoices_by_email, c.con_invoices_by_letter,
+           c.con_saving_bank, c.con_refinancing_detail, c.rfo_id,
+           c.con_repository,
            cs.csa_code,
            pc.pot_product_ft, pc.pot_marketproduct_ft, pc.pot_payment_type_ft,
            pc.pot_registration_type_ft, pc.pot_first_information_source_ft,
            pc.pot_marketing_action_ft, pc.pot_marketing_code_ft,
-           pc.pot_gift_card, pc.pot_recruiting_ft,
+           pc.pot_gift_card AS pot_gift_card, pc.pot_recruiting_ft,
            pc.pot_exp_hospital_ft, pc.pot_exp_doctor_ft,
            pc.pot_exp_birth_date, pc.pot_children
     FROM Contracts c
@@ -2333,14 +2351,20 @@ async function step11_customerContracts() {
   const mapCbcStatusToIndexus = (csaCode) => {
     if (!csaCode) return 'draft';
     const code = csaCode.toUpperCase();
-    if (code === 'REG_CSA_SIGNED' || code === 'REG_CSA_ACTIVE') return 'signed';
-    if (code === 'REG_CSA_COMPLETED' || code === 'REG_CSA_CLOSED') return 'completed';
-    if (code === 'REG_CSA_CANCELLED' || code === 'REG_CSA_STORNO') return 'cancelled';
-    if (code === 'REG_CSA_SENT') return 'sent';
-    if (code === 'REG_CSA_RETURNED') return 'pending_signature';
-    if (code === 'REG_CSA_EXPIRED') return 'expired';
-    if (code === 'REG_CSA_DRAFT' || code === 'REG_CSA_NEW') return 'draft';
-    return 'draft';
+    const map = {
+      'REG_CSA_NEW': 'draft',
+      'REG_CSA_FILLED': 'draft',
+      'REG_CSA_GENERATED': 'draft',
+      'REG_CSA_SENT_PACKAGE': 'sent',
+      'REG_CSA_CONFIRMED_RECEPTION': 'pending_signature',
+      'REG_CSA_RETURNED': 'pending_signature',
+      'REG_CSA_VALIDATED': 'signed',
+      'REG_CSA_REALIZED': 'completed',
+      'REG_CSA_CANCELLED': 'cancelled',
+      'REG_CSA_TERMINATED': 'cancelled',
+      'REG_CSA_MOVED': 'completed',
+    };
+    return map[code] || 'draft';
   };
 
   let insertedCI = 0, insertedCD = 0, skipped = 0, errors = 0;
@@ -2367,6 +2391,14 @@ async function step11_customerContracts() {
         pot_product_ft: r.pot_product_ft, pot_marketproduct_ft: r.pot_marketproduct_ft,
         pot_payment_type_ft: r.pot_payment_type_ft, pot_children: r.pot_children,
         pot_recruiting_ft: r.pot_recruiting_ft,
+        con_repository: r.con_repository,
+        con_invoicing_postponed: r.con_invoicing_postponed,
+        con_invoices_by_email: r.con_invoices_by_email,
+        con_invoices_by_letter: r.con_invoices_by_letter,
+        con_saving_bank: r.con_saving_bank,
+        con_refinancing_detail: r.con_refinancing_detail,
+        rfo_id: r.rfo_id,
+        con_collection_kit_expired: r.con_collection_kit_expired,
       };
 
       const ciResult = await pgPool.query(`
@@ -2379,6 +2411,12 @@ async function step11_customerContracts() {
           sales_channel, info_source, marketing_action, marketing_code,
           gift_voucher, client_note,
           initial_product_id,
+          indicated_contract,
+          contact_date, filled_date, created_contract_date, sent_contract_date,
+          received_by_client_date, returned_date, verified_date, executed_date,
+          terminated_date, cancelled_at,
+          collection_kit_sent_date,
+          refinancing,
           created_at, updated_at
         ) VALUES (
           gen_random_uuid(), $1, 'iscbc_legacy', $2, 'iscbc_legacy',
@@ -2389,28 +2427,47 @@ async function step11_customerContracts() {
           $12, $13, $14, $15,
           $16, $17,
           $18,
-          $19, $19
+          $19,
+          $20, $21, $22, $23,
+          $24, $25, $26, $27,
+          $28, $29,
+          $30,
+          $31,
+          $32, $32
         ) RETURNING id
       `, [
-        contractNumber,
-        customerId,
-        indexusStatus,
-        legacyId,
-        JSON.stringify(legacyData),
-        companyMap[String(r.cli_id)] || null,
-        pregnancyType,
-        expDate,
-        hospitalIdPg,
-        gynName,
-        isMultiple || false,
-        r.pot_registration_type_ft || null,
-        r.pot_first_information_source_ft || null,
-        r.pot_marketing_action_ft || null,
-        r.pot_marketing_code_ft || null,
-        r.pot_gift_card || null,
-        r.con_note || null,
-        r.pot_product_ft || r.pot_marketproduct_ft || null,
-        r.con_inserted || new Date(),
+        contractNumber,                                           // $1
+        customerId,                                               // $2
+        indexusStatus,                                            // $3
+        legacyId,                                                 // $4
+        JSON.stringify(legacyData),                               // $5
+        companyMap[String(r.cli_id)] || null,                     // $6
+        pregnancyType,                                            // $7
+        expDate,                                                  // $8
+        hospitalIdPg,                                             // $9
+        gynName,                                                  // $10
+        isMultiple || false,                                      // $11
+        r.pot_registration_type_ft || null,                       // $12 sales_channel
+        r.pot_first_information_source_ft || null,                // $13 info_source
+        r.pot_marketing_action_ft || null,                        // $14 marketing_action
+        r.pot_marketing_code_ft || null,                          // $15 marketing_code
+        r.con_gift_card || r.pot_gift_card || null,               // $16 gift_voucher
+        r.con_note || null,                                       // $17 client_note
+        r.pot_product_ft || r.pot_marketproduct_ft || null,       // $18 initial_product_id
+        r.con_indicated || false,                                 // $19 indicated_contract
+        r.con_contacted || null,                                  // $20 contact_date
+        r.con_filled || null,                                     // $21 filled_date
+        r.con_generated || null,                                  // $22 created_contract_date
+        r.con_sent || null,                                       // $23 sent_contract_date
+        r.con_confirmed || null,                                  // $24 received_by_client_date
+        r.con_returned || null,                                   // $25 returned_date
+        r.con_validated || null,                                  // $26 verified_date
+        r.con_realized || null,                                   // $27 executed_date
+        r.con_terminated || null,                                 // $28 terminated_date
+        r.con_cancelled || null,                                  // $29 cancelled_at
+        r.con_collection_kit_sent || null,                        // $30 collection_kit_sent_date
+        r.con_saving_bank || r.con_refinancing_detail || null,    // $31 refinancing
+        r.con_inserted || new Date(),                             // $32 created_at
       ]);
       insertedCI++;
 
