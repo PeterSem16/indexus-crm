@@ -254,31 +254,33 @@ function CustomerDebtCollectionTab({ customerId, t }: { customerId: string; t: a
           <table className="w-full text-sm" data-testid="table-debt-collection">
             <thead>
               <tr className="border-b">
-                <th className="text-left p-2 font-medium">Číslo zmluvy</th>
-                <th className="text-left p-2 font-medium">Číslo faktúry</th>
-                <th className="text-left p-2 font-medium">Suma</th>
+                <th className="text-left p-2 font-medium">Spoločnosť</th>
+                <th className="text-left p-2 font-medium">Dlžná suma</th>
+                <th className="text-left p-2 font-medium">Mena</th>
+                <th className="text-left p-2 font-medium">Neuhrad. faktúry</th>
+                <th className="text-left p-2 font-medium">Splatnosť od</th>
+                <th className="text-left p-2 font-medium">Splatnosť do</th>
                 <th className="text-left p-2 font-medium">Stav</th>
-                <th className="text-left p-2 font-medium">Fáza</th>
-                <th className="text-left p-2 font-medium">Začiatok</th>
-                <th className="text-left p-2 font-medium">Posledná akcia</th>
                 <th className="text-left p-2 font-medium">Poznámka</th>
                 <th className="text-left p-2 font-medium">Zdroj</th>
               </tr>
             </thead>
             <tbody>
-              {items.map((item) => (
+              {items.map((item: any) => (
                 <tr key={item.id} className="border-b hover:bg-muted/50" data-testid={`row-debt-${item.id}`}>
-                  <td className="p-2 font-mono text-xs">{item.contractNumber || "-"}</td>
-                  <td className="p-2 font-mono text-xs">{item.invoiceNumber || "-"}</td>
-                  <td className="p-2 font-medium">
-                    {item.amount ? `${item.amount} ${item.currency || ""}` : "-"}
+                  <td className="p-2 font-medium">{item.companyName || item.contractNumber || "-"}</td>
+                  <td className="p-2 font-medium text-red-600">
+                    {item.debtAmount || item.amount || "-"}
                   </td>
+                  <td className="p-2">{item.currency || "-"}</td>
+                  <td className="p-2 text-center">{item.overdue_invoices_count ?? "-"}</td>
+                  <td className="p-2">{formatDate(item.oldestDueDate || item.startDate)}</td>
+                  <td className="p-2">{formatDate(item.newestDueDate || item.lastActionDate)}</td>
                   <td className="p-2">
-                    <Badge variant="outline" className="text-xs">{item.status || "-"}</Badge>
+                    <Badge variant="outline" className={cn("text-xs", item.status === 'active' && "border-red-300 text-red-700", item.status === 'closed' && "border-green-300 text-green-700")}>
+                      {item.status === 'active' ? 'Aktívne' : item.status === 'closed' ? 'Uzavreté' : item.status || "-"}
+                    </Badge>
                   </td>
-                  <td className="p-2">{item.phase || "-"}</td>
-                  <td className="p-2">{formatDate(item.startDate)}</td>
-                  <td className="p-2">{formatDate(item.lastActionDate)}</td>
                   <td className="p-2 max-w-[200px] truncate">{item.note || "-"}</td>
                   <td className="p-2">
                     {item.dataSource === "iscbc" && <Badge className="bg-amber-100 text-amber-800 text-[10px]">ISCBC</Badge>}
