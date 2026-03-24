@@ -112,3 +112,13 @@ Preferred communication style: Simple, everyday language.
 - OpenAI GPT-4o (for AI Assistant, transcription, sentiment analysis)
 - SIP.js (for WebRTC SIP phone)
 - Jira API (for issue tracking)
+
+### ISCBC Migration
+- Full migration documentation: `docs/migration-iscbc-to-indexus.md`
+- Migration script: `script/migration/test-migration-20.cjs` (20 steps)
+- Cleanup script: `script/migration/cleanup-test-migration.cjs`
+- Source: MSSQL `CBC` database on `10.1.2.2:1433`
+- Migrated data: customers, contracts, invoices, collections, collaborators, hospitals, notes, calls, debt collection
+- ISCBC badge displayed on migrated records (orange badge)
+- Dual invoice migration: `customer_documents` (Documents tab) + `invoices` (Invoices module)
+- Deduplication logic in `/api/customers/:id/documents` endpoint

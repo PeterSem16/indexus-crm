@@ -3893,7 +3893,7 @@ export function CustomerDetailsContent({
           {(!visibleTabs || visibleTabs.includes("documents")) && (
           <TabsTrigger value="documents" data-testid="tab-documents">
             <FileText className="h-4 w-4 mr-2" />
-            Dokumenty
+            {t.customers.tabs?.documents || "Documents"}
           </TabsTrigger>
           )}
           {(!visibleTabs || visibleTabs.includes("communicate")) && (

@@ -409,6 +409,19 @@ export interface Translations {
       history: string;
       data: string;
       invoices?: string;
+      documents?: string;
+    };
+    formSections?: {
+      status: string;
+      personal: string;
+      contact: string;
+      addresses: string;
+      marketing: string;
+      finance: string;
+      notes: string;
+      case: string;
+      documents: string;
+      debtCollection: string;
     };
     callHistory?: {
       title: string;
@@ -512,6 +525,7 @@ export interface Translations {
     clientStatus: string;
     clientStatuses: {
       potential: string;
+      in_process?: string;
       acquired: string;
       terminated: string;
     };
@@ -5544,7 +5558,20 @@ export const translations: Record<Locale, Translations> = {
         history: 'History',
         data: 'Data',
         invoices: 'Invoices',
+        documents: 'Documents',
       },
+      formSections: {
+          status: 'Status',
+          personal: 'Personal Data',
+          contact: 'Contact',
+          addresses: 'Addresses',
+          marketing: 'Marketing',
+          finance: 'Finance',
+          notes: 'Notes',
+          case: 'Case',
+          documents: 'Documents',
+          debtCollection: 'Debt Collection',
+        },
       callHistory: {
         title: 'Call History',
         calls: 'calls',
@@ -5669,6 +5696,7 @@ export const translations: Record<Locale, Translations> = {
       clientStatus: 'Client Status',
       clientStatuses: {
         potential: 'Potential',
+        in_process: 'In Process',
         acquired: 'Acquired',
         terminated: 'Terminated',
       },
@@ -10528,7 +10556,20 @@ export const translations: Record<Locale, Translations> = {
         history: 'Historia',
         data: 'Udaje',
         invoices: 'Faktúry',
+        documents: 'Dokumenty',
       },
+      formSections: {
+          status: 'Stav',
+          personal: 'Osobné údaje',
+          contact: 'Kontakt',
+          addresses: 'Adresy',
+          marketing: 'Marketing',
+          finance: 'Financie',
+          notes: 'Poznámky',
+          case: 'Case',
+          documents: 'Dokumenty',
+          debtCollection: 'Vymáhanie',
+        },
       callHistory: {
         title: 'Historia hovorov',
         calls: 'hovorov',
@@ -10653,6 +10694,7 @@ export const translations: Record<Locale, Translations> = {
       clientStatus: 'Status klienta',
       clientStatuses: {
         potential: 'Potenciálny',
+        in_process: 'V procese',
         acquired: 'Získaný',
         terminated: 'Ukončený',
       },
@@ -15481,7 +15523,20 @@ export const translations: Record<Locale, Translations> = {
         history: 'Historie',
         data: 'Udaje',
         invoices: 'Faktury',
+        documents: 'Dokumenty',
       },
+      formSections: {
+          status: 'Stav',
+          personal: 'Osobní údaje',
+          contact: 'Kontakt',
+          addresses: 'Adresy',
+          marketing: 'Marketing',
+          finance: 'Finance',
+          notes: 'Poznámky',
+          case: 'Případ',
+          documents: 'Dokumenty',
+          debtCollection: 'Vymáhání',
+        },
       callHistory: {
         title: 'Historie hovoru',
         calls: 'hovoru',
@@ -15606,6 +15661,7 @@ export const translations: Record<Locale, Translations> = {
       clientStatus: 'Status klienta',
       clientStatuses: {
         potential: 'Potenciální',
+        in_process: 'V procesu',
         acquired: 'Získaný',
         terminated: 'Ukončený',
       },
@@ -20359,7 +20415,20 @@ export const translations: Record<Locale, Translations> = {
         history: 'Elozmenyek',
         data: 'Adatok',
         invoices: 'Számlák',
+        documents: 'Dokumentumok',
       },
+      formSections: {
+          status: 'Állapot',
+          personal: 'Személyes adatok',
+          contact: 'Kapcsolat',
+          addresses: 'Címek',
+          marketing: 'Marketing',
+          finance: 'Pénzügyek',
+          notes: 'Megjegyzések',
+          case: 'Eset',
+          documents: 'Dokumentumok',
+          debtCollection: 'Behajtás',
+        },
       callHistory: {
         title: 'Hivas elozmenyek',
         calls: 'hivas',
@@ -20484,6 +20553,7 @@ export const translations: Record<Locale, Translations> = {
       clientStatus: 'Ügyfél státusz',
       clientStatuses: {
         potential: 'Potenciális',
+        in_process: 'Folyamatban',
         acquired: 'Megszerzett',
         terminated: 'Megszűnt',
       },
@@ -25236,7 +25306,20 @@ export const translations: Record<Locale, Translations> = {
         history: 'Istoric',
         data: 'Date',
         invoices: 'Facturi',
+        documents: 'Documente',
       },
+      formSections: {
+          status: 'Stare',
+          personal: 'Date personale',
+          contact: 'Contact',
+          addresses: 'Adrese',
+          marketing: 'Marketing',
+          finance: 'Finanțe',
+          notes: 'Note',
+          case: 'Caz',
+          documents: 'Documente',
+          debtCollection: 'Recuperare creanțe',
+        },
       callHistory: {
         title: 'Istoric apeluri',
         calls: 'apeluri',
@@ -25361,6 +25444,7 @@ export const translations: Record<Locale, Translations> = {
       clientStatus: 'Status client',
       clientStatuses: {
         potential: 'Potențial',
+        in_process: 'În proces',
         acquired: 'Achiziționat',
         terminated: 'Terminat',
       },
@@ -30114,7 +30198,20 @@ export const translations: Record<Locale, Translations> = {
         history: 'Cronologia',
         data: 'Dati',
         invoices: 'Fatture',
+        documents: 'Documenti',
       },
+      formSections: {
+          status: 'Stato',
+          personal: 'Dati personali',
+          contact: 'Contatto',
+          addresses: 'Indirizzi',
+          marketing: 'Marketing',
+          finance: 'Finanze',
+          notes: 'Note',
+          case: 'Caso',
+          documents: 'Documenti',
+          debtCollection: 'Recupero crediti',
+        },
       callHistory: {
         title: 'Cronologia chiamate',
         calls: 'chiamate',
@@ -30239,6 +30336,7 @@ export const translations: Record<Locale, Translations> = {
       clientStatus: 'Stato cliente',
       clientStatuses: {
         potential: 'Potenziale',
+        in_process: 'In elaborazione',
         acquired: 'Acquisito',
         terminated: 'Terminato',
       },
@@ -34992,7 +35090,20 @@ export const translations: Record<Locale, Translations> = {
         history: 'Verlauf',
         data: 'Daten',
         invoices: 'Rechnungen',
+        documents: 'Dokumente',
       },
+      formSections: {
+          status: 'Status',
+          personal: 'Persönliche Daten',
+          contact: 'Kontakt',
+          addresses: 'Adressen',
+          marketing: 'Marketing',
+          finance: 'Finanzen',
+          notes: 'Notizen',
+          case: 'Fall',
+          documents: 'Dokumente',
+          debtCollection: 'Inkasso',
+        },
       callHistory: {
         title: 'Anrufverlauf',
         calls: 'Anrufe',
@@ -35117,6 +35228,7 @@ export const translations: Record<Locale, Translations> = {
       clientStatus: 'Kundenstatus',
       clientStatuses: {
         potential: 'Potenziell',
+        in_process: 'In Bearbeitung',
         acquired: 'Erworben',
         terminated: 'Beendet',
       },

@@ -106,12 +106,22 @@ const customerFormSchema = z.object({
 
 export type CustomerFormData = z.infer<typeof customerFormSchema>;
 
-const PIPELINE_STAGES = [
-  { key: "potential", label: "Potenciálny", color: "bg-blue-500", textColor: "text-blue-700 dark:text-blue-300", bgLight: "bg-blue-50 dark:bg-blue-950/30", borderColor: "border-blue-300 dark:border-blue-700" },
-  { key: "in_process", label: "V procese", color: "bg-orange-500", textColor: "text-orange-700 dark:text-orange-300", bgLight: "bg-orange-50 dark:bg-orange-950/30", borderColor: "border-orange-300 dark:border-orange-700" },
-  { key: "acquired", label: "Získaný", color: "bg-emerald-500", textColor: "text-emerald-700 dark:text-emerald-300", bgLight: "bg-emerald-50 dark:bg-emerald-950/30", borderColor: "border-emerald-300 dark:border-emerald-700" },
-  { key: "terminated", label: "Ukončený", color: "bg-red-500", textColor: "text-red-700 dark:text-red-300", bgLight: "bg-red-50 dark:bg-red-950/30", borderColor: "border-red-300 dark:border-red-700" },
+const PIPELINE_STAGE_STYLES = [
+  { key: "potential", color: "bg-blue-500", textColor: "text-blue-700 dark:text-blue-300", bgLight: "bg-blue-50 dark:bg-blue-950/30", borderColor: "border-blue-300 dark:border-blue-700" },
+  { key: "in_process", color: "bg-orange-500", textColor: "text-orange-700 dark:text-orange-300", bgLight: "bg-orange-50 dark:bg-orange-950/30", borderColor: "border-orange-300 dark:border-orange-700" },
+  { key: "acquired", color: "bg-emerald-500", textColor: "text-emerald-700 dark:text-emerald-300", bgLight: "bg-emerald-50 dark:bg-emerald-950/30", borderColor: "border-emerald-300 dark:border-emerald-700" },
+  { key: "terminated", color: "bg-red-500", textColor: "text-red-700 dark:text-red-300", bgLight: "bg-red-50 dark:bg-red-950/30", borderColor: "border-red-300 dark:border-red-700" },
 ];
+
+const PIPELINE_DEFAULTS: Record<string, string> = { potential: "Potenciálny", in_process: "V procese", acquired: "Získaný", terminated: "Ukončený" };
+
+function getPipelineStages(t: any) {
+  const cs = t.customers?.clientStatuses;
+  return PIPELINE_STAGE_STYLES.map(s => ({
+    ...s,
+    label: cs?.[s.key] || PIPELINE_DEFAULTS[s.key] || s.key,
+  }));
+}
 
 const REGISTRATION_SOURCES: Record<string, { label: string; icon: any; color: string; bgColor: string; borderColor: string }> = {
   web_form: { label: "Webový formulár", icon: Globe, color: "text-green-700 dark:text-green-300", bgColor: "bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30", borderColor: "border-green-200 dark:border-green-800" },
@@ -121,18 +131,40 @@ const REGISTRATION_SOURCES: Record<string, { label: string; icon: any; color: st
   referral: { label: "Odporúčanie", icon: Heart, color: "text-pink-700 dark:text-pink-300", bgColor: "bg-gradient-to-r from-pink-50 to-rose-50 dark:from-pink-950/30 dark:to-rose-950/30", borderColor: "border-pink-200 dark:border-pink-800" },
 };
 
-const SECTIONS = [
-  { id: "status", label: "Stav", icon: CheckCircle2 },
-  { id: "personal", label: "Osobné údaje", icon: User },
-  { id: "contact", label: "Kontakt", icon: PhoneCall },
-  { id: "addresses", label: "Adresy", icon: MapPin },
-  { id: "marketing", label: "Marketing", icon: Briefcase },
-  { id: "finance", label: "Financie", icon: Building2 },
-  { id: "notes", label: "Poznámky", icon: FileText },
-  { id: "case", label: "Case", icon: Heart },
-  { id: "documents", label: "Dokumenty", icon: FolderOpen },
-  { id: "debtCollection", label: "Vymáhanie", icon: Scale },
-];
+const SECTION_ICONS: Record<string, any> = {
+  status: CheckCircle2,
+  personal: User,
+  contact: PhoneCall,
+  addresses: MapPin,
+  marketing: Briefcase,
+  finance: Building2,
+  notes: FileText,
+  case: Heart,
+  documents: FolderOpen,
+  debtCollection: Scale,
+};
+
+const SECTION_DEFAULTS: Record<string, string> = {
+  status: "Stav",
+  personal: "Osobné údaje",
+  contact: "Kontakt",
+  addresses: "Adresy",
+  marketing: "Marketing",
+  finance: "Financie",
+  notes: "Poznámky",
+  case: "Case",
+  documents: "Dokumenty",
+  debtCollection: "Vymáhanie",
+};
+
+function getSections(t: any) {
+  const fs = t.customers?.formSections;
+  return Object.keys(SECTION_DEFAULTS).map(id => ({
+    id,
+    label: fs?.[id] || SECTION_DEFAULTS[id],
+    icon: SECTION_ICONS[id],
+  }));
+}
 
 function SectionHeader({ icon: Icon, title, badge }: { icon: any; title: string; badge?: any }) {
   return (
@@ -329,6 +361,8 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCa
 
   const isEditMode = !!initialData;
 
+  const SECTIONS = getSections(t);
+  const PIPELINE_STAGES_LOCAL = getPipelineStages(t);
   const visibleSections = SECTIONS.filter(s => {
     if (s.id === "case") return showCaseSection;
     if (s.id === "documents" || s.id === "debtCollection") return isEditMode;
@@ -427,12 +461,12 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCa
           <div className="flex-1 overflow-y-auto p-5">
             {activeSection === "status" && (
               <div>
-                <SectionHeader icon={CheckCircle2} title="Stav klienta" />
+                <SectionHeader icon={CheckCircle2} title={t.customers?.formSections?.status || "Stav klienta"} />
 
                 <div className="flex items-center gap-1 mb-5">
-                  {PIPELINE_STAGES.map((stage, idx) => {
+                  {PIPELINE_STAGES_LOCAL.map((stage, idx) => {
                     const isActive = clientStatus === stage.key;
-                    const stageIdx = PIPELINE_STAGES.findIndex(s => s.key === clientStatus);
+                    const stageIdx = PIPELINE_STAGES_LOCAL.findIndex(s => s.key === clientStatus);
                     const isPast = idx < stageIdx;
                     return (
                       <div key={stage.key} className="flex items-center flex-1">
@@ -458,7 +492,7 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCa
                           )}
                           {stage.label}
                         </button>
-                        {idx < PIPELINE_STAGES.length - 1 && (
+                        {idx < PIPELINE_STAGES_LOCAL.length - 1 && (
                           <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/30 shrink-0 mx-0.5" />
                         )}
                       </div>
@@ -779,7 +813,7 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCa
 
             {activeSection === "finance" && (
               <div>
-                <SectionHeader icon={Building2} title="Financie" />
+                <SectionHeader icon={Building2} title={t.customers?.formSections?.finance || "Financie"} />
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">{t.customers.fields.bankDetails}</p>
                 <div className="grid grid-cols-2 gap-4">
                   {!isHidden("bank_account") && (
@@ -825,7 +859,7 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCa
 
             {activeSection === "notes" && (
               <div>
-                <SectionHeader icon={FileText} title="Poznámky" />
+                <SectionHeader icon={FileText} title={t.customers?.formSections?.notes || "Poznámky"} />
                 {!isHidden("notes") && (
                   <FormField control={form.control} name="notes" render={({ field }) => (
                     <FormItem><FormLabel>{t.customers.notes}</FormLabel><FormControl><Textarea placeholder={t.customers.fields.notesPlaceholder} className={`resize-none ${isReadonly("notes") ? "bg-muted" : ""}`} rows={6} {...field} data-testid="textarea-notes" disabled={isReadonly("notes")} /></FormControl><FormMessage /></FormItem>
@@ -836,7 +870,7 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCa
 
             {activeSection === "case" && showCaseSection && (
               <div>
-                <SectionHeader icon={Heart} title="Case" />
+                <SectionHeader icon={Heart} title={t.customers?.formSections?.case || "Case"} />
 
                 <div className="mb-6 p-4 rounded-lg border bg-muted/20">
                   <div className="flex items-center gap-2 mb-3">
@@ -895,7 +929,7 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCa
 
             {activeSection === "documents" && isEditMode && (
               <div>
-                <SectionHeader icon={FolderOpen} title="Dokumenty" badge={
+                <SectionHeader icon={FolderOpen} title={t.customers?.formSections?.documents || "Dokumenty"} badge={
                   customerDocuments.length > 0 ? (
                     <Badge className="bg-amber-100 text-amber-800 text-[10px] ml-auto">ISCBC</Badge>
                   ) : null
@@ -961,7 +995,7 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCa
 
             {activeSection === "debtCollection" && isEditMode && (
               <div>
-                <SectionHeader icon={Scale} title="Vymáhanie pohľadávok" badge={
+                <SectionHeader icon={Scale} title={t.customers?.formSections?.debtCollection || "Vymáhanie pohľadávok"} badge={
                   customerDebtCollection.length > 0 ? (
                     <Badge className="bg-amber-100 text-amber-800 text-[10px] ml-auto">ISCBC</Badge>
                   ) : null
