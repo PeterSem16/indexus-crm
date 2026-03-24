@@ -7419,8 +7419,13 @@ Return ONLY valid JSON, no markdown code blocks.`,
         amount: i.totalAmount,
         currency: i.currency,
         domesticCurrency: i.currency,
+        issueDate: (i as any).issueDate || null,
         dueDate: i.dueDate,
-        dataSource: "indexus",
+        variableSymbol: (i as any).variableSymbol || null,
+        companyName: (i as any).billingCompanyName || null,
+        contractInstanceId: (i as any).contractInstanceId || null,
+        legacyData: (i as any).legacyData || null,
+        dataSource: (i as any).dataSource || "indexus",
       }));
 
       // Get CBC migrated documents from customer_documents table
@@ -7462,10 +7467,20 @@ Return ONLY valid JSON, no markdown code blocks.`,
         contracts.filter((c: any) => (c as any).dataSource === 'iscbc' && (c as any).internalId)
           .map((c: any) => (c as any).internalId)
       );
+      // Build set of ISCBC invoice legacy IDs from invoices module for dedup
+      const invoiceLegacyIds = new Set(
+        invoiceDocs.filter((d: any) => d.dataSource === 'iscbc' && d.legacyData?.inv_id)
+          .map((d: any) => String(d.legacyData.inv_id))
+      );
+
       const filteredCbcDocs = cbcDocs.filter((d: any) => {
         if (d.documentType === 'contract' && d.dataSource === 'iscbc') {
           if (d.legacyData?.contract_instance_id && contractInstanceIds.has(d.legacyData.contract_instance_id)) return false;
           if (d.legacy_id && contractLegacyIds.has(d.legacy_id)) return false;
+        }
+        if (d.documentType === 'invoice' && d.dataSource === 'iscbc') {
+          const cbcInvId = d.legacyData?.inv_id || d.legacy_id;
+          if (cbcInvId && invoiceLegacyIds.has(String(cbcInvId))) return false;
         }
         return true;
       });
