@@ -911,28 +911,43 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCa
                         <tr>
                           <th className="p-2 text-left font-medium">Typ</th>
                           <th className="p-2 text-left font-medium">Číslo</th>
-                          <th className="p-2 text-left font-medium">Dátum</th>
-                          <th className="p-2 text-left font-medium">Suma</th>
+                          <th className="p-2 text-left font-medium">Spoločnosť</th>
+                          <th className="p-2 text-left font-medium">Dátum vydania</th>
+                          <th className="p-2 text-left font-medium">Splatnosť</th>
+                          <th className="p-2 text-right font-medium">Suma</th>
+                          <th className="p-2 text-left font-medium">Mena</th>
                           <th className="p-2 text-left font-medium">Stav</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {customerDocuments.map((doc: any, idx: number) => (
-                          <tr key={doc.id || idx} className="border-t hover:bg-muted/30" data-testid={`row-document-${idx}`}>
-                            <td className="p-2">
-                              <div className="flex items-center gap-1.5">
-                                <Badge className="bg-amber-100 text-amber-800 text-[10px]">ISCBC</Badge>
-                                {doc.documentType === "contract" ? "Zmluva" : doc.documentType === "invoice" ? "Faktúra" : doc.documentType || "-"}
-                              </div>
-                            </td>
-                            <td className="p-2 font-mono text-xs">{doc.documentNumber || doc.contractNumber || doc.invoiceNumber || "-"}</td>
-                            <td className="p-2">{doc.documentDate ? new Date(doc.documentDate).toLocaleDateString("sk-SK") : "-"}</td>
-                            <td className="p-2">{doc.amount ? `${doc.amount} ${doc.currency || ""}`.trim() : "-"}</td>
-                            <td className="p-2">
-                              <Badge variant="outline" className="text-xs">{doc.status || "-"}</Badge>
-                            </td>
-                          </tr>
-                        ))}
+                        {customerDocuments.map((doc: any, idx: number) => {
+                          const docDate = doc.issueDate || doc.validFrom || doc.createdAt;
+                          const docStatus = doc.invoiceStatus || doc.contractStatus || doc.status;
+                          const docCurrency = doc.domesticCurrency || doc.currency;
+                          const docAmount = doc.totalAmount || doc.amount;
+                          return (
+                            <tr key={doc.id || idx} className="border-t hover:bg-muted/30" data-testid={`row-document-${idx}`}>
+                              <td className="p-2">
+                                <div className="flex items-center gap-1.5">
+                                  {doc.dataSource === "iscbc" && <Badge className="bg-amber-100 text-amber-800 text-[10px]">ISCBC</Badge>}
+                                  {doc.documentType === "contract" ? "Zmluva" : doc.documentType === "invoice" ? "Faktúra" : doc.documentType || "-"}
+                                </div>
+                              </td>
+                              <td className="p-2 font-mono text-xs">{doc.contractNumber || doc.invoiceNumber || doc.number || "-"}</td>
+                              <td className="p-2 text-xs">{doc.companyName || "-"}</td>
+                              <td className="p-2">{docDate ? new Date(docDate).toLocaleDateString("sk-SK") : "-"}</td>
+                              <td className="p-2">{doc.dueDate ? new Date(doc.dueDate).toLocaleDateString("sk-SK") : "-"}</td>
+                              <td className="p-2 text-right font-medium">{docAmount || "-"}</td>
+                              <td className="p-2">{docCurrency || "-"}</td>
+                              <td className="p-2">
+                                <Badge variant="outline" className={cn("text-xs",
+                                  docStatus === "paid" && "border-green-300 text-green-700",
+                                  docStatus === "unpaid" && "border-red-300 text-red-700"
+                                )}>{docStatus || "-"}</Badge>
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -953,36 +968,89 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCa
                     <p className="text-sm">Žiadne záznamy o vymáhaní</p>
                   </div>
                 ) : (
-                  <div className="overflow-auto border rounded-lg">
-                    <table className="w-full text-sm">
-                      <thead className="bg-muted/50">
-                        <tr>
-                          <th className="p-2 text-left font-medium">Spoločnosť</th>
-                          <th className="p-2 text-right font-medium">Dlžná suma</th>
-                          <th className="p-2 text-left font-medium">Mena</th>
-                          <th className="p-2 text-center font-medium">Neuhradené fakt.</th>
-                          <th className="p-2 text-left font-medium">Splatnosť od</th>
-                          <th className="p-2 text-left font-medium">Splatnosť do</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {customerDebtCollection.map((item: any, idx: number) => (
-                          <tr key={item.id || idx} className="border-t hover:bg-muted/30" data-testid={`row-debt-${idx}`}>
-                            <td className="p-2">
-                              <div className="flex items-center gap-1.5">
-                                <Badge className="bg-amber-100 text-amber-800 text-[10px]">ISCBC</Badge>
-                                {item.companyName || "-"}
-                              </div>
-                            </td>
-                            <td className="p-2 text-right font-medium text-red-600">{item.debtAmount || item.amount || "-"}</td>
-                            <td className="p-2">{item.currency || "-"}</td>
-                            <td className="p-2 text-center">{item.overdueInvoicesCount ?? "-"}</td>
-                            <td className="p-2">{item.oldestDueDate ? new Date(item.oldestDueDate).toLocaleDateString("sk-SK") : "-"}</td>
-                            <td className="p-2">{item.newestDueDate ? new Date(item.newestDueDate).toLocaleDateString("sk-SK") : "-"}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                  <div className="space-y-4">
+                    {customerDebtCollection.filter((item: any) => item.debtAmount || item.amount).length > 0 && (
+                      <div className="overflow-auto border rounded-lg">
+                        <div className="px-3 py-2 bg-muted/30 border-b text-xs font-semibold text-muted-foreground uppercase tracking-wide">Dlžníci podľa spoločnosti</div>
+                        <table className="w-full text-sm">
+                          <thead className="bg-muted/50">
+                            <tr>
+                              <th className="p-2 text-left font-medium">Spoločnosť</th>
+                              <th className="p-2 text-right font-medium">Dlžná suma</th>
+                              <th className="p-2 text-left font-medium">Mena</th>
+                              <th className="p-2 text-center font-medium">Neuhradené fakt.</th>
+                              <th className="p-2 text-left font-medium">Splatnosť od</th>
+                              <th className="p-2 text-left font-medium">Splatnosť do</th>
+                              <th className="p-2 text-left font-medium">Stav</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {customerDebtCollection.filter((item: any) => item.debtAmount || item.amount).map((item: any, idx: number) => (
+                              <tr key={item.id || idx} className="border-t hover:bg-muted/30" data-testid={`row-debt-${idx}`}>
+                                <td className="p-2">
+                                  <div className="flex items-center gap-1.5">
+                                    <Badge className="bg-amber-100 text-amber-800 text-[10px]">ISCBC</Badge>
+                                    {item.companyName || "-"}
+                                  </div>
+                                </td>
+                                <td className="p-2 text-right font-medium text-red-600">{item.debtAmount || item.amount || "-"}</td>
+                                <td className="p-2">{item.currency || "-"}</td>
+                                <td className="p-2 text-center">{item.overdueInvoicesCount ?? "-"}</td>
+                                <td className="p-2">{item.oldestDueDate ? new Date(item.oldestDueDate).toLocaleDateString("sk-SK") : "-"}</td>
+                                <td className="p-2">{item.newestDueDate ? new Date(item.newestDueDate).toLocaleDateString("sk-SK") : "-"}</td>
+                                <td className="p-2">
+                                  <Badge variant="outline" className={cn("text-xs",
+                                    item.status === "active" && "border-red-300 text-red-700",
+                                    item.status === "closed" && "border-green-300 text-green-700"
+                                  )}>{item.status === "active" ? "Aktívny" : item.status === "closed" ? "Uzavretý" : item.status || "-"}</Badge>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+
+                    {customerDebtCollection.filter((item: any) => !item.debtAmount && !item.amount).length > 0 && (
+                      <div className="overflow-auto border rounded-lg">
+                        <div className="px-3 py-2 bg-muted/30 border-b text-xs font-semibold text-muted-foreground uppercase tracking-wide">Splátkové kalendáre</div>
+                        <table className="w-full text-sm">
+                          <thead className="bg-muted/50">
+                            <tr>
+                              <th className="p-2 text-left font-medium">Typ</th>
+                              <th className="p-2 text-left font-medium">Poznámka</th>
+                              <th className="p-2 text-left font-medium">Otvorené</th>
+                              <th className="p-2 text-left font-medium">Zatvorené</th>
+                              <th className="p-2 text-left font-medium">Stav</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {customerDebtCollection.filter((item: any) => !item.debtAmount && !item.amount).map((item: any, idx: number) => {
+                              const legacy = item.legacyData || {};
+                              return (
+                                <tr key={item.id || idx} className="border-t hover:bg-muted/30" data-testid={`row-payment-plan-${idx}`}>
+                                  <td className="p-2">
+                                    <div className="flex items-center gap-1.5">
+                                      <Badge className="bg-amber-100 text-amber-800 text-[10px]">ISCBC</Badge>
+                                      {item.companyName || "Splátky"}
+                                    </div>
+                                  </td>
+                                  <td className="p-2 text-xs">{item.note || "-"}</td>
+                                  <td className="p-2">{legacy.opened ? new Date(legacy.opened).toLocaleDateString("sk-SK") : (item.startDate ? new Date(item.startDate).toLocaleDateString("sk-SK") : "-")}</td>
+                                  <td className="p-2">{legacy.closed ? new Date(legacy.closed).toLocaleDateString("sk-SK") : "-"}</td>
+                                  <td className="p-2">
+                                    <Badge variant="outline" className={cn("text-xs",
+                                      item.status === "active" && "border-orange-300 text-orange-700",
+                                      item.status === "closed" && "border-green-300 text-green-700"
+                                    )}>{item.status === "active" ? "Aktívny" : item.status === "closed" ? "Uzavretý" : item.status || "-"}</Badge>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
