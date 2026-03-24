@@ -2579,12 +2579,14 @@ async function step12_customerInvoices() {
   const invoiceStatusRaw = {};
   const INVOICE_STATUS_MAP = {
     'REG_IST_NEW': 'new',
+    'REG_IST_FILLED': 'filled',
+    'REG_IST_INDUE': 'in_due',
     'REG_IST_SENT': 'sent',
     'REG_IST_PAID': 'paid',
     'REG_IST_PARTIALLY_PAID': 'partially_paid',
     'REG_IST_OVERDUE': 'overdue',
     'REG_IST_STORNO': 'cancelled',
-    'REG_IST_CANCELED': 'cancelled',
+    'REG_IST_CANCELLED': 'cancelled',
     'REG_IST_CREDIT_NOTE': 'credit_note',
   };
   try {
@@ -2618,33 +2620,44 @@ async function step12_customerInvoices() {
     log(`  InvoiceTypes: ${Object.keys(invoiceTypeRaw).length} typov`);
   } catch (err) { log(`  WARN InvoiceTypes: ${err.message}`); }
 
-  // Build Company name map: cli_id → company name
+  // Build Company name map: cli_id → company name (via Clients.com_id → Companies)
   const companyMap = {};
   try {
     const compRes = await mssqlPool.request().query(`
-      SELECT DISTINCT c.cli_id, comp.com_name
-      FROM Contracts c
-      JOIN Companies comp ON comp.com_id = c.com_id
-      WHERE c.cli_id IN (${cliIds}) AND c.com_id IS NOT NULL
+      SELECT DISTINCT cl.cli_id, comp.com_name
+      FROM Clients cl
+      JOIN Companies comp ON comp.com_id = cl.com_id
+      WHERE cl.cli_id IN (${cliIds}) AND cl.com_id IS NOT NULL
     `);
     for (const r of compRes.recordset) companyMap[String(r.cli_id)] = r.com_name;
     log(`  Company mapa: ${Object.keys(companyMap).length} klientov s firmou`);
   } catch (err) { log(`  WARN company map: ${err.message}`); }
 
-  // Query invoices with extended fields
+  // Query invoices with all available fields
+  // Actual CBC columns: inv_id, ity_id, cur_code_home, cur_code_account, ist_id, cse_id,
+  //   inv_invoice_number, inv_variable_symbol, inv_specific_symbol, inv_constant_symbol,
+  //   inv_date_of_delivery, inv_date_of_issue, inv_dispatch_date, inv_date_of_payment,
+  //   inv_amount_cur_home_no_vat, inv_amount_cur_account_no_vat,
+  //   inv_amount_cur_home_with_vat, inv_amount_cur_account_with_vat,
+  //   inv_paid_cur_home, inv_paid_cur_account, inv_prepaid_cur_home, inv_prepaid_cur_account,
+  //   inv_exchange_rate, inv_fully_paid, inv_note, inv_writeoff,
+  //   inv_inserted, inv_inserted_by, inv_updated, inv_updated_by,
+  //   inv_period_from, inv_period_to, inv_emailed, inv_bsp_note
   let invoices;
   try {
     invoices = await mssqlPool.request().query(`
       SELECT i.inv_id, i.cse_id, i.ist_id, i.ity_id,
-             i.inv_invoice_number, i.inv_variable_symbol,
-             i.inv_date_of_issue, i.inv_date_of_delivery, i.inv_date_of_payment,
-             i.inv_dispatch_date, i.inv_due_date,
+             i.inv_invoice_number, i.inv_variable_symbol, i.inv_specific_symbol, i.inv_constant_symbol,
+             i.inv_date_of_issue, i.inv_date_of_delivery, i.inv_date_of_payment, i.inv_dispatch_date,
              i.inv_amount_cur_home_with_vat, i.inv_amount_cur_home_no_vat,
-             i.inv_amount_cur_accounting_with_vat, i.inv_amount_cur_accounting_no_vat,
-             i.inv_paid_cur_home, i.cur_code_home, i.cur_code_accounting,
-             i.inv_fully_paid, i.inv_note, i.inv_inserted, i.inv_updated,
-             i.inv_writeoff, i.inv_storno, i.inv_storno_date,
-             i.inv_inserted_by, i.inv_updated_by
+             i.inv_amount_cur_account_with_vat, i.inv_amount_cur_account_no_vat,
+             i.inv_paid_cur_home, i.inv_paid_cur_account,
+             i.inv_prepaid_cur_home, i.inv_prepaid_cur_account,
+             i.inv_exchange_rate, i.cur_code_home, i.cur_code_account,
+             i.inv_fully_paid, i.inv_note, i.inv_writeoff,
+             i.inv_inserted, i.inv_inserted_by, i.inv_updated, i.inv_updated_by,
+             i.inv_period_from, i.inv_period_to, i.inv_emailed, i.inv_bsp_note,
+             i.inv_id_credit_note_to, i.inv_id_proforma_link
       FROM Invoices i
       WHERE i.cse_id IN (
         SELECT cse_id FROM ContractServices WHERE con_id IN (
@@ -2654,7 +2667,6 @@ async function step12_customerInvoices() {
       ORDER BY i.inv_id
     `);
   } catch (err) {
-    // Fallback without optional columns
     log(`  WARN: Extended query failed (${err.message}), trying basic query...`);
     try {
       invoices = await mssqlPool.request().query(`
@@ -2741,9 +2753,9 @@ async function step12_customerInvoices() {
     const existing = await pgPool.query(`SELECT id FROM customer_documents WHERE legacy_id = $1`, [legacyId]);
     if (existing.rows.length > 0) { skipped++; continue; }
 
-    // Resolve contract_instance reference
+    // Resolve contract_instance reference (internal_id format is "contract_${con_id}")
     const cbcConId = cseToConId[String(r.cse_id)];
-    const contractInstanceId = cbcConId ? (contractInstanceLookup[cbcConId] || null) : null;
+    const contractInstanceId = cbcConId ? (contractInstanceLookup[`contract_${cbcConId}`] || null) : null;
 
     // Map status code → normalized
     const statusCode = invoiceStatusRaw[r.ist_id] || '';
@@ -2783,13 +2795,13 @@ async function step12_customerInvoices() {
         typeCode,
         normalizedStatus,
         r.cur_code_home || null,
-        r.cur_code_accounting || null,
+        r.cur_code_account || null,
         r.inv_amount_cur_home_with_vat != null ? String(r.inv_amount_cur_home_with_vat) : null,
         r.inv_amount_cur_home_no_vat != null ? String(r.inv_amount_cur_home_no_vat) : null,
         r.inv_paid_cur_home != null ? String(r.inv_paid_cur_home) : null,
         r.inv_fully_paid ? true : false,
         r.inv_date_of_issue || null,
-        r.inv_due_date || r.inv_date_of_payment || null,
+        r.inv_date_of_payment || null,
         r.inv_dispatch_date || null,
         r.inv_date_of_delivery || null,
         companyName,
@@ -2804,10 +2816,20 @@ async function step12_customerInvoices() {
           ist_code: statusCode,
           ity_code: typeCode,
           writeoff: r.inv_writeoff || null,
-          storno: r.inv_storno || null,
-          storno_date: r.inv_storno_date || null,
-          amount_accounting_vat: r.inv_amount_cur_accounting_with_vat || null,
-          amount_accounting_no_vat: r.inv_amount_cur_accounting_no_vat || null,
+          specific_symbol: r.inv_specific_symbol || null,
+          constant_symbol: r.inv_constant_symbol || null,
+          exchange_rate: r.inv_exchange_rate || null,
+          amount_account_vat: r.inv_amount_cur_account_with_vat || null,
+          amount_account_no_vat: r.inv_amount_cur_account_no_vat || null,
+          paid_account: r.inv_paid_cur_account || null,
+          prepaid_home: r.inv_prepaid_cur_home || null,
+          prepaid_account: r.inv_prepaid_cur_account || null,
+          period_from: r.inv_period_from || null,
+          period_to: r.inv_period_to || null,
+          emailed: r.inv_emailed || null,
+          bsp_note: r.inv_bsp_note || null,
+          credit_note_to: r.inv_id_credit_note_to || null,
+          proforma_link: r.inv_id_proforma_link || null,
           inserted_by: r.inv_inserted_by || null,
           updated_by: r.inv_updated_by || null,
         }),
@@ -2825,7 +2847,7 @@ async function step12_customerInvoices() {
     let linked = 0;
     for (const r of invoices.recordset) {
       const cbcConId = cseToConId[String(r.cse_id)];
-      if (cbcConId && contractInstanceLookup[cbcConId]) linked++;
+      if (cbcConId && contractInstanceLookup[`contract_${cbcConId}`]) linked++;
     }
     log(`  Faktúry prepojené na contract_instances: ${linked}/${invoices.recordset.length}`);
   }
