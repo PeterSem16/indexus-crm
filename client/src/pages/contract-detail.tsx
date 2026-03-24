@@ -172,7 +172,7 @@ export default function ContractDetailPage() {
   });
 
   const { data: collectionStatuses = [] } = useQuery<CollectionStatus[]>({
-    queryKey: ["/api/collection-statuses"],
+    queryKey: ["/api/config/collection-statuses"],
   });
 
   const { data: customerProducts = [] } = useQuery<CustomerProduct[]>({
