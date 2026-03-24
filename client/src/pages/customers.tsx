@@ -76,7 +76,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { getCountryFlag, getCountryName } from "@/lib/countries";
 import { cn } from "@/lib/utils";
-import { getDocumentStatusLabel, getDocumentStatusVariant } from "@/lib/document-status";
+import { getDocumentStatusLabel, getDocumentStatusVariant, getDocumentTypeLabel } from "@/lib/document-status";
 import type { Customer, Product, CustomerProduct, Invoice, BillingDetails, CustomerNote, ActivityLog, CommunicationMessage, CustomerPotentialCase, MarketProductInstance, CustomerEmailNotification } from "@shared/schema";
 import {
   Select,
@@ -351,7 +351,7 @@ function DocumentsTab({ customerId }: { customerId: string }) {
                               )}
 
                               {doc.invoiceType && (
-                                <span className="text-xs">{doc.invoiceType}</span>
+                                <span className="text-xs">{getDocumentTypeLabel(doc.invoiceType, locale)}</span>
                               )}
                             </div>
                             
@@ -2667,7 +2667,7 @@ function CustomerHistoryTimeline({
                                       <span><span className="font-medium">Šablóna:</span> {event.details.templateName}</span>
                                     )}
                                     {event.details.invoiceType && (
-                                      <span><span className="font-medium">Typ:</span> {event.details.invoiceType}</span>
+                                      <span><span className="font-medium">{t.common?.type || "Typ"}:</span> {getDocumentTypeLabel(event.details.invoiceType, locale)}</span>
                                     )}
                                     {event.details.amount && (
                                       <span><span className="font-medium">Suma:</span> {event.details.amount} {event.details.currency || ""}</span>

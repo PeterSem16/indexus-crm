@@ -31,7 +31,7 @@ import { Copy, PhoneCall, User, MapPin, Briefcase, Building2, FileText, Globe, H
 import { CallCustomerButton } from "@/components/sip-phone";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { getDocumentStatusLabel, getDocumentStatusVariant } from "@/lib/document-status";
+import { getDocumentStatusLabel, getDocumentStatusVariant, getDocumentTypeLabel } from "@/lib/document-status";
 import { useI18n } from "@/i18n/I18nProvider";
 import { EmbeddedPotentialCaseForm } from "./potential-case-form";
 import { useModuleFieldPermissions } from "@/components/ui/permission-field";
@@ -910,14 +910,14 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCa
                     <table className="w-full text-sm">
                       <thead className="bg-muted/50">
                         <tr>
-                          <th className="p-2 text-left font-medium">Typ</th>
-                          <th className="p-2 text-left font-medium">Číslo</th>
-                          <th className="p-2 text-left font-medium">Spoločnosť</th>
-                          <th className="p-2 text-left font-medium">Dátum vydania</th>
-                          <th className="p-2 text-left font-medium">Splatnosť</th>
-                          <th className="p-2 text-right font-medium">Suma</th>
-                          <th className="p-2 text-left font-medium">Mena</th>
-                          <th className="p-2 text-left font-medium">Stav</th>
+                          <th className="p-2 text-left font-medium">{t.common?.type || "Typ"}</th>
+                          <th className="p-2 text-left font-medium">{t.invoices?.invoiceNumber || "Číslo"}</th>
+                          <th className="p-2 text-left font-medium">{t.customers?.company || "Spoločnosť"}</th>
+                          <th className="p-2 text-left font-medium">{t.invoices?.issueDate || "Dátum vydania"}</th>
+                          <th className="p-2 text-left font-medium">{t.invoices?.dueDate || "Splatnosť"}</th>
+                          <th className="p-2 text-right font-medium">{t.invoices?.amount || "Suma"}</th>
+                          <th className="p-2 text-left font-medium">{t.invoices?.currency || "Mena"}</th>
+                          <th className="p-2 text-left font-medium">{t.common?.status || "Stav"}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -927,12 +927,17 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCa
                           const docCurrency = doc.domesticCurrency || doc.currency;
                           const docAmount = doc.totalAmount || doc.amount;
                           const statusLabel = docStatus ? getDocumentStatusLabel(docStatus, locale) : "-";
+                          const docTypeLabel = doc.documentType ? getDocumentTypeLabel(doc.documentType, locale) : "-";
+                          const invoiceTypeLabel = doc.invoiceType ? getDocumentTypeLabel(doc.invoiceType, locale) : null;
                           return (
                             <tr key={doc.id || idx} className="border-t hover:bg-muted/30" data-testid={`row-document-${idx}`}>
                               <td className="p-2">
                                 <div className="flex items-center gap-1.5">
                                   {doc.dataSource === "iscbc" && <Badge className="bg-amber-100 text-amber-800 text-[10px]">ISCBC</Badge>}
-                                  {doc.documentType === "contract" ? "Zmluva" : doc.documentType === "invoice" ? "Faktúra" : doc.documentType || "-"}
+                                  <span>{docTypeLabel}</span>
+                                  {invoiceTypeLabel && invoiceTypeLabel !== docTypeLabel && (
+                                    <span className="text-muted-foreground text-xs">({invoiceTypeLabel})</span>
+                                  )}
                                 </div>
                               </td>
                               <td className="p-2 font-mono text-xs">{doc.contractNumber || doc.invoiceNumber || doc.number || "-"}</td>

@@ -88,6 +88,47 @@ export function getDocumentStatusVariant(status: string): "default" | "secondary
   return "outline";
 }
 
+const TYPE_LABELS: Record<string, Record<Locale, string>> = {
+  contract: { sk: "Zmluva", cs: "Smlouva", en: "Contract", hu: "Szerződés", ro: "Contract", it: "Contratto", de: "Vertrag" },
+  invoice: { sk: "Faktúra", cs: "Faktura", en: "Invoice", hu: "Számla", ro: "Factură", it: "Fattura", de: "Rechnung" },
+  credit_note: { sk: "Dobropis", cs: "Dobropis", en: "Credit note", hu: "Jóváírás", ro: "Notă de credit", it: "Nota di credito", de: "Gutschrift" },
+  proforma: { sk: "Proforma", cs: "Proforma", en: "Proforma", hu: "Proforma", ro: "Proforma", it: "Proforma", de: "Proforma" },
+
+  REG_ITY_INVOICE: { sk: "Faktúra", cs: "Faktura", en: "Invoice", hu: "Számla", ro: "Factură", it: "Fattura", de: "Rechnung" },
+  REG_ITY_CREDIT_NOTE: { sk: "Dobropis", cs: "Dobropis", en: "Credit note", hu: "Jóváírás", ro: "Notă de credit", it: "Nota di credito", de: "Gutschrift" },
+  REG_ITY_PROFORMA: { sk: "Zálohová faktúra", cs: "Zálohová faktura", en: "Proforma invoice", hu: "Előlegszámla", ro: "Factură proforma", it: "Fattura proforma", de: "Proforma-Rechnung" },
+  REG_ITY_ADVANCE: { sk: "Záloha", cs: "Záloha", en: "Advance", hu: "Előleg", ro: "Avans", it: "Anticipo", de: "Vorauszahlung" },
+  REG_ITY_ADVANCE_INVOICE: { sk: "Zálohová faktúra", cs: "Zálohová faktura", en: "Advance invoice", hu: "Előlegszámla", ro: "Factură de avans", it: "Fattura di anticipo", de: "Vorauszahlungsrechnung" },
+  REG_ITY_DEPOSIT: { sk: "Záloha", cs: "Záloha", en: "Deposit", hu: "Letét", ro: "Depozit", it: "Deposito", de: "Anzahlung" },
+  REG_ITY_CORRECTION: { sk: "Opravná faktúra", cs: "Opravná faktura", en: "Correction", hu: "Korrekciós számla", ro: "Factură de corecție", it: "Nota di correzione", de: "Korrekturrechnung" },
+  REG_ITY_FINAL: { sk: "Vyúčtovacia faktúra", cs: "Vyúčtovací faktura", en: "Final invoice", hu: "Végszámla", ro: "Factură finală", it: "Fattura finale", de: "Schlussrechnung" },
+  REG_ITY_RECURRING: { sk: "Opakovaná faktúra", cs: "Opakovaná faktura", en: "Recurring invoice", hu: "Ismétlődő számla", ro: "Factură recurentă", it: "Fattura ricorrente", de: "Wiederkehrende Rechnung" },
+  REG_ITY_PENALTY: { sk: "Penále", cs: "Penále", en: "Penalty", hu: "Büntetés", ro: "Penalitate", it: "Penale", de: "Strafgebühr" },
+  REG_ITY_INTEREST: { sk: "Úrok z omeškania", cs: "Úrok z prodlení", en: "Late interest", hu: "Késedelmi kamat", ro: "Dobândă de întârziere", it: "Interessi di mora", de: "Verzugszinsen" },
+  REG_ITY_FEE: { sk: "Poplatok", cs: "Poplatek", en: "Fee", hu: "Díj", ro: "Taxă", it: "Tassa", de: "Gebühr" },
+  REG_ITY_STORNO: { sk: "Storno faktúra", cs: "Storno faktura", en: "Reversal invoice", hu: "Sztornó számla", ro: "Factură storno", it: "Fattura di storno", de: "Stornorechnung" },
+  REG_ITY_DELIVERY_NOTE: { sk: "Dodací list", cs: "Dodací list", en: "Delivery note", hu: "Szállítólevél", ro: "Aviz de expediție", it: "Bolla di consegna", de: "Lieferschein" },
+  REG_ITY_ORDER: { sk: "Objednávka", cs: "Objednávka", en: "Order", hu: "Megrendelés", ro: "Comandă", it: "Ordine", de: "Bestellung" },
+  REG_ITY_RECEIPT: { sk: "Príjmový doklad", cs: "Příjmový doklad", en: "Receipt", hu: "Nyugta", ro: "Chitanță", it: "Ricevuta", de: "Quittung" },
+  REG_ITY_REMINDER: { sk: "Upomienka", cs: "Upomínka", en: "Reminder", hu: "Emlékeztető", ro: "Reamintire", it: "Sollecito", de: "Mahnung" },
+
+  INVOICE: { sk: "Faktúra", cs: "Faktura", en: "Invoice", hu: "Számla", ro: "Factură", it: "Fattura", de: "Rechnung" },
+  CREDIT_NOTE: { sk: "Dobropis", cs: "Dobropis", en: "Credit note", hu: "Jóváírás", ro: "Notă de credit", it: "Nota di credito", de: "Gutschrift" },
+  PROFORMA: { sk: "Zálohová faktúra", cs: "Zálohová faktura", en: "Proforma", hu: "Proforma", ro: "Proforma", it: "Proforma", de: "Proforma" },
+  ADVANCE: { sk: "Záloha", cs: "Záloha", en: "Advance", hu: "Előleg", ro: "Avans", it: "Anticipo", de: "Vorauszahlung" },
+  CORRECTION: { sk: "Opravná faktúra", cs: "Opravná faktura", en: "Correction", hu: "Korrekció", ro: "Corecție", it: "Correzione", de: "Korrektur" },
+  STORNO: { sk: "Storno faktúra", cs: "Storno faktura", en: "Reversal", hu: "Sztornó", ro: "Storno", it: "Storno", de: "Storno" },
+  PENALTY: { sk: "Penále", cs: "Penále", en: "Penalty", hu: "Büntetés", ro: "Penalitate", it: "Penale", de: "Strafe" },
+  INTEREST: { sk: "Úrok z omeškania", cs: "Úrok z prodlení", en: "Interest", hu: "Kamat", ro: "Dobândă", it: "Interesse", de: "Zinsen" },
+  FEE: { sk: "Poplatok", cs: "Poplatek", en: "Fee", hu: "Díj", ro: "Taxă", it: "Tassa", de: "Gebühr" },
+};
+
+export function getDocumentTypeLabel(typeCode: string, locale: Locale = "sk"): string {
+  const labels = TYPE_LABELS[typeCode] || TYPE_LABELS[typeCode.toUpperCase()] || TYPE_LABELS[typeCode.toLowerCase()];
+  if (labels) return labels[locale] || labels.en || typeCode;
+  return typeCode;
+}
+
 export const DEBT_STATUS_LABELS: Record<string, Record<Locale, string>> = {
   active: { sk: "Aktívny", cs: "Aktivní", en: "Active", hu: "Aktív", ro: "Activ", it: "Attivo", de: "Aktiv" },
   closed: { sk: "Uzavretý", cs: "Uzavřený", en: "Closed", hu: "Lezárva", ro: "Închis", it: "Chiuso", de: "Geschlossen" },
