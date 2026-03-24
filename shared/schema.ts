@@ -474,6 +474,8 @@ export const customers = pgTable("customers", {
   leadScoreUpdatedAt: timestamp("lead_score_updated_at"),
   leadStatus: text("lead_status").notNull().default("cold"), // cold, warm, hot, qualified
   
+  dataSource: text("data_source"),
+  
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
@@ -4952,6 +4954,8 @@ export const collections = pgTable("collections", {
   // Notes
   doctorNote: text("doctor_note"),
   note: text("note"),
+  
+  dataSource: text("data_source"),
   
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),

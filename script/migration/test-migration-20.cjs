@@ -145,6 +145,8 @@ async function step1_testConnection() {
     { table: 'collaborator_agreements', column: 'social_insurance_cancel_month', type: 'integer' },
     { table: 'collaborator_agreements', column: 'social_insurance_cancel_year', type: 'integer' },
     { table: 'collaborator_agreements', column: 'note', type: 'text' },
+    { table: 'customers', column: 'data_source', type: 'text' },
+    { table: 'collections', column: 'data_source', type: 'text' },
   ];
   for (const ec of ensureCols) {
     const check = await pgPool.query(`SELECT 1 FROM information_schema.columns WHERE table_name = $1 AND column_name = $2`, [ec.table, ec.column]);
@@ -1061,10 +1063,10 @@ async function step4b_agreements() {
 }
 
 // ============================================================
-// STEP 4.6: Collaborator Activities (Acts / Úkony)
+// STEP 4.6: Collaborator Activities (Úkony z CollectionCollaborators)
 // ============================================================
 async function step4c_activities() {
-  separator('STEP 4.6: Úkony spolupracovníkov (Acts)');
+  separator('STEP 4.6: Úkony spolupracovníkov (CollectionCollaborators)');
 
   const collabLookup = {};
   const pgC = await pgPool.query('SELECT id, legacy_id FROM collaborators WHERE legacy_id IS NOT NULL');
@@ -1082,198 +1084,130 @@ async function step4c_activities() {
   const pgS = await pgPool.query('SELECT id, legacy_id FROM collections WHERE legacy_id IS NOT NULL');
   for (const r of pgS.rows) collectionLookup[r.legacy_id] = r.id;
 
-  // Build agreement → collaborator mapping from CBC
-  const agDocMap = {};
-  try {
-    const agDocs = await mssqlPool.request().query('SELECT cag_id, doc_id FROM CollaboratorAgreements');
-    for (const r of agDocs.recordset) agDocMap[r.cag_id] = String(r.doc_id);
-  } catch (err) { log(`  WARN CollaboratorAgreements: ${err.message}`); }
-
-  // Fetch Acts linked to our collaborators via agreements
   const docIds = Object.keys(collabLookup);
   if (docIds.length === 0) { log('  Žiadni spolupracovníci, preskakujem'); return; }
 
-  const cagIds = Object.entries(agDocMap)
-    .filter(([, docId]) => collabLookup[docId])
-    .map(([cagId]) => cagId);
+  // Query CollectionCollaborators — this is the actual source of Úkony tab data
+  // Joined with CollaborationAgreementTypes (typ dohody), ServiceCollections (dátum, CBU),
+  // CollaboratorAgreements (číslo zmluvy), and optionally [Reward].[Acts] (odmena info)
+  const docIdList = docIds.join(',');
+  const ukonyRows = await mssqlPool.request().query(`
+    SELECT
+      cc.sco_id, cc.doc_id, cc.agt_id, cc.cag_id,
+      at2.agt_default_name as typ_dohody,
+      at2.agt_code,
+      ca.cag_number as cislo_zmluvy,
+      sc.sco_collection_made as datum_ukonu,
+      sc.sco_collection_unit_number as cislo_cbu,
+      sc.hos_id
+    FROM CollectionCollaborators cc
+    LEFT JOIN CollaborationAgreementTypes at2 ON at2.agt_id = cc.agt_id
+    LEFT JOIN CollaboratorAgreements ca ON ca.cag_id = cc.cag_id
+    LEFT JOIN ServiceCollections sc ON sc.sco_id = cc.sco_id
+    WHERE cc.doc_id IN (${docIdList})
+    ORDER BY sc.sco_collection_made DESC
+  `);
 
-  let acts;
+  log(`  Nájdených ${ukonyRows.recordset.length} úkonov pre ${docIds.length} spolupracovníkov`);
+
+  // Skúsime aj načítať odmeny z [Reward].[Acts] ak existujú
+  const rewardMap = {};
   try {
-    if (cagIds.length === 0) { log('  Žiadne dohody, preskakujem Acts'); return; }
-
-    // Check default schema and DB context
-    try {
-      const dbCtx = await mssqlPool.request().query(`SELECT DB_NAME() as dbName, SCHEMA_NAME() as schemaName, SYSTEM_USER as sysUser, USER_NAME() as userName`);
-      log(`  DB kontext: db=${dbCtx.recordset[0].dbName}, schema=${dbCtx.recordset[0].schemaName}, sysUser=${dbCtx.recordset[0].sysUser}, user=${dbCtx.recordset[0].userName}`);
-    } catch (e) { /* ignore */ }
-
-    // Check granted permissions on Acts
-    try {
-      const perms = await mssqlPool.request().query(`SELECT p.permission_name, p.state_desc, o.name as object_name FROM sys.database_permissions p JOIN sys.objects o ON p.major_id = o.object_id WHERE o.name = 'Acts'`);
-      log(`  Acts práva: ${perms.recordset.length > 0 ? perms.recordset.map(r => `${r.state_desc} ${r.permission_name}`).join(', ') : 'žiadne explicitné'}`);
-    } catch (e) { log(`  Acts permissions check: ${e.message}`); }
-
-    // List all schemas that contain 'Acts'
-    try {
-      const schemas = await mssqlPool.request().query(`SELECT TABLE_SCHEMA, TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'Acts'`);
-      log(`  Acts v schémach: ${schemas.recordset.map(r => `${r.TABLE_SCHEMA}.${r.TABLE_NAME}`).join(', ') || 'ŽIADNE'}`);
-    } catch (e) { /* ignore */ }
-
-    // Discover actual table name for Acts
-    const actsTables = await mssqlPool.request().query(`
-      SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
-      WHERE TABLE_NAME LIKE '%Act%' OR TABLE_NAME LIKE '%act%' OR TABLE_NAME LIKE '%Reward%Act%'
-      ORDER BY TABLE_NAME
+    const rewardRows = await mssqlPool.request().query(`
+      SELECT rac_id, sco_id_bound, agreement_id_reward,
+             rac_state, cur_code, rac_amount, rac_name
+      FROM [Reward].[Acts]
+      WHERE agreement_id_reward IS NOT NULL
     `);
-    const actTableNames = actsTables.recordset.map(r => r.TABLE_NAME);
-    log(`  Tabuľky obsahujúce "Act": ${actTableNames.join(', ') || 'ŽIADNE'}`);
-
-    let actsTable = 'Acts';
-    if (!actTableNames.includes('Acts')) {
-      const candidate = actTableNames.find(n => n.toLowerCase().includes('act') && !n.includes('History') && !n.includes('Remark'));
-      if (candidate) { actsTable = candidate; log(`  Použitá alternatívna tabuľka: ${actsTable}`); }
-      else { log('  Tabuľka Acts neexistuje, preskakujem'); return; }
+    for (const r of rewardRows.recordset) {
+      const key = `${r.sco_id_bound}_${r.agreement_id_reward}`;
+      rewardMap[key] = {
+        state: r.rac_state,
+        currency: r.cur_code,
+        amount: r.rac_amount != null ? String(r.rac_amount) : null,
+        name: r.rac_name,
+      };
     }
+    log(`  Odmeny z [Reward].[Acts]: ${rewardRows.recordset.length} záznamov`);
+  } catch (err) { log(`  [Reward].[Acts] nedostupná alebo prázdna: ${err.message}`); }
 
-    // Check columns
-    const actsCols = await mssqlPool.request().query(`
-      SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '${actsTable}' ORDER BY ORDINAL_POSITION
-    `);
-    log(`  ${actsTable} stĺpce: ${actsCols.recordset.map(r => r.COLUMN_NAME).join(', ')}`);
-
-    // Discover actual schema from INFORMATION_SCHEMA
-    let actsSchema = 'dbo';
-    try {
-      const schemaResult = await mssqlPool.request().query(`SELECT TABLE_SCHEMA FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = '${actsTable}'`);
-      if (schemaResult.recordset.length > 0) {
-        actsSchema = schemaResult.recordset[0].TABLE_SCHEMA;
-        log(`  Acts schéma: ${actsSchema}`);
-      }
-    } catch (e) { /* ignore */ }
-
-    // Try multiple schema qualifications, starting with discovered schema
-    let actsData = null;
-    const trySchemas = [`[${actsSchema}].[${actsTable}]`, `[${actsTable}]`, `dbo.[${actsTable}]`, `CBC.dbo.[${actsTable}]`];
-    // Deduplicate
-    const uniqueSchemas = [...new Set(trySchemas)];
-    for (const tableName of uniqueSchemas) {
-      try {
-        actsData = await mssqlPool.request().query(`
-          SELECT TOP 5 rac_id FROM ${tableName}
-        `);
-        log(`  ✓ Tabuľka nájdená ako: ${tableName}`);
-
-        // Diagnostika: celkový počet a vzorka
-        try {
-          const totalCount = await mssqlPool.request().query(`SELECT COUNT(*) as cnt FROM ${tableName}`);
-          log(`  Acts celkový počet záznamov: ${totalCount.recordset[0].cnt}`);
-          const sample = await mssqlPool.request().query(`SELECT TOP 5 rac_id, agreement_id_reward, rac_name, rac_amount, cur_code, rac_state, sco_id_bound, con_id_bound FROM ${tableName} ORDER BY rac_id DESC`);
-          if (sample.recordset.length > 0) {
-            log(`  Acts vzorky (TOP 5):`);
-            for (const s of sample.recordset) {
-              log(`    rac_id=${s.rac_id}, agreement=${s.agreement_id_reward}, sco=${s.sco_id_bound}, con=${s.con_id_bound}, name=${s.rac_name}, amount=${s.rac_amount} ${s.cur_code}, state=${s.rac_state}`);
-            }
-          }
-        } catch (diagErr) { log(`  Acts diagnostika: ${diagErr.message}`); }
-
-        // Alternatívna diagnostika: hľadanie úkonov cez CollaboratorContacts (cc) tabuľku
-        try {
-          const ccCheck = await mssqlPool.request().query(`SELECT TOP 1 * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'CollaboratorContacts'`);
-          if (ccCheck.recordset.length > 0) {
-            const ccCols = await mssqlPool.request().query(`SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'CollaboratorContacts' ORDER BY ORDINAL_POSITION`);
-            log(`  CollaboratorContacts stĺpce: ${ccCols.recordset.map(r => r.COLUMN_NAME).join(', ')}`);
-            const ccCount = await mssqlPool.request().query(`SELECT COUNT(*) as cnt FROM CollaboratorContacts`);
-            log(`  CollaboratorContacts celkový počet: ${ccCount.recordset[0].cnt}`);
-            if (ccCount.recordset[0].cnt > 0) {
-              const ccSample = await mssqlPool.request().query(`SELECT TOP 10 * FROM CollaboratorContacts WHERE doc_id IN (${docIds.slice(0, 5).join(',')}) ORDER BY 1 DESC`);
-              if (ccSample.recordset.length > 0) {
-                log(`  CollaboratorContacts vzorky pre doc_id ${docIds.slice(0, 5).join(',')}:`);
-                for (const s of ccSample.recordset) log(`    ${JSON.stringify(s)}`);
-              }
-            }
-          }
-        } catch (ccErr) { /* ignore */ }
-
-        // Hľadanie tabuľky ActHistory
-        try {
-          const ahCols = await mssqlPool.request().query(`SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'ActHistory' ORDER BY ORDINAL_POSITION`);
-          if (ahCols.recordset.length > 0) {
-            log(`  ActHistory stĺpce: ${ahCols.recordset.map(r => r.COLUMN_NAME).join(', ')}`);
-            const ahSchema = await mssqlPool.request().query(`SELECT TABLE_SCHEMA FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'ActHistory'`);
-            const ahSchemaName = ahSchema.recordset[0]?.TABLE_SCHEMA || 'dbo';
-            const ahCount = await mssqlPool.request().query(`SELECT COUNT(*) as cnt FROM [${ahSchemaName}].[ActHistory]`);
-            log(`  ActHistory ([${ahSchemaName}]) celkový počet: ${ahCount.recordset[0].cnt}`);
-            if (ahCount.recordset[0].cnt > 0) {
-              const ahSample = await mssqlPool.request().query(`SELECT TOP 5 * FROM [${ahSchemaName}].[ActHistory] ORDER BY 1 DESC`);
-              log(`  ActHistory vzorky:`);
-              for (const s of ahSample.recordset) log(`    ${JSON.stringify(s)}`);
-            }
-          }
-        } catch (ahErr) { /* ignore */ }
-
-        // Hľadanie views pre úkony spolupracovníkov
-        try {
-          const views = await mssqlPool.request().query(`
-            SELECT TABLE_SCHEMA, TABLE_NAME FROM INFORMATION_SCHEMA.VIEWS
-            WHERE TABLE_NAME LIKE '%Act%' OR TABLE_NAME LIKE '%Ukon%' OR TABLE_NAME LIKE '%Reward%'
-            ORDER BY TABLE_NAME
-          `);
-          if (views.recordset.length > 0) {
-            log(`  Views s Act/Ukon/Reward: ${views.recordset.map(r => `${r.TABLE_SCHEMA}.${r.TABLE_NAME}`).join(', ')}`);
-          }
-        } catch (vErr) { /* ignore */ }
-
-        acts = await mssqlPool.request().query(`
-          SELECT rac_id, agreement_id_reward, hos_id_bound, sco_id_bound, con_id_bound,
-                 rac_state, cur_code, rac_amount, rac_name,
-                 rac_internal_note, rac_public_note,
-                 rac_due_date, rac_due_date_type,
-                 rac_proposed, rac_proposed_by,
-                 rac_approved, rac_approved_by,
-                 rac_paid, rac_cancelled
-          FROM ${tableName}
-          WHERE agreement_id_reward IN (${cagIds.join(',')})
-          ORDER BY rac_id DESC
-        `);
-        break;
-      } catch (e) {
-        log(`  Pokus ${tableName}: ${e.message}`);
-      }
-    }
-    if (!acts) { log('  Acts tabuľka nedostupná (pravdepodobne chýbajú práva)'); return; }
-  } catch (err) {
-    log(`  WARN Acts query: ${err.message}`);
-    return;
-  }
-
-  log(`  Nájdených ${acts.recordset.length} úkonov pre ${cagIds.length} dohôd`);
-
-  const showLimit = Math.min(10, acts.recordset.length);
+  // Show sample
+  const showLimit = Math.min(15, ukonyRows.recordset.length);
   if (showLimit > 0) {
+    // Map agt_code to Slovak names for display
+    const agtNameMap = {
+      'REG_AGT_RECRUITING': 'Naverbovanie',
+      'REG_AGT_ASSISTANCE': 'Asistencia',
+      'REG_AGT_COLLECTING_BLOOD': 'Odber PK',
+      'REG_AGT_COLLECTING_TISSUE': 'Odber TK',
+      'REG_AGT_COLLECTING_PLACENTA': 'Odber placenta',
+      'REG_AGT_INFORMING': 'Informovanie',
+      'REG_AGT_GRANT': 'Nórsky grant',
+      'REG_AGT_PROPHYLAXIS': 'Profylaxia',
+      'REG_AGT_NURSE_MANAGER': 'Vrchná sestra',
+      'REG_AGT_LECTURE': 'Prednáška',
+      'REG_AGT_VEDONO': 'Vedono',
+    };
     table(
-      ['rac_id', 'Agreement', 'Hospital', 'Stav', 'Suma', 'Mena', 'Názov'],
-      acts.recordset.slice(0, showLimit).map(r => [
-        r.rac_id, r.agreement_id_reward || '—', r.hos_id_bound || '—',
-        r.rac_state || '—',
-        r.rac_amount != null ? String(r.rac_amount) : '—',
-        r.cur_code || '—', (r.rac_name || '—').slice(0, 30),
-      ])
+      ['doc_id', 'Typ dohody', 'Číslo zmluvy', 'Dátum', 'Číslo CBU', 'Odmena'],
+      ukonyRows.recordset.slice(0, showLimit).map(r => {
+        const typName = agtNameMap[r.agt_code] || r.typ_dohody || '—';
+        const reward = rewardMap[`${r.sco_id}_${r.cag_id}`];
+        return [
+          r.doc_id,
+          typName,
+          (r.cislo_zmluvy || '—').slice(0, 25),
+          r.datum_ukonu ? new Date(r.datum_ukonu).toLocaleDateString('sk') : '—',
+          r.cislo_cbu || '—',
+          reward ? `${reward.state || ''} ${reward.amount || ''} ${reward.currency || ''}`.trim() : '—',
+        ];
+      })
     );
   }
 
+  // Aggregate type counts
+  const typeCounts = {};
+  for (const r of ukonyRows.recordset) {
+    const typ = r.agt_code || 'UNKNOWN';
+    typeCounts[typ] = (typeCounts[typ] || 0) + 1;
+  }
+  log(`  Rozdelenie podľa typu:`);
+  for (const [code, cnt] of Object.entries(typeCounts).sort((a, b) => b[1] - a[1])) {
+    log(`    ${code}: ${cnt}`);
+  }
+
+  // Insert into collaborator_activities
   let inserted = 0, skipped = 0, errors = 0;
-  for (const row of acts.recordset) {
+  for (const row of ukonyRows.recordset) {
     try {
-      const existing = await pgPool.query('SELECT id FROM collaborator_activities WHERE legacy_id = $1', [String(row.rac_id)]);
+      const legacyId = `cc_${row.doc_id}_${row.sco_id}_${row.agt_id}`;
+      const existing = await pgPool.query('SELECT id FROM collaborator_activities WHERE legacy_id = $1', [legacyId]);
       if (existing.rows.length > 0) { skipped++; continue; }
 
-      const docId = row.agreement_id_reward ? agDocMap[row.agreement_id_reward] : null;
-      const collaboratorId = docId ? collabLookup[docId] : null;
+      const collaboratorId = collabLookup[String(row.doc_id)];
       if (!collaboratorId) { skipped++; continue; }
 
-      const agreementId = row.agreement_id_reward ? (agreementLookup[String(row.agreement_id_reward)] || null) : null;
-      const hospitalId = row.hos_id_bound ? (hospitalLookup[String(row.hos_id_bound)] || null) : null;
-      const collectionId = row.sco_id_bound ? (collectionLookup[String(row.sco_id_bound)] || null) : null;
+      const agreementId = row.cag_id ? (agreementLookup[String(row.cag_id)] || null) : null;
+      const hospitalId = row.hos_id ? (hospitalLookup[String(row.hos_id)] || null) : null;
+      const collectionId = row.sco_id ? (collectionLookup[String(row.sco_id)] || null) : null;
+
+      const reward = rewardMap[`${row.sco_id}_${row.cag_id}`];
+
+      // Map agt_code to Slovak activity name
+      const agtNameMap = {
+        'REG_AGT_RECRUITING': 'Naverbovanie',
+        'REG_AGT_ASSISTANCE': 'Asistencia',
+        'REG_AGT_COLLECTING_BLOOD': 'Odber PK',
+        'REG_AGT_COLLECTING_TISSUE': 'Odber TK',
+        'REG_AGT_COLLECTING_PLACENTA': 'Odber placenta',
+        'REG_AGT_INFORMING': 'Informovanie',
+        'REG_AGT_GRANT': 'Nórsky grant',
+        'REG_AGT_PROPHYLAXIS': 'Profylaxia',
+        'REG_AGT_NURSE_MANAGER': 'Vrchná sestra',
+        'REG_AGT_LECTURE': 'Prednáška',
+        'REG_AGT_VEDONO': 'Vedono',
+      };
+      const actName = agtNameMap[row.agt_code] || row.typ_dohody || row.agt_code || 'Neznámy';
 
       await pgPool.query(`
         INSERT INTO collaborator_activities (
@@ -1284,21 +1218,23 @@ async function step4c_activities() {
           paid_at, cancelled_at, created_at
         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
       `, [
-        String(row.rac_id), collaboratorId, agreementId, hospitalId, collectionId,
-        row.rac_state, row.cur_code,
-        row.rac_amount != null ? String(row.rac_amount) : null,
-        row.rac_name, row.rac_internal_note, row.rac_public_note,
-        row.rac_due_date ? new Date(row.rac_due_date) : null, row.rac_due_date_type,
-        row.rac_proposed ? new Date(row.rac_proposed) : null, row.rac_proposed_by,
-        row.rac_approved ? new Date(row.rac_approved) : null, row.rac_approved_by,
-        row.rac_paid ? new Date(row.rac_paid) : null,
-        row.rac_cancelled ? new Date(row.rac_cancelled) : null,
+        legacyId, collaboratorId, agreementId, hospitalId, collectionId,
+        reward ? reward.state : null,
+        reward ? reward.currency : null,
+        reward ? reward.amount : null,
+        actName,
+        row.cislo_zmluvy || null,
+        row.cislo_cbu || null,
+        row.datum_ukonu ? new Date(row.datum_ukonu) : null,
+        null,
+        null, null, null, null,
+        null, null,
         new Date(),
       ]);
       inserted++;
     } catch (err) {
       errors++;
-      log(`  ERROR rac_id=${row.rac_id}: ${err.message}`);
+      if (errors <= 5) log(`  ERROR doc=${row.doc_id} sco=${row.sco_id}: ${err.message}`);
     }
   }
   log(`\n  → ${inserted} vložených, ${skipped} preskočených, ${errors} chýb`);
@@ -1397,8 +1333,8 @@ async function step5_customers() {
           country, city, address, postal_code, region,
           use_correspondence_address, corr_name, corr_address, corr_city, corr_postal_code, corr_region, corr_country,
           bank_account, bank_code, bank_name, bank_swift,
-          client_status, status, notes, lead_score, created_at
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37)
+          client_status, status, notes, lead_score, data_source, created_at
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38)
       `, [
         String(row.cli_id),
         row.pda_title_prefix, firstName, lastName, normalizeName(row.pda_maiden_name), row.pda_title_suffix,
@@ -1412,7 +1348,7 @@ async function step5_customers() {
         normalizePostalCode(row.corr_zip, normalizeCountryCode(row.corr_country) || country), row.corr_area, normalizeCountryCode(row.corr_country),
         bankAccount, row.pda_account_bank_code, row.pda_bank_name, row.pda_SWIFT,
         clientStatus, 'active', row.cli_note, row.cli_rating || 0,
-        row.cli_inserted || new Date(),
+        'iscbc', row.cli_inserted || new Date(),
       ]);
       inserted++;
     } catch (err) {
@@ -1560,8 +1496,8 @@ async function step6_collections() {
           status_paired_at, status_evaluated_at, status_verified_at,
           status_stored_at, status_transferred_at, status_released_at,
           status_awaiting_disposal_at, status_disposed_at,
-          doctor_note, note, created_at, updated_at
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39)
+          doctor_note, note, data_source, created_at, updated_at
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40)
       `, [
         String(row.sco_id), row.sco_collection_unit_number, countryCode,
         customerId,
@@ -1580,7 +1516,7 @@ async function step6_collections() {
         row.sco_paired, row.sco_lab_evaluation, row.sco_sterility,
         row.sco_stored, row.sco_transferred, row.sco_released,
         row.sco_waiting_for_dispose, row.sco_disposed,
-        row.sco_doctors_note, row.sco_note,
+        row.sco_doctors_note, row.sco_note, 'iscbc',
         row.sco_inserted || new Date(), row.sco_updated || new Date(),
       ]);
       inserted++;
@@ -2241,6 +2177,27 @@ async function step10_verification() {
   `);
   const ag = agStats.rows[0];
   log(`  Dohody: total=${ag.total}, valid=${ag.valid}, questionnaire=${ag.with_questionnaire}, soc_reg=${ag.with_soc_reg}, soc_cancel=${ag.with_soc_cancel}, note=${ag.with_note}`);
+
+  // Activities stats
+  const actStats = await pgPool.query(`
+    SELECT
+      COUNT(*) as total,
+      COUNT(DISTINCT collaborator_id) as collaborators,
+      COUNT(*) FILTER (WHERE agreement_id IS NOT NULL) as with_agreement,
+      COUNT(*) FILTER (WHERE collection_id IS NOT NULL) as with_collection,
+      COUNT(*) FILTER (WHERE hospital_id IS NOT NULL) as with_hospital,
+      COUNT(*) FILTER (WHERE amount IS NOT NULL) as with_reward
+    FROM collaborator_activities WHERE legacy_id IS NOT NULL
+  `);
+  const ac = actStats.rows[0];
+  log(`  Úkony: total=${ac.total}, collaborators=${ac.collaborators}, with_agreement=${ac.with_agreement}, with_collection=${ac.with_collection}, with_hospital=${ac.with_hospital}, with_reward=${ac.with_reward}`);
+
+  const actByName = await pgPool.query(`
+    SELECT name, COUNT(*) as cnt FROM collaborator_activities WHERE legacy_id IS NOT NULL GROUP BY name ORDER BY cnt DESC
+  `);
+  if (actByName.rows.length > 0) {
+    log('  Úkony podľa typu: ' + actByName.rows.map(r => `${r.name}=${r.cnt}`).join(', '));
+  }
 
   log('\n--- Klientky v INDEXUS ---');
   const customers = await pgPool.query(`
