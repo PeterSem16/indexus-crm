@@ -2299,13 +2299,13 @@ async function step11_customerContracts() {
     for (const r of compRes.recordset) companyMap[String(r.cli_id)] = r.com_name;
   } catch (err) { log(`  WARN company map: ${err.message}`); }
 
-  const hospitalLookupRes = await pgPool.query(`SELECT id, internal_id FROM hospitals WHERE internal_id IS NOT NULL`);
+  const hospitalLookupRes = await pgPool.query(`SELECT id, legacy_id FROM hospitals WHERE legacy_id IS NOT NULL`);
   const hospitalLookup = {};
-  for (const h of hospitalLookupRes.rows) hospitalLookup[h.internal_id] = h.id;
+  for (const h of hospitalLookupRes.rows) hospitalLookup[h.legacy_id] = h.id;
 
-  const collabLookupRes = await pgPool.query(`SELECT id, internal_id FROM collaborators WHERE internal_id IS NOT NULL`);
+  const collabLookupRes = await pgPool.query(`SELECT id, legacy_id FROM collaborators WHERE legacy_id IS NOT NULL`);
   const collabLookup = {};
-  for (const c of collabLookupRes.rows) collabLookup[c.internal_id] = c.id;
+  for (const c of collabLookupRes.rows) collabLookup[c.legacy_id] = c.id;
 
   const contracts = await mssqlPool.request().query(`
     SELECT c.con_id, c.cli_id, c.con_number, c.con_inserted,
