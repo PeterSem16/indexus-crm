@@ -1520,6 +1520,11 @@ export default function HospitalsPage() {
       cell: (hospital: Hospital) => (
         <div className="flex items-center gap-2">
           <span className="font-medium">{hospital.name}</span>
+          {(hospital as any).dataSource === 'iscbc' && (
+            <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800">
+              ISCBC
+            </Badge>
+          )}
           {!hospital.isActive && (
             <Badge variant="secondary">{t.common.inactive}</Badge>
           )}

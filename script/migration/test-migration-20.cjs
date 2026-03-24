@@ -709,27 +709,52 @@ async function step4_collaborators() {
     log(`  Representants: ${Object.keys(repLookup).length} aktívnych`);
   } catch (err) { log(`  WARN Representants: ${err.message}`); }
 
-  // MailAddresses lookup: add_id → address data + type
-  const addressLookup = {};
+  // MailAddresses lookup: per_id → all addresses by mat_id type + add_id for firm
+  const addressByPerId = {};  // per_id → { permanent: addr, correspondence: addr }
+  const addressByAddId = {};  // add_id → addr (for firm addresses)
   try {
-    const addIds = new Set();
+    const perIds = new Set();
+    const firmAddIds = new Set();
     for (const r of collabs.recordset) {
-      if (r.add_id) addIds.add(r.add_id);
-      if (r.add_id_firm) addIds.add(r.add_id_firm);
+      if (r.per_id) perIds.add(r.per_id);
+      if (r.add_id_firm) firmAddIds.add(r.add_id_firm);
     }
-    if (addIds.size > 0) {
+    if (perIds.size > 0) {
       const addrs = await mssqlPool.request().query(`
-        SELECT a.add_id, a.add_name, a.add_street_and_number, a.add_city, a.add_zip, a.add_area, a.add_country,
+        SELECT a.add_id, a.per_id, a.mat_id, a.add_name, a.add_street_and_number, a.add_city, a.add_zip, a.add_area, a.add_country, a.add_valid,
                mt.mat_code
         FROM MailAddresses a
         LEFT JOIN MailAddressTypes mt ON mt.mat_id = a.mat_id
-        WHERE a.add_id IN (${[...addIds].join(',')})
+        WHERE a.per_id IN (${[...perIds].join(',')}) AND a.add_valid = 1
+        ORDER BY a.add_id DESC
       `);
       for (const a of addrs.recordset) {
-        addressLookup[a.add_id] = a;
+        if (!addressByPerId[a.per_id]) addressByPerId[a.per_id] = {};
+        // mat_id: 1 = permanent, 3 = correspondence
+        if (a.mat_id === 1 && !addressByPerId[a.per_id].permanent) {
+          addressByPerId[a.per_id].permanent = a;
+        } else if (a.mat_id === 3 && !addressByPerId[a.per_id].correspondence) {
+          addressByPerId[a.per_id].correspondence = a;
+        }
+        addressByAddId[a.add_id] = a;
       }
     }
-    log(`  MailAddresses: ${Object.keys(addressLookup).length} adries načítaných`);
+    // Also load firm addresses by add_id if not already loaded
+    if (firmAddIds.size > 0) {
+      const missing = [...firmAddIds].filter(id => !addressByAddId[id]);
+      if (missing.length > 0) {
+        const firmAddrs = await mssqlPool.request().query(`
+          SELECT a.add_id, a.per_id, a.mat_id, a.add_name, a.add_street_and_number, a.add_city, a.add_zip, a.add_area, a.add_country
+          FROM MailAddresses a
+          WHERE a.add_id IN (${missing.join(',')})
+        `);
+        for (const a of firmAddrs.recordset) {
+          addressByAddId[a.add_id] = a;
+        }
+      }
+    }
+    const totalAddrs = Object.values(addressByPerId).reduce((sum, p) => sum + (p.permanent ? 1 : 0) + (p.correspondence ? 1 : 0), 0) + [...firmAddIds].filter(id => addressByAddId[id]).length;
+    log(`  MailAddresses: ${totalAddrs} adries načítaných (per_id: ${Object.keys(addressByPerId).length}, firm: ${[...firmAddIds].filter(id => addressByAddId[id]).length})`);
   } catch (err) { log(`  WARN MailAddresses: ${err.message}`); }
 
   const collabCountries = await mssqlPool.request().query(`
@@ -800,17 +825,18 @@ async function step4_collaborators() {
 
         const existingAddrs = await pgPool.query('SELECT address_type FROM collaborator_addresses WHERE collaborator_id = $1', [ex.id]);
         const existingTypes = new Set(existingAddrs.rows.map(r => r.address_type));
+        const perAddrData = row.per_id ? (addressByPerId[row.per_id] || {}) : {};
         const addrPairs = [
-          { addId: row.add_id, type: 'permanent' },
-          { addId: row.add_id, type: 'correspondence' },
-          { addId: row.add_id_firm, type: 'company' },
+          { addr: perAddrData.permanent, type: 'permanent' },
+          { addr: perAddrData.correspondence, type: 'correspondence' },
+          { addr: row.add_id_firm ? addressByAddId[row.add_id_firm] : null, type: 'company' },
         ];
         for (const ap of addrPairs) {
-          if (!ap.addId || !addressLookup[ap.addId] || existingTypes.has(ap.type)) continue;
-          const addr = addressLookup[ap.addId];
-          const addrCountry = normalizeCountryCode(addr.add_country);
+          if (!ap.addr || existingTypes.has(ap.type)) continue;
+          const addrCountry = normalizeCountryCode(ap.addr.add_country);
+          const legacyIdSuffix = ap.type === 'correspondence' ? '_cor' : (ap.type === 'company' ? '_firm' : '');
           await pgPool.query(`INSERT INTO collaborator_addresses (legacy_id, collaborator_id, address_type, name, street_number, city, postal_code, region, country_code) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-            [String(ap.addId) + (ap.type === 'correspondence' ? '_cor' : ''), ex.id, ap.type, addr.add_name, addr.add_street_and_number, normalizeCity(addr.add_city), normalizePostalCode(addr.add_zip, addrCountry), addr.add_area, addrCountry]);
+            [String(ap.addr.add_id) + legacyIdSuffix, ex.id, ap.type, ap.addr.add_name, ap.addr.add_street_and_number, normalizeCity(ap.addr.add_city), normalizePostalCode(ap.addr.add_zip, addrCountry), ap.addr.add_area, addrCountry]);
           addrInserted++;
         }
         if (repName) repMatched++;
@@ -870,25 +896,26 @@ async function step4_collaborators() {
       ]);
       const collabId = res.rows[0].id;
 
-      // Migrate addresses (add_id = permanent + correspondence, add_id_firm = company)
+      // Migrate addresses: per_id → permanent (mat_id=1), correspondence (mat_id=3); add_id_firm → company
+      const perAddrData = row.per_id ? (addressByPerId[row.per_id] || {}) : {};
       const addrPairs = [
-        { addId: row.add_id, type: 'permanent' },
-        { addId: row.add_id, type: 'correspondence' },
-        { addId: row.add_id_firm, type: 'company' },
+        { addr: perAddrData.permanent, type: 'permanent' },
+        { addr: perAddrData.correspondence, type: 'correspondence' },
+        { addr: row.add_id_firm ? addressByAddId[row.add_id_firm] : null, type: 'company' },
       ];
       for (const ap of addrPairs) {
-        if (!ap.addId || !addressLookup[ap.addId]) continue;
-        const addr = addressLookup[ap.addId];
-        const addrCountry = normalizeCountryCode(addr.add_country);
+        if (!ap.addr) continue;
+        const addrCountry = normalizeCountryCode(ap.addr.add_country);
+        const legacyIdSuffix = ap.type === 'correspondence' ? '_cor' : (ap.type === 'company' ? '_firm' : '');
         await pgPool.query(`
           INSERT INTO collaborator_addresses (
             legacy_id, collaborator_id, address_type, name, street_number, city, postal_code, region, country_code
           ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
         `, [
-          String(ap.addId) + (ap.type === 'correspondence' ? '_cor' : ''), collabId, ap.type,
-          addr.add_name, addr.add_street_and_number,
-          normalizeCity(addr.add_city), normalizePostalCode(addr.add_zip, addrCountry),
-          addr.add_area, addrCountry,
+          String(ap.addr.add_id) + legacyIdSuffix, collabId, ap.type,
+          ap.addr.add_name, ap.addr.add_street_and_number,
+          normalizeCity(ap.addr.add_city), normalizePostalCode(ap.addr.add_zip, addrCountry),
+          ap.addr.add_area, addrCountry,
         ]);
         addrInserted++;
       }
@@ -938,6 +965,10 @@ async function step4b_agreements() {
              ca.cag_from, ca.cag_to,
              ca.cag_agreement_sent, ca.cag_agreement_returned,
              ca.cag_valid, ca.cag_inserted, ca.afo_id,
+             ca.cag_questionaire_returned,
+             ca.cag_social_insurance_registration,
+             ca.cag_social_insurance_cancel,
+             ca.cag_note, ca.cag_repository,
              c.com_name, c.com_country_code
       FROM CollaboratorAgreements ca
       LEFT JOIN Companies c ON c.com_id = ca.com_id
@@ -982,6 +1013,9 @@ async function step4b_agreements() {
       const sent = row.cag_agreement_sent ? new Date(row.cag_agreement_sent) : null;
       const returned = row.cag_agreement_returned ? new Date(row.cag_agreement_returned) : null;
 
+      const socReg = row.cag_social_insurance_registration ? new Date(row.cag_social_insurance_registration) : null;
+      const socCancel = row.cag_social_insurance_cancel ? new Date(row.cag_social_insurance_cancel) : null;
+
       await pgPool.query(`
         INSERT INTO collaborator_agreements (
           legacy_id, collaborator_id, contract_number,
@@ -989,8 +1023,12 @@ async function step4b_agreements() {
           valid_to_day, valid_to_month, valid_to_year,
           agreement_sent_day, agreement_sent_month, agreement_sent_year,
           agreement_returned_day, agreement_returned_month, agreement_returned_year,
-          agreement_form, is_valid, created_at
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
+          agreement_form, is_valid,
+          questionnaire_returned,
+          social_insurance_registration_day, social_insurance_registration_month, social_insurance_registration_year,
+          social_insurance_cancel_day, social_insurance_cancel_month, social_insurance_cancel_year,
+          note, created_at
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25)
       `, [
         String(row.cag_id), collaboratorId, row.cag_number,
         vFrom ? vFrom.getDate() : null, vFrom ? vFrom.getMonth() + 1 : null, vFrom ? vFrom.getFullYear() : null,
@@ -999,6 +1037,10 @@ async function step4b_agreements() {
         returned ? returned.getDate() : null, returned ? returned.getMonth() + 1 : null, returned ? returned.getFullYear() : null,
         row.afo_id != null ? String(row.afo_id) : null,
         row.cag_valid === true || row.cag_valid === 1,
+        row.cag_questionaire_returned === true || row.cag_questionaire_returned === 1,
+        socReg ? socReg.getDate() : null, socReg ? socReg.getMonth() + 1 : null, socReg ? socReg.getFullYear() : null,
+        socCancel ? socCancel.getDate() : null, socCancel ? socCancel.getMonth() + 1 : null, socCancel ? socCancel.getFullYear() : null,
+        row.cag_note || null,
         row.cag_inserted || new Date(),
       ]);
       inserted++;
@@ -1117,14 +1159,61 @@ async function step4c_activities() {
         try {
           const totalCount = await mssqlPool.request().query(`SELECT COUNT(*) as cnt FROM ${tableName}`);
           log(`  Acts celkový počet záznamov: ${totalCount.recordset[0].cnt}`);
-          const sample = await mssqlPool.request().query(`SELECT TOP 5 rac_id, agreement_id_reward, rac_name, rac_amount, cur_code, rac_state FROM ${tableName} ORDER BY rac_id DESC`);
+          const sample = await mssqlPool.request().query(`SELECT TOP 5 rac_id, agreement_id_reward, rac_name, rac_amount, cur_code, rac_state, sco_id_bound, con_id_bound FROM ${tableName} ORDER BY rac_id DESC`);
           if (sample.recordset.length > 0) {
             log(`  Acts vzorky (TOP 5):`);
             for (const s of sample.recordset) {
-              log(`    rac_id=${s.rac_id}, agreement=${s.agreement_id_reward}, name=${s.rac_name}, amount=${s.rac_amount} ${s.cur_code}, state=${s.rac_state}`);
+              log(`    rac_id=${s.rac_id}, agreement=${s.agreement_id_reward}, sco=${s.sco_id_bound}, con=${s.con_id_bound}, name=${s.rac_name}, amount=${s.rac_amount} ${s.cur_code}, state=${s.rac_state}`);
             }
           }
         } catch (diagErr) { log(`  Acts diagnostika: ${diagErr.message}`); }
+
+        // Alternatívna diagnostika: hľadanie úkonov cez CollaboratorContacts (cc) tabuľku
+        try {
+          const ccCheck = await mssqlPool.request().query(`SELECT TOP 1 * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'CollaboratorContacts'`);
+          if (ccCheck.recordset.length > 0) {
+            const ccCols = await mssqlPool.request().query(`SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'CollaboratorContacts' ORDER BY ORDINAL_POSITION`);
+            log(`  CollaboratorContacts stĺpce: ${ccCols.recordset.map(r => r.COLUMN_NAME).join(', ')}`);
+            const ccCount = await mssqlPool.request().query(`SELECT COUNT(*) as cnt FROM CollaboratorContacts`);
+            log(`  CollaboratorContacts celkový počet: ${ccCount.recordset[0].cnt}`);
+            if (ccCount.recordset[0].cnt > 0) {
+              const ccSample = await mssqlPool.request().query(`SELECT TOP 10 * FROM CollaboratorContacts WHERE doc_id IN (${docIds.slice(0, 5).join(',')}) ORDER BY 1 DESC`);
+              if (ccSample.recordset.length > 0) {
+                log(`  CollaboratorContacts vzorky pre doc_id ${docIds.slice(0, 5).join(',')}:`);
+                for (const s of ccSample.recordset) log(`    ${JSON.stringify(s)}`);
+              }
+            }
+          }
+        } catch (ccErr) { /* ignore */ }
+
+        // Hľadanie tabuľky ActHistory
+        try {
+          const ahCols = await mssqlPool.request().query(`SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'ActHistory' ORDER BY ORDINAL_POSITION`);
+          if (ahCols.recordset.length > 0) {
+            log(`  ActHistory stĺpce: ${ahCols.recordset.map(r => r.COLUMN_NAME).join(', ')}`);
+            const ahSchema = await mssqlPool.request().query(`SELECT TABLE_SCHEMA FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'ActHistory'`);
+            const ahSchemaName = ahSchema.recordset[0]?.TABLE_SCHEMA || 'dbo';
+            const ahCount = await mssqlPool.request().query(`SELECT COUNT(*) as cnt FROM [${ahSchemaName}].[ActHistory]`);
+            log(`  ActHistory ([${ahSchemaName}]) celkový počet: ${ahCount.recordset[0].cnt}`);
+            if (ahCount.recordset[0].cnt > 0) {
+              const ahSample = await mssqlPool.request().query(`SELECT TOP 5 * FROM [${ahSchemaName}].[ActHistory] ORDER BY 1 DESC`);
+              log(`  ActHistory vzorky:`);
+              for (const s of ahSample.recordset) log(`    ${JSON.stringify(s)}`);
+            }
+          }
+        } catch (ahErr) { /* ignore */ }
+
+        // Hľadanie views pre úkony spolupracovníkov
+        try {
+          const views = await mssqlPool.request().query(`
+            SELECT TABLE_SCHEMA, TABLE_NAME FROM INFORMATION_SCHEMA.VIEWS
+            WHERE TABLE_NAME LIKE '%Act%' OR TABLE_NAME LIKE '%Ukon%' OR TABLE_NAME LIKE '%Reward%'
+            ORDER BY TABLE_NAME
+          `);
+          if (views.recordset.length > 0) {
+            log(`  Views s Act/Ukon/Reward: ${views.recordset.map(r => `${r.TABLE_SCHEMA}.${r.TABLE_NAME}`).join(', ')}`);
+          }
+        } catch (vErr) { /* ignore */ }
 
         acts = await mssqlPool.request().query(`
           SELECT rac_id, agreement_id_reward, hos_id_bound, sco_id_bound, con_id_bound,
@@ -2130,6 +2219,20 @@ async function step10_verification() {
   if (addrStats.rows.length > 0) {
     log('  Adresy podľa typu: ' + addrStats.rows.map(r => `${r.address_type}=${r.cnt}`).join(', '));
   }
+
+  // Agreement stats
+  const agStats = await pgPool.query(`
+    SELECT
+      COUNT(*) as total,
+      COUNT(*) FILTER (WHERE questionnaire_returned = true) as with_questionnaire,
+      COUNT(*) FILTER (WHERE social_insurance_registration_day IS NOT NULL) as with_soc_reg,
+      COUNT(*) FILTER (WHERE social_insurance_cancel_day IS NOT NULL) as with_soc_cancel,
+      COUNT(*) FILTER (WHERE note IS NOT NULL AND note != '') as with_note,
+      COUNT(*) FILTER (WHERE is_valid = true) as valid
+    FROM collaborator_agreements WHERE legacy_id IS NOT NULL
+  `);
+  const ag = agStats.rows[0];
+  log(`  Dohody: total=${ag.total}, valid=${ag.valid}, questionnaire=${ag.with_questionnaire}, soc_reg=${ag.with_soc_reg}, soc_cancel=${ag.with_soc_cancel}, note=${ag.with_note}`);
 
   log('\n--- Klientky v INDEXUS ---');
   const customers = await pgPool.query(`

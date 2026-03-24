@@ -3656,7 +3656,14 @@ export default function CollectionsPage() {
                               <td className="py-3 px-3 font-mono text-xs">{col.cbuNumber || notAvailable}</td>
                               <td className="py-3 px-3">
                                 <div className="flex flex-col">
-                                  <span className="font-medium">{col.clientFirstName} {col.clientLastName}</span>
+                                  <span className="font-medium">
+                                    {col.clientFirstName} {col.clientLastName}
+                                    {(col as any).dataSource === 'iscbc' && (
+                                      <Badge variant="outline" className="ml-2 text-[10px] px-1.5 py-0 bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800">
+                                        ISCBC
+                                      </Badge>
+                                    )}
+                                  </span>
                                   {col.childFirstName && (
                                     <span className="text-xs text-muted-foreground">{col.childFirstName} {col.childLastName}</span>
                                   )}

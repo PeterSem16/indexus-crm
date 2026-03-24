@@ -6844,7 +6844,14 @@ export default function CustomersPage() {
             {customer.firstName[0]}{customer.lastName[0]}
           </div>
           <div>
-            <p className="font-medium">{customer.firstName} {customer.lastName}</p>
+            <p className="font-medium">
+              {customer.firstName} {customer.lastName}
+              {(customer as any).dataSource === 'iscbc' && (
+                <Badge variant="outline" className="ml-2 text-[10px] px-1.5 py-0 bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800">
+                  ISCBC
+                </Badge>
+              )}
+            </p>
             <p className="text-sm text-muted-foreground">{customer.email}</p>
           </div>
         </div>

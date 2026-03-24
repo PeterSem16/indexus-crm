@@ -133,6 +133,14 @@ interface PendingAgreement {
   agreementReturnedMonth: number | null;
   agreementReturnedYear: number | null;
   isValid: boolean;
+  questionnaireReturned: boolean;
+  socialInsuranceRegistrationDay: number | null;
+  socialInsuranceRegistrationMonth: number | null;
+  socialInsuranceRegistrationYear: number | null;
+  socialInsuranceCancelDay: number | null;
+  socialInsuranceCancelMonth: number | null;
+  socialInsuranceCancelYear: number | null;
+  note: string;
   notes: string;
 }
 
@@ -681,10 +689,18 @@ function PendingAgreementForm({
     agreementReturnedMonth: agreement?.agreementReturnedMonth || null,
     agreementReturnedYear: agreement?.agreementReturnedYear || null,
     isValid: agreement?.isValid ?? true,
+    questionnaireReturned: (agreement as any)?.questionnaireReturned ?? false,
+    socialInsuranceRegistrationDay: (agreement as any)?.socialInsuranceRegistrationDay || null,
+    socialInsuranceRegistrationMonth: (agreement as any)?.socialInsuranceRegistrationMonth || null,
+    socialInsuranceRegistrationYear: (agreement as any)?.socialInsuranceRegistrationYear || null,
+    socialInsuranceCancelDay: (agreement as any)?.socialInsuranceCancelDay || null,
+    socialInsuranceCancelMonth: (agreement as any)?.socialInsuranceCancelMonth || null,
+    socialInsuranceCancelYear: (agreement as any)?.socialInsuranceCancelYear || null,
+    note: (agreement as any)?.note || "",
     notes: agreement?.notes || "",
   });
 
-  const setToday = (prefix: "validFrom" | "validTo" | "agreementSent" | "agreementReturned") => {
+  const setToday = (prefix: "validFrom" | "validTo" | "agreementSent" | "agreementReturned" | "socialInsuranceRegistration" | "socialInsuranceCancel") => {
     const today = new Date();
     setFormData({
       ...formData,
@@ -827,12 +843,31 @@ function PendingAgreementForm({
           </div>
         </div>
 
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="flex items-center space-x-2">
+            <Switch
+              checked={formData.isValid}
+              onCheckedChange={(checked) => setFormData({ ...formData, isValid: checked })}
+              data-testid="switch-pending-is-valid"
+            />
+            <Label>{t.collaborators?.fields?.isValid || "Platná"}</Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Switch
+              checked={formData.questionnaireReturned}
+              onCheckedChange={(checked) => setFormData({ ...formData, questionnaireReturned: checked })}
+              data-testid="switch-pending-questionnaire-returned"
+            />
+            <Label>{t.collaborators?.fields?.questionnaireReturned || "Dotazník vrátený"}</Label>
+          </div>
+        </div>
+
         <div className="space-y-2">
-          <Label>{t.collaborators?.fields?.notes || "Notes"}</Label>
+          <Label>{t.collaborators?.fields?.note || "Poznámka"}</Label>
           <Textarea
-            value={formData.notes}
-            onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-            data-testid="textarea-pending-agreement-notes"
+            value={formData.note}
+            onChange={(e) => setFormData({ ...formData, note: e.target.value })}
+            data-testid="textarea-pending-agreement-note"
           />
         </div>
 
@@ -1494,6 +1529,14 @@ function AgreementForm({ collaboratorId, editingId, agreement, billingCompanies,
     agreementReturnedMonth: agreement?.agreementReturnedMonth,
     agreementReturnedYear: agreement?.agreementReturnedYear,
     isValid: agreement?.isValid ?? true,
+    questionnaireReturned: (agreement as any)?.questionnaireReturned ?? false,
+    socialInsuranceRegistrationDay: (agreement as any)?.socialInsuranceRegistrationDay,
+    socialInsuranceRegistrationMonth: (agreement as any)?.socialInsuranceRegistrationMonth,
+    socialInsuranceRegistrationYear: (agreement as any)?.socialInsuranceRegistrationYear,
+    socialInsuranceCancelDay: (agreement as any)?.socialInsuranceCancelDay,
+    socialInsuranceCancelMonth: (agreement as any)?.socialInsuranceCancelMonth,
+    socialInsuranceCancelYear: (agreement as any)?.socialInsuranceCancelYear,
+    note: (agreement as any)?.note || "",
     notes: (agreement as any)?.notes || "",
   });
 
@@ -1514,9 +1557,9 @@ function AgreementForm({ collaboratorId, editingId, agreement, billingCompanies,
     },
   });
 
-  const setToday = (field: "validFrom" | "validTo" | "agreementSent" | "agreementReturned") => {
+  const setToday = (field: "validFrom" | "validTo" | "agreementSent" | "agreementReturned" | "socialInsuranceRegistration" | "socialInsuranceCancel") => {
     const today = new Date();
-    const updates = {
+    const updates: any = {
       [`${field}Day`]: today.getDate(),
       [`${field}Month`]: today.getMonth() + 1,
       [`${field}Year`]: today.getFullYear(),
@@ -1740,22 +1783,62 @@ function AgreementForm({ collaboratorId, editingId, agreement, billingCompanies,
         </div>
       </div>
 
-      <div className="flex items-center space-x-2">
-        <Switch
-          checked={formData.isValid}
-          onCheckedChange={(checked) => setFormData({ ...formData, isValid: checked })}
-        />
-        <Label>{t.collaborators?.fields?.isValid}</Label>
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="flex items-center space-x-2">
+          <Switch
+            checked={formData.isValid}
+            onCheckedChange={(checked) => setFormData({ ...formData, isValid: checked })}
+            data-testid="switch-agreement-is-valid"
+          />
+          <Label>{t.collaborators?.fields?.isValid}</Label>
+        </div>
+        <div className="flex items-center space-x-2">
+          <Switch
+            checked={formData.questionnaireReturned}
+            onCheckedChange={(checked) => setFormData({ ...formData, questionnaireReturned: checked })}
+            data-testid="switch-agreement-questionnaire-returned"
+          />
+          <Label>{t.collaborators?.fields?.questionnaireReturned || "Dotazník vrátený"}</Label>
+        </div>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label>{t.collaborators?.fields?.socialInsuranceRegistration || "Registrácia soc. poisťovňa"}</Label>
+            <Button type="button" variant="ghost" size="sm" onClick={() => setToday("socialInsuranceRegistration" as any)} data-testid="button-today-social-insurance-reg">
+              {t.common.today}
+            </Button>
+          </div>
+          <div className="flex gap-2">
+            <Input type="number" placeholder={t.collaborators.fields.day} value={formData.socialInsuranceRegistrationDay || ""} onChange={(e) => setFormData({ ...formData, socialInsuranceRegistrationDay: parseInt(e.target.value) || undefined })} className="w-20" data-testid="input-social-insurance-reg-day" />
+            <Input type="number" placeholder={t.collaborators.fields.month} value={formData.socialInsuranceRegistrationMonth || ""} onChange={(e) => setFormData({ ...formData, socialInsuranceRegistrationMonth: parseInt(e.target.value) || undefined })} className="w-20" data-testid="input-social-insurance-reg-month" />
+            <Input type="number" placeholder={t.collaborators.fields.year} value={formData.socialInsuranceRegistrationYear || ""} onChange={(e) => setFormData({ ...formData, socialInsuranceRegistrationYear: parseInt(e.target.value) || undefined })} className="w-24" data-testid="input-social-insurance-reg-year" />
+          </div>
+        </div>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label>{t.collaborators?.fields?.socialInsuranceCancel || "Odhlásenie soc. poisťovňa"}</Label>
+            <Button type="button" variant="ghost" size="sm" onClick={() => setToday("socialInsuranceCancel" as any)} data-testid="button-today-social-insurance-cancel">
+              {t.common.today}
+            </Button>
+          </div>
+          <div className="flex gap-2">
+            <Input type="number" placeholder={t.collaborators.fields.day} value={formData.socialInsuranceCancelDay || ""} onChange={(e) => setFormData({ ...formData, socialInsuranceCancelDay: parseInt(e.target.value) || undefined })} className="w-20" data-testid="input-social-insurance-cancel-day" />
+            <Input type="number" placeholder={t.collaborators.fields.month} value={formData.socialInsuranceCancelMonth || ""} onChange={(e) => setFormData({ ...formData, socialInsuranceCancelMonth: parseInt(e.target.value) || undefined })} className="w-20" data-testid="input-social-insurance-cancel-month" />
+            <Input type="number" placeholder={t.collaborators.fields.year} value={formData.socialInsuranceCancelYear || ""} onChange={(e) => setFormData({ ...formData, socialInsuranceCancelYear: parseInt(e.target.value) || undefined })} className="w-24" data-testid="input-social-insurance-cancel-year" />
+          </div>
+        </div>
       </div>
 
       <div className="space-y-2">
-        <Label>{t.collaborators?.fields?.notes}</Label>
+        <Label>{t.collaborators?.fields?.note || "Poznámka"}</Label>
         <Textarea
-          value={formData.notes}
-          onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-          placeholder={t.collaborators?.fields?.notes}
+          value={formData.note}
+          onChange={(e) => setFormData({ ...formData, note: e.target.value })}
+          placeholder={t.collaborators?.fields?.note || "Poznámka k dohode"}
           className="min-h-[80px]"
-          data-testid="textarea-agreement-notes"
+          data-testid="textarea-agreement-note"
         />
       </div>
 

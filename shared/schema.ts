@@ -2038,6 +2038,15 @@ export const collaboratorAgreements = pgTable("collaborator_agreements", {
   agreementForm: text("agreement_form"),
   rewardTypes: text("reward_types").array().default(sql`ARRAY[]::text[]`),
   
+  questionnaireReturned: boolean("questionnaire_returned").default(false),
+  socialInsuranceRegistrationDay: integer("social_insurance_registration_day"),
+  socialInsuranceRegistrationMonth: integer("social_insurance_registration_month"),
+  socialInsuranceRegistrationYear: integer("social_insurance_registration_year"),
+  socialInsuranceCancelDay: integer("social_insurance_cancel_day"),
+  socialInsuranceCancelMonth: integer("social_insurance_cancel_month"),
+  socialInsuranceCancelYear: integer("social_insurance_cancel_year"),
+  note: text("note"),
+  
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
