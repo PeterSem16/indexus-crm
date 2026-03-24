@@ -75,6 +75,7 @@ interface AvailableMailbox {
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { getCountryFlag, getCountryName } from "@/lib/countries";
+import { cn } from "@/lib/utils";
 import type { Customer, Product, CustomerProduct, Invoice, BillingDetails, CustomerNote, ActivityLog, CommunicationMessage, CustomerPotentialCase, MarketProductInstance, CustomerEmailNotification } from "@shared/schema";
 import {
   Select,
@@ -2048,19 +2049,56 @@ function CustomerHistoryTimeline({
 
     // Add documents (contracts and invoices)
     documents.forEach((doc: any) => {
+      const docType = doc.documentType || doc.type;
+      const isContract = docType === "contract";
+      const isInvoice = docType === "invoice";
+      const isIscbc = doc.dataSource === "iscbc";
+      const docNumber = doc.contractNumber || doc.invoiceNumber || doc.number || "";
+      const docStatus = doc.invoiceStatus || doc.contractStatus || doc.status;
+      const docAmount = doc.totalAmount || doc.amount;
+      const docCurrency = doc.domesticCurrency || doc.currency;
+      const docDate = doc.issueDate || doc.validFrom || doc.createdAt;
+
+      const statusLabel = docStatus === "paid" ? "Uhradená"
+        : docStatus === "unpaid" ? "Neuhradená"
+        : docStatus === "partially_paid" ? "Čiastočne uhradená"
+        : docStatus === "cancelled" ? "Zrušená"
+        : docStatus === "storno" ? "Stornovaná"
+        : docStatus || "";
+
+      let title = isContract ? "Zmluva" : isInvoice ? "Faktúra" : "Dokument";
+      let description = docNumber;
+      if (docAmount && docCurrency) {
+        description += ` — ${docAmount} ${docCurrency}`;
+      } else if (docAmount) {
+        description += ` — ${docAmount}`;
+      }
+
       events.push({
         id: doc.id,
         type: "document",
         action: "document_created",
-        title: doc.type === "contract" ? "Zmluva" : "Faktúra",
-        description: doc.number || doc.contractNumber || doc.invoiceNumber,
-        details: { status: doc.status, templateName: doc.templateName },
-        createdAt: doc.createdAt,
+        title,
+        description,
+        details: {
+          status: statusLabel,
+          rawStatus: docStatus,
+          templateName: doc.templateName,
+          companyName: doc.companyName,
+          amount: docAmount,
+          currency: docCurrency,
+          invoiceType: doc.invoiceType,
+          dueDate: doc.dueDate,
+          deliveryDate: doc.deliveryDate,
+          isIscbc,
+          documentType: docType,
+        },
+        createdAt: docDate || doc.createdAt,
         userId: doc.createdBy,
-        downloadUrl: `/api/customers/${customerId}/documents/${doc.type}/${doc.id}/pdf`,
-        documentType: doc.type,
-        icon: FileText,
-        color: doc.type === "contract" ? "text-emerald-500" : "text-amber-500",
+        downloadUrl: !isIscbc ? `/api/customers/${customerId}/documents/${docType}/${doc.id}/pdf` : undefined,
+        documentType: docType,
+        icon: isContract ? FileText : Receipt,
+        color: isContract ? "text-emerald-500" : "text-amber-500",
       });
     });
 
@@ -2531,8 +2569,14 @@ function CustomerHistoryTimeline({
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 flex-wrap">
                                 <p className="font-medium">{event.title}</p>
+                                {event.details?.isIscbc && (
+                                  <Badge className="bg-amber-100 text-amber-800 text-[10px] px-1.5 py-0">ISCBC</Badge>
+                                )}
                                 {event.details?.status && (
-                                  <Badge variant="outline" className="text-xs">
+                                  <Badge variant="outline" className={cn("text-xs",
+                                    event.details?.rawStatus === "paid" && "border-green-300 text-green-700",
+                                    event.details?.rawStatus === "unpaid" && "border-red-300 text-red-700"
+                                  )}>
                                     {event.details.status}
                                   </Badge>
                                 )}
@@ -2620,13 +2664,26 @@ function CustomerHistoryTimeline({
 
                               {/* Document details */}
                               {event.type === "document" && event.details && (
-                                <div className="mt-2 p-2 rounded-md bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 text-xs">
-                                  <div className="flex items-center gap-2 flex-wrap">
+                                <div className={`mt-2 p-2 rounded-md text-xs ${
+                                  event.details.documentType === "contract"
+                                    ? "bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800"
+                                    : "bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800"
+                                }`}>
+                                  <div className="flex items-center gap-3 flex-wrap">
+                                    {event.details.companyName && (
+                                      <span><span className="font-medium">Spoločnosť:</span> {event.details.companyName}</span>
+                                    )}
                                     {event.details.templateName && (
                                       <span><span className="font-medium">Šablóna:</span> {event.details.templateName}</span>
                                     )}
-                                    {event.details.status && (
-                                      <Badge variant="outline" className="text-xs">{event.details.status}</Badge>
+                                    {event.details.invoiceType && (
+                                      <span><span className="font-medium">Typ:</span> {event.details.invoiceType}</span>
+                                    )}
+                                    {event.details.amount && (
+                                      <span><span className="font-medium">Suma:</span> {event.details.amount} {event.details.currency || ""}</span>
+                                    )}
+                                    {event.details.dueDate && (
+                                      <span><span className="font-medium">Splatnosť:</span> {new Date(event.details.dueDate).toLocaleDateString("sk-SK")}</span>
                                     )}
                                   </div>
                                 </div>
