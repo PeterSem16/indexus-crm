@@ -133,6 +133,46 @@ async function step1_testConnection() {
   await pgPool.query('SELECT 1');
   log('✓ Pripojené k PostgreSQL (INDEXUS)');
 
+  // Auto-ensure new columns exist in PostgreSQL
+  const ensureCols = [
+    { table: 'hospitals', column: 'data_source', type: 'text' },
+    { table: 'collaborators', column: 'data_source', type: 'text' },
+  ];
+  for (const ec of ensureCols) {
+    const check = await pgPool.query(`SELECT 1 FROM information_schema.columns WHERE table_name = $1 AND column_name = $2`, [ec.table, ec.column]);
+    if (check.rows.length === 0) {
+      await pgPool.query(`ALTER TABLE ${ec.table} ADD COLUMN ${ec.column} ${ec.type}`);
+      log(`  → Pridaný stĺpec ${ec.table}.${ec.column}`);
+    }
+  }
+  // Ensure collaborator_activities table
+  await pgPool.query(`
+    CREATE TABLE IF NOT EXISTS collaborator_activities (
+      id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+      legacy_id text,
+      collaborator_id varchar NOT NULL,
+      agreement_id varchar,
+      hospital_id varchar,
+      collection_id varchar,
+      state text,
+      currency text,
+      amount text,
+      name text,
+      internal_note text,
+      public_note text,
+      due_date timestamp,
+      due_date_type text,
+      proposed_at timestamp,
+      proposed_by text,
+      approved_at timestamp,
+      approved_by text,
+      paid_at timestamp,
+      cancelled_at timestamp,
+      created_at timestamp NOT NULL DEFAULT now()
+    )
+  `);
+  log('✓ Schema overená (data_source, collaborator_activities)');
+
   const counts = await mssqlPool.request().query(`
     SELECT 'CollectionStatuses' as t, COUNT(*) as cnt FROM CollectionStatuses
     UNION ALL SELECT 'Laboratories', COUNT(*) FROM Laboratories
@@ -558,21 +598,38 @@ async function step3_hospitals() {
     ])
   );
 
-  let inserted = 0, skipped = 0, errors = 0;
+  let inserted = 0, skipped = 0, updated = 0, errors = 0, geocoded = 0;
   for (const row of hospitals.recordset) {
     try {
-      const existing = await pgPool.query('SELECT id FROM hospitals WHERE legacy_id = $1', [String(row.hos_id)]);
-      if (existing.rows.length > 0) { skipped++; continue; }
-
       const countryCode = normalizeCountryCode(row.add_country || row.lab_country_code);
-      const labId = row.lab_name ? (labLookup[row.lab_name] || null) : null;
-
       const city = normalizeCity(row.add_city);
       const postalCode = normalizePostalCode(row.add_zip, countryCode);
+
+      const existing = await pgPool.query('SELECT id, latitude, data_source FROM hospitals WHERE legacy_id = $1', [String(row.hos_id)]);
+      if (existing.rows.length > 0) {
+        // Update existing record with GPS + data_source if missing
+        const ex = existing.rows[0];
+        if (!ex.latitude || !ex.data_source) {
+          let lat = ex.latitude, lng = null;
+          if (!ex.latitude) {
+            try {
+              const geo = await geocodeAddress(row.add_street_and_number, city, postalCode, countryCode);
+              if (geo) { lat = geo.lat; lng = geo.lng; geocoded++; }
+            } catch (geoErr) { /* skip */ }
+          }
+          await pgPool.query(`UPDATE hospitals SET data_source = COALESCE(data_source, 'iscbc'), latitude = COALESCE(latitude, $2), longitude = COALESCE(longitude, $3), updated_at = now() WHERE id = $1`,
+            [ex.id, lat, lng]);
+          updated++;
+        }
+        skipped++;
+        continue;
+      }
+
+      const labId = row.lab_name ? (labLookup[row.lab_name] || null) : null;
       let lat = null, lng = null;
       try {
         const geo = await geocodeAddress(row.add_street_and_number, city, postalCode, countryCode);
-        if (geo) { lat = geo.lat; lng = geo.lng; }
+        if (geo) { lat = geo.lat; lng = geo.lng; geocoded++; }
       } catch (geoErr) { /* skip geocoding errors */ }
 
       await pgPool.query(`
@@ -595,7 +652,7 @@ async function step3_hospitals() {
       log(`  ERROR hos_id=${row.hos_id}: ${err.message}`);
     }
   }
-  log(`\n  → ${inserted} vložených, ${skipped} preskočených, ${errors} chýb`);
+  log(`\n  → ${inserted} vložených, ${skipped} preskočených (${updated} aktualizovaných), ${errors} chýb, ${geocoded} geocodovaných`);
 }
 
 // ============================================================
@@ -713,8 +770,34 @@ async function step4_collaborators() {
   let inserted = 0, skipped = 0, errors = 0, addrInserted = 0, repMatched = 0;
   for (const row of collabs.recordset) {
     try {
-      const existing = await pgPool.query('SELECT id FROM collaborators WHERE legacy_id = $1', [String(row.doc_id)]);
-      if (existing.rows.length > 0) { skipped++; continue; }
+      const existing = await pgPool.query('SELECT id, data_source, representative_id FROM collaborators WHERE legacy_id = $1', [String(row.doc_id)]);
+      if (existing.rows.length > 0) {
+        // Update existing with data_source + representative + addresses if missing
+        const ex = existing.rows[0];
+        const repName = row.rer_id ? (repLookup[row.rer_id] || null) : null;
+        if (!ex.data_source || (!ex.representative_id && repName)) {
+          await pgPool.query(`UPDATE collaborators SET data_source = COALESCE(data_source, 'iscbc'), representative_id = COALESCE(representative_id, $2), updated_at = now() WHERE id = $1`,
+            [ex.id, repName]);
+        }
+        // Add missing addresses
+        const existingAddrs = await pgPool.query('SELECT address_type FROM collaborator_addresses WHERE collaborator_id = $1 AND legacy_id IS NOT NULL', [ex.id]);
+        const existingTypes = new Set(existingAddrs.rows.map(r => r.address_type));
+        const addrPairs = [
+          { addId: row.add_id, type: 'permanent' },
+          { addId: row.add_id_firm, type: 'company' },
+        ];
+        for (const ap of addrPairs) {
+          if (!ap.addId || !addressLookup[ap.addId] || existingTypes.has(ap.type)) continue;
+          const addr = addressLookup[ap.addId];
+          const addrCountry = normalizeCountryCode(addr.add_country);
+          await pgPool.query(`INSERT INTO collaborator_addresses (legacy_id, collaborator_id, address_type, name, street_number, city, postal_code, region, country_code) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+            [String(ap.addId), ex.id, ap.type, addr.add_name, addr.add_street_and_number, normalizeCity(addr.add_city), normalizePostalCode(addr.add_zip, addrCountry), addr.add_area, addrCountry]);
+          addrInserted++;
+        }
+        if (repName) repMatched++;
+        skipped++;
+        continue;
+      }
 
       const countryCode = normalizeCountryCode(countryMap[row.doc_id]);
       const firstName = normalizeName(row.pda_first_name) || 'N/A';
@@ -935,6 +1018,29 @@ async function step4c_activities() {
   let acts;
   try {
     if (cagIds.length === 0) { log('  Žiadne dohody, preskakujem Acts'); return; }
+
+    // Discover actual table name for Acts
+    const actsTables = await mssqlPool.request().query(`
+      SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
+      WHERE TABLE_NAME LIKE '%Act%' OR TABLE_NAME LIKE '%act%' OR TABLE_NAME LIKE '%Reward%Act%'
+      ORDER BY TABLE_NAME
+    `);
+    const actTableNames = actsTables.recordset.map(r => r.TABLE_NAME);
+    log(`  Tabuľky obsahujúce "Act": ${actTableNames.join(', ') || 'ŽIADNE'}`);
+
+    let actsTable = 'Acts';
+    if (!actTableNames.includes('Acts')) {
+      const candidate = actTableNames.find(n => n.toLowerCase().includes('act') && !n.includes('History') && !n.includes('Remark'));
+      if (candidate) { actsTable = candidate; log(`  Použitá alternatívna tabuľka: ${actsTable}`); }
+      else { log('  Tabuľka Acts neexistuje, preskakujem'); return; }
+    }
+
+    // Check columns
+    const actsCols = await mssqlPool.request().query(`
+      SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '${actsTable}' ORDER BY ORDINAL_POSITION
+    `);
+    log(`  ${actsTable} stĺpce: ${actsCols.recordset.map(r => r.COLUMN_NAME).join(', ')}`);
+
     acts = await mssqlPool.request().query(`
       SELECT rac_id, agreement_id_reward, hos_id_bound, sco_id_bound,
              rac_state, cur_code, rac_amount, rac_name,
@@ -943,7 +1049,7 @@ async function step4c_activities() {
              rac_proposed, rac_proposed_by,
              rac_approved, rac_approved_by,
              rac_paid, rac_cancelled
-      FROM Acts
+      FROM [${actsTable}]
       WHERE agreement_id_reward IN (${cagIds.join(',')})
       ORDER BY rac_id DESC
     `);
