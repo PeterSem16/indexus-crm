@@ -27,7 +27,7 @@ import {
 import { COUNTRIES, WORLD_COUNTRIES } from "@shared/schema";
 import { CLIENT_STATUSES } from "@shared/schema";
 import type { Customer, ComplaintType, CooperationType, VipStatus, HealthInsurance } from "@shared/schema";
-import { Copy, PhoneCall, User, MapPin, Briefcase, Building2, FileText, Globe, Heart, Baby, ChevronRight, CheckCircle2, Circle, Stethoscope, Phone, Mail, Calendar, Activity, Hospital } from "lucide-react";
+import { Copy, PhoneCall, User, MapPin, Briefcase, Building2, FileText, Globe, Heart, Baby, ChevronRight, CheckCircle2, Circle, Stethoscope, Phone, Mail, Calendar, Activity, Hospital, FolderOpen, Scale } from "lucide-react";
 import { CallCustomerButton } from "@/components/sip-phone";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -129,6 +129,8 @@ const SECTIONS = [
   { id: "finance", label: "Financie", icon: Building2 },
   { id: "notes", label: "Poznámky", icon: FileText },
   { id: "case", label: "Case", icon: Heart },
+  { id: "documents", label: "Dokumenty", icon: FolderOpen },
+  { id: "debtCollection", label: "Vymáhanie", icon: Scale },
 ];
 
 function SectionHeader({ icon: Icon, title, badge }: { icon: any; title: string; badge?: any }) {
@@ -249,6 +251,18 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCa
   const { data: vipStatuses = [] } = useQuery<VipStatus[]>({ queryKey: ["/api/config/vip-statuses"] });
   const { data: healthInsuranceCompanies = [] } = useQuery<HealthInsurance[]>({ queryKey: ["/api/config/health-insurance"] });
 
+  const { data: customerDocuments = [] } = useQuery<any[]>({
+    queryKey: ["/api/customers", initialData?.id, "documents"],
+    queryFn: () => initialData?.id ? fetch(`/api/customers/${initialData.id}/documents`, { credentials: "include" }).then(r => r.json()) : Promise.resolve([]),
+    enabled: !!initialData?.id,
+  });
+
+  const { data: customerDebtCollection = [] } = useQuery<any[]>({
+    queryKey: ["/api/customers", initialData?.id, "debt-collection"],
+    queryFn: () => initialData?.id ? fetch(`/api/customers/${initialData.id}/debt-collection`, { credentials: "include" }).then(r => r.json()) : Promise.resolve([]),
+    enabled: !!initialData?.id,
+  });
+
   const form = useForm<CustomerFormData>({
     resolver: zodResolver(customerFormSchema),
     defaultValues: {
@@ -312,8 +326,11 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCa
 
   const showCaseSection = clientStatus === "in_process" || clientStatus === "acquired";
 
+  const isEditMode = !!initialData;
+
   const visibleSections = SECTIONS.filter(s => {
     if (s.id === "case") return showCaseSection;
+    if (s.id === "documents" || s.id === "debtCollection") return isEditMode;
     return true;
   });
 
@@ -871,6 +888,102 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCa
 
                 {initialData && (
                   <EmbeddedPotentialCaseForm customer={initialData} />
+                )}
+              </div>
+            )}
+
+            {activeSection === "documents" && isEditMode && (
+              <div>
+                <SectionHeader icon={FolderOpen} title="Dokumenty" badge={
+                  customerDocuments.length > 0 ? (
+                    <Badge className="bg-amber-100 text-amber-800 text-[10px] ml-auto">ISCBC</Badge>
+                  ) : null
+                } />
+                {customerDocuments.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <FolderOpen className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                    <p className="text-sm">Žiadne dokumenty</p>
+                  </div>
+                ) : (
+                  <div className="overflow-auto border rounded-lg">
+                    <table className="w-full text-sm">
+                      <thead className="bg-muted/50">
+                        <tr>
+                          <th className="p-2 text-left font-medium">Typ</th>
+                          <th className="p-2 text-left font-medium">Číslo</th>
+                          <th className="p-2 text-left font-medium">Dátum</th>
+                          <th className="p-2 text-left font-medium">Suma</th>
+                          <th className="p-2 text-left font-medium">Stav</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {customerDocuments.map((doc: any, idx: number) => (
+                          <tr key={doc.id || idx} className="border-t hover:bg-muted/30" data-testid={`row-document-${idx}`}>
+                            <td className="p-2">
+                              <div className="flex items-center gap-1.5">
+                                <Badge className="bg-amber-100 text-amber-800 text-[10px]">ISCBC</Badge>
+                                {doc.documentType === "contract" ? "Zmluva" : doc.documentType === "invoice" ? "Faktúra" : doc.documentType || "-"}
+                              </div>
+                            </td>
+                            <td className="p-2 font-mono text-xs">{doc.documentNumber || doc.contractNumber || doc.invoiceNumber || "-"}</td>
+                            <td className="p-2">{doc.documentDate ? new Date(doc.documentDate).toLocaleDateString("sk-SK") : "-"}</td>
+                            <td className="p-2">{doc.amount ? `${doc.amount} ${doc.currency || ""}`.trim() : "-"}</td>
+                            <td className="p-2">
+                              <Badge variant="outline" className="text-xs">{doc.status || "-"}</Badge>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeSection === "debtCollection" && isEditMode && (
+              <div>
+                <SectionHeader icon={Scale} title="Vymáhanie pohľadávok" badge={
+                  customerDebtCollection.length > 0 ? (
+                    <Badge className="bg-amber-100 text-amber-800 text-[10px] ml-auto">ISCBC</Badge>
+                  ) : null
+                } />
+                {customerDebtCollection.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Scale className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                    <p className="text-sm">Žiadne záznamy o vymáhaní</p>
+                  </div>
+                ) : (
+                  <div className="overflow-auto border rounded-lg">
+                    <table className="w-full text-sm">
+                      <thead className="bg-muted/50">
+                        <tr>
+                          <th className="p-2 text-left font-medium">Spoločnosť</th>
+                          <th className="p-2 text-right font-medium">Dlžná suma</th>
+                          <th className="p-2 text-left font-medium">Mena</th>
+                          <th className="p-2 text-center font-medium">Neuhradené fakt.</th>
+                          <th className="p-2 text-left font-medium">Splatnosť od</th>
+                          <th className="p-2 text-left font-medium">Splatnosť do</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {customerDebtCollection.map((item: any, idx: number) => (
+                          <tr key={item.id || idx} className="border-t hover:bg-muted/30" data-testid={`row-debt-${idx}`}>
+                            <td className="p-2">
+                              <div className="flex items-center gap-1.5">
+                                <Badge className="bg-amber-100 text-amber-800 text-[10px]">ISCBC</Badge>
+                                {item.companyName || "-"}
+                              </div>
+                            </td>
+                            <td className="p-2 text-right font-medium text-red-600">{item.debtAmount || item.amount || "-"}</td>
+                            <td className="p-2">{item.currency || "-"}</td>
+                            <td className="p-2 text-center">{item.overdueInvoicesCount ?? "-"}</td>
+                            <td className="p-2">{item.oldestDueDate ? new Date(item.oldestDueDate).toLocaleDateString("sk-SK") : "-"}</td>
+                            <td className="p-2">{item.newestDueDate ? new Date(item.newestDueDate).toLocaleDateString("sk-SK") : "-"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 )}
               </div>
             )}
