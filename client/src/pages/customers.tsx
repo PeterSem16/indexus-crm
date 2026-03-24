@@ -1686,7 +1686,7 @@ const TIMELINE_ACTION_TYPES = [
   { value: "product", label: "Produkty", icon: Package, activeClass: "bg-gradient-to-br from-indigo-500 to-indigo-600 border-indigo-600 shadow-lg shadow-indigo-500/25", textColor: "text-white", inactiveClass: "bg-indigo-50 dark:bg-indigo-950/30 border-indigo-200 dark:border-indigo-800 hover:border-indigo-400 dark:hover:border-indigo-600 hover:shadow-sm", inactiveTextColor: "text-indigo-600 dark:text-indigo-400" },
   { value: "pipeline", label: "Pipeline", icon: ArrowRight, activeClass: "bg-gradient-to-br from-cyan-500 to-cyan-600 border-cyan-600 shadow-lg shadow-cyan-500/25", textColor: "text-white", inactiveClass: "bg-cyan-50 dark:bg-cyan-950/30 border-cyan-200 dark:border-cyan-800 hover:border-cyan-400 dark:hover:border-cyan-600 hover:shadow-sm", inactiveTextColor: "text-cyan-600 dark:text-cyan-400" },
   { value: "consent", label: "Suhlasy", icon: Shield, activeClass: "bg-gradient-to-br from-teal-500 to-teal-600 border-teal-600 shadow-lg shadow-teal-500/25", textColor: "text-white", inactiveClass: "bg-teal-50 dark:bg-teal-950/30 border-teal-200 dark:border-teal-800 hover:border-teal-400 dark:hover:border-teal-600 hover:shadow-sm", inactiveTextColor: "text-teal-600 dark:text-teal-400" },
-  { value: "campaign", label: "Kampane", icon: Target, activeClass: "bg-gradient-to-br from-rose-500 to-rose-600 border-rose-600 shadow-lg shadow-rose-500/25", textColor: "text-white", inactiveClass: "bg-rose-50 dark:bg-rose-950/30 border-rose-200 dark:border-rose-800 hover:border-rose-400 dark:hover:border-rose-600 hover:shadow-sm", inactiveTextColor: "text-rose-600 dark:text-rose-400" },
+  { value: "campaign", label: "Missions", icon: Target, activeClass: "bg-gradient-to-br from-rose-500 to-rose-600 border-rose-600 shadow-lg shadow-rose-500/25", textColor: "text-white", inactiveClass: "bg-rose-50 dark:bg-rose-950/30 border-rose-200 dark:border-rose-800 hover:border-rose-400 dark:hover:border-rose-600 hover:shadow-sm", inactiveTextColor: "text-rose-600 dark:text-rose-400" },
 ] as const;
 
 // Field label translations for displaying changes
@@ -1993,8 +1993,8 @@ function CustomerHistoryTimeline({
         stage_changed: "Presun v pipeline",
         consent_granted: "Udelenie súhlasu",
         consent_revoked: "Odvolanie súhlasu",
-        campaign_joined: "Pridanie do kampane",
-        campaign_left: "Odstránenie z kampane",
+        campaign_joined: t.nav?.campaigns ? `${t.nav.campaigns} +` : "Mission +",
+        campaign_left: t.nav?.campaigns ? `${t.nav.campaigns} -` : "Mission -",
         campaign_status_changed: "Zmena statusu v kampani",
         campaign_note_added: "Poznámka ku kampani",
         note_added: "Pridanie poznámky",
@@ -3331,12 +3331,12 @@ export function CustomerDetailsContent({
       send_sms: t.activity?.sentSms || "Sent SMS",
       pipeline_move: "Presun v pipeline",
       stage_changed: "Presun v pipeline",
-      campaign_joined: "Pridanie do kampane",
-      campaign_left: "Odstránenie z kampane",
-      campaign_status_changed: "Zmena statusu v kampani",
-      campaign_note_added: "Poznámka ku kampani",
-      note_added: "Poznámka pridaná",
-      add_note: "Poznámka pridaná",
+      campaign_joined: t.nav?.campaigns ? `${t.nav.campaigns} +` : "Mission +",
+      campaign_left: t.nav?.campaigns ? `${t.nav.campaigns} -` : "Mission -",
+      campaign_status_changed: t.nav?.campaigns ? `${t.nav.campaigns} status` : "Mission status",
+      campaign_note_added: t.nav?.campaigns ? `${t.nav.campaigns} note` : "Mission note",
+      note_added: t.customers.details?.addNote || "Note added",
+      add_note: t.customers.details?.addNote || "Note added",
       create_note: "Poznámka pridaná",
     };
     return labels[action] || action.replace(/_/g, " ");
@@ -7517,7 +7517,7 @@ export default function CustomersPage() {
                 {[
                   { value: "data", icon: <FileEdit className="h-3.5 w-3.5" />, label: t.customers.tabs?.data || "Data" },
                   { value: "history", icon: <History className="h-3.5 w-3.5" />, label: t.customers.tabs?.history || "History" },
-                  { value: "campaigns", icon: <Target className="h-3.5 w-3.5" />, label: "Kampane" },
+                  { value: "campaigns", icon: <Target className="h-3.5 w-3.5" />, label: t.nav?.campaigns || "Missions" },
                 ].map(tab => (
                   <TabsTrigger
                     key={tab.value}

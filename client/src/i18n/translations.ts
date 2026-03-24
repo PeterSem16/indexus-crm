@@ -423,6 +423,15 @@ export interface Translations {
       documents: string;
       debtCollection: string;
     };
+    caseFields?: {
+      pregnancyTitle: string;
+      filled: string;
+      gynecologistName: string;
+      gynecologistPhone: string;
+      gynecologistEmail: string;
+      expectedDeliveryDate: string;
+      hospital: string;
+    };
     callHistory?: {
       title: string;
       calls: string;
@@ -5572,6 +5581,25 @@ export const translations: Record<Locale, Translations> = {
           documents: 'Documents',
           debtCollection: 'Debt Collection',
         },
+      caseFields: {
+          pregnancyTitle: 'Pregnancy / Gynecologist',
+          filled: 'Filled',
+          gynecologistName: 'Gynecologist - name',
+          gynecologistPhone: 'Gynecologist - phone',
+          gynecologistEmail: 'Gynecologist - email',
+          expectedDeliveryDate: 'Expected delivery date',
+          hospital: 'Hospital / Maternity ward',
+        },
+      docTableHeaders: {
+          type: 'Type',
+          invoiceNumber: 'Invoice Number',
+          company: 'Company',
+          issueDate: 'Issue Date',
+          dueDate: 'Due Date',
+          amount: 'Amount',
+          currency: 'Currency',
+          status: 'Status',
+        },
       callHistory: {
         title: 'Call History',
         calls: 'calls',
@@ -10570,6 +10598,25 @@ export const translations: Record<Locale, Translations> = {
           documents: 'Dokumenty',
           debtCollection: 'Vymáhanie',
         },
+      caseFields: {
+          pregnancyTitle: 'Tehotenstvo / Gynekológ',
+          filled: 'Vyplnené',
+          gynecologistName: 'Gynekológ - meno',
+          gynecologistPhone: 'Gynekológ - telefón',
+          gynecologistEmail: 'Gynekológ - email',
+          expectedDeliveryDate: 'Predpokladaný dátum pôrodu',
+          hospital: 'Nemocnica / Pôrodnica',
+        },
+      docTableHeaders: {
+          type: 'Typ',
+          invoiceNumber: 'Číslo faktúry',
+          company: 'Spoločnosť',
+          issueDate: 'Dátum vystavenia',
+          dueDate: 'Dátum splatnosti',
+          amount: 'Suma',
+          currency: 'Mena',
+          status: 'Stav',
+        },
       callHistory: {
         title: 'Historia hovorov',
         calls: 'hovorov',
@@ -15537,6 +15584,25 @@ export const translations: Record<Locale, Translations> = {
           documents: 'Dokumenty',
           debtCollection: 'Vymáhání',
         },
+      caseFields: {
+          pregnancyTitle: 'Těhotenství / Gynekolog',
+          filled: 'Vyplněno',
+          gynecologistName: 'Gynekolog - jméno',
+          gynecologistPhone: 'Gynekolog - telefon',
+          gynecologistEmail: 'Gynekolog - email',
+          expectedDeliveryDate: 'Předpokládaný datum porodu',
+          hospital: 'Nemocnice / Porodnice',
+        },
+      docTableHeaders: {
+          type: 'Typ',
+          invoiceNumber: 'Číslo faktury',
+          company: 'Společnost',
+          issueDate: 'Datum vystavení',
+          dueDate: 'Datum splatnosti',
+          amount: 'Částka',
+          currency: 'Měna',
+          status: 'Stav',
+        },
       callHistory: {
         title: 'Historie hovoru',
         calls: 'hovoru',
@@ -20429,6 +20495,25 @@ export const translations: Record<Locale, Translations> = {
           documents: 'Dokumentumok',
           debtCollection: 'Behajtás',
         },
+      caseFields: {
+          pregnancyTitle: 'Terhesség / Nőgyógyász',
+          filled: 'Kitöltve',
+          gynecologistName: 'Nőgyógyász - név',
+          gynecologistPhone: 'Nőgyógyász - telefon',
+          gynecologistEmail: 'Nőgyógyász - email',
+          expectedDeliveryDate: 'Várható szülés dátuma',
+          hospital: 'Kórház / Szülészet',
+        },
+      docTableHeaders: {
+          type: 'Típus',
+          invoiceNumber: 'Számlaszám',
+          company: 'Cég',
+          issueDate: 'Kiállítás dátuma',
+          dueDate: 'Fizetési határidő',
+          amount: 'Összeg',
+          currency: 'Pénznem',
+          status: 'Állapot',
+        },
       callHistory: {
         title: 'Hivas elozmenyek',
         calls: 'hivas',
@@ -25319,6 +25404,25 @@ export const translations: Record<Locale, Translations> = {
           case: 'Caz',
           documents: 'Documente',
           debtCollection: 'Recuperare creanțe',
+        },
+      caseFields: {
+          pregnancyTitle: 'Sarcină / Ginecolog',
+          filled: 'Completat',
+          gynecologistName: 'Ginecolog - nume',
+          gynecologistPhone: 'Ginecolog - telefon',
+          gynecologistEmail: 'Ginecolog - email',
+          expectedDeliveryDate: 'Data estimată a nașterii',
+          hospital: 'Spital / Maternitate',
+        },
+      docTableHeaders: {
+          type: 'Tip',
+          invoiceNumber: 'Număr factură',
+          company: 'Companie',
+          issueDate: 'Data emiterii',
+          dueDate: 'Data scadenței',
+          amount: 'Sumă',
+          currency: 'Monedă',
+          status: 'Stare',
         },
       callHistory: {
         title: 'Istoric apeluri',
@@ -30212,6 +30316,25 @@ export const translations: Record<Locale, Translations> = {
           documents: 'Documenti',
           debtCollection: 'Recupero crediti',
         },
+      caseFields: {
+          pregnancyTitle: 'Gravidanza / Ginecologo',
+          filled: 'Compilato',
+          gynecologistName: 'Ginecologo - nome',
+          gynecologistPhone: 'Ginecologo - telefono',
+          gynecologistEmail: 'Ginecologo - email',
+          expectedDeliveryDate: 'Data prevista del parto',
+          hospital: 'Ospedale / Maternità',
+        },
+      docTableHeaders: {
+          type: 'Tipo',
+          invoiceNumber: 'Numero fattura',
+          company: 'Azienda',
+          issueDate: 'Data emissione',
+          dueDate: 'Data scadenza',
+          amount: 'Importo',
+          currency: 'Valuta',
+          status: 'Stato',
+        },
       callHistory: {
         title: 'Cronologia chiamate',
         calls: 'chiamate',
@@ -35103,6 +35226,25 @@ export const translations: Record<Locale, Translations> = {
           case: 'Fall',
           documents: 'Dokumente',
           debtCollection: 'Inkasso',
+        },
+      caseFields: {
+          pregnancyTitle: 'Schwangerschaft / Gynäkologe',
+          filled: 'Ausgefüllt',
+          gynecologistName: 'Gynäkologe - Name',
+          gynecologistPhone: 'Gynäkologe - Telefon',
+          gynecologistEmail: 'Gynäkologe - E-Mail',
+          expectedDeliveryDate: 'Voraussichtliches Geburtsdatum',
+          hospital: 'Krankenhaus / Entbindungsstation',
+        },
+      docTableHeaders: {
+          type: 'Typ',
+          invoiceNumber: 'Rechnungsnummer',
+          company: 'Unternehmen',
+          issueDate: 'Ausstellungsdatum',
+          dueDate: 'Fälligkeitsdatum',
+          amount: 'Betrag',
+          currency: 'Währung',
+          status: 'Status',
         },
       callHistory: {
         title: 'Anrufverlauf',

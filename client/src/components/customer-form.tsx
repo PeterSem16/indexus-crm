@@ -875,43 +875,43 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCa
                 <div className="mb-6 p-4 rounded-lg border bg-muted/20">
                   <div className="flex items-center gap-2 mb-3">
                     <Baby className="h-4 w-4 text-pink-600 dark:text-pink-400" />
-                    <h4 className="text-sm font-semibold text-foreground">Tehotenstvo / Gynekológ</h4>
+                    <h4 className="text-sm font-semibold text-foreground">{t.customers?.caseFields?.pregnancyTitle || "Pregnancy / Gynecologist"}</h4>
                     {((initialData as any)?.gynecologistName || (initialData as any)?.expectedDeliveryDate) && (
                       <Badge variant="outline" className="bg-pink-50 dark:bg-pink-950/30 text-pink-700 dark:text-pink-300 border-pink-200 dark:border-pink-800 text-xs ml-auto">
                         <Stethoscope className="h-3 w-3 mr-1" />
-                        Vyplnené
+                        {t.customers?.caseFields?.filled || "Filled"}
                       </Badge>
                     )}
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <FormField control={form.control} name="gynecologistName" render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Gynekológ - meno</FormLabel>
+                        <FormLabel>{t.customers?.caseFields?.gynecologistName || "Gynecologist - name"}</FormLabel>
                         <FormControl><Input placeholder="MUDr. ..." {...field} data-testid="input-gynecologist-name" /></FormControl>
                         <FormMessage />
                       </FormItem>
                     )} />
                     <FormField control={form.control} name="gynecologistPhone" render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Gynekológ - telefón</FormLabel>
+                        <FormLabel>{t.customers?.caseFields?.gynecologistPhone || "Gynecologist - phone"}</FormLabel>
                         <FormControl><PhoneNumberField value={field.value} onChange={field.onChange} defaultCountryCode={selectedCountry || "SK"} data-testid="input-gynecologist-phone" /></FormControl>
                         <FormMessage />
                       </FormItem>
                     )} />
                     <FormField control={form.control} name="gynecologistEmail" render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Gynekológ - email</FormLabel>
+                        <FormLabel>{t.customers?.caseFields?.gynecologistEmail || "Gynecologist - email"}</FormLabel>
                         <FormControl><Input type="email" placeholder="gynekolog@..." {...field} data-testid="input-gynecologist-email" /></FormControl>
                         <FormMessage />
                       </FormItem>
                     )} />
-                    <DateDropdowns form={form} fieldName="expectedDeliveryDate" label="Predpokladaný dátum pôrodu" />
+                    <DateDropdowns form={form} fieldName="expectedDeliveryDate" label={t.customers?.caseFields?.expectedDeliveryDate || "Expected delivery date"} />
                     <FormField control={form.control} name="hospitalName" render={({ field }) => (
                       <FormItem className="col-span-2">
                         <FormLabel>
                           <div className="flex items-center gap-1.5">
                             <Hospital className="h-3.5 w-3.5" />
-                            Nemocnica / Pôrodnica
+                            {t.customers?.caseFields?.hospital || "Hospital / Maternity ward"}
                           </div>
                         </FormLabel>
                         <FormControl><Input placeholder="Názov nemocnice..." {...field} data-testid="input-hospital-name" /></FormControl>
