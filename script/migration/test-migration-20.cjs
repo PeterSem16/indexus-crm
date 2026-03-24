@@ -727,9 +727,11 @@ async function step4_collaborators() {
   try {
     const perIds = new Set();
     const firmAddIds = new Set();
+    const workAddIds = new Set();
     for (const r of collabs.recordset) {
       if (r.per_id) perIds.add(r.per_id);
       if (r.add_id_firm) firmAddIds.add(r.add_id_firm);
+      if (r.add_id) workAddIds.add(r.add_id);
     }
     if (perIds.size > 0) {
       const addrs = await mssqlPool.request().query(`
@@ -753,22 +755,25 @@ async function step4_collaborators() {
         addressByAddId[a.add_id] = a;
       }
     }
-    // Also load firm addresses by add_id if not already loaded
-    if (firmAddIds.size > 0) {
-      const missing = [...firmAddIds].filter(id => !addressByAddId[id]);
+    // Also load firm addresses and workplace addresses by add_id if not already loaded
+    const extraAddIds = new Set([...firmAddIds, ...workAddIds]);
+    if (extraAddIds.size > 0) {
+      const missing = [...extraAddIds].filter(id => !addressByAddId[id]);
       if (missing.length > 0) {
-        const firmAddrs = await mssqlPool.request().query(`
+        const extraAddrs = await mssqlPool.request().query(`
           SELECT a.add_id, a.per_id, a.mat_id, a.add_name, a.add_street_and_number, a.add_city, a.add_zip, a.add_area, a.add_country
           FROM MailAddresses a
           WHERE a.add_id IN (${missing.join(',')})
         `);
-        for (const a of firmAddrs.recordset) {
+        for (const a of extraAddrs.recordset) {
           addressByAddId[a.add_id] = a;
         }
       }
     }
-    const totalAddrs = Object.values(addressByPerId).reduce((sum, p) => sum + (p.permanent ? 1 : 0) + (p.work ? 1 : 0) + (p.correspondence ? 1 : 0), 0) + [...firmAddIds].filter(id => addressByAddId[id]).length;
-    log(`  MailAddresses: ${totalAddrs} adries načítaných (per_id: ${Object.keys(addressByPerId).length}, firm: ${[...firmAddIds].filter(id => addressByAddId[id]).length})`);
+    const workCount = [...workAddIds].filter(id => addressByAddId[id]).length;
+    const firmCount = [...firmAddIds].filter(id => addressByAddId[id]).length;
+    const totalAddrs = Object.values(addressByPerId).reduce((sum, p) => sum + (p.permanent ? 1 : 0) + (p.work ? 1 : 0) + (p.correspondence ? 1 : 0), 0) + firmCount + workCount;
+    log(`  MailAddresses: ${totalAddrs} adries načítaných (per_id: ${Object.keys(addressByPerId).length}, work: ${workCount}, firm: ${firmCount})`);
   } catch (err) { log(`  WARN MailAddresses: ${err.message}`); }
 
   const collabCountries = await mssqlPool.request().query(`
@@ -911,11 +916,13 @@ async function step4_collaborators() {
       ]);
       const collabId = res.rows[0].id;
 
-      // Migrate addresses: per_id → permanent (mat_id=1), work (mat_id=2), correspondence (mat_id=3); add_id_firm → company
+      // Migrate addresses: per_id → permanent (mat_id=1), work (mat_id=2), correspondence (mat_id=3)
+      // add_id → workplace address (Adresa pracoviska); add_id_firm → company address (Adresa spoločnosti)
       const perAddrData = row.per_id ? (addressByPerId[row.per_id] || {}) : {};
+      const workAddr = perAddrData.work || (row.add_id ? addressByAddId[row.add_id] : null);
       const addrPairs = [
         { addr: perAddrData.permanent, type: 'permanent' },
-        { addr: perAddrData.work, type: 'work' },
+        { addr: workAddr, type: 'work' },
         { addr: perAddrData.correspondence, type: 'correspondence' },
         { addr: row.add_id_firm ? addressByAddId[row.add_id_firm] : null, type: 'company' },
       ];
