@@ -1043,8 +1043,8 @@ async function step4b_agreements() {
       FROM CollectionCollaborators cc
       JOIN CollaborationAgreementTypes at2 ON at2.agt_id = cc.agt_id
       JOIN CollaboratorAgreements ca ON ca.doc_id = cc.doc_id
-        AND ca.cag_from <= ISNULL((SELECT s.sco_date FROM StemCollections s WHERE s.sco_id = cc.sco_id), ca.cag_to)
-        AND ca.cag_to >= ISNULL((SELECT s.sco_date FROM StemCollections s WHERE s.sco_id = cc.sco_id), ca.cag_from)
+        AND ca.cag_from <= ISNULL((SELECT s.sco_date FROM ServiceCollections s WHERE s.sco_id = cc.sco_id), ca.cag_to)
+        AND ca.cag_to >= ISNULL((SELECT s.sco_date FROM ServiceCollections s WHERE s.sco_id = cc.sco_id), ca.cag_from)
       WHERE cc.doc_id IN (${docIds.join(',')})
     `);
     for (const r of ccForAgreements.recordset) {
@@ -1104,6 +1104,7 @@ async function step4b_agreements() {
 
       const rtSet = rewardTypesMap[String(row.cag_id)];
       const rewardTypesArr = rtSet ? Array.from(rtSet) : [];
+      const rewardTypesPg = rewardTypesArr.length > 0 ? `{${rewardTypesArr.join(',')}}` : null;
 
       await pgPool.query(`
         INSERT INTO collaborator_agreements (
@@ -1131,7 +1132,7 @@ async function step4b_agreements() {
         socCancel ? socCancel.getDate() : null, socCancel ? socCancel.getMonth() + 1 : null, socCancel ? socCancel.getFullYear() : null,
         row.cag_note || null,
         row.cag_inserted || new Date(),
-        rewardTypesArr.length > 0 ? JSON.stringify(rewardTypesArr) : null,
+        rewardTypesPg,
       ]);
       inserted++;
     } catch (err) {
