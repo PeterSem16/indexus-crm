@@ -31,6 +31,7 @@ import { Copy, PhoneCall, User, MapPin, Briefcase, Building2, FileText, Globe, H
 import { CallCustomerButton } from "@/components/sip-phone";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { getDocumentStatusLabel, getDocumentStatusVariant } from "@/lib/document-status";
 import { useI18n } from "@/i18n/I18nProvider";
 import { EmbeddedPotentialCaseForm } from "./potential-case-form";
 import { useModuleFieldPermissions } from "@/components/ui/permission-field";
@@ -236,7 +237,7 @@ interface CustomerFormProps {
 }
 
 export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCardLayout = false }: CustomerFormProps) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [activeSection, setActiveSection] = useState("status");
   const { isHidden, isReadonly } = useModuleFieldPermissions("customers");
   const { toast } = useToast();
@@ -925,12 +926,7 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCa
                           const docStatus = doc.invoiceStatus || doc.contractStatus || doc.status;
                           const docCurrency = doc.domesticCurrency || doc.currency;
                           const docAmount = doc.totalAmount || doc.amount;
-                          const statusLabels: Record<string, string> = {
-                            paid: "Uhradená", unpaid: "Neuhradená", partially_paid: "Čiastočne uhradená",
-                            cancelled: "Zrušená", storno: "Stornovaná", active: "Aktívna",
-                            signed: "Podpísaná", draft: "Koncept", sent: "Odoslaná",
-                          };
-                          const statusLabel = statusLabels[docStatus] || docStatus || "-";
+                          const statusLabel = docStatus ? getDocumentStatusLabel(docStatus, locale) : "-";
                           return (
                             <tr key={doc.id || idx} className="border-t hover:bg-muted/30" data-testid={`row-document-${idx}`}>
                               <td className="p-2">
@@ -946,12 +942,7 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCa
                               <td className="p-2 text-right font-medium">{docAmount || "-"}</td>
                               <td className="p-2">{docCurrency || "-"}</td>
                               <td className="p-2">
-                                <Badge variant="outline" className={cn("text-xs",
-                                  docStatus === "paid" && "border-green-300 text-green-700",
-                                  docStatus === "unpaid" && "border-red-300 text-red-700",
-                                  docStatus === "cancelled" && "border-gray-300 text-gray-500",
-                                  docStatus === "storno" && "border-gray-300 text-gray-500"
-                                )}>{statusLabel}</Badge>
+                                <Badge variant={docStatus ? getDocumentStatusVariant(docStatus) : "outline"} className="text-xs">{statusLabel}</Badge>
                               </td>
                             </tr>
                           );

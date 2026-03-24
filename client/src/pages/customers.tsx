@@ -76,6 +76,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { getCountryFlag, getCountryName } from "@/lib/countries";
 import { cn } from "@/lib/utils";
+import { getDocumentStatusLabel, getDocumentStatusVariant } from "@/lib/document-status";
 import type { Customer, Product, CustomerProduct, Invoice, BillingDetails, CustomerNote, ActivityLog, CommunicationMessage, CustomerPotentialCase, MarketProductInstance, CustomerEmailNotification } from "@shared/schema";
 import {
   Select,
@@ -125,19 +126,32 @@ interface CustomerConsent {
 
 interface CustomerDocument {
   id: string;
-  type: "contract" | "invoice";
-  number: string;
-  status: string;
+  type?: "contract" | "invoice";
+  documentType?: string;
+  number?: string;
+  contractNumber?: string;
+  invoiceNumber?: string;
+  status?: string;
+  invoiceStatus?: string;
+  contractStatus?: string;
   createdAt: string;
-  createdBy: string | null;
-  createdByName: string | null;
-  pdfPath: string | null;
-  totalAmount: string | null;
-  currency: string;
+  createdBy?: string | null;
+  createdByName?: string | null;
+  pdfPath?: string | null;
+  totalAmount?: string | null;
+  amount?: string | null;
+  currency?: string;
+  domesticCurrency?: string;
   validFrom?: string | null;
   validTo?: string | null;
+  issueDate?: string | null;
   dueDate?: string | null;
+  deliveryDate?: string | null;
+  sentDate?: string | null;
   cancellationReason?: string | null;
+  companyName?: string | null;
+  invoiceType?: string | null;
+  dataSource?: string;
 }
 
 const CONSENT_TYPE_VALUES = [
@@ -161,6 +175,7 @@ const LEGAL_BASIS_VALUES = [
 
 function DocumentsTab({ customerId }: { customerId: string }) {
   const [typeFilter, setTypeFilter] = useState<"all" | "contract" | "invoice">("all");
+  const { t, locale } = useI18n();
   
   const { data: documents = [], isLoading } = useQuery<CustomerDocument[]>({
     queryKey: ["/api/customers", customerId, "documents"],
@@ -169,56 +184,24 @@ function DocumentsTab({ customerId }: { customerId: string }) {
       if (!res.ok) throw new Error("Failed to fetch documents");
       return res.json();
     },
-    refetchInterval: 10000, // Auto-refresh every 10 seconds
+    refetchInterval: 10000,
     refetchOnWindowFocus: true,
   });
 
+  const getDocType = (doc: CustomerDocument) => doc.documentType || doc.type || "document";
+  const getDocNumber = (doc: CustomerDocument) => doc.contractNumber || doc.invoiceNumber || doc.number || "";
+  const getDocStatus = (doc: CustomerDocument) => doc.invoiceStatus || doc.contractStatus || doc.status || "";
+  const getDocAmount = (doc: CustomerDocument) => doc.totalAmount || doc.amount;
+  const getDocCurrency = (doc: CustomerDocument) => doc.domesticCurrency || doc.currency || "";
+  const getDocDate = (doc: CustomerDocument) => doc.issueDate || doc.validFrom || doc.createdAt;
+  const isIscbc = (doc: CustomerDocument) => doc.dataSource === "iscbc";
+
   const filteredDocuments = typeFilter === "all" 
     ? documents 
-    : documents.filter(doc => doc.type === typeFilter);
+    : documents.filter(doc => getDocType(doc) === typeFilter);
 
-  const getStatusBadgeVariant = (type: string, status: string) => {
-    if (type === "contract") {
-      switch (status) {
-        case "signed": case "completed": return "default";
-        case "sent": case "pending_signature": return "secondary";
-        case "draft": return "outline";
-        case "cancelled": case "expired": return "destructive";
-        default: return "outline";
-      }
-    } else {
-      switch (status) {
-        case "paid": return "default";
-        case "sent": return "secondary";
-        case "generated": return "outline";
-        case "overdue": return "destructive";
-        default: return "outline";
-      }
-    }
-  };
-
-  const getStatusLabel = (type: string, status: string) => {
-    if (type === "contract") {
-      switch (status) {
-        case "draft": return "Koncept";
-        case "sent": return "Odoslaná";
-        case "pending_signature": return "Čaká na podpis";
-        case "signed": return "Podpísaná";
-        case "completed": return "Dokončená";
-        case "cancelled": return "Zrušená";
-        case "expired": return "Expirovaná";
-        default: return status;
-      }
-    } else {
-      switch (status) {
-        case "generated": return "Vygenerovaná";
-        case "sent": return "Odoslaná";
-        case "paid": return "Uhradená";
-        case "overdue": return "Po splatnosti";
-        default: return status;
-      }
-    }
-  };
+  const getStatusLabel = (status: string) => getDocumentStatusLabel(status, locale);
+  const getStatusBadgeVariant2 = (docType: string, status: string) => getDocumentStatusVariant(status);
 
   if (isLoading) {
     return (
@@ -232,19 +215,16 @@ function DocumentsTab({ customerId }: { customerId: string }) {
     return (
       <div className="text-center py-12 text-muted-foreground">
         <FileText className="h-12 w-12 mx-auto mb-3 opacity-50" />
-        <p className="font-medium">Žiadne dokumenty</p>
-        <p className="text-sm">Klient zatiaľ nemá žiadne zmluvy ani faktúry.</p>
+        <p className="font-medium">{t.customers?.noDocuments || "Žiadne dokumenty"}</p>
+        <p className="text-sm">{t.customers?.noDocumentsDesc || "Klient zatiaľ nemá žiadne zmluvy ani faktúry."}</p>
       </div>
     );
   }
 
-  // Group documents by month/year
   const groupedDocuments = filteredDocuments.reduce((groups, doc) => {
-    const date = new Date(doc.createdAt);
+    const date = new Date(getDocDate(doc) || doc.createdAt);
     const key = format(date, "MMMM yyyy", { locale: sk });
-    if (!groups[key]) {
-      groups[key] = [];
-    }
+    if (!groups[key]) groups[key] = [];
     groups[key].push(doc);
     return groups;
   }, {} as Record<string, CustomerDocument[]>);
@@ -254,35 +234,20 @@ function DocumentsTab({ customerId }: { customerId: string }) {
       <div className="flex items-center justify-between gap-4 mb-4">
         <div className="flex items-center gap-2">
           <FileText className="h-5 w-5" />
-          <h4 className="font-semibold">Dokumenty ({filteredDocuments.length})</h4>
+          <h4 className="font-semibold">{t.customers?.tabs?.documents || "Dokumenty"} ({filteredDocuments.length})</h4>
         </div>
         
         <div className="flex items-center gap-2">
-          <Button
-            variant={typeFilter === "all" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setTypeFilter("all")}
-            data-testid="filter-docs-all"
-          >
-            Všetky
+          <Button variant={typeFilter === "all" ? "default" : "outline"} size="sm" onClick={() => setTypeFilter("all")} data-testid="filter-docs-all">
+            {t.common?.all || "Všetky"}
           </Button>
-          <Button
-            variant={typeFilter === "contract" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setTypeFilter("contract")}
-            data-testid="filter-docs-contracts"
-          >
+          <Button variant={typeFilter === "contract" ? "default" : "outline"} size="sm" onClick={() => setTypeFilter("contract")} data-testid="filter-docs-contracts">
             <FileText className="h-4 w-4 mr-1" />
-            Zmluvy
+            {t.contracts?.title || "Zmluvy"}
           </Button>
-          <Button
-            variant={typeFilter === "invoice" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setTypeFilter("invoice")}
-            data-testid="filter-docs-invoices"
-          >
-            <FileText className="h-4 w-4 mr-1" />
-            Faktúry
+          <Button variant={typeFilter === "invoice" ? "default" : "outline"} size="sm" onClick={() => setTypeFilter("invoice")} data-testid="filter-docs-invoices">
+            <Receipt className="h-4 w-4 mr-1" />
+            {t.invoices?.title || "Faktúry"}
           </Button>
         </div>
       </div>
@@ -303,88 +268,117 @@ function DocumentsTab({ customerId }: { customerId: string }) {
               </div>
               
               <div className="space-y-4">
-                {docs.map((doc) => (
-                  <div key={doc.id} className="relative pl-10">
-                    <div className={`absolute left-2.5 w-3 h-3 rounded-full border-2 ${
-                      doc.type === "contract" ? "bg-primary border-primary" : "bg-blue-500 border-blue-500"
-                    }`} />
-                    
-                    <div className="border rounded-lg p-4 bg-card">
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            {doc.type === "contract" ? (
-                              <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/30">
-                                Zmluva
-                              </Badge>
-                            ) : (
-                              <Badge variant="outline" className="text-xs bg-blue-500/10 text-blue-600 border-blue-500/30">
-                                Faktúra
-                              </Badge>
-                            )}
-                            <Badge variant={getStatusBadgeVariant(doc.type, doc.status) as any}>
-                              {getStatusLabel(doc.type, doc.status)}
-                            </Badge>
-                          </div>
-                          
-                          <p className="font-medium">{doc.number || `#${doc.id.slice(0, 8)}`}</p>
-                          
-                          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-sm text-muted-foreground">
-                            <span className="flex items-center gap-1">
-                              <Clock className="h-3.5 w-3.5" />
-                              {format(new Date(doc.createdAt), "d.M.yyyy HH:mm")}
-                            </span>
-                            
-                            {doc.createdByName && (
-                              <span className="flex items-center gap-1">
-                                <UserCircle className="h-3.5 w-3.5" />
-                                {doc.createdByName}
-                              </span>
-                            )}
-                            
-                            {doc.totalAmount && (
-                              <span className="font-medium text-foreground">
-                                {parseFloat(doc.totalAmount).toLocaleString("sk-SK", { minimumFractionDigits: 2 })} {doc.currency}
-                              </span>
-                            )}
-                            
-                            {doc.type === "contract" && doc.validFrom && (
-                              <span>
-                                Platnosť: {format(new Date(doc.validFrom), "d.M.yyyy")}
-                                {doc.validTo && ` - ${format(new Date(doc.validTo), "d.M.yyyy")}`}
-                              </span>
-                            )}
-                            
-                            {doc.type === "invoice" && doc.dueDate && (
-                              <span>
-                                Splatnosť: {format(new Date(doc.dueDate), "d.M.yyyy")}
-                              </span>
-                            )}
-                          </div>
-                          
-                          {doc.type === "contract" && doc.status === "cancelled" && doc.cancellationReason && (
-                            <div className="mt-2 p-2 bg-destructive/10 border border-destructive/20 rounded text-sm">
-                              <span className="text-destructive font-medium">Dôvod zrušenia: </span>
-                              <span className="text-muted-foreground">{doc.cancellationReason}</span>
+                {docs.map((doc) => {
+                  const docType = getDocType(doc);
+                  const docNumber = getDocNumber(doc);
+                  const docStatus = getDocStatus(doc);
+                  const docAmount = getDocAmount(doc);
+                  const docCurrency = getDocCurrency(doc);
+                  const docDate = getDocDate(doc);
+                  const isCbc = isIscbc(doc);
+                  const isContract = docType === "contract";
+
+                  return (
+                    <div key={doc.id} className="relative pl-10">
+                      <div className={`absolute left-2.5 w-3 h-3 rounded-full border-2 ${
+                        isContract ? "bg-primary border-primary" : "bg-blue-500 border-blue-500"
+                      }`} />
+                      
+                      <div className="border rounded-lg p-4 bg-card">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1 flex-wrap">
+                              {isContract ? (
+                                <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/30">
+                                  {t.contracts?.title || "Zmluva"}
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="text-xs bg-blue-500/10 text-blue-600 border-blue-500/30">
+                                  {t.invoices?.title || "Faktúra"}
+                                </Badge>
+                              )}
+                              {isCbc && (
+                                <Badge className="bg-amber-100 text-amber-800 text-[10px] px-1.5 py-0">ISCBC</Badge>
+                              )}
+                              {docStatus && (
+                                <Badge variant={getStatusBadgeVariant2(docType, docStatus) as any}>
+                                  {getStatusLabel(docStatus)}
+                                </Badge>
+                              )}
                             </div>
+                            
+                            <p className="font-medium">{docNumber || `#${doc.id.slice(0, 8)}`}</p>
+                            
+                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-sm text-muted-foreground">
+                              {docDate && (
+                                <span className="flex items-center gap-1">
+                                  <Clock className="h-3.5 w-3.5" />
+                                  {format(new Date(docDate), "d.M.yyyy HH:mm")}
+                                </span>
+                              )}
+                              
+                              {doc.createdByName && (
+                                <span className="flex items-center gap-1">
+                                  <UserCircle className="h-3.5 w-3.5" />
+                                  {doc.createdByName}
+                                </span>
+                              )}
+
+                              {doc.companyName && (
+                                <span className="flex items-center gap-1">
+                                  <Building2 className="h-3.5 w-3.5" />
+                                  {doc.companyName}
+                                </span>
+                              )}
+                              
+                              {docAmount && (
+                                <span className="font-medium text-foreground">
+                                  {parseFloat(docAmount).toLocaleString("sk-SK", { minimumFractionDigits: 2 })} {docCurrency}
+                                </span>
+                              )}
+                              
+                              {isContract && doc.validFrom && (
+                                <span>
+                                  {t.contracts?.validity || "Platnosť"}: {format(new Date(doc.validFrom), "d.M.yyyy")}
+                                  {doc.validTo && ` - ${format(new Date(doc.validTo), "d.M.yyyy")}`}
+                                </span>
+                              )}
+                              
+                              {!isContract && doc.dueDate && (
+                                <span>
+                                  {t.invoices?.dueDate || "Splatnosť"}: {format(new Date(doc.dueDate), "d.M.yyyy")}
+                                </span>
+                              )}
+
+                              {doc.invoiceType && (
+                                <span className="text-xs">{doc.invoiceType}</span>
+                              )}
+                            </div>
+                            
+                            {isContract && docStatus === "cancelled" && doc.cancellationReason && (
+                              <div className="mt-2 p-2 bg-destructive/10 border border-destructive/20 rounded text-sm">
+                                <span className="text-destructive font-medium">{t.contracts?.cancellationReason || "Dôvod zrušenia"}: </span>
+                                <span className="text-muted-foreground">{doc.cancellationReason}</span>
+                              </div>
+                            )}
+                          </div>
+                          
+                          {doc.pdfPath && !isCbc && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => window.open(`/api/customers/${customerId}/documents/${docType}/${doc.id}/pdf`, "_blank")}
+                              data-testid={`button-download-${docType}-${doc.id}`}
+                            >
+                              <Download className="h-4 w-4 mr-1" />
+                              PDF
+                            </Button>
                           )}
                         </div>
-                        
-                        {doc.pdfPath && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => window.open(`/api/customers/${customerId}/documents/${doc.type}/${doc.id}/pdf`, "_blank")}
-                            data-testid={`button-download-${doc.type}-${doc.id}`}
-                          >
-                            <Download className="h-4 w-4 mr-1" />
-                            PDF
-                          </Button>
-                        )}
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           ))}
