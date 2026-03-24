@@ -18,8 +18,8 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { COUNTRIES, VISIT_SUBJECTS, VISIT_PLACE_OPTIONS } from "@shared/schema";
-import type { Collaborator, Hospital, SafeUser, HealthInsurance, Role } from "@shared/schema";
+import { COUNTRIES, VISIT_SUBJECTS, VISIT_PLACE_OPTIONS, REWARD_TYPES as SERVICE_TYPES } from "@shared/schema";
+import type { Collaborator, Hospital, SafeUser, HealthInsurance, Role, CollaboratorActivity } from "@shared/schema";
 import { ChevronLeft, ChevronRight, Check, User, Phone, CreditCard, Building2, Smartphone, MapPin, FileText, History, Plus, Pencil, Trash2, Clock, Activity, Upload, Download, Eye, ChevronDown, ChevronUp, Copy, X, Wifi, Play, Pause, PhoneCall, PhoneIncoming, PhoneOutgoing, PhoneMissed, Calendar, BarChart3 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -150,6 +150,7 @@ const WIZARD_STEPS = [
   { id: "companyAddress", icon: Building2 },
   { id: "banking", icon: CreditCard },
   { id: "agreements", icon: FileText },
+  { id: "actions", icon: Activity },
   { id: "history", icon: History },
   { id: "connect", icon: Wifi },
   { id: "mobile", icon: Smartphone },
@@ -1278,6 +1279,82 @@ function AddressForm({ collaboratorId, addressType, existingAddress, collaborato
   );
 }
 
+function ActionsTabContent({ collaboratorId, t }: { collaboratorId: string; t: any }) {
+  const { data: activities = [], isLoading } = useQuery<CollaboratorActivity[]>({
+    queryKey: ["/api/collaborators", collaboratorId, "activities"],
+    queryFn: async () => {
+      const res = await fetch(`/api/collaborators/${collaboratorId}/activities`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!collaboratorId,
+  });
+
+  const formatDate = (date: string | Date | null) => {
+    if (!date) return "-";
+    const d = new Date(date);
+    return d.toLocaleDateString("sk");
+  };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-2">
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-10 w-full" />
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {activities.length === 0 ? (
+        <div className="text-center py-8 text-muted-foreground" data-testid="text-no-activities">{t.common.noData}</div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm" data-testid="table-activities">
+            <thead>
+              <tr className="border-b">
+                <th className="text-left p-2 font-medium">Typ dohody</th>
+                <th className="text-left p-2 font-medium">Číslo zmluvy</th>
+                <th className="text-left p-2 font-medium">Dátum úkonu</th>
+                <th className="text-left p-2 font-medium">Číslo CBU</th>
+                <th className="text-left p-2 font-medium">Odmena</th>
+              </tr>
+            </thead>
+            <tbody>
+              {activities.map((act) => (
+                <tr key={act.id} className="border-b hover:bg-muted/50" data-testid={`row-activity-${act.id}`}>
+                  <td className="p-2">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                      {act.name || "-"}
+                    </span>
+                  </td>
+                  <td className="p-2 text-muted-foreground">{act.internalNote || "-"}</td>
+                  <td className="p-2">{formatDate(act.dueDate)}</td>
+                  <td className="p-2 font-mono text-xs">{act.publicNote || "-"}</td>
+                  <td className="p-2">
+                    {act.amount ? (
+                      <span className="text-green-600 dark:text-green-400">
+                        {act.amount} {act.currency || ""}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">-</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div className="mt-2 text-xs text-muted-foreground" data-testid="text-activities-count">
+            {activities.length} {activities.length === 1 ? "záznam" : activities.length < 5 ? "záznamy" : "záznamov"}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Agreements Tab Content Component
 function AgreementsTabContent({ collaboratorId, collaboratorCountry, t }: { collaboratorId: string; collaboratorCountry: string; t: any }) {
   const { toast } = useToast();
@@ -1436,6 +1513,15 @@ function AgreementsTabContent({ collaboratorId, collaboratorCountry, t }: { coll
                       {formatDate(agreement.validToDay, agreement.validToMonth, agreement.validToYear)}
                     </div>
                   </div>
+                  {(agreement as any).rewardTypes && (agreement as any).rewardTypes.length > 0 && (
+                    <div className="flex flex-wrap gap-1 pt-1">
+                      {(agreement as any).rewardTypes.map((rt: string) => (
+                        <Badge key={rt} variant="outline" className="text-xs">
+                          {t.collaborators?.rewardTypes?.[SERVICE_TYPES.find(s => s.value === rt)?.labelKey || ""] || rt}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
                   <div className="flex items-center justify-between gap-4 pt-2 border-t">
                     <div className="flex items-center gap-2">
                       {agreement.fileName ? (
@@ -1538,6 +1624,7 @@ function AgreementForm({ collaboratorId, editingId, agreement, billingCompanies,
     socialInsuranceCancelYear: (agreement as any)?.socialInsuranceCancelYear,
     note: (agreement as any)?.note || "",
     notes: (agreement as any)?.notes || "",
+    rewardTypes: (agreement as any)?.rewardTypes || [] as string[],
   });
 
   const saveMutation = useMutation({
@@ -1828,6 +1915,33 @@ function AgreementForm({ collaboratorId, editingId, agreement, billingCompanies,
             <Input type="number" placeholder={t.collaborators.fields.month} value={formData.socialInsuranceCancelMonth || ""} onChange={(e) => setFormData({ ...formData, socialInsuranceCancelMonth: parseInt(e.target.value) || undefined })} className="w-20" data-testid="input-social-insurance-cancel-month" />
             <Input type="number" placeholder={t.collaborators.fields.year} value={formData.socialInsuranceCancelYear || ""} onChange={(e) => setFormData({ ...formData, socialInsuranceCancelYear: parseInt(e.target.value) || undefined })} className="w-24" data-testid="input-social-insurance-cancel-year" />
           </div>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label className="text-xs font-semibold">{t.collaborators?.fields?.rewardTypes || "Typy služieb"}</Label>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-1">
+          {SERVICE_TYPES.map((rt) => (
+            <label
+              key={rt.value}
+              className="flex items-center gap-2 cursor-pointer text-xs py-0.5 hover:bg-muted/50 rounded px-1"
+              data-testid={`checkbox-reward-${rt.value}`}
+            >
+              <input
+                type="checkbox"
+                checked={(formData.rewardTypes as string[]).includes(rt.value)}
+                onChange={() => {
+                  const current = formData.rewardTypes as string[];
+                  const updated = current.includes(rt.value)
+                    ? current.filter((r: string) => r !== rt.value)
+                    : [...current, rt.value];
+                  setFormData({ ...formData, rewardTypes: updated });
+                }}
+                className="h-3.5 w-3.5 rounded border-gray-300"
+              />
+              {t.collaborators?.rewardTypes?.[rt.labelKey] || rt.value}
+            </label>
+          ))}
         </div>
       </div>
 
@@ -2394,7 +2508,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
   
   const wizardSteps = isEditMode 
     ? WIZARD_STEPS 
-    : WIZARD_STEPS.filter(step => step.id !== "history" && step.id !== "connect");
+    : WIZARD_STEPS.filter(step => step.id !== "history" && step.id !== "connect" && step.id !== "actions");
   
   const [currentStep, setCurrentStep] = useState(0);
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
@@ -2751,6 +2865,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
       banking: steps.banking,
       companyAddress: t.collaborators.tabs.companyAndAddresses,
       agreements: t.collaborators.tabs.agreements,
+      actions: t.collaborators.tabs.actions || "Úkony",
       history: t.collaborators.tabs.history,
       connect: t.common.indexusConnect,
       mobile: steps.mobile,
@@ -2766,6 +2881,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
       banking: steps.bankingDesc,
       companyAddress: t.collaborators.companyAddressesDescription,
       agreements: t.collaborators.agreementsDescription,
+      actions: t.collaborators.actionsDesc || "Prehľad úkonov spolupracovníka",
       history: t.collaborators.historyDescription,
       connect: t.collaborators.connectDescription || "Call history, visits and activities from INDEXUS Connect",
       mobile: steps.mobileDesc,
@@ -3398,6 +3514,16 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
           />
         );
       
+      case "actions":
+        return initialData ? (
+          <ActionsTabContent collaboratorId={initialData.id} t={t} />
+        ) : (
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <Activity className="h-12 w-12 text-muted-foreground mb-4" />
+            <p className="text-muted-foreground">{t.wizard?.completePreviousSteps || "Najprv uložte spolupracovníka"}</p>
+          </div>
+        );
+
       case "connect":
         return initialData ? (
           <ConnectActivityTab collaboratorId={initialData.id} locale={locale} t={t} />
