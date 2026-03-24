@@ -922,7 +922,8 @@ async function step4_collaborators() {
       const lastName = normalizeName(row.pda_last_name) || 'N/A';
       const birth = decomposeBirthDate(row.pda_birth_date);
 
-      const hospIds = (hospMap[row.doc_id] || []).map(legId => hospitalLookup[legId]).filter(Boolean);
+      const hospIdsRaw = (hospMap[row.doc_id] || []).map(legId => hospitalLookup[legId]).filter(Boolean);
+      const hospIds = hospIdsRaw.length > 0 ? `{${hospIdsRaw.join(',')}}` : '{}';
 
       let healthInsId = null;
       if (row.pda_health_insurance_code) {
@@ -2271,8 +2272,10 @@ async function step11_customerContracts() {
 
   log(`\n--- Diagnostika CBC: ContractStatuses ---`);
   try {
-    const csRes = await mssqlPool.request().query(`SELECT csa_id, csa_code, csa_name FROM ContractStatuses ORDER BY csa_id`);
-    table(['csa_id', 'csa_code', 'csa_name'], csRes.recordset.map(r => [r.csa_id, r.csa_code, r.csa_name]));
+    const csColsRes = await mssqlPool.request().query(`SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'ContractStatuses' ORDER BY ORDINAL_POSITION`);
+    log('  ContractStatuses stĺpce: ' + csColsRes.recordset.map(r => r.COLUMN_NAME).join(', '));
+    const csRes = await mssqlPool.request().query(`SELECT csa_id, csa_code FROM ContractStatuses ORDER BY csa_id`);
+    table(['csa_id', 'csa_code'], csRes.recordset.map(r => [r.csa_id, r.csa_code]));
   } catch (err) { log(`  WARN: ${err.message}`); }
 
   log(`\n--- Diagnostika CBC: ContractTemplates ---`);
@@ -2284,8 +2287,9 @@ async function step11_customerContracts() {
   } catch (err) { log(`  WARN: ${err.message}`); }
 
   const contracts = await mssqlPool.request().query(`
-    SELECT c.con_id, c.cli_id, c.con_number, c.con_date,
-           cs.csa_code, cs.csa_name,
+    SELECT c.con_id, c.cli_id, c.con_number, c.con_inserted,
+           c.con_expected_collection_date,
+           cs.csa_code,
            c.con_note,
            comp.com_name
     FROM Contracts c
@@ -2298,9 +2302,10 @@ async function step11_customerContracts() {
 
   if (contracts.recordset.length > 0) {
     table(
-      ['con_id', 'cli_id', 'con_number', 'Stav', 'Firma'],
+      ['con_id', 'cli_id', 'con_number', 'Stav', 'Firma', 'Oč. dátum'],
       contracts.recordset.slice(0, 10).map(r => [
-        r.con_id, r.cli_id, r.con_number || '-', r.csa_name || r.csa_code || '-', r.com_name || '-'
+        r.con_id, r.cli_id, r.con_number || '-', r.csa_code || '-', r.com_name || '-',
+        r.con_expected_collection_date ? new Date(r.con_expected_collection_date).toLocaleDateString('sk') : '-'
       ])
     );
   }
@@ -2317,17 +2322,18 @@ async function step11_customerContracts() {
     try {
       await pgPool.query(`
         INSERT INTO customer_documents (id, legacy_id, customer_id, document_type, data_source,
-          contract_number, contract_status, company_name, note, legacy_data, created_at)
-        VALUES (gen_random_uuid(), $1, $2, 'contract', 'iscbc', $3, $4, $5, $6, $7, $8)
+          contract_number, contract_status, company_name, expected_collection_date, note, legacy_data, created_at)
+        VALUES (gen_random_uuid(), $1, $2, 'contract', 'iscbc', $3, $4, $5, $6, $7, $8, $9)
       `, [
         legacyId,
         customerId,
         r.con_number || null,
-        r.csa_name || r.csa_code || null,
+        r.csa_code || null,
         r.com_name || null,
+        r.con_expected_collection_date || null,
         r.con_note || null,
         JSON.stringify({ con_id: r.con_id, cli_id: r.cli_id, csa_code: r.csa_code }),
-        r.con_date || new Date(),
+        r.con_inserted || new Date(),
       ]);
       inserted++;
     } catch (err) {
@@ -2354,38 +2360,44 @@ async function step12_customerInvoices() {
   const cliIds = Object.keys(customerMap).join(',');
 
   log(`\n--- Diagnostika CBC: Invoices stĺpce ---`);
+  const invColNames = [];
   try {
     const invColsRes = await mssqlPool.request().query(`
       SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'Invoices' ORDER BY ORDINAL_POSITION
     `);
-    log('  Invoices ALL: ' + invColsRes.recordset.map(r => r.COLUMN_NAME).join(', '));
-  } catch (err) { log(`  WARN: ${err.message}`); }
+    for (const r of invColsRes.recordset) invColNames.push(r.COLUMN_NAME);
+    log('  Invoices ALL: ' + invColNames.join(', '));
+  } catch (err) { log(`  WARN: ${err.message}`); return; }
 
-  // Build contract→client map for Invoices that may reference con_id
+  const hasCol = (name) => invColNames.includes(name);
+
+  // Build contract→client map for Invoices that reference con_id
   const contractToClient = {};
   try {
     const conRes = await mssqlPool.request().query(`SELECT con_id, cli_id FROM Contracts WHERE cli_id IN (${cliIds})`);
     for (const c of conRes.recordset) contractToClient[String(c.con_id)] = String(c.cli_id);
   } catch (err) { log(`  WARN building contract map: ${err.message}`); }
 
+  // Build SELECT dynamically based on available columns
+  const invSelectCols = ['inv_id'];
+  if (hasCol('con_id')) invSelectCols.push('con_id');
+  if (hasCol('cli_id')) invSelectCols.push('cli_id');
+  const optCols = ['inv_number', 'inv_type', 'inv_date', 'inv_due_date', 'inv_amount', 'inv_currency',
+    'inv_status', 'inv_note', 'inv_sent_date', 'inv_document_status', 'inv_domestic_currency',
+    'inv_accounting_currency', 'inv_delivery_date', 'inv_inserted'];
+  for (const c of optCols) { if (hasCol(c)) invSelectCols.push(c); }
+  log(`  Vybrané stĺpce: ${invSelectCols.join(', ')}`);
+
   let invoices;
   try {
+    const joinClause = hasCol('con_id')
+      ? `WHERE i.con_id IN (SELECT con_id FROM Contracts WHERE cli_id IN (${cliIds}))`
+      : (hasCol('cli_id') ? `WHERE i.cli_id IN (${cliIds})` : 'WHERE 1=0');
     invoices = await mssqlPool.request().query(`
-      SELECT i.inv_id, i.con_id, i.inv_number, i.inv_type, i.inv_date,
-             i.inv_due_date, i.inv_amount, i.inv_currency, i.inv_status,
-             i.inv_note, i.inv_sent_date
-      FROM Invoices i
-      WHERE i.con_id IN (SELECT con_id FROM Contracts WHERE cli_id IN (${cliIds}))
-      ORDER BY i.inv_id
+      SELECT ${invSelectCols.map(c => 'i.' + c).join(', ')} FROM Invoices i ${joinClause} ORDER BY i.inv_id
     `);
   } catch (err) {
-    log(`  WARN: Invoices query failed — trying alternative: ${err.message}`);
-    try {
-      const invCols = await mssqlPool.request().query(`
-        SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'Invoices' ORDER BY ORDINAL_POSITION
-      `);
-      log('  Available columns: ' + invCols.recordset.map(r => r.COLUMN_NAME).join(', '));
-    } catch (e2) { log(`  Cannot read Invoices columns: ${e2.message}`); }
+    log(`  WARN: Invoices query failed: ${err.message}`);
     return;
   }
 
@@ -2393,18 +2405,22 @@ async function step12_customerInvoices() {
 
   if (invoices.recordset.length > 0) {
     table(
-      ['inv_id', 'con_id', 'inv_number', 'Suma', 'Mena', 'Stav'],
+      ['inv_id', 'con_id/cli_id', 'inv_number', 'Suma', 'Mena', 'Stav'],
       invoices.recordset.slice(0, 10).map(r => [
-        r.inv_id, r.con_id, r.inv_number || '-',
-        r.inv_amount || '-', r.inv_currency || '-', r.inv_status || '-'
+        r.inv_id, r.con_id || r.cli_id || '-', r.inv_number || '-',
+        r.inv_amount || '-', r.inv_currency || r.inv_domestic_currency || '-', r.inv_status || '-'
       ])
     );
   }
 
   let inserted = 0, skipped = 0, errors = 0;
   for (const r of invoices.recordset) {
-    const cliId = contractToClient[String(r.con_id)];
-    const customerId = cliId ? customerMap[cliId] : null;
+    let customerId = null;
+    if (r.cli_id) customerId = customerMap[String(r.cli_id)];
+    if (!customerId && r.con_id) {
+      const cliId = contractToClient[String(r.con_id)];
+      if (cliId) customerId = customerMap[cliId];
+    }
     if (!customerId) { skipped++; continue; }
 
     const legacyId = `invoice_${r.inv_id}`;
@@ -2414,23 +2430,25 @@ async function step12_customerInvoices() {
     try {
       await pgPool.query(`
         INSERT INTO customer_documents (id, legacy_id, customer_id, document_type, data_source,
-          invoice_number, invoice_type, domestic_currency, amount, invoice_status,
-          issue_date, due_date, sent_date, note, legacy_data, created_at)
-        VALUES (gen_random_uuid(), $1, $2, 'invoice', 'iscbc', $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+          invoice_number, invoice_type, domestic_currency, amount, invoice_status, document_status,
+          issue_date, due_date, sent_date, delivery_date, note, legacy_data, created_at)
+        VALUES (gen_random_uuid(), $1, $2, 'invoice', 'iscbc', $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
       `, [
         legacyId,
         customerId,
         r.inv_number || null,
         r.inv_type || null,
-        r.inv_currency || null,
+        r.inv_currency || r.inv_domestic_currency || null,
         r.inv_amount ? String(r.inv_amount) : null,
         r.inv_status || null,
+        r.inv_document_status || null,
         r.inv_date || null,
         r.inv_due_date || null,
         r.inv_sent_date || null,
+        r.inv_delivery_date || null,
         r.inv_note || null,
-        JSON.stringify({ inv_id: r.inv_id, con_id: r.con_id }),
-        r.inv_date || new Date(),
+        JSON.stringify({ inv_id: r.inv_id, con_id: r.con_id, cli_id: r.cli_id }),
+        r.inv_inserted || r.inv_date || new Date(),
       ]);
       inserted++;
     } catch (err) {
