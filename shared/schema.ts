@@ -1925,6 +1925,7 @@ export const collaborators = pgTable("collaborators", {
   icDph: text("ic_dph"),
   companyIban: text("company_iban"),
   companySwift: text("company_swift"),
+  legacyCompany: jsonb("legacy_company").$type<Record<string, any>>(),
   
   // Other
   monthRewards: boolean("month_rewards").notNull().default(false),

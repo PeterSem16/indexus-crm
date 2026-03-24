@@ -883,6 +883,21 @@ async function step4_collaborators() {
       const iban = row.doc_IBAN || row.pda_iban || null;
       const swift = row.doc_SWIFT || row.pda_swift || null;
 
+      const legacyCompany = {};
+      if (row.doc_ICO) legacyCompany.ico = row.doc_ICO;
+      if (row.doc_DIC) legacyCompany.dic = row.doc_DIC;
+      if (row.doc_IC_DPH) legacyCompany.icDph = row.doc_IC_DPH;
+      if (row.doc_IBAN) legacyCompany.iban = row.doc_IBAN;
+      if (row.doc_SWIFT) legacyCompany.swift = row.doc_SWIFT;
+      if (row.add_id_firm && addressByAddId[row.add_id_firm]) {
+        const fa = addressByAddId[row.add_id_firm];
+        legacyCompany.firmAddress = {
+          street: fa.add_street, city: fa.add_city, zip: fa.add_zip, country: fa.add_country,
+          name: fa.add_name, phone: fa.add_phone, email: fa.add_email
+        };
+      }
+      if (row.doc_agreement_type) legacyCompany.agreementType = row.doc_agreement_type;
+
       const res = await pgPool.query(`
         INSERT INTO collaborators (
           legacy_id, country_code, country_codes, first_name, last_name,
@@ -892,9 +907,9 @@ async function step4_collaborators() {
           bank_account_iban, swift_code, ico, dic, ic_dph,
           client_contact, is_active, svet_zdravia, month_rewards,
           note, collaborator_type, hospital_ids, health_insurance_id,
-          representative_id, data_source,
+          representative_id, data_source, legacy_company,
           created_at, updated_at
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35)
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36)
         RETURNING id
       `, [
         String(row.doc_id), countryCode, [countryCode],
@@ -911,7 +926,7 @@ async function step4_collaborators() {
         row.doc_svet_zdravia === true || row.doc_svet_zdravia === 1,
         row.doc_monthly_rewards === true || row.doc_monthly_rewards === 1,
         row.doc_note, normalizeCollaboratorType(row.cty_code), hospIds, healthInsId,
-        repName, 'iscbc',
+        repName, 'iscbc', Object.keys(legacyCompany).length > 0 ? JSON.stringify(legacyCompany) : null,
         row.doc_inserted || new Date(), new Date(),
       ]);
       const collabId = res.rows[0].id;
