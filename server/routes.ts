@@ -13636,6 +13636,17 @@ Return ONLY valid JSON, no markdown code blocks.`,
     }
   });
 
+  // Get collaborator activities (Úkony) - migrated from CBC CollectionCollaborators
+  app.get("/api/collaborators/:id/activities", requireAuth, async (req, res) => {
+    try {
+      const activities = await storage.getCollaboratorActivities(req.params.id);
+      res.json(activities);
+    } catch (error: any) {
+      console.error(`[Activities] ERROR for ${req.params.id}:`, error?.message || error);
+      res.status(500).json({ error: "Failed to fetch collaborator activities" });
+    }
+  });
+
   // Collaborators routes
   app.get("/api/collaborators", requireAuth, async (req, res) => {
     try {
@@ -14043,16 +14054,6 @@ Return ONLY valid JSON, no markdown code blocks.`,
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ error: "Failed to delete agreement" });
-    }
-  });
-
-  // Get collaborator activities (Úkony) - migrated from CBC CollectionCollaborators
-  app.get("/api/collaborators/:id/activities", requireAuth, async (req, res) => {
-    try {
-      const activities = await storage.getCollaboratorActivities(req.params.id);
-      res.json(activities);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch collaborator activities" });
     }
   });
 
