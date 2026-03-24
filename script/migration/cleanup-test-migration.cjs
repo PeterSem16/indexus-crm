@@ -20,6 +20,9 @@ async function main() {
   console.log('=== Cleanup testovacích migračných dát ===\n');
 
   const tables = [
+    { name: 'invoice_payments (migrated)', query: "DELETE FROM invoice_payments WHERE invoice_id IN (SELECT id FROM invoices WHERE data_source = 'iscbc')" },
+    { name: 'invoice_items (migrated)', query: "DELETE FROM invoice_items WHERE invoice_id IN (SELECT id FROM invoices WHERE data_source = 'iscbc')" },
+    { name: 'invoices (migrated)', query: "DELETE FROM invoices WHERE data_source = 'iscbc'" },
     { name: 'contract_instances (migrated)', query: "DELETE FROM contract_instances WHERE data_source = 'iscbc'" },
     { name: 'customer_debt_collection (migrated)', query: "DELETE FROM customer_debt_collection WHERE data_source = 'iscbc'" },
     { name: 'customer_documents (migrated)', query: "DELETE FROM customer_documents WHERE data_source = 'iscbc'" },

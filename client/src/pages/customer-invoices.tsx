@@ -878,7 +878,16 @@ export default function CustomerInvoicesPage() {
                 <TableBody>
                   {paginatedInvoices.map((invoice) => (
                     <TableRow key={invoice.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setSelectedInvoice(invoice)} data-testid={`row-invoice-${invoice.id}`}>
-                      <TableCell className="font-medium" data-testid={`text-invoiceNumber-${invoice.id}`}>{invoice.invoiceNumber}</TableCell>
+                      <TableCell className="font-medium" data-testid={`text-invoiceNumber-${invoice.id}`}>
+                        <span className="flex items-center gap-1.5">
+                          {invoice.invoiceNumber}
+                          {(invoice as any).dataSource === 'iscbc' && (
+                            <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-800" data-testid={`badge-iscbc-invoice-${invoice.id}`}>
+                              ISCBC
+                            </Badge>
+                          )}
+                        </span>
+                      </TableCell>
                       <TableCell data-testid={`text-customerName-${invoice.id}`}>{invoice.customerName}</TableCell>
                       <TableCell data-testid={`text-billingCompany-${invoice.id}`}>{invoice.billingCompanyName}</TableCell>
                       <TableCell>
@@ -2100,6 +2109,11 @@ function InvoiceDetailDrawer({
           <SheetTitle className="flex items-center gap-2">
             <Receipt className="h-5 w-5" />
             {t.invoices?.invoiceDetail || "Invoice Detail"}: {invoice.invoiceNumber}
+            {(invoice as any).dataSource === 'iscbc' && (
+              <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-800">
+                ISCBC
+              </Badge>
+            )}
           </SheetTitle>
         </SheetHeader>
 

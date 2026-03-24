@@ -2518,6 +2518,12 @@ async function step12_customerInvoices() {
     await pgPool.query(`ALTER TABLE customer_documents ADD COLUMN IF NOT EXISTS fully_paid boolean`);
     await pgPool.query(`ALTER TABLE customer_documents ADD COLUMN IF NOT EXISTS contract_instance_id varchar`);
     log('  ✓ customer_documents stĺpce overené/doplnené');
+
+    await pgPool.query(`ALTER TABLE invoices ADD COLUMN IF NOT EXISTS data_source text`);
+    await pgPool.query(`ALTER TABLE invoices ADD COLUMN IF NOT EXISTS legacy_data jsonb`);
+    await pgPool.query(`ALTER TABLE invoices ADD COLUMN IF NOT EXISTS contract_instance_id varchar`);
+    await pgPool.query(`ALTER TABLE invoices ADD COLUMN IF NOT EXISTS note text`);
+    log('  ✓ invoices stĺpce overené/doplnené');
   } catch (err) { log(`  WARN ensure columns: ${err.message}`); }
 
   const migratedCustomers = await pgPool.query(
@@ -2767,7 +2773,50 @@ async function step12_customerInvoices() {
     // Company from contract chain
     const companyName = cliId ? (companyMap[cliId] || null) : null;
 
+    // Build legacy data object
+    const legacyData = {
+      inv_id: r.inv_id,
+      cse_id: r.cse_id,
+      con_id: cbcConId || null,
+      ist_id: r.ist_id,
+      ity_id: r.ity_id,
+      ist_code: statusCode,
+      ity_code: typeCode,
+      writeoff: r.inv_writeoff || null,
+      specific_symbol: r.inv_specific_symbol || null,
+      constant_symbol: r.inv_constant_symbol || null,
+      exchange_rate: r.inv_exchange_rate || null,
+      amount_account_vat: r.inv_amount_cur_account_with_vat || null,
+      amount_account_no_vat: r.inv_amount_cur_account_no_vat || null,
+      paid_account: r.inv_paid_cur_account || null,
+      prepaid_home: r.inv_prepaid_cur_home || null,
+      prepaid_account: r.inv_prepaid_cur_account || null,
+      period_from: r.inv_period_from || null,
+      period_to: r.inv_period_to || null,
+      emailed: r.inv_emailed || null,
+      bsp_note: r.inv_bsp_note || null,
+      credit_note_to: r.inv_id_credit_note_to || null,
+      proforma_link: r.inv_id_proforma_link || null,
+      inserted_by: r.inv_inserted_by || null,
+      updated_by: r.inv_updated_by || null,
+    };
+
+    // Map invoice status to invoices module status
+    const INVOICES_MODULE_STATUS_MAP = {
+      'new': 'generated',
+      'filled': 'generated',
+      'in_due': 'sent',
+      'sent': 'sent',
+      'paid': 'paid',
+      'partially_paid': 'partially_paid',
+      'overdue': 'overdue',
+      'cancelled': 'cancelled',
+      'credit_note': 'cancelled',
+    };
+    const invoicesModuleStatus = INVOICES_MODULE_STATUS_MAP[normalizedStatus] || 'generated';
+
     try {
+      // 1) Insert into customer_documents (Documents tab)
       await pgPool.query(`
         INSERT INTO customer_documents (
           id, legacy_id, customer_id, document_type, data_source,
@@ -2807,34 +2856,63 @@ async function step12_customerInvoices() {
         companyName,
         contractInstanceId,
         r.inv_note || null,
-        JSON.stringify({
-          inv_id: r.inv_id,
-          cse_id: r.cse_id,
-          con_id: cbcConId || null,
-          ist_id: r.ist_id,
-          ity_id: r.ity_id,
-          ist_code: statusCode,
-          ity_code: typeCode,
-          writeoff: r.inv_writeoff || null,
-          specific_symbol: r.inv_specific_symbol || null,
-          constant_symbol: r.inv_constant_symbol || null,
-          exchange_rate: r.inv_exchange_rate || null,
-          amount_account_vat: r.inv_amount_cur_account_with_vat || null,
-          amount_account_no_vat: r.inv_amount_cur_account_no_vat || null,
-          paid_account: r.inv_paid_cur_account || null,
-          prepaid_home: r.inv_prepaid_cur_home || null,
-          prepaid_account: r.inv_prepaid_cur_account || null,
-          period_from: r.inv_period_from || null,
-          period_to: r.inv_period_to || null,
-          emailed: r.inv_emailed || null,
-          bsp_note: r.inv_bsp_note || null,
-          credit_note_to: r.inv_id_credit_note_to || null,
-          proforma_link: r.inv_id_proforma_link || null,
-          inserted_by: r.inv_inserted_by || null,
-          updated_by: r.inv_updated_by || null,
-        }),
+        JSON.stringify(legacyData),
         r.inv_inserted || r.inv_date_of_issue || new Date(),
       ]);
+
+      // 2) Insert into invoices module (main invoices table)
+      const rawInvNum = r.inv_invoice_number || r.inv_variable_symbol || `${r.inv_id}`;
+      const invoiceNumberForModule = `CBC-${rawInvNum}`;
+      await pgPool.query(`
+        INSERT INTO invoices (
+          id, invoice_number, legacy_id, customer_id,
+          total_amount, subtotal, paid_amount,
+          currency, status,
+          variable_symbol, specific_symbol, constant_symbol,
+          delivery_date, issue_date, send_date, due_date,
+          period_from, period_to,
+          billing_company_name,
+          contract_instance_id,
+          data_source, legacy_data, note,
+          generated_at, created_at
+        )
+        VALUES (
+          gen_random_uuid(), $1, $2, $3,
+          $4, $5, $6,
+          $7, $8,
+          $9, $10, $11,
+          $12, $13, $14, $15,
+          $16, $17,
+          $18,
+          $19,
+          'iscbc', $20, $21,
+          $22, $22
+        )
+      `, [
+        invoiceNumberForModule,                                                        // $1
+        legacyId,                                                                      // $2
+        customerId,                                                                    // $3
+        r.inv_amount_cur_home_with_vat != null ? String(r.inv_amount_cur_home_with_vat) : '0', // $4
+        r.inv_amount_cur_home_no_vat != null ? String(r.inv_amount_cur_home_no_vat) : null, // $5
+        r.inv_paid_cur_home != null ? String(r.inv_paid_cur_home) : '0',               // $6
+        r.cur_code_home || 'EUR',                                                      // $7
+        invoicesModuleStatus,                                                          // $8
+        r.inv_variable_symbol || null,                                                 // $9
+        r.inv_specific_symbol || null,                                                 // $10
+        r.inv_constant_symbol || null,                                                 // $11
+        r.inv_date_of_delivery || null,                                                // $12
+        r.inv_date_of_issue || null,                                                   // $13
+        r.inv_dispatch_date || null,                                                   // $14
+        r.inv_date_of_payment || null,                                                 // $15
+        r.inv_period_from || null,                                                     // $16
+        r.inv_period_to || null,                                                       // $17
+        companyName,                                                                   // $18
+        contractInstanceId,                                                            // $19
+        JSON.stringify(legacyData),                                                    // $20
+        r.inv_note || null,                                                            // $21
+        r.inv_inserted || r.inv_date_of_issue || new Date(),                           // $22
+      ]);
+
       inserted++;
     } catch (err) {
       errors++;
@@ -2842,7 +2920,9 @@ async function step12_customerInvoices() {
     }
   }
 
-  log(`  Faktúry: ${inserted} vložených, ${skipped} preskočených, ${errors} chýb`);
+  log(`  customer_documents: ${inserted} faktúr vložených`);
+  log(`  invoices (modul): ${inserted} faktúr vložených`);
+  log(`  Preskočených: ${skipped}, Chýb: ${errors}`);
   if (Object.keys(contractInstanceLookup).length > 0) {
     let linked = 0;
     for (const r of invoices.recordset) {
@@ -3018,6 +3098,7 @@ async function step10_verification() {
     { name: 'PhoneCalls (migrated)', query: "SELECT COUNT(*) as cnt FROM communication_messages WHERE provider = 'cbc_legacy'" },
     { name: 'Documents-Contracts (migrated)', query: "SELECT COUNT(*) as cnt FROM customer_documents WHERE document_type = 'contract' AND data_source = 'iscbc'" },
     { name: 'Documents-Invoices (migrated)', query: "SELECT COUNT(*) as cnt FROM customer_documents WHERE document_type = 'invoice' AND data_source = 'iscbc'" },
+    { name: 'Invoices-Module (migrated)', query: "SELECT COUNT(*) as cnt FROM invoices WHERE data_source = 'iscbc'" },
     { name: 'DebtCollection (migrated)', query: "SELECT COUNT(*) as cnt FROM customer_debt_collection WHERE data_source = 'iscbc'" },
     { name: 'PotentialClients (migrated)', query: "SELECT COUNT(*) as cnt FROM customers WHERE internal_id LIKE 'pot_%' AND client_status = 'potential'" },
   ];

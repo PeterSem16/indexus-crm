@@ -143,7 +143,14 @@ export default function InvoicesPage() {
             <FileText className="h-5 w-5" />
           </div>
           <div>
-            <p className="font-medium">{invoice.invoiceNumber}</p>
+            <div className="flex items-center gap-2">
+              <p className="font-medium">{invoice.invoiceNumber}</p>
+              {(invoice as any).dataSource === 'iscbc' && (
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-800" data-testid={`badge-iscbc-invoice-${invoice.id}`}>
+                  ISCBC
+                </Badge>
+              )}
+            </div>
             <p className="text-sm text-muted-foreground">
               {new Intl.DateTimeFormat(LOCALE_MAP[locale] || 'en-US', { dateStyle: 'medium' }).format(new Date(invoice.generatedAt))}
             </p>

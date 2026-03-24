@@ -870,6 +870,11 @@ export const invoices = pgTable("invoices", {
   paymentReference: text("payment_reference"), // External reference from economic system
   // Wizard tracking
   wizardCreatedAt: timestamp("wizard_created_at"), // When invoice was created via wizard
+  // Migration / data source
+  dataSource: text("data_source"), // 'indexus' | 'iscbc'
+  legacyData: jsonb("legacy_data").$type<Record<string, any>>(),
+  contractInstanceId: varchar("contract_instance_id"),
+  note: text("note"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at"),
 });
