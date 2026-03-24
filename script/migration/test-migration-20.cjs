@@ -92,6 +92,34 @@ function decomposeBirthDate(dateVal) {
   return { day: d.getDate(), month: d.getMonth() + 1, year: d.getFullYear() };
 }
 
+const https = require('https');
+const http = require('http');
+let geocodeLastCall = 0;
+async function geocodeAddress(street, city, postalCode, countryCode) {
+  if (!city && !postalCode) return null;
+  const parts = [street, city, postalCode].filter(Boolean).join(', ');
+  const q = encodeURIComponent(parts);
+  const cc = (countryCode || '').toLowerCase();
+  const url = `https://nominatim.openstreetmap.org/search?q=${q}&countrycodes=${cc}&format=json&limit=1`;
+  const now = Date.now();
+  const wait = Math.max(0, 1100 - (now - geocodeLastCall));
+  if (wait > 0) await new Promise(r => setTimeout(r, wait));
+  geocodeLastCall = Date.now();
+  return new Promise((resolve) => {
+    https.get(url, { headers: { 'User-Agent': 'INDEXUS-CRM-Migration/1.0' } }, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try {
+          const arr = JSON.parse(data);
+          if (arr.length > 0) resolve({ lat: parseFloat(arr[0].lat).toFixed(7), lng: parseFloat(arr[0].lon).toFixed(7) });
+          else resolve(null);
+        } catch { resolve(null); }
+      });
+    }).on('error', () => resolve(null));
+  });
+}
+
 // ============================================================
 // STEP 1: Test Connection + Show Source Data Samples
 // ============================================================
@@ -539,18 +567,26 @@ async function step3_hospitals() {
       const countryCode = normalizeCountryCode(row.add_country || row.lab_country_code);
       const labId = row.lab_name ? (labLookup[row.lab_name] || null) : null;
 
+      const city = normalizeCity(row.add_city);
+      const postalCode = normalizePostalCode(row.add_zip, countryCode);
+      let lat = null, lng = null;
+      try {
+        const geo = await geocodeAddress(row.add_street_and_number, city, postalCode, countryCode);
+        if (geo) { lat = geo.lat; lng = geo.lng; }
+      } catch (geoErr) { /* skip geocoding errors */ }
+
       await pgPool.query(`
         INSERT INTO hospitals (
           legacy_id, name, full_name, is_active, street_number, city, postal_code, region,
-          country_code, laboratory_id, svet_zdravia, created_at, updated_at
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+          country_code, laboratory_id, svet_zdravia, latitude, longitude, data_source, created_at, updated_at
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
       `, [
         String(row.hos_id), row.hos_name, row.hos_full_name,
         !!row.hos_active,
-        row.add_street_and_number, normalizeCity(row.add_city),
-        normalizePostalCode(row.add_zip, countryCode), row.add_area,
+        row.add_street_and_number, city, postalCode, row.add_area,
         countryCode, labId,
         row.hos_svet_zdravia === true || row.hos_svet_zdravia === 1,
+        lat, lng, 'iscbc',
         row.hos_inserted || new Date(), new Date(),
       ]);
       inserted++;
@@ -581,7 +617,8 @@ async function step4_collaborators() {
   log(`  Referencovaní spolupracovníci z odberov: ${docIdList.length} unikátnych doc_id`);
 
   const collabs = docIdList.length > 0 ? await mssqlPool.request().query(`
-    SELECT d.doc_id, d.per_id, d.doc_active, d.doc_note,
+    SELECT d.doc_id, d.per_id, d.rer_id, d.add_id, d.add_id_firm,
+           d.doc_active, d.doc_note, d.doc_agreement_type,
            d.doc_IBAN, d.doc_SWIFT, d.doc_ICO, d.doc_DIC, d.doc_IC_DPH,
            d.doc_birth_place, d.doc_client_contract, d.doc_svet_zdravia,
            d.doc_monthly_rewards, d.doc_inserted,
@@ -590,13 +627,53 @@ async function step4_collaborators() {
            pd.pda_maiden_name, pd.pda_title_suffix, pd.pda_birth_date,
            pd.pda_id_number, pd.pda_email, pd.pda_mobile, pd.pda_mobile2,
            pd.pda_phone_number, pd.pda_other_contact,
-           pd.pda_health_insurance_code, pd.pda_health_insurance_company
+           pd.pda_health_insurance_code, pd.pda_health_insurance_company,
+           pd.pda_IBAN as pda_iban, pd.pda_SWIFT as pda_swift
     FROM Collaborators d
     LEFT JOIN CollaboratorTypes ct ON ct.cty_id = d.cty_id
     LEFT JOIN PersonalData pd ON pd.per_id = d.per_id AND pd.pda_valid = 1
     WHERE d.doc_id IN (${docIdList.join(',')})
     ORDER BY d.doc_id DESC
   `) : { recordset: [] };
+
+  // Representants lookup: rer_id → person name
+  const repLookup = {};
+  try {
+    const reps = await mssqlPool.request().query(`
+      SELECT r.rer_id, pd.pda_title_prefix, pd.pda_first_name, pd.pda_last_name
+      FROM Representants r
+      LEFT JOIN PersonalData pd ON pd.per_id = r.per_id AND pd.pda_valid = 1
+      WHERE r.rer_active = 1
+    `);
+    for (const r of reps.recordset) {
+      const parts = [r.pda_title_prefix, r.pda_first_name, r.pda_last_name].filter(Boolean);
+      repLookup[r.rer_id] = parts.join(' ');
+    }
+    log(`  Representants: ${Object.keys(repLookup).length} aktívnych`);
+  } catch (err) { log(`  WARN Representants: ${err.message}`); }
+
+  // MailAddresses lookup: add_id → address data + type
+  const addressLookup = {};
+  try {
+    const addIds = new Set();
+    for (const r of collabs.recordset) {
+      if (r.add_id) addIds.add(r.add_id);
+      if (r.add_id_firm) addIds.add(r.add_id_firm);
+    }
+    if (addIds.size > 0) {
+      const addrs = await mssqlPool.request().query(`
+        SELECT a.add_id, a.add_name, a.add_street_and_number, a.add_city, a.add_zip, a.add_area, a.add_country,
+               mt.mat_code
+        FROM MailAddresses a
+        LEFT JOIN MailAddressTypes mt ON mt.mat_id = a.mat_id
+        WHERE a.add_id IN (${[...addIds].join(',')})
+      `);
+      for (const a of addrs.recordset) {
+        addressLookup[a.add_id] = a;
+      }
+    }
+    log(`  MailAddresses: ${Object.keys(addressLookup).length} adries načítaných`);
+  } catch (err) { log(`  WARN MailAddresses: ${err.message}`); }
 
   const collabCountries = await mssqlPool.request().query(`
     SELECT DISTINCT ca.doc_id, c.com_country_code
@@ -633,7 +710,7 @@ async function step4_collaborators() {
   for (const r of pgHI.rows) healthInsLookup[`${r.code}_${r.country_code}`] = r.id;
 
   let hiMatched = 0, hiUnmatched = 0;
-  let inserted = 0, skipped = 0, errors = 0;
+  let inserted = 0, skipped = 0, errors = 0, addrInserted = 0, repMatched = 0;
   for (const row of collabs.recordset) {
     try {
       const existing = await pgPool.query('SELECT id FROM collaborators WHERE legacy_id = $1', [String(row.doc_id)]);
@@ -654,7 +731,11 @@ async function step4_collaborators() {
         else hiUnmatched++;
       }
 
-      await pgPool.query(`
+      const repName = row.rer_id ? (repLookup[row.rer_id] || null) : null;
+      const iban = row.doc_IBAN || row.pda_iban || null;
+      const swift = row.doc_SWIFT || row.pda_swift || null;
+
+      const res = await pgPool.query(`
         INSERT INTO collaborators (
           legacy_id, country_code, country_codes, first_name, last_name,
           title_before, maiden_name, title_after,
@@ -663,8 +744,10 @@ async function step4_collaborators() {
           bank_account_iban, swift_code, ico, dic, ic_dph,
           client_contact, is_active, svet_zdravia, month_rewards,
           note, collaborator_type, hospital_ids, health_insurance_id,
+          representative_id, data_source,
           created_at, updated_at
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33)
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35)
+        RETURNING id
       `, [
         String(row.doc_id), countryCode, [countryCode],
         firstName, lastName,
@@ -674,14 +757,40 @@ async function step4_collaborators() {
         normalizePhone(row.pda_mobile, countryCode),
         normalizePhone(row.pda_mobile2, countryCode),
         row.pda_other_contact, normalizeEmail(row.pda_email),
-        row.doc_IBAN, row.doc_SWIFT, row.doc_ICO, row.doc_DIC, row.doc_IC_DPH,
+        iban, swift, row.doc_ICO, row.doc_DIC, row.doc_IC_DPH,
         row.doc_client_contract === true || row.doc_client_contract === 1,
         row.doc_active === true || row.doc_active === 1,
         row.doc_svet_zdravia === true || row.doc_svet_zdravia === 1,
         row.doc_monthly_rewards === true || row.doc_monthly_rewards === 1,
         row.doc_note, normalizeCollaboratorType(row.cty_code), hospIds, healthInsId,
+        repName, 'iscbc',
         row.doc_inserted || new Date(), new Date(),
       ]);
+      const collabId = res.rows[0].id;
+
+      // Migrate addresses (add_id = personal, add_id_firm = company)
+      const addrPairs = [
+        { addId: row.add_id, type: 'permanent' },
+        { addId: row.add_id_firm, type: 'company' },
+      ];
+      for (const ap of addrPairs) {
+        if (!ap.addId || !addressLookup[ap.addId]) continue;
+        const addr = addressLookup[ap.addId];
+        const addrCountry = normalizeCountryCode(addr.add_country);
+        await pgPool.query(`
+          INSERT INTO collaborator_addresses (
+            legacy_id, collaborator_id, address_type, name, street_number, city, postal_code, region, country_code
+          ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+        `, [
+          String(ap.addId), collabId, ap.type,
+          addr.add_name, addr.add_street_and_number,
+          normalizeCity(addr.add_city), normalizePostalCode(addr.add_zip, addrCountry),
+          addr.add_area, addrCountry,
+        ]);
+        addrInserted++;
+      }
+
+      if (repName) repMatched++;
       inserted++;
     } catch (err) {
       errors++;
@@ -689,6 +798,8 @@ async function step4_collaborators() {
     }
   }
   log(`\n  → ${inserted} vložených, ${skipped} preskočených, ${errors} chýb`);
+  log(`  Adresy: ${addrInserted} vložených`);
+  log(`  Representants: ${repMatched} priradených`);
   if (hiMatched || hiUnmatched) log(`  Zdravotné poisťovne: ${hiMatched} priradených, ${hiUnmatched} nenájdených v INDEXUS`);
 }
 
@@ -779,6 +890,121 @@ async function step4b_agreements() {
     } catch (err) {
       errors++;
       log(`  ERROR cag_id=${row.cag_id}: ${err.message}`);
+    }
+  }
+  log(`\n  → ${inserted} vložených, ${skipped} preskočených, ${errors} chýb`);
+}
+
+// ============================================================
+// STEP 4.6: Collaborator Activities (Acts / Úkony)
+// ============================================================
+async function step4c_activities() {
+  separator('STEP 4.6: Úkony spolupracovníkov (Acts)');
+
+  const collabLookup = {};
+  const pgC = await pgPool.query('SELECT id, legacy_id FROM collaborators WHERE legacy_id IS NOT NULL');
+  for (const r of pgC.rows) collabLookup[r.legacy_id] = r.id;
+
+  const agreementLookup = {};
+  const pgA = await pgPool.query('SELECT id, legacy_id FROM collaborator_agreements WHERE legacy_id IS NOT NULL');
+  for (const r of pgA.rows) agreementLookup[r.legacy_id] = r.id;
+
+  const hospitalLookup = {};
+  const pgH = await pgPool.query('SELECT id, legacy_id FROM hospitals WHERE legacy_id IS NOT NULL');
+  for (const r of pgH.rows) hospitalLookup[r.legacy_id] = r.id;
+
+  const collectionLookup = {};
+  const pgS = await pgPool.query('SELECT id, legacy_id FROM collections WHERE legacy_id IS NOT NULL');
+  for (const r of pgS.rows) collectionLookup[r.legacy_id] = r.id;
+
+  // Build agreement → collaborator mapping from CBC
+  const agDocMap = {};
+  try {
+    const agDocs = await mssqlPool.request().query('SELECT cag_id, doc_id FROM CollaboratorAgreements');
+    for (const r of agDocs.recordset) agDocMap[r.cag_id] = String(r.doc_id);
+  } catch (err) { log(`  WARN CollaboratorAgreements: ${err.message}`); }
+
+  // Fetch Acts linked to our collaborators via agreements
+  const docIds = Object.keys(collabLookup);
+  if (docIds.length === 0) { log('  Žiadni spolupracovníci, preskakujem'); return; }
+
+  const cagIds = Object.entries(agDocMap)
+    .filter(([, docId]) => collabLookup[docId])
+    .map(([cagId]) => cagId);
+
+  let acts;
+  try {
+    if (cagIds.length === 0) { log('  Žiadne dohody, preskakujem Acts'); return; }
+    acts = await mssqlPool.request().query(`
+      SELECT rac_id, agreement_id_reward, hos_id_bound, sco_id_bound,
+             rac_state, cur_code, rac_amount, rac_name,
+             rac_internal_note, rac_public_note,
+             rac_due_date, rac_due_date_type,
+             rac_proposed, rac_proposed_by,
+             rac_approved, rac_approved_by,
+             rac_paid, rac_cancelled
+      FROM Acts
+      WHERE agreement_id_reward IN (${cagIds.join(',')})
+      ORDER BY rac_id DESC
+    `);
+  } catch (err) {
+    log(`  WARN Acts query: ${err.message}`);
+    return;
+  }
+
+  log(`  Nájdených ${acts.recordset.length} úkonov pre ${cagIds.length} dohôd`);
+
+  const showLimit = Math.min(10, acts.recordset.length);
+  if (showLimit > 0) {
+    table(
+      ['rac_id', 'Agreement', 'Hospital', 'Stav', 'Suma', 'Mena', 'Názov'],
+      acts.recordset.slice(0, showLimit).map(r => [
+        r.rac_id, r.agreement_id_reward || '—', r.hos_id_bound || '—',
+        r.rac_state || '—',
+        r.rac_amount != null ? String(r.rac_amount) : '—',
+        r.cur_code || '—', (r.rac_name || '—').slice(0, 30),
+      ])
+    );
+  }
+
+  let inserted = 0, skipped = 0, errors = 0;
+  for (const row of acts.recordset) {
+    try {
+      const existing = await pgPool.query('SELECT id FROM collaborator_activities WHERE legacy_id = $1', [String(row.rac_id)]);
+      if (existing.rows.length > 0) { skipped++; continue; }
+
+      const docId = row.agreement_id_reward ? agDocMap[row.agreement_id_reward] : null;
+      const collaboratorId = docId ? collabLookup[docId] : null;
+      if (!collaboratorId) { skipped++; continue; }
+
+      const agreementId = row.agreement_id_reward ? (agreementLookup[String(row.agreement_id_reward)] || null) : null;
+      const hospitalId = row.hos_id_bound ? (hospitalLookup[String(row.hos_id_bound)] || null) : null;
+      const collectionId = row.sco_id_bound ? (collectionLookup[String(row.sco_id_bound)] || null) : null;
+
+      await pgPool.query(`
+        INSERT INTO collaborator_activities (
+          legacy_id, collaborator_id, agreement_id, hospital_id, collection_id,
+          state, currency, amount, name, internal_note, public_note,
+          due_date, due_date_type,
+          proposed_at, proposed_by, approved_at, approved_by,
+          paid_at, cancelled_at, created_at
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+      `, [
+        String(row.rac_id), collaboratorId, agreementId, hospitalId, collectionId,
+        row.rac_state, row.cur_code,
+        row.rac_amount != null ? String(row.rac_amount) : null,
+        row.rac_name, row.rac_internal_note, row.rac_public_note,
+        row.rac_due_date ? new Date(row.rac_due_date) : null, row.rac_due_date_type,
+        row.rac_proposed ? new Date(row.rac_proposed) : null, row.rac_proposed_by,
+        row.rac_approved ? new Date(row.rac_approved) : null, row.rac_approved_by,
+        row.rac_paid ? new Date(row.rac_paid) : null,
+        row.rac_cancelled ? new Date(row.rac_cancelled) : null,
+        new Date(),
+      ]);
+      inserted++;
+    } catch (err) {
+      errors++;
+      log(`  ERROR rac_id=${row.rac_id}: ${err.message}`);
     }
   }
   log(`\n  → ${inserted} vložených, ${skipped} preskočených, ${errors} chýb`);
@@ -1641,6 +1867,8 @@ async function step10_verification() {
     { name: 'Collections (migrated)', query: "SELECT COUNT(*) as cnt FROM collections WHERE legacy_id IS NOT NULL" },
     { name: 'Lab Results (migrated)', query: "SELECT COUNT(*) as cnt FROM collection_lab_results" },
     { name: 'Agreements (migrated)', query: "SELECT COUNT(*) as cnt FROM collaborator_agreements WHERE collaborator_id IN (SELECT id FROM collaborators WHERE legacy_id IS NOT NULL)" },
+    { name: 'Activities (migrated)', query: "SELECT COUNT(*) as cnt FROM collaborator_activities WHERE legacy_id IS NOT NULL" },
+    { name: 'Addresses (migrated)', query: "SELECT COUNT(*) as cnt FROM collaborator_addresses WHERE legacy_id IS NOT NULL" },
     { name: 'Cases (migrated)', query: "SELECT COUNT(*) as cnt FROM customer_potential_cases WHERE customer_id IN (SELECT id FROM customers WHERE internal_id IS NOT NULL)" },
     { name: 'Notes (migrated)', query: "SELECT COUNT(*) as cnt FROM customer_notes WHERE legacy_id IS NOT NULL" },
     { name: 'PhoneCalls (migrated)', query: "SELECT COUNT(*) as cnt FROM communication_messages WHERE provider = 'cbc_legacy'" },
@@ -1656,23 +1884,34 @@ async function step10_verification() {
 
   log('\n--- Nemocnice v INDEXUS ---');
   const hospitals = await pgPool.query(`
-    SELECT legacy_id, name, city, postal_code, country_code, is_active
+    SELECT legacy_id, name, city, postal_code, country_code, is_active, latitude, longitude, data_source
     FROM hospitals WHERE legacy_id IS NOT NULL AND legacy_id != '' ORDER BY legacy_id LIMIT 10
   `);
   table(
-    ['LegacyID', 'Názov', 'Mesto', 'PSČ', 'Krajina', 'Aktívna'],
-    hospitals.rows.map(r => [r.legacy_id, r.name, r.city, r.postal_code, r.country_code, r.is_active ? 'áno' : 'nie'])
+    ['LegacyID', 'Názov', 'Mesto', 'PSČ', 'Krajina', 'GPS', 'Zdroj'],
+    hospitals.rows.map(r => [r.legacy_id, r.name, r.city, r.postal_code, r.country_code,
+      r.latitude && r.longitude ? `${r.latitude},${r.longitude}` : '—', r.data_source || '—'])
   );
+  const gpsStats = await pgPool.query("SELECT COUNT(*) FILTER (WHERE latitude IS NOT NULL) as with_gps, COUNT(*) as total FROM hospitals WHERE legacy_id IS NOT NULL");
+  log(`  GPS štatistika: ${gpsStats.rows[0].with_gps}/${gpsStats.rows[0].total} nemocníc má koordináty`);
 
   log('\n--- Spolupracovníci v INDEXUS ---');
   const collabs = await pgPool.query(`
-    SELECT legacy_id, first_name, last_name, mobile, email, birth_number, country_code, collaborator_type
+    SELECT legacy_id, first_name, last_name, mobile, email, birth_number, country_code, collaborator_type,
+           representative_id, bank_account_iban, data_source
     FROM collaborators WHERE legacy_id IS NOT NULL AND legacy_id != '' ORDER BY legacy_id LIMIT 10
   `);
   table(
-    ['LegacyID', 'Meno', 'Priezvisko', 'Mobil', 'Email', 'RČ', 'Krajina', 'Typ'],
-    collabs.rows.map(r => [r.legacy_id, r.first_name, r.last_name, r.mobile, r.email, r.birth_number, r.country_code, r.collaborator_type])
+    ['LegacyID', 'Meno', 'Priezvisko', 'Mobil', 'Email', 'Krajina', 'Typ', 'Representative', 'IBAN', 'Zdroj'],
+    collabs.rows.map(r => [r.legacy_id, r.first_name, r.last_name, r.mobile, r.email, r.country_code,
+      r.collaborator_type, r.representative_id, r.bank_account_iban, r.data_source || '—'])
   );
+  const addrStats = await pgPool.query(`
+    SELECT address_type, COUNT(*) as cnt FROM collaborator_addresses WHERE legacy_id IS NOT NULL GROUP BY address_type
+  `);
+  if (addrStats.rows.length > 0) {
+    log('  Adresy podľa typu: ' + addrStats.rows.map(r => `${r.address_type}=${r.cnt}`).join(', '));
+  }
 
   log('\n--- Klientky v INDEXUS ---');
   const customers = await pgPool.query(`
@@ -1820,6 +2059,7 @@ async function main() {
     await step3_hospitals();
     await step4_collaborators();
     await step4b_agreements();
+    await step4c_activities();
     await step5_customers();
     await step6_collections();
     await step6b_cases();

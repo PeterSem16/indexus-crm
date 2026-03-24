@@ -294,6 +294,7 @@ export const hospitals = pgTable("hospitals", {
   latitude: decimal("latitude", { precision: 10, scale: 7 }), // GPS súradnica
   longitude: decimal("longitude", { precision: 10, scale: 7 }), // GPS súradnica
   createdByCollaboratorId: varchar("created_by_collaborator_id"), // Pridal collaborator cez mobilnú app
+  dataSource: text("data_source"), // Pôvod záznamu (napr. 'iscbc' pre migráciu z CBC)
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
@@ -1945,6 +1946,7 @@ export const collaborators = pgTable("collaborators", {
   mobileCallRecording: boolean("mobile_call_recording").notNull().default(true),
   outboundCallerId: text("outbound_caller_id"),
   avatarUrl: text("avatar_url"),
+  dataSource: text("data_source"), // Pôvod záznamu (napr. 'iscbc' pre migráciu z CBC)
   
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
@@ -2036,6 +2038,31 @@ export const collaboratorAgreements = pgTable("collaborator_agreements", {
   agreementForm: text("agreement_form"),
   rewardTypes: text("reward_types").array().default(sql`ARRAY[]::text[]`),
   
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+// Collaborator activities table (Úkony / Acts from CBC)
+export const collaboratorActivities = pgTable("collaborator_activities", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  legacyId: text("legacy_id"),
+  collaboratorId: varchar("collaborator_id").notNull(),
+  agreementId: varchar("agreement_id"),
+  hospitalId: varchar("hospital_id"),
+  collectionId: varchar("collection_id"),
+  state: text("state"),
+  currency: text("currency"),
+  amount: text("amount"),
+  name: text("name"),
+  internalNote: text("internal_note"),
+  publicNote: text("public_note"),
+  dueDate: timestamp("due_date"),
+  dueDateType: text("due_date_type"),
+  proposedAt: timestamp("proposed_at"),
+  proposedBy: text("proposed_by"),
+  approvedAt: timestamp("approved_at"),
+  approvedBy: text("approved_by"),
+  paidAt: timestamp("paid_at"),
+  cancelledAt: timestamp("cancelled_at"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
