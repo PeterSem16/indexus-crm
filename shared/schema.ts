@@ -2077,6 +2077,8 @@ export const collaboratorActivities = pgTable("collaborator_activities", {
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
+export type CollaboratorActivity = typeof collaboratorActivities.$inferSelect;
+
 // Collaborator schemas
 const emptyStringToNull = z.preprocess(
   (val) => (val === "" ? null : val),

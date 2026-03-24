@@ -14046,6 +14046,16 @@ Return ONLY valid JSON, no markdown code blocks.`,
     }
   });
 
+  // Get collaborator activities (Úkony) - migrated from CBC CollectionCollaborators
+  app.get("/api/collaborators/:id/activities", requireAuth, async (req, res) => {
+    try {
+      const activities = await storage.getCollaboratorActivities(req.params.id);
+      res.json(activities);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch collaborator activities" });
+    }
+  });
+
   // Get activity logs for a specific collaborator
   app.get("/api/collaborators/:id/activity-logs", requireAuth, async (req, res) => {
     try {

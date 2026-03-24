@@ -3,7 +3,7 @@ import {
   customerNotes, activityLogs, communicationMessages,
   complaintTypes, cooperationTypes, vipStatuses, collectionStatuses, healthInsuranceCompanies,
   laboratories, hospitals, clinics, visitEvents, voiceNotes, mobilePushTokens,
-  collaborators, collaboratorAddresses, collaboratorOtherData, collaboratorAgreements,
+  collaborators, collaboratorAddresses, collaboratorOtherData, collaboratorAgreements, collaboratorActivities,
   customerPotentialCases, leadScoringCriteria,
   serviceConfigurations, serviceInstances, numberRanges, invoiceTemplates, invoiceLayouts,
   roles, roleModulePermissions, roleFieldPermissions, userRoles, departments,
@@ -39,6 +39,7 @@ import {
   type CollaboratorAddress, type InsertCollaboratorAddress,
   type CollaboratorOtherData, type InsertCollaboratorOtherData,
   type CollaboratorAgreement, type InsertCollaboratorAgreement,
+  type CollaboratorActivity,
   type VisitEvent, type InsertVisitEvent,
   type VoiceNote, type InsertVoiceNote,
   type MobilePushToken, type InsertMobilePushToken,
@@ -501,6 +502,9 @@ export interface IStorage {
   createCollaboratorAgreement(data: InsertCollaboratorAgreement): Promise<CollaboratorAgreement>;
   updateCollaboratorAgreement(id: string, data: Partial<InsertCollaboratorAgreement>): Promise<CollaboratorAgreement | undefined>;
   deleteCollaboratorAgreement(id: string): Promise<boolean>;
+
+  // Collaborator Activities (Úkony)
+  getCollaboratorActivities(collaboratorId: string): Promise<CollaboratorActivity[]>;
 
   // INDEXUS Connect Mobile App - Collaborator Auth
   getCollaboratorByMobileUsername(username: string): Promise<Collaborator | undefined>;
@@ -2900,6 +2904,12 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(collaboratorAgreements)
       .where(eq(collaboratorAgreements.collaboratorId, collaboratorId))
       .orderBy(desc(collaboratorAgreements.createdAt));
+  }
+
+  async getCollaboratorActivities(collaboratorId: string): Promise<CollaboratorActivity[]> {
+    return db.select().from(collaboratorActivities)
+      .where(eq(collaboratorActivities.collaboratorId, collaboratorId))
+      .orderBy(desc(collaboratorActivities.dueDate));
   }
 
   async getAllCollaboratorAgreements(): Promise<CollaboratorAgreement[]> {

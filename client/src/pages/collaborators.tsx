@@ -38,6 +38,7 @@ import type {
   CollaboratorAddress, 
   CollaboratorOtherData, 
   CollaboratorAgreement,
+  CollaboratorActivity,
   SafeUser,
   Hospital,
   HealthInsurance,
@@ -1229,44 +1230,20 @@ function ActionsTab({
   collaboratorId: string;
   t: any;
 }) {
-  const { data: activityLogs = [], isLoading } = useQuery<ActivityLog[]>({
-    queryKey: ["/api/collaborators", collaboratorId, "activity-logs"],
+  const { data: activities = [], isLoading } = useQuery<CollaboratorActivity[]>({
+    queryKey: ["/api/collaborators", collaboratorId, "activities"],
     queryFn: async () => {
-      const res = await fetch(`/api/collaborators/${collaboratorId}/activity-logs`, { credentials: "include" });
+      const res = await fetch(`/api/collaborators/${collaboratorId}/activities`, { credentials: "include" });
       if (!res.ok) return [];
       return res.json();
     },
     enabled: !!collaboratorId,
   });
 
-  const { data: users = [] } = useQuery<SafeUser[]>({
-    queryKey: ["/api/users"],
-  });
-
-  const getUserName = (userId: string) => {
-    const user = users.find(u => u.id === userId);
-    return user ? user.fullName : userId;
-  };
-
-  const getActionLabel = (action: string) => {
-    const actionLabels: Record<string, string> = {
-      create: t.collaborators.actions.created,
-      update: t.collaborators.actions.updated,
-      delete: t.collaborators.actions.deleted,
-      update_address: t.collaborators.actions.addressUpdated,
-      update_other_data: t.collaborators.actions.otherDataUpdated,
-      create_agreement: t.collaborators.actions.agreementCreated,
-      update_agreement: t.collaborators.actions.agreementUpdated,
-      delete_agreement: t.collaborators.actions.agreementDeleted,
-      upload_file: t.collaborators.actions.fileUploaded,
-    };
-    return actionLabels[action] || action;
-  };
-
-  const formatDateTime = (date: string | Date | null) => {
+  const formatDate = (date: string | Date | null) => {
     if (!date) return "-";
     const d = new Date(date);
-    return d.toLocaleString();
+    return d.toLocaleDateString("sk");
   };
 
   if (isLoading) {
@@ -1293,33 +1270,47 @@ function ActionsTab({
         <CardDescription>{t.collaborators.actionsDesc}</CardDescription>
       </CardHeader>
       <CardContent>
-        {activityLogs.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">{t.common.noData}</div>
+        {activities.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground" data-testid="text-no-activities">{t.common.noData}</div>
         ) : (
-          <div className="space-y-2">
-            {activityLogs.map((log) => (
-              <div key={log.id} className="flex items-start justify-between gap-4 p-3 rounded-md bg-muted/50 border">
-                <div className="flex-1">
-                  <div className="font-medium">{getActionLabel(log.action)}</div>
-                  <div className="text-sm text-muted-foreground">
-                    {t.collaborators.actions.by} {getUserName(log.userId)}
-                  </div>
-                  {log.details && (
-                    <div className="text-xs text-muted-foreground mt-1">
-                      {JSON.parse(log.details).addressType && 
-                        `${t.collaborators.fields.addressType}: ${JSON.parse(log.details).addressType}`
-                      }
-                      {JSON.parse(log.details).fileName && 
-                        `${t.collaborators.fields.file}: ${JSON.parse(log.details).fileName}`
-                      }
-                    </div>
-                  )}
-                </div>
-                <div className="text-sm text-muted-foreground whitespace-nowrap">
-                  {formatDateTime(log.createdAt)}
-                </div>
-              </div>
-            ))}
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm" data-testid="table-activities">
+              <thead>
+                <tr className="border-b">
+                  <th className="text-left p-2 font-medium">Typ dohody</th>
+                  <th className="text-left p-2 font-medium">Číslo zmluvy</th>
+                  <th className="text-left p-2 font-medium">Dátum úkonu</th>
+                  <th className="text-left p-2 font-medium">Číslo CBU</th>
+                  <th className="text-left p-2 font-medium">Odmena</th>
+                </tr>
+              </thead>
+              <tbody>
+                {activities.map((act) => (
+                  <tr key={act.id} className="border-b hover:bg-muted/50" data-testid={`row-activity-${act.id}`}>
+                    <td className="p-2">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                        {act.name || "-"}
+                      </span>
+                    </td>
+                    <td className="p-2 text-muted-foreground">{act.internalNote || "-"}</td>
+                    <td className="p-2">{formatDate(act.dueDate)}</td>
+                    <td className="p-2 font-mono text-xs">{act.publicNote || "-"}</td>
+                    <td className="p-2">
+                      {act.amount ? (
+                        <span className="text-green-600 dark:text-green-400">
+                          {act.amount} {act.currency || ""}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div className="mt-2 text-xs text-muted-foreground" data-testid="text-activities-count">
+              {activities.length} {activities.length === 1 ? "záznam" : activities.length < 5 ? "záznamy" : "záznamov"}
+            </div>
           </div>
         )}
       </CardContent>
