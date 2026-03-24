@@ -2353,6 +2353,9 @@ export default function ContractsPage() {
                               <Link href={`/contracts/${contract.id}`} className="text-primary hover:underline" data-testid={`link-contract-${contract.id}`}>
                                 {contract.contractNumber}
                               </Link>
+                              {contract.dataSource === "iscbc" && (
+                                <Badge variant="outline" className="text-[10px] px-1 py-0 border-orange-400 text-orange-600 dark:text-orange-400" data-testid={`badge-iscbc-${contract.id}`}>ISCBC</Badge>
+                              )}
                             </div>
                           </TableCell>
                           <TableCell>{getCustomerName(contract.customerId)}</TableCell>

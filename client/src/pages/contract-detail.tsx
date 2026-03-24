@@ -20,7 +20,7 @@ import { format } from "date-fns";
 import { sk, cs, hu, ro, it, de, enUS, type Locale } from "date-fns/locale";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { ArrowLeft, Save, FileText, Users, Package, Beaker, Receipt, Loader2, Download, ExternalLink, Shield, Clock, Mail, CheckCircle, Send, Eye, AlertCircle, X, Edit, History, Phone, RefreshCw } from "lucide-react";
-import type { ContractInstance, Customer, Hospital, Collection, Product, CustomerProduct } from "@shared/schema";
+import type { ContractInstance, Customer, Hospital, Collection, Product, CustomerProduct, CollectionStatus } from "@shared/schema";
 
 const COUNTRY_LOCALE_MAP: Record<string, Locale> = {
   SK: sk, CZ: cs, HU: hu, RO: ro, IT: it, DE: de, US: enUS
@@ -169,6 +169,10 @@ export default function ContractDetailPage() {
 
   const { data: collections = [] } = useQuery<Collection[]>({
     queryKey: ["/api/collections"],
+  });
+
+  const { data: collectionStatuses = [] } = useQuery<CollectionStatus[]>({
+    queryKey: ["/api/collection-statuses"],
   });
 
   const { data: customerProducts = [] } = useQuery<CustomerProduct[]>({
@@ -337,6 +341,9 @@ export default function ContractDetailPage() {
             )}
             {CONTRACT_STATUS_OPTIONS.find((s) => s.value === contract.status)?.label || contract.status}
           </div>
+          {contract.dataSource === "iscbc" && (
+            <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 border-orange-400 text-orange-600 dark:text-orange-400" data-testid="badge-iscbc">ISCBC</Badge>
+          )}
         </div>
         {customer && (
           <p className="text-muted-foreground">{customer.firstName} {customer.lastName}</p>
@@ -1199,7 +1206,12 @@ export default function ContractDetailPage() {
                           <TableCell>
                             {[col.childFirstName, col.childLastName].filter(Boolean).join(" ") || "-"}
                           </TableCell>
-                          <TableCell>{col.state || "-"}</TableCell>
+                          <TableCell>
+                            {(() => {
+                              const statusObj = collectionStatuses.find(s => String(s.id) === col.state);
+                              return statusObj ? statusObj.name : (col.state || "-");
+                            })()}
+                          </TableCell>
                         </TableRow>
                       );
                     })}
