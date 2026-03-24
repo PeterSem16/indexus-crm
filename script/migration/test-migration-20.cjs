@@ -137,6 +137,14 @@ async function step1_testConnection() {
   const ensureCols = [
     { table: 'hospitals', column: 'data_source', type: 'text' },
     { table: 'collaborators', column: 'data_source', type: 'text' },
+    { table: 'collaborator_agreements', column: 'questionnaire_returned', type: 'boolean DEFAULT false' },
+    { table: 'collaborator_agreements', column: 'social_insurance_registration_day', type: 'integer' },
+    { table: 'collaborator_agreements', column: 'social_insurance_registration_month', type: 'integer' },
+    { table: 'collaborator_agreements', column: 'social_insurance_registration_year', type: 'integer' },
+    { table: 'collaborator_agreements', column: 'social_insurance_cancel_day', type: 'integer' },
+    { table: 'collaborator_agreements', column: 'social_insurance_cancel_month', type: 'integer' },
+    { table: 'collaborator_agreements', column: 'social_insurance_cancel_year', type: 'integer' },
+    { table: 'collaborator_agreements', column: 'note', type: 'text' },
   ];
   for (const ec of ensureCols) {
     const check = await pgPool.query(`SELECT 1 FROM information_schema.columns WHERE table_name = $1 AND column_name = $2`, [ec.table, ec.column]);

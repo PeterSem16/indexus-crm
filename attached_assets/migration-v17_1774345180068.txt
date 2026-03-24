@@ -1,0 +1,1070 @@
+
+╔══════════════════════════════════════════════════════════════════╗
+║   CBC → INDEXUS  Testovací migračný scenár (100 záznamov)       ║
+║   BEZ: Invoices, Billing Companies, Rewards                    ║
+╚══════════════════════════════════════════════════════════════════╝
+
+
+══════════════════════════════════════════════════════════════════════
+  STEP 1: Test pripojenia + vzorky dát z CBC
+══════════════════════════════════════════════════════════════════════
+[2026-03-24T09:37:50.870Z] ✓ Pripojené k MSSQL (CBC)
+[2026-03-24T09:37:50.884Z] ✓ Pripojené k PostgreSQL (INDEXUS)
+[2026-03-24T09:37:50.893Z] ✓ Schema overená (data_source, collaborator_activities)
+[2026-03-24T09:37:51.066Z] 
+Počty záznamov v CBC:
+  Tabuľka                     | Počet  
+  ────────────────────────────┼────────
+  Clients                     | 191999 
+  Collaborators               | 29860  
+  CollectionEvaluationResults | 9218404
+  CollectionStatuses          | 10     
+  Hospitals                   | 2227   
+  Laboratories                | 5      
+  ServiceCollections          | 197976 
+[2026-03-24T09:37:51.066Z] 
+Ukážka telefónnych formátov v CBC (PersonalData):
+  Mobil (RAW) | Normalized       | Telefón (RAW) | Email (RAW)                  
+  ────────────┼──────────────────┼───────────────┼──────────────────────────────
+  0904/509259 | +421 904 509 259 | —             | vevehuta@gmail.com           
+  0911/105303 | +421 911 105 303 | —             | evabezekova@gmail.com        
+  603812388   | +421 603 812 388 | —             | tomas.pospisil@kkn.cz        
+  0948/811174 | +421 948 811 174 | —             | michaela.korpova@gmail.com   
+  30/2036011  | +421 302 036 011 | —             | ttolnai@lear.com             
+  0905/631113 | +421 905 631 113 | —             | zlatica.kovacova@msd.com     
+  721753300   | +421 721 753 300 | —             | monicaelenaisvoranu@gmail.com
+  774361096   | +421 774 361 096 | —             | honzik.philipp@gmail.com     
+  0907/780110 | +421 907 780 110 | —             | eva.tordova@gmail.com        
+  753964620   | +421 753 964 620 | —             | silviya.marcu@gmail.com      
+[2026-03-24T09:37:51.070Z] 
+--- Diagnostika CBC: Lab Result Kódy (TOP 30) ---
+  cet_code   | cet_field_name                | Poradie | Počet 
+  ───────────┼───────────────────────────────┼─────────┼───────
+  —          | Premium_stav                  | 1       | 2391  
+  —          | Standard_pouzitelnost         | 1       | 2855  
+  PRODUCT    | BSP_PRODUCT                   | 1       | 186233
+  USABILITY2 | TP_pouzitelnost               | 1       | 5981  
+  —          | TP_infekcne_agens             | 2       | 2391  
+  —          | transplantat_preradenyDo      | 2       | 5981  
+  CBU        | CBU iden c                    | 2       | 186233
+  USABILITY2 | TP_pouzitelnost               | 2       | 2855  
+  —          | Premium_stav                  | 3       | 5981  
+  —          | TP_sterilita_vysledok         | 3       | 2391  
+  —          | transplantat odobrany pre     | 3       | 186233
+  —          | transplantat_preradenyDo      | 3       | 2855  
+  —          | Premium_pouzitelnost          | 4       | 2855  
+  —          | spracovanieXX                 | 4       | 186233
+  —          | Standard_objem_odobratej_krvi | 4       | 5979  
+  —          | Standard_pouzitelnost         | 4       | 387   
+  —          | Premium_pouzitelnost          | 5       | 5979  
+  —          | Standard_BB                   | 5       | 2855  
+  —          | Titl                          | 5       | 186233
+  USABILITY2 | TP_pouzitelnost               | 5       | 387   
+  —          | Meno matky                    | 6       | 186233
+  —          | Premium_objem_odobratej_krvi  | 6       | 2855  
+  —          | Standard_pouzitelnost         | 6       | 5979  
+  —          | transplantat_preradenyDo      | 6       | 2391  
+  —          | objem vsetkych striekaciek    | 7       | 2391  
+  —          | Priezvisko matky              | 7       | 186233
+  —          | Standard_objem_odobratej_krvi | 7       | 2855  
+  —          | TP_infekcne_agens             | 7       | 5981  
+  —          | CPD v striekacke              | 8       | 5981  
+  —          | Objem PLK                     | 8       | 2391  
+[2026-03-24T09:37:51.514Z] 
+--- Diagnostika CBC: Otec (Contracts/Father) ---
+[2026-03-24T09:37:51.516Z]   Contracts: žiadne stĺpce s "father"
+[2026-03-24T09:37:51.519Z]   Contracts ALL: con_id, hos_id, cli_id, add_id, tre_id, pot_id, csa_id, doc_id, cte_id, dst_id, con_number, con_expected_collection_date, con_pregnancy_type, con_repository, con_gift_card, con_contacted, con_filled, con_generated, con_sent, con_confirmed, con_returned, con_validated, con_realized, con_terminated, con_cancelled, con_invoicing_postponed, con_invoices_by_email, con_invoices_by_letter, con_inserted, con_inserted_by, con_updated, con_updated_by, con_note, ckt_id, con_collection_kit_number, con_collection_kit_expired, con_collection_kit_sent, con_collection_kit_courrier, con_saving_bank, rfo_id, con_refinancing_detail, rer_id, con_indicated, mpi_id_initialized, con_uuid, con_dialcom_campaign, con_dialcom_operator, con_dialcom_status, CON_RETURNED_MIGRATION_CONTRACT, CON_RETURNED_MIGRATION_CONTRACT_DATE, doc_id_physician, fct_id, con_firstcall_operator, con_cbtc_invoice_sent, mcs_id, con_dialcom_cancel_request, CON_TERMINATION_RECEIVED, CON_TERMINATION_RECEIVED_REASON, CON_TerminationRequested, CON_TerminationDocsSent, CON_TerminationNoticeDate, CON_NoticePeriod, CON_Disposal, CON_SettlementDate, CON_Settler, CON_Disposal_Str
+[2026-03-24T09:37:51.530Z]   Tabuľky s otcovskými stĺpcami:
+[2026-03-24T09:37:51.530Z]     ChildFather.FatherName
+[2026-03-24T09:37:51.530Z]     PotentialClients.per_id_father
+[2026-03-24T09:37:51.530Z]     PotentialClients.pot_father_address_country_ft
+[2026-03-24T09:37:51.532Z]   PotentialClients stĺpce: pot_id, sre_id, rty_id, pcs_id, per_id_father, cnt_id, com_id, mac_id, doc_id_exp, hos_id, fis_id, per_id, mpi_id, doc_id_recruit, pty_id, cos_id, cli_id, pot_product_ft, pot_marketproduct_ft, pot_payment_type_ft, pot_exp_birth_date, pot_exp_hospital_ft, pot_exp_doctor_ft, pot_recruiting_ft, pot_pregnancy_type, pot_previous_contracts, pot_gift_card, pot_children, pot_registration_type_ft, pot_first_information_source_ft, pot_cbc_reason_ft, pot_marketing_action_ft, pot_street_address_country_ft, pot_correspondence_address_country_ft, pot_father_address_country_ft, pot_mailinglist, pot_inserted, pot_inserted_by, pot_updated, pot_updated_by, pot_note, pot_deleted, pot_ext_id, mco_id, pot_marketing_code_ft, POT_FORCE_READONLY
+[2026-03-24T09:37:51.534Z]   ServiceCollections child/father stĺpce: sco_child_first_name, sco_child_last_name, sco_child_sex
+[2026-03-24T09:37:51.536Z]   Contracts sample (s pot_id):
+  con_id | cli_id | hos_id | pot_id | Expected Date                  | Pregnancy
+  ───────┼────────┼────────┼────────┼────────────────────────────────┼──────────
+  263958 | 208378 | 436    | 285326 | Mon Mar 23 2026 00:00:00 GMT+0 | 1        
+  263957 | 208377 | 479    | 285323 | Wed Apr 29 2026 00:00:00 GMT+0 | 1        
+  263956 | 200976 | 26     | 285329 | Sat May 09 2026 00:00:00 GMT+0 | 1        
+[2026-03-24T09:37:51.536Z] 
+--- Diagnostika CBC: CollaborationAgreementTypes ---
+  agt_id | Kód                         | Názov               | Počet použití
+  ───────┼─────────────────────────────┼─────────────────────┼──────────────
+  1      | REG_AGT_RECRUITING          | Recruiting          | —            
+  2      | REG_AGT_ASSISTANCE          | Assistance          | 132241       
+  3      | REG_AGT_COLLECTING_BLOOD    | Collecting          | 169266       
+  4      | REG_AGT_INFORMING           | Informing           | —            
+  5      | REG_AGT_GRANT               | Norvegian grant     | —            
+  6      | REG_AGT_PROPHYLAXIS         | Prophylaxis         | —            
+  7      | REG_AGT_NURSE_MANAGER       | Nurse manager       | —            
+  8      | REG_AGT_LECTURE             | Lecture on          | —            
+  9      | REG_AGT_COLLECTING_TISSUE   | Collecting tissue   | 38954        
+  11     | REG_AGT_COLLECTING_PLACENTA | Collecting placenta | 4255         
+  12     | REG_AGT_VEDONO              | Vedono              | —            
+  13     | REG_AGT_ZTP                 | ZŤP preukaz         | —            
+  14     | REG_AGT_PENSION_RETIRED     | Starobný dôchodok   | —            
+  15     | REG_AGT_PENSION_INVALID     | Invalidný dôchodok  | —            
+  16     | REG_AGT_PENSION_WIDOW       | Vdovský dôchodok    | —            
+  17     | REG_AGT_VIP                 | VIP                 | —            
+  18     | REG_AGT_DPA                 | DPA signed          | —            
+  19     | REG_AGT_REWARD_MONTHLY      | Monthly Rewarding   | —            
+  20     | REG_AGT_INTERNAL_EMPLOYEE   | Internal employee   | —            
+  21     | REG_AGT_CONTACT_PERSON      | Contact person      | —            
+  22     | REG_AGT_RESPONSIBLE_PERSON  | Responsible person  | —            
+[2026-03-24T09:37:51.567Z] 
+--- Diagnostika CBC: CollaboratorAgreements stĺpce ---
+[2026-03-24T09:37:51.569Z]   CollaboratorAgreements stĺpce: cag_id, com_id, doc_id, cag_number, cag_from, cag_to, cag_valid, cag_repository, cag_questionaire_returned, cag_agreement_sent, cag_agreement_returned, cag_social_insurance_registration, cag_social_insurance_cancel, cag_note, cag_inserted, cag_inserted_by, cag_updated, cag_updated_by, afo_id
+  cag_id | com_id | doc_id | cag_number            | cag_from                       | cag_to                         | cag_valid | cag_repository | cag_questionaire_returned | cag_agreement_sent             | cag_agreement_returned | cag_social_insurance_registration | cag_social_insurance_cancel | cag_note | cag_inserted                   | cag_inserted_by | cag_updated                    | cag_updated_by | afo_id
+  ───────┼────────┼────────┼───────────────────────┼────────────────────────────────┼────────────────────────────────┼───────────┼────────────────┼───────────────────────────┼────────────────────────────────┼────────────────────────┼────────────────────────────────┼─────────────────────────────┼──────────┼────────────────────────────────┼─────────────────┼────────────────────────────────┼────────────────┼───────
+  75450  | 5      | 29869  | RO606863              | —                              | —                              | false     | —              | —                         | —                              | —                      | —                              | —                           | —        | Tue Mar 24 2026 09:35:50 GMT+0 | dionescu        | Tue Mar 24 2026 09:35:50 GMT+0 | dionescu       | —     
+  75449  | 2      | 29868  | 60945 DOVP TYP15 7,5% | Thu Jan 01 2026 00:00:00 GMT+0 | Thu Dec 31 2026 00:00:00 GMT+0 | false     | 3149869        | —                         | Thu Jan 01 2026 00:00:00 GMT+0 | —                      | —                              | —                           | —        | Tue Mar 24 2026 09:20:33 GMT+0 | plapsanska      | Tue Mar 24 2026 09:24:39 GMT+0 | plapsanska     | 1     
+  75448  | 2      | 29867  | 60944 DOVP TYP15 7,5% | Thu Jan 01 2026 00:00:00 GMT+0 | Thu Dec 31 2026 00:00:00 GMT+0 | false     | 3149859        | —                         | Thu Jan 01 2026 00:00:00 GMT+0 | —                      | —                              | —                           | —        | Tue Mar 24 2026 09:15:09 GMT+0 | plapsanska      | Tue Mar 24 2026 09:15:45 GMT+0 | plapsanska     | 1     
+[2026-03-24T09:37:51.571Z] 
+--- Diagnostika CBC: Repository/Súbory dohôd ---
+[2026-03-24T09:37:51.582Z]   cag_repository: 8688 z 71424 má hodnotu
+[2026-03-24T09:37:51.584Z]   FileRepositories: 0 záznamov (PRÁZDNA — súbory sa budú riešiť manuálne)
+[2026-03-24T09:37:51.584Z] 
+--- Diagnostika CBC: Historické dáta klientov (zhrnutie) ---
+[2026-03-24T09:37:51.655Z]   Remarks: 2479304 záznamov
+[2026-03-24T09:37:51.655Z]   PhoneCommunications: 1193145 záznamov
+[2026-03-24T09:37:51.657Z]   Remarks stĺpce: rem_id(numeric), cli_id(numeric), con_id(numeric), cnt_id(numeric), pot_id(numeric), rem_date(datetime), rem_login(varchar), rem_note(nvarchar), rem_deleted(bit), doc_id(numeric), hos_id(numeric)
+  rem_id  | cli_id | con_id | cnt_id | pot_id | rem_date                       | rem_login | rem_note                       | rem_deleted | doc_id | hos_id
+  ────────┼────────┼────────┼────────┼────────┼────────────────────────────────┼───────────┼────────────────────────────────┼─────────────┼────────┼───────
+  2482037 | 146338 | —      | —      | —      | Tue Mar 24 2026 10:36:17 GMT+0 | cioica    | inb: confirmare plata          | false       | —      | —     
+  2482036 | 60784  | —      | —      | —      | Tue Mar 24 2026 10:31:12 GMT+0 | cioica    | inb: transmis factura          | false       | —      | —     
+  2482035 | —      | 251511 | —      | —      | Tue Mar 24 2026 10:28:49 GMT+0 | smistova  | poštou doporučene posielam Doh | false       | —      | —     
+[2026-03-24T09:37:51.660Z]   PhoneCommunications vzorky:
+  pho_id  | pot_id | cnt_id | con_id | cli_id | phr_id | pho_call_date                  | pho_caller | pho_number  | pho_note                       | pho_deleted
+  ────────┼────────┼────────┼────────┼────────┼────────┼────────────────────────────────┼────────────┼─────────────┼────────────────────────────────┼────────────
+  1193271 | —      | —      | 101274 | 100731 | 5      | Tue Mar 24 2026 10:35:49 GMT+0 | eacstoth   | 20/3224140  | KK: Nem fizeti be, mert nem az | false      
+  1193270 | —      | —      | 14512  | 14557  | 6      | Tue Mar 24 2026 10:37:05 GMT+0 | lsalatova  | 0904/509259 | dlh, fa mailom na obe          | false      
+  1193269 | —      | —      | 220552 | 6994   | 6      | Tue Mar 24 2026 10:35:47 GMT+0 | lsalatova  | 0918/511654 | dlh, fa mailom, uhradi         | false      
+[2026-03-24T09:37:51.662Z]   PhoneCallResults (výsledky hovorov):
+[2026-03-24T09:37:51.662Z]     1: REG_PHR_WRONG_NUMBER = Wrong number
+[2026-03-24T09:37:51.662Z]     2: REG_PHR_NOT_ANSWERING = Not answering
+[2026-03-24T09:37:51.662Z]     3: REG_PHR_REJECTED = Rejected
+[2026-03-24T09:37:51.662Z]     4: REG_PHR_SUCCESSFULL = Succeeded
+[2026-03-24T09:37:51.662Z]     5: REG_PHR_CALL_LATER = Call later
+[2026-03-24T09:37:51.662Z]     6: REG_PHR_DONE = Done
+[2026-03-24T09:37:51.662Z] 
+--- Diagnostika CBC: Collaborators stĺpce (health, marital, insurance) ---
+[2026-03-24T09:37:51.664Z]   Collaborators health/marital stĺpce: doc_svet_zdravia
+[2026-03-24T09:37:51.664Z] 
+--- Diagnostika CBC: PersonalData stĺpce (health, marital, insurance) ---
+[2026-03-24T09:37:51.666Z]   PersonalData health/marital stĺpce: pda_health_insurance_code, pda_health_insurance_company
+[2026-03-24T09:37:51.666Z] 
+--- Diagnostika CBC: Companies stĺpce (billing, fakturacna) ---
+[2026-03-24T09:37:51.667Z]   Companies stĺpce: com_id, cur_code, com_ext_id, com_sec_org_code, com_code, com_name, com_country_code, com_entity_code, com_invoice_barcode_letter
+[2026-03-24T09:37:51.667Z] 
+--- Diagnostika CBC: ServiceCollections stĺpce (representative, nurse, certificate, coordinator) ---
+[2026-03-24T09:37:51.669Z]   ServiceCollections relevant stĺpce: lab_id, sco_child_first_name, sco_child_last_name, sco_child_sex, sco_lab_evaluation, sco_lab_results_changed, sco_laboratory_note, sco_responsible_coordinator
+  lab_id | sco_child_first_name | sco_child_last_name | sco_child_sex | sco_lab_evaluation | sco_lab_results_changed | sco_laboratory_note | sco_responsible_coordinator
+  ───────┼──────────────────────┼─────────────────────┼───────────────┼────────────────────┼─────────────────────────┼─────────────────────┼────────────────────────────
+  2      | Philipp              | Maxmilian           | M             | —                  | false                   | —                   | lhuskova                   
+  3      | Matei Gabriel        | TROACA              | M             | —                  | false                   | —                   | dionescu                   
+  4      | —                    | —                   | M             | —                  | false                   | —                   | dionescu                   
+  4      | —                    | —                   | F             | —                  | false                   | —                   | dionescu                   
+  2      | Adéla                | Míková              | F             | —                  | false                   | —                   | lhuskova                   
+[2026-03-24T09:37:51.671Z] 
+--- Diagnostika CBC: Contracts stĺpce (representative, agent, sales) ---
+[2026-03-24T09:37:51.673Z]   Contracts relevant stĺpce: con_repository
+[2026-03-24T09:37:51.675Z]   Contracts sample (s odberom):
+  con_repository
+  ──────────────
+  -2147483648   
+  2300254       
+  2141104       
+  2805529       
+  2300265       
+[2026-03-24T09:37:51.675Z] 
+--- Diagnostika CBC: Hospital active values ---
+  hos_active | Počet
+  ───────────┼──────
+  false      | 315  
+  true       | 1912 
+[2026-03-24T09:37:51.677Z] 
+--- Diagnostika CBC: Hospital adresy (sample) ---
+  hos_id | Názov                          | add_id  | Mesto     | Ulica                          | PSČ    | Krajina    | Valid
+  ───────┼────────────────────────────────┼─────────┼───────────┼────────────────────────────────┼────────┼────────────┼──────
+  3696   | TM - Deta - Orasenesc          | 1638363 | Deta      | Str. Mihai Viteazu nr. 10      | 305200 | COUNTRY_RO | true 
+  3695   | Ambulantný lekár               | 1622131 | Slovensko | Slovensko                      | —      | COUNTRY_SK | true 
+  3694   | CJ - Medicover Hospital        | 1571416 | Suceagu   | Principala                     | 407062 | COUNTRY_RO | true 
+  3693   | MD - Medpark                   | 1551645 | Chisinau  | Strada Andrei Doga 24, Chişină | 2024   | COUNTRY_MD | true 
+  3692   | Klinik Floridsdorf / ehm. Kran | 1534704 | Wien      | Brünner Str. 68                | 1210   | COUNTRY_AT | true 
+
+══════════════════════════════════════════════════════════════════════
+  STEP 2: Referenčné dáta (StatusyOdberov, Laboratóriá)
+══════════════════════════════════════════════════════════════════════
+[2026-03-24T09:37:51.679Z] --- CollectionStatuses ---
+  ID | Kód                            | Názov                   | Poradie
+  ───┼────────────────────────────────┼─────────────────────────┼────────
+  1  | REG_CSU_NEW                    | New                     | 1      
+  2  | REG_CSU_WAITING_FOR_CONTRACT   | Waiting for contract    | 2      
+  3  | REG_CSU_PAIRED                 | Paired                  | 3      
+  4  | REG_CSU_EVALUATED              | Evaluated               | 4      
+  5  | REG_CSU_DOCTOR_EVALUATING      | Doctor evaluating       | 5      
+  6  | REG_CSU_WAITING_FOR_DECISION   | Waiting for decision    | 6      
+  7  | REG_CSU_GENERATING_CERTIFICATE | Generating certificates | 7      
+  8  | REG_CSU_STORED                 | Stored                  | 8      
+  9  | REG_CSU_RELEASED               | Released                | 9      
+  10 | REG_CSU_TRANSFERRED            | Transferred             | 10     
+[2026-03-24T09:37:51.681Z]   Mapovanie CBC → INDEXUS statusov (zjednotené):
+[2026-03-24T09:37:51.681Z]     ID=1 → code=1, name=Vydaný
+[2026-03-24T09:37:51.681Z]     ID=2 → code=1.1, name=V preprave
+[2026-03-24T09:37:51.681Z]     ID=3 → code=1.2, name=Na spracovaní
+[2026-03-24T09:37:51.681Z]     ID=4 → code=1.3, name=Na vyhodnotení
+[2026-03-24T09:37:51.681Z]     ID=5 → code=1.4, name=Evaluated
+[2026-03-24T09:37:51.681Z]     ID=6 → code=1.5, name=Generovanie certifikátov
+[2026-03-24T09:37:51.681Z]     ID=7 → code=1.6, name=Uskladnený
+[2026-03-24T09:37:51.681Z]     ID=8 → code=1.7, name=Released
+[2026-03-24T09:37:51.681Z]     ID=9 → code=1.8, name=Transferred
+[2026-03-24T09:37:51.681Z]     ID=11 → code=2, name=Likvidácia
+[2026-03-24T09:37:51.681Z]     ID=12 → code=2.1, name=V preprave - likvidácia
+[2026-03-24T09:37:51.681Z]     ID=13 → code=2.2, name=Na spracovaní - likvidácia
+[2026-03-24T09:37:51.681Z]     ID=14 → code=2.3, name=Na vyhodnotení - likvidácia
+[2026-03-24T09:37:51.681Z]     ID=15 → code=2.4, name=Zlikvidovaný
+[2026-03-24T09:37:51.681Z]   CBC remap (duplicity zlúčené): {"1":1,"2":2,"3":3,"4":4,"5":4,"6":4,"7":5,"8":6,"9":7,"10":8}
+[2026-03-24T09:37:51.682Z]   Vyčistené staré statusy
+[2026-03-24T09:37:51.688Z]   → 14 statusov vložených (9 zjednotených z 10 CBC)
+[2026-03-24T09:37:51.688Z] 
+--- Laboratories ---
+  ID | Názov            | Krajina    | Telefón | Email                    
+  ───┼──────────────────┼────────────┼─────────┼──────────────────────────
+  1  | Bratislava (SK)  | COUNTRY_SK | 123     | liska@cordbloodcenter.com
+  2  | Modletice (CZ)   | COUNTRY_CZ | 123     | liska@cordbloodcenter.com
+  3  | Cluj Napoca (RO) | COUNTRY_RO | 123     | liska@cordbloodcenter.com
+  4  | Bucharest (RO)   | COUNTRY_RO | 123     | liska@cordbloodcenter.com
+  6  | Germany (DE)     | COUNTRY_DE | 123     | liska@cordbloodcenter.com
+[2026-03-24T09:37:51.692Z]   → 0 vložených, 5 preskočených
+
+══════════════════════════════════════════════════════════════════════
+  STEP 3: Nemocnice (referencované z TOP 100 odberov)
+══════════════════════════════════════════════════════════════════════
+[2026-03-24T09:37:51.694Z]   Referencované nemocnice z odberov: 58 unikátnych hos_id
+[2026-03-24T09:37:51.698Z] Zdrojové dáta z CBC (prvých 10 z 58):
+  hos_id | Názov                          | Mesto      | PSČ   | Krajina    | Lab              | Aktívna
+  ───────┼────────────────────────────────┼────────────┼───────┼────────────┼──────────────────┼────────
+  3693   | MD - Medpark                   | Chisinau   | 2024  | COUNTRY_MD | Bucharest (RO)   | áno    
+  1877   | MD - Clinica Familia           | Chisinau   | x     | COUNTRY_MD | Bucharest (RO)   | áno    
+  1871   | Gyn Med                        | Craiova    | —     | COUNTRY_RO | Cluj Napoca (RO) | áno    
+  1866   | Landesklinikum Mistelbach      | Mistelbach | 2130  | COUNTRY_AT | Bratislava (SK)  | áno    
+  1706   | Milano - San Giuseppe (CBCITA) | Milano     | 20123 | COUNTRY_IT | Bratislava (SK)  | áno    
+  1632   | Cerignola - Tatarella (CBCITA) | Cerignola  | 71042 | COUNTRY_IT | Bratislava (SK)  | áno    
+  1618   | Roma - San Pietro Fate bene Fr | Roma       | 189   | COUNTRY_IT | Bratislava (SK)  | áno    
+  978    | Debrecen - DEKK                | Debrecen   | 4032  | COUNTRY_HU | Bratislava (SK)  | áno    
+  900    | BH - Oradea - Pelican          | Oradea     | ???   | COUNTRY_RO | Bucharest (RO)   | áno    
+  893    | B - Bucuresti - Sanador Privat | Bucuresti  | ???   | COUNTRY_RO | Bucharest (RO)   | áno    
+[2026-03-24T09:38:54.457Z] 
+  → 58 vložených, 0 preskočených (0 aktualizovaných), 0 chýb, 44 geocodovaných
+
+══════════════════════════════════════════════════════════════════════
+  STEP 4: Spolupracovníci (referencovaní z TOP 100 odberov)
+══════════════════════════════════════════════════════════════════════
+[2026-03-24T09:38:54.466Z]   Referencovaní spolupracovníci z odberov: 161 unikátnych doc_id
+[2026-03-24T09:38:54.487Z]   Representants: 116 aktívnych
+[2026-03-24T09:38:54.513Z]   MailAddresses: 196 adries načítaných (per_id: 161, firm: 17)
+[2026-03-24T09:38:54.652Z] Zdrojové dáta z CBC (prvých 10 z 161):
+  doc_id | Meno       | Priezvisko    | Typ            | Mobil (RAW) | → Normalized     | Email                       | Krajina
+  ───────┼────────────┼───────────────┼────────────────┼─────────────┼──────────────────┼─────────────────────────────┼────────
+  29868  | Branislav  | Mikolaj       | REG_CTY_DOCTOR | 0949/411745 | +421 949 411 745 | mikolaj.branislav@gmail.com | SK     
+  29865  | Zuzana     | Pavlíčková    | REG_CTY_OTHER  | —           | —                | —                           | SK     
+  29860  | Fohleitner | Sophie        | REG_CTY_OTHER  | —           | —                | —                           | AT     
+  29859  | Bernadett  | Fazekašová    | REG_CTY_OTHER  | —           | —                | —                           | SK     
+  29858  | Réka       | Udvardi       | REG_CTY_OTHER  | —           | —                | —                           | HU     
+  29827  | Simona     | Andrejcová    | REG_CTY_OTHER  | —           | —                | —                           | SK     
+  29809  | Natalia    | SCLIFOS       | REG_CTY_OTHER  | —           | —                | —                           | MD     
+  29808  | MAREK      | MATAK         | REG_CTY_OTHER  | —           | —                | —                           | AT     
+  29807  | Petra      | Kneslova      | REG_CTY_OTHER  | —           | —                | —                           | AT     
+  29806  | Rita       | Balázs-Kállai | REG_CTY_OTHER  | —           | —                | —                           | HU     
+[2026-03-24T09:38:54.843Z] 
+  → 161 vložených, 0 preskočených, 0 chýb
+[2026-03-24T09:38:54.843Z]   Adresy: 196 vložených (permanent + correspondence + company)
+[2026-03-24T09:38:54.843Z]   Representants: 111 priradených
+[2026-03-24T09:38:54.843Z]   Zdravotné poisťovne: 0 priradených, 0 nenájdených v INDEXUS
+
+══════════════════════════════════════════════════════════════════════
+  STEP 4.5: Dohody spolupracovníkov (CollaboratorAgreements)
+══════════════════════════════════════════════════════════════════════
+[2026-03-24T09:38:54.863Z]   Nájdených 593 dohôd pre 161 spolupracovníkov
+  cag_id | doc_id | Company  | Number                | From       | To           | Sent       | Returned    | Valid | Form
+  ───────┼────────┼──────────┼───────────────────────┼────────────┼──────────────┼────────────┼─────────────┼───────┼─────
+  75449  | 29868  | Eurocord | 60945 DOVP TYP15 7,5% | 1. 1. 2026 | 31. 12. 2026 | 1. 1. 2026 | —           | false | 1   
+  75435  | 5168   | CBC.cz   | DPP 1256              | 1. 1. 2025 | 31. 12. 2027 | 1. 1. 2025 | 23. 3. 2026 | true  | —   
+  75434  | 29865  | Eurocord | nemá dohodu           | 1. 1. 2026 | 31. 12. 2026 | —          | —           | false | —   
+  75433  | 27913  | Eurocord | 60686 DOVP TYP15 7,5% | 1. 1. 2026 | 31. 12. 2026 | 1. 1. 2026 | 28. 2. 2026 | true  | 1   
+  75431  | 2764   | Eurocord | 51338 DOVP TYP15 7,5% | 1. 1. 2026 | 31. 12. 2026 | 1. 1. 2026 | 28. 2. 2026 | true  | 1   
+  75429  | 769    | Eurocord | 51002 DOVP TYP15 7,5% | 1. 1. 2026 | 31. 12. 2026 | 1. 1. 2026 | 28. 2. 2026 | true  | 1   
+  75427  | 1034   | Eurocord | 50364 DOVP TYP15 7,5% | 1. 1. 2026 | 31. 12. 2026 | 1. 1. 2026 | 28. 2. 2026 | true  | 1   
+  75426  | 799    | Eurocord | 50939 DOVP TYP15 7,5% | 1. 1. 2026 | 31. 12. 2026 | 1. 1. 2026 | 28. 2. 2026 | true  | 1   
+  75425  | 26490  | Eurocord | 60495 DOVP TYP15 7,5% | 1. 1. 2026 | 31. 12. 2026 | 1. 1. 2026 | 28. 2. 2026 | true  | 1   
+  75424  | 2947   | Eurocord | 50925 DOVP TYP15 7,5% | 1. 1. 2026 | 31. 12. 2026 | 1. 1. 2026 | 28. 2. 2026 | true  | 1   
+[2026-03-24T09:38:54.879Z]   ERROR cag_id=75449: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:54.885Z]   ERROR cag_id=75435: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:54.891Z]   ERROR cag_id=75434: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:54.897Z]   ERROR cag_id=75433: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:54.902Z]   ERROR cag_id=75431: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:54.907Z]   ERROR cag_id=75429: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:54.912Z]   ERROR cag_id=75427: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:54.918Z]   ERROR cag_id=75426: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:54.924Z]   ERROR cag_id=75425: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:54.929Z]   ERROR cag_id=75424: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:54.935Z]   ERROR cag_id=75423: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:54.940Z]   ERROR cag_id=75422: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:54.945Z]   ERROR cag_id=75417: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:54.952Z]   ERROR cag_id=75406: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:54.959Z]   ERROR cag_id=75405: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:54.964Z]   ERROR cag_id=75404: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:54.969Z]   ERROR cag_id=75367: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:54.974Z]   ERROR cag_id=75339: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:54.980Z]   ERROR cag_id=75338: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:54.985Z]   ERROR cag_id=75337: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:54.990Z]   ERROR cag_id=75336: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:54.995Z]   ERROR cag_id=75333: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.000Z]   ERROR cag_id=75332: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.004Z]   ERROR cag_id=75331: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.009Z]   ERROR cag_id=75330: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.014Z]   ERROR cag_id=75329: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.019Z]   ERROR cag_id=75324: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.024Z]   ERROR cag_id=75319: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.029Z]   ERROR cag_id=75277: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.034Z]   ERROR cag_id=75240: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.039Z]   ERROR cag_id=75216: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.044Z]   ERROR cag_id=75204: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.049Z]   ERROR cag_id=75190: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.054Z]   ERROR cag_id=75169: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.059Z]   ERROR cag_id=75148: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.064Z]   ERROR cag_id=75145: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.069Z]   ERROR cag_id=75085: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.074Z]   ERROR cag_id=75084: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.079Z]   ERROR cag_id=75061: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.084Z]   ERROR cag_id=75032: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.089Z]   ERROR cag_id=75031: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.093Z]   ERROR cag_id=75028: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.098Z]   ERROR cag_id=74838: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.103Z]   ERROR cag_id=74835: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.107Z]   ERROR cag_id=74811: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.112Z]   ERROR cag_id=74740: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.117Z]   ERROR cag_id=74729: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.122Z]   ERROR cag_id=74678: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.127Z]   ERROR cag_id=74670: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.132Z]   ERROR cag_id=74628: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.138Z]   ERROR cag_id=74624: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.143Z]   ERROR cag_id=74622: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.147Z]   ERROR cag_id=74608: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.152Z]   ERROR cag_id=74603: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.157Z]   ERROR cag_id=74601: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.162Z]   ERROR cag_id=74564: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.166Z]   ERROR cag_id=74560: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.171Z]   ERROR cag_id=74550: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.176Z]   ERROR cag_id=74507: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.181Z]   ERROR cag_id=74474: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.186Z]   ERROR cag_id=74396: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.191Z]   ERROR cag_id=74333: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.195Z]   ERROR cag_id=74306: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.200Z]   ERROR cag_id=74119: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.205Z]   ERROR cag_id=74060: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.210Z]   ERROR cag_id=74020: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.215Z]   ERROR cag_id=73939: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.221Z]   ERROR cag_id=73698: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.226Z]   ERROR cag_id=73549: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.230Z]   ERROR cag_id=73480: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.235Z]   ERROR cag_id=73431: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.240Z]   ERROR cag_id=73413: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.245Z]   ERROR cag_id=73409: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.249Z]   ERROR cag_id=73350: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.254Z]   ERROR cag_id=73215: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.259Z]   ERROR cag_id=73160: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.264Z]   ERROR cag_id=73140: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.270Z]   ERROR cag_id=73110: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.275Z]   ERROR cag_id=73045: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.280Z]   ERROR cag_id=73034: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.285Z]   ERROR cag_id=72890: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.289Z]   ERROR cag_id=72875: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.294Z]   ERROR cag_id=72853: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.299Z]   ERROR cag_id=72847: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.304Z]   ERROR cag_id=72844: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.309Z]   ERROR cag_id=72780: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.314Z]   ERROR cag_id=72757: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.319Z]   ERROR cag_id=72749: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.324Z]   ERROR cag_id=72745: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.329Z]   ERROR cag_id=70684: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.334Z]   ERROR cag_id=70664: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.339Z]   ERROR cag_id=70463: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.343Z]   ERROR cag_id=70443: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.348Z]   ERROR cag_id=70412: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.353Z]   ERROR cag_id=70368: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.358Z]   ERROR cag_id=70308: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.363Z]   ERROR cag_id=70292: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.368Z]   ERROR cag_id=70226: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.373Z]   ERROR cag_id=70130: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.378Z]   ERROR cag_id=70112: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.383Z]   ERROR cag_id=70110: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.388Z]   ERROR cag_id=70109: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.393Z]   ERROR cag_id=70072: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.398Z]   ERROR cag_id=70062: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.403Z]   ERROR cag_id=69954: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.408Z]   ERROR cag_id=69941: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.413Z]   ERROR cag_id=69933: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.418Z]   ERROR cag_id=69870: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.423Z]   ERROR cag_id=69746: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.428Z]   ERROR cag_id=69718: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.433Z]   ERROR cag_id=69717: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.438Z]   ERROR cag_id=69713: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.443Z]   ERROR cag_id=69624: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.448Z]   ERROR cag_id=69412: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.453Z]   ERROR cag_id=69314: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.458Z]   ERROR cag_id=69287: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.462Z]   ERROR cag_id=69235: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.468Z]   ERROR cag_id=69170: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.473Z]   ERROR cag_id=69096: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.477Z]   ERROR cag_id=69081: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.482Z]   ERROR cag_id=69012: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.487Z]   ERROR cag_id=68822: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.492Z]   ERROR cag_id=68800: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.497Z]   ERROR cag_id=68769: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.502Z]   ERROR cag_id=68757: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.507Z]   ERROR cag_id=68749: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.512Z]   ERROR cag_id=68647: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.518Z]   ERROR cag_id=68612: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.523Z]   ERROR cag_id=68598: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.528Z]   ERROR cag_id=68593: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.534Z]   ERROR cag_id=68533: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.539Z]   ERROR cag_id=68518: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.544Z]   ERROR cag_id=68510: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.549Z]   ERROR cag_id=68447: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.556Z]   ERROR cag_id=68400: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.561Z]   ERROR cag_id=68358: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.566Z]   ERROR cag_id=68339: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.571Z]   ERROR cag_id=68338: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.576Z]   ERROR cag_id=68325: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.580Z]   ERROR cag_id=68305: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.585Z]   ERROR cag_id=67967: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.590Z]   ERROR cag_id=67935: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.595Z]   ERROR cag_id=67702: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.600Z]   ERROR cag_id=67592: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.605Z]   ERROR cag_id=67563: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.610Z]   ERROR cag_id=67490: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.614Z]   ERROR cag_id=67378: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.619Z]   ERROR cag_id=67244: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.624Z]   ERROR cag_id=67229: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.629Z]   ERROR cag_id=67183: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.634Z]   ERROR cag_id=67141: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.639Z]   ERROR cag_id=66943: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.644Z]   ERROR cag_id=66920: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.648Z]   ERROR cag_id=66889: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.653Z]   ERROR cag_id=66877: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.658Z]   ERROR cag_id=66869: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.662Z]   ERROR cag_id=66760: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.667Z]   ERROR cag_id=66723: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.672Z]   ERROR cag_id=66709: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.676Z]   ERROR cag_id=66704: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.681Z]   ERROR cag_id=66644: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.686Z]   ERROR cag_id=66556: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.691Z]   ERROR cag_id=66243: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.695Z]   ERROR cag_id=66230: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.700Z]   ERROR cag_id=66056: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.705Z]   ERROR cag_id=64395: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.709Z]   ERROR cag_id=64196: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.714Z]   ERROR cag_id=64070: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.719Z]   ERROR cag_id=64036: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.723Z]   ERROR cag_id=63960: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.728Z]   ERROR cag_id=63828: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.733Z]   ERROR cag_id=63676: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.738Z]   ERROR cag_id=63657: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.743Z]   ERROR cag_id=63608: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.747Z]   ERROR cag_id=63564: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.752Z]   ERROR cag_id=63344: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.757Z]   ERROR cag_id=63319: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.761Z]   ERROR cag_id=63287: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.766Z]   ERROR cag_id=63275: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.771Z]   ERROR cag_id=63266: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.776Z]   ERROR cag_id=63150: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.781Z]   ERROR cag_id=63112: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.786Z]   ERROR cag_id=63097: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.790Z]   ERROR cag_id=63092: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.795Z]   ERROR cag_id=62953: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.800Z]   ERROR cag_id=62917: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.805Z]   ERROR cag_id=62895: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.822Z]   ERROR cag_id=62556: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.827Z]   ERROR cag_id=62511: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.832Z]   ERROR cag_id=62385: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.840Z]   ERROR cag_id=62320: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.845Z]   ERROR cag_id=62235: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.850Z]   ERROR cag_id=62210: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.857Z]   ERROR cag_id=62039: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.863Z]   ERROR cag_id=62014: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.867Z]   ERROR cag_id=61928: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.872Z]   ERROR cag_id=61432: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.877Z]   ERROR cag_id=61401: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.882Z]   ERROR cag_id=61224: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.887Z]   ERROR cag_id=61168: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.892Z]   ERROR cag_id=61167: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.899Z]   ERROR cag_id=60933: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.906Z]   ERROR cag_id=60839: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.911Z]   ERROR cag_id=60703: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.916Z]   ERROR cag_id=60666: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.921Z]   ERROR cag_id=60580: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.926Z]   ERROR cag_id=60446: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.935Z]   ERROR cag_id=60292: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.939Z]   ERROR cag_id=60271: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.944Z]   ERROR cag_id=60221: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.952Z]   ERROR cag_id=60174: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.957Z]   ERROR cag_id=59900: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.962Z]   ERROR cag_id=59873: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.967Z]   ERROR cag_id=59839: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.972Z]   ERROR cag_id=59826: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.976Z]   ERROR cag_id=59816: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.981Z]   ERROR cag_id=59689: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.986Z]   ERROR cag_id=59644: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.991Z]   ERROR cag_id=59628: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:55.995Z]   ERROR cag_id=59623: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.000Z]   ERROR cag_id=59534: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.005Z]   ERROR cag_id=59467: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.010Z]   ERROR cag_id=59411: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.015Z]   ERROR cag_id=59384: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.020Z]   ERROR cag_id=59321: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.025Z]   ERROR cag_id=59311: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.030Z]   ERROR cag_id=59228: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.038Z]   ERROR cag_id=59060: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.043Z]   ERROR cag_id=59020: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.048Z]   ERROR cag_id=58778: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.053Z]   ERROR cag_id=58751: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.058Z]   ERROR cag_id=58664: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.062Z]   ERROR cag_id=58148: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.067Z]   ERROR cag_id=58117: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.072Z]   ERROR cag_id=57937: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.077Z]   ERROR cag_id=57880: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.082Z]   ERROR cag_id=57879: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.088Z]   ERROR cag_id=57641: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.093Z]   ERROR cag_id=57498: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.100Z]   ERROR cag_id=57460: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.106Z]   ERROR cag_id=57366: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.111Z]   ERROR cag_id=57228: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.116Z]   ERROR cag_id=57068: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.123Z]   ERROR cag_id=57046: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.128Z]   ERROR cag_id=56995: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.132Z]   ERROR cag_id=56943: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.137Z]   ERROR cag_id=56642: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.142Z]   ERROR cag_id=56615: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.147Z]   ERROR cag_id=56578: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.151Z]   ERROR cag_id=56564: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.156Z]   ERROR cag_id=56553: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.161Z]   ERROR cag_id=56418: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.166Z]   ERROR cag_id=56366: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.170Z]   ERROR cag_id=56349: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.175Z]   ERROR cag_id=56344: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.180Z]   ERROR cag_id=56240: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.185Z]   ERROR cag_id=56100: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.189Z]   ERROR cag_id=56029: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.195Z]   ERROR cag_id=55771: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.200Z]   ERROR cag_id=55759: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.205Z]   ERROR cag_id=55727: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.209Z]   ERROR cag_id=55701: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.214Z]   ERROR cag_id=55665: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.219Z]   ERROR cag_id=55574: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.224Z]   ERROR cag_id=55046: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.228Z]   ERROR cag_id=55015: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.233Z]   ERROR cag_id=54833: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.238Z]   ERROR cag_id=54775: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.242Z]   ERROR cag_id=54774: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.247Z]   ERROR cag_id=54535: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.252Z]   ERROR cag_id=54459: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.256Z]   ERROR cag_id=54349: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.261Z]   ERROR cag_id=54180: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.266Z]   ERROR cag_id=53963: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.270Z]   ERROR cag_id=53925: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.275Z]   ERROR cag_id=53852: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.279Z]   ERROR cag_id=53785: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.284Z]   ERROR cag_id=53414: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.289Z]   ERROR cag_id=53382: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.293Z]   ERROR cag_id=53337: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.298Z]   ERROR cag_id=53318: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.303Z]   ERROR cag_id=53305: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.308Z]   ERROR cag_id=53118: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.312Z]   ERROR cag_id=53033: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.317Z]   ERROR cag_id=53015: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.322Z]   ERROR cag_id=53009: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.327Z]   ERROR cag_id=52853: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.331Z]   ERROR cag_id=52723: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.336Z]   ERROR cag_id=52474: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.341Z]   ERROR cag_id=52383: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.345Z]   ERROR cag_id=43691: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.350Z]   ERROR cag_id=43514: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.355Z]   ERROR cag_id=43389: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.360Z]   ERROR cag_id=43284: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.365Z]   ERROR cag_id=43246: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.369Z]   ERROR cag_id=43171: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.374Z]   ERROR cag_id=43103: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.379Z]   ERROR cag_id=42691: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.383Z]   ERROR cag_id=42654: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.388Z]   ERROR cag_id=42606: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.393Z]   ERROR cag_id=42585: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.398Z]   ERROR cag_id=42571: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.402Z]   ERROR cag_id=42368: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.407Z]   ERROR cag_id=42265: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.412Z]   ERROR cag_id=42245: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.416Z]   ERROR cag_id=42239: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.421Z]   ERROR cag_id=41742: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.426Z]   ERROR cag_id=41707: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.431Z]   ERROR cag_id=41518: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.435Z]   ERROR cag_id=41459: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.440Z]   ERROR cag_id=41458: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.445Z]   ERROR cag_id=41206: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.449Z]   ERROR cag_id=41077: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.454Z]   ERROR cag_id=40966: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.459Z]   ERROR cag_id=40788: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.463Z]   ERROR cag_id=40722: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.468Z]   ERROR cag_id=40667: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.473Z]   ERROR cag_id=40418: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.477Z]   ERROR cag_id=40227: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.482Z]   ERROR cag_id=40056: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.487Z]   ERROR cag_id=39841: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.491Z]   ERROR cag_id=39465: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.496Z]   ERROR cag_id=39374: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.501Z]   ERROR cag_id=39346: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.505Z]   ERROR cag_id=39168: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.510Z]   ERROR cag_id=38610: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.515Z]   ERROR cag_id=38439: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.520Z]   ERROR cag_id=38366: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.528Z]   ERROR cag_id=38352: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.533Z]   ERROR cag_id=38263: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.538Z]   ERROR cag_id=38235: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.549Z]   ERROR cag_id=38213: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.557Z]   ERROR cag_id=38189: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.564Z]   ERROR cag_id=38034: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.569Z]   ERROR cag_id=37873: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.574Z]   ERROR cag_id=37851: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.579Z]   ERROR cag_id=37715: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.584Z]   ERROR cag_id=37673: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.589Z]   ERROR cag_id=37663: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.593Z]   ERROR cag_id=37593: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.598Z]   ERROR cag_id=37222: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.603Z]   ERROR cag_id=37163: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.608Z]   ERROR cag_id=37104: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.613Z]   ERROR cag_id=36266: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.617Z]   ERROR cag_id=36149: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.622Z]   ERROR cag_id=36016: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.627Z]   ERROR cag_id=35238: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.632Z]   ERROR cag_id=34986: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.636Z]   ERROR cag_id=34977: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.641Z]   ERROR cag_id=34975: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.646Z]   ERROR cag_id=33874: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.650Z]   ERROR cag_id=33486: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.655Z]   ERROR cag_id=33414: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.660Z]   ERROR cag_id=33368: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.665Z]   ERROR cag_id=33362: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.669Z]   ERROR cag_id=33339: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.674Z]   ERROR cag_id=33291: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.679Z]   ERROR cag_id=33138: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.683Z]   ERROR cag_id=33016: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.689Z]   ERROR cag_id=32882: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.694Z]   ERROR cag_id=32768: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.700Z]   ERROR cag_id=32557: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.705Z]   ERROR cag_id=32547: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.710Z]   ERROR cag_id=32466: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.715Z]   ERROR cag_id=32411: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.720Z]   ERROR cag_id=32394: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.724Z]   ERROR cag_id=32315: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.729Z]   ERROR cag_id=32278: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.734Z]   ERROR cag_id=32134: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.739Z]   ERROR cag_id=32113: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.744Z]   ERROR cag_id=32097: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.748Z]   ERROR cag_id=31760: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.753Z]   ERROR cag_id=31339: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.758Z]   ERROR cag_id=30619: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.762Z]   ERROR cag_id=30612: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.767Z]   ERROR cag_id=30503: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.771Z]   ERROR cag_id=30283: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.776Z]   ERROR cag_id=30276: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.780Z]   ERROR cag_id=30023: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.785Z]   ERROR cag_id=29856: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.789Z]   ERROR cag_id=29609: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.794Z]   ERROR cag_id=29600: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.799Z]   ERROR cag_id=29598: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.803Z]   ERROR cag_id=29535: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.808Z]   ERROR cag_id=29505: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.813Z]   ERROR cag_id=29444: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.818Z]   ERROR cag_id=29427: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.822Z]   ERROR cag_id=29333: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.827Z]   ERROR cag_id=29288: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.831Z]   ERROR cag_id=29259: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.836Z]   ERROR cag_id=29015: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.841Z]   ERROR cag_id=28957: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.845Z]   ERROR cag_id=27995: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.850Z]   ERROR cag_id=27961: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.854Z]   ERROR cag_id=27906: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.859Z]   ERROR cag_id=27879: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.863Z]   ERROR cag_id=27854: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.868Z]   ERROR cag_id=27525: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.873Z]   ERROR cag_id=27461: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.877Z]   ERROR cag_id=27449: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.882Z]   ERROR cag_id=27174: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.886Z]   ERROR cag_id=27134: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.891Z]   ERROR cag_id=27117: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.895Z]   ERROR cag_id=27062: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.900Z]   ERROR cag_id=27055: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.904Z]   ERROR cag_id=26990: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.909Z]   ERROR cag_id=26655: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.914Z]   ERROR cag_id=26292: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.918Z]   ERROR cag_id=26016: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.923Z]   ERROR cag_id=25860: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.927Z]   ERROR cag_id=25279: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.932Z]   ERROR cag_id=25274: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.936Z]   ERROR cag_id=25049: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.941Z]   ERROR cag_id=24952: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.946Z]   ERROR cag_id=24942: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.950Z]   ERROR cag_id=24939: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.954Z]   ERROR cag_id=24693: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.959Z]   ERROR cag_id=24671: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.964Z]   ERROR cag_id=24618: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.968Z]   ERROR cag_id=24414: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.973Z]   ERROR cag_id=24393: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.977Z]   ERROR cag_id=24337: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.982Z]   ERROR cag_id=24181: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.987Z]   ERROR cag_id=24034: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.991Z]   ERROR cag_id=23904: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:56.996Z]   ERROR cag_id=23899: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.000Z]   ERROR cag_id=23816: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.005Z]   ERROR cag_id=23777: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.009Z]   ERROR cag_id=23561: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.014Z]   ERROR cag_id=23547: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.018Z]   ERROR cag_id=23287: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.023Z]   ERROR cag_id=22985: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.028Z]   ERROR cag_id=22955: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.033Z]   ERROR cag_id=22857: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.037Z]   ERROR cag_id=22755: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.042Z]   ERROR cag_id=22752: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.051Z]   ERROR cag_id=22657: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.056Z]   ERROR cag_id=22626: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.061Z]   ERROR cag_id=22514: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.065Z]   ERROR cag_id=22288: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.070Z]   ERROR cag_id=22274: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.074Z]   ERROR cag_id=22214: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.079Z]   ERROR cag_id=21988: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.083Z]   ERROR cag_id=21953: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.088Z]   ERROR cag_id=21952: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.096Z]   ERROR cag_id=21680: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.100Z]   ERROR cag_id=21676: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.105Z]   ERROR cag_id=21618: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.109Z]   ERROR cag_id=21616: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.114Z]   ERROR cag_id=21587: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.118Z]   ERROR cag_id=21568: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.123Z]   ERROR cag_id=21565: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.127Z]   ERROR cag_id=21431: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.132Z]   ERROR cag_id=21425: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.137Z]   ERROR cag_id=21399: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.141Z]   ERROR cag_id=21359: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.146Z]   ERROR cag_id=21354: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.151Z]   ERROR cag_id=21306: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.156Z]   ERROR cag_id=21300: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.161Z]   ERROR cag_id=21289: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.165Z]   ERROR cag_id=21228: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.170Z]   ERROR cag_id=21147: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.175Z]   ERROR cag_id=21140: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.180Z]   ERROR cag_id=21132: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.185Z]   ERROR cag_id=21125: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.189Z]   ERROR cag_id=21035: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.194Z]   ERROR cag_id=20964: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.199Z]   ERROR cag_id=20932: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.203Z]   ERROR cag_id=20708: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.208Z]   ERROR cag_id=20614: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.212Z]   ERROR cag_id=20425: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.217Z]   ERROR cag_id=20224: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.222Z]   ERROR cag_id=19879: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.226Z]   ERROR cag_id=19858: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.233Z]   ERROR cag_id=19847: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.237Z]   ERROR cag_id=19799: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.242Z]   ERROR cag_id=19615: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.246Z]   ERROR cag_id=19528: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.251Z]   ERROR cag_id=19342: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.255Z]   ERROR cag_id=18911: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.260Z]   ERROR cag_id=18895: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.264Z]   ERROR cag_id=16543: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.269Z]   ERROR cag_id=16335: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.273Z]   ERROR cag_id=16169: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.278Z]   ERROR cag_id=15885: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.282Z]   ERROR cag_id=12789: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.287Z]   ERROR cag_id=12788: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.291Z]   ERROR cag_id=12787: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.295Z]   ERROR cag_id=12786: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.300Z]   ERROR cag_id=12370: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.304Z]   ERROR cag_id=12369: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.309Z]   ERROR cag_id=12114: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.313Z]   ERROR cag_id=12113: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.318Z]   ERROR cag_id=12112: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.322Z]   ERROR cag_id=12111: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.327Z]   ERROR cag_id=12085: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.331Z]   ERROR cag_id=12084: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.336Z]   ERROR cag_id=12081: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.340Z]   ERROR cag_id=12080: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.345Z]   ERROR cag_id=12079: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.350Z]   ERROR cag_id=12078: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.355Z]   ERROR cag_id=12077: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.359Z]   ERROR cag_id=10974: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.364Z]   ERROR cag_id=10973: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.369Z]   ERROR cag_id=10873: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.373Z]   ERROR cag_id=10872: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.378Z]   ERROR cag_id=10839: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.383Z]   ERROR cag_id=10838: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.388Z]   ERROR cag_id=10837: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.393Z]   ERROR cag_id=10836: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.398Z]   ERROR cag_id=10426: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.403Z]   ERROR cag_id=10425: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.407Z]   ERROR cag_id=10339: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.412Z]   ERROR cag_id=10338: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.416Z]   ERROR cag_id=10226: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.421Z]   ERROR cag_id=10225: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.425Z]   ERROR cag_id=10201: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.430Z]   ERROR cag_id=10200: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.435Z]   ERROR cag_id=9128: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.439Z]   ERROR cag_id=9127: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.444Z]   ERROR cag_id=8934: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.448Z]   ERROR cag_id=8933: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.453Z]   ERROR cag_id=8700: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.457Z]   ERROR cag_id=8336: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.462Z]   ERROR cag_id=8265: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.467Z]   ERROR cag_id=8173: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.471Z]   ERROR cag_id=7996: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.476Z]   ERROR cag_id=7971: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.480Z]   ERROR cag_id=7814: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.485Z]   ERROR cag_id=7804: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.489Z]   ERROR cag_id=7727: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.494Z]   ERROR cag_id=7202: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.498Z]   ERROR cag_id=7139: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.503Z]   ERROR cag_id=7104: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.507Z]   ERROR cag_id=6720: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.512Z]   ERROR cag_id=6623: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.516Z]   ERROR cag_id=6525: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.521Z]   ERROR cag_id=6452: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.525Z]   ERROR cag_id=6273: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.530Z]   ERROR cag_id=6258: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.535Z]   ERROR cag_id=6020: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.540Z]   ERROR cag_id=5860: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.545Z]   ERROR cag_id=5750: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.550Z]   ERROR cag_id=5044: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.555Z]   ERROR cag_id=4773: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.559Z]   ERROR cag_id=4589: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.570Z]   ERROR cag_id=4464: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.577Z]   ERROR cag_id=4368: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.582Z]   ERROR cag_id=4091: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.589Z]   ERROR cag_id=4048: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.594Z]   ERROR cag_id=3478: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.598Z]   ERROR cag_id=3445: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.603Z]   ERROR cag_id=3337: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.607Z]   ERROR cag_id=3213: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.612Z]   ERROR cag_id=3212: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.617Z]   ERROR cag_id=3011: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.623Z]   ERROR cag_id=2470: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.628Z]   ERROR cag_id=2283: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.635Z]   ERROR cag_id=2174: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.639Z]   ERROR cag_id=2147: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.644Z]   ERROR cag_id=2007: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.649Z]   ERROR cag_id=1899: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.654Z]   ERROR cag_id=1880: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.658Z]   ERROR cag_id=1879: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.663Z]   ERROR cag_id=1878: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.667Z]   ERROR cag_id=1785: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.672Z]   ERROR cag_id=1684: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.677Z]   ERROR cag_id=1667: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.681Z]   ERROR cag_id=1666: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.685Z]   ERROR cag_id=1617: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.690Z]   ERROR cag_id=1612: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.694Z]   ERROR cag_id=1579: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.699Z]   ERROR cag_id=1428: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.703Z]   ERROR cag_id=1341: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.708Z]   ERROR cag_id=1033: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.712Z]   ERROR cag_id=884: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.717Z]   ERROR cag_id=729: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.722Z]   ERROR cag_id=696: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.726Z]   ERROR cag_id=525: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.731Z]   ERROR cag_id=454: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.735Z]   ERROR cag_id=452: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.741Z]   ERROR cag_id=441: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.746Z]   ERROR cag_id=439: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.751Z]   ERROR cag_id=328: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.756Z]   ERROR cag_id=316: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.760Z]   ERROR cag_id=312: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.765Z]   ERROR cag_id=291: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.770Z]   ERROR cag_id=245: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.775Z]   ERROR cag_id=219: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.779Z]   ERROR cag_id=214: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.784Z]   ERROR cag_id=27: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.789Z]   ERROR cag_id=19: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.794Z]   ERROR cag_id=14: column "questionnaire_returned" of relation "collaborator_agreements" does not exist
+[2026-03-24T09:38:57.794Z] 
+  → 0 vložených, 0 preskočených, 593 chýb
+
+══════════════════════════════════════════════════════════════════════
+  STEP 4.6: Úkony spolupracovníkov (Acts)
+══════════════════════════════════════════════════════════════════════
+[2026-03-24T09:38:57.916Z]   DB kontext: db=CBC, schema=dbo, sysUser=cbcuser, user=dbo
+[2026-03-24T09:38:57.925Z]   Acts práva: žiadne explicitné
+[2026-03-24T09:38:57.927Z]   Acts v schémach: Reward.Acts
+[2026-03-24T09:38:57.930Z]   Tabuľky obsahujúce "Act": ActHistory, ActRemarks, Acts, ClientContactsAT, ClientContactsCZ, ClientContactsHU, ClientContactsIT, ClientContactsRO, ClientContactsSK, Contacts, ContactSources, ContactStatuses, ContactUpdates, ContactUpdatesTest, ContractAmendmentTemplateFields, ContractAmendmentTemplates, ContractAmendmentTemplateServices, ContractDocuments, ContractFormStateHistories, ContractNumberSequencies, ContractRecruitments, ContractRelations, Contracts, Contracts3Recruiters, Contracts3RecruitersWithNames, ContractServiceInflations, ContractServiceNotificationEvents, ContractServicePayments, ContractServices, ContractServiceSchedulePayments, ContractServiceSchedules, ContractServiceSurcharges, ContractServiceTotalPrices, ContractsPersons, ContractsRelationTypes, ContractStateHistories, ContractStatuses, ContractTemplateFields, ContractTemplates, ContractTemplatesContractNumberSequencies, ContractTemplateServices, ContractTerminationReasons, HistoryContractServicePayments, HistoryContractServices, HistoryContractServiceSurcharges, iscbc_ContractCertificateResults, LatestCollectionForContract, MarketingActions, MergedClientsContracts, MigrationContractStates, OldIDContracts, PersonsContractsRelationTypes, temp_2023_ContractNumberSequencies, temp_2024_ContractNumberSequencies, vClientContacts
+[2026-03-24T09:38:57.931Z]   Acts stĺpce: rac_id, com_id, com_id_paying, crt_id, rba_id, entity_id_reward, agreement_id_reward, hos_id_bound, con_id_bound, sco_id_bound, rac_state, cur_code, rac_amount, rac_due_date, rac_due_date_type, rac_name, rac_internal_note, rac_public_note, rac_proposed, rac_proposed_by, rac_approved, rac_approved_by, rac_paid, rac_cancelled
+[2026-03-24T09:38:57.932Z]   Acts schéma: Reward
+[2026-03-24T09:38:57.934Z]   ✓ Tabuľka nájdená ako: [Reward].[Acts]
+[2026-03-24T09:38:57.944Z]   Acts celkový počet záznamov: 0
+[2026-03-24T09:38:57.957Z]   ActHistory stĺpce: rah_id, rac_id, rah_amount, rah_operation, rah_date, rah_user, rah_remark
+[2026-03-24T09:38:57.963Z]   ActHistory ([Reward]) celkový počet: 0
+[2026-03-24T09:38:57.974Z]   Views s Act/Ukon/Reward: dbo.ClientContactsAT, dbo.ClientContactsCZ, dbo.ClientContactsHU, dbo.ClientContactsIT, dbo.ClientContactsRO, dbo.ClientContactsSK, dbo.Contracts3Recruiters, dbo.Contracts3RecruitersWithNames, dbo.ContractServiceTotalPrices, dbo.iscbc_ContractCertificateResults, dbo.LatestCollectionForContract, dbo.vClientContacts
+[2026-03-24T09:38:57.975Z]   Nájdených 0 úkonov pre 593 dohôd
+[2026-03-24T09:38:57.975Z] 
+  → 0 vložených, 0 preskočených, 0 chýb
+
+══════════════════════════════════════════════════════════════════════
+  STEP 5: Klientky/Zákazníci (referencovaní z TOP 100 odberov)
+══════════════════════════════════════════════════════════════════════
+[2026-03-24T09:38:57.978Z]   Referencovaní klienti z odberov: 97 unikátnych cli_id
+[2026-03-24T09:38:57.985Z] Zdrojové dáta z CBC (prvých 10 z 97):
+  cli_id | Meno          | Priezvisko | Mobil (RAW)   | → Normalized     | Email                       | Mesto            | Krajina
+  ───────┼───────────────┼────────────┼───────────────┼──────────────────┼─────────────────────────────┼──────────────────┼────────
+  208378 | Lucie         | Philippová | 774361096     | +420 774 361 096 | honzik.philipp@gmail.com    | Praha 4 Modřany  | CZ     
+  208367 | Andrada Ioana | CROITORU   | 756572318     | +40 756 572 318  | andrada.ioana2003@yahoo.com | Craiova          | RO     
+  208361 | Tereza        | Míková     | 733788741     | +420 733 788 741 | tereza.nycova@gmail.com     | Kunice Vidovice  | CZ     
+  208360 | Lucia         | Izáková    | 0910/440240   | +421 910 440 240 | —                           | Bratislava       | SK     
+  208359 | Valentyna     | HONCHAROVA | +380960550070 | +380 960 550 070 | —                           | Chisinau         | MD     
+  208358 | Diana         | KHRAMTSOVA | 730772120     | +40 730 772 120  | idianka353@gmail.com        | Sector 6         | RO     
+  208357 | Irina         | ONTEL      | 786044095     | +40 786 044 095  | ontel.irina@yahoo.com       | Sector 4         | RO     
+  208348 | Simona        | Bučková    | 0904/211735   | +421 904 211 735 | Bucko.matus20@gmail.com     | Humenné          | SK     
+  208343 | Chiara        | Spišáková  | 0908/076770   | +421 908 076 770 | —                           | Kráľovský Chlmec | SK     
+  208338 | Cristina      | ROMANIUC   | 740609702     | +40 740 609 702  | chriss.tursim@gmail.com     | Botosani         | RO     
+[2026-03-24T09:38:58.055Z] 
+  → 97 vložených, 0 preskočených, 0 chýb
+
+══════════════════════════════════════════════════════════════════════
+  STEP 6: Odbery + Lab výsledky (TOP 100)
+══════════════════════════════════════════════════════════════════════
+[2026-03-24T09:38:58.876Z]   Collaborator priradenia: blood=169266, tissue=38954, placenta=4255, assistant=118949, secondNurse=0
+[2026-03-24T09:38:59.358Z] Zdrojové dáta z CBC (prvých 10 z 100):
+  sco_id | CBU#        | Klientka                | Mobil (RAW) | → Normalized     | Dieťa                | Dátum       | Status
+  ───────┼─────────────┼─────────────────────────┼─────────────┼──────────────────┼──────────────────────┼─────────────┼───────
+  198275 | 0400753395  | Lucie Philippová        | —           | —                | Philipp Maxmilian    | 23. 3. 2026 | 3     
+  198274 | 40080932974 | Sidonia Andrada OLTEANU | 770401569   | +40 770 401 569  | Matei Gabriel TROACA | 9. 3. 2026  | 3     
+  198273 | 40090335220 | Florina Alina TENEA     | —           | —                | —                    | 21. 3. 2026 | 2     
+  198272 | 40090335219 | Cristina ROMANIUC       | —           | —                | —                    | 20. 3. 2026 | 3     
+  198271 | 0400753289  | Tereza Míková           | 733788741   | +420 733 788 741 | Adéla Míková         | 19. 3. 2026 | 3     
+  198270 | 0114509881  | Henrieta Doleži         | 0907/477933 | +421 907 477 933 | Dalila Doleži        | 19. 3. 2026 | 3     
+  198269 | 0114509775  | Simona Bučková          | 0904/211735 | +421 904 211 735 | Samuel Bučko         | 17. 3. 2026 | 3     
+  198268 | 40080932976 | Andrada Ioana CROITORU  | —           | —                | —                    | 17. 3. 2026 | 3     
+  198267 | 0114509669  | Lucia Izáková           | 0910/440240 | +421 910 440 240 | Igor Izák            | 14. 3. 2026 | 3     
+  198266 | 0114509553  | Eva Šrameková           | 0905298485  | +421 905 298 485 | Adam Novodvorský     | 13. 3. 2026 | 3     
+[2026-03-24T09:38:59.415Z] 
+  Odbery: 100 vložených, 0 preskočených, 0 chýb
+[2026-03-24T09:38:59.415Z] 
+--- Lab výsledky pre prenesené odbery ---
+[2026-03-24T09:38:59.542Z]   Lab výsledky: 66 vložených (z 66 skupín)
+
+══════════════════════════════════════════════════════════════════════
+  STEP 6.5: Cases — otcovské dáta (cez PotentialClients)
+══════════════════════════════════════════════════════════════════════
+[2026-03-24T09:38:59.546Z]   Štatistika: 128 contracts, 30 s otcom (per_id_father), 2 s krajinou otca
+[2026-03-24T09:38:59.558Z]   Gynekológovia nájdení: 52 z 63 doc_id_exp
+[2026-03-24T09:38:59.558Z] Zdrojové dáta z CBC:
+  cli_id | Otec (meno)      | Otec (priezvisko) | Otec mobil | Otec email           | Krajina otca | Produkt                    | Tehotenstvo
+  ───────┼──────────────────┼───────────────────┼────────────┼──────────────────────┼──────────────┼────────────────────────────┼────────────
+  208378 | —                | —                 | —          | —                    | —            | —                          | 1          
+  208367 | Vladut           | CROITORU          | —          | —                    | —            | —                          | 1          
+  208360 | —                | —                 | —          | —                    | —            | —                          | 1          
+  208361 | —                | —                 | —          | —                    | —            | —                          | 1          
+  208360 | —                | —                 | —          | —                    | —            | —                          | 1          
+  208359 | Ruslan           | HONCHAROV         | —          | —                    | —            | —                          | 1          
+  208358 | Denis            | KHRAMTSOVA        | —          | —                    | —            | Recoltare sânge din cordon | 1          
+  208357 | Tiberiu          | VASILESCU         | —          | —                    | —            | Recoltare sânge din cordon | 1          
+  208348 | —                | —                 | —          | —                    | —            | —                          | 1          
+  208343 | —                | —                 | —          | —                    | —            | —                          | 1          
+  202329 | —                | —                 | —          | —                    | —            | —                          | 1          
+  185948 | —                | —                 | —          | —                    | —            | —                          | 1          
+  208338 | —                | —                 | —          | —                    | —            | —                          | 1          
+  208335 | —                | —                 | —          | —                    | —            | —                          | 1          
+  186506 | —                | —                 | —          | —                    | —            | —                          | 1          
+  208333 | Iuri             | DOROS             | 079352044  | iura.doros@gmail.com | —            | —                          | 1          
+  208330 | —                | —                 | —          | —                    | —            | —                          | 1          
+  208329 | Eleodor          | BRUJAN            | —          | —                    | —            | Recoltare sânge din cordon | 1          
+  208328 | Cooper Alexandru | MARCU             | —          | —                    | —            | Recoltare sânge din cordon | 1          
+  208327 | Bogdan           | DRACEA            | —          | —                    | —            | Recoltare sânge din cordon | 1          
+[2026-03-24T09:38:59.671Z] 
+  Cases: 97 vložených, 0 preskočených, 0 chýb
+
+══════════════════════════════════════════════════════════════════════
+  STEP 8: Remarks (poznámky) → customer_notes
+══════════════════════════════════════════════════════════════════════
+[2026-03-24T09:39:02.619Z]   Nájdených 589 poznámok pre 97 klientov
+[2026-03-24T09:39:02.889Z]   Remarks: 589 vložených, 0 preskočených, 0 chýb
+  RemID   | KlientID | Autor    | Dátum            | Poznámka                      
+  ────────┼──────────┼──────────┼──────────────────┼───────────────────────────────
+  2481928 | 204770   | smistova | 2026-03-23T09:03 | Balík rodicka oskenované: Komp
+  2481926 | 208335   | smistova | 2026-03-23T08:49 | Balík rodicka oskenované: Komp
+  2481916 | 208343   | smistova | 2026-03-23T08:25 | Balík rodicka oskenované: Komp
+  2481896 | 208329   | dionescu | 2026-03-23T07:23 | cu certif. trimit si rezultat 
+  2481893 | 208250   | dionescu | 2026-03-23T07:17 | clasic engativ, gold esuat, te
+
+══════════════════════════════════════════════════════════════════════
+  STEP 9: PhoneCommunications (telefonáty) → communication_messages
+══════════════════════════════════════════════════════════════════════
+[2026-03-24T09:39:04.620Z]   Nájdených 122 hovorov pre 97 klientov
+[2026-03-24T09:39:04.672Z]   PhoneCommunications: 122 vložených, 0 preskočených, 0 chýb
+  PhoID           | KlientID | Volajúci  | Číslo     | Dátum            | Poznámka                      
+  ────────────────┼──────────┼───────────┼───────────┼──────────────────┼───────────────────────────────
+  cbc_pho_1193110 | 208378   | kdenkova  | 774361096 | 2026-03-23T16:36 | Klient původně vyplnil regsitr
+  cbc_pho_1193103 | 208282   | kdenkova  | 725695077 | 2026-03-23T15:42 | Klientka předána H.Ciochové na
+  cbc_pho_1192437 | 208282   | kdenkova  | 725695077 | 2026-03-20T11:15 | Klientka volala ohledně kontam
+  cbc_pho_1190910 | 208282   | hciochova | 725695077 | 2026-03-17T16:17 | klient  telefonicky kontaktova
+  cbc_pho_1190909 | 208282   | hciochova | 725695077 | 2026-03-17T16:16 | pre klienta v e-maily poslany 
+
+══════════════════════════════════════════════════════════════════════
+  STEP 10: Verifikácia — porovnanie prenesených dát
+══════════════════════════════════════════════════════════════════════
+[2026-03-24T09:39:04.676Z] Počty v INDEXUS po migrácii:
+  Entita                   | Počet
+  ─────────────────────────┼──────
+  CollectionStatuses       | 14   
+  Laboratories             | 9    
+  Hospitals (migrated)     | 58   
+  Collaborators (migrated) | 161  
+  Customers (migrated)     | 97   
+  Collections (migrated)   | 100  
+  Lab Results (migrated)   | 74   
+  Agreements (migrated)    | 0    
+  Activities (migrated)    | 0    
+  Addresses (migrated)     | 196  
+  Cases (migrated)         | 97   
+  Notes (migrated)         | 589  
+  PhoneCalls (migrated)    | 122  
+[2026-03-24T09:39:04.676Z] 
+--- Nemocnice v INDEXUS ---
+  LegacyID | Názov                          | Mesto            | PSČ    | Krajina | GPS                   | Zdroj
+  ─────────┼────────────────────────────────┼──────────────────┼────────┼─────────┼───────────────────────┼──────
+  118      | Kráľovský Chlmec               | Kráľovský Chlmec | 077 01 | SK      | 48.4199007,21.9791767 | iscbc
+  151      | Ružomberok                     | Ružomberok       | 034 26 | SK      | 49.0858569,19.3009481 | iscbc
+  1618     | Roma - San Pietro Fate bene Fr | Roma             | 189    | IT      | 41.9635742,12.4502174 | iscbc
+  1632     | Cerignola - Tatarella (CBCITA) | Cerignola        | 71042  | IT      | 41.2631666,15.9053624 | iscbc
+  170      | Trnava                         | Trnava           | 917 01 | SK      | 48.3683465,17.5883897 | iscbc
+  1706     | Milano - San Giuseppe (CBCITA) | Milano           | 20123  | IT      | 45.4631277,9.1714179  | iscbc
+  182      | St. Josef Krankenhaus Wien (SJ | Wien             | 1130   | AT      | 48.1943519,16.2629505 | iscbc
+  1866     | Landesklinikum Mistelbach      | Mistelbach       | 2130   | AT      | 48.5675802,16.5814394 | iscbc
+  1871     | Gyn Med                        | Craiova          | —      | RO      | 44.3306610,23.7978014 | iscbc
+  1877     | MD - Clinica Familia           | Chisinau         | x      | MD      | —                     | iscbc
+[2026-03-24T09:39:04.677Z]   GPS štatistika: 44/58 nemocníc má koordináty
+[2026-03-24T09:39:04.677Z] 
+--- Spolupracovníci v INDEXUS ---
+  LegacyID | Meno         | Priezvisko | Mobil           | Krajina | Typ    | Representative   | IBAN | HI | Nemocnice | Poznámka             | Zdroj
+  ─────────┼──────────────┼────────────┼─────────────────┼─────────┼────────┼──────────────────┼──────┼────┼───────────┼──────────────────────┼──────
+  10007    | Ina          | Moldovan   | +40 744 318 393 | RO      | doctor | Sandu            | —    | —  | 1         | 19.12.2016:    adaug | iscbc
+  10033    | Cornelia     | Pascu      | +40 744 686 168 | RO      | doctor | Brinzan          | —    | —  | 2         | —                    | iscbc
+  10039    | Abdou        | Tarek      | +40 727 762 998 | RO      | doctor | Gratiela Popescu | —    | —  | 1         | IBAN adaugat 05.09.2 | iscbc
+  10173    | Cristina     | Dabija     | —               | RO      | nurse  | —                | —    | —  | 1         | 23.02.2022 introdus  | iscbc
+  10176    | Luminita     | Marin      | —               | RO      | nurse  | —                | —    | —  | 1         | —                    | iscbc
+  10195    | Janos        | Turos      | +40 742 814 537 | RO      | doctor | Bogdan Coltor    | —    | —  | 1         | 07.04.2017:    adaug | iscbc
+  10224    | Maria        | Olaru      | +40 744 578 820 | RO      | doctor | Cornel Ianos     | —    | —  | 1         | —                    | iscbc
+  10226    | Geta Daniela | Draghici   | +40 740 010 070 | RO      | doctor | Cornel Ianos     | —    | —  | 1         | 29.09.2016:   adauga | iscbc
+  10284    | Ionela       | Anghelescu | +40 722 640 165 | RO      | doctor | Gratiela Popescu | —    | —  | —         | Deactivated - two ye | iscbc
+  10288    | Anda Giana   | Ene        | +40 723 313 009 | RO      | doctor | Gratiela Popescu | —    | —  | 1         | 04.09.2017:    adaug | iscbc
+[2026-03-24T09:39:04.678Z]   Štatistika: HI=0/161, Rep=111/161, IBAN=21/161, Nemocnice=152/161, Poznámky=90/161, ISCBC=161/161
+[2026-03-24T09:39:04.678Z]   Adresy podľa typu: company=17, correspondence=18, permanent=161
+[2026-03-24T09:39:04.679Z] FATAL: column "questionnaire_returned" does not exist
+error: column "questionnaire_returned" does not exist
+    at /var/www/indexus-crm/node_modules/pg-pool/index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async step10_verification (/var/www/indexus-crm/script/migration/test-migration-20.cjs:2224:19)
+    at async main (/var/www/indexus-crm/script/migration/test-migration-20.cjs:2389:5)
