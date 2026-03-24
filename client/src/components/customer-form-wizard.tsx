@@ -273,7 +273,7 @@ function CustomerDebtCollectionTab({ customerId, t }: { customerId: string; t: a
                     {item.debtAmount || item.amount || "-"}
                   </td>
                   <td className="p-2">{item.currency || "-"}</td>
-                  <td className="p-2 text-center">{item.overdue_invoices_count ?? "-"}</td>
+                  <td className="p-2 text-center">{item.overdueInvoicesCount ?? "-"}</td>
                   <td className="p-2">{formatDate(item.oldestDueDate || item.startDate)}</td>
                   <td className="p-2">{formatDate(item.newestDueDate || item.lastActionDate)}</td>
                   <td className="p-2">

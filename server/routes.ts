@@ -7359,10 +7359,10 @@ Return ONLY valid JSON, no markdown code blocks.`,
     try {
       const customerId = req.params.customerId;
       
-      // Get contracts
+      // Get INDEXUS contracts
       const contracts = await storage.getContractInstancesByCustomer(customerId);
       
-      // Get invoices
+      // Get INDEXUS invoices
       const invoices = await storage.getInvoicesByCustomer(customerId);
       
       // Get all users for creator lookup
@@ -7373,8 +7373,11 @@ Return ONLY valid JSON, no markdown code blocks.`,
       const contractDocs = contracts.map(c => ({
         id: c.id,
         type: "contract" as const,
+        documentType: "contract" as const,
         number: c.contractNumber,
+        contractNumber: c.contractNumber,
         status: c.status,
+        contractStatus: c.status,
         createdAt: c.createdAt,
         createdBy: c.createdBy,
         createdByName: c.createdBy ? userMap.get(c.createdBy)?.fullName || userMap.get(c.createdBy)?.username : null,
@@ -7384,25 +7387,63 @@ Return ONLY valid JSON, no markdown code blocks.`,
         cancellationReason: c.cancellationReason,
         validFrom: c.validFrom,
         validTo: c.validTo,
+        dataSource: "indexus",
       }));
       
       // Transform invoices to document format
       const invoiceDocs = invoices.map(i => ({
         id: i.id,
         type: "invoice" as const,
+        documentType: "invoice" as const,
         number: i.invoiceNumber,
+        invoiceNumber: i.invoiceNumber,
         status: i.status,
+        invoiceStatus: i.status,
         createdAt: i.generatedAt,
-        createdBy: null, // invoices don't have createdBy field
+        createdBy: null,
         createdByName: null,
         pdfPath: i.pdfPath,
         totalAmount: i.totalAmount,
+        amount: i.totalAmount,
         currency: i.currency,
+        domesticCurrency: i.currency,
         dueDate: i.dueDate,
+        dataSource: "indexus",
       }));
+
+      // Get CBC migrated documents from customer_documents table
+      let cbcDocs: any[] = [];
+      try {
+        const { rows } = await pool.query(
+          `SELECT * FROM customer_documents WHERE customer_id = $1 ORDER BY created_at DESC`,
+          [customerId]
+        );
+        cbcDocs = rows.map((r: any) => ({
+          ...r,
+          documentType: r.document_type,
+          contractNumber: r.contract_number,
+          contractTemplate: r.contract_template,
+          contractStatus: r.contract_status,
+          productType: r.product_type,
+          companyName: r.company_name,
+          expectedCollectionDate: r.expected_collection_date,
+          invoiceNumber: r.invoice_number,
+          invoiceType: r.invoice_type,
+          invoiceStatus: r.invoice_status,
+          documentStatus: r.document_status,
+          domesticCurrency: r.domestic_currency,
+          issueDate: r.issue_date,
+          dueDate: r.due_date,
+          sentDate: r.sent_date,
+          deliveryDate: r.delivery_date,
+          dataSource: r.data_source,
+          createdAt: r.created_at,
+          legacyData: r.legacy_data,
+        }));
+      } catch (e) { /* table may not exist yet */ }
       
       // Combine and sort by date (newest first)
-      const documents = [...contractDocs, ...invoiceDocs].sort((a, b) => {
+      const documents = [...contractDocs, ...invoiceDocs, ...cbcDocs].sort((a, b) => {
         const dateA = new Date(a.createdAt).getTime();
         const dateB = new Date(b.createdAt).getTime();
         return dateB - dateA;
@@ -9796,26 +9837,30 @@ Return ONLY valid JSON, no markdown code blocks.`,
     }
   });
 
-  app.get("/api/customers/:customerId/documents", requireAuth, async (req, res) => {
-    try {
-      const { rows } = await pool.query(
-        `SELECT * FROM customer_documents WHERE customer_id = $1 ORDER BY created_at DESC`,
-        [req.params.customerId]
-      );
-      res.json(rows);
-    } catch (error) {
-      console.error("Error fetching customer documents:", error);
-      res.status(500).json({ error: "Failed to fetch documents" });
-    }
-  });
-
   app.get("/api/customers/:customerId/debt-collection", requireAuth, async (req, res) => {
     try {
       const { rows } = await pool.query(
         `SELECT * FROM customer_debt_collection WHERE customer_id = $1 ORDER BY created_at DESC`,
         [req.params.customerId]
       );
-      res.json(rows);
+      const mapped = rows.map((r: any) => ({
+        ...r,
+        legacyId: r.legacy_id,
+        customerId: r.customer_id,
+        dataSource: r.data_source,
+        invoiceNumber: r.invoice_number,
+        contractNumber: r.contract_number,
+        debtAmount: r.debt_amount,
+        overdueInvoicesCount: r.overdue_invoices_count,
+        oldestDueDate: r.oldest_due_date,
+        newestDueDate: r.newest_due_date,
+        companyName: r.company_name,
+        startDate: r.start_date,
+        lastActionDate: r.last_action_date,
+        legacyData: r.legacy_data,
+        createdAt: r.created_at,
+      }));
+      res.json(mapped);
     } catch (error) {
       console.error("Error fetching debt collection:", error);
       res.status(500).json({ error: "Failed to fetch debt collection" });
