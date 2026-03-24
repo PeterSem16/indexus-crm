@@ -9796,6 +9796,32 @@ Return ONLY valid JSON, no markdown code blocks.`,
     }
   });
 
+  app.get("/api/customers/:customerId/documents", requireAuth, async (req, res) => {
+    try {
+      const { rows } = await pool.query(
+        `SELECT * FROM customer_documents WHERE customer_id = $1 ORDER BY created_at DESC`,
+        [req.params.customerId]
+      );
+      res.json(rows);
+    } catch (error) {
+      console.error("Error fetching customer documents:", error);
+      res.status(500).json({ error: "Failed to fetch documents" });
+    }
+  });
+
+  app.get("/api/customers/:customerId/debt-collection", requireAuth, async (req, res) => {
+    try {
+      const { rows } = await pool.query(
+        `SELECT * FROM customer_debt_collection WHERE customer_id = $1 ORDER BY created_at DESC`,
+        [req.params.customerId]
+      );
+      res.json(rows);
+    } catch (error) {
+      console.error("Error fetching debt collection:", error);
+      res.status(500).json({ error: "Failed to fetch debt collection" });
+    }
+  });
+
   app.post("/api/customers/:customerId/notes", requireAuth, async (req, res) => {
     try {
       const customer = await storage.getCustomer(req.params.customerId);

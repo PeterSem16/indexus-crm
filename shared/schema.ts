@@ -6453,3 +6453,69 @@ export type CbuReportAudit = typeof cbuReportAudit.$inferSelect;
 export type InsertCbuReportAudit = z.infer<typeof insertCbuReportAuditSchema>;
 export type CbuReportOtp = typeof cbuReportOtp.$inferSelect;
 export type InsertCbuReportOtp = z.infer<typeof insertCbuReportOtpSchema>;
+
+// ========================================
+// CUSTOMER DOCUMENTS (legacy contracts + invoices from CBC)
+// ========================================
+
+export const customerDocuments = pgTable("customer_documents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  legacyId: text("legacy_id"),
+  customerId: varchar("customer_id").notNull(),
+  documentType: text("document_type").notNull(), // 'contract' | 'invoice'
+  dataSource: text("data_source").default("iscbc"),
+
+  // Contract fields (Zmluvy)
+  contractNumber: text("contract_number"),
+  contractTemplate: text("contract_template"),
+  productType: text("product_type"),
+  contractStatus: text("contract_status"),
+  companyName: text("company_name"),
+  expectedCollectionDate: timestamp("expected_collection_date"),
+  contactedAt: timestamp("contacted_at"),
+
+  // Invoice fields (Faktúry)
+  invoiceNumber: text("invoice_number"),
+  invoiceType: text("invoice_type"),
+  domesticCurrency: text("domestic_currency"),
+  accountingCurrency: text("accounting_currency"),
+  amount: text("amount"),
+  invoiceStatus: text("invoice_status"),
+  documentStatus: text("document_status"),
+  deliveryDate: timestamp("delivery_date"),
+  issueDate: timestamp("issue_date"),
+  sentDate: timestamp("sent_date"),
+  dueDate: timestamp("due_date"),
+
+  // Common
+  note: text("note"),
+  legacyData: jsonb("legacy_data").$type<Record<string, any>>(),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export type CustomerDocument = typeof customerDocuments.$inferSelect;
+
+// ========================================
+// CUSTOMER DEBT COLLECTION (Vymáhanie)
+// ========================================
+
+export const customerDebtCollection = pgTable("customer_debt_collection", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  legacyId: text("legacy_id"),
+  customerId: varchar("customer_id").notNull(),
+  dataSource: text("data_source").default("iscbc"),
+
+  invoiceNumber: text("invoice_number"),
+  contractNumber: text("contract_number"),
+  amount: text("amount"),
+  currency: text("currency"),
+  status: text("status"),
+  phase: text("phase"),
+  startDate: timestamp("start_date"),
+  lastActionDate: timestamp("last_action_date"),
+  note: text("note"),
+  legacyData: jsonb("legacy_data").$type<Record<string, any>>(),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export type CustomerDebtCollection = typeof customerDebtCollection.$inferSelect;

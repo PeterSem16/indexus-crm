@@ -181,7 +181,58 @@ async function step1_testConnection() {
       created_at timestamp NOT NULL DEFAULT now()
     )
   `);
-  log('✓ Schema overená (data_source, collaborator_activities)');
+  // Ensure customer_documents table
+  await pgPool.query(`
+    CREATE TABLE IF NOT EXISTS customer_documents (
+      id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+      legacy_id text,
+      customer_id varchar NOT NULL,
+      document_type text NOT NULL,
+      data_source text DEFAULT 'iscbc',
+      contract_number text,
+      contract_template text,
+      product_type text,
+      contract_status text,
+      company_name text,
+      expected_collection_date timestamp,
+      contacted_at timestamp,
+      invoice_number text,
+      invoice_type text,
+      domestic_currency text,
+      accounting_currency text,
+      amount text,
+      invoice_status text,
+      document_status text,
+      delivery_date timestamp,
+      issue_date timestamp,
+      sent_date timestamp,
+      due_date timestamp,
+      note text,
+      legacy_data jsonb,
+      created_at timestamp NOT NULL DEFAULT now()
+    )
+  `);
+  // Ensure customer_debt_collection table
+  await pgPool.query(`
+    CREATE TABLE IF NOT EXISTS customer_debt_collection (
+      id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+      legacy_id text,
+      customer_id varchar NOT NULL,
+      data_source text DEFAULT 'iscbc',
+      invoice_number text,
+      contract_number text,
+      amount text,
+      currency text,
+      status text,
+      phase text,
+      start_date timestamp,
+      last_action_date timestamp,
+      note text,
+      legacy_data jsonb,
+      created_at timestamp NOT NULL DEFAULT now()
+    )
+  `);
+  log('✓ Schema overená (data_source, collaborator_activities, customer_documents, customer_debt_collection)');
 
   const counts = await mssqlPool.request().query(`
     SELECT 'CollectionStatuses' as t, COUNT(*) as cnt FROM CollectionStatuses
@@ -191,6 +242,8 @@ async function step1_testConnection() {
     UNION ALL SELECT 'Clients', COUNT(*) FROM Clients WHERE cli_deleted = 0 OR cli_deleted IS NULL
     UNION ALL SELECT 'ServiceCollections', COUNT(*) FROM ServiceCollections
     UNION ALL SELECT 'CollectionEvaluationResults', COUNT(*) FROM CollectionEvaluationResults
+    UNION ALL SELECT 'Contracts', COUNT(*) FROM Contracts
+    UNION ALL SELECT 'Invoices', COUNT(*) FROM Invoices
     ORDER BY 1
   `);
 
@@ -2193,6 +2246,268 @@ async function step9_phoneCommunications() {
 // ============================================================
 // STEP 10: Verification — Detail comparison
 // ============================================================
+// ============================================================
+// STEP 11: Customer Documents — Contracts (Zmluvy) from CBC
+// ============================================================
+async function step11_customerContracts() {
+  separator('STEP 11: Zmluvy klientov (Contracts → customer_documents)');
+
+  const migratedCustomers = await pgPool.query(
+    `SELECT id, internal_id FROM customers WHERE internal_id IS NOT NULL`
+  );
+  if (migratedCustomers.rows.length === 0) { log('Žiadni migrovaní klienti.'); return; }
+
+  const customerMap = {};
+  for (const c of migratedCustomers.rows) customerMap[c.internal_id] = c.id;
+  const cliIds = Object.keys(customerMap).join(',');
+
+  log(`\n--- Diagnostika CBC: Contracts stĺpce ---`);
+  try {
+    const conColsRes = await mssqlPool.request().query(`
+      SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'Contracts' ORDER BY ORDINAL_POSITION
+    `);
+    log('  Contracts ALL: ' + conColsRes.recordset.map(r => r.COLUMN_NAME).join(', '));
+  } catch (err) { log(`  WARN: ${err.message}`); }
+
+  log(`\n--- Diagnostika CBC: ContractStatuses ---`);
+  try {
+    const csRes = await mssqlPool.request().query(`SELECT csa_id, csa_code, csa_name FROM ContractStatuses ORDER BY csa_id`);
+    table(['csa_id', 'csa_code', 'csa_name'], csRes.recordset.map(r => [r.csa_id, r.csa_code, r.csa_name]));
+  } catch (err) { log(`  WARN: ${err.message}`); }
+
+  log(`\n--- Diagnostika CBC: ContractTemplates ---`);
+  try {
+    const ctRes = await mssqlPool.request().query(`
+      SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME LIKE '%Template%' OR TABLE_NAME LIKE '%Product%' ORDER BY TABLE_NAME
+    `);
+    log('  Template/Product tabuľky: ' + ctRes.recordset.map(r => r.TABLE_NAME).join(', '));
+  } catch (err) { log(`  WARN: ${err.message}`); }
+
+  const contracts = await mssqlPool.request().query(`
+    SELECT c.con_id, c.cli_id, c.con_number, c.con_date,
+           cs.csa_code, cs.csa_name,
+           c.con_note,
+           comp.com_name
+    FROM Contracts c
+    LEFT JOIN ContractStatuses cs ON cs.csa_id = c.csa_id
+    LEFT JOIN Companies comp ON comp.com_id = c.com_id
+    WHERE c.cli_id IN (${cliIds})
+    ORDER BY c.con_id
+  `);
+  log(`  Nájdených ${contracts.recordset.length} zmlúv pre ${migratedCustomers.rows.length} klientov`);
+
+  if (contracts.recordset.length > 0) {
+    table(
+      ['con_id', 'cli_id', 'con_number', 'Stav', 'Firma'],
+      contracts.recordset.slice(0, 10).map(r => [
+        r.con_id, r.cli_id, r.con_number || '-', r.csa_name || r.csa_code || '-', r.com_name || '-'
+      ])
+    );
+  }
+
+  let inserted = 0, skipped = 0, errors = 0;
+  for (const r of contracts.recordset) {
+    const customerId = customerMap[String(r.cli_id)];
+    if (!customerId) { skipped++; continue; }
+
+    const legacyId = `contract_${r.con_id}`;
+    const existing = await pgPool.query(`SELECT id FROM customer_documents WHERE legacy_id = $1`, [legacyId]);
+    if (existing.rows.length > 0) { skipped++; continue; }
+
+    try {
+      await pgPool.query(`
+        INSERT INTO customer_documents (id, legacy_id, customer_id, document_type, data_source,
+          contract_number, contract_status, company_name, note, legacy_data, created_at)
+        VALUES (gen_random_uuid(), $1, $2, 'contract', 'iscbc', $3, $4, $5, $6, $7, $8)
+      `, [
+        legacyId,
+        customerId,
+        r.con_number || null,
+        r.csa_name || r.csa_code || null,
+        r.com_name || null,
+        r.con_note || null,
+        JSON.stringify({ con_id: r.con_id, cli_id: r.cli_id, csa_code: r.csa_code }),
+        r.con_date || new Date(),
+      ]);
+      inserted++;
+    } catch (err) {
+      errors++;
+      if (errors <= 3) log(`  ERROR con_id=${r.con_id}: ${err.message}`);
+    }
+  }
+  log(`  Zmluvy: ${inserted} vložených, ${skipped} preskočených, ${errors} chýb`);
+}
+
+// ============================================================
+// STEP 12: Customer Documents — Invoices (Faktúry) from CBC
+// ============================================================
+async function step12_customerInvoices() {
+  separator('STEP 12: Faktúry klientov (Invoices → customer_documents)');
+
+  const migratedCustomers = await pgPool.query(
+    `SELECT id, internal_id FROM customers WHERE internal_id IS NOT NULL`
+  );
+  if (migratedCustomers.rows.length === 0) { log('Žiadni migrovaní klienti.'); return; }
+
+  const customerMap = {};
+  for (const c of migratedCustomers.rows) customerMap[c.internal_id] = c.id;
+  const cliIds = Object.keys(customerMap).join(',');
+
+  log(`\n--- Diagnostika CBC: Invoices stĺpce ---`);
+  try {
+    const invColsRes = await mssqlPool.request().query(`
+      SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'Invoices' ORDER BY ORDINAL_POSITION
+    `);
+    log('  Invoices ALL: ' + invColsRes.recordset.map(r => r.COLUMN_NAME).join(', '));
+  } catch (err) { log(`  WARN: ${err.message}`); }
+
+  // Build contract→client map for Invoices that may reference con_id
+  const contractToClient = {};
+  try {
+    const conRes = await mssqlPool.request().query(`SELECT con_id, cli_id FROM Contracts WHERE cli_id IN (${cliIds})`);
+    for (const c of conRes.recordset) contractToClient[String(c.con_id)] = String(c.cli_id);
+  } catch (err) { log(`  WARN building contract map: ${err.message}`); }
+
+  let invoices;
+  try {
+    invoices = await mssqlPool.request().query(`
+      SELECT i.inv_id, i.con_id, i.inv_number, i.inv_type, i.inv_date,
+             i.inv_due_date, i.inv_amount, i.inv_currency, i.inv_status,
+             i.inv_note, i.inv_sent_date
+      FROM Invoices i
+      WHERE i.con_id IN (SELECT con_id FROM Contracts WHERE cli_id IN (${cliIds}))
+      ORDER BY i.inv_id
+    `);
+  } catch (err) {
+    log(`  WARN: Invoices query failed — trying alternative: ${err.message}`);
+    try {
+      const invCols = await mssqlPool.request().query(`
+        SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'Invoices' ORDER BY ORDINAL_POSITION
+      `);
+      log('  Available columns: ' + invCols.recordset.map(r => r.COLUMN_NAME).join(', '));
+    } catch (e2) { log(`  Cannot read Invoices columns: ${e2.message}`); }
+    return;
+  }
+
+  log(`  Nájdených ${invoices.recordset.length} faktúr`);
+
+  if (invoices.recordset.length > 0) {
+    table(
+      ['inv_id', 'con_id', 'inv_number', 'Suma', 'Mena', 'Stav'],
+      invoices.recordset.slice(0, 10).map(r => [
+        r.inv_id, r.con_id, r.inv_number || '-',
+        r.inv_amount || '-', r.inv_currency || '-', r.inv_status || '-'
+      ])
+    );
+  }
+
+  let inserted = 0, skipped = 0, errors = 0;
+  for (const r of invoices.recordset) {
+    const cliId = contractToClient[String(r.con_id)];
+    const customerId = cliId ? customerMap[cliId] : null;
+    if (!customerId) { skipped++; continue; }
+
+    const legacyId = `invoice_${r.inv_id}`;
+    const existing = await pgPool.query(`SELECT id FROM customer_documents WHERE legacy_id = $1`, [legacyId]);
+    if (existing.rows.length > 0) { skipped++; continue; }
+
+    try {
+      await pgPool.query(`
+        INSERT INTO customer_documents (id, legacy_id, customer_id, document_type, data_source,
+          invoice_number, invoice_type, domestic_currency, amount, invoice_status,
+          issue_date, due_date, sent_date, note, legacy_data, created_at)
+        VALUES (gen_random_uuid(), $1, $2, 'invoice', 'iscbc', $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+      `, [
+        legacyId,
+        customerId,
+        r.inv_number || null,
+        r.inv_type || null,
+        r.inv_currency || null,
+        r.inv_amount ? String(r.inv_amount) : null,
+        r.inv_status || null,
+        r.inv_date || null,
+        r.inv_due_date || null,
+        r.inv_sent_date || null,
+        r.inv_note || null,
+        JSON.stringify({ inv_id: r.inv_id, con_id: r.con_id }),
+        r.inv_date || new Date(),
+      ]);
+      inserted++;
+    } catch (err) {
+      errors++;
+      if (errors <= 3) log(`  ERROR inv_id=${r.inv_id}: ${err.message}`);
+    }
+  }
+  log(`  Faktúry: ${inserted} vložených, ${skipped} preskočených, ${errors} chýb`);
+}
+
+// ============================================================
+// STEP 13: Debt Collection (Vymáhanie) — from CBC
+// ============================================================
+async function step13_debtCollection() {
+  separator('STEP 13: Vymáhanie pohľadávok (Debt Collection)');
+
+  const migratedCustomers = await pgPool.query(
+    `SELECT id, internal_id FROM customers WHERE internal_id IS NOT NULL`
+  );
+  if (migratedCustomers.rows.length === 0) { log('Žiadni migrovaní klienti.'); return; }
+
+  const customerMap = {};
+  for (const c of migratedCustomers.rows) customerMap[c.internal_id] = c.id;
+  const cliIds = Object.keys(customerMap).join(',');
+
+  // Check if DebtCollection or similar table exists
+  log(`\n--- Diagnostika CBC: Tabuľky s debt/vymah ---`);
+  try {
+    const debtTables = await mssqlPool.request().query(`
+      SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES 
+      WHERE TABLE_NAME LIKE '%Debt%' OR TABLE_NAME LIKE '%Claim%' OR TABLE_NAME LIKE '%Payment%'
+         OR TABLE_NAME LIKE '%Collection%' OR TABLE_NAME LIKE '%Upomienk%'
+      ORDER BY TABLE_NAME
+    `);
+    log('  Relevantné tabuľky: ' + (debtTables.recordset.length > 0
+      ? debtTables.recordset.map(r => r.TABLE_NAME).join(', ')
+      : 'žiadne nájdené'));
+
+    for (const dt of debtTables.recordset) {
+      if (dt.TABLE_NAME === 'ServiceCollections' || dt.TABLE_NAME === 'CollectionStatuses'
+          || dt.TABLE_NAME === 'CollectionEvaluationResults') continue;
+      try {
+        const cols = await mssqlPool.request().query(`
+          SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '${dt.TABLE_NAME}' ORDER BY ORDINAL_POSITION
+        `);
+        log(`  ${dt.TABLE_NAME}: ${cols.recordset.map(r => r.COLUMN_NAME).join(', ')}`);
+      } catch (e) { /* skip */ }
+    }
+  } catch (err) { log(`  WARN: ${err.message}`); }
+
+  // Try PaymentReminders or similar table
+  let debtData = null;
+  const debtTableCandidates = ['PaymentReminders', 'DebtCollections', 'Debts', 'Claims', 'Upomienky'];
+  for (const tableName of debtTableCandidates) {
+    try {
+      const exists = await mssqlPool.request().query(`
+        SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = '${tableName}'
+      `);
+      if (exists.recordset.length > 0) {
+        log(`  Nájdená tabuľka: ${tableName}`);
+        const cols = await mssqlPool.request().query(`
+          SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '${tableName}' ORDER BY ORDINAL_POSITION
+        `);
+        log(`  Stĺpce: ${cols.recordset.map(r => r.COLUMN_NAME).join(', ')}`);
+        const sample = await mssqlPool.request().query(`SELECT TOP 5 * FROM ${tableName}`);
+        if (sample.recordset.length > 0) {
+          log(`  Vzorka: ${JSON.stringify(sample.recordset[0], null, 2).substring(0, 500)}`);
+        }
+        break;
+      }
+    } catch (err) { /* table doesn't exist, skip */ }
+  }
+
+  log('  Vymáhanie: V tejto fáze sa migrujú len zmluvy a faktúry.');
+  log('  Tabuľka vymáhania bude naplnená v ďalšom kroku po identifikácii zdrojovej tabuľky.');
+}
+
 async function step10_verification() {
   separator('STEP 10: Verifikácia — porovnanie prenesených dát');
 
@@ -2210,6 +2525,9 @@ async function step10_verification() {
     { name: 'Cases (migrated)', query: "SELECT COUNT(*) as cnt FROM customer_potential_cases WHERE customer_id IN (SELECT id FROM customers WHERE internal_id IS NOT NULL)" },
     { name: 'Notes (migrated)', query: "SELECT COUNT(*) as cnt FROM customer_notes WHERE legacy_id IS NOT NULL" },
     { name: 'PhoneCalls (migrated)', query: "SELECT COUNT(*) as cnt FROM communication_messages WHERE provider = 'cbc_legacy'" },
+    { name: 'Documents-Contracts (migrated)', query: "SELECT COUNT(*) as cnt FROM customer_documents WHERE document_type = 'contract' AND data_source = 'iscbc'" },
+    { name: 'Documents-Invoices (migrated)', query: "SELECT COUNT(*) as cnt FROM customer_documents WHERE document_type = 'invoice' AND data_source = 'iscbc'" },
+    { name: 'DebtCollection (migrated)', query: "SELECT COUNT(*) as cnt FROM customer_debt_collection WHERE data_source = 'iscbc'" },
   ];
 
   const countRows = [];
@@ -2443,7 +2761,7 @@ async function main() {
   console.log('');
   console.log('╔══════════════════════════════════════════════════════════════════╗');
   console.log(`║   CBC → INDEXUS  Testovací migračný scenár (${LIMIT} záznamov)`.padEnd(66) + '║');
-  console.log('║   BEZ: Invoices, Billing Companies, Rewards                    ║');
+  console.log('║   S: Zmluvy, Faktúry, Vymáhanie                                ║');
   console.log('╚══════════════════════════════════════════════════════════════════╝');
   console.log('');
 
@@ -2459,6 +2777,9 @@ async function main() {
     await step6b_cases();
     await step8_remarks();
     await step9_phoneCommunications();
+    await step11_customerContracts();
+    await step12_customerInvoices();
+    await step13_debtCollection();
     await step10_verification();
 
     separator('HOTOVO');

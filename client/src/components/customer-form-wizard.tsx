@@ -26,12 +26,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { COUNTRIES, WORLD_COUNTRIES, CLIENT_STATUSES } from "@shared/schema";
-import type { Customer, ComplaintType, CooperationType, VipStatus, HealthInsurance } from "@shared/schema";
-import { ChevronLeft, ChevronRight, Check, User, Phone, MapPin, BarChart3, Building2, ClipboardCheck, CalendarIcon, X } from "lucide-react";
+import type { Customer, ComplaintType, CooperationType, VipStatus, HealthInsurance, CustomerDocument, CustomerDebtCollection } from "@shared/schema";
+import { ChevronLeft, ChevronRight, Check, User, Phone, MapPin, BarChart3, Building2, ClipboardCheck, CalendarIcon, X, FileText, AlertTriangle } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/i18n/I18nProvider";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 
 function validateIBAN(iban: string): boolean {
@@ -106,7 +107,193 @@ interface CustomerFormWizardProps {
   onCancel?: () => void;
 }
 
-const WIZARD_STEPS = [
+function CustomerDocumentsTab({ customerId, t }: { customerId: string; t: any }) {
+  const { data: documents = [], isLoading } = useQuery<CustomerDocument[]>({
+    queryKey: ["/api/customers", customerId, "documents"],
+    queryFn: async () => {
+      const res = await fetch(`/api/customers/${customerId}/documents`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!customerId,
+  });
+
+  const contracts = documents.filter(d => d.documentType === "contract");
+  const invoices = documents.filter(d => d.documentType === "invoice");
+
+  const formatDate = (date: string | Date | null) => {
+    if (!date) return "-";
+    return new Date(date).toLocaleDateString("sk");
+  };
+
+  if (isLoading) {
+    return <div className="space-y-2"><Skeleton className="h-10 w-full" /><Skeleton className="h-10 w-full" /><Skeleton className="h-10 w-full" /></div>;
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h4 className="font-medium mb-3 flex items-center gap-2">
+          <FileText className="h-4 w-4" />
+          Zmluvy ({contracts.length})
+        </h4>
+        {contracts.length === 0 ? (
+          <div className="text-center py-4 text-muted-foreground text-sm">Žiadne zmluvy</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm" data-testid="table-contracts">
+              <thead>
+                <tr className="border-b">
+                  <th className="text-left p-2 font-medium">Číslo zmluvy</th>
+                  <th className="text-left p-2 font-medium">Šablóna</th>
+                  <th className="text-left p-2 font-medium">Produkt</th>
+                  <th className="text-left p-2 font-medium">Stav</th>
+                  <th className="text-left p-2 font-medium">Firma</th>
+                  <th className="text-left p-2 font-medium">Oč. dátum odberu</th>
+                  <th className="text-left p-2 font-medium">Zdroj</th>
+                </tr>
+              </thead>
+              <tbody>
+                {contracts.map((doc) => (
+                  <tr key={doc.id} className="border-b hover:bg-muted/50" data-testid={`row-contract-${doc.id}`}>
+                    <td className="p-2 font-mono text-xs">{doc.contractNumber || "-"}</td>
+                    <td className="p-2">{doc.contractTemplate || "-"}</td>
+                    <td className="p-2">{doc.productType || "-"}</td>
+                    <td className="p-2">
+                      <Badge variant="outline" className="text-xs">{doc.contractStatus || "-"}</Badge>
+                    </td>
+                    <td className="p-2">{doc.companyName || "-"}</td>
+                    <td className="p-2">{formatDate(doc.expectedCollectionDate)}</td>
+                    <td className="p-2">
+                      {doc.dataSource === "iscbc" && <Badge className="bg-amber-100 text-amber-800 text-[10px]">ISCBC</Badge>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      <div>
+        <h4 className="font-medium mb-3 flex items-center gap-2">
+          <FileText className="h-4 w-4" />
+          Faktúry ({invoices.length})
+        </h4>
+        {invoices.length === 0 ? (
+          <div className="text-center py-4 text-muted-foreground text-sm">Žiadne faktúry</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm" data-testid="table-invoices">
+              <thead>
+                <tr className="border-b">
+                  <th className="text-left p-2 font-medium">Typ</th>
+                  <th className="text-left p-2 font-medium">Číslo faktúry</th>
+                  <th className="text-left p-2 font-medium">Mena</th>
+                  <th className="text-left p-2 font-medium">K úhrade</th>
+                  <th className="text-left p-2 font-medium">Stav faktúry</th>
+                  <th className="text-left p-2 font-medium">Stav dokumentu</th>
+                  <th className="text-left p-2 font-medium">Dátum vystavenia</th>
+                  <th className="text-left p-2 font-medium">Dátum splatnosti</th>
+                  <th className="text-left p-2 font-medium">Zdroj</th>
+                </tr>
+              </thead>
+              <tbody>
+                {invoices.map((doc) => (
+                  <tr key={doc.id} className="border-b hover:bg-muted/50" data-testid={`row-invoice-${doc.id}`}>
+                    <td className="p-2">{doc.invoiceType || "-"}</td>
+                    <td className="p-2 font-mono text-xs">{doc.invoiceNumber || "-"}</td>
+                    <td className="p-2">{doc.domesticCurrency || "-"}</td>
+                    <td className="p-2 font-medium">{doc.amount || "-"}</td>
+                    <td className="p-2">
+                      <Badge variant="outline" className="text-xs">{doc.invoiceStatus || "-"}</Badge>
+                    </td>
+                    <td className="p-2">{doc.documentStatus || "-"}</td>
+                    <td className="p-2">{formatDate(doc.issueDate)}</td>
+                    <td className="p-2">{formatDate(doc.dueDate)}</td>
+                    <td className="p-2">
+                      {doc.dataSource === "iscbc" && <Badge className="bg-amber-100 text-amber-800 text-[10px]">ISCBC</Badge>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CustomerDebtCollectionTab({ customerId, t }: { customerId: string; t: any }) {
+  const { data: items = [], isLoading } = useQuery<CustomerDebtCollection[]>({
+    queryKey: ["/api/customers", customerId, "debt-collection"],
+    queryFn: async () => {
+      const res = await fetch(`/api/customers/${customerId}/debt-collection`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!customerId,
+  });
+
+  const formatDate = (date: string | Date | null) => {
+    if (!date) return "-";
+    return new Date(date).toLocaleDateString("sk");
+  };
+
+  if (isLoading) {
+    return <div className="space-y-2"><Skeleton className="h-10 w-full" /><Skeleton className="h-10 w-full" /></div>;
+  }
+
+  return (
+    <div>
+      {items.length === 0 ? (
+        <div className="text-center py-8 text-muted-foreground" data-testid="text-no-debt">Žiadne záznamy o vymáhaní</div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm" data-testid="table-debt-collection">
+            <thead>
+              <tr className="border-b">
+                <th className="text-left p-2 font-medium">Číslo zmluvy</th>
+                <th className="text-left p-2 font-medium">Číslo faktúry</th>
+                <th className="text-left p-2 font-medium">Suma</th>
+                <th className="text-left p-2 font-medium">Stav</th>
+                <th className="text-left p-2 font-medium">Fáza</th>
+                <th className="text-left p-2 font-medium">Začiatok</th>
+                <th className="text-left p-2 font-medium">Posledná akcia</th>
+                <th className="text-left p-2 font-medium">Poznámka</th>
+                <th className="text-left p-2 font-medium">Zdroj</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((item) => (
+                <tr key={item.id} className="border-b hover:bg-muted/50" data-testid={`row-debt-${item.id}`}>
+                  <td className="p-2 font-mono text-xs">{item.contractNumber || "-"}</td>
+                  <td className="p-2 font-mono text-xs">{item.invoiceNumber || "-"}</td>
+                  <td className="p-2 font-medium">
+                    {item.amount ? `${item.amount} ${item.currency || ""}` : "-"}
+                  </td>
+                  <td className="p-2">
+                    <Badge variant="outline" className="text-xs">{item.status || "-"}</Badge>
+                  </td>
+                  <td className="p-2">{item.phase || "-"}</td>
+                  <td className="p-2">{formatDate(item.startDate)}</td>
+                  <td className="p-2">{formatDate(item.lastActionDate)}</td>
+                  <td className="p-2 max-w-[200px] truncate">{item.note || "-"}</td>
+                  <td className="p-2">
+                    {item.dataSource === "iscbc" && <Badge className="bg-amber-100 text-amber-800 text-[10px]">ISCBC</Badge>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const WIZARD_STEPS_NEW = [
   { id: "personal", icon: User },
   { id: "contact", icon: Phone },
   { id: "address", icon: MapPin },
@@ -115,8 +302,21 @@ const WIZARD_STEPS = [
   { id: "review", icon: ClipboardCheck },
 ];
 
+const WIZARD_STEPS_EDIT = [
+  { id: "personal", icon: User },
+  { id: "contact", icon: Phone },
+  { id: "address", icon: MapPin },
+  { id: "marketing", icon: BarChart3, isOptional: true },
+  { id: "banking", icon: Building2, isOptional: true },
+  { id: "documents", icon: FileText },
+  { id: "debtCollection", icon: AlertTriangle },
+  { id: "review", icon: ClipboardCheck },
+];
+
 export function CustomerFormWizard({ initialData, onSubmit, isLoading, onCancel }: CustomerFormWizardProps) {
   const { t } = useI18n();
+  const isEditMode = !!initialData;
+  const WIZARD_STEPS = isEditMode ? WIZARD_STEPS_EDIT : WIZARD_STEPS_NEW;
   const [currentStep, setCurrentStep] = useState(0);
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
 
@@ -197,22 +397,25 @@ export function CustomerFormWizard({ initialData, onSubmit, isLoading, onCancel 
 
   const validateCurrentStep = async (): Promise<boolean> => {
     let fieldsToValidate: (keyof CustomerFormData)[] = [];
+    const stepId = WIZARD_STEPS[currentStep]?.id;
     
-    switch (currentStep) {
-      case 0:
+    switch (stepId) {
+      case "personal":
         fieldsToValidate = ["firstName", "lastName", "email"];
         break;
-      case 1:
+      case "contact":
         fieldsToValidate = [];
         break;
-      case 2:
+      case "address":
         fieldsToValidate = ["country"];
         break;
-      case 3:
-      case 4:
+      case "marketing":
+      case "banking":
+      case "documents":
+      case "debtCollection":
         fieldsToValidate = [];
         break;
-      case 5:
+      case "review":
         fieldsToValidate = ["firstName", "lastName", "email", "country", "status"];
         break;
     }
@@ -261,6 +464,8 @@ export function CustomerFormWizard({ initialData, onSubmit, isLoading, onCancel 
       address: t.wizard?.steps?.address || "Address",
       marketing: t.wizard?.steps?.marketing || "Marketing",
       banking: t.wizard?.steps?.banking || "Banking",
+      documents: t.customers?.tabs?.documents || "Dokumenty",
+      debtCollection: t.customers?.tabs?.debtCollection || "Vymáhanie",
       review: t.wizard?.steps?.review || "Review",
     };
     return stepTitles[stepId] || stepId;
@@ -273,14 +478,17 @@ export function CustomerFormWizard({ initialData, onSubmit, isLoading, onCancel 
       address: t.wizard?.steps?.addressDesc || "Permanent and correspondence address",
       marketing: t.wizard?.steps?.marketingDesc || "Marketing preferences and classifications",
       banking: t.wizard?.steps?.bankingDesc || "Bank account and health insurance",
+      documents: "Zmluvy a faktúry klienta",
+      debtCollection: "Prehľad vymáhania pohľadávok",
       review: t.wizard?.steps?.reviewDesc || "Review and confirm all information",
     };
     return stepDescs[stepId] || "";
   };
 
   const renderStepContent = () => {
-    switch (currentStep) {
-      case 0:
+    const stepId = WIZARD_STEPS[currentStep]?.id;
+    switch (stepId) {
+      case "personal":
         return (
           <div className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-3">
@@ -467,7 +675,7 @@ export function CustomerFormWizard({ initialData, onSubmit, isLoading, onCancel 
           </div>
         );
 
-      case 1:
+      case "contact":
         return (
           <div className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
@@ -559,7 +767,7 @@ export function CustomerFormWizard({ initialData, onSubmit, isLoading, onCancel 
           </div>
         );
 
-      case 2:
+      case "address":
         return (
           <div className="space-y-6">
             <div>
@@ -756,7 +964,7 @@ export function CustomerFormWizard({ initialData, onSubmit, isLoading, onCancel 
           </div>
         );
 
-      case 3:
+      case "marketing":
         return (
           <div className="space-y-4">
             <FormField
@@ -859,7 +1067,7 @@ export function CustomerFormWizard({ initialData, onSubmit, isLoading, onCancel 
           </div>
         );
 
-      case 4:
+      case "banking":
         return (
           <div className="space-y-6">
             <div>
@@ -954,7 +1162,21 @@ export function CustomerFormWizard({ initialData, onSubmit, isLoading, onCancel 
           </div>
         );
 
-      case 5:
+      case "documents":
+        return initialData ? (
+          <CustomerDocumentsTab customerId={initialData.id!} t={t} />
+        ) : (
+          <div className="text-center py-8 text-muted-foreground">Najprv uložte klienta</div>
+        );
+
+      case "debtCollection":
+        return initialData ? (
+          <CustomerDebtCollectionTab customerId={initialData.id!} t={t} />
+        ) : (
+          <div className="text-center py-8 text-muted-foreground">Najprv uložte klienta</div>
+        );
+
+      case "review":
         return (
           <div className="space-y-6">
             <div className="grid gap-6 sm:grid-cols-2">
