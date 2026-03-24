@@ -7377,7 +7377,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
         number: c.contractNumber,
         contractNumber: c.contractNumber,
         status: c.status,
-        contractStatus: c.status,
+        contractStatus: (c as any).dataSource === 'iscbc' ? ((c as any).legacyData?.csa_code || c.status) : c.status,
         createdAt: c.createdAt,
         createdBy: c.createdBy,
         createdByName: c.createdBy ? userMap.get(c.createdBy)?.fullName || userMap.get(c.createdBy)?.username : null,
@@ -7387,7 +7387,19 @@ Return ONLY valid JSON, no markdown code blocks.`,
         cancellationReason: c.cancellationReason,
         validFrom: c.validFrom,
         validTo: c.validTo,
-        dataSource: "indexus",
+        companyName: (c as any).companyName || null,
+        expectedCollectionDate: c.expectedDeliveryDate || null,
+        pregnancyType: (c as any).pregnancyType || null,
+        hospitalId: c.hospitalId,
+        obstetrician: c.obstetrician,
+        salesChannel: c.salesChannel,
+        infoSource: c.infoSource,
+        marketingAction: c.marketingAction,
+        marketingCode: c.marketingCode,
+        giftVoucher: c.giftVoucher,
+        internalNotes: c.internalNotes,
+        clientNote: c.clientNote,
+        dataSource: (c as any).dataSource || "indexus",
       }));
       
       // Transform invoices to document format
@@ -7442,8 +7454,24 @@ Return ONLY valid JSON, no markdown code blocks.`,
         }));
       } catch (e) { /* table may not exist yet */ }
       
+      // De-duplicate: ISCBC contracts now live in contract_instances, skip their customer_documents mirrors
+      const contractInstanceIds = new Set(
+        contractDocs.filter((d: any) => d.dataSource === 'iscbc').map((d: any) => d.id)
+      );
+      const contractLegacyIds = new Set(
+        contracts.filter((c: any) => (c as any).dataSource === 'iscbc' && (c as any).internalId)
+          .map((c: any) => (c as any).internalId)
+      );
+      const filteredCbcDocs = cbcDocs.filter((d: any) => {
+        if (d.documentType === 'contract' && d.dataSource === 'iscbc') {
+          if (d.legacyData?.contract_instance_id && contractInstanceIds.has(d.legacyData.contract_instance_id)) return false;
+          if (d.legacy_id && contractLegacyIds.has(d.legacy_id)) return false;
+        }
+        return true;
+      });
+
       // Combine and sort by date (newest first)
-      const documents = [...contractDocs, ...invoiceDocs, ...cbcDocs].sort((a, b) => {
+      const documents = [...contractDocs, ...invoiceDocs, ...filteredCbcDocs].sort((a, b) => {
         const dateA = new Date(a.createdAt).getTime();
         const dateB = new Date(b.createdAt).getTime();
         return dateB - dateA;

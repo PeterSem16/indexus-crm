@@ -2248,10 +2248,12 @@ async function step9_phoneCommunications() {
 // STEP 10: Verification — Detail comparison
 // ============================================================
 // ============================================================
-// STEP 11: Customer Documents — Contracts (Zmluvy) from CBC
+// STEP 11: Contracts from CBC → contract_instances + customer_documents
+// Maps CBC Contracts to INDEXUS contract_instances module with full field coverage
+// Also creates a reference record in customer_documents for Documents tab display
 // ============================================================
 async function step11_customerContracts() {
-  separator('STEP 11: Zmluvy klientov (Contracts → customer_documents)');
+  separator('STEP 11: Zmluvy klientov (Contracts → contract_instances + customer_documents)');
 
   const migratedCustomers = await pgPool.query(
     `SELECT id, internal_id FROM customers WHERE internal_id IS NOT NULL`
@@ -2272,21 +2274,10 @@ async function step11_customerContracts() {
 
   log(`\n--- Diagnostika CBC: ContractStatuses ---`);
   try {
-    const csColsRes = await mssqlPool.request().query(`SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'ContractStatuses' ORDER BY ORDINAL_POSITION`);
-    log('  ContractStatuses stĺpce: ' + csColsRes.recordset.map(r => r.COLUMN_NAME).join(', '));
     const csRes = await mssqlPool.request().query(`SELECT csa_id, csa_code FROM ContractStatuses ORDER BY csa_id`);
     table(['csa_id', 'csa_code'], csRes.recordset.map(r => [r.csa_id, r.csa_code]));
   } catch (err) { log(`  WARN: ${err.message}`); }
 
-  log(`\n--- Diagnostika CBC: ContractTemplates ---`);
-  try {
-    const ctRes = await mssqlPool.request().query(`
-      SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME LIKE '%Template%' OR TABLE_NAME LIKE '%Product%' ORDER BY TABLE_NAME
-    `);
-    log('  Template/Product tabuľky: ' + ctRes.recordset.map(r => r.TABLE_NAME).join(', '));
-  } catch (err) { log(`  WARN: ${err.message}`); }
-
-  // Get company names via Clients.com_id → Companies
   const companyMap = {};
   try {
     const compRes = await mssqlPool.request().query(`
@@ -2298,13 +2289,29 @@ async function step11_customerContracts() {
     for (const r of compRes.recordset) companyMap[String(r.cli_id)] = r.com_name;
   } catch (err) { log(`  WARN company map: ${err.message}`); }
 
+  const hospitalLookupRes = await pgPool.query(`SELECT id, internal_id FROM hospitals WHERE internal_id IS NOT NULL`);
+  const hospitalLookup = {};
+  for (const h of hospitalLookupRes.rows) hospitalLookup[h.internal_id] = h.id;
+
+  const collabLookupRes = await pgPool.query(`SELECT id, internal_id FROM collaborators WHERE internal_id IS NOT NULL`);
+  const collabLookup = {};
+  for (const c of collabLookupRes.rows) collabLookup[c.internal_id] = c.id;
+
   const contracts = await mssqlPool.request().query(`
     SELECT c.con_id, c.cli_id, c.con_number, c.con_inserted,
-           c.con_expected_collection_date,
+           c.con_expected_collection_date, c.con_pregnancy_type,
+           c.hos_id, c.doc_id, c.pot_id,
+           c.con_note,
            cs.csa_code,
-           c.con_note
+           pc.pot_product_ft, pc.pot_marketproduct_ft, pc.pot_payment_type_ft,
+           pc.pot_registration_type_ft, pc.pot_first_information_source_ft,
+           pc.pot_marketing_action_ft, pc.pot_marketing_code_ft,
+           pc.pot_gift_card, pc.pot_recruiting_ft,
+           pc.pot_exp_hospital_ft, pc.pot_exp_doctor_ft,
+           pc.pot_exp_birth_date, pc.pot_children
     FROM Contracts c
     LEFT JOIN ContractStatuses cs ON cs.csa_id = c.csa_id
+    LEFT JOIN PotentialClients pc ON pc.pot_id = c.pot_id
     WHERE c.cli_id IN (${cliIds})
     ORDER BY c.con_id
   `);
@@ -2312,46 +2319,130 @@ async function step11_customerContracts() {
 
   if (contracts.recordset.length > 0) {
     table(
-      ['con_id', 'cli_id', 'con_number', 'Stav', 'Firma', 'Oč. dátum'],
+      ['con_id', 'cli_id', 'con_number', 'Stav', 'Firma', 'Oč. dátum', 'Produkt', 'Tehotenstvo'],
       contracts.recordset.slice(0, 10).map(r => [
-        r.con_id, r.cli_id, r.con_number || '-', r.csa_code || '-', companyMap[String(r.cli_id)] || '-',
-        r.con_expected_collection_date ? new Date(r.con_expected_collection_date).toLocaleDateString('sk') : '-'
+        r.con_id, r.cli_id, r.con_number || '-', r.csa_code || '-',
+        companyMap[String(r.cli_id)] || '-',
+        r.con_expected_collection_date ? new Date(r.con_expected_collection_date).toLocaleDateString('sk') : '-',
+        r.pot_product_ft || r.pot_marketproduct_ft || '-',
+        r.con_pregnancy_type || '-'
       ])
     );
   }
 
-  let inserted = 0, skipped = 0, errors = 0;
+  const mapCbcStatusToIndexus = (csaCode) => {
+    if (!csaCode) return 'draft';
+    const code = csaCode.toUpperCase();
+    if (code === 'REG_CSA_SIGNED' || code === 'REG_CSA_ACTIVE') return 'signed';
+    if (code === 'REG_CSA_COMPLETED' || code === 'REG_CSA_CLOSED') return 'completed';
+    if (code === 'REG_CSA_CANCELLED' || code === 'REG_CSA_STORNO') return 'cancelled';
+    if (code === 'REG_CSA_SENT') return 'sent';
+    if (code === 'REG_CSA_RETURNED') return 'pending_signature';
+    if (code === 'REG_CSA_EXPIRED') return 'expired';
+    if (code === 'REG_CSA_DRAFT' || code === 'REG_CSA_NEW') return 'draft';
+    return 'draft';
+  };
+
+  let insertedCI = 0, insertedCD = 0, skipped = 0, errors = 0;
   for (const r of contracts.recordset) {
     const customerId = customerMap[String(r.cli_id)];
     if (!customerId) { skipped++; continue; }
 
     const legacyId = `contract_${r.con_id}`;
-    const existing = await pgPool.query(`SELECT id FROM customer_documents WHERE legacy_id = $1`, [legacyId]);
-    if (existing.rows.length > 0) { skipped++; continue; }
+    const existingCI = await pgPool.query(`SELECT id FROM contract_instances WHERE internal_id = $1`, [legacyId]);
+    if (existingCI.rows.length > 0) { skipped++; continue; }
 
     try {
-      await pgPool.query(`
-        INSERT INTO customer_documents (id, legacy_id, customer_id, document_type, data_source,
-          contract_number, contract_status, company_name, expected_collection_date, note, legacy_data, created_at)
-        VALUES (gen_random_uuid(), $1, $2, 'contract', 'iscbc', $3, $4, $5, $6, $7, $8, $9)
+      const contractNumber = r.con_number || `ISCBC-${r.con_id}`;
+      const indexusStatus = mapCbcStatusToIndexus(r.csa_code);
+      const expDate = r.con_expected_collection_date || r.pot_exp_birth_date || null;
+      const pregnancyType = r.con_pregnancy_type || null;
+      const isMultiple = pregnancyType && parseInt(pregnancyType) > 1;
+      const hospitalIdPg = hospitalLookup[String(r.hos_id)] || null;
+      const gynName = r.pot_exp_doctor_ft || null;
+
+      const legacyData = {
+        con_id: r.con_id, cli_id: r.cli_id, csa_code: r.csa_code,
+        hos_id: r.hos_id, doc_id: r.doc_id, pot_id: r.pot_id,
+        pot_product_ft: r.pot_product_ft, pot_marketproduct_ft: r.pot_marketproduct_ft,
+        pot_payment_type_ft: r.pot_payment_type_ft, pot_children: r.pot_children,
+        pot_recruiting_ft: r.pot_recruiting_ft,
+      };
+
+      const ciResult = await pgPool.query(`
+        INSERT INTO contract_instances (
+          id, contract_number, template_id, customer_id, billing_details_id,
+          status, internal_id, data_source, legacy_data,
+          company_name, pregnancy_type,
+          expected_delivery_date, hospital_id, obstetrician,
+          multiple_pregnancy,
+          sales_channel, info_source, marketing_action, marketing_code,
+          gift_voucher, client_note,
+          initial_product_id,
+          created_at, updated_at
+        ) VALUES (
+          gen_random_uuid(), $1, 'iscbc_legacy', $2, 'iscbc_legacy',
+          $3, $4, 'iscbc', $5,
+          $6, $7,
+          $8, $9, $10,
+          $11,
+          $12, $13, $14, $15,
+          $16, $17,
+          $18,
+          $19, $19
+        ) RETURNING id
       `, [
-        legacyId,
+        contractNumber,
         customerId,
-        r.con_number || null,
-        r.csa_code || null,
+        indexusStatus,
+        legacyId,
+        JSON.stringify(legacyData),
         companyMap[String(r.cli_id)] || null,
-        r.con_expected_collection_date || null,
+        pregnancyType,
+        expDate,
+        hospitalIdPg,
+        gynName,
+        isMultiple || false,
+        r.pot_registration_type_ft || null,
+        r.pot_first_information_source_ft || null,
+        r.pot_marketing_action_ft || null,
+        r.pot_marketing_code_ft || null,
+        r.pot_gift_card || null,
         r.con_note || null,
-        JSON.stringify({ con_id: r.con_id, cli_id: r.cli_id, csa_code: r.csa_code }),
+        r.pot_product_ft || r.pot_marketproduct_ft || null,
         r.con_inserted || new Date(),
       ]);
-      inserted++;
+      insertedCI++;
+
+      const contractInstanceId = ciResult.rows[0].id;
+      try {
+        await pgPool.query(`
+          INSERT INTO customer_documents (id, legacy_id, customer_id, document_type, data_source,
+            contract_number, contract_status, company_name, expected_collection_date, note, legacy_data, created_at)
+          VALUES (gen_random_uuid(), $1, $2, 'contract', 'iscbc', $3, $4, $5, $6, $7, $8, $9)
+        `, [
+          legacyId,
+          customerId,
+          contractNumber,
+          r.csa_code || null,
+          companyMap[String(r.cli_id)] || null,
+          expDate,
+          r.con_note || null,
+          JSON.stringify({ con_id: r.con_id, contract_instance_id: contractInstanceId }),
+          r.con_inserted || new Date(),
+        ]);
+        insertedCD++;
+      } catch (cdErr) {
+        log(`  WARN customer_documents con_id=${r.con_id}: ${cdErr.message}`);
+      }
     } catch (err) {
       errors++;
-      if (errors <= 3) log(`  ERROR con_id=${r.con_id}: ${err.message}`);
+      if (errors <= 5) log(`  ERROR con_id=${r.con_id}: ${err.message}`);
     }
   }
-  log(`  Zmluvy: ${inserted} vložených, ${skipped} preskočených, ${errors} chýb`);
+  log(`  contract_instances: ${insertedCI} vložených`);
+  log(`  customer_documents: ${insertedCD} vložených (odkazy)`);
+  log(`  Preskočených: ${skipped}, Chýb: ${errors}`);
 }
 
 // ============================================================

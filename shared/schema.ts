@@ -3661,8 +3661,12 @@ export const contractInstances = pgTable("contract_instances", {
   selectedProductId: varchar("selected_product_id", { length: 50 }), // e.g., standard, premium, premium_tissue
   // Notes
   internalNotes: text("internal_notes"),
-  // Legacy
+  // Legacy / Migration
   internalId: varchar("internal_id", { length: 100 }),
+  dataSource: text("data_source"), // 'indexus' | 'iscbc'
+  legacyData: jsonb("legacy_data").$type<Record<string, any>>(),
+  companyName: text("company_name"),
+  pregnancyType: text("pregnancy_type"),
   // Lifecycle dates
   contactDate: timestamp("contact_date"),
   filledDate: timestamp("filled_date"),
