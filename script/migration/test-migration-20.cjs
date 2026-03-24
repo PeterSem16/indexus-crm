@@ -720,7 +720,9 @@ async function step4_collaborators() {
   } catch (err) { log(`  WARN Representants: ${err.message}`); }
 
   // MailAddresses lookup: per_id → all addresses by mat_id type + add_id for firm
-  const addressByPerId = {};  // per_id → { permanent: addr, correspondence: addr }
+  // mat_id: 1 = Trvalé bydlisko (permanent), 2 = Adresa pracoviska (work), 3 = Korešpondenčná adresa (correspondence)
+  // add_id_firm = Adresa spoločnosti (company)
+  const addressByPerId = {};  // per_id → { permanent: addr, work: addr, correspondence: addr }
   const addressByAddId = {};  // add_id → addr (for firm addresses)
   try {
     const perIds = new Set();
@@ -740,9 +742,11 @@ async function step4_collaborators() {
       `);
       for (const a of addrs.recordset) {
         if (!addressByPerId[a.per_id]) addressByPerId[a.per_id] = {};
-        // mat_id: 1 = permanent, 3 = correspondence
+        // mat_id: 1 = Trvalé bydlisko (permanent), 2 = Adresa pracoviska (work), 3 = Korešpondenčná adresa (correspondence)
         if (a.mat_id === 1 && !addressByPerId[a.per_id].permanent) {
           addressByPerId[a.per_id].permanent = a;
+        } else if (a.mat_id === 2 && !addressByPerId[a.per_id].work) {
+          addressByPerId[a.per_id].work = a;
         } else if (a.mat_id === 3 && !addressByPerId[a.per_id].correspondence) {
           addressByPerId[a.per_id].correspondence = a;
         }
@@ -763,7 +767,7 @@ async function step4_collaborators() {
         }
       }
     }
-    const totalAddrs = Object.values(addressByPerId).reduce((sum, p) => sum + (p.permanent ? 1 : 0) + (p.correspondence ? 1 : 0), 0) + [...firmAddIds].filter(id => addressByAddId[id]).length;
+    const totalAddrs = Object.values(addressByPerId).reduce((sum, p) => sum + (p.permanent ? 1 : 0) + (p.work ? 1 : 0) + (p.correspondence ? 1 : 0), 0) + [...firmAddIds].filter(id => addressByAddId[id]).length;
     log(`  MailAddresses: ${totalAddrs} adries načítaných (per_id: ${Object.keys(addressByPerId).length}, firm: ${[...firmAddIds].filter(id => addressByAddId[id]).length})`);
   } catch (err) { log(`  WARN MailAddresses: ${err.message}`); }
 
@@ -838,13 +842,14 @@ async function step4_collaborators() {
         const perAddrData = row.per_id ? (addressByPerId[row.per_id] || {}) : {};
         const addrPairs = [
           { addr: perAddrData.permanent, type: 'permanent' },
+          { addr: perAddrData.work, type: 'work' },
           { addr: perAddrData.correspondence, type: 'correspondence' },
           { addr: row.add_id_firm ? addressByAddId[row.add_id_firm] : null, type: 'company' },
         ];
         for (const ap of addrPairs) {
           if (!ap.addr || existingTypes.has(ap.type)) continue;
           const addrCountry = normalizeCountryCode(ap.addr.add_country);
-          const legacyIdSuffix = ap.type === 'correspondence' ? '_cor' : (ap.type === 'company' ? '_firm' : '');
+          const legacyIdSuffix = ap.type === 'correspondence' ? '_cor' : (ap.type === 'work' ? '_work' : (ap.type === 'company' ? '_firm' : ''));
           await pgPool.query(`INSERT INTO collaborator_addresses (legacy_id, collaborator_id, address_type, name, street_number, city, postal_code, region, country_code) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
             [String(ap.addr.add_id) + legacyIdSuffix, ex.id, ap.type, ap.addr.add_name, ap.addr.add_street_and_number, normalizeCity(ap.addr.add_city), normalizePostalCode(ap.addr.add_zip, addrCountry), ap.addr.add_area, addrCountry]);
           addrInserted++;
@@ -906,17 +911,18 @@ async function step4_collaborators() {
       ]);
       const collabId = res.rows[0].id;
 
-      // Migrate addresses: per_id → permanent (mat_id=1), correspondence (mat_id=3); add_id_firm → company
+      // Migrate addresses: per_id → permanent (mat_id=1), work (mat_id=2), correspondence (mat_id=3); add_id_firm → company
       const perAddrData = row.per_id ? (addressByPerId[row.per_id] || {}) : {};
       const addrPairs = [
         { addr: perAddrData.permanent, type: 'permanent' },
+        { addr: perAddrData.work, type: 'work' },
         { addr: perAddrData.correspondence, type: 'correspondence' },
         { addr: row.add_id_firm ? addressByAddId[row.add_id_firm] : null, type: 'company' },
       ];
       for (const ap of addrPairs) {
         if (!ap.addr) continue;
         const addrCountry = normalizeCountryCode(ap.addr.add_country);
-        const legacyIdSuffix = ap.type === 'correspondence' ? '_cor' : (ap.type === 'company' ? '_firm' : '');
+        const legacyIdSuffix = ap.type === 'correspondence' ? '_cor' : (ap.type === 'work' ? '_work' : (ap.type === 'company' ? '_firm' : ''));
         await pgPool.query(`
           INSERT INTO collaborator_addresses (
             legacy_id, collaborator_id, address_type, name, street_number, city, postal_code, region, country_code
@@ -938,7 +944,7 @@ async function step4_collaborators() {
     }
   }
   log(`\n  → ${inserted} vložených, ${skipped} preskočených, ${errors} chýb`);
-  log(`  Adresy: ${addrInserted} vložených (permanent + correspondence + company)`);
+  log(`  Adresy: ${addrInserted} vložených (permanent + work + correspondence + company)`);
   log(`  Representants: ${repMatched} priradených`);
   log(`  Zdravotné poisťovne: ${hiMatched} priradených, ${hiUnmatched} nenájdených v INDEXUS`);
   // Log health insurance diagnostic for unmatched
