@@ -1087,13 +1087,20 @@ async function step4c_activities() {
   const docIds = Object.keys(collabLookup);
   if (docIds.length === 0) { log('  Žiadni spolupracovníci, preskakujem'); return; }
 
+  // Discover CollectionCollaborators columns
+  const ccColsResult = await mssqlPool.request().query(`
+    SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'CollectionCollaborators' ORDER BY ORDINAL_POSITION
+  `);
+  const ccCols = ccColsResult.recordset.map(r => r.COLUMN_NAME);
+  log(`  CollectionCollaborators stĺpce: ${ccCols.join(', ')}`);
+
   // Query CollectionCollaborators — this is the actual source of Úkony tab data
-  // Joined with CollaborationAgreementTypes (typ dohody), ServiceCollections (dátum, CBU),
-  // CollaboratorAgreements (číslo zmluvy), and optionally [Reward].[Acts] (odmena info)
+  // Join to CollaboratorAgreements via doc_id + agt_id (no cag_id on cc)
   const docIdList = docIds.join(',');
   const ukonyRows = await mssqlPool.request().query(`
     SELECT
-      cc.sco_id, cc.doc_id, cc.agt_id, cc.cag_id,
+      cc.sco_id, cc.doc_id, cc.agt_id,
+      ca.cag_id,
       at2.agt_default_name as typ_dohody,
       at2.agt_code,
       ca.cag_number as cislo_zmluvy,
@@ -1102,7 +1109,12 @@ async function step4c_activities() {
       sc.hos_id
     FROM CollectionCollaborators cc
     LEFT JOIN CollaborationAgreementTypes at2 ON at2.agt_id = cc.agt_id
-    LEFT JOIN CollaboratorAgreements ca ON ca.cag_id = cc.cag_id
+    OUTER APPLY (
+      SELECT TOP 1 cag_id, cag_number
+      FROM CollaboratorAgreements cag2
+      WHERE cag2.doc_id = cc.doc_id
+      ORDER BY cag2.cag_valid DESC, cag2.cag_id DESC
+    ) ca
     LEFT JOIN ServiceCollections sc ON sc.sco_id = cc.sco_id
     WHERE cc.doc_id IN (${docIdList})
     ORDER BY sc.sco_collection_made DESC
