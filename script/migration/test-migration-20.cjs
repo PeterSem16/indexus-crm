@@ -1022,6 +1022,69 @@ async function step4b_agreements() {
     );
   }
 
+  // Build reward_types map from CollectionCollaborators: for each cag_id → set of agt_codes
+  const rewardTypesMap = {};
+  const agtCodeToRewardType = {
+    'REG_AGT_RECRUITING': 'recruitment',
+    'REG_AGT_ASSISTANCE': 'assistance',
+    'REG_AGT_COLLECTING_BLOOD': 'puk_collection',
+    'REG_AGT_COLLECTING_TISSUE': 'tpu_collection',
+    'REG_AGT_COLLECTING_PLACENTA': 'plk_collection',
+    'REG_AGT_INFORMING': 'informing',
+    'REG_AGT_GRANT': 'emergency_grant',
+    'REG_AGT_PROPHYLAXIS': 'prophylaxis',
+    'REG_AGT_NURSE_MANAGER': 'head_nurse',
+    'REG_AGT_LECTURE': 'lecture',
+    'REG_AGT_VEDONO': 'management',
+  };
+  try {
+    const ccForAgreements = await mssqlPool.request().query(`
+      SELECT DISTINCT cc.doc_id, ca.cag_id, at2.agt_code
+      FROM CollectionCollaborators cc
+      JOIN CollaborationAgreementTypes at2 ON at2.agt_id = cc.agt_id
+      JOIN CollaboratorAgreements ca ON ca.doc_id = cc.doc_id
+        AND ca.cag_from <= ISNULL((SELECT s.sco_date FROM StemCollections s WHERE s.sco_id = cc.sco_id), ca.cag_to)
+        AND ca.cag_to >= ISNULL((SELECT s.sco_date FROM StemCollections s WHERE s.sco_id = cc.sco_id), ca.cag_from)
+      WHERE cc.doc_id IN (${docIds.join(',')})
+    `);
+    for (const r of ccForAgreements.recordset) {
+      const key = String(r.cag_id);
+      if (!rewardTypesMap[key]) rewardTypesMap[key] = new Set();
+      const mapped = agtCodeToRewardType[r.agt_code];
+      if (mapped) rewardTypesMap[key].add(mapped);
+    }
+    log(`  Reward types namapované pre ${Object.keys(rewardTypesMap).length} dohôd`);
+  } catch (err) {
+    log(`  WARN: reward_types mapping: ${err.message}`);
+    // Fallback: simpler query without date range
+    try {
+      const ccSimple = await mssqlPool.request().query(`
+        SELECT DISTINCT cc.doc_id, at2.agt_code
+        FROM CollectionCollaborators cc
+        JOIN CollaborationAgreementTypes at2 ON at2.agt_id = cc.agt_id
+        WHERE cc.doc_id IN (${docIds.join(',')})
+      `);
+      // Group by doc_id and find matching cag_ids
+      const docAgtCodes = {};
+      for (const r of ccSimple.recordset) {
+        const dk = String(r.doc_id);
+        if (!docAgtCodes[dk]) docAgtCodes[dk] = new Set();
+        const mapped = agtCodeToRewardType[r.agt_code];
+        if (mapped) docAgtCodes[dk].add(mapped);
+      }
+      // For each agreement, use doc_id to get reward_types
+      for (const row of agreements.recordset) {
+        const dk = String(row.doc_id);
+        if (docAgtCodes[dk] && docAgtCodes[dk].size > 0) {
+          rewardTypesMap[String(row.cag_id)] = docAgtCodes[dk];
+        }
+      }
+      log(`  Reward types (fallback) namapované pre ${Object.keys(rewardTypesMap).length} dohôd`);
+    } catch (err2) {
+      log(`  WARN: reward_types fallback: ${err2.message}`);
+    }
+  }
+
   let inserted = 0, skipped = 0, errors = 0;
   for (const row of agreements.recordset) {
     try {
@@ -1039,6 +1102,9 @@ async function step4b_agreements() {
       const socReg = row.cag_social_insurance_registration ? new Date(row.cag_social_insurance_registration) : null;
       const socCancel = row.cag_social_insurance_cancel ? new Date(row.cag_social_insurance_cancel) : null;
 
+      const rtSet = rewardTypesMap[String(row.cag_id)];
+      const rewardTypesArr = rtSet ? Array.from(rtSet) : [];
+
       await pgPool.query(`
         INSERT INTO collaborator_agreements (
           legacy_id, collaborator_id, contract_number,
@@ -1050,8 +1116,8 @@ async function step4b_agreements() {
           questionnaire_returned,
           social_insurance_registration_day, social_insurance_registration_month, social_insurance_registration_year,
           social_insurance_cancel_day, social_insurance_cancel_month, social_insurance_cancel_year,
-          note, created_at
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26)
+          note, created_at, reward_types
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27)
       `, [
         String(row.cag_id), collaboratorId, row.cag_number,
         vFrom ? vFrom.getDate() : null, vFrom ? vFrom.getMonth() + 1 : null, vFrom ? vFrom.getFullYear() : null,
@@ -1065,6 +1131,7 @@ async function step4b_agreements() {
         socCancel ? socCancel.getDate() : null, socCancel ? socCancel.getMonth() + 1 : null, socCancel ? socCancel.getFullYear() : null,
         row.cag_note || null,
         row.cag_inserted || new Date(),
+        rewardTypesArr.length > 0 ? JSON.stringify(rewardTypesArr) : null,
       ]);
       inserted++;
     } catch (err) {

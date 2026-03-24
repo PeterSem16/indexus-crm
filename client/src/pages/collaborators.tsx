@@ -953,141 +953,156 @@ function AgreementsTab({
 
   if (isAddingNew || editingId) {
     return (
-      <div className="space-y-4">
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="space-y-2">
-            <Label>{t.collaborators.fields.billingCompany}</Label>
-            <Select
-              value={formData.billingCompanyId || "_none"}
-              onValueChange={(value) => setFormData({ ...formData, billingCompanyId: value === "_none" ? "" : value })}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">{editingId ? t.collaborators.editAgreement || "Dohoda" : t.common.add}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-6 md:grid-cols-[1fr,auto]">
+            <div className="space-y-4">
+              <div className="grid gap-3 grid-cols-2">
+                <div className="space-y-1">
+                  <Label className="text-xs">{t.collaborators.fields.billingCompany}</Label>
+                  <Select
+                    value={formData.billingCompanyId || "_none"}
+                    onValueChange={(value) => setFormData({ ...formData, billingCompanyId: value === "_none" ? "" : value })}
+                  >
+                    <SelectTrigger data-testid="select-agreement-billing" className="h-8">
+                      <SelectValue placeholder={t.collaborators.fields.billingCompany} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_none">{t.common.noData}</SelectItem>
+                      {billingCompanies.map((bc) => (
+                        <SelectItem key={bc.id} value={bc.id}>
+                          {bc.companyName}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">{t.collaborators.fields.contractNumber}</Label>
+                  <Input
+                    value={formData.contractNumber}
+                    onChange={(e) => setFormData({ ...formData, contractNumber: e.target.value })}
+                    data-testid="input-agreement-contract"
+                    className="h-8"
+                  />
+                </div>
+              </div>
+              <div className="grid gap-3 grid-cols-2">
+                <DateFields
+                  label={t.collaborators.fields.validFrom}
+                  dayValue={formData.validFromDay}
+                  monthValue={formData.validFromMonth}
+                  yearValue={formData.validFromYear}
+                  onDayChange={(val) => setFormData({ ...formData, validFromDay: val })}
+                  onMonthChange={(val) => setFormData({ ...formData, validFromMonth: val })}
+                  onYearChange={(val) => setFormData({ ...formData, validFromYear: val })}
+                  onSetAll={(d, m, y) => setFormData({ ...formData, validFromDay: d, validFromMonth: m, validFromYear: y })}
+                  testIdPrefix="validFrom"
+                  t={t}
+                />
+                <DateFields
+                  label={t.collaborators.fields.validTo}
+                  dayValue={formData.validToDay}
+                  monthValue={formData.validToMonth}
+                  yearValue={formData.validToYear}
+                  onDayChange={(val) => setFormData({ ...formData, validToDay: val })}
+                  onMonthChange={(val) => setFormData({ ...formData, validToMonth: val })}
+                  onYearChange={(val) => setFormData({ ...formData, validToYear: val })}
+                  onSetAll={(d, m, y) => setFormData({ ...formData, validToDay: d, validToMonth: m, validToYear: y })}
+                  testIdPrefix="validTo"
+                  t={t}
+                  showEndOfYear={true}
+                  endOfYearSourceYear={formData.validFromYear}
+                />
+              </div>
+              <div className="grid gap-3 grid-cols-2">
+                <div className="space-y-1">
+                  <Label className="text-xs">{t.collaborators.fields.agreementForm}</Label>
+                  <Input
+                    value={formData.agreementForm}
+                    onChange={(e) => setFormData({ ...formData, agreementForm: e.target.value })}
+                    data-testid="input-agreement-form"
+                    className="h-8"
+                  />
+                </div>
+                <div className="flex items-center space-x-2 pt-5">
+                  <Switch
+                    checked={formData.isValid}
+                    onCheckedChange={(checked) => setFormData({ ...formData, isValid: checked })}
+                    data-testid="switch-agreement-valid"
+                  />
+                  <Label className="text-xs">{t.collaborators.fields.isValid}</Label>
+                </div>
+              </div>
+              <div className="grid gap-3 grid-cols-2">
+                <DateFields
+                  label={t.collaborators.fields.agreementSent}
+                  dayValue={formData.agreementSentDay}
+                  monthValue={formData.agreementSentMonth}
+                  yearValue={formData.agreementSentYear}
+                  onDayChange={(val) => setFormData({ ...formData, agreementSentDay: val })}
+                  onMonthChange={(val) => setFormData({ ...formData, agreementSentMonth: val })}
+                  onYearChange={(val) => setFormData({ ...formData, agreementSentYear: val })}
+                  onSetAll={(d, m, y) => setFormData({ ...formData, agreementSentDay: d, agreementSentMonth: m, agreementSentYear: y })}
+                  testIdPrefix="agreementSent"
+                  t={t}
+                />
+                <DateFields
+                  label={t.collaborators.fields.agreementReturned}
+                  dayValue={formData.agreementReturnedDay}
+                  monthValue={formData.agreementReturnedMonth}
+                  yearValue={formData.agreementReturnedYear}
+                  onDayChange={(val) => setFormData({ ...formData, agreementReturnedDay: val })}
+                  onMonthChange={(val) => setFormData({ ...formData, agreementReturnedMonth: val })}
+                  onYearChange={(val) => setFormData({ ...formData, agreementReturnedYear: val })}
+                  onSetAll={(d, m, y) => setFormData({ ...formData, agreementReturnedDay: d, agreementReturnedMonth: m, agreementReturnedYear: y })}
+                  testIdPrefix="agreementReturned"
+                  t={t}
+                />
+              </div>
+            </div>
+
+            <div className="md:border-l md:pl-4 space-y-1 min-w-[200px]">
+              <Label className="text-xs font-semibold mb-2 block">{t.collaborators.fields.rewardTypes}</Label>
+              {REWARD_TYPES.map((rt) => (
+                <label
+                  key={rt.value}
+                  className="flex items-center gap-2 cursor-pointer text-xs py-0.5 hover:bg-muted/50 rounded px-1"
+                  data-testid={`checkbox-reward-${rt.value}`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={formData.rewardTypes.includes(rt.value)}
+                    onChange={() => toggleRewardType(rt.value)}
+                    className="h-3.5 w-3.5 rounded border-gray-300"
+                  />
+                  {t.collaborators.rewardTypes[rt.labelKey] || rt.value}
+                </label>
+              ))}
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 mt-4 pt-3 border-t">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setIsAddingNew(false);
+                setEditingId(null);
+                resetForm();
+              }}
+              data-testid="button-cancel-agreement"
             >
-              <SelectTrigger data-testid="select-agreement-billing">
-                <SelectValue placeholder={t.collaborators.fields.billingCompany} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="_none">{t.common.noData}</SelectItem>
-                {billingCompanies.map((bc) => (
-                  <SelectItem key={bc.id} value={bc.id}>
-                    {bc.companyName}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              {t.common.cancel}
+            </Button>
+            <Button size="sm" onClick={() => saveMutation.mutate(formData)} disabled={saveMutation.isPending} data-testid="button-save-agreement">
+              {saveMutation.isPending ? t.common.loading : t.common.save}
+            </Button>
           </div>
-          <div className="space-y-2">
-            <Label>{t.collaborators.fields.contractNumber}</Label>
-            <Input
-              value={formData.contractNumber}
-              onChange={(e) => setFormData({ ...formData, contractNumber: e.target.value })}
-              data-testid="input-agreement-contract"
-            />
-          </div>
-        </div>
-        <div className="grid gap-4 md:grid-cols-2">
-          <DateFields
-            label={t.collaborators.fields.validFrom}
-            dayValue={formData.validFromDay}
-            monthValue={formData.validFromMonth}
-            yearValue={formData.validFromYear}
-            onDayChange={(val) => setFormData({ ...formData, validFromDay: val })}
-            onMonthChange={(val) => setFormData({ ...formData, validFromMonth: val })}
-            onYearChange={(val) => setFormData({ ...formData, validFromYear: val })}
-            onSetAll={(d, m, y) => setFormData({ ...formData, validFromDay: d, validFromMonth: m, validFromYear: y })}
-            testIdPrefix="validFrom"
-            t={t}
-          />
-          <DateFields
-            label={t.collaborators.fields.validTo}
-            dayValue={formData.validToDay}
-            monthValue={formData.validToMonth}
-            yearValue={formData.validToYear}
-            onDayChange={(val) => setFormData({ ...formData, validToDay: val })}
-            onMonthChange={(val) => setFormData({ ...formData, validToMonth: val })}
-            onYearChange={(val) => setFormData({ ...formData, validToYear: val })}
-            onSetAll={(d, m, y) => setFormData({ ...formData, validToDay: d, validToMonth: m, validToYear: y })}
-            testIdPrefix="validTo"
-            t={t}
-            showEndOfYear={true}
-            endOfYearSourceYear={formData.validFromYear}
-          />
-        </div>
-        <div className="grid gap-4 md:grid-cols-2">
-          <DateFields
-            label={t.collaborators.fields.agreementSent}
-            dayValue={formData.agreementSentDay}
-            monthValue={formData.agreementSentMonth}
-            yearValue={formData.agreementSentYear}
-            onDayChange={(val) => setFormData({ ...formData, agreementSentDay: val })}
-            onMonthChange={(val) => setFormData({ ...formData, agreementSentMonth: val })}
-            onYearChange={(val) => setFormData({ ...formData, agreementSentYear: val })}
-            onSetAll={(d, m, y) => setFormData({ ...formData, agreementSentDay: d, agreementSentMonth: m, agreementSentYear: y })}
-            testIdPrefix="agreementSent"
-            t={t}
-          />
-          <DateFields
-            label={t.collaborators.fields.agreementReturned}
-            dayValue={formData.agreementReturnedDay}
-            monthValue={formData.agreementReturnedMonth}
-            yearValue={formData.agreementReturnedYear}
-            onDayChange={(val) => setFormData({ ...formData, agreementReturnedDay: val })}
-            onMonthChange={(val) => setFormData({ ...formData, agreementReturnedMonth: val })}
-            onYearChange={(val) => setFormData({ ...formData, agreementReturnedYear: val })}
-            onSetAll={(d, m, y) => setFormData({ ...formData, agreementReturnedDay: d, agreementReturnedMonth: m, agreementReturnedYear: y })}
-            testIdPrefix="agreementReturned"
-            t={t}
-          />
-        </div>
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="space-y-2">
-            <Label>{t.collaborators.fields.agreementForm}</Label>
-            <Input
-              value={formData.agreementForm}
-              onChange={(e) => setFormData({ ...formData, agreementForm: e.target.value })}
-              data-testid="input-agreement-form"
-            />
-          </div>
-          <div className="flex items-center space-x-2 pt-6">
-            <Switch
-              checked={formData.isValid}
-              onCheckedChange={(checked) => setFormData({ ...formData, isValid: checked })}
-              data-testid="switch-agreement-valid"
-            />
-            <Label>{t.collaborators.fields.isValid}</Label>
-          </div>
-        </div>
-        <div className="space-y-2">
-          <Label>{t.collaborators.fields.rewardTypes}</Label>
-          <div className="flex flex-wrap gap-2">
-            {REWARD_TYPES.map((rt) => (
-              <Badge
-                key={rt.value}
-                variant={formData.rewardTypes.includes(rt.value) ? "default" : "outline"}
-                className="cursor-pointer"
-                onClick={() => toggleRewardType(rt.value)}
-                data-testid={`badge-reward-${rt.value}`}
-              >
-                {t.collaborators.rewardTypes[rt.labelKey] || rt.value}
-              </Badge>
-            ))}
-          </div>
-        </div>
-        <div className="flex justify-end gap-2">
-          <Button
-            variant="outline"
-            onClick={() => {
-              setIsAddingNew(false);
-              setEditingId(null);
-              resetForm();
-            }}
-            data-testid="button-cancel-agreement"
-          >
-            {t.common.cancel}
-          </Button>
-          <Button onClick={() => saveMutation.mutate(formData)} disabled={saveMutation.isPending} data-testid="button-save-agreement">
-            {saveMutation.isPending ? t.common.loading : t.common.save}
-          </Button>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     );
   }
 
@@ -1102,121 +1117,68 @@ function AgreementsTab({
       {agreements.length === 0 ? (
         <div className="text-center py-8 text-muted-foreground">{t.common.noData}</div>
       ) : (
-        <div className="space-y-2">
-          {agreements.map((agreement) => (
-            <Card key={agreement.id}>
-              <CardContent className="p-4">
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="flex-1 grid grid-cols-2 md:grid-cols-5 gap-2 text-sm">
-                      <div>
-                        <span className="text-muted-foreground">{t.collaborators.fields.billingCompany}: </span>
-                        {getBillingCompanyName(agreement.billingCompanyId)}
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">{t.collaborators.fields.contractNumber}: </span>
-                        {agreement.contractNumber || "-"}
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">{t.collaborators.fields.agreementForm}: </span>
-                        {agreement.agreementForm || "-"}
-                      </div>
-                      <div className="flex flex-wrap gap-1">
-                        <Badge variant={agreement.isValid ? "default" : "secondary"}>
-                          {agreement.isValid ? t.common.active : t.common.inactive}
-                        </Badge>
-                        {agreement.rewardTypes && agreement.rewardTypes.length > 0 && 
-                          agreement.rewardTypes.map((rt: string) => {
-                            const rewardType = REWARD_TYPES.find(r => r.value === rt);
-                            return (
-                              <Badge key={rt} variant="outline">
-                                {rewardType ? (t.collaborators.rewardTypes[rewardType.labelKey] || rt) : rt}
-                              </Badge>
-                            );
-                          })
-                        }
-                      </div>
-                      <div className="flex gap-2 justify-end">
-                        <Button size="icon" variant="ghost" onClick={() => handleEdit(agreement)} data-testid={`button-edit-agreement-${agreement.id}`}>
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button size="icon" variant="ghost" onClick={() => deleteMutation.mutate(agreement.id)} data-testid={`button-delete-agreement-${agreement.id}`}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm" data-testid="table-agreements">
+            <thead>
+              <tr className="border-b bg-muted/50">
+                <th className="text-left p-2 font-medium">{t.collaborators.fields.billingCompany}</th>
+                <th className="text-left p-2 font-medium">{t.collaborators.fields.contractNumber}</th>
+                <th className="text-left p-2 font-medium">{t.collaborators.fields.validFrom}</th>
+                <th className="text-left p-2 font-medium">{t.collaborators.fields.validTo}</th>
+                <th className="text-left p-2 font-medium">{t.collaborators.fields.agreementSent}</th>
+                <th className="text-left p-2 font-medium">{t.collaborators.fields.agreementReturned}</th>
+                <th className="text-left p-2 font-medium">{t.collaborators.fields.isValid}</th>
+                <th className="p-2 w-20"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {agreements.map((agreement) => (
+                <tr
+                  key={agreement.id}
+                  className="border-b hover:bg-blue-50 dark:hover:bg-blue-950/30 cursor-pointer transition-colors"
+                  onClick={() => handleEdit(agreement)}
+                  data-testid={`row-agreement-${agreement.id}`}
+                >
+                  <td className="p-2">{getBillingCompanyName(agreement.billingCompanyId)}</td>
+                  <td className="p-2 font-mono text-xs">{agreement.contractNumber || "-"}</td>
+                  <td className="p-2">{formatDate(agreement.validFromDay, agreement.validFromMonth, agreement.validFromYear)}</td>
+                  <td className="p-2">{formatDate(agreement.validToDay, agreement.validToMonth, agreement.validToYear)}</td>
+                  <td className="p-2">{formatDate(agreement.agreementSentDay, agreement.agreementSentMonth, agreement.agreementSentYear)}</td>
+                  <td className="p-2">{formatDate(agreement.agreementReturnedDay, agreement.agreementReturnedMonth, agreement.agreementReturnedYear)}</td>
+                  <td className="p-2">
+                    <Badge variant={agreement.isValid ? "default" : "secondary"}>
+                      {agreement.isValid ? t.common.active : t.common.inactive}
+                    </Badge>
+                  </td>
+                  <td className="p-2">
+                    <div className="flex gap-1">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7"
+                        onClick={(e) => { e.stopPropagation(); handleEdit(agreement); }}
+                        data-testid={`button-edit-agreement-${agreement.id}`}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7"
+                        onClick={(e) => { e.stopPropagation(); deleteMutation.mutate(agreement.id); }}
+                        data-testid={`button-delete-agreement-${agreement.id}`}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
                     </div>
-                  </div>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
-                    <div>
-                      <span className="text-muted-foreground">{t.collaborators.fields.validFrom}: </span>
-                      {formatDate(agreement.validFromDay, agreement.validFromMonth, agreement.validFromYear)}
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">{t.collaborators.fields.validTo}: </span>
-                      {formatDate(agreement.validToDay, agreement.validToMonth, agreement.validToYear)}
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">{t.collaborators.fields.agreementSent}: </span>
-                      {formatDate(agreement.agreementSentDay, agreement.agreementSentMonth, agreement.agreementSentYear)}
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">{t.collaborators.fields.agreementReturned}: </span>
-                      {formatDate(agreement.agreementReturnedDay, agreement.agreementReturnedMonth, agreement.agreementReturnedYear)}
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between gap-4 pt-2 border-t">
-                    <div className="flex items-center gap-2">
-                      {agreement.fileName ? (
-                        <>
-                          <FileText className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-sm">{agreement.fileName}</span>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={() => window.open(`/api/collaborators/${collaboratorId}/agreements/${agreement.id}/file`, "_blank")}
-                            data-testid={`button-view-file-${agreement.id}`}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={() => window.open(`/api/collaborators/${collaboratorId}/agreements/${agreement.id}/download`, "_blank")}
-                            data-testid={`button-download-file-${agreement.id}`}
-                          >
-                            <Download className="h-4 w-4" />
-                          </Button>
-                        </>
-                      ) : (
-                        <span className="text-sm text-muted-foreground">{t.collaborators.noFile}</span>
-                      )}
-                    </div>
-                    <div>
-                      <label className="cursor-pointer">
-                        <input
-                          type="file"
-                          className="hidden"
-                          accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) handleFileUpload(agreement.id, file);
-                          }}
-                          disabled={uploadingFile}
-                          data-testid={`input-upload-file-${agreement.id}`}
-                        />
-                        <Button variant="outline" size="sm" disabled={uploadingFile} asChild>
-                          <span>
-                            <Upload className="h-4 w-4 mr-2" />
-                            {uploadingFile ? t.common.loading : t.collaborators.uploadAgreement}
-                          </span>
-                        </Button>
-                      </label>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div className="mt-2 text-xs text-muted-foreground">
+            {agreements.length} {agreements.length === 1 ? "dohoda" : agreements.length < 5 ? "dohody" : "dohôd"}
+          </div>
         </div>
       )}
     </div>
