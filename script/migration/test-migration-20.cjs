@@ -1059,10 +1059,22 @@ async function step4c_activities() {
     `);
     log(`  ${actsTable} stĺpce: ${actsCols.recordset.map(r => r.COLUMN_NAME).join(', ')}`);
 
-    // Try multiple schema qualifications
+    // Discover actual schema from INFORMATION_SCHEMA
+    let actsSchema = 'dbo';
+    try {
+      const schemaResult = await mssqlPool.request().query(`SELECT TABLE_SCHEMA FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = '${actsTable}'`);
+      if (schemaResult.recordset.length > 0) {
+        actsSchema = schemaResult.recordset[0].TABLE_SCHEMA;
+        log(`  Acts schéma: ${actsSchema}`);
+      }
+    } catch (e) { /* ignore */ }
+
+    // Try multiple schema qualifications, starting with discovered schema
     let actsData = null;
-    const trySchemas = [`[${actsTable}]`, `dbo.[${actsTable}]`, `CBC.dbo.[${actsTable}]`];
-    for (const tableName of trySchemas) {
+    const trySchemas = [`[${actsSchema}].[${actsTable}]`, `[${actsTable}]`, `dbo.[${actsTable}]`, `CBC.dbo.[${actsTable}]`];
+    // Deduplicate
+    const uniqueSchemas = [...new Set(trySchemas)];
+    for (const tableName of uniqueSchemas) {
       try {
         actsData = await mssqlPool.request().query(`
           SELECT TOP 5 rac_id FROM ${tableName}
