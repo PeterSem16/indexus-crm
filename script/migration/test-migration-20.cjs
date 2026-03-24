@@ -2504,13 +2504,21 @@ async function step11_customerContracts() {
 
 // ============================================================
 // STEP 12: Customer Documents — Invoices (Faktúry) from CBC
-// Invoices table uses: cse_id → ContractServices → Contracts.con_id → Contracts.cli_id
-// Actual columns: inv_id, inv_invoice_number, inv_date_of_issue, inv_date_of_delivery,
-//   inv_date_of_payment, inv_dispatch_date, inv_amount_cur_home_with_vat, cur_code_home,
-//   inv_fully_paid, inv_note, inv_inserted, ist_id (InvoiceStatuses), ity_id (InvoiceTypes)
+// Chain: Invoices.cse_id → ContractServices.con_id → Contracts.cli_id
+// Also links to contract_instances via con_id for contract reference
 // ============================================================
 async function step12_customerInvoices() {
   separator('STEP 12: Faktúry klientov (Invoices → customer_documents)');
+
+  // Ensure new columns exist
+  try {
+    await pgPool.query(`ALTER TABLE customer_documents ADD COLUMN IF NOT EXISTS variable_symbol text`);
+    await pgPool.query(`ALTER TABLE customer_documents ADD COLUMN IF NOT EXISTS amount_no_vat text`);
+    await pgPool.query(`ALTER TABLE customer_documents ADD COLUMN IF NOT EXISTS paid_amount text`);
+    await pgPool.query(`ALTER TABLE customer_documents ADD COLUMN IF NOT EXISTS fully_paid boolean`);
+    await pgPool.query(`ALTER TABLE customer_documents ADD COLUMN IF NOT EXISTS contract_instance_id varchar`);
+    log('  ✓ customer_documents stĺpce overené/doplnené');
+  } catch (err) { log(`  WARN ensure columns: ${err.message}`); }
 
   const migratedCustomers = await pgPool.query(
     `SELECT id, internal_id FROM customers WHERE internal_id IS NOT NULL`
@@ -2521,9 +2529,18 @@ async function step12_customerInvoices() {
   for (const c of migratedCustomers.rows) customerMap[c.internal_id] = c.id;
   const cliIds = Object.keys(customerMap).join(',');
 
-  // Build ContractServices → Contract → Client chain
-  // ContractServices links invoice to contract via cse_id
+  // --- Diagnostika: Invoices stĺpce ---
+  try {
+    const invCols = await mssqlPool.request().query(`
+      SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'Invoices' ORDER BY ORDINAL_POSITION
+    `);
+    log(`\n--- Diagnostika CBC: Invoices stĺpce ---`);
+    log(`  Invoices ALL: ${invCols.recordset.map(r => r.COLUMN_NAME).join(', ')}`);
+  } catch (err) { log(`  WARN Invoices columns: ${err.message}`); }
+
+  // Build ContractServices → Contract chain (cse_id → cli_id + con_id)
   let cseToClient = {};
+  let cseToConId = {};
   try {
     const cseCols = await mssqlPool.request().query(`
       SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'ContractServices' ORDER BY ORDINAL_POSITION
@@ -2531,16 +2548,18 @@ async function step12_customerInvoices() {
     log(`  ContractServices stĺpce: ${cseCols.recordset.map(r => r.COLUMN_NAME).join(', ')}`);
 
     const cseRes = await mssqlPool.request().query(`
-      SELECT cs.cse_id, c.cli_id
+      SELECT cs.cse_id, c.cli_id, c.con_id, c.con_number
       FROM ContractServices cs
       JOIN Contracts c ON c.con_id = cs.con_id
       WHERE c.cli_id IN (${cliIds})
     `);
-    for (const r of cseRes.recordset) cseToClient[String(r.cse_id)] = String(r.cli_id);
+    for (const r of cseRes.recordset) {
+      cseToClient[String(r.cse_id)] = String(r.cli_id);
+      cseToConId[String(r.cse_id)] = String(r.con_id);
+    }
     log(`  ContractServices → Client mapa: ${Object.keys(cseToClient).length} záznamov`);
   } catch (err) {
     log(`  WARN ContractServices: ${err.message}`);
-    // Fallback: try direct Contracts link
     try {
       const conRes = await mssqlPool.request().query(`SELECT con_id, cli_id FROM Contracts WHERE cli_id IN (${cliIds})`);
       for (const c of conRes.recordset) cseToClient[`con_${c.con_id}`] = String(c.cli_id);
@@ -2548,56 +2567,168 @@ async function step12_customerInvoices() {
     } catch (err2) { log(`  WARN contract map: ${err2.message}`); }
   }
 
-  // Load InvoiceStatuses for status mapping
-  const invoiceStatuses = {};
+  // Build contract_instances lookup: CBC con_id → INDEXUS contract_instances.id
+  const contractInstanceLookup = {};
+  try {
+    const ciRes = await pgPool.query(`SELECT id, internal_id FROM contract_instances WHERE internal_id IS NOT NULL AND data_source = 'iscbc'`);
+    for (const r of ciRes.rows) contractInstanceLookup[r.internal_id] = r.id;
+    log(`  contract_instances lookup: ${Object.keys(contractInstanceLookup).length} záznamov`);
+  } catch (err) { log(`  WARN contract_instances lookup: ${err.message}`); }
+
+  // Load InvoiceStatuses + map to normalized values
+  const invoiceStatusRaw = {};
+  const INVOICE_STATUS_MAP = {
+    'REG_IST_NEW': 'new',
+    'REG_IST_SENT': 'sent',
+    'REG_IST_PAID': 'paid',
+    'REG_IST_PARTIALLY_PAID': 'partially_paid',
+    'REG_IST_OVERDUE': 'overdue',
+    'REG_IST_STORNO': 'cancelled',
+    'REG_IST_CANCELED': 'cancelled',
+    'REG_IST_CREDIT_NOTE': 'credit_note',
+  };
   try {
     const istRes = await mssqlPool.request().query(`SELECT * FROM InvoiceStatuses`);
-    for (const r of istRes.recordset) invoiceStatuses[r.ist_id] = r.ist_code || r.ist_default_name || String(r.ist_id);
-    log(`  InvoiceStatuses: ${Object.keys(invoiceStatuses).length} statusov`);
+    log(`\n--- Diagnostika CBC: InvoiceStatuses ---`);
+    for (const r of istRes.recordset) {
+      const code = r.ist_code || String(r.ist_id);
+      invoiceStatusRaw[r.ist_id] = code;
+      log(`  ist_id=${r.ist_id}: ${code} → ${INVOICE_STATUS_MAP[code] || code}`);
+    }
+    log(`  InvoiceStatuses: ${Object.keys(invoiceStatusRaw).length} statusov`);
   } catch (err) { log(`  WARN InvoiceStatuses: ${err.message}`); }
 
-  // Load InvoiceTypes for type mapping
-  const invoiceTypes = {};
+  // Load InvoiceTypes + map to normalized values
+  const invoiceTypeRaw = {};
+  const INVOICE_TYPE_MAP = {
+    'REG_ITY_INVOICE': 'REG_ITY_INVOICE',
+    'REG_ITY_CREDIT_NOTE': 'REG_ITY_CREDIT_NOTE',
+    'REG_ITY_PROFORMA': 'REG_ITY_PROFORMA',
+    'REG_ITY_ADVANCE': 'REG_ITY_ADVANCE',
+    'REG_ITY_DEBIT_NOTE': 'REG_ITY_DEBIT_NOTE',
+  };
   try {
     const ityRes = await mssqlPool.request().query(`SELECT * FROM InvoiceTypes`);
-    for (const r of ityRes.recordset) invoiceTypes[r.ity_id] = r.ity_code || r.ity_default_name || String(r.ity_id);
-    log(`  InvoiceTypes: ${Object.keys(invoiceTypes).length} typov`);
+    log(`\n--- Diagnostika CBC: InvoiceTypes ---`);
+    for (const r of ityRes.recordset) {
+      const code = r.ity_code || String(r.ity_id);
+      invoiceTypeRaw[r.ity_id] = code;
+      log(`  ity_id=${r.ity_id}: ${code} → ${INVOICE_TYPE_MAP[code] || code}`);
+    }
+    log(`  InvoiceTypes: ${Object.keys(invoiceTypeRaw).length} typov`);
   } catch (err) { log(`  WARN InvoiceTypes: ${err.message}`); }
 
-  // Query invoices via cse_id → ContractServices → Contracts
+  // Build Company name map: cli_id → company name
+  const companyMap = {};
+  try {
+    const compRes = await mssqlPool.request().query(`
+      SELECT DISTINCT c.cli_id, comp.com_name
+      FROM Contracts c
+      JOIN Companies comp ON comp.com_id = c.com_id
+      WHERE c.cli_id IN (${cliIds}) AND c.com_id IS NOT NULL
+    `);
+    for (const r of compRes.recordset) companyMap[String(r.cli_id)] = r.com_name;
+    log(`  Company mapa: ${Object.keys(companyMap).length} klientov s firmou`);
+  } catch (err) { log(`  WARN company map: ${err.message}`); }
+
+  // Query invoices with extended fields
   let invoices;
   try {
     invoices = await mssqlPool.request().query(`
       SELECT i.inv_id, i.cse_id, i.ist_id, i.ity_id,
              i.inv_invoice_number, i.inv_variable_symbol,
-             i.inv_date_of_issue, i.inv_date_of_delivery, i.inv_date_of_payment, i.inv_dispatch_date,
+             i.inv_date_of_issue, i.inv_date_of_delivery, i.inv_date_of_payment,
+             i.inv_dispatch_date, i.inv_due_date,
              i.inv_amount_cur_home_with_vat, i.inv_amount_cur_home_no_vat,
-             i.inv_paid_cur_home, i.cur_code_home,
-             i.inv_fully_paid, i.inv_note, i.inv_inserted, i.inv_writeoff
+             i.inv_amount_cur_accounting_with_vat, i.inv_amount_cur_accounting_no_vat,
+             i.inv_paid_cur_home, i.cur_code_home, i.cur_code_accounting,
+             i.inv_fully_paid, i.inv_note, i.inv_inserted, i.inv_updated,
+             i.inv_writeoff, i.inv_storno, i.inv_storno_date,
+             i.inv_inserted_by, i.inv_updated_by
       FROM Invoices i
-      WHERE i.cse_id IN (SELECT cse_id FROM ContractServices WHERE con_id IN (SELECT con_id FROM Contracts WHERE cli_id IN (${cliIds})))
+      WHERE i.cse_id IN (
+        SELECT cse_id FROM ContractServices WHERE con_id IN (
+          SELECT con_id FROM Contracts WHERE cli_id IN (${cliIds})
+        )
+      )
       ORDER BY i.inv_id
     `);
   } catch (err) {
-    log(`  WARN: Invoices query failed: ${err.message}`);
-    return;
+    // Fallback without optional columns
+    log(`  WARN: Extended query failed (${err.message}), trying basic query...`);
+    try {
+      invoices = await mssqlPool.request().query(`
+        SELECT i.inv_id, i.cse_id, i.ist_id, i.ity_id,
+               i.inv_invoice_number, i.inv_variable_symbol,
+               i.inv_date_of_issue, i.inv_date_of_delivery, i.inv_date_of_payment, i.inv_dispatch_date,
+               i.inv_amount_cur_home_with_vat, i.inv_amount_cur_home_no_vat,
+               i.inv_paid_cur_home, i.cur_code_home,
+               i.inv_fully_paid, i.inv_note, i.inv_inserted, i.inv_writeoff
+        FROM Invoices i
+        WHERE i.cse_id IN (
+          SELECT cse_id FROM ContractServices WHERE con_id IN (
+            SELECT con_id FROM Contracts WHERE cli_id IN (${cliIds})
+          )
+        )
+        ORDER BY i.inv_id
+      `);
+    } catch (err2) {
+      log(`  ERROR: Invoices query failed: ${err2.message}`);
+      return;
+    }
   }
 
   log(`  Nájdených ${invoices.recordset.length} faktúr`);
 
   if (invoices.recordset.length > 0) {
     table(
-      ['inv_id', 'Číslo', 'Vydaná', 'Suma', 'Mena', 'Zaplatené', 'Stav'],
-      invoices.recordset.slice(0, 10).map(r => [
-        r.inv_id,
-        r.inv_invoice_number || r.inv_variable_symbol || '-',
-        r.inv_date_of_issue ? new Date(r.inv_date_of_issue).toLocaleDateString('sk') : '-',
-        r.inv_amount_cur_home_with_vat != null ? String(r.inv_amount_cur_home_with_vat) : '-',
-        r.cur_code_home || '-',
-        r.inv_fully_paid ? 'Áno' : 'Nie',
-        invoiceStatuses[r.ist_id] || '-'
-      ])
+      ['inv_id', 'Číslo', 'VS', 'Vydaná', 'Splatnosť', 'Suma', 'Mena', 'Zapl.', 'Stav', 'Typ', 'Firma'],
+      invoices.recordset.slice(0, 10).map(r => {
+        const cliId = cseToClient[String(r.cse_id)];
+        return [
+          r.inv_id,
+          r.inv_invoice_number || '-',
+          r.inv_variable_symbol || '-',
+          r.inv_date_of_issue ? new Date(r.inv_date_of_issue).toLocaleDateString('sk') : '-',
+          (r.inv_due_date || r.inv_date_of_payment) ? new Date(r.inv_due_date || r.inv_date_of_payment).toLocaleDateString('sk') : '-',
+          r.inv_amount_cur_home_with_vat != null ? String(r.inv_amount_cur_home_with_vat) : '-',
+          r.cur_code_home || '-',
+          r.inv_fully_paid ? 'Áno' : 'Nie',
+          invoiceStatusRaw[r.ist_id] || '-',
+          invoiceTypeRaw[r.ity_id] || '-',
+          cliId ? (companyMap[cliId] || '-') : '-'
+        ];
+      })
     );
+
+    // Status distribution
+    const statusDist = {};
+    for (const r of invoices.recordset) {
+      const code = invoiceStatusRaw[r.ist_id] || 'unknown';
+      statusDist[code] = (statusDist[code] || 0) + 1;
+    }
+    log(`  Rozdelenie podľa statusu: ${Object.entries(statusDist).map(([k,v]) => `${k}=${v}`).join(', ')}`);
+
+    // Type distribution
+    const typeDist = {};
+    for (const r of invoices.recordset) {
+      const code = invoiceTypeRaw[r.ity_id] || 'unknown';
+      typeDist[code] = (typeDist[code] || 0) + 1;
+    }
+    log(`  Rozdelenie podľa typu: ${Object.entries(typeDist).map(([k,v]) => `${k}=${v}`).join(', ')}`);
+
+    // Currency distribution
+    const curDist = {};
+    for (const r of invoices.recordset) {
+      const cur = r.cur_code_home || 'unknown';
+      curDist[cur] = (curDist[cur] || 0) + 1;
+    }
+    log(`  Rozdelenie podľa meny: ${Object.entries(curDist).map(([k,v]) => `${k}=${v}`).join(', ')}`);
+
+    // Paid distribution
+    let paidCount = 0, unpaidCount = 0;
+    for (const r of invoices.recordset) { if (r.inv_fully_paid) paidCount++; else unpaidCount++; }
+    log(`  Zaplatené: ${paidCount}, Nezaplatené: ${unpaidCount}`);
   }
 
   let inserted = 0, skipped = 0, errors = 0;
@@ -2610,35 +2741,94 @@ async function step12_customerInvoices() {
     const existing = await pgPool.query(`SELECT id FROM customer_documents WHERE legacy_id = $1`, [legacyId]);
     if (existing.rows.length > 0) { skipped++; continue; }
 
+    // Resolve contract_instance reference
+    const cbcConId = cseToConId[String(r.cse_id)];
+    const contractInstanceId = cbcConId ? (contractInstanceLookup[cbcConId] || null) : null;
+
+    // Map status code → normalized
+    const statusCode = invoiceStatusRaw[r.ist_id] || '';
+    const normalizedStatus = INVOICE_STATUS_MAP[statusCode] || statusCode || (r.inv_fully_paid ? 'paid' : 'new');
+
+    // Map type code
+    const typeCode = invoiceTypeRaw[r.ity_id] || null;
+
+    // Company from contract chain
+    const companyName = cliId ? (companyMap[cliId] || null) : null;
+
     try {
       await pgPool.query(`
-        INSERT INTO customer_documents (id, legacy_id, customer_id, document_type, data_source,
-          invoice_number, invoice_type, domestic_currency, amount, invoice_status,
-          issue_date, due_date, sent_date, delivery_date, note, legacy_data, created_at)
-        VALUES (gen_random_uuid(), $1, $2, 'invoice', 'iscbc', $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+        INSERT INTO customer_documents (
+          id, legacy_id, customer_id, document_type, data_source,
+          invoice_number, variable_symbol, invoice_type, invoice_status,
+          domestic_currency, accounting_currency,
+          amount, amount_no_vat, paid_amount, fully_paid,
+          issue_date, due_date, sent_date, delivery_date,
+          company_name, contract_instance_id,
+          note, legacy_data, created_at
+        )
+        VALUES (
+          gen_random_uuid(), $1, $2, 'invoice', 'iscbc',
+          $3, $4, $5, $6,
+          $7, $8,
+          $9, $10, $11, $12,
+          $13, $14, $15, $16,
+          $17, $18,
+          $19, $20, $21
+        )
       `, [
         legacyId,
         customerId,
-        r.inv_invoice_number || r.inv_variable_symbol || null,
-        invoiceTypes[r.ity_id] || null,
+        r.inv_invoice_number || null,
+        r.inv_variable_symbol || null,
+        typeCode,
+        normalizedStatus,
         r.cur_code_home || null,
+        r.cur_code_accounting || null,
         r.inv_amount_cur_home_with_vat != null ? String(r.inv_amount_cur_home_with_vat) : null,
-        invoiceStatuses[r.ist_id] || (r.inv_fully_paid ? 'paid' : 'unpaid'),
+        r.inv_amount_cur_home_no_vat != null ? String(r.inv_amount_cur_home_no_vat) : null,
+        r.inv_paid_cur_home != null ? String(r.inv_paid_cur_home) : null,
+        r.inv_fully_paid ? true : false,
         r.inv_date_of_issue || null,
-        r.inv_date_of_payment || null,
+        r.inv_due_date || r.inv_date_of_payment || null,
         r.inv_dispatch_date || null,
         r.inv_date_of_delivery || null,
+        companyName,
+        contractInstanceId,
         r.inv_note || null,
-        JSON.stringify({ inv_id: r.inv_id, cse_id: r.cse_id, ist_id: r.ist_id, writeoff: r.inv_writeoff, paid: r.inv_paid_cur_home }),
+        JSON.stringify({
+          inv_id: r.inv_id,
+          cse_id: r.cse_id,
+          con_id: cbcConId || null,
+          ist_id: r.ist_id,
+          ity_id: r.ity_id,
+          ist_code: statusCode,
+          ity_code: typeCode,
+          writeoff: r.inv_writeoff || null,
+          storno: r.inv_storno || null,
+          storno_date: r.inv_storno_date || null,
+          amount_accounting_vat: r.inv_amount_cur_accounting_with_vat || null,
+          amount_accounting_no_vat: r.inv_amount_cur_accounting_no_vat || null,
+          inserted_by: r.inv_inserted_by || null,
+          updated_by: r.inv_updated_by || null,
+        }),
         r.inv_inserted || r.inv_date_of_issue || new Date(),
       ]);
       inserted++;
     } catch (err) {
       errors++;
-      if (errors <= 3) log(`  ERROR inv_id=${r.inv_id}: ${err.message}`);
+      if (errors <= 5) log(`  ERROR inv_id=${r.inv_id}: ${err.message}`);
     }
   }
+
   log(`  Faktúry: ${inserted} vložených, ${skipped} preskočených, ${errors} chýb`);
+  if (Object.keys(contractInstanceLookup).length > 0) {
+    let linked = 0;
+    for (const r of invoices.recordset) {
+      const cbcConId = cseToConId[String(r.cse_id)];
+      if (cbcConId && contractInstanceLookup[cbcConId]) linked++;
+    }
+    log(`  Faktúry prepojené na contract_instances: ${linked}/${invoices.recordset.length}`);
+  }
 }
 
 // ============================================================

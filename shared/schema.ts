@@ -6480,16 +6480,21 @@ export const customerDocuments = pgTable("customer_documents", {
 
   // Invoice fields (Faktúry)
   invoiceNumber: text("invoice_number"),
+  variableSymbol: text("variable_symbol"),
   invoiceType: text("invoice_type"),
   domesticCurrency: text("domestic_currency"),
   accountingCurrency: text("accounting_currency"),
   amount: text("amount"),
+  amountNoVat: text("amount_no_vat"),
+  paidAmount: text("paid_amount"),
+  fullyPaid: boolean("fully_paid"),
   invoiceStatus: text("invoice_status"),
   documentStatus: text("document_status"),
   deliveryDate: timestamp("delivery_date"),
   issueDate: timestamp("issue_date"),
   sentDate: timestamp("sent_date"),
   dueDate: timestamp("due_date"),
+  contractInstanceId: varchar("contract_instance_id"),
 
   // Common
   note: text("note"),
