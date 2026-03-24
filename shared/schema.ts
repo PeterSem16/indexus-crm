@@ -3681,7 +3681,7 @@ export const contractInstances = pgTable("contract_instances", {
   // Medical
   ambulantDoctor: text("ambulant_doctor"),
   expectedDeliveryDate: date("expected_delivery_date"),
-  hospitalId: integer("hospital_id"),
+  hospitalId: varchar("hospital_id"),
   obstetrician: text("obstetrician"),
   multiplePregnancy: boolean("multiple_pregnancy").default(false),
   // Sales & Marketing
