@@ -2659,6 +2659,7 @@ async function step10_verification() {
     { name: 'Documents-Contracts (migrated)', query: "SELECT COUNT(*) as cnt FROM customer_documents WHERE document_type = 'contract' AND data_source = 'iscbc'" },
     { name: 'Documents-Invoices (migrated)', query: "SELECT COUNT(*) as cnt FROM customer_documents WHERE document_type = 'invoice' AND data_source = 'iscbc'" },
     { name: 'DebtCollection (migrated)', query: "SELECT COUNT(*) as cnt FROM customer_debt_collection WHERE data_source = 'iscbc'" },
+    { name: 'PotentialClients (migrated)', query: "SELECT COUNT(*) as cnt FROM customers WHERE internal_id LIKE 'pot_%' AND client_status = 'potential'" },
   ];
 
   const countRows = [];
@@ -2888,11 +2889,166 @@ async function step10_verification() {
 // ============================================================
 // MAIN
 // ============================================================
+// STEP 14: Potential Clients (PotentialClients bez zmluvy → customers so statusom potential)
+// ============================================================
+async function step14_potentialClients() {
+  separator('STEP 14: Potenciálni klienti (PotentialClients bez zmluvy)');
+
+  // Find PotentialClients that have NO associated Contract
+  // These are leads/potential clients that never got to contract stage
+  let potClients;
+  try {
+    potClients = await mssqlPool.request().query(`
+      SELECT TOP ${LIMIT}
+        pc.pot_id,
+        pd.pda_first_name, pd.pda_last_name, pd.pda_maiden_name,
+        pd.pda_title_prefix, pd.pda_title_suffix,
+        pd.pda_phone_number, pd.pda_mobile, pd.pda_mobile2,
+        pd.pda_email, pd.pda_email2,
+        pd.pda_id_number, pd.pda_id_card, pd.pda_birth_date,
+        pd.pda_other_contact,
+        pd.pda_IBAN, pd.pda_account_number, pd.pda_account_bank_code,
+        pd.pda_bank_name, pd.pda_SWIFT,
+        ma_perm.add_street_and_number AS perm_street,
+        ma_perm.add_city AS perm_city,
+        ma_perm.add_zip AS perm_zip,
+        ma_perm.add_area AS perm_area,
+        ma_perm.add_country AS perm_country,
+        ma_corr.add_street_and_number AS corr_street,
+        ma_corr.add_city AS corr_city,
+        ma_corr.add_zip AS corr_zip,
+        ma_corr.add_area AS corr_area,
+        ma_corr.add_country AS corr_country,
+        ma_corr.add_name AS corr_name,
+        pc.pot_product_ft, pc.pot_marketproduct_ft,
+        pc.pot_exp_birth_date, pc.pot_exp_hospital_ft, pc.pot_exp_doctor_ft,
+        pc.pot_recruiting_ft, pc.pot_pregnancy_type, pc.pot_children,
+        pc.pot_registration_type_ft, pc.pot_first_information_source_ft,
+        pc.pot_cbc_reason_ft, pc.pot_marketing_action_ft,
+        pc.pot_mailinglist, pc.pot_note,
+        pc.cos_id
+      FROM PotentialClients pc
+      JOIN PersonalData pd ON pd.per_id = pc.per_id
+      LEFT JOIN MailAddresses ma_perm ON ma_perm.per_id = pc.per_id AND ma_perm.add_valid = 1 AND ma_perm.mat_id = 1
+      LEFT JOIN MailAddresses ma_corr ON ma_corr.per_id = pc.per_id AND ma_corr.add_valid = 1 AND ma_corr.mat_id = 3
+      WHERE pc.pot_id NOT IN (SELECT pot_id FROM Contracts WHERE pot_id IS NOT NULL)
+      ORDER BY pc.pot_id DESC
+    `);
+  } catch (err) {
+    log(`  WARN: PotentialClients query failed: ${err.message}`);
+    log('  Skúšam alternatívny prístup...');
+    try {
+      potClients = await mssqlPool.request().query(`
+        SELECT TOP ${LIMIT}
+          pc.pot_id,
+          pd.pda_first_name, pd.pda_last_name, pd.pda_maiden_name,
+          pd.pda_title_prefix, pd.pda_title_suffix,
+          pd.pda_phone_number, pd.pda_mobile, pd.pda_mobile2,
+          pd.pda_email, pd.pda_email2,
+          pd.pda_id_number, pd.pda_id_card, pd.pda_birth_date,
+          pd.pda_other_contact,
+          ma_perm.add_street_and_number AS perm_street,
+          ma_perm.add_city AS perm_city,
+          ma_perm.add_zip AS perm_zip,
+          ma_perm.add_country AS perm_country,
+          pc.pot_note
+        FROM PotentialClients pc
+        JOIN PersonalData pd ON pd.per_id = pc.per_id
+        LEFT JOIN MailAddresses ma_perm ON ma_perm.per_id = pc.per_id AND ma_perm.add_valid = 1 AND ma_perm.mat_id = 1
+        WHERE pc.pot_id NOT IN (SELECT pot_id FROM Contracts WHERE pot_id IS NOT NULL)
+        ORDER BY pc.pot_id DESC
+      `);
+    } catch (err2) {
+      log(`  ERROR: Alternatívny prístup zlyhal: ${err2.message}`);
+      return;
+    }
+  }
+
+  log(`  Nájdených ${potClients.recordset.length} potenciálnych klientov bez zmluvy`);
+  if (potClients.recordset.length === 0) {
+    log('  Žiadni potenciálni klienti bez zmluvy — skip');
+    return;
+  }
+
+  const showLimit = Math.min(10, potClients.recordset.length);
+  table(
+    ['pot_id', 'Meno', 'Priezvisko', 'Mobil', 'Email', 'Mesto', 'Krajina'],
+    potClients.recordset.slice(0, showLimit).map(r => [
+      r.pot_id,
+      r.pda_first_name || '-',
+      r.pda_last_name || '-',
+      r.pda_mobile || '-',
+      r.pda_email || '-',
+      r.perm_city || '-',
+      r.perm_country || '-',
+    ])
+  );
+
+  let inserted = 0, skipped = 0, errors = 0;
+  for (const row of potClients.recordset) {
+    try {
+      const internalId = `pot_${row.pot_id}`;
+      const existing = await pgPool.query('SELECT id FROM customers WHERE internal_id = $1', [internalId]);
+      if (existing.rows.length > 0) { skipped++; continue; }
+
+      const country = normalizeCountryCode(row.perm_country);
+      const firstName = normalizeName(row.pda_first_name) || 'N/A';
+      const lastName = normalizeName(row.pda_last_name) || 'N/A';
+      const email = normalizeEmail(row.pda_email) || `potential_${row.pot_id}@import.local`;
+
+      const bankAccount = row.pda_IBAN || (row.pda_account_number ? `${row.pda_account_number}/${row.pda_account_bank_code}` : null);
+      const hasCorr = !!(row.corr_street || row.corr_city);
+
+      const notes = [
+        row.pot_note || '',
+        row.pot_product_ft ? `Produkt: ${row.pot_product_ft}` : '',
+        row.pot_recruiting_ft ? `Recruiting: ${row.pot_recruiting_ft}` : '',
+        row.pot_first_information_source_ft ? `Zdroj info: ${row.pot_first_information_source_ft}` : '',
+        row.pot_cbc_reason_ft ? `Dôvod CBC: ${row.pot_cbc_reason_ft}` : '',
+        row.pot_marketing_action_ft ? `Marketing: ${row.pot_marketing_action_ft}` : '',
+        row.pot_registration_type_ft ? `Typ registrácie: ${row.pot_registration_type_ft}` : '',
+      ].filter(Boolean).join('; ');
+
+      await pgPool.query(`
+        INSERT INTO customers (
+          internal_id, title_before, first_name, last_name, maiden_name, title_after,
+          phone, mobile, mobile_2, other_contact, email, email_2,
+          national_id, id_card_number, date_of_birth, newsletter,
+          country, city, address, postal_code, region,
+          use_correspondence_address, corr_name, corr_address, corr_city, corr_postal_code, corr_region, corr_country,
+          bank_account, bank_code, bank_name, bank_swift,
+          client_status, status, notes, lead_score, data_source, created_at
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38)
+      `, [
+        internalId,
+        row.pda_title_prefix || null, firstName, lastName, normalizeName(row.pda_maiden_name) || null, row.pda_title_suffix || null,
+        normalizePhone(row.pda_phone_number, country) || normalizePhone(row.pda_mobile, country), normalizePhone(row.pda_mobile, country),
+        normalizePhone(row.pda_mobile2, country), row.pda_other_contact || null,
+        email, normalizeEmail(row.pda_email2) || null,
+        normalizeNationalId(row.pda_id_number) || null, row.pda_id_card || null, row.pda_birth_date || null,
+        row.pot_mailinglist === true || row.pot_mailinglist === 1,
+        country, normalizeCity(row.perm_city) || null, row.perm_street || null, normalizePostalCode(row.perm_zip, country) || null, row.perm_area || null,
+        hasCorr, row.corr_name || null, row.corr_street || null, normalizeCity(row.corr_city) || null,
+        normalizePostalCode(row.corr_zip, normalizeCountryCode(row.corr_country) || country) || null, row.corr_area || null, normalizeCountryCode(row.corr_country) || null,
+        bankAccount || null, row.pda_account_bank_code || null, row.pda_bank_name || null, row.pda_SWIFT || null,
+        'potential', 'active', notes || null, 0,
+        'iscbc', new Date(),
+      ]);
+      inserted++;
+    } catch (err) {
+      errors++;
+      if (errors <= 5) log(`  ERROR pot_id=${row.pot_id}: ${err.message}`);
+    }
+  }
+  log(`\n  → ${inserted} vložených, ${skipped} preskočených, ${errors} chýb`);
+}
+
+// ============================================================
 async function main() {
   console.log('');
   console.log('╔══════════════════════════════════════════════════════════════════╗');
   console.log(`║   CBC → INDEXUS  Testovací migračný scenár (${LIMIT} záznamov)`.padEnd(66) + '║');
-  console.log('║   S: Zmluvy, Faktúry, Vymáhanie                                ║');
+  console.log('║   S: Zmluvy, Faktúry, Vymáhanie, Potenciálni klienti           ║');
   console.log('╚══════════════════════════════════════════════════════════════════╝');
   console.log('');
 
@@ -2911,6 +3067,7 @@ async function main() {
     await step11_customerContracts();
     await step12_customerInvoices();
     await step13_debtCollection();
+    await step14_potentialClients();
     await step10_verification();
 
     separator('HOTOVO');

@@ -1743,7 +1743,7 @@ function CustomerHistoryTimeline({
   customerName: string;
 }) {
   const { toast } = useToast();
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [filterType, setFilterType] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [sortOrder, setSortOrder] = useState<"desc" | "asc">("desc");
@@ -2053,14 +2053,13 @@ function CustomerHistoryTimeline({
       const docCurrency = doc.domesticCurrency || doc.currency;
       const docDate = doc.issueDate || doc.validFrom || doc.createdAt;
 
-      const statusLabel = docStatus === "paid" ? "Uhradená"
-        : docStatus === "unpaid" ? "Neuhradená"
-        : docStatus === "partially_paid" ? "Čiastočne uhradená"
-        : docStatus === "cancelled" ? "Zrušená"
-        : docStatus === "storno" ? "Stornovaná"
-        : docStatus || "";
+      const statusLabel = docStatus ? getDocumentStatusLabel(docStatus, locale) : "";
 
-      let title = isContract ? "Zmluva" : isInvoice ? "Faktúra" : "Dokument";
+      let title = isContract
+        ? (t.contracts?.title || "Zmluva")
+        : isInvoice
+        ? (t.invoices?.title || "Faktúra")
+        : (t.customers?.tabs?.documents || "Dokument");
       let description = docNumber;
       if (docAmount && docCurrency) {
         description += ` — ${docAmount} ${docCurrency}`;
@@ -2567,10 +2566,7 @@ function CustomerHistoryTimeline({
                                   <Badge className="bg-amber-100 text-amber-800 text-[10px] px-1.5 py-0">ISCBC</Badge>
                                 )}
                                 {event.details?.status && (
-                                  <Badge variant="outline" className={cn("text-xs",
-                                    event.details?.rawStatus === "paid" && "border-green-300 text-green-700",
-                                    event.details?.rawStatus === "unpaid" && "border-red-300 text-red-700"
-                                  )}>
+                                  <Badge variant={event.details?.rawStatus ? getDocumentStatusVariant(event.details.rawStatus) : "outline"} className="text-xs">
                                     {event.details.status}
                                   </Badge>
                                 )}
