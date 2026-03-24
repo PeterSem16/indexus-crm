@@ -1019,6 +1019,24 @@ async function step4c_activities() {
   try {
     if (cagIds.length === 0) { log('  Žiadne dohody, preskakujem Acts'); return; }
 
+    // Check default schema and DB context
+    try {
+      const dbCtx = await mssqlPool.request().query(`SELECT DB_NAME() as dbName, SCHEMA_NAME() as schemaName, SYSTEM_USER as sysUser, USER_NAME() as userName`);
+      log(`  DB kontext: db=${dbCtx.recordset[0].dbName}, schema=${dbCtx.recordset[0].schemaName}, sysUser=${dbCtx.recordset[0].sysUser}, user=${dbCtx.recordset[0].userName}`);
+    } catch (e) { /* ignore */ }
+
+    // Check granted permissions on Acts
+    try {
+      const perms = await mssqlPool.request().query(`SELECT p.permission_name, p.state_desc, o.name as object_name FROM sys.database_permissions p JOIN sys.objects o ON p.major_id = o.object_id WHERE o.name = 'Acts'`);
+      log(`  Acts práva: ${perms.recordset.length > 0 ? perms.recordset.map(r => `${r.state_desc} ${r.permission_name}`).join(', ') : 'žiadne explicitné'}`);
+    } catch (e) { log(`  Acts permissions check: ${e.message}`); }
+
+    // List all schemas that contain 'Acts'
+    try {
+      const schemas = await mssqlPool.request().query(`SELECT TABLE_SCHEMA, TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'Acts'`);
+      log(`  Acts v schémach: ${schemas.recordset.map(r => `${r.TABLE_SCHEMA}.${r.TABLE_NAME}`).join(', ') || 'ŽIADNE'}`);
+    } catch (e) { /* ignore */ }
+
     // Discover actual table name for Acts
     const actsTables = await mssqlPool.request().query(`
       SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
@@ -1041,18 +1059,33 @@ async function step4c_activities() {
     `);
     log(`  ${actsTable} stĺpce: ${actsCols.recordset.map(r => r.COLUMN_NAME).join(', ')}`);
 
-    acts = await mssqlPool.request().query(`
-      SELECT rac_id, agreement_id_reward, hos_id_bound, sco_id_bound,
-             rac_state, cur_code, rac_amount, rac_name,
-             rac_internal_note, rac_public_note,
-             rac_due_date, rac_due_date_type,
-             rac_proposed, rac_proposed_by,
-             rac_approved, rac_approved_by,
-             rac_paid, rac_cancelled
-      FROM [${actsTable}]
-      WHERE agreement_id_reward IN (${cagIds.join(',')})
-      ORDER BY rac_id DESC
-    `);
+    // Try multiple schema qualifications
+    let actsData = null;
+    const trySchemas = [`[${actsTable}]`, `dbo.[${actsTable}]`, `CBC.dbo.[${actsTable}]`];
+    for (const tableName of trySchemas) {
+      try {
+        actsData = await mssqlPool.request().query(`
+          SELECT TOP 5 rac_id FROM ${tableName}
+        `);
+        log(`  ✓ Tabuľka nájdená ako: ${tableName}`);
+        acts = await mssqlPool.request().query(`
+          SELECT rac_id, agreement_id_reward, hos_id_bound, sco_id_bound,
+                 rac_state, cur_code, rac_amount, rac_name,
+                 rac_internal_note, rac_public_note,
+                 rac_due_date, rac_due_date_type,
+                 rac_proposed, rac_proposed_by,
+                 rac_approved, rac_approved_by,
+                 rac_paid, rac_cancelled
+          FROM ${tableName}
+          WHERE agreement_id_reward IN (${cagIds.join(',')})
+          ORDER BY rac_id DESC
+        `);
+        break;
+      } catch (e) {
+        log(`  Pokus ${tableName}: ${e.message}`);
+      }
+    }
+    if (!acts) { log('  Acts tabuľka nedostupná (pravdepodobne chýbajú práva)'); return; }
   } catch (err) {
     log(`  WARN Acts query: ${err.message}`);
     return;
