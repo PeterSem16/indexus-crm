@@ -380,6 +380,12 @@ export default function ContractDetailPage() {
             <History className="h-4 w-4 mr-1" />
             {t.contractsModule.auditLog}
           </TabsTrigger>
+          {contract.dataSource === "iscbc" && (
+            <TabsTrigger value="legacy" data-testid="tab-legacy">
+              <Shield className="h-4 w-4 mr-1" />
+              Legacy
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="basic" className="space-y-4">
@@ -1487,7 +1493,268 @@ export default function ContractDetailPage() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {contract.dataSource === "iscbc" && (
+          <TabsContent value="legacy" className="space-y-4">
+            <ContractLegacyTab contract={contract} formatDate={formatDate} countryCode={contractCountryCode} />
+          </TabsContent>
+        )}
       </Tabs>
+    </div>
+  );
+}
+
+function ContractLegacyTab({ contract, formatDate: fmtDate, countryCode }: { contract: any; formatDate: (d: any, cc?: string) => string; countryCode: string }) {
+  const { t } = useI18n();
+  const legacy = contract.legacyData as Record<string, any> | null;
+  const [expandedSP, setExpandedSP] = useState<Record<number, boolean>>({});
+
+  if (!legacy) {
+    return (
+      <Card>
+        <CardContent className="py-8">
+          <div className="text-center text-muted-foreground">
+            <Shield className="h-12 w-12 mx-auto mb-2 opacity-50" />
+            <p>{"No legacy data available"}</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const prepayments: any[] = legacy.prepayments || [];
+  const servicePayments: any[] = legacy.servicePayments || [];
+  const servicePaymentHistory: any[] = legacy.servicePaymentHistory || [];
+
+  const fmtNum = (val: any) => {
+    if (val == null || val === '') return '-';
+    const n = parseFloat(String(val));
+    return isNaN(n) ? '-' : n.toLocaleString('sk-SK', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
+
+  const fmtDt = (val: any) => {
+    if (!val) return '-';
+    try { return new Date(val).toLocaleDateString('sk-SK'); } catch { return '-'; }
+  };
+
+  const historyForCsp = (cspId: number) => servicePaymentHistory.filter((h: any) => h.csp_id === cspId);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2 mb-2">
+        <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-800">
+          <Shield className="h-3 w-3 mr-1" />
+          ISCBC Legacy Data
+        </Badge>
+        {legacy.con_id && (
+          <span className="text-xs text-muted-foreground">con_id: {legacy.con_id}</span>
+        )}
+      </div>
+
+      <Card>
+        <CardHeader className="py-3">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Receipt className="h-4 w-4" />
+            {t.contractsModule.legacy?.servicePayments || "Service Payments"} ({servicePayments.length})
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-0">
+          {servicePayments.length === 0 ? (
+            <p className="text-sm text-muted-foreground italic">{t.contractsModule.legacy?.noServicePayments || "No service payments"}</p>
+          ) : (
+            <div className="space-y-2">
+              {servicePayments.map((sp: any, idx: number) => {
+                const history = historyForCsp(sp.csp_id);
+                const isExpanded = expandedSP[idx] || false;
+
+                return (
+                  <div key={idx} className="border rounded-lg overflow-hidden">
+                    <div
+                      className="flex items-center justify-between p-3 bg-muted/20 cursor-pointer hover:bg-muted/40"
+                      onClick={() => history.length > 0 && setExpandedSP(prev => ({ ...prev, [idx]: !prev[idx] }))}
+                      data-testid={`legacy-csp-${idx}`}
+                    >
+                      <div className="flex items-center gap-4 flex-1 min-w-0">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">
+                            {sp.plp_name || sp.plp_invoice_item || `Service ${idx + 1}`}
+                          </p>
+                          {sp.plp_invoice_item && sp.plp_name && (
+                            <p className="text-xs text-muted-foreground truncate">{sp.plp_invoice_item}</p>
+                          )}
+                          {sp.plp_accounting_code && (
+                            <p className="text-[10px] text-muted-foreground font-mono">{sp.plp_accounting_code}</p>
+                          )}
+                        </div>
+                        <div className="text-right text-sm shrink-0">
+                          <div>
+                            <span className="text-muted-foreground text-xs mr-1">{t.contractsModule.legacy?.originalPrice || "Original"}:</span>
+                            <span className="font-medium">{fmtNum(sp.csp_original_price)}</span>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground text-xs mr-1">{t.contractsModule.legacy?.actualPrice || "Actual"}:</span>
+                            <span className="font-medium text-green-600 dark:text-green-400">{fmtNum(sp.csp_actual_price)}</span>
+                          </div>
+                          {sp.plp_list_price != null && sp.plp_list_price !== sp.csp_original_price && (
+                            <div className="text-[10px] text-muted-foreground">
+                              {t.contractsModule.legacy?.listPrice || "List"}: {fmtNum(sp.plp_list_price)}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      {history.length > 0 && (
+                        <div className="ml-2 flex items-center gap-1">
+                          <History className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-[10px] text-muted-foreground">{history.length}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {isExpanded && history.length > 0 && (
+                      <div className="border-t">
+                        <Table>
+                          <TableHeader>
+                            <TableRow className="bg-muted/10">
+                              <TableHead className="text-[10px]">{t.contractsModule.legacy?.priceChange || "Price"}</TableHead>
+                              <TableHead className="text-[10px]">{t.contractsModule.legacy?.validFrom || "Valid from"}</TableHead>
+                              <TableHead className="text-[10px]">{t.contractsModule.legacy?.validTo || "Valid to"}</TableHead>
+                              <TableHead className="text-[10px]">{t.contractsModule.legacy?.current || "Current"}</TableHead>
+                              <TableHead className="text-[10px]">{t.contractsModule.legacy?.changedBy || "Changed by"}</TableHead>
+                              <TableHead className="text-[10px]">{t.contractsModule.legacy?.note || "Note"}</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {history.map((h: any, hIdx: number) => (
+                              <TableRow key={hIdx} className="text-[10px]">
+                                <TableCell className="font-medium">{fmtNum(h.hsp_price)}</TableCell>
+                                <TableCell>{fmtDt(h.hsp_from)}</TableCell>
+                                <TableCell>{fmtDt(h.hsp_to)}</TableCell>
+                                <TableCell>
+                                  {h.hsp_actual ? (
+                                    <Badge variant="default" className="text-[9px] px-1 py-0">✓</Badge>
+                                  ) : (
+                                    <span className="text-muted-foreground">-</span>
+                                  )}
+                                </TableCell>
+                                <TableCell>{h.hsp_inserted_by || '-'}</TableCell>
+                                <TableCell className="max-w-[120px] truncate">{h.hsp_note || '-'}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="py-3">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Download className="h-4 w-4" />
+            {t.contractsModule.legacy?.prepayments || "Prepayments"} ({prepayments.length})
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-0">
+          {prepayments.length === 0 ? (
+            <p className="text-sm text-muted-foreground italic">{t.contractsModule.legacy?.noPrepayments || "No prepayments"}</p>
+          ) : (
+            <div className="border rounded-lg overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/30">
+                    <TableHead className="text-xs">#</TableHead>
+                    <TableHead className="text-xs">{t.contractsModule.legacy?.paymentDate || "Payment date"}</TableHead>
+                    <TableHead className="text-xs text-right">{t.contractsModule.legacy?.amount || "Amount"}</TableHead>
+                    <TableHead className="text-xs">{t.contractsModule.legacy?.note || "Note"}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {prepayments.map((p: any, idx: number) => (
+                    <TableRow key={idx} className="text-xs">
+                      <TableCell>{idx + 1}</TableCell>
+                      <TableCell>{fmtDt(p.pre_date_of_payment)}</TableCell>
+                      <TableCell className="text-right font-medium text-green-600 dark:text-green-400">{fmtNum(p.pre_prepaid_amount)}</TableCell>
+                      <TableCell className="max-w-[200px] truncate">{p.pre_note || '-'}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="py-3">
+          <CardTitle className="text-sm">{t.contractsModule.legacy?.additionalInfo || "Additional legacy info"}</CardTitle>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
+            {legacy.pot_product_ft && (
+              <div>
+                <span className="text-muted-foreground text-xs">{t.contractsModule.legacy?.product || "Product"}:</span>
+                <p className="font-medium">{legacy.pot_product_ft}</p>
+              </div>
+            )}
+            {legacy.pot_payment_type_ft && (
+              <div>
+                <span className="text-muted-foreground text-xs">{t.contractsModule.legacy?.paymentType || "Payment type"}:</span>
+                <p className="font-medium">{legacy.pot_payment_type_ft}</p>
+              </div>
+            )}
+            {legacy.pot_recruiting_ft && (
+              <div>
+                <span className="text-muted-foreground text-xs">{t.contractsModule.legacy?.recruiting || "Recruiting"}:</span>
+                <p className="font-medium">{legacy.pot_recruiting_ft}</p>
+              </div>
+            )}
+            {legacy.con_repository && (
+              <div>
+                <span className="text-muted-foreground text-xs">{t.contractsModule.legacy?.repository || "Repository"}:</span>
+                <p className="font-medium font-mono text-xs">{legacy.con_repository}</p>
+              </div>
+            )}
+            {legacy.con_saving_bank && (
+              <div>
+                <span className="text-muted-foreground text-xs">{t.contractsModule.legacy?.savingBank || "Saving bank"}:</span>
+                <p className="font-medium">{legacy.con_saving_bank}</p>
+              </div>
+            )}
+            {legacy.con_refinancing_detail && (
+              <div>
+                <span className="text-muted-foreground text-xs">{t.contractsModule.legacy?.refinancing || "Refinancing"}:</span>
+                <p className="font-medium">{legacy.con_refinancing_detail}</p>
+              </div>
+            )}
+            {legacy.pot_children != null && (
+              <div>
+                <span className="text-muted-foreground text-xs">{t.contractsModule.legacy?.children || "Children"}:</span>
+                <p className="font-medium">{legacy.pot_children}</p>
+              </div>
+            )}
+            {legacy.con_invoicing_postponed != null && (
+              <div>
+                <span className="text-muted-foreground text-xs">{t.contractsModule.legacy?.invoicingPostponed || "Invoicing postponed"}:</span>
+                <p className="font-medium">{legacy.con_invoicing_postponed ? "✓" : "-"}</p>
+              </div>
+            )}
+            {(legacy.con_invoices_by_email != null || legacy.con_invoices_by_letter != null) && (
+              <div>
+                <span className="text-muted-foreground text-xs">{t.contractsModule.legacy?.invoiceDelivery || "Invoice delivery"}:</span>
+                <p className="font-medium">
+                  {legacy.con_invoices_by_email ? "Email" : ""}{legacy.con_invoices_by_email && legacy.con_invoices_by_letter ? " + " : ""}{legacy.con_invoices_by_letter ? "Letter" : ""}
+                  {!legacy.con_invoices_by_email && !legacy.con_invoices_by_letter ? "-" : ""}
+                </p>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

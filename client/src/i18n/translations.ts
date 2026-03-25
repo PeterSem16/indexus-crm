@@ -4085,6 +4085,33 @@ export interface Translations {
     monthlyTarget: string;
     targetReached: string;
     noDataForCharts: string;
+    legacy?: {
+      servicePayments: string;
+      noServicePayments: string;
+      prepayments: string;
+      noPrepayments: string;
+      originalPrice: string;
+      actualPrice: string;
+      listPrice: string;
+      priceChange: string;
+      validFrom: string;
+      validTo: string;
+      current: string;
+      changedBy: string;
+      note: string;
+      paymentDate: string;
+      amount: string;
+      product: string;
+      paymentType: string;
+      recruiting: string;
+      repository: string;
+      savingBank: string;
+      refinancing: string;
+      children: string;
+      invoicingPostponed: string;
+      invoiceDelivery: string;
+      additionalInfo: string;
+    };
   };
   callAnalysis: {
     pageTitle: string;
@@ -9689,6 +9716,33 @@ export const translations: Record<Locale, Translations> = {
       monthlyTarget: 'Monthly Target',
       targetReached: 'of target reached',
       noDataForCharts: 'Not enough data for analytics',
+      legacy: {
+        servicePayments: 'Service Payments',
+        noServicePayments: 'No service payments',
+        prepayments: 'Prepayments',
+        noPrepayments: 'No prepayments',
+        originalPrice: 'Original',
+        actualPrice: 'Actual',
+        listPrice: 'List',
+        priceChange: 'Price',
+        validFrom: 'Valid from',
+        validTo: 'Valid to',
+        current: 'Current',
+        changedBy: 'Changed by',
+        note: 'Note',
+        paymentDate: 'Payment date',
+        amount: 'Amount',
+        product: 'Product',
+        paymentType: 'Payment type',
+        recruiting: 'Recruiting',
+        repository: 'Repository',
+        savingBank: 'Saving bank',
+        refinancing: 'Refinancing',
+        children: 'Children',
+        invoicingPostponed: 'Invoicing postponed',
+        invoiceDelivery: 'Invoice delivery',
+        additionalInfo: 'Additional legacy info',
+      },
     },
     callAnalysis: {
       pageTitle: 'Calls & Transcripts',
@@ -14710,6 +14764,33 @@ export const translations: Record<Locale, Translations> = {
       monthlyTarget: 'Mesačný cieľ',
       targetReached: 'cieľa dosiahnutých',
       noDataForCharts: 'Nedostatok dát pre analýzu',
+      legacy: {
+        servicePayments: 'Platby za služby',
+        noServicePayments: 'Žiadne platby za služby',
+        prepayments: 'Preddavky',
+        noPrepayments: 'Žiadne preddavky',
+        originalPrice: 'Pôvodná',
+        actualPrice: 'Aktuálna',
+        listPrice: 'Cenníková',
+        priceChange: 'Cena',
+        validFrom: 'Platná od',
+        validTo: 'Platná do',
+        current: 'Aktuálna',
+        changedBy: 'Zmenil',
+        note: 'Poznámka',
+        paymentDate: 'Dátum platby',
+        amount: 'Suma',
+        product: 'Produkt',
+        paymentType: 'Typ platby',
+        recruiting: 'Nábor',
+        repository: 'Úložisko',
+        savingBank: 'Sporiteľňa',
+        refinancing: 'Refinancovanie',
+        children: 'Deti',
+        invoicingPostponed: 'Fakturácia odložená',
+        invoiceDelivery: 'Doručenie faktúry',
+        additionalInfo: 'Ďalšie legacy informácie',
+      },
     },
     callAnalysis: {
       pageTitle: 'Hovory a prepisy',
@@ -19657,6 +19738,33 @@ export const translations: Record<Locale, Translations> = {
       monthlyTarget: 'Měsíční cíl',
       targetReached: 'cíle dosaženo',
       noDataForCharts: 'Nedostatek dat pro analýzu',
+      legacy: {
+        servicePayments: 'Platby za služby',
+        noServicePayments: 'Žádné platby za služby',
+        prepayments: 'Zálohy',
+        noPrepayments: 'Žádné zálohy',
+        originalPrice: 'Původní',
+        actualPrice: 'Aktuální',
+        listPrice: 'Ceníková',
+        priceChange: 'Cena',
+        validFrom: 'Platná od',
+        validTo: 'Platná do',
+        current: 'Aktuální',
+        changedBy: 'Změnil',
+        note: 'Poznámka',
+        paymentDate: 'Datum platby',
+        amount: 'Částka',
+        product: 'Produkt',
+        paymentType: 'Typ platby',
+        recruiting: 'Nábor',
+        repository: 'Úložiště',
+        savingBank: 'Spořitelna',
+        refinancing: 'Refinancování',
+        children: 'Děti',
+        invoicingPostponed: 'Fakturace odložena',
+        invoiceDelivery: 'Doručení faktury',
+        additionalInfo: 'Další legacy informace',
+      },
     },
     callAnalysis: {
       pageTitle: 'Hovory a přepisy',
@@ -24603,6 +24711,33 @@ export const translations: Record<Locale, Translations> = {
       monthlyTarget: 'Havi cél',
       targetReached: 'cél elérve',
       noDataForCharts: 'Nincs elég adat az analitikához',
+      legacy: {
+        servicePayments: 'Szolgáltatási kifizetések',
+        noServicePayments: 'Nincs szolgáltatási kifizetés',
+        prepayments: 'Előlegek',
+        noPrepayments: 'Nincs előleg',
+        originalPrice: 'Eredeti',
+        actualPrice: 'Aktuális',
+        listPrice: 'Listaár',
+        priceChange: 'Ár',
+        validFrom: 'Érvényes -tól',
+        validTo: 'Érvényes -ig',
+        current: 'Aktuális',
+        changedBy: 'Módosította',
+        note: 'Megjegyzés',
+        paymentDate: 'Fizetés dátuma',
+        amount: 'Összeg',
+        product: 'Termék',
+        paymentType: 'Fizetési mód',
+        recruiting: 'Toborzás',
+        repository: 'Tároló',
+        savingBank: 'Takarékpénztár',
+        refinancing: 'Refinanszírozás',
+        children: 'Gyermekek',
+        invoicingPostponed: 'Számlázás elhalasztva',
+        invoiceDelivery: 'Számla kézbesítés',
+        additionalInfo: 'További legacy információk',
+      },
     },
     callAnalysis: {
       pageTitle: 'Hívások és átiratok',
@@ -29548,6 +29683,33 @@ export const translations: Record<Locale, Translations> = {
       monthlyTarget: 'Ținta lunară',
       targetReached: 'din țintă atinsă',
       noDataForCharts: 'Date insuficiente pentru analiză',
+      legacy: {
+        servicePayments: 'Plăți pentru servicii',
+        noServicePayments: 'Nicio plată pentru servicii',
+        prepayments: 'Avansuri',
+        noPrepayments: 'Niciun avans',
+        originalPrice: 'Original',
+        actualPrice: 'Actual',
+        listPrice: 'Preț de listă',
+        priceChange: 'Preț',
+        validFrom: 'Valabil de la',
+        validTo: 'Valabil până la',
+        current: 'Actual',
+        changedBy: 'Modificat de',
+        note: 'Notă',
+        paymentDate: 'Data plății',
+        amount: 'Sumă',
+        product: 'Produs',
+        paymentType: 'Tip plată',
+        recruiting: 'Recrutare',
+        repository: 'Depozit',
+        savingBank: 'Bancă de economii',
+        refinancing: 'Refinanțare',
+        children: 'Copii',
+        invoicingPostponed: 'Facturare amânată',
+        invoiceDelivery: 'Livrare factură',
+        additionalInfo: 'Informații suplimentare legacy',
+      },
     },
     callAnalysis: {
       pageTitle: 'Apeluri și transcrieri',
@@ -34494,6 +34656,33 @@ export const translations: Record<Locale, Translations> = {
       monthlyTarget: 'Obiettivo mensile',
       targetReached: 'dell\'obiettivo raggiunto',
       noDataForCharts: 'Dati insufficienti per l\'analisi',
+      legacy: {
+        servicePayments: 'Pagamenti servizi',
+        noServicePayments: 'Nessun pagamento servizi',
+        prepayments: 'Anticipi',
+        noPrepayments: 'Nessun anticipo',
+        originalPrice: 'Originale',
+        actualPrice: 'Attuale',
+        listPrice: 'Listino',
+        priceChange: 'Prezzo',
+        validFrom: 'Valido da',
+        validTo: 'Valido fino a',
+        current: 'Attuale',
+        changedBy: 'Modificato da',
+        note: 'Nota',
+        paymentDate: 'Data pagamento',
+        amount: 'Importo',
+        product: 'Prodotto',
+        paymentType: 'Tipo pagamento',
+        recruiting: 'Reclutamento',
+        repository: 'Deposito',
+        savingBank: 'Cassa di risparmio',
+        refinancing: 'Rifinanziamento',
+        children: 'Bambini',
+        invoicingPostponed: 'Fatturazione posticipata',
+        invoiceDelivery: 'Consegna fattura',
+        additionalInfo: 'Informazioni legacy aggiuntive',
+      },
     },
     callAnalysis: {
       pageTitle: 'Chiamate e trascrizioni',
@@ -39440,6 +39629,33 @@ export const translations: Record<Locale, Translations> = {
       monthlyTarget: 'Monatsziel',
       targetReached: 'des Ziels erreicht',
       noDataForCharts: 'Nicht genügend Daten für die Analyse',
+      legacy: {
+        servicePayments: 'Servicezahlungen',
+        noServicePayments: 'Keine Servicezahlungen',
+        prepayments: 'Vorauszahlungen',
+        noPrepayments: 'Keine Vorauszahlungen',
+        originalPrice: 'Original',
+        actualPrice: 'Aktuell',
+        listPrice: 'Listenpreis',
+        priceChange: 'Preis',
+        validFrom: 'Gültig ab',
+        validTo: 'Gültig bis',
+        current: 'Aktuell',
+        changedBy: 'Geändert von',
+        note: 'Notiz',
+        paymentDate: 'Zahlungsdatum',
+        amount: 'Betrag',
+        product: 'Produkt',
+        paymentType: 'Zahlungsart',
+        recruiting: 'Anwerbung',
+        repository: 'Lager',
+        savingBank: 'Sparkasse',
+        refinancing: 'Refinanzierung',
+        children: 'Kinder',
+        invoicingPostponed: 'Rechnungsstellung verschoben',
+        invoiceDelivery: 'Rechnungszustellung',
+        additionalInfo: 'Weitere Legacy-Informationen',
+      },
     },
     callAnalysis: {
       pageTitle: 'Anrufe und Transkripte',
