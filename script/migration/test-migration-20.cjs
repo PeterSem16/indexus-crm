@@ -2901,14 +2901,24 @@ async function step11_customerContracts() {
 
   log(`  Mapy zmluvy: prepayments=${Object.keys(prepaymentsByConId).length} zmlúv, servicePayments=${Object.keys(cspByConId).length} zmlúv, historyCSP=${Object.keys(hcspByConId).length} zmlúv, history=${Object.keys(contractHistoryByConId).length} zmlúv, services=${Object.keys(contractServicesByConId).length} zmlúv, surcharges=${Object.keys(surchargesByConId).length} zmlúv, schedules=${Object.keys(schedulesByConId).length} zmlúv`);
 
-  // Build customer name map for scheduled invoices
+  // Build customer lookup map for scheduled invoices (name + address + email + phone)
   const customerNameLookup = {};
+  const customerDetailLookup = {};
   try {
-    const cnRes = await pgPool.query(`SELECT id, first_name, last_name FROM customers WHERE internal_id IS NOT NULL`);
+    const cnRes = await pgPool.query(`SELECT id, first_name, last_name, address, city, postal_code, country, email, phone, mobile FROM customers WHERE internal_id IS NOT NULL`);
     for (const c of cnRes.rows) {
       customerNameLookup[c.id] = `${c.first_name || ''} ${c.last_name || ''}`.trim();
+      customerDetailLookup[c.id] = {
+        address: c.address || null,
+        city: c.city || null,
+        zip: c.postal_code || null,
+        country: c.country || null,
+        email: c.email || null,
+        phone: c.phone || c.mobile || null,
+      };
     }
     log(`  Customer name lookup: ${Object.keys(customerNameLookup).length} záznamov`);
+    log(`  Customer detail lookup: ${Object.keys(customerDetailLookup).length} záznamov`);
   } catch (err) { log(`  WARN customer name lookup: ${err.message}`); }
 
   // Build con_id → invoice item label map from CBC InvoiceItems (via ContractServices → Invoices → InvoiceItems)
@@ -3073,14 +3083,18 @@ async function step11_customerContracts() {
       }
 
       // --- Create scheduled_invoices from CBC SchedulePayments ---
+      // Group all schedules' payments by installment index, then create ONE scheduled invoice per installment
       const conSchedules = schedulesByConId[String(r.con_id)] || [];
+      const installmentMap = {}; // pIdx → { items: [], scheduledDate, totalAmount }
+      let maxInstallments = 0;
+
       for (const sch of conSchedules) {
         const payments = sch.payments || [];
         if (payments.length === 0) continue;
+        if (payments.length > maxInstallments) maxInstallments = payments.length;
 
         const baseDate = r.con_realized || r.con_inserted || new Date();
         let prevDate = new Date(baseDate);
-
         const invoiceItemLabel = invoiceItemLabelByConId[String(r.con_id)] || null;
 
         for (let pIdx = 0; pIdx < payments.length; pIdx++) {
@@ -3102,72 +3116,98 @@ async function step11_customerContracts() {
           prevDate = scheduledDate;
 
           const baseItemName = invoiceItemLabel || p.csy_name || sch.csh_name || 'Splátka';
-          const itemName = `${baseItemName} - ${pIdx + 1}/${payments.length}`;
 
-          const legacyComp = companyInfoMap[String(r.cli_id)] || {};
-          const comId = legacyComp.com_id ? String(legacyComp.com_id) : null;
-          const compDetails = comId ? (companyDetailsMap[comId] || {}) : {};
-          const compAccounts = comId ? (companyAccountsMap[comId] || []) : [];
-          const primaryAccount = compAccounts[0] || {};
-
-          const scheduledVatRate = compDetails.cod_vat_dic ? '20' : '0';
-
-          const items = JSON.stringify([{
-            name: itemName,
+          if (!installmentMap[pIdx]) {
+            installmentMap[pIdx] = { items: [], scheduledDate, totalAmount: 0 };
+          }
+          installmentMap[pIdx].items.push({
+            name: baseItemName,
             quantity: 1,
             unitPrice: amount.toFixed(2),
             totalPrice: amount.toFixed(2),
-            vatRate: scheduledVatRate,
-          }]);
-
-          const customerNameStr = customerNameLookup[customerId] || contractNumber;
-
-          const billingCompName = legacyComp.com_name || companyMap[String(r.cli_id)] || null;
-          const billingCountryVal = legacyComp.com_country_code || null;
-          const billingTaxId = compDetails.cod_ico || null;
-          const billingVatId = compDetails.cod_dic || compDetails.cod_vat_dic || null;
-          const billingBankName = primaryAccount.acc_bank_name || null;
-          const billingBankIban = primaryAccount.acc_IBAN || null;
-          const billingBankSwift = primaryAccount.acc_SWIFT || null;
-
-          try {
-            await pgPool.query(`
-              INSERT INTO scheduled_invoices (
-                id, customer_id, scheduled_date, installment_number, total_installments,
-                status, currency, payment_term_days, items, total_amount,
-                customer_name, created_at, created_by,
-                billing_company_name, billing_country,
-                billing_tax_id, billing_vat_id,
-                billing_bank_name, billing_bank_iban, billing_bank_swift
-              ) VALUES (
-                gen_random_uuid(), $1, $2, $3, $4,
-                'pending', 'EUR', 14, $5, $6,
-                $7, $8, 'migration-v20',
-                $9, $10,
-                $11, $12,
-                $13, $14, $15
-              )
-            `, [
-              customerId,
-              scheduledDate,
-              pIdx + 1,
-              payments.length,
-              items,
-              amount.toFixed(2),
-              customerNameStr,
-              r.con_inserted || new Date(),
-              billingCompName,
-              billingCountryVal,
-              billingTaxId,
-              billingVatId,
-              billingBankName,
-              billingBankIban,
-              billingBankSwift,
-            ]);
-            insertedSI++;
-          } catch (siErr) {
-            if (siErrors++ <= 3) log(`  WARN scheduled_invoice con_id=${r.con_id}: ${siErr.message}`);
+          });
+          installmentMap[pIdx].totalAmount += amount;
+          // Use the latest (max) date if multiple schedules have different dates for same installment
+          if (scheduledDate > installmentMap[pIdx].scheduledDate) {
+            installmentMap[pIdx].scheduledDate = scheduledDate;
           }
+        }
+      }
+
+      const legacyComp = companyInfoMap[String(r.cli_id)] || {};
+      const comId = legacyComp.com_id ? String(legacyComp.com_id) : null;
+      const compDetails = comId ? (companyDetailsMap[comId] || {}) : {};
+      const compAccounts = comId ? (companyAccountsMap[comId] || []) : [];
+      const primaryAccount = compAccounts[0] || {};
+      const scheduledVatRate = compDetails.cod_vat_dic ? '20' : '0';
+
+      const customerNameStr = customerNameLookup[customerId] || contractNumber;
+      const custDetail = customerDetailLookup[customerId] || {};
+      const billingCompName = legacyComp.com_name || companyMap[String(r.cli_id)] || null;
+      const billingCountryVal = legacyComp.com_country_code || null;
+      const billingTaxId = compDetails.cod_ico || null;
+      const billingVatId = compDetails.cod_dic || compDetails.cod_vat_dic || null;
+      const billingBankName = primaryAccount.acc_bank_name || null;
+      const billingBankIban = primaryAccount.acc_IBAN || null;
+      const billingBankSwift = primaryAccount.acc_SWIFT || null;
+
+      const totalInstallments = Math.max(maxInstallments, Object.keys(installmentMap).length);
+
+      for (const [pIdxStr, inst] of Object.entries(installmentMap)) {
+        const pIdx = parseInt(pIdxStr);
+        // Add vatRate and installment label to each item
+        const itemsWithMeta = inst.items.map((item, i) => ({
+          ...item,
+          name: `${item.name} - ${pIdx + 1}/${totalInstallments}`,
+          vatRate: scheduledVatRate,
+        }));
+        const items = JSON.stringify(itemsWithMeta);
+
+        try {
+          await pgPool.query(`
+            INSERT INTO scheduled_invoices (
+              id, customer_id, scheduled_date, installment_number, total_installments,
+              status, currency, payment_term_days, items, total_amount,
+              customer_name, customer_address, customer_city, customer_zip, customer_country, customer_email, customer_phone,
+              created_at, created_by,
+              billing_company_name, billing_country,
+              billing_tax_id, billing_vat_id,
+              billing_bank_name, billing_bank_iban, billing_bank_swift
+            ) VALUES (
+              gen_random_uuid(), $1, $2, $3, $4,
+              'pending', 'EUR', 14, $5, $6,
+              $7, $8, $9, $10, $11, $12, $13,
+              $14, 'migration-v20',
+              $15, $16,
+              $17, $18,
+              $19, $20, $21
+            )
+          `, [
+            customerId,
+            inst.scheduledDate,
+            pIdx + 1,
+            totalInstallments,
+            items,
+            inst.totalAmount.toFixed(2),
+            customerNameStr,
+            custDetail.address || null,
+            custDetail.city || null,
+            custDetail.zip || null,
+            custDetail.country || null,
+            custDetail.email || null,
+            custDetail.phone || null,
+            r.con_inserted || new Date(),
+            billingCompName,
+            billingCountryVal,
+            billingTaxId,
+            billingVatId,
+            billingBankName,
+            billingBankIban,
+            billingBankSwift,
+          ]);
+          insertedSI++;
+        } catch (siErr) {
+          if (siErrors++ <= 3) log(`  WARN scheduled_invoice con_id=${r.con_id}: ${siErr.message}`);
         }
       }
     } catch (err) {
