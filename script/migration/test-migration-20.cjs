@@ -2750,7 +2750,17 @@ async function step11_customerContracts() {
 
   log(`  Mapy zmluvy: prepayments=${Object.keys(prepaymentsByConId).length} zmlúv, servicePayments=${Object.keys(cspByConId).length} zmlúv, historyCSP=${Object.keys(hcspByConId).length} zmlúv, history=${Object.keys(contractHistoryByConId).length} zmlúv, services=${Object.keys(contractServicesByConId).length} zmlúv, surcharges=${Object.keys(surchargesByConId).length} zmlúv, schedules=${Object.keys(schedulesByConId).length} zmlúv`);
 
-  let insertedCI = 0, insertedCD = 0, skipped = 0, errors = 0;
+  // Build customer name map for scheduled invoices
+  const customerNameLookup = {};
+  try {
+    const cnRes = await pgPool.query(`SELECT id, first_name, last_name FROM customers WHERE internal_id IS NOT NULL`);
+    for (const c of cnRes.rows) {
+      customerNameLookup[c.id] = `${c.first_name || ''} ${c.last_name || ''}`.trim();
+    }
+    log(`  Customer name lookup: ${Object.keys(customerNameLookup).length} záznamov`);
+  } catch (err) { log(`  WARN customer name lookup: ${err.message}`); }
+
+  let insertedCI = 0, insertedCD = 0, insertedSI = 0, siErrors = 0, skipped = 0, errors = 0;
   for (const r of contracts.recordset) {
     const customerId = customerMap[String(r.cli_id)];
     if (!customerId) { skipped++; continue; }
@@ -2888,6 +2898,73 @@ async function step11_customerContracts() {
       } catch (cdErr) {
         log(`  WARN customer_documents con_id=${r.con_id}: ${cdErr.message}`);
       }
+
+      // --- Create scheduled_invoices from CBC SchedulePayments ---
+      const conSchedules = schedulesByConId[String(r.con_id)] || [];
+      for (const sch of conSchedules) {
+        const payments = sch.payments || [];
+        if (payments.length === 0) continue;
+
+        const baseDate = r.con_realized || r.con_inserted || new Date();
+        let prevDate = new Date(baseDate);
+
+        for (let pIdx = 0; pIdx < payments.length; pIdx++) {
+          const p = payments[pIdx];
+          const amount = parseFloat(p.csy_amount) || 0;
+          if (amount <= 0) continue;
+
+          // Calculate scheduled date from days offsets
+          let scheduledDate;
+          if (p.csy_days_from_field_value > 0) {
+            scheduledDate = new Date(baseDate);
+            scheduledDate.setDate(scheduledDate.getDate() + parseInt(p.csy_days_from_field_value));
+          } else if (p.csy_days_from_previous > 0) {
+            scheduledDate = new Date(prevDate);
+            scheduledDate.setDate(scheduledDate.getDate() + parseInt(p.csy_days_from_previous));
+          } else {
+            scheduledDate = new Date(prevDate);
+            scheduledDate.setDate(scheduledDate.getDate() + 30 * (pIdx + 1));
+          }
+          prevDate = scheduledDate;
+
+          const itemName = p.csy_name || sch.csh_name || `Splátka ${pIdx + 1}`;
+          const items = JSON.stringify([{
+            name: itemName,
+            quantity: 1,
+            unitPrice: amount.toFixed(2),
+            totalPrice: amount.toFixed(2),
+            vatRate: '20',
+          }]);
+
+          const customerNameStr = customerNameLookup[customerId] || contractNumber;
+
+          try {
+            await pgPool.query(`
+              INSERT INTO scheduled_invoices (
+                id, customer_id, scheduled_date, installment_number, total_installments,
+                status, currency, payment_term_days, items, total_amount,
+                customer_name, created_at, created_by
+              ) VALUES (
+                gen_random_uuid(), $1, $2, $3, $4,
+                'pending', 'EUR', 14, $5, $6,
+                $7, $8, 'migration-v20'
+              )
+            `, [
+              customerId,
+              scheduledDate,
+              pIdx + 1,
+              payments.length,
+              items,
+              amount.toFixed(2),
+              customerNameStr,
+              r.con_inserted || new Date(),
+            ]);
+            insertedSI++;
+          } catch (siErr) {
+            if (siErrors++ <= 3) log(`  WARN scheduled_invoice con_id=${r.con_id}: ${siErr.message}`);
+          }
+        }
+      }
     } catch (err) {
       errors++;
       if (errors <= 5) log(`  ERROR con_id=${r.con_id}: ${err.message}`);
@@ -2895,6 +2972,7 @@ async function step11_customerContracts() {
   }
   log(`  contract_instances: ${insertedCI} vložených`);
   log(`  customer_documents: ${insertedCD} vložených (odkazy)`);
+  log(`  scheduled_invoices: ${insertedSI} vložených (naplánované splátky)`);
   log(`  Preskočených: ${skipped}, Chýb: ${errors}`);
 }
 
@@ -3151,6 +3229,16 @@ async function step12_customerInvoices() {
     log('  ✓ invoices.pdf_downloaded_at stĺpec overený');
   } catch (err) { log(`  WARN pdf_downloaded_at: ${err.message}`); }
 
+  // --- Preload VatRates (DPH sadzby) ---
+  const vatRatesMap = {};
+  try {
+    const vrRes = await mssqlPool.request().query(`SELECT vat_id, vat_rate FROM VatRates`);
+    for (const vr of vrRes.recordset) {
+      vatRatesMap[String(vr.vat_id)] = parseFloat(vr.vat_rate) || 0;
+    }
+    log(`  VatRates: ${Object.keys(vatRatesMap).length} záznamov`);
+  } catch (err) { log(`  WARN VatRates: ${err.message}`); }
+
   // --- Preload InvoiceItems (legacy invoice line items) ---
   const invoiceItemsMap = {}; // inv_id → items[]
   try {
@@ -3165,6 +3253,7 @@ async function step12_customerInvoices() {
       `);
       log(`  InvoiceItems: ${iiRes.recordset.length} záznamov`);
       for (const item of iiRes.recordset) {
+        item.vat_rate = vatRatesMap[String(item.vat_id)] ?? null;
         const key = String(item.inv_id);
         if (!invoiceItemsMap[key]) invoiceItemsMap[key] = [];
         invoiceItemsMap[key].push(item);
