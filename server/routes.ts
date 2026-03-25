@@ -26981,6 +26981,46 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
     }
   });
 
+  app.get("/api/contracts/:id/phone-communications", requireAuth, async (req, res) => {
+    try {
+      const contract = await storage.getContractInstance(req.params.id);
+      if (!contract) return res.status(404).json({ error: "Contract not found" });
+      const internalId = contract.internalId;
+      if (!internalId) return res.json([]);
+      const result = await pool.query(
+        `SELECT id, customer_id, user_id, type, direction, content, recipient_phone, status, external_id, provider, contract_id, sent_at, created_at
+         FROM communication_messages
+         WHERE contract_id = $1 AND provider = 'cbc_legacy'
+         ORDER BY sent_at DESC`,
+        [internalId]
+      );
+      res.json(result.rows);
+    } catch (error) {
+      console.error("Error fetching phone communications:", error);
+      res.status(500).json({ error: "Failed to fetch phone communications" });
+    }
+  });
+
+  app.get("/api/contracts/:id/remarks", requireAuth, async (req, res) => {
+    try {
+      const contract = await storage.getContractInstance(req.params.id);
+      if (!contract) return res.status(404).json({ error: "Contract not found" });
+      const internalId = contract.internalId;
+      if (!internalId) return res.json([]);
+      const result = await pool.query(
+        `SELECT id, customer_id, user_id, content, legacy_id, contract_id, data_source, created_at
+         FROM customer_notes
+         WHERE contract_id = $1 AND data_source = 'iscbc'
+         ORDER BY created_at DESC`,
+        [internalId]
+      );
+      res.json(result.rows);
+    } catch (error) {
+      console.error("Error fetching remarks:", error);
+      res.status(500).json({ error: "Failed to fetch remarks" });
+    }
+  });
+
   // Contract Instance Products
   app.post("/api/contracts/:id/products", requireAuth, async (req, res) => {
     try {

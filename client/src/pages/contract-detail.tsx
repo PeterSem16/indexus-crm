@@ -19,7 +19,7 @@ import { useI18n } from "@/i18n";
 import { format } from "date-fns";
 import { sk, cs, hu, ro, it, de, enUS, type Locale } from "date-fns/locale";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
-import { ArrowLeft, Save, FileText, Users, Package, Beaker, Receipt, Loader2, Download, ExternalLink, Shield, Clock, Mail, CheckCircle, Send, Eye, AlertCircle, X, Edit, History, Phone, RefreshCw } from "lucide-react";
+import { ArrowLeft, Save, FileText, Users, Package, Beaker, Receipt, Loader2, Download, ExternalLink, Shield, Clock, Mail, CheckCircle, Send, Eye, AlertCircle, X, Edit, History, Phone, RefreshCw, MessageSquare, StickyNote } from "lucide-react";
 import type { ContractInstance, Customer, Hospital, Collection, Product, CustomerProduct, CollectionStatus } from "@shared/schema";
 
 const COUNTRY_LOCALE_MAP: Record<string, Locale> = {
@@ -183,6 +183,18 @@ export default function ContractDetailPage() {
   const { data: invoices = [] } = useQuery<any[]>({
     queryKey: ["/api/customers", customerId, "invoices"],
     enabled: !!customerId,
+  });
+
+  const isIscbc = contract?.dataSource === "iscbc";
+
+  const { data: phoneCommunications = [] } = useQuery<any[]>({
+    queryKey: ["/api/contracts", contractId, "phone-communications"],
+    enabled: !!contractId && isIscbc,
+  });
+
+  const { data: contractRemarks = [] } = useQuery<any[]>({
+    queryKey: ["/api/contracts", contractId, "remarks"],
+    enabled: !!contractId && isIscbc,
   });
 
   const customerCollections = useMemo(() => {
@@ -381,10 +393,30 @@ export default function ContractDetailPage() {
             {t.contractsModule.auditLog}
           </TabsTrigger>
           {contract.dataSource === "iscbc" && (
-            <TabsTrigger value="legacy" data-testid="tab-legacy">
-              <Shield className="h-4 w-4 mr-1" />
-              Legacy
-            </TabsTrigger>
+            <>
+              <TabsTrigger value="phone" data-testid="tab-phone">
+                <Phone className="h-4 w-4 mr-1" />
+                {t.contractsModule.legacy?.tabPhone || "Phone"}
+                {phoneCommunications.length > 0 && (
+                  <Badge variant="secondary" className="ml-1 text-[9px] px-1 py-0 h-4">{phoneCommunications.length}</Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="remarks" data-testid="tab-remarks">
+                <StickyNote className="h-4 w-4 mr-1" />
+                {t.contractsModule.legacy?.tabRemarks || "Remarks"}
+                {contractRemarks.length > 0 && (
+                  <Badge variant="secondary" className="ml-1 text-[9px] px-1 py-0 h-4">{contractRemarks.length}</Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="history" data-testid="tab-history">
+                <Clock className="h-4 w-4 mr-1" />
+                {t.contractsModule.legacy?.tabHistory || "History"}
+              </TabsTrigger>
+              <TabsTrigger value="legacy" data-testid="tab-legacy">
+                <Shield className="h-4 w-4 mr-1" />
+                Legacy
+              </TabsTrigger>
+            </>
           )}
         </TabsList>
 
@@ -1191,38 +1223,101 @@ export default function ContractDetailPage() {
             </CardHeader>
             <CardContent>
               {customerCollections.length > 0 ? (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>CBU</TableHead>
-                      <TableHead>{t.contractsModule.collectionDate}</TableHead>
-                      <TableHead>{t.contractsModule.fieldHospital}</TableHead>
-                      <TableHead>{t.contractsModule.participantName}</TableHead>
-                      <TableHead>{t.contractsModule.collectionStatus}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {customerCollections.map((col: Collection) => {
-                      const hospital = hospitals.find((h: Hospital) => h.id === col.hospitalId);
-                      return (
-                        <TableRow key={col.id} data-testid={`row-collection-${col.id}`}>
-                          <TableCell className="font-medium">{col.cbuNumber || "-"}</TableCell>
-                          <TableCell>{formatDateTime(col.collectionDate, contractCountryCode)}</TableCell>
-                          <TableCell>{hospital?.name || "-"}</TableCell>
-                          <TableCell>
-                            {[col.childFirstName, col.childLastName].filter(Boolean).join(" ") || "-"}
-                          </TableCell>
-                          <TableCell>
-                            {(() => {
-                              const statusObj = collectionStatuses.find(s => String(s.id) === col.state);
-                              return statusObj ? statusObj.name : (col.state || "-");
-                            })()}
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
+                <div className="space-y-4">
+                  {customerCollections.map((col: any) => {
+                    const hospital = hospitals.find((h: Hospital) => h.id === col.hospitalId);
+                    const statusObj = collectionStatuses.find(s => String(s.id) === col.state);
+                    const statusLabel = statusObj ? statusObj.name : (col.state || "-");
+                    return (
+                      <div key={col.id} className="border rounded-lg p-4 space-y-3" data-testid={`row-collection-${col.id}`}>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Beaker className="h-4 w-4 text-muted-foreground" />
+                            <span className="font-medium">{col.cbuNumber || "-"}</span>
+                            {col.dataSource === "iscbc" && (
+                              <Badge variant="outline" className="text-[8px] px-1 py-0 bg-orange-50 text-orange-600 border-orange-200 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-800">
+                                ISCBC
+                              </Badge>
+                            )}
+                          </div>
+                          <Badge variant="secondary">{statusLabel}</Badge>
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 text-sm">
+                          <div>
+                            <span className="text-muted-foreground text-xs">{t.contractsModule.collectionDate}:</span>
+                            <p className="font-medium">{formatDateTime(col.collectionDate, contractCountryCode)}</p>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground text-xs">{t.contractsModule.fieldHospital}:</span>
+                            <p className="font-medium">{hospital?.name || "-"}</p>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground text-xs">{t.contractsModule.legacy?.childName || "Child"}:</span>
+                            <p className="font-medium">
+                              {[col.childFirstName, col.childLastName].filter(Boolean).join(" ") || "-"}
+                              {col.childGender && <span className="text-muted-foreground ml-1">({col.childGender})</span>}
+                            </p>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground text-xs">{t.contractsModule.legacy?.clientName || "Client"}:</span>
+                            <p className="font-medium">{[col.clientFirstName, col.clientLastName].filter(Boolean).join(" ") || "-"}</p>
+                          </div>
+                          {col.clientMobile && (
+                            <div>
+                              <span className="text-muted-foreground text-xs">{t.contractsModule.legacy?.phoneNumber || "Mobile"}:</span>
+                              <p className="font-medium">{col.clientMobile}</p>
+                            </div>
+                          )}
+                          {col.responsibleCoordinatorId && (
+                            <div>
+                              <span className="text-muted-foreground text-xs">{t.contractsModule.legacy?.coordinator || "Coordinator"}:</span>
+                              <p className="font-medium">{col.responsibleCoordinatorId}</p>
+                            </div>
+                          )}
+                          {col.doctorNote && (
+                            <div className="col-span-2">
+                              <span className="text-muted-foreground text-xs">{t.contractsModule.legacy?.doctorNote || "Doctor note"}:</span>
+                              <p className="text-sm">{col.doctorNote}</p>
+                            </div>
+                          )}
+                          {col.note && (
+                            <div className="col-span-2">
+                              <span className="text-muted-foreground text-xs">{t.contractsModule.legacy?.note || "Note"}:</span>
+                              <p className="text-sm">{col.note}</p>
+                            </div>
+                          )}
+                        </div>
+                        {(col.statusPairedAt || col.statusEvaluatedAt || col.statusStoredAt || col.statusDisposedAt) && (
+                          <div className="border-t pt-2 mt-2">
+                            <div className="flex flex-wrap gap-3 text-[11px]">
+                              {col.statusPairedAt && (
+                                <span className="text-muted-foreground">{t.contractsModule.legacy?.paired || "Paired"}: <span className="font-medium text-foreground">{formatDate(col.statusPairedAt, contractCountryCode)}</span></span>
+                              )}
+                              {col.statusEvaluatedAt && (
+                                <span className="text-muted-foreground">{t.contractsModule.legacy?.evaluated || "Evaluated"}: <span className="font-medium text-foreground">{formatDate(col.statusEvaluatedAt, contractCountryCode)}</span></span>
+                              )}
+                              {col.statusVerifiedAt && (
+                                <span className="text-muted-foreground">{t.contractsModule.legacy?.verified || "Verified"}: <span className="font-medium text-foreground">{formatDate(col.statusVerifiedAt, contractCountryCode)}</span></span>
+                              )}
+                              {col.statusStoredAt && (
+                                <span className="text-muted-foreground">{t.contractsModule.legacy?.stored || "Stored"}: <span className="font-medium text-foreground">{formatDate(col.statusStoredAt, contractCountryCode)}</span></span>
+                              )}
+                              {col.statusTransferredAt && (
+                                <span className="text-muted-foreground">{t.contractsModule.legacy?.transferred || "Transferred"}: <span className="font-medium text-foreground">{formatDate(col.statusTransferredAt, contractCountryCode)}</span></span>
+                              )}
+                              {col.statusReleasedAt && (
+                                <span className="text-muted-foreground">{t.contractsModule.legacy?.released || "Released"}: <span className="font-medium text-foreground">{formatDate(col.statusReleasedAt, contractCountryCode)}</span></span>
+                              )}
+                              {col.statusDisposedAt && (
+                                <span className="text-muted-foreground">{t.contractsModule.legacy?.disposed || "Disposed"}: <span className="font-medium text-foreground">{formatDate(col.statusDisposedAt, contractCountryCode)}</span></span>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               ) : (
                 <p className="text-muted-foreground">{t.contractsModule.noCollections}</p>
               )}
@@ -1250,7 +1345,16 @@ export default function ContractDetailPage() {
                   <TableBody>
                     {invoices.map((inv: any) => (
                       <TableRow key={inv.id} data-testid={`row-invoice-${inv.id}`}>
-                        <TableCell className="font-medium">{inv.invoiceNumber}</TableCell>
+                        <TableCell className="font-medium">
+                          <div className="flex items-center gap-1.5">
+                            {inv.invoiceNumber}
+                            {inv.dataSource === "iscbc" && (
+                              <Badge variant="outline" className="text-[8px] px-1 py-0 bg-orange-50 text-orange-600 border-orange-200 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-800">
+                                ISCBC
+                              </Badge>
+                            )}
+                          </div>
+                        </TableCell>
                         <TableCell>{formatDate(inv.issueDate || inv.generatedAt, contractCountryCode)}</TableCell>
                         <TableCell>{inv.totalAmount ? `${inv.totalAmount} ${inv.currency || "EUR"}` : "-"}</TableCell>
                         <TableCell>
@@ -1495,11 +1599,199 @@ export default function ContractDetailPage() {
         </TabsContent>
 
         {contract.dataSource === "iscbc" && (
-          <TabsContent value="legacy" className="space-y-4">
-            <ContractLegacyTab contract={contract} invoices={invoices} formatDate={formatDate} countryCode={contractCountryCode} />
-          </TabsContent>
+          <>
+            <TabsContent value="phone" className="space-y-4">
+              <Card>
+                <CardHeader className="py-3">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Phone className="h-4 w-4" />
+                    {t.contractsModule.legacy?.tabPhone || "Phone Communications"} ({phoneCommunications.length})
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  {phoneCommunications.length === 0 ? (
+                    <p className="text-sm text-muted-foreground italic">{t.contractsModule.legacy?.noPhoneCalls || "No phone communications"}</p>
+                  ) : (
+                    <div className="border rounded-lg overflow-hidden">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-muted/30">
+                            <TableHead className="text-xs">{t.contractsModule.legacy?.callDate || "Date"}</TableHead>
+                            <TableHead className="text-xs">{t.contractsModule.legacy?.caller || "Caller"}</TableHead>
+                            <TableHead className="text-xs">{t.contractsModule.legacy?.phoneNumber || "Phone"}</TableHead>
+                            <TableHead className="text-xs">{t.contractsModule.legacy?.note || "Note"}</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {phoneCommunications.map((p: any) => (
+                            <TableRow key={p.id} className="text-xs" data-testid={`row-phone-${p.id}`}>
+                              <TableCell>{formatDateTime(p.sent_at, contractCountryCode)}</TableCell>
+                              <TableCell className="font-medium">{p.user_id || "-"}</TableCell>
+                              <TableCell>{p.recipient_phone || "-"}</TableCell>
+                              <TableCell className="max-w-[400px]">
+                                <p className="whitespace-pre-wrap break-words">{p.content || "-"}</p>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="remarks" className="space-y-4">
+              <Card>
+                <CardHeader className="py-3">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <StickyNote className="h-4 w-4" />
+                    {t.contractsModule.legacy?.tabRemarks || "Remarks"} ({contractRemarks.length})
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  {contractRemarks.length === 0 ? (
+                    <p className="text-sm text-muted-foreground italic">{t.contractsModule.legacy?.noRemarks || "No remarks"}</p>
+                  ) : (
+                    <div className="border rounded-lg overflow-hidden">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-muted/30">
+                            <TableHead className="text-xs">{t.contractsModule.legacy?.remarkDate || "Date"}</TableHead>
+                            <TableHead className="text-xs">{t.contractsModule.legacy?.author || "Author"}</TableHead>
+                            <TableHead className="text-xs">{t.contractsModule.legacy?.note || "Note"}</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {contractRemarks.map((r: any) => (
+                            <TableRow key={r.id} className="text-xs" data-testid={`row-remark-${r.id}`}>
+                              <TableCell className="whitespace-nowrap">{formatDateTime(r.created_at, contractCountryCode)}</TableCell>
+                              <TableCell className="font-medium">{r.user_id || "-"}</TableCell>
+                              <TableCell className="max-w-[500px]">
+                                <p className="whitespace-pre-wrap break-words">{r.content || "-"}</p>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="history" className="space-y-4">
+              <ContractHistoryTab contract={contract} formatDate={formatDate} formatDateTime={formatDateTime} countryCode={contractCountryCode} />
+            </TabsContent>
+
+            <TabsContent value="legacy" className="space-y-4">
+              <ContractLegacyTab contract={contract} invoices={invoices} formatDate={formatDate} countryCode={contractCountryCode} />
+            </TabsContent>
+          </>
         )}
       </Tabs>
+    </div>
+  );
+}
+
+function ContractHistoryTab({ contract, formatDate: fmtDate, formatDateTime: fmtDateTime, countryCode }: { contract: any; formatDate: (d: any, cc?: string) => string; formatDateTime: (d: any, cc?: string) => string; countryCode: string }) {
+  const { t } = useI18n();
+  const legacy = contract.legacyData as Record<string, any> | null;
+  const contractHistory: any[] = legacy?.contractHistory || [];
+
+  const dateFields = [
+    { key: "contactDate", label: t.contractsModule.fieldContactDate, status: "contacted" },
+    { key: "filledDate", label: t.contractsModule.fieldFilledDate, status: "filled" },
+    { key: "createdContractDate", label: t.contractsModule.fieldCreatedContractDate, status: "created" },
+    { key: "sentContractDate", label: t.contractsModule.fieldSentContractDate, status: "sent" },
+    { key: "receivedByClientDate", label: t.contractsModule.fieldReceivedByClientDate, status: "received" },
+    { key: "returnedDate", label: t.contractsModule.fieldReturnedDate, status: "returned" },
+    { key: "verifiedDate", label: t.contractsModule.fieldVerifiedDate, status: "verified" },
+    { key: "executedDate", label: t.contractsModule.fieldExecutedDate, status: "executed" },
+    { key: "terminatedDate", label: t.contractsModule.fieldTerminatedDate, status: "terminated" },
+    { key: "cancelledAt", label: t.contractsModule.fieldCancelledAt, status: "cancelled" },
+    { key: "collectionKitSentDate", label: t.contractsModule.fieldCollectionKitSentDate, status: "kit_sent" },
+  ];
+
+  const timeline = dateFields
+    .filter(f => contract[f.key])
+    .map(f => ({ date: new Date(contract[f.key]), label: f.label, status: f.status }))
+    .sort((a, b) => a.date.getTime() - b.date.getTime());
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardHeader className="py-3">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Clock className="h-4 w-4" />
+            {t.contractsModule.legacy?.contractTimeline || "Contract Timeline"}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-0">
+          {timeline.length === 0 ? (
+            <p className="text-sm text-muted-foreground italic">{t.contractsModule.legacy?.noHistory || "No history available"}</p>
+          ) : (
+            <div className="space-y-3">
+              {timeline.map((item, idx) => (
+                <div key={idx} className="flex items-start gap-3" data-testid={`timeline-${item.status}`}>
+                  <div className="flex flex-col items-center">
+                    <div className={`w-3 h-3 rounded-full mt-1 ${
+                      item.status === "cancelled" || item.status === "terminated"
+                        ? "bg-red-500" : "bg-green-500"
+                    }`} />
+                    {idx < timeline.length - 1 && <div className="w-0.5 h-6 bg-muted-foreground/20 mt-1" />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium">{item.label}</p>
+                    <p className="text-xs text-muted-foreground">{fmtDateTime(item.date, countryCode)}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {contractHistory.length > 0 && (
+        <Card>
+          <CardHeader className="py-3">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <History className="h-4 w-4" />
+              {t.contractsModule.legacy?.statusChanges || "Status Changes"} ({contractHistory.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="border rounded-lg overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/30">
+                    <TableHead className="text-xs">#</TableHead>
+                    <TableHead className="text-xs">{t.contractsModule.legacy?.callDate || "Date"}</TableHead>
+                    <TableHead className="text-xs">{t.contractsModule.legacy?.changedBy || "Changed by"}</TableHead>
+                    <TableHead className="text-xs">{t.contractsModule.legacy?.note || "Note"}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {contractHistory.map((h: any, idx: number) => (
+                    <TableRow key={idx} className="text-xs">
+                      <TableCell>{idx + 1}</TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        {h.hco_inserted ? fmtDateTime(h.hco_inserted, countryCode) : (h.hcs_inserted ? fmtDateTime(h.hcs_inserted, countryCode) : "-")}
+                      </TableCell>
+                      <TableCell>{h.hco_inserted_by || h.hcs_inserted_by || "-"}</TableCell>
+                      <TableCell className="max-w-[300px]">
+                        <p className="whitespace-pre-wrap break-words text-xs">
+                          {h.hco_note || h.hcs_note || h.csa_code || JSON.stringify(h).substring(0, 120)}
+                        </p>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
@@ -1591,15 +1883,25 @@ function ContractLegacyTab({ contract, invoices, formatDate: fmtDate, countryCod
                           )}
                         </div>
                         <div className="text-right text-sm shrink-0">
-                          <div>
-                            <span className="text-muted-foreground text-xs mr-1">{t.contractsModule.legacy?.originalPrice || "Original"}:</span>
-                            <span className="font-medium">{fmtNum(sp.csp_original_price)}</span>
-                          </div>
-                          <div>
-                            <span className="text-muted-foreground text-xs mr-1">{t.contractsModule.legacy?.actualPrice || "Actual"}:</span>
-                            <span className="font-medium text-green-600 dark:text-green-400">{fmtNum(sp.csp_actual_price)}</span>
-                          </div>
-                          {sp.plp_list_price != null && sp.plp_list_price !== sp.csp_original_price && (
+                          {(parseFloat(sp.csp_original_price) > 0 || parseFloat(sp.csp_actual_price) > 0) ? (
+                            <>
+                              {parseFloat(sp.csp_original_price) > 0 && (
+                                <div>
+                                  <span className="text-muted-foreground text-xs mr-1">{t.contractsModule.legacy?.originalPrice || "Original"}:</span>
+                                  <span className="font-medium">{fmtNum(sp.csp_original_price)}</span>
+                                </div>
+                              )}
+                              {parseFloat(sp.csp_actual_price) > 0 && (
+                                <div>
+                                  <span className="text-muted-foreground text-xs mr-1">{t.contractsModule.legacy?.actualPrice || "Actual"}:</span>
+                                  <span className="font-medium text-green-600 dark:text-green-400">{fmtNum(sp.csp_actual_price)}</span>
+                                </div>
+                              )}
+                            </>
+                          ) : (
+                            <span className="text-xs text-muted-foreground italic">{t.contractsModule.legacy?.seeInvoices || "see invoices"}</span>
+                          )}
+                          {sp.plp_list_price != null && parseFloat(sp.plp_list_price) > 0 && sp.plp_list_price !== sp.csp_original_price && (
                             <div className="text-[10px] text-muted-foreground">
                               {t.contractsModule.legacy?.listPrice || "List"}: {fmtNum(sp.plp_list_price)}
                             </div>

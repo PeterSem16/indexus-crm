@@ -1643,6 +1643,20 @@ async function step6_collections() {
       const labId = cbcLabName ? (labLookup[cbcLabName] || null) : null;
       const conId = contractMap[row.sco_id] || null;
 
+      const collectionLegacyData = {
+        sco_id: row.sco_id,
+        sco_state_detail: row.sco_state_detail || null,
+        sco_sterility: row.sco_sterility || null,
+        sco_lab_evaluation: row.sco_lab_evaluation || null,
+        sco_client_email: row.sco_client_email || null,
+        sco_client_id_number: row.sco_client_id_number || null,
+        csu_id: row.csu_id,
+        com_id: row.com_id,
+        hos_id: row.hos_id,
+        hos_lab_id: row.hos_lab_id || null,
+        collaborators: cc,
+      };
+
       await pgPool.query(`
         INSERT INTO collections (
           legacy_id, cbu_number, country_code,
@@ -1658,8 +1672,8 @@ async function step6_collections() {
           status_paired_at, status_evaluated_at, status_verified_at,
           status_stored_at, status_transferred_at, status_released_at,
           status_awaiting_disposal_at, status_disposed_at,
-          doctor_note, note, data_source, created_at, updated_at
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40)
+          doctor_note, note, data_source, legacy_data, created_at, updated_at
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,$41)
       `, [
         String(row.sco_id), row.sco_collection_unit_number, countryCode,
         customerId,
@@ -1679,6 +1693,7 @@ async function step6_collections() {
         row.sco_stored, row.sco_transferred, row.sco_released,
         row.sco_waiting_for_dispose, row.sco_disposed,
         row.sco_doctors_note, row.sco_note, 'iscbc',
+        JSON.stringify(collectionLegacyData),
         row.sco_inserted || new Date(), row.sco_updated || new Date(),
       ]);
       inserted++;
@@ -2056,6 +2071,8 @@ async function step8_remarks() {
   separator('STEP 8: Remarks (poznámky) → customer_notes');
 
   await pgPool.query(`ALTER TABLE customer_notes ADD COLUMN IF NOT EXISTS legacy_id VARCHAR`);
+  await pgPool.query(`ALTER TABLE customer_notes ADD COLUMN IF NOT EXISTS contract_id VARCHAR`);
+  await pgPool.query(`ALTER TABLE customer_notes ADD COLUMN IF NOT EXISTS data_source TEXT`);
 
   const migratedCustomers = await pgPool.query(`
     SELECT id, internal_id FROM customers WHERE internal_id IS NOT NULL AND internal_id != ''
@@ -2100,15 +2117,18 @@ async function step8_remarks() {
     );
     if (existing.rows.length > 0) { skipped++; continue; }
 
+    const contractInternalId = r.con_id ? `contract_${r.con_id}` : null;
+
     try {
       await pgPool.query(`
-        INSERT INTO customer_notes (id, customer_id, user_id, content, legacy_id, created_at)
-        VALUES (gen_random_uuid(), $1, $2, $3, $4, $5)
+        INSERT INTO customer_notes (id, customer_id, user_id, content, legacy_id, contract_id, data_source, created_at)
+        VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, 'iscbc', $6)
       `, [
         customerId,
         r.rem_login || 'system',
         r.rem_note,
         String(r.rem_id),
+        contractInternalId,
         r.rem_date || new Date(),
       ]);
       inserted++;
@@ -2143,6 +2163,8 @@ async function step8_remarks() {
 // ============================================================
 async function step9_phoneCommunications() {
   separator('STEP 9: PhoneCommunications (telefonáty) → communication_messages');
+
+  await pgPool.query(`ALTER TABLE communication_messages ADD COLUMN IF NOT EXISTS contract_id VARCHAR`);
 
   const migratedCustomers = await pgPool.query(`
     SELECT id, internal_id FROM customers WHERE internal_id IS NOT NULL AND internal_id != ''
@@ -2198,15 +2220,16 @@ async function step9_phoneCommunications() {
 
     const callResult = p.phr_id ? (phoneResultMap[String(p.phr_id)] || '') : '';
     const noteText = [p.pho_note, callResult ? `[Výsledok: ${callResult}]` : ''].filter(Boolean).join(' ');
+    const phoneContractInternalId = p.con_id ? `contract_${p.con_id}` : null;
 
     try {
       await pgPool.query(`
         INSERT INTO communication_messages (
           id, customer_id, user_id, type, direction, content,
-          recipient_phone, status, external_id, provider, sent_at, created_at
+          recipient_phone, status, external_id, provider, contract_id, sent_at, created_at
         ) VALUES (
           gen_random_uuid(), $1, $2, 'phone', 'outbound', $3,
-          $4, 'delivered', $5, 'cbc_legacy', $6, $7
+          $4, 'delivered', $5, 'cbc_legacy', $6, $7, $8
         )
       `, [
         customerId,
@@ -2214,6 +2237,7 @@ async function step9_phoneCommunications() {
         noteText || '(bez poznámky)',
         p.pho_number || null,
         extId,
+        phoneContractInternalId,
         p.pho_call_date || new Date(),
         p.pho_call_date || new Date(),
       ]);
@@ -2481,7 +2505,55 @@ async function step11_customerContracts() {
     }
   } catch (err) { log(`  WARN HistoryCSP: ${err.message}`); }
 
-  log(`  Mapy zmluvy: prepayments=${Object.keys(prepaymentsByConId).length} zmlúv, servicePayments=${Object.keys(cspByConId).length} zmlúv, historyCSP=${Object.keys(hcspByConId).length} zmlúv`);
+  // --- Preload ContractStatusHistory (história stavov zmluvy) ---
+  const contractHistoryByConId = {};
+  try {
+    const conIds = contracts.recordset.map(r => r.con_id).join(',');
+    if (conIds) {
+      // Try HistoryContracts table first (stores snapshots of contract status changes)
+      let histQuery = null;
+      try {
+        const hcCols = await mssqlPool.request().query(`
+          SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'HistoryContracts' ORDER BY ORDINAL_POSITION
+        `);
+        if (hcCols.recordset.length > 0) {
+          log(`  HistoryContracts stĺpce: ${hcCols.recordset.map(r => r.COLUMN_NAME).join(', ')}`);
+          histQuery = `SELECT * FROM HistoryContracts WHERE con_id IN (${conIds}) ORDER BY con_id`;
+        }
+      } catch (e) { /* table may not exist */ }
+
+      if (!histQuery) {
+        // Try HistoryContractStatuses as alternative
+        try {
+          const hcsCols = await mssqlPool.request().query(`
+            SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'HistoryContractStatuses' ORDER BY ORDINAL_POSITION
+          `);
+          if (hcsCols.recordset.length > 0) {
+            log(`  HistoryContractStatuses stĺpce: ${hcsCols.recordset.map(r => r.COLUMN_NAME).join(', ')}`);
+            histQuery = `SELECT * FROM HistoryContractStatuses WHERE con_id IN (${conIds}) ORDER BY con_id`;
+          }
+        } catch (e) { /* table may not exist */ }
+      }
+
+      if (histQuery) {
+        const hcRes = await mssqlPool.request().query(histQuery);
+        log(`  ContractStatusHistory: ${hcRes.recordset.length} záznamov`);
+        for (const h of hcRes.recordset) {
+          const key = String(h.con_id);
+          if (!contractHistoryByConId[key]) contractHistoryByConId[key] = [];
+          contractHistoryByConId[key].push(h);
+        }
+        if (hcRes.recordset.length > 0) {
+          log(`  ContractHistory kľúče: ${Object.keys(hcRes.recordset[0]).join(', ')}`);
+          log(`  Vzorka ContractHistory: ${JSON.stringify(hcRes.recordset[0])}`);
+        }
+      } else {
+        log('  HistoryContracts/HistoryContractStatuses tabuľka neexistuje — stavová história bude z dátumov zmluvy');
+      }
+    }
+  } catch (err) { log(`  WARN ContractHistory: ${err.message}`); }
+
+  log(`  Mapy zmluvy: prepayments=${Object.keys(prepaymentsByConId).length} zmlúv, servicePayments=${Object.keys(cspByConId).length} zmlúv, historyCSP=${Object.keys(hcspByConId).length} zmlúv, history=${Object.keys(contractHistoryByConId).length} zmlúv`);
 
   let insertedCI = 0, insertedCD = 0, skipped = 0, errors = 0;
   for (const r of contracts.recordset) {
@@ -2518,6 +2590,7 @@ async function step11_customerContracts() {
         prepayments: prepaymentsByConId[String(r.con_id)] || [],
         servicePayments: cspByConId[String(r.con_id)] || [],
         servicePaymentHistory: hcspByConId[String(r.con_id)] || [],
+        contractHistory: contractHistoryByConId[String(r.con_id)] || [],
       };
 
       const ciResult = await pgPool.query(`

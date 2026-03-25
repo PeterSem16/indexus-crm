@@ -4969,6 +4969,7 @@ export const collections = pgTable("collections", {
   note: text("note"),
   
   dataSource: text("data_source"),
+  legacyData: jsonb("legacy_data").$type<Record<string, any>>(),
   
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
