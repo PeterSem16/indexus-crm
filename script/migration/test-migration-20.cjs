@@ -2938,16 +2938,34 @@ async function step11_customerContracts() {
 
           const customerNameStr = customerNameLookup[customerId] || contractNumber;
 
+          const legacyComp = companyInfoMap[String(r.cli_id)] || {};
+          const billingCompName = legacyComp.com_name || companyMap[String(r.cli_id)] || null;
+          const billingAddr = legacyComp.com_street || legacyComp.com_address || null;
+          const billingCityVal = legacyComp.com_city || null;
+          const billingZipVal = legacyComp.com_zip || legacyComp.com_psc || null;
+          const billingCountryVal = legacyComp.com_country_code || legacyComp.com_country || null;
+          const billingTaxIdVal = legacyComp.com_ico || legacyComp.com_tax_id || null;
+          const billingVatIdVal = legacyComp.com_dic || legacyComp.com_vat_id || legacyComp.com_vat || null;
+          const billingEmailVal = legacyComp.com_email || null;
+          const billingPhoneVal = legacyComp.com_phone || null;
+          const billingBankNameVal = legacyComp.com_bank_name || null;
+          const billingBankIbanVal = legacyComp.com_iban || legacyComp.com_bank_account || null;
+          const billingBankSwiftVal = legacyComp.com_swift || null;
+
           try {
             await pgPool.query(`
               INSERT INTO scheduled_invoices (
                 id, customer_id, scheduled_date, installment_number, total_installments,
                 status, currency, payment_term_days, items, total_amount,
-                customer_name, created_at, created_by
+                customer_name, created_at, created_by,
+                billing_company_name, billing_address, billing_city, billing_zip, billing_country,
+                billing_tax_id, billing_vat_id, billing_email, billing_phone,
+                billing_bank_name, billing_bank_iban, billing_bank_swift
               ) VALUES (
                 gen_random_uuid(), $1, $2, $3, $4,
                 'pending', 'EUR', 14, $5, $6,
-                $7, $8, 'migration-v20'
+                $7, $8, 'migration-v20',
+                $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20
               )
             `, [
               customerId,
@@ -2958,6 +2976,18 @@ async function step11_customerContracts() {
               amount.toFixed(2),
               customerNameStr,
               r.con_inserted || new Date(),
+              billingCompName,
+              billingAddr,
+              billingCityVal,
+              billingZipVal,
+              billingCountryVal,
+              billingTaxIdVal,
+              billingVatIdVal,
+              billingEmailVal,
+              billingPhoneVal,
+              billingBankNameVal,
+              billingBankIbanVal,
+              billingBankSwiftVal,
             ]);
             insertedSI++;
           } catch (siErr) {
@@ -3112,21 +3142,11 @@ async function step12_customerInvoices() {
     `);
     for (const r of compRes.recordset) {
       companyMap[String(r.cli_id)] = r.com_name;
-      companyInfoMap[String(r.cli_id)] = {
-        com_name: r.com_name || null,
-        com_street: r.com_street || null,
-        com_city: r.com_city || null,
-        com_zip: r.com_zip || null,
-        com_country: r.com_country_code || r.com_country || null,
-        com_tax_id: r.com_tax_id || r.com_ico || null,
-        com_vat_id: r.com_vat_id || r.com_dic || null,
-        com_email: r.com_email || null,
-        com_phone: r.com_phone || null,
-        com_bank_account: r.com_bank_account || null,
-        com_iban: r.com_iban || null,
-        com_swift: r.com_swift || null,
-        com_bank_name: r.com_bank_name || null,
-      };
+      const allFields = {};
+      for (const [k, v] of Object.entries(r)) {
+        if (k !== 'cli_id') allFields[k] = v;
+      }
+      companyInfoMap[String(r.cli_id)] = allFields;
     }
     log(`  Company mapa: ${Object.keys(companyMap).length} klientov s firmou`);
     if (compRes.recordset.length > 0) {

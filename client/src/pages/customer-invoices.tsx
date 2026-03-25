@@ -1252,6 +1252,7 @@ export default function CustomerInvoicesPage() {
                                 <ScheduledSortIcon field="customerName" />
                               </div>
                             </TableHead>
+                            <TableHead>{t.invoices?.tabItems || "Items"}</TableHead>
                             <TableHead>{t.invoices?.installment || "Installment"}</TableHead>
                             <TableHead className="cursor-pointer text-right" onClick={() => handleScheduledSort("totalAmount")} data-testid="th-scheduled-sort-amount">
                               <div className="flex items-center justify-end">
@@ -1309,6 +1310,15 @@ export default function CustomerInvoicesPage() {
                                         ISCBC
                                       </Badge>
                                     )}
+                                  </span>
+                                </TableCell>
+                                <TableCell>
+                                  <span className="text-xs">
+                                    {(() => {
+                                      const items = Array.isArray(scheduled.items) ? scheduled.items : [];
+                                      if (items.length === 0) return '-';
+                                      return items.map((it: any) => it.name || it.description || '-').join(', ');
+                                    })()}
                                   </span>
                                 </TableCell>
                                 <TableCell>
@@ -1818,10 +1828,42 @@ export default function CustomerInvoicesPage() {
                 )}
               </div>
 
-              {/* Billing Company Metadata */}
+              {/* Items */}
               <div className="space-y-3">
                 <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">
+                  {t.invoices?.tabItems || "Items"}
+                </h3>
+                {(() => {
+                  const items = Array.isArray(selectedScheduledInvoice.items) ? selectedScheduledInvoice.items : [];
+                  if (items.length === 0) return <p className="text-sm text-muted-foreground italic">{t.invoices?.noItems || "No items"}</p>;
+                  return (
+                    <div className="space-y-2">
+                      {items.map((item: any, idx: number) => (
+                        <div key={idx} className="flex justify-between items-center p-2 rounded border text-sm">
+                          <div className="flex-1">
+                            <p className="font-medium">{item.name || item.description || `Item ${idx + 1}`}</p>
+                          </div>
+                          <div className="text-right text-muted-foreground text-xs space-x-2">
+                            <span>{item.quantity || 1}x</span>
+                            <span>{formatCurrency(item.unitPrice || item.totalPrice, selectedScheduledInvoice.currency)}</span>
+                            {item.vatRate && <span>({item.vatRate}% VAT)</span>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* Billing Company Metadata */}
+              <div className="space-y-3">
+                <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide flex items-center gap-2">
                   {t.invoices?.billingCompany || "Billing Company"}
+                  {selectedScheduledInvoice.createdBy === 'migration-v20' && (
+                    <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-800">
+                      ISCBC
+                    </Badge>
+                  )}
                 </h3>
                 {selectedScheduledInvoice.billingCompanyName ? (
                   <div className="grid grid-cols-2 gap-3 text-sm">
@@ -2067,21 +2109,82 @@ export default function CustomerInvoicesPage() {
             </div>
 
             {selectedScheduledForCreate && (
-              <div className="p-3 rounded-lg bg-muted/50 border text-sm">
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <span className="text-muted-foreground text-xs">{t.invoices?.installment || "Installment"}</span>
-                    <p className="font-medium">{selectedScheduledForCreate.installmentNumber}/{selectedScheduledForCreate.totalInstallments}</p>
+              <div className="space-y-3">
+                <div className="p-3 rounded-lg bg-muted/50 border text-sm">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <span className="text-muted-foreground text-xs">{t.invoices?.installment || "Installment"}</span>
+                      <p className="font-medium">{selectedScheduledForCreate.installmentNumber}/{selectedScheduledForCreate.totalInstallments}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground text-xs">{t.invoices?.totalAmount || "Amount"}</span>
+                      <p className="font-medium">{formatCurrency(selectedScheduledForCreate.totalAmount, selectedScheduledForCreate.currency)}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground text-xs">{t.invoices?.scheduledDate || "Scheduled Date"}</span>
+                      <p className="font-medium">{formatDate(selectedScheduledForCreate.scheduledDate)}</p>
+                    </div>
                   </div>
-                  <div>
-                    <span className="text-muted-foreground text-xs">{t.invoices?.totalAmount || "Amount"}</span>
-                    <p className="font-medium">{formatCurrency(selectedScheduledForCreate.totalAmount, selectedScheduledForCreate.currency)}</p>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground text-xs">{t.invoices?.scheduledDate || "Scheduled Date"}</span>
-                    <p className="font-medium">{formatDate(selectedScheduledForCreate.scheduledDate)}</p>
-                  </div>
+                  {(() => {
+                    const items = Array.isArray(selectedScheduledForCreate.items)
+                      ? selectedScheduledForCreate.items
+                      : [];
+                    if (items.length === 0) return null;
+                    return (
+                      <div className="mt-2 pt-2 border-t">
+                        <span className="text-muted-foreground text-xs">{t.invoices?.tabItems || "Items"}</span>
+                        {items.map((item: any, idx: number) => (
+                          <div key={idx} className="flex justify-between items-center mt-1">
+                            <p className="font-medium text-xs">{item.name || item.description || `Item ${idx + 1}`}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {item.quantity || 1}x {formatCurrency(item.unitPrice || item.totalPrice, selectedScheduledForCreate.currency)}
+                              {item.vatRate ? ` (${item.vatRate}% VAT)` : ''}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
                 </div>
+
+                {selectedScheduledForCreate.createdBy === 'migration-v20' && selectedScheduledForCreate.billingCompanyName && (
+                  <div className="p-3 rounded-lg bg-orange-50/50 dark:bg-orange-950/10 border border-orange-100 dark:border-orange-900 text-sm">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Database className="h-3.5 w-3.5 text-orange-600" />
+                      <span className="font-medium text-xs text-orange-700 dark:text-orange-400">Legacy Billing Company</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <div className="col-span-2">
+                        <span className="text-muted-foreground text-[10px]">Company</span>
+                        <p className="font-medium text-xs">{selectedScheduledForCreate.billingCompanyName}</p>
+                      </div>
+                      {(selectedScheduledForCreate.billingAddress || selectedScheduledForCreate.billingCity) && (
+                        <div className="col-span-2">
+                          <span className="text-muted-foreground text-[10px]">Address</span>
+                          <p className="text-xs">{[selectedScheduledForCreate.billingAddress, selectedScheduledForCreate.billingZip, selectedScheduledForCreate.billingCity, selectedScheduledForCreate.billingCountry].filter(Boolean).join(', ')}</p>
+                        </div>
+                      )}
+                      {selectedScheduledForCreate.billingTaxId && (
+                        <div>
+                          <span className="text-muted-foreground text-[10px]">IČO</span>
+                          <p className="text-xs">{selectedScheduledForCreate.billingTaxId}</p>
+                        </div>
+                      )}
+                      {selectedScheduledForCreate.billingVatId && (
+                        <div>
+                          <span className="text-muted-foreground text-[10px]">DIČ / VAT</span>
+                          <p className="text-xs">{selectedScheduledForCreate.billingVatId}</p>
+                        </div>
+                      )}
+                      {selectedScheduledForCreate.billingBankIban && (
+                        <div className="col-span-2">
+                          <span className="text-muted-foreground text-[10px]">IBAN</span>
+                          <p className="text-xs font-mono">{selectedScheduledForCreate.billingBankIban}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -2484,59 +2587,33 @@ function InvoiceDetailDrawer({
                 </h4>
                 {(() => {
                   const lbc = (invoice as any).legacyData.legacyBillingCompany;
+                  const labelMap: Record<string, string> = {
+                    com_name: "Company Name", com_id: "ID",
+                    com_street: "Street", com_city: "City", com_zip: "ZIP",
+                    com_country_code: "Country", com_country: "Country",
+                    com_tax_id: "Tax ID", com_ico: "IČO", com_dic: "DIČ",
+                    com_vat_id: "VAT ID", com_vat: "VAT",
+                    com_email: "Email", com_phone: "Phone", com_fax: "Fax",
+                    com_bank_account: "Bank Account", com_iban: "IBAN",
+                    com_swift: "SWIFT", com_bank_name: "Bank",
+                    com_bank_code: "Bank Code",
+                    com_web: "Web", com_note: "Note",
+                    com_address: "Address", com_registration: "Registration",
+                  };
+                  const skipFields = new Set(['com_inserted', 'com_inserted_by', 'com_updated', 'com_updated_by']);
+                  const entries = Object.entries(lbc).filter(([k, v]) =>
+                    v != null && v !== '' && !skipFields.has(k)
+                  );
                   return (
-                    <div className="grid grid-cols-2 gap-3 text-sm bg-orange-50/50 dark:bg-orange-950/10 p-3 rounded-lg border border-orange-100 dark:border-orange-900">
-                      <div className="col-span-2">
-                        <Label className="text-muted-foreground text-xs">{t.invoices?.companyName || "Company"}</Label>
-                        <p className="font-medium">{lbc.com_name || "-"}</p>
-                      </div>
-                      {(lbc.com_street || lbc.com_city) && (
-                        <div className="col-span-2">
-                          <Label className="text-muted-foreground text-xs">{t.customers?.address || "Address"}</Label>
-                          <p>{lbc.com_street || "-"}</p>
-                          <p>{[lbc.com_zip, lbc.com_city, lbc.com_country].filter(Boolean).join(", ") || "-"}</p>
+                    <div className="grid grid-cols-2 gap-2 text-sm bg-orange-50/50 dark:bg-orange-950/10 p-3 rounded-lg border border-orange-100 dark:border-orange-900">
+                      {entries.map(([key, val]) => (
+                        <div key={key} className={key === 'com_name' || key === 'com_address' || key === 'com_street' || key === 'com_registration' ? 'col-span-2' : ''}>
+                          <Label className="text-muted-foreground text-[10px]">{labelMap[key] || key.replace(/^com_/, '').replace(/_/g, ' ')}</Label>
+                          <p className={`${key === 'com_name' ? 'font-medium' : ''} ${key.includes('iban') || key.includes('bank_account') ? 'font-mono text-xs' : ''}`}>
+                            {String(val)}
+                          </p>
                         </div>
-                      )}
-                      <div>
-                        <Label className="text-muted-foreground text-xs">{t.invoices?.taxId || "Tax ID"}</Label>
-                        <p>{lbc.com_tax_id || "-"}</p>
-                      </div>
-                      <div>
-                        <Label className="text-muted-foreground text-xs">{t.invoices?.vatId || "VAT ID"}</Label>
-                        <p>{lbc.com_vat_id || "-"}</p>
-                      </div>
-                      {lbc.com_email && (
-                        <div>
-                          <Label className="text-muted-foreground text-xs">Email</Label>
-                          <p>{lbc.com_email}</p>
-                        </div>
-                      )}
-                      {lbc.com_phone && (
-                        <div>
-                          <Label className="text-muted-foreground text-xs">{t.customers?.phone || "Phone"}</Label>
-                          <p>{lbc.com_phone}</p>
-                        </div>
-                      )}
-                      {(lbc.com_iban || lbc.com_bank_account) && (
-                        <>
-                          <div className="col-span-2 border-t pt-2 mt-1">
-                            <Label className="text-muted-foreground text-xs">{t.invoices?.bankAccount || "Bank Account"}</Label>
-                            <p className="font-mono text-xs">{lbc.com_iban || lbc.com_bank_account || "-"}</p>
-                          </div>
-                          {lbc.com_swift && (
-                            <div>
-                              <Label className="text-muted-foreground text-xs">SWIFT/BIC</Label>
-                              <p className="font-mono text-xs">{lbc.com_swift}</p>
-                            </div>
-                          )}
-                          {lbc.com_bank_name && (
-                            <div>
-                              <Label className="text-muted-foreground text-xs">{t.invoices?.bankName || "Bank"}</Label>
-                              <p>{lbc.com_bank_name}</p>
-                            </div>
-                          )}
-                        </>
-                      )}
+                      ))}
                     </div>
                   );
                 })()}
