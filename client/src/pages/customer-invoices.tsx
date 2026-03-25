@@ -250,6 +250,7 @@ export default function CustomerInvoicesPage() {
   const [scheduledBillingChoice, setScheduledBillingChoice] = useState<"legacy" | "indexus">("legacy");
   const [scheduledBillingDetailsId, setScheduledBillingDetailsId] = useState<string>("");
   const [scheduledTemplateId, setScheduledTemplateId] = useState<string>("default");
+  const [scheduledSearchTerm, setScheduledSearchTerm] = useState("");
 
   const handleScheduledStatusFilterChange = (value: string) => {
     setScheduledStatusFilter(value);
@@ -290,8 +291,11 @@ export default function CustomerInvoicesPage() {
   const { data: scheduledStats } = useQuery<{
     total: number; pending: number; created: number; overdue: number;
     dueToday: number; dueThisWeek: number; dueThisMonth: number;
+    dueThisQuarter: number; dueThisHalf: number;
     pendingAmount: string; overdueAmount: string; dueTodayAmount: string;
-    dueThisWeekAmount: string; dueThisMonthAmount: string; createdAmount: string;
+    dueThisWeekAmount: string; dueThisMonthAmount: string;
+    dueThisQuarterAmount: string; dueThisHalfAmount: string;
+    createdAmount: string;
   }>({
     queryKey: ["/api/scheduled-invoices/stats"],
   });
@@ -1144,6 +1148,16 @@ export default function CustomerInvoicesPage() {
             <Card>
               <CardContent className="p-4">
                 <div className="flex flex-wrap items-center gap-3">
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder={t.invoices?.searchScheduled || "Hľadať zákazníka, položku..."}
+                      value={scheduledSearchTerm}
+                      onChange={(e) => { setScheduledSearchTerm(e.target.value); setScheduledPage(1); }}
+                      className="pl-9 w-[250px]"
+                      data-testid="input-scheduled-search"
+                    />
+                  </div>
                   <Select value={scheduledDateFilter} onValueChange={handleScheduledDateFilterChange}>
                     <SelectTrigger className="w-[180px]" data-testid="select-scheduled-date-filter">
                       <SelectValue placeholder={t.invoices?.dateFilter || "Date Filter"} />
@@ -1154,6 +1168,8 @@ export default function CustomerInvoicesPage() {
                       <SelectItem value="today">{t.invoices?.dueToday || "Due Today"}</SelectItem>
                       <SelectItem value="week">{t.invoices?.dueThisWeek || "Due This Week"}</SelectItem>
                       <SelectItem value="month">{t.invoices?.dueThisMonth || "Due This Month"}</SelectItem>
+                      <SelectItem value="quarter">{t.invoices?.dueThisQuarter || "Due This Quarter"}</SelectItem>
+                      <SelectItem value="half">{t.invoices?.dueThisHalfYear || "Due This Half Year"}</SelectItem>
                     </SelectContent>
                   </Select>
                   <Select value={scheduledStatusFilter} onValueChange={handleScheduledStatusFilterChange}>
@@ -1208,6 +1224,10 @@ export default function CustomerInvoicesPage() {
                   const endOfToday = new Date(today.getTime() + 24 * 60 * 60 * 1000 - 1);
                   const endOfWeek = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
                   const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+                  const currentQuarter = Math.floor(now.getMonth() / 3);
+                  const endOfQuarter = new Date(now.getFullYear(), (currentQuarter + 1) * 3, 0, 23, 59, 59);
+                  const currentHalf = now.getMonth() < 6 ? 0 : 1;
+                  const endOfHalf = new Date(now.getFullYear(), (currentHalf + 1) * 6, 0, 23, 59, 59);
 
                   let filtered = scheduledInvoices.filter(s => {
                     if (scheduledStatusFilter !== "all" && s.status !== scheduledStatusFilter) return false;
@@ -1218,7 +1238,18 @@ export default function CustomerInvoicesPage() {
                         case "today": return d >= today && d <= endOfToday;
                         case "week": return d >= today && d <= endOfWeek;
                         case "month": return d >= today && d <= endOfMonth;
+                        case "quarter": return d >= today && d <= endOfQuarter;
+                        case "half": return d >= today && d <= endOfHalf;
                       }
+                    }
+                    if (scheduledSearchTerm.trim()) {
+                      const term = scheduledSearchTerm.toLowerCase().trim();
+                      const customer = customerMap.get(s.customerId);
+                      const customerName = customer ? `${customer.firstName} ${customer.lastName}`.toLowerCase() : "";
+                      const storedName = (s.customerName || "").toLowerCase();
+                      const itemNames = Array.isArray(s.items) ? s.items.map((it: any) => (it.name || "").toLowerCase()).join(" ") : "";
+                      const billingComp = (s.billingCompanyName || "").toLowerCase();
+                      if (!customerName.includes(term) && !storedName.includes(term) && !itemNames.includes(term) && !billingComp.includes(term)) return false;
                     }
                     return true;
                   });
@@ -1637,6 +1668,89 @@ export default function CustomerInvoicesPage() {
                 </CardContent>
               </Card>
             </div>
+
+            {/* Forecast Tiles - Quarter and Half Year */}
+            {(() => {
+              const now = new Date();
+              const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+              const pendingSch = scheduledInvoices.filter(s => s.status === "pending");
+              const currentQ = Math.floor(now.getMonth() / 3);
+              const endQ = new Date(now.getFullYear(), (currentQ + 1) * 3, 0, 23, 59, 59);
+              const currentH = now.getMonth() < 6 ? 0 : 1;
+              const endH = new Date(now.getFullYear(), (currentH + 1) * 6, 0, 23, 59, 59);
+              const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+              const endOfWeek = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+              const thisWeek = pendingSch.filter(s => { const d = new Date(s.scheduledDate); return d >= today && d <= endOfWeek; });
+              const thisMonth = pendingSch.filter(s => { const d = new Date(s.scheduledDate); return d >= today && d <= endOfMonth; });
+              const thisQuarter = pendingSch.filter(s => { const d = new Date(s.scheduledDate); return d >= today && d <= endQ; });
+              const thisHalf = pendingSch.filter(s => { const d = new Date(s.scheduledDate); return d >= today && d <= endH; });
+
+              const sumEur = (arr: ScheduledInvoice[]) => arr.reduce((sum, inv) => sum + convertToEur(inv.totalAmount || "0", inv.currency), 0);
+              const quarterLabel = `Q${currentQ + 1} ${now.getFullYear()}`;
+              const halfLabel = `${currentH === 0 ? "H1" : "H2"} ${now.getFullYear()}`;
+
+              return (
+                <div className="grid gap-4 md:grid-cols-4">
+                  <Card className="bg-sky-50/50 dark:bg-sky-950/10 border-sky-100 dark:border-sky-900" data-testid="card-forecast-week">
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between gap-2">
+                        <div>
+                          <p className="text-xs text-muted-foreground font-medium">Tento týždeň</p>
+                          <p className="text-xl font-bold">{formatCurrency(sumEur(thisWeek).toString(), "EUR")}</p>
+                          <p className="text-xs text-muted-foreground">{thisWeek.length} splátok</p>
+                        </div>
+                        <div className="p-2 rounded-full bg-sky-100 dark:bg-sky-900/30 text-sky-600 dark:text-sky-400">
+                          <Calendar className="h-4 w-4" />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card className="bg-indigo-50/50 dark:bg-indigo-950/10 border-indigo-100 dark:border-indigo-900" data-testid="card-forecast-month">
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between gap-2">
+                        <div>
+                          <p className="text-xs text-muted-foreground font-medium">Tento mesiac</p>
+                          <p className="text-xl font-bold">{formatCurrency(sumEur(thisMonth).toString(), "EUR")}</p>
+                          <p className="text-xs text-muted-foreground">{thisMonth.length} splátok</p>
+                        </div>
+                        <div className="p-2 rounded-full bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400">
+                          <BarChart3 className="h-4 w-4" />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card className="bg-purple-50/50 dark:bg-purple-950/10 border-purple-100 dark:border-purple-900" data-testid="card-forecast-quarter">
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between gap-2">
+                        <div>
+                          <p className="text-xs text-muted-foreground font-medium">{quarterLabel}</p>
+                          <p className="text-xl font-bold">{formatCurrency(sumEur(thisQuarter).toString(), "EUR")}</p>
+                          <p className="text-xs text-muted-foreground">{thisQuarter.length} splátok</p>
+                        </div>
+                        <div className="p-2 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400">
+                          <TrendingUp className="h-4 w-4" />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card className="bg-fuchsia-50/50 dark:bg-fuchsia-950/10 border-fuchsia-100 dark:border-fuchsia-900" data-testid="card-forecast-half">
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between gap-2">
+                        <div>
+                          <p className="text-xs text-muted-foreground font-medium">{halfLabel}</p>
+                          <p className="text-xl font-bold">{formatCurrency(sumEur(thisHalf).toString(), "EUR")}</p>
+                          <p className="text-xs text-muted-foreground">{thisHalf.length} splátok</p>
+                        </div>
+                        <div className="p-2 rounded-full bg-fuchsia-100 dark:bg-fuchsia-900/30 text-fuchsia-600 dark:text-fuchsia-400">
+                          <TrendingUp className="h-4 w-4" />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              );
+            })()}
 
             <div className="grid gap-6 md:grid-cols-2">
               <Card>

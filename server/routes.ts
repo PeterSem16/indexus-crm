@@ -9493,6 +9493,10 @@ Return ONLY valid JSON, no markdown code blocks.`,
       const endOfToday = new Date(today.getTime() + 24 * 60 * 60 * 1000 - 1);
       const endOfWeek = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
       const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+      const currentQuarter = Math.floor(now.getMonth() / 3);
+      const endOfQuarter = new Date(now.getFullYear(), (currentQuarter + 1) * 3, 0, 23, 59, 59);
+      const currentHalf = now.getMonth() < 6 ? 0 : 1;
+      const endOfHalf = new Date(now.getFullYear(), (currentHalf + 1) * 6, 0, 23, 59, 59);
 
       const pending = all.filter(s => s.status === "pending");
       const created = all.filter(s => s.status === "created");
@@ -9509,6 +9513,14 @@ Return ONLY valid JSON, no markdown code blocks.`,
         const d = new Date(s.scheduledDate);
         return d >= today && d <= endOfMonth;
       });
+      const dueThisQuarter = pending.filter(s => {
+        const d = new Date(s.scheduledDate);
+        return d >= today && d <= endOfQuarter;
+      });
+      const dueThisHalf = pending.filter(s => {
+        const d = new Date(s.scheduledDate);
+        return d >= today && d <= endOfHalf;
+      });
 
       const sumAmount = (items: typeof all) => items.reduce((sum, i) => sum + parseFloat(i.totalAmount || "0"), 0);
 
@@ -9520,11 +9532,15 @@ Return ONLY valid JSON, no markdown code blocks.`,
         dueToday: dueToday.length,
         dueThisWeek: dueThisWeek.length,
         dueThisMonth: dueThisMonth.length,
+        dueThisQuarter: dueThisQuarter.length,
+        dueThisHalf: dueThisHalf.length,
         pendingAmount: sumAmount(pending).toFixed(2),
         overdueAmount: sumAmount(overdue).toFixed(2),
         dueTodayAmount: sumAmount(dueToday).toFixed(2),
         dueThisWeekAmount: sumAmount(dueThisWeek).toFixed(2),
         dueThisMonthAmount: sumAmount(dueThisMonth).toFixed(2),
+        dueThisQuarterAmount: sumAmount(dueThisQuarter).toFixed(2),
+        dueThisHalfAmount: sumAmount(dueThisHalf).toFixed(2),
         createdAmount: sumAmount(created).toFixed(2),
       });
     } catch (error) {
