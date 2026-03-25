@@ -3482,16 +3482,6 @@ async function step12_customerInvoices() {
     log('  ✓ invoices.pdf_downloaded_at stĺpec overený');
   } catch (err) { log(`  WARN pdf_downloaded_at: ${err.message}`); }
 
-  // --- Preload VatRates (DPH sadzby) ---
-  const vatRatesMap = {};
-  try {
-    const vrRes = await mssqlPool.request().query(`SELECT vat_id, vat_rate FROM VatRates`);
-    for (const vr of vrRes.recordset) {
-      vatRatesMap[String(vr.vat_id)] = parseFloat(vr.vat_rate) || 0;
-    }
-    log(`  VatRates: ${Object.keys(vatRatesMap).length} záznamov`);
-  } catch (err) { log(`  WARN VatRates: ${err.message}`); }
-
   // --- Preload InvoiceItems (legacy invoice line items) ---
   const invoiceItemsMap = {}; // inv_id → items[]
   try {
@@ -3506,7 +3496,8 @@ async function step12_customerInvoices() {
       `);
       log(`  InvoiceItems: ${iiRes.recordset.length} záznamov`);
       for (const item of iiRes.recordset) {
-        item.vat_rate = vatRatesMap[String(item.vat_id)] ?? null;
+        const vatRecord = vatRatesMap[String(item.vat_id)];
+        item.vat_rate = vatRecord ? (vatRecord.vat_rate != null ? parseFloat(vatRecord.vat_rate) : null) : null;
         const key = String(item.inv_id);
         if (!invoiceItemsMap[key]) invoiceItemsMap[key] = [];
         invoiceItemsMap[key].push(item);
