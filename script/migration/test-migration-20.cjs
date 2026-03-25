@@ -3100,17 +3100,38 @@ async function step12_customerInvoices() {
     log(`  InvoiceTypes: ${Object.keys(invoiceTypeRaw).length} typov`);
   } catch (err) { log(`  WARN InvoiceTypes: ${err.message}`); }
 
-  // Build Company name map: cli_id → company name (via Clients.com_id → Companies)
+  // Build Company info map: cli_id → full billing company info (via Clients.com_id → Companies)
   const companyMap = {};
+  const companyInfoMap = {};
   try {
     const compRes = await mssqlPool.request().query(`
-      SELECT DISTINCT cl.cli_id, comp.com_name
+      SELECT DISTINCT cl.cli_id, comp.*
       FROM Clients cl
       JOIN Companies comp ON comp.com_id = cl.com_id
       WHERE cl.cli_id IN (${cliIds}) AND cl.com_id IS NOT NULL
     `);
-    for (const r of compRes.recordset) companyMap[String(r.cli_id)] = r.com_name;
+    for (const r of compRes.recordset) {
+      companyMap[String(r.cli_id)] = r.com_name;
+      companyInfoMap[String(r.cli_id)] = {
+        com_name: r.com_name || null,
+        com_street: r.com_street || null,
+        com_city: r.com_city || null,
+        com_zip: r.com_zip || null,
+        com_country: r.com_country_code || r.com_country || null,
+        com_tax_id: r.com_tax_id || r.com_ico || null,
+        com_vat_id: r.com_vat_id || r.com_dic || null,
+        com_email: r.com_email || null,
+        com_phone: r.com_phone || null,
+        com_bank_account: r.com_bank_account || null,
+        com_iban: r.com_iban || null,
+        com_swift: r.com_swift || null,
+        com_bank_name: r.com_bank_name || null,
+      };
+    }
     log(`  Company mapa: ${Object.keys(companyMap).length} klientov s firmou`);
+    if (compRes.recordset.length > 0) {
+      log(`  Vzorka Company: ${JSON.stringify(compRes.recordset[0])}`);
+    }
   } catch (err) { log(`  WARN company map: ${err.message}`); }
 
   // Query invoices with all available fields
@@ -3374,6 +3395,7 @@ async function step12_customerInvoices() {
       proforma_link: r.inv_id_proforma_link || null,
       inserted_by: r.inv_inserted_by || null,
       updated_by: r.inv_updated_by || null,
+      legacyBillingCompany: cliId ? (companyInfoMap[cliId] || null) : null,
       items: invoiceItemsMap[String(r.inv_id)] || [],
       scheduledPayments: scheduledPaymentsMap[String(r.inv_id)] || [],
       realizedPayments: realizedPaymentsMap[String(r.inv_id)] || [],

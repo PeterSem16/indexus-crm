@@ -1289,7 +1289,14 @@ export default function CustomerInvoicesPage() {
                                   </div>
                                 </TableCell>
                                 <TableCell>
-                                  {customer ? `${customer.firstName} ${customer.lastName}` : scheduled.customerId}
+                                  <span className="flex items-center gap-1.5">
+                                    {customer ? `${customer.firstName} ${customer.lastName}` : scheduled.customerId}
+                                    {scheduled.createdBy === 'migration-v20' && (
+                                      <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-800">
+                                        ISCBC
+                                      </Badge>
+                                    )}
+                                  </span>
                                 </TableCell>
                                 <TableCell>
                                   <Badge variant="outline">
@@ -2290,6 +2297,77 @@ function InvoiceDetailDrawer({
                     <p>{invoice.billingVatId || "-"}</p>
                   </div>
                 </div>
+              </div>
+            )}
+
+            {/* Legacy Billing Company (ISCBC) */}
+            {(invoice as any).dataSource === 'iscbc' && (invoice as any).legacyData?.legacyBillingCompany && (
+              <div className="border-t pt-4 mt-4">
+                <h4 className="font-medium mb-3 flex items-center gap-2">
+                  <Database className="h-4 w-4" />
+                  Legacy Billing Company
+                  <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-800">
+                    ISCBC
+                  </Badge>
+                </h4>
+                {(() => {
+                  const lbc = (invoice as any).legacyData.legacyBillingCompany;
+                  return (
+                    <div className="grid grid-cols-2 gap-3 text-sm bg-orange-50/50 dark:bg-orange-950/10 p-3 rounded-lg border border-orange-100 dark:border-orange-900">
+                      <div className="col-span-2">
+                        <Label className="text-muted-foreground text-xs">{t.invoices?.companyName || "Company"}</Label>
+                        <p className="font-medium">{lbc.com_name || "-"}</p>
+                      </div>
+                      {(lbc.com_street || lbc.com_city) && (
+                        <div className="col-span-2">
+                          <Label className="text-muted-foreground text-xs">{t.customers?.address || "Address"}</Label>
+                          <p>{lbc.com_street || "-"}</p>
+                          <p>{[lbc.com_zip, lbc.com_city, lbc.com_country].filter(Boolean).join(", ") || "-"}</p>
+                        </div>
+                      )}
+                      <div>
+                        <Label className="text-muted-foreground text-xs">{t.invoices?.taxId || "Tax ID"}</Label>
+                        <p>{lbc.com_tax_id || "-"}</p>
+                      </div>
+                      <div>
+                        <Label className="text-muted-foreground text-xs">{t.invoices?.vatId || "VAT ID"}</Label>
+                        <p>{lbc.com_vat_id || "-"}</p>
+                      </div>
+                      {lbc.com_email && (
+                        <div>
+                          <Label className="text-muted-foreground text-xs">Email</Label>
+                          <p>{lbc.com_email}</p>
+                        </div>
+                      )}
+                      {lbc.com_phone && (
+                        <div>
+                          <Label className="text-muted-foreground text-xs">{t.customers?.phone || "Phone"}</Label>
+                          <p>{lbc.com_phone}</p>
+                        </div>
+                      )}
+                      {(lbc.com_iban || lbc.com_bank_account) && (
+                        <>
+                          <div className="col-span-2 border-t pt-2 mt-1">
+                            <Label className="text-muted-foreground text-xs">{t.invoices?.bankAccount || "Bank Account"}</Label>
+                            <p className="font-mono text-xs">{lbc.com_iban || lbc.com_bank_account || "-"}</p>
+                          </div>
+                          {lbc.com_swift && (
+                            <div>
+                              <Label className="text-muted-foreground text-xs">SWIFT/BIC</Label>
+                              <p className="font-mono text-xs">{lbc.com_swift}</p>
+                            </div>
+                          )}
+                          {lbc.com_bank_name && (
+                            <div>
+                              <Label className="text-muted-foreground text-xs">{t.invoices?.bankName || "Bank"}</Label>
+                              <p>{lbc.com_bank_name}</p>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             )}
 
