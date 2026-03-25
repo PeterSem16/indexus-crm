@@ -2334,7 +2334,7 @@ async function step11_customerContracts() {
   const contracts = await mssqlPool.request().query(`
     SELECT c.con_id, c.cli_id, c.con_number, c.con_inserted,
            c.con_expected_collection_date, c.con_pregnancy_type,
-           c.hos_id, c.doc_id, c.pot_id,
+           c.hos_id, c.doc_id, c.pot_id, c.cte_id,
            c.con_note,
            c.con_contacted, c.con_filled, c.con_generated, c.con_sent,
            c.con_confirmed, c.con_returned, c.con_validated, c.con_realized,
@@ -2345,6 +2345,9 @@ async function step11_customerContracts() {
            c.con_saving_bank, c.con_refinancing_detail, c.rfo_id,
            c.con_repository,
            cs.csa_code,
+           ct.cte_name, ct.cte_template_number,
+           mpi.mpi_name,
+           mp.mpr_name,
            pc.pot_product_ft, pc.pot_marketproduct_ft, pc.pot_payment_type_ft,
            pc.pot_registration_type_ft, pc.pot_first_information_source_ft,
            pc.pot_marketing_action_ft, pc.pot_marketing_code_ft,
@@ -2354,6 +2357,9 @@ async function step11_customerContracts() {
     FROM Contracts c
     LEFT JOIN ContractStatuses cs ON cs.csa_id = c.csa_id
     LEFT JOIN PotentialClients pc ON pc.pot_id = c.pot_id
+    LEFT JOIN ContractTemplates ct ON ct.cte_id = c.cte_id
+    LEFT JOIN MarketProductInstances mpi ON mpi.mpi_id = ct.mpi_id
+    LEFT JOIN MarketProducts mp ON mp.mpr_id = mpi.mpr_id
     WHERE c.cli_id IN (${cliIds})
     ORDER BY c.con_id
   `);
@@ -2553,7 +2559,196 @@ async function step11_customerContracts() {
     }
   } catch (err) { log(`  WARN ContractHistory: ${err.message}`); }
 
-  log(`  Mapy zmluvy: prepayments=${Object.keys(prepaymentsByConId).length} zmlúv, servicePayments=${Object.keys(cspByConId).length} zmlúv, historyCSP=${Object.keys(hcspByConId).length} zmlúv, history=${Object.keys(contractHistoryByConId).length} zmlúv`);
+  // --- Preload ContractServices (služby pod zmluvou) with Service/ServiceInstance/Company details ---
+  const contractServicesByConId = {};
+  try {
+    const conIds = contracts.recordset.map(r => r.con_id).join(',');
+    if (conIds) {
+      const csRes = await mssqlPool.request().query(`
+        SELECT cs.cse_id, cs.con_id, cs.sin_id, cs.sco_id,
+               cs.cse_original_price, cs.cse_actual_price, cs.cse_active,
+               cs.cse_invoicing_finished, cs.cse_note,
+               cs.cse_inserted, cs.cse_inserted_by,
+               si.sin_name, si.sin_invoice_identifier,
+               ser.ser_id, ser.ser_name, ser.ser_is_invoicable, ser.ser_is_collectable, ser.ser_is_storable,
+               comp.com_name AS ser_company
+        FROM ContractServices cs
+        LEFT JOIN ServiceInstances si ON si.sin_id = cs.sin_id
+        LEFT JOIN Services ser ON ser.ser_id = si.ser_id
+        LEFT JOIN Companies comp ON comp.com_id = ser.com_id
+        WHERE cs.con_id IN (${conIds})
+        ORDER BY cs.con_id, cs.cse_id
+      `);
+      log(`  ContractServices: ${csRes.recordset.length} záznamov`);
+      for (const s of csRes.recordset) {
+        const key = String(s.con_id);
+        if (!contractServicesByConId[key]) contractServicesByConId[key] = [];
+        contractServicesByConId[key].push(s);
+      }
+      if (csRes.recordset.length > 0) {
+        log(`  Vzorka ContractService: ${JSON.stringify(csRes.recordset[0])}`);
+      }
+    }
+  } catch (err) { log(`  WARN ContractServices: ${err.message}`); }
+
+  // --- Preload HistoryContractServices (cenová história služieb) ---
+  const histServicesByConId = {};
+  try {
+    const allCseIds = [];
+    for (const svcs of Object.values(contractServicesByConId)) {
+      for (const s of svcs) allCseIds.push(s.cse_id);
+    }
+    if (allCseIds.length > 0) {
+      const hsRes = await mssqlPool.request().query(`
+        SELECT * FROM HistoryContractServices
+        WHERE cse_id IN (${allCseIds.join(',')})
+        ORDER BY cse_id, hcs_from
+      `);
+      log(`  HistoryContractServices: ${hsRes.recordset.length} záznamov`);
+      const cseToConMap = {};
+      for (const [conId, svcs] of Object.entries(contractServicesByConId)) {
+        for (const s of svcs) cseToConMap[String(s.cse_id)] = conId;
+      }
+      for (const h of hsRes.recordset) {
+        const conId = cseToConMap[String(h.cse_id)];
+        if (conId) {
+          if (!histServicesByConId[conId]) histServicesByConId[conId] = [];
+          histServicesByConId[conId].push(h);
+        }
+      }
+    }
+  } catch (err) { log(`  WARN HistoryContractServices: ${err.message}`); }
+
+  // --- Preload ContractServiceSurcharges (zľavy/príplatky) ---
+  const surchargesByConId = {};
+  try {
+    const allCseIds = [];
+    for (const svcs of Object.values(contractServicesByConId)) {
+      for (const s of svcs) allCseIds.push(s.cse_id);
+    }
+    if (allCseIds.length > 0) {
+      const surRes = await mssqlPool.request().query(`
+        SELECT css.css_id, css.cse_id, css.pls_id,
+               css.css_original_price, css.css_actual_price,
+               pls.pls_name, pls.pls_invoice_item_name,
+               pls.pls_surcharge_fixed, pls.pls_surcharge_percentage
+        FROM ContractServiceSurcharges css
+        LEFT JOIN PriceListSurcharges pls ON pls.pls_id = css.pls_id
+        WHERE css.cse_id IN (${allCseIds.join(',')})
+        ORDER BY css.cse_id, css.css_id
+      `);
+      log(`  ContractServiceSurcharges: ${surRes.recordset.length} záznamov`);
+      const cseToConMap = {};
+      for (const [conId, svcs] of Object.entries(contractServicesByConId)) {
+        for (const s of svcs) cseToConMap[String(s.cse_id)] = conId;
+      }
+      for (const s of surRes.recordset) {
+        const conId = cseToConMap[String(s.cse_id)];
+        if (conId) {
+          if (!surchargesByConId[conId]) surchargesByConId[conId] = [];
+          surchargesByConId[conId].push(s);
+        }
+      }
+    }
+  } catch (err) { log(`  WARN ContractServiceSurcharges: ${err.message}`); }
+
+  // --- Preload HistoryContractServiceSurcharges ---
+  const histSurchargesByConId = {};
+  try {
+    const allCssIds = [];
+    for (const surs of Object.values(surchargesByConId)) {
+      for (const s of surs) allCssIds.push(s.css_id);
+    }
+    if (allCssIds.length > 0) {
+      const hssRes = await mssqlPool.request().query(`
+        SELECT * FROM HistoryContractServiceSurcharges
+        WHERE css_id IN (${allCssIds.join(',')})
+        ORDER BY css_id, hss_from
+      `);
+      log(`  HistoryContractServiceSurcharges: ${hssRes.recordset.length} záznamov`);
+      const cssToConMap = {};
+      for (const [conId, surs] of Object.entries(surchargesByConId)) {
+        for (const s of surs) cssToConMap[String(s.css_id)] = conId;
+      }
+      for (const h of hssRes.recordset) {
+        const conId = cssToConMap[String(h.css_id)];
+        if (conId) {
+          if (!histSurchargesByConId[conId]) histSurchargesByConId[conId] = [];
+          histSurchargesByConId[conId].push(h);
+        }
+      }
+    }
+  } catch (err) { log(`  WARN HistorySurcharges: ${err.message}`); }
+
+  // --- Preload ContractServiceSchedules + SchedulePayments (splátky) ---
+  const schedulesByConId = {};
+  try {
+    const allCseIds = [];
+    for (const svcs of Object.values(contractServicesByConId)) {
+      for (const s of svcs) allCseIds.push(s.cse_id);
+    }
+    // ContractServiceSchedules links via hcs_id to HistoryContractServices.hcs_id which has cse_id
+    // But simpler: link via the cse_id lookup from HistoryContractServices
+    if (allCseIds.length > 0) {
+      // First get all hcs_ids for our cse_ids
+      const hcsRes = await mssqlPool.request().query(`
+        SELECT hcs_id, cse_id FROM HistoryContractServices WHERE cse_id IN (${allCseIds.join(',')})
+      `);
+      const hcsToConMap = {};
+      const cseToConMap = {};
+      for (const [conId, svcs] of Object.entries(contractServicesByConId)) {
+        for (const s of svcs) cseToConMap[String(s.cse_id)] = conId;
+      }
+      const allHcsIds = [];
+      for (const h of hcsRes.recordset) {
+        hcsToConMap[String(h.hcs_id)] = cseToConMap[String(h.cse_id)];
+        allHcsIds.push(h.hcs_id);
+      }
+
+      if (allHcsIds.length > 0) {
+        const schRes = await mssqlPool.request().query(`
+          SELECT csh.csh_id, csh.sch_id, csh.hcs_id, csh.csh_name, csh.csh_preliminary_schedule,
+                 csh.csh_inserted, csh.csh_inserted_by
+          FROM ContractServiceSchedules csh
+          WHERE csh.hcs_id IN (${allHcsIds.join(',')})
+          ORDER BY csh.csh_id
+        `);
+        log(`  ContractServiceSchedules: ${schRes.recordset.length} záznamov`);
+
+        const cshIds = schRes.recordset.map(r => r.csh_id);
+        let schedulePayments = [];
+        if (cshIds.length > 0) {
+          const spRes = await mssqlPool.request().query(`
+            SELECT * FROM ContractServiceSchedulePayments
+            WHERE csh_id IN (${cshIds.join(',')})
+            ORDER BY csh_id, csy_installments_id
+          `);
+          schedulePayments = spRes.recordset;
+          log(`  ContractServiceSchedulePayments: ${schedulePayments.length} záznamov`);
+        }
+
+        const paymentsByCshId = {};
+        for (const sp of schedulePayments) {
+          const key = String(sp.csh_id);
+          if (!paymentsByCshId[key]) paymentsByCshId[key] = [];
+          paymentsByCshId[key].push(sp);
+        }
+
+        for (const sch of schRes.recordset) {
+          const conId = hcsToConMap[String(sch.hcs_id)];
+          if (conId) {
+            if (!schedulesByConId[conId]) schedulesByConId[conId] = [];
+            schedulesByConId[conId].push({
+              ...sch,
+              payments: paymentsByCshId[String(sch.csh_id)] || [],
+            });
+          }
+        }
+      }
+    }
+  } catch (err) { log(`  WARN Schedules: ${err.message}`); }
+
+  log(`  Mapy zmluvy: prepayments=${Object.keys(prepaymentsByConId).length} zmlúv, servicePayments=${Object.keys(cspByConId).length} zmlúv, historyCSP=${Object.keys(hcspByConId).length} zmlúv, history=${Object.keys(contractHistoryByConId).length} zmlúv, services=${Object.keys(contractServicesByConId).length} zmlúv, surcharges=${Object.keys(surchargesByConId).length} zmlúv, schedules=${Object.keys(schedulesByConId).length} zmlúv`);
 
   let insertedCI = 0, insertedCD = 0, skipped = 0, errors = 0;
   for (const r of contracts.recordset) {
@@ -2576,6 +2771,10 @@ async function step11_customerContracts() {
       const legacyData = {
         con_id: r.con_id, cli_id: r.cli_id, csa_code: r.csa_code,
         hos_id: r.hos_id, doc_id: r.doc_id, pot_id: r.pot_id,
+        cte_id: r.cte_id,
+        cte_name: r.cte_name, cte_template_number: r.cte_template_number,
+        mpi_name: r.mpi_name,
+        mpr_name: r.mpr_name,
         pot_product_ft: r.pot_product_ft, pot_marketproduct_ft: r.pot_marketproduct_ft,
         pot_payment_type_ft: r.pot_payment_type_ft, pot_children: r.pot_children,
         pot_recruiting_ft: r.pot_recruiting_ft,
@@ -2591,6 +2790,11 @@ async function step11_customerContracts() {
         servicePayments: cspByConId[String(r.con_id)] || [],
         servicePaymentHistory: hcspByConId[String(r.con_id)] || [],
         contractHistory: contractHistoryByConId[String(r.con_id)] || [],
+        contractServices: contractServicesByConId[String(r.con_id)] || [],
+        serviceHistory: histServicesByConId[String(r.con_id)] || [],
+        surcharges: surchargesByConId[String(r.con_id)] || [],
+        surchargeHistory: histSurchargesByConId[String(r.con_id)] || [],
+        schedules: schedulesByConId[String(r.con_id)] || [],
       };
 
       const ciResult = await pgPool.query(`

@@ -4136,6 +4136,16 @@ export interface Translations {
       transferred: string;
       released: string;
       disposed: string;
+      productType: string;
+      instanceName: string;
+      templateName: string;
+      services: string;
+      priceHistory: string;
+      discounts: string;
+      discountName: string;
+      installments: string;
+      installmentName: string;
+      daysFromRealized: string;
     };
   };
   callAnalysis: {
@@ -9792,6 +9802,16 @@ export const translations: Record<Locale, Translations> = {
         transferred: 'Transferred',
         released: 'Released',
         disposed: 'Disposed',
+        productType: 'Product type',
+        instanceName: 'Instance',
+        templateName: 'Template',
+        services: 'Services',
+        priceHistory: 'Price History',
+        discounts: 'Discounts / Surcharges',
+        discountName: 'Name',
+        installments: 'Installments',
+        installmentName: 'Name',
+        daysFromRealized: 'Days',
       },
     },
     callAnalysis: {
@@ -14865,6 +14885,16 @@ export const translations: Record<Locale, Translations> = {
         transferred: 'Preradený',
         released: 'Uvoľnený',
         disposed: 'Zlikvidovaný',
+        productType: 'Druh produktu',
+        instanceName: 'Inštancia',
+        templateName: 'Šablóna',
+        services: 'Služby',
+        priceHistory: 'Cenová história',
+        discounts: 'Zľavy / Príplatky',
+        discountName: 'Názov',
+        installments: 'Splátky',
+        installmentName: 'Názov',
+        daysFromRealized: 'Dni',
       },
     },
     callAnalysis: {
@@ -19864,6 +19894,16 @@ export const translations: Record<Locale, Translations> = {
         transferred: 'Přeřazený',
         released: 'Uvolněný',
         disposed: 'Zlikvidovaný',
+        productType: 'Druh produktu',
+        instanceName: 'Instance',
+        templateName: 'Šablona',
+        services: 'Služby',
+        priceHistory: 'Cenová historie',
+        discounts: 'Slevy / Příplatky',
+        discountName: 'Název',
+        installments: 'Splátky',
+        installmentName: 'Název',
+        daysFromRealized: 'Dní',
       },
     },
     callAnalysis: {
@@ -24862,6 +24902,16 @@ export const translations: Record<Locale, Translations> = {
         transferred: 'Átadott',
         released: 'Felszabadított',
         disposed: 'Megsemmisített',
+        productType: 'Terméktípus',
+        instanceName: 'Példány',
+        templateName: 'Sablon',
+        services: 'Szolgáltatások',
+        priceHistory: 'Ártörténet',
+        discounts: 'Kedvezmények / Pótdíjak',
+        discountName: 'Név',
+        installments: 'Részletek',
+        installmentName: 'Név',
+        daysFromRealized: 'Napok',
       },
     },
     callAnalysis: {
@@ -29859,6 +29909,16 @@ export const translations: Record<Locale, Translations> = {
         transferred: 'Transferat',
         released: 'Eliberat',
         disposed: 'Eliminat',
+        productType: 'Tip produs',
+        instanceName: 'Instanță',
+        templateName: 'Șablon',
+        services: 'Servicii',
+        priceHistory: 'Istoric prețuri',
+        discounts: 'Reduceri / Suprataxe',
+        discountName: 'Nume',
+        installments: 'Rate',
+        installmentName: 'Nume',
+        daysFromRealized: 'Zile',
       },
     },
     callAnalysis: {
@@ -34857,6 +34917,16 @@ export const translations: Record<Locale, Translations> = {
         transferred: 'Trasferito',
         released: 'Rilasciato',
         disposed: 'Smaltito',
+        productType: 'Tipo prodotto',
+        instanceName: 'Istanza',
+        templateName: 'Modello',
+        services: 'Servizi',
+        priceHistory: 'Storico prezzi',
+        discounts: 'Sconti / Sovraprezzi',
+        discountName: 'Nome',
+        installments: 'Rate',
+        installmentName: 'Nome',
+        daysFromRealized: 'Giorni',
       },
     },
     callAnalysis: {
@@ -39855,6 +39925,16 @@ export const translations: Record<Locale, Translations> = {
         transferred: 'Übertragen',
         released: 'Freigegeben',
         disposed: 'Entsorgt',
+        productType: 'Produkttyp',
+        instanceName: 'Instanz',
+        templateName: 'Vorlage',
+        services: 'Dienstleistungen',
+        priceHistory: 'Preisverlauf',
+        discounts: 'Rabatte / Zuschläge',
+        discountName: 'Name',
+        installments: 'Raten',
+        installmentName: 'Name',
+        daysFromRealized: 'Tage',
       },
     },
     callAnalysis: {

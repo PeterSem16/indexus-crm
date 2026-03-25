@@ -19,7 +19,7 @@ import { useI18n } from "@/i18n";
 import { format } from "date-fns";
 import { sk, cs, hu, ro, it, de, enUS, type Locale } from "date-fns/locale";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
-import { ArrowLeft, Save, FileText, Users, Package, Beaker, Receipt, Loader2, Download, ExternalLink, Shield, Clock, Mail, CheckCircle, Send, Eye, AlertCircle, X, Edit, History, Phone, RefreshCw, MessageSquare, StickyNote } from "lucide-react";
+import { ArrowLeft, Save, FileText, Users, Package, Beaker, Receipt, Loader2, Download, ExternalLink, Shield, Clock, Mail, CheckCircle, Send, Eye, AlertCircle, X, Edit, History, Phone, RefreshCw, MessageSquare, StickyNote, Layers, Calendar } from "lucide-react";
 import type { ContractInstance, Customer, Hospital, Collection, Product, CustomerProduct, CollectionStatus } from "@shared/schema";
 
 const COUNTRY_LOCALE_MAP: Record<string, Locale> = {
@@ -1799,7 +1799,7 @@ function ContractHistoryTab({ contract, formatDate: fmtDate, formatDateTime: fmt
 function ContractLegacyTab({ contract, invoices, formatDate: fmtDate, countryCode }: { contract: any; invoices: any[]; formatDate: (d: any, cc?: string) => string; countryCode: string }) {
   const { t } = useI18n();
   const legacy = contract.legacyData as Record<string, any> | null;
-  const [expandedSP, setExpandedSP] = useState<Record<number, boolean>>({});
+  const [expandedSP, setExpandedSP] = useState<Record<string, boolean>>({});
 
   const contractInvoices = useMemo(() => {
     return invoices.filter((inv: any) => inv.contractInstanceId === contract.id && inv.dataSource === 'iscbc');
@@ -1821,6 +1821,11 @@ function ContractLegacyTab({ contract, invoices, formatDate: fmtDate, countryCod
   const prepayments: any[] = legacy.prepayments || [];
   const servicePayments: any[] = legacy.servicePayments || [];
   const servicePaymentHistory: any[] = legacy.servicePaymentHistory || [];
+  const contractServices: any[] = legacy.contractServices || [];
+  const serviceHistory: any[] = legacy.serviceHistory || [];
+  const surcharges: any[] = legacy.surcharges || [];
+  const surchargeHistory: any[] = legacy.surchargeHistory || [];
+  const schedules: any[] = legacy.schedules || [];
 
   const fmtNum = (val: any) => {
     if (val == null || val === '') return '-';
@@ -1833,7 +1838,14 @@ function ContractLegacyTab({ contract, invoices, formatDate: fmtDate, countryCod
     try { return new Date(val).toLocaleDateString('sk-SK'); } catch { return '-'; }
   };
 
+  const fmtDateTime = (val: any) => {
+    if (!val) return '-';
+    try { return new Date(val).toLocaleString('sk-SK'); } catch { return '-'; }
+  };
+
   const historyForCsp = (cspId: number) => servicePaymentHistory.filter((h: any) => h.csp_id === cspId);
+  const historyForCse = (cseId: number) => serviceHistory.filter((h: any) => h.cse_id === cseId);
+  const surchargesForCse = (cseId: number) => surcharges.filter((s: any) => s.cse_id === cseId);
 
   return (
     <div className="space-y-4">
@@ -1846,6 +1858,224 @@ function ContractLegacyTab({ contract, invoices, formatDate: fmtDate, countryCod
           <span className="text-xs text-muted-foreground">con_id: {legacy.con_id}</span>
         )}
       </div>
+
+      {(legacy.mpr_name || legacy.mpi_name || legacy.cte_name) && (
+        <Card>
+          <CardHeader className="py-3">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Package className="h-4 w-4" />
+              {t.contractsModule.legacy?.product || "Product"}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+              {legacy.mpr_name && (
+                <div data-testid="legacy-product-name">
+                  <span className="text-muted-foreground text-xs">{t.contractsModule.legacy?.product || "Product"}:</span>
+                  <p className="font-medium">{legacy.mpr_name}</p>
+                </div>
+              )}
+              {legacy.pot_marketproduct_ft && legacy.pot_marketproduct_ft !== legacy.mpr_name && (
+                <div data-testid="legacy-product-type">
+                  <span className="text-muted-foreground text-xs">{t.contractsModule.legacy?.productType || "Product type"}:</span>
+                  <p className="font-medium">{legacy.pot_marketproduct_ft}</p>
+                </div>
+              )}
+              {legacy.mpi_name && (
+                <div data-testid="legacy-instance-name">
+                  <span className="text-muted-foreground text-xs">{t.contractsModule.legacy?.instanceName || "Instance"}:</span>
+                  <p className="font-medium">{legacy.mpi_name}</p>
+                </div>
+              )}
+              {legacy.cte_name && (
+                <div data-testid="legacy-template-name">
+                  <span className="text-muted-foreground text-xs">{t.contractsModule.legacy?.templateName || "Template"}:</span>
+                  <p className="font-medium">{legacy.cte_name}</p>
+                  {legacy.cte_template_number && (
+                    <p className="text-[10px] text-muted-foreground font-mono">{legacy.cte_template_number}</p>
+                  )}
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {contractServices.length > 0 && (
+        <Card>
+          <CardHeader className="py-3">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Layers className="h-4 w-4" />
+              {t.contractsModule.legacy?.services || "Services"} ({contractServices.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="space-y-2">
+              {contractServices.map((svc: any, idx: number) => {
+                const svcHistory = historyForCse(svc.cse_id);
+                const svcSurcharges = surchargesForCse(svc.cse_id);
+                const [isExpSvc, setExpSvc] = [expandedSP[`svc_${idx}`], (v: boolean) => setExpandedSP((prev: any) => ({ ...prev, [`svc_${idx}`]: v }))];
+
+                return (
+                  <div key={idx} className="border rounded-lg overflow-hidden" data-testid={`legacy-service-${idx}`}>
+                    <div
+                      className="flex items-center justify-between p-3 bg-muted/20 cursor-pointer hover:bg-muted/40"
+                      onClick={() => (svcHistory.length > 0 || svcSurcharges.length > 0) && setExpSvc(!isExpSvc)}
+                    >
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{svc.sin_name || svc.ser_name || `Service ${idx + 1}`}</p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            {svc.ser_company && <span className="text-[10px] text-muted-foreground">{svc.ser_company}</span>}
+                            <div className="flex gap-1">
+                              {svc.ser_is_invoicable && <Badge variant="outline" className="text-[9px] px-1 py-0">F</Badge>}
+                              {svc.ser_is_collectable && <Badge variant="outline" className="text-[9px] px-1 py-0">O</Badge>}
+                              {svc.ser_is_storable && <Badge variant="outline" className="text-[9px] px-1 py-0">S</Badge>}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-right text-sm shrink-0">
+                          {(parseFloat(svc.cse_original_price) > 0 || parseFloat(svc.cse_actual_price) > 0) ? (
+                            <>
+                              <div>
+                                <span className="text-muted-foreground text-xs mr-1">{t.contractsModule.legacy?.originalPrice || "Original"}:</span>
+                                <span className="font-medium">{fmtNum(svc.cse_original_price)}</span>
+                              </div>
+                              {parseFloat(svc.cse_actual_price) !== parseFloat(svc.cse_original_price) && (
+                                <div>
+                                  <span className="text-muted-foreground text-xs mr-1">{t.contractsModule.legacy?.actualPrice || "Actual"}:</span>
+                                  <span className="font-medium text-green-600 dark:text-green-400">{fmtNum(svc.cse_actual_price)}</span>
+                                </div>
+                              )}
+                            </>
+                          ) : (
+                            <span className="text-xs text-muted-foreground italic">{t.contractsModule.legacy?.seeInvoices || "see invoices"}</span>
+                          )}
+                        </div>
+                      </div>
+                      {(svcHistory.length > 0 || svcSurcharges.length > 0) && (
+                        <div className="ml-2 flex items-center gap-1">
+                          <History className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-[10px] text-muted-foreground">{svcHistory.length + svcSurcharges.length}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {isExpSvc && (
+                      <div className="border-t">
+                        {svcHistory.length > 0 && (
+                          <div>
+                            <div className="px-3 py-1 bg-muted/10 text-[10px] font-medium text-muted-foreground">
+                              {t.contractsModule.legacy?.priceHistory || "Price History"}
+                            </div>
+                            <Table>
+                              <TableHeader>
+                                <TableRow className="bg-muted/5">
+                                  <TableHead className="text-[10px]">{t.contractsModule.legacy?.priceChange || "Price"}</TableHead>
+                                  <TableHead className="text-[10px]">{t.contractsModule.legacy?.validFrom || "Valid from"}</TableHead>
+                                  <TableHead className="text-[10px]">{t.contractsModule.legacy?.validTo || "Valid to"}</TableHead>
+                                  <TableHead className="text-[10px]">{t.contractsModule.legacy?.current || "Current"}</TableHead>
+                                  <TableHead className="text-[10px]">{t.contractsModule.legacy?.changedBy || "Changed by"}</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {svcHistory.map((h: any, hIdx: number) => (
+                                  <TableRow key={hIdx} className="text-[10px]">
+                                    <TableCell className="font-medium">{fmtNum(h.hcs_price)}</TableCell>
+                                    <TableCell>{fmtDateTime(h.hcs_from)}</TableCell>
+                                    <TableCell>{fmtDt(h.hcs_to)}</TableCell>
+                                    <TableCell>
+                                      {h.hcs_actual ? <Badge variant="default" className="text-[9px] px-1 py-0">✓</Badge> : <span className="text-muted-foreground">-</span>}
+                                    </TableCell>
+                                    <TableCell>{h.hcs_inserted_by || '-'}</TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        )}
+                        {svcSurcharges.length > 0 && (
+                          <div>
+                            <div className="px-3 py-1 bg-muted/10 text-[10px] font-medium text-muted-foreground">
+                              {t.contractsModule.legacy?.discounts || "Discounts / Surcharges"}
+                            </div>
+                            <Table>
+                              <TableHeader>
+                                <TableRow className="bg-muted/5">
+                                  <TableHead className="text-[10px]">{t.contractsModule.legacy?.discountName || "Name"}</TableHead>
+                                  <TableHead className="text-[10px]">{t.contractsModule.legacy?.originalPrice || "Original"}</TableHead>
+                                  <TableHead className="text-[10px]">{t.contractsModule.legacy?.actualPrice || "Actual"}</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {svcSurcharges.map((s: any, sIdx: number) => (
+                                  <TableRow key={sIdx} className="text-[10px]">
+                                    <TableCell>{s.pls_name || s.pls_invoice_item_name || '-'}</TableCell>
+                                    <TableCell className={parseFloat(s.css_original_price) < 0 ? 'text-red-600 dark:text-red-400 font-medium' : 'font-medium'}>{fmtNum(s.css_original_price)}</TableCell>
+                                    <TableCell className={parseFloat(s.css_actual_price) < 0 ? 'text-red-600 dark:text-red-400 font-medium' : 'font-medium'}>{fmtNum(s.css_actual_price)}</TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {schedules.length > 0 && (
+        <Card>
+          <CardHeader className="py-3">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Calendar className="h-4 w-4" />
+              {t.contractsModule.legacy?.installments || "Installments"} ({schedules.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="space-y-2">
+              {schedules.map((sch: any, idx: number) => (
+                <div key={idx} className="border rounded-lg overflow-hidden" data-testid={`legacy-schedule-${idx}`}>
+                  <div className="p-3 bg-muted/20">
+                    <p className="text-sm font-medium">{sch.csh_name || `Schedule ${idx + 1}`}</p>
+                    <p className="text-[10px] text-muted-foreground">{fmtDateTime(sch.csh_inserted)} — {sch.csh_inserted_by || '-'}</p>
+                  </div>
+                  {sch.payments && sch.payments.length > 0 && (
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-muted/10">
+                          <TableHead className="text-[10px]">#</TableHead>
+                          <TableHead className="text-[10px]">{t.contractsModule.legacy?.installmentName || "Name"}</TableHead>
+                          <TableHead className="text-[10px] text-right">{t.contractsModule.legacy?.amount || "Amount"}</TableHead>
+                          <TableHead className="text-[10px]">{t.contractsModule.legacy?.daysFromRealized || "Days"}</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {sch.payments.map((p: any, pIdx: number) => (
+                          <TableRow key={pIdx} className="text-[10px]">
+                            <TableCell>{p.csy_installments_id || pIdx + 1}</TableCell>
+                            <TableCell>{p.csy_name || '-'}</TableCell>
+                            <TableCell className="text-right font-medium">{fmtNum(p.csy_amount)}</TableCell>
+                            <TableCell>
+                              {p.csy_days_from_field_value > 0 ? `${p.csy_days_from_field_value}d` : ''}
+                              {p.csy_days_from_previous > 0 ? `+${p.csy_days_from_previous}d` : ''}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader className="py-3">
