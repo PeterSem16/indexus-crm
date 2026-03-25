@@ -2816,14 +2816,14 @@ function LegacyTabContent({
               <TableBody>
                 {legacyItems.map((item: any, idx: number) => (
                   <TableRow key={idx} className="text-xs">
-                    <TableCell>{item.ini_name || item.ini_description || item.name || `Item ${idx + 1}`}</TableCell>
-                    <TableCell className="text-right">{item.ini_quantity ?? item.quantity ?? '-'}</TableCell>
-                    <TableCell>{item.ini_unit || item.unit || '-'}</TableCell>
-                    <TableCell className="text-right">{fmtNum(item.ini_unit_price_cur_home ?? item.unit_price_home)}</TableCell>
-                    <TableCell className="text-right">{fmtNum(item.ini_unit_price_cur_account ?? item.unit_price_account)}</TableCell>
-                    <TableCell className="text-right">{item.ini_vat_rate ?? item.vat_rate ?? '-'}%</TableCell>
-                    <TableCell className="text-right font-medium">{fmtNum(item.ini_amount_cur_home ?? item.amount_home)}</TableCell>
-                    <TableCell className="text-right font-medium">{fmtNum(item.ini_amount_cur_account ?? item.amount_account)}</TableCell>
+                    <TableCell>{item.iit_label || item.iit_note || item.name || `Item ${idx + 1}`}</TableCell>
+                    <TableCell className="text-right">{item.iit_units ?? item.quantity ?? '-'}</TableCell>
+                    <TableCell>{item.iit_unit_code || item.unit || '-'}</TableCell>
+                    <TableCell className="text-right">{fmtNum(item.iit_price_per_unit_cur_home_with_vat ?? item.iit_price_per_unit_cur_home_no_vat)}</TableCell>
+                    <TableCell className="text-right">{fmtNum(item.iit_price_per_unit_cur_account_with_vat ?? item.iit_price_per_unit_cur_account_no_vat)}</TableCell>
+                    <TableCell className="text-right">{item.vat_id ?? '-'}</TableCell>
+                    <TableCell className="text-right font-medium">{fmtNum(item.iit_price_cur_home_with_vat ?? item.iit_price_cur_home_no_vat)}</TableCell>
+                    <TableCell className="text-right font-medium">{fmtNum(item.iit_price_cur_account_with_vat ?? item.iit_price_cur_account_no_vat)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

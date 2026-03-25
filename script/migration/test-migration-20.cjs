@@ -2765,7 +2765,7 @@ async function step12_customerInvoices() {
       log(`  InvoiceItems stĺpce: ${iiCols.recordset.map(r => r.COLUMN_NAME).join(', ')}`);
       const invIds = invoices.recordset.map(r => r.inv_id).join(',');
       const iiRes = await mssqlPool.request().query(`
-        SELECT * FROM InvoiceItems WHERE inv_id IN (${invIds}) ORDER BY inv_id, ini_id
+        SELECT * FROM InvoiceItems WHERE inv_id IN (${invIds}) ORDER BY inv_id, iit_id
       `);
       log(`  InvoiceItems: ${iiRes.recordset.length} záznamov`);
       for (const item of iiRes.recordset) {
@@ -2781,63 +2781,110 @@ async function step12_customerInvoices() {
     }
   } catch (err) { log(`  WARN InvoiceItems: ${err.message}`); }
 
-  // --- Preload InvoicePayments (legacy payment records) ---
+  // --- Preload InvoicePayments / Payments (legacy payment records) ---
   const invoicePaymentsMap = {}; // inv_id → payments[]
-  try {
-    const ipCols = await mssqlPool.request().query(`
-      SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'InvoicePayments' ORDER BY ORDINAL_POSITION
-    `);
-    if (ipCols.recordset.length > 0) {
-      log(`  InvoicePayments stĺpce: ${ipCols.recordset.map(r => r.COLUMN_NAME).join(', ')}`);
-      const invIds = invoices.recordset.map(r => r.inv_id).join(',');
-      const ipRes = await mssqlPool.request().query(`
-        SELECT * FROM InvoicePayments WHERE inv_id IN (${invIds}) ORDER BY inv_id, inp_id
-      `);
-      log(`  InvoicePayments: ${ipRes.recordset.length} záznamov`);
-      for (const pay of ipRes.recordset) {
-        const key = String(pay.inv_id);
-        if (!invoicePaymentsMap[key]) invoicePaymentsMap[key] = [];
-        invoicePaymentsMap[key].push(pay);
-      }
-      if (ipRes.recordset.length > 0) {
-        log(`  Vzorka InvoicePayment: ${JSON.stringify(ipRes.recordset[0])}`);
-      }
-    } else {
-      log('  InvoicePayments tabuľka neexistuje');
-    }
-  } catch (err) { log(`  WARN InvoicePayments: ${err.message}`); }
-
-  // --- Preload PaymentSubItems / InvoicePaymentItems (sub-items of payments) ---
-  const paymentSubItemsMap = {}; // inp_id → subItems[]
-  for (const tblName of ['InvoicePaymentItems', 'PaymentSubItems', 'PaymentItems']) {
+  const paymentTableCandidates = ['InvoicePayments', 'Payments', 'InvoiceTransactions', 'AccountTransactions'];
+  let paymentTableFound = null;
+  for (const tblName of paymentTableCandidates) {
     try {
-      const psiCols = await mssqlPool.request().query(`
+      const ipCols = await mssqlPool.request().query(`
         SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '${tblName}' ORDER BY ORDINAL_POSITION
       `);
-      if (psiCols.recordset.length > 0) {
-        log(`  ${tblName} stĺpce: ${psiCols.recordset.map(r => r.COLUMN_NAME).join(', ')}`);
-        // Gather all inp_ids from payments
-        const allInpIds = [];
-        for (const pays of Object.values(invoicePaymentsMap)) {
-          for (const p of pays) { if (p.inp_id) allInpIds.push(p.inp_id); }
-        }
-        if (allInpIds.length > 0) {
-          const psiRes = await mssqlPool.request().query(`
-            SELECT * FROM ${tblName} WHERE inp_id IN (${allInpIds.join(',')}) ORDER BY inp_id
+      if (ipCols.recordset.length > 0) {
+        log(`  ${tblName} stĺpce: ${ipCols.recordset.map(r => r.COLUMN_NAME).join(', ')}`);
+        paymentTableFound = tblName;
+        // Try to find the FK column linking to invoices
+        const colNames = ipCols.recordset.map(r => r.COLUMN_NAME);
+        const fkCol = colNames.find(c => c === 'inv_id') || colNames.find(c => c.includes('inv_id'));
+        if (fkCol) {
+          const invIds = invoices.recordset.map(r => r.inv_id).join(',');
+          const pkCol = colNames[0]; // first column is typically PK
+          const ipRes = await mssqlPool.request().query(`
+            SELECT * FROM ${tblName} WHERE ${fkCol} IN (${invIds}) ORDER BY ${fkCol}, ${pkCol}
           `);
-          log(`  ${tblName}: ${psiRes.recordset.length} záznamov`);
-          for (const sub of psiRes.recordset) {
-            const key = String(sub.inp_id);
-            if (!paymentSubItemsMap[key]) paymentSubItemsMap[key] = [];
-            paymentSubItemsMap[key].push(sub);
+          log(`  ${tblName}: ${ipRes.recordset.length} záznamov`);
+          for (const pay of ipRes.recordset) {
+            const key = String(pay[fkCol]);
+            if (!invoicePaymentsMap[key]) invoicePaymentsMap[key] = [];
+            invoicePaymentsMap[key].push(pay);
           }
-          if (psiRes.recordset.length > 0) {
-            log(`  Vzorka ${tblName}: ${JSON.stringify(psiRes.recordset[0])}`);
+          if (ipRes.recordset.length > 0) {
+            log(`  Vzorka ${tblName}: ${JSON.stringify(ipRes.recordset[0])}`);
+          }
+        } else {
+          log(`  ${tblName}: nemá stĺpec inv_id, skúšam vzorku...`);
+          const sample = await mssqlPool.request().query(`SELECT TOP 2 * FROM ${tblName}`);
+          if (sample.recordset.length > 0) {
+            log(`  Vzorka ${tblName}: ${JSON.stringify(sample.recordset[0])}`);
           }
         }
-        break; // Found valid table, stop looking
+        break;
       }
     } catch (err) { /* table doesn't exist, try next */ }
+  }
+  if (!paymentTableFound) {
+    log('  Žiadna tabuľka platieb nenájdená (InvoicePayments, Payments, InvoiceTransactions, AccountTransactions)');
+    // Search for any payment-related tables
+    try {
+      const payTables = await mssqlPool.request().query(`
+        SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES 
+        WHERE TABLE_NAME LIKE '%Payment%' OR TABLE_NAME LIKE '%payment%' OR TABLE_NAME LIKE '%Transaction%'
+        ORDER BY TABLE_NAME
+      `);
+      if (payTables.recordset.length > 0) {
+        log(`  Nájdené tabuľky súvisiace s platbami: ${payTables.recordset.map(r => r.TABLE_NAME).join(', ')}`);
+        for (const tbl of payTables.recordset) {
+          try {
+            const cols = await mssqlPool.request().query(`SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '${tbl.TABLE_NAME}' ORDER BY ORDINAL_POSITION`);
+            log(`    ${tbl.TABLE_NAME}: ${cols.recordset.map(r => r.COLUMN_NAME).join(', ')}`);
+          } catch (e) { /* skip */ }
+        }
+      } else {
+        log('  Žiadne tabuľky s Payment/Transaction v názve');
+      }
+    } catch (err) { log(`  WARN payment table search: ${err.message}`); }
+  }
+
+  // --- Preload PaymentSubItems (sub-items of payments) ---
+  const paymentSubItemsMap = {}; // payment PK → subItems[]
+  if (Object.keys(invoicePaymentsMap).length > 0) {
+    for (const tblName of ['InvoicePaymentItems', 'PaymentSubItems', 'PaymentItems', 'PaymentDetails']) {
+      try {
+        const psiCols = await mssqlPool.request().query(`
+          SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '${tblName}' ORDER BY ORDINAL_POSITION
+        `);
+        if (psiCols.recordset.length > 0) {
+          log(`  ${tblName} stĺpce: ${psiCols.recordset.map(r => r.COLUMN_NAME).join(', ')}`);
+          // Find FK column
+          const colNames = psiCols.recordset.map(r => r.COLUMN_NAME);
+          const fkCol = colNames.find(c => c.includes('inp_id') || c.includes('pay_id'));
+          if (fkCol) {
+            const allPayIds = [];
+            for (const pays of Object.values(invoicePaymentsMap)) {
+              for (const p of pays) {
+                const payId = p.inp_id || p.pay_id || p[Object.keys(p)[0]];
+                if (payId) allPayIds.push(payId);
+              }
+            }
+            if (allPayIds.length > 0) {
+              const psiRes = await mssqlPool.request().query(`
+                SELECT * FROM ${tblName} WHERE ${fkCol} IN (${allPayIds.join(',')}) ORDER BY ${fkCol}
+              `);
+              log(`  ${tblName}: ${psiRes.recordset.length} záznamov`);
+              for (const sub of psiRes.recordset) {
+                const key = String(sub[fkCol]);
+                if (!paymentSubItemsMap[key]) paymentSubItemsMap[key] = [];
+                paymentSubItemsMap[key].push(sub);
+              }
+              if (psiRes.recordset.length > 0) {
+                log(`  Vzorka ${tblName}: ${JSON.stringify(psiRes.recordset[0])}`);
+              }
+            }
+          }
+          break;
+        }
+      } catch (err) { /* table doesn't exist, try next */ }
+    }
   }
   log(`  Mapy načítané: items=${Object.keys(invoiceItemsMap).length} faktúr, payments=${Object.keys(invoicePaymentsMap).length} faktúr, subItems=${Object.keys(paymentSubItemsMap).length} platieb`);
 
