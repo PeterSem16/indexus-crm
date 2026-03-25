@@ -2431,6 +2431,49 @@ async function step11_customerContracts() {
     }
   } catch (err) { log(`  WARN company map: ${err.message}`); }
 
+  const companyDetailsMap = {};
+  try {
+    const cdRes = await mssqlPool.request().query(`SELECT * FROM CompanyDetails`);
+    for (const r of cdRes.recordset) {
+      const comId = r.com_id || r.cod_com_id;
+      if (comId) companyDetailsMap[String(comId)] = r;
+    }
+    log(`  CompanyDetails: ${Object.keys(companyDetailsMap).length} záznamov`);
+    if (cdRes.recordset.length > 0) {
+      log(`  CompanyDetails stĺpce: ${Object.keys(cdRes.recordset[0]).join(', ')}`);
+      log(`  CompanyDetails vzorka: ${JSON.stringify(cdRes.recordset[0])}`);
+    }
+  } catch (err) { log(`  WARN CompanyDetails: ${err.message}`); }
+
+  const companyAccountsMap = {};
+  try {
+    const caRes = await mssqlPool.request().query(`SELECT * FROM CompanyAccounts`);
+    for (const r of caRes.recordset) {
+      const comId = r.com_id;
+      if (comId) {
+        if (!companyAccountsMap[String(comId)]) companyAccountsMap[String(comId)] = [];
+        companyAccountsMap[String(comId)].push(r);
+      }
+    }
+    log(`  CompanyAccounts: ${Object.keys(companyAccountsMap).length} firiem s účtami`);
+    if (caRes.recordset.length > 0) {
+      log(`  CompanyAccounts stĺpce: ${Object.keys(caRes.recordset[0]).join(', ')}`);
+      log(`  CompanyAccounts vzorka: ${JSON.stringify(caRes.recordset[0])}`);
+    }
+  } catch (err) { log(`  WARN CompanyAccounts: ${err.message}`); }
+
+  const vatRatesMap = {};
+  try {
+    const vatRes = await mssqlPool.request().query(`SELECT * FROM VATs ORDER BY vat_id`);
+    for (const r of vatRes.recordset) {
+      vatRatesMap[String(r.vat_id)] = r;
+    }
+    log(`  VATs: ${Object.keys(vatRatesMap).length} sadzby DPH`);
+    if (vatRes.recordset.length > 0) {
+      log(`  VATs vzorka: ${JSON.stringify(vatRes.recordset.slice(0, 5))}`);
+    }
+  } catch (err) { log(`  WARN VATs: ${err.message}`); }
+
   const hospitalLookupRes = await pgPool.query(`SELECT id, legacy_id FROM hospitals WHERE legacy_id IS NOT NULL`);
   const hospitalLookup = {};
   for (const h of hospitalLookupRes.rows) hospitalLookup[h.legacy_id] = h.id;
@@ -3060,19 +3103,32 @@ async function step11_customerContracts() {
 
           const baseItemName = invoiceItemLabel || p.csy_name || sch.csh_name || 'Splátka';
           const itemName = `${baseItemName} - ${pIdx + 1}/${payments.length}`;
+
+          const legacyComp = companyInfoMap[String(r.cli_id)] || {};
+          const comId = legacyComp.com_id ? String(legacyComp.com_id) : null;
+          const compDetails = comId ? (companyDetailsMap[comId] || {}) : {};
+          const compAccounts = comId ? (companyAccountsMap[comId] || []) : [];
+          const primaryAccount = compAccounts[0] || {};
+
+          const scheduledVatRate = compDetails.cod_vat_dic ? '20' : '0';
+
           const items = JSON.stringify([{
             name: itemName,
             quantity: 1,
             unitPrice: amount.toFixed(2),
             totalPrice: amount.toFixed(2),
-            vatRate: '20',
+            vatRate: scheduledVatRate,
           }]);
 
           const customerNameStr = customerNameLookup[customerId] || contractNumber;
 
-          const legacyComp = companyInfoMap[String(r.cli_id)] || {};
           const billingCompName = legacyComp.com_name || companyMap[String(r.cli_id)] || null;
           const billingCountryVal = legacyComp.com_country_code || null;
+          const billingTaxId = compDetails.cod_ico || null;
+          const billingVatId = compDetails.cod_dic || compDetails.cod_vat_dic || null;
+          const billingBankName = primaryAccount.acc_bank_name || null;
+          const billingBankIban = primaryAccount.acc_IBAN || null;
+          const billingBankSwift = primaryAccount.acc_SWIFT || null;
 
           try {
             await pgPool.query(`
@@ -3080,12 +3136,16 @@ async function step11_customerContracts() {
                 id, customer_id, scheduled_date, installment_number, total_installments,
                 status, currency, payment_term_days, items, total_amount,
                 customer_name, created_at, created_by,
-                billing_company_name, billing_country
+                billing_company_name, billing_country,
+                billing_tax_id, billing_vat_id,
+                billing_bank_name, billing_bank_iban, billing_bank_swift
               ) VALUES (
                 gen_random_uuid(), $1, $2, $3, $4,
                 'pending', 'EUR', 14, $5, $6,
                 $7, $8, 'migration-v20',
-                $9, $10
+                $9, $10,
+                $11, $12,
+                $13, $14, $15
               )
             `, [
               customerId,
@@ -3098,6 +3158,11 @@ async function step11_customerContracts() {
               r.con_inserted || new Date(),
               billingCompName,
               billingCountryVal,
+              billingTaxId,
+              billingVatId,
+              billingBankName,
+              billingBankIban,
+              billingBankSwift,
             ]);
             insertedSI++;
           } catch (siErr) {
@@ -3263,6 +3328,38 @@ async function step12_customerInvoices() {
       log(`  Vzorka Company: ${JSON.stringify(compRes.recordset[0])}`);
     }
   } catch (err) { log(`  WARN company map: ${err.message}`); }
+
+  const companyDetailsMap = {};
+  try {
+    const cdRes = await mssqlPool.request().query(`SELECT * FROM CompanyDetails`);
+    for (const r of cdRes.recordset) {
+      const comId = r.com_id || r.cod_com_id;
+      if (comId) companyDetailsMap[String(comId)] = r;
+    }
+    log(`  CompanyDetails: ${Object.keys(companyDetailsMap).length} záznamov`);
+  } catch (err) { log(`  WARN CompanyDetails: ${err.message}`); }
+
+  const companyAccountsMap = {};
+  try {
+    const caRes = await mssqlPool.request().query(`SELECT * FROM CompanyAccounts`);
+    for (const r of caRes.recordset) {
+      const comId = r.com_id;
+      if (comId) {
+        if (!companyAccountsMap[String(comId)]) companyAccountsMap[String(comId)] = [];
+        companyAccountsMap[String(comId)].push(r);
+      }
+    }
+    log(`  CompanyAccounts: ${Object.keys(companyAccountsMap).length} firiem s účtami`);
+  } catch (err) { log(`  WARN CompanyAccounts: ${err.message}`); }
+
+  const vatRatesMap = {};
+  try {
+    const vatRes = await mssqlPool.request().query(`SELECT * FROM VATs ORDER BY vat_id`);
+    for (const r of vatRes.recordset) {
+      vatRatesMap[String(r.vat_id)] = r;
+    }
+    log(`  VATs: ${Object.keys(vatRatesMap).length} sadzby DPH`);
+  } catch (err) { log(`  WARN VATs: ${err.message}`); }
 
   // Query invoices with all available fields
   // Actual CBC columns: inv_id, ity_id, cur_code_home, cur_code_account, ist_id, cse_id,
@@ -3536,6 +3633,21 @@ async function step12_customerInvoices() {
         city: r.billing_addr_city, zip: r.billing_addr_zip,
         country: r.billing_addr_country, area: r.billing_addr_area,
       } : null,
+      companyDetails: (() => {
+        const comp = cliId ? (companyInfoMap[cliId] || {}) : {};
+        const comId = comp.com_id ? String(comp.com_id) : null;
+        const cd = comId ? (companyDetailsMap[comId] || {}) : {};
+        const ca = comId ? ((companyAccountsMap[comId] || [])[0] || {}) : {};
+        return {
+          ico: cd.cod_ico || null,
+          dic: cd.cod_dic || null,
+          vatDic: cd.cod_vat_dic || null,
+          bankName: ca.acc_bank_name || null,
+          iban: ca.acc_IBAN || null,
+          swift: ca.acc_SWIFT || null,
+          bankCode: ca.acc_account_bank_code || null,
+        };
+      })(),
       items: invoiceItemsMap[String(r.inv_id)] || [],
       scheduledPayments: scheduledPaymentsMap[String(r.inv_id)] || [],
       realizedPayments: realizedPaymentsMap[String(r.inv_id)] || [],
@@ -3604,6 +3716,11 @@ async function step12_customerInvoices() {
       // 2) Insert into invoices module (main invoices table)
       const rawInvNum = r.inv_invoice_number || r.inv_variable_symbol || `${r.inv_id}`;
       const invoiceNumberForModule = `CBC-${rawInvNum}`;
+      const invComp = cliId ? (companyInfoMap[cliId] || {}) : {};
+      const invComId = invComp.com_id ? String(invComp.com_id) : null;
+      const invCompDetails = invComId ? (companyDetailsMap[invComId] || {}) : {};
+      const invCompAccounts = invComId ? ((companyAccountsMap[invComId] || [])[0] || {}) : {};
+
       await pgPool.query(`
         INSERT INTO invoices (
           id, invoice_number, legacy_id, customer_id,
@@ -3613,6 +3730,8 @@ async function step12_customerInvoices() {
           delivery_date, issue_date, send_date, due_date,
           period_from, period_to,
           billing_company_name, billing_address, billing_country,
+          billing_tax_id, billing_vat_id,
+          billing_bank_name, billing_bank_iban, billing_bank_swift,
           contract_instance_id,
           data_source, legacy_data, note,
           generated_at, created_at
@@ -3625,9 +3744,11 @@ async function step12_customerInvoices() {
           $12, $13, $14, $15,
           $16, $17,
           $18, $19, $20,
-          $21,
-          'iscbc', $22, $23,
-          $24, $24
+          $21, $22,
+          $23, $24, $25,
+          $26,
+          'iscbc', $27, $28,
+          $29, $29
         )
       `, [
         invoiceNumberForModule,                                                        // $1
@@ -3650,10 +3771,15 @@ async function step12_customerInvoices() {
         companyName,                                                                   // $18
         r.billing_addr_street ? [r.billing_addr_street, r.billing_addr_city, r.billing_addr_zip].filter(Boolean).join(', ') : null, // $19 billing_address
         r.billing_addr_country ? r.billing_addr_country.replace('COUNTRY_', '') : null,  // $20 billing_country
-        contractInstanceId,                                                            // $21
-        JSON.stringify(legacyData),                                                    // $22
-        r.inv_note || null,                                                            // $23
-        r.inv_inserted || r.inv_date_of_issue || new Date(),                           // $24
+        invCompDetails.cod_ico || null,                                                // $21 billing_tax_id (IČO)
+        invCompDetails.cod_dic || invCompDetails.cod_vat_dic || null,                  // $22 billing_vat_id (DIČ)
+        invCompAccounts.acc_bank_name || null,                                         // $23 billing_bank_name
+        invCompAccounts.acc_IBAN || null,                                              // $24 billing_bank_iban
+        invCompAccounts.acc_SWIFT || null,                                             // $25 billing_bank_swift
+        contractInstanceId,                                                            // $26
+        JSON.stringify(legacyData),                                                    // $27
+        r.inv_note || null,                                                            // $28
+        r.inv_inserted || r.inv_date_of_issue || new Date(),                           // $29
       ]);
 
       inserted++;

@@ -2736,53 +2736,85 @@ function InvoiceDetailDrawer({
                 {(() => {
                   const lbc = (invoice as any).legacyData?.legacyBillingCompany || {};
                   const billingAddr = (invoice as any).legacyData?.billingAddress || null;
+                  const compDetails = (invoice as any).legacyData?.companyDetails || {};
                   const compName = invoice.billingCompanyName || lbc.com_name || '-';
                   const compCode = lbc.com_code || null;
                   const currency = lbc.cur_code || invoice.currency || null;
                   const country = lbc.com_country_code || null;
                   const orgCode = lbc.com_sec_org_code || null;
+                  const taxId = invoice.billingTaxId || compDetails.ico || null;
+                  const vatId = invoice.billingVatId || compDetails.dic || compDetails.vatDic || null;
+                  const bankIban = invoice.billingBankIban || compDetails.iban || null;
+                  const bankSwift = invoice.billingBankSwift || compDetails.swift || null;
+                  const bankName = invoice.billingBankName || compDetails.bankName || null;
                   return (
-                    <div className="grid grid-cols-2 gap-2 text-sm bg-orange-50/50 dark:bg-orange-950/10 p-3 rounded-lg border border-orange-100 dark:border-orange-900">
-                      <div className="col-span-2">
-                        <Label className="text-muted-foreground text-[10px]">{t.invoices?.companyName || "Company"}</Label>
-                        <p className="font-medium">{compName}</p>
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-2 gap-2 text-sm bg-orange-50/50 dark:bg-orange-950/10 p-3 rounded-lg border border-orange-100 dark:border-orange-900">
+                        <div className="col-span-2">
+                          <Label className="text-muted-foreground text-[10px]">{t.invoices?.companyName || "Company"}</Label>
+                          <p className="font-medium">{compName}</p>
+                        </div>
+                        {billingAddr && (
+                          <div className="col-span-2">
+                            <Label className="text-muted-foreground text-[10px]">{t.customers?.address || "Address"}</Label>
+                            <p>{billingAddr.street || billingAddr.name || '-'}</p>
+                            <p>{[billingAddr.zip, billingAddr.city].filter(Boolean).join(' ')}{billingAddr.country ? ` (${billingAddr.country.replace('COUNTRY_', '')})` : ''}</p>
+                          </div>
+                        )}
+                        {!billingAddr && (invoice.billingAddress || invoice.billingCountry) && (
+                          <div className="col-span-2">
+                            <Label className="text-muted-foreground text-[10px]">{t.customers?.address || "Address"}</Label>
+                            <p>{invoice.billingAddress || '-'}</p>
+                            <p>{invoice.billingCountry || ''}</p>
+                          </div>
+                        )}
+                        {taxId && (
+                          <div>
+                            <Label className="text-muted-foreground text-[10px]">{t.invoices?.taxId || "IČO"}</Label>
+                            <p>{taxId}</p>
+                          </div>
+                        )}
+                        {vatId && (
+                          <div>
+                            <Label className="text-muted-foreground text-[10px]">{t.invoices?.vatId || "DIČ"}</Label>
+                            <p>{vatId}</p>
+                          </div>
+                        )}
+                        {compCode && (
+                          <div>
+                            <Label className="text-muted-foreground text-[10px]">Code</Label>
+                            <p>{compCode}</p>
+                          </div>
+                        )}
+                        {currency && (
+                          <div>
+                            <Label className="text-muted-foreground text-[10px]">{t.invoices?.currency || "Currency"}</Label>
+                            <p>{currency}</p>
+                          </div>
+                        )}
+                        {country && !billingAddr && (
+                          <div>
+                            <Label className="text-muted-foreground text-[10px]">{t.customers?.country || "Country"}</Label>
+                            <p>{country?.replace('COUNTRY_', '')}</p>
+                          </div>
+                        )}
                       </div>
-                      {billingAddr && (
-                        <div className="col-span-2">
-                          <Label className="text-muted-foreground text-[10px]">{t.customers?.address || "Address"}</Label>
-                          <p>{billingAddr.street || billingAddr.name || '-'}</p>
-                          <p>{[billingAddr.zip, billingAddr.city].filter(Boolean).join(' ')}{billingAddr.country ? ` (${billingAddr.country.replace('COUNTRY_', '')})` : ''}</p>
-                        </div>
-                      )}
-                      {!billingAddr && (invoice.billingAddress || invoice.billingCountry) && (
-                        <div className="col-span-2">
-                          <Label className="text-muted-foreground text-[10px]">{t.customers?.address || "Address"}</Label>
-                          <p>{invoice.billingAddress || '-'}</p>
-                          <p>{invoice.billingCountry || ''}</p>
-                        </div>
-                      )}
-                      {compCode && (
-                        <div>
-                          <Label className="text-muted-foreground text-[10px]">Code</Label>
-                          <p>{compCode}</p>
-                        </div>
-                      )}
-                      {orgCode && (
-                        <div>
-                          <Label className="text-muted-foreground text-[10px]">Organization</Label>
-                          <p>{orgCode}</p>
-                        </div>
-                      )}
-                      {currency && (
-                        <div>
-                          <Label className="text-muted-foreground text-[10px]">{t.invoices?.currency || "Currency"}</Label>
-                          <p>{currency}</p>
-                        </div>
-                      )}
-                      {country && !billingAddr && (
-                        <div>
-                          <Label className="text-muted-foreground text-[10px]">{t.customers?.country || "Country"}</Label>
-                          <p>{country?.replace('COUNTRY_', '')}</p>
+                      {bankIban && (
+                        <div className="grid grid-cols-2 gap-2 text-sm bg-blue-50/50 dark:bg-blue-950/10 p-3 rounded-lg border border-blue-100 dark:border-blue-900">
+                          <div className="col-span-2">
+                            <Label className="text-muted-foreground text-[10px]">{t.invoices?.bankAccount || "Bank Account"}</Label>
+                            <p className="font-medium">{bankName || '-'}</p>
+                          </div>
+                          <div className="col-span-2">
+                            <Label className="text-muted-foreground text-[10px]">IBAN</Label>
+                            <p className="font-mono text-xs">{bankIban}</p>
+                          </div>
+                          {bankSwift && (
+                            <div>
+                              <Label className="text-muted-foreground text-[10px]">SWIFT/BIC</Label>
+                              <p className="font-mono text-xs">{bankSwift}</p>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
