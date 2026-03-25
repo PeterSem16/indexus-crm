@@ -82,6 +82,10 @@ Migration from legacy ISCBC system (MSSQL database `CBC` on `10.1.2.2:1433`) to 
 
 ### Step 12: Invoices → customer_documents + invoices
 - Source: `CBC.Invoices` joined with `CBC.InvoiceStatuses`, `CBC.InvoiceTypes`, `CBC.ContractSets`, `CBC.Contracts`, `CBC.Clients`, `CBC.Companies`, `CBC.Currencies`
+- Additional sources preloaded into `legacyData`:
+  - `CBC.InvoiceItems` — invoice line items (item name, qty, unit, unit prices, VAT rate, totals)
+  - `CBC.InvoicePayments` — payment records (name, amounts, due date, status)
+  - `CBC.InvoicePaymentItems` / `CBC.PaymentSubItems` — payment sub-items (payment date, amounts, exchange rate, payment type, document, account, bank, VS, message, note)
 - Target: **dual insert** into:
   1. `customer_documents` (customer profile Documents tab)
   2. `invoices` (main Invoices module)
@@ -89,6 +93,9 @@ Migration from legacy ISCBC system (MSSQL database `CBC` on `10.1.2.2:1433`) to 
 - Invoice number in module: `CBC-{original_number}` (unique prefix)
 - Company name: chain `Contracts.cli_id → Clients.com_id → Companies.com_name`
 - Contract instance link: `contract_instance_id` via `internal_id = "contract_{con_id}"`
+- Legacy data structure in `legacyData` JSON field includes `items[]`, `payments[].subItems[]`
+- New column: `invoices.pdf_downloaded_at` — tracks when PDF was downloaded from INDEXUS
+- UI: "Legacy" tab in Invoice Detail drawer shows items, payments with expandable sub-items
 
 #### Status Mapping
 | CBC Status Code | Normalized | Invoices Module Status |

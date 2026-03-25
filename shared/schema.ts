@@ -875,6 +875,7 @@ export const invoices = pgTable("invoices", {
   legacyData: jsonb("legacy_data").$type<Record<string, any>>(),
   contractInstanceId: varchar("contract_instance_id"),
   note: text("note"),
+  pdfDownloadedAt: timestamp("pdf_downloaded_at"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at"),
 });

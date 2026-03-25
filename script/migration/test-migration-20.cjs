@@ -2749,6 +2749,98 @@ async function step12_customerInvoices() {
     log(`  Zaplatené: ${paidCount}, Nezaplatené: ${unpaidCount}`);
   }
 
+  // Ensure pdf_downloaded_at column
+  try {
+    await pgPool.query(`ALTER TABLE invoices ADD COLUMN IF NOT EXISTS pdf_downloaded_at timestamp`);
+    log('  ✓ invoices.pdf_downloaded_at stĺpec overený');
+  } catch (err) { log(`  WARN pdf_downloaded_at: ${err.message}`); }
+
+  // --- Preload InvoiceItems (legacy invoice line items) ---
+  const invoiceItemsMap = {}; // inv_id → items[]
+  try {
+    const iiCols = await mssqlPool.request().query(`
+      SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'InvoiceItems' ORDER BY ORDINAL_POSITION
+    `);
+    if (iiCols.recordset.length > 0) {
+      log(`  InvoiceItems stĺpce: ${iiCols.recordset.map(r => r.COLUMN_NAME).join(', ')}`);
+      const invIds = invoices.recordset.map(r => r.inv_id).join(',');
+      const iiRes = await mssqlPool.request().query(`
+        SELECT * FROM InvoiceItems WHERE inv_id IN (${invIds}) ORDER BY inv_id, ini_id
+      `);
+      log(`  InvoiceItems: ${iiRes.recordset.length} záznamov`);
+      for (const item of iiRes.recordset) {
+        const key = String(item.inv_id);
+        if (!invoiceItemsMap[key]) invoiceItemsMap[key] = [];
+        invoiceItemsMap[key].push(item);
+      }
+      if (iiRes.recordset.length > 0) {
+        log(`  Vzorka InvoiceItem: ${JSON.stringify(iiRes.recordset[0])}`);
+      }
+    } else {
+      log('  InvoiceItems tabuľka neexistuje alebo je prázdna');
+    }
+  } catch (err) { log(`  WARN InvoiceItems: ${err.message}`); }
+
+  // --- Preload InvoicePayments (legacy payment records) ---
+  const invoicePaymentsMap = {}; // inv_id → payments[]
+  try {
+    const ipCols = await mssqlPool.request().query(`
+      SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'InvoicePayments' ORDER BY ORDINAL_POSITION
+    `);
+    if (ipCols.recordset.length > 0) {
+      log(`  InvoicePayments stĺpce: ${ipCols.recordset.map(r => r.COLUMN_NAME).join(', ')}`);
+      const invIds = invoices.recordset.map(r => r.inv_id).join(',');
+      const ipRes = await mssqlPool.request().query(`
+        SELECT * FROM InvoicePayments WHERE inv_id IN (${invIds}) ORDER BY inv_id, inp_id
+      `);
+      log(`  InvoicePayments: ${ipRes.recordset.length} záznamov`);
+      for (const pay of ipRes.recordset) {
+        const key = String(pay.inv_id);
+        if (!invoicePaymentsMap[key]) invoicePaymentsMap[key] = [];
+        invoicePaymentsMap[key].push(pay);
+      }
+      if (ipRes.recordset.length > 0) {
+        log(`  Vzorka InvoicePayment: ${JSON.stringify(ipRes.recordset[0])}`);
+      }
+    } else {
+      log('  InvoicePayments tabuľka neexistuje');
+    }
+  } catch (err) { log(`  WARN InvoicePayments: ${err.message}`); }
+
+  // --- Preload PaymentSubItems / InvoicePaymentItems (sub-items of payments) ---
+  const paymentSubItemsMap = {}; // inp_id → subItems[]
+  for (const tblName of ['InvoicePaymentItems', 'PaymentSubItems', 'PaymentItems']) {
+    try {
+      const psiCols = await mssqlPool.request().query(`
+        SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '${tblName}' ORDER BY ORDINAL_POSITION
+      `);
+      if (psiCols.recordset.length > 0) {
+        log(`  ${tblName} stĺpce: ${psiCols.recordset.map(r => r.COLUMN_NAME).join(', ')}`);
+        // Gather all inp_ids from payments
+        const allInpIds = [];
+        for (const pays of Object.values(invoicePaymentsMap)) {
+          for (const p of pays) { if (p.inp_id) allInpIds.push(p.inp_id); }
+        }
+        if (allInpIds.length > 0) {
+          const psiRes = await mssqlPool.request().query(`
+            SELECT * FROM ${tblName} WHERE inp_id IN (${allInpIds.join(',')}) ORDER BY inp_id
+          `);
+          log(`  ${tblName}: ${psiRes.recordset.length} záznamov`);
+          for (const sub of psiRes.recordset) {
+            const key = String(sub.inp_id);
+            if (!paymentSubItemsMap[key]) paymentSubItemsMap[key] = [];
+            paymentSubItemsMap[key].push(sub);
+          }
+          if (psiRes.recordset.length > 0) {
+            log(`  Vzorka ${tblName}: ${JSON.stringify(psiRes.recordset[0])}`);
+          }
+        }
+        break; // Found valid table, stop looking
+      }
+    } catch (err) { /* table doesn't exist, try next */ }
+  }
+  log(`  Mapy načítané: items=${Object.keys(invoiceItemsMap).length} faktúr, payments=${Object.keys(invoicePaymentsMap).length} faktúr, subItems=${Object.keys(paymentSubItemsMap).length} platieb`);
+
   let inserted = 0, skipped = 0, errors = 0;
   for (const r of invoices.recordset) {
     const cliId = cseToClient[String(r.cse_id)];
@@ -2799,6 +2891,11 @@ async function step12_customerInvoices() {
       proforma_link: r.inv_id_proforma_link || null,
       inserted_by: r.inv_inserted_by || null,
       updated_by: r.inv_updated_by || null,
+      items: invoiceItemsMap[String(r.inv_id)] || [],
+      payments: (invoicePaymentsMap[String(r.inv_id)] || []).map(p => ({
+        ...p,
+        subItems: paymentSubItemsMap[String(p.inp_id)] || [],
+      })),
     };
 
     // Map invoice status to invoices module status

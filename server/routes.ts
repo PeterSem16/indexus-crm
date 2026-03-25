@@ -7634,6 +7634,10 @@ Return ONLY valid JSON, no markdown code blocks.`,
         return res.status(404).json({ error: "Customer not found" });
       }
 
+      try {
+        await db.update(invoices).set({ pdfDownloadedAt: new Date() }).where(eq(invoices.id, req.params.id));
+      } catch (e) { /* non-critical */ }
+
       const invoiceItems = await storage.getInvoiceItems(invoice.id);
       const customerProducts = await storage.getCustomerProducts(invoice.customerId);
 

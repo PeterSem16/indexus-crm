@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, Fragment } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Search, Eye, Receipt, Loader2, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, CheckCircle2, Plus, Users, FileText, Calendar, Clock, Trash2, BarChart3, TrendingUp, FileDown, Download, CreditCard, User, Banknote, MessageSquare } from "lucide-react";
+import { Search, Eye, Receipt, Loader2, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, CheckCircle2, Plus, Users, FileText, Calendar, Clock, Trash2, BarChart3, TrendingUp, FileDown, Download, CreditCard, User, Banknote, MessageSquare, Database, ChevronDown, ChevronUp } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
@@ -2118,10 +2118,16 @@ function InvoiceDetailDrawer({
         </SheetHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-6" data-testid="tabs-invoice-detail">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className={`grid w-full ${(invoice as any).dataSource === 'iscbc' ? 'grid-cols-4' : 'grid-cols-3'}`}>
             <TabsTrigger value="details" data-testid="tab-details">{t.invoices?.tabDetails || "Details"}</TabsTrigger>
             <TabsTrigger value="items" data-testid="tab-items">{t.invoices?.tabItems || "Items"}</TabsTrigger>
             <TabsTrigger value="payments" data-testid="tab-payments">{t.invoices?.tabPayments || "Payments"}</TabsTrigger>
+            {(invoice as any).dataSource === 'iscbc' && (
+              <TabsTrigger value="legacy" data-testid="tab-legacy">
+                <Database className="h-3.5 w-3.5 mr-1" />
+                Legacy
+              </TabsTrigger>
+            )}
           </TabsList>
 
           <TabsContent value="details" className="space-y-4 mt-4">
@@ -2376,6 +2382,16 @@ function InvoiceDetailDrawer({
               formatCurrency={formatCurrency}
             />
           </TabsContent>
+
+          {(invoice as any).dataSource === 'iscbc' && (
+            <TabsContent value="legacy" className="space-y-6 mt-4">
+              <LegacyTabContent
+                invoice={invoice}
+                formatDate={formatDate}
+                formatCurrency={formatCurrency}
+              />
+            </TabsContent>
+          )}
         </Tabs>
       </SheetContent>
     </Sheet>
@@ -2701,6 +2717,246 @@ function PaymentsTabContent({
               })}
             </TableBody>
           </Table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function LegacyTabContent({
+  invoice,
+  formatDate,
+  formatCurrency,
+}: {
+  invoice: Invoice;
+  formatDate: (date?: string) => string;
+  formatCurrency: (amount?: string, currency?: string) => string;
+}) {
+  const { t } = useI18n();
+  const [expandedPayments, setExpandedPayments] = useState<Record<number, boolean>>({});
+  const legacy = (invoice as any).legacyData as Record<string, any> | null;
+
+  if (!legacy) {
+    return (
+      <div className="text-center py-8 text-muted-foreground">
+        <Database className="h-12 w-12 mx-auto mb-2 opacity-50" />
+        <p>{t.invoices?.legacy?.noData || "No legacy data available"}</p>
+      </div>
+    );
+  }
+
+  const legacyItems: any[] = legacy.items || [];
+  const legacyPayments: any[] = legacy.payments || [];
+  const homeCurrency = legacy.cur_code_home || invoice.currency || "EUR";
+  const accountCurrency = legacy.cur_code_account || "EUR";
+
+  const togglePayment = (idx: number) => {
+    setExpandedPayments(prev => ({ ...prev, [idx]: !prev[idx] }));
+  };
+
+  const fmtNum = (val: any) => {
+    if (val == null || val === '') return '-';
+    const n = parseFloat(String(val));
+    return isNaN(n) ? '-' : n.toLocaleString('sk-SK', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
+
+  const fmtDt = (val: any) => {
+    if (!val) return '-';
+    try { return new Date(val).toLocaleDateString('sk-SK'); } catch { return '-'; }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center gap-2 mb-2">
+        <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-800">
+          <Database className="h-3 w-3 mr-1" />
+          ISCBC Legacy Data
+        </Badge>
+        {legacy.inv_id && (
+          <span className="text-xs text-muted-foreground">inv_id: {legacy.inv_id}</span>
+        )}
+      </div>
+
+      {(invoice as any).pdfDownloadedAt && (
+        <div className="p-3 rounded-lg border bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800">
+          <div className="flex items-center gap-2 text-sm">
+            <Download className="h-4 w-4 text-green-600" />
+            <span className="font-medium text-green-700 dark:text-green-300">
+              {t.invoices?.legacy?.pdfDownloaded || "PDF downloaded"}:
+            </span>
+            <span className="text-green-600 dark:text-green-400">
+              {fmtDt((invoice as any).pdfDownloadedAt)}
+            </span>
+          </div>
+        </div>
+      )}
+
+      <div className="space-y-2">
+        <h4 className="text-sm font-semibold flex items-center gap-2">
+          <FileText className="h-4 w-4" />
+          {t.invoices?.legacy?.invoiceItems || "Invoice Items"} ({legacyItems.length})
+        </h4>
+        {legacyItems.length === 0 ? (
+          <p className="text-sm text-muted-foreground italic">{t.invoices?.legacy?.noItems || "No legacy items"}</p>
+        ) : (
+          <div className="border rounded-lg overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/30">
+                  <TableHead className="text-xs">{t.invoices?.legacy?.itemName || "Item"}</TableHead>
+                  <TableHead className="text-xs text-right">{t.invoices?.legacy?.quantity || "Qty"}</TableHead>
+                  <TableHead className="text-xs">{t.invoices?.legacy?.unit || "Unit"}</TableHead>
+                  <TableHead className="text-xs text-right">{t.invoices?.legacy?.unitPriceHome || "Unit price (home)"}</TableHead>
+                  <TableHead className="text-xs text-right">{t.invoices?.legacy?.unitPriceAccount || "Unit price (acc.)"}</TableHead>
+                  <TableHead className="text-xs text-right">{t.invoices?.legacy?.vatRate || "VAT %"}</TableHead>
+                  <TableHead className="text-xs text-right">{t.invoices?.legacy?.totalHome || "Total (home)"}</TableHead>
+                  <TableHead className="text-xs text-right">{t.invoices?.legacy?.totalAccount || "Total (acc.)"}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {legacyItems.map((item: any, idx: number) => (
+                  <TableRow key={idx} className="text-xs">
+                    <TableCell>{item.ini_name || item.ini_description || item.name || `Item ${idx + 1}`}</TableCell>
+                    <TableCell className="text-right">{item.ini_quantity ?? item.quantity ?? '-'}</TableCell>
+                    <TableCell>{item.ini_unit || item.unit || '-'}</TableCell>
+                    <TableCell className="text-right">{fmtNum(item.ini_unit_price_cur_home ?? item.unit_price_home)}</TableCell>
+                    <TableCell className="text-right">{fmtNum(item.ini_unit_price_cur_account ?? item.unit_price_account)}</TableCell>
+                    <TableCell className="text-right">{item.ini_vat_rate ?? item.vat_rate ?? '-'}%</TableCell>
+                    <TableCell className="text-right font-medium">{fmtNum(item.ini_amount_cur_home ?? item.amount_home)}</TableCell>
+                    <TableCell className="text-right font-medium">{fmtNum(item.ini_amount_cur_account ?? item.amount_account)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </div>
+
+      <div className="space-y-2">
+        <h4 className="text-sm font-semibold flex items-center gap-2">
+          <CreditCard className="h-4 w-4" />
+          {t.invoices?.legacy?.payments || "Legacy Payments"} ({legacyPayments.length})
+        </h4>
+        {legacyPayments.length === 0 ? (
+          <p className="text-sm text-muted-foreground italic">{t.invoices?.legacy?.noPayments || "No legacy payments"}</p>
+        ) : (
+          <div className="space-y-2">
+            {legacyPayments.map((pay: any, idx: number) => {
+              const subItems: any[] = pay.subItems || [];
+              const isExpanded = expandedPayments[idx] || false;
+
+              return (
+                <div key={idx} className="border rounded-lg overflow-hidden">
+                  <div 
+                    className="flex items-center justify-between p-3 bg-muted/20 cursor-pointer hover:bg-muted/40"
+                    onClick={() => subItems.length > 0 && togglePayment(idx)}
+                    data-testid={`legacy-payment-${idx}`}
+                  >
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">
+                          {pay.inp_name || pay.name || `Payment ${idx + 1}`}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {t.invoices?.legacy?.dueDate || "Due"}: {fmtDt(pay.inp_due_date || pay.due_date)}
+                          {(pay.inp_status || pay.status) && ` | ${pay.inp_status || pay.status}`}
+                        </p>
+                      </div>
+                      <div className="text-right text-sm shrink-0">
+                        <div>{fmtNum(pay.inp_amount_cur_home ?? pay.amount_home)} {homeCurrency}</div>
+                        {accountCurrency !== homeCurrency && (
+                          <div className="text-xs text-muted-foreground">{fmtNum(pay.inp_amount_cur_account ?? pay.amount_account)} {accountCurrency}</div>
+                        )}
+                      </div>
+                      <div className="text-right text-sm shrink-0">
+                        <div className="text-green-600 dark:text-green-400">{fmtNum(pay.inp_paid_cur_home ?? pay.paid_home)}</div>
+                        {accountCurrency !== homeCurrency && (
+                          <div className="text-xs text-muted-foreground">{fmtNum(pay.inp_paid_cur_account ?? pay.paid_account)}</div>
+                        )}
+                      </div>
+                    </div>
+                    {subItems.length > 0 && (
+                      <div className="ml-2">
+                        {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                        <span className="text-[10px] text-muted-foreground">{subItems.length}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {isExpanded && subItems.length > 0 && (
+                    <div className="border-t">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-muted/10">
+                            <TableHead className="text-[10px]">{t.invoices?.legacy?.paymentDate || "Payment date"}</TableHead>
+                            <TableHead className="text-[10px] text-right">{t.invoices?.legacy?.amountHome || "Amount (home)"}</TableHead>
+                            <TableHead className="text-[10px] text-right">{t.invoices?.legacy?.amountAccount || "Amount (acc.)"}</TableHead>
+                            <TableHead className="text-[10px] text-right">{t.invoices?.legacy?.exchangeRate || "Exch. rate"}</TableHead>
+                            <TableHead className="text-[10px]">{t.invoices?.legacy?.paymentType || "Type"}</TableHead>
+                            <TableHead className="text-[10px]">{t.invoices?.legacy?.document || "Document"}</TableHead>
+                            <TableHead className="text-[10px]">{t.invoices?.legacy?.accountNumber || "Account"}</TableHead>
+                            <TableHead className="text-[10px]">{t.invoices?.legacy?.bankName || "Bank"}</TableHead>
+                            <TableHead className="text-[10px]">{t.invoices?.legacy?.variableSymbol || "VS"}</TableHead>
+                            <TableHead className="text-[10px]">{t.invoices?.legacy?.messageForRecipient || "Message"}</TableHead>
+                            <TableHead className="text-[10px]">{t.invoices?.legacy?.note || "Note"}</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {subItems.map((sub: any, sIdx: number) => (
+                            <TableRow key={sIdx} className="text-[10px]">
+                              <TableCell>{fmtDt(sub.ipi_payment_date || sub.payment_date)}</TableCell>
+                              <TableCell className="text-right">{fmtNum(sub.ipi_amount_cur_home ?? sub.amount_home)}</TableCell>
+                              <TableCell className="text-right">{fmtNum(sub.ipi_amount_cur_account ?? sub.amount_account)}</TableCell>
+                              <TableCell className="text-right">{sub.ipi_exchange_rate ?? sub.exchange_rate ?? '-'}</TableCell>
+                              <TableCell>{sub.ipi_payment_type || sub.payment_type || '-'}</TableCell>
+                              <TableCell>{sub.ipi_document || sub.document || '-'}</TableCell>
+                              <TableCell className="font-mono text-[9px]">{sub.ipi_account_number || sub.account_number || '-'}</TableCell>
+                              <TableCell>{sub.ipi_bank_name || sub.bank_name || '-'}</TableCell>
+                              <TableCell>{sub.ipi_variable_symbol || sub.variable_symbol || '-'}</TableCell>
+                              <TableCell className="max-w-[100px] truncate">{sub.ipi_message || sub.message || '-'}</TableCell>
+                              <TableCell className="max-w-[80px] truncate">{sub.ipi_note || sub.note || '-'}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {(legacy.exchange_rate || legacy.bsp_note || legacy.credit_note_to || legacy.proforma_link) && (
+        <div className="space-y-2">
+          <h4 className="text-sm font-semibold">{t.invoices?.legacy?.additionalInfo || "Additional legacy info"}</h4>
+          <div className="grid grid-cols-2 gap-2 text-sm">
+            {legacy.exchange_rate && (
+              <div>
+                <span className="text-muted-foreground">{t.invoices?.legacy?.exchangeRate || "Exchange rate"}:</span>{' '}
+                <span className="font-medium">{legacy.exchange_rate}</span>
+              </div>
+            )}
+            {legacy.credit_note_to && (
+              <div>
+                <span className="text-muted-foreground">Credit note to:</span>{' '}
+                <span className="font-medium">{legacy.credit_note_to}</span>
+              </div>
+            )}
+            {legacy.proforma_link && (
+              <div>
+                <span className="text-muted-foreground">Proforma link:</span>{' '}
+                <span className="font-medium">{legacy.proforma_link}</span>
+              </div>
+            )}
+            {legacy.bsp_note && (
+              <div className="col-span-2">
+                <span className="text-muted-foreground">BSP Note:</span>{' '}
+                <span className="font-medium">{legacy.bsp_note}</span>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
