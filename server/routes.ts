@@ -7399,6 +7399,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
         giftVoucher: c.giftVoucher,
         internalNotes: c.internalNotes,
         clientNote: c.clientNote,
+        legacyData: (c as any).legacyData || null,
         dataSource: (c as any).dataSource || "indexus",
       }));
       
