@@ -2939,7 +2939,8 @@ async function step11_customerContracts() {
           }
           prevDate = scheduledDate;
 
-          const itemName = p.csy_name || sch.csh_name || `Splátka ${pIdx + 1}`;
+          const baseItemName = p.csy_name || sch.csh_name || 'Splátka';
+          const itemName = `${baseItemName} - ${pIdx + 1}/${payments.length}`;
           const items = JSON.stringify([{
             name: itemName,
             quantity: 1,

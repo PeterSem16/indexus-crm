@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, Fragment } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Search, Eye, Receipt, Loader2, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, CheckCircle2, Plus, Users, FileText, Calendar, Clock, Trash2, BarChart3, TrendingUp, FileDown, Download, CreditCard, User, Banknote, MessageSquare, Database, ChevronDown, ChevronUp, Building2 } from "lucide-react";
+import { Search, Eye, Receipt, Loader2, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, CheckCircle2, CheckCircle, AlertCircle, Plus, Users, FileText, Calendar, Clock, Trash2, BarChart3, TrendingUp, FileDown, Download, CreditCard, User, Banknote, MessageSquare, Database, ChevronDown, ChevronUp, Building2 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
@@ -623,7 +623,7 @@ export default function CustomerInvoicesPage() {
     return scheduledSortDirection === "asc" ? <ArrowUp className="h-4 w-4 ml-1" /> : <ArrowDown className="h-4 w-4 ml-1" />;
   };
 
-  const CHART_COLORS = ["#6B1C3B", "#8B3A5B", "#AB587B", "#CB769B", "#EB94BB", "#4A5568", "#718096"];
+  const CHART_COLORS = ["#93C5FD", "#86EFAC", "#FCA5A5", "#FDE68A", "#C4B5FD", "#FDBA74", "#A5F3FC", "#F9A8D4", "#D9F99D", "#E9D5FF"];
 
   const reportData = useMemo(() => {
     const now = new Date();
@@ -712,7 +712,50 @@ export default function CustomerInvoicesPage() {
       { name: "Plánované", value: totals.plannedTotal },
     ];
 
-    return { monthlyData, customerData, totals, pieData };
+    const paidTotal = invoices.reduce((sum, inv) => sum + convertToEur(inv.paidAmount || "0", inv.currency), 0);
+    const unpaidTotal = totals.issuedTotal - paidTotal;
+    const paymentPieData = [
+      { name: "Uhradené", value: paidTotal },
+      { name: "Neuhradené", value: unpaidTotal > 0 ? unpaidTotal : 0 },
+    ];
+
+    const byCurrency = new Map<string, { count: number; total: number; totalEur: number }>();
+    invoices.forEach(inv => {
+      const cur = inv.currency || "EUR";
+      const existing = byCurrency.get(cur) || { count: 0, total: 0, totalEur: 0 };
+      existing.count++;
+      existing.total += parseFloat(inv.totalAmount || "0");
+      existing.totalEur += convertToEur(inv.totalAmount || "0", inv.currency);
+      byCurrency.set(cur, existing);
+    });
+    const currencyData = Array.from(byCurrency.entries())
+      .map(([currency, data]) => ({ currency, ...data }))
+      .sort((a, b) => b.totalEur - a.totalEur);
+
+    const byStatus = new Map<string, number>();
+    invoices.forEach(inv => {
+      const st = inv.status || "draft";
+      byStatus.set(st, (byStatus.get(st) || 0) + 1);
+    });
+    const statusData = Array.from(byStatus.entries())
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value);
+
+    const byCompany = new Map<string, { count: number; totalEur: number }>();
+    invoices.forEach(inv => {
+      const comp = inv.billingCompanyName || "N/A";
+      const existing = byCompany.get(comp) || { count: 0, totalEur: 0 };
+      existing.count++;
+      existing.totalEur += convertToEur(inv.totalAmount || "0", inv.currency);
+      byCompany.set(comp, existing);
+    });
+    const companyData = Array.from(byCompany.entries())
+      .map(([name, data]) => ({ name, ...data }))
+      .sort((a, b) => b.totalEur - a.totalEur);
+
+    const avgInvoiceValue = totals.issuedCount > 0 ? totals.issuedTotal / totals.issuedCount : 0;
+
+    return { monthlyData, customerData, totals, pieData, paymentPieData, currencyData, statusData, companyData, avgInvoiceValue, paidTotal, unpaidTotal };
   }, [invoices, scheduledInvoices, customerMap, convertToEur]);
 
   if (isLoading) {
@@ -1538,11 +1581,11 @@ export default function CustomerInvoicesPage() {
 
         <TabsContent value="report">
           <div className="space-y-6">
-            <div className="grid gap-4 md:grid-cols-4">
-              <Card data-testid="card-issued-total">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+              <Card className="bg-blue-50/50 dark:bg-blue-950/10 border-blue-100 dark:border-blue-900" data-testid="card-issued-total">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 gap-2">
-                  <CardTitle className="text-sm font-medium">Vydané faktúry</CardTitle>
-                  <FileText className="h-4 w-4 text-muted-foreground" />
+                  <CardTitle className="text-sm font-medium text-blue-800 dark:text-blue-300">Vydané faktúry</CardTitle>
+                  <FileText className="h-4 w-4 text-blue-400" />
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">{formatCurrency(reportData.totals.issuedTotal.toString(), "EUR")}</div>
@@ -1550,10 +1593,10 @@ export default function CustomerInvoicesPage() {
                 </CardContent>
               </Card>
 
-              <Card data-testid="card-planned-total">
+              <Card className="bg-violet-50/50 dark:bg-violet-950/10 border-violet-100 dark:border-violet-900" data-testid="card-planned-total">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 gap-2">
-                  <CardTitle className="text-sm font-medium">Plánované faktúry</CardTitle>
-                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                  <CardTitle className="text-sm font-medium text-violet-800 dark:text-violet-300">Plánované faktúry</CardTitle>
+                  <Calendar className="h-4 w-4 text-violet-400" />
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">{formatCurrency(reportData.totals.plannedTotal.toString(), "EUR")}</div>
@@ -1561,27 +1604,36 @@ export default function CustomerInvoicesPage() {
                 </CardContent>
               </Card>
 
-              <Card data-testid="card-customers-count">
+              <Card className="bg-green-50/50 dark:bg-green-950/10 border-green-100 dark:border-green-900" data-testid="card-paid-total">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 gap-2">
-                  <CardTitle className="text-sm font-medium">Zákazníci</CardTitle>
-                  <Users className="h-4 w-4 text-muted-foreground" />
+                  <CardTitle className="text-sm font-medium text-green-800 dark:text-green-300">Uhradené</CardTitle>
+                  <CheckCircle className="h-4 w-4 text-green-400" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{reportData.customerData.length}</div>
-                  <p className="text-xs text-muted-foreground">s faktúrami</p>
+                  <div className="text-2xl font-bold">{formatCurrency(reportData.paidTotal.toString(), "EUR")}</div>
+                  <p className="text-xs text-muted-foreground">{reportData.totals.issuedCount > 0 ? `${Math.round(reportData.paidTotal / reportData.totals.issuedTotal * 100)}%` : '0%'} z vydaných</p>
                 </CardContent>
               </Card>
 
-              <Card data-testid="card-forecast-total">
+              <Card className="bg-amber-50/50 dark:bg-amber-950/10 border-amber-100 dark:border-amber-900" data-testid="card-avg-value">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 gap-2">
-                  <CardTitle className="text-sm font-medium">Celkom</CardTitle>
-                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                  <CardTitle className="text-sm font-medium text-amber-800 dark:text-amber-300">Ø Hodnota faktúry</CardTitle>
+                  <TrendingUp className="h-4 w-4 text-amber-400" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">
-                    {formatCurrency((reportData.totals.issuedTotal + reportData.totals.plannedTotal).toString(), "EUR")}
-                  </div>
-                  <p className="text-xs text-muted-foreground">vydané + plánované</p>
+                  <div className="text-2xl font-bold">{formatCurrency(reportData.avgInvoiceValue.toString(), "EUR")}</div>
+                  <p className="text-xs text-muted-foreground">priemer na faktúru</p>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-rose-50/50 dark:bg-rose-950/10 border-rose-100 dark:border-rose-900" data-testid="card-unpaid-total">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 gap-2">
+                  <CardTitle className="text-sm font-medium text-rose-800 dark:text-rose-300">Neuhradené</CardTitle>
+                  <AlertCircle className="h-4 w-4 text-rose-400" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{formatCurrency(Math.max(0, reportData.unpaidTotal).toString(), "EUR")}</div>
+                  <p className="text-xs text-muted-foreground">zostáva uhradiť</p>
                 </CardContent>
               </Card>
             </div>
@@ -1589,22 +1641,23 @@ export default function CustomerInvoicesPage() {
             <div className="grid gap-6 md:grid-cols-2">
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <BarChart3 className="h-5 w-5" />
-                    Mesačný prehľad
+                  <CardTitle className="flex items-center gap-2 text-sm">
+                    <BarChart3 className="h-4 w-4" />
+                    Mesačný prehľad (EUR)
                   </CardTitle>
+                  <p className="text-xs text-muted-foreground">Sumy prepočítané kurzovým lístkom NBS</p>
                 </CardHeader>
                 <CardContent>
                   <div className="h-[300px]">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={reportData.monthlyData}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="name" fontSize={12} />
-                        <YAxis fontSize={12} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                        <XAxis dataKey="name" fontSize={11} />
+                        <YAxis fontSize={11} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
                         <Tooltip formatter={(value: number) => formatCurrency(value.toString(), "EUR")} />
                         <Legend />
-                        <Bar dataKey="issued" name="Vydané" fill="#6B1C3B" />
-                        <Bar dataKey="planned" name="Plánované" fill="#AB587B" />
+                        <Bar dataKey="issued" name="Vydané" fill="#93C5FD" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="planned" name="Plánované" fill="#C4B5FD" radius={[4, 4, 0, 0]} />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
@@ -1613,9 +1666,9 @@ export default function CustomerInvoicesPage() {
 
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <TrendingUp className="h-5 w-5" />
-                    Pomer vydané / plánované
+                  <CardTitle className="flex items-center gap-2 text-sm">
+                    <TrendingUp className="h-4 w-4" />
+                    Stav úhrad
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -1623,16 +1676,85 @@ export default function CustomerInvoicesPage() {
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Pie
-                          data={reportData.pieData}
+                          data={reportData.paymentPieData}
                           cx="50%"
                           cy="50%"
                           labelLine={false}
                           label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
                           outerRadius={100}
+                          innerRadius={40}
                           fill="#8884d8"
                           dataKey="value"
                         >
-                          {reportData.pieData.map((_, index) => (
+                          <Cell fill="#86EFAC" />
+                          <Cell fill="#FCA5A5" />
+                        </Pie>
+                        <Tooltip formatter={(value: number) => formatCurrency(value.toString(), "EUR")} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="grid gap-6 md:grid-cols-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-sm">
+                    <Banknote className="h-4 w-4" />
+                    Rozdelenie podľa meny
+                  </CardTitle>
+                  <p className="text-xs text-muted-foreground">Prepočet na EUR podľa kurzového lístka NBS</p>
+                </CardHeader>
+                <CardContent>
+                  <Table data-testid="table-currency-breakdown">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Mena</TableHead>
+                        <TableHead className="text-right">Počet</TableHead>
+                        <TableHead className="text-right">V originálnej mene</TableHead>
+                        <TableHead className="text-right">V EUR</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {reportData.currencyData.map((row) => (
+                        <TableRow key={row.currency}>
+                          <TableCell>
+                            <Badge variant="outline" className="bg-blue-50 dark:bg-blue-950">{row.currency}</Badge>
+                          </TableCell>
+                          <TableCell className="text-right">{row.count}</TableCell>
+                          <TableCell className="text-right font-mono text-xs">{formatCurrency(row.total.toString(), row.currency)}</TableCell>
+                          <TableCell className="text-right font-medium">{formatCurrency(row.totalEur.toString(), "EUR")}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-sm">
+                    <Building2 className="h-4 w-4" />
+                    Rozdelenie podľa fakturačnej spoločnosti
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-[250px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={reportData.companyData}
+                          cx="50%"
+                          cy="50%"
+                          labelLine={false}
+                          label={({ name, percent }) => percent > 0.05 ? `${name}: ${(percent * 100).toFixed(0)}%` : ''}
+                          outerRadius={90}
+                          innerRadius={35}
+                          fill="#8884d8"
+                          dataKey="totalEur"
+                        >
+                          {reportData.companyData.map((_, index) => (
                             <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                           ))}
                         </Pie>
@@ -1646,10 +1768,11 @@ export default function CustomerInvoicesPage() {
 
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Calendar className="h-5 w-5" />
-                  {t.invoices?.monthlyForecast || "Monthly Forecast from Scheduled Invoices"}
+                <CardTitle className="flex items-center gap-2 text-sm">
+                  <Calendar className="h-4 w-4" />
+                  {t.invoices?.monthlyForecast || "Prognóza plánovaných splátok"}
                 </CardTitle>
+                <p className="text-xs text-muted-foreground">Prepočítané na EUR podľa aktuálneho kurzového lístka</p>
               </CardHeader>
               <CardContent>
                 {(() => {
@@ -1693,33 +1816,46 @@ export default function CustomerInvoicesPage() {
                   const grandCount = forecastData.reduce((sum, m) => sum + m.count, 0);
 
                   return (
-                    <Table data-testid="table-monthly-forecast">
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>{t.invoices?.month || "Month"}</TableHead>
-                          <TableHead className="text-right">{t.invoices?.invoiceCount || "Invoices"}</TableHead>
-                          <TableHead className="text-right">{t.invoices?.expectedAmount || "Expected Amount"} (EUR)</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {forecastData.map((m, idx) => (
-                          <TableRow key={idx}>
-                            <TableCell className="font-medium capitalize">{m.label}</TableCell>
-                            <TableCell className="text-right">
-                              <Badge variant="outline">{m.count}</Badge>
-                            </TableCell>
-                            <TableCell className="text-right font-medium">{formatCurrency(m.totalEur.toString(), "EUR")}</TableCell>
+                    <div className="space-y-4">
+                      <div className="h-[200px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={forecastData}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                            <XAxis dataKey="label" fontSize={10} angle={-30} textAnchor="end" height={60} />
+                            <YAxis fontSize={11} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+                            <Tooltip formatter={(value: number) => formatCurrency(value.toString(), "EUR")} />
+                            <Bar dataKey="totalEur" name="Očakávaná suma (EUR)" fill="#C4B5FD" radius={[4, 4, 0, 0]} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                      <Table data-testid="table-monthly-forecast">
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>{t.invoices?.month || "Mesiac"}</TableHead>
+                            <TableHead className="text-right">Počet faktúr</TableHead>
+                            <TableHead className="text-right">Očakávaná suma (EUR)</TableHead>
                           </TableRow>
-                        ))}
-                        <TableRow className="border-t-2 font-bold">
-                          <TableCell>{t.invoices?.total || "Total"}</TableCell>
-                          <TableCell className="text-right">
-                            <Badge variant="secondary">{grandCount}</Badge>
-                          </TableCell>
-                          <TableCell className="text-right">{formatCurrency(grandTotal.toString(), "EUR")}</TableCell>
-                        </TableRow>
-                      </TableBody>
-                    </Table>
+                        </TableHeader>
+                        <TableBody>
+                          {forecastData.map((m, idx) => (
+                            <TableRow key={idx}>
+                              <TableCell className="font-medium capitalize">{m.label}</TableCell>
+                              <TableCell className="text-right">
+                                <Badge variant="outline" className="bg-violet-50 dark:bg-violet-950">{m.count}</Badge>
+                              </TableCell>
+                              <TableCell className="text-right font-medium">{formatCurrency(m.totalEur.toString(), "EUR")}</TableCell>
+                            </TableRow>
+                          ))}
+                          <TableRow className="border-t-2 font-bold bg-muted/30">
+                            <TableCell>{t.invoices?.total || "Celkom"}</TableCell>
+                            <TableCell className="text-right">
+                              <Badge variant="secondary">{grandCount}</Badge>
+                            </TableCell>
+                            <TableCell className="text-right">{formatCurrency(grandTotal.toString(), "EUR")}</TableCell>
+                          </TableRow>
+                        </TableBody>
+                      </Table>
+                    </div>
                   );
                 })()}
               </CardContent>
@@ -1727,22 +1863,22 @@ export default function CustomerInvoicesPage() {
 
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="h-5 w-5" />
-                  Top 10 zákazníkov podľa hodnoty faktúr
+                <CardTitle className="flex items-center gap-2 text-sm">
+                  <Users className="h-4 w-4" />
+                  Top 10 zákazníkov podľa hodnoty faktúr (EUR)
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="h-[350px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={reportData.customerData} layout="vertical">
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis type="number" fontSize={12} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
-                      <YAxis dataKey="name" type="category" fontSize={11} width={120} />
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                      <XAxis type="number" fontSize={11} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+                      <YAxis dataKey="name" type="category" fontSize={10} width={130} />
                       <Tooltip formatter={(value: number) => formatCurrency(value.toString(), "EUR")} />
                       <Legend />
-                      <Bar dataKey="issued" name="Vydané" fill="#6B1C3B" />
-                      <Bar dataKey="planned" name="Plánované" fill="#AB587B" />
+                      <Bar dataKey="issued" name="Vydané" fill="#93C5FD" radius={[0, 4, 4, 0]} />
+                      <Bar dataKey="planned" name="Plánované" fill="#FDE68A" radius={[0, 4, 4, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -2547,8 +2683,8 @@ function InvoiceDetailDrawer({
               </div>
             )}
 
-            {/* Billing Company Metadata */}
-            {invoice.billingCompanyName && (
+            {/* Billing Company Metadata - only for non-ISCBC invoices or when billing details exist */}
+            {invoice.billingCompanyName && (invoice as any).dataSource !== 'iscbc' && (
               <div className="border-t pt-4 mt-4">
                 <h4 className="font-medium mb-3">{t.invoices?.billingCompany || "Billing Company"}</h4>
                 <div className="grid grid-cols-2 gap-3 text-sm">
@@ -2575,52 +2711,53 @@ function InvoiceDetailDrawer({
               </div>
             )}
 
-            {/* Legacy Billing Company (ISCBC) */}
-            {(invoice as any).dataSource === 'iscbc' && (invoice as any).legacyData?.legacyBillingCompany && (
+            {/* Legacy Billing Company (ISCBC) - combined view */}
+            {(invoice as any).dataSource === 'iscbc' && (
               <div className="border-t pt-4 mt-4">
                 <h4 className="font-medium mb-3 flex items-center gap-2">
                   <Database className="h-4 w-4" />
-                  Legacy Billing Company
+                  {t.invoices?.billingCompany || "Billing Company"}
                   <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-800">
                     ISCBC
                   </Badge>
                 </h4>
                 {(() => {
-                  const lbc = (invoice as any).legacyData.legacyBillingCompany;
-                  const labelMap: Record<string, string> = {
-                    com_name: "Company Name",
-                    com_code: "Code",
-                    com_country_code: "Country",
-                    cur_code: "Currency",
-                    com_entity_code: "Entity Code",
-                    com_sec_org_code: "Organization",
-                    com_invoice_barcode_letter: "Barcode Letter",
-                    com_ext_id: "External ID",
-                    com_id: "CBC ID",
-                    com_street: "Street", com_city: "City", com_zip: "ZIP",
-                    com_country: "Country",
-                    com_tax_id: "Tax ID (IČO)", com_ico: "IČO", com_dic: "DIČ",
-                    com_vat_id: "VAT ID (DIČ DPH)", com_vat: "VAT",
-                    com_email: "Email", com_phone: "Phone", com_fax: "Fax",
-                    com_bank_account: "Bank Account", com_iban: "IBAN",
-                    com_swift: "SWIFT", com_bank_name: "Bank",
-                    com_address: "Address", com_registration: "Registration",
-                    com_web: "Web", com_note: "Note",
-                  };
-                  const skipFields = new Set(['com_inserted', 'com_inserted_by', 'com_updated', 'com_updated_by']);
-                  const entries = Object.entries(lbc).filter(([k, v]) =>
-                    v != null && v !== '' && !skipFields.has(k)
-                  );
+                  const lbc = (invoice as any).legacyData?.legacyBillingCompany || {};
+                  const compName = invoice.billingCompanyName || lbc.com_name || '-';
+                  const compCode = lbc.com_code || null;
+                  const currency = lbc.cur_code || invoice.currency || null;
+                  const country = lbc.com_country_code || null;
+                  const orgCode = lbc.com_sec_org_code || null;
                   return (
                     <div className="grid grid-cols-2 gap-2 text-sm bg-orange-50/50 dark:bg-orange-950/10 p-3 rounded-lg border border-orange-100 dark:border-orange-900">
-                      {entries.map(([key, val]) => (
-                        <div key={key} className={key === 'com_name' || key === 'com_address' || key === 'com_street' || key === 'com_registration' ? 'col-span-2' : ''}>
-                          <Label className="text-muted-foreground text-[10px]">{labelMap[key] || key.replace(/^com_/, '').replace(/_/g, ' ')}</Label>
-                          <p className={`${key === 'com_name' ? 'font-medium' : ''} ${key.includes('iban') || key.includes('bank_account') ? 'font-mono text-xs' : ''}`}>
-                            {String(val)}
-                          </p>
+                      <div className="col-span-2">
+                        <Label className="text-muted-foreground text-[10px]">{t.invoices?.companyName || "Company"}</Label>
+                        <p className="font-medium">{compName}</p>
+                      </div>
+                      {compCode && (
+                        <div>
+                          <Label className="text-muted-foreground text-[10px]">Code</Label>
+                          <p>{compCode}</p>
                         </div>
-                      ))}
+                      )}
+                      {orgCode && (
+                        <div>
+                          <Label className="text-muted-foreground text-[10px]">Organization</Label>
+                          <p>{orgCode}</p>
+                        </div>
+                      )}
+                      {currency && (
+                        <div>
+                          <Label className="text-muted-foreground text-[10px]">{t.invoices?.currency || "Currency"}</Label>
+                          <p>{currency}</p>
+                        </div>
+                      )}
+                      {country && (
+                        <div>
+                          <Label className="text-muted-foreground text-[10px]">{t.customers?.country || "Country"}</Label>
+                          <p>{country?.replace('COUNTRY_', '')}</p>
+                        </div>
+                      )}
                     </div>
                   );
                 })()}
