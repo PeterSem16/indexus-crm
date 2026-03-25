@@ -34277,6 +34277,117 @@ Return ONLY the JSON object.`
     catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
+  app.post("/api/web-forms/submissions/:submissionId/fill-pdf", requireAuth, async (req, res) => {
+    try {
+      const { submissionId } = req.params;
+      const allSubs = await db.select().from((await import("@shared/schema")).webFormSubmissions)
+        .where(eq((await import("@shared/schema")).webFormSubmissions.id, submissionId));
+      if (allSubs.length === 0) return res.status(404).json({ error: "Submission not found" });
+      const submission = allSubs[0];
+      const data = JSON.parse(submission.data || "{}");
+
+      const formRows = await db.select().from((await import("@shared/schema")).webForms)
+        .where(eq((await import("@shared/schema")).webForms.id, submission.formId));
+      const form = formRows[0];
+
+      let hospitalName = "";
+      if (data.hospitalId) {
+        const hRows = await db.select().from((await import("@shared/schema")).hospitals)
+          .where(eq((await import("@shared/schema")).hospitals.id, data.hospitalId));
+        if (hRows.length > 0) hospitalName = hRows[0].name;
+      }
+
+      let productSetName = "";
+      if (data.productSetId) {
+        const psRows = await db.select().from((await import("@shared/schema")).productSets)
+          .where(eq((await import("@shared/schema")).productSets.id, data.productSetId));
+        if (psRows.length > 0) productSetName = psRows[0].name;
+      }
+
+      const motherName = [data.firstName, data.lastName].filter(Boolean).join(" ");
+      const motherAddress = [data.address, data.postalCode, data.city].filter(Boolean).join(", ");
+      const fatherName = [data.partnerName].filter(Boolean).join(" ");
+      const fatherAddress = "";
+
+      const formatDate = (val: string | undefined) => {
+        if (!val) return "";
+        const d = new Date(val);
+        if (isNaN(d.getTime())) return val;
+        return `${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}.${d.getFullYear()}`;
+      };
+
+      const productLower = (productSetName || "").toLowerCase();
+      const isStandard = productLower.includes("standard") && !productLower.includes("plus");
+      const isPremium = productLower.includes("premium") && !productLower.includes("plus");
+      const isStandardPlus = productLower.includes("standard") && productLower.includes("plus");
+      const isPremiumPlus = productLower.includes("premium") && productLower.includes("plus");
+
+      const pdfFields: Record<string, string | boolean> = {
+        "001 Cotract ID": data.contractNumber || "",
+        "002 Mother Full Name": motherName,
+        "003 Mother Living In": motherAddress,
+        "004 Mother Birth Date": formatDate(data.dateOfBirth),
+        "005 Father Full Name": fatherName,
+        "006 Father Living In": fatherAddress,
+        "007 Father Birth Date": "",
+
+        "008 Collection - Standard": isStandard,
+        "008 Collection - Premium": isPremium,
+        "008 Collection - Standar Plus": isStandardPlus,
+        "008 Collection - Premium Plsus": isPremiumPlus,
+
+        "009 Payment - 1": data.paymentMethod === "single" || data.paymentMethod === "1",
+        "009 Payment - 4": data.paymentMethod === "installments_4" || data.paymentMethod === "4",
+        "009 Payment - 8": data.paymentMethod === "installments" || data.paymentMethod === "installments_8" || data.paymentMethod === "8",
+
+        "Nachname": data.lastName || "",
+        "Vorname": data.firstName || "",
+        "Geburtsdatum_3": formatDate(data.dateOfBirth),
+        "Straße": data.address || "",
+        "PLZ": data.postalCode || "",
+        "Ort": data.city || "",
+        "Telefon 1": data.phone || data.mobile || "",
+        "Telefon 2": data.mobile && data.phone ? data.mobile : "",
+        "EMail 1": data.email || "",
+        "Geplante Entbindungsanstalt": hospitalName,
+        "Errechneter Entbindungstermin TTMMJJJJ": formatDate(data.expectedDeliveryDate || data.expectedDueDate),
+
+        "Nachname_2": data.lastName || "",
+        "Vorname_2": data.firstName || "",
+        "Geburtsdatum_4": formatDate(data.dateOfBirth),
+        "Straße_2": data.address || "",
+        "PLZ_2": data.postalCode || "",
+      };
+
+      if (data.partnerName) {
+        const parts = data.partnerName.split(" ");
+        pdfFields["Nachname_3"] = parts.length > 1 ? parts.slice(1).join(" ") : "";
+        pdfFields["Vorname_3"] = parts[0] || "";
+      }
+
+      const templatePath = path.join(process.cwd(), "uploads/pdf-templates/Balik_Rodicka_AT_Premium.pdf");
+      if (!fs.existsSync(templatePath)) {
+        return res.status(404).json({ error: "PDF template not found" });
+      }
+
+      const outputDir = path.join(process.cwd(), "uploads/filled-forms");
+      if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
+
+      const safeFileName = `Balik_Rodicka_${(data.lastName || "unknown").replace(/[^a-zA-Z0-9]/g, "_")}_${submissionId.slice(0, 8)}.pdf`;
+      const outputPath = path.join(outputDir, safeFileName);
+
+      const { fillPdfForm } = await import("./template-processor");
+      await fillPdfForm(templatePath, pdfFields, outputPath, true);
+
+      res.download(outputPath, safeFileName, (err) => {
+        if (err) console.error("[PDF Fill] Download error:", err);
+      });
+    } catch (e: any) {
+      console.error("[PDF Fill] Error:", e);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   app.get("/api/web-forms/:id/audit-log", requireAuth, async (req, res) => {
     try { res.json(await storage.getWebFormAuditLogs(req.params.id)); }
     catch (e: any) { res.status(500).json({ error: e.message }); }

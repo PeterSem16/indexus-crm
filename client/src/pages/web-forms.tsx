@@ -20,7 +20,7 @@ import {
   GripVertical, ChevronDown, ChevronRight, Loader2, CheckCircle2, X, Code,
   Clock, Users, ClipboardList, ArrowUp, ArrowDown, EyeOff,
   Columns, LayoutGrid, Maximize2, Palette, Type, Italic, Pencil, Mail, Info, Send,
-  BarChart3, TrendingUp, UserPlus, UserCheck, ShieldCheck, Calendar, Sparkles
+  BarChart3, TrendingUp, UserPlus, UserCheck, ShieldCheck, Calendar, Sparkles, FileDown
 } from "lucide-react";
 import type { WebForm, WebFormSubmission } from "@shared/schema";
 
@@ -2392,6 +2392,36 @@ function SubmissionsSheet({ formId, onClose }: { formId: string; onClose: () => 
   });
 
   const [selectedSubmission, setSelectedSubmission] = useState<any>(null);
+  const [fillingPdf, setFillingPdf] = useState(false);
+
+  const handleFillPdf = async (submissionId: string) => {
+    setFillingPdf(true);
+    try {
+      const response = await fetch(`/api/web-forms/submissions/${submissionId}/fill-pdf`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || "Failed to fill PDF");
+      }
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Balik_Rodicka_${submissionId.slice(0, 8)}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err: any) {
+      console.error("PDF fill error:", err);
+      alert(err.message || "Chyba pri vyplňovaní PDF");
+    } finally {
+      setFillingPdf(false);
+    }
+  };
 
   const fieldLabels: Record<string, string> = {
     firstName: t.webForms.firstName,
@@ -2519,7 +2549,22 @@ function SubmissionsSheet({ formId, onClose }: { formId: string; onClose: () => 
         {selectedSubmission && (
           <Dialog open onOpenChange={(o) => !o && setSelectedSubmission(null)}>
             <DialogContent className="max-w-md">
-              <DialogHeader><DialogTitle>{t.webForms.submissionDetail}</DialogTitle></DialogHeader>
+              <DialogHeader>
+                <div className="flex items-center justify-between">
+                  <DialogTitle>{t.webForms.submissionDetail}</DialogTitle>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-2"
+                    disabled={fillingPdf}
+                    onClick={() => handleFillPdf(selectedSubmission.id)}
+                    data-testid="btn-fill-pdf"
+                  >
+                    {fillingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
+                    {fillingPdf ? "Generujem..." : "Doplniť formulár"}
+                  </Button>
+                </div>
+              </DialogHeader>
               {!refData ? (
                 <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin" /></div>
               ) : (
