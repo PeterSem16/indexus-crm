@@ -1,0 +1,146 @@
+Connected to CBC.
+
+
+=== ContractServiceSurcharges ===
+Columns: css_id(numeric), cse_id(numeric), pls_id(numeric), css_original_price(money), css_actual_price(money), css_additional_data(varchar)
+Count: 202491
+  {"css_id":202501,"cse_id":1249955,"pls_id":9199,"css_original_price":-625,"css_actual_price":-625,"css_additional_data":""}
+  {"css_id":202500,"cse_id":1249951,"pls_id":9179,"css_original_price":-1050,"css_actual_price":-1050,"css_additional_data":""}
+  {"css_id":202499,"cse_id":1249922,"pls_id":9197,"css_original_price":-625,"css_actual_price":-625,"css_additional_data":""}
+
+=== HistoryContractServiceSurcharges ===
+Columns: hss_id(numeric), css_id(numeric), hss_price(money), hss_from(datetime), hss_to(datetime), hss_actual(bit), hss_inserted(datetime), hss_inserted_by(varchar), hss_note(nvarchar)
+Count: 203063
+  {"hss_id":203073,"css_id":202487,"hss_price":-625,"hss_from":"2026-03-25T13:08:41.020Z","hss_to":null,"hss_actual":true,"hss_inserted":"2026-03-25T13:08:57.050Z","hss_inserted_by":"dpetrutiu","hss_note":""}
+  {"hss_id":203072,"css_id":202501,"hss_price":-625,"hss_from":"2026-03-25T13:05:29.603Z","hss_to":null,"hss_actual":true,"hss_inserted":"2026-03-25T13:06:14.817Z","hss_inserted_by":"dpetrutiu","hss_note":""}
+  {"hss_id":203071,"css_id":202500,"hss_price":-1050,"hss_from":"2026-03-25T13:01:04.550Z","hss_to":null,"hss_actual":true,"hss_inserted":"2026-03-25T13:01:07.447Z","hss_inserted_by":"dpetrutiu","hss_note":""}
+
+=== SurchargeTypes ===
+Columns: sty_id(numeric), com_id(numeric), mpr_id(numeric), ser_id(numeric), sty_name(nvarchar), sty_is_cummulative(bit), sty_has_additional_data(bit), sty_need_verification(bit), sty_default_surcharge_fixed(money), sty_default_surcharge_percentage(numeric), sty_from(datetime), sty_to(datetime), sty_active(bit), sty_inserted(datetime), sty_inserted_by(varchar), sty_description(nvarchar), dis_id(numeric)
+Count: 1070
+  {"sty_id":1090,"com_id":5,"mpr_id":1028,"ser_id":24,"sty_name":"CONTAMINATED","sty_is_cummulative":true,"sty_has_additional_data":false,"sty_need_verification":true,"sty_default_surcharge_fixed":0,"sty_default_surcharge_percentage":0,"sty_from":"2025-12-29T00:00:00.000Z","sty_to":null,"sty_active":true,"sty_inserted":"2025-12-29T10:09:11.343Z","sty_inserted_by":"aczigler","sty_description":"","dis_id":4}
+  {"sty_id":1089,"com_id":5,"mpr_id":1037,"ser_id":24,"sty_name":"CONTAMINATED","sty_is_cummulative":true,"sty_has_additional_data":false,"sty_need_verification":true,"sty_default_surcharge_fixed":0,"sty_default_surcharge_percentage":0,"sty_from":"2025-12-29T00:00:00.000Z","sty_to":null,"sty_active":true,"sty_inserted":"2025-12-29T10:09:11.230Z","sty_inserted_by":"aczigler","sty_description":"","dis_id":4}
+  {"sty_id":1088,"com_id":5,"mpr_id":1027,"ser_id":24,"sty_name":"CONTAMINATED","sty_is_cummulative":true,"sty_has_additional_data":false,"sty_need_verification":true,"sty_default_surcharge_fixed":0,"sty_default_surcharge_percentage":0,"sty_from":"2025-12-29T00:00:00.000Z","sty_to":null,"sty_active":true,"sty_inserted":"2025-12-29T10:09:11.120Z","sty_inserted_by":"aczigler","sty_description":"","dis_id":4}
+
+=== PriceListSurcharges ===
+Columns: pls_id(numeric), sty_id(numeric), cat_id(numeric), mps_id(numeric), pls_name(nvarchar), pls_invoice_item_name(nvarchar), pls_surcharge_fixed(money), pls_surcharge_percentage(numeric), pls_analytical_account(varchar), pls_accounting_code(varchar), pls_from(datetime), pls_to(datetime), pls_active(bit), pls_inserted(datetime), pls_inserted_by(varchar), pls_updated(datetime), pls_updated_by(varchar), pls_description(nvarchar)
+Count: 7786
+  {"pls_id":9437,"sty_id":1027,"cat_id":null,"mps_id":1814,"pls_name":"Baby Expo","pls_invoice_item_name":"Baby Expo","pls_surcharge_fixed":-150,"pls_surcharge_percentage":0,"pls_analytical_account":"","pls_accounting_code":"AZPR","pls_from":"2026-01-01T00:00:00.000Z","pls_to":null,"pls_active":true,"pls_inserted":"2026-02-09T16:47:40.457Z","pls_inserted_by":"michal.kollar","pls_updated":"2026-02-09T16:48:23.230Z","pls_updated_by":"michal.kollar","pls_description":""}
+  {"pls_id":9436,"sty_id":616,"cat_id":null,"mps_id":1924,"pls_name":"Placenta only_2026","pls_invoice_item_name":"Placenta only_2026","pls_surcharge_fixed":-10050,"pls_surcharge_percentage":0,"pls_analytical_account":"","pls_accounting_code":"RS20X","pls_from":"2026-02-16T00:00:00.000Z","pls_to":null,"pls_active":true,"pls_inserted":"2026-01-28T11:32:27.790Z","pls_inserted_by":"aczigler","pls_updated":"2026-01-28T11:32:27.790Z","pls_updated_by":"aczigler","pls_description":""}
+  {"pls_id":9435,"sty_id":616,"cat_id":null,"mps_id":1920,"pls_name":"Placenta only_2026","pls_invoice_item_name":"Placenta only_2026","pls_surcharge_fixed":-5695,"pls_surcharge_percentage":0,"pls_analytical_account":"","pls_accounting_code":"RS10X","pls_from":"2026-02-16T00:00:00.000Z","pls_to":null,"pls_active":true,"pls_inserted":"2026-01-28T11:21:09.873Z","pls_inserted_by":"aczigler","pls_updated":"2026-01-28T11:21:09.873Z","pls_updated_by":"aczigler","pls_description":""}
+
+=== ContractServiceSchedules ===
+Columns: csh_id(numeric), sch_id(numeric), hcs_id(numeric), csh_name(nvarchar), csh_preliminary_schedule(bit), csh_generate_after(datetime), csh_inserted(datetime), csh_inserted_by(varchar)
+Count: 2150531
+  {"csh_id":2172158,"sch_id":5119,"hcs_id":2231205,"csh_name":"12 plati lunare_2025","csh_preliminary_schedule":true,"csh_generate_after":null,"csh_inserted":"2026-03-25T13:08:57.560Z","csh_inserted_by":"dpetrutiu"}
+  {"csh_id":2172157,"sch_id":5561,"hcs_id":2231204,"csh_name":"12 plati lunare","csh_preliminary_schedule":true,"csh_generate_after":null,"csh_inserted":"2026-03-25T13:06:17.160Z","csh_inserted_by":"dpetrutiu"}
+  {"csh_id":2172156,"sch_id":5121,"hcs_id":2231203,"csh_name":"12 plati lunare_2025","csh_preliminary_schedule":true,"csh_generate_after":null,"csh_inserted":"2026-03-25T13:06:15.330Z","csh_inserted_by":"dpetrutiu"}
+
+=== ContractServiceSchedulePayments ===
+Columns: csy_id(numeric), csh_id(numeric), csy_name(nvarchar), csy_installments_id(int), csy_amount(money), csy_paymentdate_field(varchar), csy_days_from_field_value(int), csy_days_from_previous(int), csy_inserted(datetime), csy_inserted_by(varchar)
+Count: 3233261
+  {"csy_id":3268482,"csh_id":2172158,"csy_name":"Rata 12","csy_installments_id":12,"csy_amount":1007,"csy_paymentdate_field":"Realized","csy_days_from_field_value":0,"csy_days_from_previous":30,"csy_inserted":"2026-03-25T13:08:58.877Z","csy_inserted_by":"dpetrutiu"}
+  {"csy_id":3268481,"csh_id":2172158,"csy_name":"Rata 11","csy_installments_id":11,"csy_amount":988,"csy_paymentdate_field":"Realized","csy_days_from_field_value":0,"csy_days_from_previous":30,"csy_inserted":"2026-03-25T13:08:58.770Z","csy_inserted_by":"dpetrutiu"}
+  {"csy_id":3268480,"csh_id":2172158,"csy_name":"Rata 10","csy_installments_id":10,"csy_amount":988,"csy_paymentdate_field":"Realized","csy_days_from_field_value":0,"csy_days_from_previous":30,"csy_inserted":"2026-03-25T13:08:58.660Z","csy_inserted_by":"dpetrutiu"}
+
+=== ScheduleTemplates ===
+Columns: sch_id(numeric), pri_id(numeric), plp_id(numeric), sch_name(nvarchar), sch_from(datetime), sch_to(datetime), sch_active(bit), sch_inserted(datetime), sch_inserted_by(varchar), sch_updated(datetime), sch_updated_by(varchar), sch_description(nvarchar)
+Count: 5192
+  {"sch_id":5727,"pri_id":2204,"plp_id":3071,"sch_name":"Úhrada jednou platbou","sch_from":"2026-02-17T00:00:00.000Z","sch_to":null,"sch_active":true,"sch_inserted":"2026-02-17T15:30:03.803Z","sch_inserted_by":"aczigler","sch_updated":"2026-02-17T15:30:03.803Z","sch_updated_by":"aczigler","sch_description":""}
+  {"sch_id":5726,"pri_id":2203,"plp_id":3073,"sch_name":"Úhrada jednou platbou","sch_from":"2026-02-17T00:00:00.000Z","sch_to":null,"sch_active":true,"sch_inserted":"2026-02-17T15:30:03.380Z","sch_inserted_by":"aczigler","sch_updated":"2026-02-17T15:30:03.380Z","sch_updated_by":"aczigler","sch_description":""}
+  {"sch_id":5725,"pri_id":2202,"plp_id":3069,"sch_name":"Úhrada jednou platbou","sch_from":"2026-02-17T00:00:00.000Z","sch_to":null,"sch_active":true,"sch_inserted":"2026-02-17T15:30:03.030Z","sch_inserted_by":"aczigler","sch_updated":"2026-02-17T15:30:03.030Z","sch_updated_by":"aczigler","sch_description":""}
+
+=== SchedulePaymentTemplates ===
+Columns: stp_id(numeric), sch_id(numeric), stp_name(nvarchar), stp_installment_id(int), stp_amount_fixed(money), stp_amount_percentage(numeric), stp_rest_value(bit), stp_paymentdate_field(varchar), stp_days_from_field_value(int), stp_days_from_previous(int), stp_inserted(datetime), stp_inserted_by(varchar)
+Count: 21681
+  {"stp_id":24361,"sch_id":5727,"stp_name":"Úhrada jednou platbou","stp_installment_id":1,"stp_amount_fixed":16632,"stp_amount_percentage":0,"stp_rest_value":false,"stp_paymentdate_field":"Realized","stp_days_from_field_value":14,"stp_days_from_previous":0,"stp_inserted":"2026-02-17T15:30:03.933Z","stp_inserted_by":"aczigler"}
+  {"stp_id":24360,"sch_id":5726,"stp_name":"Úhrada jednou platbou","stp_installment_id":1,"stp_amount_fixed":31416,"stp_amount_percentage":0,"stp_rest_value":false,"stp_paymentdate_field":"Realized","stp_days_from_field_value":14,"stp_days_from_previous":0,"stp_inserted":"2026-02-17T15:30:03.507Z","stp_inserted_by":"aczigler"}
+  {"stp_id":24359,"sch_id":5725,"stp_name":"Úhrada jednou platbou","stp_installment_id":1,"stp_amount_fixed":3696,"stp_amount_percentage":0,"stp_rest_value":false,"stp_paymentdate_field":"Realized","stp_days_from_field_value":14,"stp_days_from_previous":0,"stp_inserted":"2026-02-17T15:30:03.147Z","stp_inserted_by":"aczigler"}
+
+=== MarketProducts ===
+Columns: mpr_id(numeric), com_id(numeric), pro_id(numeric), mpr_name(nvarchar), mpr_active(bit), mpr_inserted(datetime), mpr_inserted_by(varchar), mpr_updated(datetime), mpr_updated_by(varchar), mpr_description(nvarchar), mpr_is_indicated(bit)
+Count: 59
+  {"mpr_id":1062,"com_id":6,"pro_id":1,"mpr_name":"Prémium + Szövet + Placenta","mpr_active":true,"mpr_inserted":"2026-02-11T09:28:48.290Z","mpr_inserted_by":"aczigler","mpr_updated":"2026-02-11T09:28:48.290Z","mpr_updated_by":"aczigler","mpr_description":"","mpr_is_indicated":false}
+  {"mpr_id":1061,"com_id":4,"pro_id":1,"mpr_name":"Odběr Placenta","mpr_active":true,"mpr_inserted":"2022-12-20T09:34:59.310Z","mpr_inserted_by":"vlehotsky","mpr_updated":"2022-12-20T09:34:59.310Z","mpr_updated_by":"vlehotsky","mpr_description":"","mpr_is_indicated":false}
+  {"mpr_id":1059,"com_id":16,"pro_id":1,"mpr_name":"PZG Basic Product","mpr_active":true,"mpr_inserted":"2021-12-29T11:47:02.730Z","mpr_inserted_by":"vlehotsky","mpr_updated":"2021-12-29T11:47:02.730Z","mpr_updated_by":"vlehotsky","mpr_description":"","mpr_is_indicated":false}
+
+=== MarketProductInstances ===
+Columns: mpi_id(numeric), mpr_id(numeric), mpi_name(nvarchar), mpi_from(datetime), mpi_to(datetime), mpi_historical_code(varchar), mpi_active(bit), mpi_inserted(datetime), mpi_inserted_by(varchar), mpi_updated(datetime), mpi_updated_by(varchar), mpi_description(nvarchar), mpi_is_storage_campaign(bit)
+Count: 522
+  {"mpi_id":1571,"mpr_id":1062,"mpi_name":"CBC AG Prémium + Szövet + Placenta + 20 éves tárolás","mpi_from":"2026-02-11T00:00:00.000Z","mpi_to":null,"mpi_historical_code":"","mpi_active":true,"mpi_inserted":"2026-02-11T09:28:49.583Z","mpi_inserted_by":"aczigler","mpi_updated":"2026-02-11T09:28:49.583Z","mpi_updated_by":"aczigler","mpi_description":"","mpi_is_storage_campaign":false}
+  {"mpi_id":1570,"mpr_id":1062,"mpi_name":"CBC AG Prémium + Szövet + Placenta + 10 éves tárolás","mpi_from":"2026-02-11T00:00:00.000Z","mpi_to":null,"mpi_historical_code":"","mpi_active":true,"mpi_inserted":"2026-02-11T09:28:49.000Z","mpi_inserted_by":"aczigler","mpi_updated":"2026-02-11T09:28:49.000Z","mpi_updated_by":"aczigler","mpi_description":"","mpi_is_storage_campaign":false}
+  {"mpi_id":1569,"mpr_id":1062,"mpi_name":"CBC AG Prémium + Szövet + Placenta + 1 éves tárolás","mpi_from":"2026-02-11T00:00:00.000Z","mpi_to":null,"mpi_historical_code":"","mpi_active":true,"mpi_inserted":"2026-02-11T09:28:48.447Z","mpi_inserted_by":"aczigler","mpi_updated":"2026-02-11T09:28:48.447Z","mpi_updated_by":"aczigler","mpi_description":"","mpi_is_storage_campaign":false}
+
+=== MarketProductServiceInstances ===
+Columns: mps_id(numeric), mpi_id(numeric), sin_id(numeric)
+Count: 1900
+  {"mps_id":2230,"mpi_id":1571,"sin_id":199}
+  {"mps_id":2229,"mpi_id":1571,"sin_id":194}
+  {"mps_id":2228,"mpi_id":1571,"sin_id":146}
+
+=== SetUpMarketProducts ===
+Columns: rmp_id(int), com_id(numeric), ret_id(numeric), mpr_id(numeric), rmp_price(numeric), rmp_dovp_zod(int), rmp_inserted(datetime), rmp_inserted_by(varchar), rmp_deleted(int)
+
+✗ SetUpMarketProducts: Invalid object name 'SetUpMarketProducts'.
+
+=== HistoryContractServices ===
+Columns: hcs_id(numeric), cse_id(numeric), hcs_price(money), hcs_from(datetime), hcs_to(datetime), hcs_actual(bit), hcs_inserted(datetime), hcs_inserted_by(varchar), hcs_note(nvarchar)
+Count: 2207903
+  {"hcs_id":2231205,"cse_id":1249881,"hcs_price":12500,"hcs_from":"2026-03-25T13:08:40.983Z","hcs_to":null,"hcs_actual":true,"hcs_inserted":"2026-03-25T13:08:57.450Z","hcs_inserted_by":"dpetrutiu","hcs_note":""}
+  {"hcs_id":2231204,"cse_id":1249956,"hcs_price":9605,"hcs_from":"2026-03-25T13:05:33.107Z","hcs_to":null,"hcs_actual":true,"hcs_inserted":"2026-03-25T13:06:17.050Z","hcs_inserted_by":"dpetrutiu","hcs_note":""}
+  {"hcs_id":2231203,"cse_id":1249955,"hcs_price":12500,"hcs_from":"2026-03-25T13:05:29.603Z","hcs_to":null,"hcs_actual":true,"hcs_inserted":"2026-03-25T13:06:15.220Z","hcs_inserted_by":"dpetrutiu","hcs_note":""}
+
+=== ContractTemplateServices ===
+Columns: cts_id(numeric), cte_id(numeric), sin_id(numeric), cts_cancellation_sanction(money), cts_overdue_penalty(money), cts_sms_aop_fee(money), cts_letter_aop_fee(money), cts_inflation_increase(bit), cts_other_sanction(nvarchar)
+Count: 5259
+  {"cts_id":5511,"cte_id":1501,"sin_id":94,"cts_cancellation_sanction":0,"cts_overdue_penalty":0,"cts_sms_aop_fee":0,"cts_letter_aop_fee":0,"cts_inflation_increase":true,"cts_other_sanction":""}
+  {"cts_id":5510,"cte_id":1501,"sin_id":85,"cts_cancellation_sanction":0,"cts_overdue_penalty":0,"cts_sms_aop_fee":0,"cts_letter_aop_fee":0,"cts_inflation_increase":true,"cts_other_sanction":""}
+  {"cts_id":5509,"cte_id":1501,"sin_id":91,"cts_cancellation_sanction":0,"cts_overdue_penalty":0,"cts_sms_aop_fee":0,"cts_letter_aop_fee":0,"cts_inflation_increase":true,"cts_other_sanction":""}
+
+=== ContractServiceInflations ===
+Columns: csi_id(numeric), cse_id(numeric), csi_original_price(money), csi_inflated_price(money), csi_year(int), csi_rate(numeric), hcs_id_before(numeric), hcs_id_after(numeric), css_id_after(numeric), csi_inserted(datetime), csi_inserted_by(varchar), csi_rollback(bit)
+Count: 729042
+  {"csi_id":732346,"cse_id":1249286,"csi_original_price":1050,"csi_inflated_price":1126.65,"csi_year":2026,"csi_rate":7.3,"hcs_id_before":2150573,"hcs_id_after":2227287,"css_id_after":null,"csi_inserted":"2026-03-02T13:47:23.003Z","csi_inserted_by":"aczigler-ro2026","csi_rollback":null}
+  {"csi_id":732345,"cse_id":1249211,"csi_original_price":920,"csi_inflated_price":987.16,"csi_year":2026,"csi_rate":7.3,"hcs_id_before":2150918,"hcs_id_after":2227399,"css_id_after":null,"csi_inserted":"2026-03-02T13:47:23.003Z","csi_inserted_by":"aczigler-ro2026","csi_rollback":null}
+  {"csi_id":732344,"cse_id":1249227,"csi_original_price":1050,"csi_inflated_price":1126.65,"csi_year":2026,"csi_rate":7.3,"hcs_id_before":2150254,"hcs_id_after":2230680,"css_id_after":null,"csi_inserted":"2026-03-02T13:47:23.003Z","csi_inserted_by":"aczigler-ro2026","csi_rollback":null}
+
+=== PriceLists ===
+Columns: pri_id(numeric), cat_id(numeric), mps_id(numeric), pri_name(nvarchar), pri_basic_price(money), pri_analytical_account(varchar), pri_accounting_code(varchar), pri_published(datetime), pri_from(datetime), pri_to(datetime), pri_active(bit), pri_inserted(datetime), pri_inserted_by(varchar), pri_updated(datetime), pri_updated_by(varchar), pri_description(nvarchar)
+Count: 2081
+  {"pri_id":2204,"cat_id":null,"mps_id":2107,"pri_name":"Základní cena od 17.2.2026","pri_basic_price":16632,"pri_analytical_account":"","pri_accounting_code":"CS05X","pri_published":null,"pri_from":"2026-02-17T00:00:00.000Z","pri_to":null,"pri_active":true,"pri_inserted":"2026-02-17T15:30:03.620Z","pri_inserted_by":"aczigler","pri_updated":"2026-02-17T15:30:03.620Z","pri_updated_by":"aczigler","pri_description":""}
+  {"pri_id":2203,"cat_id":null,"mps_id":2111,"pri_name":"Základní cena od 17.2.2026","pri_basic_price":31416,"pri_analytical_account":"","pri_accounting_code":"CS10X","pri_published":null,"pri_from":"2026-02-17T00:00:00.000Z","pri_to":null,"pri_active":true,"pri_inserted":"2026-02-17T15:30:03.257Z","pri_inserted_by":"aczigler","pri_updated":"2026-02-17T15:30:03.257Z","pri_updated_by":"aczigler","pri_description":""}
+  {"pri_id":2202,"cat_id":null,"mps_id":2103,"pri_name":"Základní cena od 17.2.2026","pri_basic_price":3696,"pri_analytical_account":"","pri_accounting_code":"CS01X","pri_published":null,"pri_from":"2026-02-17T00:00:00.000Z","pri_to":null,"pri_active":true,"pri_inserted":"2026-02-17T15:30:02.917Z","pri_inserted_by":"aczigler","pri_updated":"2026-02-17T15:30:02.917Z","pri_updated_by":"aczigler","pri_description":""}
+
+=== DiscountCategories ===
+Columns: dis_id(numeric), dis_code(varchar), dis_default_name(varchar), dis_order(int), dis_description(varchar)
+Count: 8
+  {"dis_id":8,"dis_code":"REG_DIS_VIP","dis_default_name":"VIP","dis_order":8,"dis_description":"VIP"}
+  {"dis_id":7,"dis_code":"REG_DIS_INDIVIDUAL","dis_default_name":"Individual","dis_order":7,"dis_description":"Individual"}
+  {"dis_id":6,"dis_code":"REG_DIS_FIDELITY","dis_default_name":"Fidelity","dis_order":6,"dis_description":"Fidelity"}
+
+=== ContractAmendmentTemplates ===
+Columns: cat_id(numeric), com_id(numeric), mpi_id(numeric), cat_template_number(varchar), cat_name(nvarchar), cat_copies_to_send(int), cat_sign_by_client(bit), cat_sign_by_cbc(bit), cat_repository(numeric), cat_template_queries(varchar), cat_from(datetime), cat_to(datetime), cat_active(bit), cat_inserted(datetime), cat_inserted_by(varchar), cat_updated(datetime), cat_updated_by(varchar), cat_description(nvarchar)
+Count: 2062
+  {"cat_id":166345,"com_id":2,"mpi_id":1495,"cat_template_number":"2020_04_01","cat_name":"CBCAG-KRV-List_a_navratka_pri_odstupeni","cat_copies_to_send":1,"cat_sign_by_client":true,"cat_sign_by_cbc":false,"cat_repository":1457687,"cat_template_queries":"SELECT pda.pda_title_prefix as TitlePrefix, pda.pda_first_name as FirstName, pda.pda_last_name as LastName, pda.pda_birth_date as DateOfBirth FROM amendments ame INNER JOIN contracts con ON con.con_id = ame.con_id INNER JOIN clients cli ON con.cli_id = cli.cli_id INNER JOIN persons per ON cli.per_id = per.per_id LEFT OUTER JOIN personaldata pda ON per.per_id = pda.per_id AND pda.pda_valid = 1 WHERE ame.ame_id = %AME_ID%;SELECT ps.add_street_and_number as Street, ps.add_zip as ZIP, ps.add_city as City FROM amendments ame INNER JOIN contracts con ON con.con_id = ame.con_id INNER JOIN clients cli ON con.cli_id = cli.cli_id LEFT OUTER JOIN PersonStreet ps ON cli.per_id = ps.per_id LEFT OUTER JOIN LOCALIZATIONSTRINGS los ON ps.add_country = los.LOS_KEY AND los.LOS_LG = '%LG%' WHERE ame_id = %AME_ID%;","cat_from":"2020-04-01T00:00:00.000Z","cat_to":"9999-12-31T00:00:00.000Z","cat_active":true,"cat_inserted":"2020-04-01T15:41:36.350Z","cat_inserted_by":"vlehotsky","cat_updated":"2020-04-01T16:07:16.487Z","cat_updated_by":"vlehotsky","cat_description":""}
+  {"cat_id":166344,"com_id":2,"mpi_id":1494,"cat_template_number":"2020_04_01","cat_name":"CBCAG-KRV-List_a_navratka_pri_odstupeni","cat_copies_to_send":1,"cat_sign_by_client":true,"cat_sign_by_cbc":false,"cat_repository":1457686,"cat_template_queries":"SELECT pda.pda_title_prefix as TitlePrefix, pda.pda_first_name as FirstName, pda.pda_last_name as LastName, pda.pda_birth_date as DateOfBirth FROM amendments ame INNER JOIN contracts con ON con.con_id = ame.con_id INNER JOIN clients cli ON con.cli_id = cli.cli_id INNER JOIN persons per ON cli.per_id = per.per_id LEFT OUTER JOIN personaldata pda ON per.per_id = pda.per_id AND pda.pda_valid = 1 WHERE ame.ame_id = %AME_ID%;SELECT ps.add_street_and_number as Street, ps.add_zip as ZIP, ps.add_city as City FROM amendments ame INNER JOIN contracts con ON con.con_id = ame.con_id INNER JOIN clients cli ON con.cli_id = cli.cli_id LEFT OUTER JOIN PersonStreet ps ON cli.per_id = ps.per_id LEFT OUTER JOIN LOCALIZATIONSTRINGS los ON ps.add_country = los.LOS_KEY AND los.LOS_LG = '%LG%' WHERE ame_id = %AME_ID%;","cat_from":"2020-04-01T00:00:00.000Z","cat_to":"9999-12-31T00:00:00.000Z","cat_active":true,"cat_inserted":"2020-04-01T15:41:36.237Z","cat_inserted_by":"vlehotsky","cat_updated":"2020-04-01T16:07:16.187Z","cat_updated_by":"vlehotsky","cat_description":""}
+  {"cat_id":166343,"com_id":2,"mpi_id":1493,"cat_template_number":"2020_04_01","cat_name":"CBCAG-KRV-List_a_navratka_pri_odstupeni","cat_copies_to_send":1,"cat_sign_by_client":true,"cat_sign_by_cbc":false,"cat_repository":1457685,"cat_template_queries":"SELECT pda.pda_title_prefix as TitlePrefix, pda.pda_first_name as FirstName, pda.pda_last_name as LastName, pda.pda_birth_date as DateOfBirth FROM amendments ame INNER JOIN contracts con ON con.con_id = ame.con_id INNER JOIN clients cli ON con.cli_id = cli.cli_id INNER JOIN persons per ON cli.per_id = per.per_id LEFT OUTER JOIN personaldata pda ON per.per_id = pda.per_id AND pda.pda_valid = 1 WHERE ame.ame_id = %AME_ID%;SELECT ps.add_street_and_number as Street, ps.add_zip as ZIP, ps.add_city as City FROM amendments ame INNER JOIN contracts con ON con.con_id = ame.con_id INNER JOIN clients cli ON con.cli_id = cli.cli_id LEFT OUTER JOIN PersonStreet ps ON cli.per_id = ps.per_id LEFT OUTER JOIN LOCALIZATIONSTRINGS los ON ps.add_country = los.LOS_KEY AND los.LOS_LG = '%LG%' WHERE ame_id = %AME_ID%;","cat_from":"2020-04-01T00:00:00.000Z","cat_to":"9999-12-31T00:00:00.000Z","cat_active":true,"cat_inserted":"2020-04-01T15:41:36.120Z","cat_inserted_by":"vlehotsky","cat_updated":"2020-04-01T16:07:15.880Z","cat_updated_by":"vlehotsky","cat_description":""}
+
+=== ContractAmendmentTemplateServices ===
+Columns: cas_id(numeric), cat_id(numeric), sin_id(numeric), cas_cancellation_sanction(money), cas_overdue_penalty(money), cas_sms_aop_fee(money), cas_letter_aop_fee(money), cas_inflation_increase(bit), cas_other_sanction(nvarchar)
+Count: 7639
+  {"cas_id":9480,"cat_id":166345,"sin_id":7,"cas_cancellation_sanction":0,"cas_overdue_penalty":0,"cas_sms_aop_fee":0,"cas_letter_aop_fee":0,"cas_inflation_increase":true,"cas_other_sanction":""}
+  {"cas_id":9479,"cat_id":166345,"sin_id":1,"cas_cancellation_sanction":0,"cas_overdue_penalty":0,"cas_sms_aop_fee":0,"cas_letter_aop_fee":0,"cas_inflation_increase":true,"cas_other_sanction":""}
+  {"cas_id":9478,"cat_id":166345,"sin_id":162,"cas_cancellation_sanction":0,"cas_overdue_penalty":0,"cas_sms_aop_fee":0,"cas_letter_aop_fee":0,"cas_inflation_increase":true,"cas_other_sanction":""}
+
+
+=== FULL SERVICE TREE FOR ONE CONTRACT ===
+
+Contract con_id = 263962
+ERROR: Invalid column name 'mpi_code'.
+
+
+=== CONTRACTS TABLE - PRODUCT/TEMPLATE FIELDS ===
+
+Product/template columns in Contracts: cte_id, con_expected_collection_date, con_contacted, mpi_id_initialized
+
+Done.
