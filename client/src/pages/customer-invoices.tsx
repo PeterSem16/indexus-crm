@@ -882,14 +882,14 @@ export default function CustomerInvoicesPage() {
                         <span className="flex items-center gap-1.5">
                           {invoice.invoiceNumber}
                           {(invoice as any).dataSource === 'iscbc' && (
-                            <>
-                              <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-800" data-testid={`badge-iscbc-invoice-${invoice.id}`}>
-                                ISCBC
-                              </Badge>
-                              <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-950 dark:text-yellow-300 dark:border-yellow-800" data-testid={`badge-test-invoice-${invoice.id}`}>
-                                TEST
-                              </Badge>
-                            </>
+                            <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-800" data-testid={`badge-iscbc-invoice-${invoice.id}`}>
+                              ISCBC
+                            </Badge>
+                          )}
+                          {(invoice as any).dataSource !== 'iscbc' && (
+                            <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-950 dark:text-yellow-300 dark:border-yellow-800" data-testid={`badge-test-invoice-${invoice.id}`}>
+                              TEST
+                            </Badge>
                           )}
                         </span>
                       </TableCell>
@@ -2115,14 +2115,14 @@ function InvoiceDetailDrawer({
             <Receipt className="h-5 w-5" />
             {t.invoices?.invoiceDetail || "Invoice Detail"}: {invoice.invoiceNumber}
             {(invoice as any).dataSource === 'iscbc' && (
-              <>
-                <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-800">
-                  ISCBC
-                </Badge>
-                <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-950 dark:text-yellow-300 dark:border-yellow-800">
-                  TEST
-                </Badge>
-              </>
+              <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-800">
+                ISCBC
+              </Badge>
+            )}
+            {(invoice as any).dataSource !== 'iscbc' && (
+              <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-950 dark:text-yellow-300 dark:border-yellow-800">
+                TEST
+              </Badge>
             )}
           </SheetTitle>
         </SheetHeader>
