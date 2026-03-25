@@ -2367,6 +2367,120 @@ async function step11_customerContracts() {
     return map[code] || 'draft';
   };
 
+  // --- Preload Prepayments (zálohy ku zmluvám) ---
+  const prepaymentsByConId = {}; // con_id → prepayments[]
+  try {
+    const conIds = contracts.recordset.map(r => r.con_id).join(',');
+    if (conIds) {
+      const preCols = await mssqlPool.request().query(`
+        SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'Prepayments' ORDER BY ORDINAL_POSITION
+      `);
+      if (preCols.recordset.length > 0) {
+        log(`  Prepayments stĺpce: ${preCols.recordset.map(r => r.COLUMN_NAME).join(', ')}`);
+        const preRes = await mssqlPool.request().query(`
+          SELECT * FROM Prepayments WHERE con_id IN (${conIds}) ORDER BY con_id, pre_id
+        `);
+        log(`  Prepayments: ${preRes.recordset.length} záznamov`);
+        for (const p of preRes.recordset) {
+          const key = String(p.con_id);
+          if (!prepaymentsByConId[key]) prepaymentsByConId[key] = [];
+          prepaymentsByConId[key].push(p);
+        }
+        if (preRes.recordset.length > 0) {
+          log(`  Vzorka Prepayment: ${JSON.stringify(preRes.recordset[0])}`);
+        }
+      } else {
+        log('  Prepayments tabuľka neexistuje');
+      }
+    }
+  } catch (err) { log(`  WARN Prepayments: ${err.message}`); }
+
+  // --- Preload ContractServicePayments (platby za služby) ---
+  const cspByConId = {}; // con_id → service payments[]
+  try {
+    const conIds = contracts.recordset.map(r => r.con_id).join(',');
+    if (conIds) {
+      const cspCols = await mssqlPool.request().query(`
+        SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'ContractServicePayments' ORDER BY ORDINAL_POSITION
+      `);
+      if (cspCols.recordset.length > 0) {
+        log(`  ContractServicePayments stĺpce: ${cspCols.recordset.map(r => r.COLUMN_NAME).join(', ')}`);
+        // CSP links to ContractServices (cse_id), which links to Contracts (con_id)
+        // Build cse_id → con_id map from ContractServices
+        const cseRes = await mssqlPool.request().query(`
+          SELECT cse_id, con_id FROM ContractServices WHERE con_id IN (${conIds})
+        `);
+        const cseToConMap = {};
+        const cseIds = [];
+        for (const cs of cseRes.recordset) {
+          cseToConMap[String(cs.cse_id)] = String(cs.con_id);
+          cseIds.push(cs.cse_id);
+        }
+        log(`  ContractServices pre zmluvy: ${cseIds.length} záznamov`);
+
+        if (cseIds.length > 0) {
+          // Load CSP with PriceListPayments join for labels
+          const cspRes = await mssqlPool.request().query(`
+            SELECT csp.*, plp.plp_name, plp.plp_invoice_item, plp.plp_price AS plp_list_price,
+                   plp.plp_accounting_code
+            FROM ContractServicePayments csp
+            LEFT JOIN PriceListPayments plp ON plp.plp_id = csp.plp_id
+            WHERE csp.cse_id IN (${cseIds.join(',')})
+            ORDER BY csp.cse_id, csp.csp_id
+          `);
+          log(`  ContractServicePayments: ${cspRes.recordset.length} záznamov`);
+          for (const csp of cspRes.recordset) {
+            const conId = cseToConMap[String(csp.cse_id)];
+            if (conId) {
+              if (!cspByConId[conId]) cspByConId[conId] = [];
+              cspByConId[conId].push(csp);
+            }
+          }
+          if (cspRes.recordset.length > 0) {
+            log(`  Vzorka ContractServicePayment: ${JSON.stringify(cspRes.recordset[0])}`);
+          }
+        }
+      } else {
+        log('  ContractServicePayments tabuľka neexistuje');
+      }
+    }
+  } catch (err) { log(`  WARN ContractServicePayments: ${err.message}`); }
+
+  // --- Preload HistoryContractServicePayments (história zmien platieb) ---
+  const hcspByConId = {}; // con_id → history[]
+  try {
+    // Gather all csp_ids from loaded CSPs
+    const allCspIds = [];
+    for (const csps of Object.values(cspByConId)) {
+      for (const csp of csps) allCspIds.push(csp.csp_id);
+    }
+    if (allCspIds.length > 0) {
+      const hRes = await mssqlPool.request().query(`
+        SELECT * FROM HistoryContractServicePayments
+        WHERE csp_id IN (${allCspIds.join(',')})
+        ORDER BY csp_id, hsp_id
+      `);
+      log(`  HistoryContractServicePayments: ${hRes.recordset.length} záznamov`);
+      // Map hsp → con_id via csp_id
+      const cspToConMap = {};
+      for (const [conId, csps] of Object.entries(cspByConId)) {
+        for (const csp of csps) cspToConMap[String(csp.csp_id)] = conId;
+      }
+      for (const h of hRes.recordset) {
+        const conId = cspToConMap[String(h.csp_id)];
+        if (conId) {
+          if (!hcspByConId[conId]) hcspByConId[conId] = [];
+          hcspByConId[conId].push(h);
+        }
+      }
+      if (hRes.recordset.length > 0) {
+        log(`  Vzorka HistoryCSP: ${JSON.stringify(hRes.recordset[0])}`);
+      }
+    }
+  } catch (err) { log(`  WARN HistoryCSP: ${err.message}`); }
+
+  log(`  Mapy zmluvy: prepayments=${Object.keys(prepaymentsByConId).length} zmlúv, servicePayments=${Object.keys(cspByConId).length} zmlúv, historyCSP=${Object.keys(hcspByConId).length} zmlúv`);
+
   let insertedCI = 0, insertedCD = 0, skipped = 0, errors = 0;
   for (const r of contracts.recordset) {
     const customerId = customerMap[String(r.cli_id)];
@@ -2399,6 +2513,9 @@ async function step11_customerContracts() {
         con_refinancing_detail: r.con_refinancing_detail,
         rfo_id: r.rfo_id,
         con_collection_kit_expired: r.con_collection_kit_expired,
+        prepayments: prepaymentsByConId[String(r.con_id)] || [],
+        servicePayments: cspByConId[String(r.con_id)] || [],
+        servicePaymentHistory: hcspByConId[String(r.con_id)] || [],
       };
 
       const ciResult = await pgPool.query(`
