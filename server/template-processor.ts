@@ -1,4 +1,4 @@
-import { PDFDocument, StandardFonts } from "pdf-lib";
+import { PDFDocument, StandardFonts, PDFName, PDFString } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
 import * as fs from "fs";
 import * as path from "path";
@@ -98,6 +98,30 @@ export async function fillPdfForm(
 
     const form = pdfDoc.getForm();
 
+    if (customFont) {
+      const fontKey = "DejaVu";
+      const formDict = form.acroForm.dict;
+      const drDict = formDict.get(PDFName.of("DR")) as any;
+      if (drDict) {
+        let fontDict = drDict.get(PDFName.of("Font"));
+        if (!fontDict) {
+          fontDict = pdfDoc.context.obj({});
+          drDict.set(PDFName.of("Font"), fontDict);
+        }
+        fontDict.set(PDFName.of(fontKey), customFont.ref);
+      }
+      const daString = `/${fontKey} 10 Tf 0 g`;
+      const allFields = form.getFields();
+      for (const f of allFields) {
+        if (f.constructor.name.includes("TextField")) {
+          try {
+            const tf = form.getTextField(f.getName());
+            (tf.acroField as any).dict.set(PDFName.of("DA"), PDFString.of(daString));
+          } catch {}
+        }
+      }
+    }
+
     for (const [fieldName, value] of Object.entries(data)) {
       try {
         const field = form.getField(fieldName);
@@ -105,10 +129,10 @@ export async function fillPdfForm(
 
         if (fieldType.includes("TextField")) {
           const textField = form.getTextField(fieldName);
+          textField.setText(String(value));
           if (customFont) {
             textField.updateAppearances(customFont);
           }
-          textField.setText(String(value));
         } else if (fieldType.includes("CheckBox")) {
           const checkbox = form.getCheckBox(fieldName);
           if (value === true || value === "true" || value === "yes") {
