@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, Fragment } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Search, Eye, Receipt, Loader2, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, CheckCircle2, Plus, Users, FileText, Calendar, Clock, Trash2, BarChart3, TrendingUp, FileDown, Download, CreditCard, User, Banknote, MessageSquare, Database, ChevronDown, ChevronUp } from "lucide-react";
+import { Search, Eye, Receipt, Loader2, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, CheckCircle2, Plus, Users, FileText, Calendar, Clock, Trash2, BarChart3, TrendingUp, FileDown, Download, CreditCard, User, Banknote, MessageSquare, Database, ChevronDown, ChevronUp, Building2 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
@@ -30,6 +30,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -244,6 +245,11 @@ export default function CustomerInvoicesPage() {
   const [scheduledDateFilter, setScheduledDateFilter] = useState<string>("all");
   const [selectedScheduledIds, setSelectedScheduledIds] = useState<string[]>([]);
   const [bulkActionDialogOpen, setBulkActionDialogOpen] = useState(false);
+  const [scheduledCreateDialogOpen, setScheduledCreateDialogOpen] = useState(false);
+  const [selectedScheduledForCreate, setSelectedScheduledForCreate] = useState<ScheduledInvoice | null>(null);
+  const [scheduledBillingChoice, setScheduledBillingChoice] = useState<"legacy" | "indexus">("legacy");
+  const [scheduledBillingDetailsId, setScheduledBillingDetailsId] = useState<string>("");
+  const [scheduledTemplateId, setScheduledTemplateId] = useState<string>("default");
 
   const handleScheduledStatusFilterChange = (value: string) => {
     setScheduledStatusFilter(value);
@@ -308,11 +314,18 @@ export default function CustomerInvoicesPage() {
   };
 
   const createFromScheduledMutation = useMutation({
-    mutationFn: (id: string) => apiRequest("POST", `/api/scheduled-invoices/${id}/create`),
+    mutationFn: (params: { id: string; billingDetailsId?: string; billingChoice?: string; templateId?: string }) =>
+      apiRequest("POST", `/api/scheduled-invoices/${params.id}/create`, {
+        billingDetailsId: params.billingDetailsId,
+        billingChoice: params.billingChoice,
+        templateId: params.templateId,
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/scheduled-invoices"] });
       queryClient.invalidateQueries({ queryKey: ["/api/scheduled-invoices/stats"] });
       queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
+      setScheduledCreateDialogOpen(false);
+      setSelectedScheduledForCreate(null);
       toast({ title: t.common?.success || "Success", description: t.invoices?.invoiceCreated || "Invoice created successfully" });
     },
     onError: () => {
@@ -1360,7 +1373,17 @@ export default function CustomerInvoicesPage() {
                                     {scheduled.status === "pending" && (
                                       <Button
                                         size="sm"
-                                        onClick={() => createFromScheduledMutation.mutate(scheduled.id)}
+                                        onClick={() => {
+                                          if (scheduled.createdBy === 'migration-v20') {
+                                            setSelectedScheduledForCreate(scheduled);
+                                            setScheduledBillingChoice("legacy");
+                                            setScheduledBillingDetailsId("");
+                                            setScheduledTemplateId("default");
+                                            setScheduledCreateDialogOpen(true);
+                                          } else {
+                                            createFromScheduledMutation.mutate({ id: scheduled.id });
+                                          }
+                                        }}
                                         disabled={createFromScheduledMutation.isPending}
                                         data-testid={`button-create-from-scheduled-${scheduled.id}`}
                                       >
@@ -1937,6 +1960,155 @@ export default function CustomerInvoicesPage() {
                 <Loader2 className="h-4 w-4 animate-spin mr-1" />
               ) : null}
               {t.invoices?.createInvoices || "Create Invoices"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={scheduledCreateDialogOpen} onOpenChange={setScheduledCreateDialogOpen}>
+        <DialogContent className="sm:max-w-lg" data-testid="dialog-scheduled-create">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              {t.invoices?.createInvoice || "Create Invoice"}
+              <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-800">
+                ISCBC
+              </Badge>
+            </DialogTitle>
+            <DialogDescription>
+              {t.invoices?.scheduledCreateDesc || "This is a migrated scheduled invoice. Choose the billing company and template for invoice generation."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-5 py-4">
+            <div className="space-y-3">
+              <Label className="font-medium">{t.invoices?.billingCompany || "Billing Company"}</Label>
+              <div className="space-y-2">
+                <label className="flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors hover:bg-muted/50" data-testid="radio-billing-legacy">
+                  <input
+                    type="radio"
+                    name="billingChoice"
+                    value="legacy"
+                    checked={scheduledBillingChoice === "legacy"}
+                    onChange={() => setScheduledBillingChoice("legacy")}
+                    className="mt-1"
+                  />
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <Database className="h-4 w-4 text-orange-600" />
+                      <span className="font-medium text-sm">Legacy Billing Company (ISCBC)</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {t.invoices?.legacyBillingDesc || "Use the original billing company from the CBC system"}
+                    </p>
+                    {selectedScheduledForCreate?.customerName && (
+                      <p className="text-xs text-orange-700 dark:text-orange-400 mt-1 font-medium">
+                        {selectedScheduledForCreate.customerName}
+                      </p>
+                    )}
+                  </div>
+                </label>
+                <label className="flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors hover:bg-muted/50" data-testid="radio-billing-indexus">
+                  <input
+                    type="radio"
+                    name="billingChoice"
+                    value="indexus"
+                    checked={scheduledBillingChoice === "indexus"}
+                    onChange={() => setScheduledBillingChoice("indexus")}
+                    className="mt-1"
+                  />
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <Building2 className="h-4 w-4 text-primary" />
+                      <span className="font-medium text-sm">INDEXUS Billing Company</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {t.invoices?.indexusBillingDesc || "Select a billing company from INDEXUS system"}
+                    </p>
+                    {scheduledBillingChoice === "indexus" && (
+                      <div className="mt-2">
+                        <Select value={scheduledBillingDetailsId} onValueChange={setScheduledBillingDetailsId}>
+                          <SelectTrigger className="h-8 text-xs" data-testid="select-billing-company-scheduled">
+                            <SelectValue placeholder={t.invoices?.selectBillingCompany || "Select billing company..."} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {billingDetails.map((bd) => (
+                              <SelectItem key={bd.id} value={bd.id}>
+                                {bd.companyName}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="font-medium">{t.invoices?.docxTemplate || "Invoice Template"}</Label>
+              <Select value={scheduledTemplateId} onValueChange={setScheduledTemplateId}>
+                <SelectTrigger data-testid="select-template-scheduled">
+                  <SelectValue placeholder={t.invoices?.selectDocxTemplatePlaceholder || "Select a template"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="default">{t.invoices?.defaultTemplate || "Default template"}</SelectItem>
+                  {docxTemplates.map((tpl) => (
+                    <SelectItem key={tpl.id} value={tpl.id}>
+                      {tpl.name}
+                      {tpl.countryCode && ` (${tpl.countryCode})`}
+                      {tpl.year && ` - ${tpl.year}`}
+                      {tpl.version && ` v${tpl.version}`}
+                      {tpl.isDefault && " *"}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {selectedScheduledForCreate && (
+              <div className="p-3 rounded-lg bg-muted/50 border text-sm">
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <span className="text-muted-foreground text-xs">{t.invoices?.installment || "Installment"}</span>
+                    <p className="font-medium">{selectedScheduledForCreate.installmentNumber}/{selectedScheduledForCreate.totalInstallments}</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground text-xs">{t.invoices?.totalAmount || "Amount"}</span>
+                    <p className="font-medium">{formatCurrency(selectedScheduledForCreate.totalAmount, selectedScheduledForCreate.currency)}</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground text-xs">{t.invoices?.scheduledDate || "Scheduled Date"}</span>
+                    <p className="font-medium">{formatDate(selectedScheduledForCreate.scheduledDate)}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setScheduledCreateDialogOpen(false)} data-testid="btn-cancel-scheduled-create">
+              {t.common?.cancel || "Cancel"}
+            </Button>
+            <Button
+              onClick={() => {
+                if (selectedScheduledForCreate) {
+                  createFromScheduledMutation.mutate({
+                    id: selectedScheduledForCreate.id,
+                    billingChoice: scheduledBillingChoice,
+                    billingDetailsId: scheduledBillingChoice === "indexus" ? scheduledBillingDetailsId : undefined,
+                    templateId: scheduledTemplateId !== "default" ? scheduledTemplateId : undefined,
+                  });
+                }
+              }}
+              disabled={createFromScheduledMutation.isPending || (scheduledBillingChoice === "indexus" && !scheduledBillingDetailsId)}
+              data-testid="btn-confirm-scheduled-create"
+            >
+              {createFromScheduledMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-1" />
+              ) : (
+                <FileText className="h-4 w-4 mr-1" />
+              )}
+              {t.invoices?.createInvoice || "Create Invoice"}
             </Button>
           </DialogFooter>
         </DialogContent>

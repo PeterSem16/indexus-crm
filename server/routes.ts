@@ -30,7 +30,7 @@ import {
   insertVisitEventSchema, visitEvents,
   campaignDispositions, insertCampaignDispositionSchema,
   DEFAULT_PHONE_DISPOSITIONS, DEFAULT_EMAIL_DISPOSITIONS, DEFAULT_SMS_DISPOSITIONS, DISPOSITION_NAME_TRANSLATIONS,
-  callLogs, campaignContacts, campaignContactHistory, campaignContactSessions, campaigns, customers, users, entityCampaignTimeline, mobileContacts, collaborators,
+  callLogs, campaignContacts, campaignContactHistory, campaignContactSessions, campaigns, customers, users, entityCampaignTimeline, mobileContacts, collaborators, billingDetails,
   collections, executiveSummaries, collectionLabResults, collectionSprievodnyList, cbuReportAudit, cbuReportOtp,
   insertSopCategorySchema, insertSopArticleSchema,
   agentSessions, agentSessionActivities, agentBreaks, scheduledReports, agentQueueStatus,
@@ -9748,6 +9748,31 @@ Return ONLY valid JSON, no markdown code blocks.`,
         return res.status(400).json({ error: "Scheduled invoice is not pending" });
       }
 
+      const { billingDetailsId, billingChoice, templateId } = req.body || {};
+
+      // If billingChoice is "indexus" and billingDetailsId provided, load billing details
+      let billingOverride: any = null;
+      if (billingChoice === "indexus" && billingDetailsId) {
+        const [bd] = await db.select().from(billingDetails).where(eq(billingDetails.id, billingDetailsId));
+        if (bd) {
+          billingOverride = {
+            billingDetailsId: bd.id,
+            billingCompanyName: bd.companyName || bd.fullName,
+            billingAddress: bd.address,
+            billingCity: bd.city,
+            billingZip: bd.postalCode,
+            billingCountry: bd.countryCode,
+            billingTaxId: bd.ico || bd.dic,
+            billingVatId: bd.vatNumber || bd.taxId,
+            billingEmail: bd.email,
+            billingPhone: bd.phone,
+            billingBankName: bd.bankName,
+            billingBankIban: bd.bankIban,
+            billingBankSwift: bd.bankSwift,
+          };
+        }
+      }
+
       // Generate invoice number from number range or fallback
       let invoiceNumber = "";
       if (scheduled.numberRangeId) {
@@ -9780,7 +9805,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
       const invoice = await storage.createInvoice({
         invoiceNumber,
         customerId: scheduled.customerId,
-        billingDetailsId: scheduled.billingDetailsId,
+        billingDetailsId: billingOverride?.billingDetailsId || scheduled.billingDetailsId,
         currency: scheduled.currency,
         totalAmount: scheduled.totalAmount,
         vatAmount: scheduled.vatAmount || "0",
@@ -9806,19 +9831,19 @@ Return ONLY valid JSON, no markdown code blocks.`,
         customerCompanyName: scheduled.customerCompanyName,
         customerTaxId: scheduled.customerTaxId,
         customerVatId: scheduled.customerVatId,
-        billingCompanyName: scheduled.billingCompanyName,
-        billingAddress: scheduled.billingAddress,
-        billingCity: scheduled.billingCity,
-        billingZip: scheduled.billingZip,
-        billingCountry: scheduled.billingCountry,
-        billingTaxId: scheduled.billingTaxId,
-        billingVatId: scheduled.billingVatId,
-        billingEmail: scheduled.billingEmail,
-        billingPhone: scheduled.billingPhone,
-        billingBankName: scheduled.billingBankName,
-        billingBankIban: scheduled.billingBankIban,
-        billingBankSwift: scheduled.billingBankSwift,
-        billingBankAccountNumber: scheduled.billingBankAccountNumber,
+        billingCompanyName: billingOverride?.billingCompanyName || scheduled.billingCompanyName,
+        billingAddress: billingOverride?.billingAddress || scheduled.billingAddress,
+        billingCity: billingOverride?.billingCity || scheduled.billingCity,
+        billingZip: billingOverride?.billingZip || scheduled.billingZip,
+        billingCountry: billingOverride?.billingCountry || scheduled.billingCountry,
+        billingTaxId: billingOverride?.billingTaxId || scheduled.billingTaxId,
+        billingVatId: billingOverride?.billingVatId || scheduled.billingVatId,
+        billingEmail: billingOverride?.billingEmail || scheduled.billingEmail,
+        billingPhone: billingOverride?.billingPhone || scheduled.billingPhone,
+        billingBankName: billingOverride?.billingBankName || scheduled.billingBankName,
+        billingBankIban: billingOverride?.billingBankIban || scheduled.billingBankIban,
+        billingBankSwift: billingOverride?.billingBankSwift || scheduled.billingBankSwift,
+        billingBankAccountNumber: billingOverride?.billingBankAccountNumber || scheduled.billingBankAccountNumber,
         qrCodeType: scheduled.qrCodeType,
         qrCodeData: scheduled.qrCodeData,
         epcQrCodeData: scheduled.epcQrCodeData,
