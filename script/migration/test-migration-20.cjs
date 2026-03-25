@@ -2437,6 +2437,7 @@ async function step11_customerContracts() {
             }
           }
           if (cspRes.recordset.length > 0) {
+            log(`  ContractServicePayments kľúče: ${Object.keys(cspRes.recordset[0]).join(', ')}`);
             log(`  Vzorka ContractServicePayment: ${JSON.stringify(cspRes.recordset[0])}`);
           }
         }
@@ -2474,6 +2475,7 @@ async function step11_customerContracts() {
         }
       }
       if (hRes.recordset.length > 0) {
+        log(`  HistoryCSP kľúče: ${Object.keys(hRes.recordset[0]).join(', ')}`);
         log(`  Vzorka HistoryCSP: ${JSON.stringify(hRes.recordset[0])}`);
       }
     }
