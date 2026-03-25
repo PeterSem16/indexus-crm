@@ -2746,7 +2746,8 @@ function LegacyTabContent({
   }
 
   const legacyItems: any[] = legacy.items || [];
-  const legacyPayments: any[] = legacy.payments || [];
+  const scheduledPayments: any[] = legacy.scheduledPayments || [];
+  const realizedPayments: any[] = legacy.realizedPayments || [];
   const homeCurrency = legacy.cur_code_home || invoice.currency || "EUR";
   const accountCurrency = legacy.cur_code_account || "EUR";
 
@@ -2835,95 +2836,89 @@ function LegacyTabContent({
       <div className="space-y-2">
         <h4 className="text-sm font-semibold flex items-center gap-2">
           <CreditCard className="h-4 w-4" />
-          {t.invoices?.legacy?.payments || "Legacy Payments"} ({legacyPayments.length})
+          {t.invoices?.legacy?.scheduledPayments || "Scheduled Payments"} ({scheduledPayments.length})
         </h4>
-        {legacyPayments.length === 0 ? (
-          <p className="text-sm text-muted-foreground italic">{t.invoices?.legacy?.noPayments || "No legacy payments"}</p>
+        {scheduledPayments.length === 0 ? (
+          <p className="text-sm text-muted-foreground italic">{t.invoices?.legacy?.noPayments || "No scheduled payments"}</p>
         ) : (
-          <div className="space-y-2">
-            {legacyPayments.map((pay: any, idx: number) => {
-              const subItems: any[] = pay.subItems || [];
-              const isExpanded = expandedPayments[idx] || false;
+          <div className="border rounded-lg overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/30">
+                  <TableHead className="text-xs">#</TableHead>
+                  <TableHead className="text-xs">{t.invoices?.legacy?.itemName || "Name"}</TableHead>
+                  <TableHead className="text-xs">{t.invoices?.legacy?.dueDate || "Due date"}</TableHead>
+                  <TableHead className="text-xs text-right">{t.invoices?.legacy?.amountHome || "Amount (home)"}</TableHead>
+                  <TableHead className="text-xs text-right">{t.invoices?.legacy?.amountAccount || "Amount (acc.)"}</TableHead>
+                  <TableHead className="text-xs text-right">{t.invoices?.legacy?.paidHome || "Paid (home)"}</TableHead>
+                  <TableHead className="text-xs text-right">{t.invoices?.legacy?.paidAccount || "Paid (acc.)"}</TableHead>
+                  <TableHead className="text-xs">{t.invoices?.legacy?.status || "Status"}</TableHead>
+                  <TableHead className="text-xs">{t.invoices?.legacy?.variableSymbol || "VS"}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {scheduledPayments.map((sp: any, idx: number) => (
+                  <TableRow key={idx} className="text-xs">
+                    <TableCell>{sp.spa_installments_id || idx + 1}</TableCell>
+                    <TableCell>{sp.spa_name || '-'}</TableCell>
+                    <TableCell>{fmtDt(sp.spa_date_of_payment)}</TableCell>
+                    <TableCell className="text-right">{fmtNum(sp.spa_amount_home)}</TableCell>
+                    <TableCell className="text-right">{fmtNum(sp.spa_amount_account)}</TableCell>
+                    <TableCell className="text-right text-green-600 dark:text-green-400">{fmtNum(sp.spa_paid_home)}</TableCell>
+                    <TableCell className="text-right text-green-600 dark:text-green-400">{fmtNum(sp.spa_paid_account)}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="text-[10px]">{sp.ips_default_name || sp.ips_code || '-'}</Badge>
+                    </TableCell>
+                    <TableCell className="font-mono">{sp.spa_variable_symbol || '-'}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </div>
 
-              return (
-                <div key={idx} className="border rounded-lg overflow-hidden">
-                  <div 
-                    className="flex items-center justify-between p-3 bg-muted/20 cursor-pointer hover:bg-muted/40"
-                    onClick={() => subItems.length > 0 && togglePayment(idx)}
-                    data-testid={`legacy-payment-${idx}`}
-                  >
-                    <div className="flex items-center gap-3 flex-1 min-w-0">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">
-                          {pay.inp_name || pay.name || `Payment ${idx + 1}`}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {t.invoices?.legacy?.dueDate || "Due"}: {fmtDt(pay.inp_due_date || pay.due_date)}
-                          {(pay.inp_status || pay.status) && ` | ${pay.inp_status || pay.status}`}
-                        </p>
-                      </div>
-                      <div className="text-right text-sm shrink-0">
-                        <div>{fmtNum(pay.inp_amount_cur_home ?? pay.amount_home)} {homeCurrency}</div>
-                        {accountCurrency !== homeCurrency && (
-                          <div className="text-xs text-muted-foreground">{fmtNum(pay.inp_amount_cur_account ?? pay.amount_account)} {accountCurrency}</div>
-                        )}
-                      </div>
-                      <div className="text-right text-sm shrink-0">
-                        <div className="text-green-600 dark:text-green-400">{fmtNum(pay.inp_paid_cur_home ?? pay.paid_home)}</div>
-                        {accountCurrency !== homeCurrency && (
-                          <div className="text-xs text-muted-foreground">{fmtNum(pay.inp_paid_cur_account ?? pay.paid_account)}</div>
-                        )}
-                      </div>
-                    </div>
-                    {subItems.length > 0 && (
-                      <div className="ml-2">
-                        {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                        <span className="text-[10px] text-muted-foreground">{subItems.length}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {isExpanded && subItems.length > 0 && (
-                    <div className="border-t">
-                      <Table>
-                        <TableHeader>
-                          <TableRow className="bg-muted/10">
-                            <TableHead className="text-[10px]">{t.invoices?.legacy?.paymentDate || "Payment date"}</TableHead>
-                            <TableHead className="text-[10px] text-right">{t.invoices?.legacy?.amountHome || "Amount (home)"}</TableHead>
-                            <TableHead className="text-[10px] text-right">{t.invoices?.legacy?.amountAccount || "Amount (acc.)"}</TableHead>
-                            <TableHead className="text-[10px] text-right">{t.invoices?.legacy?.exchangeRate || "Exch. rate"}</TableHead>
-                            <TableHead className="text-[10px]">{t.invoices?.legacy?.paymentType || "Type"}</TableHead>
-                            <TableHead className="text-[10px]">{t.invoices?.legacy?.document || "Document"}</TableHead>
-                            <TableHead className="text-[10px]">{t.invoices?.legacy?.accountNumber || "Account"}</TableHead>
-                            <TableHead className="text-[10px]">{t.invoices?.legacy?.bankName || "Bank"}</TableHead>
-                            <TableHead className="text-[10px]">{t.invoices?.legacy?.variableSymbol || "VS"}</TableHead>
-                            <TableHead className="text-[10px]">{t.invoices?.legacy?.messageForRecipient || "Message"}</TableHead>
-                            <TableHead className="text-[10px]">{t.invoices?.legacy?.note || "Note"}</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {subItems.map((sub: any, sIdx: number) => (
-                            <TableRow key={sIdx} className="text-[10px]">
-                              <TableCell>{fmtDt(sub.ipi_payment_date || sub.payment_date)}</TableCell>
-                              <TableCell className="text-right">{fmtNum(sub.ipi_amount_cur_home ?? sub.amount_home)}</TableCell>
-                              <TableCell className="text-right">{fmtNum(sub.ipi_amount_cur_account ?? sub.amount_account)}</TableCell>
-                              <TableCell className="text-right">{sub.ipi_exchange_rate ?? sub.exchange_rate ?? '-'}</TableCell>
-                              <TableCell>{sub.ipi_payment_type || sub.payment_type || '-'}</TableCell>
-                              <TableCell>{sub.ipi_document || sub.document || '-'}</TableCell>
-                              <TableCell className="font-mono text-[9px]">{sub.ipi_account_number || sub.account_number || '-'}</TableCell>
-                              <TableCell>{sub.ipi_bank_name || sub.bank_name || '-'}</TableCell>
-                              <TableCell>{sub.ipi_variable_symbol || sub.variable_symbol || '-'}</TableCell>
-                              <TableCell className="max-w-[100px] truncate">{sub.ipi_message || sub.message || '-'}</TableCell>
-                              <TableCell className="max-w-[80px] truncate">{sub.ipi_note || sub.note || '-'}</TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+      <div className="space-y-2">
+        <h4 className="text-sm font-semibold flex items-center gap-2">
+          <Download className="h-4 w-4" />
+          {t.invoices?.legacy?.realizedPayments || "Realized Payments"} ({realizedPayments.length})
+        </h4>
+        {realizedPayments.length === 0 ? (
+          <p className="text-sm text-muted-foreground italic">{t.invoices?.legacy?.noRealizedPayments || "No realized payments"}</p>
+        ) : (
+          <div className="border rounded-lg overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/30">
+                  <TableHead className="text-xs">{t.invoices?.legacy?.paymentDate || "Payment date"}</TableHead>
+                  <TableHead className="text-xs text-right">{t.invoices?.legacy?.amountHome || "Amount (home)"}</TableHead>
+                  <TableHead className="text-xs text-right">{t.invoices?.legacy?.amountAccount || "Amount (acc.)"}</TableHead>
+                  <TableHead className="text-xs text-right">{t.invoices?.legacy?.exchangeRate || "Exch. rate"}</TableHead>
+                  <TableHead className="text-xs">{t.invoices?.legacy?.paymentType || "Type"}</TableHead>
+                  <TableHead className="text-xs">{t.invoices?.legacy?.variableSymbol || "VS"}</TableHead>
+                  <TableHead className="text-xs">{t.invoices?.legacy?.accountNumber || "From IBAN"}</TableHead>
+                  <TableHead className="text-xs">{t.invoices?.legacy?.bankName || "Bank"}</TableHead>
+                  <TableHead className="text-xs">{t.invoices?.legacy?.messageForRecipient || "Message"}</TableHead>
+                  <TableHead className="text-xs">{t.invoices?.legacy?.note || "Note"}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {realizedPayments.map((rp: any, idx: number) => (
+                  <TableRow key={idx} className="text-xs">
+                    <TableCell>{fmtDt(rp.rpa_date_of_payment)}</TableCell>
+                    <TableCell className="text-right font-medium text-green-600 dark:text-green-400">{fmtNum(rp.rpa_amount_cur_home)}</TableCell>
+                    <TableCell className="text-right">{fmtNum(rp.rpa_amount_cur_account)}</TableCell>
+                    <TableCell className="text-right">{rp.rpa_exchange_rate ?? '-'}</TableCell>
+                    <TableCell>{rp.rpa_payment_type || '-'}</TableCell>
+                    <TableCell className="font-mono">{rp.rpa_variable_symbol || '-'}</TableCell>
+                    <TableCell className="font-mono text-[10px]">{rp.rpa_from_account_IBAN || rp.rpa_from_account_number || '-'}</TableCell>
+                    <TableCell>{rp.rpa_from_account_bank || '-'}</TableCell>
+                    <TableCell className="max-w-[120px] truncate">{rp.rpa_message || '-'}</TableCell>
+                    <TableCell className="max-w-[80px] truncate">{rp.rpa_note || '-'}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </div>
         )}
       </div>

@@ -2781,112 +2781,63 @@ async function step12_customerInvoices() {
     }
   } catch (err) { log(`  WARN InvoiceItems: ${err.message}`); }
 
-  // --- Preload InvoicePayments / Payments (legacy payment records) ---
-  const invoicePaymentsMap = {}; // inv_id → payments[]
-  const paymentTableCandidates = ['InvoicePayments', 'Payments', 'InvoiceTransactions', 'AccountTransactions'];
-  let paymentTableFound = null;
-  for (const tblName of paymentTableCandidates) {
-    try {
-      const ipCols = await mssqlPool.request().query(`
-        SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '${tblName}' ORDER BY ORDINAL_POSITION
-      `);
-      if (ipCols.recordset.length > 0) {
-        log(`  ${tblName} stĺpce: ${ipCols.recordset.map(r => r.COLUMN_NAME).join(', ')}`);
-        paymentTableFound = tblName;
-        // Try to find the FK column linking to invoices
-        const colNames = ipCols.recordset.map(r => r.COLUMN_NAME);
-        const fkCol = colNames.find(c => c === 'inv_id') || colNames.find(c => c.includes('inv_id'));
-        if (fkCol) {
-          const invIds = invoices.recordset.map(r => r.inv_id).join(',');
-          const pkCol = colNames[0]; // first column is typically PK
-          const ipRes = await mssqlPool.request().query(`
-            SELECT * FROM ${tblName} WHERE ${fkCol} IN (${invIds}) ORDER BY ${fkCol}, ${pkCol}
-          `);
-          log(`  ${tblName}: ${ipRes.recordset.length} záznamov`);
-          for (const pay of ipRes.recordset) {
-            const key = String(pay[fkCol]);
-            if (!invoicePaymentsMap[key]) invoicePaymentsMap[key] = [];
-            invoicePaymentsMap[key].push(pay);
-          }
-          if (ipRes.recordset.length > 0) {
-            log(`  Vzorka ${tblName}: ${JSON.stringify(ipRes.recordset[0])}`);
-          }
-        } else {
-          log(`  ${tblName}: nemá stĺpec inv_id, skúšam vzorku...`);
-          const sample = await mssqlPool.request().query(`SELECT TOP 2 * FROM ${tblName}`);
-          if (sample.recordset.length > 0) {
-            log(`  Vzorka ${tblName}: ${JSON.stringify(sample.recordset[0])}`);
-          }
-        }
-        break;
-      }
-    } catch (err) { /* table doesn't exist, try next */ }
-  }
-  if (!paymentTableFound) {
-    log('  Žiadna tabuľka platieb nenájdená (InvoicePayments, Payments, InvoiceTransactions, AccountTransactions)');
-    // Search for any payment-related tables
-    try {
-      const payTables = await mssqlPool.request().query(`
-        SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES 
-        WHERE TABLE_NAME LIKE '%Payment%' OR TABLE_NAME LIKE '%payment%' OR TABLE_NAME LIKE '%Transaction%'
-        ORDER BY TABLE_NAME
-      `);
-      if (payTables.recordset.length > 0) {
-        log(`  Nájdené tabuľky súvisiace s platbami: ${payTables.recordset.map(r => r.TABLE_NAME).join(', ')}`);
-        for (const tbl of payTables.recordset) {
-          try {
-            const cols = await mssqlPool.request().query(`SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '${tbl.TABLE_NAME}' ORDER BY ORDINAL_POSITION`);
-            log(`    ${tbl.TABLE_NAME}: ${cols.recordset.map(r => r.COLUMN_NAME).join(', ')}`);
-          } catch (e) { /* skip */ }
-        }
-      } else {
-        log('  Žiadne tabuľky s Payment/Transaction v názve');
-      }
-    } catch (err) { log(`  WARN payment table search: ${err.message}`); }
-  }
-
-  // --- Preload PaymentSubItems (sub-items of payments) ---
-  const paymentSubItemsMap = {}; // payment PK → subItems[]
-  if (Object.keys(invoicePaymentsMap).length > 0) {
-    for (const tblName of ['InvoicePaymentItems', 'PaymentSubItems', 'PaymentItems', 'PaymentDetails']) {
-      try {
-        const psiCols = await mssqlPool.request().query(`
-          SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '${tblName}' ORDER BY ORDINAL_POSITION
-        `);
-        if (psiCols.recordset.length > 0) {
-          log(`  ${tblName} stĺpce: ${psiCols.recordset.map(r => r.COLUMN_NAME).join(', ')}`);
-          // Find FK column
-          const colNames = psiCols.recordset.map(r => r.COLUMN_NAME);
-          const fkCol = colNames.find(c => c.includes('inp_id') || c.includes('pay_id'));
-          if (fkCol) {
-            const allPayIds = [];
-            for (const pays of Object.values(invoicePaymentsMap)) {
-              for (const p of pays) {
-                const payId = p.inp_id || p.pay_id || p[Object.keys(p)[0]];
-                if (payId) allPayIds.push(payId);
-              }
-            }
-            if (allPayIds.length > 0) {
-              const psiRes = await mssqlPool.request().query(`
-                SELECT * FROM ${tblName} WHERE ${fkCol} IN (${allPayIds.join(',')}) ORDER BY ${fkCol}
-              `);
-              log(`  ${tblName}: ${psiRes.recordset.length} záznamov`);
-              for (const sub of psiRes.recordset) {
-                const key = String(sub[fkCol]);
-                if (!paymentSubItemsMap[key]) paymentSubItemsMap[key] = [];
-                paymentSubItemsMap[key].push(sub);
-              }
-              if (psiRes.recordset.length > 0) {
-                log(`  Vzorka ${tblName}: ${JSON.stringify(psiRes.recordset[0])}`);
-              }
-            }
-          }
-          break;
-        }
-      } catch (err) { /* table doesn't exist, try next */ }
+  // --- Preload ScheduledPayments (plánované splátky k faktúram) ---
+  const scheduledPaymentsMap = {}; // inv_id → payments[]
+  try {
+    const invIds = invoices.recordset.map(r => r.inv_id).join(',');
+    const spRes = await mssqlPool.request().query(`
+      SELECT sp.*, ips.ips_code, ips.ips_default_name
+      FROM ScheduledPayments sp
+      LEFT JOIN InvoicePaymentStatuses ips ON ips.ips_id = sp.ips_id
+      WHERE sp.inv_id IN (${invIds})
+      ORDER BY sp.inv_id, sp.spa_id
+    `);
+    log(`  ScheduledPayments: ${spRes.recordset.length} záznamov`);
+    for (const pay of spRes.recordset) {
+      const key = String(pay.inv_id);
+      if (!scheduledPaymentsMap[key]) scheduledPaymentsMap[key] = [];
+      scheduledPaymentsMap[key].push(pay);
     }
-  }
-  log(`  Mapy načítané: items=${Object.keys(invoiceItemsMap).length} faktúr, payments=${Object.keys(invoicePaymentsMap).length} faktúr, subItems=${Object.keys(paymentSubItemsMap).length} platieb`);
+    if (spRes.recordset.length > 0) {
+      log(`  Vzorka ScheduledPayment: ${JSON.stringify(spRes.recordset[0])}`);
+    }
+  } catch (err) { log(`  WARN ScheduledPayments: ${err.message}`); }
+
+  // --- Preload RealizedPayments (skutočné úhrady k faktúram) ---
+  const realizedPaymentsMap = {}; // inv_id → realized[]
+  try {
+    const invIds = invoices.recordset.map(r => r.inv_id).join(',');
+    const rpRes = await mssqlPool.request().query(`
+      SELECT * FROM RealizedPayments
+      WHERE inv_id IN (${invIds})
+      ORDER BY inv_id, rpa_id
+    `);
+    log(`  RealizedPayments: ${rpRes.recordset.length} záznamov`);
+    for (const rp of rpRes.recordset) {
+      const key = String(rp.inv_id);
+      if (!realizedPaymentsMap[key]) realizedPaymentsMap[key] = [];
+      realizedPaymentsMap[key].push(rp);
+    }
+    if (rpRes.recordset.length > 0) {
+      log(`  Vzorka RealizedPayment: ${JSON.stringify(rpRes.recordset[0])}`);
+    }
+  } catch (err) { log(`  WARN RealizedPayments: ${err.message}`); }
+
+  // --- Preload InvoiceSchedulesPaymentDates (dátumy splátok) ---
+  const paymentDatesMap = {}; // inv_id → dates object
+  try {
+    const invIds = invoices.recordset.map(r => r.inv_id).join(',');
+    const pdRes = await mssqlPool.request().query(`
+      SELECT * FROM InvoiceSchedulesPaymentDates
+      WHERE inv_id IN (${invIds})
+    `);
+    log(`  InvoiceSchedulesPaymentDates: ${pdRes.recordset.length} záznamov`);
+    for (const pd of pdRes.recordset) {
+      paymentDatesMap[String(pd.inv_id)] = pd;
+    }
+  } catch (err) { log(`  WARN InvoiceSchedulesPaymentDates: ${err.message}`); }
+
+  log(`  Mapy načítané: items=${Object.keys(invoiceItemsMap).length} faktúr, scheduledPayments=${Object.keys(scheduledPaymentsMap).length} faktúr, realizedPayments=${Object.keys(realizedPaymentsMap).length} faktúr`);
 
   let inserted = 0, skipped = 0, errors = 0;
   for (const r of invoices.recordset) {
@@ -2939,10 +2890,9 @@ async function step12_customerInvoices() {
       inserted_by: r.inv_inserted_by || null,
       updated_by: r.inv_updated_by || null,
       items: invoiceItemsMap[String(r.inv_id)] || [],
-      payments: (invoicePaymentsMap[String(r.inv_id)] || []).map(p => ({
-        ...p,
-        subItems: paymentSubItemsMap[String(p.inp_id)] || [],
-      })),
+      scheduledPayments: scheduledPaymentsMap[String(r.inv_id)] || [],
+      realizedPayments: realizedPaymentsMap[String(r.inv_id)] || [],
+      paymentDates: paymentDatesMap[String(r.inv_id)] || null,
     };
 
     // Map invoice status to invoices module status
