@@ -34365,7 +34365,7 @@ Return ONLY the JSON object.`
         pdfFields["Vorname_3"] = parts[0] || "";
       }
 
-      const templatePath = path.join(process.cwd(), "uploads/pdf-templates/Balik_Rodicka_AT_Premium.pdf");
+      const templatePath = path.join(process.cwd(), "attached_assets/Balik_Rodicka_-_AT_-_Premium_003_2026-03-24_1774454239289.pdf");
       if (!fs.existsSync(templatePath)) {
         return res.status(404).json({ error: "PDF template not found" });
       }
