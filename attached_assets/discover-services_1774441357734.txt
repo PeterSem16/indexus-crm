@@ -1,0 +1,153 @@
+Connected to CBC.
+
+=== TABLE DISCOVERY ===
+
+✓ ContractServices: cse_id(numeric), sin_id(numeric), ckt_id(numeric), pri_id(numeric), sco_id(numeric), con_id(numeric), cse_original_price(money), cse_actual_price(money), cse_active(bit), cse_collection_kit_sent(datetime), cse_invoicing_finished(bit), cse_inserted(datetime), cse_inserted_by(varchar), cse_updated(datetime), cse_updated_by(varchar), cse_note(nvarchar), scs_id(numeric), sup_id(numeric), cse_rollback(bit)
+  Sample: {"cse_id":1,"sin_id":2,"ckt_id":null,"pri_id":23,"sco_id":6739,"con_id":1,"cse_original_price":0,"cse_actual_price":0,"cse_active":true,"cse_collection_kit_sent":null,"cse_invoicing_finished":true,"cse_inserted":"2012-06-04T05:13:59.620Z","cse_inserted_by":"MigrationUser","cse_updated":"2025-03-28T09:51:14.077Z","cse_updated_by":"michal.kollar","cse_note":"","scs_id":null,"sup_id":null,"cse_rollback":null}
+  Count: 1233769
+
+✓ Services: ser_id(numeric), com_id(numeric), ser_name(nvarchar), ser_is_invoicable(bit), ser_is_collectable(bit), ser_active(bit), ser_inserted(datetime), ser_inserted_by(varchar), ser_updated(datetime), ser_updated_by(varchar), ser_description(nvarchar), ser_is_storable(bit), ser_sum_to_storage(bit), ser_sum_to_collection(bit), ser_order_priority(int)
+  Sample: {"ser_id":1,"com_id":2,"ser_name":"Členstvo v programe pomoci pri transplantácií","ser_is_invoicable":false,"ser_is_collectable":false,"ser_active":true,"ser_inserted":"2012-06-03T17:05:49.143Z","ser_inserted_by":"admin","ser_updated":"2012-06-03T17:05:49.143Z","ser_updated_by":"admin","ser_description":"","ser_is_storable":false,"ser_sum_to_storage":false,"ser_sum_to_collection":false,"ser_order_priority":0}
+  Count: 49
+
+✗ ServiceCombinations: NOT FOUND
+
+✓ ServiceInstances: sin_id(numeric), dte_id_certificate(numeric), ser_id(numeric), sin_name(nvarchar), sin_from(datetime), sin_to(datetime), sin_invoice_identifier(varchar), sin_active(bit), sin_inserted(datetime), sin_inserted_by(varchar), sin_updated(datetime), sin_updated_by(varchar), sin_description(nvarchar), sin_no_automation(bit), sin_order_priority(int)
+  Sample: {"sin_id":1,"dte_id_certificate":null,"ser_id":1,"sin_name":"Členstvo v programe pomoci pri transplantácií","sin_from":"2010-01-01T00:00:00.000Z","sin_to":null,"sin_invoice_identifier":"","sin_active":true,"sin_inserted":"2012-06-03T17:05:49.163Z","sin_inserted_by":"admin","sin_updated":"2012-06-03T17:05:49.163Z","sin_updated_by":"admin","sin_description":"","sin_no_automation":false,"sin_order_priority":0}
+  Count: 251
+
+✓ ContractServicePayments: csp_id(numeric), plp_id(numeric), cse_id(numeric), csp_original_price(money), csp_actual_price(money)
+  Sample: {"csp_id":1,"plp_id":43,"cse_id":1,"csp_original_price":0,"csp_actual_price":0}
+  Count: 867045
+
+✓ HistoryContractServicePayments: hsp_id(numeric), csp_id(numeric), hsp_price(money), hsp_from(datetime), hsp_to(datetime), hsp_actual(bit), hsp_inserted(datetime), hsp_inserted_by(varchar), hsp_note(nvarchar)
+  Sample: {"hsp_id":1,"csp_id":1,"hsp_price":0,"hsp_from":"2008-12-10T00:00:00.000Z","hsp_to":null,"hsp_actual":true,"hsp_inserted":"2012-06-04T05:13:59.637Z","hsp_inserted_by":"MigrationUser","hsp_note":""}
+  Count: 903878
+
+✓ PriceListPayments: plp_id(numeric), cat_id(numeric), pty_id(numeric), mps_id(numeric), plp_name(nvarchar), plp_invoice_item(nvarchar), plp_price(money), plp_analytical_account(varchar), plp_accounting_code(varchar), plp_from(datetime), plp_to(datetime), plp_active(bit), plp_inserted(datetime), plp_inserted_by(varchar), plp_updated(datetime), plp_updated_by(varchar), plp_description(nvarchar)
+  Sample: {"plp_id":1,"cat_id":null,"pty_id":1,"mps_id":1,"plp_name":"Jednorazová úhrada Prémium","plp_invoice_item":"Jednorazová úhrada Prémium","plp_price":0,"plp_analytical_account":"","plp_accounting_code":"PPR","plp_from":"2012-01-01T00:00:00.000Z","plp_to":null,"plp_active":true,"plp_inserted":"2012-06-03T17:08:28.797Z","plp_inserted_by":"admin","plp_updated":"2012-06-08T14:13:29.060Z","plp_updated_by":"rbagar","plp_description":"jednorázová úhrada Prémium"}
+  Count: 3057
+
+✗ PriceListServices: NOT FOUND
+
+✗ InstallmentFees: NOT FOUND
+
+✗ HistoryInstallmentFees: NOT FOUND
+
+✗ ContractInstallmentFees: NOT FOUND
+
+✗ Discounts: NOT FOUND
+
+✗ ContractDiscounts: NOT FOUND
+
+✗ HistoryDiscounts: NOT FOUND
+
+✓ Products: pro_id(numeric), pro_code(varchar), pro_default_name(nvarchar), pro_description(nvarchar)
+  Sample: {"pro_id":1,"pro_code":"PRODUCT_CORD_BLOOD","pro_default_name":"Odber pupočníkovej krvi","pro_description":""}
+  Count: 1
+
+✗ ProductTypes: NOT FOUND
+
+✗ Templates: NOT FOUND
+
+✓ ContractTemplates: cte_id(numeric), mpi_id(numeric), cur_code(varchar), com_id(numeric), cte_template_number(varchar), cte_name(nvarchar), cte_contract_number_from(numeric), cte_contract_number_to(numeric), cte_copies_to_send(int), cte_sign_by_client(bit), cte_sign_by_cbc(bit), cte_repository(numeric), cte_template_queries(varchar), cte_from(datetime), cte_to(datetime), cte_active(bit), cte_inserted(datetime), cte_inserted_by(varchar), cte_updated(datetime), cte_updated_by(varchar), cte_description(nvarchar)
+  Sample: {"cte_id":1,"mpi_id":1012,"cur_code":"EUR","com_id":2,"cte_template_number":"2011_07_01","cte_name":"EC_Standard_Premium_balik_dokumentov","cte_contract_number_from":0,"cte_contract_number_to":0,"cte_copies_to_send":0,"cte_sign_by_client":true,"cte_sign_by_cbc":false,"cte_repository":220,"cte_template_queries":"","cte_from":"2011-05-01T00:00:00.000Z","cte_to":"2012-06-18T00:00:00.000Z","cte_active":false,"cte_inserted":"2012-06-03T17:08:13.067Z","cte_inserted_by":"admin","cte_updated":"2012-06-18T17:01:39.523Z","cte_updated_by":"rbagar","cte_description":""}
+  Count: 1433
+
+✗ PaymentSystems: NOT FOUND
+
+✗ InstallmentSystems: NOT FOUND
+
+✓ PaymentTypes: pty_id(numeric), com_id(numeric), pty_name(nvarchar), pty_installments_count(int), pty_from(datetime), pty_to(datetime), pty_active(bit), pty_inserted(datetime), pty_inserted_by(varchar), pty_description(nvarchar)
+  Sample: {"pty_id":1,"com_id":2,"pty_name":"Jednorazová úhrada","pty_installments_count":1,"pty_from":"2000-01-01T00:00:00.000Z","pty_to":null,"pty_active":true,"pty_inserted":"2012-06-03T17:05:49.103Z","pty_inserted_by":"admin","pty_description":"Úhrada jednou platbou."}
+  Count: 34
+
+✗ Surcharges: NOT FOUND
+
+✗ ContractSurcharges: NOT FOUND
+
+✗ HistoryContracts: NOT FOUND
+
+✗ HistoryContractStatuses: NOT FOUND
+
+
+=== ALL TABLES CONTAINING service/install/discount/product/template ===
+
+  ApplicationOfPayments
+  CollectionEvaluationTemplates
+  ContractAmendmentTemplateFields
+  ContractAmendmentTemplates
+  ContractAmendmentTemplateServices
+  ContractServiceInflations
+  ContractServiceNotificationEvents
+  ContractServicePayments
+  ContractServices
+  ContractServiceSchedulePayments
+  ContractServiceSchedules
+  ContractServiceSurcharges
+  ContractTemplateFields
+  ContractTemplates
+  ContractTemplatesContractNumberSequencies
+  ContractTemplateServices
+  DiscountCategories
+  DocumentTemplateFields
+  DocumentTemplates
+  EntityAgreementRewardTemplates
+  ESORealizedPaymentSimulation
+  HistoryContractServicePayments
+  HistoryContractServices
+  HistoryContractServiceSurcharges
+  InvoicePaymentStatuses
+  MarketProductInstances
+  MarketProducts
+  MarketProductServiceInstances
+  NotificationEventTemplates
+  PaymentImportLines
+  PaymentImports
+  PaymentTypes
+  Prepayments
+  PriceListPayments
+  PriceLists
+  PriceListSurcharges
+  Products
+  RealizedPayments
+  RewardTemplateItemConditions
+  RewardTemplateItems
+  RewardTemplates
+  ServiceCollections
+  ServiceCollectionStateHistories
+  ServiceInstanceInvoicings
+  ServiceInstances
+  ServiceInstancesCollectionKitTypes
+  ServiceInstancesInvoiceNumberSequencies
+  Services
+  ServicesCollectionKitTypes
+  ServicesDocumentTemplates
+  SetUpMarketProducts
+  ScheduledPayments
+  SchedulePaymentTemplates
+  ScheduleTemplates
+  StorageCampaignServices
+  SurchargeTypes
+  TemplateFieldGroups
+  TemplateFields
+
+
+=== CONTRACTSERVICES DEEP DIVE (for one contract) ===
+
+ERROR: Invalid object name 'ServiceCombinations'.
+
+
+=== INSTALLMENT FEES ===
+
+
+
+=== DISCOUNTS / SURCHARGES ===
+
+
+
+=== HISTORY CONTRACTS DEEP DIVE ===
+
+  Invalid object name 'HistoryContracts'.
+
+Done.
