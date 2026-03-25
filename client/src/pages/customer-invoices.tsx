@@ -1386,14 +1386,24 @@ export default function CustomerInvoicesPage() {
                                     )}
                                   </span>
                                 </TableCell>
-                                <TableCell>
-                                  <span className="text-xs">
+                                <TableCell className="max-w-[200px]">
+                                  <div className="text-xs truncate" title={(() => {
+                                    const items = Array.isArray(scheduled.items) ? scheduled.items : [];
+                                    return items.map((it: any) => it.name || it.description || '-').join(', ');
+                                  })()}>
                                     {(() => {
                                       const items = Array.isArray(scheduled.items) ? scheduled.items : [];
                                       if (items.length === 0) return '-';
-                                      return items.map((it: any) => it.name || it.description || '-').join(', ');
+                                      const cleanNames = items.map((it: any) => {
+                                        let name = it.name || it.description || '-';
+                                        name = name.replace(/\s*-\s*\d+\/\d+$/, '');
+                                        return name;
+                                      });
+                                      const unique = [...new Set(cleanNames)];
+                                      const display = unique.join(', ');
+                                      return display.length > 60 ? display.substring(0, 57) + '...' : display;
                                     })()}
-                                  </span>
+                                  </div>
                                 </TableCell>
                                 <TableCell>
                                   <Badge variant="outline">

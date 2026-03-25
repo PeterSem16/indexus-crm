@@ -3158,7 +3158,6 @@ async function step11_customerContracts() {
         // Add vatRate and installment label to each item
         const itemsWithMeta = inst.items.map((item, i) => ({
           ...item,
-          name: `${item.name} - ${pIdx + 1}/${totalInstallments}`,
           vatRate: scheduledVatRate,
         }));
         const items = JSON.stringify(itemsWithMeta);
