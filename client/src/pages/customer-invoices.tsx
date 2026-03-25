@@ -2588,17 +2588,24 @@ function InvoiceDetailDrawer({
                 {(() => {
                   const lbc = (invoice as any).legacyData.legacyBillingCompany;
                   const labelMap: Record<string, string> = {
-                    com_name: "Company Name", com_id: "ID",
+                    com_name: "Company Name",
+                    com_code: "Code",
+                    com_country_code: "Country",
+                    cur_code: "Currency",
+                    com_entity_code: "Entity Code",
+                    com_sec_org_code: "Organization",
+                    com_invoice_barcode_letter: "Barcode Letter",
+                    com_ext_id: "External ID",
+                    com_id: "CBC ID",
                     com_street: "Street", com_city: "City", com_zip: "ZIP",
-                    com_country_code: "Country", com_country: "Country",
-                    com_tax_id: "Tax ID", com_ico: "IČO", com_dic: "DIČ",
-                    com_vat_id: "VAT ID", com_vat: "VAT",
+                    com_country: "Country",
+                    com_tax_id: "Tax ID (IČO)", com_ico: "IČO", com_dic: "DIČ",
+                    com_vat_id: "VAT ID (DIČ DPH)", com_vat: "VAT",
                     com_email: "Email", com_phone: "Phone", com_fax: "Fax",
                     com_bank_account: "Bank Account", com_iban: "IBAN",
                     com_swift: "SWIFT", com_bank_name: "Bank",
-                    com_bank_code: "Bank Code",
-                    com_web: "Web", com_note: "Note",
                     com_address: "Address", com_registration: "Registration",
+                    com_web: "Web", com_note: "Note",
                   };
                   const skipFields = new Set(['com_inserted', 'com_inserted_by', 'com_updated', 'com_updated_by']);
                   const entries = Object.entries(lbc).filter(([k, v]) =>

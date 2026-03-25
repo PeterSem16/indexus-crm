@@ -2313,14 +2313,26 @@ async function step11_customerContracts() {
   } catch (err) { log(`  WARN: ${err.message}`); }
 
   const companyMap = {};
+  const companyInfoMap = {};
   try {
     const compRes = await mssqlPool.request().query(`
-      SELECT cl.cli_id, comp.com_name
+      SELECT cl.cli_id, comp.*
       FROM Clients cl
       JOIN Companies comp ON comp.com_id = cl.com_id
       WHERE cl.cli_id IN (${cliIds}) AND cl.com_id IS NOT NULL
     `);
-    for (const r of compRes.recordset) companyMap[String(r.cli_id)] = r.com_name;
+    for (const r of compRes.recordset) {
+      companyMap[String(r.cli_id)] = r.com_name;
+      const allFields = {};
+      for (const [k, v] of Object.entries(r)) {
+        if (k !== 'cli_id') allFields[k] = v;
+      }
+      companyInfoMap[String(r.cli_id)] = allFields;
+    }
+    log(`  Company mapa: ${Object.keys(companyMap).length} klientov s firmou`);
+    if (compRes.recordset.length > 0) {
+      log(`  Vzorka Company: ${JSON.stringify(compRes.recordset[0])}`);
+    }
   } catch (err) { log(`  WARN company map: ${err.message}`); }
 
   const hospitalLookupRes = await pgPool.query(`SELECT id, legacy_id FROM hospitals WHERE legacy_id IS NOT NULL`);
@@ -2940,17 +2952,7 @@ async function step11_customerContracts() {
 
           const legacyComp = companyInfoMap[String(r.cli_id)] || {};
           const billingCompName = legacyComp.com_name || companyMap[String(r.cli_id)] || null;
-          const billingAddr = legacyComp.com_street || legacyComp.com_address || null;
-          const billingCityVal = legacyComp.com_city || null;
-          const billingZipVal = legacyComp.com_zip || legacyComp.com_psc || null;
-          const billingCountryVal = legacyComp.com_country_code || legacyComp.com_country || null;
-          const billingTaxIdVal = legacyComp.com_ico || legacyComp.com_tax_id || null;
-          const billingVatIdVal = legacyComp.com_dic || legacyComp.com_vat_id || legacyComp.com_vat || null;
-          const billingEmailVal = legacyComp.com_email || null;
-          const billingPhoneVal = legacyComp.com_phone || null;
-          const billingBankNameVal = legacyComp.com_bank_name || null;
-          const billingBankIbanVal = legacyComp.com_iban || legacyComp.com_bank_account || null;
-          const billingBankSwiftVal = legacyComp.com_swift || null;
+          const billingCountryVal = legacyComp.com_country_code || null;
 
           try {
             await pgPool.query(`
@@ -2958,14 +2960,12 @@ async function step11_customerContracts() {
                 id, customer_id, scheduled_date, installment_number, total_installments,
                 status, currency, payment_term_days, items, total_amount,
                 customer_name, created_at, created_by,
-                billing_company_name, billing_address, billing_city, billing_zip, billing_country,
-                billing_tax_id, billing_vat_id, billing_email, billing_phone,
-                billing_bank_name, billing_bank_iban, billing_bank_swift
+                billing_company_name, billing_country
               ) VALUES (
                 gen_random_uuid(), $1, $2, $3, $4,
                 'pending', 'EUR', 14, $5, $6,
                 $7, $8, 'migration-v20',
-                $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20
+                $9, $10
               )
             `, [
               customerId,
@@ -2977,17 +2977,7 @@ async function step11_customerContracts() {
               customerNameStr,
               r.con_inserted || new Date(),
               billingCompName,
-              billingAddr,
-              billingCityVal,
-              billingZipVal,
               billingCountryVal,
-              billingTaxIdVal,
-              billingVatIdVal,
-              billingEmailVal,
-              billingPhoneVal,
-              billingBankNameVal,
-              billingBankIbanVal,
-              billingBankSwiftVal,
             ]);
             insertedSI++;
           } catch (siErr) {
