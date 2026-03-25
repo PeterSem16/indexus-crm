@@ -71,18 +71,29 @@ export async function fillPdfForm(
 
     pdfDoc.registerFontkit(fontkit);
 
+    const cwd = process.cwd();
     const fontPaths = [
+      path.join(cwd, "attached_assets/DejaVuSans.ttf"),
       "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-      path.join(process.cwd(), "attached_assets/DejaVuSans.ttf"),
+      "/usr/share/fonts/truetype/DejaVuSans.ttf",
+      "/usr/local/share/fonts/DejaVuSans.ttf",
+      path.join(cwd, "fonts/DejaVuSans.ttf"),
+      path.join(cwd, "node_modules/@pdf-lib/fontkit/DejaVuSans.ttf"),
     ];
     let customFont: any = null;
+    console.log(`[PDF Form] Looking for Unicode font, cwd=${cwd}`);
     for (const fp of fontPaths) {
-      if (fs.existsSync(fp)) {
+      const exists = fs.existsSync(fp);
+      console.log(`[PDF Form]   Font check: ${fp} → ${exists ? "FOUND" : "not found"}`);
+      if (exists) {
         const fontData = fs.readFileSync(fp);
         customFont = await pdfDoc.embedFont(fontData);
         console.log(`[PDF Form] Embedded Unicode font from ${fp}`);
         break;
       }
+    }
+    if (!customFont) {
+      console.error(`[PDF Form] WARNING: No Unicode font found! Falling back to Helvetica. CWD=${cwd}`);
     }
 
     const form = pdfDoc.getForm();
