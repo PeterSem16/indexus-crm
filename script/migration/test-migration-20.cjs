@@ -469,6 +469,102 @@ async function step1_testConnection() {
     log('  Companies stĺpce: ' + comCols.recordset.map(r => r.COLUMN_NAME).join(', '));
   } catch (err) { log(`  WARN: Companies: ${err.message}`); }
 
+  log('\n--- Diagnostika CBC: Hľadanie billing údajov (IČO, DIČ, IBAN, adresa firmy) ---');
+  try {
+    const billingTables = await mssqlPool.request().query(`
+      SELECT TABLE_NAME, COLUMN_NAME 
+      FROM INFORMATION_SCHEMA.COLUMNS 
+      WHERE (COLUMN_NAME LIKE '%ico%' OR COLUMN_NAME LIKE '%dic%' OR COLUMN_NAME LIKE '%vat%' 
+             OR COLUMN_NAME LIKE '%iban%' OR COLUMN_NAME LIKE '%tax%' OR COLUMN_NAME LIKE '%swift%'
+             OR COLUMN_NAME LIKE '%bank%' OR COLUMN_NAME LIKE '%reg%number%'
+             OR COLUMN_NAME LIKE '%company_name%' OR COLUMN_NAME LIKE '%billing%')
+      AND TABLE_NAME NOT LIKE 'sys%'
+      ORDER BY TABLE_NAME, COLUMN_NAME
+    `);
+    log('  Billing stĺpce v CBC:');
+    for (const r of billingTables.recordset) {
+      log(`    ${r.TABLE_NAME}.${r.COLUMN_NAME}`);
+    }
+  } catch (err) { log(`  WARN billing search: ${err.message}`); }
+
+  try {
+    const addCols = await mssqlPool.request().query(`
+      SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_NAME = 'MailAddresses'
+      ORDER BY ORDINAL_POSITION
+    `);
+    log('  MailAddresses ALL stĺpce: ' + addCols.recordset.map(r => r.COLUMN_NAME).join(', '));
+  } catch (err) { log(`  WARN MailAddresses cols: ${err.message}`); }
+
+  try {
+    const invAddrSample = await mssqlPool.request().query(`
+      SELECT TOP 5 i.inv_id, i.add_id_company, i.add_id_invoice,
+             ac.add_name AS company_name, ac.add_street_and_number AS company_street, ac.add_city AS company_city,
+             ac.add_zip AS company_zip, ac.add_country AS company_country, ac.add_area AS company_area,
+             ai.add_name AS invoice_name, ai.add_street_and_number AS invoice_street, ai.add_city AS invoice_city
+      FROM Invoices i
+      LEFT JOIN MailAddresses ac ON ac.add_id = i.add_id_company
+      LEFT JOIN MailAddresses ai ON ai.add_id = i.add_id_invoice
+      WHERE i.add_id_company IS NOT NULL
+    `);
+    log('  Invoices → MailAddresses (company address) vzorka:');
+    for (const r of invAddrSample.recordset) {
+      log(`    inv_id=${r.inv_id}: company=[${r.company_name}] ${r.company_street}, ${r.company_city} ${r.company_zip} ${r.company_country} | area=${r.company_area}`);
+    }
+  } catch (err) { log(`  WARN inv addr sample: ${err.message}`); }
+
+  try {
+    const companiesAll = await mssqlPool.request().query(`SELECT * FROM Companies`);
+    log('  Companies ALL data:');
+    for (const r of companiesAll.recordset) {
+      log(`    com_id=${r.com_id}: ${r.com_name} (${r.com_code}) country=${r.com_country_code} entity=${r.com_entity_code}`);
+    }
+  } catch (err) { log(`  WARN companies all: ${err.message}`); }
+
+  try {
+    const relatedTables = await mssqlPool.request().query(`
+      SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES 
+      WHERE TABLE_NAME LIKE '%Company%' OR TABLE_NAME LIKE '%Billing%' OR TABLE_NAME LIKE '%Account%' 
+            OR TABLE_NAME LIKE '%Bank%' OR TABLE_NAME LIKE '%Entity%'
+      ORDER BY TABLE_NAME
+    `);
+    log('  Súvisiace tabuľky (Company/Billing/Account/Bank/Entity):');
+    for (const r of relatedTables.recordset) {
+      log(`    ${r.TABLE_NAME}`);
+    }
+  } catch (err) { log(`  WARN related tables: ${err.message}`); }
+
+  try {
+    const compEntityCols = await mssqlPool.request().query(`
+      SELECT TABLE_NAME, COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_NAME LIKE '%CompanyEntit%' OR TABLE_NAME LIKE '%Entity%'
+      ORDER BY TABLE_NAME, ORDINAL_POSITION
+    `);
+    if (compEntityCols.recordset.length > 0) {
+      log('  Entity tabuľky stĺpce:');
+      for (const r of compEntityCols.recordset) {
+        log(`    ${r.TABLE_NAME}.${r.COLUMN_NAME}`);
+      }
+    }
+  } catch (err) { log(`  WARN entity tables: ${err.message}`); }
+
+  try {
+    const entityData = await mssqlPool.request().query(`
+      SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES 
+      WHERE TABLE_NAME LIKE '%Entit%'
+    `);
+    for (const t of entityData.recordset) {
+      try {
+        const cols = await mssqlPool.request().query(`SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '${t.TABLE_NAME}' ORDER BY ORDINAL_POSITION`);
+        log(`    ${t.TABLE_NAME} stĺpce: ${cols.recordset.map(r => r.COLUMN_NAME).join(', ')}`);
+        const data = await mssqlPool.request().query(`SELECT TOP 3 * FROM [${t.TABLE_NAME}]`);
+        for (const r of data.recordset) {
+          log(`      ${JSON.stringify(r)}`);
+        }
+      } catch (e) { log(`    ${t.TABLE_NAME}: ${e.message}`); }
+    }
+  } catch (err) { log(`  WARN entity data: ${err.message}`); }
+
   log('\n--- Diagnostika CBC: ServiceCollections stĺpce (representative, nurse, certificate, coordinator) ---');
   try {
     const scoCols = await mssqlPool.request().query(`
@@ -2772,6 +2868,28 @@ async function step11_customerContracts() {
     log(`  Customer name lookup: ${Object.keys(customerNameLookup).length} záznamov`);
   } catch (err) { log(`  WARN customer name lookup: ${err.message}`); }
 
+  // Build con_id → invoice item label map from CBC InvoiceItems (via ContractServices → Invoices → InvoiceItems)
+  const invoiceItemLabelByConId = {};
+  try {
+    const conIds = contracts.recordset.map(r => r.con_id).join(',');
+    const itemLabelRes = await mssqlPool.request().query(`
+      SELECT DISTINCT cs.con_id, iit.iit_label
+      FROM ContractServices cs
+      JOIN Invoices i ON i.cse_id = cs.cse_id
+      JOIN InvoiceItems iit ON iit.inv_id = i.inv_id
+      WHERE cs.con_id IN (${conIds}) AND iit.iit_label IS NOT NULL AND iit.iit_label != ''
+      ORDER BY cs.con_id
+    `);
+    for (const r of itemLabelRes.recordset) {
+      if (!invoiceItemLabelByConId[String(r.con_id)]) {
+        invoiceItemLabelByConId[String(r.con_id)] = r.iit_label;
+      }
+    }
+    log(`  Invoice item labels: ${Object.keys(invoiceItemLabelByConId).length} zmlúv s názvom položky`);
+    const sample = Object.entries(invoiceItemLabelByConId).slice(0, 3);
+    if (sample.length > 0) log(`  Vzorky: ${sample.map(([k,v]) => `con_id=${k}: "${v}"`).join(', ')}`);
+  } catch (err) { log(`  WARN invoice item labels: ${err.message}`); }
+
   let insertedCI = 0, insertedCD = 0, insertedSI = 0, siErrors = 0, skipped = 0, errors = 0;
   for (const r of contracts.recordset) {
     const customerId = customerMap[String(r.cli_id)];
@@ -2920,12 +3038,13 @@ async function step11_customerContracts() {
         const baseDate = r.con_realized || r.con_inserted || new Date();
         let prevDate = new Date(baseDate);
 
+        const invoiceItemLabel = invoiceItemLabelByConId[String(r.con_id)] || null;
+
         for (let pIdx = 0; pIdx < payments.length; pIdx++) {
           const p = payments[pIdx];
           const amount = parseFloat(p.csy_amount) || 0;
           if (amount <= 0) continue;
 
-          // Calculate scheduled date from days offsets
           let scheduledDate;
           if (p.csy_days_from_field_value > 0) {
             scheduledDate = new Date(baseDate);
@@ -2939,7 +3058,7 @@ async function step11_customerContracts() {
           }
           prevDate = scheduledDate;
 
-          const baseItemName = p.csy_name || sch.csh_name || 'Splátka';
+          const baseItemName = invoiceItemLabel || p.csy_name || sch.csh_name || 'Splátka';
           const itemName = `${baseItemName} - ${pIdx + 1}/${payments.length}`;
           const items = JSON.stringify([{
             name: itemName,
@@ -3169,8 +3288,13 @@ async function step12_customerInvoices() {
              i.inv_fully_paid, i.inv_note, i.inv_writeoff,
              i.inv_inserted, i.inv_inserted_by, i.inv_updated, i.inv_updated_by,
              i.inv_period_from, i.inv_period_to, i.inv_emailed, i.inv_bsp_note,
-             i.inv_id_credit_note_to, i.inv_id_proforma_link
+             i.inv_id_credit_note_to, i.inv_id_proforma_link,
+             i.add_id_company, i.add_id_invoice,
+             ac.add_name AS billing_addr_name, ac.add_street_and_number AS billing_addr_street,
+             ac.add_city AS billing_addr_city, ac.add_zip AS billing_addr_zip,
+             ac.add_country AS billing_addr_country, ac.add_area AS billing_addr_area
       FROM Invoices i
+      LEFT JOIN MailAddresses ac ON ac.add_id = i.add_id_company
       WHERE i.cse_id IN (
         SELECT cse_id FROM ContractServices WHERE con_id IN (
           SELECT con_id FROM Contracts WHERE cli_id IN (${cliIds})
@@ -3407,6 +3531,11 @@ async function step12_customerInvoices() {
       inserted_by: r.inv_inserted_by || null,
       updated_by: r.inv_updated_by || null,
       legacyBillingCompany: cliId ? (companyInfoMap[cliId] || null) : null,
+      billingAddress: r.billing_addr_name ? {
+        name: r.billing_addr_name, street: r.billing_addr_street,
+        city: r.billing_addr_city, zip: r.billing_addr_zip,
+        country: r.billing_addr_country, area: r.billing_addr_area,
+      } : null,
       items: invoiceItemsMap[String(r.inv_id)] || [],
       scheduledPayments: scheduledPaymentsMap[String(r.inv_id)] || [],
       realizedPayments: realizedPaymentsMap[String(r.inv_id)] || [],
@@ -3483,7 +3612,7 @@ async function step12_customerInvoices() {
           variable_symbol, specific_symbol, constant_symbol,
           delivery_date, issue_date, send_date, due_date,
           period_from, period_to,
-          billing_company_name,
+          billing_company_name, billing_address, billing_country,
           contract_instance_id,
           data_source, legacy_data, note,
           generated_at, created_at
@@ -3495,10 +3624,10 @@ async function step12_customerInvoices() {
           $9, $10, $11,
           $12, $13, $14, $15,
           $16, $17,
-          $18,
-          $19,
-          'iscbc', $20, $21,
-          $22, $22
+          $18, $19, $20,
+          $21,
+          'iscbc', $22, $23,
+          $24, $24
         )
       `, [
         invoiceNumberForModule,                                                        // $1
@@ -3519,10 +3648,12 @@ async function step12_customerInvoices() {
         r.inv_period_from || null,                                                     // $16
         r.inv_period_to || null,                                                       // $17
         companyName,                                                                   // $18
-        contractInstanceId,                                                            // $19
-        JSON.stringify(legacyData),                                                    // $20
-        r.inv_note || null,                                                            // $21
-        r.inv_inserted || r.inv_date_of_issue || new Date(),                           // $22
+        r.billing_addr_street ? [r.billing_addr_street, r.billing_addr_city, r.billing_addr_zip].filter(Boolean).join(', ') : null, // $19 billing_address
+        r.billing_addr_country ? r.billing_addr_country.replace('COUNTRY_', '') : null,  // $20 billing_country
+        contractInstanceId,                                                            // $21
+        JSON.stringify(legacyData),                                                    // $22
+        r.inv_note || null,                                                            // $23
+        r.inv_inserted || r.inv_date_of_issue || new Date(),                           // $24
       ]);
 
       inserted++;

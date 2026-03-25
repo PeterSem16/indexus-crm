@@ -2007,19 +2007,31 @@ export default function CustomerInvoicesPage() {
                       <Label className="text-muted-foreground text-xs">{t.invoices?.companyName || "Company"}</Label>
                       <p className="font-medium">{selectedScheduledInvoice.billingCompanyName}</p>
                     </div>
-                    <div className="col-span-2">
-                      <Label className="text-muted-foreground text-xs">{t.customers?.address || "Address"}</Label>
-                      <p>{selectedScheduledInvoice.billingAddress}</p>
-                      <p>{selectedScheduledInvoice.billingZip} {selectedScheduledInvoice.billingCity}, {selectedScheduledInvoice.billingCountry}</p>
-                    </div>
-                    <div>
-                      <Label className="text-muted-foreground text-xs">{t.invoices?.taxId || "Tax ID"}</Label>
-                      <p>{selectedScheduledInvoice.billingTaxId || "-"}</p>
-                    </div>
-                    <div>
-                      <Label className="text-muted-foreground text-xs">{t.invoices?.vatId || "VAT ID"}</Label>
-                      <p>{selectedScheduledInvoice.billingVatId || "-"}</p>
-                    </div>
+                    {(selectedScheduledInvoice.billingAddress || selectedScheduledInvoice.billingCity) && (
+                      <div className="col-span-2">
+                        <Label className="text-muted-foreground text-xs">{t.customers?.address || "Address"}</Label>
+                        <p>{selectedScheduledInvoice.billingAddress || '-'}</p>
+                        <p>{[selectedScheduledInvoice.billingZip, selectedScheduledInvoice.billingCity].filter(Boolean).join(' ')}{selectedScheduledInvoice.billingCountry ? `, ${selectedScheduledInvoice.billingCountry}` : ''}</p>
+                      </div>
+                    )}
+                    {!selectedScheduledInvoice.billingAddress && !selectedScheduledInvoice.billingCity && selectedScheduledInvoice.billingCountry && (
+                      <div>
+                        <Label className="text-muted-foreground text-xs">{t.customers?.country || "Country"}</Label>
+                        <p>{selectedScheduledInvoice.billingCountry.replace('COUNTRY_', '')}</p>
+                      </div>
+                    )}
+                    {selectedScheduledInvoice.billingTaxId && (
+                      <div>
+                        <Label className="text-muted-foreground text-xs">{t.invoices?.taxId || "Tax ID"}</Label>
+                        <p>{selectedScheduledInvoice.billingTaxId}</p>
+                      </div>
+                    )}
+                    {selectedScheduledInvoice.billingVatId && (
+                      <div>
+                        <Label className="text-muted-foreground text-xs">{t.invoices?.vatId || "VAT ID"}</Label>
+                        <p>{selectedScheduledInvoice.billingVatId}</p>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <p className="text-sm text-muted-foreground italic">{t.invoices?.noMetadata || "No metadata stored"}</p>
@@ -2723,6 +2735,7 @@ function InvoiceDetailDrawer({
                 </h4>
                 {(() => {
                   const lbc = (invoice as any).legacyData?.legacyBillingCompany || {};
+                  const billingAddr = (invoice as any).legacyData?.billingAddress || null;
                   const compName = invoice.billingCompanyName || lbc.com_name || '-';
                   const compCode = lbc.com_code || null;
                   const currency = lbc.cur_code || invoice.currency || null;
@@ -2734,6 +2747,20 @@ function InvoiceDetailDrawer({
                         <Label className="text-muted-foreground text-[10px]">{t.invoices?.companyName || "Company"}</Label>
                         <p className="font-medium">{compName}</p>
                       </div>
+                      {billingAddr && (
+                        <div className="col-span-2">
+                          <Label className="text-muted-foreground text-[10px]">{t.customers?.address || "Address"}</Label>
+                          <p>{billingAddr.street || billingAddr.name || '-'}</p>
+                          <p>{[billingAddr.zip, billingAddr.city].filter(Boolean).join(' ')}{billingAddr.country ? ` (${billingAddr.country.replace('COUNTRY_', '')})` : ''}</p>
+                        </div>
+                      )}
+                      {!billingAddr && (invoice.billingAddress || invoice.billingCountry) && (
+                        <div className="col-span-2">
+                          <Label className="text-muted-foreground text-[10px]">{t.customers?.address || "Address"}</Label>
+                          <p>{invoice.billingAddress || '-'}</p>
+                          <p>{invoice.billingCountry || ''}</p>
+                        </div>
+                      )}
                       {compCode && (
                         <div>
                           <Label className="text-muted-foreground text-[10px]">Code</Label>
@@ -2752,7 +2779,7 @@ function InvoiceDetailDrawer({
                           <p>{currency}</p>
                         </div>
                       )}
-                      {country && (
+                      {country && !billingAddr && (
                         <div>
                           <Label className="text-muted-foreground text-[10px]">{t.customers?.country || "Country"}</Label>
                           <p>{country?.replace('COUNTRY_', '')}</p>
