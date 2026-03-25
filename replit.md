@@ -115,10 +115,45 @@ Preferred communication style: Simple, everyday language.
 
 ### ISCBC Migration
 - Full migration documentation: `docs/migration-iscbc-to-indexus.md`
-- Migration script: `script/migration/test-migration-20.cjs` (20 steps)
-- Cleanup script: `script/migration/cleanup-test-migration.cjs`
-- Source: MSSQL `CBC` database on `10.1.2.2:1433`
-- Migrated data: customers, contracts, invoices, collections, collaborators, hospitals, notes, calls, debt collection
+- Migration procedures documentation: `script/migration/MIGRATION-PROCEDURES.md`
+- Migration script: `script/migration/test-migration-20.cjs` (13 steps)
+- Source: MSSQL `CBC` database on `10.1.2.2:1433`, DB: `CBC`, user: `cbcuser`
+- Migrated data: customers, contracts, invoices, scheduled invoices, collections, collaborators, hospitals, notes, calls, debt collection, potential clients
+- Billing data: CompanyDetails (IČO/DIČ/IČ DPH), CompanyAccounts (IBAN/SWIFT/bank), VATs (170 sadzby DPH)
 - ISCBC badge displayed on migrated records (orange badge)
 - Dual invoice migration: `customer_documents` (Documents tab) + `invoices` (Invoices module)
 - Deduplication logic in `/api/customers/:id/documents` endpoint
+
+#### Procedúra A: Plná migrácia (čistý štart)
+- Skript: `script/migration/cleanup-full-migration.cjs`
+- Vymaže všetkých zákazníkov, zmluvy, faktúry, plánované faktúry, poznámky, komunikáciu — **okrem Peter Seman**
+- Resetuje číselníky (`number_ranges.last_number_used → 0`)
+- Collaborators, hospitals sa nEmažú — upsertujú sa pri migrácii
+- Spustenie na Ubuntu:
+  ```
+  cd /var/www/indexus-crm && git pull && npm run build && npx drizzle-kit push --force && node script/migration/cleanup-full-migration.cjs && MIGRATION_LIMIT=100 node script/migration/test-migration-20.cjs 2>&1 | tee /tmp/migration-v20-full.txt && pm2 restart indexus-crm
+  ```
+
+#### Procedúra B: Inkrementálna migrácia (ponechanie testovacích dát)
+- Skript: `script/migration/cleanup-test-migration.cjs`
+- Ponechá existujúce testovacie dáta vo všetkých moduloch
+- Vymaže iba predchádzajúce migrované záznamy (`data_source = 'iscbc'`, `legacy_id IS NOT NULL`, `created_by = 'migration-v20'`)
+- Číselníky sa neresetujú
+- Spustenie na Ubuntu:
+  ```
+  cd /var/www/indexus-crm && git pull && npm run build && npx drizzle-kit push --force && node script/migration/cleanup-test-migration.cjs && MIGRATION_LIMIT=100 node script/migration/test-migration-20.cjs 2>&1 | tee /tmp/migration-v20.txt && pm2 restart indexus-crm
+  ```
+
+#### Overenie migrácie (SQL)
+```sql
+PGPASSWORD=HanyurIfKisck psql -h localhost -U indexus -d indexus_crm -c "
+  SELECT 'customers' as tbl, count(*) FROM customers WHERE internal_id IS NOT NULL
+  UNION ALL SELECT 'contracts', count(*) FROM contract_instances WHERE data_source = 'iscbc'
+  UNION ALL SELECT 'invoices', count(*) FROM invoices WHERE data_source = 'iscbc'
+  UNION ALL SELECT 'scheduled_inv', count(*) FROM scheduled_invoices WHERE created_by = 'migration-v20'
+  UNION ALL SELECT 'collections', count(*) FROM collections WHERE legacy_id IS NOT NULL
+  UNION ALL SELECT 'collaborators', count(*) FROM collaborators WHERE legacy_id IS NOT NULL
+  UNION ALL SELECT 'hospitals', count(*) FROM hospitals WHERE legacy_id IS NOT NULL
+  ORDER BY tbl;
+"
+```
