@@ -1,4 +1,5 @@
-import { PDFDocument } from "pdf-lib";
+import { PDFDocument, StandardFonts } from "pdf-lib";
+import fontkit from "@pdf-lib/fontkit";
 import * as fs from "fs";
 import * as path from "path";
 import PizZip from "pizzip";
@@ -67,6 +68,23 @@ export async function fillPdfForm(
   try {
     const pdfBytes = fs.readFileSync(pdfPath);
     const pdfDoc = await PDFDocument.load(pdfBytes);
+
+    pdfDoc.registerFontkit(fontkit);
+
+    const fontPaths = [
+      "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+      path.join(process.cwd(), "attached_assets/DejaVuSans.ttf"),
+    ];
+    let customFont: any = null;
+    for (const fp of fontPaths) {
+      if (fs.existsSync(fp)) {
+        const fontData = fs.readFileSync(fp);
+        customFont = await pdfDoc.embedFont(fontData);
+        console.log(`[PDF Form] Embedded Unicode font from ${fp}`);
+        break;
+      }
+    }
+
     const form = pdfDoc.getForm();
 
     for (const [fieldName, value] of Object.entries(data)) {
@@ -76,6 +94,9 @@ export async function fillPdfForm(
 
         if (fieldType.includes("TextField")) {
           const textField = form.getTextField(fieldName);
+          if (customFont) {
+            textField.updateAppearances(customFont);
+          }
           textField.setText(String(value));
         } else if (fieldType.includes("CheckBox")) {
           const checkbox = form.getCheckBox(fieldName);

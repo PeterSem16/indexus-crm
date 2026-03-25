@@ -34306,7 +34306,7 @@ Return ONLY the JSON object.`
 
       const motherName = [data.firstName, data.lastName].filter(Boolean).join(" ");
       const motherAddress = [data.address, data.postalCode, data.city].filter(Boolean).join(", ");
-      const fatherName = [data.partnerName].filter(Boolean).join(" ");
+      const fatherName = data.partnerName || "";
       const fatherAddress = "";
 
       const formatDate = (val: string | undefined) => {
@@ -34316,11 +34316,25 @@ Return ONLY the JSON object.`
         return `${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}.${d.getFullYear()}`;
       };
 
+      const addressMatch = (data.address || "").match(/^(.+?)\s+(\d+\S*)$/);
+      const streetName = addressMatch ? addressMatch[1] : (data.address || "");
+      const houseNumber = addressMatch ? addressMatch[2] : "";
+
       const productLower = (productSetName || "").toLowerCase();
       const isStandard = productLower.includes("standard") && !productLower.includes("plus");
       const isPremium = productLower.includes("premium") && !productLower.includes("plus");
       const isStandardPlus = productLower.includes("standard") && productLower.includes("plus");
       const isPremiumPlus = productLower.includes("premium") && productLower.includes("plus");
+
+      let fatherFirstName = "";
+      let fatherLastName = "";
+      if (data.partnerName) {
+        const parts = String(data.partnerName).trim().split(/\s+/);
+        fatherFirstName = parts[0] || "";
+        fatherLastName = parts.length > 1 ? parts.slice(1).join(" ") : "";
+      }
+
+      const gynecologistName = data.gynecologist || "";
 
       const pdfFields: Record<string, string | boolean> = {
         "001 Cotract ID": data.contractNumber || "",
@@ -34336,14 +34350,16 @@ Return ONLY the JSON object.`
         "008 Collection - Standar Plus": isStandardPlus,
         "008 Collection - Premium Plsus": isPremiumPlus,
 
-        "009 Payment - 1": data.paymentMethod === "single" || data.paymentMethod === "1",
+        "009 Payment - 1": data.paymentMethod === "single" || data.paymentMethod === "bank_transfer" || data.paymentMethod === "1",
         "009 Payment - 4": data.paymentMethod === "installments_4" || data.paymentMethod === "4",
         "009 Payment - 8": data.paymentMethod === "installments" || data.paymentMethod === "installments_8" || data.paymentMethod === "8",
 
         "Nachname": data.lastName || "",
         "Vorname": data.firstName || "",
         "Geburtsdatum_3": formatDate(data.dateOfBirth),
-        "Straße": data.address || "",
+        "VornameGeburtsdatum": formatDate(data.dateOfBirth),
+        "Straße": streetName,
+        "Hausnummer": houseNumber,
         "PLZ": data.postalCode || "",
         "Ort": data.city || "",
         "Telefon 1": data.phone || data.mobile || "",
@@ -34351,19 +34367,31 @@ Return ONLY the JSON object.`
         "EMail 1": data.email || "",
         "Geplante Entbindungsanstalt": hospitalName,
         "Errechneter Entbindungstermin TTMMJJJJ": formatDate(data.expectedDeliveryDate || data.expectedDueDate),
+        "ambulanter Gynäkologe Name des Arztes": gynecologistName,
 
         "Nachname_2": data.lastName || "",
         "Vorname_2": data.firstName || "",
         "Geburtsdatum_4": formatDate(data.dateOfBirth),
-        "Straße_2": data.address || "",
+        "VornameGeburtsdatum_2": formatDate(data.dateOfBirth),
+        "Straße_2": streetName,
+        "Hausnummer_2": houseNumber,
         "PLZ_2": data.postalCode || "",
-      };
+        "Wohnort": data.city || "",
+        "Telefon": data.phone || data.mobile || "",
+        "EMail": data.email || "",
 
-      if (data.partnerName) {
-        const parts = data.partnerName.split(" ");
-        pdfFields["Nachname_3"] = parts.length > 1 ? parts.slice(1).join(" ") : "";
-        pdfFields["Vorname_3"] = parts[0] || "";
-      }
+        "Nachname_3": fatherLastName,
+        "Vorname_3": fatherFirstName,
+        "Telefon_2": data.partnerPhone || "",
+        "EMail_2": data.partnerEmail || "",
+
+        "In 1": motherName,
+        "In 2": motherAddress,
+        "am": formatDate(data.dateOfBirth),
+        "In 1_2": fatherName,
+        "In 2_2": fatherAddress,
+        "am_2": "",
+      };
 
       const templatePath = path.join(process.cwd(), "attached_assets/Balik_Rodicka_-_AT_-_Premium_003_2026-03-24_1774454239289.pdf");
       if (!fs.existsSync(templatePath)) {
