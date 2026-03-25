@@ -1496,7 +1496,7 @@ export default function ContractDetailPage() {
 
         {contract.dataSource === "iscbc" && (
           <TabsContent value="legacy" className="space-y-4">
-            <ContractLegacyTab contract={contract} formatDate={formatDate} countryCode={contractCountryCode} />
+            <ContractLegacyTab contract={contract} invoices={invoices} formatDate={formatDate} countryCode={contractCountryCode} />
           </TabsContent>
         )}
       </Tabs>
@@ -1504,10 +1504,14 @@ export default function ContractDetailPage() {
   );
 }
 
-function ContractLegacyTab({ contract, formatDate: fmtDate, countryCode }: { contract: any; formatDate: (d: any, cc?: string) => string; countryCode: string }) {
+function ContractLegacyTab({ contract, invoices, formatDate: fmtDate, countryCode }: { contract: any; invoices: any[]; formatDate: (d: any, cc?: string) => string; countryCode: string }) {
   const { t } = useI18n();
   const legacy = contract.legacyData as Record<string, any> | null;
   const [expandedSP, setExpandedSP] = useState<Record<number, boolean>>({});
+
+  const contractInvoices = useMemo(() => {
+    return invoices.filter((inv: any) => inv.contractInstanceId === contract.id && inv.dataSource === 'iscbc');
+  }, [invoices, contract.id]);
 
   if (!legacy) {
     return (
@@ -1651,6 +1655,64 @@ function ContractLegacyTab({ contract, formatDate: fmtDate, countryCode }: { con
           )}
         </CardContent>
       </Card>
+
+      {contractInvoices.length > 0 && (
+        <Card>
+          <CardHeader className="py-3">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Receipt className="h-4 w-4" />
+              {t.contractsModule.tabInvoices || "Invoices"} — {t.contractsModule.legacy?.actualPrice || "Actual"} ({contractInvoices.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="border rounded-lg overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/30">
+                    <TableHead className="text-xs">{t.contractsModule.invoiceNumber || "Invoice #"}</TableHead>
+                    <TableHead className="text-xs">{t.invoicesModule?.issueDate || "Issue date"}</TableHead>
+                    <TableHead className="text-xs">{t.contractsModule.invoiceStatus || "Status"}</TableHead>
+                    <TableHead className="text-xs text-right">{t.invoices?.legacy?.totalHome || "Total (home)"}</TableHead>
+                    <TableHead className="text-xs text-right">{t.invoices?.legacy?.totalAccount || "Total (acc.)"}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {contractInvoices.map((inv: any, idx: number) => {
+                    const items: any[] = inv.legacyData?.items || [];
+                    const totalHome = items.reduce((sum: number, it: any) => sum + (parseFloat(it.iit_price_cur_home_with_vat) || 0), 0);
+                    const totalAccount = items.reduce((sum: number, it: any) => sum + (parseFloat(it.iit_price_cur_account_with_vat) || 0), 0);
+                    return (
+                      <TableRow key={idx} className="text-xs">
+                        <TableCell className="font-medium">{inv.invoiceNumber || inv.legacyData?.inv_number || '-'}</TableCell>
+                        <TableCell>{fmtDt(inv.issueDate || inv.legacyData?.inv_date_of_issue)}</TableCell>
+                        <TableCell>
+                          <Badge variant={inv.status === 'paid' ? 'default' : 'secondary'} className="text-[9px] px-1 py-0">
+                            {inv.legacyData?.ips_code || inv.status || '-'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right font-medium">{fmtNum(totalHome)}</TableCell>
+                        <TableCell className="text-right font-medium">{fmtNum(totalAccount)}</TableCell>
+                      </TableRow>
+                    );
+                  })}
+                  {contractInvoices.length > 0 && (() => {
+                    const allItems = contractInvoices.flatMap((inv: any) => inv.legacyData?.items || []);
+                    const grandHome = allItems.reduce((sum: number, it: any) => sum + (parseFloat(it.iit_price_cur_home_with_vat) || 0), 0);
+                    const grandAccount = allItems.reduce((sum: number, it: any) => sum + (parseFloat(it.iit_price_cur_account_with_vat) || 0), 0);
+                    return (
+                      <TableRow className="text-xs font-bold bg-muted/20 border-t-2">
+                        <TableCell colSpan={3} className="text-right">{t.contractsModule.legacy?.actualPrice || "Total"}:</TableCell>
+                        <TableCell className="text-right text-green-600 dark:text-green-400">{fmtNum(grandHome)}</TableCell>
+                        <TableCell className="text-right text-green-600 dark:text-green-400">{fmtNum(grandAccount)}</TableCell>
+                      </TableRow>
+                    );
+                  })()}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader className="py-3">
