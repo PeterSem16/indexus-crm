@@ -1479,11 +1479,17 @@ export function ContractTemplatesManager() {
                   </div>
                 </div>
               ) : templateForm.templateType === "pdf_form" ? (
+                (() => {
+                  const pdfFields = templateForm.extractedFields.map((f: any) =>
+                    typeof f === "string" ? { name: f, type: "text" } : f
+                  );
+                  const fieldNames = pdfFields.map((f: any) => f.name);
+                  return (
                 <div className="flex-1 overflow-auto min-h-0 p-4 space-y-4">
                   <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-md">
                     <Badge variant="secondary" className="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300">PDF formulár</Badge>
                     <span className="text-sm text-muted-foreground">
-                      {templateForm.extractedFields.length} polí nájdených
+                      {pdfFields.length} polí nájdených
                     </span>
                   </div>
 
@@ -1500,7 +1506,7 @@ export function ContractTemplatesManager() {
                     </TabsList>
 
                     <TabsContent value="mapping" className="space-y-3 mt-4">
-                      {templateForm.extractedFields.length > 0 ? (
+                      {pdfFields.length > 0 ? (
                         <>
                           <div className="flex items-center justify-between gap-4 p-2 bg-muted rounded-md flex-wrap">
                             <div className="grid grid-cols-2 gap-4 flex-1 font-medium text-sm">
@@ -1516,7 +1522,7 @@ export function ContractTemplatesManager() {
                                     method: "POST",
                                     headers: { "Content-Type": "application/json" },
                                     credentials: "include",
-                                    body: JSON.stringify({ extractedFields: templateForm.extractedFields })
+                                    body: JSON.stringify({ extractedFields: fieldNames })
                                   });
                                   if (!response.ok) throw new Error("AI mapping failed");
                                   const result = await response.json();
@@ -1544,19 +1550,20 @@ export function ContractTemplatesManager() {
                             </Button>
                           </div>
 
-                          {templateForm.extractedFields.map((field, idx) => (
+                          {pdfFields.map((pdfField: any, idx: number) => (
                             <div key={idx} className="grid grid-cols-2 gap-4 items-center p-2 border rounded-md">
                               <div className="flex items-center gap-2">
-                                <Badge variant="outline" className="font-mono text-xs">{field}</Badge>
+                                <Badge variant="outline" className="font-mono text-xs">{pdfField.name}</Badge>
+                                <span className="text-xs text-muted-foreground">{pdfField.type}</span>
                               </div>
                               <Select
-                                value={templateForm.placeholderMappings[field] || "__none__"}
+                                value={templateForm.placeholderMappings[pdfField.name] || "__none__"}
                                 onValueChange={(value) => setTemplateForm(prev => {
                                   const newMappings = { ...prev.placeholderMappings };
                                   if (value && value !== "__none__") {
-                                    newMappings[field] = value;
+                                    newMappings[pdfField.name] = value;
                                   } else {
-                                    delete newMappings[field];
+                                    delete newMappings[pdfField.name];
                                   }
                                   return { ...prev, placeholderMappings: newMappings };
                                 })}
@@ -1603,6 +1610,8 @@ export function ContractTemplatesManager() {
                     </TabsContent>
                   </Tabs>
                 </div>
+                  );
+                })()
               ) : (
                 <div className="flex-1 overflow-hidden min-h-0">
                   <DocxTemplateEditor
