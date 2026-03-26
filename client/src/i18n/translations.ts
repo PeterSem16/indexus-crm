@@ -435,6 +435,17 @@ export interface Translations {
     webFormsPrecheckNewChild: string;
     webFormsPrecheckNewChildDesc: string;
     webFormsPrecheckExistingDob: string;
+    webFormsSocialCheck: string;
+    webFormsSocialCheckDesc: string;
+    webFormsSocialCheckRunning: string;
+    webFormsSocialCheckAiAnalysis: string;
+    webFormsSocialCheckLinks: string;
+    webFormsSocialCheckOpen: string;
+    webFormsCallClient: string;
+    webFormsCallNote: string;
+    webFormsCallNotePlaceholder: string;
+    webFormsCallNoteSaved: string;
+    webFormsSaveNote: string;
   };
   customers: {
     title: string;
@@ -5749,6 +5760,17 @@ export const translations: Record<Locale, Translations> = {
       webFormsPrecheckNewChild: 'New pregnancy detected',
       webFormsPrecheckNewChildDesc: 'The existing delivery date on the customer card has already passed. This registration likely concerns a new (2nd) child. Upon approval, number of children can be updated to 2 and a new expected delivery date can be set.',
       webFormsPrecheckExistingDob: 'Existing delivery date on card',
+      webFormsSocialCheck: 'AI Social Check',
+      webFormsSocialCheckDesc: 'Search for client mentions on social media and forums',
+      webFormsSocialCheckRunning: 'Analyzing...',
+      webFormsSocialCheckAiAnalysis: 'AI Recommendations',
+      webFormsSocialCheckLinks: 'Search Links',
+      webFormsSocialCheckOpen: 'Open',
+      webFormsCallClient: 'Call client',
+      webFormsCallNote: 'Call note',
+      webFormsCallNotePlaceholder: 'Enter a note about the call (e.g. data verified, name change confirmed)...',
+      webFormsCallNoteSaved: 'Note saved to client history',
+      webFormsSaveNote: 'Save note',
     },
     customers: {
       title: 'Customers',
@@ -10928,6 +10950,17 @@ export const translations: Record<Locale, Translations> = {
       webFormsPrecheckNewChild: 'Zistené nové tehotenstvo',
       webFormsPrecheckNewChildDesc: 'Existujúci termín pôrodu na karte zákazníka už uplynul. Táto registrácia sa pravdepodobne týka nového (2.) dieťaťa. Po schválení bude možné aktualizovať počet detí na 2 a nastaviť nový predpokladaný dátum pôrodu.',
       webFormsPrecheckExistingDob: 'Existujúci termín pôrodu na karte',
+      webFormsSocialCheck: 'AI overenie na soc. sieťach',
+      webFormsSocialCheckDesc: 'Vyhľadanie zmienok o klientke na sociálnych sieťach a fórach',
+      webFormsSocialCheckRunning: 'Analyzujem...',
+      webFormsSocialCheckAiAnalysis: 'AI odporúčania',
+      webFormsSocialCheckLinks: 'Odkazy na vyhľadávanie',
+      webFormsSocialCheckOpen: 'Otvoriť',
+      webFormsCallClient: 'Zavolať klientke',
+      webFormsCallNote: 'Poznámka k hovoru',
+      webFormsCallNotePlaceholder: 'Zadajte poznámku o hovore (napr. údaje overené, zmena mena potvrdená)...',
+      webFormsCallNoteSaved: 'Poznámka uložená do histórie klientky',
+      webFormsSaveNote: 'Uložiť poznámku',
     },
     customers: {
       title: 'Zákazníci',
@@ -16076,6 +16109,17 @@ export const translations: Record<Locale, Translations> = {
       webFormsPrecheckNewChild: 'Zjištěno nové těhotenství',
       webFormsPrecheckNewChildDesc: 'Existující termín porodu na kartě zákazníka již uplynul. Tato registrace se pravděpodobně týká nového (2.) dítěte. Po schválení bude možné aktualizovat počet dětí na 2 a nastavit nový předpokládaný datum porodu.',
       webFormsPrecheckExistingDob: 'Existující termín porodu na kartě',
+      webFormsSocialCheck: 'AI ověření na soc. sítích',
+      webFormsSocialCheckDesc: 'Vyhledání zmínek o klientce na sociálních sítích a fórech',
+      webFormsSocialCheckRunning: 'Analyzuji...',
+      webFormsSocialCheckAiAnalysis: 'AI doporučení',
+      webFormsSocialCheckLinks: 'Odkazy na vyhledávání',
+      webFormsSocialCheckOpen: 'Otevřít',
+      webFormsCallClient: 'Zavolat klientce',
+      webFormsCallNote: 'Poznámka k hovoru',
+      webFormsCallNotePlaceholder: 'Zadejte poznámku o hovoru (např. údaje ověřeny, změna jména potvrzena)...',
+      webFormsCallNoteSaved: 'Poznámka uložena do historie klientky',
+      webFormsSaveNote: 'Uložit poznámku',
     },
     customers: {
       title: 'Zákazníci',
@@ -21149,6 +21193,17 @@ export const translations: Record<Locale, Translations> = {
       webFormsPrecheckNewChild: 'Új terhesség észlelve',
       webFormsPrecheckNewChildDesc: 'A meglévő szülési dátum az ügyfélkártyán már elmúlt. Ez a regisztráció valószínűleg egy új (2.) gyermekre vonatkozik. Jóváhagyás után a gyermekek száma 2-re frissíthető és új várható szülési dátum állítható be.',
       webFormsPrecheckExistingDob: 'Meglévő szülési dátum a kártyán',
+      webFormsSocialCheck: 'AI közösségi ellenőrzés',
+      webFormsSocialCheckDesc: 'Ügyfél említéseinek keresése a közösségi médiában és fórumokon',
+      webFormsSocialCheckRunning: 'Elemzés...',
+      webFormsSocialCheckAiAnalysis: 'AI ajánlások',
+      webFormsSocialCheckLinks: 'Keresési linkek',
+      webFormsSocialCheckOpen: 'Megnyitás',
+      webFormsCallClient: 'Ügyfél hívása',
+      webFormsCallNote: 'Hívási jegyzet',
+      webFormsCallNotePlaceholder: 'Adjon meg jegyzetet a hívásról (pl. adatok ellenőrizve, névváltozás megerősítve)...',
+      webFormsCallNoteSaved: 'Jegyzet mentve az ügyfél előzményeibe',
+      webFormsSaveNote: 'Jegyzet mentése',
     },
     customers: {
       title: 'Ügyfelek',

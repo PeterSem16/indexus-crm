@@ -34315,6 +34315,81 @@ Return ONLY the JSON object.`
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
+  app.post("/api/web-forms/submissions/:submissionId/social-check", requireAuth, async (req, res) => {
+    try {
+      const { submissionId } = req.params;
+      const allSubs = await db.select().from(schema.webFormSubmissions)
+        .where(eq(schema.webFormSubmissions.id, submissionId));
+      if (allSubs.length === 0) return res.status(404).json({ error: "Submission not found" });
+      const submission = allSubs[0];
+      const data = JSON.parse(submission.data || "{}");
+
+      let customerData: any = null;
+      if (submission.customerId) {
+        const cust = await storage.getCustomer(submission.customerId);
+        if (cust) customerData = cust;
+      }
+
+      const firstName = data.firstName || customerData?.firstName || "";
+      const lastName = data.lastName || customerData?.lastName || "";
+      const email = data.email || customerData?.email || "";
+      const city = data.city || customerData?.city || "";
+      const fullName = `${firstName} ${lastName}`.trim();
+
+      const searchLinks = [
+        { platform: "Google", url: `https://www.google.com/search?q=${encodeURIComponent(`"${fullName}" cord blood OR pupočníková krv OR "Cord Blood Center"`)}`, icon: "search" },
+        { platform: "Modrý koník", url: `https://www.google.com/search?q=site:modrykonik.sk+${encodeURIComponent(`"${fullName}" OR "${firstName}" cord blood OR pupočníková`)}`, icon: "baby" },
+        { platform: "Modrý koník (téma)", url: `https://www.google.com/search?q=site:modrykonik.sk+${encodeURIComponent(`"Cord Blood Center" OR "cord blood" OR pupočníková krv`)}`, icon: "message" },
+        { platform: "Facebook", url: `https://www.facebook.com/search/posts/?q=${encodeURIComponent(`${fullName} cord blood`)}`, icon: "facebook" },
+        { platform: "Instagram", url: `https://www.google.com/search?q=site:instagram.com+${encodeURIComponent(fullName)}`, icon: "instagram" },
+      ];
+
+      let aiAnalysis = "";
+      try {
+        const aiResponse = await openai.chat.completions.create({
+          model: "gpt-4o-mini",
+          temperature: 0.3,
+          max_tokens: 800,
+          messages: [
+            {
+              role: "system",
+              content: `Ste analytik CRM systému pre banku pupočníkovej krvi (Cord Blood Center). Na základe údajov o klientke poskytnite stručnú analýzu v slovenčine:
+1. Odporúčania na overenie klientky na sociálnych sieťach
+2. Na čo si dať pozor pri overovaní (zmena priezviska, viaceré profily)
+3. Kľúčové frázy na vyhľadávanie na Modrom koníku
+4. Celkové odporúčanie pre operátora
+
+Buďte struční, praktickí a priamo k veci. Formátujte pomocou bodov.`
+            },
+            {
+              role: "user",
+              content: `Údaje o klientke:
+Meno: ${fullName}
+Email: ${email}
+Mesto: ${city}
+Existujúci zákazník: ${submission.isNewCustomer ? "Nie" : "Áno"}
+${customerData ? `Meno na karte: ${customerData.firstName} ${customerData.lastName}` : ""}
+${data.expectedDeliveryDate ? `Predpokladaný termín pôrodu: ${data.expectedDeliveryDate}` : ""}
+${data.hospitalName || data.hospitalId ? `Nemocnica: ${data.hospitalName || data.hospitalId}` : ""}`
+            }
+          ]
+        });
+        aiAnalysis = aiResponse.choices[0]?.message?.content || "";
+      } catch (aiErr: any) {
+        aiAnalysis = "AI analýza nie je momentálne dostupná: " + aiErr.message;
+      }
+
+      res.json({
+        customerName: fullName,
+        email,
+        city,
+        searchLinks,
+        aiAnalysis,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
   app.post("/api/web-forms/submissions/:submissionId/fill-pdf", requireAuth, async (req, res) => {
     try {
       const { submissionId } = req.params;

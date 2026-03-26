@@ -1,6 +1,6 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useState, useMemo } from "react";
-import { Users, UserCheck, Globe, Droplets, TrendingUp, Activity, FileText, Clock, CheckCircle2, AlertCircle, ClipboardList, Eye, UserPlus, UserCog, CheckCircle, XCircle, ChevronRight, ArrowLeft, Loader2, User, Mail, Phone, MapPin, Calendar, CreditCard, Baby, Heart, Hospital, Stethoscope, Shield, Megaphone, Newspaper, Hash, Building } from "lucide-react";
+import { Users, UserCheck, Globe, Droplets, TrendingUp, Activity, FileText, Clock, CheckCircle2, AlertCircle, ClipboardList, Eye, UserPlus, UserCog, CheckCircle, XCircle, ChevronRight, ArrowLeft, Loader2, User, Mail, Phone, MapPin, Calendar, CreditCard, Baby, Heart, Hospital, Stethoscope, Shield, Megaphone, Newspaper, Hash, Building, Search, ExternalLink, MessageSquare, PhoneCall, Save, Sparkles } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatsCard } from "@/components/stats-card";
 import { PageHeader } from "@/components/page-header";
@@ -18,8 +18,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { format } from "date-fns";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { Textarea } from "@/components/ui/textarea";
 import type { Customer, User, Invoice } from "@shared/schema";
 import { useModuleFieldPermissions } from "@/components/ui/permission-field";
+import { CallCustomerButton } from "@/components/sip-phone";
 
 interface WebForm {
   id: string;
@@ -52,6 +54,9 @@ export default function Dashboard() {
   const [selectedSubmission, setSelectedSubmission] = useState<WebFormSubmission | null>(null);
   const [submissionTab, setSubmissionTab] = useState("pending");
   const [fieldsToUpdate, setFieldsToUpdate] = useState<Set<string>>(new Set());
+  const [socialCheckResult, setSocialCheckResult] = useState<any>(null);
+  const [socialCheckLoading, setSocialCheckLoading] = useState(false);
+  const [callNote, setCallNote] = useState("");
 
   const { data: customers = [], isLoading: customersLoading } = useQuery<Customer[]>({
     queryKey: ["/api/customers"],
@@ -112,6 +117,33 @@ export default function Dashboard() {
       queryClient.invalidateQueries({ queryKey: ["/api/web-forms", selectedFormId, "submissions"] });
       queryClient.invalidateQueries({ queryKey: ["/api/web-forms/stats"] });
       toast({ title: "Status aktualizovaný" });
+    },
+  });
+
+  const runSocialCheck = async (submissionId: string) => {
+    setSocialCheckLoading(true);
+    setSocialCheckResult(null);
+    try {
+      const res = await apiRequest("POST", `/api/web-forms/submissions/${submissionId}/social-check`);
+      const data = await res.json();
+      setSocialCheckResult(data);
+    } catch (err: any) {
+      toast({ title: "Chyba pri AI analýze", variant: "destructive" });
+    } finally {
+      setSocialCheckLoading(false);
+    }
+  };
+
+  const saveNoteMutation = useMutation({
+    mutationFn: async ({ customerId, content }: { customerId: string; content: string }) => {
+      await apiRequest("POST", `/api/customers/${customerId}/notes`, { content });
+    },
+    onSuccess: () => {
+      toast({ title: t.dashboard.webFormsCallNoteSaved });
+      setCallNote("");
+    },
+    onError: () => {
+      toast({ title: "Chyba pri ukladaní poznámky", variant: "destructive" });
     },
   });
 
@@ -1095,6 +1127,109 @@ export default function Dashboard() {
                   ));
                 })()}
 
+                <div className="flex gap-2 flex-wrap">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => runSocialCheck(selectedSubmission.id)}
+                    disabled={socialCheckLoading}
+                    className="border-indigo-200 text-indigo-700 hover:bg-indigo-50 dark:border-indigo-800 dark:text-indigo-300 dark:hover:bg-indigo-950"
+                    data-testid="btn-social-check"
+                  >
+                    {socialCheckLoading ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-4 w-4 mr-2" />
+                    )}
+                    {socialCheckLoading ? t.dashboard.webFormsSocialCheckRunning : t.dashboard.webFormsSocialCheck}
+                  </Button>
+
+                  {(() => {
+                    const subData = parseSubmissionData(selectedSubmission.data);
+                    const phoneNumber = subData.phone || subData.mobile || "";
+                    if (!phoneNumber) return null;
+                    return (
+                      <CallCustomerButton
+                        phoneNumber={String(phoneNumber)}
+                        customerId={selectedSubmission.customerId || undefined}
+                        customerName={`${subData.firstName || ""} ${subData.lastName || ""}`.trim()}
+                        variant="default"
+                      />
+                    );
+                  })()}
+                </div>
+
+                {socialCheckResult && (
+                  <div className="space-y-3 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50/30 dark:bg-indigo-950/20 p-4" data-testid="social-check-results">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                      <h4 className="text-sm font-semibold text-indigo-800 dark:text-indigo-200">{t.dashboard.webFormsSocialCheckAiAnalysis}</h4>
+                    </div>
+                    <div className="text-sm text-foreground/80 whitespace-pre-line leading-relaxed bg-white dark:bg-background rounded-lg p-3 border border-indigo-100 dark:border-indigo-900">
+                      {socialCheckResult.aiAnalysis}
+                    </div>
+
+                    <div>
+                      <h5 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">{t.dashboard.webFormsSocialCheckLinks}</h5>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {socialCheckResult.searchLinks?.map((link: any) => (
+                          <a
+                            key={link.platform}
+                            href={link.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 px-3 py-2 rounded-lg border bg-white dark:bg-background hover:bg-indigo-50 dark:hover:bg-indigo-950/30 transition-colors text-sm"
+                            data-testid={`link-social-${link.platform}`}
+                          >
+                            <Search className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
+                            <span className="font-medium truncate flex-1">{link.platform}</span>
+                            <ExternalLink className="h-3 w-3 text-muted-foreground shrink-0" />
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {selectedSubmission.customerId && (
+                  <div className="space-y-2 rounded-xl border p-4" data-testid="call-note-section">
+                    <div className="flex items-center gap-2">
+                      <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                      <h4 className="text-sm font-semibold">{t.dashboard.webFormsCallNote}</h4>
+                    </div>
+                    <Textarea
+                      value={callNote}
+                      onChange={(e) => setCallNote(e.target.value)}
+                      placeholder={t.dashboard.webFormsCallNotePlaceholder}
+                      className="min-h-[80px] text-sm"
+                      data-testid="textarea-call-note"
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={!callNote.trim() || saveNoteMutation.isPending}
+                      onClick={() => {
+                        if (selectedSubmission.customerId && callNote.trim()) {
+                          const subData = parseSubmissionData(selectedSubmission.data);
+                          const prefix = `[Web Form: ${selectedForm?.name || "Registrácia"}] `;
+                          saveNoteMutation.mutate({
+                            customerId: selectedSubmission.customerId,
+                            content: prefix + callNote.trim(),
+                          });
+                        }
+                      }}
+                      data-testid="btn-save-call-note"
+                    >
+                      {saveNoteMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Save className="h-4 w-4 mr-2" />
+                      )}
+                      {t.dashboard.webFormsSaveNote}
+                    </Button>
+                  </div>
+                )}
+
                 {selectedSubmission.status === "pending" && (
                   <div className="flex gap-3 pt-2">
                     <Button
@@ -1174,7 +1309,7 @@ export default function Dashboard() {
                             <TableRow
                               key={sub.id}
                               className="cursor-pointer hover:bg-accent/50"
-                              onClick={() => { setSelectedSubmission(sub); setFieldsToUpdate(new Set()); }}
+                              onClick={() => { setSelectedSubmission(sub); setFieldsToUpdate(new Set()); setSocialCheckResult(null); setCallNote(""); }}
                               data-testid={`row-submission-${sub.id}`}
                             >
                               <TableCell className="text-sm">
