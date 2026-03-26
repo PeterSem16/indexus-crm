@@ -19,7 +19,7 @@ import { format } from "date-fns";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Textarea } from "@/components/ui/textarea";
-import type { Customer, User, Invoice } from "@shared/schema";
+import type { Customer, User as UserType, Invoice } from "@shared/schema";
 import { useModuleFieldPermissions } from "@/components/ui/permission-field";
 import { CallCustomerButton } from "@/components/sip-phone";
 
@@ -62,7 +62,7 @@ export default function Dashboard() {
     queryKey: ["/api/customers"],
   });
 
-  const { data: users = [] } = useQuery<User[]>({
+  const { data: users = [] } = useQuery<UserType[]>({
     queryKey: ["/api/users"],
   });
 
