@@ -24647,6 +24647,14 @@ Rules:
         return res.status(404).json({ error: "Default template not found" });
       }
       
+      // Debug: log loaded mappings
+      {
+        let pm = template.placeholderMappings;
+        if (typeof pm === 'string') { try { pm = JSON.parse(pm); } catch(e) { pm = {}; } }
+        const nonEmpty = pm && typeof pm === 'object' ? Object.entries(pm as Record<string, string>).filter(([k,v]) => v && String(v).trim() !== '') : [];
+        console.log(`[GET template] categoryId=${categoryId}, country=${req.params.countryCode}, nonEmptyMappings=${nonEmpty.length}`, JSON.stringify(Object.fromEntries(nonEmpty)));
+      }
+
       // Parse conversionMetadata to extract pageImages and other conversion data
       let pageImages: any[] = [];
       let embeddedImages: any[] = [];
@@ -26563,6 +26571,11 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
       const { countryCode } = req.params;
       const { mappings, aiMappedFields } = req.body;
       
+      const mappingKeys = mappings ? Object.keys(mappings) : [];
+      const nonEmptyMappings = mappings ? Object.entries(mappings).filter(([k, v]: [string, any]) => v && String(v).trim() !== '') : [];
+      console.log(`[PATCH mappings] categoryId=${categoryId}, country=${countryCode}, totalKeys=${mappingKeys.length}, nonEmpty=${nonEmptyMappings.length}, aiFields=${aiMappedFields?.length || 0}`);
+      console.log(`[PATCH mappings] Non-empty mappings:`, JSON.stringify(Object.fromEntries(nonEmptyMappings)));
+
       const template = await storage.getCategoryDefaultTemplate(categoryId, countryCode);
       if (!template) {
         return res.status(404).json({ error: "Template not found" });
