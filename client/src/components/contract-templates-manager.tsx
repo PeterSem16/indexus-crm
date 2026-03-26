@@ -1331,6 +1331,7 @@ export function ContractTemplatesManager() {
 
   return (
     <div className="space-y-4">
+      <div className="bg-green-500 text-white text-sm px-3 py-2 rounded font-bold text-center">BUILD v3 - Native Select Active</div>
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h3 className="text-lg font-semibold">{t.konfigurator?.contractTemplates || "Šablóny zmlúv"}</h3>
@@ -1617,6 +1618,7 @@ export function ContractTemplatesManager() {
             <DialogDescription>
               {t.contractsModule.description}
             </DialogDescription>
+            <div className="bg-green-500 text-white text-xs px-2 py-1 rounded font-bold">BUILD v3 - Dialog 1</div>
           </DialogHeader>
 
           <div className="flex-1 overflow-hidden flex flex-col">
