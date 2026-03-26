@@ -339,12 +339,12 @@ export default function Dashboard() {
   };
 
   const fieldSections: Record<string, string[]> = {
-    "Osobné údaje": ["firstName", "lastName", "maidenName", "titleBefore", "titleAfter", "dateOfBirth", "personalId"],
+    "Osobné údaje": ["firstName", "lastName", "maidenName", "titleBefore", "titleAfter", "dateOfBirth", "personalId", "nationalId"],
     "Kontaktné údaje": ["email", "phone", "mobile"],
-    "Adresa": ["street", "city", "postalCode", "country"],
-    "Korešpondenčná adresa": ["corrStreet", "corrCity", "corrPostalCode"],
-    "Zdravotné informácie": ["healthInsuranceId", "productSetId", "hospitalId", "gynecologistClinicId", "expectedDeliveryDate"],
-    "Platba a súhlas": ["paymentMethod", "gdprConsent", "newsletter", "howDidYouHear"],
+    "Adresa": ["street", "address", "city", "postalCode", "country", "region"],
+    "Korešpondenčná adresa": ["useCorrespondenceAddress", "corrName", "corrAddress", "corrStreet", "corrCity", "corrPostalCode"],
+    "Zdravotné informácie": ["healthInsuranceId", "productSetId", "hospitalId", "hospitalName", "gynecologistClinicId", "gynecologistName", "gynecologistPhone", "gynecologistEmail", "expectedDeliveryDate", "serviceType"],
+    "Platba a súhlas": ["paymentMethod", "bankAccount", "bankName", "bankSwift", "gdprConsent", "gdprMarketing", "gdprPregnancy", "newsletter", "howDidYouHear"],
   };
 
   const categorizeFields = (data: Record<string, any>) => {
@@ -414,6 +414,8 @@ export default function Dashboard() {
 
   const getFieldLabel = (key: string): string => {
     if (fieldLabels[key]) return fieldLabels[key];
+    const resolvedKey = resolveKey(key);
+    if (resolvedKey !== key && fieldLabels[resolvedKey]) return fieldLabels[resolvedKey];
     if (formFieldLabelMap.has(key)) return formFieldLabelMap.get(key)!;
     return key;
   };
@@ -686,17 +688,48 @@ export default function Dashboard() {
                     <div className="rounded-xl border overflow-hidden">
                       {section.items.map(([key, value], idx) => {
                         const IconComp = getFieldIcon(key);
+                        const resolvedKey = resolveKey(key);
+                        const isDeliveryDate = resolvedKey === "expectedDeliveryDate" && value;
+                        let trimesterInfo: { trimester: number; daysLeft: number; weeksPregnant: number; color: string; bgColor: string } | null = null;
+                        if (isDeliveryDate) {
+                          const strVal = String(value);
+                          const dueDate = new Date(strVal.length === 10 ? strVal + "T00:00:00" : strVal);
+                          const today = new Date();
+                          today.setHours(0, 0, 0, 0);
+                          const daysLeft = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                          const totalPregnancyDays = 280;
+                          const daysPregnant = totalPregnancyDays - daysLeft;
+                          const weeksPregnant = Math.max(0, Math.floor(daysPregnant / 7));
+                          let trimester = 1;
+                          if (weeksPregnant >= 28) trimester = 3;
+                          else if (weeksPregnant >= 13) trimester = 2;
+                          const color = trimester === 1 ? "text-emerald-700 dark:text-emerald-400" : trimester === 2 ? "text-blue-700 dark:text-blue-400" : "text-violet-700 dark:text-violet-400";
+                          const bgColor = trimester === 1 ? "bg-emerald-50 dark:bg-emerald-950" : trimester === 2 ? "bg-blue-50 dark:bg-blue-950" : "bg-violet-50 dark:bg-violet-950";
+                          trimesterInfo = { trimester, daysLeft, weeksPregnant, color, bgColor };
+                        }
                         return (
                           <div
                             key={key}
                             className={`flex items-center gap-3 px-4 py-3 ${idx < section.items.length - 1 ? "border-b" : ""} hover:bg-muted/30 transition-colors`}
                           >
-                            <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-muted/60 shrink-0">
-                              <IconComp className="h-4 w-4 text-muted-foreground" />
+                            <div className={`flex items-center justify-center h-8 w-8 rounded-lg shrink-0 ${trimesterInfo ? trimesterInfo.bgColor : "bg-muted/60"}`}>
+                              <IconComp className={`h-4 w-4 ${trimesterInfo ? trimesterInfo.color : "text-muted-foreground"}`} />
                             </div>
                             <div className="min-w-0 flex-1">
                               <p className="text-xs text-muted-foreground leading-tight">{getFieldLabel(key)}</p>
-                              <p className="text-sm font-medium truncate">{renderFieldValue(key, value)}</p>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <p className="text-sm font-medium">{renderFieldValue(key, value)}</p>
+                                {trimesterInfo && (
+                                  <>
+                                    <Badge variant="outline" className={`text-xs ${trimesterInfo.color} border-current/20 ${trimesterInfo.bgColor}`}>
+                                      {trimesterInfo.trimester}. trimester ({trimesterInfo.weeksPregnant}. týždeň)
+                                    </Badge>
+                                    <Badge variant="outline" className={`text-xs ${trimesterInfo.daysLeft > 60 ? "text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950" : trimesterInfo.daysLeft > 21 ? "text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950" : "text-rose-700 dark:text-rose-400 bg-rose-50 dark:bg-rose-950"} border-current/20`}>
+                                      {trimesterInfo.daysLeft > 0 ? `${trimesterInfo.daysLeft} dní do pôrodu` : trimesterInfo.daysLeft === 0 ? "Dnes je termín!" : `${Math.abs(trimesterInfo.daysLeft)} dní po termíne`}
+                                    </Badge>
+                                  </>
+                                )}
+                              </div>
                             </div>
                           </div>
                         );
