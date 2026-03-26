@@ -997,12 +997,16 @@ export function ContractTemplatesManager() {
         }
 
         let aiProcessed = false;
+        let savedAiMappedFields: string[] = [];
         if (template.conversionMetadata) {
           try {
             const meta = typeof template.conversionMetadata === 'string'
               ? JSON.parse(template.conversionMetadata)
               : template.conversionMetadata;
             aiProcessed = !!meta.aiProcessedAt;
+            if (Array.isArray(meta.aiMappedFields)) {
+              savedAiMappedFields = meta.aiMappedFields;
+            }
           } catch (e) {}
         }
 
@@ -1017,6 +1021,7 @@ export function ContractTemplatesManager() {
           originalDocxPath: template.originalDocxPath || undefined
         });
         setTemplateMappings(mappings);
+        setAiMappedFields(new Set(savedAiMappedFields.filter(f => !!mappings[f])));
         setIsTemplateEditorLoading(false);
       } else {
         toast({
@@ -1053,7 +1058,7 @@ export function ContractTemplatesManager() {
       const response = await fetch(`/api/contracts/categories/${selectedCategory.id}/default-templates/${editingTemplateCountry}/mappings`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mappings: filteredMappings }),
+        body: JSON.stringify({ mappings: filteredMappings, aiMappedFields: Array.from(aiMappedFields) }),
         credentials: "include"
       });
 

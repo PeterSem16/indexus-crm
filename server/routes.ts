@@ -26561,16 +26561,29 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
     try {
       const categoryId = parseInt(req.params.categoryId);
       const { countryCode } = req.params;
-      const { mappings } = req.body;
+      const { mappings, aiMappedFields } = req.body;
       
       const template = await storage.getCategoryDefaultTemplate(categoryId, countryCode);
       if (!template) {
         return res.status(404).json({ error: "Template not found" });
       }
 
-      const result = await storage.updateCategoryDefaultTemplate(template.id, {
+      const updateData: any = {
         placeholderMappings: JSON.stringify(mappings),
-      });
+      };
+
+      if (aiMappedFields && Array.isArray(aiMappedFields)) {
+        let meta: any = {};
+        if (template.conversionMetadata) {
+          try {
+            meta = JSON.parse(template.conversionMetadata);
+          } catch (e) {}
+        }
+        meta.aiMappedFields = aiMappedFields;
+        updateData.conversionMetadata = JSON.stringify(meta);
+      }
+
+      const result = await storage.updateCategoryDefaultTemplate(template.id, updateData);
       
       res.json(result);
     } catch (error) {
