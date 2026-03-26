@@ -1056,6 +1056,7 @@ export function ContractTemplatesManager() {
   const handleSaveMappings = async () => {
     const catId = editingTemplateData?.categoryId || selectedCategory?.id;
     console.log('[SAVE BUTTON] catId:', catId, 'country:', editingTemplateCountry, 'mappingKeys:', Object.keys(templateMappings).length);
+    try { fetch(`/api/debug-log?event=save_click&catId=${catId}&country=${editingTemplateCountry}&keys=${Object.keys(templateMappings).length}&nonEmpty=${Object.values(templateMappings).filter(v => v && String(v).trim()).length}`, { credentials: "include" }); } catch(e) {}
     if (!catId || !editingTemplateCountry) return;
 
     setSavingMappings(true);
@@ -2840,6 +2841,7 @@ export function ContractTemplatesManager() {
                               value={templateMappings[fieldName] || ""}
                               onChange={(newValue) => {
                                 console.log('[MAPPING CHANGE]', fieldName, '=>', newValue);
+                                try { fetch(`/api/debug-log?event=mapping_change&field=${encodeURIComponent(fieldName)}&value=${encodeURIComponent(newValue || '')}`, { credentials: "include" }); } catch(e) {}
                                 setTemplateMappings(prev => {
                                   const newMappings = { ...prev };
                                   if (newValue) {

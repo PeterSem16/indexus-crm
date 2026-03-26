@@ -26564,6 +26564,12 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
     }
   });
   
+  // Debug logging endpoint for frontend diagnostics
+  app.get("/api/debug-log", (req, res) => {
+    console.log(`[DEBUG-FRONTEND] ${JSON.stringify(req.query)}`);
+    res.json({ ok: true });
+  });
+
   // Update placeholder mappings for a template
   app.patch("/api/contracts/categories/:categoryId/default-templates/:countryCode/mappings", requireAuth, async (req, res) => {
     try {
