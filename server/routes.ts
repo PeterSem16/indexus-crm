@@ -24678,6 +24678,28 @@ Rules:
           extractedFields = JSON.stringify(htmlFields.map(f => f.name));
         }
       }
+
+      if (template.templateType === 'pdf_form' && Array.isArray(extractedFields) && extractedFields.length > 0) {
+        const hasLabels = extractedFields.some((f: any) => typeof f === 'object' && f.label);
+        if (!hasLabels && template.sourcePdfPath) {
+          const pdfFullPath = path.resolve(process.cwd(), template.sourcePdfPath);
+          if (fs.existsSync(pdfFullPath)) {
+            try {
+              console.log(`[Template GET] Re-extracting PDF fields with labels for template ${template.id}`);
+              const reExtracted = await extractPdfFormFields(pdfFullPath);
+              if (reExtracted.length > 0) {
+                extractedFields = reExtracted;
+                await storage.updateCategoryDefaultTemplate(template.id, {
+                  extractedFields: JSON.stringify(reExtracted)
+                });
+                console.log(`[Template GET] Updated template ${template.id} with ${reExtracted.filter(f => f.label).length} labeled fields`);
+              }
+            } catch (reErr) {
+              console.warn(`[Template GET] Re-extraction failed:`, reErr);
+            }
+          }
+        }
+      }
       
       res.json({
         ...template,

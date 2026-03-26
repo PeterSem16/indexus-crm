@@ -812,9 +812,14 @@ export function ContractTemplatesManager() {
           rawFields = [];
         }
 
-        const extractedFields: string[] = rawFields
-          .map((f: any) => typeof f === 'string' ? f : f?.name || '')
-          .filter((name: string) => name && name.trim() !== '');
+        const isPdfForm = template.templateType === 'pdf_form';
+        const extractedFields: any[] = isPdfForm
+          ? rawFields
+              .map((f: any) => typeof f === 'string' ? { name: f } : { name: f?.name || '', type: f?.type, label: f?.label })
+              .filter((f: any) => f.name && f.name.trim() !== '')
+          : rawFields
+              .map((f: any) => typeof f === 'string' ? f : f?.name || '')
+              .filter((name: string) => name && name.trim() !== '');
 
         let mappings = template.placeholderMappings;
         if (typeof mappings === 'string') {
@@ -1557,11 +1562,6 @@ export function ContractTemplatesManager() {
                           </div>
 
                           {pdfFields.map((pdfField: any, idx: number) => {
-                            const prevField = idx > 0 ? pdfFields[idx - 1]?.name : null;
-                            const nextField = idx < pdfFields.length - 1 ? pdfFields[idx + 1]?.name : null;
-                            const contextParts: string[] = [];
-                            if (prevField) contextParts.push(`← ${prevField}`);
-                            if (nextField) contextParts.push(`${nextField} →`);
                             return (
                             <div key={idx} className="grid grid-cols-[1fr_auto_1fr] gap-3 items-center p-2 border rounded-md">
                               <div className="min-w-0">
@@ -1572,9 +1572,9 @@ export function ContractTemplatesManager() {
                                     <Badge variant="outline" className="text-[9px] px-1 py-0 shrink-0">{pdfField.type}</Badge>
                                   )}
                                 </div>
-                                {contextParts.length > 0 && (
-                                  <p className="text-[10px] text-muted-foreground mt-0.5 truncate" title={contextParts.join("  •  ")}>
-                                    {contextParts.join("  •  ")}
+                                {pdfField.label && (
+                                  <p className="text-xs text-blue-600 dark:text-blue-400 mt-0.5 break-words whitespace-normal leading-snug ml-5">
+                                    {pdfField.label}
                                   </p>
                                 )}
                               </div>
@@ -2539,24 +2539,21 @@ export function ContractTemplatesManager() {
                       </div>
 
                       {editingTemplateData.extractedFields.map((field, idx) => {
-                        const allFields = editingTemplateData.extractedFields;
-                        const prevField = idx > 0 ? allFields[idx - 1] : null;
-                        const nextField = idx < allFields.length - 1 ? allFields[idx + 1] : null;
-                        const contextParts: string[] = [];
-                        if (prevField) contextParts.push(`← ${prevField}`);
-                        if (nextField) contextParts.push(`${nextField} →`);
+                        const fieldObj = typeof field === 'string' ? { name: field } : field;
+                        const fieldName = typeof field === 'string' ? field : (field as any).name || field;
+                        const fieldLabel = typeof field === 'string' ? undefined : (field as any).label;
                         return (
                         <div key={idx} className="grid grid-cols-[1fr_auto_1fr] gap-3 items-center p-2 border rounded-md">
                           <div className="min-w-0">
                             <div className="flex items-center gap-2">
                               <span className="text-[10px] text-muted-foreground font-medium shrink-0">#{idx + 1}</span>
                               <p className="text-sm font-mono font-semibold break-words whitespace-normal leading-snug">
-                                {editingTemplateData.templateType === "docx" ? `{{${field}}}` : field}
+                                {editingTemplateData.templateType === "docx" ? `{{${fieldName}}}` : fieldName}
                               </p>
                             </div>
-                            {editingTemplateData.templateType !== "docx" && contextParts.length > 0 && (
-                              <p className="text-[10px] text-muted-foreground mt-0.5 truncate ml-5" title={contextParts.join("  •  ")}>
-                                {contextParts.join("  •  ")}
+                            {fieldLabel && editingTemplateData.templateType !== "docx" && (
+                              <p className="text-xs text-blue-600 dark:text-blue-400 mt-0.5 break-words whitespace-normal leading-snug ml-5">
+                                {fieldLabel}
                               </p>
                             )}
                           </div>
@@ -2565,20 +2562,20 @@ export function ContractTemplatesManager() {
                           </div>
                           <div className="flex items-center gap-2 min-w-0">
                             <Select
-                              value={templateMappings[field] || "__none__"}
+                              value={templateMappings[fieldName] || "__none__"}
                               onValueChange={(value) => {
                                 setTemplateMappings(prev => {
                                   const newMappings = { ...prev };
                                   if (value && value !== "__none__") {
-                                    newMappings[field] = value;
+                                    newMappings[fieldName] = value;
                                   } else {
-                                    delete newMappings[field];
+                                    delete newMappings[fieldName];
                                   }
                                   return newMappings;
                                 });
                                 setAiMappedFields(prev => {
                                   const next = new Set(prev);
-                                  next.delete(field);
+                                  next.delete(fieldName);
                                   return next;
                                 });
                               }}
@@ -2602,7 +2599,7 @@ export function ContractTemplatesManager() {
                                 ))}
                               </SelectContent>
                             </Select>
-                            {aiMappedFields.has(field) && templateMappings[field] && (
+                            {aiMappedFields.has(fieldName) && templateMappings[fieldName] && (
                               <Badge variant="secondary" className="bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 shrink-0 text-[10px] px-1.5 py-0.5">
                                 <Sparkles className="h-3 w-3 mr-0.5" />
                                 AI

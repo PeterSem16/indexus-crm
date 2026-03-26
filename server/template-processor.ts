@@ -14,12 +14,34 @@ export interface TemplateField {
   type: "text" | "checkbox" | "dropdown" | "signature";
   value?: string;
   required?: boolean;
+  label?: string;
 }
 
 export interface PlaceholderMapping {
   templateField: string;
   crmField: string;
   defaultValue?: string;
+}
+
+async function extractPdfPageTexts(pdfPath: string): Promise<string[]> {
+  try {
+    const { execSync } = await import("child_process");
+    const scriptPath = path.resolve(process.cwd(), "server/pdf-text-extractor.mjs");
+    const result = execSync(`node "${scriptPath}" "${pdfPath}"`, {
+      timeout: 60000,
+      maxBuffer: 10 * 1024 * 1024,
+      encoding: "utf-8",
+      stdio: ["pipe", "pipe", "pipe"]
+    });
+    const parsed = JSON.parse(result.trim());
+    if (parsed.text) {
+      return [parsed.text];
+    }
+    return [];
+  } catch (error: any) {
+    console.error("[PDF Text] Error extracting text:", error.message || error);
+    return [];
+  }
 }
 
 export async function extractPdfFormFields(pdfPath: string): Promise<TemplateField[]> {
@@ -51,7 +73,68 @@ export async function extractPdfFormFields(pdfPath: string): Promise<TemplateFie
       });
     }
 
+    const pdfTextPages = await extractPdfPageTexts(pdfPath);
+    if (pdfTextPages.length > 0 && pdfTextPages[0].trim()) {
+      const pdfText = pdfTextPages[0];
+      console.log(`[PDF Form] Extracted ${pdfText.length} chars of text for label matching`);
+
+      const fieldNames = extractedFields.map(f => f.name);
+      try {
+        const OpenAI = (await import("openai")).default;
+        const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+        const prompt = `I have a PDF form for a cord blood banking contract. I need to identify what each form field represents based on the surrounding text in the PDF.
+
+PDF TEXT CONTENT:
+${pdfText.substring(0, 6000)}
+
+FORM FIELD NAMES (in order of appearance):
+${fieldNames.map((n, i) => `${i + 1}. "${n}"`).join("\n")}
+
+For each field, provide a short descriptive label (the text that appears next to or before the field in the PDF). 
+Use the original language from the PDF (German/Slovak/English).
+If a field name already IS descriptive (like "Nachname" or "002 Mother Full Name"), use that as the label.
+For fields like "In 1", "am", etc., find what label text appears before them in the PDF.
+
+Return JSON:
+{
+  "labels": {
+    "In 1": "Ich (Frau/Mrs./Paní) - meno",
+    "In 2": "Ich (Herr/Mr./Pán) - meno",
+    "am": "Geburtsdatum / dátum narodenia (Frau)",
+    ...
+  }
+}`;
+
+        const response = await openai.chat.completions.create({
+          model: "gpt-4o",
+          messages: [
+            { role: "system", content: "You are a PDF form analyzer. Return only JSON. Provide short descriptive labels for each form field based on the PDF text context." },
+            { role: "user", content: prompt }
+          ],
+          response_format: { type: "json_object" },
+          temperature: 0.1
+        });
+
+        const content = response.choices[0]?.message?.content;
+        if (content) {
+          const result = JSON.parse(content);
+          if (result.labels) {
+            for (const field of extractedFields) {
+              if (result.labels[field.name]) {
+                field.label = result.labels[field.name];
+              }
+            }
+          }
+        }
+      } catch (aiError) {
+        console.error("[PDF Form] AI label extraction failed (non-critical):", aiError);
+      }
+    }
+
     console.log(`[PDF Form] Extracted ${extractedFields.length} fields from ${pdfPath}`);
+    const withLabels = extractedFields.filter(f => f.label).length;
+    console.log(`[PDF Form] ${withLabels} fields have AI-generated labels`);
     return extractedFields;
   } catch (error) {
     console.error("[PDF Form] Error extracting fields:", error);
