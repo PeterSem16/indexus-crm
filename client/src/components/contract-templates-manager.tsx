@@ -2677,6 +2677,7 @@ export function ContractTemplatesManager() {
             <DialogDescription>
               {t.contractsModule.fieldMapping}
             </DialogDescription>
+            <div className="bg-green-500 text-white text-xs px-2 py-1 rounded font-bold">BUILD v2 - Native Select</div>
           </DialogHeader>
 
           <div className="flex-1 overflow-y-auto">
