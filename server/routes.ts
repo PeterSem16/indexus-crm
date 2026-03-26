@@ -34293,6 +34293,28 @@ Return ONLY the JSON object.`
     catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
+  app.patch("/api/web-forms/submissions/:submissionId/status", requireAuth, async (req, res) => {
+    try {
+      const { submissionId } = req.params;
+      const { status } = req.body;
+      if (!['approved', 'rejected', 'pending'].includes(status)) {
+        return res.status(400).json({ error: 'Invalid status. Use: approved, rejected, pending' });
+      }
+      const updated = await storage.updateWebFormSubmission(submissionId, {
+        status,
+        processedAt: status === 'approved' ? new Date() : null,
+      } as any);
+      await storage.createWebFormAuditLog({
+        formId: updated.formId,
+        submissionId: updated.id,
+        action: `submission_${status}`,
+        details: JSON.stringify({ status, userId: req.session.user!.id }),
+        ipAddress: req.ip || null,
+      });
+      res.json(updated);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
   app.post("/api/web-forms/submissions/:submissionId/fill-pdf", requireAuth, async (req, res) => {
     try {
       const { submissionId } = req.params;
@@ -34612,152 +34634,27 @@ Return ONLY the JSON object.`
       let targetCustomerId: string | null = null;
       let isNewCustomer = false;
 
+      // No auto-create/update - just identify if existing or new customer
       if (customerId && isOtpVerified) {
         targetCustomerId = customerId;
-        const [existing] = await db.select().from(schema.customers).where(eq(schema.customers.id, targetCustomerId!)).limit(1);
-        if (existing) {
-          const updateData: any = {};
-          if (formData.phone && !existing.phone) updateData.phone = formData.phone;
-          if (formData.mobile && !existing.mobile) updateData.mobile = formData.mobile;
-          if (formData.address) updateData.address = formData.address;
-          if (formData.city) updateData.city = formData.city;
-          if (formData.postalCode) updateData.postalCode = formData.postalCode;
-          if (formData.dateOfBirth) updateData.dateOfBirth = new Date(formData.dateOfBirth);
-          if (formData.nationalId) updateData.nationalId = formData.nationalId;
-          if (formData.healthInsuranceId) updateData.healthInsuranceId = formData.healthInsuranceId;
-          if (formData.bankAccount) updateData.bankAccount = formData.bankAccount;
-          if (formData.bankName) updateData.bankName = formData.bankName;
-          if (formData.bankSwift) updateData.bankSwift = formData.bankSwift;
-          if (formData.useCorrespondenceAddress !== undefined) updateData.useCorrespondenceAddress = !!formData.useCorrespondenceAddress;
-          if (formData.useCorrespondenceAddress) {
-            if (formData.corrName) updateData.corrName = formData.corrName;
-            if (formData.corrAddress) updateData.corrAddress = formData.corrAddress;
-            if (formData.corrCity) updateData.corrCity = formData.corrCity;
-            if (formData.corrPostalCode) updateData.corrPostalCode = formData.corrPostalCode;
-            if (formData.corrRegion) updateData.corrRegion = formData.corrRegion;
-            if (formData.corrCountry) updateData.corrCountry = formData.corrCountry;
-          }
-          if (resolvedGynName) updateData.gynecologistName = resolvedGynName;
-          if (resolvedGynPhone) updateData.gynecologistPhone = resolvedGynPhone;
-          if (resolvedGynEmail) updateData.gynecologistEmail = resolvedGynEmail;
-          if (formData.expectedDeliveryDate) updateData.expectedDeliveryDate = new Date(formData.expectedDeliveryDate);
-          if (resolvedHospitalName) updateData.hospitalName = resolvedHospitalName;
-          updateData.registrationSource = "web_form";
-          updateData.registrationDate = new Date();
-          if (existing.clientStatus === "potential") {
-            updateData.clientStatus = "in_process";
-          }
-          updateData.status = "active";
-          if (Object.keys(updateData).length > 0) {
-            await db.update(schema.customers).set(updateData).where(eq(schema.customers.id, targetCustomerId));
-          }
-          await storage.createActivityLog({
-            userId: "system",
-            action: "web_form_submission",
-            entityType: "customer",
-            entityId: targetCustomerId,
-            entityName: `${existing.firstName} ${existing.lastName}`,
-            details: JSON.stringify({ formId: form.id, formName: form.name, type: "existing_customer", status: "web_request", data: formData }),
-          });
-        }
+        isNewCustomer = false;
+        console.log('[WebForm Submit] Existing customer identified via OTP: ' + customerId);
       } else {
-        if (!formData.firstName || !formData.lastName || !formData.email) {
-          return res.status(400).json({ error: "Missing required customer fields" });
-        }
-        const [newCustomer] = await db.insert(schema.customers).values({
-          firstName: formData.firstName,
-          lastName: formData.lastName,
-          maidenName: formData.maidenName || null,
-          titleBefore: formData.titleBefore || null,
-          titleAfter: formData.titleAfter || null,
-          email: formData.email,
-          phone: formData.phone || null,
-          mobile: formData.mobile || null,
-          dateOfBirth: formData.dateOfBirth ? new Date(formData.dateOfBirth) : null,
-          nationalId: formData.nationalId || null,
-          country: form.countryCode,
-          city: formData.city || null,
-          address: formData.address || null,
-          postalCode: formData.postalCode || null,
-          region: formData.region || null,
-          healthInsuranceId: formData.healthInsuranceId || null,
-          bankAccount: formData.bankAccount || null,
-          bankName: formData.bankName || null,
-          bankSwift: formData.bankSwift || null,
-          useCorrespondenceAddress: !!formData.useCorrespondenceAddress,
-          corrName: formData.useCorrespondenceAddress ? (formData.corrName || null) : null,
-          corrAddress: formData.useCorrespondenceAddress ? (formData.corrAddress || null) : null,
-          corrCity: formData.useCorrespondenceAddress ? (formData.corrCity || null) : null,
-          corrPostalCode: formData.useCorrespondenceAddress ? (formData.corrPostalCode || null) : null,
-          corrRegion: formData.useCorrespondenceAddress ? (formData.corrRegion || null) : null,
-          corrCountry: formData.useCorrespondenceAddress ? (formData.corrCountry || null) : null,
-          clientStatus: "in_process",
-          status: "active",
-          serviceType: formData.serviceType || null,
-          newsletter: formData.newsletter || false,
-          registrationSource: "web_form",
-          registrationDate: new Date(),
-          gynecologistName: resolvedGynName,
-          gynecologistPhone: resolvedGynPhone,
-          gynecologistEmail: resolvedGynEmail,
-          expectedDeliveryDate: formData.expectedDeliveryDate ? new Date(formData.expectedDeliveryDate) : null,
-          hospitalName: resolvedHospitalName,
-        }).returning();
-        targetCustomerId = newCustomer.id;
-        isNewCustomer = true;
-        await storage.createActivityLog({
-          userId: "system",
-          action: "web_form_submission",
-          entityType: "customer",
-          entityId: newCustomer.id,
-          entityName: `${newCustomer.firstName} ${newCustomer.lastName}`,
-          details: JSON.stringify({ formId: form.id, formName: form.name, type: "new_customer", status: "in_process/active", data: formData }),
-        });
-      }
-
-      if (targetCustomerId) {
-        const resolvedProductId = formData.productSetId || null;
-        const [existingCase] = await db.select().from(schema.customerPotentialCases)
-          .where(eq(schema.customerPotentialCases.customerId, targetCustomerId)).limit(1);
-        const caseData: any = {
-          caseStatus: "Prebieha",
-          salesChannel: "I",
-          infoSource: "Internet",
-          marketingAction: form.name,
-          updatedAt: new Date(),
-        };
-        if (resolvedProductId) caseData.productId = resolvedProductId;
-        if (formData.paymentMethod) caseData.paymentType = formData.paymentMethod;
-        if (formData.hospitalId) caseData.hospitalId = formData.hospitalId;
-        if (formData.expectedDeliveryDate) {
-          const dd = new Date(formData.expectedDeliveryDate);
-          caseData.expectedDateDay = dd.getDate();
-          caseData.expectedDateMonth = dd.getMonth() + 1;
-          caseData.expectedDateYear = dd.getFullYear();
-        }
-        if (formData.newsletter !== undefined) caseData.newsletterOptIn = !!formData.newsletter;
-
-        if (existingCase) {
-          await db.update(schema.customerPotentialCases).set(caseData)
-            .where(eq(schema.customerPotentialCases.customerId, targetCustomerId));
-        } else {
-          await db.insert(schema.customerPotentialCases).values({
-            customerId: targetCustomerId,
-            ...caseData,
-          });
-        }
-
-        if (resolvedProductId) {
-          const existingProducts = await db.select().from(schema.customerProducts)
-            .where(eq(schema.customerProducts.customerId, targetCustomerId));
-          const alreadyHas = existingProducts.some(p => p.productId === resolvedProductId);
-          if (!alreadyHas) {
-            await db.insert(schema.customerProducts).values({
-              customerId: targetCustomerId,
-              productId: resolvedProductId,
-              quantity: 1,
-            });
+        // Check if email matches existing customer
+        if (formData.email) {
+          const [existingByEmail] = await db.select().from(schema.customers)
+            .where(eq(schema.customers.email, formData.email)).limit(1);
+          if (existingByEmail) {
+            targetCustomerId = existingByEmail.id;
+            isNewCustomer = false;
+            console.log('[WebForm Submit] Existing customer matched by email: ' + existingByEmail.id);
+          } else {
+            isNewCustomer = true;
+            console.log('[WebForm Submit] New customer (no email match), pending approval');
           }
+        } else {
+          isNewCustomer = true;
+          console.log('[WebForm Submit] New customer (no email), pending approval');
         }
       }
 
@@ -34786,11 +34683,11 @@ Return ONLY the JSON object.`
         ipAddress: realIp,
         userAgent: req.headers["user-agent"] || null,
         metadata: JSON.stringify(combinedMetadata),
-        status: "processed",
+        status: "pending",
         customerId: targetCustomerId,
         isNewCustomer,
         isOtpVerified: isOtpVerified || false,
-        processedAt: new Date(),
+        processedAt: null,
       });
       await storage.createWebFormAuditLog({
         formId: form.id, submissionId: submission.id,
