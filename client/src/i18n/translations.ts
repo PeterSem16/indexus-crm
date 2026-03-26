@@ -370,6 +370,50 @@ export interface Translations {
     inactiveUsers: string;
     customersByCountry: string;
     noCustomersFound: string;
+    webForms: string;
+    webFormsNoForms: string;
+    webFormsNew: string;
+    webFormsTotal: string;
+    webFormsRegistrations: string;
+    webFormsListDescription: string;
+    webFormsNoRegistrations: string;
+    webFormsDate: string;
+    webFormsName: string;
+    webFormsEmail: string;
+    webFormsType: string;
+    webFormsStatus: string;
+    webFormsActions: string;
+    webFormsTabPending: string;
+    webFormsTabApproved: string;
+    webFormsTabRejected: string;
+    webFormsTabAll: string;
+    webFormsNewCustomer: string;
+    webFormsExistingCustomer: string;
+    webFormsNew2: string;
+    webFormsExisting: string;
+    webFormsPending: string;
+    webFormsApproved: string;
+    webFormsProcessed: string;
+    webFormsRejected: string;
+    webFormsOtpVerified: string;
+    webFormsWaitingApproval: string;
+    webFormsLinkedCustomer: string;
+    webFormsDetailTitle: string;
+    webFormsBack: string;
+    webFormsApprove: string;
+    webFormsReject: string;
+    webFormsSectionPersonal: string;
+    webFormsSectionContact: string;
+    webFormsSectionAddress: string;
+    webFormsSectionCorrAddress: string;
+    webFormsSectionHealth: string;
+    webFormsSectionPayment: string;
+    webFormsSectionOther: string;
+    webFormsTrimester: string;
+    webFormsWeek: string;
+    webFormsDaysUntilBirth: string;
+    webFormsDueDateToday: string;
+    webFormsDaysAfterDue: string;
   };
   customers: {
     title: string;
@@ -5619,6 +5663,50 @@ export const translations: Record<Locale, Translations> = {
       inactiveUsers: 'Inactive Users',
       customersByCountry: 'Customers by Country',
       noCustomersFound: 'No customers found',
+      webForms: 'Web Forms',
+      webFormsNoForms: 'No web forms',
+      webFormsNew: 'new',
+      webFormsTotal: 'total',
+      webFormsRegistrations: 'Registrations',
+      webFormsListDescription: 'Overview of registrations from web form',
+      webFormsNoRegistrations: 'No registrations',
+      webFormsDate: 'Date',
+      webFormsName: 'Name',
+      webFormsEmail: 'Email',
+      webFormsType: 'Type',
+      webFormsStatus: 'Status',
+      webFormsActions: 'Actions',
+      webFormsTabPending: 'Pending',
+      webFormsTabApproved: 'Approved',
+      webFormsTabRejected: 'Rejected',
+      webFormsTabAll: 'All',
+      webFormsNewCustomer: 'New customer',
+      webFormsExistingCustomer: 'Existing customer',
+      webFormsNew2: 'New',
+      webFormsExisting: 'Existing',
+      webFormsPending: 'Pending',
+      webFormsApproved: 'Approved',
+      webFormsProcessed: 'Processed',
+      webFormsRejected: 'Rejected',
+      webFormsOtpVerified: 'OTP verified',
+      webFormsWaitingApproval: 'Waiting for approval',
+      webFormsLinkedCustomer: 'Linked customer',
+      webFormsDetailTitle: 'Registration detail',
+      webFormsBack: 'Back',
+      webFormsApprove: 'Approve registration',
+      webFormsReject: 'Reject registration',
+      webFormsSectionPersonal: 'Personal information',
+      webFormsSectionContact: 'Contact information',
+      webFormsSectionAddress: 'Address',
+      webFormsSectionCorrAddress: 'Correspondence address',
+      webFormsSectionHealth: 'Health information',
+      webFormsSectionPayment: 'Payment and consent',
+      webFormsSectionOther: 'Other information',
+      webFormsTrimester: 'trimester',
+      webFormsWeek: 'week',
+      webFormsDaysUntilBirth: 'days until delivery',
+      webFormsDueDateToday: 'Due date is today!',
+      webFormsDaysAfterDue: 'days after due date',
     },
     customers: {
       title: 'Customers',
@@ -10733,6 +10821,50 @@ export const translations: Record<Locale, Translations> = {
       inactiveUsers: 'Neaktívni používatelia',
       customersByCountry: 'Zákazníci podľa krajiny',
       noCustomersFound: 'Žiadni zákazníci nenájdení',
+      webForms: 'Webové formuláre',
+      webFormsNoForms: 'Žiadne webové formuláre',
+      webFormsNew: 'nových',
+      webFormsTotal: 'celkom',
+      webFormsRegistrations: 'Registrácie',
+      webFormsListDescription: 'Prehľad registrácií z webového formulára',
+      webFormsNoRegistrations: 'Žiadne registrácie',
+      webFormsDate: 'Dátum',
+      webFormsName: 'Meno',
+      webFormsEmail: 'Email',
+      webFormsType: 'Typ',
+      webFormsStatus: 'Status',
+      webFormsActions: 'Akcie',
+      webFormsTabPending: 'Čakajúce',
+      webFormsTabApproved: 'Schválené',
+      webFormsTabRejected: 'Zamietnuté',
+      webFormsTabAll: 'Všetky',
+      webFormsNewCustomer: 'Nový zákazník',
+      webFormsExistingCustomer: 'Existujúci zákazník',
+      webFormsNew2: 'Nový',
+      webFormsExisting: 'Existujúci',
+      webFormsPending: 'Čaká',
+      webFormsApproved: 'Schválené',
+      webFormsProcessed: 'Spracované',
+      webFormsRejected: 'Zamietnuté',
+      webFormsOtpVerified: 'OTP overený',
+      webFormsWaitingApproval: 'Čaká na schválenie',
+      webFormsLinkedCustomer: 'Prepojený zákazník',
+      webFormsDetailTitle: 'Detail registrácie',
+      webFormsBack: 'Späť',
+      webFormsApprove: 'Schváliť registráciu',
+      webFormsReject: 'Zamietnuť registráciu',
+      webFormsSectionPersonal: 'Osobné údaje',
+      webFormsSectionContact: 'Kontaktné údaje',
+      webFormsSectionAddress: 'Adresa',
+      webFormsSectionCorrAddress: 'Korešpondenčná adresa',
+      webFormsSectionHealth: 'Zdravotné informácie',
+      webFormsSectionPayment: 'Platba a súhlas',
+      webFormsSectionOther: 'Ďalšie údaje',
+      webFormsTrimester: 'trimester',
+      webFormsWeek: 'týždeň',
+      webFormsDaysUntilBirth: 'dní do pôrodu',
+      webFormsDueDateToday: 'Dnes je termín!',
+      webFormsDaysAfterDue: 'dní po termíne',
     },
     customers: {
       title: 'Zákazníci',
@@ -15816,6 +15948,50 @@ export const translations: Record<Locale, Translations> = {
       inactiveUsers: 'Neaktivní uživatelé',
       customersByCountry: 'Zákazníci podle země',
       noCustomersFound: 'Žádní zákazníci nenalezeni',
+      webForms: 'Webové formuláře',
+      webFormsNoForms: 'Žádné webové formuláře',
+      webFormsNew: 'nových',
+      webFormsTotal: 'celkem',
+      webFormsRegistrations: 'Registrace',
+      webFormsListDescription: 'Přehled registrací z webového formuláře',
+      webFormsNoRegistrations: 'Žádné registrace',
+      webFormsDate: 'Datum',
+      webFormsName: 'Jméno',
+      webFormsEmail: 'Email',
+      webFormsType: 'Typ',
+      webFormsStatus: 'Status',
+      webFormsActions: 'Akce',
+      webFormsTabPending: 'Čekající',
+      webFormsTabApproved: 'Schválené',
+      webFormsTabRejected: 'Zamítnuté',
+      webFormsTabAll: 'Všechny',
+      webFormsNewCustomer: 'Nový zákazník',
+      webFormsExistingCustomer: 'Existující zákazník',
+      webFormsNew2: 'Nový',
+      webFormsExisting: 'Existující',
+      webFormsPending: 'Čeká',
+      webFormsApproved: 'Schváleno',
+      webFormsProcessed: 'Zpracováno',
+      webFormsRejected: 'Zamítnuto',
+      webFormsOtpVerified: 'OTP ověřený',
+      webFormsWaitingApproval: 'Čeká na schválení',
+      webFormsLinkedCustomer: 'Propojený zákazník',
+      webFormsDetailTitle: 'Detail registrace',
+      webFormsBack: 'Zpět',
+      webFormsApprove: 'Schválit registraci',
+      webFormsReject: 'Zamítnout registraci',
+      webFormsSectionPersonal: 'Osobní údaje',
+      webFormsSectionContact: 'Kontaktní údaje',
+      webFormsSectionAddress: 'Adresa',
+      webFormsSectionCorrAddress: 'Korespondenční adresa',
+      webFormsSectionHealth: 'Zdravotní informace',
+      webFormsSectionPayment: 'Platba a souhlas',
+      webFormsSectionOther: 'Další údaje',
+      webFormsTrimester: 'trimestr',
+      webFormsWeek: 'týden',
+      webFormsDaysUntilBirth: 'dní do porodu',
+      webFormsDueDateToday: 'Dnes je termín!',
+      webFormsDaysAfterDue: 'dní po termínu',
     },
     customers: {
       title: 'Zákazníci',
@@ -20824,6 +21000,50 @@ export const translations: Record<Locale, Translations> = {
       inactiveUsers: 'Inaktív felhasználók',
       customersByCountry: 'Ügyfelek országonként',
       noCustomersFound: 'Nem találhatók ügyfelek',
+      webForms: 'Webes űrlapok',
+      webFormsNoForms: 'Nincsenek webes űrlapok',
+      webFormsNew: 'új',
+      webFormsTotal: 'összesen',
+      webFormsRegistrations: 'Regisztrációk',
+      webFormsListDescription: 'Webes űrlap regisztrációk áttekintése',
+      webFormsNoRegistrations: 'Nincsenek regisztrációk',
+      webFormsDate: 'Dátum',
+      webFormsName: 'Név',
+      webFormsEmail: 'Email',
+      webFormsType: 'Típus',
+      webFormsStatus: 'Státusz',
+      webFormsActions: 'Műveletek',
+      webFormsTabPending: 'Függőben',
+      webFormsTabApproved: 'Jóváhagyott',
+      webFormsTabRejected: 'Elutasított',
+      webFormsTabAll: 'Összes',
+      webFormsNewCustomer: 'Új ügyfél',
+      webFormsExistingCustomer: 'Meglévő ügyfél',
+      webFormsNew2: 'Új',
+      webFormsExisting: 'Meglévő',
+      webFormsPending: 'Függőben',
+      webFormsApproved: 'Jóváhagyott',
+      webFormsProcessed: 'Feldolgozott',
+      webFormsRejected: 'Elutasított',
+      webFormsOtpVerified: 'OTP ellenőrzött',
+      webFormsWaitingApproval: 'Jóváhagyásra vár',
+      webFormsLinkedCustomer: 'Kapcsolódó ügyfél',
+      webFormsDetailTitle: 'Regisztráció részletei',
+      webFormsBack: 'Vissza',
+      webFormsApprove: 'Regisztráció jóváhagyása',
+      webFormsReject: 'Regisztráció elutasítása',
+      webFormsSectionPersonal: 'Személyes adatok',
+      webFormsSectionContact: 'Kapcsolattartási adatok',
+      webFormsSectionAddress: 'Cím',
+      webFormsSectionCorrAddress: 'Levelezési cím',
+      webFormsSectionHealth: 'Egészségügyi információk',
+      webFormsSectionPayment: 'Fizetés és hozzájárulás',
+      webFormsSectionOther: 'További adatok',
+      webFormsTrimester: 'trimeszter',
+      webFormsWeek: 'hét',
+      webFormsDaysUntilBirth: 'nap a szülésig',
+      webFormsDueDateToday: 'Ma van a határidő!',
+      webFormsDaysAfterDue: 'nap a határidő után',
     },
     customers: {
       title: 'Ügyfelek',

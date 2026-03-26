@@ -287,7 +287,23 @@ export default function Dashboard() {
 
   const resolveKey = (key: string): string => {
     const cf = formFieldIdToCustomerField.get(key);
-    return cf || key;
+    if (cf) return cf;
+    const strVal = key;
+    if (fieldLabels[strVal]) return strVal;
+    return key;
+  };
+
+  const inferFieldType = (key: string, value: any): string => {
+    const resolved = resolveKey(key);
+    if (resolved !== key) return resolved;
+    if (value && typeof value === "string") {
+      if (lookupMaps.clinicMap.has(value)) return "gynecologistClinicId";
+      if (lookupMaps.hospitalMap.has(value)) return "hospitalId";
+      if (lookupMaps.insuranceMap.has(value)) return "healthInsuranceId";
+      if (lookupMaps.productSetMap.has(value)) return "productSetId";
+      if (lookupMaps.productMap.has(value)) return "productSetId";
+    }
+    return resolved;
   };
 
   const renderFieldValue = (key: string, value: any): string => {
@@ -295,11 +311,11 @@ export default function Dashboard() {
     if (typeof value === "boolean") return value ? "Áno" : "Nie";
     if (typeof value === "object") return JSON.stringify(value);
     const strVal = String(value);
-    const resolvedKey = resolveKey(key);
-    if (resolvedKey === "hospitalId") return lookupMaps.hospitalMap.get(strVal) || strVal;
-    if (resolvedKey === "gynecologistClinicId") return lookupMaps.clinicMap.get(strVal) || strVal;
-    if (resolvedKey === "healthInsuranceId") return lookupMaps.insuranceMap.get(strVal) || strVal;
-    if (resolvedKey === "productSetId") return lookupMaps.productSetMap.get(strVal) || lookupMaps.productMap.get(strVal) || strVal;
+    const inferredType = inferFieldType(key, value);
+    if (inferredType === "hospitalId") return lookupMaps.hospitalMap.get(strVal) || strVal;
+    if (inferredType === "gynecologistClinicId") return lookupMaps.clinicMap.get(strVal) || strVal;
+    if (inferredType === "healthInsuranceId") return lookupMaps.insuranceMap.get(strVal) || strVal;
+    if (inferredType === "productSetId") return lookupMaps.productSetMap.get(strVal) || lookupMaps.productMap.get(strVal) || strVal;
     if (/^\d{4}-\d{2}-\d{2}(T|$)/.test(strVal)) {
       try {
         const d = new Date(strVal.length === 10 ? strVal + "T00:00:00" : strVal);
@@ -333,30 +349,35 @@ export default function Dashboard() {
     howDidYouHear: Megaphone,
   };
 
-  const getFieldIcon = (key: string) => {
+  const getFieldIcon = (key: string, value?: any) => {
     const resolvedKey = resolveKey(key);
-    return fieldIcons[resolvedKey] || FileText;
+    if (fieldIcons[resolvedKey]) return fieldIcons[resolvedKey];
+    if (value !== undefined) {
+      const inferred = inferFieldType(key, value);
+      if (fieldIcons[inferred]) return fieldIcons[inferred];
+    }
+    return FileText;
   };
 
-  const fieldSections: Record<string, string[]> = {
-    "Osobné údaje": ["firstName", "lastName", "maidenName", "titleBefore", "titleAfter", "dateOfBirth", "personalId", "nationalId"],
-    "Kontaktné údaje": ["email", "phone", "mobile"],
-    "Adresa": ["street", "address", "city", "postalCode", "country", "region"],
-    "Korešpondenčná adresa": ["useCorrespondenceAddress", "corrName", "corrAddress", "corrStreet", "corrCity", "corrPostalCode"],
-    "Zdravotné informácie": ["healthInsuranceId", "productSetId", "hospitalId", "hospitalName", "gynecologistClinicId", "gynecologistName", "gynecologistPhone", "gynecologistEmail", "expectedDeliveryDate", "serviceType"],
-    "Platba a súhlas": ["paymentMethod", "bankAccount", "bankName", "bankSwift", "gdprConsent", "gdprMarketing", "gdprPregnancy", "newsletter", "howDidYouHear"],
-  };
+  const fieldSections: [string, string[]][] = [
+    [t.dashboard.webFormsSectionPersonal, ["firstName", "lastName", "maidenName", "titleBefore", "titleAfter", "dateOfBirth", "personalId", "nationalId"]],
+    [t.dashboard.webFormsSectionContact, ["email", "phone", "mobile"]],
+    [t.dashboard.webFormsSectionAddress, ["street", "address", "city", "postalCode", "country", "region"]],
+    [t.dashboard.webFormsSectionCorrAddress, ["useCorrespondenceAddress", "corrName", "corrAddress", "corrStreet", "corrCity", "corrPostalCode"]],
+    [t.dashboard.webFormsSectionHealth, ["healthInsuranceId", "productSetId", "hospitalId", "hospitalName", "gynecologistClinicId", "gynecologistName", "gynecologistPhone", "gynecologistEmail", "expectedDeliveryDate", "serviceType"]],
+    [t.dashboard.webFormsSectionPayment, ["paymentMethod", "bankAccount", "bankName", "bankSwift", "gdprConsent", "gdprMarketing", "gdprPregnancy", "newsletter", "howDidYouHear"]],
+  ];
 
   const categorizeFields = (data: Record<string, any>) => {
     const entries = Object.entries(data).filter(([, v]) => v !== null && v !== undefined && v !== "");
     const usedKeys = new Set<string>();
     const sections: { title: string; items: [string, any][] }[] = [];
 
-    for (const [sectionTitle, sectionKeys] of Object.entries(fieldSections)) {
+    for (const [sectionTitle, sectionKeys] of fieldSections) {
       const items: [string, any][] = [];
       for (const [key, value] of entries) {
-        const resolvedKey = resolveKey(key);
-        if (sectionKeys.includes(resolvedKey)) {
+        const inferred = inferFieldType(key, value);
+        if (sectionKeys.includes(inferred)) {
           items.push([key, value]);
           usedKeys.add(key);
         }
@@ -365,7 +386,7 @@ export default function Dashboard() {
     }
 
     const remaining = entries.filter(([k]) => !usedKeys.has(k));
-    if (remaining.length > 0) sections.push({ title: "Ďalšie údaje", items: remaining });
+    if (remaining.length > 0) sections.push({ title: t.dashboard.webFormsSectionOther, items: remaining });
 
     return sections;
   };
@@ -412,11 +433,15 @@ export default function Dashboard() {
     gynecologistClinicId: "Gynekológ / Klinika",
   };
 
-  const getFieldLabel = (key: string): string => {
+  const getFieldLabel = (key: string, value?: any): string => {
     if (fieldLabels[key]) return fieldLabels[key];
     const resolvedKey = resolveKey(key);
     if (resolvedKey !== key && fieldLabels[resolvedKey]) return fieldLabels[resolvedKey];
     if (formFieldLabelMap.has(key)) return formFieldLabelMap.get(key)!;
+    if (value !== undefined) {
+      const inferred = inferFieldType(key, value);
+      if (inferred !== key && fieldLabels[inferred]) return fieldLabels[inferred];
+    }
     return key;
   };
 
@@ -489,12 +514,12 @@ export default function Dashboard() {
 
       <Card data-testid="card-web-forms-section">
         <CardHeader className="flex flex-row items-center justify-between gap-4 pb-2">
-          <CardTitle className="text-lg font-medium">Webové formuláre</CardTitle>
+          <CardTitle className="text-lg font-medium">{t.dashboard.webForms}</CardTitle>
           <ClipboardList className="h-5 w-5 text-muted-foreground" />
         </CardHeader>
         <CardContent>
           {formStats.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-4 text-center">Žiadne webové formuláre</p>
+            <p className="text-sm text-muted-foreground py-4 text-center">{t.dashboard.webFormsNoForms}</p>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {formStats.map(stat => (
@@ -515,7 +540,7 @@ export default function Dashboard() {
                     {stat.pending > 0 && (
                       <Badge variant="secondary" className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-800" data-testid={`badge-pending-${stat.formId}`}>
                         <Clock className="h-3 w-3 mr-1" />
-                        {stat.pending} nových
+                        {stat.pending} {t.dashboard.webFormsNew}
                       </Badge>
                     )}
                     {stat.approved > 0 && (
@@ -524,7 +549,7 @@ export default function Dashboard() {
                         {stat.approved}
                       </Badge>
                     )}
-                    <span className="text-xs text-muted-foreground ml-auto">{stat.total} celkom</span>
+                    <span className="text-xs text-muted-foreground ml-auto">{stat.total} {t.dashboard.webFormsTotal}</span>
                   </div>
                 </div>
               ))}
@@ -610,9 +635,9 @@ export default function Dashboard() {
                 <div className="flex items-center gap-2">
                   <Button variant="ghost" size="sm" onClick={() => setSelectedSubmission(null)} data-testid="btn-back-to-list">
                     <ArrowLeft className="h-4 w-4 mr-1" />
-                    Späť
+                    {t.dashboard.webFormsBack}
                   </Button>
-                  <DialogTitle className="text-lg">Detail registrácie</DialogTitle>
+                  <DialogTitle className="text-lg">{t.dashboard.webFormsDetailTitle}</DialogTitle>
                 </div>
                 <DialogDescription className="sr-only">
                   {selectedForm?.name}
@@ -634,36 +659,36 @@ export default function Dashboard() {
                     {selectedSubmission.isNewCustomer ? (
                       <Badge className="bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800">
                         <UserPlus className="h-3 w-3 mr-1" />
-                        Nový zákazník
+                        {t.dashboard.webFormsNewCustomer}
                       </Badge>
                     ) : (
                       <Badge className="bg-violet-100 text-violet-800 border-violet-200 dark:bg-violet-950 dark:text-violet-300 dark:border-violet-800">
                         <UserCog className="h-3 w-3 mr-1" />
-                        Existujúci zákazník
+                        {t.dashboard.webFormsExistingCustomer}
                       </Badge>
                     )}
                     {selectedSubmission.isOtpVerified && (
                       <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-300 dark:border-green-800">
                         <CheckCircle className="h-3 w-3 mr-1" />
-                        OTP overený
+                        {t.dashboard.webFormsOtpVerified}
                       </Badge>
                     )}
                     {selectedSubmission.status === "pending" && (
                       <Badge className="bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-800">
                         <Clock className="h-3 w-3 mr-1" />
-                        Čaká na schválenie
+                        {t.dashboard.webFormsWaitingApproval}
                       </Badge>
                     )}
                     {(selectedSubmission.status === "approved" || selectedSubmission.status === "processed") && (
                       <Badge className="bg-green-100 text-green-800 border-green-200 dark:bg-green-950 dark:text-green-300 dark:border-green-800">
                         <CheckCircle className="h-3 w-3 mr-1" />
-                        {selectedSubmission.status === "processed" ? "Spracované" : "Schválené"}
+                        {selectedSubmission.status === "processed" ? t.dashboard.webFormsProcessed : t.dashboard.webFormsApproved}
                       </Badge>
                     )}
                     {selectedSubmission.status === "rejected" && (
                       <Badge className="bg-rose-100 text-rose-800 border-rose-200 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-800">
                         <XCircle className="h-3 w-3 mr-1" />
-                        Zamietnuté
+                        {t.dashboard.webFormsRejected}
                       </Badge>
                     )}
                   </div>
@@ -673,7 +698,7 @@ export default function Dashboard() {
                       <div className="w-full pt-2 mt-2 border-t border-border/50 flex items-center gap-2">
                         <User className="h-4 w-4 text-muted-foreground" />
                         <span className="text-sm text-muted-foreground">
-                          Prepojený zákazník: <strong className="text-foreground">{cust.firstName} {cust.lastName}</strong>
+                          {t.dashboard.webFormsLinkedCustomer}: <strong className="text-foreground">{cust.firstName} {cust.lastName}</strong>
                         </span>
                       </div>
                     ) : null;
@@ -687,9 +712,9 @@ export default function Dashboard() {
                     </h4>
                     <div className="rounded-xl border overflow-hidden">
                       {section.items.map(([key, value], idx) => {
-                        const IconComp = getFieldIcon(key);
-                        const resolvedKey = resolveKey(key);
-                        const isDeliveryDate = resolvedKey === "expectedDeliveryDate" && value;
+                        const IconComp = getFieldIcon(key, value);
+                        const inferredKey = inferFieldType(key, value);
+                        const isDeliveryDate = inferredKey === "expectedDeliveryDate" && value;
                         let trimesterInfo: { trimester: number; daysLeft: number; weeksPregnant: number; color: string; bgColor: string } | null = null;
                         if (isDeliveryDate) {
                           const strVal = String(value);
@@ -716,16 +741,16 @@ export default function Dashboard() {
                               <IconComp className={`h-4 w-4 ${trimesterInfo ? trimesterInfo.color : "text-muted-foreground"}`} />
                             </div>
                             <div className="min-w-0 flex-1">
-                              <p className="text-xs text-muted-foreground leading-tight">{getFieldLabel(key)}</p>
+                              <p className="text-xs text-muted-foreground leading-tight">{getFieldLabel(key, value)}</p>
                               <div className="flex items-center gap-2 flex-wrap">
                                 <p className="text-sm font-medium">{renderFieldValue(key, value)}</p>
                                 {trimesterInfo && (
                                   <>
                                     <Badge variant="outline" className={`text-xs ${trimesterInfo.color} border-current/20 ${trimesterInfo.bgColor}`}>
-                                      {trimesterInfo.trimester}. trimester ({trimesterInfo.weeksPregnant}. týždeň)
+                                      {trimesterInfo.trimester}. {t.dashboard.webFormsTrimester} ({trimesterInfo.weeksPregnant}. {t.dashboard.webFormsWeek})
                                     </Badge>
                                     <Badge variant="outline" className={`text-xs ${trimesterInfo.daysLeft > 60 ? "text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950" : trimesterInfo.daysLeft > 21 ? "text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950" : "text-rose-700 dark:text-rose-400 bg-rose-50 dark:bg-rose-950"} border-current/20`}>
-                                      {trimesterInfo.daysLeft > 0 ? `${trimesterInfo.daysLeft} dní do pôrodu` : trimesterInfo.daysLeft === 0 ? "Dnes je termín!" : `${Math.abs(trimesterInfo.daysLeft)} dní po termíne`}
+                                      {trimesterInfo.daysLeft > 0 ? `${trimesterInfo.daysLeft} ${t.dashboard.webFormsDaysUntilBirth}` : trimesterInfo.daysLeft === 0 ? t.dashboard.webFormsDueDateToday : `${Math.abs(trimesterInfo.daysLeft)} ${t.dashboard.webFormsDaysAfterDue}`}
                                     </Badge>
                                   </>
                                 )}
@@ -747,7 +772,7 @@ export default function Dashboard() {
                       data-testid="btn-approve-submission"
                     >
                       <CheckCircle className="h-4 w-4 mr-2" />
-                      Schváliť registráciu
+                      {t.dashboard.webFormsApprove}
                     </Button>
                     <Button
                       variant="outline"
@@ -757,7 +782,7 @@ export default function Dashboard() {
                       data-testid="btn-reject-submission"
                     >
                       <XCircle className="h-4 w-4 mr-2" />
-                      Zamietnuť registráciu
+                      {t.dashboard.webFormsReject}
                     </Button>
                   </div>
                 )}
@@ -773,22 +798,22 @@ export default function Dashboard() {
                     <span className="text-lg ml-1">{getCountryFlag(selectedForm.countryCode)}</span>
                   )}
                 </DialogTitle>
-                <DialogDescription>Prehľad registrácií z webového formulára</DialogDescription>
+                <DialogDescription>{t.dashboard.webFormsListDescription}</DialogDescription>
               </DialogHeader>
 
               <Tabs value={submissionTab} onValueChange={setSubmissionTab} className="mt-2">
                 <TabsList className="grid w-full grid-cols-4">
                   <TabsTrigger value="pending" data-testid="tab-submissions-pending">
-                    Čakajúce
+                    {t.dashboard.webFormsTabPending}
                     {formSubmissions.filter(s => s.status === "pending").length > 0 && (
                       <Badge variant="secondary" className="ml-1.5 text-xs bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300">
                         {formSubmissions.filter(s => s.status === "pending").length}
                       </Badge>
                     )}
                   </TabsTrigger>
-                  <TabsTrigger value="approved" data-testid="tab-submissions-approved">Schválené</TabsTrigger>
-                  <TabsTrigger value="rejected" data-testid="tab-submissions-rejected">Zamietnuté</TabsTrigger>
-                  <TabsTrigger value="all" data-testid="tab-submissions-all">Všetky</TabsTrigger>
+                  <TabsTrigger value="approved" data-testid="tab-submissions-approved">{t.dashboard.webFormsTabApproved}</TabsTrigger>
+                  <TabsTrigger value="rejected" data-testid="tab-submissions-rejected">{t.dashboard.webFormsTabRejected}</TabsTrigger>
+                  <TabsTrigger value="all" data-testid="tab-submissions-all">{t.dashboard.webFormsTabAll}</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value={submissionTab} className="mt-4">
@@ -797,17 +822,17 @@ export default function Dashboard() {
                       <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                     </div>
                   ) : filteredFormSubmissions.length === 0 ? (
-                    <p className="text-center text-muted-foreground py-8">Žiadne registrácie</p>
+                    <p className="text-center text-muted-foreground py-8">{t.dashboard.webFormsNoRegistrations}</p>
                   ) : (
                     <Table data-testid="table-submissions-list">
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Dátum</TableHead>
-                          <TableHead>Meno</TableHead>
-                          <TableHead>Email</TableHead>
-                          <TableHead>Typ</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead className="text-right">Akcie</TableHead>
+                          <TableHead>{t.dashboard.webFormsDate}</TableHead>
+                          <TableHead>{t.dashboard.webFormsName}</TableHead>
+                          <TableHead>{t.dashboard.webFormsEmail}</TableHead>
+                          <TableHead>{t.dashboard.webFormsType}</TableHead>
+                          <TableHead>{t.dashboard.webFormsStatus}</TableHead>
+                          <TableHead className="text-right">{t.dashboard.webFormsActions}</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -833,12 +858,12 @@ export default function Dashboard() {
                                 {sub.isNewCustomer ? (
                                   <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800">
                                     <UserPlus className="h-3 w-3 mr-1" />
-                                    Nový
+                                    {t.dashboard.webFormsNew2}
                                   </Badge>
                                 ) : (
                                   <Badge variant="outline" className="text-xs bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-950 dark:text-violet-300 dark:border-violet-800">
                                     <UserCog className="h-3 w-3 mr-1" />
-                                    Existujúci
+                                    {t.dashboard.webFormsExisting}
                                   </Badge>
                                 )}
                               </TableCell>
@@ -846,19 +871,19 @@ export default function Dashboard() {
                                 {sub.status === "pending" && (
                                   <Badge variant="secondary" className="text-xs bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300">
                                     <Clock className="h-3 w-3 mr-1" />
-                                    Čaká
+                                    {t.dashboard.webFormsPending}
                                   </Badge>
                                 )}
                                 {(sub.status === "approved" || sub.status === "processed") && (
                                   <Badge variant="secondary" className="text-xs bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300">
                                     <CheckCircle className="h-3 w-3 mr-1" />
-                                    {sub.status === "processed" ? "Spracované" : "Schválené"}
+                                    {sub.status === "processed" ? t.dashboard.webFormsProcessed : t.dashboard.webFormsApproved}
                                   </Badge>
                                 )}
                                 {sub.status === "rejected" && (
                                   <Badge variant="secondary" className="text-xs bg-rose-50 text-rose-700 dark:bg-rose-950 dark:text-rose-300">
                                     <XCircle className="h-3 w-3 mr-1" />
-                                    Zamietnuté
+                                    {t.dashboard.webFormsRejected}
                                   </Badge>
                                 )}
                                 {!["pending", "approved", "rejected", "processed"].includes(sub.status) && (
