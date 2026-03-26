@@ -1848,6 +1848,14 @@ export function ContractTemplatesManager() {
                                       next.delete(pdfField.name);
                                       return next;
                                     });
+                                    const catId = selectedCategory?.id;
+                                    const cc = templateForm.countryCode;
+                                    if (catId && cc) {
+                                      navigator.sendBeacon(
+                                        `/api/contracts/categories/${catId}/default-templates/${cc}/set-field`,
+                                        new Blob([JSON.stringify({ field: pdfField.name, value: newValue || "" })], { type: "application/json" })
+                                      );
+                                    }
                                   }}
                                   testId={`select-pdf-mapping-${idx}`}
                                 />
@@ -2840,8 +2848,7 @@ export function ContractTemplatesManager() {
                             <MultiFieldMapping
                               value={templateMappings[fieldName] || ""}
                               onChange={(newValue) => {
-                                console.log('[MAPPING CHANGE]', fieldName, '=>', newValue);
-                                try { fetch(`/api/debug-log?event=mapping_change&field=${encodeURIComponent(fieldName)}&value=${encodeURIComponent(newValue || '')}`, { credentials: "include" }); } catch(e) {}
+                                const catId = editingTemplateData?.categoryId || selectedCategory?.id;
                                 setTemplateMappings(prev => {
                                   const newMappings = { ...prev };
                                   if (newValue) {
@@ -2849,7 +2856,6 @@ export function ContractTemplatesManager() {
                                   } else {
                                     delete newMappings[fieldName];
                                   }
-                                  console.log('[MAPPING STATE] total keys:', Object.keys(newMappings).length, 'non-empty:', Object.values(newMappings).filter(v => v && String(v).trim()).length);
                                   return newMappings;
                                 });
                                 setAiMappedFields(prev => {
@@ -2857,6 +2863,12 @@ export function ContractTemplatesManager() {
                                   next.delete(fieldName);
                                   return next;
                                 });
+                                if (catId && editingTemplateCountry) {
+                                  navigator.sendBeacon(
+                                    `/api/contracts/categories/${catId}/default-templates/${editingTemplateCountry}/set-field`,
+                                    new Blob([JSON.stringify({ field: fieldName, value: newValue || "" })], { type: "application/json" })
+                                  );
+                                }
                               }}
                               testId={`select-mapping-${idx}`}
                             />

@@ -26571,6 +26571,60 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
   });
 
   // Update placeholder mappings for a template
+  app.post("/api/contracts/categories/:categoryId/default-templates/:countryCode/set-field", requireAuth, async (req, res) => {
+    try {
+      const categoryId = parseInt(req.params.categoryId);
+      const { countryCode } = req.params;
+      let body = req.body;
+      if (!body || (typeof body === 'object' && Object.keys(body).length === 0)) {
+        try {
+          const chunks: Buffer[] = [];
+          for await (const chunk of req) { chunks.push(chunk as Buffer); }
+          body = JSON.parse(Buffer.concat(chunks).toString());
+        } catch (e) { body = {}; }
+      }
+      const { field, value } = body;
+      console.log(`[SET-FIELD] categoryId=${categoryId}, country=${countryCode}, field=${field}, value=${value}`);
+      
+      if (!field) {
+        return res.status(400).json({ error: "field is required" });
+      }
+
+      const template = await storage.getCategoryDefaultTemplate(categoryId, countryCode);
+      if (!template) {
+        return res.status(404).json({ error: "Template not found" });
+      }
+
+      let currentMappings: Record<string, string> = {};
+      if (template.placeholderMappings) {
+        try {
+          currentMappings = typeof template.placeholderMappings === 'string' 
+            ? JSON.parse(template.placeholderMappings) 
+            : template.placeholderMappings;
+        } catch (e) {
+          currentMappings = {};
+        }
+      }
+
+      if (value && String(value).trim() !== '') {
+        currentMappings[field] = String(value);
+      } else {
+        delete currentMappings[field];
+      }
+
+      console.log(`[SET-FIELD] Updated mappings:`, JSON.stringify(currentMappings));
+      
+      await storage.updateCategoryDefaultTemplate(template.id, {
+        placeholderMappings: JSON.stringify(currentMappings)
+      });
+
+      res.json({ success: true, mappings: currentMappings });
+    } catch (error) {
+      console.error("Error in set-field:", error);
+      res.status(500).json({ error: "Failed to set field" });
+    }
+  });
+
   app.patch("/api/contracts/categories/:categoryId/default-templates/:countryCode/mappings", requireAuth, async (req, res) => {
     try {
       const categoryId = parseInt(req.params.categoryId);
