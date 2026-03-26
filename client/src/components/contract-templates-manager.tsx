@@ -2677,29 +2677,46 @@ export function ContractTemplatesManager() {
                               const result = await response.json();
 
                               if (result.mappings) {
-                                let addedCount = 0;
-                                let skippedCount = 0;
-                                setTemplateMappings(prev => {
-                                  const merged = { ...prev };
-                                  const addedKeys: string[] = [];
-                                  for (const [k, v] of Object.entries(result.mappings)) {
-                                    if (!prev[k]) {
-                                      merged[k] = v as string;
-                                      addedKeys.push(k);
+                                const currentMappings = { ...templateMappings };
+                                const addedKeys: string[] = [];
+                                for (const [k, v] of Object.entries(result.mappings)) {
+                                  if (!currentMappings[k]) {
+                                    currentMappings[k] = v as string;
+                                    addedKeys.push(k);
+                                  }
+                                }
+                                const skippedCount = Object.keys(result.mappings).length - addedKeys.length;
+
+                                setTemplateMappings(currentMappings);
+                                setAiMappedFields(prevAi => {
+                                  const next = new Set(prevAi);
+                                  addedKeys.forEach(k => next.add(k));
+                                  return next;
+                                });
+
+                                if (addedKeys.length > 0 && selectedCategory && editingTemplateCountry) {
+                                  const filteredMappings: Record<string, string> = {};
+                                  for (const [key, value] of Object.entries(currentMappings)) {
+                                    if (value && value.trim() !== "") {
+                                      filteredMappings[key] = value;
                                     }
                                   }
-                                  addedCount = addedKeys.length;
-                                  skippedCount = Object.keys(result.mappings).length - addedCount;
-                                  setAiMappedFields(prevAi => {
-                                    const next = new Set(prevAi);
-                                    addedKeys.forEach(k => next.add(k));
-                                    return next;
-                                  });
-                                  return merged;
-                                });
+                                  const allAiFields = [...aiMappedFields, ...addedKeys];
+                                  try {
+                                    await fetch(`/api/contracts/categories/${selectedCategory.id}/default-templates/${editingTemplateCountry}/mappings`, {
+                                      method: "PATCH",
+                                      headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({ mappings: filteredMappings, aiMappedFields: allAiFields }),
+                                      credentials: "include"
+                                    });
+                                  } catch (saveErr) {
+                                    console.error("Auto-save after AI mapping failed:", saveErr);
+                                  }
+                                }
+
                                 toast({
                                   title: "AI mapovanie dokončené",
-                                  description: `Namapovaných ${addedCount} nových polí${skippedCount > 0 ? ` (${skippedCount} existujúcich preskočených)` : ''}`
+                                  description: `Namapovaných ${addedKeys.length} nových polí${skippedCount > 0 ? ` (${skippedCount} existujúcich preskočených)` : ''}`
                                 });
                               }
                             } catch (error) {
