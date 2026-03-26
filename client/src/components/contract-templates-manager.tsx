@@ -1055,6 +1055,7 @@ export function ContractTemplatesManager() {
 
   const handleSaveMappings = async () => {
     const catId = editingTemplateData?.categoryId || selectedCategory?.id;
+    console.log('[SAVE BUTTON] catId:', catId, 'country:', editingTemplateCountry, 'mappingKeys:', Object.keys(templateMappings).length);
     if (!catId || !editingTemplateCountry) return;
 
     setSavingMappings(true);
@@ -1098,6 +1099,7 @@ export function ContractTemplatesManager() {
 
   useEffect(() => {
     const catId = editingTemplateData?.categoryId || selectedCategory?.id;
+    console.log('[AUTOSAVE EFFECT] catId:', catId, 'country:', editingTemplateCountry, 'open:', isTemplateEditorOpen, 'mappingKeys:', Object.keys(templateMappings).length);
     if (!catId || !editingTemplateCountry || !isTemplateEditorOpen) return;
 
     const filteredMappings: Record<string, string> = {};
@@ -1109,6 +1111,7 @@ export function ContractTemplatesManager() {
     const currentMappingsJson = JSON.stringify(filteredMappings, Object.keys(filteredMappings).sort());
     const currentAiFieldsJson = JSON.stringify([...aiMappedFields].sort());
 
+    console.log('[AUTOSAVE EFFECT] nonEmpty:', Object.keys(filteredMappings).length, 'changed:', currentMappingsJson !== lastSavedMappingsRef.current);
     if (currentMappingsJson === lastSavedMappingsRef.current && currentAiFieldsJson === lastSavedAiFieldsRef.current) {
       return;
     }
@@ -2836,6 +2839,7 @@ export function ContractTemplatesManager() {
                             <MultiFieldMapping
                               value={templateMappings[fieldName] || ""}
                               onChange={(newValue) => {
+                                console.log('[MAPPING CHANGE]', fieldName, '=>', newValue);
                                 setTemplateMappings(prev => {
                                   const newMappings = { ...prev };
                                   if (newValue) {
@@ -2843,6 +2847,7 @@ export function ContractTemplatesManager() {
                                   } else {
                                     delete newMappings[fieldName];
                                   }
+                                  console.log('[MAPPING STATE] total keys:', Object.keys(newMappings).length, 'non-empty:', Object.values(newMappings).filter(v => v && String(v).trim()).length);
                                   return newMappings;
                                 });
                                 setAiMappedFields(prev => {
