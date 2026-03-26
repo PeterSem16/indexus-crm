@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, Fragment } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Search, Eye, Receipt, Loader2, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, CheckCircle2, CheckCircle, AlertCircle, Plus, Users, FileText, Calendar, Clock, Trash2, BarChart3, TrendingUp, FileDown, Download, CreditCard, User, Banknote, MessageSquare, Database, ChevronDown, ChevronUp, Building2 } from "lucide-react";
+import { Search, Eye, Receipt, Loader2, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, CheckCircle2, CheckCircle, AlertCircle, Plus, Users, FileText, Calendar, Clock, Trash2, BarChart3, TrendingUp, FileDown, Download, CreditCard, User, Banknote, MessageSquare, Database, ChevronDown, ChevronUp, Building2, Globe } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
@@ -759,7 +759,65 @@ export default function CustomerInvoicesPage() {
 
     const avgInvoiceValue = totals.issuedCount > 0 ? totals.issuedTotal / totals.issuedCount : 0;
 
-    return { monthlyData, customerData, totals, pieData, paymentPieData, currencyData, statusData, companyData, avgInvoiceValue, paidTotal, unpaidTotal };
+    const iscbcInvoices = invoices.filter(inv => (inv as any).dataSource === 'iscbc');
+    const indexusInvoices = invoices.filter(inv => (inv as any).dataSource !== 'iscbc');
+    const sourceData = {
+      iscbc: {
+        count: iscbcInvoices.length,
+        totalEur: iscbcInvoices.reduce((sum, inv) => sum + convertToEur(inv.totalAmount || "0", inv.currency), 0),
+        paidEur: iscbcInvoices.reduce((sum, inv) => sum + convertToEur(inv.paidAmount || "0", inv.currency), 0),
+        paidCount: iscbcInvoices.filter(inv => inv.status === 'paid').length,
+        unpaidCount: iscbcInvoices.filter(inv => inv.status !== 'paid' && inv.status !== 'cancelled').length,
+      },
+      indexus: {
+        count: indexusInvoices.length,
+        totalEur: indexusInvoices.reduce((sum, inv) => sum + convertToEur(inv.totalAmount || "0", inv.currency), 0),
+        paidEur: indexusInvoices.reduce((sum, inv) => sum + convertToEur(inv.paidAmount || "0", inv.currency), 0),
+        paidCount: indexusInvoices.filter(inv => inv.status === 'paid').length,
+        unpaidCount: indexusInvoices.filter(inv => inv.status !== 'paid' && inv.status !== 'cancelled').length,
+      },
+    };
+
+    const byCountry = new Map<string, { count: number; currency: string; totalLocal: number; totalEur: number; paidLocal: number; paidEur: number; unpaidLocal: number; unpaidEur: number }>();
+    const countryToCurrency: Record<string, string> = {
+      'SK': 'EUR', 'AT': 'EUR', 'DE': 'EUR', 'CZ': 'CZK', 'HU': 'HUF',
+      'RO': 'RON', 'PL': 'PLN', 'HR': 'EUR', 'BG': 'BGN', 'RS': 'RSD',
+      'SI': 'EUR', 'UA': 'UAH', 'GB': 'GBP', 'CH': 'CHF',
+    };
+    invoices.forEach(inv => {
+      const country = inv.billingCountry || 'N/A';
+      const cur = inv.currency || 'EUR';
+      const existing = byCountry.get(country) || { count: 0, currency: countryToCurrency[country] || cur, totalLocal: 0, totalEur: 0, paidLocal: 0, paidEur: 0, unpaidLocal: 0, unpaidEur: 0 };
+      existing.count++;
+      const amt = parseFloat(inv.totalAmount || "0");
+      const paidAmt = parseFloat(inv.paidAmount || "0");
+      existing.totalLocal += amt;
+      existing.totalEur += convertToEur(inv.totalAmount || "0", inv.currency);
+      existing.paidLocal += paidAmt;
+      existing.paidEur += convertToEur(inv.paidAmount || "0", inv.currency);
+      existing.unpaidLocal += Math.max(0, amt - paidAmt);
+      existing.unpaidEur += Math.max(0, convertToEur(inv.totalAmount || "0", inv.currency) - convertToEur(inv.paidAmount || "0", inv.currency));
+      byCountry.set(country, existing);
+    });
+    const countryData = Array.from(byCountry.entries())
+      .map(([country, data]) => ({ country, ...data }))
+      .sort((a, b) => b.totalEur - a.totalEur);
+
+    const byYear = new Map<number, { count: number; totalEur: number; paidEur: number }>();
+    invoices.forEach(inv => {
+      const year = inv.issueDate ? new Date(inv.issueDate).getFullYear() : 0;
+      if (year < 2000) return;
+      const existing = byYear.get(year) || { count: 0, totalEur: 0, paidEur: 0 };
+      existing.count++;
+      existing.totalEur += convertToEur(inv.totalAmount || "0", inv.currency);
+      existing.paidEur += convertToEur(inv.paidAmount || "0", inv.currency);
+      byYear.set(year, existing);
+    });
+    const yearData = Array.from(byYear.entries())
+      .map(([year, data]) => ({ year, ...data }))
+      .sort((a, b) => a.year - b.year);
+
+    return { monthlyData, customerData, totals, pieData, paymentPieData, currencyData, statusData, companyData, avgInvoiceValue, paidTotal, unpaidTotal, sourceData, countryData, yearData };
   }, [invoices, scheduledInvoices, customerMap, convertToEur]);
 
   if (isLoading) {
@@ -1889,6 +1947,153 @@ export default function CustomerInvoicesPage() {
                 </CardContent>
               </Card>
             </div>
+
+            <div className="grid gap-6 md:grid-cols-2">
+              <Card className="border-orange-100 dark:border-orange-900">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-sm">
+                    <Building2 className="h-4 w-4" />
+                    ISCBC vs INDEXUS
+                  </CardTitle>
+                  <p className="text-xs text-muted-foreground">Porovnanie podľa zdroja dát</p>
+                </CardHeader>
+                <CardContent>
+                  <Table data-testid="table-source-breakdown">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Zdroj</TableHead>
+                        <TableHead className="text-right">Počet</TableHead>
+                        <TableHead className="text-right">Celkom (EUR)</TableHead>
+                        <TableHead className="text-right">Uhradené (EUR)</TableHead>
+                        <TableHead className="text-right">Uhradené</TableHead>
+                        <TableHead className="text-right">Neuhradené</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      <TableRow>
+                        <TableCell>
+                          <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-800">ISCBC</Badge>
+                        </TableCell>
+                        <TableCell className="text-right">{reportData.sourceData.iscbc.count}</TableCell>
+                        <TableCell className="text-right font-medium">{formatCurrency(reportData.sourceData.iscbc.totalEur.toString(), "EUR")}</TableCell>
+                        <TableCell className="text-right text-green-600">{formatCurrency(reportData.sourceData.iscbc.paidEur.toString(), "EUR")}</TableCell>
+                        <TableCell className="text-right">
+                          <Badge variant="secondary" className="bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300">{reportData.sourceData.iscbc.paidCount}</Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Badge variant="secondary" className="bg-rose-50 text-rose-700 dark:bg-rose-950 dark:text-rose-300">{reportData.sourceData.iscbc.unpaidCount}</Badge>
+                        </TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell>
+                          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800">INDEXUS</Badge>
+                        </TableCell>
+                        <TableCell className="text-right">{reportData.sourceData.indexus.count}</TableCell>
+                        <TableCell className="text-right font-medium">{formatCurrency(reportData.sourceData.indexus.totalEur.toString(), "EUR")}</TableCell>
+                        <TableCell className="text-right text-green-600">{formatCurrency(reportData.sourceData.indexus.paidEur.toString(), "EUR")}</TableCell>
+                        <TableCell className="text-right">
+                          <Badge variant="secondary" className="bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300">{reportData.sourceData.indexus.paidCount}</Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Badge variant="secondary" className="bg-rose-50 text-rose-700 dark:bg-rose-950 dark:text-rose-300">{reportData.sourceData.indexus.unpaidCount}</Badge>
+                        </TableCell>
+                      </TableRow>
+                      <TableRow className="border-t-2 font-bold bg-muted/30">
+                        <TableCell>Celkom</TableCell>
+                        <TableCell className="text-right">{reportData.sourceData.iscbc.count + reportData.sourceData.indexus.count}</TableCell>
+                        <TableCell className="text-right">{formatCurrency((reportData.sourceData.iscbc.totalEur + reportData.sourceData.indexus.totalEur).toString(), "EUR")}</TableCell>
+                        <TableCell className="text-right text-green-600">{formatCurrency((reportData.sourceData.iscbc.paidEur + reportData.sourceData.indexus.paidEur).toString(), "EUR")}</TableCell>
+                        <TableCell className="text-right">
+                          <Badge variant="secondary">{reportData.sourceData.iscbc.paidCount + reportData.sourceData.indexus.paidCount}</Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Badge variant="secondary">{reportData.sourceData.iscbc.unpaidCount + reportData.sourceData.indexus.unpaidCount}</Badge>
+                        </TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-sm">
+                    <TrendingUp className="h-4 w-4" />
+                    Ročný prehľad (EUR)
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {reportData.yearData.length > 0 ? (
+                    <div className="h-[250px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={reportData.yearData}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                          <XAxis dataKey="year" fontSize={11} />
+                          <YAxis fontSize={11} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+                          <Tooltip formatter={(value: number) => formatCurrency(value.toString(), "EUR")} />
+                          <Legend />
+                          <Bar dataKey="totalEur" name="Vydané" fill="#93C5FD" radius={[4, 4, 0, 0]} />
+                          <Bar dataKey="paidEur" name="Uhradené" fill="#86EFAC" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  ) : (
+                    <p className="text-center text-muted-foreground py-8">Žiadne dáta</p>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-sm">
+                  <Globe className="h-4 w-4" />
+                  Rozdelenie podľa krajiny
+                </CardTitle>
+                <p className="text-xs text-muted-foreground">Sumy v lokálnej mene krajiny + prepočet na EUR</p>
+              </CardHeader>
+              <CardContent>
+                <Table data-testid="table-country-breakdown">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Krajina</TableHead>
+                      <TableHead className="text-right">Počet</TableHead>
+                      <TableHead className="text-right">Mena</TableHead>
+                      <TableHead className="text-right">Celkom (lokálna)</TableHead>
+                      <TableHead className="text-right">Celkom (EUR)</TableHead>
+                      <TableHead className="text-right">Uhradené (lokálna)</TableHead>
+                      <TableHead className="text-right">Neuhradené (lokálna)</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {reportData.countryData.map((row) => (
+                      <TableRow key={row.country}>
+                        <TableCell>
+                          <Badge variant="outline" className="bg-slate-50 dark:bg-slate-950">{row.country}</Badge>
+                        </TableCell>
+                        <TableCell className="text-right">{row.count}</TableCell>
+                        <TableCell className="text-right">
+                          <Badge variant="outline" className="bg-blue-50 dark:bg-blue-950 text-xs">{row.currency}</Badge>
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-xs">{formatCurrency(row.totalLocal.toString(), row.currency)}</TableCell>
+                        <TableCell className="text-right font-medium">{formatCurrency(row.totalEur.toString(), "EUR")}</TableCell>
+                        <TableCell className="text-right text-green-600 font-mono text-xs">{formatCurrency(row.paidLocal.toString(), row.currency)}</TableCell>
+                        <TableCell className="text-right text-rose-600 font-mono text-xs">{formatCurrency(row.unpaidLocal.toString(), row.currency)}</TableCell>
+                      </TableRow>
+                    ))}
+                    <TableRow className="border-t-2 font-bold bg-muted/30">
+                      <TableCell>Celkom</TableCell>
+                      <TableCell className="text-right">{reportData.countryData.reduce((s, r) => s + r.count, 0)}</TableCell>
+                      <TableCell className="text-right">-</TableCell>
+                      <TableCell className="text-right">-</TableCell>
+                      <TableCell className="text-right">{formatCurrency(reportData.countryData.reduce((s, r) => s + r.totalEur, 0).toString(), "EUR")}</TableCell>
+                      <TableCell className="text-right text-green-600">{formatCurrency(reportData.countryData.reduce((s, r) => s + r.paidEur, 0).toString(), "EUR")}</TableCell>
+                      <TableCell className="text-right text-rose-600">{formatCurrency(reportData.countryData.reduce((s, r) => s + r.unpaidEur, 0).toString(), "EUR")}</TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
 
             <Card>
               <CardHeader>

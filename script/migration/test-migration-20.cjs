@@ -3751,6 +3751,26 @@ async function step12_customerInvoices() {
       const invCompDetails = invComId ? (companyDetailsMap[invComId] || {}) : {};
       const invCompAccounts = invComId ? ((companyAccountsMap[invComId] || [])[0] || {}) : {};
 
+      // Determine payment_date for paid invoices from RealizedPayments
+      let resolvedPaymentDate = null;
+      if (normalizedStatus === 'paid' || r.inv_fully_paid) {
+        const realized = realizedPaymentsMap[String(r.inv_id)] || [];
+        if (realized.length > 0) {
+          // Use the last realized payment date
+          const lastPayment = realized[realized.length - 1];
+          resolvedPaymentDate = lastPayment.rpa_date || lastPayment.rpa_date_of_payment || lastPayment.rpa_inserted || null;
+        }
+        // Fallback: if no realized payment, try payment dates map
+        if (!resolvedPaymentDate) {
+          const pd = paymentDatesMap[String(r.inv_id)];
+          if (pd) resolvedPaymentDate = pd.ispd_date || pd.ispd_date_of_payment || null;
+        }
+        // Final fallback: use due date as approximation for fully paid invoices
+        if (!resolvedPaymentDate && r.inv_date_of_payment) {
+          resolvedPaymentDate = r.inv_date_of_payment;
+        }
+      }
+
       await pgPool.query(`
         INSERT INTO invoices (
           id, invoice_number, legacy_id, customer_id,
@@ -3763,6 +3783,7 @@ async function step12_customerInvoices() {
           billing_tax_id, billing_vat_id,
           billing_bank_name, billing_bank_iban, billing_bank_swift,
           contract_instance_id,
+          payment_date,
           data_source, legacy_data, note,
           generated_at, created_at
         )
@@ -3777,8 +3798,9 @@ async function step12_customerInvoices() {
           $21, $22,
           $23, $24, $25,
           $26,
-          'iscbc', $27, $28,
-          $29, $29
+          $27,
+          'iscbc', $28, $29,
+          $30, $30
         )
       `, [
         invoiceNumberForModule,                                                        // $1
@@ -3795,7 +3817,7 @@ async function step12_customerInvoices() {
         r.inv_date_of_delivery || null,                                                // $12
         r.inv_date_of_issue || null,                                                   // $13
         r.inv_dispatch_date || null,                                                   // $14
-        r.inv_date_of_payment || null,                                                 // $15
+        r.inv_date_of_payment || null,                                                 // $15 due_date
         r.inv_period_from || null,                                                     // $16
         r.inv_period_to || null,                                                       // $17
         companyName,                                                                   // $18
@@ -3807,9 +3829,10 @@ async function step12_customerInvoices() {
         invCompAccounts.acc_IBAN || null,                                              // $24 billing_bank_iban
         invCompAccounts.acc_SWIFT || null,                                             // $25 billing_bank_swift
         contractInstanceId,                                                            // $26
-        JSON.stringify(legacyData),                                                    // $27
-        r.inv_note || null,                                                            // $28
-        r.inv_inserted || r.inv_date_of_issue || new Date(),                           // $29
+        resolvedPaymentDate,                                                           // $27 payment_date
+        JSON.stringify(legacyData),                                                    // $28
+        r.inv_note || null,                                                            // $29
+        r.inv_inserted || r.inv_date_of_issue || new Date(),                           // $30
       ]);
 
       inserted++;
