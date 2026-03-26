@@ -432,6 +432,9 @@ export interface Translations {
     webFormsPrecheckDifferingFields: string;
     webFormsPrecheckSelectedUpdates: string;
     webFormsPrecheckNoChanges: string;
+    webFormsPrecheckNewChild: string;
+    webFormsPrecheckNewChildDesc: string;
+    webFormsPrecheckExistingDob: string;
   };
   customers: {
     title: string;
@@ -5743,6 +5746,9 @@ export const translations: Record<Locale, Translations> = {
       webFormsPrecheckDifferingFields: 'differing fields',
       webFormsPrecheckSelectedUpdates: 'selected for update',
       webFormsPrecheckNoChanges: 'All submitted data matches the customer card.',
+      webFormsPrecheckNewChild: 'New pregnancy detected',
+      webFormsPrecheckNewChildDesc: 'The existing delivery date on the customer card has already passed. This registration likely concerns a new (2nd) child. Upon approval, number of children can be updated to 2 and a new expected delivery date can be set.',
+      webFormsPrecheckExistingDob: 'Existing delivery date on card',
     },
     customers: {
       title: 'Customers',
@@ -10919,6 +10925,9 @@ export const translations: Record<Locale, Translations> = {
       webFormsPrecheckDifferingFields: 'rozdielnych polí',
       webFormsPrecheckSelectedUpdates: 'vybraných na aktualizáciu',
       webFormsPrecheckNoChanges: 'Všetky odoslané údaje sa zhodujú s kartou zákazníka.',
+      webFormsPrecheckNewChild: 'Zistené nové tehotenstvo',
+      webFormsPrecheckNewChildDesc: 'Existujúci termín pôrodu na karte zákazníka už uplynul. Táto registrácia sa pravdepodobne týka nového (2.) dieťaťa. Po schválení bude možné aktualizovať počet detí na 2 a nastaviť nový predpokladaný dátum pôrodu.',
+      webFormsPrecheckExistingDob: 'Existujúci termín pôrodu na karte',
     },
     customers: {
       title: 'Zákazníci',
@@ -16064,6 +16073,9 @@ export const translations: Record<Locale, Translations> = {
       webFormsPrecheckDifferingFields: 'rozdílných polí',
       webFormsPrecheckSelectedUpdates: 'vybraných k aktualizaci',
       webFormsPrecheckNoChanges: 'Všechny odeslané údaje se shodují s kartou zákazníka.',
+      webFormsPrecheckNewChild: 'Zjištěno nové těhotenství',
+      webFormsPrecheckNewChildDesc: 'Existující termín porodu na kartě zákazníka již uplynul. Tato registrace se pravděpodobně týká nového (2.) dítěte. Po schválení bude možné aktualizovat počet dětí na 2 a nastavit nový předpokládaný datum porodu.',
+      webFormsPrecheckExistingDob: 'Existující termín porodu na kartě',
     },
     customers: {
       title: 'Zákazníci',
@@ -21134,6 +21146,9 @@ export const translations: Record<Locale, Translations> = {
       webFormsPrecheckDifferingFields: 'eltérő mező',
       webFormsPrecheckSelectedUpdates: 'frissítésre kiválasztva',
       webFormsPrecheckNoChanges: 'Minden beküldött adat egyezik az ügyfélkártyával.',
+      webFormsPrecheckNewChild: 'Új terhesség észlelve',
+      webFormsPrecheckNewChildDesc: 'A meglévő szülési dátum az ügyfélkártyán már elmúlt. Ez a regisztráció valószínűleg egy új (2.) gyermekre vonatkozik. Jóváhagyás után a gyermekek száma 2-re frissíthető és új várható szülési dátum állítható be.',
+      webFormsPrecheckExistingDob: 'Meglévő szülési dátum a kártyán',
     },
     customers: {
       title: 'Ügyfelek',

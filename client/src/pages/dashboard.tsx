@@ -549,7 +549,19 @@ export default function Dashboard() {
     const matching = rows.filter(r => r.status === "match").length;
     const differing = rows.filter(r => r.status === "differs" || r.status === "new").length;
 
-    return { rows, customer, nameMatch, matching, differing };
+    let isNewChild = false;
+    if (customer.expectedDeliveryDate) {
+      const existingDueDate = new Date(customer.expectedDeliveryDate);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const existingIsPast = existingDueDate < today;
+      const deliveryRow = rows.find(r => r.fieldKey === "expectedDeliveryDate");
+      if (existingIsPast && deliveryRow && deliveryRow.status === "differs") {
+        isNewChild = true;
+      }
+    }
+
+    return { rows, customer, nameMatch, matching, differing, isNewChild };
   };
 
   const toggleFieldUpdate = (fieldKey: string) => {
@@ -824,7 +836,7 @@ export default function Dashboard() {
                 {!selectedSubmission.isNewCustomer && selectedSubmission.customerId && (() => {
                   const comparison = buildComparison(selectedSubmission);
                   if (!comparison) return null;
-                  const { rows, customer, nameMatch, matching, differing } = comparison;
+                  const { rows, customer, nameMatch, matching, differing, isNewChild } = comparison;
                   const differingRows = rows.filter(r => r.status === "differs" || r.status === "new");
                   const matchingRows = rows.filter(r => r.status === "match");
 
@@ -871,6 +883,23 @@ export default function Dashboard() {
                             <div>
                               <p className="text-sm font-medium text-rose-800 dark:text-rose-200">{t.dashboard.webFormsPrecheckWarning}</p>
                               <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">{t.dashboard.webFormsPrecheckNameMismatch}</p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {isNewChild && (
+                        <div className="rounded-lg border border-violet-200 bg-violet-50/50 dark:border-violet-800 dark:bg-violet-950/30 p-3" data-testid="new-child-warning">
+                          <div className="flex gap-2 items-start">
+                            <Baby className="h-4 w-4 text-violet-600 dark:text-violet-400 mt-0.5 shrink-0" />
+                            <div>
+                              <p className="text-sm font-medium text-violet-800 dark:text-violet-200">{t.dashboard.webFormsPrecheckNewChild}</p>
+                              <p className="text-xs text-violet-600 dark:text-violet-400 mt-1">{t.dashboard.webFormsPrecheckNewChildDesc}</p>
+                              <div className="flex items-center gap-2 mt-2">
+                                <Badge variant="outline" className="text-xs bg-violet-100 text-violet-700 border-violet-300 dark:bg-violet-900 dark:text-violet-300 dark:border-violet-700">
+                                  {t.dashboard.webFormsPrecheckExistingDob}: {customer.expectedDeliveryDate ? format(new Date(customer.expectedDeliveryDate), "dd.MM.yyyy") : "-"}
+                                </Badge>
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -966,63 +995,105 @@ export default function Dashboard() {
                   );
                 })()}
 
-                {categorizeFields(parseSubmissionData(selectedSubmission.data)).map((section) => (
-                  <div key={section.title} className="space-y-1" data-testid={`section-${section.title}`}>
-                    <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground px-1 pb-1">
-                      {section.title}
-                    </h4>
-                    <div className="rounded-xl border overflow-hidden">
-                      {section.items.map(([key, value], idx) => {
-                        const IconComp = getFieldIcon(key, value);
-                        const inferredKey = inferFieldType(key, value);
-                        const isDeliveryDate = inferredKey === "expectedDeliveryDate" && value;
-                        let trimesterInfo: { trimester: number; daysLeft: number; weeksPregnant: number; color: string; bgColor: string } | null = null;
-                        if (isDeliveryDate) {
-                          const strVal = String(value);
-                          const dueDate = new Date(strVal.length === 10 ? strVal + "T00:00:00" : strVal);
-                          const today = new Date();
-                          today.setHours(0, 0, 0, 0);
-                          const daysLeft = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-                          const totalPregnancyDays = 280;
-                          const daysPregnant = totalPregnancyDays - daysLeft;
-                          const weeksPregnant = Math.max(0, Math.floor(daysPregnant / 7));
-                          let trimester = 1;
-                          if (weeksPregnant >= 28) trimester = 3;
-                          else if (weeksPregnant >= 13) trimester = 2;
-                          const color = trimester === 1 ? "text-emerald-700 dark:text-emerald-400" : trimester === 2 ? "text-blue-700 dark:text-blue-400" : "text-violet-700 dark:text-violet-400";
-                          const bgColor = trimester === 1 ? "bg-emerald-50 dark:bg-emerald-950" : trimester === 2 ? "bg-blue-50 dark:bg-blue-950" : "bg-violet-50 dark:bg-violet-950";
-                          trimesterInfo = { trimester, daysLeft, weeksPregnant, color, bgColor };
-                        }
-                        return (
-                          <div
-                            key={key}
-                            className={`flex items-center gap-3 px-4 py-3 ${idx < section.items.length - 1 ? "border-b" : ""} hover:bg-muted/30 transition-colors`}
-                          >
-                            <div className={`flex items-center justify-center h-8 w-8 rounded-lg shrink-0 ${trimesterInfo ? trimesterInfo.bgColor : "bg-muted/60"}`}>
-                              <IconComp className={`h-4 w-4 ${trimesterInfo ? trimesterInfo.color : "text-muted-foreground"}`} />
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <p className="text-xs text-muted-foreground leading-tight">{getFieldLabel(key, value)}</p>
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <p className="text-sm font-medium">{renderFieldValue(key, value)}</p>
-                                {trimesterInfo && (
-                                  <>
-                                    <Badge variant="outline" className={`text-xs ${trimesterInfo.color} border-current/20 ${trimesterInfo.bgColor}`}>
-                                      {trimesterInfo.trimester}. {t.dashboard.webFormsTrimester} ({trimesterInfo.weeksPregnant}. {t.dashboard.webFormsWeek})
+                {(() => {
+                  const comparison = !selectedSubmission.isNewCustomer && selectedSubmission.customerId
+                    ? buildComparison(selectedSubmission)
+                    : null;
+                  const comparisonMap = new Map<string, "match" | "differs" | "new" | "empty">();
+                  if (comparison) {
+                    for (const row of comparison.rows) {
+                      comparisonMap.set(row.fieldKey, row.status);
+                    }
+                  }
+
+                  return categorizeFields(parseSubmissionData(selectedSubmission.data)).map((section) => (
+                    <div key={section.title} className="space-y-1" data-testid={`section-${section.title}`}>
+                      <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground px-1 pb-1">
+                        {section.title}
+                      </h4>
+                      <div className="rounded-xl border overflow-hidden">
+                        {section.items.map(([key, value], idx) => {
+                          const IconComp = getFieldIcon(key, value);
+                          const inferredKey = inferFieldType(key, value);
+                          const fieldStatus = comparisonMap.get(inferredKey);
+                          const isDeliveryDate = inferredKey === "expectedDeliveryDate" && value;
+                          let trimesterInfo: { trimester: number; daysLeft: number; weeksPregnant: number; color: string; bgColor: string } | null = null;
+                          if (isDeliveryDate) {
+                            const strVal = String(value);
+                            const dueDate = new Date(strVal.length === 10 ? strVal + "T00:00:00" : strVal);
+                            const today = new Date();
+                            today.setHours(0, 0, 0, 0);
+                            const daysLeft = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                            const totalPregnancyDays = 280;
+                            const daysPregnant = totalPregnancyDays - daysLeft;
+                            const weeksPregnant = Math.max(0, Math.floor(daysPregnant / 7));
+                            let trimester = 1;
+                            if (weeksPregnant >= 28) trimester = 3;
+                            else if (weeksPregnant >= 13) trimester = 2;
+                            const color = trimester === 1 ? "text-emerald-700 dark:text-emerald-400" : trimester === 2 ? "text-blue-700 dark:text-blue-400" : "text-violet-700 dark:text-violet-400";
+                            const bgColor = trimester === 1 ? "bg-emerald-50 dark:bg-emerald-950" : trimester === 2 ? "bg-blue-50 dark:bg-blue-950" : "bg-violet-50 dark:bg-violet-950";
+                            trimesterInfo = { trimester, daysLeft, weeksPregnant, color, bgColor };
+                          }
+
+                          const rowBgClass = fieldStatus === "match"
+                            ? "bg-green-50/40 dark:bg-green-950/10"
+                            : fieldStatus === "differs"
+                              ? "bg-rose-50/40 dark:bg-rose-950/10"
+                              : fieldStatus === "new"
+                                ? "bg-blue-50/40 dark:bg-blue-950/10"
+                                : "";
+                          const borderLeftClass = fieldStatus === "match"
+                            ? "border-l-2 border-l-green-400 dark:border-l-green-600"
+                            : fieldStatus === "differs"
+                              ? "border-l-2 border-l-rose-400 dark:border-l-rose-600"
+                              : fieldStatus === "new"
+                                ? "border-l-2 border-l-blue-400 dark:border-l-blue-600"
+                                : "";
+
+                          return (
+                            <div
+                              key={key}
+                              className={`flex items-center gap-3 px-4 py-3 ${idx < section.items.length - 1 ? "border-b" : ""} hover:bg-muted/30 transition-colors ${rowBgClass} ${borderLeftClass}`}
+                            >
+                              <div className={`flex items-center justify-center h-8 w-8 rounded-lg shrink-0 ${trimesterInfo ? trimesterInfo.bgColor : "bg-muted/60"}`}>
+                                <IconComp className={`h-4 w-4 ${trimesterInfo ? trimesterInfo.color : "text-muted-foreground"}`} />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-xs text-muted-foreground leading-tight">{getFieldLabel(key, value)}</p>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <p className="text-sm font-medium">{renderFieldValue(key, value)}</p>
+                                  {trimesterInfo && (
+                                    <>
+                                      <Badge variant="outline" className={`text-xs ${trimesterInfo.color} border-current/20 ${trimesterInfo.bgColor}`}>
+                                        {trimesterInfo.trimester}. {t.dashboard.webFormsTrimester} ({trimesterInfo.weeksPregnant}. {t.dashboard.webFormsWeek})
+                                      </Badge>
+                                      <Badge variant="outline" className={`text-xs ${trimesterInfo.daysLeft > 60 ? "text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950" : trimesterInfo.daysLeft > 21 ? "text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950" : "text-rose-700 dark:text-rose-400 bg-rose-50 dark:bg-rose-950"} border-current/20`}>
+                                        {trimesterInfo.daysLeft > 0 ? `${trimesterInfo.daysLeft} ${t.dashboard.webFormsDaysUntilBirth}` : trimesterInfo.daysLeft === 0 ? t.dashboard.webFormsDueDateToday : `${Math.abs(trimesterInfo.daysLeft)} ${t.dashboard.webFormsDaysAfterDue}`}
+                                      </Badge>
+                                    </>
+                                  )}
+                                  {fieldStatus === "match" && (
+                                    <CheckCircle className="h-3.5 w-3.5 text-green-500 dark:text-green-400 shrink-0" />
+                                  )}
+                                  {fieldStatus === "differs" && (
+                                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-rose-50 text-rose-600 border-rose-200 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-800">
+                                      {t.dashboard.webFormsPrecheckDiffers}
                                     </Badge>
-                                    <Badge variant="outline" className={`text-xs ${trimesterInfo.daysLeft > 60 ? "text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950" : trimesterInfo.daysLeft > 21 ? "text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950" : "text-rose-700 dark:text-rose-400 bg-rose-50 dark:bg-rose-950"} border-current/20`}>
-                                      {trimesterInfo.daysLeft > 0 ? `${trimesterInfo.daysLeft} ${t.dashboard.webFormsDaysUntilBirth}` : trimesterInfo.daysLeft === 0 ? t.dashboard.webFormsDueDateToday : `${Math.abs(trimesterInfo.daysLeft)} ${t.dashboard.webFormsDaysAfterDue}`}
+                                  )}
+                                  {fieldStatus === "new" && (
+                                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800">
+                                      {t.dashboard.webFormsPrecheckNewField}
                                     </Badge>
-                                  </>
-                                )}
+                                  )}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        );
-                      })}
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ));
+                })()}
 
                 {selectedSubmission.status === "pending" && (
                   <div className="flex gap-3 pt-2">

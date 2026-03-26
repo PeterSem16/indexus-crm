@@ -34767,10 +34767,13 @@ Return ONLY the JSON object.`
                     .where(eq(schema.productSets.countryCode, form.countryCode));
                   const allProducts = await db.select().from(schema.products)
                     .where(eq(schema.products.isActive, true));
+                  const allClinics = await db.select().from(schema.clinics)
+                    .where(eq(schema.clinics.countryCode, form.countryCode));
                   const insuranceMap = new Map(insuranceCompanies.map((c: any) => [c.id, c.name]));
                   const hospitalMap = new Map(hospitals.map((h: any) => [h.id, h.name]));
                   const productSetMap = new Map(productSets.map((p: any) => [p.id, p.name]));
                   const productMap = new Map(allProducts.map((p: any) => [p.id, p.name]));
+                  const clinicMap = new Map(allClinics.map((c: any) => [c.id, c.doctorName ? `${c.doctorName} — ${c.name}` : c.name]));
                   const paymentMethodLabels: Record<string, string> = {
                     bank_transfer: "Bankový prevod", cash: "Hotovosť", card: "Kartou",
                     invoice: "Faktúra", installments: "Splátky", other: "Iné",
@@ -34780,9 +34783,10 @@ Return ONLY the JSON object.`
                     const strVal = String(val);
                     if (customerField === "healthInsuranceId") return insuranceMap.get(strVal) || strVal;
                     if (customerField === "hospitalId") return hospitalMap.get(strVal) || strVal;
+                    if (customerField === "gynecologistClinicId") return clinicMap.get(strVal) || strVal;
                     if (customerField === "productSetId") return productSetMap.get(strVal) || productMap.get(strVal) || strVal;
                     if (customerField === "paymentMethod") return paymentMethodLabels[strVal] || strVal;
-                    if ((customerField === "dateOfBirth" || customerField === "expectedDueDate") && strVal.match(/^\d{4}-\d{2}-\d{2}/)) {
+                    if ((customerField === "dateOfBirth" || customerField === "expectedDueDate" || customerField === "expectedDeliveryDate") && strVal.match(/^\d{4}-\d{2}-\d{2}/)) {
                       const parts = strVal.substring(0, 10).split("-");
                       return `${parts[2]}.${parts[1]}.${parts[0]}`;
                     }
