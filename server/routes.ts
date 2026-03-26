@@ -24839,13 +24839,19 @@ Rules:
   // AI-powered field mapping (legacy - maps existing placeholders)
   app.post("/api/contracts/ai-mapping", requireAuth, async (req, res) => {
     try {
-      const { extractedFields, availableFields } = req.body;
+      const { extractedFields, availableFields, existingMappings } = req.body;
       
       if (!extractedFields || !Array.isArray(extractedFields) || extractedFields.length === 0) {
         return res.status(400).json({ error: "extractedFields is required" });
       }
       
-      const fieldNames = extractedFields.map((f: any) => typeof f === 'string' ? f : f.name);
+      const allFieldNames = extractedFields.map((f: any) => typeof f === 'string' ? f : f.name);
+      const existing = (existingMappings && typeof existingMappings === 'object') ? existingMappings : {};
+      const fieldNames = allFieldNames.filter((name: string) => !existing[name]);
+
+      if (fieldNames.length === 0) {
+        return res.json({ mappings: {} });
+      }
 
       const CRM_FIELD_LIST = [
         { key: "firstName", label: "Meno (krstné meno zákazníka/matky)" },

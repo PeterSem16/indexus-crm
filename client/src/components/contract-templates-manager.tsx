@@ -1687,25 +1687,38 @@ export function ContractTemplatesManager() {
                               onClick={async () => {
                                 setAiMappingInProgress(true);
                                 try {
+                                  const currentMappings = templateForm.placeholderMappings || {};
                                   const response = await fetch("/api/contracts/ai-mapping", {
                                     method: "POST",
                                     headers: { "Content-Type": "application/json" },
                                     credentials: "include",
-                                    body: JSON.stringify({ extractedFields: fieldNames })
+                                    body: JSON.stringify({ extractedFields: fieldNames, existingMappings: currentMappings })
                                   });
                                   if (!response.ok) throw new Error("AI mapping failed");
                                   const result = await response.json();
                                   if (result.mappings) {
-                                    setTemplateForm(prev => ({
-                                      ...prev,
-                                      placeholderMappings: { ...prev.placeholderMappings, ...result.mappings }
-                                    }));
-                                    setAiMappedFields(prev => {
-                                      const next = new Set(prev);
-                                      Object.keys(result.mappings).forEach(k => next.add(k));
-                                      return next;
+                                    let addedCount = 0;
+                                    let skippedCount = 0;
+                                    setTemplateForm(prev => {
+                                      const prevMappings = prev.placeholderMappings || {};
+                                      const merged = { ...prevMappings };
+                                      const addedKeys: string[] = [];
+                                      for (const [k, v] of Object.entries(result.mappings)) {
+                                        if (!prevMappings[k]) {
+                                          merged[k] = v as string;
+                                          addedKeys.push(k);
+                                        }
+                                      }
+                                      addedCount = addedKeys.length;
+                                      skippedCount = Object.keys(result.mappings).length - addedCount;
+                                      setAiMappedFields(prevAi => {
+                                        const next = new Set(prevAi);
+                                        addedKeys.forEach(k => next.add(k));
+                                        return next;
+                                      });
+                                      return { ...prev, placeholderMappings: merged };
                                     });
-                                    toast({ title: "AI mapovanie dokončené", description: `Namapovaných ${Object.keys(result.mappings).length} polí` });
+                                    toast({ title: "AI mapovanie dokončené", description: `Namapovaných ${addedCount} nových polí${skippedCount > 0 ? ` (${skippedCount} existujúcich preskočených)` : ''}` });
                                   }
                                 } catch (error) {
                                   toast({ title: "Chyba pri AI mapovaní", variant: "destructive" });
@@ -2350,6 +2363,15 @@ export function ContractTemplatesManager() {
                                     <Button
                                       size="sm"
                                       variant="outline"
+                                      onClick={() => handleEditCategoryTemplate(selectedCategory.id, country.code)}
+                                      data-testid={`button-edit-mapping-${country.code}`}
+                                      title="Mapovanie polí"
+                                    >
+                                      <Edit2 className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
                                       onClick={async () => {
                                         try {
                                           const response = await fetch(`/api/contracts/categories/${selectedCategory.id}/templates/${country.code}/download`, {
@@ -2638,7 +2660,8 @@ export function ContractTemplatesManager() {
                                 headers: { "Content-Type": "application/json" },
                                 credentials: "include",
                                 body: JSON.stringify({
-                                  extractedFields: editingTemplateData.extractedFields
+                                  extractedFields: editingTemplateData.extractedFields,
+                                  existingMappings: templateMappings
                                 })
                               });
 
@@ -2649,15 +2672,29 @@ export function ContractTemplatesManager() {
                               const result = await response.json();
 
                               if (result.mappings) {
-                                setTemplateMappings(prev => ({ ...prev, ...result.mappings }));
-                                setAiMappedFields(prev => {
-                                  const next = new Set(prev);
-                                  Object.keys(result.mappings).forEach(k => next.add(k));
-                                  return next;
+                                let addedCount = 0;
+                                let skippedCount = 0;
+                                setTemplateMappings(prev => {
+                                  const merged = { ...prev };
+                                  const addedKeys: string[] = [];
+                                  for (const [k, v] of Object.entries(result.mappings)) {
+                                    if (!prev[k]) {
+                                      merged[k] = v as string;
+                                      addedKeys.push(k);
+                                    }
+                                  }
+                                  addedCount = addedKeys.length;
+                                  skippedCount = Object.keys(result.mappings).length - addedCount;
+                                  setAiMappedFields(prevAi => {
+                                    const next = new Set(prevAi);
+                                    addedKeys.forEach(k => next.add(k));
+                                    return next;
+                                  });
+                                  return merged;
                                 });
                                 toast({
                                   title: "AI mapovanie dokončené",
-                                  description: `Namapovaných ${Object.keys(result.mappings).length} polí`
+                                  description: `Namapovaných ${addedCount} nových polí${skippedCount > 0 ? ` (${skippedCount} existujúcich preskočených)` : ''}`
                                 });
                               }
                             } catch (error) {
