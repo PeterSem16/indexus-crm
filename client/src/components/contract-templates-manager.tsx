@@ -601,7 +601,8 @@ export function ContractTemplatesManager() {
   } | null>(null);
   const [templateMappings, setTemplateMappings] = useState<Record<string, string>>({});
   const [savingMappings, setSavingMappings] = useState(false);
-  const mappingsInitializedRef = useRef(false);
+  const lastSavedMappingsRef = useRef<string>('{}');
+  const lastSavedAiFieldsRef = useRef<string>('[]');
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { data: templates = [], isLoading: templatesLoading } = useQuery<ContractTemplate[]>({
@@ -1022,10 +1023,15 @@ export function ContractTemplatesManager() {
           aiProcessed: aiProcessed,
           originalDocxPath: template.originalDocxPath || undefined
         });
-        mappingsInitializedRef.current = false;
+        const filteredLoadedMappings: Record<string, string> = {};
+        for (const [k, v] of Object.entries(mappings)) {
+          if (v && typeof v === 'string' && v.trim() !== '') filteredLoadedMappings[k] = v;
+        }
+        const loadedAiFields = savedAiMappedFields.filter(f => !!mappings[f]);
+        lastSavedMappingsRef.current = JSON.stringify(filteredLoadedMappings, Object.keys(filteredLoadedMappings).sort());
+        lastSavedAiFieldsRef.current = JSON.stringify([...loadedAiFields].sort());
         setTemplateMappings(mappings);
-        setAiMappedFields(new Set(savedAiMappedFields.filter(f => !!mappings[f])));
-        requestAnimationFrame(() => { mappingsInitializedRef.current = true; });
+        setAiMappedFields(new Set(loadedAiFields));
         setIsTemplateEditorLoading(false);
       } else {
         toast({
@@ -1086,31 +1092,41 @@ export function ContractTemplatesManager() {
   };
 
   useEffect(() => {
-    if (!mappingsInitializedRef.current) return;
     if (!selectedCategory || !editingTemplateCountry || !isTemplateEditorOpen) return;
+
+    const filteredMappings: Record<string, string> = {};
+    for (const [key, value] of Object.entries(templateMappings)) {
+      if (value && value.trim() !== "") {
+        filteredMappings[key] = value;
+      }
+    }
+    const currentMappingsJson = JSON.stringify(filteredMappings, Object.keys(filteredMappings).sort());
+    const currentAiFieldsJson = JSON.stringify([...aiMappedFields].sort());
+
+    if (currentMappingsJson === lastSavedMappingsRef.current && currentAiFieldsJson === lastSavedAiFieldsRef.current) {
+      return;
+    }
 
     if (autoSaveTimerRef.current) {
       clearTimeout(autoSaveTimerRef.current);
     }
 
     autoSaveTimerRef.current = setTimeout(async () => {
-      const filteredMappings: Record<string, string> = {};
-      for (const [key, value] of Object.entries(templateMappings)) {
-        if (value && value.trim() !== "") {
-          filteredMappings[key] = value;
-        }
-      }
       try {
-        await fetch(`/api/contracts/categories/${selectedCategory.id}/default-templates/${editingTemplateCountry}/mappings`, {
+        const resp = await fetch(`/api/contracts/categories/${selectedCategory.id}/default-templates/${editingTemplateCountry}/mappings`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ mappings: filteredMappings, aiMappedFields: Array.from(aiMappedFields) }),
           credentials: "include"
         });
+        if (resp.ok) {
+          lastSavedMappingsRef.current = currentMappingsJson;
+          lastSavedAiFieldsRef.current = currentAiFieldsJson;
+        }
       } catch (err) {
         console.error("Auto-save mappings failed:", err);
       }
-    }, 800);
+    }, 600);
 
     return () => {
       if (autoSaveTimerRef.current) {
