@@ -157,6 +157,7 @@ function NativeFieldSelect({
 }) {
   return (
     <select
+      onMouseDown={() => console.log('[NativeFieldSelect] mouseDown on', testId)}
       data-testid={testId}
       value={value || ""}
       onChange={(e) => onSelect(e.target.value)}
