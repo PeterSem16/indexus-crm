@@ -71,6 +71,26 @@ export default function Dashboard() {
     queryKey: ["/api/web-forms/stats"],
   });
 
+  const { data: hospitals = [] } = useQuery<any[]>({
+    queryKey: ["/api/hospitals"],
+  });
+
+  const { data: clinics = [] } = useQuery<any[]>({
+    queryKey: ["/api/clinics"],
+  });
+
+  const { data: healthInsuranceCompanies = [] } = useQuery<any[]>({
+    queryKey: ["/api/config/health-insurance"],
+  });
+
+  const { data: products = [] } = useQuery<any[]>({
+    queryKey: ["/api/products"],
+  });
+
+  const { data: productSets = [] } = useQuery<any[]>({
+    queryKey: ["/api/product-sets"],
+  });
+
   const { data: formSubmissions = [], isLoading: submissionsLoading } = useQuery<WebFormSubmission[]>({
     queryKey: ["/api/web-forms", selectedFormId, "submissions"],
     enabled: !!selectedFormId,
@@ -141,6 +161,15 @@ export default function Dashboard() {
 
   const customerMap = useMemo(() => new Map(customers.map(c => [c.id, c])), [customers]);
 
+  const lookupMaps = useMemo(() => {
+    const hospitalMap = new Map(hospitals.map((h: any) => [h.id, h.name]));
+    const clinicMap = new Map(clinics.map((c: any) => [c.id, c.doctorName || c.name || [c.doctorTitle, c.doctorFirstName, c.doctorLastName].filter(Boolean).join(" ")]));
+    const insuranceMap = new Map(healthInsuranceCompanies.map((h: any) => [h.id, h.name || h.code]));
+    const productMap = new Map(products.map((p: any) => [p.id, p.name]));
+    const productSetMap = new Map(productSets.map((ps: any) => [ps.id, ps.name]));
+    return { hospitalMap, clinicMap, insuranceMap, productMap, productSetMap };
+  }, [hospitals, clinics, healthInsuranceCompanies, products, productSets]);
+
   const filteredFormSubmissions = useMemo(() => {
     return formSubmissions
       .filter(s => {
@@ -201,11 +230,64 @@ export default function Dashboard() {
     try { return JSON.parse(dataStr); } catch { return {}; }
   };
 
+  const selectedFormDetail = useQuery<any>({
+    queryKey: ["/api/web-forms", selectedFormId, "detail"],
+    enabled: !!selectedFormId,
+    queryFn: async () => {
+      if (!selectedFormId) return null;
+      const res = await fetch(`/api/web-forms/${selectedFormId}`, { credentials: "include" });
+      if (!res.ok) return null;
+      return res.json();
+    },
+  });
+
+  const formFieldLabelMap = useMemo(() => {
+    const map = new Map<string, string>();
+    const detail = selectedFormDetail.data;
+    if (detail?.fields) {
+      for (const f of detail.fields) {
+        if (f.id) map.set(f.id, f.label || f.customerField || f.id);
+        if (f.customerField) map.set(f.customerField, f.label || f.customerField);
+      }
+    }
+    return map;
+  }, [selectedFormDetail.data]);
+
+  const formOptionValueMap = useMemo(() => {
+    const map = new Map<string, string>();
+    const detail = selectedFormDetail.data;
+    if (detail?.fields) {
+      for (const f of detail.fields) {
+        if (f.options) {
+          try {
+            const opts = JSON.parse(f.options);
+            if (Array.isArray(opts)) {
+              for (const o of opts) {
+                if (o.id && o.label) map.set(o.id, o.label);
+                if (o.value && o.label) map.set(o.value, o.label);
+              }
+            }
+          } catch {}
+        }
+      }
+    }
+    return map;
+  }, [selectedFormDetail.data]);
+
   const renderFieldValue = (key: string, value: any): string => {
     if (value === null || value === undefined || value === "") return "-";
     if (typeof value === "boolean") return value ? "Áno" : "Nie";
     if (typeof value === "object") return JSON.stringify(value);
-    return String(value);
+    const strVal = String(value);
+    if (key === "hospitalId") return lookupMaps.hospitalMap.get(strVal) || strVal;
+    if (key === "gynecologistClinicId") return lookupMaps.clinicMap.get(strVal) || strVal;
+    if (key === "healthInsuranceId") return lookupMaps.insuranceMap.get(strVal) || strVal;
+    if (key === "productSetId") return lookupMaps.productSetMap.get(strVal) || lookupMaps.productMap.get(strVal) || strVal;
+    if (key === "expectedDeliveryDate" || key === "dateOfBirth") {
+      try { return format(new Date(strVal), "dd.MM.yyyy"); } catch { return strVal; }
+    }
+    if (formOptionValueMap.has(strVal)) return formOptionValueMap.get(strVal)!;
+    return strVal;
   };
 
   const fieldLabels: Record<string, string> = {
@@ -246,8 +328,14 @@ export default function Dashboard() {
     corrPostalCode: "Korešp. PSČ",
     howDidYouHear: "Ako ste sa o nás dozvedeli",
     productSetId: "Produkt",
-    hospitalId: "ID nemocnice",
-    gynecologistClinicId: "ID kliniky",
+    hospitalId: "Nemocnica",
+    gynecologistClinicId: "Gynekológ / Klinika",
+  };
+
+  const getFieldLabel = (key: string): string => {
+    if (fieldLabels[key]) return fieldLabels[key];
+    if (formFieldLabelMap.has(key)) return formFieldLabelMap.get(key)!;
+    return key;
   };
 
   return (
@@ -504,10 +592,10 @@ export default function Dashboard() {
                   </TableHeader>
                   <TableBody>
                     {Object.entries(parseSubmissionData(selectedSubmission.data))
-                      .filter(([key]) => !["productSetId", "hospitalId", "gynecologistClinicId"].includes(key) || parseSubmissionData(selectedSubmission.data)[key])
+                      .filter(([key, value]) => value !== null && value !== undefined && value !== "")
                       .map(([key, value]) => (
                         <TableRow key={key}>
-                          <TableCell className="font-medium text-sm">{fieldLabels[key] || key}</TableCell>
+                          <TableCell className="font-medium text-sm">{getFieldLabel(key)}</TableCell>
                           <TableCell className="text-sm">{renderFieldValue(key, value)}</TableCell>
                         </TableRow>
                       ))
