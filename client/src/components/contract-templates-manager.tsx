@@ -1556,12 +1556,26 @@ export function ContractTemplatesManager() {
                             </Button>
                           </div>
 
-                          {pdfFields.map((pdfField: any, idx: number) => (
+                          {pdfFields.map((pdfField: any, idx: number) => {
+                            const prevField = idx > 0 ? pdfFields[idx - 1]?.name : null;
+                            const nextField = idx < pdfFields.length - 1 ? pdfFields[idx + 1]?.name : null;
+                            const contextParts: string[] = [];
+                            if (prevField) contextParts.push(`← ${prevField}`);
+                            if (nextField) contextParts.push(`${nextField} →`);
+                            return (
                             <div key={idx} className="grid grid-cols-[1fr_auto_1fr] gap-3 items-center p-2 border rounded-md">
                               <div className="min-w-0">
-                                <p className="text-sm font-mono break-words whitespace-normal leading-snug">{pdfField.name}</p>
-                                {pdfField.type !== "text" && (
-                                  <span className="text-[10px] text-muted-foreground">{pdfField.type}</span>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[10px] text-muted-foreground font-medium shrink-0">#{idx + 1}</span>
+                                  <p className="text-sm font-mono font-semibold break-words whitespace-normal leading-snug">{pdfField.name}</p>
+                                  {pdfField.type !== "text" && (
+                                    <Badge variant="outline" className="text-[9px] px-1 py-0 shrink-0">{pdfField.type}</Badge>
+                                  )}
+                                </div>
+                                {contextParts.length > 0 && (
+                                  <p className="text-[10px] text-muted-foreground mt-0.5 truncate" title={contextParts.join("  •  ")}>
+                                    {contextParts.join("  •  ")}
+                                  </p>
                                 )}
                               </div>
                               <div className="flex items-center shrink-0">
@@ -1610,7 +1624,8 @@ export function ContractTemplatesManager() {
                                 )}
                               </div>
                             </div>
-                          ))}
+                          );
+                          })}
                         </>
                       ) : (
                         <div className="text-center py-8 text-muted-foreground">
@@ -2523,12 +2538,27 @@ export function ContractTemplatesManager() {
                         </Button>
                       </div>
 
-                      {editingTemplateData.extractedFields.map((field, idx) => (
+                      {editingTemplateData.extractedFields.map((field, idx) => {
+                        const allFields = editingTemplateData.extractedFields;
+                        const prevField = idx > 0 ? allFields[idx - 1] : null;
+                        const nextField = idx < allFields.length - 1 ? allFields[idx + 1] : null;
+                        const contextParts: string[] = [];
+                        if (prevField) contextParts.push(`← ${prevField}`);
+                        if (nextField) contextParts.push(`${nextField} →`);
+                        return (
                         <div key={idx} className="grid grid-cols-[1fr_auto_1fr] gap-3 items-center p-2 border rounded-md">
                           <div className="min-w-0">
-                            <p className="text-sm font-mono break-words whitespace-normal leading-snug">
-                              {editingTemplateData.templateType === "docx" ? `{{${field}}}` : field}
-                            </p>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] text-muted-foreground font-medium shrink-0">#{idx + 1}</span>
+                              <p className="text-sm font-mono font-semibold break-words whitespace-normal leading-snug">
+                                {editingTemplateData.templateType === "docx" ? `{{${field}}}` : field}
+                              </p>
+                            </div>
+                            {editingTemplateData.templateType !== "docx" && contextParts.length > 0 && (
+                              <p className="text-[10px] text-muted-foreground mt-0.5 truncate ml-5" title={contextParts.join("  •  ")}>
+                                {contextParts.join("  •  ")}
+                              </p>
+                            )}
                           </div>
                           <div className="flex items-center shrink-0">
                             <ArrowRight className="h-4 w-4 text-muted-foreground" />
@@ -2580,7 +2610,8 @@ export function ContractTemplatesManager() {
                             )}
                           </div>
                         </div>
-                      ))}
+                      );
+                      })}
                     </div>
                   ) : (
                     <div className="text-center py-8">
