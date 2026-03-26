@@ -56,7 +56,7 @@ const TEMPLATE_CATEGORIES = [
 ];
 
 const CUSTOMER_FIELDS = [
-  { group: "Osobné údaje", fields: [
+  { group: "Osobné údaje (matka)", fields: [
     { key: "firstName", label: "Meno" },
     { key: "lastName", label: "Priezvisko" },
     { key: "fullName", label: "Celé meno (meno + priezvisko)" },
@@ -87,6 +87,38 @@ const CUSTOMER_FIELDS = [
     { key: "corrCity", label: "Mesto (kor.)" },
     { key: "corrPostalCode", label: "PSČ (kor.)" },
     { key: "corrCountry", label: "Krajina (kor.)" },
+  ]},
+  { group: "Otec", fields: [
+    { key: "fatherFirstName", label: "Meno otca" },
+    { key: "fatherLastName", label: "Priezvisko otca" },
+    { key: "fatherFullName", label: "Celé meno otca" },
+    { key: "fatherTitleBefore", label: "Titul pred (otec)" },
+    { key: "fatherTitleAfter", label: "Titul za (otec)" },
+    { key: "fatherPhone", label: "Telefón otca" },
+    { key: "fatherMobile", label: "Mobil otca" },
+    { key: "fatherEmail", label: "Email otca" },
+    { key: "fatherAddress", label: "Ulica otca" },
+    { key: "fatherCity", label: "Mesto otca" },
+    { key: "fatherPostalCode", label: "PSČ otca" },
+    { key: "fatherRegion", label: "Oblasť otca" },
+    { key: "fatherCountry", label: "Krajina otca" },
+    { key: "fatherDateOfBirth", label: "Dátum narodenia otca" },
+  ]},
+  { group: "Tehotenstvo / Odber", fields: [
+    { key: "expectedDeliveryDate", label: "Predpokladaný termín pôrodu" },
+    { key: "hospitalName", label: "Nemocnica" },
+    { key: "gynecologistName", label: "Gynekológ" },
+    { key: "gynecologistPhone", label: "Telefón gynekológa" },
+    { key: "gynecologistEmail", label: "Email gynekológa" },
+    { key: "obstetricianName", label: "Pôrodník" },
+    { key: "isMultiplePregnancy", label: "Viacnásobné tehotenstvo" },
+    { key: "childCount", label: "Počet detí" },
+  ]},
+  { group: "Produkt / Platba", fields: [
+    { key: "productName", label: "Názov produktu" },
+    { key: "productType", label: "Typ produktu" },
+    { key: "paymentType", label: "Typ platby" },
+    { key: "giftVoucher", label: "Darčekový poukaz" },
   ]},
   { group: "Bankové údaje", fields: [
     { key: "bankAccount", label: "IBAN" },
