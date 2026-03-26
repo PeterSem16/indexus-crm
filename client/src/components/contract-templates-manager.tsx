@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useI18n } from "@/i18n";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
@@ -601,6 +601,8 @@ export function ContractTemplatesManager() {
   } | null>(null);
   const [templateMappings, setTemplateMappings] = useState<Record<string, string>>({});
   const [savingMappings, setSavingMappings] = useState(false);
+  const mappingsInitializedRef = useRef(false);
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { data: templates = [], isLoading: templatesLoading } = useQuery<ContractTemplate[]>({
     queryKey: ["/api/contracts/templates", selectedCountry],
@@ -1020,8 +1022,10 @@ export function ContractTemplatesManager() {
           aiProcessed: aiProcessed,
           originalDocxPath: template.originalDocxPath || undefined
         });
+        mappingsInitializedRef.current = false;
         setTemplateMappings(mappings);
         setAiMappedFields(new Set(savedAiMappedFields.filter(f => !!mappings[f])));
+        requestAnimationFrame(() => { mappingsInitializedRef.current = true; });
         setIsTemplateEditorLoading(false);
       } else {
         toast({
@@ -1080,6 +1084,40 @@ export function ContractTemplatesManager() {
       setSavingMappings(false);
     }
   };
+
+  useEffect(() => {
+    if (!mappingsInitializedRef.current) return;
+    if (!selectedCategory || !editingTemplateCountry || !isTemplateEditorOpen) return;
+
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
+    }
+
+    autoSaveTimerRef.current = setTimeout(async () => {
+      const filteredMappings: Record<string, string> = {};
+      for (const [key, value] of Object.entries(templateMappings)) {
+        if (value && value.trim() !== "") {
+          filteredMappings[key] = value;
+        }
+      }
+      try {
+        await fetch(`/api/contracts/categories/${selectedCategory.id}/default-templates/${editingTemplateCountry}/mappings`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mappings: filteredMappings, aiMappedFields: Array.from(aiMappedFields) }),
+          credentials: "include"
+        });
+      } catch (err) {
+        console.error("Auto-save mappings failed:", err);
+      }
+    }, 800);
+
+    return () => {
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current);
+      }
+    };
+  }, [templateMappings, aiMappedFields, selectedCategory, editingTemplateCountry, isTemplateEditorOpen]);
 
   const handlePdfUpload = async (countryCode: string, file: File) => {
     setCategoryPdfUploads(prev => ({
