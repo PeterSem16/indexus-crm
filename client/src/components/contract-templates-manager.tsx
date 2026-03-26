@@ -359,6 +359,7 @@ export function ContractTemplatesManager() {
     sourceDocxPath: string;
     extractedFields: string[];
     placeholderMappings: Record<string, string>;
+    templateType: string;
   }>({
     name: "",
     category: "general",
@@ -370,7 +371,8 @@ export function ContractTemplatesManager() {
     loadedCategoryId: null,
     sourceDocxPath: "",
     extractedFields: [],
-    placeholderMappings: {}
+    placeholderMappings: {},
+    templateType: "docx"
   });
 
   const [loadingCategoryTemplate, setLoadingCategoryTemplate] = useState(false);
@@ -652,7 +654,7 @@ export function ContractTemplatesManager() {
         if (response.status === 404) {
           toast({
             title: "Šablóna neexistuje",
-            description: `Pre kategóriu "${category.label}" a krajinu ${templateForm.countryCode} neexistuje DOCX šablóna. Najprv ju nahrajte v sekcii Kategórie.`,
+            description: `Pre kategóriu "${category.label}" a krajinu ${templateForm.countryCode} neexistuje šablóna. Najprv ju nahrajte v sekcii Kategórie.`,
             variant: "destructive"
           });
         } else {
@@ -678,7 +680,8 @@ export function ContractTemplatesManager() {
         loadedCategoryId: category.id,
         sourceDocxPath: template.sourceDocxPath || "",
         extractedFields: template.extractedFields || [],
-        placeholderMappings: mappings
+        placeholderMappings: mappings,
+        templateType: template.templateType || "docx"
       }));
 
       setTemplatePreviewPdfUrl(`/api/contracts/categories/${category.id}/default-templates/${templateForm.countryCode}/preview?t=${Date.now()}`);
@@ -1472,8 +1475,133 @@ export function ContractTemplatesManager() {
                   <div className="text-center text-muted-foreground p-8">
                     <FileText className="h-16 w-16 mx-auto mb-4 opacity-30" />
                     <p className="text-lg font-medium mb-2">{t.contractsModule.templateCategory}</p>
-                    <p className="text-sm">Potom kliknite na "Načítať vzor" pre načítanie DOCX šablóny</p>
+                    <p className="text-sm">Potom kliknite na "Načítať vzor" pre načítanie šablóny</p>
                   </div>
+                </div>
+              ) : templateForm.templateType === "pdf_form" ? (
+                <div className="flex-1 overflow-auto min-h-0 p-4 space-y-4">
+                  <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-md">
+                    <Badge variant="secondary" className="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300">PDF formulár</Badge>
+                    <span className="text-sm text-muted-foreground">
+                      {templateForm.extractedFields.length} polí nájdených
+                    </span>
+                  </div>
+
+                  <Tabs defaultValue="mapping" className="w-full">
+                    <TabsList className="grid w-full grid-cols-2">
+                      <TabsTrigger value="mapping" data-testid="tab-pdf-mapping">
+                        <Settings className="h-4 w-4 mr-2" />
+                        Mapovanie polí
+                      </TabsTrigger>
+                      <TabsTrigger value="preview" data-testid="tab-pdf-preview">
+                        <Eye className="h-4 w-4 mr-2" />
+                        Náhľad PDF
+                      </TabsTrigger>
+                    </TabsList>
+
+                    <TabsContent value="mapping" className="space-y-3 mt-4">
+                      {templateForm.extractedFields.length > 0 ? (
+                        <>
+                          <div className="flex items-center justify-between gap-4 p-2 bg-muted rounded-md flex-wrap">
+                            <div className="grid grid-cols-2 gap-4 flex-1 font-medium text-sm">
+                              <div>PDF pole</div>
+                              <div>CRM údaj</div>
+                            </div>
+                            <Button
+                              size="sm"
+                              onClick={async () => {
+                                setAiMappingInProgress(true);
+                                try {
+                                  const response = await fetch("/api/contracts/ai-mapping", {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    credentials: "include",
+                                    body: JSON.stringify({ extractedFields: templateForm.extractedFields })
+                                  });
+                                  if (!response.ok) throw new Error("AI mapping failed");
+                                  const result = await response.json();
+                                  if (result.mappings) {
+                                    setTemplateForm(prev => ({
+                                      ...prev,
+                                      placeholderMappings: { ...prev.placeholderMappings, ...result.mappings }
+                                    }));
+                                    toast({ title: "AI mapovanie dokončené", description: `Namapovaných ${Object.keys(result.mappings).length} polí` });
+                                  }
+                                } catch (error) {
+                                  toast({ title: "Chyba pri AI mapovaní", variant: "destructive" });
+                                } finally {
+                                  setAiMappingInProgress(false);
+                                }
+                              }}
+                              disabled={aiMappingInProgress}
+                              data-testid="button-ai-mapping-pdf"
+                            >
+                              {aiMappingInProgress ? (
+                                <><Loader2 className="h-4 w-4 mr-1 animate-spin" />AI mapuje...</>
+                              ) : (
+                                <><Sparkles className="h-4 w-4 mr-1" />AI Mapovanie</>
+                              )}
+                            </Button>
+                          </div>
+
+                          {templateForm.extractedFields.map((field, idx) => (
+                            <div key={idx} className="grid grid-cols-2 gap-4 items-center p-2 border rounded-md">
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline" className="font-mono text-xs">{field}</Badge>
+                              </div>
+                              <Select
+                                value={templateForm.placeholderMappings[field] || "__none__"}
+                                onValueChange={(value) => setTemplateForm(prev => {
+                                  const newMappings = { ...prev.placeholderMappings };
+                                  if (value && value !== "__none__") {
+                                    newMappings[field] = value;
+                                  } else {
+                                    delete newMappings[field];
+                                  }
+                                  return { ...prev, placeholderMappings: newMappings };
+                                })}
+                              >
+                                <SelectTrigger data-testid={`select-pdf-mapping-${idx}`}>
+                                  <SelectValue placeholder="Vyberte údaj..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="__none__">-- Nevyplnené --</SelectItem>
+                                  {CUSTOMER_FIELDS.map(group => (
+                                    <div key={group.group}>
+                                      <div className="px-2 py-1 text-xs font-semibold text-muted-foreground bg-muted">{group.group}</div>
+                                      {group.fields.map(f => (
+                                        <SelectItem key={f.key} value={f.key}>{f.label}</SelectItem>
+                                      ))}
+                                    </div>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          ))}
+                        </>
+                      ) : (
+                        <div className="text-center py-8 text-muted-foreground">
+                          <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                          <p>Žiadne vyplniteľné polia neboli nájdené v PDF formulári.</p>
+                          <p className="text-xs mt-2">PDF musí obsahovať form fields (vyplniteľné polia).</p>
+                        </div>
+                      )}
+                    </TabsContent>
+
+                    <TabsContent value="preview" className="mt-4">
+                      {templatePreviewPdfUrl ? (
+                        <iframe
+                          src={templatePreviewPdfUrl}
+                          className="w-full h-[60vh] border rounded-md"
+                          title="PDF náhľad"
+                        />
+                      ) : (
+                        <div className="text-center py-8 text-muted-foreground">
+                          <p>Náhľad nie je k dispozícii</p>
+                        </div>
+                      )}
+                    </TabsContent>
+                  </Tabs>
                 </div>
               ) : (
                 <div className="flex-1 overflow-hidden min-h-0">
