@@ -142,6 +142,38 @@ function getFieldLabel(key: string): string {
   return key;
 }
 
+function NativeFieldSelect({
+  value,
+  onSelect,
+  testId,
+  placeholder,
+  className,
+}: {
+  value: string;
+  onSelect: (key: string) => void;
+  testId: string;
+  placeholder?: string;
+  className?: string;
+}) {
+  return (
+    <select
+      data-testid={testId}
+      value={value || ""}
+      onChange={(e) => onSelect(e.target.value)}
+      className={`h-9 w-full rounded-md border border-input bg-background px-2 py-1 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring ${className || ""}`}
+    >
+      <option value="">{placeholder || "-- Nevyplnené --"}</option>
+      {CUSTOMER_FIELDS.map(group => (
+        <optgroup key={group.group} label={group.group}>
+          {group.fields.map(f => (
+            <option key={f.key} value={f.key}>{f.label}</option>
+          ))}
+        </optgroup>
+      ))}
+    </select>
+  );
+}
+
 function MultiFieldMapping({
   value,
   onChange,
@@ -159,42 +191,15 @@ function MultiFieldMapping({
     onChange(newParts.length > 0 ? newParts.join("+") : "");
   };
 
-  const addPart = (key: string) => {
-    if (key === "__none__") return;
-    const newParts = [...parts, key];
-    onChange(newParts.join("+"));
-    setAddingNew(false);
-  };
-
-  const replacePart = (index: number, key: string) => {
-    if (key === "__none__") {
-      removePart(index);
-      return;
-    }
-    const newParts = [...parts];
-    newParts[index] = key;
-    onChange(newParts.join("+"));
-  };
-
   if (parts.length === 0 && !addingNew) {
     return (
       <div className="flex items-center gap-1 flex-1 min-w-0">
-        <Select value="__none__" onValueChange={(v) => { if (v !== "__none__") onChange(v); }}>
-          <SelectTrigger data-testid={testId} className="flex-1">
-            <SelectValue placeholder="Vyberte údaj..." />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="__none__">-- Nevyplnené --</SelectItem>
-            {CUSTOMER_FIELDS.map(group => (
-              <div key={group.group}>
-                <div className="px-2 py-1 text-xs font-semibold text-muted-foreground bg-muted">{group.group}</div>
-                {group.fields.map(f => (
-                  <SelectItem key={f.key} value={f.key}>{f.label}</SelectItem>
-                ))}
-              </div>
-            ))}
-          </SelectContent>
-        </Select>
+        <NativeFieldSelect
+          value=""
+          onSelect={(v) => { if (v) onChange(v); }}
+          testId={testId}
+          placeholder="Vyberte údaj..."
+        />
       </div>
     );
   }
@@ -206,22 +211,21 @@ function MultiFieldMapping({
           <span key={i} className="inline-flex items-center">
             {i > 0 && <span className="text-xs text-muted-foreground mx-0.5">+</span>}
             <span className="inline-flex items-center gap-0.5 bg-primary/10 text-primary text-xs px-1.5 py-0.5 rounded-md">
-              <Select value={part} onValueChange={(v) => replacePart(i, v)}>
-                <SelectTrigger data-testid={`${testId}-part-${i}`} className="border-0 bg-transparent h-auto p-0 text-xs font-medium shadow-none min-w-0 w-auto gap-0.5">
-                  <span className="truncate max-w-[120px]">{getFieldLabel(part)}</span>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">-- Odstrániť --</SelectItem>
-                  {CUSTOMER_FIELDS.map(group => (
-                    <div key={group.group}>
-                      <div className="px-2 py-1 text-xs font-semibold text-muted-foreground bg-muted">{group.group}</div>
-                      {group.fields.map(f => (
-                        <SelectItem key={f.key} value={f.key}>{f.label}</SelectItem>
-                      ))}
-                    </div>
-                  ))}
-                </SelectContent>
-              </Select>
+              <NativeFieldSelect
+                value={part}
+                onSelect={(v) => {
+                  if (!v) {
+                    removePart(i);
+                  } else {
+                    const newParts = [...parts];
+                    newParts[i] = v;
+                    onChange(newParts.join("+"));
+                  }
+                }}
+                testId={`${testId}-part-${i}`}
+                placeholder="-- Odstrániť --"
+                className="border-0 bg-transparent h-auto p-0 text-xs font-medium shadow-none min-w-0 w-auto"
+              />
               <button
                 onClick={() => removePart(i)}
                 className="hover:text-destructive ml-0.5"
@@ -233,22 +237,18 @@ function MultiFieldMapping({
           </span>
         ))}
         {addingNew ? (
-          <Select value="__none__" onValueChange={(v) => { addPart(v); }} open={true} onOpenChange={(open) => { if (!open) setAddingNew(false); }}>
-            <SelectTrigger data-testid={`${testId}-add`} className="h-6 w-[140px] text-xs">
-              <SelectValue placeholder="Pridať..." />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__none__">-- Zrušiť --</SelectItem>
-              {CUSTOMER_FIELDS.map(group => (
-                <div key={group.group}>
-                  <div className="px-2 py-1 text-xs font-semibold text-muted-foreground bg-muted">{group.group}</div>
-                  {group.fields.map(f => (
-                    <SelectItem key={f.key} value={f.key}>{f.label}</SelectItem>
-                  ))}
-                </div>
-              ))}
-            </SelectContent>
-          </Select>
+          <NativeFieldSelect
+            value=""
+            onSelect={(v) => {
+              if (v) {
+                onChange([...parts, v].join("+"));
+              }
+              setAddingNew(false);
+            }}
+            testId={`${testId}-add`}
+            placeholder="-- Zrušiť --"
+            className="h-6 w-[160px] text-xs"
+          />
         ) : (
           <button
             onClick={() => setAddingNew(true)}
