@@ -1,6 +1,6 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useState, useMemo } from "react";
-import { Users, UserCheck, Globe, Droplets, TrendingUp, Activity, FileText, Clock, CheckCircle2, AlertCircle, ClipboardList, Eye, UserPlus, UserCog, CheckCircle, XCircle, ChevronRight, ArrowLeft, Loader2 } from "lucide-react";
+import { Users, UserCheck, Globe, Droplets, TrendingUp, Activity, FileText, Clock, CheckCircle2, AlertCircle, ClipboardList, Eye, UserPlus, UserCog, CheckCircle, XCircle, ChevronRight, ArrowLeft, Loader2, User, Mail, Phone, MapPin, Calendar, CreditCard, Baby, Heart, Hospital, Stethoscope, Shield, Megaphone, Newspaper, Hash, Building } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatsCard } from "@/components/stats-card";
 import { PageHeader } from "@/components/page-header";
@@ -253,6 +253,17 @@ export default function Dashboard() {
     return map;
   }, [selectedFormDetail.data]);
 
+  const formFieldIdToCustomerField = useMemo(() => {
+    const map = new Map<string, string>();
+    const detail = selectedFormDetail.data;
+    if (detail?.fields) {
+      for (const f of detail.fields) {
+        if (f.id && f.customerField) map.set(f.id, f.customerField);
+      }
+    }
+    return map;
+  }, [selectedFormDetail.data]);
+
   const formOptionValueMap = useMemo(() => {
     const map = new Map<string, string>();
     const detail = selectedFormDetail.data;
@@ -274,15 +285,21 @@ export default function Dashboard() {
     return map;
   }, [selectedFormDetail.data]);
 
+  const resolveKey = (key: string): string => {
+    const cf = formFieldIdToCustomerField.get(key);
+    return cf || key;
+  };
+
   const renderFieldValue = (key: string, value: any): string => {
     if (value === null || value === undefined || value === "") return "-";
     if (typeof value === "boolean") return value ? "Áno" : "Nie";
     if (typeof value === "object") return JSON.stringify(value);
     const strVal = String(value);
-    if (key === "hospitalId") return lookupMaps.hospitalMap.get(strVal) || strVal;
-    if (key === "gynecologistClinicId") return lookupMaps.clinicMap.get(strVal) || strVal;
-    if (key === "healthInsuranceId") return lookupMaps.insuranceMap.get(strVal) || strVal;
-    if (key === "productSetId") return lookupMaps.productSetMap.get(strVal) || lookupMaps.productMap.get(strVal) || strVal;
+    const resolvedKey = resolveKey(key);
+    if (resolvedKey === "hospitalId") return lookupMaps.hospitalMap.get(strVal) || strVal;
+    if (resolvedKey === "gynecologistClinicId") return lookupMaps.clinicMap.get(strVal) || strVal;
+    if (resolvedKey === "healthInsuranceId") return lookupMaps.insuranceMap.get(strVal) || strVal;
+    if (resolvedKey === "productSetId") return lookupMaps.productSetMap.get(strVal) || lookupMaps.productMap.get(strVal) || strVal;
     if (/^\d{4}-\d{2}-\d{2}(T|$)/.test(strVal)) {
       try {
         const d = new Date(strVal.length === 10 ? strVal + "T00:00:00" : strVal);
@@ -290,7 +307,67 @@ export default function Dashboard() {
       } catch { return strVal; }
     }
     if (formOptionValueMap.has(strVal)) return formOptionValueMap.get(strVal)!;
+    if (lookupMaps.clinicMap.has(strVal)) return lookupMaps.clinicMap.get(strVal)!;
+    if (lookupMaps.hospitalMap.has(strVal)) return lookupMaps.hospitalMap.get(strVal)!;
+    if (lookupMaps.insuranceMap.has(strVal)) return lookupMaps.insuranceMap.get(strVal)!;
+    if (lookupMaps.productSetMap.has(strVal)) return lookupMaps.productSetMap.get(strVal)!;
+    const valueTranslations: Record<string, string> = {
+      invoice: "Faktúra", cash: "Hotovosť", card: "Kartou",
+      bank_transfer: "Bankový prevod", "credit_card": "Kreditná karta",
+    };
+    if (valueTranslations[strVal]) return valueTranslations[strVal];
     return strVal;
+  };
+
+  const fieldIcons: Record<string, any> = {
+    firstName: User, lastName: User, maidenName: User, titleBefore: User, titleAfter: User,
+    email: Mail, phone: Phone, mobile: Phone,
+    street: MapPin, city: MapPin, postalCode: MapPin, country: Globe,
+    corrStreet: MapPin, corrCity: MapPin, corrPostalCode: MapPin,
+    dateOfBirth: Calendar, personalId: Hash,
+    healthInsuranceId: Shield, productSetId: Heart,
+    hospitalId: Hospital, gynecologistClinicId: Stethoscope,
+    expectedDeliveryDate: Baby,
+    paymentMethod: CreditCard,
+    gdprConsent: Shield, newsletter: Newspaper,
+    howDidYouHear: Megaphone,
+  };
+
+  const getFieldIcon = (key: string) => {
+    const resolvedKey = resolveKey(key);
+    return fieldIcons[resolvedKey] || FileText;
+  };
+
+  const fieldSections: Record<string, string[]> = {
+    "Osobné údaje": ["firstName", "lastName", "maidenName", "titleBefore", "titleAfter", "dateOfBirth", "personalId"],
+    "Kontaktné údaje": ["email", "phone", "mobile"],
+    "Adresa": ["street", "city", "postalCode", "country"],
+    "Korešpondenčná adresa": ["corrStreet", "corrCity", "corrPostalCode"],
+    "Zdravotné informácie": ["healthInsuranceId", "productSetId", "hospitalId", "gynecologistClinicId", "expectedDeliveryDate"],
+    "Platba a súhlas": ["paymentMethod", "gdprConsent", "newsletter", "howDidYouHear"],
+  };
+
+  const categorizeFields = (data: Record<string, any>) => {
+    const entries = Object.entries(data).filter(([, v]) => v !== null && v !== undefined && v !== "");
+    const usedKeys = new Set<string>();
+    const sections: { title: string; items: [string, any][] }[] = [];
+
+    for (const [sectionTitle, sectionKeys] of Object.entries(fieldSections)) {
+      const items: [string, any][] = [];
+      for (const [key, value] of entries) {
+        const resolvedKey = resolveKey(key);
+        if (sectionKeys.includes(resolvedKey)) {
+          items.push([key, value]);
+          usedKeys.add(key);
+        }
+      }
+      if (items.length > 0) sections.push({ title: sectionTitle, items });
+    }
+
+    const remaining = entries.filter(([k]) => !usedKeys.has(k));
+    if (remaining.length > 0) sections.push({ title: "Ďalšie údaje", items: remaining });
+
+    return sections;
   };
 
   const fieldLabels: Record<string, string> = {
@@ -524,10 +601,10 @@ export default function Dashboard() {
       </Card>
 
       <Dialog open={!!selectedFormId} onOpenChange={(open) => { if (!open) { setSelectedFormId(null); setSelectedSubmission(null); } }}>
-        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
           {selectedSubmission ? (
             <>
-              <DialogHeader>
+              <DialogHeader className="pb-0">
                 <div className="flex items-center gap-2">
                   <Button variant="ghost" size="sm" onClick={() => setSelectedSubmission(null)} data-testid="btn-back-to-list">
                     <ArrowLeft className="h-4 w-4 mr-1" />
@@ -535,97 +612,119 @@ export default function Dashboard() {
                   </Button>
                   <DialogTitle className="text-lg">Detail registrácie</DialogTitle>
                 </div>
-                <DialogDescription>
-                  {selectedForm?.name} - {format(new Date(selectedSubmission.createdAt), "dd.MM.yyyy HH:mm")}
+                <DialogDescription className="sr-only">
+                  {selectedForm?.name}
                 </DialogDescription>
               </DialogHeader>
 
-              <div className="space-y-4 mt-4">
-                <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-                  {selectedSubmission.isNewCustomer ? (
-                    <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300">
-                      <UserPlus className="h-3 w-3 mr-1" />
-                      Nový zákazník
-                    </Badge>
-                  ) : (
-                    <Badge className="bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-300">
-                      <UserCog className="h-3 w-3 mr-1" />
-                      Existujúci zákazník
-                    </Badge>
-                  )}
-                  {selectedSubmission.isOtpVerified && (
-                    <Badge variant="outline" className="bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300">
-                      OTP overený
-                    </Badge>
-                  )}
-                  {selectedSubmission.status === "pending" && (
-                    <Badge variant="secondary" className="bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300">
-                      <Clock className="h-3 w-3 mr-1" />
-                      Čaká na schválenie
-                    </Badge>
-                  )}
-                  {(selectedSubmission.status === "approved" || selectedSubmission.status === "processed") && (
-                    <Badge variant="secondary" className="bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300">
-                      <CheckCircle className="h-3 w-3 mr-1" />
-                      {selectedSubmission.status === "processed" ? "Spracované" : "Schválené"}
-                    </Badge>
-                  )}
-                  {selectedSubmission.status === "rejected" && (
-                    <Badge variant="secondary" className="bg-rose-50 text-rose-700 dark:bg-rose-950 dark:text-rose-300">
-                      <XCircle className="h-3 w-3 mr-1" />
-                      Zamietnuté
-                    </Badge>
-                  )}
+              <div className="space-y-5 mt-2">
+                <div className="flex flex-wrap items-center gap-2 p-4 rounded-xl border bg-gradient-to-r from-muted/30 to-muted/60">
+                  <div className="flex items-center gap-2 mr-auto">
+                    <div className="flex items-center justify-center h-10 w-10 rounded-full bg-primary/10">
+                      <ClipboardList className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold">{selectedForm?.name}</p>
+                      <p className="text-xs text-muted-foreground">{format(new Date(selectedSubmission.createdAt), "dd.MM.yyyy 'o' HH:mm")}</p>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {selectedSubmission.isNewCustomer ? (
+                      <Badge className="bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800">
+                        <UserPlus className="h-3 w-3 mr-1" />
+                        Nový zákazník
+                      </Badge>
+                    ) : (
+                      <Badge className="bg-violet-100 text-violet-800 border-violet-200 dark:bg-violet-950 dark:text-violet-300 dark:border-violet-800">
+                        <UserCog className="h-3 w-3 mr-1" />
+                        Existujúci zákazník
+                      </Badge>
+                    )}
+                    {selectedSubmission.isOtpVerified && (
+                      <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-300 dark:border-green-800">
+                        <CheckCircle className="h-3 w-3 mr-1" />
+                        OTP overený
+                      </Badge>
+                    )}
+                    {selectedSubmission.status === "pending" && (
+                      <Badge className="bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-800">
+                        <Clock className="h-3 w-3 mr-1" />
+                        Čaká na schválenie
+                      </Badge>
+                    )}
+                    {(selectedSubmission.status === "approved" || selectedSubmission.status === "processed") && (
+                      <Badge className="bg-green-100 text-green-800 border-green-200 dark:bg-green-950 dark:text-green-300 dark:border-green-800">
+                        <CheckCircle className="h-3 w-3 mr-1" />
+                        {selectedSubmission.status === "processed" ? "Spracované" : "Schválené"}
+                      </Badge>
+                    )}
+                    {selectedSubmission.status === "rejected" && (
+                      <Badge className="bg-rose-100 text-rose-800 border-rose-200 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-800">
+                        <XCircle className="h-3 w-3 mr-1" />
+                        Zamietnuté
+                      </Badge>
+                    )}
+                  </div>
                   {selectedSubmission.customerId && (() => {
                     const cust = customerMap.get(selectedSubmission.customerId);
                     return cust ? (
-                      <span className="text-sm text-muted-foreground ml-auto">
-                        Zákazník: <strong>{cust.firstName} {cust.lastName}</strong>
-                      </span>
+                      <div className="w-full pt-2 mt-2 border-t border-border/50 flex items-center gap-2">
+                        <User className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm text-muted-foreground">
+                          Prepojený zákazník: <strong className="text-foreground">{cust.firstName} {cust.lastName}</strong>
+                        </span>
+                      </div>
                     ) : null;
                   })()}
                 </div>
 
-                <Table data-testid="table-submission-detail">
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[200px]">Pole</TableHead>
-                      <TableHead>Hodnota</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {Object.entries(parseSubmissionData(selectedSubmission.data))
-                      .filter(([key, value]) => value !== null && value !== undefined && value !== "")
-                      .map(([key, value]) => (
-                        <TableRow key={key}>
-                          <TableCell className="font-medium text-sm">{getFieldLabel(key)}</TableCell>
-                          <TableCell className="text-sm">{renderFieldValue(key, value)}</TableCell>
-                        </TableRow>
-                      ))
-                    }
-                  </TableBody>
-                </Table>
+                {categorizeFields(parseSubmissionData(selectedSubmission.data)).map((section) => (
+                  <div key={section.title} className="space-y-1" data-testid={`section-${section.title}`}>
+                    <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground px-1 pb-1">
+                      {section.title}
+                    </h4>
+                    <div className="rounded-xl border overflow-hidden">
+                      {section.items.map(([key, value], idx) => {
+                        const IconComp = getFieldIcon(key);
+                        return (
+                          <div
+                            key={key}
+                            className={`flex items-center gap-3 px-4 py-3 ${idx < section.items.length - 1 ? "border-b" : ""} hover:bg-muted/30 transition-colors`}
+                          >
+                            <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-muted/60 shrink-0">
+                              <IconComp className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs text-muted-foreground leading-tight">{getFieldLabel(key)}</p>
+                              <p className="text-sm font-medium truncate">{renderFieldValue(key, value)}</p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
 
                 {selectedSubmission.status === "pending" && (
-                  <div className="flex gap-3 pt-4 border-t">
+                  <div className="flex gap-3 pt-2">
                     <Button
                       onClick={() => updateStatusMutation.mutate({ submissionId: selectedSubmission.id, status: "approved" })}
                       disabled={updateStatusMutation.isPending}
-                      className="bg-green-600 hover:bg-green-700"
+                      className="flex-1 bg-green-600 hover:bg-green-700 text-white"
                       data-testid="btn-approve-submission"
                     >
                       <CheckCircle className="h-4 w-4 mr-2" />
-                      Schváliť
+                      Schváliť registráciu
                     </Button>
                     <Button
                       variant="outline"
                       onClick={() => updateStatusMutation.mutate({ submissionId: selectedSubmission.id, status: "rejected" })}
                       disabled={updateStatusMutation.isPending}
-                      className="border-rose-200 text-rose-700 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-300 dark:hover:bg-rose-950"
+                      className="flex-1 border-rose-200 text-rose-700 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-300 dark:hover:bg-rose-950"
                       data-testid="btn-reject-submission"
                     >
                       <XCircle className="h-4 w-4 mr-2" />
-                      Zamietnuť
+                      Zamietnuť registráciu
                     </Button>
                   </div>
                 )}
