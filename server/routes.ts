@@ -24824,23 +24824,66 @@ Rules:
       }
       
       const fieldNames = extractedFields.map((f: any) => typeof f === 'string' ? f : f.name);
-      const availableFieldNames = availableFields ? Object.keys(availableFields) : Object.keys(CRM_DATA_FIELDS);
+
+      const CRM_FIELD_LIST = [
+        { key: "firstName", label: "Meno (krstné meno zákazníka/matky)" },
+        { key: "lastName", label: "Priezvisko zákazníka/matky" },
+        { key: "fullName", label: "Celé meno (meno + priezvisko)" },
+        { key: "titleBefore", label: "Titul pred menom" },
+        { key: "titleAfter", label: "Titul za menom" },
+        { key: "maidenName", label: "Rodné priezvisko" },
+        { key: "dateOfBirth", label: "Dátum narodenia" },
+        { key: "nationalId", label: "Rodné číslo / osobné identifikačné číslo" },
+        { key: "idCardNumber", label: "Číslo občianskeho preukazu" },
+        { key: "email", label: "Email (primárny)" },
+        { key: "email2", label: "Email (sekundárny)" },
+        { key: "phone", label: "Telefón (pevná linka)" },
+        { key: "mobile", label: "Mobil (primárny)" },
+        { key: "mobile2", label: "Mobil (sekundárny)" },
+        { key: "address", label: "Ulica a číslo domu (adresa bydliska)" },
+        { key: "city", label: "Mesto / obec" },
+        { key: "postalCode", label: "PSČ (poštové smerovacie číslo)" },
+        { key: "region", label: "Oblasť / kraj" },
+        { key: "country", label: "Krajina" },
+        { key: "corrName", label: "Meno (korešpondenčná adresa)" },
+        { key: "corrAddress", label: "Ulica (korešpondenčná adresa)" },
+        { key: "corrCity", label: "Mesto (korešpondenčná adresa)" },
+        { key: "corrPostalCode", label: "PSČ (korešpondenčná adresa)" },
+        { key: "corrCountry", label: "Krajina (korešpondenčná adresa)" },
+        { key: "bankAccount", label: "IBAN / číslo bankového účtu" },
+        { key: "bankCode", label: "Kód banky" },
+        { key: "bankName", label: "Názov banky" },
+        { key: "bankSwift", label: "SWIFT kód" },
+        { key: "currentDate", label: "Aktuálny dátum (dátum vyplnenia)" },
+        { key: "contractNumber", label: "Číslo zmluvy / Contract ID" },
+        { key: "internalId", label: "Interné číslo zákazníka" },
+      ];
       
-      const prompt = `Mapuj premenné zo šablóny zmluvy na dostupné CRM polia.
+      const crmFieldsDescription = CRM_FIELD_LIST.map(f => `  "${f.key}" - ${f.label}`).join("\n");
+      
+      const prompt = `You are mapping PDF form fields from a cord blood banking contract to CRM data fields.
+The PDF form may be in German, Slovak, Czech, English, or other languages.
 
-Premenné zo šablóny ({{placeholder}}):
-${fieldNames.join(", ")}
+PDF form field names to map:
+${fieldNames.map((f: string) => `  - "${f}"`).join("\n")}
 
-Dostupné CRM polia:
-${availableFieldNames.map(f => `${f}: ${CRM_DATA_FIELDS[f] || "popis nedostupný"}`).join("\n")}
+Available CRM fields (use ONLY these exact keys as values):
+${crmFieldsDescription}
 
-Pre každú premennú zo šablóny urči najlepšie zodpovedajúce CRM pole. Ak nie je zhoda, vynechaj.
+RULES:
+1. Map each PDF field to the BEST matching CRM field key from the list above.
+2. Use ONLY the exact key values listed (firstName, lastName, email, etc.).
+3. If a PDF field has NO reasonable match, DO NOT include it.
+4. For fields with suffixes like _2, _3, _4 (e.g. "Nachname_2", "Vorname_3"), these typically represent father/partner/child data - do NOT map them unless there's a clear CRM match.
+5. Common German mappings: Vorname=firstName, Nachname=lastName, Geburtsdatum=dateOfBirth, Straße+Hausnummer=address, PLZ=postalCode, Ort/Wohnort=city, Telefon=phone, EMail=email, Datum=currentDate
+6. "001 Contract ID" or similar → contractNumber
+7. "002 Mother Full Name" → fullName, "004 Mother Birth Date" → dateOfBirth, "003 Mother Living In" → address
 
-Odpovedz v JSON formáte:
+Respond in JSON format:
 {
   "mappings": {
-    "meno": "firstName",
-    "priezvisko": "lastName",
+    "Vorname": "firstName",
+    "Nachname": "lastName",
     ...
   }
 }`;
@@ -24848,7 +24891,7 @@ Odpovedz v JSON formáte:
       const response = await openai.chat.completions.create({
         model: "gpt-4o",
         messages: [
-          { role: "system", content: "Si asistent pre mapovanie polí v CRM systéme. Odpovedaj len v JSON formáte." },
+          { role: "system", content: "You are a CRM field mapping assistant for a cord blood banking system. Respond only in JSON format. Map PDF form fields to the exact CRM field keys provided." },
           { role: "user", content: prompt }
         ],
         response_format: { type: "json_object" },
@@ -24861,7 +24904,17 @@ Odpovedz v JSON formáte:
       }
       
       const result = JSON.parse(content);
-      res.json(result);
+      const validKeys = new Set(CRM_FIELD_LIST.map(f => f.key));
+      const validatedMappings: Record<string, string> = {};
+      if (result.mappings) {
+        for (const [pdfField, crmKey] of Object.entries(result.mappings)) {
+          if (validKeys.has(crmKey as string)) {
+            validatedMappings[pdfField] = crmKey as string;
+          }
+        }
+      }
+      
+      res.json({ mappings: validatedMappings });
     } catch (error) {
       console.error("AI mapping error:", error);
       res.status(500).json({ error: "AI mapping failed" });
