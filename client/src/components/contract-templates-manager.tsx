@@ -410,7 +410,7 @@ export function ContractTemplatesManager() {
     DE: { file: null, uploading: false, uploaded: false },
     US: { file: null, uploading: false, uploaded: false },
   });
-  const [categoryDefaultTemplates, setCategoryDefaultTemplates] = useState<Record<string, boolean>>({});
+  const [categoryDefaultTemplates, setCategoryDefaultTemplates] = useState<Record<string, { exists: boolean; templateType?: string }>>({});
 
   const [isTemplatePreviewOpen, setIsTemplatePreviewOpen] = useState(false);
   const [templatePreviewContent, setTemplatePreviewContent] = useState("");
@@ -592,9 +592,9 @@ export function ContractTemplatesManager() {
         credentials: "include"
       });
       if (response.ok) {
-        const templates = await response.json() as Array<{ countryCode: string }>;
-        const templateMap: Record<string, boolean> = {};
-        templates.forEach(t => { templateMap[t.countryCode] = true; });
+        const templates = await response.json() as Array<{ countryCode: string; templateType?: string }>;
+        const templateMap: Record<string, { exists: boolean; templateType?: string }> = {};
+        templates.forEach(t => { templateMap[t.countryCode] = { exists: true, templateType: t.templateType }; });
         setCategoryDefaultTemplates(templateMap);
       }
     } catch (e) {
@@ -1868,7 +1868,8 @@ export function ContractTemplatesManager() {
                       { code: "DE", name: "Nemecko" },
                       { code: "US", name: "USA" },
                     ].map(country => {
-                      const hasTemplate = categoryDefaultTemplates[country.code];
+                      const hasTemplate = categoryDefaultTemplates[country.code]?.exists;
+                      const templateTypeForCountry = categoryDefaultTemplates[country.code]?.templateType;
                       const uploadState = categoryPdfUploads[country.code];
                       const isConverting = uploadState?.uploading;
 
@@ -1920,16 +1921,16 @@ export function ContractTemplatesManager() {
                                   <p className="text-xs text-muted-foreground truncate">
                                     {hasTemplate
                                       ? "Šablóna nahraná"
-                                      : "Nahrať DOCX šablónu"
+                                      : "Nahrať DOCX/PDF šablónu"
                                     }
                                   </p>
                                 </div>
                               </div>
 
                               <div className="flex items-center gap-2 shrink-0">
-                                {uploadState?.uploaded && (
-                                  <Badge variant="default" className="bg-blue-600 text-xs">
-                                    DOCX
+                                {(uploadState?.uploaded || hasTemplate) && (
+                                  <Badge variant="default" className={`text-xs ${(templateTypeForCountry === 'pdf_form') ? 'bg-red-600' : 'bg-blue-600'}`}>
+                                    {(templateTypeForCountry === 'pdf_form') ? 'PDF' : 'DOCX'}
                                   </Badge>
                                 )}
                                 {uploadState?.error && (
@@ -1945,7 +1946,7 @@ export function ContractTemplatesManager() {
                                 >
                                   <input
                                     type="file"
-                                    accept=".docx"
+                                    accept=".docx,.pdf"
                                     className="sr-only"
                                     onChange={async (e) => {
                                       const file = e.target.files?.[0];
@@ -1984,7 +1985,7 @@ export function ContractTemplatesManager() {
                                           }));
                                           setCategoryDefaultTemplates(prev => ({
                                             ...prev,
-                                            [country.code]: true
+                                            [country.code]: { exists: true, templateType: result.templateType || "docx" }
                                           }));
                                           const fieldCount = result.extractedFields?.length || 0;
                                           toast({
@@ -2027,7 +2028,7 @@ export function ContractTemplatesManager() {
                                       variant="outline"
                                       onClick={async () => {
                                         try {
-                                          const response = await fetch(`/api/contracts/categories/${selectedCategory.id}/default-templates/${country.code}/download`, {
+                                          const response = await fetch(`/api/contracts/categories/${selectedCategory.id}/templates/${country.code}/download`, {
                                             credentials: "include"
                                           });
                                           if (!response.ok) throw new Error("Download failed");
@@ -2035,7 +2036,8 @@ export function ContractTemplatesManager() {
                                           const url = URL.createObjectURL(blob);
                                           const a = document.createElement("a");
                                           a.href = url;
-                                          a.download = `template_${selectedCategory.value}_${country.code}.docx`;
+                                          const ext = templateTypeForCountry === 'pdf_form' ? 'pdf' : 'docx';
+                                          a.download = `template_${selectedCategory.value}_${country.code}.${ext}`;
                                           a.click();
                                           URL.revokeObjectURL(url);
                                         } catch (error) {
@@ -2063,6 +2065,7 @@ export function ContractTemplatesManager() {
                                             delete newState[country.code];
                                             return newState;
                                           });
+
                                           setCategoryPdfUploads(prev => ({
                                             ...prev,
                                             [country.code]: { file: null, uploading: false, uploaded: false }
