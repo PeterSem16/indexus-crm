@@ -1631,11 +1631,8 @@ export function ContractTemplatesManager() {
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Šablóny zmlúv pre krajiny</Label>
                   <p className="text-xs text-muted-foreground">
-                    Nahrajte <strong>Word dokumenty (DOCX)</strong> s premennými ako {"{{meno}}"}, {"{{adresa}}"}.
+                    Nahrajte <strong>Word dokumenty (DOCX)</strong> alebo <strong>PDF formuláre</strong> s premennými.
                     Tieto šablóny sa použijú na generovanie zmlúv pre zákazníkov.
-                  </p>
-                  <p className="text-xs text-amber-600 dark:text-amber-400">
-                    Tip: Ak máte PDF, otvorte ho v MS Word a uložte ako DOCX pred nahraním.
                   </p>
                 </div>
 
@@ -1695,8 +1692,8 @@ export function ContractTemplatesManager() {
 
                           <div className="flex items-center gap-2 shrink-0">
                             {uploadState.uploaded && (
-                              <Badge variant="default" className="bg-blue-600 text-xs">
-                                DOCX
+                              <Badge variant="default" className={`text-xs ${uploadState.file?.name?.endsWith('.pdf') ? 'bg-red-600' : 'bg-blue-600'}`}>
+                                {uploadState.file?.name?.endsWith('.pdf') ? 'PDF' : 'DOCX'}
                               </Badge>
                             )}
                             {uploadState.error && (
@@ -1712,7 +1709,7 @@ export function ContractTemplatesManager() {
                             >
                               <input
                                 type="file"
-                                accept=".docx"
+                                accept=".docx,.pdf"
                                 className="sr-only"
                                 onChange={(e) => {
                                   const file = e.target.files?.[0];
@@ -1741,11 +1738,11 @@ export function ContractTemplatesManager() {
                 </div>
 
                 <div className="p-4 bg-muted/50 rounded-md space-y-2">
-                  <p className="text-sm font-medium">Formát: DOCX (Word dokument)</p>
+                  <p className="text-sm font-medium">Podporované formáty: DOCX a PDF</p>
                   <ul className="text-sm text-muted-foreground list-disc pl-4 space-y-1">
-                    <li>Použite premenné ako {"{{meno}}"}, {"{{priezvisko}}"}, {"{{adresa}}"} v texte dokumentu</li>
-                    <li>Po nahraní si môžete šablónu stiahnuť, upraviť v MS Word a znova nahrať</li>
-                    <li className="text-amber-600 dark:text-amber-400">Tip: Ak máte PDF, otvorte ho v MS Word a uložte ako DOCX pred nahraním</li>
+                    <li><strong>DOCX</strong> — použite premenné ako {"{{meno}}"}, {"{{priezvisko}}"}, {"{{adresa}}"} v texte dokumentu</li>
+                    <li><strong>PDF formulár</strong> — PDF s vyplniteľnými poľami (form fields), polia sa extrahujú automaticky</li>
+                    <li>Po nahraní si môžete šablónu stiahnuť, upraviť a znova nahrať</li>
                   </ul>
                 </div>
               </div>
