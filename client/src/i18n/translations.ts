@@ -414,6 +414,24 @@ export interface Translations {
     webFormsDaysUntilBirth: string;
     webFormsDueDateToday: string;
     webFormsDaysAfterDue: string;
+    webFormsDataPrecheck: string;
+    webFormsPrecheckDescription: string;
+    webFormsPrecheckWarning: string;
+    webFormsPrecheckNameMismatch: string;
+    webFormsPrecheckField: string;
+    webFormsPrecheckExistingValue: string;
+    webFormsPrecheckNewValue: string;
+    webFormsPrecheckResult: string;
+    webFormsPrecheckUpdate: string;
+    webFormsPrecheckMatch: string;
+    webFormsPrecheckDiffers: string;
+    webFormsPrecheckNewField: string;
+    webFormsPrecheckEmpty: string;
+    webFormsPrecheckTestMode: string;
+    webFormsPrecheckMatchingFields: string;
+    webFormsPrecheckDifferingFields: string;
+    webFormsPrecheckSelectedUpdates: string;
+    webFormsPrecheckNoChanges: string;
   };
   customers: {
     title: string;
@@ -5707,6 +5725,24 @@ export const translations: Record<Locale, Translations> = {
       webFormsDaysUntilBirth: 'days until delivery',
       webFormsDueDateToday: 'Due date is today!',
       webFormsDaysAfterDue: 'days after due date',
+      webFormsDataPrecheck: 'Data Pre-check',
+      webFormsPrecheckDescription: 'Comparison of submitted data with existing customer card',
+      webFormsPrecheckWarning: 'Attention! The submitted data differs from the existing customer card.',
+      webFormsPrecheckNameMismatch: 'The name on the form does not match the linked customer card. The customer may have changed their surname (e.g. after marriage).',
+      webFormsPrecheckField: 'Field',
+      webFormsPrecheckExistingValue: 'Customer card',
+      webFormsPrecheckNewValue: 'Submitted value',
+      webFormsPrecheckResult: 'Result',
+      webFormsPrecheckUpdate: 'Update',
+      webFormsPrecheckMatch: 'Match',
+      webFormsPrecheckDiffers: 'Differs',
+      webFormsPrecheckNewField: 'New',
+      webFormsPrecheckEmpty: 'Not filled',
+      webFormsPrecheckTestMode: 'TEST MODE — no changes will be saved',
+      webFormsPrecheckMatchingFields: 'matching fields',
+      webFormsPrecheckDifferingFields: 'differing fields',
+      webFormsPrecheckSelectedUpdates: 'selected for update',
+      webFormsPrecheckNoChanges: 'All submitted data matches the customer card.',
     },
     customers: {
       title: 'Customers',
@@ -10865,6 +10901,24 @@ export const translations: Record<Locale, Translations> = {
       webFormsDaysUntilBirth: 'dní do pôrodu',
       webFormsDueDateToday: 'Dnes je termín!',
       webFormsDaysAfterDue: 'dní po termíne',
+      webFormsDataPrecheck: 'Predkontrola údajov',
+      webFormsPrecheckDescription: 'Porovnanie odoslaných údajov s existujúcou kartou zákazníka',
+      webFormsPrecheckWarning: 'Pozor! Odoslané údaje sa líšia od existujúcej karty zákazníka.',
+      webFormsPrecheckNameMismatch: 'Meno na formulári sa nezhoduje s prepojenou kartou zákazníka. Zákazník si mohol zmeniť priezvisko (napr. po svadbe).',
+      webFormsPrecheckField: 'Pole',
+      webFormsPrecheckExistingValue: 'Karta zákazníka',
+      webFormsPrecheckNewValue: 'Odoslaná hodnota',
+      webFormsPrecheckResult: 'Výsledok',
+      webFormsPrecheckUpdate: 'Aktualizovať',
+      webFormsPrecheckMatch: 'Zhoda',
+      webFormsPrecheckDiffers: 'Líši sa',
+      webFormsPrecheckNewField: 'Nové',
+      webFormsPrecheckEmpty: 'Nevyplnené',
+      webFormsPrecheckTestMode: 'TESTOVACÍ REŽIM — žiadne zmeny sa neuložia',
+      webFormsPrecheckMatchingFields: 'zhodných polí',
+      webFormsPrecheckDifferingFields: 'rozdielnych polí',
+      webFormsPrecheckSelectedUpdates: 'vybraných na aktualizáciu',
+      webFormsPrecheckNoChanges: 'Všetky odoslané údaje sa zhodujú s kartou zákazníka.',
     },
     customers: {
       title: 'Zákazníci',
@@ -15992,6 +16046,24 @@ export const translations: Record<Locale, Translations> = {
       webFormsDaysUntilBirth: 'dní do porodu',
       webFormsDueDateToday: 'Dnes je termín!',
       webFormsDaysAfterDue: 'dní po termínu',
+      webFormsDataPrecheck: 'Předkontrola údajů',
+      webFormsPrecheckDescription: 'Porovnání odeslaných údajů s existující kartou zákazníka',
+      webFormsPrecheckWarning: 'Pozor! Odeslané údaje se liší od existující karty zákazníka.',
+      webFormsPrecheckNameMismatch: 'Jméno na formuláři se neshoduje s propojenou kartou zákazníka. Zákazník si mohl změnit příjmení (např. po svatbě).',
+      webFormsPrecheckField: 'Pole',
+      webFormsPrecheckExistingValue: 'Karta zákazníka',
+      webFormsPrecheckNewValue: 'Odeslaná hodnota',
+      webFormsPrecheckResult: 'Výsledek',
+      webFormsPrecheckUpdate: 'Aktualizovat',
+      webFormsPrecheckMatch: 'Shoda',
+      webFormsPrecheckDiffers: 'Liší se',
+      webFormsPrecheckNewField: 'Nové',
+      webFormsPrecheckEmpty: 'Nevyplněno',
+      webFormsPrecheckTestMode: 'TESTOVACÍ REŽIM — žádné změny se neuloží',
+      webFormsPrecheckMatchingFields: 'shodných polí',
+      webFormsPrecheckDifferingFields: 'rozdílných polí',
+      webFormsPrecheckSelectedUpdates: 'vybraných k aktualizaci',
+      webFormsPrecheckNoChanges: 'Všechny odeslané údaje se shodují s kartou zákazníka.',
     },
     customers: {
       title: 'Zákazníci',
@@ -21044,6 +21116,24 @@ export const translations: Record<Locale, Translations> = {
       webFormsDaysUntilBirth: 'nap a szülésig',
       webFormsDueDateToday: 'Ma van a határidő!',
       webFormsDaysAfterDue: 'nap a határidő után',
+      webFormsDataPrecheck: 'Adatok előellenőrzése',
+      webFormsPrecheckDescription: 'A beküldött adatok összehasonlítása a meglévő ügyfélkártyával',
+      webFormsPrecheckWarning: 'Figyelem! A beküldött adatok eltérnek a meglévő ügyfélkártyától.',
+      webFormsPrecheckNameMismatch: 'Az űrlapon szereplő név nem egyezik a csatolt ügyfélkártyával. Az ügyfél megváltoztathatta a vezetéknevét (pl. házasság után).',
+      webFormsPrecheckField: 'Mező',
+      webFormsPrecheckExistingValue: 'Ügyfélkártya',
+      webFormsPrecheckNewValue: 'Beküldött érték',
+      webFormsPrecheckResult: 'Eredmény',
+      webFormsPrecheckUpdate: 'Frissítés',
+      webFormsPrecheckMatch: 'Egyezik',
+      webFormsPrecheckDiffers: 'Eltér',
+      webFormsPrecheckNewField: 'Új',
+      webFormsPrecheckEmpty: 'Nincs kitöltve',
+      webFormsPrecheckTestMode: 'TESZT MÓD — a változások nem kerülnek mentésre',
+      webFormsPrecheckMatchingFields: 'egyező mező',
+      webFormsPrecheckDifferingFields: 'eltérő mező',
+      webFormsPrecheckSelectedUpdates: 'frissítésre kiválasztva',
+      webFormsPrecheckNoChanges: 'Minden beküldött adat egyezik az ügyfélkártyával.',
     },
     customers: {
       title: 'Ügyfelek',

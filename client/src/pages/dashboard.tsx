@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Checkbox } from "@/components/ui/checkbox";
 import { format } from "date-fns";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -50,6 +51,7 @@ export default function Dashboard() {
   const [selectedFormId, setSelectedFormId] = useState<string | null>(null);
   const [selectedSubmission, setSelectedSubmission] = useState<WebFormSubmission | null>(null);
   const [submissionTab, setSubmissionTab] = useState("pending");
+  const [fieldsToUpdate, setFieldsToUpdate] = useState<Set<string>>(new Set());
 
   const { data: customers = [], isLoading: customersLoading } = useQuery<Customer[]>({
     queryKey: ["/api/customers"],
@@ -445,6 +447,120 @@ export default function Dashboard() {
     return key;
   };
 
+  const customerFieldMapping: Record<string, keyof Customer> = {
+    firstName: "firstName",
+    lastName: "lastName",
+    maidenName: "maidenName",
+    titleBefore: "titleBefore",
+    titleAfter: "titleAfter",
+    email: "email",
+    phone: "phone",
+    mobile: "mobile",
+    dateOfBirth: "dateOfBirth",
+    nationalId: "nationalId",
+    address: "address",
+    city: "city",
+    postalCode: "postalCode",
+    region: "region",
+    country: "country",
+    corrName: "corrName",
+    corrAddress: "corrAddress",
+    corrCity: "corrCity",
+    corrPostalCode: "corrPostalCode",
+    healthInsuranceId: "healthInsuranceId",
+    hospitalName: "hospitalName",
+    gynecologistName: "gynecologistName",
+    gynecologistPhone: "gynecologistPhone",
+    gynecologistEmail: "gynecologistEmail",
+    expectedDeliveryDate: "expectedDeliveryDate",
+    serviceType: "serviceType",
+    bankAccount: "bankAccount",
+    bankName: "bankName",
+    bankSwift: "bankSwift",
+    newsletter: "newsletter",
+    personalId: "nationalId",
+  };
+
+  const buildComparison = (submission: WebFormSubmission) => {
+    if (submission.isNewCustomer || !submission.customerId) return null;
+    const customer = customerMap.get(submission.customerId);
+    if (!customer) return null;
+
+    const data = parseSubmissionData(submission.data);
+    const rows: {
+      fieldKey: string;
+      label: string;
+      existingValue: string;
+      submittedValue: string;
+      status: "match" | "differs" | "new" | "empty";
+    }[] = [];
+
+    const processedCustomerFields = new Set<string>();
+
+    for (const [rawKey, rawValue] of Object.entries(data)) {
+      if (rawValue === null || rawValue === undefined || rawValue === "") continue;
+      const inferred = inferFieldType(rawKey, rawValue);
+      const custField = customerFieldMapping[inferred];
+      if (!custField) continue;
+      processedCustomerFields.add(inferred);
+
+      const existingRaw = customer[custField];
+      let existingStr = "";
+      if (existingRaw instanceof Date) {
+        existingStr = format(existingRaw, "dd.MM.yyyy");
+      } else if (typeof existingRaw === "boolean") {
+        existingStr = existingRaw ? "true" : "false";
+      } else {
+        existingStr = existingRaw ? String(existingRaw) : "";
+      }
+
+      const submittedStr = renderFieldValue(rawKey, rawValue);
+      const existingDisplay = existingRaw ? renderFieldValue(inferred, String(existingRaw)) : "";
+
+      let normalizedExisting = existingStr.toLowerCase().trim();
+      let normalizedSubmitted = String(rawValue).toLowerCase().trim();
+      if (/^\d{4}-\d{2}-\d{2}/.test(normalizedSubmitted) && existingRaw instanceof Date) {
+        normalizedExisting = format(existingRaw, "yyyy-MM-dd");
+        normalizedSubmitted = normalizedSubmitted.substring(0, 10);
+      }
+
+      let status: "match" | "differs" | "new" | "empty";
+      if (!existingStr) {
+        status = "new";
+      } else if (normalizedExisting === normalizedSubmitted) {
+        status = "match";
+      } else {
+        status = "differs";
+      }
+
+      rows.push({
+        fieldKey: inferred,
+        label: getFieldLabel(rawKey, rawValue),
+        existingValue: existingDisplay,
+        submittedValue: submittedStr,
+        status,
+      });
+    }
+
+    const nameMatch =
+      data.firstName?.toString().toLowerCase().trim() === customer.firstName?.toLowerCase().trim() &&
+      data.lastName?.toString().toLowerCase().trim() === customer.lastName?.toLowerCase().trim();
+
+    const matching = rows.filter(r => r.status === "match").length;
+    const differing = rows.filter(r => r.status === "differs" || r.status === "new").length;
+
+    return { rows, customer, nameMatch, matching, differing };
+  };
+
+  const toggleFieldUpdate = (fieldKey: string) => {
+    setFieldsToUpdate(prev => {
+      const next = new Set(prev);
+      if (next.has(fieldKey)) next.delete(fieldKey);
+      else next.add(fieldKey);
+      return next;
+    });
+  };
+
   return (
     <div className="space-y-8">
       <PageHeader
@@ -705,6 +821,151 @@ export default function Dashboard() {
                   })()}
                 </div>
 
+                {!selectedSubmission.isNewCustomer && selectedSubmission.customerId && (() => {
+                  const comparison = buildComparison(selectedSubmission);
+                  if (!comparison) return null;
+                  const { rows, customer, nameMatch, matching, differing } = comparison;
+                  const differingRows = rows.filter(r => r.status === "differs" || r.status === "new");
+                  const matchingRows = rows.filter(r => r.status === "match");
+
+                  return (
+                    <div className="space-y-3" data-testid="data-precheck-section">
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-amber-100 dark:bg-amber-950">
+                          <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-semibold">{t.dashboard.webFormsDataPrecheck}</h4>
+                          <p className="text-xs text-muted-foreground">{t.dashboard.webFormsPrecheckDescription}</p>
+                        </div>
+                      </div>
+
+                      <div className="rounded-lg border border-amber-200 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-950/30 p-3 text-xs">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Badge variant="outline" className="text-xs bg-white dark:bg-background border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300">
+                            {t.dashboard.webFormsPrecheckTestMode}
+                          </Badge>
+                        </div>
+                        <div className="flex gap-4 flex-wrap">
+                          <span className="flex items-center gap-1.5">
+                            <span className="inline-block h-2.5 w-2.5 rounded-full bg-green-500" />
+                            <strong>{matching}</strong> {t.dashboard.webFormsPrecheckMatchingFields}
+                          </span>
+                          <span className="flex items-center gap-1.5">
+                            <span className="inline-block h-2.5 w-2.5 rounded-full bg-rose-500" />
+                            <strong>{differing}</strong> {t.dashboard.webFormsPrecheckDifferingFields}
+                          </span>
+                          {fieldsToUpdate.size > 0 && (
+                            <span className="flex items-center gap-1.5">
+                              <span className="inline-block h-2.5 w-2.5 rounded-full bg-blue-500" />
+                              <strong>{fieldsToUpdate.size}</strong> {t.dashboard.webFormsPrecheckSelectedUpdates}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {!nameMatch && (
+                        <div className="rounded-lg border border-rose-200 bg-rose-50/50 dark:border-rose-800 dark:bg-rose-950/30 p-3" data-testid="name-mismatch-warning">
+                          <div className="flex gap-2 items-start">
+                            <AlertCircle className="h-4 w-4 text-rose-600 dark:text-rose-400 mt-0.5 shrink-0" />
+                            <div>
+                              <p className="text-sm font-medium text-rose-800 dark:text-rose-200">{t.dashboard.webFormsPrecheckWarning}</p>
+                              <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">{t.dashboard.webFormsPrecheckNameMismatch}</p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {differing === 0 ? (
+                        <div className="rounded-lg border border-green-200 bg-green-50/50 dark:border-green-800 dark:bg-green-950/30 p-4 text-center">
+                          <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400 mx-auto mb-1" />
+                          <p className="text-sm text-green-700 dark:text-green-300">{t.dashboard.webFormsPrecheckNoChanges}</p>
+                        </div>
+                      ) : (
+                        <div className="rounded-xl border overflow-hidden">
+                          <Table data-testid="table-data-comparison">
+                            <TableHeader>
+                              <TableRow className="bg-muted/50">
+                                <TableHead className="text-xs w-[180px]">{t.dashboard.webFormsPrecheckField}</TableHead>
+                                <TableHead className="text-xs">{t.dashboard.webFormsPrecheckExistingValue}</TableHead>
+                                <TableHead className="text-xs">{t.dashboard.webFormsPrecheckNewValue}</TableHead>
+                                <TableHead className="text-xs w-[90px] text-center">{t.dashboard.webFormsPrecheckResult}</TableHead>
+                                <TableHead className="text-xs w-[80px] text-center">{t.dashboard.webFormsPrecheckUpdate}</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {differingRows.map(row => (
+                                <TableRow
+                                  key={row.fieldKey}
+                                  className={`${fieldsToUpdate.has(row.fieldKey) ? "bg-blue-50/50 dark:bg-blue-950/20" : ""}`}
+                                  data-testid={`row-comparison-${row.fieldKey}`}
+                                >
+                                  <TableCell className="text-xs font-medium py-2">{row.label}</TableCell>
+                                  <TableCell className="text-xs py-2">
+                                    {row.existingValue ? (
+                                      <span className="text-muted-foreground">{row.existingValue}</span>
+                                    ) : (
+                                      <span className="text-muted-foreground/50 italic">{t.dashboard.webFormsPrecheckEmpty}</span>
+                                    )}
+                                  </TableCell>
+                                  <TableCell className="text-xs py-2">
+                                    <span className="font-medium text-rose-700 dark:text-rose-300">{row.submittedValue}</span>
+                                  </TableCell>
+                                  <TableCell className="text-center py-2">
+                                    {row.status === "differs" ? (
+                                      <Badge variant="outline" className="text-xs bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-800">
+                                        {t.dashboard.webFormsPrecheckDiffers}
+                                      </Badge>
+                                    ) : (
+                                      <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800">
+                                        {t.dashboard.webFormsPrecheckNewField}
+                                      </Badge>
+                                    )}
+                                  </TableCell>
+                                  <TableCell className="text-center py-2">
+                                    <Checkbox
+                                      checked={fieldsToUpdate.has(row.fieldKey)}
+                                      onCheckedChange={() => toggleFieldUpdate(row.fieldKey)}
+                                      data-testid={`checkbox-update-${row.fieldKey}`}
+                                    />
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      )}
+
+                      {matchingRows.length > 0 && (
+                        <details className="group">
+                          <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors flex items-center gap-1.5 py-1">
+                            <ChevronRight className="h-3 w-3 transition-transform group-open:rotate-90" />
+                            {matching} {t.dashboard.webFormsPrecheckMatchingFields}
+                          </summary>
+                          <div className="rounded-xl border overflow-hidden mt-2">
+                            <Table>
+                              <TableBody>
+                                {matchingRows.map(row => (
+                                  <TableRow key={row.fieldKey} className="bg-green-50/30 dark:bg-green-950/10">
+                                    <TableCell className="text-xs font-medium py-1.5 w-[180px]">{row.label}</TableCell>
+                                    <TableCell className="text-xs py-1.5 text-muted-foreground">{row.submittedValue}</TableCell>
+                                    <TableCell className="text-xs py-1.5 w-[90px] text-center">
+                                      <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-300 dark:border-green-800">
+                                        <CheckCircle className="h-2.5 w-2.5 mr-1" />
+                                        {t.dashboard.webFormsPrecheckMatch}
+                                      </Badge>
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        </details>
+                      )}
+                    </div>
+                  );
+                })()}
+
                 {categorizeFields(parseSubmissionData(selectedSubmission.data)).map((section) => (
                   <div key={section.title} className="space-y-1" data-testid={`section-${section.title}`}>
                     <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground px-1 pb-1">
@@ -842,7 +1103,7 @@ export default function Dashboard() {
                             <TableRow
                               key={sub.id}
                               className="cursor-pointer hover:bg-accent/50"
-                              onClick={() => setSelectedSubmission(sub)}
+                              onClick={() => { setSelectedSubmission(sub); setFieldsToUpdate(new Set()); }}
                               data-testid={`row-submission-${sub.id}`}
                             >
                               <TableCell className="text-sm">
