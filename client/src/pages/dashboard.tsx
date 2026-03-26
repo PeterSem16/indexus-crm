@@ -283,8 +283,11 @@ export default function Dashboard() {
     if (key === "gynecologistClinicId") return lookupMaps.clinicMap.get(strVal) || strVal;
     if (key === "healthInsuranceId") return lookupMaps.insuranceMap.get(strVal) || strVal;
     if (key === "productSetId") return lookupMaps.productSetMap.get(strVal) || lookupMaps.productMap.get(strVal) || strVal;
-    if (key === "expectedDeliveryDate" || key === "dateOfBirth") {
-      try { return format(new Date(strVal), "dd.MM.yyyy"); } catch { return strVal; }
+    if (/^\d{4}-\d{2}-\d{2}(T|$)/.test(strVal)) {
+      try {
+        const d = new Date(strVal.length === 10 ? strVal + "T00:00:00" : strVal);
+        return format(d, "dd.MM.yyyy");
+      } catch { return strVal; }
     }
     if (formOptionValueMap.has(strVal)) return formOptionValueMap.get(strVal)!;
     return strVal;
@@ -407,7 +410,7 @@ export default function Dashboard() {
 
       <Card data-testid="card-web-forms-section">
         <CardHeader className="flex flex-row items-center justify-between gap-4 pb-2">
-          <CardTitle className="text-lg font-medium">Web Forms - Registrácie</CardTitle>
+          <CardTitle className="text-lg font-medium">Webové formuláre</CardTitle>
           <ClipboardList className="h-5 w-5 text-muted-foreground" />
         </CardHeader>
         <CardContent>
@@ -638,7 +641,7 @@ export default function Dashboard() {
                     <span className="text-lg ml-1">{getCountryFlag(selectedForm.countryCode)}</span>
                   )}
                 </DialogTitle>
-                <DialogDescription>Zoznam registrácií z webového formulára</DialogDescription>
+                <DialogDescription>Prehľad registrácií z webového formulára</DialogDescription>
               </DialogHeader>
 
               <Tabs value={submissionTab} onValueChange={setSubmissionTab} className="mt-2">
