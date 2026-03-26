@@ -984,6 +984,8 @@ export const customerNotes = pgTable("customer_notes", {
   userId: varchar("user_id").notNull(),
   content: text("content").notNull(),
   legacyId: varchar("legacy_id"),
+  contractId: varchar("contract_id"),
+  dataSource: text("data_source"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
@@ -1055,13 +1057,13 @@ export const communicationMessages = pgTable("communication_messages", {
   deliveryStatus: text("delivery_status"), // delivery report status
   errorMessage: text("error_message"),
   metadata: text("metadata"), // JSON metadata including compositionDurationSeconds
+  contractId: varchar("contract_id"),
   sentAt: timestamp("sent_at"),
   deliveredAt: timestamp("delivered_at"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
-  // AI Analysis fields for incoming SMS
   aiAnalyzed: boolean("ai_analyzed").default(false),
-  aiSentiment: text("ai_sentiment"), // positive, neutral, negative, angry
-  aiAlertLevel: text("ai_alert_level"), // none, warning, critical
+  aiSentiment: text("ai_sentiment"),
+  aiAlertLevel: text("ai_alert_level"),
   aiHasAngryTone: boolean("ai_has_angry_tone"),
   aiHasRudeExpressions: boolean("ai_has_rude_expressions"),
   aiWantsToCancel: boolean("ai_wants_to_cancel"),
