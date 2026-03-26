@@ -34319,8 +34319,9 @@ Return ONLY the JSON object.`
     console.log("[SocialCheck] Request received for submission:", req.params.submissionId);
     try {
       const { submissionId } = req.params;
-      const allSubs = await db.select().from(schema.webFormSubmissions)
-        .where(eq(schema.webFormSubmissions.id, submissionId));
+      const { webFormSubmissions } = await import("@shared/schema");
+      const allSubs = await db.select().from(webFormSubmissions)
+        .where(eq(webFormSubmissions.id, submissionId));
       if (allSubs.length === 0) return res.status(404).json({ error: "Submission not found" });
       const submission = allSubs[0];
       const data = JSON.parse(submission.data || "{}");
