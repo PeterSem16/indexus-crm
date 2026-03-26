@@ -1834,15 +1834,16 @@ export function ContractTemplatesManager() {
                                 <MultiFieldMapping
                                   value={templateForm.placeholderMappings[pdfField.name] || ""}
                                   onChange={(newValue) => {
-                                    setTemplateForm(prev => {
-                                      const newMappings = { ...prev.placeholderMappings };
-                                      if (newValue) {
-                                        newMappings[pdfField.name] = newValue;
-                                      } else {
-                                        delete newMappings[pdfField.name];
-                                      }
-                                      return { ...prev, placeholderMappings: newMappings };
-                                    });
+                                    const allMappings = { ...templateForm.placeholderMappings };
+                                    if (newValue) {
+                                      allMappings[pdfField.name] = newValue;
+                                    } else {
+                                      delete allMappings[pdfField.name];
+                                    }
+                                    setTemplateForm(prev => ({
+                                      ...prev,
+                                      placeholderMappings: allMappings
+                                    }));
                                     setAiMappedFields(prev => {
                                       const next = new Set(prev);
                                       next.delete(pdfField.name);
@@ -1851,10 +1852,18 @@ export function ContractTemplatesManager() {
                                     const catId = selectedCategory?.id;
                                     const cc = templateForm.countryCode;
                                     if (catId && cc) {
-                                      navigator.sendBeacon(
-                                        `/api/contracts/categories/${catId}/default-templates/${cc}/set-field`,
-                                        new Blob([JSON.stringify({ field: pdfField.name, value: newValue || "" })], { type: "application/json" })
-                                      );
+                                      const filteredMappings: Record<string, string> = {};
+                                      for (const [key, value] of Object.entries(allMappings)) {
+                                        if (value && value.trim() !== "") {
+                                          filteredMappings[key] = value;
+                                        }
+                                      }
+                                      fetch(`/api/contracts/categories/${catId}/default-templates/${cc}/mappings`, {
+                                        method: "PATCH",
+                                        headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify({ mappings: filteredMappings, aiMappedFields: Array.from(aiMappedFields) }),
+                                        credentials: "include"
+                                      }).catch(() => {});
                                     }
                                   }}
                                   testId={`select-pdf-mapping-${idx}`}
@@ -2849,25 +2858,35 @@ export function ContractTemplatesManager() {
                               value={templateMappings[fieldName] || ""}
                               onChange={(newValue) => {
                                 const catId = editingTemplateData?.categoryId || selectedCategory?.id;
-                                setTemplateMappings(prev => {
-                                  const newMappings = { ...prev };
-                                  if (newValue) {
-                                    newMappings[fieldName] = newValue;
-                                  } else {
-                                    delete newMappings[fieldName];
-                                  }
-                                  return newMappings;
-                                });
+                                const allMappings = { ...templateMappings };
+                                if (newValue) {
+                                  allMappings[fieldName] = newValue;
+                                } else {
+                                  delete allMappings[fieldName];
+                                }
+                                setTemplateMappings(allMappings);
                                 setAiMappedFields(prev => {
                                   const next = new Set(prev);
                                   next.delete(fieldName);
                                   return next;
                                 });
                                 if (catId && editingTemplateCountry) {
-                                  navigator.sendBeacon(
-                                    `/api/contracts/categories/${catId}/default-templates/${editingTemplateCountry}/set-field`,
-                                    new Blob([JSON.stringify({ field: fieldName, value: newValue || "" })], { type: "application/json" })
-                                  );
+                                  const filteredMappings: Record<string, string> = {};
+                                  for (const [key, value] of Object.entries(allMappings)) {
+                                    if (value && value.trim() !== "") {
+                                      filteredMappings[key] = value;
+                                    }
+                                  }
+                                  fetch(`/api/contracts/categories/${catId}/default-templates/${editingTemplateCountry}/mappings`, {
+                                    method: "PATCH",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ mappings: filteredMappings, aiMappedFields: Array.from(aiMappedFields) }),
+                                    credentials: "include"
+                                  }).then(resp => {
+                                    if (resp.ok) {
+                                      lastSavedMappingsRef.current = JSON.stringify(filteredMappings, Object.keys(filteredMappings).sort());
+                                    }
+                                  }).catch(() => {});
                                 }
                               }}
                               testId={`select-mapping-${idx}`}
