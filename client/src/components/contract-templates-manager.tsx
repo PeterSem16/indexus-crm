@@ -1054,7 +1054,8 @@ export function ContractTemplatesManager() {
   };
 
   const handleSaveMappings = async () => {
-    if (!selectedCategory || !editingTemplateCountry) return;
+    const catId = editingTemplateData?.categoryId || selectedCategory?.id;
+    if (!catId || !editingTemplateCountry) return;
 
     setSavingMappings(true);
     try {
@@ -1065,7 +1066,9 @@ export function ContractTemplatesManager() {
         }
       }
 
-      const response = await fetch(`/api/contracts/categories/${selectedCategory.id}/default-templates/${editingTemplateCountry}/mappings`, {
+      console.log('[Save mappings] Saving', Object.keys(filteredMappings).length, 'non-empty mappings for category', catId, 'country', editingTemplateCountry);
+
+      const response = await fetch(`/api/contracts/categories/${catId}/default-templates/${editingTemplateCountry}/mappings`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mappings: filteredMappings, aiMappedFields: Array.from(aiMappedFields) }),
@@ -1073,6 +1076,8 @@ export function ContractTemplatesManager() {
       });
 
       if (response.ok) {
+        lastSavedMappingsRef.current = JSON.stringify(filteredMappings, Object.keys(filteredMappings).sort());
+        lastSavedAiFieldsRef.current = JSON.stringify([...aiMappedFields].sort());
         toast({ title: t.contractsModule.mappingsSaved });
         setIsTemplateEditorOpen(false);
         queryClient.invalidateQueries({ queryKey: ['/api/contracts/categories'] });
@@ -1092,7 +1097,8 @@ export function ContractTemplatesManager() {
   };
 
   useEffect(() => {
-    if (!selectedCategory || !editingTemplateCountry || !isTemplateEditorOpen) return;
+    const catId = editingTemplateData?.categoryId || selectedCategory?.id;
+    if (!catId || !editingTemplateCountry || !isTemplateEditorOpen) return;
 
     const filteredMappings: Record<string, string> = {};
     for (const [key, value] of Object.entries(templateMappings)) {
@@ -1112,8 +1118,9 @@ export function ContractTemplatesManager() {
     }
 
     autoSaveTimerRef.current = setTimeout(async () => {
+      console.log('[Auto-save] Saving', Object.keys(filteredMappings).length, 'mappings for category', catId, 'country', editingTemplateCountry);
       try {
-        const resp = await fetch(`/api/contracts/categories/${selectedCategory.id}/default-templates/${editingTemplateCountry}/mappings`, {
+        const resp = await fetch(`/api/contracts/categories/${catId}/default-templates/${editingTemplateCountry}/mappings`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ mappings: filteredMappings, aiMappedFields: Array.from(aiMappedFields) }),
@@ -1122,9 +1129,12 @@ export function ContractTemplatesManager() {
         if (resp.ok) {
           lastSavedMappingsRef.current = currentMappingsJson;
           lastSavedAiFieldsRef.current = currentAiFieldsJson;
+          console.log('[Auto-save] Success');
+        } else {
+          console.error('[Auto-save] Failed with status', resp.status);
         }
       } catch (err) {
-        console.error("Auto-save mappings failed:", err);
+        console.error("[Auto-save] Error:", err);
       }
     }, 600);
 
@@ -1133,7 +1143,7 @@ export function ContractTemplatesManager() {
         clearTimeout(autoSaveTimerRef.current);
       }
     };
-  }, [templateMappings, aiMappedFields, selectedCategory, editingTemplateCountry, isTemplateEditorOpen]);
+  }, [templateMappings, aiMappedFields, editingTemplateData, selectedCategory, editingTemplateCountry, isTemplateEditorOpen]);
 
   const handlePdfUpload = async (countryCode: string, file: File) => {
     setCategoryPdfUploads(prev => ({
