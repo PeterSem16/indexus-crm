@@ -125,10 +125,18 @@ export default function Dashboard() {
     setSocialCheckResult(null);
     try {
       const res = await apiRequest("POST", `/api/web-forms/submissions/${submissionId}/social-check`);
+      const contentType = res.headers.get("content-type") || "";
+      if (!contentType.includes("application/json")) {
+        throw new Error("Server returned non-JSON response");
+      }
       const data = await res.json();
+      if (data.error) {
+        throw new Error(data.error);
+      }
       setSocialCheckResult(data);
     } catch (err: any) {
-      toast({ title: "Chyba pri AI analýze", variant: "destructive" });
+      console.error("[SocialCheck] Frontend error:", err);
+      toast({ title: t.dashboard.webFormsSocialCheckError || "Chyba pri AI analýze", description: err?.message || "", variant: "destructive" });
     } finally {
       setSocialCheckLoading(false);
     }

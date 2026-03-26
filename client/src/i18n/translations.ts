@@ -441,6 +441,7 @@ export interface Translations {
     webFormsSocialCheckAiAnalysis: string;
     webFormsSocialCheckLinks: string;
     webFormsSocialCheckOpen: string;
+    webFormsSocialCheckError: string;
     webFormsCallClient: string;
     webFormsCallNote: string;
     webFormsCallNotePlaceholder: string;
@@ -5766,6 +5767,7 @@ export const translations: Record<Locale, Translations> = {
       webFormsSocialCheckAiAnalysis: 'AI Recommendations',
       webFormsSocialCheckLinks: 'Search Links',
       webFormsSocialCheckOpen: 'Open',
+      webFormsSocialCheckError: 'AI analysis error',
       webFormsCallClient: 'Call client',
       webFormsCallNote: 'Call note',
       webFormsCallNotePlaceholder: 'Enter a note about the call (e.g. data verified, name change confirmed)...',
@@ -10956,6 +10958,7 @@ export const translations: Record<Locale, Translations> = {
       webFormsSocialCheckAiAnalysis: 'AI odporúčania',
       webFormsSocialCheckLinks: 'Odkazy na vyhľadávanie',
       webFormsSocialCheckOpen: 'Otvoriť',
+      webFormsSocialCheckError: 'Chyba pri AI analýze',
       webFormsCallClient: 'Zavolať klientke',
       webFormsCallNote: 'Poznámka k hovoru',
       webFormsCallNotePlaceholder: 'Zadajte poznámku o hovore (napr. údaje overené, zmena mena potvrdená)...',
@@ -16115,6 +16118,7 @@ export const translations: Record<Locale, Translations> = {
       webFormsSocialCheckAiAnalysis: 'AI doporučení',
       webFormsSocialCheckLinks: 'Odkazy na vyhledávání',
       webFormsSocialCheckOpen: 'Otevřít',
+      webFormsSocialCheckError: 'Chyba při AI analýze',
       webFormsCallClient: 'Zavolat klientce',
       webFormsCallNote: 'Poznámka k hovoru',
       webFormsCallNotePlaceholder: 'Zadejte poznámku o hovoru (např. údaje ověřeny, změna jména potvrzena)...',
@@ -21199,6 +21203,7 @@ export const translations: Record<Locale, Translations> = {
       webFormsSocialCheckAiAnalysis: 'AI ajánlások',
       webFormsSocialCheckLinks: 'Keresési linkek',
       webFormsSocialCheckOpen: 'Megnyitás',
+      webFormsSocialCheckError: 'Hiba az AI elemzésnél',
       webFormsCallClient: 'Ügyfél hívása',
       webFormsCallNote: 'Hívási jegyzet',
       webFormsCallNotePlaceholder: 'Adjon meg jegyzetet a hívásról (pl. adatok ellenőrizve, névváltozás megerősítve)...',

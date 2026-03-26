@@ -34316,6 +34316,7 @@ Return ONLY the JSON object.`
   });
 
   app.post("/api/web-forms/submissions/:submissionId/social-check", requireAuth, async (req, res) => {
+    console.log("[SocialCheck] Request received for submission:", req.params.submissionId);
     try {
       const { submissionId } = req.params;
       const allSubs = await db.select().from(schema.webFormSubmissions)
@@ -34387,7 +34388,7 @@ ${data.hospitalName || data.hospitalId ? `Nemocnica: ${data.hospitalName || data
         aiAnalysis,
         timestamp: new Date().toISOString(),
       });
-    } catch (e: any) { res.status(500).json({ error: e.message }); }
+    } catch (e: any) { console.error("[SocialCheck] Error:", e.message, e.stack); res.status(500).json({ error: e.message }); }
   });
 
   app.post("/api/web-forms/submissions/:submissionId/fill-pdf", requireAuth, async (req, res) => {
