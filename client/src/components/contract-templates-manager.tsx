@@ -2383,12 +2383,14 @@ export function ContractTemplatesManager() {
                 <p className="text-muted-foreground">Načítavam šablónu...</p>
               </div>
             ) : editingTemplateData ? (
-              <Tabs defaultValue="editor" className="w-full">
-                <TabsList className="grid w-full grid-cols-3 mb-4">
-                  <TabsTrigger value="editor" data-testid="tab-template-editor">
-                    <FileText className="h-4 w-4 mr-2" />
-                    {t.contractsModule.docxEditor}
-                  </TabsTrigger>
+              <Tabs defaultValue={editingTemplateData.templateType === "pdf_form" ? "mapping" : "editor"} className="w-full">
+                <TabsList className={`grid w-full mb-4 ${editingTemplateData.templateType === "pdf_form" ? "grid-cols-2" : "grid-cols-3"}`}>
+                  {editingTemplateData.templateType !== "pdf_form" && (
+                    <TabsTrigger value="editor" data-testid="tab-template-editor">
+                      <FileText className="h-4 w-4 mr-2" />
+                      {t.contractsModule.docxEditor}
+                    </TabsTrigger>
+                  )}
                   <TabsTrigger value="mapping" data-testid="tab-template-mapping">
                     <Settings className="h-4 w-4 mr-2" />
                     {t.contractsModule.fieldMapping}
@@ -2399,6 +2401,7 @@ export function ContractTemplatesManager() {
                   </TabsTrigger>
                 </TabsList>
 
+                {editingTemplateData.templateType !== "pdf_form" && (
                 <TabsContent value="editor" className="h-[60vh]">
                   {editingTemplateData.templateType === "docx" && editingTemplateData.categoryId && editingTemplateData.countryCode ? (
                     <DocxEditor
@@ -2416,6 +2419,7 @@ export function ContractTemplatesManager() {
                     </div>
                   )}
                 </TabsContent>
+                )}
 
                 <TabsContent value="mapping" className="space-y-4">
                   <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-md">
