@@ -2012,8 +2012,14 @@ export async function insertPlaceholdersIntoDocx(
   }
 }
 
-export function getCustomerDataForContract(customer: any, contract?: any): Record<string, string> {
+export function getCustomerDataForContract(customer: any, contract?: any, potentialCase?: any): Record<string, string> {
   const today = new Date().toLocaleDateString("sk-SK");
+  const pc = potentialCase || customer?.potentialCase || {};
+  
+  const formatDate = (d: any) => {
+    if (!d) return "";
+    try { return new Date(d).toLocaleDateString("sk-SK"); } catch { return ""; }
+  };
   
   const data: Record<string, string> = {
     "customer.firstName": customer.firstName || "",
@@ -2021,21 +2027,84 @@ export function getCustomerDataForContract(customer: any, contract?: any): Recor
     "customer.fullName": `${customer.firstName || ""} ${customer.lastName || ""}`.trim(),
     "customer.email": customer.email || "",
     "customer.phone": customer.phone || "",
-    "customer.birthDate": customer.birthDate ? new Date(customer.birthDate).toLocaleDateString("sk-SK") : "",
-    "customer.personalId": customer.personalId || "",
-    "customer.address.street": customer.street || "",
+    "customer.birthDate": formatDate(customer.birthDate || customer.dateOfBirth),
+    "customer.personalId": customer.personalId || customer.nationalId || "",
+    "customer.address.street": customer.street || customer.address || "",
     "customer.address.city": customer.city || "",
     "customer.address.postalCode": customer.postalCode || "",
     "customer.address.country": customer.country || "",
-    "customer.address.fullAddress": [customer.street, customer.city, customer.postalCode, customer.country]
+    "customer.address.fullAddress": [customer.street || customer.address, customer.city, customer.postalCode, customer.country]
       .filter(Boolean)
       .join(", "),
     "contract.number": contract?.contractNumber || "",
-    "contract.date": contract?.createdAt ? new Date(contract.createdAt).toLocaleDateString("sk-SK") : today,
-    "contract.validFrom": contract?.validFrom ? new Date(contract.validFrom).toLocaleDateString("sk-SK") : "",
-    "contract.validTo": contract?.validTo ? new Date(contract.validTo).toLocaleDateString("sk-SK") : "",
+    "contract.date": contract?.createdAt ? formatDate(contract.createdAt) : today,
+    "contract.validFrom": formatDate(contract?.validFrom),
+    "contract.validTo": formatDate(contract?.validTo),
     "contract.totalAmount": contract?.totalGrossAmount || "",
     "today": today,
+
+    "firstName": customer.firstName || "",
+    "lastName": customer.lastName || "",
+    "fullName": `${customer.firstName || ""} ${customer.lastName || ""}`.trim(),
+    "titleBefore": customer.titleBefore || "",
+    "titleAfter": customer.titleAfter || "",
+    "maidenName": customer.maidenName || "",
+    "dateOfBirth": formatDate(customer.dateOfBirth || customer.birthDate),
+    "nationalId": customer.nationalId || customer.personalId || "",
+    "idCardNumber": customer.idCardNumber || "",
+    "email": customer.email || "",
+    "email2": customer.email2 || "",
+    "phone": customer.phone || "",
+    "mobile": customer.mobile || "",
+    "mobile2": customer.mobile2 || "",
+    "address": customer.address || customer.street || "",
+    "city": customer.city || "",
+    "postalCode": customer.postalCode || "",
+    "region": customer.region || "",
+    "country": customer.country || "",
+    "corrName": customer.corrName || "",
+    "corrAddress": customer.corrAddress || "",
+    "corrCity": customer.corrCity || "",
+    "corrPostalCode": customer.corrPostalCode || "",
+    "corrCountry": customer.corrCountry || "",
+    "bankAccount": customer.bankAccount || "",
+    "bankCode": customer.bankCode || "",
+    "bankName": customer.bankName || "",
+    "bankSwift": customer.bankSwift || "",
+    "currentDate": today,
+    "contractNumber": contract?.contractNumber || "",
+    "internalId": customer.internalId || "",
+
+    "fatherFirstName": pc.fatherFirstName || "",
+    "fatherLastName": pc.fatherLastName || "",
+    "fatherFullName": `${pc.fatherFirstName || ""} ${pc.fatherLastName || ""}`.trim(),
+    "fatherTitleBefore": pc.fatherTitleBefore || "",
+    "fatherTitleAfter": pc.fatherTitleAfter || "",
+    "fatherPhone": pc.fatherPhone || "",
+    "fatherMobile": pc.fatherMobile || "",
+    "fatherEmail": pc.fatherEmail || "",
+    "fatherAddress": pc.fatherStreet || "",
+    "fatherCity": pc.fatherCity || "",
+    "fatherPostalCode": pc.fatherPostalCode || "",
+    "fatherRegion": pc.fatherRegion || "",
+    "fatherCountry": pc.fatherCountry || "",
+    "fatherDateOfBirth": formatDate(pc.fatherDateOfBirth),
+
+    "expectedDeliveryDate": pc.expectedDateDay && pc.expectedDateMonth && pc.expectedDateYear
+      ? `${pc.expectedDateDay}.${pc.expectedDateMonth}.${pc.expectedDateYear}`
+      : formatDate(customer.expectedDeliveryDate),
+    "hospitalName": customer.hospitalName || "",
+    "gynecologistName": customer.gynecologistName || "",
+    "gynecologistPhone": customer.gynecologistPhone || "",
+    "gynecologistEmail": customer.gynecologistEmail || "",
+    "obstetricianName": pc.obstetricianName || "",
+    "isMultiplePregnancy": pc.isMultiplePregnancy ? "Áno" : "Nie",
+    "childCount": pc.childCount ? String(pc.childCount) : "1",
+
+    "productName": pc.productName || "",
+    "productType": pc.productType || "",
+    "paymentType": pc.paymentType || "",
+    "giftVoucher": pc.giftVoucher || "",
   };
 
   return data;

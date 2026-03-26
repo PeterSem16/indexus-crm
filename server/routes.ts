@@ -26507,13 +26507,22 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
       const extractedFields = template.extractedFields ? JSON.parse(template.extractedFields) : [];
       
       for (const field of extractedFields) {
-        const mapping = placeholderMappings[field.name];
-        if (mapping && customerData[mapping]) {
-          data[field.name] = customerData[mapping];
-        } else if (customerData[field.name]) {
-          data[field.name] = customerData[field.name];
+        const fieldName = typeof field === 'string' ? field : field.name;
+        const mapping = placeholderMappings[fieldName];
+        if (mapping) {
+          if (mapping.includes("+")) {
+            const parts = mapping.split("+").filter(Boolean);
+            const values = parts.map((key: string) => customerData[key] || "").filter(Boolean);
+            data[fieldName] = values.join(" ");
+          } else if (customerData[mapping]) {
+            data[fieldName] = customerData[mapping];
+          } else {
+            data[fieldName] = "";
+          }
+        } else if (customerData[fieldName]) {
+          data[fieldName] = customerData[fieldName];
         } else {
-          data[field.name] = "";
+          data[fieldName] = "";
         }
       }
 

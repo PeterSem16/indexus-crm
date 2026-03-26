@@ -133,6 +133,137 @@ const CUSTOMER_FIELDS = [
   ]},
 ];
 
+function getFieldLabel(key: string): string {
+  for (const group of CUSTOMER_FIELDS) {
+    for (const f of group.fields) {
+      if (f.key === key) return f.label;
+    }
+  }
+  return key;
+}
+
+function MultiFieldMapping({
+  value,
+  onChange,
+  testId,
+}: {
+  value: string;
+  onChange: (newValue: string) => void;
+  testId: string;
+}) {
+  const parts = value ? value.split("+").filter(Boolean) : [];
+  const [addingNew, setAddingNew] = useState(false);
+
+  const removePart = (index: number) => {
+    const newParts = parts.filter((_, i) => i !== index);
+    onChange(newParts.length > 0 ? newParts.join("+") : "");
+  };
+
+  const addPart = (key: string) => {
+    if (key === "__none__") return;
+    const newParts = [...parts, key];
+    onChange(newParts.join("+"));
+    setAddingNew(false);
+  };
+
+  const replacePart = (index: number, key: string) => {
+    if (key === "__none__") {
+      removePart(index);
+      return;
+    }
+    const newParts = [...parts];
+    newParts[index] = key;
+    onChange(newParts.join("+"));
+  };
+
+  if (parts.length === 0 && !addingNew) {
+    return (
+      <div className="flex items-center gap-1 flex-1 min-w-0">
+        <Select value="__none__" onValueChange={(v) => { if (v !== "__none__") onChange(v); }}>
+          <SelectTrigger data-testid={testId} className="flex-1">
+            <SelectValue placeholder="Vyberte údaj..." />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__none__">-- Nevyplnené --</SelectItem>
+            {CUSTOMER_FIELDS.map(group => (
+              <div key={group.group}>
+                <div className="px-2 py-1 text-xs font-semibold text-muted-foreground bg-muted">{group.group}</div>
+                {group.fields.map(f => (
+                  <SelectItem key={f.key} value={f.key}>{f.label}</SelectItem>
+                ))}
+              </div>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex-1 min-w-0 space-y-1">
+      <div className="flex flex-wrap items-center gap-1">
+        {parts.map((part, i) => (
+          <span key={i} className="inline-flex items-center">
+            {i > 0 && <span className="text-xs text-muted-foreground mx-0.5">+</span>}
+            <span className="inline-flex items-center gap-0.5 bg-primary/10 text-primary text-xs px-1.5 py-0.5 rounded-md">
+              <Select value={part} onValueChange={(v) => replacePart(i, v)}>
+                <SelectTrigger data-testid={`${testId}-part-${i}`} className="border-0 bg-transparent h-auto p-0 text-xs font-medium shadow-none min-w-0 w-auto gap-0.5">
+                  <span className="truncate max-w-[120px]">{getFieldLabel(part)}</span>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">-- Odstrániť --</SelectItem>
+                  {CUSTOMER_FIELDS.map(group => (
+                    <div key={group.group}>
+                      <div className="px-2 py-1 text-xs font-semibold text-muted-foreground bg-muted">{group.group}</div>
+                      {group.fields.map(f => (
+                        <SelectItem key={f.key} value={f.key}>{f.label}</SelectItem>
+                      ))}
+                    </div>
+                  ))}
+                </SelectContent>
+              </Select>
+              <button
+                onClick={() => removePart(i)}
+                className="hover:text-destructive ml-0.5"
+                data-testid={`${testId}-remove-${i}`}
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          </span>
+        ))}
+        {addingNew ? (
+          <Select value="__none__" onValueChange={(v) => { addPart(v); }} open={true} onOpenChange={(open) => { if (!open) setAddingNew(false); }}>
+            <SelectTrigger data-testid={`${testId}-add`} className="h-6 w-[140px] text-xs">
+              <SelectValue placeholder="Pridať..." />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__none__">-- Zrušiť --</SelectItem>
+              {CUSTOMER_FIELDS.map(group => (
+                <div key={group.group}>
+                  <div className="px-2 py-1 text-xs font-semibold text-muted-foreground bg-muted">{group.group}</div>
+                  {group.fields.map(f => (
+                    <SelectItem key={f.key} value={f.key}>{f.label}</SelectItem>
+                  ))}
+                </div>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : (
+          <button
+            onClick={() => setAddingNew(true)}
+            className="inline-flex items-center gap-0.5 text-xs text-muted-foreground hover:text-primary px-1 py-0.5 rounded hover:bg-muted"
+            data-testid={`${testId}-plus`}
+            title="Pridať ďalšiu premennú (spoja sa medzerou)"
+          >
+            <Plus className="h-3 w-3" />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function SortableCategoryRow({
   category,
   onEdit,
@@ -1614,13 +1745,13 @@ export function ContractTemplatesManager() {
                                 <ArrowRight className="h-4 w-4 text-muted-foreground" />
                               </div>
                               <div className="flex items-center gap-2 min-w-0">
-                                <Select
-                                  value={templateForm.placeholderMappings[pdfField.name] || "__none__"}
-                                  onValueChange={(value) => {
+                                <MultiFieldMapping
+                                  value={templateForm.placeholderMappings[pdfField.name] || ""}
+                                  onChange={(newValue) => {
                                     setTemplateForm(prev => {
                                       const newMappings = { ...prev.placeholderMappings };
-                                      if (value && value !== "__none__") {
-                                        newMappings[pdfField.name] = value;
+                                      if (newValue) {
+                                        newMappings[pdfField.name] = newValue;
                                       } else {
                                         delete newMappings[pdfField.name];
                                       }
@@ -1632,22 +1763,8 @@ export function ContractTemplatesManager() {
                                       return next;
                                     });
                                   }}
-                                >
-                                  <SelectTrigger data-testid={`select-pdf-mapping-${idx}`} className="flex-1">
-                                    <SelectValue placeholder="Vyberte údaj..." />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="__none__">-- Nevyplnené --</SelectItem>
-                                    {CUSTOMER_FIELDS.map(group => (
-                                      <div key={group.group}>
-                                        <div className="px-2 py-1 text-xs font-semibold text-muted-foreground bg-muted">{group.group}</div>
-                                        {group.fields.map(f => (
-                                          <SelectItem key={f.key} value={f.key}>{f.label}</SelectItem>
-                                        ))}
-                                      </div>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
+                                  testId={`select-pdf-mapping-${idx}`}
+                                />
                                 {aiMappedFields.has(pdfField.name) && templateForm.placeholderMappings[pdfField.name] && (
                                   <Badge variant="secondary" className="bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 shrink-0 text-[10px] px-1.5 py-0.5">
                                     <Sparkles className="h-3 w-3 mr-0.5" />
@@ -2593,13 +2710,13 @@ export function ContractTemplatesManager() {
                             <ArrowRight className="h-4 w-4 text-muted-foreground" />
                           </div>
                           <div className="flex items-center gap-2 min-w-0">
-                            <Select
-                              value={templateMappings[fieldName] || "__none__"}
-                              onValueChange={(value) => {
+                            <MultiFieldMapping
+                              value={templateMappings[fieldName] || ""}
+                              onChange={(newValue) => {
                                 setTemplateMappings(prev => {
                                   const newMappings = { ...prev };
-                                  if (value && value !== "__none__") {
-                                    newMappings[fieldName] = value;
+                                  if (newValue) {
+                                    newMappings[fieldName] = newValue;
                                   } else {
                                     delete newMappings[fieldName];
                                   }
@@ -2611,26 +2728,8 @@ export function ContractTemplatesManager() {
                                   return next;
                                 });
                               }}
-                            >
-                              <SelectTrigger data-testid={`select-mapping-${idx}`} className="flex-1">
-                                <SelectValue placeholder="Vyberte údaj..." />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="__none__">-- Nevyplnené --</SelectItem>
-                                {CUSTOMER_FIELDS.map(group => (
-                                  <div key={group.group}>
-                                    <div className="px-2 py-1 text-xs font-semibold text-muted-foreground bg-muted">
-                                      {group.group}
-                                    </div>
-                                    {group.fields.map(f => (
-                                      <SelectItem key={f.key} value={f.key}>
-                                        {f.label}
-                                      </SelectItem>
-                                    ))}
-                                  </div>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                              testId={`select-mapping-${idx}`}
+                            />
                             {aiMappedFields.has(fieldName) && templateMappings[fieldName] && (
                               <Badge variant="secondary" className="bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 shrink-0 text-[10px] px-1.5 py-0.5">
                                 <Sparkles className="h-3 w-3 mr-0.5" />
