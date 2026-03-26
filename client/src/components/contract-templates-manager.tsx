@@ -20,7 +20,7 @@ import { sk } from "date-fns/locale";
 import {
   FileText, Plus, Edit2, Trash2, Eye, Check, X,
   CheckCircle, Loader2, Edit, GripVertical, Globe,
-  Sparkles, Settings, RefreshCw, Download,
+  Sparkles, Settings, RefreshCw, Download, ArrowRight,
   ArrowUpDown, ChevronUp, ChevronDown, ChevronLeft, ChevronRight
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -377,6 +377,7 @@ export function ContractTemplatesManager() {
 
   const [loadingCategoryTemplate, setLoadingCategoryTemplate] = useState(false);
   const [aiMappingInProgress, setAiMappingInProgress] = useState(false);
+  const [aiMappedFields, setAiMappedFields] = useState<Set<string>>(new Set());
   const [templatePreviewPdfUrl, setTemplatePreviewPdfUrl] = useState<string | null>(null);
 
   const [categoryForm, setCategoryForm] = useState({
@@ -1531,6 +1532,11 @@ export function ContractTemplatesManager() {
                                       ...prev,
                                       placeholderMappings: { ...prev.placeholderMappings, ...result.mappings }
                                     }));
+                                    setAiMappedFields(prev => {
+                                      const next = new Set(prev);
+                                      Object.keys(result.mappings).forEach(k => next.add(k));
+                                      return next;
+                                    });
                                     toast({ title: "AI mapovanie dokončené", description: `Namapovaných ${Object.keys(result.mappings).length} polí` });
                                   }
                                 } catch (error) {
@@ -1551,38 +1557,58 @@ export function ContractTemplatesManager() {
                           </div>
 
                           {pdfFields.map((pdfField: any, idx: number) => (
-                            <div key={idx} className="grid grid-cols-2 gap-4 items-center p-2 border rounded-md">
-                              <div className="flex items-center gap-2">
-                                <Badge variant="outline" className="font-mono text-xs">{pdfField.name}</Badge>
-                                <span className="text-xs text-muted-foreground">{pdfField.type}</span>
+                            <div key={idx} className="grid grid-cols-[1fr_auto_1fr] gap-3 items-center p-2 border rounded-md">
+                              <div className="min-w-0">
+                                <p className="text-sm font-mono break-words whitespace-normal leading-snug">{pdfField.name}</p>
+                                {pdfField.type !== "text" && (
+                                  <span className="text-[10px] text-muted-foreground">{pdfField.type}</span>
+                                )}
                               </div>
-                              <Select
-                                value={templateForm.placeholderMappings[pdfField.name] || "__none__"}
-                                onValueChange={(value) => setTemplateForm(prev => {
-                                  const newMappings = { ...prev.placeholderMappings };
-                                  if (value && value !== "__none__") {
-                                    newMappings[pdfField.name] = value;
-                                  } else {
-                                    delete newMappings[pdfField.name];
-                                  }
-                                  return { ...prev, placeholderMappings: newMappings };
-                                })}
-                              >
-                                <SelectTrigger data-testid={`select-pdf-mapping-${idx}`}>
-                                  <SelectValue placeholder="Vyberte údaj..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="__none__">-- Nevyplnené --</SelectItem>
-                                  {CUSTOMER_FIELDS.map(group => (
-                                    <div key={group.group}>
-                                      <div className="px-2 py-1 text-xs font-semibold text-muted-foreground bg-muted">{group.group}</div>
-                                      {group.fields.map(f => (
-                                        <SelectItem key={f.key} value={f.key}>{f.label}</SelectItem>
-                                      ))}
-                                    </div>
-                                  ))}
-                                </SelectContent>
-                              </Select>
+                              <div className="flex items-center shrink-0">
+                                <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                              </div>
+                              <div className="flex items-center gap-2 min-w-0">
+                                <Select
+                                  value={templateForm.placeholderMappings[pdfField.name] || "__none__"}
+                                  onValueChange={(value) => {
+                                    setTemplateForm(prev => {
+                                      const newMappings = { ...prev.placeholderMappings };
+                                      if (value && value !== "__none__") {
+                                        newMappings[pdfField.name] = value;
+                                      } else {
+                                        delete newMappings[pdfField.name];
+                                      }
+                                      return { ...prev, placeholderMappings: newMappings };
+                                    });
+                                    setAiMappedFields(prev => {
+                                      const next = new Set(prev);
+                                      next.delete(pdfField.name);
+                                      return next;
+                                    });
+                                  }}
+                                >
+                                  <SelectTrigger data-testid={`select-pdf-mapping-${idx}`} className="flex-1">
+                                    <SelectValue placeholder="Vyberte údaj..." />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="__none__">-- Nevyplnené --</SelectItem>
+                                    {CUSTOMER_FIELDS.map(group => (
+                                      <div key={group.group}>
+                                        <div className="px-2 py-1 text-xs font-semibold text-muted-foreground bg-muted">{group.group}</div>
+                                        {group.fields.map(f => (
+                                          <SelectItem key={f.key} value={f.key}>{f.label}</SelectItem>
+                                        ))}
+                                      </div>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                {aiMappedFields.has(pdfField.name) && templateForm.placeholderMappings[pdfField.name] && (
+                                  <Badge variant="secondary" className="bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 shrink-0 text-[10px] px-1.5 py-0.5">
+                                    <Sparkles className="h-3 w-3 mr-0.5" />
+                                    AI
+                                  </Badge>
+                                )}
+                              </div>
                             </div>
                           ))}
                         </>
@@ -2460,6 +2486,11 @@ export function ContractTemplatesManager() {
 
                               if (result.mappings) {
                                 setTemplateMappings(prev => ({ ...prev, ...result.mappings }));
+                                setAiMappedFields(prev => {
+                                  const next = new Set(prev);
+                                  Object.keys(result.mappings).forEach(k => next.add(k));
+                                  return next;
+                                });
                                 toast({
                                   title: "AI mapovanie dokončené",
                                   description: `Namapovaných ${Object.keys(result.mappings).length} polí`
@@ -2493,43 +2524,61 @@ export function ContractTemplatesManager() {
                       </div>
 
                       {editingTemplateData.extractedFields.map((field, idx) => (
-                        <div key={idx} className="grid grid-cols-2 gap-4 items-center p-2 border rounded-md">
-                          <div className="flex items-center gap-2">
-                            <Badge variant="outline" className="font-mono text-xs">
+                        <div key={idx} className="grid grid-cols-[1fr_auto_1fr] gap-3 items-center p-2 border rounded-md">
+                          <div className="min-w-0">
+                            <p className="text-sm font-mono break-words whitespace-normal leading-snug">
                               {editingTemplateData.templateType === "docx" ? `{{${field}}}` : field}
-                            </Badge>
+                            </p>
                           </div>
-                          <Select
-                            value={templateMappings[field] || "__none__"}
-                            onValueChange={(value) => setTemplateMappings(prev => {
-                              const newMappings = { ...prev };
-                              if (value && value !== "__none__") {
-                                newMappings[field] = value;
-                              } else {
-                                delete newMappings[field];
-                              }
-                              return newMappings;
-                            })}
-                          >
-                            <SelectTrigger data-testid={`select-mapping-${idx}`}>
-                              <SelectValue placeholder="Vyberte údaj..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="__none__">-- Nevyplnené --</SelectItem>
-                              {CUSTOMER_FIELDS.map(group => (
-                                <div key={group.group}>
-                                  <div className="px-2 py-1 text-xs font-semibold text-muted-foreground bg-muted">
-                                    {group.group}
+                          <div className="flex items-center shrink-0">
+                            <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                          </div>
+                          <div className="flex items-center gap-2 min-w-0">
+                            <Select
+                              value={templateMappings[field] || "__none__"}
+                              onValueChange={(value) => {
+                                setTemplateMappings(prev => {
+                                  const newMappings = { ...prev };
+                                  if (value && value !== "__none__") {
+                                    newMappings[field] = value;
+                                  } else {
+                                    delete newMappings[field];
+                                  }
+                                  return newMappings;
+                                });
+                                setAiMappedFields(prev => {
+                                  const next = new Set(prev);
+                                  next.delete(field);
+                                  return next;
+                                });
+                              }}
+                            >
+                              <SelectTrigger data-testid={`select-mapping-${idx}`} className="flex-1">
+                                <SelectValue placeholder="Vyberte údaj..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="__none__">-- Nevyplnené --</SelectItem>
+                                {CUSTOMER_FIELDS.map(group => (
+                                  <div key={group.group}>
+                                    <div className="px-2 py-1 text-xs font-semibold text-muted-foreground bg-muted">
+                                      {group.group}
+                                    </div>
+                                    {group.fields.map(f => (
+                                      <SelectItem key={f.key} value={f.key}>
+                                        {f.label}
+                                      </SelectItem>
+                                    ))}
                                   </div>
-                                  {group.fields.map(f => (
-                                    <SelectItem key={f.key} value={f.key}>
-                                      {f.label}
-                                    </SelectItem>
-                                  ))}
-                                </div>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            {aiMappedFields.has(field) && templateMappings[field] && (
+                              <Badge variant="secondary" className="bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 shrink-0 text-[10px] px-1.5 py-0.5">
+                                <Sparkles className="h-3 w-3 mr-0.5" />
+                                AI
+                              </Badge>
+                            )}
+                          </div>
                         </div>
                       ))}
                     </div>
