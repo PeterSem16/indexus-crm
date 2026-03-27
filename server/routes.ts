@@ -26696,6 +26696,40 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
     }
   });
 
+  app.patch("/api/contracts/categories/:categoryId/default-templates/by-id/:templateId/mappings", requireAuth, async (req, res) => {
+    try {
+      const templateId = parseInt(req.params.templateId);
+      const { mappings, aiMappedFields } = req.body;
+
+      const nonEmptyMappings = mappings ? Object.entries(mappings).filter(([k, v]: [string, any]) => v && String(v).trim() !== '') : [];
+      console.log(`[PATCH mappings by-id] templateId=${templateId}, nonEmpty=${nonEmptyMappings.length}, aiFields=${aiMappedFields?.length || 0}`);
+
+      const template = await storage.getCategoryDefaultTemplateById(templateId);
+      if (!template) {
+        return res.status(404).json({ error: "Template not found" });
+      }
+
+      const updateData: any = {
+        placeholderMappings: JSON.stringify(mappings),
+      };
+
+      if (aiMappedFields && Array.isArray(aiMappedFields)) {
+        let meta: any = {};
+        if (template.conversionMetadata) {
+          try { meta = JSON.parse(template.conversionMetadata); } catch (e) {}
+        }
+        meta.aiMappedFields = aiMappedFields;
+        updateData.conversionMetadata = JSON.stringify(meta);
+      }
+
+      const result = await storage.updateCategoryDefaultTemplate(template.id, updateData);
+      res.json(result);
+    } catch (error) {
+      console.error("Error updating mappings by id:", error);
+      res.status(500).json({ error: "Failed to update mappings" });
+    }
+  });
+
   app.patch("/api/contracts/categories/:categoryId/default-templates/:countryCode/mappings", requireAuth, async (req, res) => {
     try {
       const categoryId = parseInt(req.params.categoryId);

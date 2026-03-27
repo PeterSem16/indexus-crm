@@ -591,6 +591,8 @@ export function ContractTemplatesManager() {
   const [templatePreviewLoading, setTemplatePreviewLoading] = useState(false);
 
   const [isTemplateEditorOpen, setIsTemplateEditorOpen] = useState(false);
+  const [editingTemplateId, setEditingTemplateId] = useState<number | null>(null);
+  const [editingTemplateFileName, setEditingTemplateFileName] = useState("");
   const [isTemplateEditorLoading, setIsTemplateEditorLoading] = useState(false);
   const [isAiInsertingPlaceholders, setIsAiInsertingPlaceholders] = useState(false);
   const [isResettingTemplate, setIsResettingTemplate] = useState(false);
@@ -636,8 +638,11 @@ export function ContractTemplatesManager() {
       }
     }
     try {
-      console.log('[saveMappingToServer] Saving', Object.keys(filteredMappings).length, 'mappings for cat', catId, 'country', countryCode, 'field:', fieldName);
-      const resp = await fetch(`/api/contracts/categories/${catId}/default-templates/${countryCode}/mappings`, {
+      const saveUrl = editingTemplateId
+        ? `/api/contracts/categories/${catId}/default-templates/by-id/${editingTemplateId}/mappings`
+        : `/api/contracts/categories/${catId}/default-templates/${countryCode}/mappings`;
+      console.log('[saveMappingToServer] Saving', Object.keys(filteredMappings).length, 'mappings for cat', catId, 'country', countryCode, 'templateId:', editingTemplateId, 'field:', fieldName);
+      const resp = await fetch(saveUrl, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mappings: filteredMappings, aiMappedFields: aiFields }),
@@ -1017,6 +1022,8 @@ export function ContractTemplatesManager() {
 
   const handleEditCategoryTemplate = async (categoryId: number, countryCode: string, templateId?: number) => {
     setEditingTemplateCountry(countryCode);
+    setEditingTemplateId(templateId || null);
+    setEditingTemplateFileName("");
     setEditingTemplateData(null);
     setTemplateMappings({});
     setIsTemplateEditorLoading(true);
@@ -1077,6 +1084,20 @@ export function ContractTemplatesManager() {
             }
           } catch (e) {}
         }
+
+        let docFileName = "";
+        if (template.conversionMetadata) {
+          try {
+            const metaObj = typeof template.conversionMetadata === 'string' ? JSON.parse(template.conversionMetadata) : template.conversionMetadata;
+            docFileName = metaObj.originalFilename || "";
+          } catch (e) {}
+        }
+        if (!docFileName) {
+          const src = template.sourceDocxPath || template.sourcePdfPath || "";
+          docFileName = src.split("/").pop() || `Dokument ${countryCode}`;
+        }
+        setEditingTemplateFileName(docFileName);
+        setEditingTemplateId(template.id);
 
         setEditingTemplateData({
           templateType: template.templateType || "pdf_form",
@@ -2748,23 +2769,32 @@ export function ContractTemplatesManager() {
 
       {isTemplateEditorOpen && (
         <>
-        <div className="fixed inset-0 z-[9995] bg-black/80" onClick={() => setIsTemplateEditorOpen(false)} />
-        <div className="fixed left-[50%] top-[50%] z-[9996] w-full max-w-5xl max-h-[90vh] translate-x-[-50%] translate-y-[-50%] overflow-hidden flex flex-col border bg-background p-6 shadow-lg rounded-lg">
-          <button
-            type="button"
-            className="absolute right-4 top-4 rounded-sm opacity-70 hover:opacity-100 z-10"
-            onClick={() => setIsTemplateEditorOpen(false)}
-          >
-            <X className="h-4 w-4" />
-          </button>
-          <div className="flex flex-col space-y-1.5 sm:text-left">
-            <h2 className="text-lg font-semibold leading-none tracking-tight flex items-center gap-2">
-              <Edit className="h-5 w-5" />
-              {t.contractsModule.editTemplate} - {editingTemplateCountry}
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              {t.contractsModule.fieldMapping}
-            </p>
+        <div className="fixed inset-0 z-[9995] bg-black/30 backdrop-blur-[2px] animate-in fade-in duration-200" onClick={() => setIsTemplateEditorOpen(false)} />
+        <div className="fixed inset-y-0 right-0 z-[9996] w-[820px] max-w-[95vw] bg-background border-l shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col">
+          <div className="shrink-0 flex items-center justify-between px-5 py-3.5 border-b bg-muted/30">
+            <div className="flex items-center gap-3">
+              <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center">
+                <Edit className="h-4.5 w-4.5 text-primary" />
+              </div>
+              <div>
+                <h2 className="text-base font-semibold">
+                  {t.contractsModule.editTemplate} - {editingTemplateCountry}
+                </h2>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  {editingTemplateFileName && (
+                    <span className="text-xs text-muted-foreground truncate max-w-[400px]" title={editingTemplateFileName}>
+                      {editingTemplateFileName}
+                    </span>
+                  )}
+                  {editingTemplateId && (
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0">ID: {editingTemplateId}</Badge>
+                  )}
+                </div>
+              </div>
+            </div>
+            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={() => setIsTemplateEditorOpen(false)}>
+              <X className="h-4 w-4" />
+            </Button>
           </div>
 
           <div className="flex-1 overflow-y-auto">
@@ -2774,26 +2804,27 @@ export function ContractTemplatesManager() {
                 <p className="text-muted-foreground">Načítavam šablónu...</p>
               </div>
             ) : editingTemplateData ? (
-              <Tabs defaultValue={editingTemplateData.templateType === "pdf_form" ? "mapping" : "editor"} className="w-full">
-                <TabsList className={`grid w-full mb-4 ${editingTemplateData.templateType === "pdf_form" ? "grid-cols-2" : "grid-cols-3"}`}>
+              <Tabs defaultValue={editingTemplateData.templateType === "pdf_form" ? "mapping" : "editor"} className="w-full h-full flex gap-0">
+                <TabsList className="flex flex-col h-auto w-[180px] shrink-0 bg-muted/30 border-r rounded-none p-2 gap-1 items-stretch justify-start">
                   {editingTemplateData.templateType !== "pdf_form" && (
-                    <TabsTrigger value="editor" data-testid="tab-template-editor">
-                      <FileText className="h-4 w-4 mr-2" />
+                    <TabsTrigger value="editor" className="justify-start gap-2 px-3 py-2.5 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm" data-testid="tab-template-editor">
+                      <FileText className="h-4 w-4" />
                       {t.contractsModule.docxEditor}
                     </TabsTrigger>
                   )}
-                  <TabsTrigger value="mapping" data-testid="tab-template-mapping">
-                    <Settings className="h-4 w-4 mr-2" />
+                  <TabsTrigger value="mapping" className="justify-start gap-2 px-3 py-2.5 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm" data-testid="tab-template-mapping">
+                    <Settings className="h-4 w-4" />
                     {t.contractsModule.fieldMapping}
                   </TabsTrigger>
-                  <TabsTrigger value="preview" data-testid="tab-template-preview">
-                    <Eye className="h-4 w-4 mr-2" />
+                  <TabsTrigger value="preview" className="justify-start gap-2 px-3 py-2.5 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm" data-testid="tab-template-preview">
+                    <Eye className="h-4 w-4" />
                     {t.contractsModule.previewTab}
                   </TabsTrigger>
                 </TabsList>
+                <div className="flex-1 overflow-y-auto">
 
                 {editingTemplateData.templateType !== "pdf_form" && (
-                <TabsContent value="editor" className="h-[60vh]">
+                <TabsContent value="editor" className="h-[60vh] mt-0 p-4">
                   {editingTemplateData.templateType === "docx" && editingTemplateData.categoryId && editingTemplateData.countryCode ? (
                     <DocxEditor
                       categoryId={editingTemplateData.categoryId}
@@ -2812,7 +2843,7 @@ export function ContractTemplatesManager() {
                 </TabsContent>
                 )}
 
-                <TabsContent value="mapping" className="space-y-4">
+                <TabsContent value="mapping" className="space-y-4 mt-0 p-4">
                   <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-md">
                     <Badge variant={editingTemplateData.templateType === "docx" ? "default" : "secondary"}>
                       {editingTemplateData.templateType === "docx" ? "DOCX šablóna" : "PDF formulár"}
@@ -3169,7 +3200,7 @@ export function ContractTemplatesManager() {
                   )}
                 </TabsContent>
 
-                <TabsContent value="preview" className="space-y-4">
+                <TabsContent value="preview" className="space-y-4 mt-0 p-4">
                   <div className="flex items-center justify-between gap-4 p-3 bg-muted/50 rounded-md flex-wrap">
                     <div className="flex items-center gap-4 flex-wrap">
                       <Badge variant={editingTemplateData.templateType === "docx" ? "default" : "secondary"}>
@@ -3259,17 +3290,18 @@ export function ContractTemplatesManager() {
                     </p>
                   </div>
                 </TabsContent>
+                </div>
               </Tabs>
             ) : (
               <div className="flex flex-col items-center justify-center py-12">
                 <FileText className="h-12 w-12 text-muted-foreground mb-4 opacity-50" />
                 <p className="text-muted-foreground">Šablóna nebola načítaná.</p>
-                <p className="text-sm text-muted-foreground">Zatvorte dialóg a skúste znova.</p>
+                <p className="text-sm text-muted-foreground">Zatvorte panel a skúste znova.</p>
               </div>
             )}
           </div>
 
-          <DialogFooter className="pt-4 border-t">
+          <div className="shrink-0 flex items-center justify-end gap-2 px-5 py-3.5 border-t bg-muted/30">
             <Button variant="outline" onClick={() => setIsTemplateEditorOpen(false)}>
               Zrušiť
             </Button>
@@ -3287,7 +3319,7 @@ export function ContractTemplatesManager() {
                 t.contractsModule.saveMappings
               )}
             </Button>
-          </DialogFooter>
+          </div>
         </div>
         </>
       )}
