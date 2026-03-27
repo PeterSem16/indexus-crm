@@ -160,7 +160,10 @@ function NativeFieldSelect({
       onMouseDown={() => console.log('[NativeFieldSelect] mouseDown on', testId)}
       data-testid={testId}
       value={value || ""}
-      onChange={(e) => onSelect(e.target.value)}
+      onChange={(e) => {
+        console.log('[NativeFieldSelect] onChange fired!', testId, 'value:', e.target.value);
+        onSelect(e.target.value);
+      }}
       className={`h-9 w-full rounded-md border border-input bg-background px-2 py-1 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring ${className || ""}`}
     >
       <option value="">{placeholder || "-- Nevyplnené --"}</option>
@@ -1837,6 +1840,7 @@ export function ContractTemplatesManager() {
                                 <MultiFieldMapping
                                   value={templateForm.placeholderMappings[pdfField.name] || ""}
                                   onChange={(newValue) => {
+                                    console.log('[Dialog1] Manual mapping onChange fired!', pdfField.name, '=>', newValue, 'catId:', selectedCategory?.id, 'cc:', templateForm.countryCode);
                                     const allMappings = { ...templateForm.placeholderMappings };
                                     if (newValue) {
                                       allMappings[pdfField.name] = newValue;
@@ -2861,6 +2865,7 @@ export function ContractTemplatesManager() {
                             <MultiFieldMapping
                               value={templateMappings[fieldName] || ""}
                               onChange={(newValue) => {
+                                console.log('[Dialog2] Manual mapping onChange fired!', fieldName, '=>', newValue, 'catId:', editingTemplateData?.categoryId || selectedCategory?.id, 'country:', editingTemplateCountry);
                                 const catId = editingTemplateData?.categoryId || selectedCategory?.id;
                                 const allMappings = { ...templateMappings };
                                 if (newValue) {
