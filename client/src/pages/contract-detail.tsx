@@ -575,9 +575,9 @@ export default function ContractDetailPage() {
             const completedIndex = lifecycleSteps.reduce((last, step, i) => formState[step.id] ? i : last, -1);
             return (
               <Card>
-                <CardContent className="pt-5 pb-4 px-4">
-                  <div className="relative overflow-x-auto" data-testid="contract-lifecycle-timeline">
-                    <div className="flex items-start min-w-[640px]">
+                <CardContent className="pt-5 pb-4 px-2">
+                  <div className="relative" data-testid="contract-lifecycle-timeline">
+                    <div className="flex items-start">
                       {lifecycleSteps.map((step, i) => {
                         const StepIcon = step.icon;
                         const hasDate = !!formState[step.id];
@@ -585,7 +585,7 @@ export default function ContractDetailPage() {
                         const isActive = i === completedIndex + 1 && !hasDate;
                         const isPast = i <= completedIndex;
                         return (
-                          <div key={step.id} className="flex-1 flex flex-col items-center relative" style={{ minWidth: 80 }}>
+                          <div key={step.id} className="flex-1 flex flex-col items-center relative" style={{ minWidth: 0 }}>
                             <div className="flex items-center w-full">
                               {i > 0 && (
                                 <div className="flex-1 h-0.5" style={{ backgroundColor: isPast ? step.color : "hsl(var(--border))" }} />
@@ -593,8 +593,8 @@ export default function ContractDetailPage() {
                               <div
                                 className={`relative z-10 flex items-center justify-center rounded-full shrink-0 transition-all ${isActive ? "animate-timeline-pulse" : ""}`}
                                 style={{
-                                  width: isActive ? 36 : 30,
-                                  height: isActive ? 36 : 30,
+                                  width: isActive ? 32 : 26,
+                                  height: isActive ? 32 : 26,
                                   backgroundColor: isCompleted ? step.color : isActive ? "hsl(var(--background))" : "hsl(var(--muted))",
                                   border: isActive ? `2px solid ${step.color}` : isCompleted ? "none" : "2px solid hsl(var(--border))",
                                   boxShadow: isActive ? `0 0 0 3px ${step.color}30` : isCompleted ? `0 2px 4px ${step.color}40` : "none",
@@ -604,8 +604,8 @@ export default function ContractDetailPage() {
                                 <StepIcon
                                   className="transition-all"
                                   style={{
-                                    width: isActive ? 16 : 14,
-                                    height: isActive ? 16 : 14,
+                                    width: isActive ? 14 : 12,
+                                    height: isActive ? 14 : 12,
                                     color: isCompleted ? "white" : isActive ? step.color : "hsl(var(--muted-foreground))",
                                   }}
                                 />
@@ -614,15 +614,15 @@ export default function ContractDetailPage() {
                                 <div className="flex-1 h-0.5" style={{ backgroundColor: isPast && i < completedIndex ? lifecycleSteps[i + 1].color : "hsl(var(--border))" }} />
                               )}
                             </div>
-                            <p className="text-[10px] leading-tight text-center mt-1.5 px-0.5 font-medium" style={{ color: isCompleted ? step.color : isActive ? "hsl(var(--foreground))" : "hsl(var(--muted-foreground))" }}>
+                            <p className="text-[9px] leading-tight text-center mt-1 px-0.5 font-medium truncate w-full" style={{ color: isCompleted ? step.color : isActive ? "hsl(var(--foreground))" : "hsl(var(--muted-foreground))" }}>
                               {step.label}
                             </p>
                             {hasDate ? (
-                              <p className="text-[9px] text-muted-foreground text-center mt-0.5">
+                              <p className="text-[8px] text-muted-foreground text-center mt-0.5">
                                 {formatDate(formState[step.id], contractCountryCode)}
                               </p>
                             ) : isActive ? (
-                              <p className="text-[9px] text-center mt-0.5 font-medium animate-pulse" style={{ color: step.color }}>
+                              <p className="text-[8px] text-center mt-0.5 font-medium animate-pulse" style={{ color: step.color }}>
                                 ●
                               </p>
                             ) : null}
