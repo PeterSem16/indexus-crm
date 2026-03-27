@@ -27194,19 +27194,42 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
         return res.status(404).json({ error: "Contract not found" });
       }
       
-      const contract = await storage.updateContractInstance(req.params.id, req.body);
+      const updateData: Record<string, any> = {};
+      const allowedFields = [
+        "status", "sentContractDate", "signedDate", "pdfPath", 
+        "signatureRequestId", "signatureData", "signatureMethod",
+        "signedAt", "signedByIp", "currency", "totalAmount",
+        "notes", "billingDetailsId", "internalId", "templateId",
+        "contractNumber", "customerId", "countryCode"
+      ];
+      const dateFields = ["sentContractDate", "signedDate", "signedAt"];
+      for (const key of allowedFields) {
+        if (req.body[key] !== undefined) {
+          if (dateFields.includes(key) && typeof req.body[key] === "string") {
+            updateData[key] = new Date(req.body[key]);
+          } else {
+            updateData[key] = req.body[key];
+          }
+        }
+      }
       
-      await storage.createContractAuditLog({
-        contractId: contract!.id,
-        action: "updated",
-        actorId: req.session.user!.id,
-        actorType: "user",
-        actorName: req.session.user!.fullName,
-        actorEmail: req.session.user!.email,
-        ipAddress: req.ip,
-        previousValue: JSON.stringify(existingContract),
-        newValue: JSON.stringify(contract)
-      });
+      const contract = await storage.updateContractInstance(req.params.id, updateData);
+      
+      try {
+        await storage.createContractAuditLog({
+          contractId: contract!.id,
+          action: "updated",
+          actorId: req.session.user!.id,
+          actorType: "user",
+          actorName: req.session.user!.fullName,
+          actorEmail: req.session.user!.email,
+          ipAddress: req.ip,
+          previousValue: JSON.stringify(existingContract),
+          newValue: JSON.stringify(contract)
+        });
+      } catch (auditError) {
+        console.error("Error creating audit log (non-critical):", auditError);
+      }
       
       res.json(contract);
     } catch (error) {
