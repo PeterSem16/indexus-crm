@@ -1,0 +1,90 @@
+seman@CORPCRM01:/var/www/indexus-crm$ cat /tmp/invoice-discovery.log
+Connected to ISCBC.
+
+=== 1. CONTRACT (con_number = 1112600003) ===
+
+RequestError: Invalid column name 'mpr_code'.
+    at handleError (/var/www/indexus-crm/node_modules/mssql/lib/tedious/request.js:384:15)
+    at Connection.emit (node:events:524:28)
+    at Connection.emit (/var/www/indexus-crm/node_modules/tedious/lib/connection.js:1013:18)
+    at RequestTokenHandler.onErrorMessage (/var/www/indexus-crm/node_modules/tedious/lib/token/handler.js:285:21)
+    at Readable.<anonymous> (/var/www/indexus-crm/node_modules/tedious/lib/token/token-stream-parser.js:19:33)
+    at Readable.emit (node:events:524:28)
+    at addChunk (node:internal/streams/readable:561:12)
+    at readableAddChunkPushObjectMode (node:internal/streams/readable:538:3)
+    at Readable.push (node:internal/streams/readable:393:5)
+    at nextAsync (node:internal/streams/from:194:22) {
+  code: 'EREQUEST',
+  originalError: Error: Invalid column name 'mpr_code'.
+      at handleError (/var/www/indexus-crm/node_modules/mssql/lib/tedious/request.js:382:19)
+      at Connection.emit (node:events:524:28)
+      at Connection.emit (/var/www/indexus-crm/node_modules/tedious/lib/connection.js:1013:18)
+      at RequestTokenHandler.onErrorMessage (/var/www/indexus-crm/node_modules/tedious/lib/token/handler.js:285:21)
+      at Readable.<anonymous> (/var/www/indexus-crm/node_modules/tedious/lib/token/token-stream-parser.js:19:33)
+      at Readable.emit (node:events:524:28)
+      at addChunk (node:internal/streams/readable:561:12)
+      at readableAddChunkPushObjectMode (node:internal/streams/readable:538:3)
+      at Readable.push (node:internal/streams/readable:393:5)
+      at nextAsync (node:internal/streams/from:194:22) {
+    info: ErrorMessageToken {
+      name: 'ERROR',
+      handlerName: 'onErrorMessage',
+      number: 207,
+      state: 1,
+      class: 16,
+      message: "Invalid column name 'mpr_code'.",
+      serverName: 'SRVDATA01\\MSSQLSTD',
+      procName: '',
+      lineNumber: 8
+    }
+  },
+  number: 207,
+  lineNumber: 8,
+  state: 1,
+  class: 16,
+  serverName: 'SRVDATA01\\MSSQLSTD',
+  procName: '',
+  precedingErrors: [
+    RequestError: Invalid column name 'csa_name'.
+        at handleError (/var/www/indexus-crm/node_modules/mssql/lib/tedious/request.js:384:15)
+        at Connection.emit (node:events:524:28)
+        at Connection.emit (/var/www/indexus-crm/node_modules/tedious/lib/connection.js:1013:18)
+        at RequestTokenHandler.onErrorMessage (/var/www/indexus-crm/node_modules/tedious/lib/token/handler.js:285:21)
+        at Readable.<anonymous> (/var/www/indexus-crm/node_modules/tedious/lib/token/token-stream-parser.js:19:33)
+        at Readable.emit (node:events:524:28)
+        at addChunk (node:internal/streams/readable:561:12)
+        at readableAddChunkPushObjectMode (node:internal/streams/readable:538:3)
+        at Readable.push (node:internal/streams/readable:393:5)
+        at nextAsync (node:internal/streams/from:194:22) {
+      code: 'EREQUEST',
+      originalError: [Error],
+      number: 207,
+      lineNumber: 2,
+      state: 1,
+      class: 16,
+      serverName: 'SRVDATA01\\MSSQLSTD',
+      procName: ''
+    },
+    RequestError: Invalid column name 'mpi_code'.
+        at handleError (/var/www/indexus-crm/node_modules/mssql/lib/tedious/request.js:384:15)
+        at Connection.emit (node:events:524:28)
+        at Connection.emit (/var/www/indexus-crm/node_modules/tedious/lib/connection.js:1013:18)
+        at RequestTokenHandler.onErrorMessage (/var/www/indexus-crm/node_modules/tedious/lib/token/handler.js:285:21)
+        at Readable.<anonymous> (/var/www/indexus-crm/node_modules/tedious/lib/token/token-stream-parser.js:19:33)
+        at Readable.emit (node:events:524:28)
+        at addChunk (node:internal/streams/readable:561:12)
+        at readableAddChunkPushObjectMode (node:internal/streams/readable:538:3)
+        at Readable.push (node:internal/streams/readable:393:5)
+        at nextAsync (node:internal/streams/from:194:22) {
+      code: 'EREQUEST',
+      originalError: [Error],
+      number: 207,
+      lineNumber: 7,
+      state: 1,
+      class: 16,
+      serverName: 'SRVDATA01\\MSSQLSTD',
+      procName: ''
+    }
+  ]
+}
+seman@CORPCRM01:/v
