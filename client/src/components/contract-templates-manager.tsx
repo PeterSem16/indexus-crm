@@ -583,7 +583,7 @@ export function ContractTemplatesManager() {
     DE: { file: null, uploading: false, uploaded: false },
     US: { file: null, uploading: false, uploaded: false },
   });
-  const [categoryDefaultTemplates, setCategoryDefaultTemplates] = useState<Record<string, { exists: boolean; templateType?: string }>>({});
+  const [categoryDefaultTemplates, setCategoryDefaultTemplates] = useState<Record<string, Array<{ id: number; countryCode: string; templateType: string; conversionStatus: string; sourceDocxPath?: string; sourcePdfPath?: string; conversionMetadata?: string }>>>({});
 
   const [isTemplatePreviewOpen, setIsTemplatePreviewOpen] = useState(false);
   const [templatePreviewContent, setTemplatePreviewContent] = useState("");
@@ -820,9 +820,12 @@ export function ContractTemplatesManager() {
         credentials: "include"
       });
       if (response.ok) {
-        const templates = await response.json() as Array<{ countryCode: string; templateType?: string }>;
-        const templateMap: Record<string, { exists: boolean; templateType?: string }> = {};
-        templates.forEach(t => { templateMap[t.countryCode] = { exists: true, templateType: t.templateType }; });
+        const templates = await response.json() as Array<{ id: number; countryCode: string; templateType: string; conversionStatus: string; sourceDocxPath?: string; sourcePdfPath?: string; conversionMetadata?: string }>;
+        const templateMap: Record<string, typeof templates> = {};
+        templates.forEach(t => {
+          if (!templateMap[t.countryCode]) templateMap[t.countryCode] = [];
+          templateMap[t.countryCode].push(t);
+        });
         setCategoryDefaultTemplates(templateMap);
       }
     } catch (e) {
@@ -1977,32 +1980,33 @@ export function ContractTemplatesManager() {
         </>
       )}
 
-      <Dialog open={isCategoryDialogOpen} onOpenChange={(open) => {
-        setIsCategoryDialogOpen(open);
-        if (!open) {
-          resetCategoryForm();
-          setSelectedCategory(null);
-        }
-      }}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
-          <DialogHeader className="shrink-0">
-            <DialogTitle>
-              {categoryWizardStep === 0
-                ? t.contractsModule.editCategory
-                : selectedCategory
-                  ? `${t.contractsModule.editCategory} - ${categoryWizardStep}/2`
-                  : `${t.contractsModule.newCategory} - ${categoryWizardStep}/2`
-              }
-            </DialogTitle>
-            <DialogDescription>
-              {categoryWizardStep === 0 && t.contractsModule.editCategory}
-              {categoryWizardStep === 1 && t.contractsModule.categoryDescription}
-              {categoryWizardStep === 2 && t.contractsModule.categoryDescription}
-            </DialogDescription>
-          </DialogHeader>
+      {isCategoryDialogOpen && (
+        <div className="fixed inset-0 z-50 flex justify-end">
+          <div className="fixed inset-0 bg-black/40" onClick={() => { setIsCategoryDialogOpen(false); resetCategoryForm(); setSelectedCategory(null); }} />
+          <div className="relative z-50 w-[700px] max-w-[90vw] h-full bg-background shadow-xl border-l flex flex-col animate-in slide-in-from-right duration-300">
+            <div className="flex items-center justify-between p-6 pb-2 shrink-0 border-b">
+              <div>
+                <h2 className="text-lg font-semibold">
+                  {categoryWizardStep === 0
+                    ? t.contractsModule.editCategory
+                    : selectedCategory
+                      ? `${t.contractsModule.editCategory} - ${categoryWizardStep}/2`
+                      : `${t.contractsModule.newCategory} - ${categoryWizardStep}/2`
+                  }
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  {categoryWizardStep === 0 && t.contractsModule.editCategory}
+                  {categoryWizardStep === 1 && t.contractsModule.categoryDescription}
+                  {categoryWizardStep === 2 && t.contractsModule.categoryDescription}
+                </p>
+              </div>
+              <Button variant="ghost" size="icon" onClick={() => { setIsCategoryDialogOpen(false); resetCategoryForm(); setSelectedCategory(null); }}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
 
           {categoryWizardStep > 0 && (
-            <div className="flex gap-2 mb-4 px-1">
+            <div className="flex gap-2 px-6 pt-4">
               {[1, 2].map(step => (
                 <div
                   key={step}
@@ -2014,7 +2018,7 @@ export function ContractTemplatesManager() {
             </div>
           )}
 
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto px-6 py-4">
             {categoryWizardStep === 1 && (
               <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-2 gap-4">
@@ -2335,8 +2339,9 @@ export function ContractTemplatesManager() {
                       { code: "DE", name: "Nemecko" },
                       { code: "US", name: "USA" },
                     ].map(country => {
-                      const hasTemplate = categoryDefaultTemplates[country.code]?.exists;
-                      const templateTypeForCountry = categoryDefaultTemplates[country.code]?.templateType;
+                      const templates = categoryDefaultTemplates[country.code] || [];
+                      const hasTemplate = templates.length > 0;
+                      const templateTypeForCountry = templates[0]?.templateType;
                       const uploadState = categoryPdfUploads[country.code];
                       const isConverting = uploadState?.uploading;
 
@@ -2450,10 +2455,13 @@ export function ContractTemplatesManager() {
                                               extractedFields: result.extractedFields || [],
                                             }
                                           }));
-                                          setCategoryDefaultTemplates(prev => ({
-                                            ...prev,
-                                            [country.code]: { exists: true, templateType: result.templateType || "docx" }
-                                          }));
+                                          setCategoryDefaultTemplates(prev => {
+                                            const existing = prev[country.code] || [];
+                                            return {
+                                              ...prev,
+                                              [country.code]: [...existing, { id: result.id, countryCode: country.code, templateType: result.templateType || "docx", conversionStatus: result.conversionStatus || "completed", sourceDocxPath: result.sourceDocxPath, sourcePdfPath: result.sourcePdfPath, conversionMetadata: result.conversionMetadata }]
+                                            };
+                                          });
                                           const fieldCount = result.extractedFields?.length || 0;
                                           toast({
                                             title: `Šablóna nahraná`,
@@ -2475,17 +2483,8 @@ export function ContractTemplatesManager() {
                                     disabled={isConverting}
                                     data-testid={`input-reupload-template-${country.code}`}
                                   />
-                                  {hasTemplate ? (
-                                    <>
-                                      <RefreshCw className="w-4 h-4" />
-                                      Nahradiť
-                                    </>
-                                  ) : (
-                                    <>
-                                      <Plus className="w-4 h-4" />
-                                      Nahrať
-                                    </>
-                                  )}
+                                  <Plus className="w-4 h-4" />
+                                  {hasTemplate ? "Pridať ďalší" : "Nahrať"}
                                 </label>
 
                                 {hasTemplate && !isConverting && (
@@ -2499,69 +2498,94 @@ export function ContractTemplatesManager() {
                                     >
                                       <Edit2 className="h-4 w-4" />
                                     </Button>
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={async () => {
-                                        try {
-                                          const response = await fetch(`/api/contracts/categories/${selectedCategory.id}/templates/${country.code}/download`, {
-                                            credentials: "include"
-                                          });
-                                          if (!response.ok) throw new Error("Download failed");
-                                          const blob = await response.blob();
-                                          const url = URL.createObjectURL(blob);
-                                          const a = document.createElement("a");
-                                          a.href = url;
-                                          const ext = templateTypeForCountry === 'pdf_form' ? 'pdf' : 'docx';
-                                          a.download = `template_${selectedCategory.value}_${country.code}.${ext}`;
-                                          a.click();
-                                          URL.revokeObjectURL(url);
-                                        } catch (error) {
-                                          toast({ title: t.contractsModule.saveError, variant: "destructive" });
-                                        }
-                                      }}
-                                      data-testid={`button-download-template-${country.code}`}
-                                      title={t.contractsModule.downloadDocx}
-                                    >
-                                      <Download className="h-4 w-4" />
-                                    </Button>
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={async () => {
-                                        if (!confirm(`Naozaj chcete vymazať šablónu pre ${country.name}?`)) return;
-                                        try {
-                                          const response = await fetch(`/api/contracts/categories/${selectedCategory.id}/default-templates/${country.code}`, {
-                                            method: "DELETE",
-                                            credentials: "include"
-                                          });
-                                          if (!response.ok) throw new Error("Delete failed");
-                                          setCategoryDefaultTemplates(prev => {
-                                            const newState = { ...prev };
-                                            delete newState[country.code];
-                                            return newState;
-                                          });
-
-                                          setCategoryPdfUploads(prev => ({
-                                            ...prev,
-                                            [country.code]: { file: null, uploading: false, uploaded: false }
-                                          }));
-                                          toast({ title: t.contractsModule.templateDeleted });
-                                          queryClient.invalidateQueries({ queryKey: ["/api/contracts/categories"] });
-                                        } catch (error) {
-                                          toast({ title: t.contractsModule.saveError, variant: "destructive" });
-                                        }
-                                      }}
-                                      data-testid={`button-delete-template-${country.code}`}
-                                      title={t.contractsModule.deleteTemplate}
-                                      className="text-destructive hover:text-destructive"
-                                    >
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
                                   </>
                                 )}
                               </div>
                             </div>
+                            
+                            {templates.length > 0 && (
+                              <div className="border-t divide-y">
+                                {templates.map((tmpl, idx) => {
+                                  const meta = tmpl.conversionMetadata ? (() => { try { return JSON.parse(tmpl.conversionMetadata); } catch { return {}; } })() : {};
+                                  const fileName = meta.originalFilename || `Dokument ${idx + 1}`;
+                                  return (
+                                    <div key={tmpl.id} className="flex items-center gap-3 px-3 py-2 hover:bg-muted/50" data-testid={`template-row-${tmpl.id}`}>
+                                      <FileText className="w-4 h-4 text-muted-foreground shrink-0" />
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-sm truncate">{fileName}</p>
+                                        <p className="text-xs text-muted-foreground">
+                                          {tmpl.templateType === 'docx' ? 'DOCX' : 'PDF'} 
+                                          {meta.fileSize ? ` · ${(meta.fileSize / 1024).toFixed(0)} KB` : ''}
+                                        </p>
+                                      </div>
+                                      <div className="flex items-center gap-1 shrink-0">
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          className="h-7 w-7 p-0"
+                                          onClick={async () => {
+                                            try {
+                                              const fileSrc = tmpl.sourceDocxPath || tmpl.sourcePdfPath;
+                                              if (!fileSrc) throw new Error("No file path");
+                                              const response = await fetch(`/api/contracts/template-file/${encodeURIComponent(fileSrc)}`, {
+                                                credentials: "include"
+                                              });
+                                              if (!response.ok) throw new Error("Download failed");
+                                              const blob = await response.blob();
+                                              const url = URL.createObjectURL(blob);
+                                              const a = document.createElement("a");
+                                              a.href = url;
+                                              a.download = fileName;
+                                              a.click();
+                                              URL.revokeObjectURL(url);
+                                            } catch (error) {
+                                              toast({ title: "Chyba pri sťahovaní", variant: "destructive" });
+                                            }
+                                          }}
+                                          data-testid={`button-download-template-${tmpl.id}`}
+                                          title="Stiahnuť"
+                                        >
+                                          <Download className="h-3.5 w-3.5" />
+                                        </Button>
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                                          onClick={async () => {
+                                            if (!confirm(`Naozaj chcete vymazať "${fileName}"?`)) return;
+                                            try {
+                                              const response = await fetch(`/api/contracts/categories/${selectedCategory!.id}/default-templates/by-id/${tmpl.id}`, {
+                                                method: "DELETE",
+                                                credentials: "include"
+                                              });
+                                              if (!response.ok) throw new Error("Delete failed");
+                                              setCategoryDefaultTemplates(prev => {
+                                                const existing = prev[country.code] || [];
+                                                const filtered = existing.filter(t => t.id !== tmpl.id);
+                                                if (filtered.length === 0) {
+                                                  const newState = { ...prev };
+                                                  delete newState[country.code];
+                                                  return newState;
+                                                }
+                                                return { ...prev, [country.code]: filtered };
+                                              });
+                                              toast({ title: "Šablóna bola vymazaná" });
+                                              queryClient.invalidateQueries({ queryKey: ["/api/contracts/categories"] });
+                                            } catch (error) {
+                                              toast({ title: "Chyba pri mazaní", variant: "destructive" });
+                                            }
+                                          }}
+                                          data-testid={`button-delete-template-${tmpl.id}`}
+                                          title="Vymazať"
+                                        >
+                                          <Trash2 className="h-3.5 w-3.5" />
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
                           </div>
                         </div>
                       );
@@ -2572,7 +2596,7 @@ export function ContractTemplatesManager() {
             )}
           </div>
 
-          <DialogFooter className="shrink-0 pt-4 border-t gap-2">
+          <div className="shrink-0 pt-4 border-t gap-2 flex justify-end p-6">
             <Button variant="outline" onClick={() => setIsCategoryDialogOpen(false)}>
               Zrušiť
             </Button>
@@ -2667,9 +2691,10 @@ export function ContractTemplatesManager() {
                 {createCategoryMutation.isPending || updateCategoryMutation.isPending ? t.contractsModule.saving : t.contractsModule.saveCategory}
               </Button>
             )}
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </div>
+          </div>
+        </div>
+      )}
 
       <Dialog open={isTemplatePreviewOpen} onOpenChange={setIsTemplatePreviewOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
