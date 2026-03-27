@@ -1855,13 +1855,22 @@ export function ContractTemplatesManager() {
                                   testId={`select-pdf-mapping-${idx}`}
                                 />
                                 {fieldSaveStatus[pdfField.name] === 'saving' && (
-                                  <Loader2 className="h-3 w-3 animate-spin text-blue-500 shrink-0" />
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-[11px] font-medium shrink-0 animate-pulse">
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                    Ukladám...
+                                  </span>
                                 )}
                                 {fieldSaveStatus[pdfField.name] === 'saved' && (
-                                  <Check className="h-3 w-3 text-green-500 shrink-0" />
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 text-[11px] font-medium shrink-0">
+                                    <Check className="h-3.5 w-3.5" />
+                                    Uložené
+                                  </span>
                                 )}
                                 {fieldSaveStatus[pdfField.name] === 'error' && (
-                                  <X className="h-3 w-3 text-red-500 shrink-0" />
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 text-[11px] font-medium shrink-0">
+                                    <X className="h-3.5 w-3.5" />
+                                    Chyba
+                                  </span>
                                 )}
                                 {aiMappedFields.has(pdfField.name) && templateForm.placeholderMappings[pdfField.name] && (
                                   <Badge variant="secondary" className="bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 shrink-0 text-[10px] px-1.5 py-0.5">
@@ -2868,13 +2877,22 @@ export function ContractTemplatesManager() {
                               testId={`select-mapping-${idx}`}
                             />
                             {fieldSaveStatus[fieldName] === 'saving' && (
-                              <Loader2 className="h-3 w-3 animate-spin text-blue-500 shrink-0" />
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-[11px] font-medium shrink-0 animate-pulse">
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                Ukladám...
+                              </span>
                             )}
                             {fieldSaveStatus[fieldName] === 'saved' && (
-                              <Check className="h-3 w-3 text-green-500 shrink-0" />
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 text-[11px] font-medium shrink-0">
+                                <Check className="h-3.5 w-3.5" />
+                                Uložené
+                              </span>
                             )}
                             {fieldSaveStatus[fieldName] === 'error' && (
-                              <X className="h-3 w-3 text-red-500 shrink-0" />
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 text-[11px] font-medium shrink-0">
+                                <X className="h-3.5 w-3.5" />
+                                Chyba
+                              </span>
                             )}
                             {aiMappedFields.has(fieldName) && templateMappings[fieldName] && (
                               <Badge variant="secondary" className="bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 shrink-0 text-[10px] px-1.5 py-0.5">
