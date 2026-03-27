@@ -34897,19 +34897,43 @@ Return ONLY the JSON object.`
         return customerData;
       };
 
+      const { webForms } = await import("@shared/schema");
+      const [approveForm] = await db.select().from(webForms).where(eq(webForms.id, submission.formId));
+      const formName = approveForm?.name || "Neznámy formulár";
+
+      let hospitalName = "";
+      if (data.hospitalId) {
+        const hospital = await storage.getHospital(data.hospitalId);
+        hospitalName = hospital?.name || "";
+      }
+
+      let gynecologistName = "";
+      let gynecologistPhone = "";
+      let gynecologistEmail = "";
+      if (data.gynecologistClinicId) {
+        const clinic = await storage.getClinic(data.gynecologistClinicId);
+        if (clinic) {
+          gynecologistName = [clinic.doctorTitle, clinic.doctorFirstName, clinic.doctorLastName].filter(Boolean).join(" ") || clinic.doctorName || clinic.name || "";
+          gynecologistPhone = clinic.phone || "";
+          gynecologistEmail = clinic.email || "";
+        }
+      }
+
       let customerId = submission.customerId;
 
       if (submission.isNewCustomer || !customerId) {
         const customerData = buildCustomerData();
-        customerData.clientStatus = "potential";
+        customerData.clientStatus = "in_process";
         customerData.status = "active";
         if (!customerData.firstName) customerData.firstName = "N/A";
         if (!customerData.lastName) customerData.lastName = "N/A";
         if (!customerData.country) {
-          const { webForms } = await import("@shared/schema");
-          const [form] = await db.select().from(webForms).where(eq(webForms.id, submission.formId));
-          customerData.country = form?.countryCode || "SK";
+          customerData.country = approveForm?.countryCode || "SK";
         }
+        if (hospitalName) customerData.hospitalName = hospitalName;
+        if (gynecologistName) customerData.gynecologistName = gynecologistName;
+        if (gynecologistPhone) customerData.gynecologistPhone = gynecologistPhone;
+        if (gynecologistEmail) customerData.gynecologistEmail = gynecologistEmail;
         customerData.registrationSource = "web_form";
         customerData.registrationDate = new Date();
         const newCustomer = await storage.createCustomer(customerData);
@@ -34917,17 +34941,37 @@ Return ONLY the JSON object.`
         await storage.updateWebFormSubmission(submissionId, { customerId, isNewCustomer: false } as any);
       } else if (fieldsToUpdate && fieldsToUpdate.length > 0) {
         const updateData = buildCustomerData(fieldsToUpdate);
+        if (hospitalName) updateData.hospitalName = hospitalName;
+        if (gynecologistName) updateData.gynecologistName = gynecologistName;
+        if (gynecologistPhone) updateData.gynecologistPhone = gynecologistPhone;
+        if (gynecologistEmail) updateData.gynecologistEmail = gynecologistEmail;
+        updateData.registrationSource = "web_form";
         if (Object.keys(updateData).length > 0) {
           await storage.updateCustomer(customerId, updateData);
-          if (!updateData.registrationSource) {
-            await storage.updateCustomer(customerId, { registrationSource: "web_form" });
-          }
         }
       }
 
-      const { webForms } = await import("@shared/schema");
-      const [approveForm] = await db.select().from(webForms).where(eq(webForms.id, submission.formId));
-      const formName = approveForm?.name || "Neznámy formulár";
+      if (customerId) {
+        const expectedDate = data.expectedDeliveryDate ? new Date(data.expectedDeliveryDate) : null;
+        const caseData: any = {
+          customerId,
+          caseStatus: "in_progress",
+          salesChannel: "I",
+          infoSource: data.howDidYouHear || null,
+          marketingAction: `Webový formulár - ${formName}`,
+          newsletterOptIn: data.newsletter === true || data.newsletter === "true",
+        };
+        if (data.hospitalId) caseData.hospitalId = data.hospitalId;
+        if (data.gynecologistClinicId) caseData.obstetricianId = data.gynecologistClinicId;
+        if (expectedDate && !isNaN(expectedDate.getTime())) {
+          caseData.expectedDateDay = expectedDate.getDate();
+          caseData.expectedDateMonth = expectedDate.getMonth() + 1;
+          caseData.expectedDateYear = expectedDate.getFullYear();
+        }
+        if (data.productSetId) caseData.productId = data.productSetId;
+        if (data.paymentMethod) caseData.paymentType = data.paymentMethod;
+        await storage.upsertCustomerPotentialCase(caseData);
+      }
 
       await storage.updateWebFormSubmission(submissionId, {
         status: "approved",
