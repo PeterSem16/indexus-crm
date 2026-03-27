@@ -2973,7 +2973,7 @@ async function step11_customerContracts() {
     if (curSample.length > 0) log(`  Vzorky mien: ${curSample.map(([k,v]) => `con_id=${k}: "${v}"`).join(', ')}`);
   } catch (err) { log(`  WARN currency map: ${err.message}`); }
 
-  let insertedCI = 0, insertedCD = 0, insertedSI = 0, siErrors = 0, skipped = 0, errors = 0;
+  let insertedCI = 0, insertedCD = 0, skipped = 0, errors = 0;
   for (const r of contracts.recordset) {
     const customerId = customerMap[String(r.cli_id)];
     if (!customerId) { skipped++; continue; }
@@ -3112,117 +3112,7 @@ async function step11_customerContracts() {
         log(`  WARN customer_documents con_id=${r.con_id}: ${cdErr.message}`);
       }
 
-      // --- Create scheduled_invoices from CBC SchedulePayments ---
-      // Each service schedule creates its own installment series (per-service, not merged)
-      const conSchedules = schedulesByConId[String(r.con_id)] || [];
-
-      const legacyComp = companyInfoMap[String(r.cli_id)] || {};
-      const comId = legacyComp.com_id ? String(legacyComp.com_id) : null;
-      const compDetails = comId ? (companyDetailsMap[comId] || {}) : {};
-      const compAccounts = comId ? (companyAccountsMap[comId] || []) : [];
-      const primaryAccount = compAccounts[0] || {};
-      const scheduledVatRate = compDetails.cod_vat_dic ? '20' : '0';
-
-      const customerNameStr = customerNameLookup[customerId] || contractNumber;
-      const custDetail = customerDetailLookup[customerId] || {};
-      const billingCompName = legacyComp.com_name || companyMap[String(r.cli_id)] || null;
-      const billingCountryVal = legacyComp.com_country_code || null;
-      const billingTaxId = compDetails.cod_ico || null;
-      const billingVatId = compDetails.cod_dic || compDetails.cod_vat_dic || null;
-      const billingBankName = primaryAccount.acc_bank_name || null;
-      const billingBankIban = primaryAccount.acc_IBAN || null;
-      const billingBankSwift = primaryAccount.acc_SWIFT || null;
-
-      for (const sch of conSchedules) {
-        const payments = sch.payments || [];
-        if (payments.length === 0) continue;
-
-        const baseDate = r.con_realized || r.con_inserted || new Date();
-        let prevDate = new Date(baseDate);
-        const cseId = sch.cse_id || null;
-        const invoiceItemLabel = (cseId ? invoiceItemLabelByCseId[cseId] : null) || invoiceItemLabelByConId[String(r.con_id)] || null;
-        const itemAccountingCode = (cseId ? accountingCodeByCseId[cseId] : null) || accountingCodeByConId[String(r.con_id)] || null;
-        const scheduleCurrency = (cseId ? currencyByCseId[cseId] : null) || currencyByConId[String(r.con_id)] || 'EUR';
-        const totalInstallments = payments.length;
-
-        for (let pIdx = 0; pIdx < payments.length; pIdx++) {
-          const p = payments[pIdx];
-          const amount = parseFloat(p.csy_amount) || 0;
-          if (amount <= 0) continue;
-
-          let scheduledDate;
-          if (p.csy_days_from_field_value > 0) {
-            scheduledDate = new Date(baseDate);
-            scheduledDate.setDate(scheduledDate.getDate() + parseInt(p.csy_days_from_field_value));
-          } else if (p.csy_days_from_previous > 0) {
-            scheduledDate = new Date(prevDate);
-            scheduledDate.setDate(scheduledDate.getDate() + parseInt(p.csy_days_from_previous));
-          } else {
-            scheduledDate = new Date(prevDate);
-            scheduledDate.setDate(scheduledDate.getDate() + 30 * (pIdx + 1));
-          }
-          prevDate = scheduledDate;
-
-          const baseItemName = invoiceItemLabel || p.csy_name || sch.csh_name || 'Splátka';
-          const itemEntry = {
-            name: baseItemName,
-            quantity: 1,
-            unitPrice: amount.toFixed(2),
-            totalPrice: amount.toFixed(2),
-            vatRate: scheduledVatRate,
-          };
-          if (itemAccountingCode) itemEntry.accountingCode = itemAccountingCode;
-          const items = JSON.stringify([itemEntry]);
-
-          try {
-            await pgPool.query(`
-              INSERT INTO scheduled_invoices (
-                id, customer_id, scheduled_date, installment_number, total_installments,
-                status, currency, payment_term_days, items, total_amount,
-                customer_name, customer_address, customer_city, customer_zip, customer_country, customer_email, customer_phone,
-                created_at, created_by,
-                billing_company_name, billing_country,
-                billing_tax_id, billing_vat_id,
-                billing_bank_name, billing_bank_iban, billing_bank_swift
-              ) VALUES (
-                gen_random_uuid(), $1, $2, $3, $4,
-                'pending', $22, 14, $5, $6,
-                $7, $8, $9, $10, $11, $12, $13,
-                $14, 'migration-v20',
-                $15, $16,
-                $17, $18,
-                $19, $20, $21
-              )
-            `, [
-              customerId,
-              scheduledDate,
-              pIdx + 1,
-              totalInstallments,
-              items,
-              amount.toFixed(2),
-              customerNameStr,
-              custDetail.address || null,
-              custDetail.city || null,
-              custDetail.zip || null,
-              custDetail.country || null,
-              custDetail.email || null,
-              custDetail.phone || null,
-              r.con_inserted || new Date(),
-              billingCompName,
-              billingCountryVal,
-              billingTaxId,
-              billingVatId,
-              billingBankName,
-              billingBankIban,
-              billingBankSwift,
-              scheduleCurrency,
-            ]);
-            insertedSI++;
-          } catch (siErr) {
-            if (siErrors++ <= 3) log(`  WARN scheduled_invoice con_id=${r.con_id}: ${siErr.message}`);
-          }
-        }
-      }
+      // NOTE: scheduled_invoices are now created in step12 from actual invoice ScheduledPayments (not from ContractServiceSchedulePayments templates)
     } catch (err) {
       errors++;
       if (errors <= 5) log(`  ERROR con_id=${r.con_id}: ${err.message}`);
@@ -3230,7 +3120,7 @@ async function step11_customerContracts() {
   }
   log(`  contract_instances: ${insertedCI} vložených`);
   log(`  customer_documents: ${insertedCD} vložených (odkazy)`);
-  log(`  scheduled_invoices: ${insertedSI} vložených (naplánované splátky)`);
+  log(`  scheduled_invoices: teraz v step12 (z ScheduledPayments)`);
   log(`  Preskočených: ${skipped}, Chýb: ${errors}`);
 }
 
@@ -3891,6 +3781,107 @@ async function step12_customerInvoices() {
   log(`  customer_documents: ${inserted} faktúr vložených`);
   log(`  invoices (modul): ${inserted} faktúr vložených`);
   log(`  Preskočených: ${skipped}, Chýb: ${errors}`);
+
+  // --- Create scheduled_invoices from actual ScheduledPayments per invoice ---
+  let insertedSI = 0, siErrors = 0;
+  for (const r of invoices.recordset) {
+    const cliId = cseToClient[String(r.cse_id)];
+    const customerId = cliId ? customerMap[cliId] : null;
+    if (!customerId) continue;
+
+    const payments = scheduledPaymentsMap[String(r.inv_id)] || [];
+    if (payments.length === 0) continue;
+
+    // Only create scheduled_invoices for unpaid/partially paid installments
+    const unpaidPayments = payments.filter(p => {
+      const status = (p.ips_code || '').toUpperCase();
+      return status !== 'REG_IPS_PAID';
+    });
+    if (unpaidPayments.length === 0) continue;
+
+    const invoiceCurrency = r.cur_code_home || 'EUR';
+    const customerNameStr = customerNameLookup[customerId] || null;
+
+    const invComp = cliId ? (companyInfoMap[cliId] || {}) : {};
+    const comId = invComp.com_id ? String(invComp.com_id) : null;
+    const compDet = comId ? (companyDetailsMap[comId] || {}) : {};
+    const compAcc = comId ? ((companyAccountsMap[comId] || [])[0] || {}) : {};
+    const vatRate = compDet.cod_vat_dic ? '20' : '0';
+    const cseId = String(r.cse_id);
+    const cbcConId = cseToConId[cseId];
+    const itemAccountingCode = accountingCodeByCseId[cseId] || (cbcConId ? accountingCodeByConId[cbcConId] : null) || null;
+
+    // Get invoice item label for naming
+    const invItems = invoiceItemsMap[String(r.inv_id)] || [];
+    const itemLabel = invItems.length > 0 ? (invItems[0].iit_label || null) : null;
+
+    const totalInstallments = payments.length;
+
+    for (const sp of unpaidPayments) {
+      const amount = parseFloat(sp.spa_amount_home) || 0;
+      if (amount <= 0) continue;
+
+      const scheduledDate = sp.spa_date_of_payment ? new Date(sp.spa_date_of_payment) : null;
+      if (!scheduledDate) continue;
+
+      const installmentNumber = sp.spa_installments_id || 1;
+      const baseItemName = itemLabel || sp.spa_name || 'Splátka';
+      const itemEntry = {
+        name: baseItemName,
+        quantity: 1,
+        unitPrice: amount.toFixed(2),
+        totalPrice: amount.toFixed(2),
+        vatRate: vatRate,
+      };
+      if (itemAccountingCode) itemEntry.accountingCode = itemAccountingCode;
+      const items = JSON.stringify([itemEntry]);
+
+      try {
+        await pgPool.query(`
+          INSERT INTO scheduled_invoices (
+            id, customer_id, scheduled_date, installment_number, total_installments,
+            status, currency, payment_term_days, items, total_amount,
+            customer_name,
+            created_at, created_by,
+            billing_company_name, billing_country,
+            billing_tax_id, billing_vat_id,
+            billing_bank_name, billing_bank_iban, billing_bank_swift
+          ) VALUES (
+            gen_random_uuid(), $1, $2, $3, $4,
+            'pending', $5, 14, $6, $7,
+            $8,
+            $9, 'migration-v20',
+            $10, $11,
+            $12, $13,
+            $14, $15, $16
+          )
+        `, [
+          customerId,
+          scheduledDate,
+          installmentNumber,
+          totalInstallments,
+          invoiceCurrency,
+          items,
+          amount.toFixed(2),
+          customerNameStr,
+          r.inv_inserted || r.inv_date_of_issue || new Date(),
+          invComp.com_name || null,
+          invComp.com_country_code || null,
+          compDet.cod_ico || null,
+          compDet.cod_dic || compDet.cod_vat_dic || null,
+          compAcc.acc_bank_name || null,
+          compAcc.acc_IBAN || null,
+          compAcc.acc_SWIFT || null,
+        ]);
+        insertedSI++;
+      } catch (siErr) {
+        siErrors++;
+        if (siErrors <= 5) log(`  WARN scheduled_invoice inv_id=${r.inv_id}: ${siErr.message}`);
+      }
+    }
+  }
+  log(`  scheduled_invoices: ${insertedSI} vložených (z ScheduledPayments — nezaplatené splátky)`);
+  if (siErrors > 0) log(`  scheduled_invoices chyby: ${siErrors}`);
   if (Object.keys(contractInstanceLookup).length > 0) {
     let linked = 0;
     for (const r of invoices.recordset) {
