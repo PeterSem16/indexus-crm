@@ -1731,33 +1731,23 @@ export function ContractTemplatesManager() {
         </TabsContent>
       </Tabs>
 
-      {isTemplateDialogOpen && <div className="fixed inset-0 z-[9995] bg-black/80" onClick={(e) => {
-        const target = e.target as HTMLElement;
-        if (target?.closest?.("[data-field-picker-portal]")) return;
-        setIsTemplateDialogOpen(false);
-      }} />}
-      <Dialog open={isTemplateDialogOpen} onOpenChange={setIsTemplateDialogOpen} modal={false}>
-        <DialogContent
-          className="w-[95vw] max-w-[95vw] h-[95vh] max-h-[95vh] overflow-hidden flex flex-col"
-          onPointerDownOutside={(e) => {
-            const target = e.target as HTMLElement;
-            if (target?.closest?.("[data-field-picker-portal]")) {
-              e.preventDefault();
-            }
-          }}
-          onInteractOutside={(e) => {
-            const target = e.target as HTMLElement;
-            if (target?.closest?.("[data-field-picker-portal]")) {
-              e.preventDefault();
-            }
-          }}
-        >
-          <DialogHeader className="shrink-0">
-            <DialogTitle>{selectedTemplate ? t.contractsModule.editTemplate : t.contractsModule.newTemplate}</DialogTitle>
-            <DialogDescription>
+      {isTemplateDialogOpen && (
+        <>
+        <div className="fixed inset-0 z-[9995] bg-black/80" onClick={() => setIsTemplateDialogOpen(false)} />
+        <div className="fixed left-[50%] top-[50%] z-[9996] w-[95vw] max-w-[95vw] h-[95vh] max-h-[95vh] translate-x-[-50%] translate-y-[-50%] overflow-hidden flex flex-col border bg-background p-6 shadow-lg rounded-lg">
+          <button
+            type="button"
+            className="absolute right-4 top-4 rounded-sm opacity-70 hover:opacity-100 z-10"
+            onClick={() => setIsTemplateDialogOpen(false)}
+          >
+            <X className="h-4 w-4" />
+          </button>
+          <div className="flex flex-col space-y-1.5 sm:text-left shrink-0">
+            <h2 className="text-lg font-semibold leading-none tracking-tight">{selectedTemplate ? t.contractsModule.editTemplate : t.contractsModule.newTemplate}</h2>
+            <p className="text-sm text-muted-foreground">
               {t.contractsModule.description}
-            </DialogDescription>
-          </DialogHeader>
+            </p>
+          </div>
 
           <div className="flex-1 overflow-hidden flex flex-col">
             <div className="flex flex-col gap-4 py-4 h-full">
@@ -2086,8 +2076,9 @@ export function ContractTemplatesManager() {
               {createTemplateMutation.isPending || updateTemplateMutation.isPending ? t.contractsModule.saving : t.contractsModule.save}
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </div>
+        </>
+      )}
 
       <Dialog open={isCategoryDialogOpen} onOpenChange={(open) => {
         setIsCategoryDialogOpen(open);
@@ -2818,36 +2809,26 @@ export function ContractTemplatesManager() {
         </DialogContent>
       </Dialog>
 
-      {isTemplateEditorOpen && <div className="fixed inset-0 z-[9995] bg-black/80" onClick={(e) => {
-        const target = e.target as HTMLElement;
-        if (target?.closest?.("[data-field-picker-portal]")) return;
-        setIsTemplateEditorOpen(false);
-      }} />}
-      <Dialog open={isTemplateEditorOpen} onOpenChange={setIsTemplateEditorOpen} modal={false}>
-        <DialogContent
-          className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col"
-          onPointerDownOutside={(e) => {
-            const target = e.target as HTMLElement;
-            if (target?.closest?.("[data-field-picker-portal]")) {
-              e.preventDefault();
-            }
-          }}
-          onInteractOutside={(e) => {
-            const target = e.target as HTMLElement;
-            if (target?.closest?.("[data-field-picker-portal]")) {
-              e.preventDefault();
-            }
-          }}
-        >
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+      {isTemplateEditorOpen && (
+        <>
+        <div className="fixed inset-0 z-[9995] bg-black/80" onClick={() => setIsTemplateEditorOpen(false)} />
+        <div className="fixed left-[50%] top-[50%] z-[9996] w-full max-w-5xl max-h-[90vh] translate-x-[-50%] translate-y-[-50%] overflow-hidden flex flex-col border bg-background p-6 shadow-lg rounded-lg">
+          <button
+            type="button"
+            className="absolute right-4 top-4 rounded-sm opacity-70 hover:opacity-100 z-10"
+            onClick={() => setIsTemplateEditorOpen(false)}
+          >
+            <X className="h-4 w-4" />
+          </button>
+          <div className="flex flex-col space-y-1.5 sm:text-left">
+            <h2 className="text-lg font-semibold leading-none tracking-tight flex items-center gap-2">
               <Edit className="h-5 w-5" />
               {t.contractsModule.editTemplate} - {editingTemplateCountry}
-            </DialogTitle>
-            <DialogDescription>
+            </h2>
+            <p className="text-sm text-muted-foreground">
               {t.contractsModule.fieldMapping}
-            </DialogDescription>
-          </DialogHeader>
+            </p>
+          </div>
 
           <div className="flex-1 overflow-y-auto">
             {isTemplateEditorLoading ? (
@@ -3388,8 +3369,9 @@ export function ContractTemplatesManager() {
               )}
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </div>
+        </>
+      )}
     </div>
   );
 }
