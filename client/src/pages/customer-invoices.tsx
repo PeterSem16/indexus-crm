@@ -435,7 +435,11 @@ export default function CustomerInvoicesPage() {
 
   const formatDate = (date?: string) => {
     if (!date) return "-";
-    return new Date(date).toLocaleDateString(localeMap[locale] || "en-US");
+    const d = new Date(date);
+    const day = d.getDate();
+    const month = d.getMonth() + 1;
+    const year = d.getFullYear();
+    return `${day}. ${month}. ${year}`;
   };
 
   const formatCurrency = (amount?: string, currency?: string) => {
