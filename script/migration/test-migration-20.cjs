@@ -4427,6 +4427,38 @@ async function main() {
 
   try {
     await step1_testConnection();
+
+    separator('STEP 0: Cleanup — vymazanie starých migrovaných dát');
+    try {
+      const tables = [
+        { table: 'scheduled_invoices', where: "created_by = 'migration-v20'" },
+        { table: 'customer_debt_collection', where: "data_source = 'iscbc'" },
+        { table: 'invoices', where: "data_source = 'iscbc'" },
+        { table: 'customer_documents', where: "data_source = 'iscbc'" },
+        { table: 'contract_instances', where: "data_source = 'iscbc'" },
+        { table: 'communication_messages', where: "data_source = 'iscbc'" },
+        { table: 'customer_notes', where: "data_source = 'iscbc'" },
+        { table: 'cases', where: "data_source = 'iscbc'" },
+        { table: 'lab_results', where: "data_source = 'iscbc'" },
+        { table: 'collections', where: "data_source = 'iscbc'" },
+        { table: 'collaborator_activities', where: "data_source = 'iscbc'" },
+        { table: 'collaborator_agreements', where: "data_source = 'iscbc'" },
+        { table: 'collaborator_addresses', where: "1=1 AND collaborator_id IN (SELECT id FROM collaborators WHERE data_source = 'iscbc')" },
+        { table: 'collaborators', where: "data_source = 'iscbc'" },
+        { table: 'customers', where: "data_source = 'iscbc'" },
+        { table: 'hospitals', where: "data_source = 'iscbc'" },
+      ];
+      for (const { table, where } of tables) {
+        try {
+          const res = await pgPool.query(`DELETE FROM ${table} WHERE ${where}`);
+          if (res.rowCount > 0) log(`  ${table}: ${res.rowCount} vymazaných`);
+        } catch (e) {
+          log(`  WARN ${table}: ${e.message}`);
+        }
+      }
+      log('  ✓ Cleanup dokončený');
+    } catch (e) { log(`  WARN cleanup: ${e.message}`); }
+
     await step2_referenceData();
     await step3_hospitals();
     await step4_collaborators();
