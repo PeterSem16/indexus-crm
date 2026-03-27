@@ -2921,12 +2921,13 @@ async function step11_customerContracts() {
     log(`  Customer detail lookup: ${Object.keys(customerDetailLookup).length} záznamov`);
   } catch (err) { log(`  WARN customer name lookup: ${err.message}`); }
 
-  // Build con_id → invoice item label map from CBC InvoiceItems (via ContractServices → Invoices → InvoiceItems)
+  // Build con_id → invoice item label + accounting code maps from CBC InvoiceItems
   const invoiceItemLabelByConId = {};
+  const accountingCodeByConId = {};
   try {
     const conIds = contracts.recordset.map(r => r.con_id).join(',');
     const itemLabelRes = await mssqlPool.request().query(`
-      SELECT DISTINCT cs.con_id, iit.iit_label
+      SELECT DISTINCT cs.con_id, iit.iit_label, iit.iit_item_accounting_code
       FROM ContractServices cs
       JOIN Invoices i ON i.cse_id = cs.cse_id
       JOIN InvoiceItems iit ON iit.inv_id = i.inv_id
@@ -2937,10 +2938,16 @@ async function step11_customerContracts() {
       if (!invoiceItemLabelByConId[String(r.con_id)]) {
         invoiceItemLabelByConId[String(r.con_id)] = r.iit_label;
       }
+      if (!accountingCodeByConId[String(r.con_id)] && r.iit_item_accounting_code) {
+        accountingCodeByConId[String(r.con_id)] = r.iit_item_accounting_code;
+      }
     }
     log(`  Invoice item labels: ${Object.keys(invoiceItemLabelByConId).length} zmlúv s názvom položky`);
+    log(`  Accounting codes: ${Object.keys(accountingCodeByConId).length} zmlúv s accounting code`);
     const sample = Object.entries(invoiceItemLabelByConId).slice(0, 3);
     if (sample.length > 0) log(`  Vzorky: ${sample.map(([k,v]) => `con_id=${k}: "${v}"`).join(', ')}`);
+    const acSample = Object.entries(accountingCodeByConId).slice(0, 3);
+    if (acSample.length > 0) log(`  Vzorky AC: ${acSample.map(([k,v]) => `con_id=${k}: "${v}"`).join(', ')}`);
   } catch (err) { log(`  WARN invoice item labels: ${err.message}`); }
 
   let insertedCI = 0, insertedCD = 0, insertedSI = 0, siErrors = 0, skipped = 0, errors = 0;
@@ -3116,16 +3123,19 @@ async function step11_customerContracts() {
           prevDate = scheduledDate;
 
           const baseItemName = invoiceItemLabel || p.csy_name || sch.csh_name || 'Splátka';
+          const itemAccountingCode = accountingCodeByConId[String(r.con_id)] || null;
 
           if (!installmentMap[pIdx]) {
             installmentMap[pIdx] = { items: [], scheduledDate, totalAmount: 0 };
           }
-          installmentMap[pIdx].items.push({
+          const itemEntry = {
             name: baseItemName,
             quantity: 1,
             unitPrice: amount.toFixed(2),
             totalPrice: amount.toFixed(2),
-          });
+          };
+          if (itemAccountingCode) itemEntry.accountingCode = itemAccountingCode;
+          installmentMap[pIdx].items.push(itemEntry);
           installmentMap[pIdx].totalAmount += amount;
           // Use the latest (max) date if multiple schedules have different dates for same installment
           if (scheduledDate > installmentMap[pIdx].scheduledDate) {
