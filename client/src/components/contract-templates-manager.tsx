@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useI18n } from "@/i18n";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
@@ -157,18 +158,37 @@ function InlineFieldPicker({
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const containerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
 
   useEffect(() => {
     if (!isOpen) return;
     const handleClick = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setIsOpen(false);
-      }
+      const target = e.target as Node;
+      if (triggerRef.current?.contains(target)) return;
+      if (dropdownRef.current?.contains(target)) return;
+      setIsOpen(false);
+    };
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setIsOpen(false);
     };
     document.addEventListener("mousedown", handleClick, true);
-    return () => document.removeEventListener("mousedown", handleClick, true);
+    document.addEventListener("keydown", handleEsc, true);
+    return () => {
+      document.removeEventListener("mousedown", handleClick, true);
+      document.removeEventListener("keydown", handleEsc, true);
+    };
   }, [isOpen]);
+
+  const openDropdown = () => {
+    if (triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      setPos({ top: rect.bottom + 2, left: rect.left });
+    }
+    setIsOpen(true);
+    setSearch("");
+  };
 
   const filteredGroups = CUSTOMER_FIELDS.map(group => ({
     ...group,
@@ -179,82 +199,99 @@ function InlineFieldPicker({
 
   const currentLabel = value ? getFieldLabel(value) : (placeholder || "-- Nevyplnené --");
 
+  const dropdownContent = isOpen && pos ? createPortal(
+    <div
+      ref={dropdownRef}
+      data-field-picker-portal="true"
+      style={{
+        position: "fixed",
+        top: pos.top,
+        left: pos.left,
+        zIndex: 999999,
+        width: 280,
+        maxHeight: 300,
+        pointerEvents: "auto",
+      }}
+      className="overflow-hidden rounded-md border bg-popover shadow-lg flex flex-col"
+    >
+      <div className="p-1.5 border-b">
+        <input
+          type="text"
+          placeholder="Hľadať..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          onClick={(e) => e.stopPropagation()}
+          className="w-full h-7 px-2 text-xs rounded border border-input bg-background focus:outline-none focus:ring-1 focus:ring-ring"
+          autoFocus
+          data-testid={`${testId}-search`}
+        />
+      </div>
+      <div className="overflow-y-auto flex-1 p-1">
+        {value && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onSelect("");
+              setIsOpen(false);
+            }}
+            className="w-full text-left px-2 py-1 text-xs text-destructive hover:bg-destructive/10 rounded"
+            data-testid={`${testId}-clear`}
+          >
+            ✕ Odstrániť mapovanie
+          </button>
+        )}
+        {filteredGroups.map(group => (
+          <div key={group.group}>
+            <div className="px-2 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{group.group}</div>
+            {group.fields.map(f => (
+              <button
+                key={f.key}
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onSelect(f.key);
+                  setIsOpen(false);
+                }}
+                className={`w-full text-left px-2 py-1 text-xs rounded hover:bg-accent ${value === f.key ? "bg-primary/10 text-primary font-medium" : ""}`}
+                data-testid={`${testId}-option-${f.key}`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+        ))}
+        {filteredGroups.length === 0 && (
+          <div className="text-xs text-muted-foreground text-center py-2">Žiadne výsledky</div>
+        )}
+      </div>
+    </div>,
+    document.body
+  ) : null;
+
   return (
-    <div ref={containerRef} className={`relative ${className || ""}`} style={{ minWidth: "160px" }}>
+    <div className={className || ""} style={{ minWidth: "160px" }}>
       <button
+        ref={triggerRef}
         type="button"
         data-testid={testId}
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
-          setIsOpen(!isOpen);
-          setSearch("");
+          if (isOpen) {
+            setIsOpen(false);
+          } else {
+            openDropdown();
+          }
         }}
         className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-2 py-1 text-sm text-left hover:bg-accent/50"
       >
         <span className={value ? "" : "text-muted-foreground"}>{currentLabel}</span>
         <ChevronDown className="h-3 w-3 opacity-50 shrink-0 ml-1" />
       </button>
-      {isOpen && (
-        <div
-          className="absolute top-full left-0 z-[99999] mt-1 w-[280px] max-h-[300px] overflow-hidden rounded-md border bg-popover shadow-lg flex flex-col"
-          style={{ pointerEvents: "auto" }}
-        >
-          <div className="p-1.5 border-b">
-            <input
-              type="text"
-              placeholder="Hľadať..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onClick={(e) => e.stopPropagation()}
-              className="w-full h-7 px-2 text-xs rounded border border-input bg-background focus:outline-none focus:ring-1 focus:ring-ring"
-              autoFocus
-              data-testid={`${testId}-search`}
-            />
-          </div>
-          <div className="overflow-y-auto flex-1 p-1">
-            {value && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  onSelect("");
-                  setIsOpen(false);
-                }}
-                className="w-full text-left px-2 py-1 text-xs text-destructive hover:bg-destructive/10 rounded"
-                data-testid={`${testId}-clear`}
-              >
-                ✕ Odstrániť mapovanie
-              </button>
-            )}
-            {filteredGroups.map(group => (
-              <div key={group.group}>
-                <div className="px-2 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{group.group}</div>
-                {group.fields.map(f => (
-                  <button
-                    key={f.key}
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      onSelect(f.key);
-                      setIsOpen(false);
-                    }}
-                    className={`w-full text-left px-2 py-1 text-xs rounded hover:bg-accent ${value === f.key ? "bg-primary/10 text-primary font-medium" : ""}`}
-                    data-testid={`${testId}-option-${f.key}`}
-                  >
-                    {f.label}
-                  </button>
-                ))}
-              </div>
-            ))}
-            {filteredGroups.length === 0 && (
-              <div className="text-xs text-muted-foreground text-center py-2">Žiadne výsledky</div>
-            )}
-          </div>
-        </div>
-      )}
+      {dropdownContent}
     </div>
   );
 }
@@ -1694,9 +1731,27 @@ export function ContractTemplatesManager() {
         </TabsContent>
       </Tabs>
 
-      {isTemplateDialogOpen && <div className="fixed inset-0 z-[9995] bg-black/80" onClick={() => setIsTemplateDialogOpen(false)} />}
+      {isTemplateDialogOpen && <div className="fixed inset-0 z-[9995] bg-black/80" onClick={(e) => {
+        const target = e.target as HTMLElement;
+        if (target?.closest?.("[data-field-picker-portal]")) return;
+        setIsTemplateDialogOpen(false);
+      }} />}
       <Dialog open={isTemplateDialogOpen} onOpenChange={setIsTemplateDialogOpen} modal={false}>
-        <DialogContent className="w-[95vw] max-w-[95vw] h-[95vh] max-h-[95vh] overflow-hidden flex flex-col">
+        <DialogContent
+          className="w-[95vw] max-w-[95vw] h-[95vh] max-h-[95vh] overflow-hidden flex flex-col"
+          onPointerDownOutside={(e) => {
+            const target = e.target as HTMLElement;
+            if (target?.closest?.("[data-field-picker-portal]")) {
+              e.preventDefault();
+            }
+          }}
+          onInteractOutside={(e) => {
+            const target = e.target as HTMLElement;
+            if (target?.closest?.("[data-field-picker-portal]")) {
+              e.preventDefault();
+            }
+          }}
+        >
           <DialogHeader className="shrink-0">
             <DialogTitle>{selectedTemplate ? t.contractsModule.editTemplate : t.contractsModule.newTemplate}</DialogTitle>
             <DialogDescription>
@@ -2763,9 +2818,27 @@ export function ContractTemplatesManager() {
         </DialogContent>
       </Dialog>
 
-      {isTemplateEditorOpen && <div className="fixed inset-0 z-[9995] bg-black/80" onClick={() => setIsTemplateEditorOpen(false)} />}
+      {isTemplateEditorOpen && <div className="fixed inset-0 z-[9995] bg-black/80" onClick={(e) => {
+        const target = e.target as HTMLElement;
+        if (target?.closest?.("[data-field-picker-portal]")) return;
+        setIsTemplateEditorOpen(false);
+      }} />}
       <Dialog open={isTemplateEditorOpen} onOpenChange={setIsTemplateEditorOpen} modal={false}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
+        <DialogContent
+          className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col"
+          onPointerDownOutside={(e) => {
+            const target = e.target as HTMLElement;
+            if (target?.closest?.("[data-field-picker-portal]")) {
+              e.preventDefault();
+            }
+          }}
+          onInteractOutside={(e) => {
+            const target = e.target as HTMLElement;
+            if (target?.closest?.("[data-field-picker-portal]")) {
+              e.preventDefault();
+            }
+          }}
+        >
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Edit className="h-5 w-5" />
