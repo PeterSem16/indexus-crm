@@ -376,6 +376,9 @@ export default function ContractsPage() {
   const [isSendConfirmOpen, setIsSendConfirmOpen] = useState(false);
   const [sendContractId, setSendContractId] = useState<string | null>(null);
   const [sendMethod, setSendMethod] = useState<"email_otp" | "sms_otp">("email_otp");
+  const [isPostalDialogOpen, setIsPostalDialogOpen] = useState(false);
+  const [postalContractId, setPostalContractId] = useState<string | null>(null);
+  const [postalContractNumber, setPostalContractNumber] = useState<string>("");
   
   const [selectedTemplate, setSelectedTemplate] = useState<ContractTemplate | null>(null);
   const [selectedContract, setSelectedContract] = useState<ContractInstance | null>(null);
@@ -2445,9 +2448,9 @@ export default function ContractsPage() {
                                   size="icon" 
                                   variant="ghost"
                                   onClick={() => {
-                                    if (confirm("Označiť zmluvu ako odoslanú poštou? Nastaví sa dnešný dátum odoslania.")) {
-                                      sendByPostMutation.mutate({ id: contract.id });
-                                    }
+                                    setPostalContractId(contract.id);
+                                    setPostalContractNumber(contract.contractNumber || contract.id.slice(0, 8));
+                                    setIsPostalDialogOpen(true);
                                   }}
                                   title="Odoslať poštou"
                                   disabled={sendByPostMutation.isPending}
@@ -4193,6 +4196,75 @@ export default function ContractsPage() {
                 {t.contractsModule.signContract}
               </Button>
             )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Postal Send Dialog */}
+      <Dialog open={isPostalDialogOpen} onOpenChange={(open) => {
+        setIsPostalDialogOpen(open);
+        if (!open) {
+          setPostalContractId(null);
+          setPostalContractNumber("");
+        }
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Mailbox className="h-5 w-5 text-orange-500" />
+              Odoslanie zmluvy poštou
+            </DialogTitle>
+            <DialogDescription>
+              Zmluva bude označená ako odoslaná poštou s dnešným dátumom.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="flex items-center gap-3 p-4 rounded-lg bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800">
+              <Send className="h-8 w-8 text-orange-500 shrink-0" />
+              <div>
+                <p className="font-medium text-orange-900 dark:text-orange-200">
+                  Zmluva č. {postalContractNumber}
+                </p>
+                <p className="text-sm text-orange-700 dark:text-orange-400 mt-1">
+                  Dátum odoslania: <span className="font-semibold">{new Date().toLocaleDateString("sk-SK")}</span>
+                </p>
+              </div>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Po potvrdení sa zmluva presunie zo stavu "Koncept" do stavu "Odoslaná" a zaznamená sa dnešný dátum odoslania.
+            </p>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => setIsPostalDialogOpen(false)}
+              data-testid="button-postal-cancel"
+            >
+              Zrušiť
+            </Button>
+            <Button
+              onClick={() => {
+                if (postalContractId) {
+                  sendByPostMutation.mutate({ id: postalContractId });
+                  setIsPostalDialogOpen(false);
+                }
+              }}
+              disabled={sendByPostMutation.isPending}
+              className="bg-orange-600 hover:bg-orange-700 text-white"
+              data-testid="button-postal-confirm"
+            >
+              {sendByPostMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Odosielam...
+                </>
+              ) : (
+                <>
+                  <Mailbox className="h-4 w-4 mr-2" />
+                  Potvrdiť odoslanie
+                </>
+              )}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

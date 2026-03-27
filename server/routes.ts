@@ -27353,11 +27353,146 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
       // Check for HTML content (legacy)
       const hasHtmlContent = !!categoryDefaultTemplate.htmlContent;
       
-      if (!hasDocxTemplate && !hasHtmlContent) {
+      // Check if we have PDF form template
+      const hasPdfFormTemplate = categoryDefaultTemplate.templateType === 'pdf_form' && 
+        categoryDefaultTemplate.sourcePdfPath && 
+        fs.existsSync(path.join(process.cwd(), categoryDefaultTemplate.sourcePdfPath));
+
+      if (!hasDocxTemplate && !hasHtmlContent && !hasPdfFormTemplate) {
         return res.status(400).json({ 
-          error: "Šablóna nie je k dispozícii. Najprv nahrajte DOCX šablónu.",
+          error: "Šablóna nie je k dispozícii. Najprv nahrajte DOCX alebo PDF šablónu.",
           requiresUpload: true
         });
+      }
+
+      // Handle PDF form template - fill form fields with customer data
+      if (hasPdfFormTemplate && categoryDefaultTemplate.sourcePdfPath) {
+        const pdfFormPath = path.join(process.cwd(), categoryDefaultTemplate.sourcePdfPath);
+        
+        const [customer, products, participants] = await Promise.all([
+          storage.getCustomer(contract.customerId),
+          storage.getContractInstanceProducts(contract.id),
+          storage.getContractParticipants(contract.id)
+        ]);
+        
+        const potentialCase = customer ? await storage.getCustomerPotentialCase(customer.id) : null;
+        let billingDetails = contract.billingDetailsId 
+          ? await storage.getBillingDetailsById(contract.billingDetailsId)
+          : null;
+        if (!billingDetails && customer?.country) {
+          billingDetails = await storage.getBillingDetails(customer.country);
+        }
+        
+        const formatDate = (date: Date | string | null | undefined): string => {
+          if (!date) return "";
+          const d = new Date(date);
+          if (isNaN(d.getTime())) return "";
+          return d.toLocaleDateString("sk-SK");
+        };
+        
+        // Build customer data lookup
+        const fatherFullName = potentialCase?.fatherFirstName && potentialCase?.fatherLastName
+          ? `${potentialCase.fatherFirstName} ${potentialCase.fatherLastName}`.trim()
+          : "";
+        
+        const customerDataMap: Record<string, string> = {
+          firstName: customer?.firstName || "",
+          lastName: customer?.lastName || "",
+          fullName: `${customer?.firstName || ""} ${customer?.lastName || ""}`.trim(),
+          titleBefore: customer?.titleBefore || "",
+          titleAfter: customer?.titleAfter || "",
+          maidenName: (customer as any)?.maidenName || "",
+          dateOfBirth: formatDate(customer?.dateOfBirth),
+          nationalId: customer?.nationalId || "",
+          idCardNumber: (customer as any)?.idCardNumber || "",
+          email: customer?.email || "",
+          email2: (customer as any)?.email2 || "",
+          phone: customer?.phone || "",
+          mobile: customer?.mobile || "",
+          mobile2: (customer as any)?.mobile2 || "",
+          address: customer?.address || "",
+          city: customer?.city || "",
+          postalCode: customer?.postalCode || "",
+          region: (customer as any)?.region || "",
+          country: customer?.country || "",
+          corrName: (customer as any)?.corrName || "",
+          corrAddress: (customer as any)?.corrAddress || "",
+          corrCity: (customer as any)?.corrCity || "",
+          corrPostalCode: (customer as any)?.corrPostalCode || "",
+          corrCountry: (customer as any)?.corrCountry || "",
+          fatherFirstName: potentialCase?.fatherFirstName || "",
+          fatherLastName: potentialCase?.fatherLastName || "",
+          fatherFullName: fatherFullName,
+          fatherTitleBefore: (potentialCase as any)?.fatherTitleBefore || "",
+          fatherTitleAfter: (potentialCase as any)?.fatherTitleAfter || "",
+          fatherPhone: potentialCase?.fatherPhone || "",
+          fatherMobile: potentialCase?.fatherMobile || "",
+          fatherEmail: potentialCase?.fatherEmail || "",
+          fatherAddress: potentialCase?.fatherStreet || "",
+          fatherCity: potentialCase?.fatherCity || "",
+          fatherPostalCode: potentialCase?.fatherPostalCode || "",
+          fatherRegion: (potentialCase as any)?.fatherRegion || "",
+          fatherCountry: potentialCase?.fatherCountry || "",
+          fatherDateOfBirth: formatDate(potentialCase?.fatherDateOfBirth),
+          expectedDeliveryDate: formatDate(potentialCase?.expectedDeliveryDate),
+          hospitalName: potentialCase?.hospitalName || "",
+          gynecologistName: potentialCase?.gynecologistName || "",
+          gynecologistPhone: (potentialCase as any)?.gynecologistPhone || "",
+          gynecologistEmail: (potentialCase as any)?.gynecologistEmail || "",
+          obstetricianName: (potentialCase as any)?.obstetricianName || "",
+          isMultiplePregnancy: potentialCase?.multiplePregnancy ? "Áno" : "Nie",
+          childCount: String(potentialCase?.childCount || 1),
+          productName: "",
+          productType: "",
+          paymentType: "",
+          giftVoucher: "",
+          bankAccount: billingDetails?.bankIban || "",
+          bankCode: "",
+          bankName: billingDetails?.bankName || "",
+          bankSwift: billingDetails?.bankSwift || "",
+          currentDate: new Date().toLocaleDateString("sk-SK"),
+          contractNumber: contract.contractNumber || "",
+          internalId: contract.internalId || "",
+          motherFullName: `${customer?.firstName || ""} ${customer?.lastName || ""}`.trim(),
+          motherBirthDate: formatDate(customer?.dateOfBirth),
+          streetAddress: customer?.address || "",
+        };
+        
+        // Parse placeholderMappings: { pdfFieldName: customerDataKey }
+        let mappings: Record<string, string> = {};
+        try {
+          mappings = typeof categoryDefaultTemplate.placeholderMappings === "string" 
+            ? JSON.parse(categoryDefaultTemplate.placeholderMappings) 
+            : (categoryDefaultTemplate.placeholderMappings || {});
+        } catch { mappings = {}; }
+        
+        // Build PDF field data from mappings
+        const pdfFields: Record<string, string | boolean> = {};
+        for (const [pdfFieldName, dataKey] of Object.entries(mappings)) {
+          if (!dataKey) continue;
+          // Support multi-field mappings (key1+key2)
+          if (dataKey.includes("+")) {
+            const parts = dataKey.split("+").map(k => customerDataMap[k.trim()] || "").filter(Boolean);
+            pdfFields[pdfFieldName] = parts.join(" ");
+          } else {
+            pdfFields[pdfFieldName] = customerDataMap[dataKey] || "";
+          }
+        }
+        
+        console.log("[PDF Form] Filling PDF form with", Object.keys(pdfFields).length, "fields");
+        
+        const outputDir = path.join(process.cwd(), "uploads", "generated-contracts");
+        await fs.promises.mkdir(outputDir, { recursive: true });
+        const outputFileName = `Zmluva_${contract.contractNumber || contract.id.slice(0, 8)}.pdf`;
+        const outputPath = path.join(outputDir, outputFileName);
+        
+        const { fillPdfForm } = await import("./template-processor");
+        await fillPdfForm(pdfFormPath, pdfFields, outputPath, false);
+        
+        res.setHeader("Content-Type", "application/pdf");
+        res.setHeader("Content-Disposition", `inline; filename="${outputFileName}"`);
+        const pdfBuffer = fs.readFileSync(outputPath);
+        return res.send(pdfBuffer);
       }
       
       // Use categoryDefaultTemplate for rendering - map htmlContent to contentHtml for compatibility
@@ -27529,12 +27664,143 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
       
       // Check for HTML content (legacy)
       const hasHtmlContent = !!categoryDefaultTemplate.htmlContent;
+
+      // Check if we have PDF form template
+      const hasPdfFormTemplate = categoryDefaultTemplate.templateType === 'pdf_form' && 
+        categoryDefaultTemplate.sourcePdfPath && 
+        fs.existsSync(path.join(process.cwd(), categoryDefaultTemplate.sourcePdfPath));
       
-      if (!hasDocxTemplate && !hasHtmlContent) {
+      if (!hasDocxTemplate && !hasHtmlContent && !hasPdfFormTemplate) {
         return res.status(400).json({ 
-          error: "Šablóna nie je k dispozícii. Najprv nahrajte DOCX šablónu.",
+          error: "Šablóna nie je k dispozícii. Najprv nahrajte DOCX alebo PDF šablónu.",
           requiresUpload: true
         });
+      }
+
+      // Handle PDF form template - fill form fields with customer data
+      if (hasPdfFormTemplate && categoryDefaultTemplate.sourcePdfPath) {
+        const pdfFormPath = path.join(process.cwd(), categoryDefaultTemplate.sourcePdfPath);
+        
+        const [customer2, products2, participants2] = await Promise.all([
+          storage.getCustomer(contract.customerId),
+          storage.getContractInstanceProducts(contract.id),
+          storage.getContractParticipants(contract.id)
+        ]);
+        
+        const potentialCase2 = customer2 ? await storage.getCustomerPotentialCase(customer2.id) : null;
+        let billingDetails2 = contract.billingDetailsId 
+          ? await storage.getBillingDetailsById(contract.billingDetailsId)
+          : null;
+        if (!billingDetails2 && customer2?.country) {
+          billingDetails2 = await storage.getBillingDetails(customer2.country);
+        }
+        
+        const formatDatePdf = (date: Date | string | null | undefined): string => {
+          if (!date) return "";
+          const d = new Date(date);
+          if (isNaN(d.getTime())) return "";
+          return d.toLocaleDateString("sk-SK");
+        };
+        
+        const fatherFullName2 = potentialCase2?.fatherFirstName && potentialCase2?.fatherLastName
+          ? `${potentialCase2.fatherFirstName} ${potentialCase2.fatherLastName}`.trim()
+          : "";
+        
+        const customerDataMap: Record<string, string> = {
+          firstName: customer2?.firstName || "",
+          lastName: customer2?.lastName || "",
+          fullName: `${customer2?.firstName || ""} ${customer2?.lastName || ""}`.trim(),
+          titleBefore: customer2?.titleBefore || "",
+          titleAfter: customer2?.titleAfter || "",
+          maidenName: (customer2 as any)?.maidenName || "",
+          dateOfBirth: formatDatePdf(customer2?.dateOfBirth),
+          nationalId: customer2?.nationalId || "",
+          idCardNumber: (customer2 as any)?.idCardNumber || "",
+          email: customer2?.email || "",
+          email2: (customer2 as any)?.email2 || "",
+          phone: customer2?.phone || "",
+          mobile: customer2?.mobile || "",
+          mobile2: (customer2 as any)?.mobile2 || "",
+          address: customer2?.address || "",
+          city: customer2?.city || "",
+          postalCode: customer2?.postalCode || "",
+          region: (customer2 as any)?.region || "",
+          country: customer2?.country || "",
+          corrName: (customer2 as any)?.corrName || "",
+          corrAddress: (customer2 as any)?.corrAddress || "",
+          corrCity: (customer2 as any)?.corrCity || "",
+          corrPostalCode: (customer2 as any)?.corrPostalCode || "",
+          corrCountry: (customer2 as any)?.corrCountry || "",
+          fatherFirstName: potentialCase2?.fatherFirstName || "",
+          fatherLastName: potentialCase2?.fatherLastName || "",
+          fatherFullName: fatherFullName2,
+          fatherTitleBefore: (potentialCase2 as any)?.fatherTitleBefore || "",
+          fatherTitleAfter: (potentialCase2 as any)?.fatherTitleAfter || "",
+          fatherPhone: potentialCase2?.fatherPhone || "",
+          fatherMobile: potentialCase2?.fatherMobile || "",
+          fatherEmail: potentialCase2?.fatherEmail || "",
+          fatherAddress: potentialCase2?.fatherStreet || "",
+          fatherCity: potentialCase2?.fatherCity || "",
+          fatherPostalCode: potentialCase2?.fatherPostalCode || "",
+          fatherRegion: (potentialCase2 as any)?.fatherRegion || "",
+          fatherCountry: potentialCase2?.fatherCountry || "",
+          fatherDateOfBirth: formatDatePdf(potentialCase2?.fatherDateOfBirth),
+          expectedDeliveryDate: formatDatePdf(potentialCase2?.expectedDeliveryDate),
+          hospitalName: potentialCase2?.hospitalName || "",
+          gynecologistName: potentialCase2?.gynecologistName || "",
+          gynecologistPhone: (potentialCase2 as any)?.gynecologistPhone || "",
+          gynecologistEmail: (potentialCase2 as any)?.gynecologistEmail || "",
+          obstetricianName: (potentialCase2 as any)?.obstetricianName || "",
+          isMultiplePregnancy: potentialCase2?.multiplePregnancy ? "Áno" : "Nie",
+          childCount: String(potentialCase2?.childCount || 1),
+          productName: "",
+          productType: "",
+          paymentType: "",
+          giftVoucher: "",
+          bankAccount: billingDetails2?.bankIban || "",
+          bankCode: "",
+          bankName: billingDetails2?.bankName || "",
+          bankSwift: billingDetails2?.bankSwift || "",
+          currentDate: new Date().toLocaleDateString("sk-SK"),
+          contractNumber: contract.contractNumber || "",
+          internalId: contract.internalId || "",
+          motherFullName: `${customer2?.firstName || ""} ${customer2?.lastName || ""}`.trim(),
+          motherBirthDate: formatDatePdf(customer2?.dateOfBirth),
+          streetAddress: customer2?.address || "",
+        };
+        
+        let mappings: Record<string, string> = {};
+        try {
+          mappings = typeof categoryDefaultTemplate.placeholderMappings === "string" 
+            ? JSON.parse(categoryDefaultTemplate.placeholderMappings) 
+            : (categoryDefaultTemplate.placeholderMappings || {});
+        } catch { mappings = {}; }
+        
+        const pdfFields: Record<string, string | boolean> = {};
+        for (const [pdfFieldName, dataKey] of Object.entries(mappings)) {
+          if (!dataKey) continue;
+          if (dataKey.includes("+")) {
+            const parts = dataKey.split("+").map(k => customerDataMap[k.trim()] || "").filter(Boolean);
+            pdfFields[pdfFieldName] = parts.join(" ");
+          } else {
+            pdfFields[pdfFieldName] = customerDataMap[dataKey] || "";
+          }
+        }
+        
+        console.log("[PDF Form] Filling PDF form with", Object.keys(pdfFields).length, "mapped fields");
+        
+        const outputDir = path.join(process.cwd(), "uploads", "generated-contracts");
+        await fs.promises.mkdir(outputDir, { recursive: true });
+        const outputFileName = `Zmluva_${contract.contractNumber || contract.id.slice(0, 8)}.pdf`;
+        const outputPath = path.join(outputDir, outputFileName);
+        
+        const { fillPdfForm } = await import("./template-processor");
+        await fillPdfForm(pdfFormPath, pdfFields, outputPath, false);
+        
+        res.setHeader("Content-Type", "application/pdf");
+        res.setHeader("Content-Disposition", `inline; filename="${outputFileName}"`);
+        const pdfBuffer = fs.readFileSync(outputPath);
+        return res.send(pdfBuffer);
       }
       
       // Use categoryDefaultTemplate for rendering - map htmlContent to contentHtml for compatibility
