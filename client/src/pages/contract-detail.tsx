@@ -498,13 +498,14 @@ export default function ContractDetailPage() {
                                 <div className="flex-1 h-0.5" style={{ backgroundColor: isPast ? step.color : "hsl(var(--border))" }} />
                               )}
                               <div
-                                className="relative z-10 flex items-center justify-center rounded-full shrink-0 transition-all"
+                                className={`relative z-10 flex items-center justify-center rounded-full shrink-0 transition-all ${isActive ? "animate-timeline-pulse" : ""}`}
                                 style={{
                                   width: isActive ? 36 : 30,
                                   height: isActive ? 36 : 30,
                                   backgroundColor: isCompleted ? step.color : isActive ? "hsl(var(--background))" : "hsl(var(--muted))",
                                   border: isActive ? `2px solid ${step.color}` : isCompleted ? "none" : "2px solid hsl(var(--border))",
                                   boxShadow: isActive ? `0 0 0 3px ${step.color}30` : isCompleted ? `0 2px 4px ${step.color}40` : "none",
+                                  ["--pulse-color" as any]: step.color,
                                 }}
                               >
                                 <StepIcon
@@ -523,11 +524,15 @@ export default function ContractDetailPage() {
                             <p className="text-[10px] leading-tight text-center mt-1.5 px-0.5 font-medium" style={{ color: isCompleted ? step.color : isActive ? "hsl(var(--foreground))" : "hsl(var(--muted-foreground))" }}>
                               {step.label}
                             </p>
-                            {hasDate && (
+                            {hasDate ? (
                               <p className="text-[9px] text-muted-foreground text-center mt-0.5">
                                 {formatDate(formState[step.id], contractCountryCode)}
                               </p>
-                            )}
+                            ) : isActive ? (
+                              <p className="text-[9px] text-center mt-0.5 font-medium animate-pulse" style={{ color: step.color }}>
+                                ●
+                              </p>
+                            ) : null}
                           </div>
                         );
                       })}
@@ -547,29 +552,38 @@ export default function ContractDetailPage() {
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {[
-                  { id: "contactDate", label: t.contractsModule.fieldContactDate, icon: Phone },
-                  { id: "filledDate", label: t.contractsModule.fieldFilledDate, icon: Edit },
-                  { id: "createdContractDate", label: t.contractsModule.fieldCreatedContractDate, icon: FileText },
-                  { id: "sentContractDate", label: t.contractsModule.fieldSentDate, icon: Send },
-                  { id: "receivedByClientDate", label: t.contractsModule.fieldReceivedDate, icon: Download },
-                  { id: "returnedDate", label: t.contractsModule.fieldReturnedDate, icon: ArrowLeft },
-                  { id: "verifiedDate", label: t.contractsModule.fieldVerifiedDate, icon: Shield },
-                  { id: "executedDate", label: t.contractsModule.fieldExecutedDate, icon: CheckCircle },
-                ].map(({ id, label, icon: Icon }) => (
-                  <div key={id} className="space-y-1.5">
-                    <Label htmlFor={id} className="text-xs text-muted-foreground flex items-center gap-1.5">
-                      <Icon className="h-3.5 w-3.5" />
-                      {label}
-                    </Label>
-                    <DateTimePicker
-                      value={formState[id] || ""}
-                      onChange={(v) => updateField(id, v)}
-                      countryCode={contractCountryCode}
-                      data-testid={`input-${id}`}
-                    />
-                  </div>
-                ))}
+                {(() => {
+                  const lifecycleDateFields = [
+                    { id: "contactDate", label: t.contractsModule.fieldContactDate, icon: Phone },
+                    { id: "filledDate", label: t.contractsModule.fieldFilledDate, icon: Edit },
+                    { id: "createdContractDate", label: t.contractsModule.fieldCreatedContractDate, icon: FileText },
+                    { id: "sentContractDate", label: t.contractsModule.fieldSentDate, icon: Send },
+                    { id: "receivedByClientDate", label: t.contractsModule.fieldReceivedDate, icon: Download },
+                    { id: "returnedDate", label: t.contractsModule.fieldReturnedDate, icon: ArrowLeft },
+                    { id: "verifiedDate", label: t.contractsModule.fieldVerifiedDate, icon: Shield },
+                    { id: "executedDate", label: t.contractsModule.fieldExecutedDate, icon: CheckCircle },
+                  ];
+                  const lcCompletedIdx = lifecycleDateFields.reduce((last, f, i) => formState[f.id] ? i : last, -1);
+                  const nextExpectedId = lcCompletedIdx < lifecycleDateFields.length - 1 ? lifecycleDateFields[lcCompletedIdx + 1]?.id : null;
+                  return lifecycleDateFields.map(({ id, label, icon: Icon }) => {
+                    const isNextExpected = id === nextExpectedId && !formState[id];
+                    return (
+                      <div key={id} className={`space-y-1.5 rounded-lg p-2 transition-all ${isNextExpected ? "ring-2 ring-orange-400/60 bg-orange-50/50 dark:bg-orange-950/20 animate-field-pulse" : ""}`}>
+                        <Label htmlFor={id} className={`text-xs flex items-center gap-1.5 ${isNextExpected ? "text-orange-600 dark:text-orange-400 font-semibold" : "text-muted-foreground"}`}>
+                          <Icon className="h-3.5 w-3.5" />
+                          {label}
+                          {isNextExpected && <span className="ml-1 text-[9px] uppercase tracking-wider bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400 px-1.5 py-0.5 rounded-full">awaiting</span>}
+                        </Label>
+                        <DateTimePicker
+                          value={formState[id] || ""}
+                          onChange={(v) => updateField(id, v)}
+                          countryCode={contractCountryCode}
+                          data-testid={`input-${id}`}
+                        />
+                      </div>
+                    );
+                  });
+                })()}
               </div>
 
               <Separator />

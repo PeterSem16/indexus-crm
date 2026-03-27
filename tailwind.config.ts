@@ -96,10 +96,20 @@ export default {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
+        "timeline-pulse": {
+          "0%, 100%": { transform: "scale(1)", boxShadow: "0 0 0 0 var(--pulse-color, #F97316)" },
+          "50%": { transform: "scale(1.15)", boxShadow: "0 0 0 8px transparent" },
+        },
+        "field-pulse": {
+          "0%, 100%": { boxShadow: "0 0 0 0 rgba(249, 115, 22, 0.3)" },
+          "50%": { boxShadow: "0 0 0 4px rgba(249, 115, 22, 0.15)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "timeline-pulse": "timeline-pulse 2s ease-in-out infinite",
+        "field-pulse": "field-pulse 2s ease-in-out infinite",
       },
     },
   },
