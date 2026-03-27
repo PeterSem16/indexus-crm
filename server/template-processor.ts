@@ -370,6 +370,7 @@ export async function fillDocxTemplate(
       paragraphLoop: true,
       linebreaks: true,
       delimiters: { start: "{{", end: "}}" },
+      nullGetter() { return ""; },
     });
 
     // Log what placeholders the template expects
