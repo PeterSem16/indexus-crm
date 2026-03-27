@@ -142,6 +142,27 @@ function getFieldLabel(key: string): string {
   return key;
 }
 
+const GROUP_COLORS: Record<string, { bg: string; text: string; border: string; dot: string }> = {
+  "Osobné údaje (matka)": { bg: "bg-violet-50 dark:bg-violet-950/40", text: "text-violet-700 dark:text-violet-300", border: "border-violet-200 dark:border-violet-800", dot: "bg-violet-500" },
+  "Kontakt": { bg: "bg-blue-50 dark:bg-blue-950/40", text: "text-blue-700 dark:text-blue-300", border: "border-blue-200 dark:border-blue-800", dot: "bg-blue-500" },
+  "Adresa": { bg: "bg-emerald-50 dark:bg-emerald-950/40", text: "text-emerald-700 dark:text-emerald-300", border: "border-emerald-200 dark:border-emerald-800", dot: "bg-emerald-500" },
+  "Korešpondenčná adresa": { bg: "bg-teal-50 dark:bg-teal-950/40", text: "text-teal-700 dark:text-teal-300", border: "border-teal-200 dark:border-teal-800", dot: "bg-teal-500" },
+  "Otec": { bg: "bg-amber-50 dark:bg-amber-950/40", text: "text-amber-700 dark:text-amber-300", border: "border-amber-200 dark:border-amber-800", dot: "bg-amber-500" },
+  "Tehotenstvo / Odber": { bg: "bg-pink-50 dark:bg-pink-950/40", text: "text-pink-700 dark:text-pink-300", border: "border-pink-200 dark:border-pink-800", dot: "bg-pink-500" },
+  "Produkt / Platba": { bg: "bg-orange-50 dark:bg-orange-950/40", text: "text-orange-700 dark:text-orange-300", border: "border-orange-200 dark:border-orange-800", dot: "bg-orange-500" },
+  "Bankové údaje": { bg: "bg-cyan-50 dark:bg-cyan-950/40", text: "text-cyan-700 dark:text-cyan-300", border: "border-cyan-200 dark:border-cyan-800", dot: "bg-cyan-500" },
+  "Dátum a systém": { bg: "bg-slate-50 dark:bg-slate-950/40", text: "text-slate-700 dark:text-slate-300", border: "border-slate-200 dark:border-slate-800", dot: "bg-slate-500" },
+};
+
+function getFieldGroupColor(key: string) {
+  for (const group of CUSTOMER_FIELDS) {
+    for (const f of group.fields) {
+      if (f.key === key) return GROUP_COLORS[group.group] || GROUP_COLORS["Dátum a systém"];
+    }
+  }
+  return GROUP_COLORS["Dátum a systém"];
+}
+
 function NativeFieldSelect({
   value,
   onFieldChange,
@@ -151,26 +172,40 @@ function NativeFieldSelect({
   onFieldChange: (key: string) => void;
   testId: string;
 }) {
+  const colors = value ? getFieldGroupColor(value) : null;
+  const label = value ? getFieldLabel(value) : null;
+
   return (
-    <select
-      data-testid={testId}
-      value={value || ""}
-      onChange={(e) => {
-        const val = e.target.value;
-        console.log("[NativeFieldSelect] changed to:", val);
-        onFieldChange(val);
-      }}
-      style={{ minWidth: 180, maxWidth: 280, height: 32, fontSize: 13, padding: "2px 6px", border: "1px solid #ccc", borderRadius: 4, background: "#fff", color: "#333", cursor: "pointer" }}
-    >
-      <option value="">-- Nevyplnené --</option>
-      {CUSTOMER_FIELDS.map(group => (
-        <optgroup key={group.group} label={group.group}>
-          {group.fields.map(f => (
-            <option key={f.key} value={f.key}>{f.label}</option>
-          ))}
-        </optgroup>
-      ))}
-    </select>
+    <div className="relative inline-flex items-center">
+      <select
+        data-testid={testId}
+        value={value || ""}
+        onChange={(e) => {
+          const val = e.target.value;
+          console.log("[NativeFieldSelect] changed to:", val);
+          onFieldChange(val);
+        }}
+        className={`appearance-none cursor-pointer pr-6 h-[30px] text-[13px] rounded-md border transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-offset-1 ${
+          value && colors
+            ? `pl-5 ${colors.bg} ${colors.text} ${colors.border} font-medium focus:ring-violet-300`
+            : "pl-2 bg-gray-50 dark:bg-gray-900 text-gray-400 dark:text-gray-500 border-dashed border-gray-300 dark:border-gray-700 focus:ring-gray-300 italic"
+        }`}
+        style={{ minWidth: value ? 140 : 160, maxWidth: 280 }}
+      >
+        <option value="">-- Nevyplnené --</option>
+        {CUSTOMER_FIELDS.map(group => (
+          <optgroup key={group.group} label={group.group}>
+            {group.fields.map(f => (
+              <option key={f.key} value={f.key}>{f.label}</option>
+            ))}
+          </optgroup>
+        ))}
+      </select>
+      {value && colors && (
+        <span className={`absolute left-1.5 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full ${colors.dot} pointer-events-none`} />
+      )}
+      <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+    </div>
   );
 }
 
