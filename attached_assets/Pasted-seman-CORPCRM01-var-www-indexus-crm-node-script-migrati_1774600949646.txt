@@ -1,0 +1,108 @@
+seman@CORPCRM01:/var/www/indexus-crm$ node script/migration/discover-invoice-1260000031.cjs 2>&1 | tee /tmp/invoice-discovery.log
+Connected to CBC.
+
+=== 1. CONTRACT (con_number = 1112600003) ===
+
+{
+  "con_id": 263786,
+  "con_number": "1112600003",
+  "cli_id": 208252,
+  "csa_code": "REG_CSA_REALIZED",
+  "con_contacted": "2026-01-14T13:32:54.573Z",
+  "con_filled": "2026-01-14T13:33:12.967Z",
+  "con_generated": "2026-01-14T13:33:12.967Z",
+  "con_sent": "2026-01-15T08:15:24.073Z",
+  "con_confirmed": null,
+  "con_returned": "2026-01-30T16:34:29.443Z",
+  "con_validated": "2026-01-30T16:34:43.213Z",
+  "con_realized": "2026-03-21T04:44:47.210Z",
+  "con_terminated": null,
+  "con_cancelled": null,
+  "con_inserted": "2026-01-14T13:33:13.060Z",
+  "con_note": "zmluvy poslať na Lysica 281, Belá pri Varíne. Iba zmluvy.",
+  "cte_id": 1105,
+  "cte_name": "CBC-AG Only - platna od 21.7.2022",
+  "cte_template_number": "2022_07_21",
+  "mpi_name": "CBC-AG-ONLY Štandard + Tkanivo s 1 ročným skladným",
+  "mpr_name": "Odber Štandard + Tkanivo"
+}
+
+con_id = 263786, cli_id = 208252
+
+
+=== 2. CLIENT ===
+
+ERROR section 2: Invalid column name 'cli_email'.
+
+
+=== 3. CONTRACT SERVICES ===
+
+ERROR section 3: Invalid column name 'cse_storable'.
+
+
+=== 4. INVOICE 1260000031 ===
+
+{
+  "inv_id": 2837746,
+  "inv_invoice_number": "1260000031",
+  "cse_id": 1249118,
+  "ist_id": 3,
+  "inv_variable_symbol": "1112600003",
+  "inv_constant_symbol": "0008",
+  "inv_specific_symbol": "1260000031",
+  "inv_amount_cur_home_no_vat": 1800,
+  "inv_amount_cur_home_with_vat": 1800,
+  "inv_paid_cur_home": 0,
+  "inv_fully_paid": null,
+  "inv_date_of_delivery": "2026-03-21T00:00:00.000Z",
+  "inv_date_of_issue": "2026-03-21T00:00:00.000Z",
+  "inv_dispatch_date": "2026-03-23T00:00:00.000Z",
+  "inv_date_of_payment": "2027-01-01T00:00:00.000Z",
+  "inv_period_from": "2026-03-21T00:00:00.000Z",
+  "inv_period_to": null,
+  "cur_code_home": "EUR",
+  "acc_id": 50,
+  "ist_code": "REG_IST_INDUE"
+}
+
+=== 5. INVOICE ITEMS for 1260000031 (with Accounting Codes) ===
+
+{
+  "iit_id": 2965817,
+  "inv_id": 2837746,
+  "iit_position": 1,
+  "iit_label": "(CBC AG) Odber a spracovanie krvi z pupočníka + tkanivo pupočníka",
+  "iit_item_accounting_code": "SOSTT",
+  "iit_units": 1,
+  "iit_unit_code": "pc",
+  "iit_price_per_unit_cur_home_no_vat": 1800,
+  "iit_price_per_unit_cur_home_with_vat": 1800,
+  "iit_price_cur_home_no_vat": 1800,
+  "iit_price_cur_home_with_vat": 1800,
+  "vat_rate": 0
+}
+
+=== 7. SCHEDULES ===
+
+
+=== 10. ACCOUNTS ===
+
+ERROR section 10: Invalid object name 'Accounts'.
+
+
+=== 11. PRICELIST PAYMENTS with ACCOUNTING CODES (sample) ===
+
+ERROR section 11: Invalid column name 'pls_id'.
+
+
+=== 12. ContractServiceSchedulePayments COLUMNS ===
+
+csy_id(numeric), csh_id(numeric), csy_name(nvarchar), csy_installments_id(int), csy_amount(money), csy_paymentdate_field(varchar), csy_days_from_field_value(int), csy_days_from_previous(int), csy_inserted(datetime), csy_inserted_by(varchar)
+
+=== 13. InvoiceItems COLUMNS ===
+
+iit_id(numeric), vat_id(numeric), inv_id(numeric), iit_ext_id(numeric), iit_position(int), iit_item_accounting_code(varchar), iit_label(nvarchar), iit_units(numeric), iit_unit_code(varchar), iit_price_per_unit_cur_home_with_vat(money), iit_price_cur_home_with_vat(money), iit_price_per_unit_cur_account_with_vat(money), iit_price_cur_account_with_vat(money), iit_price_per_unit_cur_home_no_vat(money), iit_price_cur_home_no_vat(money), iit_price_per_unit_cur_account_no_vat(money), iit_price_cur_account_no_vat(money), iit_note(nvarchar)
+
+
+Done.
+seman@C
