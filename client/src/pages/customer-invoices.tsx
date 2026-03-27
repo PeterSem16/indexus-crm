@@ -476,7 +476,7 @@ export default function CustomerInvoicesPage() {
       const billing = inv.billingDetailsId ? billingMap.get(inv.billingDetailsId) : null;
       return {
         ...inv,
-        customerName: customer ? `${customer.firstName} ${customer.lastName}` : "-",
+        customerName: customer ? `${customer.firstName} ${customer.lastName}` : (inv.customerName || "-"),
         customerCountry: customer?.country || inv.customerCountry || "",
         billingCompanyName: billing?.companyName || inv.billingCompanyName || "-",
       };
@@ -1436,7 +1436,7 @@ export default function CustomerInvoicesPage() {
                                 </TableCell>
                                 <TableCell>
                                   <span className="flex items-center gap-1.5">
-                                    {customer ? `${customer.firstName} ${customer.lastName}` : scheduled.customerId}
+                                    {customer ? `${customer.firstName} ${customer.lastName}` : (scheduled.customerName || scheduled.customerId)}
                                     {scheduled.createdBy === 'migration-v20' && (
                                       <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-800">
                                         ISCBC

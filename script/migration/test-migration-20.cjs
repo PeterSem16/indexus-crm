@@ -3263,6 +3263,15 @@ async function step12_customerInvoices() {
   for (const c of migratedCustomers.rows) customerMap[c.internal_id] = c.id;
   const cliIds = Object.keys(customerMap).join(',');
 
+  const customerNameLookup = {};
+  try {
+    const cnRes = await pgPool.query(`SELECT id, first_name, last_name FROM customers WHERE internal_id IS NOT NULL`);
+    for (const c of cnRes.rows) {
+      customerNameLookup[c.id] = `${c.first_name || ''} ${c.last_name || ''}`.trim();
+    }
+    log(`  Customer name lookup (invoices): ${Object.keys(customerNameLookup).length} záznamov`);
+  } catch (err) { log(`  WARN customer name lookup: ${err.message}`); }
+
   // --- Diagnostika: Invoices stĺpce ---
   try {
     const invCols = await mssqlPool.request().query(`
@@ -3794,6 +3803,7 @@ async function step12_customerInvoices() {
           billing_bank_name, billing_bank_iban, billing_bank_swift,
           contract_instance_id,
           payment_date,
+          customer_name,
           data_source, legacy_data, note,
           generated_at, created_at
         )
@@ -3809,8 +3819,9 @@ async function step12_customerInvoices() {
           $23, $24, $25,
           $26,
           $27,
-          'iscbc', $28, $29,
-          $30, $30
+          $28,
+          'iscbc', $29, $30,
+          $31, $31
         )
       `, [
         invoiceNumberForModule,                                                        // $1
@@ -3840,9 +3851,10 @@ async function step12_customerInvoices() {
         invCompAccounts.acc_SWIFT || null,                                             // $25 billing_bank_swift
         contractInstanceId,                                                            // $26
         resolvedPaymentDate,                                                           // $27 payment_date
-        JSON.stringify(legacyData),                                                    // $28
-        r.inv_note || null,                                                            // $29
-        r.inv_inserted || r.inv_date_of_issue || new Date(),                           // $30
+        customerNameLookup[customerId] || null,                                        // $28 customer_name
+        JSON.stringify(legacyData),                                                    // $29
+        r.inv_note || null,                                                            // $30
+        r.inv_inserted || r.inv_date_of_issue || new Date(),                           // $31
       ]);
 
       inserted++;
