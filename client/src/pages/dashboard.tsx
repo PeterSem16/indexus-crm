@@ -74,10 +74,12 @@ export default function Dashboard() {
 
   const { data: webForms = [] } = useQuery<WebForm[]>({
     queryKey: ["/api/web-forms"],
+    refetchInterval: 30000,
   });
 
   const { data: allSubmissions = [] } = useQuery<any[]>({
     queryKey: ["/api/web-forms/stats"],
+    refetchInterval: 30000,
   });
 
   const { data: hospitals = [] } = useQuery<any[]>({
