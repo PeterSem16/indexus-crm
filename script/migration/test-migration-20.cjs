@@ -2953,6 +2953,26 @@ async function step11_customerContracts() {
     if (acSample.length > 0) log(`  Vzorky AC (per-service): ${acSample.map(([k,v]) => `cse_id=${k}: "${v}"`).join(', ')}`);
   } catch (err) { log(`  WARN invoice item labels: ${err.message}`); }
 
+  // Build currency map from CBC Invoices (cur_code_home per cse_id and con_id)
+  const currencyByCseId = {};
+  const currencyByConId = {};
+  try {
+    const conIds = contracts.recordset.map(r => r.con_id).join(',');
+    const curRes = await mssqlPool.request().query(`
+      SELECT DISTINCT cs.con_id, cs.cse_id, i.cur_code_home
+      FROM ContractServices cs
+      JOIN Invoices i ON i.cse_id = cs.cse_id
+      WHERE cs.con_id IN (${conIds}) AND i.cur_code_home IS NOT NULL AND i.cur_code_home != ''
+    `);
+    for (const r of curRes.recordset) {
+      if (!currencyByCseId[String(r.cse_id)]) currencyByCseId[String(r.cse_id)] = r.cur_code_home;
+      if (!currencyByConId[String(r.con_id)]) currencyByConId[String(r.con_id)] = r.cur_code_home;
+    }
+    log(`  Currency map: ${Object.keys(currencyByConId).length} zmlúv, ${Object.keys(currencyByCseId).length} služieb`);
+    const curSample = Object.entries(currencyByConId).slice(0, 5);
+    if (curSample.length > 0) log(`  Vzorky mien: ${curSample.map(([k,v]) => `con_id=${k}: "${v}"`).join(', ')}`);
+  } catch (err) { log(`  WARN currency map: ${err.message}`); }
+
   let insertedCI = 0, insertedCD = 0, insertedSI = 0, siErrors = 0, skipped = 0, errors = 0;
   for (const r of contracts.recordset) {
     const customerId = customerMap[String(r.cli_id)];
@@ -3122,6 +3142,7 @@ async function step11_customerContracts() {
         const cseId = sch.cse_id || null;
         const invoiceItemLabel = (cseId ? invoiceItemLabelByCseId[cseId] : null) || invoiceItemLabelByConId[String(r.con_id)] || null;
         const itemAccountingCode = (cseId ? accountingCodeByCseId[cseId] : null) || accountingCodeByConId[String(r.con_id)] || null;
+        const scheduleCurrency = (cseId ? currencyByCseId[cseId] : null) || currencyByConId[String(r.con_id)] || 'EUR';
         const totalInstallments = payments.length;
 
         for (let pIdx = 0; pIdx < payments.length; pIdx++) {
@@ -3165,7 +3186,7 @@ async function step11_customerContracts() {
                 billing_bank_name, billing_bank_iban, billing_bank_swift
               ) VALUES (
                 gen_random_uuid(), $1, $2, $3, $4,
-                'pending', 'EUR', 14, $5, $6,
+                'pending', $22, 14, $5, $6,
                 $7, $8, $9, $10, $11, $12, $13,
                 $14, 'migration-v20',
                 $15, $16,
@@ -3194,6 +3215,7 @@ async function step11_customerContracts() {
               billingBankName,
               billingBankIban,
               billingBankSwift,
+              scheduleCurrency,
             ]);
             insertedSI++;
           } catch (siErr) {
