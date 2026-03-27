@@ -25553,6 +25553,44 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
     }
   });
 
+  app.get("/api/contracts/categories/:categoryId/default-templates/by-id/:templateId", requireAuth, async (req, res) => {
+    try {
+      const templateId = parseInt(req.params.templateId);
+      const template = await storage.getCategoryDefaultTemplateById(templateId);
+      if (!template) {
+        return res.status(404).json({ error: "Template not found" });
+      }
+
+      let extractedFields = template.extractedFields;
+      if (typeof extractedFields === 'string') {
+        try { extractedFields = JSON.parse(extractedFields); } catch (e) { extractedFields = []; }
+      }
+
+      let pageImages: any[] = [];
+      let embeddedImages: any[] = [];
+      let conversionMethod: string | null = null;
+      if (template.conversionMetadata) {
+        try {
+          const metadata = JSON.parse(template.conversionMetadata);
+          pageImages = metadata.pageImages || [];
+          embeddedImages = metadata.embeddedImages || [];
+          conversionMethod = metadata.conversionMethod || null;
+        } catch (e) {}
+      }
+
+      res.json({
+        ...template,
+        extractedFields: extractedFields,
+        pageImages,
+        embeddedImages,
+        conversionMethod
+      });
+    } catch (error) {
+      console.error("Template get by id error:", error);
+      res.status(500).json({ error: "Failed to get template: " + (error as Error).message });
+    }
+  });
+
   app.delete("/api/contracts/categories/:categoryId/default-templates/by-id/:templateId", requireAuth, async (req, res) => {
     try {
       const templateId = parseInt(req.params.templateId);

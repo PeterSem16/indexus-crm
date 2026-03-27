@@ -1015,7 +1015,7 @@ export function ContractTemplatesManager() {
     }
   };
 
-  const handleEditCategoryTemplate = async (categoryId: number, countryCode: string) => {
+  const handleEditCategoryTemplate = async (categoryId: number, countryCode: string, templateId?: number) => {
     setEditingTemplateCountry(countryCode);
     setEditingTemplateData(null);
     setTemplateMappings({});
@@ -1023,7 +1023,10 @@ export function ContractTemplatesManager() {
     setIsTemplateEditorOpen(true);
 
     try {
-      const response = await fetch(`/api/contracts/categories/${categoryId}/default-templates/${countryCode}`, {
+      const url = templateId
+        ? `/api/contracts/categories/${categoryId}/default-templates/by-id/${templateId}`
+        : `/api/contracts/categories/${categoryId}/default-templates/${countryCode}`;
+      const response = await fetch(url, {
         credentials: "include"
       });
       if (response.ok) {
@@ -2223,23 +2226,24 @@ export function ContractTemplatesManager() {
             )}
 
             {categoryWizardStep === 0 && selectedCategory && (
-              <Tabs defaultValue="basic" className="w-full">
-                <TabsList className="grid w-full grid-cols-3 mb-4">
-                  <TabsTrigger value="basic" data-testid="tab-category-basic">
-                    <Settings className="h-4 w-4 mr-2" />
+              <Tabs defaultValue="basic" className="w-full h-full flex gap-0">
+                <TabsList className="flex flex-col h-auto w-[180px] shrink-0 bg-muted/30 border-r rounded-none p-2 gap-1 items-stretch justify-start">
+                  <TabsTrigger value="basic" className="justify-start gap-2 px-3 py-2.5 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm" data-testid="tab-category-basic">
+                    <Settings className="h-4 w-4" />
                     Základné
                   </TabsTrigger>
-                  <TabsTrigger value="languages" data-testid="tab-category-languages">
-                    <Globe className="h-4 w-4 mr-2" />
+                  <TabsTrigger value="languages" className="justify-start gap-2 px-3 py-2.5 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm" data-testid="tab-category-languages">
+                    <Globe className="h-4 w-4" />
                     Jazyky
                   </TabsTrigger>
-                  <TabsTrigger value="templates" data-testid="tab-category-templates">
-                    <FileText className="h-4 w-4 mr-2" />
+                  <TabsTrigger value="templates" className="justify-start gap-2 px-3 py-2.5 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm" data-testid="tab-category-templates">
+                    <FileText className="h-4 w-4" />
                     Šablóny
                   </TabsTrigger>
                 </TabsList>
 
-                <TabsContent value="basic" className="space-y-4">
+                <div className="flex-1 overflow-y-auto">
+                <TabsContent value="basic" className="space-y-4 p-4 mt-0">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="edit-category-value">Kód kategórie</Label>
@@ -2289,7 +2293,7 @@ export function ContractTemplatesManager() {
                   </div>
                 </TabsContent>
 
-                <TabsContent value="languages" className="space-y-4">
+                <TabsContent value="languages" className="space-y-4 p-4 mt-0">
                   <div className="p-3 bg-muted/50 rounded-md mb-4">
                     <p className="text-sm text-muted-foreground">
                       Zadajte preklady názvu kategórie pre jednotlivé krajiny
@@ -2322,7 +2326,7 @@ export function ContractTemplatesManager() {
                   </div>
                 </TabsContent>
 
-                <TabsContent value="templates" className="space-y-4">
+                <TabsContent value="templates" className="space-y-4 p-4 mt-0">
                   <div className="p-3 bg-muted/50 rounded-md">
                     <p className="text-sm text-muted-foreground">
                       Nahrajte DOCX šablóny pre jednotlivé krajiny. Šablóny môžete stiahnuť, upraviť v MS Word a nahrať späť.
@@ -2523,6 +2527,16 @@ export function ContractTemplatesManager() {
                                           size="sm"
                                           variant="ghost"
                                           className="h-7 w-7 p-0"
+                                          onClick={() => handleEditCategoryTemplate(selectedCategory!.id, country.code, tmpl.id)}
+                                          data-testid={`button-edit-template-vars-${tmpl.id}`}
+                                          title="Editovať premenné"
+                                        >
+                                          <Edit2 className="h-3.5 w-3.5" />
+                                        </Button>
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          className="h-7 w-7 p-0"
                                           onClick={async () => {
                                             try {
                                               const fileSrc = tmpl.sourceDocxPath || tmpl.sourcePdfPath;
@@ -2592,6 +2606,7 @@ export function ContractTemplatesManager() {
                     })}
                   </div>
                 </TabsContent>
+                </div>
               </Tabs>
             )}
           </div>
