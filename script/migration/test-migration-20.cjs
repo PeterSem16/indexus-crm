@@ -3790,7 +3790,7 @@ async function step12_customerInvoices() {
     if (!customerId) continue;
 
     const payments = scheduledPaymentsMap[String(r.inv_id)] || [];
-    if (payments.length === 0) continue;
+    if (payments.length < 2) continue; // skip single-payment invoices (one time payment = not a schedule)
 
     // Only create scheduled_invoices for unpaid/partially paid installments
     const unpaidPayments = payments.filter(p => {
