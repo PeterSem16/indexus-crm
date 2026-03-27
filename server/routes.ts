@@ -34910,6 +34910,8 @@ Return ONLY the JSON object.`
           const [form] = await db.select().from(webForms).where(eq(webForms.id, submission.formId));
           customerData.country = form?.countryCode || "SK";
         }
+        customerData.registrationSource = "web_form";
+        customerData.registrationDate = new Date();
         const newCustomer = await storage.createCustomer(customerData);
         customerId = newCustomer.id;
         await storage.updateWebFormSubmission(submissionId, { customerId, isNewCustomer: false } as any);
@@ -34917,8 +34919,15 @@ Return ONLY the JSON object.`
         const updateData = buildCustomerData(fieldsToUpdate);
         if (Object.keys(updateData).length > 0) {
           await storage.updateCustomer(customerId, updateData);
+          if (!updateData.registrationSource) {
+            await storage.updateCustomer(customerId, { registrationSource: "web_form" });
+          }
         }
       }
+
+      const { webForms } = await import("@shared/schema");
+      const [approveForm] = await db.select().from(webForms).where(eq(webForms.id, submission.formId));
+      const formName = approveForm?.name || "Neznámy formulár";
 
       await storage.updateWebFormSubmission(submissionId, {
         status: "approved",
@@ -34937,6 +34946,24 @@ Return ONLY the JSON object.`
         }),
         ipAddress: req.ip || null,
       });
+
+      if (customerId) {
+        await storage.createActivityLog({
+          userId: req.session.user!.id,
+          action: "marketing_action",
+          entityType: "customer",
+          entityId: customerId,
+          entityName: `${data.firstName || ""} ${data.lastName || ""}`.trim() || "N/A",
+          details: JSON.stringify({
+            type: "web_form_approval",
+            source: "Webový formulár",
+            formName: formName,
+            approvedBy: req.session.user!.fullName || req.session.user!.username,
+            isNewCustomer: submission.isNewCustomer,
+            message: `Schválenie registrácie z webového formulára "${formName}"`,
+          }),
+        });
+      }
 
       res.json({ success: true, customerId });
     } catch (e: any) {

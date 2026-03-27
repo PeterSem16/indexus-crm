@@ -2000,6 +2000,7 @@ function CustomerHistoryTimeline({
         note_added: "Pridanie poznámky",
         add_note: "Pridanie poznámky",
         email_sent: "Odoslaný email",
+        marketing_action: "Webový formulár",
       };
 
       // Build enriched description based on action type
@@ -2025,6 +2026,10 @@ function CustomerHistoryTimeline({
         enrichedDescription = details.content.substring(0, 50) + (details.content.length > 50 ? "..." : "");
       } else if (log.action === "email_sent" && details?.subject) {
         enrichedDescription = details.subject;
+      } else if (log.action === "marketing_action" && details) {
+        const formName = details.formName || "";
+        const msg = details.message || "";
+        enrichedDescription = msg || (formName ? `Webový formulár "${formName}"` : (log.entityName || customerName));
       }
 
       events.push({
