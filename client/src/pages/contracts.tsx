@@ -25,7 +25,8 @@ import {
   FileSignature, Download, Copy, RefreshCw, AlertCircle, Filter,
   ChevronRight, Settings, PenTool, Mail, Phone, Shield, Users,
   CheckCircle, Loader2, Edit, Pencil, GripVertical, Globe, ExternalLink,
-  Sparkles, ArrowRight, Maximize2, Minimize2, ArrowUpDown, ChevronLeft
+  Sparkles, ArrowRight, Maximize2, Minimize2, ArrowUpDown, ChevronLeft,
+  Mailbox, FileDown
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -802,6 +803,22 @@ export default function ContractsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
       toast({ title: t.contractsModule.statusCancelled });
+    }
+  });
+
+  const sendByPostMutation = useMutation({
+    mutationFn: async ({ id }: { id: string }) => {
+      return apiRequest("PATCH", `/api/contracts/${id}`, { 
+        sentContractDate: new Date().toISOString(),
+        status: "sent"
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
+      toast({ title: "Zmluva odoslaná poštou", description: "Dátum odoslania bol zaznamenaný." });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Chyba", description: error.message, variant: "destructive" });
     }
   });
 
@@ -2417,11 +2434,39 @@ export default function ContractsPage() {
                                     setSendMethod("email_otp");
                                     setIsSendConfirmOpen(true);
                                   }}
+                                  title="Odoslať elektronicky"
                                   data-testid={`button-send-contract-${contract.id}`}
                                 >
                                   <Send className="h-4 w-4" />
                                 </Button>
                               )}
+                              {contract.status === "draft" && (
+                                <Button 
+                                  size="icon" 
+                                  variant="ghost"
+                                  onClick={() => {
+                                    if (confirm("Označiť zmluvu ako odoslanú poštou? Nastaví sa dnešný dátum odoslania.")) {
+                                      sendByPostMutation.mutate({ id: contract.id });
+                                    }
+                                  }}
+                                  title="Odoslať poštou"
+                                  disabled={sendByPostMutation.isPending}
+                                  data-testid={`button-send-post-${contract.id}`}
+                                >
+                                  <Mailbox className="h-4 w-4" />
+                                </Button>
+                              )}
+                              <Button 
+                                size="icon" 
+                                variant="ghost"
+                                onClick={() => {
+                                  window.open(`/api/contracts/${contract.id}/pdf`, '_blank');
+                                }}
+                                title="Zobraziť zmluvu (PDF)"
+                                data-testid={`button-view-pdf-${contract.id}`}
+                              >
+                                <FileDown className="h-4 w-4" />
+                              </Button>
                               {(contract.status === "sent" || contract.status === "pending_signature") && (
                                 <Button 
                                   size="icon" 
