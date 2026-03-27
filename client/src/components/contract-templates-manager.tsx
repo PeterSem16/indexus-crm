@@ -509,6 +509,10 @@ export function ContractTemplatesManager() {
   const [loadingCategoryTemplate, setLoadingCategoryTemplate] = useState(false);
   const [aiMappingInProgress, setAiMappingInProgress] = useState(false);
   const [aiMappedFields, setAiMappedFields] = useState<Set<string>>(new Set());
+  const templateFormMappingsRef = useRef<Record<string, string>>({});
+  const aiMappedFieldsRef = useRef<Set<string>>(new Set());
+  templateFormMappingsRef.current = templateForm.placeholderMappings;
+  aiMappedFieldsRef.current = aiMappedFields;
   const [templatePreviewPdfUrl, setTemplatePreviewPdfUrl] = useState<string | null>(null);
 
   const [categoryForm, setCategoryForm] = useState({
@@ -567,11 +571,63 @@ export function ContractTemplatesManager() {
     aiProcessed?: boolean;
     originalDocxPath?: string;
   } | null>(null);
-  const [templateMappings, setTemplateMappings] = useState<Record<string, string>>({});
+  const [templateMappings, setTemplateMappingsState] = useState<Record<string, string>>({});
+  const templateMappingsRef = useRef<Record<string, string>>({});
+  const setTemplateMappings = (mappings: Record<string, string>) => {
+    templateMappingsRef.current = mappings;
+    setTemplateMappingsState(mappings);
+  };
   const [savingMappings, setSavingMappings] = useState(false);
   const lastSavedMappingsRef = useRef<string>('{}');
   const lastSavedAiFieldsRef = useRef<string>('[]');
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [fieldSaveStatus, setFieldSaveStatus] = useState<Record<string, 'saving' | 'saved' | 'error'>>({});
+
+  const saveMappingToServer = async (catId: number | undefined, countryCode: string | undefined, mappings: Record<string, string>, aiFields: string[], fieldName?: string) => {
+    if (!catId || !countryCode) {
+      console.error('[saveMappingToServer] Missing catId or countryCode', catId, countryCode);
+      if (fieldName) setFieldSaveStatus(prev => ({ ...prev, [fieldName]: 'error' }));
+      return false;
+    }
+    if (fieldName && autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
+      autoSaveTimerRef.current = null;
+    }
+    if (fieldName) setFieldSaveStatus(prev => ({ ...prev, [fieldName]: 'saving' }));
+    const filteredMappings: Record<string, string> = {};
+    for (const [key, value] of Object.entries(mappings)) {
+      if (value && value.trim() !== "") {
+        filteredMappings[key] = value;
+      }
+    }
+    try {
+      console.log('[saveMappingToServer] Saving', Object.keys(filteredMappings).length, 'mappings for cat', catId, 'country', countryCode, 'field:', fieldName);
+      const resp = await fetch(`/api/contracts/categories/${catId}/default-templates/${countryCode}/mappings`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mappings: filteredMappings, aiMappedFields: aiFields }),
+        credentials: "include"
+      });
+      if (resp.ok) {
+        lastSavedMappingsRef.current = JSON.stringify(filteredMappings, Object.keys(filteredMappings).sort());
+        lastSavedAiFieldsRef.current = JSON.stringify([...aiFields].sort());
+        if (fieldName) {
+          setFieldSaveStatus(prev => ({ ...prev, [fieldName]: 'saved' }));
+          setTimeout(() => setFieldSaveStatus(prev => { const n = { ...prev }; delete n[fieldName]; return n; }), 2000);
+        }
+        console.log('[saveMappingToServer] SUCCESS');
+        return true;
+      } else {
+        console.error('[saveMappingToServer] FAILED HTTP', resp.status);
+        if (fieldName) setFieldSaveStatus(prev => ({ ...prev, [fieldName]: 'error' }));
+        return false;
+      }
+    } catch (err) {
+      console.error('[saveMappingToServer] ERROR', err);
+      if (fieldName) setFieldSaveStatus(prev => ({ ...prev, [fieldName]: 'error' }));
+      return false;
+    }
+  };
 
   const { data: templates = [], isLoading: templatesLoading } = useQuery<ContractTemplate[]>({
     queryKey: ["/api/contracts/templates", selectedCountry],
@@ -1023,37 +1079,18 @@ export function ContractTemplatesManager() {
 
   const handleSaveMappings = async () => {
     const catId = editingTemplateData?.categoryId || selectedCategory?.id;
-    console.log('[SAVE BUTTON] catId:', catId, 'country:', editingTemplateCountry, 'mappingKeys:', Object.keys(templateMappings).length);
-    try { fetch(`/api/debug-log?event=save_click&catId=${catId}&country=${editingTemplateCountry}&keys=${Object.keys(templateMappings).length}&nonEmpty=${Object.values(templateMappings).filter(v => v && String(v).trim()).length}`, { credentials: "include" }); } catch(e) {}
     if (!catId || !editingTemplateCountry) return;
 
     setSavingMappings(true);
     try {
-      const filteredMappings: Record<string, string> = {};
-      for (const [key, value] of Object.entries(templateMappings)) {
-        if (value && value.trim() !== "") {
-          filteredMappings[key] = value;
-        }
-      }
-
-      console.log('[Save mappings] Saving', Object.keys(filteredMappings).length, 'non-empty mappings for category', catId, 'country', editingTemplateCountry);
-
-      const response = await fetch(`/api/contracts/categories/${catId}/default-templates/${editingTemplateCountry}/mappings`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mappings: filteredMappings, aiMappedFields: Array.from(aiMappedFields) }),
-        credentials: "include"
-      });
-
-      if (response.ok) {
-        lastSavedMappingsRef.current = JSON.stringify(filteredMappings, Object.keys(filteredMappings).sort());
-        lastSavedAiFieldsRef.current = JSON.stringify([...aiMappedFields].sort());
+      const latestMappings = templateMappingsRef.current;
+      const success = await saveMappingToServer(catId, editingTemplateCountry, latestMappings, Array.from(aiMappedFieldsRef.current));
+      if (success) {
         toast({ title: t.contractsModule.mappingsSaved });
         setIsTemplateEditorOpen(false);
         queryClient.invalidateQueries({ queryKey: ['/api/contracts/categories'] });
       } else {
-        const error = await response.json();
-        throw new Error(error.error || "Uloženie zlyhalo");
+        throw new Error("Uloženie zlyhalo");
       }
     } catch (error: any) {
       toast({
@@ -1068,7 +1105,6 @@ export function ContractTemplatesManager() {
 
   useEffect(() => {
     const catId = editingTemplateData?.categoryId || selectedCategory?.id;
-    console.log('[AUTOSAVE EFFECT] catId:', catId, 'country:', editingTemplateCountry, 'open:', isTemplateEditorOpen, 'mappingKeys:', Object.keys(templateMappings).length);
     if (!catId || !editingTemplateCountry || !isTemplateEditorOpen) return;
 
     const filteredMappings: Record<string, string> = {};
@@ -1080,7 +1116,6 @@ export function ContractTemplatesManager() {
     const currentMappingsJson = JSON.stringify(filteredMappings, Object.keys(filteredMappings).sort());
     const currentAiFieldsJson = JSON.stringify([...aiMappedFields].sort());
 
-    console.log('[AUTOSAVE EFFECT] nonEmpty:', Object.keys(filteredMappings).length, 'changed:', currentMappingsJson !== lastSavedMappingsRef.current);
     if (currentMappingsJson === lastSavedMappingsRef.current && currentAiFieldsJson === lastSavedAiFieldsRef.current) {
       return;
     }
@@ -1089,26 +1124,9 @@ export function ContractTemplatesManager() {
       clearTimeout(autoSaveTimerRef.current);
     }
 
-    autoSaveTimerRef.current = setTimeout(async () => {
-      console.log('[Auto-save] Saving', Object.keys(filteredMappings).length, 'mappings for category', catId, 'country', editingTemplateCountry);
-      try {
-        const resp = await fetch(`/api/contracts/categories/${catId}/default-templates/${editingTemplateCountry}/mappings`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ mappings: filteredMappings, aiMappedFields: Array.from(aiMappedFields) }),
-          credentials: "include"
-        });
-        if (resp.ok) {
-          lastSavedMappingsRef.current = currentMappingsJson;
-          lastSavedAiFieldsRef.current = currentAiFieldsJson;
-          console.log('[Auto-save] Success');
-        } else {
-          console.error('[Auto-save] Failed with status', resp.status);
-        }
-      } catch (err) {
-        console.error("[Auto-save] Error:", err);
-      }
-    }, 600);
+    autoSaveTimerRef.current = setTimeout(() => {
+      saveMappingToServer(catId, editingTemplateCountry, templateMappingsRef.current, Array.from(aiMappedFieldsRef.current));
+    }, 800);
 
     return () => {
       if (autoSaveTimerRef.current) {
@@ -1811,13 +1829,13 @@ export function ContractTemplatesManager() {
                                 <MultiFieldMapping
                                   value={templateForm.placeholderMappings[pdfField.name] || ""}
                                   onChange={(newValue) => {
-                                    console.log('[Dialog1] Manual mapping onChange fired!', pdfField.name, '=>', newValue, 'catId:', selectedCategory?.id, 'cc:', templateForm.countryCode);
-                                    const allMappings = { ...templateForm.placeholderMappings };
+                                    const allMappings = { ...templateFormMappingsRef.current };
                                     if (newValue) {
                                       allMappings[pdfField.name] = newValue;
                                     } else {
                                       delete allMappings[pdfField.name];
                                     }
+                                    templateFormMappingsRef.current = allMappings;
                                     setTemplateForm(prev => ({
                                       ...prev,
                                       placeholderMappings: allMappings
@@ -1827,35 +1845,24 @@ export function ContractTemplatesManager() {
                                       next.delete(pdfField.name);
                                       return next;
                                     });
-                                    const catId = selectedCategory?.id;
+                                    const catId = selectedCategory?.id || templateForm.loadedCategoryId || undefined;
                                     const cc = templateForm.countryCode;
-                                    if (catId && cc) {
-                                      const filteredMappings: Record<string, string> = {};
-                                      for (const [key, value] of Object.entries(allMappings)) {
-                                        if (value && value.trim() !== "") {
-                                          filteredMappings[key] = value;
-                                        }
-                                      }
-                                      fetch(`/api/contracts/categories/${catId}/default-templates/${cc}/mappings`, {
-                                        method: "PATCH",
-                                        headers: { "Content-Type": "application/json" },
-                                        body: JSON.stringify({ mappings: filteredMappings, aiMappedFields: Array.from(aiMappedFields) }),
-                                        credentials: "include"
-                                      }).then(resp => {
-                                        if (resp.ok) {
-                                          toast({ title: "Uložené", description: `${pdfField.name} → ${newValue}` });
-                                        } else {
-                                          toast({ title: "Chyba ukladania", description: `HTTP ${resp.status}`, variant: "destructive" });
-                                        }
-                                      }).catch((err) => {
-                                        toast({ title: "Chyba siete", description: String(err), variant: "destructive" });
-                                      });
-                                    } else {
-                                      toast({ title: "Nedá sa uložiť", description: `catId=${catId}, cc=${cc}`, variant: "destructive" });
-                                    }
+                                    const currentAiFields = Array.from(aiMappedFieldsRef.current);
+                                    const aiIdx = currentAiFields.indexOf(pdfField.name);
+                                    if (aiIdx >= 0) currentAiFields.splice(aiIdx, 1);
+                                    saveMappingToServer(catId as number | undefined, cc, allMappings, currentAiFields, pdfField.name);
                                   }}
                                   testId={`select-pdf-mapping-${idx}`}
                                 />
+                                {fieldSaveStatus[pdfField.name] === 'saving' && (
+                                  <Loader2 className="h-3 w-3 animate-spin text-blue-500 shrink-0" />
+                                )}
+                                {fieldSaveStatus[pdfField.name] === 'saved' && (
+                                  <Check className="h-3 w-3 text-green-500 shrink-0" />
+                                )}
+                                {fieldSaveStatus[pdfField.name] === 'error' && (
+                                  <X className="h-3 w-3 text-red-500 shrink-0" />
+                                )}
                                 {aiMappedFields.has(pdfField.name) && templateForm.placeholderMappings[pdfField.name] && (
                                   <Badge variant="secondary" className="bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 shrink-0 text-[10px] px-1.5 py-0.5">
                                     <Sparkles className="h-3 w-3 mr-0.5" />
@@ -2778,23 +2785,8 @@ export function ContractTemplatesManager() {
                                 });
 
                                 if (addedKeys.length > 0 && selectedCategory && editingTemplateCountry) {
-                                  const filteredMappings: Record<string, string> = {};
-                                  for (const [key, value] of Object.entries(currentMappings)) {
-                                    if (value && value.trim() !== "") {
-                                      filteredMappings[key] = value;
-                                    }
-                                  }
-                                  const allAiFields = [...aiMappedFields, ...addedKeys];
-                                  try {
-                                    await fetch(`/api/contracts/categories/${selectedCategory.id}/default-templates/${editingTemplateCountry}/mappings`, {
-                                      method: "PATCH",
-                                      headers: { "Content-Type": "application/json" },
-                                      body: JSON.stringify({ mappings: filteredMappings, aiMappedFields: allAiFields }),
-                                      credentials: "include"
-                                    });
-                                  } catch (saveErr) {
-                                    console.error("Auto-save after AI mapping failed:", saveErr);
-                                  }
+                                  const allAiFields = [...aiMappedFieldsRef.current, ...addedKeys];
+                                  await saveMappingToServer(selectedCategory.id, editingTemplateCountry, currentMappings, allAiFields);
                                 }
 
                                 toast({
@@ -2856,7 +2848,7 @@ export function ContractTemplatesManager() {
                               value={templateMappings[fieldName] || ""}
                               onChange={(newValue) => {
                                 const catId = editingTemplateData?.categoryId || selectedCategory?.id;
-                                const allMappings = { ...templateMappings };
+                                const allMappings = { ...templateMappingsRef.current };
                                 if (newValue) {
                                   allMappings[fieldName] = newValue;
                                 } else {
@@ -2868,34 +2860,22 @@ export function ContractTemplatesManager() {
                                   next.delete(fieldName);
                                   return next;
                                 });
-                                if (catId && editingTemplateCountry) {
-                                  const filteredMappings: Record<string, string> = {};
-                                  for (const [key, value] of Object.entries(allMappings)) {
-                                    if (value && value.trim() !== "") {
-                                      filteredMappings[key] = value;
-                                    }
-                                  }
-                                  fetch(`/api/contracts/categories/${catId}/default-templates/${editingTemplateCountry}/mappings`, {
-                                    method: "PATCH",
-                                    headers: { "Content-Type": "application/json" },
-                                    body: JSON.stringify({ mappings: filteredMappings, aiMappedFields: Array.from(aiMappedFields) }),
-                                    credentials: "include"
-                                  }).then(resp => {
-                                    if (resp.ok) {
-                                      lastSavedMappingsRef.current = JSON.stringify(filteredMappings, Object.keys(filteredMappings).sort());
-                                      toast({ title: "Uložené", description: `${fieldName} → ${newValue}` });
-                                    } else {
-                                      toast({ title: "Chyba ukladania", description: `HTTP ${resp.status}`, variant: "destructive" });
-                                    }
-                                  }).catch((err) => {
-                                    toast({ title: "Chyba siete", description: String(err), variant: "destructive" });
-                                  });
-                                } else {
-                                  toast({ title: "Nedá sa uložiť", description: `catId=${catId}, country=${editingTemplateCountry}`, variant: "destructive" });
-                                }
+                                const currentAiFields = Array.from(aiMappedFieldsRef.current);
+                                const aiIdx = currentAiFields.indexOf(fieldName);
+                                if (aiIdx >= 0) currentAiFields.splice(aiIdx, 1);
+                                saveMappingToServer(catId, editingTemplateCountry, allMappings, currentAiFields, fieldName);
                               }}
                               testId={`select-mapping-${idx}`}
                             />
+                            {fieldSaveStatus[fieldName] === 'saving' && (
+                              <Loader2 className="h-3 w-3 animate-spin text-blue-500 shrink-0" />
+                            )}
+                            {fieldSaveStatus[fieldName] === 'saved' && (
+                              <Check className="h-3 w-3 text-green-500 shrink-0" />
+                            )}
+                            {fieldSaveStatus[fieldName] === 'error' && (
+                              <X className="h-3 w-3 text-red-500 shrink-0" />
+                            )}
                             {aiMappedFields.has(fieldName) && templateMappings[fieldName] && (
                               <Badge variant="secondary" className="bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 shrink-0 text-[10px] px-1.5 py-0.5">
                                 <Sparkles className="h-3 w-3 mr-0.5" />
