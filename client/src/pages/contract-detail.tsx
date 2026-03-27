@@ -134,6 +134,8 @@ export default function ContractDetailPage() {
   const [formInitialized, setFormInitialized] = useState(false);
   const [sendingAuditEmail, setSendingAuditEmail] = useState(false);
   const [lastTimelineUrl, setLastTimelineUrl] = useState<string | null>(null);
+  const [showActionDialog, setShowActionDialog] = useState(false);
+  const [actionDialogShown, setActionDialogShown] = useState(false);
 
   const { data: contractDetail, isLoading } = useQuery<any>({
     queryKey: ["/api/contracts", contractId],
@@ -266,6 +268,37 @@ export default function ContractDetailPage() {
     }
   }, [contract, formInitialized]);
 
+  const lifecycleStepsDef = useMemo(() => [
+    { id: "contactDate", label: t.contractsModule.fieldContactDate, icon: Phone, color: "#6366F1" },
+    { id: "filledDate", label: t.contractsModule.fieldFilledDate, icon: Edit, color: "#8B5CF6" },
+    { id: "createdContractDate", label: t.contractsModule.fieldCreatedContractDate, icon: FileText, color: "#3B82F6" },
+    { id: "sentContractDate", label: t.contractsModule.fieldSentDate, icon: Send, color: "#F59E0B" },
+    { id: "receivedByClientDate", label: t.contractsModule.fieldReceivedDate, icon: Download, color: "#F97316" },
+    { id: "returnedDate", label: t.contractsModule.fieldReturnedDate, icon: ArrowLeft, color: "#EC4899" },
+    { id: "verifiedDate", label: t.contractsModule.fieldVerifiedDate, icon: Shield, color: "#10B981" },
+    { id: "executedDate", label: t.contractsModule.fieldExecutedDate, icon: CheckCircle, color: "#059669" },
+  ], [t]);
+
+  const nextExpectedStep = useMemo(() => {
+    if (!formInitialized) return null;
+    const completedIdx = lifecycleStepsDef.reduce((last, step, i) => formState[step.id] ? i : last, -1);
+    if (completedIdx < lifecycleStepsDef.length - 1) {
+      const next = lifecycleStepsDef[completedIdx + 1];
+      if (!formState[next.id]) return next;
+    }
+    return null;
+  }, [formState, formInitialized, lifecycleStepsDef]);
+
+  useEffect(() => {
+    if (nextExpectedStep && formInitialized && !actionDialogShown) {
+      const timer = setTimeout(() => {
+        setShowActionDialog(true);
+        setActionDialogShown(true);
+      }, 600);
+      return () => clearTimeout(timer);
+    }
+  }, [nextExpectedStep, formInitialized, actionDialogShown]);
+
   const updateField = (field: string, value: any) => {
     setFormState((prev) => ({ ...prev, [field]: value }));
   };
@@ -335,6 +368,66 @@ export default function ContractDetailPage() {
 
   return (
     <div className="space-y-4">
+      {showActionDialog && nextExpectedStep && (() => {
+        const NextIcon = nextExpectedStep.icon;
+        const completedSteps = lifecycleStepsDef.filter(s => !!formState[s.id]);
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setShowActionDialog(false)} data-testid="dialog-action-overlay">
+            <div className="relative bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 w-full max-w-md mx-4 overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-4 duration-300" onClick={(e) => e.stopPropagation()} data-testid="dialog-action-container">
+              <div className="h-1.5 w-full" style={{ background: `linear-gradient(90deg, ${completedSteps.map(s => s.color).join(', ')}${completedSteps.length ? ', ' : ''}${nextExpectedStep.color})` }} />
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-5">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="h-5 w-5 text-orange-500" />
+                    <h3 className="text-lg font-semibold text-foreground" data-testid="dialog-action-title">
+                      {t.contractsModule.title} #{contract.contractNumber}
+                    </h3>
+                  </div>
+                  <button onClick={() => setShowActionDialog(false)} className="text-muted-foreground hover:text-foreground rounded-full p-1 hover:bg-muted transition-colors" data-testid="button-close-action-dialog">
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-4 p-4 rounded-xl border-2 mb-5" style={{ borderColor: `${nextExpectedStep.color}40`, backgroundColor: `${nextExpectedStep.color}08` }}>
+                  <div className="flex items-center justify-center rounded-full shrink-0 animate-timeline-pulse" style={{ width: 48, height: 48, backgroundColor: `${nextExpectedStep.color}15`, border: `2px solid ${nextExpectedStep.color}`, ["--pulse-color" as any]: nextExpectedStep.color }}>
+                    <NextIcon style={{ width: 22, height: 22, color: nextExpectedStep.color }} />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">{t.contractsModule.legacy?.nextAction || "Next expected action"}</p>
+                    <p className="text-lg font-bold" style={{ color: nextExpectedStep.color }} data-testid="text-next-action-label">
+                      {nextExpectedStep.label}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-2 mb-5">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t.contractsModule.legacy?.completedSteps || "Completed steps"}</p>
+                  <div className="flex flex-wrap gap-2">
+                    {lifecycleStepsDef.map((step) => {
+                      const StIcon = step.icon;
+                      const done = !!formState[step.id];
+                      const isNext = step.id === nextExpectedStep.id;
+                      return (
+                        <div key={step.id} className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${done ? "text-white" : isNext ? "border-2 animate-pulse" : "bg-muted text-muted-foreground"}`} style={done ? { backgroundColor: step.color } : isNext ? { borderColor: step.color, color: step.color } : {}} data-testid={`chip-step-${step.id}`}>
+                          <StIcon className="h-3 w-3" />
+                          {step.label}
+                          {done && <CheckCircle className="h-3 w-3" />}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <Button className="w-full" style={{ backgroundColor: nextExpectedStep.color, color: "white" }} onClick={() => setShowActionDialog(false)} data-testid="button-action-understood">
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  OK
+                </Button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       <Link href="/contracts">
         <Button variant="ghost" data-testid="button-back-contracts">
           <ArrowLeft className="h-4 w-4 mr-2" />
