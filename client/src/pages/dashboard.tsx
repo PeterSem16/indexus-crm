@@ -1,5 +1,6 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useState, useMemo } from "react";
+import { useLocation } from "wouter";
 import { Users, UserCheck, Globe, Droplets, TrendingUp, Activity, FileText, Clock, CheckCircle2, AlertCircle, ClipboardList, Eye, UserPlus, UserCog, CheckCircle, XCircle, ChevronRight, ArrowLeft, Loader2, User, Mail, Phone, MapPin, Calendar, CreditCard, Baby, Heart, Hospital, Stethoscope, Shield, Megaphone, Newspaper, Hash, Building, Search, ExternalLink, MessageSquare, PhoneCall, Save, Sparkles } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatsCard } from "@/components/stats-card";
@@ -49,6 +50,7 @@ export default function Dashboard() {
   const { t } = useI18n();
   const { toast } = useToast();
   const { isHidden } = useModuleFieldPermissions("dashboard");
+  const [, setLocation] = useLocation();
 
   const [selectedFormId, setSelectedFormId] = useState<string | null>(null);
   const [selectedSubmission, setSelectedSubmission] = useState<WebFormSubmission | null>(null);
@@ -117,6 +119,24 @@ export default function Dashboard() {
       queryClient.invalidateQueries({ queryKey: ["/api/web-forms", selectedFormId, "submissions"] });
       queryClient.invalidateQueries({ queryKey: ["/api/web-forms/stats"] });
       toast({ title: "Status aktualizovaný" });
+    },
+  });
+
+  const approveMutation = useMutation({
+    mutationFn: async ({ submissionId, fieldsToUpdate: fields }: { submissionId: string; fieldsToUpdate: string[] }) => {
+      const res = await apiRequest("POST", `/api/web-forms/submissions/${submissionId}/approve`, { fieldsToUpdate: fields });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/web-forms", selectedFormId, "submissions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/web-forms/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+      toast({ title: "Registrácia schválená" });
+      if (data.customerId) {
+        setSelectedSubmission(null);
+        setSelectedFormId(null);
+        setLocation(`/contracts?customerId=${data.customerId}&categoryFilter=we_registration`);
+      }
     },
   });
 
@@ -1241,12 +1261,19 @@ export default function Dashboard() {
                 {selectedSubmission.status === "pending" && (
                   <div className="flex gap-3 pt-2">
                     <Button
-                      onClick={() => updateStatusMutation.mutate({ submissionId: selectedSubmission.id, status: "approved" })}
-                      disabled={updateStatusMutation.isPending}
+                      onClick={() => approveMutation.mutate({
+                        submissionId: selectedSubmission.id,
+                        fieldsToUpdate: Array.from(fieldsToUpdate),
+                      })}
+                      disabled={approveMutation.isPending}
                       className="flex-1 bg-green-600 hover:bg-green-700 text-white"
                       data-testid="btn-approve-submission"
                     >
-                      <CheckCircle className="h-4 w-4 mr-2" />
+                      {approveMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <CheckCircle className="h-4 w-4 mr-2" />
+                      )}
                       {t.dashboard.webFormsApprove}
                     </Button>
                     <Button

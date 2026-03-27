@@ -34817,6 +34817,124 @@ Return ONLY the JSON object.`
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
+  app.post("/api/web-forms/submissions/:submissionId/approve", requireAuth, async (req, res) => {
+    try {
+      const { submissionId } = req.params;
+      const { fieldsToUpdate } = req.body;
+
+      const { webFormSubmissions } = await import("@shared/schema");
+      const allSubs = await db.select().from(webFormSubmissions).where(eq(webFormSubmissions.id, submissionId));
+      if (allSubs.length === 0) return res.status(404).json({ error: "Submission not found" });
+      const submission = allSubs[0];
+      const data = JSON.parse(submission.data || "{}");
+
+      const fieldMapping: Record<string, string> = {
+        firstName: "firstName", lastName: "lastName", maidenName: "maidenName",
+        titleBefore: "titleBefore", titleAfter: "titleAfter",
+        email: "email", phone: "phone", mobile: "mobile",
+        dateOfBirth: "dateOfBirth", nationalId: "nationalId",
+        address: "address", city: "city", postalCode: "postalCode",
+        region: "region", country: "country",
+        corrName: "corrName", corrAddress: "corrAddress", corrCity: "corrCity", corrPostalCode: "corrPostalCode",
+        healthInsuranceId: "healthInsuranceId",
+        hospitalName: "hospitalName", gynecologistName: "gynecologistName",
+        gynecologistPhone: "gynecologistPhone", gynecologistEmail: "gynecologistEmail",
+        expectedDeliveryDate: "expectedDeliveryDate",
+        serviceType: "serviceType", bankAccount: "bankAccount", bankName: "bankName", bankSwift: "bankSwift",
+        newsletter: "newsletter", personalId: "nationalId",
+      };
+
+      const inferFieldType = (key: string, _value: any): string => {
+        const lower = key.toLowerCase();
+        if (lower.includes("firstname") || lower.includes("first_name") || lower === "meno") return "firstName";
+        if (lower.includes("lastname") || lower.includes("last_name") || lower === "priezvisko") return "lastName";
+        if (lower.includes("maidenname") || lower.includes("maiden")) return "maidenName";
+        if (lower.includes("email") || lower.includes("e-mail")) return "email";
+        if (lower.includes("phone") || lower.includes("telefon") || lower.includes("tel")) return "phone";
+        if (lower.includes("mobile") || lower.includes("mobil")) return "mobile";
+        if (lower.includes("dateofbirth") || lower.includes("date_of_birth") || lower.includes("datum_narodenia") || lower === "dob") return "dateOfBirth";
+        if (lower.includes("nationalid") || lower.includes("personal_id") || lower.includes("rodne_cislo") || lower.includes("personalid")) return "nationalId";
+        if (lower.includes("address") || lower.includes("adresa") || lower.includes("ulica")) return "address";
+        if (lower.includes("city") || lower.includes("mesto")) return "city";
+        if (lower.includes("postal") || lower.includes("zip") || lower.includes("psc")) return "postalCode";
+        if (lower.includes("region") || lower.includes("kraj")) return "region";
+        if (lower.includes("country") || lower.includes("krajina") || lower.includes("stat")) return "country";
+        if (lower.includes("expecteddelivery") || lower.includes("delivery_date") || lower.includes("termin_porodu")) return "expectedDeliveryDate";
+        if (lower.includes("hospital") || lower.includes("nemocnica") || lower.includes("porodnica")) return "hospitalName";
+        if (lower.includes("gynecolog") && lower.includes("name")) return "gynecologistName";
+        if (lower.includes("gynecolog") && lower.includes("phone")) return "gynecologistPhone";
+        if (lower.includes("gynecolog") && lower.includes("email")) return "gynecologistEmail";
+        if (lower.includes("service") || lower.includes("sluzba")) return "serviceType";
+        if (lower.includes("insurance") || lower.includes("poistovna")) return "healthInsuranceId";
+        if (lower.includes("newsletter")) return "newsletter";
+        if (lower.includes("titulpred") || lower.includes("title_before")) return "titleBefore";
+        if (lower.includes("titulza") || lower.includes("title_after")) return "titleAfter";
+        if (lower.includes("corrname") || lower.includes("corr_name")) return "corrName";
+        if (lower.includes("corraddress") || lower.includes("corr_address")) return "corrAddress";
+        if (lower.includes("corrcity") || lower.includes("corr_city")) return "corrCity";
+        if (lower.includes("corrpostal") || lower.includes("corr_postal")) return "corrPostalCode";
+        if (lower.includes("bankaccount") || lower.includes("bank_account") || lower.includes("iban")) return "bankAccount";
+        if (lower.includes("bankname") || lower.includes("bank_name")) return "bankName";
+        if (lower.includes("bankswift") || lower.includes("bank_swift") || lower.includes("swift")) return "bankSwift";
+        return key;
+      };
+
+      const buildCustomerData = (fields?: string[]) => {
+        const customerData: Record<string, any> = {};
+        for (const [rawKey, rawValue] of Object.entries(data)) {
+          if (rawValue === null || rawValue === undefined || rawValue === "") continue;
+          const inferred = inferFieldType(rawKey, rawValue);
+          const custField = fieldMapping[inferred];
+          if (!custField) continue;
+          if (fields && !fields.includes(inferred)) continue;
+          customerData[custField] = rawValue;
+        }
+        return customerData;
+      };
+
+      let customerId = submission.customerId;
+
+      if (submission.isNewCustomer || !customerId) {
+        const customerData = buildCustomerData();
+        customerData.clientStatus = "potential";
+        customerData.status = "active";
+        if (!customerData.firstName) customerData.firstName = "N/A";
+        if (!customerData.lastName) customerData.lastName = "N/A";
+        const newCustomer = await storage.createCustomer(customerData);
+        customerId = newCustomer.id;
+        await storage.updateWebFormSubmission(submissionId, { customerId, isNewCustomer: false } as any);
+      } else if (fieldsToUpdate && fieldsToUpdate.length > 0) {
+        const updateData = buildCustomerData(fieldsToUpdate);
+        if (Object.keys(updateData).length > 0) {
+          await storage.updateCustomer(customerId, updateData);
+        }
+      }
+
+      await storage.updateWebFormSubmission(submissionId, {
+        status: "approved",
+        processedAt: new Date(),
+      } as any);
+
+      await storage.createWebFormAuditLog({
+        formId: submission.formId,
+        submissionId: submission.id,
+        action: "submission_approved",
+        details: JSON.stringify({
+          userId: req.session.user!.id,
+          customerId,
+          isNewCustomer: submission.isNewCustomer,
+          fieldsUpdated: fieldsToUpdate || [],
+        }),
+        ipAddress: req.ip || null,
+      });
+
+      res.json({ success: true, customerId });
+    } catch (e: any) {
+      console.error("[Approve] Error:", e);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   app.post("/api/web-forms/submissions/:submissionId/social-check", requireAuth, async (req, res) => {
     console.log("[SocialCheck] Request received for submission:", req.params.submissionId);
     try {

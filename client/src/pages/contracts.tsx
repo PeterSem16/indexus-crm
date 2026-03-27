@@ -362,6 +362,7 @@ export default function ContractsPage() {
   const searchString = useSearch();
   const urlParams = new URLSearchParams(searchString);
   const urlCustomerId = urlParams.get("customerId");
+  const urlCategoryFilter = urlParams.get("categoryFilter");
   
   const urlTab = urlParams.get("tab");
   const [activeTab, setActiveTab] = useState<TabType>(urlTab === "templates" ? "templates" : "contracts");
@@ -3583,17 +3584,22 @@ export default function ContractsPage() {
                       <SelectValue placeholder={t.contractsModule.selectTemplate} />
                     </SelectTrigger>
                     <SelectContent>
-                      {categories.length === 0 ? (
-                        <div className="py-6 text-center text-sm text-muted-foreground">
-                          Žiadne kategórie zmlúv. Najprv vytvorte kategóriu.
-                        </div>
-                      ) : (
-                        categories.map(category => (
-                          <SelectItem key={category.id} value={String(category.id)}>
-                            {category.label}
-                          </SelectItem>
-                        ))
-                      )}
+                      {(() => {
+                        const filteredCats = urlCategoryFilter
+                          ? categories.filter(c => c.value?.startsWith(urlCategoryFilter))
+                          : categories;
+                        return filteredCats.length === 0 ? (
+                          <div className="py-6 text-center text-sm text-muted-foreground">
+                            Žiadne kategórie zmlúv. Najprv vytvorte kategóriu.
+                          </div>
+                        ) : (
+                          filteredCats.map(category => (
+                            <SelectItem key={category.id} value={String(category.id)}>
+                              {category.label}
+                            </SelectItem>
+                          ))
+                        );
+                      })()}
                     </SelectContent>
                   </Select>
                 </div>
