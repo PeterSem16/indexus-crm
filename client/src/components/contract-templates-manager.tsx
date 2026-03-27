@@ -1870,7 +1870,17 @@ export function ContractTemplatesManager() {
                                         headers: { "Content-Type": "application/json" },
                                         body: JSON.stringify({ mappings: filteredMappings, aiMappedFields: Array.from(aiMappedFields) }),
                                         credentials: "include"
-                                      }).catch(() => {});
+                                      }).then(resp => {
+                                        if (resp.ok) {
+                                          toast({ title: "Uložené", description: `${pdfField.name} → ${newValue}` });
+                                        } else {
+                                          toast({ title: "Chyba ukladania", description: `HTTP ${resp.status}`, variant: "destructive" });
+                                        }
+                                      }).catch((err) => {
+                                        toast({ title: "Chyba siete", description: String(err), variant: "destructive" });
+                                      });
+                                    } else {
+                                      toast({ title: "Nedá sa uložiť", description: `catId=${catId}, cc=${cc}`, variant: "destructive" });
                                     }
                                   }}
                                   testId={`select-pdf-mapping-${idx}`}
@@ -2865,7 +2875,6 @@ export function ContractTemplatesManager() {
                             <MultiFieldMapping
                               value={templateMappings[fieldName] || ""}
                               onChange={(newValue) => {
-                                console.log('[Dialog2] Manual mapping onChange fired!', fieldName, '=>', newValue, 'catId:', editingTemplateData?.categoryId || selectedCategory?.id, 'country:', editingTemplateCountry);
                                 const catId = editingTemplateData?.categoryId || selectedCategory?.id;
                                 const allMappings = { ...templateMappings };
                                 if (newValue) {
@@ -2894,8 +2903,15 @@ export function ContractTemplatesManager() {
                                   }).then(resp => {
                                     if (resp.ok) {
                                       lastSavedMappingsRef.current = JSON.stringify(filteredMappings, Object.keys(filteredMappings).sort());
+                                      toast({ title: "Uložené", description: `${fieldName} → ${newValue}` });
+                                    } else {
+                                      toast({ title: "Chyba ukladania", description: `HTTP ${resp.status}`, variant: "destructive" });
                                     }
-                                  }).catch(() => {});
+                                  }).catch((err) => {
+                                    toast({ title: "Chyba siete", description: String(err), variant: "destructive" });
+                                  });
+                                } else {
+                                  toast({ title: "Nedá sa uložiť", description: `catId=${catId}, country=${editingTemplateCountry}`, variant: "destructive" });
                                 }
                               }}
                               testId={`select-mapping-${idx}`}
