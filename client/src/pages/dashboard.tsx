@@ -141,7 +141,7 @@ export default function Dashboard() {
       if (data.customerId) {
         setSelectedSubmission(null);
         setSelectedFormId(null);
-        setLocation(`/contracts?customerId=${data.customerId}&categoryFilter=we_registration`);
+        setLocation(`/contracts?customerId=${data.customerId}&categoryFilter=web_registration`);
       }
     },
     onError: (error: any) => {
