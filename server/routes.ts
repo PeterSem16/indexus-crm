@@ -34879,6 +34879,7 @@ Return ONLY the JSON object.`
         return key;
       };
 
+      const dateFields = ["dateOfBirth", "expectedDeliveryDate"];
       const buildCustomerData = (fields?: string[]) => {
         const customerData: Record<string, any> = {};
         for (const [rawKey, rawValue] of Object.entries(data)) {
@@ -34887,7 +34888,11 @@ Return ONLY the JSON object.`
           const custField = fieldMapping[inferred];
           if (!custField) continue;
           if (fields && !fields.includes(inferred)) continue;
-          customerData[custField] = rawValue;
+          if (dateFields.includes(custField) && typeof rawValue === "string") {
+            customerData[custField] = new Date(rawValue);
+          } else {
+            customerData[custField] = rawValue;
+          }
         }
         return customerData;
       };
@@ -34900,6 +34905,11 @@ Return ONLY the JSON object.`
         customerData.status = "active";
         if (!customerData.firstName) customerData.firstName = "N/A";
         if (!customerData.lastName) customerData.lastName = "N/A";
+        if (!customerData.country) {
+          const { webForms } = await import("@shared/schema");
+          const [form] = await db.select().from(webForms).where(eq(webForms.id, submission.formId));
+          customerData.country = form?.countryCode || "SK";
+        }
         const newCustomer = await storage.createCustomer(customerData);
         customerId = newCustomer.id;
         await storage.updateWebFormSubmission(submissionId, { customerId, isNewCustomer: false } as any);

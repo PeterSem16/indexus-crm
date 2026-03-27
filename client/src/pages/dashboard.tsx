@@ -124,10 +124,14 @@ export default function Dashboard() {
 
   const approveMutation = useMutation({
     mutationFn: async ({ submissionId, fieldsToUpdate: fields }: { submissionId: string; fieldsToUpdate: string[] }) => {
+      console.log("[Approve] Sending approve request for submission:", submissionId, "fields:", fields);
       const res = await apiRequest("POST", `/api/web-forms/submissions/${submissionId}/approve`, { fieldsToUpdate: fields });
-      return res.json();
+      const data = await res.json();
+      console.log("[Approve] Response:", data);
+      return data;
     },
     onSuccess: (data) => {
+      console.log("[Approve] Success:", data);
       queryClient.invalidateQueries({ queryKey: ["/api/web-forms", selectedFormId, "submissions"] });
       queryClient.invalidateQueries({ queryKey: ["/api/web-forms/stats"] });
       queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
@@ -137,6 +141,10 @@ export default function Dashboard() {
         setSelectedFormId(null);
         setLocation(`/contracts?customerId=${data.customerId}&categoryFilter=we_registration`);
       }
+    },
+    onError: (error: any) => {
+      console.error("[Approve] Error:", error);
+      toast({ title: "Chyba pri schvaľovaní", description: error.message, variant: "destructive" });
     },
   });
 

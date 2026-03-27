@@ -29,10 +29,18 @@ export async function setupVite(server: Server, app: Express) {
     appType: "custom",
   });
 
-  app.use(vite.middlewares);
+  app.use((req, res, next) => {
+    if (req.url.startsWith('/api/') || req.url.startsWith('/ws/')) {
+      return next();
+    }
+    vite.middlewares.handle(req, res, next);
+  });
 
   app.use("*", async (req, res, next) => {
     const url = req.originalUrl;
+    if (url.startsWith('/api/') || url.startsWith('/ws/')) {
+      return next();
+    }
 
     try {
       const clientTemplate = path.resolve(
