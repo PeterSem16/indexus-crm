@@ -142,7 +142,7 @@ function getFieldLabel(key: string): string {
   return key;
 }
 
-function NativeFieldSelect({
+function InlineFieldPicker({
   value,
   onSelect,
   testId,
@@ -155,26 +155,107 @@ function NativeFieldSelect({
   placeholder?: string;
   className?: string;
 }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick, true);
+    return () => document.removeEventListener("mousedown", handleClick, true);
+  }, [isOpen]);
+
+  const filteredGroups = CUSTOMER_FIELDS.map(group => ({
+    ...group,
+    fields: group.fields.filter(f =>
+      !search || f.label.toLowerCase().includes(search.toLowerCase()) || f.key.toLowerCase().includes(search.toLowerCase())
+    )
+  })).filter(g => g.fields.length > 0);
+
+  const currentLabel = value ? getFieldLabel(value) : (placeholder || "-- Nevyplnené --");
+
   return (
-    <select
-      onMouseDown={() => console.log('[NativeFieldSelect] mouseDown on', testId)}
-      data-testid={testId}
-      value={value || ""}
-      onChange={(e) => {
-        console.log('[NativeFieldSelect] onChange fired!', testId, 'value:', e.target.value);
-        onSelect(e.target.value);
-      }}
-      className={`h-9 w-full rounded-md border border-input bg-background px-2 py-1 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring ${className || ""}`}
-    >
-      <option value="">{placeholder || "-- Nevyplnené --"}</option>
-      {CUSTOMER_FIELDS.map(group => (
-        <optgroup key={group.group} label={group.group}>
-          {group.fields.map(f => (
-            <option key={f.key} value={f.key}>{f.label}</option>
-          ))}
-        </optgroup>
-      ))}
-    </select>
+    <div ref={containerRef} className={`relative ${className || ""}`} style={{ minWidth: "160px" }}>
+      <button
+        type="button"
+        data-testid={testId}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setIsOpen(!isOpen);
+          setSearch("");
+        }}
+        className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-2 py-1 text-sm text-left hover:bg-accent/50"
+      >
+        <span className={value ? "" : "text-muted-foreground"}>{currentLabel}</span>
+        <ChevronDown className="h-3 w-3 opacity-50 shrink-0 ml-1" />
+      </button>
+      {isOpen && (
+        <div
+          className="absolute top-full left-0 z-[99999] mt-1 w-[280px] max-h-[300px] overflow-hidden rounded-md border bg-popover shadow-lg flex flex-col"
+          style={{ pointerEvents: "auto" }}
+        >
+          <div className="p-1.5 border-b">
+            <input
+              type="text"
+              placeholder="Hľadať..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full h-7 px-2 text-xs rounded border border-input bg-background focus:outline-none focus:ring-1 focus:ring-ring"
+              autoFocus
+              data-testid={`${testId}-search`}
+            />
+          </div>
+          <div className="overflow-y-auto flex-1 p-1">
+            {value && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onSelect("");
+                  setIsOpen(false);
+                }}
+                className="w-full text-left px-2 py-1 text-xs text-destructive hover:bg-destructive/10 rounded"
+                data-testid={`${testId}-clear`}
+              >
+                ✕ Odstrániť mapovanie
+              </button>
+            )}
+            {filteredGroups.map(group => (
+              <div key={group.group}>
+                <div className="px-2 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{group.group}</div>
+                {group.fields.map(f => (
+                  <button
+                    key={f.key}
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      onSelect(f.key);
+                      setIsOpen(false);
+                    }}
+                    className={`w-full text-left px-2 py-1 text-xs rounded hover:bg-accent ${value === f.key ? "bg-primary/10 text-primary font-medium" : ""}`}
+                    data-testid={`${testId}-option-${f.key}`}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+            ))}
+            {filteredGroups.length === 0 && (
+              <div className="text-xs text-muted-foreground text-center py-2">Žiadne výsledky</div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -198,7 +279,7 @@ function MultiFieldMapping({
   if (parts.length === 0 && !addingNew) {
     return (
       <div className="flex items-center gap-1 flex-1 min-w-0">
-        <NativeFieldSelect
+        <InlineFieldPicker
           value=""
           onSelect={(v) => { if (v) onChange(v); }}
           testId={testId}
@@ -215,7 +296,7 @@ function MultiFieldMapping({
           <span key={i} className="inline-flex items-center">
             {i > 0 && <span className="text-xs text-muted-foreground mx-0.5">+</span>}
             <span className="inline-flex items-center gap-0.5 bg-primary/10 text-primary text-xs px-1.5 py-0.5 rounded-md">
-              <NativeFieldSelect
+              <InlineFieldPicker
                 value={part}
                 onSelect={(v) => {
                   if (!v) {
@@ -241,7 +322,7 @@ function MultiFieldMapping({
           </span>
         ))}
         {addingNew ? (
-          <NativeFieldSelect
+          <InlineFieldPicker
             value=""
             onSelect={(v) => {
               if (v) {
@@ -1334,7 +1415,6 @@ export function ContractTemplatesManager() {
 
   return (
     <div className="space-y-4">
-      <div className="bg-green-500 text-white text-sm px-3 py-2 rounded font-bold text-center">BUILD v3 - Native Select Active</div>
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h3 className="text-lg font-semibold">{t.konfigurator?.contractTemplates || "Šablóny zmlúv"}</h3>
@@ -1614,14 +1694,14 @@ export function ContractTemplatesManager() {
         </TabsContent>
       </Tabs>
 
-      <Dialog open={isTemplateDialogOpen} onOpenChange={setIsTemplateDialogOpen}>
+      {isTemplateDialogOpen && <div className="fixed inset-0 z-[9995] bg-black/80" onClick={() => setIsTemplateDialogOpen(false)} />}
+      <Dialog open={isTemplateDialogOpen} onOpenChange={setIsTemplateDialogOpen} modal={false}>
         <DialogContent className="w-[95vw] max-w-[95vw] h-[95vh] max-h-[95vh] overflow-hidden flex flex-col">
           <DialogHeader className="shrink-0">
             <DialogTitle>{selectedTemplate ? t.contractsModule.editTemplate : t.contractsModule.newTemplate}</DialogTitle>
             <DialogDescription>
               {t.contractsModule.description}
             </DialogDescription>
-            <div className="bg-green-500 text-white text-xs px-2 py-1 rounded font-bold">BUILD v3 - Dialog 1</div>
           </DialogHeader>
 
           <div className="flex-1 overflow-hidden flex flex-col">
@@ -2683,7 +2763,8 @@ export function ContractTemplatesManager() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isTemplateEditorOpen} onOpenChange={setIsTemplateEditorOpen}>
+      {isTemplateEditorOpen && <div className="fixed inset-0 z-[9995] bg-black/80" onClick={() => setIsTemplateEditorOpen(false)} />}
+      <Dialog open={isTemplateEditorOpen} onOpenChange={setIsTemplateEditorOpen} modal={false}>
         <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -2693,7 +2774,6 @@ export function ContractTemplatesManager() {
             <DialogDescription>
               {t.contractsModule.fieldMapping}
             </DialogDescription>
-            <div className="bg-green-500 text-white text-xs px-2 py-1 rounded font-bold">BUILD v2 - Native Select</div>
           </DialogHeader>
 
           <div className="flex-1 overflow-y-auto">
