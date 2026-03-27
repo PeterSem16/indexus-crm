@@ -24799,8 +24799,6 @@ Rules:
         sourceType: templateType,
       });
 
-      const existing = await storage.getCategoryDefaultTemplate(categoryId, normalizedCountryCode);
-      
       const templateData: any = {
         templateType,
         extractedFields: JSON.stringify(extractedFields),
@@ -24815,9 +24813,10 @@ Rules:
         placeholderMappings: null,
       };
 
+      const replaceId = req.body.replaceTemplateId ? parseInt(req.body.replaceTemplateId) : null;
       let result;
-      if (existing) {
-        result = await storage.updateCategoryDefaultTemplate(existing.id, templateData);
+      if (replaceId) {
+        result = await storage.updateCategoryDefaultTemplate(replaceId, templateData);
       } else {
         result = await storage.createCategoryDefaultTemplate({
           categoryId,
@@ -25527,7 +25526,6 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
         return res.status(404).json({ error: "Template not found" });
       }
       
-      // Delete associated files
       const filesToDelete = [
         template.sourceDocxPath,
         template.originalDocxPath,
@@ -25546,7 +25544,42 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
         }
       }
       
-      // Delete template record
+      await storage.deleteCategoryDefaultTemplate(template.id);
+      
+      res.json({ success: true, message: "Šablóna bola vymazaná" });
+    } catch (error) {
+      console.error("Template delete error:", error);
+      res.status(500).json({ error: "Delete failed: " + (error as Error).message });
+    }
+  });
+
+  app.delete("/api/contracts/categories/:categoryId/default-templates/by-id/:templateId", requireAuth, async (req, res) => {
+    try {
+      const templateId = parseInt(req.params.templateId);
+      
+      const template = await storage.getCategoryDefaultTemplateById(templateId);
+      if (!template) {
+        return res.status(404).json({ error: "Template not found" });
+      }
+      
+      const filesToDelete = [
+        template.sourceDocxPath,
+        template.originalDocxPath,
+        template.previewPdfPath,
+        template.sourcePdfPath
+      ].filter(Boolean);
+      
+      for (const filePath of filesToDelete) {
+        try {
+          const fullPath = path.join(process.cwd(), filePath as string);
+          if (fs.existsSync(fullPath)) {
+            await fs.promises.unlink(fullPath);
+          }
+        } catch (e) {
+          console.warn(`Failed to delete file: ${filePath}`, e);
+        }
+      }
+      
       await storage.deleteCategoryDefaultTemplate(template.id);
       
       res.json({ success: true, message: "Šablóna bola vymazaná" });
