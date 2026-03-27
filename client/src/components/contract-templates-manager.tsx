@@ -1,5 +1,4 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import { createPortal } from "react-dom";
 import { useI18n } from "@/i18n";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
@@ -143,156 +142,35 @@ function getFieldLabel(key: string): string {
   return key;
 }
 
-function InlineFieldPicker({
+function NativeFieldSelect({
   value,
-  onSelect,
+  onFieldChange,
   testId,
-  placeholder,
-  className,
 }: {
   value: string;
-  onSelect: (key: string) => void;
+  onFieldChange: (key: string) => void;
   testId: string;
-  placeholder?: string;
-  className?: string;
 }) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [search, setSearch] = useState("");
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleClick = (e: MouseEvent) => {
-      const target = e.target as Node;
-      if (triggerRef.current?.contains(target)) return;
-      if (dropdownRef.current?.contains(target)) return;
-      setIsOpen(false);
-    };
-    const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setIsOpen(false);
-    };
-    document.addEventListener("mousedown", handleClick, true);
-    document.addEventListener("keydown", handleEsc, true);
-    return () => {
-      document.removeEventListener("mousedown", handleClick, true);
-      document.removeEventListener("keydown", handleEsc, true);
-    };
-  }, [isOpen]);
-
-  const openDropdown = () => {
-    if (triggerRef.current) {
-      const rect = triggerRef.current.getBoundingClientRect();
-      setPos({ top: rect.bottom + 2, left: rect.left });
-    }
-    setIsOpen(true);
-    setSearch("");
-  };
-
-  const filteredGroups = CUSTOMER_FIELDS.map(group => ({
-    ...group,
-    fields: group.fields.filter(f =>
-      !search || f.label.toLowerCase().includes(search.toLowerCase()) || f.key.toLowerCase().includes(search.toLowerCase())
-    )
-  })).filter(g => g.fields.length > 0);
-
-  const currentLabel = value ? getFieldLabel(value) : (placeholder || "-- Nevyplnené --");
-
-  const dropdownContent = isOpen && pos ? createPortal(
-    <div
-      ref={dropdownRef}
-      data-field-picker-portal="true"
-      style={{
-        position: "fixed",
-        top: pos.top,
-        left: pos.left,
-        zIndex: 999999,
-        width: 280,
-        maxHeight: 300,
-        pointerEvents: "auto",
-      }}
-      className="overflow-hidden rounded-md border bg-popover shadow-lg flex flex-col"
-    >
-      <div className="p-1.5 border-b">
-        <input
-          type="text"
-          placeholder="Hľadať..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          onClick={(e) => e.stopPropagation()}
-          className="w-full h-7 px-2 text-xs rounded border border-input bg-background focus:outline-none focus:ring-1 focus:ring-ring"
-          autoFocus
-          data-testid={`${testId}-search`}
-        />
-      </div>
-      <div className="overflow-y-auto flex-1 p-1">
-        {value && (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              onSelect("");
-              setIsOpen(false);
-            }}
-            className="w-full text-left px-2 py-1 text-xs text-destructive hover:bg-destructive/10 rounded"
-            data-testid={`${testId}-clear`}
-          >
-            ✕ Odstrániť mapovanie
-          </button>
-        )}
-        {filteredGroups.map(group => (
-          <div key={group.group}>
-            <div className="px-2 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{group.group}</div>
-            {group.fields.map(f => (
-              <button
-                key={f.key}
-                type="button"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  onSelect(f.key);
-                  setIsOpen(false);
-                }}
-                className={`w-full text-left px-2 py-1 text-xs rounded hover:bg-accent ${value === f.key ? "bg-primary/10 text-primary font-medium" : ""}`}
-                data-testid={`${testId}-option-${f.key}`}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
-        ))}
-        {filteredGroups.length === 0 && (
-          <div className="text-xs text-muted-foreground text-center py-2">Žiadne výsledky</div>
-        )}
-      </div>
-    </div>,
-    document.body
-  ) : null;
-
   return (
-    <div className={className || ""} style={{ minWidth: "160px" }}>
-      <button
-        ref={triggerRef}
-        type="button"
-        data-testid={testId}
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          if (isOpen) {
-            setIsOpen(false);
-          } else {
-            openDropdown();
-          }
-        }}
-        className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-2 py-1 text-sm text-left hover:bg-accent/50"
-      >
-        <span className={value ? "" : "text-muted-foreground"}>{currentLabel}</span>
-        <ChevronDown className="h-3 w-3 opacity-50 shrink-0 ml-1" />
-      </button>
-      {dropdownContent}
-    </div>
+    <select
+      data-testid={testId}
+      value={value || ""}
+      onChange={(e) => {
+        const val = e.target.value;
+        console.log("[NativeFieldSelect] changed to:", val);
+        onFieldChange(val);
+      }}
+      style={{ minWidth: 180, maxWidth: 280, height: 32, fontSize: 13, padding: "2px 6px", border: "1px solid #ccc", borderRadius: 4, background: "#fff", color: "#333", cursor: "pointer" }}
+    >
+      <option value="">-- Nevyplnené --</option>
+      {CUSTOMER_FIELDS.map(group => (
+        <optgroup key={group.group} label={group.group}>
+          {group.fields.map(f => (
+            <option key={f.key} value={f.key}>{f.label}</option>
+          ))}
+        </optgroup>
+      ))}
+    </select>
   );
 }
 
@@ -306,81 +184,49 @@ function MultiFieldMapping({
   testId: string;
 }) {
   const parts = value ? value.split("+").filter(Boolean) : [];
-  const [addingNew, setAddingNew] = useState(false);
-
-  const removePart = (index: number) => {
-    const newParts = parts.filter((_, i) => i !== index);
-    onChange(newParts.length > 0 ? newParts.join("+") : "");
-  };
-
-  if (parts.length === 0 && !addingNew) {
-    return (
-      <div className="flex items-center gap-1 flex-1 min-w-0">
-        <InlineFieldPicker
-          value=""
-          onSelect={(v) => { if (v) onChange(v); }}
-          testId={testId}
-          placeholder="Vyberte údaj..."
-        />
-      </div>
-    );
-  }
 
   return (
     <div className="flex-1 min-w-0 space-y-1">
       <div className="flex flex-wrap items-center gap-1">
         {parts.map((part, i) => (
-          <span key={i} className="inline-flex items-center">
-            {i > 0 && <span className="text-xs text-muted-foreground mx-0.5">+</span>}
-            <span className="inline-flex items-center gap-0.5 bg-primary/10 text-primary text-xs px-1.5 py-0.5 rounded-md">
-              <InlineFieldPicker
-                value={part}
-                onSelect={(v) => {
-                  if (!v) {
-                    removePart(i);
-                  } else {
-                    const newParts = [...parts];
-                    newParts[i] = v;
-                    onChange(newParts.join("+"));
-                  }
-                }}
-                testId={`${testId}-part-${i}`}
-                placeholder="-- Odstrániť --"
-                className="border-0 bg-transparent h-auto p-0 text-xs font-medium shadow-none min-w-0 w-auto"
-              />
-              <button
-                onClick={() => removePart(i)}
-                className="hover:text-destructive ml-0.5"
-                data-testid={`${testId}-remove-${i}`}
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </span>
+          <span key={i} className="inline-flex items-center gap-1">
+            {i > 0 && <span className="text-xs text-muted-foreground">+</span>}
+            <NativeFieldSelect
+              value={part}
+              onFieldChange={(v) => {
+                if (!v) {
+                  const newParts = parts.filter((_, idx) => idx !== i);
+                  onChange(newParts.length > 0 ? newParts.join("+") : "");
+                } else {
+                  const newParts = [...parts];
+                  newParts[i] = v;
+                  onChange(newParts.join("+"));
+                }
+              }}
+              testId={`${testId}-part-${i}`}
+            />
+            <button
+              type="button"
+              onClick={() => {
+                const newParts = parts.filter((_, idx) => idx !== i);
+                onChange(newParts.length > 0 ? newParts.join("+") : "");
+              }}
+              className="text-destructive hover:text-destructive/80"
+              data-testid={`${testId}-remove-${i}`}
+            >
+              <X className="h-3 w-3" />
+            </button>
           </span>
         ))}
-        {addingNew ? (
-          <InlineFieldPicker
-            value=""
-            onSelect={(v) => {
-              if (v) {
-                onChange([...parts, v].join("+"));
-              }
-              setAddingNew(false);
-            }}
-            testId={`${testId}-add`}
-            placeholder="-- Zrušiť --"
-            className="h-6 w-[160px] text-xs"
-          />
-        ) : (
-          <button
-            onClick={() => setAddingNew(true)}
-            className="inline-flex items-center gap-0.5 text-xs text-muted-foreground hover:text-primary px-1 py-0.5 rounded hover:bg-muted"
-            data-testid={`${testId}-plus`}
-            title="Pridať ďalšiu premennú (spoja sa medzerou)"
-          >
-            <Plus className="h-3 w-3" />
-          </button>
-        )}
+        <NativeFieldSelect
+          value=""
+          onFieldChange={(v) => {
+            if (v) {
+              onChange(parts.length > 0 ? [...parts, v].join("+") : v);
+            }
+          }}
+          testId={parts.length > 0 ? `${testId}-add` : testId}
+        />
       </div>
     </div>
   );
