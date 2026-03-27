@@ -2709,32 +2709,33 @@ export default function ContractsPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isCategoryDialogOpen} onOpenChange={(open) => {
-        setIsCategoryDialogOpen(open);
-        if (!open) {
-          resetCategoryForm();
-          setSelectedCategory(null);
-        }
-      }}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
-          <DialogHeader className="shrink-0">
-            <DialogTitle>
-              {categoryWizardStep === 0 
-                ? t.contractsModule.editCategory 
-                : selectedCategory 
-                  ? `${t.contractsModule.editCategory} - ${categoryWizardStep}/2`
-                  : `${t.contractsModule.newCategory} - ${categoryWizardStep}/2`
-              }
-            </DialogTitle>
-            <DialogDescription>
-              {categoryWizardStep === 0 && t.contractsModule.editCategory}
-              {categoryWizardStep === 1 && t.contractsModule.categoryDescription}
-              {categoryWizardStep === 2 && t.contractsModule.categoryDescription}
-            </DialogDescription>
-          </DialogHeader>
+      {isCategoryDialogOpen && (
+        <div className="fixed inset-0 z-50 flex justify-end">
+          <div className="fixed inset-0 bg-black/40" onClick={() => { setIsCategoryDialogOpen(false); resetCategoryForm(); setSelectedCategory(null); }} />
+          <div className="relative z-50 w-[700px] max-w-[90vw] h-full bg-background shadow-xl border-l flex flex-col animate-in slide-in-from-right duration-300">
+            <div className="flex items-center justify-between p-6 pb-2 shrink-0 border-b">
+              <div>
+                <h2 className="text-lg font-semibold">
+                  {categoryWizardStep === 0 
+                    ? t.contractsModule.editCategory 
+                    : selectedCategory 
+                      ? `${t.contractsModule.editCategory} - ${categoryWizardStep}/2`
+                      : `${t.contractsModule.newCategory} - ${categoryWizardStep}/2`
+                  }
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  {categoryWizardStep === 0 && t.contractsModule.editCategory}
+                  {categoryWizardStep === 1 && t.contractsModule.categoryDescription}
+                  {categoryWizardStep === 2 && t.contractsModule.categoryDescription}
+                </p>
+              </div>
+              <Button variant="ghost" size="icon" onClick={() => { setIsCategoryDialogOpen(false); resetCategoryForm(); setSelectedCategory(null); }}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
           
           {categoryWizardStep > 0 && (
-            <div className="flex gap-2 mb-4 px-1">
+            <div className="flex gap-2 px-6 pt-4">
               {[1, 2].map(step => (
                 <div 
                   key={step}
@@ -2746,7 +2747,7 @@ export default function ContractsPage() {
             </div>
           )}
           
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto px-6 py-4">
             {categoryWizardStep === 1 && (
               <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-2 gap-4">
@@ -3415,7 +3416,7 @@ export default function ContractsPage() {
             )}
           </div>
           
-          <DialogFooter className="shrink-0 pt-4 border-t gap-2">
+          <div className="shrink-0 pt-4 border-t gap-2 flex justify-end p-6">
             <Button variant="outline" onClick={() => setIsCategoryDialogOpen(false)}>
               Zrušiť
             </Button>
@@ -3510,9 +3511,10 @@ export default function ContractsPage() {
                 {createCategoryMutation.isPending || updateCategoryMutation.isPending ? t.contractsModule.saving : t.contractsModule.saveCategory}
               </Button>
             )}
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </div>
+          </div>
+        </div>
+      )}
 
       <Dialog open={isTemplatePreviewOpen} onOpenChange={setIsTemplatePreviewOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
