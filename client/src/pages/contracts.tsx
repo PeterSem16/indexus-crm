@@ -3585,9 +3585,12 @@ export default function ContractsPage() {
                     </SelectTrigger>
                     <SelectContent>
                       {(() => {
-                        const filteredCats = urlCategoryFilter
+                        let filteredCats = urlCategoryFilter
                           ? categories.filter(c => c.value?.startsWith(urlCategoryFilter))
                           : categories;
+                        if (filteredCats.length === 0 && urlCategoryFilter) {
+                          filteredCats = categories;
+                        }
                         return filteredCats.length === 0 ? (
                           <div className="py-6 text-center text-sm text-muted-foreground">
                             Žiadne kategórie zmlúv. Najprv vytvorte kategóriu.
