@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { cn } from "@/lib/utils";
 import { useI18n } from "@/i18n";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
@@ -565,6 +566,8 @@ export function ContractTemplatesManager() {
   });
 
   const [categoryWizardStep, setCategoryWizardStep] = useState(1);
+  const [categoryActiveTab, setCategoryActiveTab] = useState("basic");
+  const [templateEditorActiveTab, setTemplateEditorActiveTab] = useState("mapping");
   const [categoryPdfUploads, setCategoryPdfUploads] = useState<Record<string, {
     file: File | null;
     uploading: boolean;
@@ -1026,6 +1029,7 @@ export function ContractTemplatesManager() {
     setEditingTemplateFileName("");
     setEditingTemplateData(null);
     setTemplateMappings({});
+    setTemplateEditorActiveTab("mapping");
     setIsTemplateEditorLoading(true);
     setIsTemplateEditorOpen(true);
 
@@ -2247,24 +2251,37 @@ export function ContractTemplatesManager() {
             )}
 
             {categoryWizardStep === 0 && selectedCategory && (
-              <Tabs defaultValue="basic" className="w-full h-full flex gap-0">
-                <TabsList className="flex flex-col h-auto w-[180px] shrink-0 bg-muted/30 border-r rounded-none p-2 gap-1 items-stretch justify-start">
-                  <TabsTrigger value="basic" className="justify-start gap-2 px-3 py-2.5 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm" data-testid="tab-category-basic">
-                    <Settings className="h-4 w-4" />
-                    Základné
-                  </TabsTrigger>
-                  <TabsTrigger value="languages" className="justify-start gap-2 px-3 py-2.5 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm" data-testid="tab-category-languages">
-                    <Globe className="h-4 w-4" />
-                    Jazyky
-                  </TabsTrigger>
-                  <TabsTrigger value="templates" className="justify-start gap-2 px-3 py-2.5 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm" data-testid="tab-category-templates">
-                    <FileText className="h-4 w-4" />
-                    Šablóny
-                  </TabsTrigger>
-                </TabsList>
+              <div className="flex flex-1 min-h-0">
+                <div className="w-44 border-r bg-muted/20 flex flex-col py-3 shrink-0 overflow-y-auto">
+                  {[
+                    { id: "basic", icon: Settings, label: "Základné" },
+                    { id: "languages", icon: Globe, label: "Jazyky" },
+                    { id: "templates", icon: FileText, label: "Šablóny" },
+                  ].map((section) => {
+                    const Icon = section.icon;
+                    return (
+                      <button
+                        key={section.id}
+                        type="button"
+                        onClick={() => setCategoryActiveTab(section.id)}
+                        className={cn(
+                          "flex items-center gap-2.5 px-4 py-2 text-sm transition-colors text-left",
+                          categoryActiveTab === section.id
+                            ? "bg-primary/10 text-primary font-medium border-r-2 border-primary"
+                            : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                        )}
+                        data-testid={`nav-section-${section.id}`}
+                      >
+                        <Icon className="h-3.5 w-3.5 shrink-0" />
+                        <span className="truncate">{section.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
 
-                <div className="flex-1 overflow-y-auto">
-                <TabsContent value="basic" className="space-y-4 p-4 mt-0">
+                <div className="flex-1 overflow-y-auto p-5">
+                {categoryActiveTab === "basic" && (
+                <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="edit-category-value">Kód kategórie</Label>
@@ -2312,9 +2329,11 @@ export function ContractTemplatesManager() {
                       data-testid="input-edit-category-description"
                     />
                   </div>
-                </TabsContent>
+                </div>
+                )}
 
-                <TabsContent value="languages" className="space-y-4 p-4 mt-0">
+                {categoryActiveTab === "languages" && (
+                <div className="space-y-4">
                   <div className="p-3 bg-muted/50 rounded-md mb-4">
                     <p className="text-sm text-muted-foreground">
                       Zadajte preklady názvu kategórie pre jednotlivé krajiny
@@ -2345,9 +2364,11 @@ export function ContractTemplatesManager() {
                       </div>
                     ))}
                   </div>
-                </TabsContent>
+                </div>
+                )}
 
-                <TabsContent value="templates" className="space-y-4 p-4 mt-0">
+                {categoryActiveTab === "templates" && (
+                <div className="space-y-4">
                   <div className="p-3 bg-muted/50 rounded-md">
                     <p className="text-sm text-muted-foreground">
                       Nahrajte DOCX šablóny pre jednotlivé krajiny. Šablóny môžete stiahnuť, upraviť v MS Word a nahrať späť.
@@ -2626,9 +2647,10 @@ export function ContractTemplatesManager() {
                       );
                     })}
                   </div>
-                </TabsContent>
                 </div>
-              </Tabs>
+                )}
+                </div>
+              </div>
             )}
           </div>
 
@@ -2804,27 +2826,37 @@ export function ContractTemplatesManager() {
                 <p className="text-muted-foreground">Načítavam šablónu...</p>
               </div>
             ) : editingTemplateData ? (
-              <Tabs defaultValue={editingTemplateData.templateType === "pdf_form" ? "mapping" : "editor"} className="w-full h-full flex gap-0">
-                <TabsList className="flex flex-col h-auto w-[180px] shrink-0 bg-muted/30 border-r rounded-none p-2 gap-1 items-stretch justify-start">
-                  {editingTemplateData.templateType !== "pdf_form" && (
-                    <TabsTrigger value="editor" className="justify-start gap-2 px-3 py-2.5 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm" data-testid="tab-template-editor">
-                      <FileText className="h-4 w-4" />
-                      {t.contractsModule.docxEditor}
-                    </TabsTrigger>
-                  )}
-                  <TabsTrigger value="mapping" className="justify-start gap-2 px-3 py-2.5 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm" data-testid="tab-template-mapping">
-                    <Settings className="h-4 w-4" />
-                    {t.contractsModule.fieldMapping}
-                  </TabsTrigger>
-                  <TabsTrigger value="preview" className="justify-start gap-2 px-3 py-2.5 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm" data-testid="tab-template-preview">
-                    <Eye className="h-4 w-4" />
-                    {t.contractsModule.previewTab}
-                  </TabsTrigger>
-                </TabsList>
-                <div className="flex-1 overflow-y-auto">
+              <div className="flex flex-1 min-h-0">
+                <div className="w-44 border-r bg-muted/20 flex flex-col py-3 shrink-0 overflow-y-auto">
+                  {[
+                    ...(editingTemplateData.templateType !== "pdf_form" ? [{ id: "editor", icon: FileText, label: t.contractsModule.docxEditor }] : []),
+                    { id: "mapping", icon: Settings, label: t.contractsModule.fieldMapping },
+                    { id: "preview", icon: Eye, label: t.contractsModule.previewTab },
+                  ].map((section) => {
+                    const Icon = section.icon;
+                    return (
+                      <button
+                        key={section.id}
+                        type="button"
+                        onClick={() => setTemplateEditorActiveTab(section.id)}
+                        className={cn(
+                          "flex items-center gap-2.5 px-4 py-2 text-sm transition-colors text-left",
+                          templateEditorActiveTab === section.id
+                            ? "bg-primary/10 text-primary font-medium border-r-2 border-primary"
+                            : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                        )}
+                        data-testid={`nav-section-${section.id}`}
+                      >
+                        <Icon className="h-3.5 w-3.5 shrink-0" />
+                        <span className="truncate">{section.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="flex-1 overflow-y-auto p-5">
 
-                {editingTemplateData.templateType !== "pdf_form" && (
-                <TabsContent value="editor" className="h-[60vh] mt-0 p-4">
+                {editingTemplateData.templateType !== "pdf_form" && templateEditorActiveTab === "editor" && (
+                <div className="h-[60vh]">
                   {editingTemplateData.templateType === "docx" && editingTemplateData.categoryId && editingTemplateData.countryCode ? (
                     <DocxEditor
                       categoryId={editingTemplateData.categoryId}
@@ -2840,10 +2872,11 @@ export function ContractTemplatesManager() {
                       <p>{t.contractsModule.docxEditor}</p>
                     </div>
                   )}
-                </TabsContent>
+                </div>
                 )}
 
-                <TabsContent value="mapping" className="space-y-4 mt-0 p-4">
+                {templateEditorActiveTab === "mapping" && (
+                <div className="space-y-4">
                   <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-md">
                     <Badge variant={editingTemplateData.templateType === "docx" ? "default" : "secondary"}>
                       {editingTemplateData.templateType === "docx" ? "DOCX šablóna" : "PDF formulár"}
@@ -3198,9 +3231,11 @@ export function ContractTemplatesManager() {
                       </div>
                     </div>
                   )}
-                </TabsContent>
+                </div>
+                )}
 
-                <TabsContent value="preview" className="space-y-4 mt-0 p-4">
+                {templateEditorActiveTab === "preview" && (
+                <div className="space-y-4">
                   <div className="flex items-center justify-between gap-4 p-3 bg-muted/50 rounded-md flex-wrap">
                     <div className="flex items-center gap-4 flex-wrap">
                       <Badge variant={editingTemplateData.templateType === "docx" ? "default" : "secondary"}>
@@ -3289,9 +3324,10 @@ export function ContractTemplatesManager() {
                         : "Premenné v tvare {{...}} sa pri generovaní zmluvy nahradia skutočnými údajmi zákazníka."}
                     </p>
                   </div>
-                </TabsContent>
                 </div>
-              </Tabs>
+                )}
+                </div>
+              </div>
             ) : (
               <div className="flex flex-col items-center justify-center py-12">
                 <FileText className="h-12 w-12 text-muted-foreground mb-4 opacity-50" />
