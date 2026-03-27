@@ -2846,6 +2846,7 @@ async function step11_customerContracts() {
         SELECT hcs_id, cse_id FROM HistoryContractServices WHERE cse_id IN (${allCseIds.join(',')})
       `);
       const hcsToConMap = {};
+      const hcsToCseMap = {};
       const cseToConMap = {};
       for (const [conId, svcs] of Object.entries(contractServicesByConId)) {
         for (const s of svcs) cseToConMap[String(s.cse_id)] = conId;
@@ -2853,6 +2854,7 @@ async function step11_customerContracts() {
       const allHcsIds = [];
       for (const h of hcsRes.recordset) {
         hcsToConMap[String(h.hcs_id)] = cseToConMap[String(h.cse_id)];
+        hcsToCseMap[String(h.hcs_id)] = String(h.cse_id);
         allHcsIds.push(h.hcs_id);
       }
 
@@ -2891,6 +2893,7 @@ async function step11_customerContracts() {
             if (!schedulesByConId[conId]) schedulesByConId[conId] = [];
             schedulesByConId[conId].push({
               ...sch,
+              cse_id: hcsToCseMap[String(sch.hcs_id)] || null,
               payments: paymentsByCshId[String(sch.csh_id)] || [],
             });
           }
@@ -2921,13 +2924,15 @@ async function step11_customerContracts() {
     log(`  Customer detail lookup: ${Object.keys(customerDetailLookup).length} záznamov`);
   } catch (err) { log(`  WARN customer name lookup: ${err.message}`); }
 
-  // Build con_id → invoice item label + accounting code maps from CBC InvoiceItems
+  // Build cse_id → invoice item label + accounting code maps from CBC InvoiceItems
+  const invoiceItemLabelByCseId = {};
+  const accountingCodeByCseId = {};
   const invoiceItemLabelByConId = {};
   const accountingCodeByConId = {};
   try {
     const conIds = contracts.recordset.map(r => r.con_id).join(',');
     const itemLabelRes = await mssqlPool.request().query(`
-      SELECT DISTINCT cs.con_id, iit.iit_label, iit.iit_item_accounting_code
+      SELECT DISTINCT cs.con_id, cs.cse_id, iit.iit_label, iit.iit_item_accounting_code
       FROM ContractServices cs
       JOIN Invoices i ON i.cse_id = cs.cse_id
       JOIN InvoiceItems iit ON iit.inv_id = i.inv_id
@@ -2935,19 +2940,17 @@ async function step11_customerContracts() {
       ORDER BY cs.con_id
     `);
     for (const r of itemLabelRes.recordset) {
-      if (!invoiceItemLabelByConId[String(r.con_id)]) {
-        invoiceItemLabelByConId[String(r.con_id)] = r.iit_label;
-      }
-      if (!accountingCodeByConId[String(r.con_id)] && r.iit_item_accounting_code) {
-        accountingCodeByConId[String(r.con_id)] = r.iit_item_accounting_code;
-      }
+      const cseKey = String(r.cse_id);
+      const conKey = String(r.con_id);
+      if (!invoiceItemLabelByCseId[cseKey]) invoiceItemLabelByCseId[cseKey] = r.iit_label;
+      if (!accountingCodeByCseId[cseKey] && r.iit_item_accounting_code) accountingCodeByCseId[cseKey] = r.iit_item_accounting_code;
+      if (!invoiceItemLabelByConId[conKey]) invoiceItemLabelByConId[conKey] = r.iit_label;
+      if (!accountingCodeByConId[conKey] && r.iit_item_accounting_code) accountingCodeByConId[conKey] = r.iit_item_accounting_code;
     }
-    log(`  Invoice item labels: ${Object.keys(invoiceItemLabelByConId).length} zmlúv s názvom položky`);
-    log(`  Accounting codes: ${Object.keys(accountingCodeByConId).length} zmlúv s accounting code`);
-    const sample = Object.entries(invoiceItemLabelByConId).slice(0, 3);
-    if (sample.length > 0) log(`  Vzorky: ${sample.map(([k,v]) => `con_id=${k}: "${v}"`).join(', ')}`);
-    const acSample = Object.entries(accountingCodeByConId).slice(0, 3);
-    if (acSample.length > 0) log(`  Vzorky AC: ${acSample.map(([k,v]) => `con_id=${k}: "${v}"`).join(', ')}`);
+    log(`  Invoice item labels: ${Object.keys(invoiceItemLabelByConId).length} zmlúv, ${Object.keys(invoiceItemLabelByCseId).length} služieb`);
+    log(`  Accounting codes: ${Object.keys(accountingCodeByConId).length} zmlúv, ${Object.keys(accountingCodeByCseId).length} služieb`);
+    const acSample = Object.entries(accountingCodeByCseId).slice(0, 5);
+    if (acSample.length > 0) log(`  Vzorky AC (per-service): ${acSample.map(([k,v]) => `cse_id=${k}: "${v}"`).join(', ')}`);
   } catch (err) { log(`  WARN invoice item labels: ${err.message}`); }
 
   let insertedCI = 0, insertedCD = 0, insertedSI = 0, siErrors = 0, skipped = 0, errors = 0;
@@ -3090,19 +3093,36 @@ async function step11_customerContracts() {
       }
 
       // --- Create scheduled_invoices from CBC SchedulePayments ---
-      // Group all schedules' payments by installment index, then create ONE scheduled invoice per installment
+      // Each service schedule creates its own installment series (per-service, not merged)
       const conSchedules = schedulesByConId[String(r.con_id)] || [];
-      const installmentMap = {}; // pIdx → { items: [], scheduledDate, totalAmount }
-      let maxInstallments = 0;
+
+      const legacyComp = companyInfoMap[String(r.cli_id)] || {};
+      const comId = legacyComp.com_id ? String(legacyComp.com_id) : null;
+      const compDetails = comId ? (companyDetailsMap[comId] || {}) : {};
+      const compAccounts = comId ? (companyAccountsMap[comId] || []) : [];
+      const primaryAccount = compAccounts[0] || {};
+      const scheduledVatRate = compDetails.cod_vat_dic ? '20' : '0';
+
+      const customerNameStr = customerNameLookup[customerId] || contractNumber;
+      const custDetail = customerDetailLookup[customerId] || {};
+      const billingCompName = legacyComp.com_name || companyMap[String(r.cli_id)] || null;
+      const billingCountryVal = legacyComp.com_country_code || null;
+      const billingTaxId = compDetails.cod_ico || null;
+      const billingVatId = compDetails.cod_dic || compDetails.cod_vat_dic || null;
+      const billingBankName = primaryAccount.acc_bank_name || null;
+      const billingBankIban = primaryAccount.acc_IBAN || null;
+      const billingBankSwift = primaryAccount.acc_SWIFT || null;
 
       for (const sch of conSchedules) {
         const payments = sch.payments || [];
         if (payments.length === 0) continue;
-        if (payments.length > maxInstallments) maxInstallments = payments.length;
 
         const baseDate = r.con_realized || r.con_inserted || new Date();
         let prevDate = new Date(baseDate);
-        const invoiceItemLabel = invoiceItemLabelByConId[String(r.con_id)] || null;
+        const cseId = sch.cse_id || null;
+        const invoiceItemLabel = (cseId ? invoiceItemLabelByCseId[cseId] : null) || invoiceItemLabelByConId[String(r.con_id)] || null;
+        const itemAccountingCode = (cseId ? accountingCodeByCseId[cseId] : null) || accountingCodeByConId[String(r.con_id)] || null;
+        const totalInstallments = payments.length;
 
         for (let pIdx = 0; pIdx < payments.length; pIdx++) {
           const p = payments[pIdx];
@@ -3123,100 +3143,62 @@ async function step11_customerContracts() {
           prevDate = scheduledDate;
 
           const baseItemName = invoiceItemLabel || p.csy_name || sch.csh_name || 'Splátka';
-          const itemAccountingCode = accountingCodeByConId[String(r.con_id)] || null;
-
-          if (!installmentMap[pIdx]) {
-            installmentMap[pIdx] = { items: [], scheduledDate, totalAmount: 0 };
-          }
           const itemEntry = {
             name: baseItemName,
             quantity: 1,
             unitPrice: amount.toFixed(2),
             totalPrice: amount.toFixed(2),
+            vatRate: scheduledVatRate,
           };
           if (itemAccountingCode) itemEntry.accountingCode = itemAccountingCode;
-          installmentMap[pIdx].items.push(itemEntry);
-          installmentMap[pIdx].totalAmount += amount;
-          // Use the latest (max) date if multiple schedules have different dates for same installment
-          if (scheduledDate > installmentMap[pIdx].scheduledDate) {
-            installmentMap[pIdx].scheduledDate = scheduledDate;
+          const items = JSON.stringify([itemEntry]);
+
+          try {
+            await pgPool.query(`
+              INSERT INTO scheduled_invoices (
+                id, customer_id, scheduled_date, installment_number, total_installments,
+                status, currency, payment_term_days, items, total_amount,
+                customer_name, customer_address, customer_city, customer_zip, customer_country, customer_email, customer_phone,
+                created_at, created_by,
+                billing_company_name, billing_country,
+                billing_tax_id, billing_vat_id,
+                billing_bank_name, billing_bank_iban, billing_bank_swift
+              ) VALUES (
+                gen_random_uuid(), $1, $2, $3, $4,
+                'pending', 'EUR', 14, $5, $6,
+                $7, $8, $9, $10, $11, $12, $13,
+                $14, 'migration-v20',
+                $15, $16,
+                $17, $18,
+                $19, $20, $21
+              )
+            `, [
+              customerId,
+              scheduledDate,
+              pIdx + 1,
+              totalInstallments,
+              items,
+              amount.toFixed(2),
+              customerNameStr,
+              custDetail.address || null,
+              custDetail.city || null,
+              custDetail.zip || null,
+              custDetail.country || null,
+              custDetail.email || null,
+              custDetail.phone || null,
+              r.con_inserted || new Date(),
+              billingCompName,
+              billingCountryVal,
+              billingTaxId,
+              billingVatId,
+              billingBankName,
+              billingBankIban,
+              billingBankSwift,
+            ]);
+            insertedSI++;
+          } catch (siErr) {
+            if (siErrors++ <= 3) log(`  WARN scheduled_invoice con_id=${r.con_id}: ${siErr.message}`);
           }
-        }
-      }
-
-      const legacyComp = companyInfoMap[String(r.cli_id)] || {};
-      const comId = legacyComp.com_id ? String(legacyComp.com_id) : null;
-      const compDetails = comId ? (companyDetailsMap[comId] || {}) : {};
-      const compAccounts = comId ? (companyAccountsMap[comId] || []) : [];
-      const primaryAccount = compAccounts[0] || {};
-      const scheduledVatRate = compDetails.cod_vat_dic ? '20' : '0';
-
-      const customerNameStr = customerNameLookup[customerId] || contractNumber;
-      const custDetail = customerDetailLookup[customerId] || {};
-      const billingCompName = legacyComp.com_name || companyMap[String(r.cli_id)] || null;
-      const billingCountryVal = legacyComp.com_country_code || null;
-      const billingTaxId = compDetails.cod_ico || null;
-      const billingVatId = compDetails.cod_dic || compDetails.cod_vat_dic || null;
-      const billingBankName = primaryAccount.acc_bank_name || null;
-      const billingBankIban = primaryAccount.acc_IBAN || null;
-      const billingBankSwift = primaryAccount.acc_SWIFT || null;
-
-      const totalInstallments = Math.max(maxInstallments, Object.keys(installmentMap).length);
-
-      for (const [pIdxStr, inst] of Object.entries(installmentMap)) {
-        const pIdx = parseInt(pIdxStr);
-        // Add vatRate and installment label to each item
-        const itemsWithMeta = inst.items.map((item, i) => ({
-          ...item,
-          vatRate: scheduledVatRate,
-        }));
-        const items = JSON.stringify(itemsWithMeta);
-
-        try {
-          await pgPool.query(`
-            INSERT INTO scheduled_invoices (
-              id, customer_id, scheduled_date, installment_number, total_installments,
-              status, currency, payment_term_days, items, total_amount,
-              customer_name, customer_address, customer_city, customer_zip, customer_country, customer_email, customer_phone,
-              created_at, created_by,
-              billing_company_name, billing_country,
-              billing_tax_id, billing_vat_id,
-              billing_bank_name, billing_bank_iban, billing_bank_swift
-            ) VALUES (
-              gen_random_uuid(), $1, $2, $3, $4,
-              'pending', 'EUR', 14, $5, $6,
-              $7, $8, $9, $10, $11, $12, $13,
-              $14, 'migration-v20',
-              $15, $16,
-              $17, $18,
-              $19, $20, $21
-            )
-          `, [
-            customerId,
-            inst.scheduledDate,
-            pIdx + 1,
-            totalInstallments,
-            items,
-            inst.totalAmount.toFixed(2),
-            customerNameStr,
-            custDetail.address || null,
-            custDetail.city || null,
-            custDetail.zip || null,
-            custDetail.country || null,
-            custDetail.email || null,
-            custDetail.phone || null,
-            r.con_inserted || new Date(),
-            billingCompName,
-            billingCountryVal,
-            billingTaxId,
-            billingVatId,
-            billingBankName,
-            billingBankIban,
-            billingBankSwift,
-          ]);
-          insertedSI++;
-        } catch (siErr) {
-          if (siErrors++ <= 3) log(`  WARN scheduled_invoice con_id=${r.con_id}: ${siErr.message}`);
         }
       }
     } catch (err) {
@@ -3271,6 +3253,25 @@ async function step12_customerInvoices() {
     }
     log(`  Customer name lookup (invoices): ${Object.keys(customerNameLookup).length} záznamov`);
   } catch (err) { log(`  WARN customer name lookup: ${err.message}`); }
+
+  const accountingCodeByCseId = {};
+  const accountingCodeByConId = {};
+  try {
+    const acRes = await mssqlPool.request().query(`
+      SELECT DISTINCT cs.con_id, cs.cse_id, iit.iit_item_accounting_code
+      FROM ContractServices cs
+      JOIN Invoices i ON i.cse_id = cs.cse_id
+      JOIN InvoiceItems iit ON iit.inv_id = i.inv_id
+      WHERE cs.con_id IN (
+        SELECT con_id FROM Contracts WHERE cli_id IN (${cliIds})
+      ) AND iit.iit_item_accounting_code IS NOT NULL AND iit.iit_item_accounting_code != ''
+    `);
+    for (const r of acRes.recordset) {
+      if (!accountingCodeByCseId[String(r.cse_id)]) accountingCodeByCseId[String(r.cse_id)] = r.iit_item_accounting_code;
+      if (!accountingCodeByConId[String(r.con_id)]) accountingCodeByConId[String(r.con_id)] = r.iit_item_accounting_code;
+    }
+    log(`  Accounting codes (invoices): ${Object.keys(accountingCodeByCseId).length} služieb, ${Object.keys(accountingCodeByConId).length} zmlúv`);
+  } catch (err) { log(`  WARN accounting codes lookup: ${err.message}`); }
 
   // --- Diagnostika: Invoices stĺpce ---
   try {
@@ -3676,6 +3677,7 @@ async function step12_customerInvoices() {
       proforma_link: r.inv_id_proforma_link || null,
       inserted_by: r.inv_inserted_by || null,
       updated_by: r.inv_updated_by || null,
+      accountingCode: r.cse_id ? (accountingCodeByCseId[String(r.cse_id)] || accountingCodeByConId[String(cbcConId)] || null) : null,
       legacyBillingCompany: cliId ? (companyInfoMap[cliId] || null) : null,
       billingAddress: r.billing_addr_name ? {
         name: r.billing_addr_name, street: r.billing_addr_street,

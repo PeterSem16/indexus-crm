@@ -2307,6 +2307,9 @@ export default function CustomerInvoicesPage() {
                         <div key={idx} className="flex justify-between items-center p-2 rounded border text-sm">
                           <div className="flex-1">
                             <p className="font-medium">{item.name || item.description || `Item ${idx + 1}`}</p>
+                            {item.accountingCode && (
+                              <p className="text-xs text-muted-foreground">AC: {item.accountingCode}</p>
+                            )}
                           </div>
                           <div className="text-right text-muted-foreground text-xs space-x-2">
                             <span>{item.quantity || 1}x</span>
@@ -3644,6 +3647,11 @@ function LegacyTabContent({
         </Badge>
         {legacy.inv_id && (
           <span className="text-xs text-muted-foreground">inv_id: {legacy.inv_id}</span>
+        )}
+        {legacy.accountingCode && (
+          <Badge variant="secondary" className="text-xs">
+            AC: {legacy.accountingCode}
+          </Badge>
         )}
       </div>
 
