@@ -27638,11 +27638,23 @@ Return ONLY a JSON array of NEW contacts (same format as before).`;
                   try {
                     const searchName = encodeURIComponent((contact.company_name || "").substring(0, 60));
                     if (cc === "SK") {
-                      const finstatResp = await fetch(`https://finstat.sk/search?q=${searchName}`, { signal: AbortSignal.timeout(8000), headers: { "User-Agent": "Mozilla/5.0" } });
-                      if (finstatResp.ok) {
-                        const finstatHtml = await finstatResp.text();
-                        const icoFin = finstatHtml.match(/IČO[:\s]*(\d{8})/i);
-                        if (icoFin) contact.ico = icoFin[1];
+                      try {
+                        const finstatResp = await fetch(`https://finstat.sk/search?q=${searchName}`, { signal: AbortSignal.timeout(8000), headers: { "User-Agent": "Mozilla/5.0" } });
+                        if (finstatResp.ok) {
+                          const finstatHtml = await finstatResp.text();
+                          const icoFin = finstatHtml.match(/IČO[:\s]*(\d{8})/i);
+                          if (icoFin) { contact.ico = icoFin[1]; contact._icoSource = "finstat.sk"; }
+                        }
+                      } catch {}
+                      if (!contact.ico) {
+                        try {
+                          const orjResp = await fetch(`https://www.orsr.sk/hladaj_subjekt.asp?ESSION=&SID=0&OBMESSION=&NAZOV=${searchName}&ICO=&OBEC=&ULICA=&T=f0`, { signal: AbortSignal.timeout(8000), headers: { "User-Agent": "Mozilla/5.0" } });
+                          if (orjResp.ok) {
+                            const orjHtml = await orjResp.text();
+                            const icoOrj = orjHtml.match(/IČO[:\s]*(\d{6,8})/i);
+                            if (icoOrj) { contact.ico = icoOrj[1].padStart(8, '0'); contact._icoSource = "orsr.sk"; }
+                          }
+                        } catch {}
                       }
                     } else if (cc === "CZ") {
                       const aresResp = await fetch(`https://ares.gov.cz/ekonomicke-subjekty-v-be/rest/ekonomicke-subjekty/vyhledat?obchodniJmeno=${searchName}`, { signal: AbortSignal.timeout(8000) });
@@ -27756,15 +27768,30 @@ Return ONLY a JSON array of NEW contacts (same format as before).`;
               if (priorCampaignJobIds.length > 0) {
                 const priorCampaignResults = await db.select({ email: searchResults.email, phone: searchResults.phone, companyName: searchResults.companyName, website: searchResults.website })
                   .from(searchResults).where(inArray(searchResults.jobId, priorCampaignJobIds));
-                const existingFingerprints = new Set<string>();
+                const existingEmails = new Set<string>();
+                const existingPhones = new Set<string>();
+                const existingWebsites = new Set<string>();
+                const existingCompanies = new Set<string>();
                 for (const r of priorCampaignResults) {
-                  const fp = [r.email?.toLowerCase(), r.phone?.replace(/\s/g, ''), r.companyName?.toLowerCase(), r.website?.toLowerCase()].filter(Boolean);
-                  if (fp.length > 0) existingFingerprints.add(fp.join('|'));
+                  if (r.email) existingEmails.add(r.email.toLowerCase().trim());
+                  if (r.phone) existingPhones.add(r.phone.replace(/[\s\-\(\)\.]/g, ''));
+                  if (r.website) {
+                    try { existingWebsites.add(new URL(r.website.startsWith("http") ? r.website : `https://${r.website}`).hostname.replace(/^www\./, '')); } catch {}
+                  }
+                  if (r.companyName) existingCompanies.add(r.companyName.toLowerCase().trim());
                 }
                 leadsToSave = deduped.filter((c: Record<string, string>) => {
-                  const fp = [c.email?.toLowerCase(), c.phone?.replace(/\s/g, ''), (c.company_name || c.companyName)?.toLowerCase(), c.website?.toLowerCase()].filter(Boolean);
-                  if (fp.length === 0) return true;
-                  return !existingFingerprints.has(fp.join('|'));
+                  const email = c.email?.toLowerCase().trim();
+                  if (email && existingEmails.has(email)) return false;
+                  const phone = (c.phone || c.mobile)?.replace(/[\s\-\(\)\.]/g, '');
+                  if (phone && existingPhones.has(phone)) return false;
+                  const website = c.website;
+                  if (website) {
+                    try { const h = new URL(website.startsWith("http") ? website : `https://${website}`).hostname.replace(/^www\./, ''); if (existingWebsites.has(h)) return false; } catch {}
+                  }
+                  const company = (c.company_name || c.companyName)?.toLowerCase().trim();
+                  if (company && existingCompanies.has(company)) return false;
+                  return true;
                 });
                 console.log(`[LeadSearch] Job ${job.id}: Campaign dedup — ${deduped.length} total, ${leadsToSave.length} truly new`);
               }
