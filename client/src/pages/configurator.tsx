@@ -18208,7 +18208,7 @@ function LeadSearchTab() {
   };
 
   const CampaignHistory = ({ campaignId }: { campaignId: number }) => {
-    const { data: history = [] } = useQuery<any[]>({ queryKey: ["/api/lead-campaigns", campaignId, "history"] });
+    const { data: history = [] } = useQuery<any[]>({ queryKey: [`/api/lead-campaigns/${campaignId}/history`] });
     return (
       <div className="mt-3 border-t pt-3">
         <div className="text-xs font-medium mb-2">História behov</div>

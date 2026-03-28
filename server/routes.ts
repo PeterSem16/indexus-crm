@@ -2565,7 +2565,7 @@ export async function registerRoutes(
             lastRunAt: now,
             nextRunAt,
             lastJobId: job.id,
-          } as any);
+          });
 
           try {
             const allUsers = await storage.getAllUsers();
@@ -27742,7 +27742,7 @@ Return ONLY a JSON array of NEW contacts (same format as before).`;
               jobId: job.id,
               companyName: s.title?.substring(0, 200) || null,
               sourceUrl: s.url || null,
-              rawData: { title: s.title, snippet: s.snippet, url: s.url, source: s.source } as any,
+              rawData: { title: s.title, snippet: s.snippet, url: s.url, source: s.source },
               confidenceScore: 10,
               status: "new",
             }));
@@ -27763,15 +27763,26 @@ Return ONLY a JSON array of NEW contacts (same format as before).`;
               }
             }
             const existingSources = await storage.getAllLeadSources();
+            const successDomains = new Set(Object.keys(sourceDomains));
             for (const [domain, count] of Object.entries(sourceDomains)) {
               const existing = existingSources.find((s: any) => {
                 try { return new URL(s.url.startsWith("http") ? s.url : "https://" + s.url).hostname === domain; } catch { return false; }
               });
               if (existing) {
-                await storage.updateLeadSource(existing.id, { successCount: (existing.successCount || 0) + count, lastUsedAt: new Date() } as any);
+                await storage.updateLeadSource(existing.id, { successCount: (existing.successCount || 0) + count, lastUsedAt: new Date() });
               } else if (count >= 2) {
-                await storage.createLeadSource({ url: `https://${domain}`, name: domain, type: "auto-discovered", countryCode: country || null, segment: segment || null, status: "active", successCount: count, failCount: 0, lastUsedAt: new Date() } as any);
+                await storage.createLeadSource({ url: `https://${domain}`, name: domain, type: "auto-discovered", countryCode: country || undefined, segment: segment || undefined, status: "active", successCount: count, failCount: 0, lastUsedAt: new Date() });
               }
+            }
+            for (const existSrc of existingSources) {
+              if (existSrc.status !== "active") continue;
+              try {
+                const eDomain = new URL(existSrc.url.startsWith("http") ? existSrc.url : "https://" + existSrc.url).hostname;
+                const wasCrawled = allSnippets.some(s => { try { return new URL(s.url).hostname === eDomain; } catch { return false; } });
+                if (wasCrawled && !successDomains.has(eDomain)) {
+                  await storage.updateLeadSource(existSrc.id, { failCount: (existSrc.failCount || 0) + 1 });
+                }
+              } catch {}
             }
           } catch (srcErr) { console.log("[LeadSearch] Source tracking error:", srcErr); }
           await storage.updateSearchJob(job.id, {
