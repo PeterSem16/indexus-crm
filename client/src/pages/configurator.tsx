@@ -18873,11 +18873,11 @@ function LeadSearchTab() {
                       </Button>
                     )}
                   </div>
-                  <div className="space-y-1 max-h-[220px] overflow-y-auto">
+                  <div className="space-y-1.5 max-h-[300px] overflow-y-auto">
                     {aiSuggestions.map((s: any, i: number) => (
                       <div
                         key={i}
-                        className={`rounded border p-2 cursor-pointer transition-all group ${
+                        className={`rounded-lg border p-2.5 cursor-pointer transition-all group ${
                           selectedSuggestions.includes(i)
                             ? "border-violet-500 bg-violet-50 dark:bg-violet-950/30 shadow-sm"
                             : "bg-white dark:bg-zinc-900 hover:border-violet-300"
@@ -18893,13 +18893,26 @@ function LeadSearchTab() {
                           />
                           <div className="flex-1 min-w-0" onClick={() => toggleSuggestion(i)}>
                             <div className="flex items-start justify-between gap-1">
-                              <span className="text-xs font-medium text-violet-700 dark:text-violet-300 leading-tight">{s.name}</span>
-                              <button className="text-[9px] text-blue-600 hover:underline flex-shrink-0" onClick={(e) => { e.stopPropagation(); applySingleSuggestion(s); }}>Len tento</button>
+                              <span className="text-xs font-semibold text-violet-700 dark:text-violet-300 leading-tight">{s.name}</span>
+                              <button className="text-[9px] text-blue-600 hover:underline flex-shrink-0 font-medium" onClick={(e) => { e.stopPropagation(); applySingleSuggestion(s); }} data-testid={`apply-suggestion-${i}`}>Použiť</button>
                             </div>
-                            <div className="text-[10px] text-muted-foreground mt-0.5 leading-snug">{s.reason}</div>
-                            <div className="flex flex-wrap gap-1 mt-1">
-                              {s.segment && <span className="bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 px-1.5 py-0 rounded text-[9px]">{s.segment}</span>}
-                              {s.location && <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-1.5 py-0 rounded text-[9px]">{s.location}</span>}
+                            {s.reason && <div className="text-[10px] text-muted-foreground mt-0.5 leading-snug italic">{s.reason}</div>}
+                            <div className="flex flex-wrap gap-1 mt-1.5">
+                              {s.segment && (
+                                <button className="bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 px-1.5 py-0.5 rounded text-[9px] font-medium hover:bg-violet-200 dark:hover:bg-violet-800/40 transition-colors" onClick={(e) => { e.stopPropagation(); setSearchForm(f => ({ ...f, segment: s.segment })); }} data-testid={`use-segment-${i}`}>
+                                  📋 {s.segment}
+                                </button>
+                              )}
+                              {s.location && (
+                                <button className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded text-[9px] font-medium hover:bg-blue-200 dark:hover:bg-blue-800/40 transition-colors" onClick={(e) => { e.stopPropagation(); setSearchForm(f => ({ ...f, location: s.location })); }} data-testid={`use-location-${i}`}>
+                                  📍 {s.location}
+                                </button>
+                              )}
+                              {s.keywords && (
+                                <button className="bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 px-1.5 py-0.5 rounded text-[9px] font-medium hover:bg-amber-200 dark:hover:bg-amber-800/40 transition-colors" onClick={(e) => { e.stopPropagation(); setSearchForm(f => ({ ...f, keywords: s.keywords })); }} data-testid={`use-keywords-${i}`}>
+                                  🔑 {s.keywords}
+                                </button>
+                              )}
                             </div>
                           </div>
                         </div>
