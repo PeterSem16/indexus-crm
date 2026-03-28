@@ -1154,6 +1154,7 @@ export interface IStorage {
   deleteLeadSource(id: number): Promise<boolean>;
 
   createLeadCampaign(data: InsertLeadCampaign): Promise<LeadCampaign>;
+  getLeadCampaign(id: number): Promise<LeadCampaign | undefined>;
   getAllLeadCampaigns(): Promise<LeadCampaign[]>;
   getActiveLeadCampaigns(): Promise<LeadCampaign[]>;
   getDueLeadCampaigns(): Promise<LeadCampaign[]>;
@@ -6955,6 +6956,10 @@ export class DatabaseStorage implements IStorage {
   }
   async getAllLeadCampaigns(): Promise<LeadCampaign[]> {
     return db.select().from(leadCampaigns).orderBy(desc(leadCampaigns.createdAt));
+  }
+  async getLeadCampaign(id: number): Promise<LeadCampaign | undefined> {
+    const [campaign] = await db.select().from(leadCampaigns).where(eq(leadCampaigns.id, id));
+    return campaign;
   }
   async getActiveLeadCampaigns(): Promise<LeadCampaign[]> {
     return db.select().from(leadCampaigns).where(eq(leadCampaigns.isActive, true)).orderBy(asc(leadCampaigns.nextRunAt));

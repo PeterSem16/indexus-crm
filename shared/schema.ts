@@ -6579,6 +6579,7 @@ export const searchResults = pgTable("search_results", {
   sourceUrl: text("source_url"),
   confidenceScore: integer("confidence_score").default(0),
   rawData: jsonb("raw_data").$type<Record<string, any>>(),
+  enrichmentStatus: text("enrichment_status").default("pending"),
   status: text("status").notNull().default("new"), // new | assigned | skipped
   assignedTo: text("assigned_to"), // 'hospital:uuid' | 'clinic:uuid' | 'collaborator:uuid'
   assignedAt: timestamp("assigned_at"),

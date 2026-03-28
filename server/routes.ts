@@ -31,7 +31,7 @@ import {
   campaignDispositions, insertCampaignDispositionSchema,
   DEFAULT_PHONE_DISPOSITIONS, DEFAULT_EMAIL_DISPOSITIONS, DEFAULT_SMS_DISPOSITIONS, DISPOSITION_NAME_TRANSLATIONS,
   callLogs, campaignContacts, campaignContactHistory, campaignContactSessions, campaigns, customers, users, entityCampaignTimeline, mobileContacts, collaborators, billingDetails,
-  collections, executiveSummaries, collectionLabResults, collectionSprievodnyList, cbuReportAudit, cbuReportOtp, searchResults,
+  collections, executiveSummaries, collectionLabResults, collectionSprievodnyList, cbuReportAudit, cbuReportOtp, searchResults, searchJobs, leadCampaigns,
   insertSopCategorySchema, insertSopArticleSchema,
   agentSessions, agentSessionActivities, agentBreaks, scheduledReports, agentQueueStatus,
   inboundCallLogs, inboundQueues, ariSettings, sipExtensions, clinicReferrals, clinicEvents,
@@ -2559,7 +2559,7 @@ export async function registerRoutes(
             location: campaign.location || "",
             keywords: campaign.keywords || "",
             status: "pending",
-          } as any);
+          });
 
           await storage.updateLeadCampaign(campaign.id, {
             lastRunAt: now,
@@ -27148,6 +27148,32 @@ Return ONLY a JSON array of 20 search query strings.`;
 
           console.log(`[LeadSearch] Job ${job.id}: KROK 1 — Vygenerovaných ${searchQueries.length} vyhľadávacích fráz`);
 
+
+          // Load lead sources for blacklist/whitelist filtering
+          let blacklistedDomains: Set<string> = new Set();
+          let whitelistedUrls: string[] = [];
+          try {
+            const allSources = await storage.getAllLeadSources();
+            for (const src of allSources) {
+              try {
+                const srcDomain = new URL(src.url.startsWith("http") ? src.url : "https://" + src.url).hostname;
+                if (src.status === "blacklisted") {
+                  blacklistedDomains.add(srcDomain);
+                } else if (src.status === "active") {
+                  const matchesCountry = !src.countryCode || src.countryCode === country;
+                  const matchesSegment = !src.segment || (segment && src.segment.toLowerCase().includes(segment.toLowerCase()));
+                  if (matchesCountry || matchesSegment) {
+                    whitelistedUrls.push(src.url);
+                  }
+                }
+              } catch {}
+            }
+            if (blacklistedDomains.size > 0) console.log(`[LeadSearch] Job ${job.id}: ${blacklistedDomains.size} blacklisted domains loaded`);
+            if (whitelistedUrls.length > 0) console.log(`[LeadSearch] Job ${job.id}: ${whitelistedUrls.length} whitelisted sources prioritized`);
+          } catch (srcErr) {
+            console.log("[LeadSearch] Source loading error (non-critical):", srcErr);
+          }
+
           // ═══════════════════════════════════════════════════════════
           // KROK 2: DISCOVERY — nájdenie kandidátnych URL
           // ═══════════════════════════════════════════════════════════
@@ -27225,7 +27251,7 @@ Return ONLY a JSON array of 20 search query strings.`;
             for (const arr of waveResults) {
               for (const s of arr) {
                 const norm = normUrl(s.url);
-                if (!seenUrls.has(norm) && s.url) {
+                if (!seenUrls.has(norm) && s.url) { try { const _sd = new URL(s.url).hostname; if (blacklistedDomains.has(_sd)) continue; } catch {}
                   seenUrls.add(norm);
                   allSnippets.push(s);
                 }
@@ -27233,6 +27259,19 @@ Return ONLY a JSON array of 20 search query strings.`;
             }
             console.log(`[LeadSearch] Job ${job.id}: Discovery vlna ${wave + 1} — celkovo ${allSnippets.length} URL`);
             if (wave < 3) await new Promise(r => setTimeout(r, 1500));
+          }
+
+
+          // Add whitelisted source URLs as priority discovery targets
+          if (whitelistedUrls.length > 0) {
+            for (const wUrl of whitelistedUrls) {
+              const norm = normUrl(wUrl);
+              if (!seenUrls.has(norm)) {
+                seenUrls.add(norm);
+                allSnippets.unshift({ title: "Whitelisted source", url: wUrl, snippet: "", source: "whitelist" });
+              }
+            }
+            console.log(`[LeadSearch] Job ${job.id}: Pridaných ${whitelistedUrls.length} whitelisted zdrojov`);
           }
 
           // KROK 2b: Ak málo výsledkov, AI generuje retry queries s inou stratégiou
@@ -27256,7 +27295,7 @@ Return ONLY a JSON array of query strings.`;
               for (const arr of retryResults) {
                 for (const s of arr) {
                   const norm = normUrl(s.url);
-                  if (!seenUrls.has(norm) && s.url) { seenUrls.add(norm); allSnippets.push(s); }
+                  if (!seenUrls.has(norm) && s.url) { try { const _sd2 = new URL(s.url).hostname; if (blacklistedDomains.has(_sd2)) continue; } catch {} seenUrls.add(norm); allSnippets.push(s); }
                 }
               }
               console.log(`[LeadSearch] Job ${job.id}: Po retry — ${allSnippets.length} URL celkovo`);
@@ -27492,7 +27531,23 @@ Return ONLY a JSON array of NEW contacts (same format as before).`;
               try {
                 if (contact.website) {
                   const enrichUrl = contact.website.startsWith("http") ? contact.website : "https://" + contact.website;
-                  try { const _u = new URL(enrichUrl); if (['localhost','127.0.0.1','0.0.0.0','[::1]'].includes(_u.hostname) || _u.hostname.startsWith('10.') || _u.hostname.startsWith('192.168.') || _u.hostname.startsWith('172.')) { contact.enrichment_status = 'skipped'; continue; } } catch { contact.enrichment_status = 'skipped'; continue; }
+                  try {
+                    const _u = new URL(enrichUrl);
+                    if (_u.protocol !== 'http:' && _u.protocol !== 'https:') { contact.enrichment_status = 'skipped'; continue; }
+                    const _h = _u.hostname;
+                    const _isPrivateHost = ['localhost','127.0.0.1','0.0.0.0','[::1]'].includes(_h) || /^(10|192\.168|172\.(1[6-9]|2[0-9]|3[0-1])|169\.254|100\.(6[4-9]|[7-9]\d|1[0-2]\d)|198\.1[89])\./i.test(_h) || _h.endsWith('.local') || _h.endsWith('.internal') || /^(fc|fd|fe80)/i.test(_h) || _h === '::1' || _h === '';
+                    if (_isPrivateHost) { contact.enrichment_status = 'skipped'; continue; }
+                    const _dnsCheck = await new Promise<boolean>((resolve) => {
+                      import('dns').then(dns => {
+                        dns.resolve4(_h, (err, addresses) => {
+                          if (err) { resolve(true); return; }
+                          const blocked = addresses.some((ip: string) => /^(127\.|10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|169\.254\.|0\.|100\.(6[4-9]|[7-9]\d|1[0-2]\d)\.)/.test(ip));
+                          resolve(!blocked);
+                        });
+                      }).catch(() => resolve(true));
+                    });
+                    if (!_dnsCheck) { contact.enrichment_status = 'skipped'; continue; }
+                  } catch { contact.enrichment_status = 'skipped'; continue; }
                   try {
                     const enrichResp = await fetch(enrichUrl, { signal: AbortSignal.timeout(8000), headers: { "User-Agent": "Mozilla/5.0" } });
                     if (enrichResp.ok) {
@@ -27650,6 +27705,7 @@ Return ONLY a JSON array of NEW contacts (same format as before).`;
               sourceUrl: c.source_url || c.sourceUrl || null,
               confidenceScore: c.confidence_score || c.confidenceScore || 50,
               rawData: c,
+              enrichmentStatus: c.enrichment_status || 'pending',
               status: "new",
             }));
             await storage.createSearchResults(insertData);
@@ -28068,6 +28124,18 @@ Return ONLY a JSON array of NEW contacts (same format as before).`;
     try {
       await storage.deleteLeadCampaign(parseInt(req.params.id));
       res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/lead-campaigns/:id/history", requireAuth, async (req, res) => {
+    try {
+      const campaignId = parseInt(req.params.id);
+      const campaign = await storage.getLeadCampaign(campaignId);
+      if (!campaign) return res.status(404).json({ error: "Campaign not found" });
+      const jobs = await db.select().from(searchJobs).where(sql`${searchJobs.name} LIKE '%[Auto] ' || ${campaign.name} || '%'`).orderBy(desc(searchJobs.createdAt)).limit(20);
+      res.json(jobs);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
