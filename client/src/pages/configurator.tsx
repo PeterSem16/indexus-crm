@@ -17938,7 +17938,7 @@ function CourierFormDialog({
 function LeadSearchTab() {
   const { t } = useI18n();
   const { toast } = useToast();
-  const [activeSubTab, setActiveSubTab] = useState<"dashboard" | "search" | "sources" | "campaigns">("dashboard");
+  const [activeSubTab, setActiveSubTab] = useState<"dashboard" | "search" | "sources" | "campaigns" | "templates" | "webhooks">("dashboard");
   const [searchForm, setSearchForm] = useState({
     name: "",
     targetModule: "hospitals" as "hospitals" | "clinics" | "collaborators",
@@ -17968,6 +17968,12 @@ function LeadSearchTab() {
   const { data: analytics } = useQuery<any>({ queryKey: ["/api/lead-search/analytics"] });
   const { data: leadSources = [], refetch: refetchSources } = useQuery<any[]>({ queryKey: ["/api/lead-sources"] });
   const { data: leadCampaigns = [], refetch: refetchCampaigns } = useQuery<any[]>({ queryKey: ["/api/lead-campaigns"] });
+  const { data: queryTemplatesList = [], refetch: refetchTemplates } = useQuery<any[]>({ queryKey: ["/api/query-templates"] });
+  const { data: webhooksList = [], refetch: refetchWebhooks } = useQuery<any[]>({ queryKey: ["/api/webhooks"] });
+  const [webhookForm, setWebhookForm] = useState({ name: "", url: "", events: ["*"], secret: "" });
+  const [showWebhookForm, setShowWebhookForm] = useState(false);
+  const [templateSeeded, setTemplateSeeded] = useState(false);
+  const [reviewFilter, setReviewFilter] = useState<string>("all");
 
   const getAiSuggestions = async () => {
     setAiSuggesting(true);
@@ -18298,6 +18304,8 @@ function LeadSearchTab() {
           { key: "search" as const, label: "Vyhľadávanie", Icon: Target },
           { key: "sources" as const, label: "Zdroje", Icon: Network },
           { key: "campaigns" as const, label: "Kampane", Icon: RefreshCw },
+          { key: "templates" as const, label: "Šablóny", Icon: Layers },
+          { key: "webhooks" as const, label: "Webhooky", Icon: Bell },
         ] as const).map(tab => (
           <button
             key={tab.key}
@@ -18514,6 +18522,18 @@ function LeadSearchTab() {
                 <div className="text-center text-muted-foreground py-8">Žiadne zdroje. Pridajte nový alebo spustite vyhľadávanie — zdroje sa pridajú automaticky.</div>
               ) : (
                 <div className="overflow-x-auto">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Button variant="outline" size="sm" className="text-xs" data-testid="button-recalculate-scores" onClick={async () => {
+                      await fetch("/api/lead-sources/recalculate-all", { method: "POST", credentials: "include" });
+                      refetchSources();
+                      toast({ title: "Skóre prepočítané" });
+                    }}>
+                      <BarChart3 className="h-3 w-3 mr-1" /> Prepočítať skóre
+                    </Button>
+                    <Button variant="outline" size="sm" className="text-xs" data-testid="button-export-sources" onClick={() => { window.open("/api/lead-sources/export", "_blank"); }}>
+                      <Download className="h-3 w-3 mr-1" /> XLSX Export
+                    </Button>
+                  </div>
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b">
@@ -18521,7 +18541,9 @@ function LeadSearchTab() {
                         <th className="text-left py-2 px-2 font-medium">URL</th>
                         <th className="text-left py-2 px-2 font-medium">Typ</th>
                         <th className="text-left py-2 px-2 font-medium">Krajina</th>
+                        <th className="text-left py-2 px-2 font-medium">Skóre</th>
                         <th className="text-left py-2 px-2 font-medium">Úspešnosť</th>
+                        <th className="text-left py-2 px-2 font-medium">Zoznam</th>
                         <th className="text-left py-2 px-2 font-medium">Status</th>
                         <th className="text-right py-2 px-2 font-medium">Akcie</th>
                       </tr>
@@ -18530,7 +18552,12 @@ function LeadSearchTab() {
                       {leadSources.map((source: any) => (
                         <Fragment key={source.id}>
                         <tr data-testid={`source-row-${source.id}`} className="border-b hover:bg-accent/30">
-                          <td className="py-2 px-2 font-medium">{source.name}</td>
+                          <td className="py-2 px-2 font-medium">
+                            <div className="flex items-center gap-1.5">
+                              {source.name}
+                              {source.isJsHeavy && <span className="text-[9px] bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 px-1 rounded" title="JS-heavy site">JS</span>}
+                            </div>
+                          </td>
                           <td className="py-2 px-2 text-xs font-mono truncate max-w-[200px]">
                             <a href={source.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">{source.url}</a>
                           </td>
@@ -18539,6 +18566,16 @@ function LeadSearchTab() {
                           </td>
                           <td className="py-2 px-2 text-xs">{source.countryCode || "-"}</td>
                           <td className="py-2 px-2">
+                            <div className="flex items-center gap-1">
+                              <div className="w-12 h-1.5 rounded-full bg-muted overflow-hidden">
+                                <div className={cn("h-full rounded-full transition-all",
+                                  (source.qualityScore || 50) >= 70 ? "bg-green-500" : (source.qualityScore || 50) >= 40 ? "bg-amber-500" : "bg-red-500"
+                                )} style={{ width: `${source.qualityScore || 50}%` }} />
+                              </div>
+                              <span className="text-[10px] text-muted-foreground w-6">{source.qualityScore || 50}</span>
+                            </div>
+                          </td>
+                          <td className="py-2 px-2">
                             <div className="flex items-center gap-1 text-xs">
                               <span className="text-green-600">{source.successCount || 0}</span>
                               <span className="text-muted-foreground">/</span>
@@ -18546,8 +18583,27 @@ function LeadSearchTab() {
                             </div>
                           </td>
                           <td className="py-2 px-2">
-                            <span className={cn("text-xs px-1.5 py-0.5 rounded", source.status === "active" ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400")}>
-                              {source.status === "active" ? "Aktívny" : "Blokovaný"}
+                            <Select value={source.listType || "none"} onValueChange={async (v) => {
+                              await fetch(`/api/lead-sources/${source.id}/list-type`, { method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ listType: v }) });
+                              refetchSources();
+                            }}>
+                              <SelectTrigger className="h-6 w-24 text-[10px]" data-testid={`list-type-${source.id}`}>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none">Žiadny</SelectItem>
+                                <SelectItem value="whitelist">Whitelist</SelectItem>
+                                <SelectItem value="blacklist">Blacklist</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </td>
+                          <td className="py-2 px-2">
+                            <span className={cn("text-xs px-1.5 py-0.5 rounded",
+                              source.status === "active" ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" :
+                              source.listType === "blacklist" ? "bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900" :
+                              "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                            )}>
+                              {source.status === "active" ? "Aktívny" : source.listType === "blacklist" ? "Blacklist" : "Blokovaný"}
                             </span>
                           </td>
                           <td className="py-2 px-2 text-right">
@@ -19155,10 +19211,44 @@ function LeadSearchTab() {
       {selectedJobId && (
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              Výsledky: {selectedJob?.name}
-              {selectedJob?.status === "running" && <Loader2 className="h-4 w-4 animate-spin" />}
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base flex items-center gap-2">
+                Výsledky: {selectedJob?.name}
+                {selectedJob?.status === "running" && <Loader2 className="h-4 w-4 animate-spin" />}
+              </CardTitle>
+              <div className="flex items-center gap-2">
+                {results.length > 0 && (
+                  <>
+                    <div className="flex gap-1 text-[10px]">
+                      {["all", "new", "approved", "rejected", "merged"].map(f => (
+                        <button key={f} data-testid={`filter-${f}`} className={cn("px-2 py-1 rounded-md border transition-all",
+                          reviewFilter === f ? "border-primary bg-primary/10 text-primary font-medium" : "hover:border-primary/30"
+                        )} onClick={() => setReviewFilter(f)}>
+                          {f === "all" ? "Všetky" : f === "new" ? "Nové" : f === "approved" ? "Schválené" : f === "rejected" ? "Zamietnuté" : "Zlúčené"}
+                          <span className="ml-1 text-muted-foreground">({results.filter((r: any) => f === "all" || r.status === f).length})</span>
+                        </button>
+                      ))}
+                    </div>
+                    <Button variant="outline" size="sm" className="text-xs h-7" data-testid="button-export-results" onClick={() => window.open(`/api/search-results/export/${selectedJob?.id}`, "_blank")}>
+                      <Download className="h-3 w-3 mr-1" /> XLSX
+                    </Button>
+                    {results.filter((r: any) => r.status === "new").length > 0 && (
+                      <div className="flex gap-1">
+                        <Button variant="outline" size="sm" className="text-xs h-7 text-green-600 border-green-200" data-testid="button-bulk-approve" onClick={async () => {
+                          const ids = results.filter((r: any) => r.status === "new").map((r: any) => r.id);
+                          await fetch("/api/search-results/bulk-review", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ ids, status: "approved" }) });
+                          const data = await fetch(`/api/lead-search/results/${selectedJob?.id}`, { credentials: "include" }).then(r => r.json());
+                          setResults(data);
+                          toast({ title: `${ids.length} schválených` });
+                        }}>
+                          <Check className="h-3 w-3 mr-1" /> Schváliť všetky
+                        </Button>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             {results.length === 0 ? (
@@ -19181,7 +19271,7 @@ function LeadSearchTab() {
                     </tr>
                   </thead>
                   <tbody>
-                    {results.map((r: any) => (
+                    {results.filter((r: any) => reviewFilter === "all" || r.status === reviewFilter).map((r: any) => (
                       <tr key={r.id} data-testid={`result-row-${r.id}`} className="border-b hover:bg-accent/30">
                         <td className="py-2 px-2">
                           <div className="font-medium">{r.companyName || "-"}</div>
@@ -19205,23 +19295,22 @@ function LeadSearchTab() {
                           </span>
                         </td>
                         <td className="py-2 px-2">
-                          <span className={`text-xs px-1.5 py-0.5 rounded ${
-                            r.status === "assigned" ? "bg-green-100 text-green-700" :
+                          <span className={cn("text-xs px-1.5 py-0.5 rounded",
+                            r.status === "approved" ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" :
+                            r.status === "rejected" ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" :
+                            r.status === "merged" ? "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400" :
+                            r.status === "assigned" ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" :
                             r.status === "skipped" ? "bg-gray-100 text-gray-500" :
                             "bg-blue-100 text-blue-700"
-                          }`}>
-                            {r.status === "assigned" ? "Priradený" : r.status === "skipped" ? "Preskočený" : "Nový"}
+                          )}>
+                            {r.status === "approved" ? "Schválený" : r.status === "rejected" ? "Zamietnutý" : r.status === "merged" ? "Zlúčený" : r.status === "assigned" ? "Priradený" : r.status === "skipped" ? "Preskočený" : "Nový"}
                           </span>
                         </td>
                         <td className="py-2 px-2 text-right">
-                          {r.status === "new" && (
-                            <div className="flex items-center gap-1 justify-end">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-7 text-xs"
-                                data-testid={`preview-result-${r.id}`}
-                                onClick={() => {
+                          <div className="flex items-center gap-1 justify-end">
+                            {(r.status === "new" || r.status === "approved") && (
+                              <>
+                                <Button size="sm" variant="outline" className="h-6 text-[10px] px-1.5" data-testid={`preview-result-${r.id}`} onClick={() => {
                                   setPreviewResult(r);
                                   setExistingMatches([]);
                                   setSelectedMatch(null);
@@ -19231,19 +19320,57 @@ function LeadSearchTab() {
                                     .then(resp => resp.ok ? resp.json() : { matches: [] })
                                     .then(data => { setExistingMatches(data.matches || []); setMatchLoading(false); })
                                     .catch(() => setMatchLoading(false));
-                                }}
-                              >
-                                <Eye className="h-3 w-3 mr-1" />
-                                Zobraziť
+                                }}>
+                                  <Eye className="h-3 w-3" />
+                                </Button>
+                                {r.status === "new" && (
+                                  <Button size="sm" variant="outline" className="h-6 text-[10px] px-1.5 text-green-600 border-green-200 hover:bg-green-50" data-testid={`approve-result-${r.id}`} onClick={async () => {
+                                    await fetch(`/api/search-results/${r.id}/review`, { method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ status: "approved" }) });
+                                    const j = jobs.find((j: any) => j.id === selectedJob);
+                                    if (j) { const data = await fetch(`/api/lead-search/results/${j.id}`, { credentials: "include" }).then(r => r.json()); setResults(data); }
+                                  }}>
+                                    <Check className="h-3 w-3" />
+                                  </Button>
+                                )}
+                                {r.status === "new" && (
+                                  <Button size="sm" variant="outline" className="h-6 text-[10px] px-1.5 text-red-600 border-red-200 hover:bg-red-50" data-testid={`reject-result-${r.id}`} onClick={async () => {
+                                    await fetch(`/api/search-results/${r.id}/review`, { method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ status: "rejected" }) });
+                                    const j = jobs.find((j: any) => j.id === selectedJob);
+                                    if (j) { const data = await fetch(`/api/lead-search/results/${j.id}`, { credentials: "include" }).then(r => r.json()); setResults(data); }
+                                  }}>
+                                    <X className="h-3 w-3" />
+                                  </Button>
+                                )}
+                                {(r.status === "new" || r.status === "approved") && (
+                                  <Button size="sm" variant="default" className="h-6 text-[10px] px-2" data-testid={`merge-result-${r.id}`} onClick={async () => {
+                                    const resp = await fetch(`/api/search-results/${r.id}/merge`, { method: "POST", credentials: "include" });
+                                    const data = await resp.json();
+                                    if (data.success) {
+                                      toast({ title: "Zlúčený do CRM", description: data.mergedTo });
+                                      const j = jobs.find((j: any) => j.id === selectedJob);
+                                      if (j) { const resData = await fetch(`/api/lead-search/results/${j.id}`, { credentials: "include" }).then(r => r.json()); setResults(resData); }
+                                    }
+                                  }}>
+                                    CRM
+                                  </Button>
+                                )}
+                              </>
+                            )}
+                            {r.status === "merged" && (
+                              <span className="text-[10px] text-violet-600 font-medium flex items-center gap-0.5">
+                                <CheckCircle2 className="h-3 w-3" /> Zlúčený
+                              </span>
+                            )}
+                            {r.status === "rejected" && (
+                              <Button size="sm" variant="ghost" className="h-6 text-[10px] px-1.5" data-testid={`restore-result-${r.id}`} onClick={async () => {
+                                await fetch(`/api/search-results/${r.id}/review`, { method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ status: "new" }) });
+                                const j = jobs.find((j: any) => j.id === selectedJob);
+                                if (j) { const data = await fetch(`/api/lead-search/results/${j.id}`, { credentials: "include" }).then(r => r.json()); setResults(data); }
+                              }}>
+                                Obnoviť
                               </Button>
-                            </div>
-                          )}
-                          {r.status === "assigned" && (
-                            <span className="text-xs text-green-600 font-medium flex items-center gap-1 justify-end">
-                              <CheckCircle2 className="h-3 w-3" />
-                              Priradený
-                            </span>
-                          )}
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -19482,6 +19609,219 @@ function LeadSearchTab() {
 
     </div>
     )}
+
+      {activeSubTab === "templates" && (
+        <div className="space-y-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-base flex items-center gap-2"><Layers className="h-4 w-4" /> Viacjazykové šablóny vyhľadávania</CardTitle>
+                  <p className="text-xs text-muted-foreground mt-1">Predpripravené vyhľadávacie scenáre v lokálnych jazykoch pre každú krajinu</p>
+                </div>
+                <div className="flex gap-2">
+                  {!templateSeeded && (
+                    <Button variant="default" size="sm" className="text-xs" data-testid="button-seed-templates" onClick={async () => {
+                      const resp = await fetch("/api/query-templates/seed", { method: "POST", credentials: "include" });
+                      const data = await resp.json();
+                      setTemplateSeeded(true);
+                      refetchTemplates();
+                      toast({ title: `${data.seeded} šablón pridaných`, description: `Celkom: ${data.total}` });
+                    }}>
+                      <Sparkles className="h-3 w-3 mr-1" /> Načítať prednastavené šablóny
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {queryTemplatesList.length === 0 ? (
+                <div className="text-center text-muted-foreground py-8">
+                  <Layers className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p>Žiadne šablóny. Kliknite na "Načítať prednastavené šablóny" pre importovanie viacjazykových šablón.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {["all", "sk", "cs", "de", "hu", "ro", "it"].map(lang => (
+                      <button key={lang} className={cn("px-3 py-1.5 rounded-md text-xs font-medium border transition-all",
+                        (reviewFilter === lang || (lang === "all" && reviewFilter === "all")) ? "border-primary bg-primary/10 text-primary" : "hover:border-primary/30"
+                      )} onClick={() => setReviewFilter(lang)} data-testid={`lang-filter-${lang}`}>
+                        {lang === "all" ? "Všetky" : lang === "sk" ? "🇸🇰 SK" : lang === "cs" ? "🇨🇿 CZ" : lang === "de" ? "🇦🇹🇩🇪 DE" : lang === "hu" ? "🇭🇺 HU" : lang === "ro" ? "🇷🇴 RO" : "🇮🇹 IT"}
+                        <span className="ml-1 text-muted-foreground">({queryTemplatesList.filter((t: any) => lang === "all" || t.language === lang).length})</span>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {queryTemplatesList.filter((t: any) => reviewFilter === "all" || t.language === reviewFilter).map((template: any) => (
+                      <div key={template.id} className="rounded-lg border p-3 hover:border-primary/30 transition-all" data-testid={`template-${template.id}`}>
+                        <div className="flex items-start justify-between mb-1.5">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] font-medium bg-primary/10 text-primary px-1.5 py-0.5 rounded">{template.language?.toUpperCase()}</span>
+                            <span className="text-[10px] text-muted-foreground">{template.country}</span>
+                          </div>
+                          {template.isBuiltIn && <span className="text-[9px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">Built-in</span>}
+                        </div>
+                        <h4 className="text-sm font-semibold mb-0.5">{template.name}</h4>
+                        {template.description && <p className="text-[11px] text-muted-foreground mb-2">{template.description}</p>}
+                        <div className="flex flex-wrap gap-1 mb-2">
+                          {template.segment && <span className="inline-flex items-center gap-0.5 text-[9px] bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300 px-1.5 py-0.5 rounded"><Layers className="h-2.5 w-2.5" />{template.segment}</span>}
+                          {template.keywords && <span className="inline-flex items-center gap-0.5 text-[9px] bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 px-1.5 py-0.5 rounded"><Key className="h-2.5 w-2.5" />{template.keywords?.split(",").slice(0, 3).join(", ")}...</span>}
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-[9px] text-muted-foreground">Použité: {template.usageCount || 0}x</span>
+                          <div className="flex gap-1">
+                            <Button size="sm" variant="default" className="h-6 text-[10px] px-2" data-testid={`use-template-${template.id}`} onClick={async () => {
+                              await fetch(`/api/query-templates/${template.id}/use`, { method: "POST", credentials: "include" });
+                              setSearchForm(f => ({
+                                ...f,
+                                name: template.name,
+                                targetModule: template.targetModule as any,
+                                country: template.country || "",
+                                segment: template.segment || "",
+                                location: template.location || "",
+                                keywords: template.keywords || "",
+                              }));
+                              setActiveSubTab("search");
+                              refetchTemplates();
+                              toast({ title: "Šablóna použitá" });
+                            }}>
+                              <ArrowRight className="h-3 w-3 mr-0.5" /> Použiť
+                            </Button>
+                            {!template.isBuiltIn && (
+                              <Button size="sm" variant="ghost" className="h-6 text-[10px] px-1.5 text-red-600" data-testid={`delete-template-${template.id}`} onClick={async () => {
+                                await fetch(`/api/query-templates/${template.id}`, { method: "DELETE", credentials: "include" });
+                                refetchTemplates();
+                              }}>
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {activeSubTab === "webhooks" && (
+        <div className="space-y-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-base flex items-center gap-2"><Bell className="h-4 w-4" /> Webhooky</CardTitle>
+                  <p className="text-xs text-muted-foreground mt-1">Automatické notifikácie pri nových leadoch, schváleniach a zlúčeniach</p>
+                </div>
+                <Button variant="default" size="sm" className="text-xs" data-testid="button-new-webhook" onClick={() => setShowWebhookForm(!showWebhookForm)}>
+                  <Plus className="h-3 w-3 mr-1" /> Nový webhook
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {showWebhookForm && (
+                <div className="rounded-lg border p-4 mb-4 space-y-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs font-medium mb-1 block">Názov</label>
+                      <Input data-testid="input-webhook-name" placeholder="napr. Slack notifikácie" value={webhookForm.name} onChange={e => setWebhookForm({ ...webhookForm, name: e.target.value })} />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium mb-1 block">URL</label>
+                      <Input data-testid="input-webhook-url" placeholder="https://hooks.slack.com/..." value={webhookForm.url} onChange={e => setWebhookForm({ ...webhookForm, url: e.target.value })} />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium mb-1.5 block">Udalosti</label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {["*", "result.reviewed", "result.merged", "results.bulk_reviewed", "campaign.completed"].map(evt => (
+                        <button key={evt} className={cn("text-[10px] px-2 py-1 rounded-md border transition-all",
+                          webhookForm.events.includes(evt) ? "border-primary bg-primary/10 text-primary font-medium" : "hover:border-primary/30"
+                        )} onClick={() => setWebhookForm(f => ({ ...f, events: f.events.includes(evt) ? f.events.filter(e => e !== evt) : [...f.events, evt] }))}>
+                          {evt === "*" ? "Všetky" : evt === "result.reviewed" ? "Recenzia" : evt === "result.merged" ? "Zlúčenie" : evt === "results.bulk_reviewed" ? "Hromadná recenzia" : "Kampaň dokončená"}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium mb-1 block">Secret (voliteľné)</label>
+                    <Input data-testid="input-webhook-secret" placeholder="HMAC SHA-256 secret" type="password" value={webhookForm.secret} onChange={e => setWebhookForm({ ...webhookForm, secret: e.target.value })} />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button size="sm" data-testid="button-save-webhook" onClick={async () => {
+                      if (!webhookForm.name || !webhookForm.url) { toast({ title: "Vyplňte názov a URL", variant: "destructive" }); return; }
+                      await fetch("/api/webhooks", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify(webhookForm) });
+                      refetchWebhooks();
+                      setShowWebhookForm(false);
+                      setWebhookForm({ name: "", url: "", events: ["*"], secret: "" });
+                      toast({ title: "Webhook pridaný" });
+                    }}>
+                      <Save className="h-3 w-3 mr-1" /> Uložiť
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => setShowWebhookForm(false)}>Zrušiť</Button>
+                  </div>
+                </div>
+              )}
+
+              {webhooksList.length === 0 && !showWebhookForm ? (
+                <div className="text-center text-muted-foreground py-8">
+                  <Bell className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p>Žiadne webhooky. Pridajte webhook pre automatické notifikácie.</p>
+                  <p className="text-[11px] mt-1">Podporované udalosti: nový lead, schválenie, zlúčenie do CRM, dokončenie kampane</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {webhooksList.map((hook: any) => (
+                    <div key={hook.id} className="rounded-lg border p-3 flex items-center justify-between" data-testid={`webhook-${hook.id}`}>
+                      <div>
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <span className="font-medium text-sm">{hook.name}</span>
+                          <span className={cn("text-[10px] px-1.5 py-0.5 rounded", hook.isActive ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500")}>
+                            {hook.isActive ? "Aktívny" : "Neaktívny"}
+                          </span>
+                          {(hook.failCount || 0) > 0 && <span className="text-[10px] text-red-600">{hook.failCount} chýb</span>}
+                        </div>
+                        <div className="text-xs text-muted-foreground font-mono">{hook.url}</div>
+                        <div className="flex gap-1 mt-1">
+                          {(hook.events || []).map((evt: string) => (
+                            <span key={evt} className="text-[9px] bg-muted px-1.5 py-0.5 rounded">{evt}</span>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Button size="sm" variant="outline" className="h-7 text-xs" data-testid={`test-webhook-${hook.id}`} onClick={async () => {
+                          const resp = await fetch(`/api/webhooks/${hook.id}/test`, { method: "POST", credentials: "include" });
+                          const data = await resp.json();
+                          toast({ title: data.success ? "Test úspešný" : "Test neúspešný", description: `HTTP ${data.status}`, variant: data.success ? "default" : "destructive" });
+                        }}>
+                          Test
+                        </Button>
+                        <Button size="sm" variant="outline" className="h-7 text-xs" data-testid={`toggle-webhook-${hook.id}`} onClick={async () => {
+                          await fetch(`/api/webhooks/${hook.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ isActive: !hook.isActive }) });
+                          refetchWebhooks();
+                        }}>
+                          {hook.isActive ? "Pozastaviť" : "Aktivovať"}
+                        </Button>
+                        <Button size="sm" variant="ghost" className="h-7 text-xs text-red-600" data-testid={`delete-webhook-${hook.id}`} onClick={async () => {
+                          await fetch(`/api/webhooks/${hook.id}`, { method: "DELETE", credentials: "include" });
+                          refetchWebhooks();
+                        }}>
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
     </div>
   );
 }

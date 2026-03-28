@@ -32,7 +32,7 @@ import {
   DEFAULT_PHONE_DISPOSITIONS, DEFAULT_EMAIL_DISPOSITIONS, DEFAULT_SMS_DISPOSITIONS, DISPOSITION_NAME_TRANSLATIONS,
   callLogs, campaignContacts, campaignContactHistory, campaignContactSessions, campaigns, customers, users, entityCampaignTimeline, mobileContacts, collaborators, billingDetails,
   collections, executiveSummaries, collectionLabResults, collectionSprievodnyList, cbuReportAudit, cbuReportOtp, searchResults, searchJobs, leadCampaigns,
-  insertLeadSourceSchema, insertLeadCampaignSchema,
+  insertLeadSourceSchema, insertLeadCampaignSchema, queryTemplates, insertQueryTemplateSchema, webhookConfigs, insertWebhookConfigSchema, leadSources,
   insertSopCategorySchema, insertSopArticleSchema,
   agentSessions, agentSessionActivities, agentBreaks, scheduledReports, agentQueueStatus,
   inboundCallLogs, inboundQueues, ariSettings, sipExtensions, clinicReferrals, clinicEvents,
@@ -28472,6 +28472,512 @@ Odpovedz VÝHRADNE ako JSON pole objektov s kľúčmi: url, name, type, countryC
       res.status(500).json({ error: error.message });
     }
   });
+  // ═══════════════════════════════════════════════════════════
+  // V2: Query Templates (multilingual)
+  // ═══════════════════════════════════════════════════════════
+  app.get("/api/query-templates", requireAuth, async (req, res) => {
+    try {
+      const { targetModule, language, country } = req.query;
+      let q = db.select().from(queryTemplates);
+      const conditions: any[] = [];
+      if (targetModule) conditions.push(eq(queryTemplates.targetModule, targetModule as string));
+      if (language) conditions.push(eq(queryTemplates.language, language as string));
+      if (country) conditions.push(eq(queryTemplates.country, country as string));
+      const templates = conditions.length > 0
+        ? await q.where(and(...conditions)).orderBy(sql`${queryTemplates.usageCount} DESC`)
+        : await q.orderBy(sql`${queryTemplates.usageCount} DESC`);
+      res.json(templates);
+    } catch (error: any) { res.status(500).json({ error: error.message }); }
+  });
+
+  app.post("/api/query-templates", requireAuth, async (req, res) => {
+    try {
+      const parsed = insertQueryTemplateSchema.parse(req.body);
+      const [template] = await db.insert(queryTemplates).values(parsed).returning();
+      res.json(template);
+    } catch (error: any) { res.status(400).json({ error: error.message }); }
+  });
+
+  app.delete("/api/query-templates/:id", requireAuth, async (req, res) => {
+    try {
+      await db.delete(queryTemplates).where(eq(queryTemplates.id, parseInt(req.params.id)));
+      res.json({ success: true });
+    } catch (error: any) { res.status(500).json({ error: error.message }); }
+  });
+
+  app.post("/api/query-templates/:id/use", requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await db.update(queryTemplates).set({ usageCount: sql`COALESCE(${queryTemplates.usageCount}, 0) + 1`, lastUsedAt: new Date() }).where(eq(queryTemplates.id, id));
+      const [template] = await db.select().from(queryTemplates).where(eq(queryTemplates.id, id));
+      res.json(template);
+    } catch (error: any) { res.status(500).json({ error: error.message }); }
+  });
+
+  app.post("/api/query-templates/seed", requireAuth, async (req, res) => {
+    try {
+      const builtInTemplates = [
+        { name: "Gynekológie a pôrodnice", language: "sk", targetModule: "hospitals", country: "SK", segment: "gynekológia, pôrodníctvo", location: "", keywords: "gynekológia, pôrodnica, neonatológia, perinatológia, pôrod", description: "Všetky gynekologické a pôrodnícke oddelenia na Slovensku", isBuiltIn: true },
+        { name: "Onkologické centrá SK", language: "sk", targetModule: "hospitals", country: "SK", segment: "onkológia", location: "", keywords: "onkológia, chemoterapia, rádioterapia, onkologické centrum", description: "Onkologické centrá a oddelenia", isBuiltIn: true },
+        { name: "IVF a reprodukčná medicína", language: "sk", targetModule: "clinics", country: "SK", segment: "IVF, reprodukčná medicína", location: "", keywords: "IVF, umelé oplodnenie, reprodukčná medicína, neplodnosť, inseminácia", description: "IVF centrá a ambulancie reprodukčnej medicíny", isBuiltIn: true },
+        { name: "Genetické poradne", language: "sk", targetModule: "clinics", country: "SK", segment: "genetika", location: "", keywords: "genetická poradňa, prenatálna diagnostika, amniocentéza, genetické vyšetrenie", description: "Genetické poradne a prenatálna diagnostika", isBuiltIn: true },
+        { name: "Gynekologie a porodnice", language: "cs", targetModule: "hospitals", country: "CZ", segment: "gynekologie, porodnictví", location: "", keywords: "gynekologie, porodnice, neonatologie, perinatologie, porod", description: "Gynekologické a porodnické oddělení v ČR", isBuiltIn: true },
+        { name: "IVF centra ČR", language: "cs", targetModule: "clinics", country: "CZ", segment: "IVF, reprodukční medicína", location: "", keywords: "IVF, umělé oplodnění, reprodukční medicína, neplodnost, centrum asistované reprodukce", description: "Centra asistované reprodukce", isBuiltIn: true },
+        { name: "Onkologická centra ČR", language: "cs", targetModule: "hospitals", country: "CZ", segment: "onkologie", location: "", keywords: "onkologie, onkologické centrum, chemoterapie, radioterapie, komplexní onkologické centrum", description: "Komplexní onkologická centra", isBuiltIn: true },
+        { name: "Geburtskliniken AT", language: "de", targetModule: "hospitals", country: "AT", segment: "Geburtshilfe, Gynäkologie", location: "", keywords: "Geburtsklinik, Entbindungsstation, Gynäkologie, Geburtshilfe, Neonatologie, Kreißsaal", description: "Geburtskliniken und gynäkologische Abteilungen in Österreich", isBuiltIn: true },
+        { name: "IVF-Zentren AT", language: "de", targetModule: "clinics", country: "AT", segment: "IVF, Reproduktionsmedizin", location: "", keywords: "IVF-Zentrum, Kinderwunschklinik, Reproduktionsmedizin, künstliche Befruchtung, Fertilitätsklinik", description: "IVF-Zentren und Kinderwunschkliniken in Österreich", isBuiltIn: true },
+        { name: "Stammzellbanken & Transplantation AT", language: "de", targetModule: "hospitals", country: "AT", segment: "Hämatologie, Transplantation", location: "", keywords: "Stammzellbank, Nabelschnurblut, Transplantation, Hämatologie, Stammzelltransplantation", description: "Kliniken für Stammzelltransplantation in Österreich", isBuiltIn: true },
+        { name: "Onkologische Zentren AT", language: "de", targetModule: "hospitals", country: "AT", segment: "Onkologie", location: "", keywords: "Onkologie, Krebszentrum, Chemotherapie, Strahlentherapie, onkologisches Zentrum", description: "Onkologische Zentren in Österreich", isBuiltIn: true },
+        { name: "Geburtskliniken DE", language: "de", targetModule: "hospitals", country: "DE", segment: "Geburtshilfe, Gynäkologie", location: "", keywords: "Geburtsklinik, Entbindungsstation, Perinatalzentrum, Kreißsaal, Hebamme", description: "Geburtskliniken und Perinatalzentren in Deutschland", isBuiltIn: true },
+        { name: "Szülészeti klinikák HU", language: "hu", targetModule: "hospitals", country: "HU", segment: "szülészet, nőgyógyászat", location: "", keywords: "szülészet, nőgyógyászat, neonatológia, szülőszoba, perinatális", description: "Szülészeti és nőgyógyászati osztályok Magyarországon", isBuiltIn: true },
+        { name: "IVF központok HU", language: "hu", targetModule: "clinics", country: "HU", segment: "IVF, reprodukciós medicina", location: "", keywords: "IVF, lombikbébi, mesterséges megtermékenyítés, meddőség, reprodukciós központ", description: "IVF központok és meddőségi klinikák", isBuiltIn: true },
+        { name: "Maternități RO", language: "ro", targetModule: "hospitals", country: "RO", segment: "obstetrică, ginecologie", location: "", keywords: "maternitate, obstetrică, ginecologie, neonatologie, naștere", description: "Maternități și secții de obstetrică-ginecologie în România", isBuiltIn: true },
+        { name: "Cliniche di fertilità IT", language: "it", targetModule: "clinics", country: "IT", segment: "PMA, fertilità", location: "", keywords: "fecondazione assistita, PMA, FIVET, centro fertilità, riproduzione assistita", description: "Centri di PMA e cliniche per la fertilità in Italia", isBuiltIn: true },
+        { name: "Med. Rep. farmaceutické firmy SK", language: "sk", targetModule: "collaborators", country: "SK", segment: "medical representatives", location: "", keywords: "medical representative, farmaceutická spoločnosť, obchodný zástupca, pharma, distribútor", description: "Farmaceutickí obchodní zástupcovia na Slovensku", isBuiltIn: true },
+        { name: "Pharmareferenten AT", language: "de", targetModule: "collaborators", country: "AT", segment: "Pharmareferenten", location: "", keywords: "Pharmareferent, Außendienst, pharmazeutisch, Handelsvertreter, Medizinprodukte", description: "Pharmareferenten und Handelsvertreter in Österreich", isBuiltIn: true },
+      ];
+      const existing = await db.select({ name: queryTemplates.name }).from(queryTemplates).where(eq(queryTemplates.isBuiltIn, true));
+      const existingNames = new Set(existing.map(e => e.name));
+      const toInsert = builtInTemplates.filter(t => !existingNames.has(t.name));
+      if (toInsert.length > 0) {
+        await db.insert(queryTemplates).values(toInsert);
+      }
+      const all = await db.select().from(queryTemplates).orderBy(sql`${queryTemplates.usageCount} DESC`);
+      res.json({ seeded: toInsert.length, total: all.length, templates: all });
+    } catch (error: any) { res.status(500).json({ error: error.message }); }
+  });
+
+  // ═══════════════════════════════════════════════════════════
+  // V2: Search Result Review — merge/reject/approve
+  // ═══════════════════════════════════════════════════════════
+  app.patch("/api/search-results/:id/review", requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const allowedFields = ["status", "reviewNote"];
+      const updates: any = {};
+      for (const key of allowedFields) { if (req.body[key] !== undefined) updates[key] = req.body[key]; }
+      if (!updates.status || !["approved", "rejected", "merged", "new"].includes(updates.status)) {
+        return res.status(400).json({ error: "Valid status required: approved, rejected, merged, new" });
+      }
+      updates.reviewedAt = new Date();
+      await db.update(searchResults).set(updates).where(eq(searchResults.id, id));
+      const [updated] = await db.select().from(searchResults).where(eq(searchResults.id, id));
+
+      // Fire webhook
+      await fireWebhook("result.reviewed", { resultId: id, status: updates.status, companyName: updated?.companyName });
+
+      res.json(updated);
+    } catch (error: any) { res.status(500).json({ error: error.message }); }
+  });
+
+  app.post("/api/search-results/bulk-review", requireAuth, async (req, res) => {
+    try {
+      const { ids, status, reviewNote } = req.body;
+      if (!ids?.length || !["approved", "rejected"].includes(status)) {
+        return res.status(400).json({ error: "ids array and valid status required" });
+      }
+      for (const id of ids) {
+        await db.update(searchResults).set({ status, reviewNote: reviewNote || null, reviewedAt: new Date() }).where(eq(searchResults.id, id));
+      }
+      await fireWebhook("results.bulk_reviewed", { count: ids.length, status });
+      res.json({ updated: ids.length });
+    } catch (error: any) { res.status(500).json({ error: error.message }); }
+  });
+
+  // V2: Merge result into CRM
+  app.post("/api/search-results/:id/merge", requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const [result] = await db.select().from(searchResults).where(eq(searchResults.id, id));
+      if (!result) return res.status(404).json({ error: "Result not found" });
+      const [job] = await db.select().from(searchJobs).where(eq(searchJobs.id, result.jobId));
+      if (!job) return res.status(404).json({ error: "Job not found" });
+
+      let mergedTo = "";
+      const targetModule = job.targetModule;
+
+      if (targetModule === "hospitals") {
+        const hospital = await storage.createHospital({
+          name: result.companyName || "Unknown",
+          city: result.city || "",
+          countryCode: result.countryCode || job.country || "SK",
+          email: result.email || undefined,
+          phone: result.phone || undefined,
+          website: result.website || undefined,
+          address: result.address || undefined,
+          region: "",
+        } as any);
+        mergedTo = `hospital:${hospital.id}`;
+      } else if (targetModule === "clinics") {
+        const clinic = await storage.createClinic({
+          name: result.companyName || "Unknown",
+          city: result.city || "",
+          countryCode: result.countryCode || job.country || "SK",
+          email: result.email || undefined,
+          phone: result.phone || undefined,
+          website: result.website || undefined,
+          address: result.address || undefined,
+          specialization: result.specialization || job.segment || "",
+        } as any);
+        mergedTo = `clinic:${clinic.id}`;
+      } else if (targetModule === "collaborators") {
+        const collab = await storage.createCollaborator({
+          firstName: (result.contactPerson || "Unknown").split(" ")[0] || "Unknown",
+          lastName: (result.contactPerson || "Unknown").split(" ").slice(1).join(" ") || "",
+          email: result.email || undefined,
+          phone: result.phone || undefined,
+          city: result.city || "",
+          countryCode: result.countryCode || job.country || "SK",
+          collaboratorType: result.specialization || "",
+        } as any);
+        mergedTo = `collaborator:${collab.id}`;
+      }
+
+      await db.update(searchResults).set({ status: "merged", mergedTo, reviewedAt: new Date() }).where(eq(searchResults.id, id));
+      await fireWebhook("result.merged", { resultId: id, mergedTo, companyName: result.companyName });
+
+      res.json({ success: true, mergedTo });
+    } catch (error: any) { res.status(500).json({ error: error.message }); }
+  });
+
+  // ═══════════════════════════════════════════════════════════
+  // V2: XLSX Export
+  // ═══════════════════════════════════════════════════════════
+  app.get("/api/search-results/export/:jobId", requireAuth, async (req, res) => {
+    try {
+      const jobId = parseInt(req.params.jobId);
+      const results = await storage.getSearchResults(jobId);
+      const [job] = await db.select().from(searchJobs).where(eq(searchJobs.id, jobId));
+
+      const rows = results.map((r: any) => ({
+        "Firma": r.companyName || "",
+        "Kontakt": r.contactPerson || "",
+        "Email": r.email || "",
+        "Telefón": r.phone || "",
+        "Web": r.website || "",
+        "Adresa": r.address || "",
+        "Mesto": r.city || "",
+        "Krajina": r.countryCode || "",
+        "Špecializácia": r.specialization || "",
+        "Zdroj": r.sourceUrl || "",
+        "Skóre": r.confidenceScore || 0,
+        "Stav": r.status || "new",
+        "Recenzia": r.reviewNote || "",
+      }));
+
+      // Build CSV with BOM for Excel
+      const headers = Object.keys(rows[0] || {});
+      const csvLines = [headers.join("\t")];
+      for (const row of rows) {
+        csvLines.push(headers.map(h => String((row as any)[h] || "").replace(/\t/g, " ")).join("\t"));
+      }
+      const bom = "\uFEFF";
+      const csv = bom + csvLines.join("\n");
+
+      const filename = `lead-export-${job?.name?.replace(/[^a-zA-Z0-9]/g, "_") || jobId}-${new Date().toISOString().split("T")[0]}.xls`;
+      res.setHeader("Content-Type", "application/vnd.ms-excel; charset=utf-8");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      res.send(csv);
+    } catch (error: any) { res.status(500).json({ error: error.message }); }
+  });
+
+  app.get("/api/lead-sources/export", requireAuth, async (req, res) => {
+    try {
+      const sources = await storage.getAllLeadSources();
+      const rows = sources.map((s: any) => ({
+        "Názov": s.name || "",
+        "URL": s.url || "",
+        "Typ": s.type || "",
+        "Krajina": s.countryCode || "",
+        "Segment": s.segment || "",
+        "Stav": s.status || "",
+        "Zoznam": s.listType || "none",
+        "Skóre kvality": s.qualityScore || 0,
+        "Úspech": s.successCount || 0,
+        "Neúspech": s.failCount || 0,
+        "Posledné použitie": s.lastUsedAt || "",
+      }));
+      const headers = Object.keys(rows[0] || {});
+      const csvLines = [headers.join("\t")];
+      for (const row of rows) {
+        csvLines.push(headers.map(h => String((row as any)[h] || "").replace(/\t/g, " ")).join("\t"));
+      }
+      const bom = "\uFEFF";
+      res.setHeader("Content-Type", "application/vnd.ms-excel; charset=utf-8");
+      res.setHeader("Content-Disposition", `attachment; filename="lead-sources-${new Date().toISOString().split("T")[0]}.xls"`);
+      res.send(bom + csvLines.join("\n"));
+    } catch (error: any) { res.status(500).json({ error: error.message }); }
+  });
+
+  // ═══════════════════════════════════════════════════════════
+  // V2: Advanced Source Scoring
+  // ═══════════════════════════════════════════════════════════
+  app.post("/api/lead-sources/:id/recalculate-score", requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const [source] = await db.select().from(leadSources).where(eq(leadSources.id, id));
+      if (!source) return res.status(404).json({ error: "Source not found" });
+
+      const totalSearches = (source.successCount || 0) + (source.failCount || 0);
+      const successRate = totalSearches > 0 ? (source.successCount || 0) / totalSearches : 0.5;
+      const avgResults = source.avgResultsPerSearch || 0;
+      const responseMs = source.responseTimeMs || 5000;
+      const isBlocked = source.status === "blocked";
+
+      let score = 50;
+      score += Math.round(successRate * 30);
+      score += Math.min(Math.round(avgResults / 2), 15);
+      score -= Math.round(Math.min(responseMs / 1000, 10));
+      if (source.isJsHeavy) score -= 5;
+      if (isBlocked) score = 0;
+      if (source.listType === "whitelist") score = Math.max(score, 75);
+      if (source.listType === "blacklist") score = 0;
+
+      score = Math.max(0, Math.min(100, score));
+
+      await db.update(leadSources).set({ qualityScore: score }).where(eq(leadSources.id, id));
+      res.json({ id, qualityScore: score, successRate: Math.round(successRate * 100), totalSearches });
+    } catch (error: any) { res.status(500).json({ error: error.message }); }
+  });
+
+  app.post("/api/lead-sources/recalculate-all", requireAuth, async (req, res) => {
+    try {
+      const sources = await storage.getAllLeadSources();
+      let updated = 0;
+      for (const source of sources) {
+        const totalSearches = (source.successCount || 0) + (source.failCount || 0);
+        const successRate = totalSearches > 0 ? (source.successCount || 0) / totalSearches : 0.5;
+        let score = 50;
+        score += Math.round(successRate * 30);
+        score += Math.min(Math.round((source.avgResultsPerSearch || 0) / 2), 15);
+        score -= Math.round(Math.min((source.responseTimeMs || 5000) / 1000, 10));
+        if (source.isJsHeavy) score -= 5;
+        if (source.status === "blocked") score = 0;
+        if (source.listType === "whitelist") score = Math.max(score, 75);
+        if (source.listType === "blacklist") score = 0;
+        score = Math.max(0, Math.min(100, score));
+        await db.update(leadSources).set({ qualityScore: score }).where(eq(leadSources.id, source.id));
+        updated++;
+      }
+      res.json({ updated });
+    } catch (error: any) { res.status(500).json({ error: error.message }); }
+  });
+
+  // V2: Blacklist/Whitelist management
+  app.patch("/api/lead-sources/:id/list-type", requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { listType } = req.body;
+      if (!["none", "whitelist", "blacklist"].includes(listType)) {
+        return res.status(400).json({ error: "listType must be none, whitelist, or blacklist" });
+      }
+      const status = listType === "blacklist" ? "blocked" : "active";
+      await db.update(leadSources).set({ listType, status, qualityScore: listType === "blacklist" ? 0 : listType === "whitelist" ? 80 : undefined }).where(eq(leadSources.id, id));
+      const [updated] = await db.select().from(leadSources).where(eq(leadSources.id, id));
+      res.json(updated);
+    } catch (error: any) { res.status(500).json({ error: error.message }); }
+  });
+
+  // ═══════════════════════════════════════════════════════════
+  // V3: Webhooks
+  // ═══════════════════════════════════════════════════════════
+  async function fireWebhook(event: string, data: any) {
+    try {
+      const hooks = await db.select().from(webhookConfigs).where(and(eq(webhookConfigs.isActive, true)));
+      for (const hook of hooks) {
+        if (!hook.events.includes(event) && !hook.events.includes("*")) continue;
+        try {
+          const payload = JSON.stringify({ event, data, timestamp: new Date().toISOString() });
+          const headers: Record<string, string> = { "Content-Type": "application/json" };
+          if (hook.secret) {
+            const crypto = await import("crypto");
+            headers["X-Webhook-Signature"] = crypto.createHmac("sha256", hook.secret).update(payload).digest("hex");
+          }
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 10000);
+          await fetch(hook.url, { method: "POST", headers, body: payload, signal: controller.signal });
+          clearTimeout(timeout);
+          await db.update(webhookConfigs).set({ lastTriggeredAt: new Date(), failCount: 0 }).where(eq(webhookConfigs.id, hook.id));
+        } catch {
+          await db.update(webhookConfigs).set({ failCount: sql`COALESCE(${webhookConfigs.failCount}, 0) + 1` }).where(eq(webhookConfigs.id, hook.id));
+        }
+      }
+    } catch { /* silent */ }
+  }
+
+  app.get("/api/webhooks", requireAuth, async (req, res) => {
+    try {
+      const hooks = await db.select().from(webhookConfigs).orderBy(sql`${webhookConfigs.createdAt} DESC`);
+      res.json(hooks);
+    } catch (error: any) { res.status(500).json({ error: error.message }); }
+  });
+
+  app.post("/api/webhooks", requireAuth, async (req, res) => {
+    try {
+      const parsed = insertWebhookConfigSchema.parse(req.body);
+      const [hook] = await db.insert(webhookConfigs).values(parsed).returning();
+      res.json(hook);
+    } catch (error: any) { res.status(400).json({ error: error.message }); }
+  });
+
+  app.patch("/api/webhooks/:id", requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const allowed = ["name", "url", "events", "secret", "isActive"];
+      const updates: any = {};
+      for (const k of allowed) { if (req.body[k] !== undefined) updates[k] = req.body[k]; }
+      await db.update(webhookConfigs).set(updates).where(eq(webhookConfigs.id, id));
+      const [updated] = await db.select().from(webhookConfigs).where(eq(webhookConfigs.id, id));
+      res.json(updated);
+    } catch (error: any) { res.status(500).json({ error: error.message }); }
+  });
+
+  app.delete("/api/webhooks/:id", requireAuth, async (req, res) => {
+    try {
+      await db.delete(webhookConfigs).where(eq(webhookConfigs.id, parseInt(req.params.id)));
+      res.json({ success: true });
+    } catch (error: any) { res.status(500).json({ error: error.message }); }
+  });
+
+  app.post("/api/webhooks/:id/test", requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const [hook] = await db.select().from(webhookConfigs).where(eq(webhookConfigs.id, id));
+      if (!hook) return res.status(404).json({ error: "Webhook not found" });
+      const payload = JSON.stringify({ event: "test", data: { message: "Test webhook from INDEXUS CRM" }, timestamp: new Date().toISOString() });
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (hook.secret) {
+        const crypto = await import("crypto");
+        headers["X-Webhook-Signature"] = crypto.createHmac("sha256", hook.secret).update(payload).digest("hex");
+      }
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000);
+      const response = await fetch(hook.url, { method: "POST", headers, body: payload, signal: controller.signal });
+      clearTimeout(timeout);
+      res.json({ success: response.ok, status: response.status });
+    } catch (error: any) { res.status(500).json({ error: error.message }); }
+  });
+
+  // ═══════════════════════════════════════════════════════════
+  // V3: Multi-source enrichment
+  // ═══════════════════════════════════════════════════════════
+  app.post("/api/search-results/:id/enrich", requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const [result] = await db.select().from(searchResults).where(eq(searchResults.id, id));
+      if (!result) return res.status(404).json({ error: "Result not found" });
+
+      const enriched: Record<string, any> = { ...((result.rawData as any) || {}) };
+      const sources: string[] = [];
+
+      // 1. Try finstat.sk for SK companies
+      if (result.countryCode === "SK" && result.companyName) {
+        try {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 8000);
+          const finstatUrl = `https://finstat.sk/search?q=${encodeURIComponent(result.companyName)}`;
+          // We store the search URL for manual reference
+          enriched.finstatUrl = finstatUrl;
+          sources.push("finstat.sk");
+          clearTimeout(timeout);
+        } catch { /* skip */ }
+      }
+
+      // 2. Try ARES for CZ companies
+      if (result.countryCode === "CZ" && result.companyName) {
+        try {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 8000);
+          const aresResp = await fetch(`https://ares.gov.cz/ekonomicke-subjekty-v-be/rest/ekonomicke-subjekty/vyhledat?obchodniJmeno=${encodeURIComponent(result.companyName)}&start=0&pocet=1`, { signal: controller.signal });
+          clearTimeout(timeout);
+          if (aresResp.ok) {
+            const aresData = await aresResp.json() as any;
+            if (aresData?.pocetCelkem > 0 && aresData?.ekonomickeSubjekty?.[0]) {
+              const subj = aresData.ekonomickeSubjekty[0];
+              enriched.ico = subj.ico;
+              enriched.obchodniJmeno = subj.obchodniJmeno;
+              enriched.sidlo = subj.sidlo ? `${subj.sidlo.nazevUlice || ""} ${subj.sidlo.cisloDomovni || ""}, ${subj.sidlo.nazevObce || ""}` : undefined;
+              sources.push("ares.gov.cz");
+            }
+          }
+        } catch { /* skip */ }
+      }
+
+      // 3. Try Wirtschaftskammer for AT companies
+      if (result.countryCode === "AT" && result.companyName) {
+        enriched.wkoSearchUrl = `https://firmen.wko.at/suche?what=${encodeURIComponent(result.companyName)}`;
+        enriched.firmenbuchUrl = `https://www.firmenbuch.at/search?q=${encodeURIComponent(result.companyName)}`;
+        sources.push("wko.at");
+      }
+
+      // 4. Try orsr.sk fallback for SK
+      if (result.countryCode === "SK" && result.companyName) {
+        enriched.orsrUrl = `https://orsr.sk/hladaj_subjekt.asp?ESSION=&SID=0&OBMESSION=&OBMENO=${encodeURIComponent(result.companyName)}&IC=&SID_OSOBY=&OBESSION=&OBMESSION_SPOL=`;
+        sources.push("orsr.sk");
+      }
+
+      // 5. DNS check for website validity
+      if (result.website) {
+        try {
+          const url = new URL(result.website.startsWith("http") ? result.website : `https://${result.website}`);
+          // SSRF protection
+          const blockedPatterns = ["localhost", "127.0.0.1", "10.", "172.16.", "192.168.", "0.0.0.0", "169.254."];
+          if (!blockedPatterns.some(p => url.hostname.includes(p))) {
+            enriched.websiteValid = true;
+            sources.push("dns-check");
+          }
+        } catch { enriched.websiteValid = false; }
+      }
+
+      await db.update(searchResults).set({
+        rawData: enriched,
+        enrichmentStatus: sources.length > 0 ? "enriched" : "failed",
+      }).where(eq(searchResults.id, id));
+
+      const [updated] = await db.select().from(searchResults).where(eq(searchResults.id, id));
+      res.json({ result: updated, enrichmentSources: sources });
+    } catch (error: any) { res.status(500).json({ error: error.message }); }
+  });
+
+  // V3: Intelligent source sampling
+  app.get("/api/lead-sources/smart-sample", requireAuth, async (req, res) => {
+    try {
+      const { targetModule, country, limit: limitParam } = req.query;
+      const sources = await storage.getAllLeadSources();
+      let filtered = sources.filter((s: any) => s.status === "active" && s.listType !== "blacklist");
+      if (targetModule) filtered = filtered.filter((s: any) => !s.segment || s.segment.toLowerCase().includes((targetModule as string).toLowerCase()));
+      if (country) filtered = filtered.filter((s: any) => !s.countryCode || s.countryCode === country);
+
+      // Sort by quality score, then by success rate
+      filtered.sort((a: any, b: any) => {
+        const scoreA = a.qualityScore || 50;
+        const scoreB = b.qualityScore || 50;
+        if (scoreB !== scoreA) return scoreB - scoreA;
+        const rateA = (a.successCount || 0) / Math.max((a.successCount || 0) + (a.failCount || 0), 1);
+        const rateB = (b.successCount || 0) / Math.max((b.successCount || 0) + (b.failCount || 0), 1);
+        return rateB - rateA;
+      });
+
+      const n = Math.min(parseInt(limitParam as string) || 5, filtered.length);
+      // Weighted random: top sources have higher chance, but include some diversity
+      const selected: any[] = [];
+      const pool = [...filtered];
+      for (let i = 0; i < n && pool.length > 0; i++) {
+        const weights = pool.map((s: any, idx: number) => Math.max(1, (s.qualityScore || 50) - idx * 2));
+        const total = weights.reduce((a, b) => a + b, 0);
+        let r = Math.random() * total;
+        let pick = 0;
+        for (let j = 0; j < weights.length; j++) {
+          r -= weights[j];
+          if (r <= 0) { pick = j; break; }
+        }
+        selected.push(pool.splice(pick, 1)[0]);
+      }
+
+      res.json({ sources: selected, totalAvailable: filtered.length });
+    } catch (error: any) { res.status(500).json({ error: error.message }); }
+  });
+
   // Contract Templates
   app.get("/api/contracts/templates", requireAuth, async (req, res) => {
     try {

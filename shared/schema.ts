@@ -6582,9 +6582,12 @@ export const searchResults = pgTable("search_results", {
   confidenceScore: integer("confidence_score").default(0),
   rawData: jsonb("raw_data").$type<Record<string, any>>(),
   enrichmentStatus: text("enrichment_status").default("pending"),
-  status: text("status").notNull().default("new"), // new | assigned | skipped
-  assignedTo: text("assigned_to"), // 'hospital:uuid' | 'clinic:uuid' | 'collaborator:uuid'
+  status: text("status").notNull().default("new"), // new | approved | rejected | merged | skipped
+  reviewNote: text("review_note"),
+  mergedTo: text("merged_to"),
+  assignedTo: text("assigned_to"),
   assignedAt: timestamp("assigned_at"),
+  reviewedAt: timestamp("reviewed_at"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
@@ -6600,6 +6603,13 @@ export const leadSources = pgTable("lead_sources", {
   countryCode: text("country_code"),
   segment: text("segment"),
   status: text("status").notNull().default("active"),
+  listType: text("list_type").notNull().default("none"),
+  qualityScore: integer("quality_score").default(50),
+  avgResultsPerSearch: integer("avg_results_per_search").default(0),
+  totalResultsProduced: integer("total_results_produced").default(0),
+  responseTimeMs: integer("response_time_ms"),
+  isJsHeavy: boolean("is_js_heavy").default(false),
+  lastScrapedAt: timestamp("last_scraped_at"),
   successCount: integer("success_count").default(0),
   failCount: integer("fail_count").default(0),
   lastUsedAt: timestamp("last_used_at"),
@@ -6630,3 +6640,39 @@ export const leadCampaigns = pgTable("lead_campaigns", {
 export const insertLeadCampaignSchema = createInsertSchema(leadCampaigns).omit({ id: true, createdAt: true });
 export type InsertLeadCampaign = z.infer<typeof insertLeadCampaignSchema>;
 export type LeadCampaign = typeof leadCampaigns.$inferSelect;
+
+export const queryTemplates = pgTable("query_templates", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  language: text("language").notNull(),
+  targetModule: text("target_module").notNull(),
+  country: text("country"),
+  segment: text("segment"),
+  location: text("location"),
+  keywords: text("keywords"),
+  description: text("description"),
+  isBuiltIn: boolean("is_built_in").notNull().default(false),
+  usageCount: integer("usage_count").default(0),
+  lastUsedAt: timestamp("last_used_at"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const insertQueryTemplateSchema = createInsertSchema(queryTemplates).omit({ id: true, createdAt: true });
+export type InsertQueryTemplate = z.infer<typeof insertQueryTemplateSchema>;
+export type QueryTemplate = typeof queryTemplates.$inferSelect;
+
+export const webhookConfigs = pgTable("webhook_configs", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  url: text("url").notNull(),
+  events: text("events").array().notNull(),
+  secret: text("secret"),
+  isActive: boolean("is_active").notNull().default(true),
+  lastTriggeredAt: timestamp("last_triggered_at"),
+  failCount: integer("fail_count").default(0),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const insertWebhookConfigSchema = createInsertSchema(webhookConfigs).omit({ id: true, createdAt: true });
+export type InsertWebhookConfig = z.infer<typeof insertWebhookConfigSchema>;
+export type WebhookConfig = typeof webhookConfigs.$inferSelect;
