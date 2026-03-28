@@ -18803,6 +18803,21 @@ function LeadSearchTab() {
               <Search className="h-4 w-4 mr-2" />
               Spustiť vyhľadávanie
             </Button>
+            <Button variant="outline" className="w-full" data-testid="button-create-campaign-from-search" onClick={() => {
+              setCampaignForm({
+                name: searchForm.name || `Kampaň - ${searchForm.targetModule}`,
+                targetModule: searchForm.targetModule,
+                country: searchForm.country || "",
+                segment: searchForm.segment || "",
+                location: searchForm.location || "",
+                keywords: searchForm.keywords || "",
+                schedule: "weekly",
+              });
+              setActiveSubTab("campaigns");
+            }}>
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Vytvoriť opakovanú kampaň
+            </Button>
           </CardContent>
         </Card>
 

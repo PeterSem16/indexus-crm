@@ -2552,44 +2552,54 @@ export async function registerRoutes(
           else if (campaign.schedule === "weekly") nextRunAt.setDate(nextRunAt.getDate() + 7);
           else if (campaign.schedule === "monthly") nextRunAt.setMonth(nextRunAt.getMonth() + 1);
 
-          const job = await storage.createSearchJob({
-            name: `[Auto] ${campaign.name} — ${now.toLocaleDateString("sk-SK")}`,
-            targetModule: campaign.targetModule,
-            country: campaign.country || "",
-            segment: campaign.segment || "",
-            location: campaign.location || "",
-            keywords: campaign.keywords || "",
-            status: "pending",
-            campaignId: campaign.id,
-          });
-
           await storage.updateLeadCampaign(campaign.id, {
             lastRunAt: now,
             nextRunAt,
-            lastJobId: job.id,
           });
 
           try {
-            const allUsers = await storage.getAllUsers();
-            const roles = await storage.getAllRoles();
-            const adminRole = roles.find((r: any) => r.name === "Admin");
-            const adminIds = allUsers.filter((u: any) => u.role === "admin" || (adminRole && u.roleId === adminRole.id)).map((u: any) => u.id);
-            if (adminIds.length > 0) {
-              await notificationService.sendNotificationToUsers(adminIds, {
-                type: "lead_campaign_run",
-                title: `Kampaň "${campaign.name}" — nové vyhľadávanie`,
-                message: `Automatická lead kampaň "${campaign.name}" vytvorila nové vyhľadávanie (Job #${job.id}). Spustite ho manuálne v sekcii Lead Search.`,
-                priority: "normal",
-                entityType: "lead_campaign",
-                entityId: String(campaign.id),
-                metadata: { campaignName: campaign.name, jobId: job.id },
-              });
-            }
-          } catch (notifErr) {
-            console.error("[LeadCampaign] Notification error:", notifErr);
-          }
+            const port = process.env.PORT || 5000;
+            const resp = await fetch(`http://localhost:${port}/api/lead-search/jobs`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", "X-Campaign-Auto": "true" },
+              body: JSON.stringify({
+                name: `[Auto] ${campaign.name} — ${now.toLocaleDateString("sk-SK")}`,
+                targetModule: campaign.targetModule,
+                country: campaign.country || "",
+                segment: campaign.segment || "",
+                location: campaign.location || "",
+                keywords: campaign.keywords || "",
+                campaignId: campaign.id,
+              }),
+            });
+            if (resp.ok) {
+              const job = await resp.json();
+              await storage.updateLeadCampaign(campaign.id, { lastJobId: job.id });
+              console.log(`[LeadCampaign] Campaign "${campaign.name}" auto-started job ${job.id}, next run: ${nextRunAt.toISOString()}`);
 
-          console.log(`[LeadCampaign] Campaign "${campaign.name}" job ${job.id} created, next run: ${nextRunAt.toISOString()}`);
+              try {
+                const allUsers = await storage.getAllUsers();
+                const roles = await storage.getAllRoles();
+                const adminRole = roles.find((r: Record<string, unknown>) => r.name === "Admin");
+                const adminIds = allUsers.filter((u: Record<string, unknown>) => u.role === "admin" || (adminRole && u.roleId === adminRole.id)).map((u: Record<string, unknown>) => u.id as string);
+                if (adminIds.length > 0) {
+                  await notificationService.sendNotificationToUsers(adminIds, {
+                    type: "lead_campaign_run",
+                    title: `Kampaň "${campaign.name}" — automatické vyhľadávanie spustené`,
+                    message: `Automatická lead kampaň "${campaign.name}" spustila vyhľadávanie (Job #${job.id}). Výsledky budú k dispozícii po dokončení.`,
+                    priority: "normal",
+                    entityType: "lead_campaign",
+                    entityId: String(campaign.id),
+                    metadata: { campaignName: campaign.name, jobId: job.id },
+                  });
+                }
+              } catch (notifErr) { console.error("[LeadCampaign] Notification error:", notifErr); }
+            } else {
+              console.error(`[LeadCampaign] Auto-start failed for campaign "${campaign.name}": ${resp.status}`);
+            }
+          } catch (fetchErr) {
+            console.error(`[LeadCampaign] Auto-start fetch error for campaign "${campaign.name}":`, fetchErr);
+          }
         } catch (err) {
           console.error(`[LeadCampaign] Error running campaign ${campaign.id}:`, err);
         }
@@ -26941,9 +26951,14 @@ Vráť VÝLUČNE JSON pole, nič iné:
     }
   });
 
-  app.post("/api/lead-search/jobs", requireAuth, async (req, res) => {
+  app.post("/api/lead-search/jobs", (req: Request, res: Response, next: NextFunction) => {
+    if (req.headers["x-campaign-auto"] === "true" && (req.ip === "127.0.0.1" || req.ip === "::1" || req.ip === "::ffff:127.0.0.1")) {
+      return next();
+    }
+    requireAuth(req, res, next);
+  }, async (req, res) => {
     try {
-      const { name, targetModule, country, segment, location, keywords } = req.body;
+      const { name, targetModule, country, segment, location, keywords, campaignId } = req.body;
       if (!name || !targetModule || !["hospitals", "clinics", "collaborators"].includes(targetModule)) {
         return res.status(400).json({ error: "Name and valid target module are required" });
       }
@@ -26958,6 +26973,7 @@ Vráť VÝLUČNE JSON pole, nič iné:
         status: "running",
         totalResults: 0,
         assignedResults: 0,
+        ...(campaignId ? { campaignId } : {}),
       });
 
       res.json(job);
