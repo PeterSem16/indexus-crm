@@ -26848,24 +26848,58 @@ Optional: titleBefore (MUDr., Ing., ...), titleAfter (PhD., CSc., ...), phone, m
           const countryNames: Record<string, string> = { SK: "Slovakia", CZ: "Czech Republic", HU: "Hungary", PL: "Poland", AT: "Austria", DE: "Germany", RO: "Romania", IT: "Italy" };
           const countryName = country ? (countryNames[country] || country) : "any";
 
-          // STEP 1: AI generates optimized search queries
-          console.log(`[LeadSearch] Job ${job.id}: Step 1 - AI generating search queries`);
-          const queryGenPrompt = `You are a lead generation expert for a cord blood banking company. Generate 5-7 highly effective web search queries to find ${moduleInfo.description}.
+          // STEP 1: AI generates optimized search queries using advanced strategy
+          console.log(`[LeadSearch] Job ${job.id}: Step 1 - AI generating multi-strategy search queries`);
 
-Search criteria:
-- Country: ${countryName}
+          const countryLanguages: Record<string, string> = { SK: "Slovak", CZ: "Czech", HU: "Hungarian", PL: "Polish", AT: "German", DE: "German", RO: "Romanian", IT: "Italian" };
+          const localLang = country ? (countryLanguages[country] || "English") : "English";
+
+          const countryDomains: Record<string, string[]> = {
+            SK: ["znamylekár.sk", "mojelekaren.sk", "zdravotnicke-zariadenia.sk", "nfrsr.sk", "slek.sk", "health.gov.sk"],
+            CZ: ["lkcr.cz", "nemocnice.cz", "zusp.cz", "lekarionline.cz", "uzis.cz"],
+            HU: ["orvoskereso.hu", "nefi.hu", "aeek.hu", "korhaz.hu"],
+            PL: ["znanyLekarz.pl", "rejestr.rpwdl.cz.gov.pl", "bip.mz.gov.pl"],
+            AT: ["aerztekammer.at", "gesundheit.gv.at", "herold.at"],
+            DE: ["arztsuche.116117.de", "jameda.de", "klinikum.de", "bundesaerztekammer.de"],
+          };
+          const domains = country ? (countryDomains[country] || []) : [];
+
+          const queryGenPrompt = `You are an expert B2B lead generation specialist for a cord blood banking company (INDEXUS). Generate 12-15 highly targeted search queries to find ${moduleInfo.description}.
+
+SEARCH CRITERIA:
+- Country: ${countryName} (language: ${localLang})
 - Segment/Specialization: ${segment || "general medical"}
 - Location: ${location || "nationwide"}
 - Additional keywords: ${keywords || "none"}
 
-Focus on finding: ${moduleInfo.searchFocus}
+SEARCH FOCUS: ${moduleInfo.searchFocus}
 
-Rules:
-- Mix languages: include queries in the local language of the target country AND in English
-- Include specific search operators and site-specific searches where useful (e.g. site:linkedin.com, site:znamylekár.sk, site:zdravotnicke-zariadenia.sk)
-- Target directories, registries, professional associations, medical databases
-- Include queries for finding contact details (email, phone, address)
-- Be specific - use medical terminology relevant to cord blood banking partnerships
+QUERY STRATEGIES (use ALL of these):
+1. DIRECTORY SEARCHES: Target medical directories, healthcare registries, professional chamber databases
+   ${domains.length > 0 ? `Known domains for this country: ${domains.join(", ")}` : ""}
+   Example: site:${domains[0] || "healthdirectory.com"} ${segment || "gynecologist"} ${location || ""}
+2. PROFESSIONAL REGISTRIES: Medical chambers, professional associations, licensing databases
+   Example: "${localLang} medical chamber" registry ${location || countryName}
+3. GOOGLE MAPS / BUSINESS LISTINGS: Target business listing pages
+   Example: ${segment || "hospital"} ${location || countryName} kontakt email telefón
+4. SOCIAL/PROFESSIONAL NETWORKS: LinkedIn, medical professional networks
+   Example: site:linkedin.com ${segment || "doctor"} ${location || countryName} "cord blood" OR "pupočníková krv"
+5. NEWS & ANNOUNCEMENTS: Find recently mentioned facilities
+   Example: ${location || countryName} new ${targetModule === "hospitals" ? "hospital" : "clinic"} opening 2024 2025
+6. LOCAL LANGUAGE QUERIES: Write queries in ${localLang} using local medical terminology
+7. CONFERENCE/EVENT LISTINGS: Medical conferences, trade shows
+   Example: ${countryName} medical conference ${segment || ""} speakers list
+8. GOVERNMENT HEALTH DATABASES: Official health ministry facility lists
+9. AGGREGATOR SITES: Sites that aggregate medical facility information
+10. COMBINATION QUERIES: Combine specialization + location + contact info keywords
+
+RULES:
+- At least 5 queries MUST be in ${localLang}
+- At least 3 queries should use site: operator targeting specific directories
+- Include 2-3 queries specifically designed to find email addresses and phone numbers
+- Include queries targeting facility LISTS (not single results)
+- Use quotation marks for exact phrases where useful
+- Vary query patterns to maximize coverage
 
 Return ONLY a JSON array of search query strings, nothing else.`;
 
@@ -26892,12 +26926,13 @@ Return ONLY a JSON array of search query strings, nothing else.`;
 
           console.log(`[LeadSearch] Job ${job.id}: Generated ${searchQueries.length} queries`);
 
-          // STEP 2: Execute web searches in parallel
-          console.log(`[LeadSearch] Job ${job.id}: Step 2 - Executing web searches`);
-          const allSnippets: Array<{title: string, url: string, snippet: string}> = [];
+          // STEP 2: Execute web searches in parallel with multiple engines
+          console.log(`[LeadSearch] Job ${job.id}: Step 2 - Multi-source web searching (${searchQueries.length} queries)`);
+          const allSnippets: Array<{title: string, url: string, snippet: string, source: string}> = [];
 
-          const searchPromises = searchQueries.slice(0, 6).map(async (query) => {
-            const results: Array<{title: string, url: string, snippet: string}> = [];
+          // Execute ALL queries in parallel (up to 12)
+          const searchPromises = searchQueries.slice(0, 12).map(async (query, qi) => {
+            const results: Array<{title: string, url: string, snippet: string, source: string}> = [];
             const encoded = encodeURIComponent(query);
 
             // DuckDuckGo Instant Answer API
@@ -26905,48 +26940,41 @@ Return ONLY a JSON array of search query strings, nothing else.`;
               const ddgResp = await fetch(`https://api.duckduckgo.com/?q=${encoded}&format=json&no_html=1&skip_disambig=1`, { signal: AbortSignal.timeout(8000) });
               if (ddgResp.ok) {
                 const ddgData = await ddgResp.json() as any;
-                if (ddgData.Abstract) results.push({ title: ddgData.Heading || query, url: ddgData.AbstractURL || "", snippet: ddgData.Abstract });
+                if (ddgData.Abstract) results.push({ title: ddgData.Heading || query, url: ddgData.AbstractURL || "", snippet: ddgData.Abstract, source: "ddg-api" });
                 if (ddgData.RelatedTopics) {
-                  for (const topic of ddgData.RelatedTopics.slice(0, 8)) {
-                    if (topic.Text && topic.FirstURL) {
-                      results.push({ title: topic.Text.substring(0, 150), url: topic.FirstURL, snippet: topic.Text });
-                    }
-                    if (topic.Topics) {
-                      for (const sub of topic.Topics.slice(0, 5)) {
-                        if (sub.Text && sub.FirstURL) results.push({ title: sub.Text.substring(0, 150), url: sub.FirstURL, snippet: sub.Text });
-                      }
-                    }
+                  for (const topic of ddgData.RelatedTopics.slice(0, 10)) {
+                    if (topic.Text && topic.FirstURL) results.push({ title: topic.Text.substring(0, 200), url: topic.FirstURL, snippet: topic.Text, source: "ddg-api" });
+                    if (topic.Topics) { for (const sub of topic.Topics.slice(0, 8)) { if (sub.Text && sub.FirstURL) results.push({ title: sub.Text.substring(0, 200), url: sub.FirstURL, snippet: sub.Text, source: "ddg-api-sub" }); } }
                   }
                 }
+                if (ddgData.Results) { for (const r of ddgData.Results.slice(0, 5)) { if (r.Text && r.FirstURL) results.push({ title: r.Text.substring(0, 200), url: r.FirstURL, snippet: r.Text, source: "ddg-result" }); } }
               }
-            } catch (e) { /* timeout or error, skip */ }
+            } catch (e) { /* skip */ }
 
-            // DuckDuckGo HTML search for richer results
+            // DuckDuckGo HTML search - primary source of real web results
             try {
               const htmlResp = await fetch(`https://html.duckduckgo.com/html/?q=${encoded}`, {
-                headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" },
-                signal: AbortSignal.timeout(10000),
+                headers: {
+                  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+                  "Accept-Language": "sk,cs,en;q=0.5",
+                },
+                signal: AbortSignal.timeout(12000),
               });
               if (htmlResp.ok) {
                 const html = await htmlResp.text();
                 const linkRegex = /<a[^>]+class="result__a"[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi;
                 const snippetRegex = /<a[^>]+class="result__snippet"[^>]*>([\s\S]*?)<\/a>/gi;
                 let match;
-                const urls: string[] = [], titles: string[] = [], snippets: string[] = [];
-                while ((match = linkRegex.exec(html)) !== null && urls.length < 10) {
+                const urls: string[] = [], titles: string[] = [], snips: string[] = [];
+                while ((match = linkRegex.exec(html)) !== null && urls.length < 15) {
                   let url = match[1];
                   if (url.startsWith("//duckduckgo.com/l/?uddg=")) url = decodeURIComponent(url.replace("//duckduckgo.com/l/?uddg=", "").split("&")[0]);
-                  urls.push(url);
-                  titles.push(match[2].replace(/<[^>]+>/g, '').trim());
+                  if (url && !url.includes("duckduckgo.com")) { urls.push(url); titles.push(match[2].replace(/<[^>]+>/g, '').trim()); }
                 }
-                while ((match = snippetRegex.exec(html)) !== null && snippets.length < 10) {
-                  snippets.push(match[1].replace(/<[^>]+>/g, '').trim());
-                }
-                for (let i = 0; i < urls.length; i++) {
-                  results.push({ title: titles[i] || "", url: urls[i], snippet: snippets[i] || titles[i] || "" });
-                }
+                while ((match = snippetRegex.exec(html)) !== null && snips.length < 15) snips.push(match[1].replace(/<[^>]+>/g, '').trim());
+                for (let i = 0; i < urls.length; i++) results.push({ title: titles[i] || "", url: urls[i], snippet: snips[i] || titles[i] || "", source: "ddg-html" });
               }
-            } catch (e) { /* timeout or error, skip */ }
+            } catch (e) { /* skip */ }
 
             return results;
           });
@@ -26954,55 +26982,125 @@ Return ONLY a JSON array of search query strings, nothing else.`;
           const searchResultArrays = await Promise.all(searchPromises);
           for (const arr of searchResultArrays) allSnippets.push(...arr);
 
-          // Deduplicate by URL
+          // Deduplicate by URL (normalize)
           const seenUrls = new Set<string>();
           const uniqueSnippets = allSnippets.filter(s => {
-            if (!s.url || seenUrls.has(s.url)) return false;
-            seenUrls.add(s.url);
+            if (!s.url) return false;
+            const normUrl = s.url.replace(/\/+$/, '').replace(/^https?:\/\/(www\.)?/, '').toLowerCase();
+            if (seenUrls.has(normUrl)) return false;
+            seenUrls.add(normUrl);
             return true;
           });
 
-          console.log(`[LeadSearch] Job ${job.id}: Found ${uniqueSnippets.length} unique results`);
+          console.log(`[LeadSearch] Job ${job.id}: Found ${uniqueSnippets.length} unique results from search`);
 
-          // STEP 3: Try to fetch actual page content from top results for deeper extraction
-          console.log(`[LeadSearch] Job ${job.id}: Step 3 - Deep page scraping`);
-          const topUrls = uniqueSnippets.slice(0, 8);
-          const pageContents: Array<{url: string, content: string}> = [];
+          // STEP 3: Deep scrape top pages in parallel waves
+          console.log(`[LeadSearch] Job ${job.id}: Step 3 - Deep scraping (up to 15 pages)`);
+          const pageContents: Array<{url: string, content: string, emails: string[], phones: string[]}> = [];
 
-          const scrapePromises = topUrls.map(async (s) => {
+          const stripHtml = (html: string) => html
+            .replace(/<script[\s\S]*?<\/script>/gi, '')
+            .replace(/<style[\s\S]*?<\/style>/gi, '')
+            .replace(/<noscript[\s\S]*?<\/noscript>/gi, '')
+            .replace(/<!--[\s\S]*?-->/g, '')
+            .replace(/<[^>]+>/g, ' ')
+            .replace(/&nbsp;/gi, ' ').replace(/&amp;/gi, '&').replace(/&lt;/gi, '<').replace(/&gt;/gi, '>').replace(/&quot;/gi, '"')
+            .replace(/\s+/g, ' ').trim();
+
+          const extractEmails = (text: string): string[] => {
+            const matches = text.match(/[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g) || [];
+            return [...new Set(matches)].filter(e => !e.endsWith('.png') && !e.endsWith('.jpg') && !e.endsWith('.gif') && !e.includes('example'));
+          };
+
+          const extractPhones = (text: string): string[] => {
+            const matches = text.match(/(?:\+\d{1,3}[\s\-]?)?\(?\d{2,4}\)?[\s\-]?\d{3}[\s\-]?\d{2,4}[\s\-]?\d{0,4}/g) || [];
+            return [...new Set(matches.map(p => p.trim()).filter(p => p.replace(/\D/g, '').length >= 9))];
+          };
+
+          // Scrape in 2 waves: first 8, then next 7
+          for (let wave = 0; wave < 2; wave++) {
+            const start = wave * 8;
+            const end = start + (wave === 0 ? 8 : 7);
+            const batch = uniqueSnippets.slice(start, end);
+            if (batch.length === 0) break;
+
+            const scrapePromises = batch.map(async (s) => {
+              try {
+                const resp = await fetch(s.url, {
+                  headers: {
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+                    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                    "Accept-Language": "sk,cs,en;q=0.5",
+                  },
+                  signal: AbortSignal.timeout(10000),
+                  redirect: "follow",
+                });
+                if (resp.ok && resp.headers.get("content-type")?.includes("text")) {
+                  const html = await resp.text();
+                  const rawText = stripHtml(html);
+                  const emails = extractEmails(html);
+                  const phones = extractPhones(rawText);
+                  if (rawText.length > 100 || emails.length > 0 || phones.length > 0) {
+                    return { url: s.url, content: rawText.substring(0, 5000), emails, phones };
+                  }
+                }
+              } catch (e) { /* skip */ }
+              return null;
+            });
+
+            const results = await Promise.all(scrapePromises);
+            for (const r of results) { if (r) pageContents.push(r); }
+          }
+
+          // Collect all discovered emails and phones across all pages
+          const allDiscoveredEmails = [...new Set(pageContents.flatMap(p => p.emails))];
+          const allDiscoveredPhones = [...new Set(pageContents.flatMap(p => p.phones))];
+
+          console.log(`[LeadSearch] Job ${job.id}: Scraped ${pageContents.length} pages, found ${allDiscoveredEmails.length} emails, ${allDiscoveredPhones.length} phones`);
+
+          // STEP 3b: Follow "contact" pages for more data
+          const contactPageUrls: string[] = [];
+          for (const page of pageContents) {
             try {
-              const resp = await fetch(s.url, {
-                headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" },
-                signal: AbortSignal.timeout(8000),
-                redirect: "follow",
-              });
-              if (resp.ok) {
-                const html = await resp.text();
-                // Strip HTML but keep useful text
-                const text = html
-                  .replace(/<script[\s\S]*?<\/script>/gi, '')
-                  .replace(/<style[\s\S]*?<\/style>/gi, '')
-                  .replace(/<nav[\s\S]*?<\/nav>/gi, '')
-                  .replace(/<footer[\s\S]*?<\/footer>/gi, '')
-                  .replace(/<header[\s\S]*?<\/header>/gi, '')
-                  .replace(/<[^>]+>/g, ' ')
-                  .replace(/&nbsp;/g, ' ')
-                  .replace(/&amp;/g, '&')
-                  .replace(/\s+/g, ' ')
-                  .trim()
-                  .substring(0, 3000); // Limit per page
-                if (text.length > 100) {
-                  return { url: s.url, content: text };
+              const baseUrl = new URL(page.url);
+              const contactPaths = ["/kontakt", "/contact", "/kontakty", "/about", "/o-nas", "/impressum"];
+              for (const path of contactPaths) {
+                const contactUrl = `${baseUrl.origin}${path}`;
+                if (!seenUrls.has(contactUrl.replace(/\/+$/, '').replace(/^https?:\/\/(www\.)?/, '').toLowerCase())) {
+                  contactPageUrls.push(contactUrl);
+                  seenUrls.add(contactUrl.replace(/\/+$/, '').replace(/^https?:\/\/(www\.)?/, '').toLowerCase());
                 }
               }
-            } catch (e) { /* skip */ }
-            return null;
-          });
+            } catch (e) { /* invalid URL, skip */ }
+          }
 
-          const scrapeResults = await Promise.all(scrapePromises);
-          for (const r of scrapeResults) { if (r) pageContents.push(r); }
-
-          console.log(`[LeadSearch] Job ${job.id}: Scraped ${pageContents.length} pages`);
+          if (contactPageUrls.length > 0) {
+            console.log(`[LeadSearch] Job ${job.id}: Step 3b - Scraping ${Math.min(contactPageUrls.length, 10)} contact pages`);
+            const contactPromises = contactPageUrls.slice(0, 10).map(async (url) => {
+              try {
+                const resp = await fetch(url, {
+                  headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36", "Accept-Language": "sk,cs,en;q=0.5" },
+                  signal: AbortSignal.timeout(8000), redirect: "follow",
+                });
+                if (resp.ok && resp.headers.get("content-type")?.includes("text")) {
+                  const html = await resp.text();
+                  const rawText = stripHtml(html);
+                  const emails = extractEmails(html);
+                  const phones = extractPhones(rawText);
+                  if (emails.length > 0 || phones.length > 0) return { url, content: rawText.substring(0, 3000), emails, phones };
+                }
+              } catch (e) { /* skip */ }
+              return null;
+            });
+            const contactResults = await Promise.all(contactPromises);
+            for (const r of contactResults) {
+              if (r) {
+                pageContents.push(r);
+                allDiscoveredEmails.push(...r.emails.filter(e => !allDiscoveredEmails.includes(e)));
+                allDiscoveredPhones.push(...r.phones.filter(p => !allDiscoveredPhones.includes(p)));
+              }
+            }
+          }
 
           if (uniqueSnippets.length === 0 && pageContents.length === 0) {
             await storage.updateSearchJob(job.id, { status: "completed", totalResults: 0, completedAt: new Date() } as any);
@@ -27027,7 +27125,11 @@ ${moduleInfo.fields}
 SEARCH RESULTS (snippets from web search):
 ${uniqueSnippets.slice(0, 20).map((s, i) => `[${i+1}] "${s.title}"\nURL: ${s.url}\n${s.snippet}`).join("\n\n")}
 
-${pageContents.length > 0 ? `\nSCRAPED PAGE CONTENT (detailed text from visited pages):\n${pageContents.map((p, i) => `--- Page ${i+1}: ${p.url} ---\n${p.content}`).join("\n\n")}` : ""}
+${pageContents.length > 0 ? `\nSCRAPED PAGE CONTENT (detailed text from visited pages):\n${pageContents.slice(0, 15).map((p, i) => `--- Page ${i+1}: ${p.url} ---\nEmails found: ${p.emails?.join(", ") || "none"}\nPhones found: ${p.phones?.join(", ") || "none"}\n${p.content}`).join("\n\n")}` : ""}
+
+DISCOVERED CONTACT DATA FROM PAGE SCRAPING:
+- Emails found across all pages: ${allDiscoveredEmails.slice(0, 30).join(", ") || "none"}
+- Phone numbers found across all pages: ${allDiscoveredPhones.slice(0, 30).join(", ") || "none"}
 
 EXTRACTION RULES:
 1. Extract EVERY valid contact that matches the target module type
@@ -27186,6 +27288,176 @@ Return ONLY the cleaned JSON array.`;
     } catch (error) {
       console.error("[LeadSearch] Create job error:", error);
       res.status(500).json({ error: "Failed to create search job" });
+    }
+  });
+
+  // Match search result against existing module records
+  app.get("/api/lead-search/results/:id/match", requireAuth, async (req, res) => {
+    try {
+      const resultId = parseInt(req.params.id);
+      const [searchResult] = await db.select().from(searchResults).where(eq(searchResults.id, resultId));
+      if (!searchResult) return res.status(404).json({ error: "Result not found" });
+
+      const job = await storage.getSearchJob(searchResult.jobId);
+      if (!job) return res.status(404).json({ error: "Job not found" });
+
+      const raw = (searchResult.rawData || {}) as any;
+      const targetModule = job.targetModule;
+      const matches: Array<{ id: string; name: string; matchType: string; matchScore: number; existingData: any; changes: Record<string, { old: string; new: string }> }> = [];
+
+      const normalize = (s: string | null | undefined) => (s || "").toLowerCase().trim().replace(/\s+/g, " ");
+      const normalizePhone = (s: string | null | undefined) => (s || "").replace(/[\s\-\(\)\.]/g, "").replace(/^00/, "+");
+
+      if (targetModule === "hospitals") {
+        const countryCodes = searchResult.countryCode ? [searchResult.countryCode] : [];
+        const existing = await storage.getHospitalsByCountry(countryCodes);
+        for (const h of existing) {
+          let score = 0;
+          const nameA = normalize(searchResult.companyName);
+          const nameB = normalize(h.name);
+          const fullNameB = normalize(h.fullName);
+          if (nameA && (nameB.includes(nameA) || nameA.includes(nameB) || (fullNameB && (fullNameB.includes(nameA) || nameA.includes(fullNameB))))) score += 50;
+          if (searchResult.email && h.email && normalize(searchResult.email) === normalize(h.email)) score += 30;
+          if (searchResult.phone && h.phone && normalizePhone(searchResult.phone) === normalizePhone(h.phone)) score += 20;
+          if (searchResult.city && h.city && normalize(searchResult.city) === normalize(h.city)) score += 10;
+
+          if (score >= 30) {
+            const changes: Record<string, { old: string; new: string }> = {};
+            const checkField = (field: string, oldVal: string | null | undefined, newVal: string | null | undefined) => {
+              if (newVal && newVal.trim() && (!oldVal || !oldVal.trim() || normalize(oldVal) !== normalize(newVal))) {
+                changes[field] = { old: oldVal || "", new: newVal };
+              }
+            };
+            checkField("phone", h.phone, searchResult.phone || raw.phone);
+            checkField("email", h.email, searchResult.email || raw.email);
+            checkField("contactPerson", h.contactPerson, searchResult.contactPerson || raw.contact_person);
+            checkField("streetNumber", h.streetNumber, searchResult.address || raw.address);
+            checkField("city", h.city, searchResult.city || raw.city);
+            checkField("postalCode", h.postalCode, raw.postal_code);
+            checkField("region", h.region, raw.region);
+            matches.push({ id: h.id, name: h.name || "", matchType: "hospital", matchScore: score, existingData: { name: h.name, fullName: h.fullName, city: h.city, phone: h.phone, email: h.email, contactPerson: h.contactPerson, streetNumber: h.streetNumber, region: h.region, postalCode: h.postalCode }, changes });
+          }
+        }
+      } else if (targetModule === "clinics") {
+        const countryCodes = searchResult.countryCode ? [searchResult.countryCode] : [];
+        const existing = await storage.getClinicsByCountry(countryCodes);
+        for (const c of existing) {
+          let score = 0;
+          const nameA = normalize(searchResult.companyName);
+          const nameB = normalize(c.name);
+          const doctorA = normalize(searchResult.contactPerson || raw.contact_person);
+          const doctorB = normalize(c.doctorName);
+          if (nameA && nameB && (nameB.includes(nameA) || nameA.includes(nameB))) score += 40;
+          if (doctorA && doctorB && (doctorB.includes(doctorA) || doctorA.includes(doctorB))) score += 35;
+          if (searchResult.email && c.email && normalize(searchResult.email) === normalize(c.email)) score += 30;
+          if (searchResult.phone && c.phone && normalizePhone(searchResult.phone) === normalizePhone(c.phone)) score += 20;
+          if (searchResult.city && c.city && normalize(searchResult.city) === normalize(c.city)) score += 10;
+
+          if (score >= 30) {
+            const changes: Record<string, { old: string; new: string }> = {};
+            const checkField = (field: string, oldVal: string | null | undefined, newVal: string | null | undefined) => {
+              if (newVal && newVal.trim() && (!oldVal || !oldVal.trim() || normalize(oldVal) !== normalize(newVal))) {
+                changes[field] = { old: oldVal || "", new: newVal };
+              }
+            };
+            checkField("phone", c.phone, searchResult.phone || raw.phone);
+            checkField("email", c.email, searchResult.email || raw.email);
+            checkField("website", c.website, searchResult.website || raw.website);
+            checkField("doctorName", c.doctorName, raw.contact_person || searchResult.contactPerson);
+            checkField("doctorTitle", c.doctorTitle, raw.doctor_title);
+            checkField("doctorFirstName", c.doctorFirstName, raw.doctor_first_name);
+            checkField("doctorLastName", c.doctorLastName, raw.doctor_last_name);
+            checkField("address", c.address, searchResult.address || raw.address);
+            checkField("city", c.city, searchResult.city || raw.city);
+            checkField("postalCode", c.postalCode, raw.postal_code);
+            matches.push({ id: c.id, name: c.name || c.doctorName || "", matchType: "clinic", matchScore: score, existingData: { name: c.name, doctorName: c.doctorName, doctorTitle: c.doctorTitle, doctorFirstName: c.doctorFirstName, doctorLastName: c.doctorLastName, city: c.city, phone: c.phone, email: c.email, website: c.website, address: c.address, postalCode: c.postalCode }, changes });
+          }
+        }
+      } else if (targetModule === "collaborators") {
+        const countryCodes = searchResult.countryCode ? [searchResult.countryCode] : [];
+        const existing = await storage.getCollaboratorsByCountry(countryCodes);
+        for (const co of existing) {
+          let score = 0;
+          const personA = normalize(searchResult.contactPerson || raw.contact_person);
+          const personB = normalize(`${co.firstName} ${co.lastName}`);
+          if (personA && personB && (personB.includes(personA) || personA.includes(personB))) score += 40;
+          if (searchResult.email && co.email && normalize(searchResult.email) === normalize(co.email)) score += 30;
+          if (searchResult.phone && (normalizePhone(searchResult.phone) === normalizePhone(co.phone) || normalizePhone(searchResult.phone) === normalizePhone(co.mobile))) score += 25;
+          const compA = normalize(searchResult.companyName || raw.company_name);
+          const compB = normalize(co.companyName);
+          if (compA && compB && (compB.includes(compA) || compA.includes(compB))) score += 20;
+
+          if (score >= 30) {
+            const changes: Record<string, { old: string; new: string }> = {};
+            const checkField = (field: string, oldVal: string | null | undefined, newVal: string | null | undefined) => {
+              if (newVal && newVal.trim() && (!oldVal || !oldVal.trim() || normalize(oldVal) !== normalize(newVal))) {
+                changes[field] = { old: oldVal || "", new: newVal };
+              }
+            };
+            checkField("phone", co.phone, searchResult.phone || raw.phone);
+            checkField("mobile", co.mobile, raw.mobile);
+            checkField("email", co.email, searchResult.email || raw.email);
+            checkField("companyName", co.companyName, searchResult.companyName || raw.company_name);
+            checkField("titleBefore", co.titleBefore, raw.doctor_title || raw.titleBefore);
+            matches.push({ id: co.id, name: `${co.titleBefore || ""} ${co.firstName} ${co.lastName}`.trim(), matchType: "collaborator", matchScore: score, existingData: { firstName: co.firstName, lastName: co.lastName, titleBefore: co.titleBefore, phone: co.phone, mobile: co.mobile, email: co.email, companyName: co.companyName }, changes });
+          }
+        }
+      }
+
+      matches.sort((a, b) => b.matchScore - a.matchScore);
+      res.json({ matches: matches.slice(0, 5) });
+    } catch (error: any) {
+      console.error("[LeadSearch] Match error:", error);
+      res.status(500).json({ error: "Failed to find matches" });
+    }
+  });
+
+  // Update existing record from search result
+  app.post("/api/lead-search/results/:id/update-existing", requireAuth, async (req, res) => {
+    try {
+      const resultId = parseInt(req.params.id);
+      const { existingId, targetModule, selectedChanges } = req.body;
+
+      if (!existingId || !targetModule || !selectedChanges) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+
+      const [searchResult] = await db.select().from(searchResults).where(eq(searchResults.id, resultId));
+      if (!searchResult) return res.status(404).json({ error: "Result not found" });
+      if (searchResult.status === "assigned") return res.status(400).json({ error: "Already assigned" });
+
+      const updateData: any = {};
+      for (const [field, vals] of Object.entries(selectedChanges as Record<string, { new: string }>)) {
+        if (vals && vals.new) updateData[field] = vals.new;
+      }
+
+      if (Object.keys(updateData).length === 0) {
+        return res.status(400).json({ error: "No changes selected" });
+      }
+
+      if (targetModule === "hospitals") {
+        await storage.updateHospital(existingId, updateData);
+      } else if (targetModule === "clinics") {
+        await storage.updateClinic(existingId, updateData);
+      } else if (targetModule === "collaborators") {
+        await storage.updateCollaborator(existingId, updateData);
+      }
+
+      await storage.updateSearchResult(resultId, {
+        status: "assigned",
+        assignedTo: `${targetModule.slice(0, -1)}:${existingId}:updated`,
+        assignedAt: new Date(),
+      } as any);
+
+      const job = await storage.getSearchJob(searchResult.jobId);
+      if (job) {
+        await storage.updateSearchJob(job.id, { assignedResults: (job.assignedResults || 0) + 1 } as any);
+      }
+
+      res.json({ success: true, action: "updated", existingId });
+    } catch (error: any) {
+      console.error("[LeadSearch] Update existing error:", error);
+      res.status(500).json({ error: "Failed to update: " + error.message });
     }
   });
 

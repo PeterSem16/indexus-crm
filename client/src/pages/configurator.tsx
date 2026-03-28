@@ -25,7 +25,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Pencil, Trash2, FileText, Settings, Layout, Loader2, Palette, Package, Search, Shield, Copy, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Eye, EyeOff, Lock, Unlock, Check, Hash, Info, X, DollarSign, Percent, Calculator, CreditCard, TrendingUp, Bell, CheckCircle2, XCircle, Key, AlertTriangle, Upload, FileDown, Edit, Save, Download, ArrowUpDown, Paperclip, Globe } from "lucide-react";
+import { Plus, Pencil, Trash2, FileText, Settings, Layout, Loader2, Palette, Package, Search, Shield, Copy, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Eye, EyeOff, Lock, Unlock, Check, Hash, Info, X, DollarSign, Percent, Calculator, CreditCard, TrendingUp, Bell, CheckCircle2, XCircle, Key, AlertTriangle, Upload, FileDown, Edit, Save, Download, ArrowUpDown, Paperclip, Globe, RefreshCw } from "lucide-react";
 import { COUNTRIES, CURRENCIES, getCurrencySymbol } from "@shared/schema";
 import { InvoiceDesigner, InvoiceDesignerConfig } from "@/components/invoice-designer";
 import { ContractTemplatesManager } from "@/components/contract-templates-manager";
@@ -17948,6 +17948,10 @@ function LeadSearchTab() {
   const [selectedJobId, setSelectedJobId] = useState<number | null>(null);
   const [previewResult, setPreviewResult] = useState<any>(null);
   const [isAssigning, setIsAssigning] = useState(false);
+  const [existingMatches, setExistingMatches] = useState<any[]>([]);
+  const [matchLoading, setMatchLoading] = useState(false);
+  const [selectedMatch, setSelectedMatch] = useState<any>(null);
+  const [selectedChanges, setSelectedChanges] = useState<Record<string, boolean>>({});
 
   const { data: jobs = [], refetch: refetchJobs } = useQuery<any[]>({
     queryKey: ["/api/lead-search/jobs"],
@@ -18005,12 +18009,52 @@ function LeadSearchTab() {
         body: JSON.stringify({ targetModule: selectedJob?.targetModule || "hospitals" }),
       });
       if (!resp.ok) throw new Error("Failed");
-      toast({ title: "Kontakt úspešne priradený do modulu" });
+      toast({ title: "Kontakt úspešne vytvorený v module" });
       setPreviewResult(null);
+      setExistingMatches([]);
+      setSelectedMatch(null);
       refetchResults();
       refetchJobs();
     } catch (e) {
       toast({ title: "Chyba pri priradení", variant: "destructive" });
+    } finally {
+      setIsAssigning(false);
+    }
+  };
+
+  const updateExisting = async () => {
+    if (!previewResult || !selectedMatch) return;
+    const changesToApply: Record<string, { new: string }> = {};
+    for (const [field, checked] of Object.entries(selectedChanges)) {
+      if (checked && selectedMatch.changes[field]) {
+        changesToApply[field] = { new: selectedMatch.changes[field].new };
+      }
+    }
+    if (Object.keys(changesToApply).length === 0) {
+      toast({ title: "Vyberte aspoň jednu zmenu na aktualizáciu", variant: "destructive" });
+      return;
+    }
+    setIsAssigning(true);
+    try {
+      const resp = await fetch(`/api/lead-search/results/${previewResult.id}/update-existing`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          existingId: selectedMatch.id,
+          targetModule: selectedJob?.targetModule,
+          selectedChanges: changesToApply,
+        }),
+      });
+      if (!resp.ok) throw new Error("Failed");
+      toast({ title: "Existujúci záznam úspešne aktualizovaný" });
+      setPreviewResult(null);
+      setExistingMatches([]);
+      setSelectedMatch(null);
+      refetchResults();
+      refetchJobs();
+    } catch (e) {
+      toast({ title: "Chyba pri aktualizácii", variant: "destructive" });
     } finally {
       setIsAssigning(false);
     }
@@ -18220,7 +18264,17 @@ function LeadSearchTab() {
                                 variant="outline"
                                 className="h-7 text-xs"
                                 data-testid={`preview-result-${r.id}`}
-                                onClick={() => setPreviewResult(r)}
+                                onClick={() => {
+                                  setPreviewResult(r);
+                                  setExistingMatches([]);
+                                  setSelectedMatch(null);
+                                  setSelectedChanges({});
+                                  setMatchLoading(true);
+                                  fetch(`/api/lead-search/results/${r.id}/match`, { credentials: "include" })
+                                    .then(resp => resp.ok ? resp.json() : { matches: [] })
+                                    .then(data => { setExistingMatches(data.matches || []); setMatchLoading(false); })
+                                    .catch(() => setMatchLoading(false));
+                                }}
                               >
                                 <Eye className="h-3 w-3 mr-1" />
                                 Zobraziť
@@ -18362,24 +18416,108 @@ function LeadSearchTab() {
                   </div>
                 </div>
 
-                <div className="bg-primary/5 rounded-lg p-3 border border-primary/20">
-                  <div className="text-xs text-muted-foreground mb-1">Po potvrdení sa tento kontakt vytvorí ako nový záznam v module:</div>
-                  <div className="text-sm font-medium flex items-center gap-2">
-                    {tm === "hospitals" && <><Building className="h-4 w-4 text-primary" /> Nemocnice</>}
-                    {tm === "clinics" && <><User className="h-4 w-4 text-primary" /> Ambulancie</>}
-                    {tm === "collaborators" && <><Users className="h-4 w-4 text-primary" /> Spolupracovníci</>}
+                <div className="border rounded-lg overflow-hidden">
+                  <div className="bg-amber-50 dark:bg-amber-950/30 px-4 py-2 border-b flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 text-amber-600" />
+                    <span className="text-sm font-medium text-amber-800 dark:text-amber-300">Kontrola duplicít</span>
+                    {matchLoading && <Loader2 className="h-3 w-3 animate-spin text-amber-600" />}
+                  </div>
+                  <div className="p-3">
+                    {matchLoading ? (
+                      <div className="text-xs text-muted-foreground py-2 text-center">Porovnávam s existujúcimi záznamami...</div>
+                    ) : existingMatches.length === 0 ? (
+                      <div className="text-xs text-green-600 dark:text-green-400 py-1 flex items-center gap-1.5">
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        Žiadne duplicity. Kontakt je nový.
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <div className="text-xs text-amber-700 dark:text-amber-400">
+                          Nájdených {existingMatches.length} podobných záznamov:
+                        </div>
+                        {existingMatches.map((m: any) => (
+                          <div
+                            key={m.id}
+                            className={`border rounded-lg p-2.5 cursor-pointer transition-colors ${
+                              selectedMatch?.id === m.id ? "border-primary bg-primary/5" : "hover:bg-accent/50"
+                            }`}
+                            onClick={() => {
+                              setSelectedMatch(selectedMatch?.id === m.id ? null : m);
+                              const allChecked: Record<string, boolean> = {};
+                              if (m.changes) Object.keys(m.changes).forEach(k => allChecked[k] = true);
+                              setSelectedChanges(allChecked);
+                            }}
+                            data-testid={`match-${m.id}`}
+                          >
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-sm font-medium">{m.name}</span>
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                                m.matchScore >= 60 ? "bg-red-100 text-red-700" : "bg-yellow-100 text-yellow-700"
+                              }`}>
+                                Zhoda: {m.matchScore}%
+                              </span>
+                            </div>
+                            {selectedMatch?.id === m.id && Object.keys(m.changes).length > 0 && (
+                              <div className="mt-2 space-y-1.5">
+                                <div className="text-[11px] font-medium text-muted-foreground">Zmeny na aplikovanie:</div>
+                                {Object.entries(m.changes).map(([field, vals]: [string, any]) => (
+                                  <label key={field} className="flex items-start gap-2 text-xs cursor-pointer hover:bg-accent/30 rounded px-1 py-0.5">
+                                    <input
+                                      type="checkbox"
+                                      className="mt-0.5 rounded"
+                                      checked={selectedChanges[field] || false}
+                                      onChange={(e) => setSelectedChanges({ ...selectedChanges, [field]: e.target.checked })}
+                                    />
+                                    <div className="flex-1 min-w-0">
+                                      <span className="font-medium text-muted-foreground">{field}:</span>
+                                      <div className="flex flex-wrap gap-1 mt-0.5">
+                                        {vals.old && (
+                                          <span className="bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 line-through px-1 rounded text-[11px]">{vals.old}</span>
+                                        )}
+                                        <span className="text-muted-foreground">&rarr;</span>
+                                        <span className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-1 rounded text-[11px]">{vals.new}</span>
+                                      </div>
+                                    </div>
+                                  </label>
+                                ))}
+                              </div>
+                            )}
+                            {selectedMatch?.id === m.id && Object.keys(m.changes).length === 0 && (
+                              <div className="text-xs text-muted-foreground mt-1">Žiadne nové údaje na aktualizáciu</div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
+
+                {!selectedMatch && (
+                  <div className="bg-primary/5 rounded-lg p-3 border border-primary/20">
+                    <div className="text-xs text-muted-foreground mb-1">Po potvrdení sa tento kontakt vytvorí ako nový záznam v module:</div>
+                    <div className="text-sm font-medium flex items-center gap-2">
+                      {tm === "hospitals" && <><Building className="h-4 w-4 text-primary" /> Nemocnice</>}
+                      {tm === "clinics" && <><User className="h-4 w-4 text-primary" /> Ambulancie</>}
+                      {tm === "collaborators" && <><Users className="h-4 w-4 text-primary" /> Spolupracovníci</>}
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })()}
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setPreviewResult(null)} data-testid="button-cancel-assign">
+          <DialogFooter className="gap-2 flex-wrap">
+            <Button variant="outline" onClick={() => { setPreviewResult(null); setSelectedMatch(null); setExistingMatches([]); }} data-testid="button-cancel-assign">
               Zrušiť
             </Button>
+            {selectedMatch && Object.keys(selectedMatch.changes || {}).length > 0 ? (
+              <Button onClick={updateExisting} disabled={isAssigning} variant="default" data-testid="button-update-existing" className="bg-amber-600 hover:bg-amber-700">
+                {isAssigning ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+                Aktualizovať existujúci
+              </Button>
+            ) : null}
             <Button onClick={confirmAssign} disabled={isAssigning} data-testid="button-confirm-assign">
-              {isAssigning ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
-              Potvrdiť a priradiť
+              {isAssigning ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
+              {existingMatches.length > 0 ? "Vytvoriť nový" : "Potvrdiť a priradiť"}
             </Button>
           </DialogFooter>
         </DialogContent>
