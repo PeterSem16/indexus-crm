@@ -27256,29 +27256,55 @@ Return ONLY a JSON array of 20 search query strings.`;
           const seenUrls = new Set<string>();
           const normUrl = (u: string) => u.replace(/\/+$/, '').replace(/^https?:\/\/(www\.)?/, '').toLowerCase().split('?')[0];
 
+          const UA_LIST = [
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0",
+          ];
+          const randUA = () => UA_LIST[Math.floor(Math.random() * UA_LIST.length)];
+
           const executeWebSearch = async (query: string, delayMs = 0): Promise<SearchResult[]> => {
             if (delayMs > 0) await new Promise(r => setTimeout(r, delayMs));
             const results: SearchResult[] = [];
             const encoded = encodeURIComponent(query);
 
-            // DuckDuckGo Instant Answer API
+            // 1. Google Search (primary — most reliable, most results)
             try {
-              const resp = await fetch(`https://api.duckduckgo.com/?q=${encoded}&format=json&no_html=1&skip_disambig=1`, { signal: AbortSignal.timeout(8000) });
-              if (resp.ok) {
-                const d = await resp.json() as any;
-                if (d.Abstract && d.AbstractURL) results.push({ title: d.Heading || query, url: d.AbstractURL, snippet: d.Abstract, source: "ddg-api" });
-                for (const t of (d.RelatedTopics || []).slice(0, 12)) {
-                  if (t.Text && t.FirstURL) results.push({ title: t.Text.substring(0, 200), url: t.FirstURL, snippet: t.Text, source: "ddg-api" });
-                  if (t.Topics) for (const sub of t.Topics.slice(0, 8)) { if (sub.Text && sub.FirstURL) results.push({ title: sub.Text.substring(0, 200), url: sub.FirstURL, snippet: sub.Text, source: "ddg-sub" }); }
+              for (let start = 0; start < 40; start += 10) {
+                const gUrl = `https://www.google.com/search?q=${encoded}&num=10&start=${start}&hl=sk&gl=sk`;
+                const resp = await fetch(gUrl, {
+                  headers: { "User-Agent": randUA(), "Accept": "text/html,application/xhtml+xml", "Accept-Language": "sk,cs,en;q=0.5" },
+                  signal: AbortSignal.timeout(12000), redirect: "follow",
+                });
+                if (resp.ok) {
+                  const html = await resp.text();
+                  const linkPatterns = [
+                    /<a[^>]+href="\/url\?q=(https?:\/\/[^&"]+)[&"][^>]*>/gi,
+                    /<a[^>]+href="(https?:\/\/(?!www\.google\.|webcache\.googleusercontent\.)[^"]+)"[^>]*class="[^"]*"[^>]*>/gi,
+                    /data-href="(https?:\/\/[^"]+)"/gi,
+                    /<cite[^>]*>(https?:\/\/[^<]+)<\/cite>/gi,
+                  ];
+                  for (const rx of linkPatterns) {
+                    let m;
+                    while ((m = rx.exec(html)) !== null) {
+                      let url = decodeURIComponent(m[1]).split("&")[0];
+                      if (url && !url.includes("google.com") && !url.includes("youtube.com") && !url.includes("facebook.com") && !url.includes("instagram.com") && !url.includes("twitter.com")) {
+                        const titleMatch = html.substring(Math.max(0, m.index - 200), m.index + 500).match(/<h3[^>]*>([\s\S]*?)<\/h3>/i);
+                        results.push({ title: titleMatch ? titleMatch[1].replace(/<[^>]+>/g, '').trim() : "", url, snippet: "", source: "google" });
+                      }
+                    }
+                  }
+                  if (html.includes("did not match any documents") || html.includes("Vašemu hľadaniu nezodpovedá")) break;
                 }
-                for (const r of (d.Results || []).slice(0, 5)) { if (r.Text && r.FirstURL) results.push({ title: r.Text.substring(0, 200), url: r.FirstURL, snippet: r.Text, source: "ddg-result" }); }
+                await new Promise(r => setTimeout(r, 800 + Math.random() * 400));
               }
             } catch {}
 
-            // DuckDuckGo HTML search
+            // 2. DuckDuckGo HTML search (secondary)
             try {
               const resp = await fetch(`https://html.duckduckgo.com/html/?q=${encoded}`, {
-                headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36", "Accept-Language": "sk,cs,en;q=0.5" },
+                headers: { "User-Agent": randUA(), "Accept-Language": "sk,cs,en;q=0.5" },
                 signal: AbortSignal.timeout(15000), redirect: "follow",
               });
               if (resp.ok) {
@@ -27286,28 +27312,49 @@ Return ONLY a JSON array of 20 search query strings.`;
                 const linkRegex = /<a[^>]+class="result__a"[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi;
                 const snippetRegex = /<a[^>]+class="result__snippet"[^>]*>([\s\S]*?)<\/a>/gi;
                 let m; const urls: string[] = [], titles: string[] = [], snips: string[] = [];
-                while ((m = linkRegex.exec(html)) !== null && urls.length < 20) {
+                while ((m = linkRegex.exec(html)) !== null && urls.length < 25) {
                   let url = m[1];
                   if (url.startsWith("//duckduckgo.com/l/?uddg=")) url = decodeURIComponent(url.replace("//duckduckgo.com/l/?uddg=", "").split("&")[0]);
                   if (url && !url.includes("duckduckgo.com")) { urls.push(url); titles.push(m[2].replace(/<[^>]+>/g, '').trim()); }
                 }
-                while ((m = snippetRegex.exec(html)) !== null && snips.length < 20) snips.push(m[1].replace(/<[^>]+>/g, '').trim());
+                while ((m = snippetRegex.exec(html)) !== null && snips.length < 25) snips.push(m[1].replace(/<[^>]+>/g, '').trim());
                 for (let i = 0; i < urls.length; i++) results.push({ title: titles[i] || "", url: urls[i], snippet: snips[i] || titles[i] || "", source: "ddg-html" });
               }
             } catch {}
 
-            // Bing search
+            // 3. Bing search (tertiary)
             try {
-              const resp = await fetch(`https://www.bing.com/search?q=${encoded}&count=20`, {
-                headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36", "Accept-Language": "sk,cs,en;q=0.5" },
-                signal: AbortSignal.timeout(10000), redirect: "follow",
-              });
+              for (let first = 1; first <= 21; first += 10) {
+                const resp = await fetch(`https://www.bing.com/search?q=${encoded}&count=10&first=${first}`, {
+                  headers: { "User-Agent": randUA(), "Accept-Language": "sk,cs,en;q=0.5" },
+                  signal: AbortSignal.timeout(10000), redirect: "follow",
+                });
+                if (resp.ok) {
+                  const html = await resp.text();
+                  const linkRx = /<h2><a[^>]+href="(https?:\/\/[^"]+)"[^>]*>([\s\S]*?)<\/a><\/h2>/gi;
+                  const citeRx = /<cite>(https?:\/\/[^<]+)<\/cite>/gi;
+                  let m;
+                  while ((m = linkRx.exec(html)) !== null) {
+                    if (!m[1].includes("bing.com") && !m[1].includes("microsoft.com")) results.push({ title: m[2].replace(/<[^>]+>/g, '').trim(), url: m[1], snippet: "", source: "bing" });
+                  }
+                  while ((m = citeRx.exec(html)) !== null) {
+                    const citedUrl = m[1].startsWith("http") ? m[1] : "https://" + m[1];
+                    if (!citedUrl.includes("bing.com")) results.push({ title: "", url: citedUrl, snippet: "", source: "bing-cite" });
+                  }
+                }
+                await new Promise(r => setTimeout(r, 600));
+              }
+            } catch {}
+
+            // 4. DuckDuckGo Instant Answer API (supplementary)
+            try {
+              const resp = await fetch(`https://api.duckduckgo.com/?q=${encoded}&format=json&no_html=1&skip_disambig=1`, { signal: AbortSignal.timeout(8000) });
               if (resp.ok) {
-                const html = await resp.text();
-                const linkRx = /<h2><a[^>]+href="(https?:\/\/[^"]+)"[^>]*>([\s\S]*?)<\/a><\/h2>/gi;
-                let m;
-                while ((m = linkRx.exec(html)) !== null && results.length < 50) {
-                  if (!m[1].includes("bing.com") && !m[1].includes("microsoft.com")) results.push({ title: m[2].replace(/<[^>]+>/g, '').trim(), url: m[1], snippet: "", source: "bing" });
+                const d = await resp.json() as any;
+                if (d.Abstract && d.AbstractURL) results.push({ title: d.Heading || query, url: d.AbstractURL, snippet: d.Abstract, source: "ddg-api" });
+                for (const t of (d.RelatedTopics || []).slice(0, 15)) {
+                  if (t.Text && t.FirstURL) results.push({ title: t.Text.substring(0, 200), url: t.FirstURL, snippet: t.Text, source: "ddg-api" });
+                  if (t.Topics) for (const sub of t.Topics.slice(0, 10)) { if (sub.Text && sub.FirstURL) results.push({ title: sub.Text.substring(0, 200), url: sub.FirstURL, snippet: sub.Text, source: "ddg-sub" }); }
                 }
               }
             } catch {}
@@ -27315,11 +27362,12 @@ Return ONLY a JSON array of 20 search query strings.`;
             return results;
           };
 
-          // Execute in 4 waves of 5 queries with delays between waves
-          for (let wave = 0; wave < 4; wave++) {
-            const batch = searchQueries.slice(wave * 5, (wave + 1) * 5);
+          // Execute ALL queries in 5 waves with delays between
+          const totalWaves = Math.ceil(searchQueries.length / 4);
+          for (let wave = 0; wave < totalWaves; wave++) {
+            const batch = searchQueries.slice(wave * 4, (wave + 1) * 4);
             if (batch.length === 0) break;
-            const waveResults = await Promise.all(batch.map((q, i) => executeWebSearch(q, i * 500)));
+            const waveResults = await Promise.all(batch.map((q, i) => executeWebSearch(q, i * 800)));
             for (const arr of waveResults) {
               for (const s of arr) {
                 const norm = normUrl(s.url);
@@ -27329,10 +27377,9 @@ Return ONLY a JSON array of 20 search query strings.`;
                 }
               }
             }
-            console.log(`[LeadSearch] Job ${job.id}: Discovery vlna ${wave + 1} — celkovo ${allSnippets.length} URL`);
-            if (wave < 3) await new Promise(r => setTimeout(r, 1500));
+            console.log(`[LeadSearch] Job ${job.id}: Discovery vlna ${wave + 1}/${totalWaves} — celkovo ${allSnippets.length} URL`);
+            if (wave < totalWaves - 1) await new Promise(r => setTimeout(r, 2000 + Math.random() * 1000));
           }
-
 
           // Add whitelisted source URLs as priority discovery targets
           if (whitelistedUrls.length > 0) {
@@ -27346,29 +27393,36 @@ Return ONLY a JSON array of 20 search query strings.`;
             console.log(`[LeadSearch] Job ${job.id}: Pridaných ${whitelistedUrls.length} whitelisted zdrojov`);
           }
 
-          // KROK 2b: Ak málo výsledkov, AI generuje retry queries s inou stratégiou
-          if (allSnippets.length < 20) {
+          // KROK 2b: Ak málo výsledkov, AI generuje retry queries + rozšírenie o špecifické zdroje
+          if (allSnippets.length < 40) {
             console.log(`[LeadSearch] Job ${job.id}: KROK 2b — Málo výsledkov (${allSnippets.length}), adaptívny retry`);
             try {
               const retryPrompt = `Previous search for "${moduleInfo.description}" in ${countryName} returned only ${allSnippets.length} results.
 Previous queries: ${searchQueries.slice(0, 10).map((q, i) => `${i+1}. ${q}`).join("; ")}
 
-Generate 10 COMPLETELY DIFFERENT queries using ONLY these strategies:
-1. Very simple 2-3 word queries in ${localLang} (e.g. "nemocnice bratislava")
-2. Yellow pages / business directory queries
-3. Google Maps style queries (e.g. "${segmentParts[0] || "hospital"} near me ${locationParts[0] || ""}")
-4. Specific institution name searches if you know any in ${countryName}
-5. Regional/city government health facility lists
+Generate 15 COMPLETELY DIFFERENT queries that will find MANY results. Use these strategies:
+1. "${segmentParts[0] || "hospital"} zoznam ${locationParts[0] || country}" - simple list queries in local language
+2. "site:firmy.sk ${segmentParts[0]}" or "site:zlatestranky.sk ${segmentParts[0]}" - business directories
+3. "${segmentParts[0]} + each major city" - city-specific queries (Bratislava, Košice, Žilina, Prešov, Banská Bystrica, Nitra, Trnava, Trenčín)
+4. Professional registers: "register lekárov", "zoznam ambulancií", "zdravotnícke zariadenia register"
+5. Government/ministry lists: "ministerstvo zdravotníctva zoznam", "NCZI register"
+6. Yellow pages style: "${segmentParts[0]} telefónny zoznam"
+7. Mapping directories: "${segmentParts[0]} ${locationParts[0] || country} mapa"
+8. Association member lists
 
 Return ONLY a JSON array of query strings.`;
-              const retryResp = await openai.chat.completions.create({ model: "gpt-4o-mini", messages: [{ role: "user", content: retryPrompt }], temperature: 0.6, max_tokens: 1000 });
+              const retryResp = await openai.chat.completions.create({ model: "gpt-4o-mini", messages: [{ role: "user", content: retryPrompt }], temperature: 0.6, max_tokens: 1500 });
               const retryQueries: string[] = JSON.parse((retryResp.choices[0]?.message?.content || "[]").replace(/```json\n?/g, '').replace(/```\n?/g, '').trim());
-              const retryResults = await Promise.all(retryQueries.slice(0, 10).map((q, i) => executeWebSearch(q, i * 300)));
-              for (const arr of retryResults) {
-                for (const s of arr) {
-                  const norm = normUrl(s.url);
-                  if (!seenUrls.has(norm) && s.url) { try { const _sd2 = new URL(s.url).hostname; if (blacklistedDomains.has(_sd2)) continue; } catch {} seenUrls.add(norm); allSnippets.push(s); }
+              for (let w = 0; w < Math.ceil(retryQueries.length / 3); w++) {
+                const batch = retryQueries.slice(w * 3, (w + 1) * 3);
+                const retryResults = await Promise.all(batch.map((q, i) => executeWebSearch(q, i * 600)));
+                for (const arr of retryResults) {
+                  for (const s of arr) {
+                    const norm = normUrl(s.url);
+                    if (!seenUrls.has(norm) && s.url) { try { const _sd2 = new URL(s.url).hostname; if (blacklistedDomains.has(_sd2)) continue; } catch {} seenUrls.add(norm); allSnippets.push(s); }
+                  }
                 }
+                await new Promise(r => setTimeout(r, 1500));
               }
               console.log(`[LeadSearch] Job ${job.id}: Po retry — ${allSnippets.length} URL celkovo`);
             } catch (e) { console.error("[LeadSearch] Retry failed:", e); }
@@ -27406,10 +27460,10 @@ Return ONLY a JSON array of query strings.`;
             return { url, text: text.substring(0, 6000), emails, phones, title, internalLinks, domain, isDirectory };
           };
 
-          // Scrape in waves of 8
-          const pagesToScrape = allSnippets.slice(0, 30);
-          for (let wave = 0; wave < Math.ceil(pagesToScrape.length / 8); wave++) {
-            const batch = pagesToScrape.slice(wave * 8, (wave + 1) * 8);
+          // Scrape in waves of 10 — increased to 80 pages for more results
+          const pagesToScrape = allSnippets.slice(0, 80);
+          for (let wave = 0; wave < Math.ceil(pagesToScrape.length / 10); wave++) {
+            const batch = pagesToScrape.slice(wave * 10, (wave + 1) * 10);
             const results = await Promise.all(batch.map(s => scrapePage(s.url)));
             for (const r of results) { if (r) scrapedPages.push(r); }
             console.log(`[LeadSearch] Job ${job.id}: Scrape vlna ${wave + 1} — ${scrapedPages.length} stránok`);
@@ -27423,8 +27477,8 @@ Return ONLY a JSON array of query strings.`;
           if (directoryPages.length > 0) {
             console.log(`[LeadSearch] Job ${job.id}: KROK 4 — Deep crawl ${directoryPages.length} directory stránok`);
             const deepLinks: string[] = [];
-            for (const dp of directoryPages.slice(0, 5)) {
-              for (const link of dp.internalLinks.slice(0, 15)) {
+            for (const dp of directoryPages.slice(0, 10)) {
+              for (const link of dp.internalLinks.slice(0, 30)) {
                 const norm = normUrl(link);
                 if (!seenUrls.has(norm)) {
                   seenUrls.add(norm);
@@ -27432,11 +27486,29 @@ Return ONLY a JSON array of query strings.`;
                 }
               }
             }
+            // Also look for pagination links on directories (page=2, strana=2, etc.)
+            for (const dp of directoryPages.slice(0, 5)) {
+              try {
+                const baseUrl = new URL(dp.url);
+                for (let pg = 2; pg <= 5; pg++) {
+                  const pgUrls = [
+                    `${dp.url}${dp.url.includes("?") ? "&" : "?"}page=${pg}`,
+                    `${dp.url}${dp.url.includes("?") ? "&" : "?"}strana=${pg}`,
+                    `${dp.url}${dp.url.includes("?") ? "&" : "?"}p=${pg}`,
+                    `${baseUrl.origin}${baseUrl.pathname}/${pg}`,
+                  ];
+                  for (const pgUrl of pgUrls) {
+                    const norm = normUrl(pgUrl);
+                    if (!seenUrls.has(norm)) { seenUrls.add(norm); deepLinks.push(pgUrl); }
+                  }
+                }
+              } catch {}
+            }
             if (deepLinks.length > 0) {
-              console.log(`[LeadSearch] Job ${job.id}: Deep crawl — ${Math.min(deepLinks.length, 20)} podstránok`);
-              const deepBatch = deepLinks.slice(0, 20);
-              for (let w = 0; w < Math.ceil(deepBatch.length / 8); w++) {
-                const batch = deepBatch.slice(w * 8, (w + 1) * 8);
+              console.log(`[LeadSearch] Job ${job.id}: Deep crawl — ${Math.min(deepLinks.length, 60)} podstránok`);
+              const deepBatch = deepLinks.slice(0, 60);
+              for (let w = 0; w < Math.ceil(deepBatch.length / 10); w++) {
+                const batch = deepBatch.slice(w * 10, (w + 1) * 10);
                 const results = await Promise.all(batch.map(url => scrapePage(url)));
                 for (const r of results) { if (r) scrapedPages.push(r); }
               }
@@ -27449,7 +27521,7 @@ Return ONLY a JSON array of query strings.`;
           // ═══════════════════════════════════════════════════════════
           const contactSubpages: string[] = [];
           const contactPaths = ["/kontakt", "/contact", "/kontakty", "/contacts", "/about", "/o-nas", "/about-us", "/impressum", "/team", "/nas-tim", "/lekaři", "/lekari", "/doctors", "/staff", "/odbornici"];
-          for (const page of scrapedPages.slice(0, 20)) {
+          for (const page of scrapedPages.slice(0, 40)) {
             try {
               const baseUrl = new URL(page.url);
               for (const path of contactPaths) {
@@ -27463,10 +27535,13 @@ Return ONLY a JSON array of query strings.`;
             } catch {}
           }
           if (contactSubpages.length > 0) {
-            console.log(`[LeadSearch] Job ${job.id}: KROK 5 — Kontaktné stránky (${Math.min(contactSubpages.length, 15)})`);
-            const contactBatch = contactSubpages.slice(0, 15);
-            const contactResults = await Promise.all(contactBatch.map(url => scrapePage(url)));
-            for (const r of contactResults) { if (r) scrapedPages.push(r); }
+            console.log(`[LeadSearch] Job ${job.id}: KROK 5 — Kontaktné stránky (${Math.min(contactSubpages.length, 40)})`);
+            const contactBatch = contactSubpages.slice(0, 40);
+            for (let w = 0; w < Math.ceil(contactBatch.length / 10); w++) {
+              const batch = contactBatch.slice(w * 10, (w + 1) * 10);
+              const contactResults = await Promise.all(batch.map(url => scrapePage(url)));
+              for (const r of contactResults) { if (r) scrapedPages.push(r); }
+            }
           }
 
           // Collect all discovered data
@@ -27482,6 +27557,97 @@ Return ONLY a JSON array of query strings.`;
           }
 
           // ═══════════════════════════════════════════════════════════
+          // KROK 5b: RULE-BASED EXTRACTION — extrakcia kontaktov cez pravidlá a heuristiky
+          // ═══════════════════════════════════════════════════════════
+          console.log(`[LeadSearch] Job ${job.id}: KROK 5b — Rule-based extraction z ${scrapedPages.length} stránok`);
+
+          const ruleExtractedContacts: any[] = [];
+          const processedDomains = new Set<string>();
+
+          for (const page of scrapedPages) {
+            try {
+              const domain = page.domain;
+              const text = page.text;
+              const emails = page.emails;
+              const phones = page.phones;
+
+              if (emails.length === 0 && phones.length === 0) continue;
+
+              // Heuristic: detect if page is a single entity or a directory listing
+              if (page.isDirectory) {
+                // Directory mode: try to split text into individual entries
+                const lines = text.split(/\n/).filter(l => l.trim().length > 10);
+                let currentEntry: any = null;
+
+                for (const line of lines) {
+                  const lineEmails = (line.match(/[\w.+-]+@[\w.-]+\.[a-z]{2,}/gi) || []).filter(e => !e.match(/\.(png|jpg|gif|css|js)$/i));
+                  const linePhones = (line.match(/(?:\+\d{1,3}[\s.-]?)?\(?\d{2,4}\)?[\s.-]?\d{3}[\s.-]?\d{2,4}[\s.-]?\d{0,4}/g) || []).filter(p => p.replace(/\D/g, '').length >= 7 && p.replace(/\D/g, '').length <= 15);
+                  const nameMatch = line.match(/(?:MUDr|MDDr|MVDr|doc|prof|Ing|Mgr|JUDr|PhDr|RNDr|PharmDr|PaedDr|Dr)\.?\s+[A-ZÁÄČĎÉÍĽŇÓÔŔŠŤÚÝŽ][a-záäčďéíľňóôŕšťúýž]+\s+[A-ZÁÄČĎÉÍĽŇÓÔŔŠŤÚÝŽ][a-záäčďéíľňóôŕšťúýž]+/);
+                  const orgMatch = line.match(/(?:s\.r\.o\.|a\.s\.|spol\.|n\.o\.|o\.z\.|z\.s\.|a\.g\.|GmbH|s\.p\.|nemocnica|ambulancia|klinika|centrum|ordinacia|poliklinika|lekáreň|nemocnice|fakultná|univerzitná)/i);
+
+                  if (nameMatch || orgMatch || lineEmails.length > 0) {
+                    if (currentEntry && (currentEntry.email || currentEntry.phone)) {
+                      ruleExtractedContacts.push(currentEntry);
+                    }
+                    currentEntry = {
+                      company_name: orgMatch ? line.substring(0, Math.min(line.indexOf(orgMatch[0]) + orgMatch[0].length + 20, line.length)).trim().substring(0, 120) : (nameMatch ? nameMatch[0] : line.substring(0, 80).trim()),
+                      contact_person: nameMatch ? nameMatch[0] : null,
+                      email: lineEmails[0] || null,
+                      phone: linePhones[0] || null,
+                      website: `https://${domain}`,
+                      source_url: page.url,
+                      city: null,
+                      confidence_score: 55,
+                      extraction_method: "rule-directory",
+                    };
+                  } else if (currentEntry) {
+                    if (!currentEntry.email && lineEmails.length > 0) currentEntry.email = lineEmails[0];
+                    if (!currentEntry.phone && linePhones.length > 0) currentEntry.phone = linePhones[0];
+                    const cityMatch = line.match(/(?:Bratislava|Košice|Prešov|Žilina|Banská Bystrica|Nitra|Trnava|Trenčín|Martin|Poprad|Zvolen|Piešťany|Michalovce|Ružomberok|Lučenec|Levice|Komárno|Topoľčany|Považská Bystrica|Dubnica|Humenné|Bardejov|Skalica|Dunajská Streda|Praha|Brno|Ostrava|Plzeň|Liberec|Olomouc|Hradec Králové|Wien|Graz|Linz|Salzburg|Innsbruck|Budapest|Debrecen|Szeged|Miskolc|Pécs|Bucuresti|Cluj|Timisoara|Iasi|Constanta)/i);
+                    if (cityMatch && !currentEntry.city) currentEntry.city = cityMatch[0];
+                  }
+                }
+                if (currentEntry && (currentEntry.email || currentEntry.phone)) {
+                  ruleExtractedContacts.push(currentEntry);
+                }
+              } else {
+                // Single entity mode: one contact per domain
+                if (processedDomains.has(domain)) continue;
+                processedDomains.add(domain);
+
+                const titleName = page.title?.replace(/[\|–—\-].*$/, '').replace(/\s*(kontakt|contact|o nás|about|home|hlavná|domov|úvod).*$/i, '').trim();
+                const nameMatch = text.match(/(?:MUDr|MDDr|MVDr|doc|prof|Ing|Mgr|JUDr|PhDr|RNDr)\.?\s+[A-ZÁÄČĎÉÍĽŇÓÔŔŠŤÚÝŽ][a-záäčďéíľňóôŕšťúýž]+\s+[A-ZÁÄČĎÉÍĽŇÓÔŔŠŤÚÝŽ][a-záäčďéíľňóôŕšťúýž]+/);
+                const orgMatch = text.match(/([A-ZÁÄČĎÉÍĽŇÓÔŔŠŤÚÝŽ][a-záäčďéíľňóôŕšťúýž]+(?:\s+[A-Za-záäčďéíľňóôŕšťúýž]+){0,5}\s*(?:s\.r\.o\.|a\.s\.|spol\.|n\.o\.|GmbH|a\.g\.))/);
+
+                const bestEmail = emails.find(e => !e.startsWith("info@") && !e.startsWith("office@") && !e.startsWith("noreply@") && !e.match(/^(admin|webmaster|postmaster|support|marketing|sales|hr)@/)) || emails[0];
+                const cityMatch = text.match(/(?:Bratislava|Košice|Prešov|Žilina|Banská Bystrica|Nitra|Trnava|Trenčín|Martin|Poprad|Zvolen|Piešťany|Michalovce|Ružomberok|Lučenec|Levice|Komárno|Topoľčany|Praha|Brno|Ostrava|Plzeň|Wien|Graz|Linz|Salzburg|Budapest|Debrecen|Szeged|Bucuresti|Cluj|Timisoara)/i);
+                const addressMatch = text.match(/(?:ul\.|ulica|ulice|Straße|utca|strada)\s+[^\n,]{3,40}/i) || text.match(/\d{3}\s?\d{2}\s+[A-ZÁÄČĎÉÍĽŇÓÔŔŠŤÚÝŽ][a-záäčďéíľňóôŕšťúýž]+/);
+                const icoMatch = text.match(/(?:IČO|IČ|IC|ICO)\s*[:\s]?\s*(\d{6,8})/i);
+                const roleMatch = text.match(/(?:riaditeľ|riaditeľka|primár|primárka|vedúci|vedúca|konateľ|konateľka|manager|manažér|director|head|chief|CEO|CFO|CTO|predseda|jednateľ|majiteľ)/i);
+
+                if (titleName || orgMatch || nameMatch) {
+                  ruleExtractedContacts.push({
+                    company_name: orgMatch?.[1] || titleName || domain,
+                    contact_person: nameMatch?.[0] || null,
+                    contact_role: roleMatch?.[0] || null,
+                    email: bestEmail || null,
+                    phone: phones[0] || null,
+                    mobile: phones.find(p => p.match(/^(\+421\s?9|\+420\s?[67]|\+43\s?6|\+36\s?[237]0)/)) || null,
+                    website: `https://${domain}`,
+                    address: addressMatch?.[0]?.trim() || null,
+                    city: cityMatch?.[0] || null,
+                    ico: icoMatch?.[1] || null,
+                    source_url: page.url,
+                    confidence_score: (bestEmail ? 25 : 0) + (phones.length > 0 ? 20 : 0) + (nameMatch ? 15 : 0) + (orgMatch ? 10 : 0) + (cityMatch ? 10 : 0) + (icoMatch ? 10 : 0) + (roleMatch ? 10 : 0),
+                    extraction_method: "rule-single",
+                  });
+                }
+              }
+            } catch {}
+          }
+          console.log(`[LeadSearch] Job ${job.id}: Rule-based extrakcia: ${ruleExtractedContacts.length} kontaktov`);
+
+          // ═══════════════════════════════════════════════════════════
           // KROK 6: AI EXTRACTION — štrukturovaná extrakcia kontaktov
           // ═══════════════════════════════════════════════════════════
           console.log(`[LeadSearch] Job ${job.id}: KROK 6 — AI Extraction`);
@@ -27493,7 +27659,7 @@ TASK: Extract ALL contacts matching "${moduleInfo.description}" from the scraped
 TARGET: ${targetModule.toUpperCase()} | Country: ${countryName} | Segment: ${segment || "general"} | Location: ${location || "any"}
 
 SCRAPED PAGES (${scrapedPages.length} pages from ${allDomains.length} domains):
-${scrapedPages.slice(0, 20).map((p, i) => `--- PAGE ${i+1}: ${p.url} ---
+${scrapedPages.slice(0, 30).map((p, i) => `--- PAGE ${i+1}: ${p.url} ---
 Title: ${p.title}
 Emails: ${p.emails.join(", ") || "none"}
 Phones: ${p.phones.join(", ") || "none"}
@@ -27549,7 +27715,7 @@ Return ONLY the JSON array, nothing else.`;
                 { role: "user", content: extractionPrompt }
               ],
               temperature: 0.1,
-              max_tokens: 12000,
+              max_tokens: 16000,
             });
 
             const rawContent = extractResponse.choices[0]?.message?.content || "[]";
@@ -27558,39 +27724,66 @@ Return ONLY the JSON array, nothing else.`;
             if (!Array.isArray(contacts)) contacts = [];
             console.log(`[LeadSearch] Job ${job.id}: AI extrahoval ${contacts.length} kontaktov`);
 
-            // If AI extracted too few contacts and we have good data, try a second pass
-            if (contacts.length < 5 && scrapedPages.length > 10) {
-              console.log(`[LeadSearch] Job ${job.id}: Málo extrahovaných kontaktov, druhý pokus s ďalšími stránkami`);
+            // Multi-pass AI extraction: process remaining pages in batches of 15
+            const alreadyExtracted = new Set(contacts.map(c => (c.company_name || c.email || "").toLowerCase()));
+            for (let passStart = 30; passStart < Math.min(scrapedPages.length, 90); passStart += 15) {
+              const passPages = scrapedPages.slice(passStart, passStart + 15).filter(p => p.emails.length > 0 || p.phones.length > 0);
+              if (passPages.length === 0) continue;
+              console.log(`[LeadSearch] Job ${job.id}: AI extrakcia pass ${Math.floor(passStart / 15) + 1} (stránky ${passStart}-${passStart + passPages.length})`);
               try {
-                const secondPassPrompt = `Extract MORE contacts for "${moduleInfo.description}" from these additional pages. 
-Previous extraction found ${contacts.length} contacts. Find new ones not yet extracted.
+                const passPrompt = `Extract ALL contacts for "${moduleInfo.description}" from these pages. Already have ${contacts.length} contacts — find NEW ones only.
 
-Already extracted: ${contacts.map(c => c.company_name || c.contact_person).filter(Boolean).join(", ")}
+Already extracted (skip these): ${[...alreadyExtracted].slice(0, 30).join(", ")}
 
-ADDITIONAL PAGES:
-${scrapedPages.slice(20, 35).map((p, i) => `--- PAGE ${i+1}: ${p.url} ---
+PAGES:
+${passPages.map((p, i) => `--- PAGE ${i+1}: ${p.url} ---
 Emails: ${p.emails.join(", ") || "none"} | Phones: ${p.phones.join(", ") || "none"}
 ${p.text.substring(0, 3000)}`).join("\n\n")}
 
-Return ONLY a JSON array of NEW contacts (same format as before).`;
-                const secondResp = await openai.chat.completions.create({
+Return ONLY a JSON array of NEW contacts (same format: company_name, contact_person, email, phone, website, city, source_url, confidence_score).`;
+                const passResp = await openai.chat.completions.create({
                   model: "gpt-4o-mini",
-                  messages: [{ role: "system", content: "Extract ALL matching contacts. Return ONLY valid JSON." }, { role: "user", content: secondPassPrompt }],
-                  temperature: 0.1, max_tokens: 8000,
+                  messages: [{ role: "system", content: "Extract ALL matching contacts. Return ONLY valid JSON array." }, { role: "user", content: passPrompt }],
+                  temperature: 0.1, max_tokens: 10000,
                 });
-                const secondContent = secondResp.choices[0]?.message?.content || "[]";
-                const secondContacts = JSON.parse(secondContent.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim());
-                if (Array.isArray(secondContacts)) {
-                  contacts.push(...secondContacts);
-                  console.log(`[LeadSearch] Job ${job.id}: Druhý pokus pridal ${secondContacts.length} kontaktov (celkovo ${contacts.length})`);
+                const passContent = passResp.choices[0]?.message?.content || "[]";
+                const passContacts = JSON.parse(passContent.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim());
+                if (Array.isArray(passContacts)) {
+                  for (const pc of passContacts) {
+                    const key = (pc.company_name || pc.email || "").toLowerCase();
+                    if (key && !alreadyExtracted.has(key)) {
+                      alreadyExtracted.add(key);
+                      contacts.push(pc);
+                    }
+                  }
+                  console.log(`[LeadSearch] Job ${job.id}: Pass pridal ${passContacts.length} kontaktov (celkovo ${contacts.length})`);
                 }
-              } catch (e) { console.log("[LeadSearch] Second pass failed"); }
+              } catch (e) { console.log("[LeadSearch] Pass extraction failed"); }
             }
 
           } catch (e) {
             console.error("[LeadSearch] AI extraction error:", e);
           }
 
+          // ═══════════════════════════════════════════════════════════
+          // MERGE RULE-BASED + AI CONTACTS
+          // ═══════════════════════════════════════════════════════════
+          console.log(`[LeadSearch] Job ${job.id}: Spájam ${ruleExtractedContacts.length} rule-based + ${contacts.length} AI kontaktov`);
+          const seenContactKeys = new Set<string>();
+          for (const c of contacts) {
+            const key = [c.email, c.phone, c.company_name?.toLowerCase()?.substring(0, 30)].filter(Boolean).join("|");
+            if (key) seenContactKeys.add(key);
+          }
+          let mergedFromRules = 0;
+          for (const rc of ruleExtractedContacts) {
+            const key = [rc.email, rc.phone, rc.company_name?.toLowerCase()?.substring(0, 30)].filter(Boolean).join("|");
+            if (key && !seenContactKeys.has(key)) {
+              seenContactKeys.add(key);
+              contacts.push(rc);
+              mergedFromRules++;
+            }
+          }
+          console.log(`[LeadSearch] Job ${job.id}: Po zlúčení: ${contacts.length} kontaktov (${mergedFromRules} nových z rule-based)`);
 
           // ═══════════════════════════════════════════════════════════
           // KROK 6b: AI ENRICHMENT — obohatenie kontaktov o ďalšie údaje
