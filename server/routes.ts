@@ -32,6 +32,7 @@ import {
   DEFAULT_PHONE_DISPOSITIONS, DEFAULT_EMAIL_DISPOSITIONS, DEFAULT_SMS_DISPOSITIONS, DISPOSITION_NAME_TRANSLATIONS,
   callLogs, campaignContacts, campaignContactHistory, campaignContactSessions, campaigns, customers, users, entityCampaignTimeline, mobileContacts, collaborators, billingDetails,
   collections, executiveSummaries, collectionLabResults, collectionSprievodnyList, cbuReportAudit, cbuReportOtp, searchResults, searchJobs, leadCampaigns,
+  insertLeadSourceSchema, insertLeadCampaignSchema,
   insertSopCategorySchema, insertSopArticleSchema,
   agentSessions, agentSessionActivities, agentBreaks, scheduledReports, agentQueueStatus,
   inboundCallLogs, inboundQueues, ariSettings, sipExtensions, clinicReferrals, clinicEvents,
@@ -27726,12 +27727,14 @@ Return ONLY a JSON array of NEW contacts (same format as before).`;
               if (priorCampaignJobIds.length > 0) {
                 const priorCampaignResults = await db.select({ email: searchResults.email, phone: searchResults.phone, companyName: searchResults.companyName, website: searchResults.website })
                   .from(searchResults).where(inArray(searchResults.jobId, priorCampaignJobIds));
-                const existingFingerprints = new Set(priorCampaignResults.map(r => {
+                const existingFingerprints = new Set<string>();
+                for (const r of priorCampaignResults) {
                   const fp = [r.email?.toLowerCase(), r.phone?.replace(/\s/g, ''), r.companyName?.toLowerCase(), r.website?.toLowerCase()].filter(Boolean);
-                  return fp.join('|');
-                }));
+                  if (fp.length > 0) existingFingerprints.add(fp.join('|'));
+                }
                 leadsToSave = deduped.filter((c: Record<string, string>) => {
                   const fp = [c.email?.toLowerCase(), c.phone?.replace(/\s/g, ''), (c.company_name || c.companyName)?.toLowerCase(), c.website?.toLowerCase()].filter(Boolean);
+                  if (fp.length === 0) return true;
                   return !existingFingerprints.has(fp.join('|'));
                 });
                 console.log(`[LeadSearch] Job ${job.id}: Campaign dedup — ${deduped.length} total, ${leadsToSave.length} truly new`);
@@ -28149,7 +28152,9 @@ Return ONLY a JSON array of NEW contacts (same format as before).`;
 
   app.post("/api/lead-sources", requireAuth, async (req, res) => {
     try {
-      const source = await storage.createLeadSource(req.body);
+      const parsed = insertLeadSourceSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ error: "Invalid data", details: parsed.error.issues });
+      const source = await storage.createLeadSource(parsed.data);
       res.json(source);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -28188,7 +28193,9 @@ Return ONLY a JSON array of NEW contacts (same format as before).`;
 
   app.post("/api/lead-campaigns", requireAuth, async (req, res) => {
     try {
-      const { schedule } = req.body;
+      const parsed = insertLeadCampaignSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ error: "Invalid data", details: parsed.error.issues });
+      const { schedule } = parsed.data;
       const now = new Date();
       let nextRunAt = new Date(now);
       if (schedule === "daily") nextRunAt.setDate(nextRunAt.getDate() + 1);
@@ -28196,7 +28203,7 @@ Return ONLY a JSON array of NEW contacts (same format as before).`;
       else if (schedule === "monthly") nextRunAt.setMonth(nextRunAt.getMonth() + 1);
       
       const campaign = await storage.createLeadCampaign({
-        ...req.body,
+        ...parsed.data,
         nextRunAt,
         isActive: true,
         totalLeadsFound: 0,
