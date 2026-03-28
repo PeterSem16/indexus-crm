@@ -18809,102 +18809,203 @@ function LeadSearchTab() {
       {activeSubTab === "search" && (
       <div className="space-y-6">
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-1 space-y-4">
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+        <div className="xl:col-span-4 space-y-4">
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Target className="h-4 w-4" />
-                Konfigurácia vyhľadávania
-              </CardTitle>
-              <p className="text-xs text-muted-foreground">Nastavte parametre alebo použite AI asistenta</p>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Target className="h-4 w-4" />
+                  Konfigurácia vyhľadávania
+                </CardTitle>
+                <span className="text-[10px] text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                  {searchForm.targetModule === "hospitals" ? "Nemocnice" : searchForm.targetModule === "clinics" ? "Ambulancie" : "Spolupracovníci"}
+                  {searchForm.country ? ` · ${COUNTRIES.find(c => c.code === searchForm.country)?.flag || ""} ${searchForm.country}` : " · Všetky"}
+                </span>
+              </div>
             </CardHeader>
             <CardContent className="space-y-3">
               <div>
-                <label className="text-xs font-medium mb-1 block text-muted-foreground uppercase tracking-wider">Názov</label>
-                <Input data-testid="input-search-name" placeholder="napr. Nemocnice Bratislava" className="h-9" value={searchForm.name} onChange={(e) => setSearchForm({ ...searchForm, name: e.target.value })} />
+                <label className="text-xs font-medium mb-1 block text-muted-foreground uppercase tracking-wider">Názov vyhľadávania</label>
+                <Input data-testid="input-search-name" placeholder="napr. Pôrodnice Wien + Graz" className="h-9" value={searchForm.name} onChange={(e) => setSearchForm({ ...searchForm, name: e.target.value })} />
               </div>
-              <div className="grid grid-cols-2 gap-2">
+
+              <div className="rounded-lg border bg-muted/30 p-3 space-y-3">
+                <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Cieľ vyhľadávania</span>
                 <div>
-                  <label className="text-xs font-medium mb-1 block text-muted-foreground uppercase tracking-wider">Modul</label>
-                  <Select value={searchForm.targetModule} onValueChange={(v: any) => setSearchForm({ ...searchForm, targetModule: v })}>
-                    <SelectTrigger data-testid="select-target-module" className="h-9"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="hospitals"><span className="flex items-center gap-1.5"><Building2 className="h-3.5 w-3.5" /> Nemocnice</span></SelectItem>
-                      <SelectItem value="clinics"><span className="flex items-center gap-1.5"><Briefcase className="h-3.5 w-3.5" /> Ambulancie</span></SelectItem>
-                      <SelectItem value="collaborators"><span className="flex items-center gap-1.5"><Users className="h-3.5 w-3.5" /> Spolupracovníci</span></SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <label className="text-xs font-medium mb-1.5 flex items-center gap-1.5 text-muted-foreground"><Building2 className="h-3 w-3" /> Cieľový modul</label>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {([
+                      { key: "hospitals", label: "Nemocnice", icon: Building2 },
+                      { key: "clinics", label: "Ambulancie", icon: Briefcase },
+                      { key: "collaborators", label: "Spoluprac.", icon: Users },
+                    ] as const).map(m => (
+                      <button key={m.key} data-testid={`module-${m.key}`} className={cn("flex flex-col items-center gap-1 py-2 px-1.5 rounded-lg border text-[10px] font-medium transition-all",
+                        searchForm.targetModule === m.key ? "border-primary bg-primary/10 text-primary shadow-sm" : "hover:border-primary/30 hover:bg-muted/50"
+                      )} onClick={() => setSearchForm({ ...searchForm, targetModule: m.key as any })}>
+                        <m.icon className="h-4 w-4" />
+                        {m.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
+
                 <div>
-                  <label className="text-xs font-medium mb-1 block text-muted-foreground uppercase tracking-wider">Krajina</label>
-                  <Select value={searchForm.country || "all"} onValueChange={(v) => setSearchForm({ ...searchForm, country: v === "all" ? "" : v })}>
-                    <SelectTrigger data-testid="select-country" className="h-9"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Všetky</SelectItem>
-                      {COUNTRIES.map(c => <SelectItem key={c.code} value={c.code}>{c.flag} {c.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <label className="text-xs font-medium mb-1.5 flex items-center gap-1.5 text-muted-foreground"><Globe className="h-3 w-3" /> Krajina</label>
+                  <div className="grid grid-cols-3 gap-1">
+                    <button data-testid="country-all" className={cn("py-1.5 px-2 rounded-md text-[10px] font-medium border transition-all",
+                      !searchForm.country ? "border-primary bg-primary/10 text-primary" : "hover:border-primary/30"
+                    )} onClick={() => setSearchForm({ ...searchForm, country: "" })}>
+                      Všetky
+                    </button>
+                    {COUNTRIES.map(c => (
+                      <button key={c.code} data-testid={`country-${c.code}`} className={cn("py-1.5 px-2 rounded-md text-[10px] font-medium border transition-all truncate",
+                        searchForm.country === c.code ? "border-primary bg-primary/10 text-primary" : "hover:border-primary/30"
+                      )} onClick={() => setSearchForm({ ...searchForm, country: c.code })}>
+                        {c.flag} {c.code}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
-              <div className="space-y-2 pt-1">
+
+              <div className="rounded-lg border bg-muted/30 p-3 space-y-2.5">
+                <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Filtre vyhľadávania</span>
                 <div>
-                  <label className="text-xs font-medium mb-1 flex items-center gap-1.5 text-muted-foreground uppercase tracking-wider"><Layers className="h-3 w-3" /> Segment</label>
-                  <Input data-testid="input-segment" placeholder="napr. gynekológia, neonatológia" className="h-9" value={searchForm.segment} onChange={(e) => setSearchForm({ ...searchForm, segment: e.target.value })} />
+                  <label className="text-xs font-medium mb-1 flex items-center gap-1.5 text-muted-foreground"><Layers className="h-3 w-3" /> Segment / Špecializácia</label>
+                  <Input data-testid="input-segment" placeholder="napr. gynekológia, neonatológia, IVF" className="h-9" value={searchForm.segment} onChange={(e) => setSearchForm({ ...searchForm, segment: e.target.value })} />
+                  <div className="flex flex-wrap gap-1 mt-1.5">
+                    {(searchForm.targetModule === "hospitals"
+                      ? ["gynekológia", "neonatológia", "onkológia", "hematológia", "transplantácie"]
+                      : searchForm.targetModule === "clinics"
+                      ? ["gynekológia", "pôrodníctvo", "pediatria", "IVF", "genetika"]
+                      : ["distribútor", "farmaceut", "med. rep.", "lekár"]
+                    ).map(tag => (
+                      <button key={tag} className="text-[9px] px-1.5 py-0.5 rounded border border-dashed border-muted-foreground/30 text-muted-foreground hover:border-primary/50 hover:text-primary hover:bg-primary/5 transition-colors" onClick={() => setSearchForm(f => ({ ...f, segment: f.segment ? `${f.segment}, ${tag}` : tag }))}>
+                        + {tag}
+                      </button>
+                    ))}
+                  </div>
                 </div>
                 <div>
-                  <label className="text-xs font-medium mb-1 flex items-center gap-1.5 text-muted-foreground uppercase tracking-wider"><MapPin className="h-3 w-3" /> Lokalita</label>
-                  <Input data-testid="input-location" placeholder="napr. Bratislava, Košice" className="h-9" value={searchForm.location} onChange={(e) => setSearchForm({ ...searchForm, location: e.target.value })} />
+                  <label className="text-xs font-medium mb-1 flex items-center gap-1.5 text-muted-foreground"><MapPin className="h-3 w-3" /> Lokalita / Región</label>
+                  <Input data-testid="input-location" placeholder={searchForm.country === "AT" ? "napr. Wien, Graz, Linz, Innsbruck" : searchForm.country === "CZ" ? "napr. Praha, Brno, Ostrava" : "napr. Bratislava, Košice"} className="h-9" value={searchForm.location} onChange={(e) => setSearchForm({ ...searchForm, location: e.target.value })} />
+                  <div className="flex flex-wrap gap-1 mt-1.5">
+                    {(searchForm.country === "AT"
+                      ? ["Wien", "Graz", "Linz", "Salzburg", "Innsbruck", "Klagenfurt"]
+                      : searchForm.country === "CZ"
+                      ? ["Praha", "Brno", "Ostrava", "Plzeň", "Olomouc"]
+                      : searchForm.country === "HU"
+                      ? ["Budapest", "Debrecen", "Szeged", "Miskolc", "Pécs"]
+                      : searchForm.country === "DE"
+                      ? ["Berlin", "München", "Hamburg", "Frankfurt", "Köln"]
+                      : searchForm.country === "IT"
+                      ? ["Milano", "Roma", "Torino", "Bologna", "Firenze"]
+                      : searchForm.country === "RO"
+                      ? ["București", "Cluj-Napoca", "Timișoara", "Iași", "Constanța"]
+                      : searchForm.country === "CH"
+                      ? ["Zürich", "Bern", "Basel", "Genève", "Lausanne"]
+                      : ["Bratislava", "Košice", "Žilina", "B. Bystrica", "Nitra", "Prešov", "Trnava"]
+                    ).map(city => (
+                      <button key={city} className="text-[9px] px-1.5 py-0.5 rounded border border-dashed border-muted-foreground/30 text-muted-foreground hover:border-primary/50 hover:text-primary hover:bg-primary/5 transition-colors" onClick={() => setSearchForm(f => ({ ...f, location: f.location ? `${f.location}, ${city}` : city }))}>
+                        + {city}
+                      </button>
+                    ))}
+                  </div>
                 </div>
                 <div>
-                  <label className="text-xs font-medium mb-1 flex items-center gap-1.5 text-muted-foreground uppercase tracking-wider"><Key className="h-3 w-3" /> Kľúčové slová</label>
-                  <Input data-testid="input-keywords" placeholder="napr. pôrodnica, kmeňové bunky" className="h-9" value={searchForm.keywords} onChange={(e) => setSearchForm({ ...searchForm, keywords: e.target.value })} />
+                  <label className="text-xs font-medium mb-1 flex items-center gap-1.5 text-muted-foreground"><Key className="h-3 w-3" /> Kľúčové slová</label>
+                  <Input data-testid="input-keywords" placeholder={searchForm.country === "AT" ? "napr. Geburtshilfe, Stammzellen, Nabelschnur" : "napr. pôrodnica, kmeňové bunky"} className="h-9" value={searchForm.keywords} onChange={(e) => setSearchForm({ ...searchForm, keywords: e.target.value })} />
+                  <div className="flex flex-wrap gap-1 mt-1.5">
+                    {(searchForm.country === "AT" || searchForm.country === "DE" || searchForm.country === "CH"
+                      ? ["Stammzellen", "Nabelschnurblut", "Geburtshilfe", "Pränataldiagnostik", "IVF-Zentrum", "Klinikum"]
+                      : searchForm.country === "CZ"
+                      ? ["kmenové buňky", "pupečníková krev", "porodnice", "gynekologie", "neonatologie"]
+                      : searchForm.country === "HU"
+                      ? ["őssejt", "köldökzsinórvér", "szülészet", "nőgyógyászat", "IVF"]
+                      : ["kmeňové bunky", "pupočníková krv", "pôrodnica", "regeneratívna medicína", "transplantácia"]
+                    ).map(kw => (
+                      <button key={kw} className="text-[9px] px-1.5 py-0.5 rounded border border-dashed border-muted-foreground/30 text-muted-foreground hover:border-primary/50 hover:text-primary hover:bg-primary/5 transition-colors" onClick={() => setSearchForm(f => ({ ...f, keywords: f.keywords ? `${f.keywords}, ${kw}` : kw }))}>
+                        + {kw}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
-              <div className="pt-2 space-y-2">
+
+              <div className="pt-1 space-y-2">
                 <Button onClick={startSearch} className="w-full h-10" data-testid="button-start-search">
                   <Search className="h-4 w-4 mr-2" />
                   Spustiť vyhľadávanie
                 </Button>
-                <Button variant="outline" size="sm" className="w-full" data-testid="button-create-campaign-from-search" onClick={() => {
-                  setCampaignForm({ name: searchForm.name || `Kampaň - ${searchForm.targetModule}`, targetModule: searchForm.targetModule, country: searchForm.country || "", segment: searchForm.segment || "", location: searchForm.location || "", keywords: searchForm.keywords || "", schedule: "weekly" });
-                  setActiveSubTab("campaigns");
-                }}>
-                  <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
-                  Vytvoriť opakovanú kampaň
-                </Button>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button variant="outline" size="sm" className="w-full text-[11px]" data-testid="button-create-campaign-from-search" onClick={() => {
+                    setCampaignForm({ name: searchForm.name || `Kampaň - ${searchForm.targetModule}`, targetModule: searchForm.targetModule, country: searchForm.country || "", segment: searchForm.segment || "", location: searchForm.location || "", keywords: searchForm.keywords || "", schedule: "weekly" });
+                    setActiveSubTab("campaigns");
+                  }}>
+                    <RefreshCw className="h-3 w-3 mr-1" />
+                    Kampaň
+                  </Button>
+                  <Button variant="ghost" size="sm" className="w-full text-[11px] text-muted-foreground" onClick={() => setSearchForm({ name: "", targetModule: searchForm.targetModule, country: searchForm.country, segment: "", location: "", keywords: "" })} data-testid="button-clear-search">
+                    <X className="h-3 w-3 mr-1" />
+                    Vyčistiť
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
+        </div>
 
+        <div className="xl:col-span-3 space-y-4">
           <Card className="border-primary/20 bg-gradient-to-b from-primary/[0.03] to-transparent">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <Brain className="h-4 w-4 text-primary" />
-                AI Stratég
-              </CardTitle>
-              <p className="text-[11px] text-muted-foreground">Inteligentná analýza medzier v pokrytí, učenie z histórie, prioritizácia segmentov</p>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Brain className="h-4 w-4 text-primary" />
+                  AI Stratég
+                </CardTitle>
+                {aiSuggestions.length > 0 && (
+                  <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">{aiSuggestions.length} scenárov</span>
+                )}
+              </div>
+              <p className="text-[11px] text-muted-foreground">Hĺbková analýza medzier, učenie z histórie, prioritizácia podľa ROI potenciálu</p>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="flex gap-1.5">
-                {(["quick", "standard", "deep"] as const).map(d => (
-                  <button key={d} data-testid={`depth-${d}`} className={cn("flex-1 py-1.5 px-2 rounded-md text-[10px] font-medium border transition-all",
-                    (aiSourceFilter as any).depth === d ? "border-primary bg-primary/10 text-primary" : "border-border hover:border-primary/40"
-                  )} onClick={() => setAiSourceFilter((f: any) => ({ ...f, depth: d }))}>
-                    {d === "quick" ? "Rýchly" : d === "standard" ? "Štandardný" : "Hĺbkový"}
-                    <span className="block text-[9px] text-muted-foreground font-normal">{d === "quick" ? "3 scenáre" : d === "standard" ? "6 scenárov" : "10 scenárov"}</span>
-                  </button>
-                ))}
+              <div>
+                <span className="text-[10px] text-muted-foreground font-medium block mb-1.5">Režim analýzy</span>
+                <div className="flex gap-1.5">
+                  {(["quick", "standard", "deep"] as const).map(d => (
+                    <button key={d} data-testid={`depth-${d}`} className={cn("flex-1 py-2 px-2 rounded-lg text-[10px] font-medium border transition-all",
+                      aiSourceFilter.depth === d ? "border-primary bg-primary/10 text-primary shadow-sm" : "border-border hover:border-primary/40"
+                    )} onClick={() => setAiSourceFilter((f: any) => ({ ...f, depth: d }))}>
+                      <div className="flex flex-col items-center gap-0.5">
+                        {d === "quick" ? <Sparkles className="h-3.5 w-3.5" /> : d === "standard" ? <Brain className="h-3.5 w-3.5" /> : <Network className="h-3.5 w-3.5" />}
+                        {d === "quick" ? "Rýchly" : d === "standard" ? "Štandardný" : "Hĺbkový"}
+                      </div>
+                      <span className="block text-[9px] text-muted-foreground font-normal mt-0.5">{d === "quick" ? "3 scenáre" : d === "standard" ? "6 scenárov" : "10+ scenárov"}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
+
+              <div className="rounded-lg border border-dashed border-primary/20 bg-primary/[0.02] p-2.5">
+                <div className="flex items-start gap-2 text-[10px] text-muted-foreground">
+                  <Info className="h-3.5 w-3.5 mt-0.5 shrink-0 text-primary/60" />
+                  <div>
+                    <span className="font-medium text-foreground/80">AI analyzuje:</span> existujúce dáta v databáze, históriu úspešných/neúspešných vyhľadávaní, aktívne zdroje, a identifikuje medzery v pokrytí — mestá, regióny a segmenty kde ešte nemáte záznamy.
+                  </div>
+                </div>
+              </div>
+
               <Button
-                className="w-full"
+                className="w-full h-10"
                 variant="default"
                 onClick={() => {
                   setAiSuggesting(true);
                   setAiSuggestions([]);
                   setSelectedSuggestions([]);
                   fetch("/api/lead-search/ai-suggest", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
-                    body: JSON.stringify({ targetModule: searchForm.targetModule, country: searchForm.country, depth: (aiSourceFilter as any).depth || "standard" })
+                    body: JSON.stringify({ targetModule: searchForm.targetModule, country: searchForm.country, depth: aiSourceFilter.depth || "standard" })
                   }).then(r => r.json()).then(data => { setAiSuggestions(data.suggestions || []); setAiSuggesting(false); })
                   .catch(() => { toast({ title: "Chyba pri generovaní návrhov", variant: "destructive" }); setAiSuggesting(false); });
                 }}
@@ -18912,26 +19013,34 @@ function LeadSearchTab() {
                 data-testid="button-ai-suggest"
               >
                 {aiSuggesting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
-                {aiSuggesting ? "AI analyzuje..." : "Navrhnúť stratégiu"}
+                {aiSuggesting ? "AI analyzuje medzery..." : "Spustiť AI analýzu"}
               </Button>
 
               {aiSuggestions.length > 0 && (
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] text-muted-foreground font-medium">{aiSuggestions.length} scenárov</span>
-                    <div className="flex gap-1">
-                      {selectedSuggestions.length > 0 && (
-                        <Button size="sm" variant="default" className="h-6 text-[10px] px-2" onClick={applySelectedSuggestions} data-testid="button-apply-suggestions">
-                          <Check className="h-3 w-3 mr-1" />
-                          Použiť {selectedSuggestions.length}
-                        </Button>
-                      )}
+                    <div className="flex items-center gap-2">
+                      <span className="text-[9px] text-muted-foreground">
+                        {aiSuggestions.filter((s: any) => s.priority === "high").length > 0 && (
+                          <span className="text-red-600 font-medium">{aiSuggestions.filter((s: any) => s.priority === "high").length} vysoká</span>
+                        )}
+                        {aiSuggestions.filter((s: any) => s.priority === "medium").length > 0 && (
+                          <span className="text-amber-600 font-medium ml-1">{aiSuggestions.filter((s: any) => s.priority === "medium").length} stredná</span>
+                        )}
+                      </span>
                     </div>
+                    {selectedSuggestions.length > 0 && (
+                      <Button size="sm" variant="default" className="h-6 text-[10px] px-2" onClick={applySelectedSuggestions} data-testid="button-apply-suggestions">
+                        <Check className="h-3 w-3 mr-1" />
+                        Použiť {selectedSuggestions.length}
+                      </Button>
+                    )}
                   </div>
-                  <div className="space-y-1.5 max-h-[350px] overflow-y-auto pr-1">
+                  <div className="space-y-1.5 max-h-[500px] overflow-y-auto pr-1">
                     {aiSuggestions.map((s: any, i: number) => (
                       <div key={i} className={cn("rounded-lg border p-2.5 cursor-pointer transition-all",
-                        selectedSuggestions.includes(i) ? "border-primary bg-primary/5 shadow-sm" : "hover:border-primary/30"
+                        selectedSuggestions.includes(i) ? "border-primary bg-primary/5 shadow-sm" : "hover:border-primary/30",
+                        s.priority === "high" && !selectedSuggestions.includes(i) ? "border-l-2 border-l-red-400" : ""
                       )} data-testid={`ai-suggestion-${i}`} onClick={() => toggleSuggestion(i)}>
                         <div className="flex items-start gap-2">
                           <input type="checkbox" className="mt-0.5 rounded border-muted-foreground/40 accent-primary" checked={selectedSuggestions.includes(i)} onChange={() => toggleSuggestion(i)} />
@@ -18946,8 +19055,8 @@ function LeadSearchTab() {
                                     "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
                                   )}>{s.priority === "high" ? "Vysoká" : s.priority === "medium" ? "Stredná" : "Nízka"}</span>
                                 )}
-                                <button className="text-[9px] text-primary hover:underline font-medium" onClick={(e) => { e.stopPropagation(); applySingleSuggestion(s); }} data-testid={`apply-suggestion-${i}`}>
-                                  <ArrowRight className="h-3 w-3" />
+                                <button className="text-primary hover:bg-primary/10 rounded p-0.5 transition-colors" onClick={(e) => { e.stopPropagation(); applySingleSuggestion(s); }} data-testid={`apply-suggestion-${i}`} title="Použiť tento scenár">
+                                  <ArrowRight className="h-3.5 w-3.5" />
                                 </button>
                               </div>
                             </div>
@@ -18969,16 +19078,19 @@ function LeadSearchTab() {
                                 </button>
                               )}
                             </div>
-                            {(s.estimatedResults || s.searchDepth || s.relatedSegments) && (
-                              <div className="flex items-center gap-2 mt-1.5 text-[9px] text-muted-foreground">
+                            {(s.estimatedResults || s.searchDepth) && (
+                              <div className="flex items-center gap-3 mt-1.5 text-[9px] text-muted-foreground">
                                 {s.estimatedResults && <span className="flex items-center gap-0.5"><Target className="h-2.5 w-2.5" /> ~{s.estimatedResults} výsledkov</span>}
-                                {s.searchDepth && <span className="flex items-center gap-0.5"><Filter className="h-2.5 w-2.5" /> {s.searchDepth === "broad" ? "Široký" : "Cielený"}</span>}
+                                {s.searchDepth && <span className="flex items-center gap-0.5"><Filter className="h-2.5 w-2.5" /> {s.searchDepth === "broad" ? "Široký záber" : "Cielený záber"}</span>}
                               </div>
                             )}
                             {s.relatedSegments && s.relatedSegments.length > 0 && (
-                              <div className="flex flex-wrap gap-1 mt-1">
+                              <div className="flex flex-wrap gap-1 mt-1.5">
+                                <span className="text-[8px] text-muted-foreground/70">Súvisiace:</span>
                                 {s.relatedSegments.map((rs: string, ri: number) => (
-                                  <span key={ri} className="text-[8px] text-muted-foreground bg-muted/50 px-1 py-0.5 rounded">{rs}</span>
+                                  <button key={ri} className="text-[8px] text-muted-foreground bg-muted/60 hover:bg-muted px-1.5 py-0.5 rounded transition-colors" onClick={(e) => { e.stopPropagation(); setSearchForm(f => ({ ...f, segment: rs })); }}>
+                                    {rs}
+                                  </button>
                                 ))}
                               </div>
                             )}
@@ -18993,7 +19105,7 @@ function LeadSearchTab() {
           </Card>
         </div>
 
-        <Card className="lg:col-span-2">
+        <Card className="xl:col-span-5">
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2"><Clock className="h-4 w-4" /> História vyhľadávaní</CardTitle>
           </CardHeader>

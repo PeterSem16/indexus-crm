@@ -7,6 +7,7 @@ import { z } from "zod";
 export const COUNTRIES = [
   { code: "SK", name: "Slovakia", flag: "🇸🇰" },
   { code: "CZ", name: "Czech Republic", flag: "🇨🇿" },
+  { code: "AT", name: "Austria", flag: "🇦🇹" },
   { code: "HU", name: "Hungary", flag: "🇭🇺" },
   { code: "RO", name: "Romania", flag: "🇷🇴" },
   { code: "IT", name: "Italy", flag: "🇮🇹" },
@@ -16,7 +17,7 @@ export const COUNTRIES = [
 ] as const;
 
 export const CURRENCIES = [
-  { code: "EUR", symbol: "€", name: "Euro", countries: ["SK", "IT", "DE"] },
+  { code: "EUR", symbol: "€", name: "Euro", countries: ["SK", "AT", "IT", "DE"] },
   { code: "CZK", symbol: "Kč", name: "Czech Koruna", countries: ["CZ"] },
   { code: "HUF", symbol: "Ft", name: "Hungarian Forint", countries: ["HU"] },
   { code: "RON", symbol: "lei", name: "Romanian Leu", countries: ["RO"] },
