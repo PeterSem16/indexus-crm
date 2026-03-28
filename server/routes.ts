@@ -2537,6 +2537,7 @@ export async function registerRoutes(
   setTimeout(checkApiKeyExpiration, 30000);
   
   // Lead Campaign Scheduler — checks every 60 seconds for due campaigns
+  let executeLeadSearchPipeline: ((params: { name: string; targetModule: string; country: string; segment: string; location: string; keywords: string; campaignId?: number }) => Promise<{ id: number } | null>) | null = null;
   let campaignSchedulerRunning = false;
   const runLeadCampaignScheduler = async () => {
     if (campaignSchedulerRunning) return;
@@ -2552,53 +2553,49 @@ export async function registerRoutes(
           else if (campaign.schedule === "weekly") nextRunAt.setDate(nextRunAt.getDate() + 7);
           else if (campaign.schedule === "monthly") nextRunAt.setMonth(nextRunAt.getMonth() + 1);
 
-          await storage.updateLeadCampaign(campaign.id, {
-            lastRunAt: now,
-            nextRunAt,
+          if (!executeLeadSearchPipeline) {
+            console.error(`[LeadCampaign] Pipeline not ready yet for campaign "${campaign.name}"`);
+            continue;
+          }
+
+          const job = await executeLeadSearchPipeline({
+            name: `[Auto] ${campaign.name} — ${now.toLocaleDateString("sk-SK")}`,
+            targetModule: campaign.targetModule,
+            country: campaign.country || "",
+            segment: campaign.segment || "",
+            location: campaign.location || "",
+            keywords: campaign.keywords || "",
+            campaignId: campaign.id,
           });
 
-          try {
-            const port = process.env.PORT || 5000;
-            const resp = await fetch(`http://localhost:${port}/api/lead-search/jobs`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json", "X-Campaign-Auto": "true" },
-              body: JSON.stringify({
-                name: `[Auto] ${campaign.name} — ${now.toLocaleDateString("sk-SK")}`,
-                targetModule: campaign.targetModule,
-                country: campaign.country || "",
-                segment: campaign.segment || "",
-                location: campaign.location || "",
-                keywords: campaign.keywords || "",
-                campaignId: campaign.id,
-              }),
+          if (job) {
+            await storage.updateLeadCampaign(campaign.id, {
+              lastRunAt: now,
+              nextRunAt,
+              lastJobId: job.id,
             });
-            if (resp.ok) {
-              const job = await resp.json();
-              await storage.updateLeadCampaign(campaign.id, { lastJobId: job.id });
-              console.log(`[LeadCampaign] Campaign "${campaign.name}" auto-started job ${job.id}, next run: ${nextRunAt.toISOString()}`);
+            console.log(`[LeadCampaign] Campaign "${campaign.name}" auto-started job ${job.id}, next run: ${nextRunAt.toISOString()}`);
 
-              try {
-                const allUsers = await storage.getAllUsers();
-                const roles = await storage.getAllRoles();
-                const adminRole = roles.find((r: Record<string, unknown>) => r.name === "Admin");
-                const adminIds = allUsers.filter((u: Record<string, unknown>) => u.role === "admin" || (adminRole && u.roleId === adminRole.id)).map((u: Record<string, unknown>) => u.id as string);
-                if (adminIds.length > 0) {
-                  await notificationService.sendNotificationToUsers(adminIds, {
-                    type: "lead_campaign_run",
-                    title: `Kampaň "${campaign.name}" — automatické vyhľadávanie spustené`,
-                    message: `Automatická lead kampaň "${campaign.name}" spustila vyhľadávanie (Job #${job.id}). Výsledky budú k dispozícii po dokončení.`,
-                    priority: "normal",
-                    entityType: "lead_campaign",
-                    entityId: String(campaign.id),
-                    metadata: { campaignName: campaign.name, jobId: job.id },
-                  });
-                }
-              } catch (notifErr) { console.error("[LeadCampaign] Notification error:", notifErr); }
-            } else {
-              console.error(`[LeadCampaign] Auto-start failed for campaign "${campaign.name}": ${resp.status}`);
-            }
-          } catch (fetchErr) {
-            console.error(`[LeadCampaign] Auto-start fetch error for campaign "${campaign.name}":`, fetchErr);
+            try {
+              const allUsers = await storage.getAllUsers();
+              const roles = await storage.getAllRoles();
+              const adminRole = roles.find((r: Record<string, unknown>) => r.name === "Admin");
+              const adminIds = allUsers.filter((u: Record<string, unknown>) => u.role === "admin" || (adminRole && u.roleId === adminRole.id)).map((u: Record<string, unknown>) => u.id as string);
+              if (adminIds.length > 0) {
+                await notificationService.sendNotificationToUsers(adminIds, {
+                  type: "lead_campaign_run",
+                  title: `Kampaň "${campaign.name}" — automatické vyhľadávanie spustené`,
+                  message: `Automatická lead kampaň "${campaign.name}" spustila vyhľadávanie (Job #${job.id}). Výsledky budú k dispozícii po dokončení.`,
+                  priority: "normal",
+                  entityType: "lead_campaign",
+                  entityId: String(campaign.id),
+                  metadata: { campaignName: campaign.name, jobId: job.id },
+                });
+              }
+            } catch (notifErr) { console.error("[LeadCampaign] Notification error:", notifErr); }
+          } else {
+            await storage.updateLeadCampaign(campaign.id, { lastRunAt: now, nextRunAt });
+            console.error(`[LeadCampaign] Pipeline returned null for campaign "${campaign.name}"`);
           }
         } catch (err) {
           console.error(`[LeadCampaign] Error running campaign ${campaign.id}:`, err);
@@ -26951,12 +26948,7 @@ Vráť VÝLUČNE JSON pole, nič iné:
     }
   });
 
-  app.post("/api/lead-search/jobs", (req: Request, res: Response, next: NextFunction) => {
-    if (req.headers["x-campaign-auto"] === "true" && (req.ip === "127.0.0.1" || req.ip === "::1" || req.ip === "::ffff:127.0.0.1")) {
-      return next();
-    }
-    requireAuth(req, res, next);
-  }, async (req, res) => {
+  app.post("/api/lead-search/jobs", requireAuth, async (req, res) => {
     try {
       const { name, targetModule, country, segment, location, keywords, campaignId } = req.body;
       if (!name || !targetModule || !["hospitals", "clinics", "collaborators"].includes(targetModule)) {
@@ -26977,7 +26969,28 @@ Vráť VÝLUČNE JSON pole, nič iné:
       });
 
       res.json(job);
+      runLeadSearchPipelineForJob(job, targetModule, country || "", segment || "", location || "", keywords || "");
+    } catch (error) {
+      console.error("[LeadSearch] Create job error:", error);
+      res.status(500).json({ error: "Failed to create search job" });
+    }
+  });
 
+  executeLeadSearchPipeline = async (params) => {
+    try {
+      const { name, targetModule, country, segment, location, keywords, campaignId } = params;
+      if (!name || !targetModule || !["hospitals", "clinics", "collaborators"].includes(targetModule)) return null;
+      const job = await storage.createSearchJob({
+        name, targetModule, country: country || null, segment: segment || null,
+        location: location || null, keywords: keywords || null, status: "running",
+        totalResults: 0, assignedResults: 0, ...(campaignId ? { campaignId } : {}),
+      });
+      runLeadSearchPipelineForJob(job, targetModule, country, segment, location, keywords);
+      return job;
+    } catch (err) { console.error("[LeadSearch] Internal pipeline error:", err); return null; }
+  };
+
+  function runLeadSearchPipelineForJob(job: any, targetModule: string, country: string, segment: string, location: string, keywords: string) {
       const MODULE_SCHEMAS: Record<string, { description: string; fields: string; searchFocus: string }> = {
         hospitals: {
           description: "Nemocnice - lôžkové zdravotnícke zariadenia, fakultné nemocnice, univerzitné nemocnice, špecializované ústavy",
@@ -27876,11 +27889,7 @@ Return ONLY a JSON array of NEW contacts (same format as before).`;
           } as any);
         }
       })();
-    } catch (error) {
-      console.error("[LeadSearch] Create job error:", error);
-      res.status(500).json({ error: "Failed to create search job" });
-    }
-  });
+  }
 
   // Match search result against existing module records
   app.get("/api/lead-search/results/:id/match", requireAuth, async (req, res) => {
