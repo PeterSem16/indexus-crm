@@ -28215,7 +28215,10 @@ Return ONLY a JSON array of NEW contacts (same format as before).`;
 
   app.patch("/api/lead-sources/:id", requireAuth, async (req, res) => {
     try {
-      const source = await storage.updateLeadSource(parseInt(req.params.id), req.body);
+      const allowedFields = ["url", "name", "type", "status", "countryCode", "segment", "successCount", "failCount"];
+      const filtered: Record<string, unknown> = {};
+      for (const key of allowedFields) { if (key in req.body) filtered[key] = req.body[key]; }
+      const source = await storage.updateLeadSource(parseInt(req.params.id), filtered);
       res.json(source);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -28268,7 +28271,10 @@ Return ONLY a JSON array of NEW contacts (same format as before).`;
 
   app.patch("/api/lead-campaigns/:id", requireAuth, async (req, res) => {
     try {
-      const campaign = await storage.updateLeadCampaign(parseInt(req.params.id), req.body);
+      const allowedFields = ["name", "targetModule", "country", "segment", "location", "keywords", "schedule", "isActive", "nextRunAt"];
+      const filtered: Record<string, unknown> = {};
+      for (const key of allowedFields) { if (key in req.body) filtered[key] = req.body[key]; }
+      const campaign = await storage.updateLeadCampaign(parseInt(req.params.id), filtered);
       res.json(campaign);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
