@@ -27539,12 +27539,16 @@ Return ONLY a JSON array of NEW contacts (same format as before).`;
                     if (_isPrivateHost) { contact.enrichment_status = 'skipped'; continue; }
                     const _dnsCheck = await new Promise<boolean>((resolve) => {
                       import('dns').then(dns => {
-                        dns.resolve4(_h, (err, addresses) => {
-                          if (err) { resolve(true); return; }
-                          const blocked = addresses.some((ip: string) => /^(127\.|10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|169\.254\.|0\.|100\.(6[4-9]|[7-9]\d|1[0-2]\d)\.)/.test(ip));
-                          resolve(!blocked);
+                        const checkIp = (ip: string) => /^(127\.|10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|169\.254\.|0\.|100\.(6[4-9]|[7-9]\d|1[0-2]\d)\.|198\.1[89]\.)/.test(ip) || ip.startsWith('::') || ip.startsWith('fc') || ip.startsWith('fd') || ip.startsWith('fe80');
+                        dns.resolve4(_h, (err4, a4) => {
+                          if (err4) { resolve(false); return; }
+                          if (a4.some(checkIp)) { resolve(false); return; }
+                          dns.resolve6(_h, (err6, a6) => {
+                            if (a6 && a6.some(checkIp)) { resolve(false); return; }
+                            resolve(true);
+                          });
                         });
-                      }).catch(() => resolve(true));
+                      }).catch(() => resolve(false));
                     });
                     if (!_dnsCheck) { contact.enrichment_status = 'skipped'; continue; }
                   } catch { contact.enrichment_status = 'skipped'; continue; }
@@ -27573,6 +27577,29 @@ Return ONLY a JSON array of NEW contacts (same format as before).`;
                       contact.enrichment_status = "enriched";
                     }
                   } catch { contact.enrichment_status = "failed"; }
+                }
+
+                if (contact.company_name && !contact.linkedin_url) {
+                  try {
+                    const linkedinQuery = encodeURIComponent(`site:linkedin.com/company ${contact.company_name}`);
+                    const linkedinResp = await fetch(`https://html.duckduckgo.com/html/?q=${linkedinQuery}`, { signal: AbortSignal.timeout(8000), headers: { "User-Agent": "Mozilla/5.0" } });
+                    if (linkedinResp.ok) {
+                      const linkedinHtml = await linkedinResp.text();
+                      const linkedinMatch = linkedinHtml.match(/https?:\/\/(?:www\.)?linkedin\.com\/company\/[a-zA-Z0-9\-]+/i);
+                      if (linkedinMatch) contact.linkedin_url = linkedinMatch[0];
+                    }
+                  } catch {}
+                }
+                if (contact.contact_person && !contact.linkedin_profile) {
+                  try {
+                    const personQuery = encodeURIComponent(`site:linkedin.com/in ${contact.contact_person} ${contact.company_name || ""}`);
+                    const personResp = await fetch(`https://html.duckduckgo.com/html/?q=${personQuery}`, { signal: AbortSignal.timeout(8000), headers: { "User-Agent": "Mozilla/5.0" } });
+                    if (personResp.ok) {
+                      const personHtml = await personResp.text();
+                      const profileMatch = personHtml.match(/https?:\/\/(?:www\.)?linkedin\.com\/in\/[a-zA-Z0-9\-]+/i);
+                      if (profileMatch) contact.linkedin_profile = profileMatch[0];
+                    }
+                  } catch {}
                 }
 
                 const cc = (contact.country_code || country || "").toUpperCase();
@@ -28134,7 +28161,8 @@ Return ONLY a JSON array of NEW contacts (same format as before).`;
       const campaignId = parseInt(req.params.id);
       const campaign = await storage.getLeadCampaign(campaignId);
       if (!campaign) return res.status(404).json({ error: "Campaign not found" });
-      const jobs = await db.select().from(searchJobs).where(sql`${searchJobs.name} LIKE '%[Auto] ' || ${campaign.name} || '%'`).orderBy(desc(searchJobs.createdAt)).limit(20);
+      const namePattern = `%[Auto] ${campaign.name}%`;
+      const jobs = await db.select().from(searchJobs).where(sql`${searchJobs.name} LIKE ${namePattern}`).orderBy(desc(searchJobs.createdAt)).limit(20);
       res.json(jobs);
     } catch (error: any) {
       res.status(500).json({ error: error.message });

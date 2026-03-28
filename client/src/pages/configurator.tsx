@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, Fragment } from "react";
 import { cn } from "@/lib/utils";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useI18n } from "@/i18n";
@@ -17959,6 +17959,8 @@ function LeadSearchTab() {
   const [selectedSuggestions, setSelectedSuggestions] = useState<number[]>([]);
   const [sourceForm, setSourceForm] = useState({ url: "", name: "", type: "directory", countryCode: "", segment: "" });
   const [campaignForm, setCampaignForm] = useState({ name: "", targetModule: "hospitals", country: "", segment: "", location: "", keywords: "", schedule: "weekly" });
+  const [expandedCampaign, setExpandedCampaign] = useState<number | null>(null);
+  const [editingSource, setEditingSource] = useState<any>(null);
 
   const { data: analytics } = useQuery<any>({ queryKey: ["/api/lead-search/analytics"] });
   const { data: leadSources = [], refetch: refetchSources } = useQuery<any[]>({ queryKey: ["/api/lead-sources"] });
@@ -18193,6 +18195,41 @@ function LeadSearchTab() {
       if (!resp.ok) throw new Error("Failed");
       refetchCampaigns();
     } catch { toast({ title: "Chyba pri mazaní", variant: "destructive" }); }
+  };
+
+  const updateSource = async (source: any) => {
+    try {
+      const resp = await fetch(`/api/lead-sources/${source.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ name: source.name, url: source.url, type: source.type, countryCode: source.countryCode, segment: source.segment }) });
+      if (!resp.ok) throw new Error("Failed");
+      setEditingSource(null);
+      refetchSources();
+      toast({ title: "Zdroj aktualizovaný" });
+    } catch { toast({ title: "Chyba pri úprave", variant: "destructive" }); }
+  };
+
+  const CampaignHistory = ({ campaignId }: { campaignId: number }) => {
+    const { data: history = [] } = useQuery<any[]>({ queryKey: ["/api/lead-campaigns", campaignId, "history"] });
+    return (
+      <div className="mt-3 border-t pt-3">
+        <div className="text-xs font-medium mb-2">História behov</div>
+        {history.length === 0 ? (
+          <div className="text-xs text-muted-foreground">Žiadne behy kampane.</div>
+        ) : (
+          <div className="space-y-1">
+            {history.map((job: any) => (
+              <div key={job.id} className="flex items-center justify-between text-xs border rounded px-3 py-1.5">
+                <span className="font-medium">{job.name}</span>
+                <div className="flex items-center gap-3">
+                  <span className={cn("px-1.5 py-0.5 rounded-full text-[10px]", job.status === "completed" ? "bg-green-100 text-green-700" : job.status === "failed" ? "bg-red-100 text-red-700" : "bg-yellow-100 text-yellow-700")}>{job.status}</span>
+                  <span>{job.totalResults || 0} leadov</span>
+                  <span>{new Date(job.createdAt).toLocaleDateString("sk-SK")}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
   };
 
   const COUNTRIES = [
@@ -18442,7 +18479,8 @@ function LeadSearchTab() {
                     </thead>
                     <tbody>
                       {leadSources.map((source: any) => (
-                        <tr key={source.id} data-testid={`source-row-${source.id}`} className="border-b hover:bg-accent/30">
+                        <Fragment key={source.id}>
+                        <tr data-testid={`source-row-${source.id}`} className="border-b hover:bg-accent/30">
                           <td className="py-2 px-2 font-medium">{source.name}</td>
                           <td className="py-2 px-2 text-xs font-mono truncate max-w-[200px]">
                             <a href={source.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">{source.url}</a>
@@ -18465,6 +18503,9 @@ function LeadSearchTab() {
                           </td>
                           <td className="py-2 px-2 text-right">
                             <div className="flex items-center gap-1 justify-end">
+                              <Button size="sm" variant="outline" className="h-7 text-xs" data-testid={`edit-source-${source.id}`} onClick={() => setEditingSource({...source})}>
+                                ✏️
+                              </Button>
                               <Button size="sm" variant="outline" className="h-7 text-xs" data-testid={`toggle-source-${source.id}`} onClick={() => toggleSourceStatus(source)}>
                                 {source.status === "active" ? "Blokovať" : "Aktivovať"}
                               </Button>
@@ -18474,6 +18515,21 @@ function LeadSearchTab() {
                             </div>
                           </td>
                         </tr>
+                        {editingSource?.id === source.id && (
+                          <tr>
+                            <td colSpan={7} className="py-2 px-2 bg-muted/30">
+                              <div className="flex items-center gap-2">
+                                <Input className="h-7 text-xs flex-1" value={editingSource.url} onChange={(e) => setEditingSource({...editingSource, url: e.target.value})} placeholder="URL" />
+                                <Input className="h-7 text-xs flex-1" value={editingSource.name} onChange={(e) => setEditingSource({...editingSource, name: e.target.value})} placeholder="Názov" />
+                                <Input className="h-7 text-xs w-20" value={editingSource.countryCode || ""} onChange={(e) => setEditingSource({...editingSource, countryCode: e.target.value})} placeholder="Krajina" />
+                                <Input className="h-7 text-xs flex-1" value={editingSource.segment || ""} onChange={(e) => setEditingSource({...editingSource, segment: e.target.value})} placeholder="Segment" />
+                                <Button size="sm" className="h-7 text-xs" data-testid={`save-source-${source.id}`} onClick={() => updateSource(editingSource)}>Uložiť</Button>
+                                <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setEditingSource(null)}>Zrušiť</Button>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                        </Fragment>
                       ))}
                     </tbody>
                   </table>
@@ -18580,20 +18636,30 @@ function LeadSearchTab() {
                           <div className="text-xs text-muted-foreground mt-1.5 flex gap-4">
                             <span>Nájdených leadov: <strong>{campaign.totalLeadsFound || 0}</strong></span>
                             {campaign.lastRunAt && <span>Posledný beh: {new Date(campaign.lastRunAt).toLocaleDateString("sk-SK")}</span>}
-                            {campaign.nextRunAt && (
-                              <span>Ďalší beh: <strong>{new Date(campaign.nextRunAt).toLocaleDateString("sk-SK")}</strong></span>
-                            )}
+                            {campaign.nextRunAt && (() => {
+                              const nextDate = new Date(campaign.nextRunAt);
+                              const now = new Date();
+                              const diffMs = nextDate.getTime() - now.getTime();
+                              const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+                              const diffHours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                              const countdown = diffMs <= 0 ? "čoskoro" : diffDays > 0 ? `za ${diffDays}d ${diffHours}h` : `za ${diffHours}h`;
+                              return <span>Ďalší beh: <strong className={diffMs <= 0 ? "text-orange-600" : ""}>{countdown}</strong> ({nextDate.toLocaleDateString("sk-SK")})</span>;
+                            })()}
                           </div>
                         </div>
                         <div className="flex items-center gap-1">
                           <Button size="sm" variant="outline" className="h-7 text-xs" data-testid={`toggle-campaign-${campaign.id}`} onClick={() => toggleCampaign(campaign)}>
                             {campaign.isActive ? "Pozastaviť" : "Aktivovať"}
                           </Button>
+                          <Button size="sm" variant="outline" className="h-7 text-xs" data-testid={`history-campaign-${campaign.id}`} onClick={() => setExpandedCampaign(expandedCampaign === campaign.id ? null : campaign.id)}>
+                            📋 História
+                          </Button>
                           <Button size="sm" variant="ghost" className="h-7 text-xs text-red-600" data-testid={`delete-campaign-${campaign.id}`} onClick={() => deleteCampaign(campaign.id)}>
                             <Trash2 className="h-3 w-3" />
                           </Button>
                         </div>
                       </div>
+                      {expandedCampaign === campaign.id && <CampaignHistory campaignId={campaign.id} />}
                     </div>
                   ))}
                 </div>
