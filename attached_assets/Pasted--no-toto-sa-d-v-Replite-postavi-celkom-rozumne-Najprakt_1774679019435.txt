@@ -1,0 +1,183 @@
+Áno — toto sa dá v Replite postaviť celkom rozumne.
+
+Najpraktickejšie je nerobiť z toho „AI scraper“, ktorý bezhlavo lezie po weboch, ale lead extraction systém, kde AI pomáha hlavne pri:
+	•	pochopení kritérií,
+	•	výbere relevantných stránok,
+	•	extrakcii kontaktov z neštruktúrovaného textu,
+	•	čistení, deduplikácii a klasifikácii výsledkov.
+
+V Replite na to máš celkom dobrý základ: vieš tam mať web appku nasadenú cez Autoscale Deployments, plánované úlohy cez Scheduled Deployments, tajné kľúče cez Secrets a PostgreSQL databázu priamo v prostredí.  ￼
+
+Čo by ten systém robil
+
+Používateľ si zadá filtre, napríklad:
+	•	krajina: SK / CZ / HU
+	•	segment: gynekológovia, PR agentúry, hodinoví manželia, advokáti…
+	•	lokalita: Bratislava, Trnava, Praha…
+	•	povinné údaje: email, telefón, web, kontaktná osoba
+	•	zdrojový typ: katalógy, firemné weby, verejné registre, mapové výsledky, profesijné zoznamy
+
+Systém potom ide v týchto krokoch:
+	1.	Vyhľadanie kandidátnych webov
+Najprv sa vytvorí zoznam relevantných URL adries podľa kritérií.
+Príklad: „gynekológ Bratislava email“, „PR agentúra Košice kontakt“, „advokát Brno telefon“.
+	2.	Stiahnutie obsahu
+Pre každú URL sa stiahne HTML stránka, prípadne sa dohľadá podstránka kontakt, o nas, team, ambulancia, pobocka a podobne.
+	3.	Klasická extrakcia
+Z HTML sa vytiahnu:
+	•	emaily regexom
+	•	telefónne čísla regexom
+	•	odkazy na kontaktné stránky
+	•	názov firmy / ambulancie / osoby
+	•	adresa, mesto, PSČ
+	•	IČO alebo podobný identifikátor, ak je verejne uvedený
+	4.	AI normalizácia
+AI potom z neporiadneho textu urobí štruktúrovaný záznam, napríklad:
+	•	company_name
+	•	contact_person
+	•	emails[]
+	•	phones[]
+	•	address
+	•	specialization
+	•	confidence_score
+	•	source_url
+	5.	Deduplikácia
+Ten istý kontakt sa môže objaviť na 5 miestach.
+Preto sa porovnáva názov, webdoména, email, telefón a adresa.
+	6.	Skórovanie kvality
+Napríklad:
+	•	firemný email > generický email
+	•	mobil + email + web = vysoká kvalita
+	•	len formulár bez emailu = nízka kvalita
+	7.	Export
+CSV / XLSX / interný dashboard s filtrom, poznámkami a označením zdroja.
+
+⸻
+
+Ako by som to navrhol technicky v Replite
+
+1. Frontend
+
+Najlepšie jednoduché admin rozhranie:
+	•	formulár pre zadanie kritérií
+	•	tlačidlo „Spustiť zber“
+	•	tabuľka výsledkov
+	•	export CSV/XLSX
+	•	história behov
+
+2. Backend API
+
+Napríklad Node.js + Express alebo Python + FastAPI.
+
+Endpointy:
+	•	POST /api/jobs
+	•	GET /api/jobs/:id
+	•	GET /api/results
+	•	POST /api/results/export
+	•	POST /api/sources/test
+
+3. Databáza
+
+Replit má SQL databázu/Postgres priamo dostupnú a produkčné DB sú postavené na PostgreSQL 16.  ￼
+
+Tabuľky napríklad:
+	•	search_jobs
+	•	search_criteria
+	•	source_urls
+	•	raw_pages
+	•	extracted_contacts
+	•	normalized_contacts
+	•	contact_matches
+	•	export_logs
+
+4. Behový model
+
+Na webové rozhranie použi normálne nasadenie appky.
+Na pravidelné zbery použi Scheduled Deployments, ktoré sú v Replite určené práve na periodické úlohy, nie na dlhé nepretržité procesy.  ￼
+
+5. Tajné kľúče
+
+OpenAI API kľúč, proxy kľúče, captcha služby a podobné veci drž výhradne v Replit Secrets, nie v kóde. Replit ich šifruje a sprístupňuje ako environment variables.  ￼
+
+⸻
+
+Kde AI naozaj dáva zmysel
+
+AI by som nepúšťal na všetko, lebo by to bolo drahé a pomalé.
+
+Najlepší pomer cena/výkon je:
+
+AI použiť na:
+	•	klasifikáciu, či stránka patrí do hľadaného segmentu
+	•	vytiahnutie mena kontaktnej osoby z textu
+	•	rozpoznanie špecializácie
+	•	zjednotenie neštruktúrovaného obsahu do JSON
+	•	určenie, či je kontakt relevantný podľa zvolených kritérií
+
+AI nepoužívať na:
+	•	základné hľadanie emailov
+	•	základné hľadanie telefónov
+	•	parsovanie jednoduchého HTML
+	•	deduplikáciu podľa presných polí
+
+Na to sú regexy, DOM parser a normálna logika rýchlejšie aj lacnejšie.
+
+⸻
+
+Odporúčaná architektúra
+
+Varianta A — rýchle MVP
+
+Dobrá na rozbeh za pár dní.
+	•	Replit frontend + backend
+	•	PostgreSQL
+	•	jednoduchý crawler
+	•	regex + DOM parsing
+	•	AI len na normalizáciu
+	•	CSV export
+
+Toto je super, ak chceš rýchlo overiť, či systém prináša použiteľné leady.
+
+Varianta B — poloprofesionálna verzia
+	•	fronta úloh
+	•	retry mechanizmus
+	•	logovanie chýb
+	•	monitoring úspešnosti zdrojov
+	•	stránkovacie limity
+	•	scoring kvality
+	•	plánované denné aktualizácie
+
+Varianta C — produkčný lead engine
+	•	viac zdrojových konektorov
+	•	reputačné skóre domén
+	•	zber po krajinách
+	•	AI enrichment
+	•	audit trail: z ktorého URL bol kontakt získaný
+	•	export do CRM
+	•	blacklist domén
+	•	robots/terms compliance vrstva
+
+⸻
+
+Na čo si dať pozor
+
+Toto je dôležité.
+
+Nie každý verejný web znamená, že sa smie hromadne scrapovať.
+Treba riešiť:
+	•	robots.txt
+	•	podmienky používania webu
+	•	primeranú frekvenciu requestov
+	•	zákaz obchádzania ochranných mechanizmov
+	•	GDPR a účel spracovania osobných údajov
+
+Čiže správny prístup je:
+	•	zbierať iba verejne dostupné kontaktné údaje
+	•	evidovať zdroj URL
+	•	ukladať len údaje relevantné pre legitímny obchodný účel
+	•	mať možnosť kontakt odstrániť alebo zablokovať
+	•	nerobiť agresívne scraping slučky ako besný vysávač po troch kávach
+
+⸻
+
+Praktický návrh dátového modelu kontaktu
