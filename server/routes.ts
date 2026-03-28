@@ -28234,6 +28234,64 @@ Return ONLY a JSON array of NEW contacts (same format as before).`;
     }
   });
 
+  app.post("/api/lead-sources/ai-suggest", requireAuth, async (req, res) => {
+    try {
+      const { country, segment, targetModule } = req.body;
+      const existingSources = await storage.getAllLeadSources();
+      const existingUrls = existingSources.map((s: any) => s.url).filter(Boolean);
+      const existingNames = existingSources.map((s: any) => s.name).filter(Boolean);
+
+      const countryNames: Record<string, string> = { SK: "Slovensko", CZ: "Česko", HU: "Maďarsko", PL: "Poľsko", AT: "Rakúsko", DE: "Nemecko", RO: "Rumunsko", IT: "Taliansko" };
+      const moduleNames: Record<string, string> = { hospitals: "nemocnice a zdravotnícke zariadenia", clinics: "ambulancie a lekárske ordinácie", collaborators: "spolupracovníci a obchodní partneri" };
+
+      const prompt = `Navrhni 8–12 konkrétnych webových zdrojov (adresáre, registre, portály, databázy) na vyhľadávanie leadov pre oblasť: ${moduleNames[targetModule] || targetModule || "zdravotníctvo, medicína, kmeňové bunky"}.
+${country ? `Krajina: ${countryNames[country] || country}` : "Región: stredná Európa (SK, CZ, HU, PL, AT, DE)"}
+${segment ? `Segment/špecializácia: ${segment}` : ""}
+
+Tieto zdroje UŽ MÁME (vynechaj ich a navrhni nové):
+${existingUrls.length > 0 ? existingUrls.join("\n") : "(žiadne)"}
+
+Pre každý zdroj uveď:
+1. Presná URL adresa (reálna, overiteľná)
+2. Názov zdroja
+3. Typ: directory (adresár lekárov/nemocníc), registry (štátny register), portal (zdravotnícky portál), website (odborná stránka)
+4. Kód krajiny (2-písmenový ISO, napr. SK, CZ)
+5. Segment/zameranie
+
+Preferuj:
+- Oficiálne štátne registre zdravotníckych zariadení
+- Odborné adresáre lekárov a nemocníc
+- Zdravotnícke portály s databázou kontaktov
+- Profesijné komory a asociácie
+- Databázy firiem s IČO
+
+Odpovedz VÝHRADNE ako JSON pole objektov s kľúčmi: url, name, type, countryCode, segment, reason (krátke zdôvodnenie prečo je zdroj užitočný).`;
+
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [{ role: "user", content: prompt }],
+        response_format: { type: "json_object" },
+        temperature: 0.7,
+      });
+
+      const content = response.choices[0]?.message?.content || "{}";
+      let parsed: any;
+      try { parsed = JSON.parse(content); } catch { parsed = { suggestions: [] }; }
+      const suggestions = Array.isArray(parsed) ? parsed : (parsed.suggestions || parsed.sources || parsed.results || []);
+
+      const filtered = suggestions.filter((s: any) => {
+        if (!s.url || !s.name) return false;
+        const domain = s.url.replace(/https?:\/\//, "").replace(/www\./, "").split("/")[0].toLowerCase();
+        return !existingUrls.some((eu: string) => eu.toLowerCase().includes(domain));
+      });
+
+      res.json(filtered);
+    } catch (error: any) {
+      console.error("[LeadSources] AI suggest error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // ═══════════════════════════════════════════════════════════
   // Lead Campaigns CRUD
   // ═══════════════════════════════════════════════════════════

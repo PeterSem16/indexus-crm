@@ -17961,6 +17961,9 @@ function LeadSearchTab() {
   const [campaignForm, setCampaignForm] = useState({ name: "", targetModule: "hospitals", country: "", segment: "", location: "", keywords: "", schedule: "weekly" });
   const [expandedCampaign, setExpandedCampaign] = useState<number | null>(null);
   const [editingSource, setEditingSource] = useState<any>(null);
+  const [aiSourceSuggestions, setAiSourceSuggestions] = useState<any[]>([]);
+  const [aiSourceLoading, setAiSourceLoading] = useState(false);
+  const [aiSourceFilter, setAiSourceFilter] = useState({ country: "", segment: "", targetModule: "hospitals" });
 
   const { data: analytics } = useQuery<any>({ queryKey: ["/api/lead-search/analytics"] });
   const { data: leadSources = [], refetch: refetchSources } = useQuery<any[]>({ queryKey: ["/api/lead-sources"] });
@@ -18134,6 +18137,52 @@ function LeadSearchTab() {
     } finally {
       setIsAssigning(false);
     }
+  };
+
+  const getAiSourceSuggestions = async () => {
+    setAiSourceLoading(true);
+    setAiSourceSuggestions([]);
+    try {
+      const resp = await fetch("/api/lead-sources/ai-suggest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(aiSourceFilter),
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        setAiSourceSuggestions(data);
+      }
+    } catch (err) { console.error("AI source suggest error:", err); }
+    setAiSourceLoading(false);
+  };
+
+  const addSuggestedSource = async (suggestion: any) => {
+    try {
+      const resp = await fetch("/api/lead-sources", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          url: suggestion.url,
+          name: suggestion.name,
+          type: suggestion.type || "directory",
+          countryCode: suggestion.countryCode || "",
+          segment: suggestion.segment || "",
+        }),
+      });
+      if (resp.ok) {
+        refetchSources();
+        setAiSourceSuggestions(prev => prev.filter(s => s.url !== suggestion.url));
+      }
+    } catch (err) { console.error("Add suggested source error:", err); }
+  };
+
+  const addAllSuggestedSources = async () => {
+    for (const s of aiSourceSuggestions) {
+      await addSuggestedSource(s);
+    }
+    setAiSourceSuggestions([]);
   };
 
   const createSource = async () => {
@@ -18533,6 +18582,94 @@ function LeadSearchTab() {
                       ))}
                     </tbody>
                   </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Zap className="h-4 w-4 text-amber-500" />
+                AI návrhy zdrojov
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Modul</label>
+                  <Select value={aiSourceFilter.targetModule} onValueChange={(v) => setAiSourceFilter({ ...aiSourceFilter, targetModule: v })}>
+                    <SelectTrigger data-testid="select-ai-source-module"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="hospitals">Nemocnice</SelectItem>
+                      <SelectItem value="clinics">Ambulancie</SelectItem>
+                      <SelectItem value="collaborators">Spolupracovníci</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Krajina</label>
+                  <Select value={aiSourceFilter.country || "all"} onValueChange={(v) => setAiSourceFilter({ ...aiSourceFilter, country: v === "all" ? "" : v })}>
+                    <SelectTrigger data-testid="select-ai-source-country"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Všetky</SelectItem>
+                      {COUNTRIES.map(c => <SelectItem key={c.code} value={c.code}>{c.flag} {c.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Segment</label>
+                  <Input data-testid="input-ai-source-segment" placeholder="napr. gynekológia" value={aiSourceFilter.segment} onChange={(e) => setAiSourceFilter({ ...aiSourceFilter, segment: e.target.value })} />
+                </div>
+                <div className="flex items-end">
+                  <Button onClick={getAiSourceSuggestions} className="w-full" disabled={aiSourceLoading} data-testid="button-ai-source-suggest">
+                    {aiSourceLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Zap className="h-4 w-4 mr-2" />}
+                    {aiSourceLoading ? "Hľadám..." : "Navrhnúť zdroje"}
+                  </Button>
+                </div>
+              </div>
+
+              {aiSourceSuggestions.length > 0 && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-muted-foreground">Nájdených {aiSourceSuggestions.length} návrhov</p>
+                    <Button size="sm" variant="outline" onClick={addAllSuggestedSources} data-testid="button-add-all-sources">
+                      <Plus className="h-3 w-3 mr-1" />
+                      Pridať všetky
+                    </Button>
+                  </div>
+                  <div className="grid gap-2">
+                    {aiSourceSuggestions.map((s: any, i: number) => (
+                      <div key={i} className="flex items-start gap-3 p-3 rounded-lg border bg-card hover:bg-muted/30 transition-colors" data-testid={`ai-source-suggestion-${i}`}>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-medium text-sm">{s.name}</span>
+                            <span className={cn("text-[10px] px-1.5 py-0.5 rounded font-medium",
+                              s.type === "registry" ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" :
+                              s.type === "directory" ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" :
+                              s.type === "portal" ? "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400" :
+                              "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400"
+                            )}>
+                              {s.type === "registry" ? "Register" : s.type === "directory" ? "Adresár" : s.type === "portal" ? "Portál" : "Web"}
+                            </span>
+                            {s.countryCode && <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium">{s.countryCode}</span>}
+                          </div>
+                          <a href={s.url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 dark:text-blue-400 hover:underline break-all">{s.url}</a>
+                          {s.reason && <p className="text-xs text-muted-foreground mt-1">{s.reason}</p>}
+                          {s.segment && <span className="text-[10px] text-muted-foreground">Segment: {s.segment}</span>}
+                        </div>
+                        <div className="flex gap-1 shrink-0">
+                          <Button size="sm" variant="outline" className="h-7 text-xs" data-testid={`add-ai-source-${i}`} onClick={() => addSuggestedSource(s)}>
+                            <Plus className="h-3 w-3 mr-1" />
+                            Pridať
+                          </Button>
+                          <Button size="sm" variant="ghost" className="h-7 text-xs text-muted-foreground" onClick={() => setAiSourceSuggestions(prev => prev.filter((_, idx) => idx !== i))}>
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </CardContent>
