@@ -1,0 +1,223 @@
+Jasné. Poďme to navrhnúť tak, aby to bolo reálne použiteľné v Replite ako MVP, ktoré sa neskôr dá prerásť do produkčného lead extraction systému.
+
+Replit je na toto vhodný hlavne preto, že ti vie pokryť:
+	•	bežiacu web appku cez Autoscale Deployments,
+	•	plánované úlohy cez Scheduled Deployments,
+	•	Secrets pre API kľúče,
+	•	a managed PostgreSQL databázu. Replit zároveň upozorňuje, že filesystem deploymentu nie je vhodný na trvalé dáta, takže výsledky a joby treba dávať do DB alebo object storage.  ￼
+
+1. Cieľ systému
+
+Systém má vedieť:
+	1.	prijať kritériá vyhľadávania,
+	2.	nájsť relevantné verejné zdroje,
+	3.	stiahnuť a analyzovať obsah,
+	4.	extrahovať kontakty,
+	5.	AI vrstvou ich očistiť a zaradiť,
+	6.	odstrániť duplicity,
+	7.	uložiť výsledky,
+	8.	exportovať ich do CSV/XLSX alebo poslať do CRM.
+
+Príklad vstupu:
+	•	krajina: SK, CZ, HU
+	•	segment: gynekológovia / PR agentúry / servisy / advokáti
+	•	lokalita: Bratislava
+	•	povinné údaje: email, telefón
+	•	jazyk: SK/CZ/EN/HU
+	•	typ zdroja: firemné weby, katalógy, registre
+
+Príklad výstupu:
+	•	názov firmy
+	•	kontaktná osoba
+	•	email
+	•	telefón
+	•	web
+	•	adresa
+	•	segment
+	•	zdroj URL
+	•	confidence score
+	•	dátum nálezu
+
+⸻
+
+2. Odporúčaný stack v Replite
+
+Na tvoj typ projektu by som išiel takto:
+
+Frontend
+	•	React
+	•	Tailwind CSS
+	•	shadcn/ui alebo vlastné komponenty
+	•	TanStack Query na volanie API
+
+Backend
+	•	Node.js + Express
+	•	TypeScript
+	•	Cheerio na parsovanie HTML
+	•	Axios alebo native fetch na sťahovanie stránok
+	•	OpenAI API na AI normalizáciu a klasifikáciu
+
+Databáza
+	•	PostgreSQL
+
+Background processing
+	•	interný job runner v appke
+	•	Scheduled Deployment na pravidelné zbery alebo refresh
+
+Toto sedí aj na Replit deployment model:
+	•	Autoscale je vhodný pre web appky a API s nepredvídateľnou prevádzkou,
+	•	Scheduled Deployments sú určené pre background tasky a automatizácie,
+	•	Custom domains a TLS/SSL certifikáty pre deployment rieši Replit pri custom domain napojení.  ￼
+
+⸻
+
+3. Architektúra systému
+
+Najlepšie je rozdeliť projekt na 6 vrstiev.
+
+A. Presentation layer
+
+To je admin rozhranie.
+
+Obsah:
+	•	formulár na zadanie kritérií
+	•	zoznam behov
+	•	detail jobu
+	•	výsledky kontaktov
+	•	duplicity
+	•	exporty
+	•	nastavenia zdrojov
+	•	logy / chyby
+
+B. API layer
+
+REST API, ktoré obsluhuje frontend aj background joby.
+
+Príklady endpointov:
+	•	POST /api/search-jobs
+	•	GET /api/search-jobs
+	•	GET /api/search-jobs/:id
+	•	POST /api/search-jobs/:id/run
+	•	POST /api/search-jobs/:id/cancel
+	•	GET /api/contacts
+	•	GET /api/contacts/:id
+	•	POST /api/contacts/export
+	•	GET /api/sources
+	•	POST /api/sources/test
+
+C. Discovery layer
+
+Zodpovedá za nájdenie kandidátnych URL.
+
+Funkcie:
+	•	generovanie vyhľadávacích fráz
+	•	vyhodnotenie relevantnosti domén
+	•	uloženie kandidátnych stránok
+	•	blacklist / whitelist domén
+
+D. Extraction layer
+
+Sem patrí reálne parsovanie stránok.
+
+Funkcie:
+	•	download HTML
+	•	parsovanie DOM
+	•	regex extrakcia emailov
+	•	regex extrakcia telefónov
+	•	extrakcia názvu firmy, adresy, IČO
+	•	hľadanie kontakt page, about page, team page
+
+E. AI enrichment layer
+
+Tu AI robí len to, čo má zmysel.
+
+Funkcie:
+	•	klasifikácia, či stránka patrí do segmentu
+	•	prepis neštruktúrovaného textu do JSON
+	•	identifikácia kontaktnej osoby
+	•	zistenie špecializácie
+	•	confidence score
+	•	jazyková normalizácia
+
+F. Data layer
+
+DB model, deduplikácia, scoring, export, audit.
+
+⸻
+
+4. Logická pipeline spracovania
+
+Takto by bežal jeden job:
+
+Krok 1 — vytvorenie jobu
+
+Používateľ zadá:
+	•	segment
+	•	krajinu
+	•	mesto
+	•	požadované polia
+	•	počet výsledkov
+	•	obmedzenia
+
+Uloží sa search_job.
+
+Krok 2 — query builder
+
+Backend vytvorí sadu fráz, napríklad:
+	•	gynekológ Bratislava kontakt
+	•	gynekologická ambulancia Bratislava email
+	•	gyn clinic Bratislava phone
+	•	MUDr gynekológ Bratislava kontakt
+
+Krok 3 — discovery
+
+Systém nájde URL kandidátov a uloží ich do source_urls.
+
+Krok 4 — fetch
+
+Crawler stiahne HTML, titulok, meta údaje, text.
+
+Krok 5 — extraction
+
+Získa:
+	•	emaily
+	•	telefóny
+	•	názov subjektu
+	•	adresu
+	•	web
+	•	meno osoby, ak sa dá
+
+Krok 6 — AI enrichment
+
+AI zhodnotí:
+	•	je to relevantný subjekt?
+	•	do akej kategórie patrí?
+	•	kto je kontakt?
+	•	čo je primárny email?
+	•	aká je istota výsledku?
+
+Krok 7 — dedupe
+
+Spoja sa záznamy s rovnakou:
+	•	doménou
+	•	emailom
+	•	telefónom
+	•	veľmi podobným názvom + mestom
+
+Krok 8 — scoring
+
+Každý kontakt dostane skóre:
+	•	firemný email: +20
+	•	mobil: +15
+	•	pevná linka: +10
+	•	adresa: +10
+	•	kontaktná osoba: +15
+	•	web: +10
+	•	viac nezávislých zdrojov: +20
+
+Krok 9 — export / sync
+
+Výsledok ide do:
+	•	tabuľky v UI
+	•	CSV/XLSX
+	•	CRM API

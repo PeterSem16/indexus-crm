@@ -17954,10 +17954,12 @@ function LeadSearchTab() {
   const [selectedChanges, setSelectedChanges] = useState<Record<string, boolean>>({});
   const [aiSuggesting, setAiSuggesting] = useState(false);
   const [aiSuggestions, setAiSuggestions] = useState<any[]>([]);
+  const [selectedSuggestions, setSelectedSuggestions] = useState<number[]>([]);
 
   const getAiSuggestions = async () => {
     setAiSuggesting(true);
     setAiSuggestions([]);
+    setSelectedSuggestions([]);
     try {
       const resp = await fetch("/api/lead-search/ai-suggest", {
         method: "POST",
@@ -17978,7 +17980,33 @@ function LeadSearchTab() {
     }
   };
 
-  const applySuggestion = (s: any) => {
+  const toggleSuggestion = (idx: number) => {
+    setSelectedSuggestions(prev =>
+      prev.includes(idx) ? prev.filter(i => i !== idx) : [...prev, idx]
+    );
+  };
+
+  const applySelectedSuggestions = () => {
+    if (selectedSuggestions.length === 0) return;
+    const selected = selectedSuggestions.map(i => aiSuggestions[i]).filter(Boolean);
+    const segments = [...new Set(selected.map(s => s.segment).filter(Boolean))];
+    const locations = [...new Set(selected.map(s => s.location).filter(Boolean))];
+    const allKeywords = [...new Set(selected.flatMap(s => (s.keywords || "").split(",").map((k: string) => k.trim())).filter(Boolean))];
+    const names = selected.map(s => s.name).filter(Boolean);
+
+    setSearchForm({
+      ...searchForm,
+      name: names.length === 1 ? names[0] : `${searchForm.targetModule === "hospitals" ? "Nemocnice" : searchForm.targetModule === "clinics" ? "Ambulancie" : "Spolupracovníci"} - ${locations[0] || "Hľadanie"} (${selected.length} scenárov)`,
+      segment: segments.join(", "),
+      location: locations.join(", "),
+      keywords: allKeywords.slice(0, 10).join(", "),
+    });
+    setAiSuggestions([]);
+    setSelectedSuggestions([]);
+    toast({ title: `${selected.length} AI návrhov skombinovaných do vyhľadávania` });
+  };
+
+  const applySingleSuggestion = (s: any) => {
     setSearchForm({
       ...searchForm,
       name: s.name || searchForm.name,
@@ -17987,6 +18015,7 @@ function LeadSearchTab() {
       keywords: s.keywords || "",
     });
     setAiSuggestions([]);
+    setSelectedSuggestions([]);
     toast({ title: "AI návrh aplikovaný do formulára" });
   };
 
@@ -18164,25 +18193,48 @@ function LeadSearchTab() {
                 {aiSuggesting ? "AI generuje návrhy..." : "AI Návrhy vyhľadávania"}
               </Button>
               {aiSuggestions.length > 0 && (
-                <div className="space-y-1.5 max-h-[240px] overflow-y-auto">
-                  {aiSuggestions.map((s: any, i: number) => (
-                    <div
-                      key={i}
-                      className="bg-white dark:bg-zinc-900 rounded border p-2 cursor-pointer hover:border-violet-400 hover:shadow-sm transition-all group"
-                      onClick={() => applySuggestion(s)}
-                      data-testid={`ai-suggestion-${i}`}
-                    >
-                      <div className="flex items-start justify-between gap-1">
-                        <span className="text-xs font-medium text-violet-700 dark:text-violet-300 leading-tight">{s.name}</span>
-                        <Plus className="h-3 w-3 text-muted-foreground group-hover:text-violet-600 flex-shrink-0 mt-0.5" />
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-muted-foreground">Vyberte 1 alebo viac scenárov:</span>
+                    {selectedSuggestions.length > 0 && (
+                      <Button size="sm" variant="default" className="h-5 text-[10px] px-2 bg-violet-600 hover:bg-violet-700" onClick={applySelectedSuggestions} data-testid="button-apply-suggestions">
+                        Použiť {selectedSuggestions.length} vybraných
+                      </Button>
+                    )}
+                  </div>
+                  <div className="space-y-1 max-h-[220px] overflow-y-auto">
+                    {aiSuggestions.map((s: any, i: number) => (
+                      <div
+                        key={i}
+                        className={`rounded border p-2 cursor-pointer transition-all group ${
+                          selectedSuggestions.includes(i)
+                            ? "border-violet-500 bg-violet-50 dark:bg-violet-950/30 shadow-sm"
+                            : "bg-white dark:bg-zinc-900 hover:border-violet-300"
+                        }`}
+                        data-testid={`ai-suggestion-${i}`}
+                      >
+                        <div className="flex items-start gap-2">
+                          <input
+                            type="checkbox"
+                            className="mt-0.5 rounded border-violet-300"
+                            checked={selectedSuggestions.includes(i)}
+                            onChange={() => toggleSuggestion(i)}
+                          />
+                          <div className="flex-1 min-w-0" onClick={() => toggleSuggestion(i)}>
+                            <div className="flex items-start justify-between gap-1">
+                              <span className="text-xs font-medium text-violet-700 dark:text-violet-300 leading-tight">{s.name}</span>
+                              <button className="text-[9px] text-blue-600 hover:underline flex-shrink-0" onClick={(e) => { e.stopPropagation(); applySingleSuggestion(s); }}>Len tento</button>
+                            </div>
+                            <div className="text-[10px] text-muted-foreground mt-0.5 leading-snug">{s.reason}</div>
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {s.segment && <span className="bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 px-1.5 py-0 rounded text-[9px]">{s.segment}</span>}
+                              {s.location && <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-1.5 py-0 rounded text-[9px]">{s.location}</span>}
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-snug">{s.reason}</div>
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        {s.segment && <span className="bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 px-1.5 py-0 rounded text-[9px]">{s.segment}</span>}
-                        {s.location && <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-1.5 py-0 rounded text-[9px]">{s.location}</span>}
-                      </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               )}
             </div>

@@ -26919,62 +26919,148 @@ Optional: titleBefore (MUDr., Ing., ...), titleAfter (PhD., CSc., ...), phone, m
       (async () => {
         try {
           const moduleInfo = MODULE_SCHEMAS[targetModule];
-          const countryNames: Record<string, string> = { SK: "Slovakia", CZ: "Czech Republic", HU: "Hungary", PL: "Poland", AT: "Austria", DE: "Germany", RO: "Romania", IT: "Italy" };
+          const countryNames: Record<string, string> = { SK: "Slovakia/Slovensko", CZ: "Czech Republic/Česko", HU: "Hungary/Magyarország", PL: "Poland/Polska", AT: "Austria/Österreich", DE: "Germany/Deutschland", RO: "Romania/România", IT: "Italy/Italia" };
           const countryName = country ? (countryNames[country] || country) : "any";
-
-          // STEP 1: AI generates optimized search queries using advanced strategy
-          console.log(`[LeadSearch] Job ${job.id}: Step 1 - AI generating multi-strategy search queries`);
-
           const countryLanguages: Record<string, string> = { SK: "Slovak", CZ: "Czech", HU: "Hungarian", PL: "Polish", AT: "German", DE: "German", RO: "Romanian", IT: "Italian" };
           const localLang = country ? (countryLanguages[country] || "English") : "English";
 
+          // ═══════════════════════════════════════════════════════════
+          // HELPER FUNCTIONS
+          // ═══════════════════════════════════════════════════════════
+
+          const stripHtml = (html: string) => html
+            .replace(/<script[\s\S]*?<\/script>/gi, '')
+            .replace(/<style[\s\S]*?<\/style>/gi, '')
+            .replace(/<noscript[\s\S]*?<\/noscript>/gi, '')
+            .replace(/<!--[\s\S]*?-->/g, '')
+            .replace(/<[^>]+>/g, ' ')
+            .replace(/&nbsp;/gi, ' ').replace(/&amp;/gi, '&').replace(/&lt;/gi, '<').replace(/&gt;/gi, '>').replace(/&quot;/gi, '"').replace(/&#\d+;/g, ' ')
+            .replace(/\s+/g, ' ').trim();
+
+          const extractEmails = (text: string): string[] => {
+            const matches = text.match(/[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g) || [];
+            return [...new Set(matches)].filter(e => !e.match(/\.(png|jpg|gif|svg|webp|css|js)$/i) && !e.includes('example') && !e.includes('wixpress') && !e.includes('sentry') && !e.includes('wordpress') && !e.includes('w3.org') && e.length < 60);
+          };
+
+          const extractPhones = (text: string): string[] => {
+            const matches = text.match(/(?:\+\d{1,3}[\s\-/.]?)?\(?\d{2,4}\)?[\s\-/.]?\d{3}[\s\-/.]?\d{2,4}[\s\-/.]?\d{0,4}/g) || [];
+            return [...new Set(matches.map(p => p.trim()).filter(p => { const digits = p.replace(/\D/g, ''); return digits.length >= 9 && digits.length <= 15; }))];
+          };
+
+          const fetchPage = async (url: string, timeout = 12000): Promise<{html: string, ok: boolean}> => {
+            try {
+              const resp = await fetch(url, {
+                headers: {
+                  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+                  "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                  "Accept-Language": "sk,cs,en;q=0.5",
+                },
+                signal: AbortSignal.timeout(timeout),
+                redirect: "follow",
+              });
+              if (resp.ok && resp.headers.get("content-type")?.includes("text")) {
+                return { html: await resp.text(), ok: true };
+              }
+            } catch (e) { /* skip */ }
+            return { html: "", ok: false };
+          };
+
+          const extractInternalLinks = (html: string, baseUrl: string): string[] => {
+            const links: string[] = [];
+            try {
+              const base = new URL(baseUrl);
+              const hrefRegex = /href="([^"]+)"/gi;
+              let m;
+              while ((m = hrefRegex.exec(html)) !== null && links.length < 50) {
+                let href = m[1];
+                if (href.startsWith("//")) href = "https:" + href;
+                else if (href.startsWith("/")) href = `${base.origin}${href}`;
+                else if (!href.startsWith("http")) continue;
+                try {
+                  const u = new URL(href);
+                  if (u.origin === base.origin && !href.match(/\.(pdf|jpg|png|gif|css|js|svg|ico|woff|woff2|ttf|mp4|zip|rar)$/i) && !href.includes('#')) {
+                    links.push(href.split('?')[0]);
+                  }
+                } catch {}
+              }
+            } catch {}
+            return [...new Set(links)];
+          };
+
+          const normalizeStr = (s: string) => s?.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim() || "";
+
+          // ═══════════════════════════════════════════════════════════
+          // KROK 1: AI QUERY BUILDER — generovanie vyhľadávacích fráz
+          // ═══════════════════════════════════════════════════════════
+          console.log(`[LeadSearch] Job ${job.id}: KROK 1 — AI Query Builder`);
+
           const countryDomains: Record<string, string[]> = {
-            SK: ["znamylekár.sk", "mojelekaren.sk", "zdravotnicke-zariadenia.sk", "nfrsr.sk", "slek.sk", "health.gov.sk"],
-            CZ: ["lkcr.cz", "nemocnice.cz", "zusp.cz", "lekarionline.cz", "uzis.cz"],
-            HU: ["orvoskereso.hu", "nefi.hu", "aeek.hu", "korhaz.hu"],
-            PL: ["znanyLekarz.pl", "rejestr.rpwdl.cz.gov.pl", "bip.mz.gov.pl"],
-            AT: ["aerztekammer.at", "gesundheit.gv.at", "herold.at"],
-            DE: ["arztsuche.116117.de", "jameda.de", "klinikum.de", "bundesaerztekammer.de"],
+            SK: ["znamylekár.sk", "mojelekaren.sk", "zdravotnicke-zariadenia.sk", "nfrsr.sk", "slek.sk", "health.gov.sk", "lekari.sk", "firmy.sk"],
+            CZ: ["lkcr.cz", "nemocnice.cz", "zusp.cz", "lekarionline.cz", "uzis.cz", "firmy.cz", "zlatestranky.cz", "nase-ambulance.cz"],
+            HU: ["orvoskereso.hu", "nefi.hu", "aeek.hu", "korhaz.hu", "tudakozo.hu"],
+            PL: ["znanyLekarz.pl", "rejestr.rpwdl.cz.gov.pl", "bip.mz.gov.pl", "panoramafirm.pl"],
+            AT: ["aerztekammer.at", "gesundheit.gv.at", "herold.at", "docfinder.at"],
+            DE: ["arztsuche.116117.de", "jameda.de", "klinikum.de", "bundesaerztekammer.de", "gelbeseiten.de"],
           };
           const domains = country ? (countryDomains[country] || []) : [];
 
-          const queryGenPrompt = `You are an expert B2B lead generation specialist. Generate 18 highly targeted search queries to find ${moduleInfo.description}.
+          const segmentParts = (segment || "").split(",").map(s => s.trim()).filter(Boolean);
+          const locationParts = (location || "").split(",").map(s => s.trim()).filter(Boolean);
+
+          const queryGenPrompt = `You are an expert B2B lead generation and web scraping specialist for a cord blood banking company (INDEXUS).
+
+TASK: Generate exactly 20 search queries to find ${moduleInfo.description}.
 
 SEARCH CRITERIA:
 - Country: ${countryName} (language: ${localLang})
-- Segment/Specialization: ${segment || "general medical"}
-- Location: ${location || "nationwide"}
-- Additional keywords: ${keywords || "none"}
+- Segments: ${segmentParts.length > 0 ? segmentParts.join(", ") : "general medical"}
+- Locations: ${locationParts.length > 0 ? locationParts.join(", ") : "nationwide"}
+- Keywords: ${keywords || "none"}
+- Search focus: ${moduleInfo.searchFocus}
 
-SEARCH FOCUS: ${moduleInfo.searchFocus}
+IMPORTANT: Your queries MUST find pages that contain LISTS of contacts with emails, phones, addresses. NOT Wikipedia pages, NOT news articles, NOT single-result pages.
 
-CRITICAL: Generate queries that will find REAL PAGES with LISTS of contacts, addresses, emails, and phone numbers. Do NOT generate queries that just return definitions or Wikipedia articles.
+GENERATE 20 QUERIES using these mandatory categories:
 
-MANDATORY QUERY TYPES (generate at least 2 of each):
-1. DIRECTORY/LIST PAGES in ${localLang}: "${segment || "lekár"} ${location || countryName} zoznam" / "adresár" / "register" / "katalóg"
-2. SITE-SPECIFIC SEARCHES targeting known medical directories:
-   ${domains.length > 0 ? `Use these domains: ${domains.join(", ")}` : `Search for medical directories in ${countryName}`}
-3. SIMPLE LOCAL SEARCHES: "${segment || "nemocnica"} ${location || ""} telefón email kontakt"
-4. BUSINESS/MAP LISTINGS: "${segment || "hospital"} near ${location || countryName}" / "ordinačné hodiny ${segment || ""} ${location || ""}"
-5. PROFESSIONAL REGISTRIES: "komora lekárov" / "register poskytovateľov" / "zoznam ambulancií"
-6. CONTACT-FOCUSED: "${segment || "klinika"} ${location || countryName} @" (to find pages with emails)
+A) DIRECTORY QUERIES (5 queries) - Target online directories with facility lists:
+${domains.length > 0 ? `   Known directories: ${domains.join(", ")}` : `   Find medical directories for ${countryName}`}
+   Pattern: "site:directory.com keyword" OR "directory name + segment"
+   Example: "site:znamylekar.sk gynekolog bratislava"
 
-IMPORTANT RULES:
-- Generate 18 queries total
-- At least 10 queries MUST be in ${localLang} (${localLang} medical terminology)
-- Keep queries SHORT and focused (3-6 words work best with search engines)
-- DO NOT use quotation marks excessively - simple queries find more results
-- Prioritize queries that find LIST pages with multiple contacts over single institution pages
-- Include basic name+location+contact combinations (these are most reliable)
-- At least 2 queries should be very simple/broad to ensure baseline results
+B) REGISTRY/DATABASE QUERIES (3 queries) - Official registries, chambers, government databases:
+   Pattern: "register + poskytovateľov + segment" / "komora + lekárov + zoznam"
+   Example: "register zdravotníckych zariadení ${locationParts[0] || ""}"
 
-Return ONLY a JSON array of search query strings, nothing else.`;
+C) SIMPLE LOCAL QUERIES (5 queries) - Short, direct queries in ${localLang}:
+   Pattern: "segment + city + kontakt" / "segment + city + telefón email"
+   These MUST be 3-5 words maximum, in ${localLang}
+   ${segmentParts.map((seg, i) => `   - "${seg} ${locationParts[i] || locationParts[0] || ""} kontakt"`).join("\n")}
+
+D) BUSINESS LISTING QUERIES (3 queries) - Yellow pages, business directories:
+   Pattern: "zlaté stránky + segment" / "firmy.sk + segment + city"
+   Example: "firmy.sk gynekológ bratislava"
+
+E) PROFESSIONAL ASSOCIATION QUERIES (2 queries) - Medical societies, associations:
+   Pattern: "slovenská gynekologická spoločnosť členovia" / "asociácia + segment + zoznam"
+
+F) EMAIL HARVESTING QUERIES (2 queries) - Find pages with visible email addresses:
+   Pattern: "segment city @ email" / "segment kontaktné údaje email telefón"
+
+CRITICAL RULES:
+- ALL queries must be in ${localLang} EXCEPT site: operator queries
+- Keep queries SHORT (3-6 words) - long queries return fewer results
+- NO quotation marks in queries unless absolutely necessary
+- Each segment (${segmentParts.join(", ") || "general"}) must have at least 2 dedicated queries
+- Each location (${locationParts.join(", ") || "nationwide"}) must have at least 1 dedicated query
+- Prioritize queries that will return LISTS/DIRECTORIES over individual facility pages
+
+Return ONLY a JSON array of 20 search query strings.`;
 
           const queryGenResponse = await openai.chat.completions.create({
             model: "gpt-4o-mini",
             messages: [{ role: "user", content: queryGenPrompt }],
             temperature: 0.4,
-            max_tokens: 1500,
+            max_tokens: 2000,
           });
 
           let searchQueries: string[] = [];
@@ -26983,477 +27069,470 @@ Return ONLY a JSON array of search query strings, nothing else.`;
             searchQueries = JSON.parse(qContent.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim());
           } catch (e) {
             console.error("[LeadSearch] Query gen parse error, using fallback queries");
-            const parts = [segment, location, country].filter(Boolean).join(" ");
-            searchQueries = [
-              `${parts} ${targetModule} kontakt email telefón`,
-              `${parts} ${targetModule} contact email phone`,
-              `${parts} medical directory list`,
-            ];
+            const fallbackTerms = segmentParts.length > 0 ? segmentParts : [targetModule === "hospitals" ? "nemocnica" : targetModule === "clinics" ? "ambulancia" : "lekár"];
+            const fallbackLocs = locationParts.length > 0 ? locationParts : [country || ""];
+            searchQueries = [];
+            for (const seg of fallbackTerms) {
+              for (const loc of fallbackLocs) {
+                searchQueries.push(`${seg} ${loc} kontakt email telefón`);
+                searchQueries.push(`${seg} ${loc} zoznam`);
+              }
+            }
+            searchQueries.push(`${targetModule} ${country || ""} register`);
           }
 
-          console.log(`[LeadSearch] Job ${job.id}: Generated ${searchQueries.length} queries`);
+          console.log(`[LeadSearch] Job ${job.id}: KROK 1 — Vygenerovaných ${searchQueries.length} vyhľadávacích fráz`);
 
-          // STEP 2: Execute web searches in parallel with multiple engines and adaptive retry
-          console.log(`[LeadSearch] Job ${job.id}: Step 2 - Multi-source web searching (${searchQueries.length} queries)`);
-          const allSnippets: Array<{title: string, url: string, snippet: string, source: string}> = [];
+          // ═══════════════════════════════════════════════════════════
+          // KROK 2: DISCOVERY — nájdenie kandidátnych URL
+          // ═══════════════════════════════════════════════════════════
+          console.log(`[LeadSearch] Job ${job.id}: KROK 2 — Discovery (${searchQueries.length} queries)`);
 
-          const executeSearchQuery = async (query: string): Promise<Array<{title: string, url: string, snippet: string, source: string}>> => {
-            const results: Array<{title: string, url: string, snippet: string, source: string}> = [];
+          type SearchResult = {title: string, url: string, snippet: string, source: string};
+          const allSnippets: SearchResult[] = [];
+          const seenUrls = new Set<string>();
+          const normUrl = (u: string) => u.replace(/\/+$/, '').replace(/^https?:\/\/(www\.)?/, '').toLowerCase().split('?')[0];
+
+          const executeWebSearch = async (query: string, delayMs = 0): Promise<SearchResult[]> => {
+            if (delayMs > 0) await new Promise(r => setTimeout(r, delayMs));
+            const results: SearchResult[] = [];
             const encoded = encodeURIComponent(query);
 
-            // Source 1: DuckDuckGo Instant Answer API
+            // DuckDuckGo Instant Answer API
             try {
-              const ddgResp = await fetch(`https://api.duckduckgo.com/?q=${encoded}&format=json&no_html=1&skip_disambig=1`, { signal: AbortSignal.timeout(8000) });
-              if (ddgResp.ok) {
-                const ddgData = await ddgResp.json() as any;
-                if (ddgData.Abstract) results.push({ title: ddgData.Heading || query, url: ddgData.AbstractURL || "", snippet: ddgData.Abstract, source: "ddg-api" });
-                if (ddgData.RelatedTopics) {
-                  for (const topic of ddgData.RelatedTopics.slice(0, 10)) {
-                    if (topic.Text && topic.FirstURL) results.push({ title: topic.Text.substring(0, 200), url: topic.FirstURL, snippet: topic.Text, source: "ddg-api" });
-                    if (topic.Topics) { for (const sub of topic.Topics.slice(0, 8)) { if (sub.Text && sub.FirstURL) results.push({ title: sub.Text.substring(0, 200), url: sub.FirstURL, snippet: sub.Text, source: "ddg-api-sub" }); } }
-                  }
+              const resp = await fetch(`https://api.duckduckgo.com/?q=${encoded}&format=json&no_html=1&skip_disambig=1`, { signal: AbortSignal.timeout(8000) });
+              if (resp.ok) {
+                const d = await resp.json() as any;
+                if (d.Abstract && d.AbstractURL) results.push({ title: d.Heading || query, url: d.AbstractURL, snippet: d.Abstract, source: "ddg-api" });
+                for (const t of (d.RelatedTopics || []).slice(0, 12)) {
+                  if (t.Text && t.FirstURL) results.push({ title: t.Text.substring(0, 200), url: t.FirstURL, snippet: t.Text, source: "ddg-api" });
+                  if (t.Topics) for (const sub of t.Topics.slice(0, 8)) { if (sub.Text && sub.FirstURL) results.push({ title: sub.Text.substring(0, 200), url: sub.FirstURL, snippet: sub.Text, source: "ddg-sub" }); }
                 }
-                if (ddgData.Results) { for (const r of ddgData.Results.slice(0, 5)) { if (r.Text && r.FirstURL) results.push({ title: r.Text.substring(0, 200), url: r.FirstURL, snippet: r.Text, source: "ddg-result" }); } }
+                for (const r of (d.Results || []).slice(0, 5)) { if (r.Text && r.FirstURL) results.push({ title: r.Text.substring(0, 200), url: r.FirstURL, snippet: r.Text, source: "ddg-result" }); }
               }
-            } catch (e) { /* skip */ }
+            } catch {}
 
-            // Source 2: DuckDuckGo HTML search with staggered delays to avoid rate limiting
-            const delay = Math.random() * 2000;
-            await new Promise(resolve => setTimeout(resolve, delay));
+            // DuckDuckGo HTML search
             try {
-              const htmlResp = await fetch(`https://html.duckduckgo.com/html/?q=${encoded}`, {
-                headers: {
-                  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-                  "Accept-Language": "sk,cs,en;q=0.5",
-                  "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-                },
-                signal: AbortSignal.timeout(15000),
-                redirect: "follow",
+              const resp = await fetch(`https://html.duckduckgo.com/html/?q=${encoded}`, {
+                headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36", "Accept-Language": "sk,cs,en;q=0.5" },
+                signal: AbortSignal.timeout(15000), redirect: "follow",
               });
-              if (htmlResp.ok) {
-                const html = await htmlResp.text();
+              if (resp.ok) {
+                const html = await resp.text();
                 const linkRegex = /<a[^>]+class="result__a"[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi;
                 const snippetRegex = /<a[^>]+class="result__snippet"[^>]*>([\s\S]*?)<\/a>/gi;
-                let match;
-                const urls: string[] = [], titles: string[] = [], snips: string[] = [];
-                while ((match = linkRegex.exec(html)) !== null && urls.length < 20) {
-                  let url = match[1];
+                let m; const urls: string[] = [], titles: string[] = [], snips: string[] = [];
+                while ((m = linkRegex.exec(html)) !== null && urls.length < 20) {
+                  let url = m[1];
                   if (url.startsWith("//duckduckgo.com/l/?uddg=")) url = decodeURIComponent(url.replace("//duckduckgo.com/l/?uddg=", "").split("&")[0]);
-                  if (url && !url.includes("duckduckgo.com")) { urls.push(url); titles.push(match[2].replace(/<[^>]+>/g, '').trim()); }
+                  if (url && !url.includes("duckduckgo.com")) { urls.push(url); titles.push(m[2].replace(/<[^>]+>/g, '').trim()); }
                 }
-                while ((match = snippetRegex.exec(html)) !== null && snips.length < 20) snips.push(match[1].replace(/<[^>]+>/g, '').trim());
+                while ((m = snippetRegex.exec(html)) !== null && snips.length < 20) snips.push(m[1].replace(/<[^>]+>/g, '').trim());
                 for (let i = 0; i < urls.length; i++) results.push({ title: titles[i] || "", url: urls[i], snippet: snips[i] || titles[i] || "", source: "ddg-html" });
               }
-            } catch (e) { /* skip */ }
+            } catch {}
 
-            // Source 3: Bing search as additional source
+            // Bing search
             try {
-              const bingResp = await fetch(`https://www.bing.com/search?q=${encoded}&count=20`, {
-                headers: {
-                  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-                  "Accept-Language": "sk,cs,en;q=0.5",
-                  "Accept": "text/html,application/xhtml+xml",
-                },
-                signal: AbortSignal.timeout(10000),
-                redirect: "follow",
+              const resp = await fetch(`https://www.bing.com/search?q=${encoded}&count=20`, {
+                headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36", "Accept-Language": "sk,cs,en;q=0.5" },
+                signal: AbortSignal.timeout(10000), redirect: "follow",
               });
-              if (bingResp.ok) {
-                const html = await bingResp.text();
-                const bingLinkRegex = /<h2><a[^>]+href="(https?:\/\/[^"]+)"[^>]*>([\s\S]*?)<\/a><\/h2>/gi;
-                const bingSnippetRegex = /<p class="[^"]*">([\s\S]*?)<\/p>/gi;
-                let match;
-                const bUrls: string[] = [], bTitles: string[] = [], bSnips: string[] = [];
-                while ((match = bingLinkRegex.exec(html)) !== null && bUrls.length < 15) {
-                  const url = match[1];
-                  if (!url.includes("bing.com") && !url.includes("microsoft.com") && !url.includes("go.microsoft")) {
-                    bUrls.push(url);
-                    bTitles.push(match[2].replace(/<[^>]+>/g, '').trim());
-                  }
+              if (resp.ok) {
+                const html = await resp.text();
+                const linkRx = /<h2><a[^>]+href="(https?:\/\/[^"]+)"[^>]*>([\s\S]*?)<\/a><\/h2>/gi;
+                let m;
+                while ((m = linkRx.exec(html)) !== null && results.length < 50) {
+                  if (!m[1].includes("bing.com") && !m[1].includes("microsoft.com")) results.push({ title: m[2].replace(/<[^>]+>/g, '').trim(), url: m[1], snippet: "", source: "bing" });
                 }
-                while ((match = bingSnippetRegex.exec(html)) !== null && bSnips.length < 15) bSnips.push(match[1].replace(/<[^>]+>/g, '').trim());
-                for (let i = 0; i < bUrls.length; i++) results.push({ title: bTitles[i] || "", url: bUrls[i], snippet: bSnips[i] || bTitles[i] || "", source: "bing" });
               }
-            } catch (e) { /* skip */ }
+            } catch {}
 
             return results;
           };
 
-          // Execute searches in 3 waves to avoid rate limiting
-          const wave1Queries = searchQueries.slice(0, 6);
-          const wave2Queries = searchQueries.slice(6, 12);
-          const wave3Queries = searchQueries.slice(12, 18);
-
-          const wave1Results = await Promise.all(wave1Queries.map(q => executeSearchQuery(q)));
-          for (const arr of wave1Results) allSnippets.push(...arr);
-
-          console.log(`[LeadSearch] Job ${job.id}: Wave 1 complete - ${allSnippets.length} results from ${wave1Queries.length} queries`);
-
-          if (wave2Queries.length > 0) {
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            const wave2Results = await Promise.all(wave2Queries.map(q => executeSearchQuery(q)));
-            for (const arr of wave2Results) allSnippets.push(...arr);
-            console.log(`[LeadSearch] Job ${job.id}: Wave 2 complete - ${allSnippets.length} total results`);
+          // Execute in 4 waves of 5 queries with delays between waves
+          for (let wave = 0; wave < 4; wave++) {
+            const batch = searchQueries.slice(wave * 5, (wave + 1) * 5);
+            if (batch.length === 0) break;
+            const waveResults = await Promise.all(batch.map((q, i) => executeWebSearch(q, i * 500)));
+            for (const arr of waveResults) {
+              for (const s of arr) {
+                const norm = normUrl(s.url);
+                if (!seenUrls.has(norm) && s.url) {
+                  seenUrls.add(norm);
+                  allSnippets.push(s);
+                }
+              }
+            }
+            console.log(`[LeadSearch] Job ${job.id}: Discovery vlna ${wave + 1} — celkovo ${allSnippets.length} URL`);
+            if (wave < 3) await new Promise(r => setTimeout(r, 1500));
           }
 
-          if (wave3Queries.length > 0) {
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            const wave3Results = await Promise.all(wave3Queries.map(q => executeSearchQuery(q)));
-            for (const arr of wave3Results) allSnippets.push(...arr);
-            console.log(`[LeadSearch] Job ${job.id}: Wave 3 complete - ${allSnippets.length} total results`);
-          }
-
-          // STEP 2b: If too few results, AI generates retry queries with different strategy
-          if (allSnippets.length < 15) {
-            console.log(`[LeadSearch] Job ${job.id}: Step 2b - Too few results (${allSnippets.length}), AI generating retry queries`);
+          // KROK 2b: Ak málo výsledkov, AI generuje retry queries s inou stratégiou
+          if (allSnippets.length < 20) {
+            console.log(`[LeadSearch] Job ${job.id}: KROK 2b — Málo výsledkov (${allSnippets.length}), adaptívny retry`);
             try {
-              const retryPrompt = `The previous search for "${moduleInfo.description}" in ${countryName} (segment: ${segment || "general"}, location: ${location || "any"}) returned only ${allSnippets.length} results, which is too few.
+              const retryPrompt = `Previous search for "${moduleInfo.description}" in ${countryName} returned only ${allSnippets.length} results.
+Previous queries: ${searchQueries.slice(0, 10).map((q, i) => `${i+1}. ${q}`).join("; ")}
 
-Previous queries tried:
-${searchQueries.map((q, i) => `${i + 1}. ${q}`).join("\n")}
-
-Generate 8 COMPLETELY DIFFERENT search queries using alternative strategies:
-1. Try simpler, broader queries (just the core terms)
-2. Use local language terms only
-3. Target specific well-known directories and registries
-4. Search for lists, databases, and directories instead of individual results
-5. Use "zoznam" (list), "register" (registry), "adresár" (directory) keywords
-6. Try specific city names combined with the medical specialty
-7. Search for professional associations and chambers
-8. Use common abbreviations and acronyms
+Generate 10 COMPLETELY DIFFERENT queries using ONLY these strategies:
+1. Very simple 2-3 word queries in ${localLang} (e.g. "nemocnice bratislava")
+2. Yellow pages / business directory queries
+3. Google Maps style queries (e.g. "${segmentParts[0] || "hospital"} near me ${locationParts[0] || ""}")
+4. Specific institution name searches if you know any in ${countryName}
+5. Regional/city government health facility lists
 
 Return ONLY a JSON array of query strings.`;
-              const retryResp = await openai.chat.completions.create({
-                model: "gpt-4o-mini",
-                messages: [{ role: "user", content: retryPrompt }],
-                temperature: 0.5,
-                max_tokens: 1000,
-              });
-              const retryContent = retryResp.choices[0]?.message?.content || "[]";
-              const retryQueries = JSON.parse(retryContent.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim());
+              const retryResp = await openai.chat.completions.create({ model: "gpt-4o-mini", messages: [{ role: "user", content: retryPrompt }], temperature: 0.6, max_tokens: 1000 });
+              const retryQueries: string[] = JSON.parse((retryResp.choices[0]?.message?.content || "[]").replace(/```json\n?/g, '').replace(/```\n?/g, '').trim());
+              const retryResults = await Promise.all(retryQueries.slice(0, 10).map((q, i) => executeWebSearch(q, i * 300)));
+              for (const arr of retryResults) {
+                for (const s of arr) {
+                  const norm = normUrl(s.url);
+                  if (!seenUrls.has(norm) && s.url) { seenUrls.add(norm); allSnippets.push(s); }
+                }
+              }
+              console.log(`[LeadSearch] Job ${job.id}: Po retry — ${allSnippets.length} URL celkovo`);
+            } catch (e) { console.error("[LeadSearch] Retry failed:", e); }
+          }
 
-              console.log(`[LeadSearch] Job ${job.id}: Retry with ${retryQueries.length} alternative queries`);
-              const retryResults = await Promise.all(retryQueries.slice(0, 8).map((q: string) => executeSearchQuery(q)));
-              for (const arr of retryResults) allSnippets.push(...arr);
-              console.log(`[LeadSearch] Job ${job.id}: After retry - ${allSnippets.length} total results`);
-            } catch (e) {
-              console.error(`[LeadSearch] Job ${job.id}: Retry query generation failed:`, e);
+          console.log(`[LeadSearch] Job ${job.id}: Discovery hotový — ${allSnippets.length} kandidátnych URL`);
+
+          // ═══════════════════════════════════════════════════════════
+          // KROK 3: FETCH — systematické stiahnutie stránok
+          // ═══════════════════════════════════════════════════════════
+          console.log(`[LeadSearch] Job ${job.id}: KROK 3 — Fetch & Parse (do 30 stránok)`);
+
+          type PageData = { url: string; text: string; emails: string[]; phones: string[]; title: string; internalLinks: string[]; domain: string; isDirectory: boolean };
+          const scrapedPages: PageData[] = [];
+
+          const scrapePage = async (url: string): Promise<PageData | null> => {
+            const { html, ok } = await fetchPage(url);
+            if (!ok || !html) return null;
+            const text = stripHtml(html);
+            if (text.length < 50) return null;
+
+            const emails = extractEmails(html + " " + text);
+            const phones = extractPhones(text);
+            const internalLinks = extractInternalLinks(html, url);
+
+            let title = "";
+            const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+            if (titleMatch) title = titleMatch[1].replace(/<[^>]+>/g, '').trim();
+
+            let domain = "";
+            try { domain = new URL(url).hostname; } catch {}
+
+            const isDirectory = text.length > 3000 && (emails.length >= 3 || phones.length >= 3 || /zoznam|seznam|lista|list|directory|register|katalóg|catalog/i.test(text));
+
+            return { url, text: text.substring(0, 6000), emails, phones, title, internalLinks, domain, isDirectory };
+          };
+
+          // Scrape in waves of 8
+          const pagesToScrape = allSnippets.slice(0, 30);
+          for (let wave = 0; wave < Math.ceil(pagesToScrape.length / 8); wave++) {
+            const batch = pagesToScrape.slice(wave * 8, (wave + 1) * 8);
+            const results = await Promise.all(batch.map(s => scrapePage(s.url)));
+            for (const r of results) { if (r) scrapedPages.push(r); }
+            console.log(`[LeadSearch] Job ${job.id}: Scrape vlna ${wave + 1} — ${scrapedPages.length} stránok`);
+            if (wave < 3) await new Promise(r => setTimeout(r, 300));
+          }
+
+          // ═══════════════════════════════════════════════════════════
+          // KROK 4: DEEP CRAWL — prehliadať podstránky directory stránok
+          // ═══════════════════════════════════════════════════════════
+          const directoryPages = scrapedPages.filter(p => p.isDirectory);
+          if (directoryPages.length > 0) {
+            console.log(`[LeadSearch] Job ${job.id}: KROK 4 — Deep crawl ${directoryPages.length} directory stránok`);
+            const deepLinks: string[] = [];
+            for (const dp of directoryPages.slice(0, 5)) {
+              for (const link of dp.internalLinks.slice(0, 15)) {
+                const norm = normUrl(link);
+                if (!seenUrls.has(norm)) {
+                  seenUrls.add(norm);
+                  deepLinks.push(link);
+                }
+              }
+            }
+            if (deepLinks.length > 0) {
+              console.log(`[LeadSearch] Job ${job.id}: Deep crawl — ${Math.min(deepLinks.length, 20)} podstránok`);
+              const deepBatch = deepLinks.slice(0, 20);
+              for (let w = 0; w < Math.ceil(deepBatch.length / 8); w++) {
+                const batch = deepBatch.slice(w * 8, (w + 1) * 8);
+                const results = await Promise.all(batch.map(url => scrapePage(url)));
+                for (const r of results) { if (r) scrapedPages.push(r); }
+              }
+              console.log(`[LeadSearch] Job ${job.id}: Po deep crawl — ${scrapedPages.length} stránok`);
             }
           }
 
-          // Deduplicate by URL (normalize)
-          const seenUrls = new Set<string>();
-          const uniqueSnippets = allSnippets.filter(s => {
-            if (!s.url) return false;
-            const normUrl = s.url.replace(/\/+$/, '').replace(/^https?:\/\/(www\.)?/, '').toLowerCase();
-            if (seenUrls.has(normUrl)) return false;
-            seenUrls.add(normUrl);
-            return true;
-          });
-
-          console.log(`[LeadSearch] Job ${job.id}: Found ${uniqueSnippets.length} unique results from search`);
-
-          // STEP 3: Deep scrape top pages in parallel waves
-          console.log(`[LeadSearch] Job ${job.id}: Step 3 - Deep scraping (up to 25 pages)`);
-          const pageContents: Array<{url: string, content: string, emails: string[], phones: string[]}> = [];
-
-          const stripHtml = (html: string) => html
-            .replace(/<script[\s\S]*?<\/script>/gi, '')
-            .replace(/<style[\s\S]*?<\/style>/gi, '')
-            .replace(/<noscript[\s\S]*?<\/noscript>/gi, '')
-            .replace(/<!--[\s\S]*?-->/g, '')
-            .replace(/<[^>]+>/g, ' ')
-            .replace(/&nbsp;/gi, ' ').replace(/&amp;/gi, '&').replace(/&lt;/gi, '<').replace(/&gt;/gi, '>').replace(/&quot;/gi, '"')
-            .replace(/\s+/g, ' ').trim();
-
-          const extractEmails = (text: string): string[] => {
-            const matches = text.match(/[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g) || [];
-            return [...new Set(matches)].filter(e => !e.endsWith('.png') && !e.endsWith('.jpg') && !e.endsWith('.gif') && !e.endsWith('.svg') && !e.endsWith('.webp') && !e.includes('example') && !e.includes('wixpress') && !e.includes('sentry'));
-          };
-
-          const extractPhones = (text: string): string[] => {
-            const matches = text.match(/(?:\+\d{1,3}[\s\-/]?)?\(?\d{2,4}\)?[\s\-/]?\d{3}[\s\-/]?\d{2,4}[\s\-/]?\d{0,4}/g) || [];
-            return [...new Set(matches.map(p => p.trim()).filter(p => p.replace(/\D/g, '').length >= 9 && p.replace(/\D/g, '').length <= 15))];
-          };
-
-          const extractLinksFromHtml = (html: string, baseUrl: string): string[] => {
-            const links: string[] = [];
-            const linkRegex = /href="(\/[^"]*|https?:\/\/[^"]*)"[^>]*>/gi;
-            let match;
-            const base = new URL(baseUrl);
-            while ((match = linkRegex.exec(html)) !== null && links.length < 30) {
-              let href = match[1];
-              if (href.startsWith("/")) href = `${base.origin}${href}`;
-              try {
-                const u = new URL(href);
-                if (u.origin === base.origin && !href.match(/\.(pdf|jpg|png|gif|css|js|svg|ico|woff)$/i)) {
-                  links.push(href);
-                }
-              } catch {}
-            }
-            return [...new Set(links)];
-          };
-
-          // Scrape in 3 waves: 8 + 8 + 9 pages
-          for (let wave = 0; wave < 3; wave++) {
-            const start = wave * 8;
-            const end = start + (wave === 0 ? 8 : wave === 1 ? 8 : 9);
-            const batch = uniqueSnippets.slice(start, end);
-            if (batch.length === 0) break;
-            if (wave > 0) await new Promise(resolve => setTimeout(resolve, 500));
-
-            const scrapePromises = batch.map(async (s) => {
-              try {
-                const resp = await fetch(s.url, {
-                  headers: {
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-                    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-                    "Accept-Language": "sk,cs,en;q=0.5",
-                  },
-                  signal: AbortSignal.timeout(10000),
-                  redirect: "follow",
-                });
-                if (resp.ok && resp.headers.get("content-type")?.includes("text")) {
-                  const html = await resp.text();
-                  const rawText = stripHtml(html);
-                  const emails = extractEmails(html);
-                  const phones = extractPhones(rawText);
-                  if (rawText.length > 100 || emails.length > 0 || phones.length > 0) {
-                    return { url: s.url, content: rawText.substring(0, 5000), emails, phones };
-                  }
-                }
-              } catch (e) { /* skip */ }
-              return null;
-            });
-
-            const results = await Promise.all(scrapePromises);
-            for (const r of results) { if (r) pageContents.push(r); }
-          }
-
-          // Collect all discovered emails and phones across all pages
-          const allDiscoveredEmails = [...new Set(pageContents.flatMap(p => p.emails))];
-          const allDiscoveredPhones = [...new Set(pageContents.flatMap(p => p.phones))];
-
-          console.log(`[LeadSearch] Job ${job.id}: Scraped ${pageContents.length} pages, found ${allDiscoveredEmails.length} emails, ${allDiscoveredPhones.length} phones`);
-
-          // STEP 3b: Follow "contact" pages for more data
-          const contactPageUrls: string[] = [];
-          for (const page of pageContents) {
+          // ═══════════════════════════════════════════════════════════
+          // KROK 5: CONTACT PAGE FOLLOW — hľadať kontaktné podstránky
+          // ═══════════════════════════════════════════════════════════
+          const contactSubpages: string[] = [];
+          const contactPaths = ["/kontakt", "/contact", "/kontakty", "/contacts", "/about", "/o-nas", "/about-us", "/impressum", "/team", "/nas-tim", "/lekaři", "/lekari", "/doctors", "/staff", "/odbornici"];
+          for (const page of scrapedPages.slice(0, 20)) {
             try {
               const baseUrl = new URL(page.url);
-              const contactPaths = ["/kontakt", "/contact", "/kontakty", "/about", "/o-nas", "/impressum"];
               for (const path of contactPaths) {
                 const contactUrl = `${baseUrl.origin}${path}`;
-                if (!seenUrls.has(contactUrl.replace(/\/+$/, '').replace(/^https?:\/\/(www\.)?/, '').toLowerCase())) {
-                  contactPageUrls.push(contactUrl);
-                  seenUrls.add(contactUrl.replace(/\/+$/, '').replace(/^https?:\/\/(www\.)?/, '').toLowerCase());
+                const norm = normUrl(contactUrl);
+                if (!seenUrls.has(norm)) {
+                  seenUrls.add(norm);
+                  contactSubpages.push(contactUrl);
                 }
               }
-            } catch (e) { /* invalid URL, skip */ }
+            } catch {}
+          }
+          if (contactSubpages.length > 0) {
+            console.log(`[LeadSearch] Job ${job.id}: KROK 5 — Kontaktné stránky (${Math.min(contactSubpages.length, 15)})`);
+            const contactBatch = contactSubpages.slice(0, 15);
+            const contactResults = await Promise.all(contactBatch.map(url => scrapePage(url)));
+            for (const r of contactResults) { if (r) scrapedPages.push(r); }
           }
 
-          if (contactPageUrls.length > 0) {
-            console.log(`[LeadSearch] Job ${job.id}: Step 3b - Scraping ${Math.min(contactPageUrls.length, 10)} contact pages`);
-            const contactPromises = contactPageUrls.slice(0, 10).map(async (url) => {
-              try {
-                const resp = await fetch(url, {
-                  headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36", "Accept-Language": "sk,cs,en;q=0.5" },
-                  signal: AbortSignal.timeout(8000), redirect: "follow",
-                });
-                if (resp.ok && resp.headers.get("content-type")?.includes("text")) {
-                  const html = await resp.text();
-                  const rawText = stripHtml(html);
-                  const emails = extractEmails(html);
-                  const phones = extractPhones(rawText);
-                  if (emails.length > 0 || phones.length > 0) return { url, content: rawText.substring(0, 3000), emails, phones };
-                }
-              } catch (e) { /* skip */ }
-              return null;
-            });
-            const contactResults = await Promise.all(contactPromises);
-            for (const r of contactResults) {
-              if (r) {
-                pageContents.push(r);
-                allDiscoveredEmails.push(...r.emails.filter(e => !allDiscoveredEmails.includes(e)));
-                allDiscoveredPhones.push(...r.phones.filter(p => !allDiscoveredPhones.includes(p)));
-              }
-            }
-          }
+          // Collect all discovered data
+          const allEmails = [...new Set(scrapedPages.flatMap(p => p.emails))];
+          const allPhones = [...new Set(scrapedPages.flatMap(p => p.phones))];
+          const allDomains = [...new Set(scrapedPages.map(p => p.domain).filter(Boolean))];
 
-          if (uniqueSnippets.length === 0 && pageContents.length === 0) {
+          console.log(`[LeadSearch] Job ${job.id}: Celkovo: ${scrapedPages.length} stránok, ${allEmails.length} emailov, ${allPhones.length} telefónov, ${allDomains.length} domén`);
+
+          if (allSnippets.length === 0 && scrapedPages.length === 0) {
             await storage.updateSearchJob(job.id, { status: "completed", totalResults: 0, completedAt: new Date() } as any);
             return;
           }
 
-          // STEP 4: AI extracts structured contacts matching the module schema
-          console.log(`[LeadSearch] Job ${job.id}: Step 4 - AI extraction`);
-          const extractionPrompt = `You are an expert data extraction AI for a cord blood banking CRM system called INDEXUS.
+          // ═══════════════════════════════════════════════════════════
+          // KROK 6: AI EXTRACTION — štrukturovaná extrakcia kontaktov
+          // ═══════════════════════════════════════════════════════════
+          console.log(`[LeadSearch] Job ${job.id}: KROK 6 — AI Extraction`);
 
-YOUR TASK: Extract contact information for "${moduleInfo.description}" from the provided web data.
+          const extractionPrompt = `You are an expert data extraction AI for the INDEXUS CRM system (cord blood banking).
 
-TARGET MODULE: ${targetModule.toUpperCase()}
-TARGET COUNTRY: ${countryName}
-SEGMENT: ${segment || "general"}
-LOCATION: ${location || "any"}
-KEYWORDS: ${keywords || "none"}
+TASK: Extract ALL contacts matching "${moduleInfo.description}" from the scraped web data below.
 
-MODULE DATA STRUCTURE (these are the fields we need to populate):
-${moduleInfo.fields}
+TARGET: ${targetModule.toUpperCase()} | Country: ${countryName} | Segment: ${segment || "general"} | Location: ${location || "any"}
 
-SEARCH RESULTS (snippets from web search):
-${uniqueSnippets.slice(0, 20).map((s, i) => `[${i+1}] "${s.title}"\nURL: ${s.url}\n${s.snippet}`).join("\n\n")}
+SCRAPED PAGES (${scrapedPages.length} pages from ${allDomains.length} domains):
+${scrapedPages.slice(0, 20).map((p, i) => `--- PAGE ${i+1}: ${p.url} ---
+Title: ${p.title}
+Emails: ${p.emails.join(", ") || "none"}
+Phones: ${p.phones.join(", ") || "none"}
+Is directory: ${p.isDirectory}
+Content: ${p.text.substring(0, 4000)}`).join("\n\n")}
 
-${pageContents.length > 0 ? `\nSCRAPED PAGE CONTENT (detailed text from visited pages):\n${pageContents.slice(0, 15).map((p, i) => `--- Page ${i+1}: ${p.url} ---\nEmails found: ${p.emails?.join(", ") || "none"}\nPhones found: ${p.phones?.join(", ") || "none"}\n${p.content}`).join("\n\n")}` : ""}
+ALL DISCOVERED EMAILS: ${allEmails.slice(0, 40).join(", ") || "none"}
+ALL DISCOVERED PHONES: ${allPhones.slice(0, 40).join(", ") || "none"}
 
-DISCOVERED CONTACT DATA FROM PAGE SCRAPING:
-- Emails found across all pages: ${allDiscoveredEmails.slice(0, 30).join(", ") || "none"}
-- Phone numbers found across all pages: ${allDiscoveredPhones.slice(0, 30).join(", ") || "none"}
+SEARCH RESULTS SNIPPETS:
+${allSnippets.slice(0, 25).map((s, i) => `[${i+1}] "${s.title}" — ${s.url}\n${s.snippet}`).join("\n")}
 
 EXTRACTION RULES:
-1. Extract EVERY valid contact that matches the target module type
-2. For each contact, fill in as many fields as possible from the module schema
-3. Phone numbers: include country code, format as +421xxx, +420xxx etc.
-4. Emails: only include if they look valid (contain @ and domain)
-5. For clinics: try to identify the doctor's full name, title, and specialization
-6. For hospitals: get the full official name, department info, address
-7. For collaborators: get first name, last name, title, company, and all contact details
-8. Confidence score (0-100): 90+ = verified data from official source, 70-89 = likely correct, 50-69 = partial data, below 50 = uncertain
-9. IMPORTANT: Only include contacts with at least a name AND one contact method (email, phone, or website)
+1. Extract EVERY contact that matches the target module. Be thorough — extract ALL.
+2. For each contact, fill ALL available fields from the source data
+3. Match emails and phones to the correct contact based on context (proximity on page, same section, same listing)
+4. Phone numbers: format with country code (+421, +420, +36, etc.)
+5. ${targetModule === "hospitals" ? "Get full hospital name, department, address, city, postal code, region, contact person name" : targetModule === "clinics" ? "Get doctor full name with title (MUDr., doc., prof.), specialization, clinic name, address, city" : "Get first name, last name, title, company name, role/type, all phone numbers"}
+6. Confidence score: 90+ = name+email+phone+address, 70-89 = name+2 contact methods, 50-69 = name+1 method, below 50 = partial
+7. MINIMUM: each contact must have at least a name
+8. source_url: which page the data came from
+9. Do NOT invent data — only extract what's actually in the text
 
-Return a JSON array where each object has these fields:
-- company_name (string) - organization/practice name
-- contact_person (string|null) - full name with titles
-- doctor_title (string|null) - academic/medical title (MUDr., doc., prof., Ing., etc.)
-- doctor_first_name (string|null)
-- doctor_last_name (string|null)
-- email (string|null)
-- phone (string|null) - with country code
-- mobile (string|null)
-- website (string|null)
-- address (string|null) - full street address
-- city (string|null)
-- postal_code (string|null)
-- region (string|null)
-- country_code (string) - 2-letter ISO code
-- specialization (string|null) - medical specialty or business type
-- department (string|null) - hospital department if applicable
-- notes (string|null) - any additional useful info
-- source_url (string)
-- confidence_score (integer 0-100)
+RETURN FORMAT — JSON array:
+[{
+  "company_name": "string",
+  "contact_person": "string|null",
+  "doctor_title": "string|null",
+  "doctor_first_name": "string|null",
+  "doctor_last_name": "string|null",
+  "email": "string|null",
+  "phone": "string|null",
+  "mobile": "string|null",
+  "website": "string|null",
+  "address": "string|null",
+  "city": "string|null",
+  "postal_code": "string|null",
+  "region": "string|null",
+  "specialization": "string|null",
+  "source_url": "string",
+  "confidence_score": number,
+  "notes": "string|null"
+}]
 
-Return ONLY the JSON array, no explanations.`;
+Return ONLY the JSON array, nothing else.`;
 
+          let contacts: any[] = [];
           try {
-            const aiResponse = await openai.chat.completions.create({
+            const extractResponse = await openai.chat.completions.create({
               model: "gpt-4o-mini",
               messages: [
-                { role: "system", content: "You are a precise data extraction AI. You ONLY return valid JSON arrays. Never include markdown formatting, explanations, or anything other than the JSON array." },
+                { role: "system", content: "You are a precise data extraction AI. Extract ALL matching contacts. Return ONLY valid JSON arrays. Be thorough and extract every contact you can find." },
                 { role: "user", content: extractionPrompt }
               ],
               temperature: 0.1,
-              max_tokens: 8000,
+              max_tokens: 12000,
             });
 
-            const content = aiResponse.choices[0]?.message?.content || "[]";
-            let contacts: any[] = [];
-            try {
-              const cleaned = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-              contacts = JSON.parse(cleaned);
-              if (!Array.isArray(contacts)) contacts = [];
-            } catch (e) {
-              console.error("[LeadSearch] AI parse error:", e);
-              contacts = [];
+            const rawContent = extractResponse.choices[0]?.message?.content || "[]";
+            const cleaned = rawContent.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+            contacts = JSON.parse(cleaned);
+            if (!Array.isArray(contacts)) contacts = [];
+            console.log(`[LeadSearch] Job ${job.id}: AI extrahoval ${contacts.length} kontaktov`);
+
+            // If AI extracted too few contacts and we have good data, try a second pass
+            if (contacts.length < 5 && scrapedPages.length > 10) {
+              console.log(`[LeadSearch] Job ${job.id}: Málo extrahovaných kontaktov, druhý pokus s ďalšími stránkami`);
+              try {
+                const secondPassPrompt = `Extract MORE contacts for "${moduleInfo.description}" from these additional pages. 
+Previous extraction found ${contacts.length} contacts. Find new ones not yet extracted.
+
+Already extracted: ${contacts.map(c => c.company_name || c.contact_person).filter(Boolean).join(", ")}
+
+ADDITIONAL PAGES:
+${scrapedPages.slice(20, 35).map((p, i) => `--- PAGE ${i+1}: ${p.url} ---
+Emails: ${p.emails.join(", ") || "none"} | Phones: ${p.phones.join(", ") || "none"}
+${p.text.substring(0, 3000)}`).join("\n\n")}
+
+Return ONLY a JSON array of NEW contacts (same format as before).`;
+                const secondResp = await openai.chat.completions.create({
+                  model: "gpt-4o-mini",
+                  messages: [{ role: "system", content: "Extract ALL matching contacts. Return ONLY valid JSON." }, { role: "user", content: secondPassPrompt }],
+                  temperature: 0.1, max_tokens: 8000,
+                });
+                const secondContent = secondResp.choices[0]?.message?.content || "[]";
+                const secondContacts = JSON.parse(secondContent.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim());
+                if (Array.isArray(secondContacts)) {
+                  contacts.push(...secondContacts);
+                  console.log(`[LeadSearch] Job ${job.id}: Druhý pokus pridal ${secondContacts.length} kontaktov (celkovo ${contacts.length})`);
+                }
+              } catch (e) { console.log("[LeadSearch] Second pass failed"); }
             }
 
-            // STEP 5: If we got results, optionally do a verification pass
-            if (contacts.length > 0 && contacts.length <= 20) {
-              console.log(`[LeadSearch] Job ${job.id}: Step 5 - AI verification of ${contacts.length} contacts`);
-              try {
-                const verifyPrompt = `Review and clean up these extracted contacts. Fix any obvious errors, remove duplicates, and verify data consistency.
+          } catch (e) {
+            console.error("[LeadSearch] AI extraction error:", e);
+          }
 
-Module type: ${targetModule}
-Expected country: ${country || "any"}
+          // ═══════════════════════════════════════════════════════════
+          // KROK 7: DEDUPLIKÁCIA — zlúčenie duplicitných záznamov
+          // ═══════════════════════════════════════════════════════════
+          console.log(`[LeadSearch] Job ${job.id}: KROK 7 — Deduplikácia (${contacts.length} kontaktov)`);
 
-Contacts:
-${JSON.stringify(contacts, null, 2)}
+          const deduped: any[] = [];
+          const dedupeKeys = new Set<string>();
 
-Rules:
-- Remove entries that are clearly not ${moduleInfo.description}
-- Fix phone number formats (should include country code like +421, +420, +36, +48, etc.)
-- Fix email formatting issues
-- Remove duplicate entries (same organization/person)
-- Adjust confidence_score based on data completeness: 90+ needs name+email+phone+address, 70-89 needs name+2 contact methods, 50-69 needs name+1 contact method
-- Keep all valid original fields
+          for (const c of contacts) {
+            const name = normalizeStr(c.company_name || c.contact_person || "");
+            const email = (c.email || "").toLowerCase().trim();
+            const phone = (c.phone || "").replace(/\D/g, '');
+            const domain = (() => { try { return c.website ? new URL(c.website.startsWith("http") ? c.website : "https://" + c.website).hostname : ""; } catch { return ""; } })();
 
-Return ONLY the cleaned JSON array.`;
+            const keys = [
+              email ? `e:${email}` : null,
+              phone.length >= 9 ? `p:${phone}` : null,
+              domain ? `d:${domain}` : null,
+              name.length > 5 ? `n:${name.substring(0, 30)}` : null,
+            ].filter(Boolean) as string[];
 
-                const verifyResponse = await openai.chat.completions.create({
-                  model: "gpt-4o-mini",
-                  messages: [
-                    { role: "system", content: "You are a data quality AI. Return ONLY valid JSON arrays." },
-                    { role: "user", content: verifyPrompt }
-                  ],
-                  temperature: 0.1,
-                  max_tokens: 8000,
-                });
+            const isDuplicate = keys.some(k => dedupeKeys.has(k));
 
-                const verifyContent = verifyResponse.choices[0]?.message?.content || "";
-                try {
-                  const cleanedVerify = verifyContent.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-                  const verified = JSON.parse(cleanedVerify);
-                  if (Array.isArray(verified) && verified.length > 0) contacts = verified;
-                } catch (e) {
-                  console.log("[LeadSearch] Verification parse failed, using original contacts");
+            if (!isDuplicate && (name.length > 2 || email || phone)) {
+              keys.forEach(k => dedupeKeys.add(k));
+              deduped.push(c);
+            } else if (isDuplicate) {
+              // Merge data into existing record
+              const existingIdx = deduped.findIndex(d => {
+                const dn = normalizeStr(d.company_name || d.contact_person || "");
+                const de = (d.email || "").toLowerCase().trim();
+                const dp = (d.phone || "").replace(/\D/g, '');
+                return (email && de === email) || (phone.length >= 9 && dp === phone) || (name.length > 5 && dn === name.substring(0, 30));
+              });
+              if (existingIdx >= 0) {
+                const existing = deduped[existingIdx];
+                for (const [key, val] of Object.entries(c)) {
+                  if (val && !existing[key]) existing[key] = val;
                 }
-              } catch (e) {
-                console.log("[LeadSearch] Verification step failed, using original contacts");
+                if ((c.confidence_score || 0) > (existing.confidence_score || 0)) existing.confidence_score = c.confidence_score;
               }
             }
+          }
 
-            if (contacts.length > 0) {
-              const insertData = contacts.map((c: any) => ({
-                jobId: job.id,
-                companyName: c.company_name || c.companyName || null,
-                contactPerson: c.contact_person || c.contactPerson || null,
-                email: c.email || null,
-                phone: c.phone || null,
-                website: c.website || null,
-                address: c.address || null,
-                city: c.city || null,
-                countryCode: c.country_code || c.countryCode || country || null,
-                specialization: c.specialization || null,
-                sourceUrl: c.source_url || c.sourceUrl || null,
-                confidenceScore: c.confidence_score || c.confidenceScore || 50,
-                rawData: c,
-                status: "new",
-              }));
+          console.log(`[LeadSearch] Job ${job.id}: Po deduplikácii: ${deduped.length} unikátnych kontaktov (z ${contacts.length})`);
 
-              await storage.createSearchResults(insertData);
+          // ═══════════════════════════════════════════════════════════
+          // KROK 8: SCORING — výpočet kvality kontaktov
+          // ═══════════════════════════════════════════════════════════
+          console.log(`[LeadSearch] Job ${job.id}: KROK 8 — Scoring`);
+
+          for (const c of deduped) {
+            let score = 0;
+            if (c.company_name || c.contact_person) score += 15;
+            if (c.email && c.email.includes("@")) {
+              score += c.email.match(/^[^@]+@(gmail|yahoo|hotmail|outlook|seznam|centrum|azet)/i) ? 10 : 20;
             }
+            if (c.phone) score += 15;
+            if (c.mobile) score += 10;
+            if (c.address) score += 10;
+            if (c.city) score += 5;
+            if (c.website) score += 10;
+            if (c.specialization) score += 5;
+            if (c.contact_person && c.company_name) score += 5;
+            if (c.doctor_title) score += 5;
+            if (c.source_url) {
+              const srcCount = scrapedPages.filter(p => p.domain === (() => { try { return new URL(c.source_url).hostname; } catch { return ""; } })()).length;
+              if (srcCount > 1) score += 10;
+            }
+            c.confidence_score = Math.min(score, 100);
+          }
 
-            console.log(`[LeadSearch] Job ${job.id}: Completed with ${contacts.length} contacts`);
-            await storage.updateSearchJob(job.id, {
-              status: "completed",
-              totalResults: contacts.length,
-              completedAt: new Date(),
-            } as any);
-          } catch (aiError: any) {
-            console.error("[LeadSearch] AI extraction error:", aiError);
-            const fallbackData = uniqueSnippets.slice(0, 10).map(s => ({
+          // Sort by confidence score descending
+          deduped.sort((a, b) => (b.confidence_score || 0) - (a.confidence_score || 0));
+
+          // ═══════════════════════════════════════════════════════════
+          // KROK 9: ULOŽENIE — výsledky do databázy
+          // ═══════════════════════════════════════════════════════════
+          console.log(`[LeadSearch] Job ${job.id}: KROK 9 — Ukladanie ${deduped.length} výsledkov`);
+
+          if (deduped.length > 0) {
+            const insertData = deduped.map((c: any) => ({
+              jobId: job.id,
+              companyName: c.company_name || c.companyName || null,
+              contactPerson: c.contact_person || c.contactPerson || null,
+              email: c.email || null,
+              phone: c.phone || null,
+              website: c.website || null,
+              address: c.address || null,
+              city: c.city || null,
+              countryCode: c.country_code || c.countryCode || country || null,
+              specialization: c.specialization || null,
+              sourceUrl: c.source_url || c.sourceUrl || null,
+              confidenceScore: c.confidence_score || c.confidenceScore || 50,
+              rawData: c,
+              status: "new",
+            }));
+            await storage.createSearchResults(insertData);
+          } else if (allSnippets.length > 0) {
+            // Fallback: save raw snippets if AI extraction failed
+            const fallbackData = allSnippets.slice(0, 15).map(s => ({
               jobId: job.id,
               companyName: s.title?.substring(0, 200) || null,
               sourceUrl: s.url || null,
-              rawData: { title: s.title, snippet: s.snippet, url: s.url } as any,
-              confidenceScore: 15,
+              rawData: { title: s.title, snippet: s.snippet, url: s.url, source: s.source } as any,
+              confidenceScore: 10,
               status: "new",
             }));
             await storage.createSearchResults(fallbackData);
-            await storage.updateSearchJob(job.id, {
-              status: "completed",
-              totalResults: fallbackData.length,
-              errorMessage: "AI extraction failed, showing raw results",
-              completedAt: new Date(),
-            } as any);
           }
+
+          console.log(`[LeadSearch] Job ${job.id}: ═══ HOTOVO ═══ ${deduped.length} kontaktov uložených`);
+          await storage.updateSearchJob(job.id, {
+            status: "completed",
+            totalResults: deduped.length || allSnippets.length,
+            completedAt: new Date(),
+          } as any);
+
         } catch (error: any) {
           console.error("[LeadSearch] Job error:", error);
           await storage.updateSearchJob(job.id, {
