@@ -27792,11 +27792,27 @@ Return ONLY a JSON array of NEW contacts (same format as before).`;
               const allCampaigns = await storage.getAllLeadCampaigns();
               const matchingCampaign = allCampaigns.find(c => job.name.includes(c.name));
               if (matchingCampaign) {
-                const newLeadsCount = deduped.length;
+                const namePattern = `%[Auto] ${matchingCampaign.name}%`;
+                const priorJobs = await db.select({ id: searchJobs.id }).from(searchJobs)
+                  .where(and(sql`${searchJobs.name} LIKE ${namePattern}`, sql`${searchJobs.id} != ${job.id}`));
+                const priorJobIds = priorJobs.map(j => j.id);
+                let trulyNewCount = deduped.length;
+                if (priorJobIds.length > 0) {
+                  const priorResults = await db.select({ email: searchResults.email, phone: searchResults.phone, companyName: searchResults.companyName, website: searchResults.website })
+                    .from(searchResults).where(inArray(searchResults.jobId, priorJobIds));
+                  const priorFingerprints = new Set(priorResults.map(r => {
+                    const parts = [r.email?.toLowerCase(), r.phone?.replace(/\s/g, ''), r.companyName?.toLowerCase(), r.website?.toLowerCase()].filter(Boolean);
+                    return parts.join('|');
+                  }));
+                  trulyNewCount = deduped.filter((c: Record<string, string>) => {
+                    const parts = [c.email?.toLowerCase(), c.phone?.replace(/\s/g, ''), (c.company_name || c.companyName)?.toLowerCase(), c.website?.toLowerCase()].filter(Boolean);
+                    return !priorFingerprints.has(parts.join('|'));
+                  }).length;
+                }
                 await storage.updateLeadCampaign(matchingCampaign.id, {
-                  totalLeadsFound: (matchingCampaign.totalLeadsFound || 0) + newLeadsCount,
+                  totalLeadsFound: (matchingCampaign.totalLeadsFound || 0) + trulyNewCount,
                 });
-                if (newLeadsCount > 0) {
+                if (trulyNewCount > 0) {
                   try {
                     const allUsers = await storage.getAllUsers();
                     const roles = await storage.getAllRoles();
@@ -27806,16 +27822,16 @@ Return ONLY a JSON array of NEW contacts (same format as before).`;
                       await notificationService.sendNotificationToUsers(adminIds, {
                         type: "lead_campaign_results",
                         title: `Nové leady z kampane "${matchingCampaign.name}"`,
-                        message: `Kampaň "${matchingCampaign.name}" našla ${newLeadsCount} nových leadov (Job #${job.id}).`,
+                        message: `Kampaň "${matchingCampaign.name}" našla ${trulyNewCount} nových leadov (Job #${job.id}).`,
                         priority: "normal",
                         entityType: "lead_campaign",
                         entityId: String(matchingCampaign.id),
-                        metadata: { campaignName: matchingCampaign.name, jobId: job.id, newLeads: newLeadsCount },
+                        metadata: { campaignName: matchingCampaign.name, jobId: job.id, newLeads: trulyNewCount },
                       });
                     }
                   } catch (notifErr) { console.log("[LeadSearch] Campaign result notification error:", notifErr); }
                 }
-                console.log(`[LeadSearch] Campaign "${matchingCampaign.name}" updated: +${newLeadsCount} leads`);
+                console.log(`[LeadSearch] Campaign "${matchingCampaign.name}" updated: +${trulyNewCount} truly new leads (${deduped.length} total)`);
               }
             } catch (campErr) { console.log("[LeadSearch] Campaign stats update error:", campErr); }
           }
