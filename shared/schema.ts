@@ -6588,3 +6588,42 @@ export const searchResults = pgTable("search_results", {
 export const insertSearchResultSchema = createInsertSchema(searchResults).omit({ id: true, createdAt: true });
 export type InsertSearchResult = z.infer<typeof insertSearchResultSchema>;
 export type SearchResult = typeof searchResults.$inferSelect;
+
+export const leadSources = pgTable("lead_sources", {
+  id: serial("id").primaryKey(),
+  url: text("url").notNull(),
+  name: text("name").notNull(),
+  type: text("type").notNull().default("directory"),
+  countryCode: text("country_code"),
+  segment: text("segment"),
+  status: text("status").notNull().default("active"),
+  successCount: integer("success_count").default(0),
+  failCount: integer("fail_count").default(0),
+  lastUsedAt: timestamp("last_used_at"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const insertLeadSourceSchema = createInsertSchema(leadSources).omit({ id: true, createdAt: true });
+export type InsertLeadSource = z.infer<typeof insertLeadSourceSchema>;
+export type LeadSource = typeof leadSources.$inferSelect;
+
+export const leadCampaigns = pgTable("lead_campaigns", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  targetModule: text("target_module").notNull(),
+  country: text("country"),
+  segment: text("segment"),
+  location: text("location"),
+  keywords: text("keywords"),
+  schedule: text("schedule").notNull().default("weekly"),
+  lastRunAt: timestamp("last_run_at"),
+  nextRunAt: timestamp("next_run_at"),
+  isActive: boolean("is_active").notNull().default(true),
+  totalLeadsFound: integer("total_leads_found").default(0),
+  lastJobId: integer("last_job_id"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const insertLeadCampaignSchema = createInsertSchema(leadCampaigns).omit({ id: true, createdAt: true });
+export type InsertLeadCampaign = z.infer<typeof insertLeadCampaignSchema>;
+export type LeadCampaign = typeof leadCampaigns.$inferSelect;

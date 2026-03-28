@@ -159,6 +159,9 @@ import {
   searchJobs, searchResults,
   type SearchJob, type InsertSearchJob,
   type SearchResult, type InsertSearchResult,
+  leadSources, leadCampaigns,
+  type LeadSource, type InsertLeadSource,
+  type LeadCampaign, type InsertLeadCampaign,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, inArray, sql, desc, and, or, asc, gte, lte, lt, isNull, isNotNull } from "drizzle-orm";
@@ -1143,6 +1146,19 @@ export interface IStorage {
   markWebFormOtpUsed(id: string): Promise<void>;
   createWebFormAuditLog(data: InsertWebFormAuditLog): Promise<WebFormAuditLog>;
   getWebFormAuditLogs(formId: string): Promise<WebFormAuditLog[]>;
+
+  createLeadSource(data: InsertLeadSource): Promise<LeadSource>;
+  getAllLeadSources(): Promise<LeadSource[]>;
+  getLeadSourcesByCountry(countryCode: string): Promise<LeadSource[]>;
+  updateLeadSource(id: number, data: Partial<InsertLeadSource>): Promise<LeadSource>;
+  deleteLeadSource(id: number): Promise<boolean>;
+
+  createLeadCampaign(data: InsertLeadCampaign): Promise<LeadCampaign>;
+  getAllLeadCampaigns(): Promise<LeadCampaign[]>;
+  getActiveLeadCampaigns(): Promise<LeadCampaign[]>;
+  getDueLeadCampaigns(): Promise<LeadCampaign[]>;
+  updateLeadCampaign(id: number, data: Partial<InsertLeadCampaign>): Promise<LeadCampaign>;
+  deleteLeadCampaign(id: number): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -6912,6 +6928,47 @@ export class DatabaseStorage implements IStorage {
   async createSearchResults(data: InsertSearchResult[]): Promise<SearchResult[]> {
     if (data.length === 0) return [];
     return db.insert(searchResults).values(data).returning();
+  }
+
+  async createLeadSource(data: InsertLeadSource): Promise<LeadSource> {
+    const [source] = await db.insert(leadSources).values(data).returning();
+    return source;
+  }
+  async getAllLeadSources(): Promise<LeadSource[]> {
+    return db.select().from(leadSources).orderBy(desc(leadSources.createdAt));
+  }
+  async getLeadSourcesByCountry(countryCode: string): Promise<LeadSource[]> {
+    return db.select().from(leadSources).where(eq(leadSources.countryCode, countryCode)).orderBy(desc(leadSources.successCount));
+  }
+  async updateLeadSource(id: number, data: Partial<InsertLeadSource>): Promise<LeadSource> {
+    const [source] = await db.update(leadSources).set(data).where(eq(leadSources.id, id)).returning();
+    return source;
+  }
+  async deleteLeadSource(id: number): Promise<boolean> {
+    const result = await db.delete(leadSources).where(eq(leadSources.id, id));
+    return true;
+  }
+
+  async createLeadCampaign(data: InsertLeadCampaign): Promise<LeadCampaign> {
+    const [campaign] = await db.insert(leadCampaigns).values(data).returning();
+    return campaign;
+  }
+  async getAllLeadCampaigns(): Promise<LeadCampaign[]> {
+    return db.select().from(leadCampaigns).orderBy(desc(leadCampaigns.createdAt));
+  }
+  async getActiveLeadCampaigns(): Promise<LeadCampaign[]> {
+    return db.select().from(leadCampaigns).where(eq(leadCampaigns.isActive, true)).orderBy(asc(leadCampaigns.nextRunAt));
+  }
+  async getDueLeadCampaigns(): Promise<LeadCampaign[]> {
+    return db.select().from(leadCampaigns).where(and(eq(leadCampaigns.isActive, true), lte(leadCampaigns.nextRunAt, new Date()))).orderBy(asc(leadCampaigns.nextRunAt));
+  }
+  async updateLeadCampaign(id: number, data: Partial<InsertLeadCampaign>): Promise<LeadCampaign> {
+    const [campaign] = await db.update(leadCampaigns).set(data).where(eq(leadCampaigns.id, id)).returning();
+    return campaign;
+  }
+  async deleteLeadCampaign(id: number): Promise<boolean> {
+    const result = await db.delete(leadCampaigns).where(eq(leadCampaigns.id, id));
+    return true;
   }
 }
 

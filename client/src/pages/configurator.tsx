@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
+import { cn } from "@/lib/utils";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useI18n } from "@/i18n";
 import { useCountryFilter } from "@/contexts/country-filter-context";
@@ -17937,6 +17938,7 @@ function CourierFormDialog({
 function LeadSearchTab() {
   const { t } = useI18n();
   const { toast } = useToast();
+  const [activeSubTab, setActiveSubTab] = useState<"dashboard" | "search" | "sources" | "campaigns">("dashboard");
   const [searchForm, setSearchForm] = useState({
     name: "",
     targetModule: "hospitals" as "hospitals" | "clinics" | "collaborators",
@@ -17955,6 +17957,12 @@ function LeadSearchTab() {
   const [aiSuggesting, setAiSuggesting] = useState(false);
   const [aiSuggestions, setAiSuggestions] = useState<any[]>([]);
   const [selectedSuggestions, setSelectedSuggestions] = useState<number[]>([]);
+  const [sourceForm, setSourceForm] = useState({ url: "", name: "", type: "directory", countryCode: "", segment: "" });
+  const [campaignForm, setCampaignForm] = useState({ name: "", targetModule: "hospitals", country: "", segment: "", location: "", keywords: "", schedule: "weekly" });
+
+  const { data: analytics } = useQuery<any>({ queryKey: ["/api/lead-search/analytics"] });
+  const { data: leadSources = [], refetch: refetchSources } = useQuery<any[]>({ queryKey: ["/api/lead-sources"] });
+  const { data: leadCampaigns = [], refetch: refetchCampaigns } = useQuery<any[]>({ queryKey: ["/api/lead-campaigns"] });
 
   const getAiSuggestions = async () => {
     setAiSuggesting(true);
@@ -18126,6 +18134,67 @@ function LeadSearchTab() {
     }
   };
 
+  const createSource = async () => {
+    if (!sourceForm.url || !sourceForm.name) {
+      toast({ title: "Vyplňte URL a názov zdroja", variant: "destructive" });
+      return;
+    }
+    try {
+      const resp = await fetch("/api/lead-sources", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify(sourceForm) });
+      if (!resp.ok) throw new Error("Failed");
+      toast({ title: "Zdroj pridaný" });
+      setSourceForm({ url: "", name: "", type: "directory", countryCode: "", segment: "" });
+      refetchSources();
+    } catch { toast({ title: "Chyba pri vytváraní zdroja", variant: "destructive" }); }
+  };
+
+  const toggleSourceStatus = async (source: any) => {
+    try {
+      const newStatus = source.status === "active" ? "blacklisted" : "active";
+      const resp = await fetch(`/api/lead-sources/${source.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ status: newStatus }) });
+      if (!resp.ok) throw new Error("Failed");
+      refetchSources();
+    } catch { toast({ title: "Chyba pri zmene stavu", variant: "destructive" }); }
+  };
+
+  const deleteSource = async (id: number) => {
+    try {
+      const resp = await fetch(`/api/lead-sources/${id}`, { method: "DELETE", credentials: "include" });
+      if (!resp.ok) throw new Error("Failed");
+      refetchSources();
+    } catch { toast({ title: "Chyba pri mazaní", variant: "destructive" }); }
+  };
+
+  const createCampaign = async () => {
+    if (!campaignForm.name) {
+      toast({ title: "Vyplňte názov kampane", variant: "destructive" });
+      return;
+    }
+    try {
+      const resp = await fetch("/api/lead-campaigns", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify(campaignForm) });
+      if (!resp.ok) throw new Error("Failed");
+      toast({ title: "Kampaň vytvorená" });
+      setCampaignForm({ name: "", targetModule: "hospitals", country: "", segment: "", location: "", keywords: "", schedule: "weekly" });
+      refetchCampaigns();
+    } catch { toast({ title: "Chyba pri vytváraní kampane", variant: "destructive" }); }
+  };
+
+  const toggleCampaign = async (campaign: any) => {
+    try {
+      const resp = await fetch(`/api/lead-campaigns/${campaign.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ isActive: !campaign.isActive }) });
+      if (!resp.ok) throw new Error("Failed");
+      refetchCampaigns();
+    } catch { toast({ title: "Chyba pri zmene stavu", variant: "destructive" }); }
+  };
+
+  const deleteCampaign = async (id: number) => {
+    try {
+      const resp = await fetch(`/api/lead-campaigns/${id}`, { method: "DELETE", credentials: "include" });
+      if (!resp.ok) throw new Error("Failed");
+      refetchCampaigns();
+    } catch { toast({ title: "Chyba pri mazaní", variant: "destructive" }); }
+  };
+
   const COUNTRIES = [
     { code: "SK", flag: "🇸🇰", name: "Slovensko" },
     { code: "CZ", flag: "🇨🇿", name: "Česko" },
@@ -18136,7 +18205,406 @@ function LeadSearchTab() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
+      <div className="flex gap-1 p-1 bg-muted/50 rounded-lg w-fit">
+        {[
+          { key: "dashboard" as const, label: "Dashboard", icon: "📊" },
+          { key: "search" as const, label: "Vyhľadávanie", icon: "🔍" },
+          { key: "sources" as const, label: "Zdroje", icon: "🌐" },
+          { key: "campaigns" as const, label: "Kampane", icon: "🔄" },
+        ].map(tab => (
+          <button
+            key={tab.key}
+            data-testid={`subtab-${tab.key}`}
+            className={cn(
+              "px-3 py-1.5 rounded-md text-sm font-medium transition-all",
+              activeSubTab === tab.key ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+            )}
+            onClick={() => setActiveSubTab(tab.key)}
+          >
+            <span className="mr-1.5">{tab.icon}</span>{tab.label}
+          </button>
+        ))}
+      </div>
+
+      {activeSubTab === "dashboard" && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-2xl font-bold" data-testid="stat-total-leads">{analytics?.totalLeads || 0}</div>
+                <div className="text-xs text-muted-foreground">Celkom leadov</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-2xl font-bold text-green-600" data-testid="stat-assigned-leads">{analytics?.assignedLeads || 0}</div>
+                <div className="text-xs text-muted-foreground">Priradených</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-2xl font-bold text-blue-600" data-testid="stat-avg-confidence">{analytics?.avgConfidence || 0}%</div>
+                <div className="text-xs text-muted-foreground">Priemerná kvalita</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-2xl font-bold text-violet-600" data-testid="stat-total-jobs">{analytics?.totalJobs || 0}</div>
+                <div className="text-xs text-muted-foreground">Vyhľadávaní</div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Leady podľa krajiny</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {analytics?.byCountry && Object.keys(analytics.byCountry).length > 0 ? (
+                  <div className="space-y-2">
+                    {Object.entries(analytics.byCountry).sort((a: any, b: any) => b[1] - a[1]).map(([country, count]: any) => (
+                      <div key={country} className="flex items-center gap-2">
+                        <span className="text-sm font-medium w-12">{country}</span>
+                        <div className="flex-1 bg-muted rounded-full h-5 overflow-hidden">
+                          <div className="bg-blue-500 h-full rounded-full transition-all" style={{ width: `${Math.min((count / (analytics.totalLeads || 1)) * 100, 100)}%` }} />
+                        </div>
+                        <span className="text-sm text-muted-foreground w-10 text-right">{count}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : <div className="text-sm text-muted-foreground py-4 text-center">Žiadne dáta</div>}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Kvalita leadov</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {analytics?.byConfidenceTier ? (
+                  <div className="space-y-2">
+                    {Object.entries(analytics.byConfidenceTier).map(([tier, count]: any) => (
+                      <div key={tier} className="flex items-center gap-2">
+                        <span className="text-sm font-medium w-16">{tier}</span>
+                        <div className="flex-1 bg-muted rounded-full h-5 overflow-hidden">
+                          <div className={cn("h-full rounded-full transition-all", tier === "90+" ? "bg-green-500" : tier === "70-89" ? "bg-blue-500" : tier === "50-69" ? "bg-yellow-500" : "bg-gray-400")} style={{ width: `${Math.min((count / Math.max(analytics.totalLeads || 1, 1)) * 100, 100)}%` }} />
+                        </div>
+                        <span className="text-sm text-muted-foreground w-10 text-right">{count}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : <div className="text-sm text-muted-foreground py-4 text-center">Žiadne dáta</div>}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Top 10 zdrojov</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {analytics?.topSources?.length > 0 ? (
+                  <div className="space-y-1.5">
+                    {analytics.topSources.map((s: any, i: number) => (
+                      <div key={s.domain} className="flex items-center gap-2 text-sm">
+                        <span className="text-muted-foreground w-5 text-right">{i + 1}.</span>
+                        <span className="flex-1 truncate font-mono text-xs">{s.domain}</span>
+                        <span className="text-muted-foreground">{s.count}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : <div className="text-sm text-muted-foreground py-4 text-center">Žiadne dáta</div>}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Leady v čase (posledných 30 dní)</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {analytics?.timeline?.length > 0 ? (
+                  <div className="flex items-end gap-0.5 h-32">
+                    {analytics.timeline.map((t: any) => {
+                      const maxCount = Math.max(...analytics.timeline.map((x: any) => x.count));
+                      const height = maxCount > 0 ? (t.count / maxCount) * 100 : 0;
+                      return (
+                        <div key={t.date} className="flex-1 flex flex-col items-center gap-0.5 group relative">
+                          <div className="w-full bg-violet-500 rounded-t transition-all hover:bg-violet-600" style={{ height: `${Math.max(height, 2)}%` }} />
+                          <div className="absolute -top-6 bg-popover border rounded px-1.5 py-0.5 text-[10px] shadow-sm opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
+                            {t.date}: {t.count}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : <div className="text-sm text-muted-foreground py-4 text-center">Žiadne dáta</div>}
+              </CardContent>
+            </Card>
+          </div>
+
+          {analytics?.bySegment && Object.keys(analytics.bySegment).length > 0 && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Leady podľa segmentu</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-wrap gap-2">
+                  {Object.entries(analytics.bySegment).sort((a: any, b: any) => b[1] - a[1]).slice(0, 15).map(([segment, count]: any) => (
+                    <span key={segment} className="px-2 py-1 rounded-full bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 text-xs">
+                      {segment} ({count})
+                    </span>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {activeSubTab === "sources" && (
+        <div className="space-y-6">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Globe className="h-4 w-4" />
+                Pridať zdroj
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                  <label className="text-sm font-medium mb-1 block">URL</label>
+                  <Input data-testid="input-source-url" placeholder="https://example.com" value={sourceForm.url} onChange={(e) => setSourceForm({ ...sourceForm, url: e.target.value })} />
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Názov</label>
+                  <Input data-testid="input-source-name" placeholder="Názov zdroja" value={sourceForm.name} onChange={(e) => setSourceForm({ ...sourceForm, name: e.target.value })} />
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Typ</label>
+                  <Select value={sourceForm.type} onValueChange={(v) => setSourceForm({ ...sourceForm, type: v })}>
+                    <SelectTrigger data-testid="select-source-type"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="directory">Adresár</SelectItem>
+                      <SelectItem value="registry">Register</SelectItem>
+                      <SelectItem value="website">Webstránka</SelectItem>
+                      <SelectItem value="portal">Portál</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Krajina</label>
+                  <Select value={sourceForm.countryCode || "all"} onValueChange={(v) => setSourceForm({ ...sourceForm, countryCode: v === "all" ? "" : v })}>
+                    <SelectTrigger data-testid="select-source-country"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Všetky</SelectItem>
+                      {COUNTRIES.map(c => <SelectItem key={c.code} value={c.code}>{c.flag} {c.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Segment</label>
+                  <Input data-testid="input-source-segment" placeholder="napr. nemocnice, kardiológia" value={sourceForm.segment} onChange={(e) => setSourceForm({ ...sourceForm, segment: e.target.value })} />
+                </div>
+                <div className="flex items-end">
+                  <Button onClick={createSource} className="w-full" data-testid="button-create-source">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Pridať zdroj
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Správa zdrojov ({leadSources.length})</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {leadSources.length === 0 ? (
+                <div className="text-center text-muted-foreground py-8">Žiadne zdroje. Pridajte nový alebo spustite vyhľadávanie — zdroje sa pridajú automaticky.</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left py-2 px-2 font-medium">Názov</th>
+                        <th className="text-left py-2 px-2 font-medium">URL</th>
+                        <th className="text-left py-2 px-2 font-medium">Typ</th>
+                        <th className="text-left py-2 px-2 font-medium">Krajina</th>
+                        <th className="text-left py-2 px-2 font-medium">Úspešnosť</th>
+                        <th className="text-left py-2 px-2 font-medium">Status</th>
+                        <th className="text-right py-2 px-2 font-medium">Akcie</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {leadSources.map((source: any) => (
+                        <tr key={source.id} data-testid={`source-row-${source.id}`} className="border-b hover:bg-accent/30">
+                          <td className="py-2 px-2 font-medium">{source.name}</td>
+                          <td className="py-2 px-2 text-xs font-mono truncate max-w-[200px]">
+                            <a href={source.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">{source.url}</a>
+                          </td>
+                          <td className="py-2 px-2">
+                            <span className="text-xs px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">{source.type}</span>
+                          </td>
+                          <td className="py-2 px-2 text-xs">{source.countryCode || "-"}</td>
+                          <td className="py-2 px-2">
+                            <div className="flex items-center gap-1 text-xs">
+                              <span className="text-green-600">{source.successCount || 0}</span>
+                              <span className="text-muted-foreground">/</span>
+                              <span className="text-red-600">{source.failCount || 0}</span>
+                            </div>
+                          </td>
+                          <td className="py-2 px-2">
+                            <span className={cn("text-xs px-1.5 py-0.5 rounded", source.status === "active" ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400")}>
+                              {source.status === "active" ? "Aktívny" : "Blokovaný"}
+                            </span>
+                          </td>
+                          <td className="py-2 px-2 text-right">
+                            <div className="flex items-center gap-1 justify-end">
+                              <Button size="sm" variant="outline" className="h-7 text-xs" data-testid={`toggle-source-${source.id}`} onClick={() => toggleSourceStatus(source)}>
+                                {source.status === "active" ? "Blokovať" : "Aktivovať"}
+                              </Button>
+                              <Button size="sm" variant="ghost" className="h-7 text-xs text-red-600" data-testid={`delete-source-${source.id}`} onClick={() => deleteSource(source.id)}>
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {activeSubTab === "campaigns" && (
+        <div className="space-y-6">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Clock className="h-4 w-4" />
+                Nová automatická kampaň
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Názov kampane</label>
+                  <Input data-testid="input-campaign-name" placeholder="napr. Týždenné hľadanie gynekológov" value={campaignForm.name} onChange={(e) => setCampaignForm({ ...campaignForm, name: e.target.value })} />
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Cieľový modul</label>
+                  <Select value={campaignForm.targetModule} onValueChange={(v) => setCampaignForm({ ...campaignForm, targetModule: v })}>
+                    <SelectTrigger data-testid="select-campaign-module"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="hospitals">Nemocnice</SelectItem>
+                      <SelectItem value="clinics">Ambulancie</SelectItem>
+                      <SelectItem value="collaborators">Spolupracovníci</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Frekvencia</label>
+                  <Select value={campaignForm.schedule} onValueChange={(v) => setCampaignForm({ ...campaignForm, schedule: v })}>
+                    <SelectTrigger data-testid="select-campaign-schedule"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="daily">Denne</SelectItem>
+                      <SelectItem value="weekly">Týždenne</SelectItem>
+                      <SelectItem value="monthly">Mesačne</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Krajina</label>
+                  <Select value={campaignForm.country || "all"} onValueChange={(v) => setCampaignForm({ ...campaignForm, country: v === "all" ? "" : v })}>
+                    <SelectTrigger data-testid="select-campaign-country"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Všetky</SelectItem>
+                      {COUNTRIES.map(c => <SelectItem key={c.code} value={c.code}>{c.flag} {c.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Segment</label>
+                  <Input data-testid="input-campaign-segment" placeholder="napr. kardiológia" value={campaignForm.segment} onChange={(e) => setCampaignForm({ ...campaignForm, segment: e.target.value })} />
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Lokalita</label>
+                  <Input data-testid="input-campaign-location" placeholder="napr. Bratislava" value={campaignForm.location} onChange={(e) => setCampaignForm({ ...campaignForm, location: e.target.value })} />
+                </div>
+                <div className="flex items-end">
+                  <Button onClick={createCampaign} className="w-full" data-testid="button-create-campaign">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Vytvoriť kampaň
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Aktívne kampane ({leadCampaigns.length})</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {leadCampaigns.length === 0 ? (
+                <div className="text-center text-muted-foreground py-8">Žiadne kampane. Vytvorte novú automatickú kampaň vyššie.</div>
+              ) : (
+                <div className="space-y-3">
+                  {leadCampaigns.map((campaign: any) => (
+                    <div key={campaign.id} data-testid={`campaign-row-${campaign.id}`} className="border rounded-lg p-4">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <div className="font-medium text-sm flex items-center gap-2">
+                            {campaign.name}
+                            <span className={cn("text-[10px] px-1.5 py-0.5 rounded-full", campaign.isActive ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" : "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400")}>
+                              {campaign.isActive ? "Aktívna" : "Pozastavená"}
+                            </span>
+                          </div>
+                          <div className="text-xs text-muted-foreground mt-1 flex flex-wrap gap-3">
+                            <span>{campaign.targetModule}</span>
+                            <span>{campaign.schedule === "daily" ? "Denne" : campaign.schedule === "weekly" ? "Týždenne" : "Mesačne"}</span>
+                            {campaign.country && <span>{campaign.country}</span>}
+                            {campaign.segment && <span>{campaign.segment}</span>}
+                            {campaign.location && <span>{campaign.location}</span>}
+                          </div>
+                          <div className="text-xs text-muted-foreground mt-1.5 flex gap-4">
+                            <span>Nájdených leadov: <strong>{campaign.totalLeadsFound || 0}</strong></span>
+                            {campaign.lastRunAt && <span>Posledný beh: {new Date(campaign.lastRunAt).toLocaleDateString("sk-SK")}</span>}
+                            {campaign.nextRunAt && (
+                              <span>Ďalší beh: <strong>{new Date(campaign.nextRunAt).toLocaleDateString("sk-SK")}</strong></span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Button size="sm" variant="outline" className="h-7 text-xs" data-testid={`toggle-campaign-${campaign.id}`} onClick={() => toggleCampaign(campaign)}>
+                            {campaign.isActive ? "Pozastaviť" : "Aktivovať"}
+                          </Button>
+                          <Button size="sm" variant="ghost" className="h-7 text-xs text-red-600" data-testid={`delete-campaign-${campaign.id}`} onClick={() => deleteCampaign(campaign.id)}>
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {activeSubTab === "search" && (
+      <div className="space-y-6">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-1">
           <CardHeader className="pb-3">
@@ -18646,6 +19114,9 @@ function LeadSearchTab() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+    </div>
+    )}
     </div>
   );
 }

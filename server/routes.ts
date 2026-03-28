@@ -2535,6 +2535,71 @@ export async function registerRoutes(
   // Also run once on startup (after 30 seconds delay)
   setTimeout(checkApiKeyExpiration, 30000);
   
+  // Lead Campaign Scheduler — checks every 60 seconds for due campaigns
+  let campaignSchedulerRunning = false;
+  const runLeadCampaignScheduler = async () => {
+    if (campaignSchedulerRunning) return;
+    campaignSchedulerRunning = true;
+    try {
+      const dueCampaigns = await storage.getDueLeadCampaigns();
+      for (const campaign of dueCampaigns) {
+        console.log(`[LeadCampaign] Running campaign "${campaign.name}" (id: ${campaign.id})`);
+        try {
+          const now = new Date();
+          let nextRunAt = new Date(now);
+          if (campaign.schedule === "daily") nextRunAt.setDate(nextRunAt.getDate() + 1);
+          else if (campaign.schedule === "weekly") nextRunAt.setDate(nextRunAt.getDate() + 7);
+          else if (campaign.schedule === "monthly") nextRunAt.setMonth(nextRunAt.getMonth() + 1);
+
+          const job = await storage.createSearchJob({
+            name: `[Auto] ${campaign.name} — ${now.toLocaleDateString("sk-SK")}`,
+            targetModule: campaign.targetModule,
+            country: campaign.country || "",
+            segment: campaign.segment || "",
+            location: campaign.location || "",
+            keywords: campaign.keywords || "",
+            status: "pending",
+          } as any);
+
+          await storage.updateLeadCampaign(campaign.id, {
+            lastRunAt: now,
+            nextRunAt,
+            lastJobId: job.id,
+          } as any);
+
+          try {
+            const allUsers = await storage.getAllUsers();
+            const roles = await storage.getAllRoles();
+            const adminRole = roles.find((r: any) => r.name === "Admin");
+            const adminIds = allUsers.filter((u: any) => u.role === "admin" || (adminRole && u.roleId === adminRole.id)).map((u: any) => u.id);
+            if (adminIds.length > 0) {
+              await notificationService.sendNotificationToUsers(adminIds, {
+                type: "lead_campaign_run",
+                title: `Kampaň "${campaign.name}" — nové vyhľadávanie`,
+                message: `Automatická lead kampaň "${campaign.name}" vytvorila nové vyhľadávanie (Job #${job.id}). Spustite ho manuálne v sekcii Lead Search.`,
+                priority: "normal",
+                entityType: "lead_campaign",
+                entityId: String(campaign.id),
+                metadata: { campaignName: campaign.name, jobId: job.id },
+              });
+            }
+          } catch (notifErr) {
+            console.error("[LeadCampaign] Notification error:", notifErr);
+          }
+
+          console.log(`[LeadCampaign] Campaign "${campaign.name}" job ${job.id} created, next run: ${nextRunAt.toISOString()}`);
+        } catch (err) {
+          console.error(`[LeadCampaign] Error running campaign ${campaign.id}:`, err);
+        }
+      }
+    } catch (err) {
+      console.error("[LeadCampaign] Scheduler error:", err);
+    } finally {
+      campaignSchedulerRunning = false;
+    }
+  };
+  setInterval(runLeadCampaignScheduler, 60000);
+  setTimeout(runLeadCampaignScheduler, 45000);
   // Get MS365 configuration status
   app.get("/api/ms365/status", requireAuth, async (req, res) => {
     try {
@@ -27415,6 +27480,81 @@ Return ONLY a JSON array of NEW contacts (same format as before).`;
             console.error("[LeadSearch] AI extraction error:", e);
           }
 
+
+          // ═══════════════════════════════════════════════════════════
+          // KROK 6b: AI ENRICHMENT — obohatenie kontaktov o ďalšie údaje
+          // ═══════════════════════════════════════════════════════════
+          console.log(`[LeadSearch] Job ${job.id}: KROK 6b — AI Enrichment (${contacts.length} kontaktov)`);
+          try {
+            const enrichLimit = Math.min(contacts.length, 10);
+            for (let ei = 0; ei < enrichLimit; ei++) {
+              const contact = contacts[ei];
+              try {
+                if (contact.website) {
+                  const enrichUrl = contact.website.startsWith("http") ? contact.website : "https://" + contact.website;
+                  try { const _u = new URL(enrichUrl); if (['localhost','127.0.0.1','0.0.0.0','[::1]'].includes(_u.hostname) || _u.hostname.startsWith('10.') || _u.hostname.startsWith('192.168.') || _u.hostname.startsWith('172.')) { contact.enrichment_status = 'skipped'; continue; } } catch { contact.enrichment_status = 'skipped'; continue; }
+                  try {
+                    const enrichResp = await fetch(enrichUrl, { signal: AbortSignal.timeout(8000), headers: { "User-Agent": "Mozilla/5.0" } });
+                    if (enrichResp.ok) {
+                      const enrichHtml = await enrichResp.text();
+                      const phonesFound = enrichHtml.match(/(?:\+\d{1,3}[\s\-]?)?\(?\d{2,4}\)?[\s\-]?\d{3}[\s\-]?\d{2,4}[\s\-]?\d{0,4}/g) || [];
+                      const emailsFound = enrichHtml.match(/[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g) || [];
+                      const icoMatch = enrichHtml.match(/(?:IČO|ICO|IČ|IC|Identification\s*number)\s*[:\s]*(\d{6,10})/i);
+                      const dicMatch = enrichHtml.match(/(?:DIČ|DIC|Tax\s*ID)\s*[:\s]*([\dA-Z]{8,12})/i);
+
+                      if (!contact.phone && phonesFound.length > 0) contact.phone = phonesFound[0].trim();
+                      if (!contact.email && emailsFound.length > 0) contact.email = emailsFound[0];
+                      if (phonesFound.length > 1 && !contact.mobile) contact.mobile = phonesFound[1].trim();
+                      if (icoMatch) contact.ico = icoMatch[1];
+                      if (dicMatch) contact.dic = dicMatch[1];
+                      if (emailsFound.length > 1) contact.additional_emails = [...new Set(emailsFound)].slice(0, 5);
+                      if (phonesFound.length > 2) contact.additional_phones = [...new Set(phonesFound.map((p: string) => p.trim()))].slice(0, 5);
+
+                      const addressMatch = enrichHtml.match(/<[^>]*(?:address|kontakt|contact)[^>]*>([\s\S]*?)<\/[^>]+>/i);
+                      if (addressMatch && !contact.address) {
+                        const cleanAddr = addressMatch[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().substring(0, 200);
+                        if (cleanAddr.length > 10) contact.address = cleanAddr;
+                      }
+                      contact.enrichment_status = "enriched";
+                    }
+                  } catch { contact.enrichment_status = "failed"; }
+                }
+
+                const cc = (contact.country_code || country || "").toUpperCase();
+                if ((cc === "SK" || cc === "CZ") && contact.company_name && !contact.ico) {
+                  try {
+                    const searchName = encodeURIComponent((contact.company_name || "").substring(0, 60));
+                    if (cc === "SK") {
+                      const finstatResp = await fetch(`https://finstat.sk/search?q=${searchName}`, { signal: AbortSignal.timeout(8000), headers: { "User-Agent": "Mozilla/5.0" } });
+                      if (finstatResp.ok) {
+                        const finstatHtml = await finstatResp.text();
+                        const icoFin = finstatHtml.match(/IČO[:\s]*(\d{8})/i);
+                        if (icoFin) contact.ico = icoFin[1];
+                      }
+                    } else if (cc === "CZ") {
+                      const aresResp = await fetch(`https://ares.gov.cz/ekonomicke-subjekty-v-be/rest/ekonomicke-subjekty/vyhledat?obchodniJmeno=${searchName}`, { signal: AbortSignal.timeout(8000) });
+                      if (aresResp.ok) {
+                        const aresData = await aresResp.json();
+                        if (aresData.ekonomickeSubjekty?.length > 0) {
+                          const first = aresData.ekonomickeSubjekty[0];
+                          contact.ico = first.ico || contact.ico;
+                          if (first.sidlo) {
+                            const sidlo = first.sidlo;
+                            if (!contact.address && sidlo.textovaAdresa) contact.address = sidlo.textovaAdresa;
+                            if (!contact.city && sidlo.nazevObce) contact.city = sidlo.nazevObce;
+                          }
+                        }
+                      }
+                    }
+                  } catch { /* registry lookup failed */ }
+                }
+              } catch { /* per-contact enrichment failed */ }
+            }
+            console.log(`[LeadSearch] Job ${job.id}: Enrichment dokončený pre ${enrichLimit} kontaktov`);
+          } catch (enrichErr) {
+            console.log("[LeadSearch] Enrichment step failed (non-critical):", enrichErr);
+          }
+
           // ═══════════════════════════════════════════════════════════
           // KROK 7: DEDUPLIKÁCIA — zlúčenie duplicitných záznamov
           // ═══════════════════════════════════════════════════════════
@@ -27527,6 +27667,30 @@ Return ONLY a JSON array of NEW contacts (same format as before).`;
           }
 
           console.log(`[LeadSearch] Job ${job.id}: ═══ HOTOVO ═══ ${deduped.length} kontaktov uložených`);
+          // Auto-track source domains for Lead Sources
+          try {
+            const sourceDomains: Record<string, number> = {};
+            for (const c of deduped) {
+              const srcUrl = c.source_url || c.sourceUrl;
+              if (srcUrl) {
+                try {
+                  const domain = new URL(srcUrl.startsWith("http") ? srcUrl : "https://" + srcUrl).hostname;
+                  sourceDomains[domain] = (sourceDomains[domain] || 0) + 1;
+                } catch {}
+              }
+            }
+            const existingSources = await storage.getAllLeadSources();
+            for (const [domain, count] of Object.entries(sourceDomains)) {
+              const existing = existingSources.find((s: any) => {
+                try { return new URL(s.url.startsWith("http") ? s.url : "https://" + s.url).hostname === domain; } catch { return false; }
+              });
+              if (existing) {
+                await storage.updateLeadSource(existing.id, { successCount: (existing.successCount || 0) + count, lastUsedAt: new Date() } as any);
+              } else if (count >= 2) {
+                await storage.createLeadSource({ url: `https://${domain}`, name: domain, type: "auto-discovered", countryCode: country || null, segment: segment || null, status: "active", successCount: count, failCount: 0, lastUsedAt: new Date() } as any);
+              }
+            }
+          } catch (srcErr) { console.log("[LeadSearch] Source tracking error:", srcErr); }
           await storage.updateSearchJob(job.id, {
             status: "completed",
             totalResults: deduped.length || allSnippets.length,
@@ -27818,6 +27982,169 @@ Return ONLY a JSON array of NEW contacts (same format as before).`;
     }
   });
 
+
+  // ═══════════════════════════════════════════════════════════
+  // Lead Sources CRUD
+  // ═══════════════════════════════════════════════════════════
+  app.get("/api/lead-sources", requireAuth, async (req, res) => {
+    try {
+      const sources = await storage.getAllLeadSources();
+      res.json(sources);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/lead-sources", requireAuth, async (req, res) => {
+    try {
+      const source = await storage.createLeadSource(req.body);
+      res.json(source);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.patch("/api/lead-sources/:id", requireAuth, async (req, res) => {
+    try {
+      const source = await storage.updateLeadSource(parseInt(req.params.id), req.body);
+      res.json(source);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/lead-sources/:id", requireAuth, async (req, res) => {
+    try {
+      await storage.deleteLeadSource(parseInt(req.params.id));
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ═══════════════════════════════════════════════════════════
+  // Lead Campaigns CRUD
+  // ═══════════════════════════════════════════════════════════
+  app.get("/api/lead-campaigns", requireAuth, async (req, res) => {
+    try {
+      const campaigns = await storage.getAllLeadCampaigns();
+      res.json(campaigns);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/lead-campaigns", requireAuth, async (req, res) => {
+    try {
+      const { schedule } = req.body;
+      const now = new Date();
+      let nextRunAt = new Date(now);
+      if (schedule === "daily") nextRunAt.setDate(nextRunAt.getDate() + 1);
+      else if (schedule === "weekly") nextRunAt.setDate(nextRunAt.getDate() + 7);
+      else if (schedule === "monthly") nextRunAt.setMonth(nextRunAt.getMonth() + 1);
+      
+      const campaign = await storage.createLeadCampaign({
+        ...req.body,
+        nextRunAt,
+        isActive: true,
+        totalLeadsFound: 0,
+      });
+      res.json(campaign);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.patch("/api/lead-campaigns/:id", requireAuth, async (req, res) => {
+    try {
+      const campaign = await storage.updateLeadCampaign(parseInt(req.params.id), req.body);
+      res.json(campaign);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/lead-campaigns/:id", requireAuth, async (req, res) => {
+    try {
+      await storage.deleteLeadCampaign(parseInt(req.params.id));
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ═══════════════════════════════════════════════════════════
+  // Lead Dashboard Analytics
+  // ═══════════════════════════════════════════════════════════
+  app.get("/api/lead-search/analytics", requireAuth, async (req, res) => {
+    try {
+      const jobs = await storage.getAllSearchJobs();
+      const allResults: any[] = [];
+      for (const job of jobs) {
+        const results = await storage.getSearchResults(job.id);
+        allResults.push(...results.map(r => ({ ...r, jobTargetModule: job.targetModule, jobCountry: job.country, jobSegment: job.segment })));
+      }
+
+      const totalLeads = allResults.length;
+      const assignedLeads = allResults.filter(r => r.status === "assigned").length;
+      const avgConfidence = totalLeads > 0 ? Math.round(allResults.reduce((sum, r) => sum + (r.confidenceScore || 0), 0) / totalLeads) : 0;
+
+      const byCountry: Record<string, number> = {};
+      const bySegment: Record<string, number> = {};
+      const byConfidenceTier: Record<string, number> = { "90+": 0, "70-89": 0, "50-69": 0, "pod 50": 0 };
+      const bySource: Record<string, number> = {};
+      const byDay: Record<string, number> = {};
+
+      for (const r of allResults) {
+        const country = r.countryCode || r.jobCountry || "N/A";
+        byCountry[country] = (byCountry[country] || 0) + 1;
+
+        const segment = r.specialization || r.jobSegment || "Nezaradené";
+        bySegment[segment] = (bySegment[segment] || 0) + 1;
+
+        const score = r.confidenceScore || 0;
+        if (score >= 90) byConfidenceTier["90+"]++;
+        else if (score >= 70) byConfidenceTier["70-89"]++;
+        else if (score >= 50) byConfidenceTier["50-69"]++;
+        else byConfidenceTier["pod 50"]++;
+
+        if (r.sourceUrl) {
+          try {
+            const domain = new URL(r.sourceUrl.startsWith("http") ? r.sourceUrl : "https://" + r.sourceUrl).hostname;
+            bySource[domain] = (bySource[domain] || 0) + 1;
+          } catch {}
+        }
+
+        const day = r.createdAt ? new Date(r.createdAt).toISOString().split("T")[0] : "unknown";
+        byDay[day] = (byDay[day] || 0) + 1;
+      }
+
+      const topSources = Object.entries(bySource)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 10)
+        .map(([domain, count]) => ({ domain, count }));
+
+      const timeline = Object.entries(byDay)
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .slice(-30)
+        .map(([date, count]) => ({ date, count }));
+
+      res.json({
+        totalLeads,
+        assignedLeads,
+        avgConfidence,
+        totalJobs: jobs.length,
+        completedJobs: jobs.filter(j => j.status === "completed").length,
+        byCountry,
+        bySegment,
+        byConfidenceTier,
+        topSources,
+        timeline,
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
   // Contract Templates
   app.get("/api/contracts/templates", requireAuth, async (req, res) => {
     try {
