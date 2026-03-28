@@ -27157,47 +27157,53 @@ SEARCH CRITERIA:
 
 IMPORTANT: Your queries MUST find pages that contain LISTS of contacts with emails, phones, addresses. NOT Wikipedia pages, NOT news articles, NOT single-result pages.
 
-GENERATE 20 QUERIES using these mandatory categories:
+GENERATE 40 SEARCH QUERIES using these mandatory categories:
 
-A) DIRECTORY QUERIES (5 queries) - Target online directories with facility lists:
+A) DIRECTORY QUERIES (8 queries) - Target online directories with facility lists:
 ${domains.length > 0 ? `   Known directories: ${domains.join(", ")}` : `   Find medical directories for ${countryName}`}
    Pattern: "site:directory.com keyword" OR "directory name + segment"
    Example: "site:znamylekar.sk gynekolog bratislava"
+   MUST include site: queries for at least 4 different directory domains
 
-B) REGISTRY/DATABASE QUERIES (3 queries) - Official registries, chambers, government databases:
+B) REGISTRY/DATABASE QUERIES (5 queries) - Official registries, chambers, government databases:
    Pattern: "register + poskytovateľov + segment" / "komora + lekárov + zoznam"
-   Example: "register zdravotníckych zariadení ${locationParts[0] || ""}"
+   Include: national health registry, medical chamber, insurance company lists, ministry lists
 
-C) SIMPLE LOCAL QUERIES (5 queries) - Short, direct queries in ${localLang}:
+C) CITY-SPECIFIC QUERIES (10 queries) - One query per major city in ${countryName}:
    Pattern: "segment + city + kontakt" / "segment + city + telefón email"
+   MUST cover ALL major cities: ${country === "SK" ? "Bratislava, Košice, Prešov, Žilina, Banská Bystrica, Nitra, Trnava, Trenčín, Martin, Poprad" : country === "CZ" ? "Praha, Brno, Ostrava, Plzeň, Liberec, Olomouc, Hradec Králové, České Budějovice, Pardubice, Zlín" : country === "AT" ? "Wien, Graz, Linz, Salzburg, Innsbruck, Klagenfurt, Villach, Wels, St. Pölten, Dornbirn" : country === "HU" ? "Budapest, Debrecen, Szeged, Miskolc, Pécs, Győr, Nyíregyháza, Kecskemét, Székesfehérvár, Szombathely" : country === "DE" ? "Berlin, München, Hamburg, Köln, Frankfurt, Stuttgart, Düsseldorf, Leipzig, Dresden, Hannover" : "major cities in the country"}
    These MUST be 3-5 words maximum, in ${localLang}
-   ${segmentParts.map((seg, i) => `   - "${seg} ${locationParts[i] || locationParts[0] || ""} kontakt"`).join("\n")}
 
-D) BUSINESS LISTING QUERIES (3 queries) - Yellow pages, business directories:
-   Pattern: "zlaté stránky + segment" / "firmy.sk + segment + city"
-   Example: "firmy.sk gynekológ bratislava"
+D) BUSINESS LISTING QUERIES (5 queries) - Yellow pages, business directories, maps:
+   Pattern: "zlaté stránky + segment" / "firmy.sk + segment + city" / "Google Maps segment city"
 
-E) PROFESSIONAL ASSOCIATION QUERIES (2 queries) - Medical societies, associations:
+E) PROFESSIONAL ASSOCIATION QUERIES (4 queries) - Medical societies, associations, member lists:
    Pattern: "slovenská gynekologická spoločnosť členovia" / "asociácia + segment + zoznam"
+   Include: national AND regional medical associations, specialty societies
 
-F) EMAIL HARVESTING QUERIES (2 queries) - Find pages with visible email addresses:
+F) EMAIL HARVESTING QUERIES (4 queries) - Find pages with visible email addresses:
    Pattern: "segment city @ email" / "segment kontaktné údaje email telefón"
+   Include: "inurl:kontakt segment" and "inurl:contact segment" queries
+
+G) ALTERNATIVE LANGUAGE QUERIES (4 queries) - Same queries in English and neighboring languages:
+   Pattern: "hospitals ${locationParts[0] || country} list" / "medical directory ${countryName}"
 
 CRITICAL RULES:
-- ALL queries must be in ${localLang} EXCEPT site: operator queries
+- ALL queries must be in ${localLang} EXCEPT site: operator queries and category G
 - Keep queries SHORT (3-6 words) - long queries return fewer results
 - NO quotation marks in queries unless absolutely necessary
-- Each segment (${segmentParts.join(", ") || "general"}) must have at least 2 dedicated queries
-- Each location (${locationParts.join(", ") || "nationwide"}) must have at least 1 dedicated query
+- Each segment (${segmentParts.join(", ") || "general"}) must have at least 4 dedicated queries
+- Each location (${locationParts.join(", ") || "nationwide"}) must have at least 2 dedicated queries
 - Prioritize queries that will return LISTS/DIRECTORIES over individual facility pages
+- Include at least 3 queries with "zoznam", "seznam", "lista", "list", "register" keywords
 
-Return ONLY a JSON array of 20 search query strings.`;
+Return ONLY a JSON array of 40 search query strings.`;
 
           const queryGenResponse = await openai.chat.completions.create({
             model: "gpt-4o-mini",
             messages: [{ role: "user", content: queryGenPrompt }],
             temperature: 0.4,
-            max_tokens: 2000,
+            max_tokens: 4000,
           });
 
           let searchQueries: string[] = [];
@@ -27218,7 +27224,30 @@ Return ONLY a JSON array of 20 search query strings.`;
             searchQueries.push(`${targetModule} ${country || ""} register`);
           }
 
-          console.log(`[LeadSearch] Job ${job.id}: KROK 1 — Vygenerovaných ${searchQueries.length} vyhľadávacích fráz`);
+          // Add systematic city-based queries for maximum coverage
+          const countryCities: Record<string, string[]> = {
+            SK: ["Bratislava","Košice","Prešov","Žilina","Banská Bystrica","Nitra","Trnava","Trenčín","Martin","Poprad","Zvolen","Piešťany","Michalovce","Ružomberok","Lučenec","Levice","Komárno","Topoľčany","Považská Bystrica","Dubnica nad Váhom","Humenné","Bardejov","Skalica","Dunajská Streda","Galanta","Nové Zámky","Partizánske","Čadca","Dolný Kubín","Rimavská Sobota"],
+            CZ: ["Praha","Brno","Ostrava","Plzeň","Liberec","Olomouc","Hradec Králové","České Budějovice","Pardubice","Zlín","Ústí nad Labem","Karlovy Vary","Jihlava","Opava","Frýdek-Místek","Kladno","Most","Karviná","Teplice","Děčín","Chomutov","Prostějov","Přerov","Třebíč","Znojmo","Kolín","Havířov","Jablonec","Kroměříž","Klatovy"],
+            HU: ["Budapest","Debrecen","Szeged","Miskolc","Pécs","Győr","Nyíregyháza","Kecskemét","Székesfehérvár","Szombathely","Szolnok","Érd","Tatabánya","Kaposvár","Sopron","Veszprém","Békéscsaba","Zalaegerszeg","Eger","Dunaújváros"],
+            PL: ["Warszawa","Kraków","Łódź","Wrocław","Poznań","Gdańsk","Szczecin","Bydgoszcz","Lublin","Białystok","Katowice","Gdynia","Częstochowa","Radom","Toruń","Sosnowiec","Rzeszów","Kielce","Gliwice","Olsztyn"],
+            AT: ["Wien","Graz","Linz","Salzburg","Innsbruck","Klagenfurt","Villach","Wels","St. Pölten","Dornbirn","Wiener Neustadt","Steyr","Feldkirch","Bregenz","Leonding","Klosterneuburg","Baden","Leoben","Traun","Krems"],
+            DE: ["Berlin","München","Hamburg","Köln","Frankfurt","Stuttgart","Düsseldorf","Leipzig","Dresden","Hannover","Nürnberg","Bremen","Duisburg","Essen","Bochum","Dortmund","Bielefeld","Bonn","Mannheim","Karlsruhe"],
+          };
+          const cities = country ? (countryCities[country] || []) : [];
+          const mainSegment = segmentParts[0] || (targetModule === "hospitals" ? "nemocnica" : targetModule === "clinics" ? "ambulancia lekár" : "lekár");
+          for (const city of cities) {
+            const q = `${mainSegment} ${city} kontakt email`;
+            if (!searchQueries.includes(q)) searchQueries.push(q);
+          }
+          // Add domain-specific queries for each known directory
+          for (const dom of domains) {
+            for (const seg of segmentParts.slice(0, 3)) {
+              const q = `site:${dom} ${seg}`;
+              if (!searchQueries.includes(q)) searchQueries.push(q);
+            }
+          }
+
+          console.log(`[LeadSearch] Job ${job.id}: KROK 1 — Vygenerovaných ${searchQueries.length} vyhľadávacích fráz (vrátane mestských)`);
 
 
           // Load lead sources for blacklist/whitelist filtering
@@ -27271,7 +27300,7 @@ Return ONLY a JSON array of 20 search query strings.`;
 
             // 1. Google Search (primary — most reliable, most results)
             try {
-              for (let start = 0; start < 40; start += 10) {
+              for (let start = 0; start < 60; start += 10) {
                 const gUrl = `https://www.google.com/search?q=${encoded}&num=10&start=${start}&hl=sk&gl=sk`;
                 const resp = await fetch(gUrl, {
                   headers: { "User-Agent": randUA(), "Accept": "text/html,application/xhtml+xml", "Accept-Language": "sk,cs,en;q=0.5" },
@@ -27362,12 +27391,12 @@ Return ONLY a JSON array of 20 search query strings.`;
             return results;
           };
 
-          // Execute ALL queries in 5 waves with delays between
-          const totalWaves = Math.ceil(searchQueries.length / 4);
+          // Execute ALL queries in waves of 5 with delays between — process all queries for maximum coverage
+          const totalWaves = Math.ceil(searchQueries.length / 5);
           for (let wave = 0; wave < totalWaves; wave++) {
-            const batch = searchQueries.slice(wave * 4, (wave + 1) * 4);
+            const batch = searchQueries.slice(wave * 5, (wave + 1) * 5);
             if (batch.length === 0) break;
-            const waveResults = await Promise.all(batch.map((q, i) => executeWebSearch(q, i * 800)));
+            const waveResults = await Promise.all(batch.map((q, i) => executeWebSearch(q, i * 600)));
             for (const arr of waveResults) {
               for (const s of arr) {
                 const norm = normUrl(s.url);
@@ -27394,13 +27423,13 @@ Return ONLY a JSON array of 20 search query strings.`;
           }
 
           // KROK 2b: Ak málo výsledkov, AI generuje retry queries + rozšírenie o špecifické zdroje
-          if (allSnippets.length < 40) {
-            console.log(`[LeadSearch] Job ${job.id}: KROK 2b — Málo výsledkov (${allSnippets.length}), adaptívny retry`);
+          if (allSnippets.length < 100) {
+            console.log(`[LeadSearch] Job ${job.id}: KROK 2b — Menej ako 100 výsledkov (${allSnippets.length}), adaptívny retry`);
             try {
-              const retryPrompt = `Previous search for "${moduleInfo.description}" in ${countryName} returned only ${allSnippets.length} results.
-Previous queries: ${searchQueries.slice(0, 10).map((q, i) => `${i+1}. ${q}`).join("; ")}
+              const retryPrompt = `Previous search for "${moduleInfo.description}" in ${countryName} returned only ${allSnippets.length} results. We need at least 200+.
+Previous queries: ${searchQueries.slice(0, 15).map((q, i) => `${i+1}. ${q}`).join("; ")}
 
-Generate 15 COMPLETELY DIFFERENT queries that will find MANY results. Use these strategies:
+Generate 25 COMPLETELY DIFFERENT queries that will find MANY results. Use these strategies:
 1. "${segmentParts[0] || "hospital"} zoznam ${locationParts[0] || country}" - simple list queries in local language
 2. "site:firmy.sk ${segmentParts[0]}" or "site:zlatestranky.sk ${segmentParts[0]}" - business directories
 3. "${segmentParts[0]} + each major city" - city-specific queries (Bratislava, Košice, Žilina, Prešov, Banská Bystrica, Nitra, Trnava, Trenčín)
@@ -27433,7 +27462,7 @@ Return ONLY a JSON array of query strings.`;
           // ═══════════════════════════════════════════════════════════
           // KROK 3: FETCH — systematické stiahnutie stránok
           // ═══════════════════════════════════════════════════════════
-          console.log(`[LeadSearch] Job ${job.id}: KROK 3 — Fetch & Parse (do 30 stránok)`);
+          console.log(`[LeadSearch] Job ${job.id}: KROK 3 — Fetch & Parse (do 200 stránok)`);
 
           type PageData = { url: string; text: string; emails: string[]; phones: string[]; title: string; internalLinks: string[]; domain: string; isDirectory: boolean };
           const scrapedPages: PageData[] = [];
@@ -27460,8 +27489,8 @@ Return ONLY a JSON array of query strings.`;
             return { url, text: text.substring(0, 6000), emails, phones, title, internalLinks, domain, isDirectory };
           };
 
-          // Scrape in waves of 10 — increased to 80 pages for more results
-          const pagesToScrape = allSnippets.slice(0, 80);
+          // Scrape in waves of 10 — increased to 200 pages for maximum results
+          const pagesToScrape = allSnippets.slice(0, 200);
           for (let wave = 0; wave < Math.ceil(pagesToScrape.length / 10); wave++) {
             const batch = pagesToScrape.slice(wave * 10, (wave + 1) * 10);
             const results = await Promise.all(batch.map(s => scrapePage(s.url)));
@@ -27477,8 +27506,8 @@ Return ONLY a JSON array of query strings.`;
           if (directoryPages.length > 0) {
             console.log(`[LeadSearch] Job ${job.id}: KROK 4 — Deep crawl ${directoryPages.length} directory stránok`);
             const deepLinks: string[] = [];
-            for (const dp of directoryPages.slice(0, 10)) {
-              for (const link of dp.internalLinks.slice(0, 30)) {
+            for (const dp of directoryPages.slice(0, 20)) {
+              for (const link of dp.internalLinks.slice(0, 50)) {
                 const norm = normUrl(link);
                 if (!seenUrls.has(norm)) {
                   seenUrls.add(norm);
@@ -27487,10 +27516,10 @@ Return ONLY a JSON array of query strings.`;
               }
             }
             // Also look for pagination links on directories (page=2, strana=2, etc.)
-            for (const dp of directoryPages.slice(0, 5)) {
+            for (const dp of directoryPages.slice(0, 15)) {
               try {
                 const baseUrl = new URL(dp.url);
-                for (let pg = 2; pg <= 5; pg++) {
+                for (let pg = 2; pg <= 15; pg++) {
                   const pgUrls = [
                     `${dp.url}${dp.url.includes("?") ? "&" : "?"}page=${pg}`,
                     `${dp.url}${dp.url.includes("?") ? "&" : "?"}strana=${pg}`,
@@ -27505,8 +27534,8 @@ Return ONLY a JSON array of query strings.`;
               } catch {}
             }
             if (deepLinks.length > 0) {
-              console.log(`[LeadSearch] Job ${job.id}: Deep crawl — ${Math.min(deepLinks.length, 60)} podstránok`);
-              const deepBatch = deepLinks.slice(0, 60);
+              console.log(`[LeadSearch] Job ${job.id}: Deep crawl — ${Math.min(deepLinks.length, 150)} podstránok`);
+              const deepBatch = deepLinks.slice(0, 150);
               for (let w = 0; w < Math.ceil(deepBatch.length / 10); w++) {
                 const batch = deepBatch.slice(w * 10, (w + 1) * 10);
                 const results = await Promise.all(batch.map(url => scrapePage(url)));
@@ -27521,7 +27550,7 @@ Return ONLY a JSON array of query strings.`;
           // ═══════════════════════════════════════════════════════════
           const contactSubpages: string[] = [];
           const contactPaths = ["/kontakt", "/contact", "/kontakty", "/contacts", "/about", "/o-nas", "/about-us", "/impressum", "/team", "/nas-tim", "/lekaři", "/lekari", "/doctors", "/staff", "/odbornici"];
-          for (const page of scrapedPages.slice(0, 40)) {
+          for (const page of scrapedPages.slice(0, 80)) {
             try {
               const baseUrl = new URL(page.url);
               for (const path of contactPaths) {
@@ -27535,8 +27564,8 @@ Return ONLY a JSON array of query strings.`;
             } catch {}
           }
           if (contactSubpages.length > 0) {
-            console.log(`[LeadSearch] Job ${job.id}: KROK 5 — Kontaktné stránky (${Math.min(contactSubpages.length, 40)})`);
-            const contactBatch = contactSubpages.slice(0, 40);
+            console.log(`[LeadSearch] Job ${job.id}: KROK 5 — Kontaktné stránky (${Math.min(contactSubpages.length, 80)})`);
+            const contactBatch = contactSubpages.slice(0, 80);
             for (let w = 0; w < Math.ceil(contactBatch.length / 10); w++) {
               const batch = contactBatch.slice(w * 10, (w + 1) * 10);
               const contactResults = await Promise.all(batch.map(url => scrapePage(url)));
@@ -27549,12 +27578,58 @@ Return ONLY a JSON array of query strings.`;
           const allPhones = [...new Set(scrapedPages.flatMap(p => p.phones))];
           const allDomains = [...new Set(scrapedPages.map(p => p.domain).filter(Boolean))];
 
-          console.log(`[LeadSearch] Job ${job.id}: Celkovo: ${scrapedPages.length} stránok, ${allEmails.length} emailov, ${allPhones.length} telefónov, ${allDomains.length} domén`);
+          console.log(`[LeadSearch] Job ${job.id}: Celkovo pred expanziou: ${scrapedPages.length} stránok, ${allEmails.length} emailov, ${allPhones.length} telefónov, ${allDomains.length} domén`);
 
           if (allSnippets.length === 0 && scrapedPages.length === 0) {
             await storage.updateSearchJob(job.id, { status: "completed", totalResults: 0, completedAt: new Date() } as any);
             return;
           }
+
+          // ═══════════════════════════════════════════════════════════
+          // KROK 5a: DOMAIN EXPANSION — hĺbkové prehľadanie najlepších domén
+          // ═══════════════════════════════════════════════════════════
+          const domainStats = new Map<string, { emails: number; phones: number; pages: number; isDir: boolean; links: string[] }>();
+          for (const page of scrapedPages) {
+            const d = page.domain;
+            if (!d) continue;
+            const st = domainStats.get(d) || { emails: 0, phones: 0, pages: 0, isDir: false, links: [] };
+            st.emails += page.emails.length;
+            st.phones += page.phones.length;
+            st.pages++;
+            if (page.isDirectory) st.isDir = true;
+            for (const l of page.internalLinks) {
+              const ln = normUrl(l);
+              if (!seenUrls.has(ln) && st.links.length < 100) st.links.push(l);
+            }
+            domainStats.set(d, st);
+          }
+          const richDomains = [...domainStats.entries()]
+            .filter(([, st]) => (st.emails >= 3 || st.isDir) && st.links.length > 0)
+            .sort((a, b) => (b[1].emails + b[1].phones) - (a[1].emails + a[1].phones))
+            .slice(0, 15);
+          if (richDomains.length > 0) {
+            console.log(`[LeadSearch] Job ${job.id}: KROK 5a — Domain expansion: ${richDomains.length} bohatých domén`);
+            const expansionLinks: string[] = [];
+            for (const [domName, st] of richDomains) {
+              for (const link of st.links.slice(0, 30)) {
+                const ln = normUrl(link);
+                if (!seenUrls.has(ln)) { seenUrls.add(ln); expansionLinks.push(link); }
+              }
+            }
+            console.log(`[LeadSearch] Job ${job.id}: Domain expansion — ${expansionLinks.length} nových podstránok z bohatých domén`);
+            for (let w = 0; w < Math.ceil(expansionLinks.length / 10); w++) {
+              const batch = expansionLinks.slice(w * 10, (w + 1) * 10);
+              const results = await Promise.all(batch.map(url => scrapePage(url)));
+              for (const r of results) { if (r) scrapedPages.push(r); }
+            }
+            console.log(`[LeadSearch] Job ${job.id}: Po domain expansion — ${scrapedPages.length} stránok celkovo`);
+          }
+
+          // Refresh stats after expansion
+          const allEmailsFinal = [...new Set(scrapedPages.flatMap(p => p.emails))];
+          const allPhonesFinal = [...new Set(scrapedPages.flatMap(p => p.phones))];
+          const allDomainsFinal = [...new Set(scrapedPages.map(p => p.domain).filter(Boolean))];
+          console.log(`[LeadSearch] Job ${job.id}: Finálne: ${scrapedPages.length} stránok, ${allEmailsFinal.length} emailov, ${allPhonesFinal.length} telefónov, ${allDomainsFinal.length} domén`);
 
           // ═══════════════════════════════════════════════════════════
           // KROK 5b: RULE-BASED EXTRACTION — extrakcia kontaktov cez pravidlá a heuristiky
@@ -27658,16 +27733,16 @@ TASK: Extract ALL contacts matching "${moduleInfo.description}" from the scraped
 
 TARGET: ${targetModule.toUpperCase()} | Country: ${countryName} | Segment: ${segment || "general"} | Location: ${location || "any"}
 
-SCRAPED PAGES (${scrapedPages.length} pages from ${allDomains.length} domains):
-${scrapedPages.slice(0, 30).map((p, i) => `--- PAGE ${i+1}: ${p.url} ---
+SCRAPED PAGES (${scrapedPages.length} pages from ${allDomainsFinal.length} domains):
+${scrapedPages.slice(0, 40).map((p, i) => `--- PAGE ${i+1}: ${p.url} ---
 Title: ${p.title}
 Emails: ${p.emails.join(", ") || "none"}
 Phones: ${p.phones.join(", ") || "none"}
 Is directory: ${p.isDirectory}
 Content: ${p.text.substring(0, 4000)}`).join("\n\n")}
 
-ALL DISCOVERED EMAILS: ${allEmails.slice(0, 40).join(", ") || "none"}
-ALL DISCOVERED PHONES: ${allPhones.slice(0, 40).join(", ") || "none"}
+ALL DISCOVERED EMAILS: ${allEmailsFinal.slice(0, 60).join(", ") || "none"}
+ALL DISCOVERED PHONES: ${allPhonesFinal.slice(0, 60).join(", ") || "none"}
 
 SEARCH RESULTS SNIPPETS:
 ${allSnippets.slice(0, 25).map((s, i) => `[${i+1}] "${s.title}" — ${s.url}\n${s.snippet}`).join("\n")}
@@ -27724,27 +27799,27 @@ Return ONLY the JSON array, nothing else.`;
             if (!Array.isArray(contacts)) contacts = [];
             console.log(`[LeadSearch] Job ${job.id}: AI extrahoval ${contacts.length} kontaktov`);
 
-            // Multi-pass AI extraction: process remaining pages in batches of 15
+            // Multi-pass AI extraction: process ALL remaining pages in batches of 20
             const alreadyExtracted = new Set(contacts.map(c => (c.company_name || c.email || "").toLowerCase()));
-            for (let passStart = 30; passStart < Math.min(scrapedPages.length, 90); passStart += 15) {
-              const passPages = scrapedPages.slice(passStart, passStart + 15).filter(p => p.emails.length > 0 || p.phones.length > 0);
+            for (let passStart = 40; passStart < scrapedPages.length; passStart += 20) {
+              const passPages = scrapedPages.slice(passStart, passStart + 20).filter(p => p.emails.length > 0 || p.phones.length > 0);
               if (passPages.length === 0) continue;
-              console.log(`[LeadSearch] Job ${job.id}: AI extrakcia pass ${Math.floor(passStart / 15) + 1} (stránky ${passStart}-${passStart + passPages.length})`);
+              console.log(`[LeadSearch] Job ${job.id}: AI extrakcia pass ${Math.floor(passStart / 20) + 1} (stránky ${passStart}-${passStart + passPages.length})`);
               try {
                 const passPrompt = `Extract ALL contacts for "${moduleInfo.description}" from these pages. Already have ${contacts.length} contacts — find NEW ones only.
 
-Already extracted (skip these): ${[...alreadyExtracted].slice(0, 30).join(", ")}
+Already extracted (skip these): ${[...alreadyExtracted].slice(0, 50).join(", ")}
 
 PAGES:
 ${passPages.map((p, i) => `--- PAGE ${i+1}: ${p.url} ---
 Emails: ${p.emails.join(", ") || "none"} | Phones: ${p.phones.join(", ") || "none"}
-${p.text.substring(0, 3000)}`).join("\n\n")}
+${p.text.substring(0, 3500)}`).join("\n\n")}
 
 Return ONLY a JSON array of NEW contacts (same format: company_name, contact_person, email, phone, website, city, source_url, confidence_score).`;
                 const passResp = await openai.chat.completions.create({
                   model: "gpt-4o-mini",
                   messages: [{ role: "system", content: "Extract ALL matching contacts. Return ONLY valid JSON array." }, { role: "user", content: passPrompt }],
-                  temperature: 0.1, max_tokens: 10000,
+                  temperature: 0.1, max_tokens: 12000,
                 });
                 const passContent = passResp.choices[0]?.message?.content || "[]";
                 const passContacts = JSON.parse(passContent.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim());
