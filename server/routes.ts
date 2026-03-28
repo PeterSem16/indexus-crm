@@ -2559,6 +2559,7 @@ export async function registerRoutes(
             location: campaign.location || "",
             keywords: campaign.keywords || "",
             status: "pending",
+            campaignId: campaign.id,
           });
 
           await storage.updateLeadCampaign(campaign.id, {
@@ -27553,7 +27554,7 @@ Return ONLY a JSON array of NEW contacts (same format as before).`;
                     if (!_dnsCheck) { contact.enrichment_status = 'skipped'; continue; }
                   } catch { contact.enrichment_status = 'skipped'; continue; }
                   try {
-                    const enrichResp = await fetch(enrichUrl, { signal: AbortSignal.timeout(8000), headers: { "User-Agent": "Mozilla/5.0" } });
+                    const enrichResp = await fetch(enrichUrl, { signal: AbortSignal.timeout(8000), headers: { "User-Agent": "Mozilla/5.0" }, redirect: "manual" });
                     if (enrichResp.ok) {
                       const enrichHtml = await enrichResp.text();
                       const phonesFound = enrichHtml.match(/(?:\+\d{1,3}[\s\-]?)?\(?\d{2,4}\)?[\s\-]?\d{3}[\s\-]?\d{2,4}[\s\-]?\d{0,4}/g) || [];
@@ -27787,14 +27788,12 @@ Return ONLY a JSON array of NEW contacts (same format as before).`;
           } catch (srcErr) { console.log("[LeadSearch] Source tracking error:", srcErr); }
 
           // Update campaign stats if this is a campaign-generated job
-          if (job.name && job.name.startsWith("[Auto] ")) {
+          if (job.campaignId) {
             try {
-              const allCampaigns = await storage.getAllLeadCampaigns();
-              const matchingCampaign = allCampaigns.find(c => job.name.includes(c.name));
+              const matchingCampaign = await storage.getLeadCampaign(job.campaignId);
               if (matchingCampaign) {
-                const namePattern = `%[Auto] ${matchingCampaign.name}%`;
                 const priorJobs = await db.select({ id: searchJobs.id }).from(searchJobs)
-                  .where(and(sql`${searchJobs.name} LIKE ${namePattern}`, sql`${searchJobs.id} != ${job.id}`));
+                  .where(and(eq(searchJobs.campaignId, matchingCampaign.id), sql`${searchJobs.id} != ${job.id}`));
                 const priorJobIds = priorJobs.map(j => j.id);
                 let trulyNewCount = deduped.length;
                 if (priorJobIds.length > 0) {
@@ -28223,8 +28222,7 @@ Return ONLY a JSON array of NEW contacts (same format as before).`;
       const campaignId = parseInt(req.params.id);
       const campaign = await storage.getLeadCampaign(campaignId);
       if (!campaign) return res.status(404).json({ error: "Campaign not found" });
-      const namePattern = `%[Auto] ${campaign.name}%`;
-      const jobs = await db.select().from(searchJobs).where(sql`${searchJobs.name} LIKE ${namePattern}`).orderBy(desc(searchJobs.createdAt)).limit(20);
+      const jobs = await db.select().from(searchJobs).where(eq(searchJobs.campaignId, campaignId)).orderBy(desc(searchJobs.createdAt)).limit(20);
       res.json(jobs);
     } catch (error: any) {
       res.status(500).json({ error: error.message });

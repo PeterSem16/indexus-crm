@@ -6556,6 +6556,7 @@ export const searchJobs = pgTable("search_jobs", {
   totalResults: integer("total_results").default(0),
   assignedResults: integer("assigned_results").default(0),
   errorMessage: text("error_message"),
+  campaignId: integer("campaign_id"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   completedAt: timestamp("completed_at"),
 });
