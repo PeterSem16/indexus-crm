@@ -18245,88 +18245,134 @@ function LeadSearchTab() {
       )}
 
       <Dialog open={!!previewResult} onOpenChange={(open) => !open && setPreviewResult(null)}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Eye className="h-5 w-5" />
               Náhľad kontaktu
             </DialogTitle>
             <DialogDescription>
-              Skontrolujte údaje pred priradením do modulu {selectedJob?.targetModule === "hospitals" ? "Nemocnice" : selectedJob?.targetModule === "clinics" ? "Ambulancie" : "Spolupracovníci"}
+              Skontrolujte údaje pred priradením do modulu{" "}
+              <span className="font-medium">
+                {selectedJob?.targetModule === "hospitals" ? "Nemocnice" : selectedJob?.targetModule === "clinics" ? "Ambulancie" : "Spolupracovníci"}
+              </span>
             </DialogDescription>
           </DialogHeader>
-          {previewResult && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-muted-foreground">Názov spoločnosti</label>
-                  <div className="text-sm font-medium" data-testid="preview-company-name">{previewResult.companyName || "-"}</div>
+          {previewResult && (() => {
+            const raw = previewResult.rawData || {};
+            const tm = selectedJob?.targetModule;
+            return (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="text-base font-semibold" data-testid="preview-company-name">
+                    {previewResult.companyName || previewResult.contactPerson || "-"}
+                  </div>
+                  <span className={`text-xs font-medium px-2 py-0.5 rounded ${
+                    (previewResult.confidenceScore || 0) >= 70 ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" :
+                    (previewResult.confidenceScore || 0) >= 40 ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400" :
+                    "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400"
+                  }`}>
+                    Spoľahlivosť: {previewResult.confidenceScore || 0}%
+                  </span>
                 </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-muted-foreground">Kontaktná osoba</label>
-                  <div className="text-sm" data-testid="preview-contact-person">{previewResult.contactPerson || "-"}</div>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-muted-foreground">Email</label>
-                  <div className="text-sm" data-testid="preview-email">
-                    {previewResult.email ? (
-                      <a href={`mailto:${previewResult.email}`} className="text-blue-600 hover:underline">{previewResult.email}</a>
-                    ) : "-"}
+
+                {tm === "hospitals" && (
+                  <div className="border rounded-lg p-4 space-y-3">
+                    <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                      <Building className="h-3.5 w-3.5" /> Nemocnica - údaje
+                    </div>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                      <div><span className="text-muted-foreground text-xs">Názov:</span><div className="font-medium">{previewResult.companyName || "-"}</div></div>
+                      <div><span className="text-muted-foreground text-xs">Plný názov:</span><div>{raw.company_name || raw.full_name || previewResult.companyName || "-"}</div></div>
+                      <div><span className="text-muted-foreground text-xs">Kontaktná osoba:</span><div>{previewResult.contactPerson || raw.contact_person || "-"}</div></div>
+                      <div><span className="text-muted-foreground text-xs">Oblasť:</span><div>{raw.region || raw.department || "-"}</div></div>
+                      <div><span className="text-muted-foreground text-xs">Ulica:</span><div>{previewResult.address || raw.address || "-"}</div></div>
+                      <div><span className="text-muted-foreground text-xs">Mesto:</span><div>{previewResult.city || "-"} {raw.postal_code || ""}</div></div>
+                      <div><span className="text-muted-foreground text-xs">Krajina:</span><div>{previewResult.countryCode || "-"}</div></div>
+                    </div>
+                  </div>
+                )}
+
+                {tm === "clinics" && (
+                  <div className="border rounded-lg p-4 space-y-3">
+                    <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                      <User className="h-3.5 w-3.5" /> Ambulancia - údaje
+                    </div>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                      <div><span className="text-muted-foreground text-xs">Názov ambulancie:</span><div className="font-medium">{previewResult.companyName || "-"}</div></div>
+                      <div><span className="text-muted-foreground text-xs">Lekár (celé meno):</span><div className="font-medium">{raw.contact_person || previewResult.contactPerson || "-"}</div></div>
+                      <div><span className="text-muted-foreground text-xs">Titul:</span><div>{raw.doctor_title || "-"}</div></div>
+                      <div><span className="text-muted-foreground text-xs">Špecializácia:</span><div>{previewResult.specialization || raw.specialization || "-"}</div></div>
+                      <div><span className="text-muted-foreground text-xs">Meno:</span><div>{raw.doctor_first_name || "-"}</div></div>
+                      <div><span className="text-muted-foreground text-xs">Priezvisko:</span><div>{raw.doctor_last_name || "-"}</div></div>
+                      <div><span className="text-muted-foreground text-xs">Adresa:</span><div>{previewResult.address || raw.address || "-"}</div></div>
+                      <div><span className="text-muted-foreground text-xs">Mesto:</span><div>{previewResult.city || "-"} {raw.postal_code || ""}</div></div>
+                      <div><span className="text-muted-foreground text-xs">Krajina:</span><div>{previewResult.countryCode || "-"}</div></div>
+                      {raw.notes && <div className="col-span-2"><span className="text-muted-foreground text-xs">Poznámky:</span><div className="text-xs">{raw.notes}</div></div>}
+                    </div>
+                  </div>
+                )}
+
+                {tm === "collaborators" && (
+                  <div className="border rounded-lg p-4 space-y-3">
+                    <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                      <Users className="h-3.5 w-3.5" /> Spolupracovník - údaje
+                    </div>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                      <div><span className="text-muted-foreground text-xs">Titul pred menom:</span><div>{raw.doctor_title || raw.titleBefore || "-"}</div></div>
+                      <div><span className="text-muted-foreground text-xs">Titul za menom:</span><div>{raw.titleAfter || "-"}</div></div>
+                      <div><span className="text-muted-foreground text-xs">Meno:</span><div className="font-medium">{raw.doctor_first_name || "-"}</div></div>
+                      <div><span className="text-muted-foreground text-xs">Priezvisko:</span><div className="font-medium">{raw.doctor_last_name || "-"}</div></div>
+                      <div><span className="text-muted-foreground text-xs">Spoločnosť:</span><div>{raw.company_name || previewResult.companyName || "-"}</div></div>
+                      <div><span className="text-muted-foreground text-xs">Typ spolupráce:</span><div>{raw.collaborator_type || raw.specialization || "-"}</div></div>
+                      <div><span className="text-muted-foreground text-xs">Mobil:</span><div>{raw.mobile || "-"}</div></div>
+                      <div><span className="text-muted-foreground text-xs">Krajina:</span><div>{previewResult.countryCode || "-"}</div></div>
+                      {raw.notes && <div className="col-span-2"><span className="text-muted-foreground text-xs">Poznámky:</span><div className="text-xs">{raw.notes}</div></div>}
+                    </div>
+                  </div>
+                )}
+
+                <div className="border rounded-lg p-4 space-y-3">
+                  <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                    <Phone className="h-3.5 w-3.5" /> Kontaktné údaje
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                    <div>
+                      <span className="text-muted-foreground text-xs">Email:</span>
+                      <div data-testid="preview-email">
+                        {previewResult.email ? <a href={`mailto:${previewResult.email}`} className="text-blue-600 hover:underline">{previewResult.email}</a> : "-"}
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground text-xs">Telefón:</span>
+                      <div data-testid="preview-phone">{previewResult.phone || "-"}</div>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground text-xs">Web:</span>
+                      <div data-testid="preview-website">
+                        {previewResult.website ? <a href={previewResult.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-xs">{previewResult.website}</a> : "-"}
+                      </div>
+                    </div>
+                    {previewResult.sourceUrl && (
+                      <div>
+                        <span className="text-muted-foreground text-xs">Zdroj:</span>
+                        <div><a href={previewResult.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-xs break-all">{previewResult.sourceUrl}</a></div>
+                      </div>
+                    )}
                   </div>
                 </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-muted-foreground">Telefón</label>
-                  <div className="text-sm" data-testid="preview-phone">{previewResult.phone || "-"}</div>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-muted-foreground">Web</label>
-                  <div className="text-sm" data-testid="preview-website">
-                    {previewResult.website ? (
-                      <a href={previewResult.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">{previewResult.website}</a>
-                    ) : "-"}
+
+                <div className="bg-primary/5 rounded-lg p-3 border border-primary/20">
+                  <div className="text-xs text-muted-foreground mb-1">Po potvrdení sa tento kontakt vytvorí ako nový záznam v module:</div>
+                  <div className="text-sm font-medium flex items-center gap-2">
+                    {tm === "hospitals" && <><Building className="h-4 w-4 text-primary" /> Nemocnice</>}
+                    {tm === "clinics" && <><User className="h-4 w-4 text-primary" /> Ambulancie</>}
+                    {tm === "collaborators" && <><Users className="h-4 w-4 text-primary" /> Spolupracovníci</>}
                   </div>
                 </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-muted-foreground">Špecializácia</label>
-                  <div className="text-sm" data-testid="preview-specialization">{previewResult.specialization || "-"}</div>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-muted-foreground">Adresa</label>
-                  <div className="text-sm" data-testid="preview-address">{previewResult.address || "-"}</div>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-muted-foreground">Mesto</label>
-                  <div className="text-sm" data-testid="preview-city">{previewResult.city || "-"} {previewResult.countryCode || ""}</div>
-                </div>
               </div>
-              {previewResult.sourceUrl && (
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-muted-foreground">Zdroj</label>
-                  <div className="text-sm">
-                    <a href={previewResult.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-xs break-all">{previewResult.sourceUrl}</a>
-                  </div>
-                </div>
-              )}
-              <div className="flex items-center gap-2">
-                <label className="text-xs font-medium text-muted-foreground">Spoľahlivosť:</label>
-                <span className={`text-xs font-medium px-2 py-0.5 rounded ${
-                  (previewResult.confidenceScore || 0) >= 70 ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" :
-                  (previewResult.confidenceScore || 0) >= 40 ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400" :
-                  "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400"
-                }`}>
-                  {previewResult.confidenceScore || 0}%
-                </span>
-              </div>
-              <div className="bg-muted/50 rounded-lg p-3 border">
-                <div className="text-xs text-muted-foreground mb-1">Po potvrdení sa tento kontakt vytvorí ako nový záznam v module:</div>
-                <div className="text-sm font-medium flex items-center gap-2">
-                  {selectedJob?.targetModule === "hospitals" && <><Building className="h-4 w-4" /> Nemocnice</>}
-                  {selectedJob?.targetModule === "clinics" && <><User className="h-4 w-4" /> Ambulancie</>}
-                  {selectedJob?.targetModule === "collaborators" && <><Users className="h-4 w-4" /> Spolupracovníci</>}
-                </div>
-              </div>
-            </div>
-          )}
+            );
+          })()}
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setPreviewResult(null)} data-testid="button-cancel-assign">
               Zrušiť

@@ -26803,8 +26803,8 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
   app.post("/api/lead-search/jobs", requireAuth, async (req, res) => {
     try {
       const { name, targetModule, country, segment, location, keywords } = req.body;
-      if (!name || !targetModule) {
-        return res.status(400).json({ error: "Name and target module are required" });
+      if (!name || !targetModule || !["hospitals", "clinics", "collaborators"].includes(targetModule)) {
+        return res.status(400).json({ error: "Name and valid target module are required" });
       }
 
       const job = await storage.createSearchJob({
@@ -26821,133 +26821,257 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
 
       res.json(job);
 
-      // Run search in background
+      const MODULE_SCHEMAS: Record<string, { description: string; fields: string; searchFocus: string }> = {
+        hospitals: {
+          description: "Nemocnice - lôžkové zdravotnícke zariadenia, fakultné nemocnice, univerzitné nemocnice, špecializované ústavy",
+          fields: `Required: name (názov nemocnice), countryCode (2-letter ISO)
+Optional: fullName, streetNumber (ulica a číslo), city, postalCode, region, contactPerson (meno kontaktnej osoby), phone, email, latitude, longitude`,
+          searchFocus: "hospital facilities, medical centers, university hospitals, specialized institutes, maternity wards, gynecology departments, neonatology departments, cord blood banking partner hospitals"
+        },
+        clinics: {
+          description: "Ambulancie - ambulantné zdravotnícke zariadenia, lekárske ordinácie, gynekológovia, pôrodníci, pediatri",
+          fields: `Required: name (názov ambulancie), countryCode (2-letter ISO)
+Optional: doctorName (celé meno lekára), doctorTitle (titul napr. MUDr., doc., prof.), doctorFirstName, doctorLastName, address, city, postalCode, phone, email, website, specialization (gynekológia, pôrodníctvo, pediatria...), notes, latitude, longitude`,
+          searchFocus: "doctor offices, gynecologists, obstetricians, pediatricians, outpatient clinics, private practices, medical specialists dealing with pregnancy, prenatal care, cord blood banking"
+        },
+        collaborators: {
+          description: "Spolupracovníci - obchodní zástupcovia, sprostredkovatelia, partneri, lekári-spolupracovníci",
+          fields: `Required: firstName, lastName, countryCode (2-letter ISO)
+Optional: titleBefore (MUDr., Ing., ...), titleAfter (PhD., CSc., ...), phone, mobile, mobile2, email, companyName, ico (IČO), dic (DIČ), icDph (IČ DPH), bankAccountIban, swiftCode, collaboratorType (typ spolupráce), note, birthPlace`,
+          searchFocus: "medical representatives, sales agents, healthcare consultants, cord blood banking partners, distributors, medical professionals willing to collaborate"
+        }
+      };
+
       (async () => {
         try {
-          const searchQueries: string[] = [];
-          const parts = [segment, location, country].filter(Boolean);
-          const base = parts.join(" ");
+          const moduleInfo = MODULE_SCHEMAS[targetModule];
+          const countryNames: Record<string, string> = { SK: "Slovakia", CZ: "Czech Republic", HU: "Hungary", PL: "Poland", AT: "Austria", DE: "Germany", RO: "Romania", IT: "Italy" };
+          const countryName = country ? (countryNames[country] || country) : "any";
 
-          if (targetModule === "hospitals") {
-            searchQueries.push(`${base} nemocnica kontakt email`.trim());
-            searchQueries.push(`${base} hospital contact email phone`.trim());
-          } else if (targetModule === "clinics") {
-            searchQueries.push(`${base} ambulancia lekár kontakt email`.trim());
-            searchQueries.push(`${base} clinic doctor contact email`.trim());
-          } else if (targetModule === "collaborators") {
-            searchQueries.push(`${base} spolupráca kontakt email telefón`.trim());
-            searchQueries.push(`${base} collaborator partner contact`.trim());
+          // STEP 1: AI generates optimized search queries
+          console.log(`[LeadSearch] Job ${job.id}: Step 1 - AI generating search queries`);
+          const queryGenPrompt = `You are a lead generation expert for a cord blood banking company. Generate 5-7 highly effective web search queries to find ${moduleInfo.description}.
+
+Search criteria:
+- Country: ${countryName}
+- Segment/Specialization: ${segment || "general medical"}
+- Location: ${location || "nationwide"}
+- Additional keywords: ${keywords || "none"}
+
+Focus on finding: ${moduleInfo.searchFocus}
+
+Rules:
+- Mix languages: include queries in the local language of the target country AND in English
+- Include specific search operators and site-specific searches where useful (e.g. site:linkedin.com, site:znamylekár.sk, site:zdravotnicke-zariadenia.sk)
+- Target directories, registries, professional associations, medical databases
+- Include queries for finding contact details (email, phone, address)
+- Be specific - use medical terminology relevant to cord blood banking partnerships
+
+Return ONLY a JSON array of search query strings, nothing else.`;
+
+          const queryGenResponse = await openai.chat.completions.create({
+            model: "gpt-4o-mini",
+            messages: [{ role: "user", content: queryGenPrompt }],
+            temperature: 0.3,
+            max_tokens: 1000,
+          });
+
+          let searchQueries: string[] = [];
+          try {
+            const qContent = queryGenResponse.choices[0]?.message?.content || "[]";
+            searchQueries = JSON.parse(qContent.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim());
+          } catch (e) {
+            console.error("[LeadSearch] Query gen parse error, using fallback queries");
+            const parts = [segment, location, country].filter(Boolean).join(" ");
+            searchQueries = [
+              `${parts} ${targetModule} kontakt email telefón`,
+              `${parts} ${targetModule} contact email phone`,
+              `${parts} medical directory list`,
+            ];
           }
 
-          if (keywords) {
-            searchQueries.push(`${keywords} ${country || ""} kontakt email`.trim());
-          }
+          console.log(`[LeadSearch] Job ${job.id}: Generated ${searchQueries.length} queries`);
 
-          // Fetch search results using fetch to web search APIs
+          // STEP 2: Execute web searches in parallel
+          console.log(`[LeadSearch] Job ${job.id}: Step 2 - Executing web searches`);
           const allSnippets: Array<{title: string, url: string, snippet: string}> = [];
 
-          for (const query of searchQueries.slice(0, 3)) {
+          const searchPromises = searchQueries.slice(0, 6).map(async (query) => {
+            const results: Array<{title: string, url: string, snippet: string}> = [];
+            const encoded = encodeURIComponent(query);
+
+            // DuckDuckGo Instant Answer API
             try {
-              // Use DuckDuckGo instant answer API (no key required)
-              const encoded = encodeURIComponent(query);
-              const ddgResp = await fetch(`https://api.duckduckgo.com/?q=${encoded}&format=json&no_html=1&skip_disambig=1`);
+              const ddgResp = await fetch(`https://api.duckduckgo.com/?q=${encoded}&format=json&no_html=1&skip_disambig=1`, { signal: AbortSignal.timeout(8000) });
               if (ddgResp.ok) {
                 const ddgData = await ddgResp.json() as any;
+                if (ddgData.Abstract) results.push({ title: ddgData.Heading || query, url: ddgData.AbstractURL || "", snippet: ddgData.Abstract });
                 if (ddgData.RelatedTopics) {
-                  for (const topic of ddgData.RelatedTopics.slice(0, 5)) {
+                  for (const topic of ddgData.RelatedTopics.slice(0, 8)) {
                     if (topic.Text && topic.FirstURL) {
-                      allSnippets.push({ title: topic.Text.substring(0, 100), url: topic.FirstURL, snippet: topic.Text });
+                      results.push({ title: topic.Text.substring(0, 150), url: topic.FirstURL, snippet: topic.Text });
+                    }
+                    if (topic.Topics) {
+                      for (const sub of topic.Topics.slice(0, 5)) {
+                        if (sub.Text && sub.FirstURL) results.push({ title: sub.Text.substring(0, 150), url: sub.FirstURL, snippet: sub.Text });
+                      }
                     }
                   }
                 }
               }
-            } catch (e) {
-              console.error("[LeadSearch] Search error:", e);
-            }
-          }
+            } catch (e) { /* timeout or error, skip */ }
 
-          // Also try to scrape some results directly using the queries
-          for (const query of searchQueries.slice(0, 2)) {
+            // DuckDuckGo HTML search for richer results
             try {
-              const encoded = encodeURIComponent(query);
-              const resp = await fetch(`https://html.duckduckgo.com/html/?q=${encoded}`, {
-                headers: { "User-Agent": "Mozilla/5.0 (compatible; INDEXUS-CRM/1.0)" }
+              const htmlResp = await fetch(`https://html.duckduckgo.com/html/?q=${encoded}`, {
+                headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" },
+                signal: AbortSignal.timeout(10000),
+              });
+              if (htmlResp.ok) {
+                const html = await htmlResp.text();
+                const linkRegex = /<a[^>]+class="result__a"[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi;
+                const snippetRegex = /<a[^>]+class="result__snippet"[^>]*>([\s\S]*?)<\/a>/gi;
+                let match;
+                const urls: string[] = [], titles: string[] = [], snippets: string[] = [];
+                while ((match = linkRegex.exec(html)) !== null && urls.length < 10) {
+                  let url = match[1];
+                  if (url.startsWith("//duckduckgo.com/l/?uddg=")) url = decodeURIComponent(url.replace("//duckduckgo.com/l/?uddg=", "").split("&")[0]);
+                  urls.push(url);
+                  titles.push(match[2].replace(/<[^>]+>/g, '').trim());
+                }
+                while ((match = snippetRegex.exec(html)) !== null && snippets.length < 10) {
+                  snippets.push(match[1].replace(/<[^>]+>/g, '').trim());
+                }
+                for (let i = 0; i < urls.length; i++) {
+                  results.push({ title: titles[i] || "", url: urls[i], snippet: snippets[i] || titles[i] || "" });
+                }
+              }
+            } catch (e) { /* timeout or error, skip */ }
+
+            return results;
+          });
+
+          const searchResultArrays = await Promise.all(searchPromises);
+          for (const arr of searchResultArrays) allSnippets.push(...arr);
+
+          // Deduplicate by URL
+          const seenUrls = new Set<string>();
+          const uniqueSnippets = allSnippets.filter(s => {
+            if (!s.url || seenUrls.has(s.url)) return false;
+            seenUrls.add(s.url);
+            return true;
+          });
+
+          console.log(`[LeadSearch] Job ${job.id}: Found ${uniqueSnippets.length} unique results`);
+
+          // STEP 3: Try to fetch actual page content from top results for deeper extraction
+          console.log(`[LeadSearch] Job ${job.id}: Step 3 - Deep page scraping`);
+          const topUrls = uniqueSnippets.slice(0, 8);
+          const pageContents: Array<{url: string, content: string}> = [];
+
+          const scrapePromises = topUrls.map(async (s) => {
+            try {
+              const resp = await fetch(s.url, {
+                headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" },
+                signal: AbortSignal.timeout(8000),
+                redirect: "follow",
               });
               if (resp.ok) {
                 const html = await resp.text();
-                // Extract result snippets from HTML
-                const resultRegex = /<a[^>]+class="result__a"[^>]*href="([^"]*)"[^>]*>([^<]*)<\/a>/gi;
-                const snippetRegex = /<a[^>]+class="result__snippet"[^>]*>([^<]*)<\/a>/gi;
-                let match;
-                const urls: string[] = [];
-                const titles: string[] = [];
-                while ((match = resultRegex.exec(html)) !== null && urls.length < 8) {
-                  let url = match[1];
-                  if (url.startsWith("//duckduckgo.com/l/?uddg=")) {
-                    url = decodeURIComponent(url.replace("//duckduckgo.com/l/?uddg=", "").split("&")[0]);
-                  }
-                  urls.push(url);
-                  titles.push(match[2].replace(/<[^>]+>/g, ''));
-                }
-                const snippets: string[] = [];
-                while ((match = snippetRegex.exec(html)) !== null && snippets.length < 8) {
-                  snippets.push(match[1].replace(/<[^>]+>/g, ''));
-                }
-                for (let i = 0; i < urls.length; i++) {
-                  allSnippets.push({
-                    title: titles[i] || "",
-                    url: urls[i],
-                    snippet: snippets[i] || titles[i] || ""
-                  });
+                // Strip HTML but keep useful text
+                const text = html
+                  .replace(/<script[\s\S]*?<\/script>/gi, '')
+                  .replace(/<style[\s\S]*?<\/style>/gi, '')
+                  .replace(/<nav[\s\S]*?<\/nav>/gi, '')
+                  .replace(/<footer[\s\S]*?<\/footer>/gi, '')
+                  .replace(/<header[\s\S]*?<\/header>/gi, '')
+                  .replace(/<[^>]+>/g, ' ')
+                  .replace(/&nbsp;/g, ' ')
+                  .replace(/&amp;/g, '&')
+                  .replace(/\s+/g, ' ')
+                  .trim()
+                  .substring(0, 3000); // Limit per page
+                if (text.length > 100) {
+                  return { url: s.url, content: text };
                 }
               }
-            } catch (e) {
-              console.error("[LeadSearch] HTML search error:", e);
-            }
-          }
+            } catch (e) { /* skip */ }
+            return null;
+          });
 
-          // Deduplicate by URL
-          const uniqueSnippets = allSnippets.filter((s, i, arr) =>
-            arr.findIndex(x => x.url === s.url) === i
-          ).slice(0, 15);
+          const scrapeResults = await Promise.all(scrapePromises);
+          for (const r of scrapeResults) { if (r) pageContents.push(r); }
 
-          if (uniqueSnippets.length === 0) {
+          console.log(`[LeadSearch] Job ${job.id}: Scraped ${pageContents.length} pages`);
+
+          if (uniqueSnippets.length === 0 && pageContents.length === 0) {
             await storage.updateSearchJob(job.id, { status: "completed", totalResults: 0, completedAt: new Date() } as any);
             return;
           }
 
-          // Use AI to extract structured contacts
-          const contactPrompt = `You are a contact extraction assistant. From the following search results, extract contact information for ${targetModule === "hospitals" ? "hospitals/medical facilities" : targetModule === "clinics" ? "clinics/doctor offices/ambulances" : "potential collaborators/partners"}.
+          // STEP 4: AI extracts structured contacts matching the module schema
+          console.log(`[LeadSearch] Job ${job.id}: Step 4 - AI extraction`);
+          const extractionPrompt = `You are an expert data extraction AI for a cord blood banking CRM system called INDEXUS.
 
-Target country: ${country || "any"}
-Segment: ${segment || "general"}
-Location: ${location || "any"}
+YOUR TASK: Extract contact information for "${moduleInfo.description}" from the provided web data.
 
-Search results:
-${uniqueSnippets.map((s, i) => `[${i+1}] ${s.title}\nURL: ${s.url}\n${s.snippet}`).join("\n\n")}
+TARGET MODULE: ${targetModule.toUpperCase()}
+TARGET COUNTRY: ${countryName}
+SEGMENT: ${segment || "general"}
+LOCATION: ${location || "any"}
+KEYWORDS: ${keywords || "none"}
 
-For each valid contact found, return a JSON array of objects with these fields:
-- company_name (string)
-- contact_person (string or null)
-- email (string or null) 
-- phone (string or null)
-- website (string or null)
-- address (string or null)
-- city (string or null)
-- country_code (string, 2-letter code)
-- specialization (string or null)
+MODULE DATA STRUCTURE (these are the fields we need to populate):
+${moduleInfo.fields}
+
+SEARCH RESULTS (snippets from web search):
+${uniqueSnippets.slice(0, 20).map((s, i) => `[${i+1}] "${s.title}"\nURL: ${s.url}\n${s.snippet}`).join("\n\n")}
+
+${pageContents.length > 0 ? `\nSCRAPED PAGE CONTENT (detailed text from visited pages):\n${pageContents.map((p, i) => `--- Page ${i+1}: ${p.url} ---\n${p.content}`).join("\n\n")}` : ""}
+
+EXTRACTION RULES:
+1. Extract EVERY valid contact that matches the target module type
+2. For each contact, fill in as many fields as possible from the module schema
+3. Phone numbers: include country code, format as +421xxx, +420xxx etc.
+4. Emails: only include if they look valid (contain @ and domain)
+5. For clinics: try to identify the doctor's full name, title, and specialization
+6. For hospitals: get the full official name, department info, address
+7. For collaborators: get first name, last name, title, company, and all contact details
+8. Confidence score (0-100): 90+ = verified data from official source, 70-89 = likely correct, 50-69 = partial data, below 50 = uncertain
+9. IMPORTANT: Only include contacts with at least a name AND one contact method (email, phone, or website)
+
+Return a JSON array where each object has these fields:
+- company_name (string) - organization/practice name
+- contact_person (string|null) - full name with titles
+- doctor_title (string|null) - academic/medical title (MUDr., doc., prof., Ing., etc.)
+- doctor_first_name (string|null)
+- doctor_last_name (string|null)
+- email (string|null)
+- phone (string|null) - with country code
+- mobile (string|null)
+- website (string|null)
+- address (string|null) - full street address
+- city (string|null)
+- postal_code (string|null)
+- region (string|null)
+- country_code (string) - 2-letter ISO code
+- specialization (string|null) - medical specialty or business type
+- department (string|null) - hospital department if applicable
+- notes (string|null) - any additional useful info
 - source_url (string)
-- confidence_score (integer 0-100, higher = more reliable data)
+- confidence_score (integer 0-100)
 
-IMPORTANT: Only return contacts that have at least a company name and one of: email, phone, or website.
-Return ONLY the JSON array, no other text.`;
+Return ONLY the JSON array, no explanations.`;
 
           try {
             const aiResponse = await openai.chat.completions.create({
               model: "gpt-4o-mini",
-              messages: [{ role: "user", content: contactPrompt }],
+              messages: [
+                { role: "system", content: "You are a precise data extraction AI. You ONLY return valid JSON arrays. Never include markdown formatting, explanations, or anything other than the JSON array." },
+                { role: "user", content: extractionPrompt }
+              ],
               temperature: 0.1,
-              max_tokens: 4000,
+              max_tokens: 8000,
             });
 
             const content = aiResponse.choices[0]?.message?.content || "[]";
@@ -26955,25 +27079,71 @@ Return ONLY the JSON array, no other text.`;
             try {
               const cleaned = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
               contacts = JSON.parse(cleaned);
+              if (!Array.isArray(contacts)) contacts = [];
             } catch (e) {
-              console.error("[LeadSearch] AI response parse error:", e);
+              console.error("[LeadSearch] AI parse error:", e);
               contacts = [];
+            }
+
+            // STEP 5: If we got results, optionally do a verification pass
+            if (contacts.length > 0 && contacts.length <= 20) {
+              console.log(`[LeadSearch] Job ${job.id}: Step 5 - AI verification of ${contacts.length} contacts`);
+              try {
+                const verifyPrompt = `Review and clean up these extracted contacts. Fix any obvious errors, remove duplicates, and verify data consistency.
+
+Module type: ${targetModule}
+Expected country: ${country || "any"}
+
+Contacts:
+${JSON.stringify(contacts, null, 2)}
+
+Rules:
+- Remove entries that are clearly not ${moduleInfo.description}
+- Fix phone number formats (should include country code like +421, +420, +36, +48, etc.)
+- Fix email formatting issues
+- Remove duplicate entries (same organization/person)
+- Adjust confidence_score based on data completeness: 90+ needs name+email+phone+address, 70-89 needs name+2 contact methods, 50-69 needs name+1 contact method
+- Keep all valid original fields
+
+Return ONLY the cleaned JSON array.`;
+
+                const verifyResponse = await openai.chat.completions.create({
+                  model: "gpt-4o-mini",
+                  messages: [
+                    { role: "system", content: "You are a data quality AI. Return ONLY valid JSON arrays." },
+                    { role: "user", content: verifyPrompt }
+                  ],
+                  temperature: 0.1,
+                  max_tokens: 8000,
+                });
+
+                const verifyContent = verifyResponse.choices[0]?.message?.content || "";
+                try {
+                  const cleanedVerify = verifyContent.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+                  const verified = JSON.parse(cleanedVerify);
+                  if (Array.isArray(verified) && verified.length > 0) contacts = verified;
+                } catch (e) {
+                  console.log("[LeadSearch] Verification parse failed, using original contacts");
+                }
+              } catch (e) {
+                console.log("[LeadSearch] Verification step failed, using original contacts");
+              }
             }
 
             if (contacts.length > 0) {
               const insertData = contacts.map((c: any) => ({
                 jobId: job.id,
-                companyName: c.company_name || null,
-                contactPerson: c.contact_person || null,
+                companyName: c.company_name || c.companyName || null,
+                contactPerson: c.contact_person || c.contactPerson || null,
                 email: c.email || null,
                 phone: c.phone || null,
                 website: c.website || null,
                 address: c.address || null,
                 city: c.city || null,
-                countryCode: c.country_code || country || null,
+                countryCode: c.country_code || c.countryCode || country || null,
                 specialization: c.specialization || null,
-                sourceUrl: c.source_url || null,
-                confidenceScore: c.confidence_score || 50,
+                sourceUrl: c.source_url || c.sourceUrl || null,
+                confidenceScore: c.confidence_score || c.confidenceScore || 50,
                 rawData: c,
                 status: "new",
               }));
@@ -26981,6 +27151,7 @@ Return ONLY the JSON array, no other text.`;
               await storage.createSearchResults(insertData);
             }
 
+            console.log(`[LeadSearch] Job ${job.id}: Completed with ${contacts.length} contacts`);
             await storage.updateSearchJob(job.id, {
               status: "completed",
               totalResults: contacts.length,
@@ -26988,19 +27159,19 @@ Return ONLY the JSON array, no other text.`;
             } as any);
           } catch (aiError: any) {
             console.error("[LeadSearch] AI extraction error:", aiError);
-            // Still save raw snippets as results
-            const fallbackData = uniqueSnippets.map(s => ({
+            const fallbackData = uniqueSnippets.slice(0, 10).map(s => ({
               jobId: job.id,
-              companyName: s.title || null,
+              companyName: s.title?.substring(0, 200) || null,
               sourceUrl: s.url || null,
-              rawData: s as any,
-              confidenceScore: 20,
+              rawData: { title: s.title, snippet: s.snippet, url: s.url } as any,
+              confidenceScore: 15,
               status: "new",
             }));
             await storage.createSearchResults(fallbackData);
             await storage.updateSearchJob(job.id, {
               status: "completed",
-              totalResults: uniqueSnippets.length,
+              totalResults: fallbackData.length,
+              errorMessage: "AI extraction failed, showing raw results",
               completedAt: new Date(),
             } as any);
           }
@@ -27033,36 +27204,67 @@ Return ONLY the JSON array, no other text.`;
       if (searchResult.status === "assigned") return res.status(400).json({ error: "Already assigned" });
 
       let assignedId: string = "";
+      const raw = (searchResult.rawData || {}) as any;
 
       if (targetModule === "hospitals") {
         const hospital = await storage.createHospital({
           name: searchResult.companyName || "Unknown",
-          fullName: searchResult.companyName || "",
-          streetNumber: searchResult.address || "",
-          city: searchResult.city || "",
+          fullName: raw.company_name || searchResult.companyName || "",
+          streetNumber: searchResult.address || raw.address || "",
+          city: searchResult.city || raw.city || "",
+          postalCode: raw.postal_code || "",
+          region: raw.region || "",
           countryCode: searchResult.countryCode || "SK",
+          contactPerson: searchResult.contactPerson || raw.contact_person || "",
+          phone: searchResult.phone || raw.phone || "",
+          email: searchResult.email || raw.email || "",
           isActive: true,
+          dataSource: "lead-search",
         } as any);
         assignedId = `hospital:${hospital.id}`;
       } else if (targetModule === "clinics") {
         const clinic = await storage.createClinic({
-          doctorName: searchResult.contactPerson || searchResult.companyName || "Unknown",
-          city: searchResult.city || "",
+          name: searchResult.companyName || raw.company_name || searchResult.contactPerson || "Unknown",
+          doctorName: raw.contact_person || searchResult.contactPerson || "",
+          doctorTitle: raw.doctor_title || "",
+          doctorFirstName: raw.doctor_first_name || "",
+          doctorLastName: raw.doctor_last_name || "",
+          address: searchResult.address || raw.address || "",
+          city: searchResult.city || raw.city || "",
+          postalCode: raw.postal_code || "",
           countryCode: searchResult.countryCode || "SK",
-          phone: searchResult.phone || "",
-          email: searchResult.email || "",
-          website: searchResult.website || "",
+          phone: searchResult.phone || raw.phone || "",
+          email: searchResult.email || raw.email || "",
+          website: searchResult.website || raw.website || "",
+          notes: raw.notes || raw.specialization || "",
+          leadSource: "lead-search",
           isActive: true,
         } as any);
         assignedId = `clinic:${clinic.id}`;
       } else if (targetModule === "collaborators") {
-        const nameParts = (searchResult.contactPerson || searchResult.companyName || "Unknown").split(" ");
+        const firstName = raw.doctor_first_name || raw.firstName || "";
+        const lastName = raw.doctor_last_name || raw.lastName || "";
+        let fn = firstName, ln = lastName;
+        if (!fn && !ln) {
+          const fullName = searchResult.contactPerson || searchResult.companyName || "Unknown";
+          const parts = fullName.replace(/^(MUDr\.|doc\.|prof\.|Ing\.|Mgr\.|JUDr\.|PhDr\.|RNDr\.|MVDr\.)\s*/gi, '').split(" ");
+          fn = parts[0] || "Unknown";
+          ln = parts.slice(1).join(" ") || "";
+        }
         const collaborator = await storage.createCollaborator({
-          firstName: nameParts[0] || "Unknown",
-          lastName: nameParts.slice(1).join(" ") || "",
+          titleBefore: raw.doctor_title || raw.titleBefore || "",
+          firstName: fn,
+          lastName: ln,
+          titleAfter: raw.titleAfter || "",
           countryCode: searchResult.countryCode || "SK",
-          phone: searchResult.phone || "",
-          email: searchResult.email || "",
+          phone: searchResult.phone || raw.phone || "",
+          mobile: raw.mobile || "",
+          email: searchResult.email || raw.email || "",
+          companyName: raw.company_name || searchResult.companyName || "",
+          collaboratorType: raw.collaborator_type || raw.specialization || "",
+          note: raw.notes || "",
+          isActive: true,
+          dataSource: "lead-search",
         } as any);
         assignedId = `collaborator:${collaborator.id}`;
       }
