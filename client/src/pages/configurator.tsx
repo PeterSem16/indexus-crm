@@ -18437,20 +18437,44 @@ function LeadSearchTab() {
     });
     setAiSuggestions([]);
     setSelectedSuggestions([]);
-    toast({ title: `${selected.length} AI návrhov skombinovaných do vyhľadávania` });
+    toast({ title: `${selected.length} AI návrhov skombinovaných — spúšťam vyhľadávanie...` });
+    setTimeout(() => {
+      const finalForm = {
+        name: names.length === 1 ? names[0] : `${searchForm.targetModule === "hospitals" ? "Nemocnice" : searchForm.targetModule === "clinics" ? "Ambulancie" : "Spolupracovníci"} - ${locations[0] || "Hľadanie"} (${selected.length} scenárov)`,
+        targetModule: searchForm.targetModule, country: searchForm.country,
+        segment: segments.join(", "), location: locations.join(", "), keywords: allKeywords.slice(0, 10).join(", "),
+      };
+      fetch("/api/lead-search/start", {
+        method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
+        body: JSON.stringify(finalForm),
+      }).then(r => r.json()).then(data => {
+        if (data.jobId) { toast({ title: "Vyhľadávanie spustené", description: `Job #${data.jobId}` }); refetchJobs(); }
+        else toast({ title: "Chyba", description: data.error, variant: "destructive" });
+      }).catch(e => toast({ title: "Chyba", description: e.message, variant: "destructive" }));
+    }, 200);
   };
 
   const applySingleSuggestion = (s: any) => {
-    setSearchForm({
+    const form = {
       ...searchForm,
       name: s.name || searchForm.name,
       segment: s.segment || "",
       location: s.location || "",
       keywords: s.keywords || "",
-    });
+    };
+    setSearchForm(form);
     setAiSuggestions([]);
     setSelectedSuggestions([]);
-    toast({ title: "AI návrh aplikovaný do formulára" });
+    toast({ title: "AI návrh aplikovaný — spúšťam vyhľadávanie..." });
+    setTimeout(() => {
+      fetch("/api/lead-search/start", {
+        method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
+        body: JSON.stringify({ name: form.name || `${form.segment} ${form.location}`, targetModule: form.targetModule, country: form.country, segment: form.segment, location: form.location, keywords: form.keywords }),
+      }).then(r => r.json()).then(data => {
+        if (data.jobId) { toast({ title: "Vyhľadávanie spustené", description: `Job #${data.jobId}` }); refetchJobs(); }
+        else toast({ title: "Chyba", description: data.error, variant: "destructive" });
+      }).catch(e => toast({ title: "Chyba", description: e.message, variant: "destructive" }));
+    }, 200);
   };
 
   const { data: jobs = [], refetch: refetchJobs } = useQuery<any[]>({
