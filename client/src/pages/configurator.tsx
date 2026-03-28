@@ -26,7 +26,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Pencil, Trash2, FileText, Settings, Layout, Loader2, Palette, Package, Search, Shield, Copy, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Eye, EyeOff, Lock, Unlock, Check, Hash, Info, X, DollarSign, Percent, Calculator, CreditCard, TrendingUp, Bell, CheckCircle2, XCircle, Key, AlertTriangle, Upload, FileDown, Edit, Save, Download, ArrowUpDown, Paperclip, Globe, RefreshCw, BarChart3, Target, Sparkles, MapPin, Layers, Filter, Brain, Network, ArrowRight, ClipboardList, Share2, ThumbsUp, ThumbsDown, Zap, GitMerge, Users, Building2, User, Mail, Phone, Award } from "lucide-react";
+import { Plus, Pencil, Trash2, FileText, Settings, Layout, Loader2, Palette, Package, Search, Shield, Copy, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Eye, EyeOff, Lock, Unlock, Check, Hash, Info, X, DollarSign, Percent, Calculator, CreditCard, TrendingUp, Bell, CheckCircle2, XCircle, Key, AlertTriangle, Upload, FileDown, Edit, Save, Download, ArrowUpDown, Paperclip, Globe, RefreshCw, BarChart3, Target, Sparkles, MapPin, Layers, Filter, Brain, Network, ArrowRight, ClipboardList, Share2, ThumbsUp, ThumbsDown, Zap, GitMerge, Users, Building2, User, Mail, Phone, Award, SlidersHorizontal } from "lucide-react";
 import { COUNTRIES, CURRENCIES, getCurrencySymbol } from "@shared/schema";
 import { InvoiceDesigner, InvoiceDesignerConfig } from "@/components/invoice-designer";
 import { ContractTemplatesManager } from "@/components/contract-templates-manager";
@@ -18379,6 +18379,40 @@ function LeadSearchTab() {
   const [aiSourceSuggestions, setAiSourceSuggestions] = useState<any[]>([]);
   const [aiSourceLoading, setAiSourceLoading] = useState(false);
   const [aiSourceFilter, setAiSourceFilter] = useState({ country: "", segment: "", targetModule: "hospitals", depth: "standard" as string });
+  const [showSearchParams, setShowSearchParams] = useState(false);
+  const [searchParams, setSearchParams] = useState({
+    queryCount: 40,
+    googlePages: 6,
+    retryThreshold: 100,
+    maxPagesToScrape: 200,
+    deepCrawlDirectories: 20,
+    deepCrawlLinksPerDir: 50,
+    deepCrawlMaxSubpages: 150,
+    paginationDepth: 15,
+    contactPageDomains: 80,
+    domainExpansionTopN: 15,
+    domainExpansionLinksPerDomain: 30,
+    aiFirstPassPages: 40,
+    aiPassBatchSize: 20,
+    enableCityQueries: true,
+    enableDomainExpansion: true,
+    enableRuleExtraction: true,
+  });
+  const searchParamsMeta: Record<string, { min: number; max: number; rec: number; label: string; desc: string; unit: string; category: string }> = {
+    queryCount: { min: 10, max: 100, rec: 40, label: "Vyhľadávacie frázy", desc: "Koľko rôznych Google/Bing dopytov sa vygeneruje", unit: "fráz", category: "discovery" },
+    googlePages: { min: 1, max: 10, rec: 6, label: "Google stránky/dopyt", desc: "Koľko stránok výsledkov sa prehľadá pre každý dopyt", unit: "stránok", category: "discovery" },
+    retryThreshold: { min: 20, max: 300, rec: 100, label: "Retry prah", desc: "Pod koľko URL sa spustí opakované vyhľadávanie", unit: "URL", category: "discovery" },
+    maxPagesToScrape: { min: 30, max: 500, rec: 200, label: "Max stránok na scrape", desc: "Maximálny počet stránok na stiahnutie", unit: "stránok", category: "scraping" },
+    deepCrawlDirectories: { min: 5, max: 50, rec: 20, label: "Katalógy na deep crawl", desc: "Koľko katalógov sa prehľadá do hĺbky", unit: "katalógov", category: "scraping" },
+    deepCrawlLinksPerDir: { min: 10, max: 100, rec: 50, label: "Linkov na katalóg", desc: "Koľko podstránok z každého katalógu", unit: "linkov", category: "scraping" },
+    deepCrawlMaxSubpages: { min: 30, max: 500, rec: 150, label: "Max deep crawl stránok", desc: "Celkový limit podstránok z deep crawl", unit: "stránok", category: "scraping" },
+    paginationDepth: { min: 3, max: 30, rec: 15, label: "Hĺbka paginácie", desc: "Do koľkej stránky sa prehľadá paginácia", unit: "strán", category: "scraping" },
+    contactPageDomains: { min: 20, max: 200, rec: 80, label: "Kontaktné stránky", desc: "Koľko domén sa skontroluje na /kontakt", unit: "domén", category: "scraping" },
+    domainExpansionTopN: { min: 5, max: 30, rec: 15, label: "Top domény na expanziu", desc: "Koľko najbohatších domén sa ďalej prehľadá", unit: "domén", category: "expansion" },
+    domainExpansionLinksPerDomain: { min: 10, max: 80, rec: 30, label: "Linkov na expanziu", desc: "Ďalšie podstránky z každej bohatej domény", unit: "linkov", category: "expansion" },
+    aiFirstPassPages: { min: 10, max: 60, rec: 40, label: "AI 1. pass stránky", desc: "Koľko stránok sa pošle AI na prvú extrakciu", unit: "stránok", category: "ai" },
+    aiPassBatchSize: { min: 10, max: 40, rec: 20, label: "AI veľkosť dávky", desc: "Stránky v každom ďalšom AI passe", unit: "stránok", category: "ai" },
+  };
 
   const { data: analytics } = useQuery<any>({ queryKey: ["/api/lead-search/analytics"] });
   const { data: leadSources = [], refetch: refetchSources } = useQuery<any[]>({ queryKey: ["/api/lead-sources"] });
@@ -18446,7 +18480,7 @@ function LeadSearchTab() {
       };
       fetch("/api/lead-search/start", {
         method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
-        body: JSON.stringify(finalForm),
+        body: JSON.stringify({ ...finalForm, searchParams }),
       }).then(r => r.json()).then(data => {
         if (data.jobId) { toast({ title: "Vyhľadávanie spustené", description: `Job #${data.jobId}` }); refetchJobs(); }
         else toast({ title: "Chyba", description: data.error, variant: "destructive" });
@@ -18469,7 +18503,7 @@ function LeadSearchTab() {
     setTimeout(() => {
       fetch("/api/lead-search/start", {
         method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
-        body: JSON.stringify({ name: form.name || `${form.segment} ${form.location}`, targetModule: form.targetModule, country: form.country, segment: form.segment, location: form.location, keywords: form.keywords }),
+        body: JSON.stringify({ name: form.name || `${form.segment} ${form.location}`, targetModule: form.targetModule, country: form.country, segment: form.segment, location: form.location, keywords: form.keywords, searchParams }),
       }).then(r => r.json()).then(data => {
         if (data.jobId) { toast({ title: "Vyhľadávanie spustené", description: `Job #${data.jobId}` }); refetchJobs(); }
         else toast({ title: "Chyba", description: data.error, variant: "destructive" });
@@ -18509,7 +18543,7 @@ function LeadSearchTab() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify(searchForm),
+        body: JSON.stringify({ ...searchForm, searchParams }),
       });
       if (!resp.ok) throw new Error("Failed");
       const job = await resp.json();
@@ -19470,6 +19504,100 @@ function LeadSearchTab() {
               </div>
 
               <div className="pt-1 space-y-2">
+                <button className="w-full flex items-center justify-between text-[10px] text-muted-foreground hover:text-foreground transition-colors py-1 px-1" onClick={() => setShowSearchParams(!showSearchParams)} data-testid="toggle-search-params">
+                  <span className="flex items-center gap-1"><SlidersHorizontal className="h-3 w-3" /> Parametre vyhľadávania</span>
+                  <span className="flex items-center gap-1">
+                    {Object.entries(searchParams).some(([k, v]) => {
+                      const meta = searchParamsMeta[k];
+                      if (!meta) return false;
+                      return v !== meta.rec;
+                    }) && <span className="text-amber-600 font-medium">upravené</span>}
+                    {showSearchParams ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                  </span>
+                </button>
+                {showSearchParams && (
+                  <div className="rounded-lg border border-dashed border-primary/30 bg-primary/[0.02] p-3 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-semibold text-foreground/80">Konfigurácia pipeline</span>
+                      <button className="text-[9px] text-primary hover:underline" onClick={() => setSearchParams({
+                        queryCount: 40, googlePages: 6, retryThreshold: 100, maxPagesToScrape: 200, deepCrawlDirectories: 20,
+                        deepCrawlLinksPerDir: 50, deepCrawlMaxSubpages: 150, paginationDepth: 15, contactPageDomains: 80,
+                        domainExpansionTopN: 15, domainExpansionLinksPerDomain: 30, aiFirstPassPages: 40, aiPassBatchSize: 20,
+                        enableCityQueries: true, enableDomainExpansion: true, enableRuleExtraction: true,
+                      })} data-testid="reset-search-params">Obnoviť odporúčané</button>
+                    </div>
+
+                    {(["discovery", "scraping", "expansion", "ai"] as const).map(cat => (
+                      <div key={cat}>
+                        <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground block mb-1.5">
+                          {cat === "discovery" ? "Vyhľadávanie" : cat === "scraping" ? "Scraping" : cat === "expansion" ? "Expanzia" : "AI Extrakcia"}
+                        </span>
+                        <div className="space-y-2">
+                          {Object.entries(searchParamsMeta).filter(([, m]) => m.category === cat).map(([key, meta]) => {
+                            const val = (searchParams as any)[key] as number;
+                            const isOverRec = val > meta.rec;
+                            const isUnderRec = val < meta.rec;
+                            return (
+                              <div key={key} className="space-y-0.5">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[10px] text-foreground/80">{meta.label}</span>
+                                  <div className="flex items-center gap-1.5">
+                                    {isOverRec && <span className="text-[8px] bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 px-1 py-0.5 rounded font-medium">nad odporúčanie</span>}
+                                    {isUnderRec && <span className="text-[8px] bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 px-1 py-0.5 rounded font-medium">pod odporúčanie</span>}
+                                    <span className={cn("text-[10px] font-mono font-bold tabular-nums min-w-[32px] text-right", isOverRec ? "text-amber-600" : isUnderRec ? "text-blue-600" : "text-foreground")}>{val}</span>
+                                    <span className="text-[8px] text-muted-foreground">{meta.unit}</span>
+                                  </div>
+                                </div>
+                                <div className="relative">
+                                  <input
+                                    type="range" min={meta.min} max={meta.max} value={val}
+                                    onChange={e => setSearchParams(p => ({ ...p, [key]: parseInt(e.target.value) }))}
+                                    className="w-full h-1.5 appearance-none bg-muted rounded-full cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary [&::-webkit-slider-thumb]:shadow-sm [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-background"
+                                    data-testid={`param-${key}`}
+                                  />
+                                  <div className="absolute top-0 left-0 h-1.5 rounded-full bg-primary/20 pointer-events-none" style={{ width: `${((meta.rec - meta.min) / (meta.max - meta.min)) * 100}%` }} />
+                                </div>
+                                <div className="flex justify-between text-[8px] text-muted-foreground">
+                                  <span>{meta.min}</span>
+                                  <span className="text-primary/60">odp. {meta.rec}</span>
+                                  <span>{meta.max}</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+
+                    <div className="border-t pt-2 space-y-1.5">
+                      <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground block">Moduly</span>
+                      {([
+                        { key: "enableCityQueries", label: "Mestské dopyty", desc: "Automatický dopyt pre každé veľké mesto" },
+                        { key: "enableDomainExpansion", label: "Domain expansion", desc: "Hĺbkové prehľadanie najbohatších domén" },
+                        { key: "enableRuleExtraction", label: "Rule-based extrakcia", desc: "Regex extrakcia pred AI" },
+                      ] as const).map(({ key, label, desc }) => (
+                        <label key={key} className="flex items-start gap-2 cursor-pointer group" data-testid={`toggle-${key}`}>
+                          <input type="checkbox" className="mt-0.5 rounded accent-primary" checked={(searchParams as any)[key]} onChange={e => setSearchParams(p => ({ ...p, [key]: e.target.checked }))} />
+                          <div>
+                            <span className="text-[10px] font-medium text-foreground/80 group-hover:text-foreground">{label}</span>
+                            <span className="text-[9px] text-muted-foreground block">{desc}</span>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+
+                    <div className="rounded-md bg-muted/50 p-2 text-[9px] text-muted-foreground">
+                      <span className="font-medium text-foreground/70">Odhad trvania: </span>
+                      {(() => {
+                        const est = Math.round((searchParams.queryCount * searchParams.googlePages * 1.5 + searchParams.maxPagesToScrape * 0.5 + searchParams.deepCrawlMaxSubpages * 0.5 + searchParams.contactPageDomains * 0.3) / 60);
+                        return est < 5 ? "~2-5 minút" : est < 15 ? `~${est} minút` : est < 60 ? `~${Math.round(est / 5) * 5} minút` : `~${Math.round(est / 60 * 10) / 10} hodín`;
+                      })()}
+                      {" | "}
+                      <span className="font-medium text-foreground/70">Vyššie hodnoty = viac výsledkov, ale dlhší čas</span>
+                    </div>
+                  </div>
+                )}
+
                 <Button onClick={startSearch} className="w-full h-10" data-testid="button-start-search">
                   <Search className="h-4 w-4 mr-2" />
                   Spustiť vyhľadávanie
