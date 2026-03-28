@@ -27716,10 +27716,33 @@ Return ONLY a JSON array of NEW contacts (same format as before).`;
           // ═══════════════════════════════════════════════════════════
           // KROK 9: ULOŽENIE — výsledky do databázy
           // ═══════════════════════════════════════════════════════════
-          console.log(`[LeadSearch] Job ${job.id}: KROK 9 — Ukladanie ${deduped.length} výsledkov`);
+          // For campaign jobs, filter out leads already found in prior campaign runs
+          let leadsToSave = deduped;
+          if (job.campaignId) {
+            try {
+              const priorCampaignJobs = await db.select({ id: searchJobs.id }).from(searchJobs)
+                .where(and(eq(searchJobs.campaignId, job.campaignId), sql`${searchJobs.id} != ${job.id}`));
+              const priorCampaignJobIds = priorCampaignJobs.map(j => j.id);
+              if (priorCampaignJobIds.length > 0) {
+                const priorCampaignResults = await db.select({ email: searchResults.email, phone: searchResults.phone, companyName: searchResults.companyName, website: searchResults.website })
+                  .from(searchResults).where(inArray(searchResults.jobId, priorCampaignJobIds));
+                const existingFingerprints = new Set(priorCampaignResults.map(r => {
+                  const fp = [r.email?.toLowerCase(), r.phone?.replace(/\s/g, ''), r.companyName?.toLowerCase(), r.website?.toLowerCase()].filter(Boolean);
+                  return fp.join('|');
+                }));
+                leadsToSave = deduped.filter((c: Record<string, string>) => {
+                  const fp = [c.email?.toLowerCase(), c.phone?.replace(/\s/g, ''), (c.company_name || c.companyName)?.toLowerCase(), c.website?.toLowerCase()].filter(Boolean);
+                  return !existingFingerprints.has(fp.join('|'));
+                });
+                console.log(`[LeadSearch] Job ${job.id}: Campaign dedup — ${deduped.length} total, ${leadsToSave.length} truly new`);
+              }
+            } catch (campDedupErr) { console.log("[LeadSearch] Campaign dedup error:", campDedupErr); }
+          }
 
-          if (deduped.length > 0) {
-            const insertData = deduped.map((c: any) => ({
+          console.log(`[LeadSearch] Job ${job.id}: KROK 9 — Ukladanie ${leadsToSave.length} výsledkov`);
+
+          if (leadsToSave.length > 0) {
+            const insertData = leadsToSave.map((c: any) => ({
               jobId: job.id,
               companyName: c.company_name || c.companyName || null,
               contactPerson: c.contact_person || c.contactPerson || null,
@@ -27787,31 +27810,16 @@ Return ONLY a JSON array of NEW contacts (same format as before).`;
             }
           } catch (srcErr) { console.log("[LeadSearch] Source tracking error:", srcErr); }
 
-          // Update campaign stats if this is a campaign-generated job
+          // Update campaign stats using leadsToSave (already cross-run deduped)
           if (job.campaignId) {
             try {
               const matchingCampaign = await storage.getLeadCampaign(job.campaignId);
               if (matchingCampaign) {
-                const priorJobs = await db.select({ id: searchJobs.id }).from(searchJobs)
-                  .where(and(eq(searchJobs.campaignId, matchingCampaign.id), sql`${searchJobs.id} != ${job.id}`));
-                const priorJobIds = priorJobs.map(j => j.id);
-                let trulyNewCount = deduped.length;
-                if (priorJobIds.length > 0) {
-                  const priorResults = await db.select({ email: searchResults.email, phone: searchResults.phone, companyName: searchResults.companyName, website: searchResults.website })
-                    .from(searchResults).where(inArray(searchResults.jobId, priorJobIds));
-                  const priorFingerprints = new Set(priorResults.map(r => {
-                    const parts = [r.email?.toLowerCase(), r.phone?.replace(/\s/g, ''), r.companyName?.toLowerCase(), r.website?.toLowerCase()].filter(Boolean);
-                    return parts.join('|');
-                  }));
-                  trulyNewCount = deduped.filter((c: Record<string, string>) => {
-                    const parts = [c.email?.toLowerCase(), c.phone?.replace(/\s/g, ''), (c.company_name || c.companyName)?.toLowerCase(), c.website?.toLowerCase()].filter(Boolean);
-                    return !priorFingerprints.has(parts.join('|'));
-                  }).length;
-                }
+                const newLeadsSaved = leadsToSave.length;
                 await storage.updateLeadCampaign(matchingCampaign.id, {
-                  totalLeadsFound: (matchingCampaign.totalLeadsFound || 0) + trulyNewCount,
+                  totalLeadsFound: (matchingCampaign.totalLeadsFound || 0) + newLeadsSaved,
                 });
-                if (trulyNewCount > 0) {
+                if (newLeadsSaved > 0) {
                   try {
                     const allUsers = await storage.getAllUsers();
                     const roles = await storage.getAllRoles();
@@ -27821,16 +27829,16 @@ Return ONLY a JSON array of NEW contacts (same format as before).`;
                       await notificationService.sendNotificationToUsers(adminIds, {
                         type: "lead_campaign_results",
                         title: `Nové leady z kampane "${matchingCampaign.name}"`,
-                        message: `Kampaň "${matchingCampaign.name}" našla ${trulyNewCount} nových leadov (Job #${job.id}).`,
+                        message: `Kampaň "${matchingCampaign.name}" našla ${newLeadsSaved} nových leadov (Job #${job.id}).`,
                         priority: "normal",
                         entityType: "lead_campaign",
                         entityId: String(matchingCampaign.id),
-                        metadata: { campaignName: matchingCampaign.name, jobId: job.id, newLeads: trulyNewCount },
+                        metadata: { campaignName: matchingCampaign.name, jobId: job.id, newLeads: newLeadsSaved },
                       });
                     }
                   } catch (notifErr) { console.log("[LeadSearch] Campaign result notification error:", notifErr); }
                 }
-                console.log(`[LeadSearch] Campaign "${matchingCampaign.name}" updated: +${trulyNewCount} truly new leads (${deduped.length} total)`);
+                console.log(`[LeadSearch] Campaign "${matchingCampaign.name}" updated: +${newLeadsSaved} new leads saved (${deduped.length} total found, ${deduped.length - newLeadsSaved} already known)`);
               }
             } catch (campErr) { console.log("[LeadSearch] Campaign stats update error:", campErr); }
           }
