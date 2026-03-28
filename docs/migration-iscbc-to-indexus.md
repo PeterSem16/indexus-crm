@@ -150,12 +150,20 @@ Migration from legacy ISCBC system (MSSQL database `CBC` on `10.1.2.2:1433`) to 
 
 2. Ensure MSSQL is accessible from the server (network connectivity to `10.1.2.2:1433`)
 
-### Full Command (Ubuntu server)
+### Full Migration Command (Ubuntu server — no limits)
 ```bash
 cd /var/www/indexus-crm && \
   git pull && \
   npm run build && \
   npx drizzle-kit push --force && \
+  node script/migration/cleanup-test-migration.cjs && \
+  MIGRATION_LIMIT=999999 node script/migration/test-migration-20.cjs 2>&1 | tee /tmp/migration-full.txt && \
+  pm2 restart indexus-crm
+```
+
+### Test Migration Command (limited)
+```bash
+cd /var/www/indexus-crm && \
   node script/migration/cleanup-test-migration.cjs && \
   MIGRATION_LIMIT=100 node script/migration/test-migration-20.cjs 2>&1 | tee /tmp/migration-v20.txt && \
   pm2 restart indexus-crm
@@ -163,7 +171,12 @@ cd /var/www/indexus-crm && \
 
 ### Environment Variable
 - `MIGRATION_LIMIT=100` — limits to first 100 clients (for testing)
-- Remove the limit for full migration
+- `MIGRATION_LIMIT=999999` — effectively no limit (full migration)
+
+### Performance Notes
+- MSSQL request timeout: 10 minutes (600s)
+- Large queries are automatically batched (5000 IDs per batch) to avoid MSSQL timeouts
+- Full migration with ~192K clients, ~264K contracts, ~2.8M invoices may take several hours
 
 ### Re-running
 The cleanup script removes all migrated data before re-running:

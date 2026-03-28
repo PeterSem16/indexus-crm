@@ -28,8 +28,8 @@ const MSSQL_CONFIG = {
   port: 1433,
   database: 'CBC',
   options: { encrypt: false, trustServerCertificate: true },
-  connectionTimeout: 15000,
-  requestTimeout: 120000,
+  connectionTimeout: 30000,
+  requestTimeout: 600000,
 };
 
 const PG_CONFIG = {
@@ -41,7 +41,25 @@ const PG_CONFIG = {
 };
 
 const LIMIT = parseInt(process.env.MIGRATION_LIMIT || '20', 10);
+const MSSQL_BATCH_SIZE = 5000;
 let mssqlPool, pgPool;
+
+async function batchMssqlQuery(idList, queryTemplate, label) {
+  if (!idList || idList.length === 0) return [];
+  const allResults = [];
+  const totalBatches = Math.ceil(idList.length / MSSQL_BATCH_SIZE);
+  for (let i = 0; i < idList.length; i += MSSQL_BATCH_SIZE) {
+    const batch = idList.slice(i, i + MSSQL_BATCH_SIZE);
+    const batchNum = Math.floor(i / MSSQL_BATCH_SIZE) + 1;
+    if (totalBatches > 1 && label) {
+      log(`  ${label} batch ${batchNum}/${totalBatches} (${batch.length} IDs)...`);
+    }
+    const sql = queryTemplate.replace(/\$\{BATCH_IDS\}/g, batch.join(','));
+    const result = await mssqlPool.request().query(sql);
+    allResults.push(...result.recordset);
+  }
+  return allResults;
+}
 const cbcStatusRemap = { 1: 1, 2: 2, 3: 3, 4: 4, 5: 4, 6: 4, 7: 5, 8: 6, 9: 7, 10: 8 };
 
 const cbcCollaboratorTypeMap = {
@@ -1513,42 +1531,56 @@ async function step5_customers() {
   const cliIdList = referencedCliIds.recordset.map(r => r.cli_id);
   log(`  Referencovaní klienti z odberov: ${cliIdList.length} unikátnych cli_id`);
 
-  const clients = cliIdList.length > 0 ? await mssqlPool.request().query(`
-    SELECT c.cli_id, c.com_id, c.cli_children, c.cli_mailinglist,
-           c.cli_note, c.cli_rating, c.cli_inserted,
-           comp.com_country_code,
-           pd.pda_title_prefix, pd.pda_first_name, pd.pda_last_name,
-           pd.pda_maiden_name, pd.pda_title_suffix, pd.pda_birth_date,
-           pd.pda_id_number, pd.pda_id_card, pd.pda_sex,
-           pd.pda_email, pd.pda_email2, pd.pda_mobile, pd.pda_mobile2,
-           pd.pda_phone_number, pd.pda_other_contact,
-           pd.pda_bank_name, pd.pda_account_number, pd.pda_account_bank_code,
-           pd.pda_IBAN, pd.pda_SWIFT,
-           a_perm.add_street_and_number as perm_street, a_perm.add_city as perm_city,
-           a_perm.add_zip as perm_zip, a_perm.add_area as perm_area, a_perm.add_country as perm_country,
-           a_corr.add_name as corr_name, a_corr.add_street_and_number as corr_street,
-           a_corr.add_city as corr_city, a_corr.add_zip as corr_zip,
-           a_corr.add_area as corr_area, a_corr.add_country as corr_country
-    FROM Clients c
-    JOIN Persons p ON p.per_id = c.per_id
-    LEFT JOIN PersonalData pd ON pd.per_id = p.per_id AND pd.pda_valid = 1
-    LEFT JOIN Companies comp ON comp.com_id = c.com_id
-    LEFT JOIN MailAddresses a_perm ON a_perm.per_id = p.per_id AND a_perm.add_valid = 1 AND a_perm.mat_id = 1
-    LEFT JOIN MailAddresses a_corr ON a_corr.per_id = p.per_id AND a_corr.add_valid = 1 AND a_corr.mat_id = 3
-    WHERE c.cli_id IN (${cliIdList.join(',')})
-      AND (c.cli_deleted = 0 OR c.cli_deleted IS NULL)
-    ORDER BY c.cli_id DESC
-  `) : { recordset: [] };
+  // Batch query to avoid MSSQL timeout on large IN clauses
+  const BATCH_SIZE = 5000;
+  const allClientRecords = [];
+  for (let i = 0; i < cliIdList.length; i += BATCH_SIZE) {
+    const batch = cliIdList.slice(i, i + BATCH_SIZE);
+    log(`  Načítavam klientov batch ${Math.floor(i/BATCH_SIZE)+1}/${Math.ceil(cliIdList.length/BATCH_SIZE)} (${batch.length} IDs)...`);
+    const batchResult = await mssqlPool.request().query(`
+      SELECT c.cli_id, c.com_id, c.cli_children, c.cli_mailinglist,
+             c.cli_note, c.cli_rating, c.cli_inserted,
+             comp.com_country_code,
+             pd.pda_title_prefix, pd.pda_first_name, pd.pda_last_name,
+             pd.pda_maiden_name, pd.pda_title_suffix, pd.pda_birth_date,
+             pd.pda_id_number, pd.pda_id_card, pd.pda_sex,
+             pd.pda_email, pd.pda_email2, pd.pda_mobile, pd.pda_mobile2,
+             pd.pda_phone_number, pd.pda_other_contact,
+             pd.pda_bank_name, pd.pda_account_number, pd.pda_account_bank_code,
+             pd.pda_IBAN, pd.pda_SWIFT,
+             a_perm.add_street_and_number as perm_street, a_perm.add_city as perm_city,
+             a_perm.add_zip as perm_zip, a_perm.add_area as perm_area, a_perm.add_country as perm_country,
+             a_corr.add_name as corr_name, a_corr.add_street_and_number as corr_street,
+             a_corr.add_city as corr_city, a_corr.add_zip as corr_zip,
+             a_corr.add_area as corr_area, a_corr.add_country as corr_country
+      FROM Clients c
+      JOIN Persons p ON p.per_id = c.per_id
+      LEFT JOIN PersonalData pd ON pd.per_id = p.per_id AND pd.pda_valid = 1
+      LEFT JOIN Companies comp ON comp.com_id = c.com_id
+      LEFT JOIN MailAddresses a_perm ON a_perm.per_id = p.per_id AND a_perm.add_valid = 1 AND a_perm.mat_id = 1
+      LEFT JOIN MailAddresses a_corr ON a_corr.per_id = p.per_id AND a_corr.add_valid = 1 AND a_corr.mat_id = 3
+      WHERE c.cli_id IN (${batch.join(',')})
+        AND (c.cli_deleted = 0 OR c.cli_deleted IS NULL)
+      ORDER BY c.cli_id DESC
+    `);
+    allClientRecords.push(...batchResult.recordset);
+  }
+  const clients = { recordset: allClientRecords };
+  log(`  Celkovo načítaných klientov: ${clients.recordset.length}`);
 
   const cliIds = clients.recordset.map(r => r.cli_id);
-  const clientContracts = cliIds.length > 0 ? await mssqlPool.request().query(`
-    SELECT con.cli_id, cs.csa_code
-    FROM Contracts con
-    JOIN ContractStatuses cs ON cs.csa_id = con.csa_id
-    WHERE con.cli_id IN (${cliIds.join(',')})
-  `) : { recordset: [] };
   const contractStatusMap = {};
-  for (const r of clientContracts.recordset) contractStatusMap[r.cli_id] = r.csa_code;
+  for (let i = 0; i < cliIds.length; i += BATCH_SIZE) {
+    const batch = cliIds.slice(i, i + BATCH_SIZE);
+    log(`  Načítavam kontrakty batch ${Math.floor(i/BATCH_SIZE)+1}/${Math.ceil(cliIds.length/BATCH_SIZE)}...`);
+    const batchResult = await mssqlPool.request().query(`
+      SELECT con.cli_id, cs.csa_code
+      FROM Contracts con
+      JOIN ContractStatuses cs ON cs.csa_id = con.csa_id
+      WHERE con.cli_id IN (${batch.join(',')})
+    `);
+    for (const r of batchResult.recordset) contractStatusMap[r.cli_id] = r.csa_code;
+  }
 
   const showLimitCli = Math.min(10, clients.recordset.length);
   log(`Zdrojové dáta z CBC (prvých ${showLimitCli} z ${clients.recordset.length}):`);
@@ -1939,21 +1971,24 @@ async function step6b_cases() {
     return;
   }
 
-  const cliIdList = migratedCustomerIds.join(',');
-
-  const fatherStats = await mssqlPool.request().query(`
+  const fatherStatsResults = await batchMssqlQuery(migratedCustomerIds, `
     SELECT
       COUNT(*) as total,
       COUNT(pc.per_id_father) as with_father,
       COUNT(pc.pot_father_address_country_ft) as with_father_country
     FROM Contracts c
     JOIN PotentialClients pc ON pc.pot_id = c.pot_id
-    WHERE c.cli_id IN (${cliIdList})
-  `);
-  const fs = fatherStats.recordset[0];
+    WHERE c.cli_id IN (\${BATCH_IDS})
+  `, 'FatherStats');
+  const fs = { total: 0, with_father: 0, with_father_country: 0 };
+  for (const r of fatherStatsResults) {
+    fs.total += parseInt(r.total) || 0;
+    fs.with_father += parseInt(r.with_father) || 0;
+    fs.with_father_country += parseInt(r.with_father_country) || 0;
+  }
   log(`  Štatistika: ${fs.total} contracts, ${fs.with_father} s otcom (per_id_father), ${fs.with_father_country} s krajinou otca`);
 
-  const potData = await mssqlPool.request().query(`
+  const potDataRecords = await batchMssqlQuery(migratedCustomerIds, `
     SELECT
       c.cli_id, c.con_id, c.hos_id, c.doc_id,
       c.con_expected_collection_date, c.con_pregnancy_type,
@@ -1970,10 +2005,11 @@ async function step6b_cases() {
       pc.per_id AS pot_per_id_mother
     FROM Contracts c
     JOIN PotentialClients pc ON pc.pot_id = c.pot_id
-    WHERE c.cli_id IN (${cliIdList})
+    WHERE c.cli_id IN (\${BATCH_IDS})
       AND c.pot_id IS NOT NULL
     ORDER BY c.con_id DESC
-  `);
+  `, 'PotData');
+  const potData = { recordset: potDataRecords };
 
   const fatherPerIds = potData.recordset
     .filter(r => r.per_id_father)
@@ -1981,28 +2017,28 @@ async function step6b_cases() {
 
   const fatherData = {};
   if (fatherPerIds.length > 0) {
-    const fatherRows = await mssqlPool.request().query(`
+    const fatherRows = await batchMssqlQuery(fatherPerIds, `
       SELECT pd.per_id, pd.pda_first_name as per_first_name, pd.pda_last_name as per_last_name,
              pd.pda_title_prefix as per_title,
              pd.pda_phone_number as per_phone_number, pd.pda_mobile as per_mobile, pd.pda_email as per_email,
              ma.add_street_and_number as add_street, ma.add_city, ma.add_zip, ma.add_country
       FROM PersonalData pd
       LEFT JOIN MailAddresses ma ON ma.per_id = pd.per_id AND ma.add_valid = 1
-      WHERE pd.per_id IN (${fatherPerIds.join(',')})
-    `);
-    for (const r of fatherRows.recordset) {
+      WHERE pd.per_id IN (\${BATCH_IDS})
+    `, 'FatherData');
+    for (const r of fatherRows) {
       fatherData[r.per_id] = r;
     }
   }
 
   const childFatherData = {};
   try {
-    const cfRows = await mssqlPool.request().query(`
+    const cfRows = await batchMssqlQuery(migratedCustomerIds, `
       SELECT cf.* FROM ChildFather cf
       JOIN Contracts c ON c.con_id = cf.con_id
-      WHERE c.cli_id IN (${cliIdList})
-    `);
-    for (const r of cfRows.recordset) {
+      WHERE c.cli_id IN (\${BATCH_IDS})
+    `, 'ChildFather');
+    for (const r of cfRows) {
       childFatherData[r.con_id] = r;
     }
   } catch (e) {
@@ -2012,16 +2048,16 @@ async function step6b_cases() {
   const gynDocIds = potData.recordset.filter(r => r.doc_id_exp).map(r => r.doc_id_exp);
   const gynData = {};
   if (gynDocIds.length > 0) {
-    const gynRows = await mssqlPool.request().query(`
+    const gynRows = await batchMssqlQuery(gynDocIds, `
       SELECT d.doc_id,
              pd.pda_first_name, pd.pda_last_name, pd.pda_title_prefix,
              pd.pda_mobile, pd.pda_phone_number, pd.pda_email
       FROM Collaborators d
       JOIN Persons p ON p.per_id = d.per_id
       LEFT JOIN PersonalData pd ON pd.per_id = p.per_id AND pd.pda_valid = 1
-      WHERE d.doc_id IN (${gynDocIds.join(',')})
-    `);
-    for (const r of gynRows.recordset) {
+      WHERE d.doc_id IN (\${BATCH_IDS})
+    `, 'GynData');
+    for (const r of gynRows) {
       gynData[r.doc_id] = r;
     }
   }
@@ -2181,24 +2217,37 @@ async function step8_remarks() {
   for (const c of migratedCustomers.rows) {
     customerMap[c.internal_id] = c.id;
   }
-  const cliIds = Object.keys(customerMap).join(',');
+  const cliIdKeys = Object.keys(customerMap);
 
   const contractToCustomer = {};
-  const contracts = await mssqlPool.request().query(`
-    SELECT con_id, cli_id FROM Contracts WHERE cli_id IN (${cliIds})
-  `);
-  for (const c of contracts.recordset) {
+  const contractRows = await batchMssqlQuery(cliIdKeys, `
+    SELECT con_id, cli_id FROM Contracts WHERE cli_id IN (\${BATCH_IDS})
+  `, 'Contracts→Remarks');
+  for (const c of contractRows) {
     contractToCustomer[String(c.con_id)] = customerMap[String(c.cli_id)];
   }
 
-  const remarks = await mssqlPool.request().query(`
+  const conIdKeys = Object.keys(contractToCustomer);
+  const remarkRecords = [];
+  const cliRemarks = await batchMssqlQuery(cliIdKeys, `
     SELECT rem_id, cli_id, con_id, rem_date, rem_login, rem_note
     FROM Remarks
-    WHERE (cli_id IN (${cliIds}) OR con_id IN (${Object.keys(contractToCustomer).join(',') || '0'}))
+    WHERE cli_id IN (\${BATCH_IDS})
       AND (rem_deleted = 0 OR rem_deleted IS NULL)
       AND rem_note IS NOT NULL AND LTRIM(RTRIM(rem_note)) != ''
-    ORDER BY rem_id
-  `);
+  `, 'Remarks(cli)');
+  remarkRecords.push(...cliRemarks);
+  if (conIdKeys.length > 0) {
+    const conRemarks = await batchMssqlQuery(conIdKeys, `
+      SELECT rem_id, cli_id, con_id, rem_date, rem_login, rem_note
+      FROM Remarks
+      WHERE con_id IN (\${BATCH_IDS}) AND cli_id IS NULL
+        AND (rem_deleted = 0 OR rem_deleted IS NULL)
+        AND rem_note IS NOT NULL AND LTRIM(RTRIM(rem_note)) != ''
+    `, 'Remarks(con)');
+    remarkRecords.push(...conRemarks);
+  }
+  const remarks = { recordset: remarkRecords };
   log(`  Nájdených ${remarks.recordset.length} poznámok pre ${migratedCustomers.rows.length} klientov`);
 
   let inserted = 0, skipped = 0, errors = 0;
@@ -2273,13 +2322,13 @@ async function step9_phoneCommunications() {
   for (const c of migratedCustomers.rows) {
     customerMap[c.internal_id] = c.id;
   }
-  const cliIds = Object.keys(customerMap).join(',');
+  const cliIdKeysP = Object.keys(customerMap);
 
   const contractToCustomer = {};
-  const contracts = await mssqlPool.request().query(`
-    SELECT con_id, cli_id FROM Contracts WHERE cli_id IN (${cliIds})
-  `);
-  for (const c of contracts.recordset) {
+  const contractRowsP = await batchMssqlQuery(cliIdKeysP, `
+    SELECT con_id, cli_id FROM Contracts WHERE cli_id IN (\${BATCH_IDS})
+  `, 'Contracts→Phones');
+  for (const c of contractRowsP) {
     contractToCustomer[String(c.con_id)] = customerMap[String(c.cli_id)];
   }
 
@@ -2291,14 +2340,27 @@ async function step9_phoneCommunications() {
     }
   } catch (e) { log(`  WARN: PhoneCallResults: ${e.message}`); }
 
-  const phones = await mssqlPool.request().query(`
+  const conIdKeysP = Object.keys(contractToCustomer);
+  const phoneRecords = [];
+  const cliPhones = await batchMssqlQuery(cliIdKeysP, `
     SELECT pho_id, pot_id, con_id, cli_id, phr_id,
            pho_call_date, pho_caller, pho_number, pho_note
     FROM PhoneCommunications
-    WHERE (cli_id IN (${cliIds}) OR con_id IN (${Object.keys(contractToCustomer).join(',') || '0'}))
+    WHERE cli_id IN (\${BATCH_IDS})
       AND (pho_deleted = 0 OR pho_deleted IS NULL)
-    ORDER BY pho_id
-  `);
+  `, 'Phones(cli)');
+  phoneRecords.push(...cliPhones);
+  if (conIdKeysP.length > 0) {
+    const conPhones = await batchMssqlQuery(conIdKeysP, `
+      SELECT pho_id, pot_id, con_id, cli_id, phr_id,
+             pho_call_date, pho_caller, pho_number, pho_note
+      FROM PhoneCommunications
+      WHERE con_id IN (\${BATCH_IDS}) AND cli_id IS NULL
+        AND (pho_deleted = 0 OR pho_deleted IS NULL)
+    `, 'Phones(con)');
+    phoneRecords.push(...conPhones);
+  }
+  const phones = { recordset: phoneRecords };
   log(`  Nájdených ${phones.recordset.length} hovorov pre ${migratedCustomers.rows.length} klientov`);
 
   let inserted = 0, skipped = 0, errors = 0;
@@ -2382,7 +2444,7 @@ async function step11_customerContracts() {
 
   const customerMap = {};
   for (const c of migratedCustomers.rows) customerMap[c.internal_id] = c.id;
-  const cliIds = Object.keys(customerMap).join(',');
+  const cliIdKeysC = Object.keys(customerMap);
 
   // Ensure contract_instances table has required columns
   try {
@@ -2411,12 +2473,13 @@ async function step11_customerContracts() {
   const companyMap = {};
   const companyInfoMap = {};
   try {
-    const compRes = await mssqlPool.request().query(`
+    const compResRecords = await batchMssqlQuery(cliIdKeysC, `
       SELECT cl.cli_id, comp.*
       FROM Clients cl
       JOIN Companies comp ON comp.com_id = cl.com_id
-      WHERE cl.cli_id IN (${cliIds}) AND cl.com_id IS NOT NULL
-    `);
+      WHERE cl.cli_id IN (\${BATCH_IDS}) AND cl.com_id IS NOT NULL
+    `, 'CompanyMap');
+    const compRes = { recordset: compResRecords };
     for (const r of compRes.recordset) {
       companyMap[String(r.cli_id)] = r.com_name;
       const allFields = {};
@@ -2482,7 +2545,7 @@ async function step11_customerContracts() {
   const collabLookup = {};
   for (const c of collabLookupRes.rows) collabLookup[c.legacy_id] = c.id;
 
-  const contracts = await mssqlPool.request().query(`
+  const contractRecords = await batchMssqlQuery(cliIdKeysC, `
     SELECT c.con_id, c.cli_id, c.con_number, c.con_inserted,
            c.con_expected_collection_date, c.con_pregnancy_type,
            c.hos_id, c.doc_id, c.pot_id, c.cte_id,
@@ -2511,9 +2574,10 @@ async function step11_customerContracts() {
     LEFT JOIN ContractTemplates ct ON ct.cte_id = c.cte_id
     LEFT JOIN MarketProductInstances mpi ON mpi.mpi_id = ct.mpi_id
     LEFT JOIN MarketProducts mp ON mp.mpr_id = mpi.mpr_id
-    WHERE c.cli_id IN (${cliIds})
+    WHERE c.cli_id IN (\${BATCH_IDS})
     ORDER BY c.con_id
-  `);
+  `, 'Contracts');
+  const contracts = { recordset: contractRecords };
   log(`  Nájdených ${contracts.recordset.length} zmlúv pre ${migratedCustomers.rows.length} klientov`);
 
   if (contracts.recordset.length > 0) {
@@ -2549,20 +2613,20 @@ async function step11_customerContracts() {
   };
 
   // --- Preload Prepayments (zálohy ku zmluvám) ---
+  const allConIds = contracts.recordset.map(r => r.con_id);
   const prepaymentsByConId = {}; // con_id → prepayments[]
   try {
-    const conIds = contracts.recordset.map(r => r.con_id).join(',');
-    if (conIds) {
+    if (allConIds.length > 0) {
       const preCols = await mssqlPool.request().query(`
         SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'Prepayments' ORDER BY ORDINAL_POSITION
       `);
       if (preCols.recordset.length > 0) {
         log(`  Prepayments stĺpce: ${preCols.recordset.map(r => r.COLUMN_NAME).join(', ')}`);
-        const preRes = await mssqlPool.request().query(`
-          SELECT * FROM Prepayments WHERE con_id IN (${conIds}) ORDER BY con_id, pre_id
-        `);
-        log(`  Prepayments: ${preRes.recordset.length} záznamov`);
-        for (const p of preRes.recordset) {
+        const preResRecords = await batchMssqlQuery(allConIds, `
+          SELECT * FROM Prepayments WHERE con_id IN (\${BATCH_IDS}) ORDER BY con_id, pre_id
+        `, 'Prepayments');
+        log(`  Prepayments: ${preResRecords.length} záznamov`);
+        for (const p of preResRecords) {
           const key = String(p.con_id);
           if (!prepaymentsByConId[key]) prepaymentsByConId[key] = [];
           prepaymentsByConId[key].push(p);
@@ -2579,36 +2643,33 @@ async function step11_customerContracts() {
   // --- Preload ContractServicePayments (platby za služby) ---
   const cspByConId = {}; // con_id → service payments[]
   try {
-    const conIds = contracts.recordset.map(r => r.con_id).join(',');
-    if (conIds) {
+    if (allConIds.length > 0) {
       const cspCols = await mssqlPool.request().query(`
         SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'ContractServicePayments' ORDER BY ORDINAL_POSITION
       `);
       if (cspCols.recordset.length > 0) {
         log(`  ContractServicePayments stĺpce: ${cspCols.recordset.map(r => r.COLUMN_NAME).join(', ')}`);
-        // CSP links to ContractServices (cse_id), which links to Contracts (con_id)
-        // Build cse_id → con_id map from ContractServices
-        const cseRes = await mssqlPool.request().query(`
-          SELECT cse_id, con_id FROM ContractServices WHERE con_id IN (${conIds})
-        `);
+        const cseResRecords = await batchMssqlQuery(allConIds, `
+          SELECT cse_id, con_id FROM ContractServices WHERE con_id IN (\${BATCH_IDS})
+        `, 'ContractServices');
         const cseToConMap = {};
         const cseIds = [];
-        for (const cs of cseRes.recordset) {
+        for (const cs of cseResRecords) {
           cseToConMap[String(cs.cse_id)] = String(cs.con_id);
           cseIds.push(cs.cse_id);
         }
         log(`  ContractServices pre zmluvy: ${cseIds.length} záznamov`);
 
         if (cseIds.length > 0) {
-          // Load CSP with PriceListPayments join for labels
-          const cspRes = await mssqlPool.request().query(`
+          const cspResRecords = await batchMssqlQuery(cseIds, `
             SELECT csp.*, plp.plp_name, plp.plp_invoice_item, plp.plp_price AS plp_list_price,
                    plp.plp_accounting_code
             FROM ContractServicePayments csp
             LEFT JOIN PriceListPayments plp ON plp.plp_id = csp.plp_id
-            WHERE csp.cse_id IN (${cseIds.join(',')})
+            WHERE csp.cse_id IN (\${BATCH_IDS})
             ORDER BY csp.cse_id, csp.csp_id
-          `);
+          `, 'CSP');
+          const cspRes = { recordset: cspResRecords };
           log(`  ContractServicePayments: ${cspRes.recordset.length} záznamov`);
           for (const csp of cspRes.recordset) {
             const conId = cseToConMap[String(csp.cse_id)];
@@ -2665,35 +2726,35 @@ async function step11_customerContracts() {
   // --- Preload ContractStatusHistory (história stavov zmluvy) ---
   const contractHistoryByConId = {};
   try {
-    const conIds = contracts.recordset.map(r => r.con_id).join(',');
-    if (conIds) {
-      // Try HistoryContracts table first (stores snapshots of contract status changes)
-      let histQuery = null;
+    if (allConIds.length > 0) {
+      let histTable = null;
       try {
         const hcCols = await mssqlPool.request().query(`
           SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'HistoryContracts' ORDER BY ORDINAL_POSITION
         `);
         if (hcCols.recordset.length > 0) {
           log(`  HistoryContracts stĺpce: ${hcCols.recordset.map(r => r.COLUMN_NAME).join(', ')}`);
-          histQuery = `SELECT * FROM HistoryContracts WHERE con_id IN (${conIds}) ORDER BY con_id`;
+          histTable = 'HistoryContracts';
         }
       } catch (e) { /* table may not exist */ }
 
-      if (!histQuery) {
-        // Try HistoryContractStatuses as alternative
+      if (!histTable) {
         try {
           const hcsCols = await mssqlPool.request().query(`
             SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'HistoryContractStatuses' ORDER BY ORDINAL_POSITION
           `);
           if (hcsCols.recordset.length > 0) {
             log(`  HistoryContractStatuses stĺpce: ${hcsCols.recordset.map(r => r.COLUMN_NAME).join(', ')}`);
-            histQuery = `SELECT * FROM HistoryContractStatuses WHERE con_id IN (${conIds}) ORDER BY con_id`;
+            histTable = 'HistoryContractStatuses';
           }
         } catch (e) { /* table may not exist */ }
       }
 
-      if (histQuery) {
-        const hcRes = await mssqlPool.request().query(histQuery);
+      if (histTable) {
+        const hcResRecords = await batchMssqlQuery(allConIds, `
+          SELECT * FROM ${histTable} WHERE con_id IN (\${BATCH_IDS}) ORDER BY con_id
+        `, histTable);
+        const hcRes = { recordset: hcResRecords };
         log(`  ContractStatusHistory: ${hcRes.recordset.length} záznamov`);
         for (const h of hcRes.recordset) {
           const key = String(h.con_id);
@@ -2713,9 +2774,8 @@ async function step11_customerContracts() {
   // --- Preload ContractServices (služby pod zmluvou) with Service/ServiceInstance/Company details ---
   const contractServicesByConId = {};
   try {
-    const conIds = contracts.recordset.map(r => r.con_id).join(',');
-    if (conIds) {
-      const csRes = await mssqlPool.request().query(`
+    if (allConIds.length > 0) {
+      const csResRecords = await batchMssqlQuery(allConIds, `
         SELECT cs.cse_id, cs.con_id, cs.sin_id, cs.sco_id,
                cs.cse_original_price, cs.cse_actual_price, cs.cse_active,
                cs.cse_invoicing_finished, cs.cse_note,
@@ -2727,9 +2787,10 @@ async function step11_customerContracts() {
         LEFT JOIN ServiceInstances si ON si.sin_id = cs.sin_id
         LEFT JOIN Services ser ON ser.ser_id = si.ser_id
         LEFT JOIN Companies comp ON comp.com_id = ser.com_id
-        WHERE cs.con_id IN (${conIds})
+        WHERE cs.con_id IN (\${BATCH_IDS})
         ORDER BY cs.con_id, cs.cse_id
-      `);
+      `, 'ContractServices');
+      const csRes = { recordset: csResRecords };
       log(`  ContractServices: ${csRes.recordset.length} záznamov`);
       for (const s of csRes.recordset) {
         const key = String(s.con_id);
@@ -2930,15 +2991,15 @@ async function step11_customerContracts() {
   const invoiceItemLabelByConId = {};
   const accountingCodeByConId = {};
   try {
-    const conIds = contracts.recordset.map(r => r.con_id).join(',');
-    const itemLabelRes = await mssqlPool.request().query(`
+    const itemLabelResRecords = await batchMssqlQuery(allConIds, `
       SELECT DISTINCT cs.con_id, cs.cse_id, iit.iit_label, iit.iit_item_accounting_code
       FROM ContractServices cs
       JOIN Invoices i ON i.cse_id = cs.cse_id
       JOIN InvoiceItems iit ON iit.inv_id = i.inv_id
-      WHERE cs.con_id IN (${conIds}) AND iit.iit_label IS NOT NULL AND iit.iit_label != ''
+      WHERE cs.con_id IN (\${BATCH_IDS}) AND iit.iit_label IS NOT NULL AND iit.iit_label != ''
       ORDER BY cs.con_id
-    `);
+    `, 'InvoiceItemLabels');
+    const itemLabelRes = { recordset: itemLabelResRecords };
     for (const r of itemLabelRes.recordset) {
       const cseKey = String(r.cse_id);
       const conKey = String(r.con_id);
@@ -2957,13 +3018,13 @@ async function step11_customerContracts() {
   const currencyByCseId = {};
   const currencyByConId = {};
   try {
-    const conIds = contracts.recordset.map(r => r.con_id).join(',');
-    const curRes = await mssqlPool.request().query(`
+    const curResRecords = await batchMssqlQuery(allConIds, `
       SELECT DISTINCT cs.con_id, cs.cse_id, i.cur_code_home
       FROM ContractServices cs
       JOIN Invoices i ON i.cse_id = cs.cse_id
-      WHERE cs.con_id IN (${conIds}) AND i.cur_code_home IS NOT NULL AND i.cur_code_home != ''
-    `);
+      WHERE cs.con_id IN (\${BATCH_IDS}) AND i.cur_code_home IS NOT NULL AND i.cur_code_home != ''
+    `, 'Currency');
+    const curRes = { recordset: curResRecords };
     for (const r of curRes.recordset) {
       if (!currencyByCseId[String(r.cse_id)]) currencyByCseId[String(r.cse_id)] = r.cur_code_home;
       if (!currencyByConId[String(r.con_id)]) currencyByConId[String(r.con_id)] = r.cur_code_home;
@@ -3155,7 +3216,7 @@ async function step12_customerInvoices() {
 
   const customerMap = {};
   for (const c of migratedCustomers.rows) customerMap[c.internal_id] = c.id;
-  const cliIds = Object.keys(customerMap).join(',');
+  const cliIdKeysInv = Object.keys(customerMap);
 
   const customerNameLookup = {};
   try {
@@ -3166,18 +3227,23 @@ async function step12_customerInvoices() {
     log(`  Customer name lookup (invoices): ${Object.keys(customerNameLookup).length} záznamov`);
   } catch (err) { log(`  WARN customer name lookup: ${err.message}`); }
 
+  const conIdsForInvoices = await batchMssqlQuery(cliIdKeysInv, `
+    SELECT DISTINCT con_id FROM Contracts WHERE cli_id IN (\${BATCH_IDS})
+  `, 'ConIDs for invoices');
+  const conIdListInv = conIdsForInvoices.map(r => r.con_id);
+  log(`  ConIDs pre faktúry: ${conIdListInv.length}`);
+
   const accountingCodeByCseId = {};
   const accountingCodeByConId = {};
   try {
-    const acRes = await mssqlPool.request().query(`
+    const acResRecords = await batchMssqlQuery(conIdListInv, `
       SELECT DISTINCT cs.con_id, cs.cse_id, iit.iit_item_accounting_code
       FROM ContractServices cs
       JOIN Invoices i ON i.cse_id = cs.cse_id
       JOIN InvoiceItems iit ON iit.inv_id = i.inv_id
-      WHERE cs.con_id IN (
-        SELECT con_id FROM Contracts WHERE cli_id IN (${cliIds})
-      ) AND iit.iit_item_accounting_code IS NOT NULL AND iit.iit_item_accounting_code != ''
-    `);
+      WHERE cs.con_id IN (\${BATCH_IDS}) AND iit.iit_item_accounting_code IS NOT NULL AND iit.iit_item_accounting_code != ''
+    `, 'AccountingCodes');
+    const acRes = { recordset: acResRecords };
     for (const r of acRes.recordset) {
       if (!accountingCodeByCseId[String(r.cse_id)]) accountingCodeByCseId[String(r.cse_id)] = r.iit_item_accounting_code;
       if (!accountingCodeByConId[String(r.con_id)]) accountingCodeByConId[String(r.con_id)] = r.iit_item_accounting_code;
@@ -3203,13 +3269,13 @@ async function step12_customerInvoices() {
     `);
     log(`  ContractServices stĺpce: ${cseCols.recordset.map(r => r.COLUMN_NAME).join(', ')}`);
 
-    const cseRes = await mssqlPool.request().query(`
+    const cseResRecords = await batchMssqlQuery(cliIdKeysInv, `
       SELECT cs.cse_id, c.cli_id, c.con_id, c.con_number
       FROM ContractServices cs
       JOIN Contracts c ON c.con_id = cs.con_id
-      WHERE c.cli_id IN (${cliIds})
-    `);
-    for (const r of cseRes.recordset) {
+      WHERE c.cli_id IN (\${BATCH_IDS})
+    `, 'CSE→Client');
+    for (const r of cseResRecords) {
       cseToClient[String(r.cse_id)] = String(r.cli_id);
       cseToConId[String(r.cse_id)] = String(r.con_id);
     }
@@ -3217,8 +3283,8 @@ async function step12_customerInvoices() {
   } catch (err) {
     log(`  WARN ContractServices: ${err.message}`);
     try {
-      const conRes = await mssqlPool.request().query(`SELECT con_id, cli_id FROM Contracts WHERE cli_id IN (${cliIds})`);
-      for (const c of conRes.recordset) cseToClient[`con_${c.con_id}`] = String(c.cli_id);
+      const conResFallback = await batchMssqlQuery(cliIdKeysInv, `SELECT con_id, cli_id FROM Contracts WHERE cli_id IN (\${BATCH_IDS})`, 'ConFallback');
+      for (const c of conResFallback) cseToClient[`con_${c.con_id}`] = String(c.cli_id);
       log(`  Fallback: contract map with ${Object.keys(cseToClient).length} entries`);
     } catch (err2) { log(`  WARN contract map: ${err2.message}`); }
   }
@@ -3280,12 +3346,13 @@ async function step12_customerInvoices() {
   const companyMap = {};
   const companyInfoMap = {};
   try {
-    const compRes = await mssqlPool.request().query(`
+    const compResRecords = await batchMssqlQuery(cliIdKeysInv, `
       SELECT DISTINCT cl.cli_id, comp.*
       FROM Clients cl
       JOIN Companies comp ON comp.com_id = cl.com_id
-      WHERE cl.cli_id IN (${cliIds}) AND cl.com_id IS NOT NULL
-    `);
+      WHERE cl.cli_id IN (\${BATCH_IDS}) AND cl.com_id IS NOT NULL
+    `, 'CompanyMap(inv)');
+    const compRes = { recordset: compResRecords };
     for (const r of compRes.recordset) {
       companyMap[String(r.cli_id)] = r.com_name;
       const allFields = {};
@@ -3342,9 +3409,16 @@ async function step12_customerInvoices() {
   //   inv_exchange_rate, inv_fully_paid, inv_note, inv_writeoff,
   //   inv_inserted, inv_inserted_by, inv_updated, inv_updated_by,
   //   inv_period_from, inv_period_to, inv_emailed, inv_bsp_note
+  // Pre-fetch cse_ids for invoice lookup
+  const cseIdsForInvoices = await batchMssqlQuery(conIdListInv, `
+    SELECT cse_id FROM ContractServices WHERE con_id IN (\${BATCH_IDS})
+  `, 'CSE for invoices');
+  const cseIdListInv = cseIdsForInvoices.map(r => r.cse_id);
+  log(`  CSE IDs pre faktúry: ${cseIdListInv.length}`);
+
   let invoices;
   try {
-    invoices = await mssqlPool.request().query(`
+    const invRecords = await batchMssqlQuery(cseIdListInv, `
       SELECT i.inv_id, i.cse_id, i.ist_id, i.ity_id,
              i.inv_invoice_number, i.inv_variable_symbol, i.inv_specific_symbol, i.inv_constant_symbol,
              i.inv_date_of_issue, i.inv_date_of_delivery, i.inv_date_of_payment, i.inv_dispatch_date,
@@ -3363,17 +3437,14 @@ async function step12_customerInvoices() {
              ac.add_country AS billing_addr_country, ac.add_area AS billing_addr_area
       FROM Invoices i
       LEFT JOIN MailAddresses ac ON ac.add_id = i.add_id_company
-      WHERE i.cse_id IN (
-        SELECT cse_id FROM ContractServices WHERE con_id IN (
-          SELECT con_id FROM Contracts WHERE cli_id IN (${cliIds})
-        )
-      )
+      WHERE i.cse_id IN (\${BATCH_IDS})
       ORDER BY i.inv_id
-    `);
+    `, 'Invoices');
+    invoices = { recordset: invRecords };
   } catch (err) {
     log(`  WARN: Extended query failed (${err.message}), trying basic query...`);
     try {
-      invoices = await mssqlPool.request().query(`
+      const invRecordsBasic = await batchMssqlQuery(cseIdListInv, `
         SELECT i.inv_id, i.cse_id, i.ist_id, i.ity_id,
                i.inv_invoice_number, i.inv_variable_symbol,
                i.inv_date_of_issue, i.inv_date_of_delivery, i.inv_date_of_payment, i.inv_dispatch_date,
@@ -3381,13 +3452,10 @@ async function step12_customerInvoices() {
                i.inv_paid_cur_home, i.cur_code_home,
                i.inv_fully_paid, i.inv_note, i.inv_inserted, i.inv_writeoff
         FROM Invoices i
-        WHERE i.cse_id IN (
-          SELECT cse_id FROM ContractServices WHERE con_id IN (
-            SELECT con_id FROM Contracts WHERE cli_id IN (${cliIds})
-          )
-        )
+        WHERE i.cse_id IN (\${BATCH_IDS})
         ORDER BY i.inv_id
-      `);
+      `, 'Invoices(basic)');
+      invoices = { recordset: invRecordsBasic };
     } catch (err2) {
       log(`  ERROR: Invoices query failed: ${err2.message}`);
       return;
@@ -3905,7 +3973,7 @@ async function step13_debtCollection() {
 
   const customerMap = {};
   for (const c of migratedCustomers.rows) customerMap[c.internal_id] = c.id;
-  const cliIds = Object.keys(customerMap).join(',');
+  const cliIdKeysDebt = Object.keys(customerMap);
 
   // CBC has per-company Debtors views: DebtorsCZ, DebtorsEurocord, DebtorsHU, DebtorsRO, DebtorsSKRest
   // Each has: cli_id, pda_first_name, pda_last_name, InvoicesOverdue, Debt, Currency, minDueDate, maxDueDate
@@ -3921,12 +3989,13 @@ async function step13_debtCollection() {
 
   for (const dt of debtorTables) {
     try {
-      const debtors = await mssqlPool.request().query(`
+      const debtorRecords = await batchMssqlQuery(cliIdKeysDebt, `
         SELECT cli_id, pda_id_number, pda_first_name, pda_last_name,
                pda_mobile, pda_email, InvoicesOverdue, Debt, Currency, minDueDate, maxDueDate
         FROM ${dt.table}
-        WHERE cli_id IN (${cliIds})
-      `);
+        WHERE cli_id IN (\${BATCH_IDS})
+      `, dt.table);
+      const debtors = { recordset: debtorRecords };
 
       log(`  ${dt.table} (${dt.company}): ${debtors.recordset.length} dlžníkov`);
 
@@ -3989,12 +4058,13 @@ async function step13_debtCollection() {
 
   // Also check ApplicationOfPayments for payment plans
   try {
-    const aopRes = await mssqlPool.request().query(`
+    const aopResRecords = await batchMssqlQuery(cliIdKeysDebt, `
       SELECT aop_id, cli_id, aop_name, aop_case_opened, aop_case_opened_by, aop_case_closed, aop_case_closed_by
       FROM ApplicationOfPayments
-      WHERE cli_id IN (${cliIds})
+      WHERE cli_id IN (\${BATCH_IDS})
       ORDER BY aop_id
-    `);
+    `, 'AoP');
+    const aopRes = { recordset: aopResRecords };
     log(`  ApplicationOfPayments: ${aopRes.recordset.length} záznamov`);
     if (aopRes.recordset.length > 0) {
       table(
