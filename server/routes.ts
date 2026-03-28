@@ -27525,7 +27525,7 @@ Return ONLY a JSON array of NEW contacts (same format as before).`;
           // ═══════════════════════════════════════════════════════════
           console.log(`[LeadSearch] Job ${job.id}: KROK 6b — AI Enrichment (${contacts.length} kontaktov)`);
           try {
-            const enrichLimit = Math.min(contacts.length, 10);
+            const enrichLimit = contacts.length;
             for (let ei = 0; ei < enrichLimit; ei++) {
               const contact = contacts[ei];
               try {
@@ -27785,6 +27785,41 @@ Return ONLY a JSON array of NEW contacts (same format as before).`;
               } catch {}
             }
           } catch (srcErr) { console.log("[LeadSearch] Source tracking error:", srcErr); }
+
+          // Update campaign stats if this is a campaign-generated job
+          if (job.name && job.name.startsWith("[Auto] ")) {
+            try {
+              const allCampaigns = await storage.getAllLeadCampaigns();
+              const matchingCampaign = allCampaigns.find(c => job.name.includes(c.name));
+              if (matchingCampaign) {
+                const newLeadsCount = deduped.length;
+                await storage.updateLeadCampaign(matchingCampaign.id, {
+                  totalLeadsFound: (matchingCampaign.totalLeadsFound || 0) + newLeadsCount,
+                });
+                if (newLeadsCount > 0) {
+                  try {
+                    const allUsers = await storage.getAllUsers();
+                    const roles = await storage.getAllRoles();
+                    const adminRole = roles.find((r: Record<string, unknown>) => r.name === "Admin");
+                    const adminIds = allUsers.filter((u: Record<string, unknown>) => u.role === "admin" || (adminRole && u.roleId === adminRole.id)).map((u: Record<string, unknown>) => u.id as string);
+                    if (adminIds.length > 0) {
+                      await notificationService.sendNotificationToUsers(adminIds, {
+                        type: "lead_campaign_results",
+                        title: `Nové leady z kampane "${matchingCampaign.name}"`,
+                        message: `Kampaň "${matchingCampaign.name}" našla ${newLeadsCount} nových leadov (Job #${job.id}).`,
+                        priority: "normal",
+                        entityType: "lead_campaign",
+                        entityId: String(matchingCampaign.id),
+                        metadata: { campaignName: matchingCampaign.name, jobId: job.id, newLeads: newLeadsCount },
+                      });
+                    }
+                  } catch (notifErr) { console.log("[LeadSearch] Campaign result notification error:", notifErr); }
+                }
+                console.log(`[LeadSearch] Campaign "${matchingCampaign.name}" updated: +${newLeadsCount} leads`);
+              }
+            } catch (campErr) { console.log("[LeadSearch] Campaign stats update error:", campErr); }
+          }
+
           await storage.updateSearchJob(job.id, {
             status: "completed",
             totalResults: deduped.length || allSnippets.length,
