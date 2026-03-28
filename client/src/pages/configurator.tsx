@@ -17952,6 +17952,43 @@ function LeadSearchTab() {
   const [matchLoading, setMatchLoading] = useState(false);
   const [selectedMatch, setSelectedMatch] = useState<any>(null);
   const [selectedChanges, setSelectedChanges] = useState<Record<string, boolean>>({});
+  const [aiSuggesting, setAiSuggesting] = useState(false);
+  const [aiSuggestions, setAiSuggestions] = useState<any[]>([]);
+
+  const getAiSuggestions = async () => {
+    setAiSuggesting(true);
+    setAiSuggestions([]);
+    try {
+      const resp = await fetch("/api/lead-search/ai-suggest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ targetModule: searchForm.targetModule, country: searchForm.country }),
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        setAiSuggestions(data.suggestions || []);
+      } else {
+        toast({ title: "Nepodarilo sa získať AI návrhy", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Chyba pri generovaní návrhov", variant: "destructive" });
+    } finally {
+      setAiSuggesting(false);
+    }
+  };
+
+  const applySuggestion = (s: any) => {
+    setSearchForm({
+      ...searchForm,
+      name: s.name || searchForm.name,
+      segment: s.segment || "",
+      location: s.location || "",
+      keywords: s.keywords || "",
+    });
+    setAiSuggestions([]);
+    toast({ title: "AI návrh aplikovaný do formulára" });
+  };
 
   const { data: jobs = [], refetch: refetchJobs } = useQuery<any[]>({
     queryKey: ["/api/lead-search/jobs"],
@@ -18113,6 +18150,41 @@ function LeadSearchTab() {
                   {COUNTRIES.map(c => <SelectItem key={c.code} value={c.code}>{c.flag} {c.name}</SelectItem>)}
                 </SelectContent>
               </Select>
+            </div>
+            <div className="border rounded-lg p-2.5 bg-gradient-to-r from-violet-50 to-blue-50 dark:from-violet-950/20 dark:to-blue-950/20">
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full mb-2 border-violet-300 text-violet-700 hover:bg-violet-100 dark:border-violet-600 dark:text-violet-300"
+                onClick={getAiSuggestions}
+                disabled={aiSuggesting}
+                data-testid="button-ai-suggest"
+              >
+                {aiSuggesting ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <Globe className="h-3.5 w-3.5 mr-1.5" />}
+                {aiSuggesting ? "AI generuje návrhy..." : "AI Návrhy vyhľadávania"}
+              </Button>
+              {aiSuggestions.length > 0 && (
+                <div className="space-y-1.5 max-h-[240px] overflow-y-auto">
+                  {aiSuggestions.map((s: any, i: number) => (
+                    <div
+                      key={i}
+                      className="bg-white dark:bg-zinc-900 rounded border p-2 cursor-pointer hover:border-violet-400 hover:shadow-sm transition-all group"
+                      onClick={() => applySuggestion(s)}
+                      data-testid={`ai-suggestion-${i}`}
+                    >
+                      <div className="flex items-start justify-between gap-1">
+                        <span className="text-xs font-medium text-violet-700 dark:text-violet-300 leading-tight">{s.name}</span>
+                        <Plus className="h-3 w-3 text-muted-foreground group-hover:text-violet-600 flex-shrink-0 mt-0.5" />
+                      </div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5 leading-snug">{s.reason}</div>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {s.segment && <span className="bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 px-1.5 py-0 rounded text-[9px]">{s.segment}</span>}
+                        {s.location && <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-1.5 py-0 rounded text-[9px]">{s.location}</span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
             <div>
               <label className="text-sm font-medium mb-1 block">Segment / Špecializácia</label>

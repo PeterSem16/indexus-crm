@@ -26800,6 +26800,80 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
     }
   });
 
+  app.post("/api/lead-search/ai-suggest", requireAuth, async (req, res) => {
+    try {
+      const { targetModule, country } = req.body;
+      if (!targetModule) return res.status(400).json({ error: "Target module required" });
+
+      const countryNames: Record<string, string> = { SK: "Slovensko", CZ: "Česko", HU: "Maďarsko", PL: "Poľsko", AT: "Rakúsko", DE: "Nemecko", RO: "Rumunsko", IT: "Taliansko" };
+      const countryName = country ? (countryNames[country] || country) : "všetky krajiny";
+
+      const moduleDescriptions: Record<string, string> = {
+        hospitals: "nemocnice a zdravotnícke zariadenia s pôrodnicami, neonatologickými oddeleniami, transfúznymi stanicami - pre spoluprácu v oblasti bankovania pupočníkovej krvi",
+        clinics: "ambulancie, gynekologické ordinácie, pôrodníci, pediatri, prenatálne poradne - lekári ktorí odporúčajú bankovanie pupočníkovej krvi",
+        collaborators: "obchodní partneri, sprostredkovatelia, medical representatives, lekári-spolupracovníci v oblasti pupočníkovej krvi a kmeňových buniek"
+      };
+
+      const existingRecordsInfo = await (async () => {
+        try {
+          if (targetModule === "hospitals") {
+            const hospitals = await storage.getHospitals();
+            const countries = [...new Set(hospitals.map(h => h.countryCode).filter(Boolean))];
+            const cities = [...new Set(hospitals.map(h => h.city).filter(Boolean))].slice(0, 20);
+            return `Existujúce nemocnice (${hospitals.length}): krajiny: ${countries.join(", ")}; mestá: ${cities.join(", ")}`;
+          } else if (targetModule === "clinics") {
+            const clinics = await storage.getClinics();
+            const specs = [...new Set(clinics.map((c: any) => c.specialization).filter(Boolean))].slice(0, 15);
+            const cities = [...new Set(clinics.map((c: any) => c.city).filter(Boolean))].slice(0, 20);
+            return `Existujúce ambulancie (${clinics.length}): špecializácie: ${specs.join(", ")}; mestá: ${cities.join(", ")}`;
+          } else {
+            const collabs = await storage.getCollaborators();
+            const types = [...new Set(collabs.map((c: any) => c.collaboratorType).filter(Boolean))].slice(0, 10);
+            return `Existujúci spolupracovníci (${collabs.length}): typy: ${types.join(", ")}`;
+          }
+        } catch { return ""; }
+      })();
+
+      const prompt = `Si expert na B2B lead generáciu pre spoločnosť INDEXUS (bankovanie pupočníkovej krvi a kmeňových buniek).
+
+ÚLOHA: Navrhni 5 rôznych vyhľadávacích scenárov pre modul "${targetModule}" (${moduleDescriptions[targetModule]}).
+Krajina: ${countryName}
+
+${existingRecordsInfo}
+
+Pre každý scenár vygeneruj:
+- name: krátky názov vyhľadávania (po slovensky)
+- segment: špecializácia/segment (napr. "gynekológia a pôrodníctvo", "neonatológia", "transfúzna medicína")
+- location: konkrétne mesto alebo región (ak je zvolená krajina)
+- keywords: 3-5 kľúčových slov oddelených čiarkou, relevantných pre daný segment
+- reason: krátke vysvetlenie prečo je tento scenár užitočný (1 veta)
+
+PRAVIDLÁ:
+- Scenáre musia byť rôznorodé (rôzne segmenty, lokality)
+- Kľúčové slová musia byť relevantné pre bankovanie pupočníkovej krvi
+- Zahrň aj menej obvyklé ale hodnotné segmenty (napr. repromedika, IVF centrá, pôrodné domy)
+- Lokality prispôsob zvolenej krajine (reálne mestá a regióny)
+- Ak nie je zvolená krajina, navrhni scenáre pre rôzne krajiny
+
+Vráť VÝLUČNE JSON pole, nič iné:
+[{"name":"...","segment":"...","location":"...","keywords":"...","reason":"..."}]`;
+
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.7,
+        max_tokens: 2000,
+      });
+
+      const content = response.choices[0]?.message?.content || "[]";
+      const suggestions = JSON.parse(content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim());
+      res.json({ suggestions });
+    } catch (e: any) {
+      console.error("[LeadSearch] AI suggest error:", e);
+      res.status(500).json({ error: "AI suggestion failed" });
+    }
+  });
+
   app.post("/api/lead-search/jobs", requireAuth, async (req, res) => {
     try {
       const { name, targetModule, country, segment, location, keywords } = req.body;
@@ -26864,7 +26938,7 @@ Optional: titleBefore (MUDr., Ing., ...), titleAfter (PhD., CSc., ...), phone, m
           };
           const domains = country ? (countryDomains[country] || []) : [];
 
-          const queryGenPrompt = `You are an expert B2B lead generation specialist for a cord blood banking company (INDEXUS). Generate 12-15 highly targeted search queries to find ${moduleInfo.description}.
+          const queryGenPrompt = `You are an expert B2B lead generation specialist. Generate 18 highly targeted search queries to find ${moduleInfo.description}.
 
 SEARCH CRITERIA:
 - Country: ${countryName} (language: ${localLang})
@@ -26874,40 +26948,33 @@ SEARCH CRITERIA:
 
 SEARCH FOCUS: ${moduleInfo.searchFocus}
 
-QUERY STRATEGIES (use ALL of these):
-1. DIRECTORY SEARCHES: Target medical directories, healthcare registries, professional chamber databases
-   ${domains.length > 0 ? `Known domains for this country: ${domains.join(", ")}` : ""}
-   Example: site:${domains[0] || "healthdirectory.com"} ${segment || "gynecologist"} ${location || ""}
-2. PROFESSIONAL REGISTRIES: Medical chambers, professional associations, licensing databases
-   Example: "${localLang} medical chamber" registry ${location || countryName}
-3. GOOGLE MAPS / BUSINESS LISTINGS: Target business listing pages
-   Example: ${segment || "hospital"} ${location || countryName} kontakt email telefón
-4. SOCIAL/PROFESSIONAL NETWORKS: LinkedIn, medical professional networks
-   Example: site:linkedin.com ${segment || "doctor"} ${location || countryName} "cord blood" OR "pupočníková krv"
-5. NEWS & ANNOUNCEMENTS: Find recently mentioned facilities
-   Example: ${location || countryName} new ${targetModule === "hospitals" ? "hospital" : "clinic"} opening 2024 2025
-6. LOCAL LANGUAGE QUERIES: Write queries in ${localLang} using local medical terminology
-7. CONFERENCE/EVENT LISTINGS: Medical conferences, trade shows
-   Example: ${countryName} medical conference ${segment || ""} speakers list
-8. GOVERNMENT HEALTH DATABASES: Official health ministry facility lists
-9. AGGREGATOR SITES: Sites that aggregate medical facility information
-10. COMBINATION QUERIES: Combine specialization + location + contact info keywords
+CRITICAL: Generate queries that will find REAL PAGES with LISTS of contacts, addresses, emails, and phone numbers. Do NOT generate queries that just return definitions or Wikipedia articles.
 
-RULES:
-- At least 5 queries MUST be in ${localLang}
-- At least 3 queries should use site: operator targeting specific directories
-- Include 2-3 queries specifically designed to find email addresses and phone numbers
-- Include queries targeting facility LISTS (not single results)
-- Use quotation marks for exact phrases where useful
-- Vary query patterns to maximize coverage
+MANDATORY QUERY TYPES (generate at least 2 of each):
+1. DIRECTORY/LIST PAGES in ${localLang}: "${segment || "lekár"} ${location || countryName} zoznam" / "adresár" / "register" / "katalóg"
+2. SITE-SPECIFIC SEARCHES targeting known medical directories:
+   ${domains.length > 0 ? `Use these domains: ${domains.join(", ")}` : `Search for medical directories in ${countryName}`}
+3. SIMPLE LOCAL SEARCHES: "${segment || "nemocnica"} ${location || ""} telefón email kontakt"
+4. BUSINESS/MAP LISTINGS: "${segment || "hospital"} near ${location || countryName}" / "ordinačné hodiny ${segment || ""} ${location || ""}"
+5. PROFESSIONAL REGISTRIES: "komora lekárov" / "register poskytovateľov" / "zoznam ambulancií"
+6. CONTACT-FOCUSED: "${segment || "klinika"} ${location || countryName} @" (to find pages with emails)
+
+IMPORTANT RULES:
+- Generate 18 queries total
+- At least 10 queries MUST be in ${localLang} (${localLang} medical terminology)
+- Keep queries SHORT and focused (3-6 words work best with search engines)
+- DO NOT use quotation marks excessively - simple queries find more results
+- Prioritize queries that find LIST pages with multiple contacts over single institution pages
+- Include basic name+location+contact combinations (these are most reliable)
+- At least 2 queries should be very simple/broad to ensure baseline results
 
 Return ONLY a JSON array of search query strings, nothing else.`;
 
           const queryGenResponse = await openai.chat.completions.create({
             model: "gpt-4o-mini",
             messages: [{ role: "user", content: queryGenPrompt }],
-            temperature: 0.3,
-            max_tokens: 1000,
+            temperature: 0.4,
+            max_tokens: 1500,
           });
 
           let searchQueries: string[] = [];
@@ -26926,16 +26993,15 @@ Return ONLY a JSON array of search query strings, nothing else.`;
 
           console.log(`[LeadSearch] Job ${job.id}: Generated ${searchQueries.length} queries`);
 
-          // STEP 2: Execute web searches in parallel with multiple engines
+          // STEP 2: Execute web searches in parallel with multiple engines and adaptive retry
           console.log(`[LeadSearch] Job ${job.id}: Step 2 - Multi-source web searching (${searchQueries.length} queries)`);
           const allSnippets: Array<{title: string, url: string, snippet: string, source: string}> = [];
 
-          // Execute ALL queries in parallel (up to 12)
-          const searchPromises = searchQueries.slice(0, 12).map(async (query, qi) => {
+          const executeSearchQuery = async (query: string): Promise<Array<{title: string, url: string, snippet: string, source: string}>> => {
             const results: Array<{title: string, url: string, snippet: string, source: string}> = [];
             const encoded = encodeURIComponent(query);
 
-            // DuckDuckGo Instant Answer API
+            // Source 1: DuckDuckGo Instant Answer API
             try {
               const ddgResp = await fetch(`https://api.duckduckgo.com/?q=${encoded}&format=json&no_html=1&skip_disambig=1`, { signal: AbortSignal.timeout(8000) });
               if (ddgResp.ok) {
@@ -26951,14 +27017,18 @@ Return ONLY a JSON array of search query strings, nothing else.`;
               }
             } catch (e) { /* skip */ }
 
-            // DuckDuckGo HTML search - primary source of real web results
+            // Source 2: DuckDuckGo HTML search with staggered delays to avoid rate limiting
+            const delay = Math.random() * 2000;
+            await new Promise(resolve => setTimeout(resolve, delay));
             try {
               const htmlResp = await fetch(`https://html.duckduckgo.com/html/?q=${encoded}`, {
                 headers: {
                   "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
                   "Accept-Language": "sk,cs,en;q=0.5",
+                  "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
                 },
-                signal: AbortSignal.timeout(12000),
+                signal: AbortSignal.timeout(15000),
+                redirect: "follow",
               });
               if (htmlResp.ok) {
                 const html = await htmlResp.text();
@@ -26966,21 +27036,109 @@ Return ONLY a JSON array of search query strings, nothing else.`;
                 const snippetRegex = /<a[^>]+class="result__snippet"[^>]*>([\s\S]*?)<\/a>/gi;
                 let match;
                 const urls: string[] = [], titles: string[] = [], snips: string[] = [];
-                while ((match = linkRegex.exec(html)) !== null && urls.length < 15) {
+                while ((match = linkRegex.exec(html)) !== null && urls.length < 20) {
                   let url = match[1];
                   if (url.startsWith("//duckduckgo.com/l/?uddg=")) url = decodeURIComponent(url.replace("//duckduckgo.com/l/?uddg=", "").split("&")[0]);
                   if (url && !url.includes("duckduckgo.com")) { urls.push(url); titles.push(match[2].replace(/<[^>]+>/g, '').trim()); }
                 }
-                while ((match = snippetRegex.exec(html)) !== null && snips.length < 15) snips.push(match[1].replace(/<[^>]+>/g, '').trim());
+                while ((match = snippetRegex.exec(html)) !== null && snips.length < 20) snips.push(match[1].replace(/<[^>]+>/g, '').trim());
                 for (let i = 0; i < urls.length; i++) results.push({ title: titles[i] || "", url: urls[i], snippet: snips[i] || titles[i] || "", source: "ddg-html" });
               }
             } catch (e) { /* skip */ }
 
-            return results;
-          });
+            // Source 3: Bing search as additional source
+            try {
+              const bingResp = await fetch(`https://www.bing.com/search?q=${encoded}&count=20`, {
+                headers: {
+                  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+                  "Accept-Language": "sk,cs,en;q=0.5",
+                  "Accept": "text/html,application/xhtml+xml",
+                },
+                signal: AbortSignal.timeout(10000),
+                redirect: "follow",
+              });
+              if (bingResp.ok) {
+                const html = await bingResp.text();
+                const bingLinkRegex = /<h2><a[^>]+href="(https?:\/\/[^"]+)"[^>]*>([\s\S]*?)<\/a><\/h2>/gi;
+                const bingSnippetRegex = /<p class="[^"]*">([\s\S]*?)<\/p>/gi;
+                let match;
+                const bUrls: string[] = [], bTitles: string[] = [], bSnips: string[] = [];
+                while ((match = bingLinkRegex.exec(html)) !== null && bUrls.length < 15) {
+                  const url = match[1];
+                  if (!url.includes("bing.com") && !url.includes("microsoft.com") && !url.includes("go.microsoft")) {
+                    bUrls.push(url);
+                    bTitles.push(match[2].replace(/<[^>]+>/g, '').trim());
+                  }
+                }
+                while ((match = bingSnippetRegex.exec(html)) !== null && bSnips.length < 15) bSnips.push(match[1].replace(/<[^>]+>/g, '').trim());
+                for (let i = 0; i < bUrls.length; i++) results.push({ title: bTitles[i] || "", url: bUrls[i], snippet: bSnips[i] || bTitles[i] || "", source: "bing" });
+              }
+            } catch (e) { /* skip */ }
 
-          const searchResultArrays = await Promise.all(searchPromises);
-          for (const arr of searchResultArrays) allSnippets.push(...arr);
+            return results;
+          };
+
+          // Execute searches in 3 waves to avoid rate limiting
+          const wave1Queries = searchQueries.slice(0, 6);
+          const wave2Queries = searchQueries.slice(6, 12);
+          const wave3Queries = searchQueries.slice(12, 18);
+
+          const wave1Results = await Promise.all(wave1Queries.map(q => executeSearchQuery(q)));
+          for (const arr of wave1Results) allSnippets.push(...arr);
+
+          console.log(`[LeadSearch] Job ${job.id}: Wave 1 complete - ${allSnippets.length} results from ${wave1Queries.length} queries`);
+
+          if (wave2Queries.length > 0) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            const wave2Results = await Promise.all(wave2Queries.map(q => executeSearchQuery(q)));
+            for (const arr of wave2Results) allSnippets.push(...arr);
+            console.log(`[LeadSearch] Job ${job.id}: Wave 2 complete - ${allSnippets.length} total results`);
+          }
+
+          if (wave3Queries.length > 0) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            const wave3Results = await Promise.all(wave3Queries.map(q => executeSearchQuery(q)));
+            for (const arr of wave3Results) allSnippets.push(...arr);
+            console.log(`[LeadSearch] Job ${job.id}: Wave 3 complete - ${allSnippets.length} total results`);
+          }
+
+          // STEP 2b: If too few results, AI generates retry queries with different strategy
+          if (allSnippets.length < 15) {
+            console.log(`[LeadSearch] Job ${job.id}: Step 2b - Too few results (${allSnippets.length}), AI generating retry queries`);
+            try {
+              const retryPrompt = `The previous search for "${moduleInfo.description}" in ${countryName} (segment: ${segment || "general"}, location: ${location || "any"}) returned only ${allSnippets.length} results, which is too few.
+
+Previous queries tried:
+${searchQueries.map((q, i) => `${i + 1}. ${q}`).join("\n")}
+
+Generate 8 COMPLETELY DIFFERENT search queries using alternative strategies:
+1. Try simpler, broader queries (just the core terms)
+2. Use local language terms only
+3. Target specific well-known directories and registries
+4. Search for lists, databases, and directories instead of individual results
+5. Use "zoznam" (list), "register" (registry), "adresár" (directory) keywords
+6. Try specific city names combined with the medical specialty
+7. Search for professional associations and chambers
+8. Use common abbreviations and acronyms
+
+Return ONLY a JSON array of query strings.`;
+              const retryResp = await openai.chat.completions.create({
+                model: "gpt-4o-mini",
+                messages: [{ role: "user", content: retryPrompt }],
+                temperature: 0.5,
+                max_tokens: 1000,
+              });
+              const retryContent = retryResp.choices[0]?.message?.content || "[]";
+              const retryQueries = JSON.parse(retryContent.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim());
+
+              console.log(`[LeadSearch] Job ${job.id}: Retry with ${retryQueries.length} alternative queries`);
+              const retryResults = await Promise.all(retryQueries.slice(0, 8).map((q: string) => executeSearchQuery(q)));
+              for (const arr of retryResults) allSnippets.push(...arr);
+              console.log(`[LeadSearch] Job ${job.id}: After retry - ${allSnippets.length} total results`);
+            } catch (e) {
+              console.error(`[LeadSearch] Job ${job.id}: Retry query generation failed:`, e);
+            }
+          }
 
           // Deduplicate by URL (normalize)
           const seenUrls = new Set<string>();
@@ -26995,7 +27153,7 @@ Return ONLY a JSON array of search query strings, nothing else.`;
           console.log(`[LeadSearch] Job ${job.id}: Found ${uniqueSnippets.length} unique results from search`);
 
           // STEP 3: Deep scrape top pages in parallel waves
-          console.log(`[LeadSearch] Job ${job.id}: Step 3 - Deep scraping (up to 15 pages)`);
+          console.log(`[LeadSearch] Job ${job.id}: Step 3 - Deep scraping (up to 25 pages)`);
           const pageContents: Array<{url: string, content: string, emails: string[], phones: string[]}> = [];
 
           const stripHtml = (html: string) => html
@@ -27009,20 +27167,39 @@ Return ONLY a JSON array of search query strings, nothing else.`;
 
           const extractEmails = (text: string): string[] => {
             const matches = text.match(/[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g) || [];
-            return [...new Set(matches)].filter(e => !e.endsWith('.png') && !e.endsWith('.jpg') && !e.endsWith('.gif') && !e.includes('example'));
+            return [...new Set(matches)].filter(e => !e.endsWith('.png') && !e.endsWith('.jpg') && !e.endsWith('.gif') && !e.endsWith('.svg') && !e.endsWith('.webp') && !e.includes('example') && !e.includes('wixpress') && !e.includes('sentry'));
           };
 
           const extractPhones = (text: string): string[] => {
-            const matches = text.match(/(?:\+\d{1,3}[\s\-]?)?\(?\d{2,4}\)?[\s\-]?\d{3}[\s\-]?\d{2,4}[\s\-]?\d{0,4}/g) || [];
-            return [...new Set(matches.map(p => p.trim()).filter(p => p.replace(/\D/g, '').length >= 9))];
+            const matches = text.match(/(?:\+\d{1,3}[\s\-/]?)?\(?\d{2,4}\)?[\s\-/]?\d{3}[\s\-/]?\d{2,4}[\s\-/]?\d{0,4}/g) || [];
+            return [...new Set(matches.map(p => p.trim()).filter(p => p.replace(/\D/g, '').length >= 9 && p.replace(/\D/g, '').length <= 15))];
           };
 
-          // Scrape in 2 waves: first 8, then next 7
-          for (let wave = 0; wave < 2; wave++) {
+          const extractLinksFromHtml = (html: string, baseUrl: string): string[] => {
+            const links: string[] = [];
+            const linkRegex = /href="(\/[^"]*|https?:\/\/[^"]*)"[^>]*>/gi;
+            let match;
+            const base = new URL(baseUrl);
+            while ((match = linkRegex.exec(html)) !== null && links.length < 30) {
+              let href = match[1];
+              if (href.startsWith("/")) href = `${base.origin}${href}`;
+              try {
+                const u = new URL(href);
+                if (u.origin === base.origin && !href.match(/\.(pdf|jpg|png|gif|css|js|svg|ico|woff)$/i)) {
+                  links.push(href);
+                }
+              } catch {}
+            }
+            return [...new Set(links)];
+          };
+
+          // Scrape in 3 waves: 8 + 8 + 9 pages
+          for (let wave = 0; wave < 3; wave++) {
             const start = wave * 8;
-            const end = start + (wave === 0 ? 8 : 7);
+            const end = start + (wave === 0 ? 8 : wave === 1 ? 8 : 9);
             const batch = uniqueSnippets.slice(start, end);
             if (batch.length === 0) break;
+            if (wave > 0) await new Promise(resolve => setTimeout(resolve, 500));
 
             const scrapePromises = batch.map(async (s) => {
               try {

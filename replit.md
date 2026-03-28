@@ -53,7 +53,7 @@ Preferred communication style: Simple, everyday language.
 - **Entity Campaign Timeline**: Automatic recording of campaign interactions on entity detail pages (customers, hospitals, clinics, collaborators).
 - **Web Forms Module**: Public-facing registration forms with a visual field builder, layout templates, typography customization, GDPR consent, confirmation emails, and progress pipeline.
 - **Collaborator Campaign Support**: Collaborators can be targeted as campaign contacts with specific filtering criteria.
-- **Lead Search System**: AI-powered contact search in Configurator that uses web search + GPT-4o-mini to find and extract contacts (hospitals, clinics, collaborators). Results can be reviewed and assigned to CRM modules. Tables: `search_jobs`, `search_results`.
+- **Lead Search System**: AI-powered contact search in Configurator with 5-step engine: (1) AI generates 18 optimized queries, (2) multi-source web search (DuckDuckGo + Bing) in 3 waves with adaptive retry, (3) deep scraping 25+ pages with contact page following, (4) AI structured extraction, (5) AI verification. Features: AI-suggested search criteria, duplicate detection against existing records, field-level diff/update, preview dialog. Tables: `search_jobs`, `search_results`. Endpoint: `/api/lead-search/ai-suggest` for AI criteria generation.
 - **Campaign Reports**: Detailed campaign reports including operator statistics and call analysis.
 - **AI Virtual Agent**: GPT-4o-mini powered voice bot for inbound calls with configurable greetings, TTS, multi-language support, conversation analysis, callback detection, transcript logging, customer context awareness, configurable AI parameters, queue MOH integration, SFTP connection pooling, and website knowledge base integration.
 
