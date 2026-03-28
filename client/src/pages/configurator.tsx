@@ -17946,6 +17946,8 @@ function LeadSearchTab() {
     keywords: "",
   });
   const [selectedJobId, setSelectedJobId] = useState<number | null>(null);
+  const [previewResult, setPreviewResult] = useState<any>(null);
+  const [isAssigning, setIsAssigning] = useState(false);
 
   const { data: jobs = [], refetch: refetchJobs } = useQuery<any[]>({
     queryKey: ["/api/lead-search/jobs"],
@@ -17992,20 +17994,25 @@ function LeadSearchTab() {
     }
   };
 
-  const assignResult = async (resultId: number, targetModule: string) => {
+  const confirmAssign = async () => {
+    if (!previewResult) return;
+    setIsAssigning(true);
     try {
-      const resp = await fetch(`/api/lead-search/results/${resultId}/assign`, {
+      const resp = await fetch(`/api/lead-search/results/${previewResult.id}/assign`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ targetModule }),
+        body: JSON.stringify({ targetModule: selectedJob?.targetModule || "hospitals" }),
       });
       if (!resp.ok) throw new Error("Failed");
-      toast({ title: "Kontakt priradený" });
+      toast({ title: "Kontakt úspešne priradený do modulu" });
+      setPreviewResult(null);
       refetchResults();
       refetchJobs();
     } catch (e) {
       toast({ title: "Chyba pri priradení", variant: "destructive" });
+    } finally {
+      setIsAssigning(false);
     }
   };
 
@@ -18212,16 +18219,19 @@ function LeadSearchTab() {
                                 size="sm"
                                 variant="outline"
                                 className="h-7 text-xs"
-                                data-testid={`assign-result-${r.id}`}
-                                onClick={() => assignResult(r.id, selectedJob?.targetModule || "hospitals")}
+                                data-testid={`preview-result-${r.id}`}
+                                onClick={() => setPreviewResult(r)}
                               >
-                                <Plus className="h-3 w-3 mr-1" />
-                                Priradiť
+                                <Eye className="h-3 w-3 mr-1" />
+                                Zobraziť
                               </Button>
                             </div>
                           )}
                           {r.status === "assigned" && (
-                            <span className="text-xs text-muted-foreground">{r.assignedTo}</span>
+                            <span className="text-xs text-green-600 font-medium flex items-center gap-1 justify-end">
+                              <CheckCircle2 className="h-3 w-3" />
+                              Priradený
+                            </span>
                           )}
                         </td>
                       </tr>
@@ -18233,6 +18243,101 @@ function LeadSearchTab() {
           </CardContent>
         </Card>
       )}
+
+      <Dialog open={!!previewResult} onOpenChange={(open) => !open && setPreviewResult(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Eye className="h-5 w-5" />
+              Náhľad kontaktu
+            </DialogTitle>
+            <DialogDescription>
+              Skontrolujte údaje pred priradením do modulu {selectedJob?.targetModule === "hospitals" ? "Nemocnice" : selectedJob?.targetModule === "clinics" ? "Ambulancie" : "Spolupracovníci"}
+            </DialogDescription>
+          </DialogHeader>
+          {previewResult && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Názov spoločnosti</label>
+                  <div className="text-sm font-medium" data-testid="preview-company-name">{previewResult.companyName || "-"}</div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Kontaktná osoba</label>
+                  <div className="text-sm" data-testid="preview-contact-person">{previewResult.contactPerson || "-"}</div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Email</label>
+                  <div className="text-sm" data-testid="preview-email">
+                    {previewResult.email ? (
+                      <a href={`mailto:${previewResult.email}`} className="text-blue-600 hover:underline">{previewResult.email}</a>
+                    ) : "-"}
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Telefón</label>
+                  <div className="text-sm" data-testid="preview-phone">{previewResult.phone || "-"}</div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Web</label>
+                  <div className="text-sm" data-testid="preview-website">
+                    {previewResult.website ? (
+                      <a href={previewResult.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">{previewResult.website}</a>
+                    ) : "-"}
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Špecializácia</label>
+                  <div className="text-sm" data-testid="preview-specialization">{previewResult.specialization || "-"}</div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Adresa</label>
+                  <div className="text-sm" data-testid="preview-address">{previewResult.address || "-"}</div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Mesto</label>
+                  <div className="text-sm" data-testid="preview-city">{previewResult.city || "-"} {previewResult.countryCode || ""}</div>
+                </div>
+              </div>
+              {previewResult.sourceUrl && (
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Zdroj</label>
+                  <div className="text-sm">
+                    <a href={previewResult.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-xs break-all">{previewResult.sourceUrl}</a>
+                  </div>
+                </div>
+              )}
+              <div className="flex items-center gap-2">
+                <label className="text-xs font-medium text-muted-foreground">Spoľahlivosť:</label>
+                <span className={`text-xs font-medium px-2 py-0.5 rounded ${
+                  (previewResult.confidenceScore || 0) >= 70 ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" :
+                  (previewResult.confidenceScore || 0) >= 40 ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400" :
+                  "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400"
+                }`}>
+                  {previewResult.confidenceScore || 0}%
+                </span>
+              </div>
+              <div className="bg-muted/50 rounded-lg p-3 border">
+                <div className="text-xs text-muted-foreground mb-1">Po potvrdení sa tento kontakt vytvorí ako nový záznam v module:</div>
+                <div className="text-sm font-medium flex items-center gap-2">
+                  {selectedJob?.targetModule === "hospitals" && <><Building className="h-4 w-4" /> Nemocnice</>}
+                  {selectedJob?.targetModule === "clinics" && <><User className="h-4 w-4" /> Ambulancie</>}
+                  {selectedJob?.targetModule === "collaborators" && <><Users className="h-4 w-4" /> Spolupracovníci</>}
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setPreviewResult(null)} data-testid="button-cancel-assign">
+              Zrušiť
+            </Button>
+            <Button onClick={confirmAssign} disabled={isAssigning} data-testid="button-confirm-assign">
+              {isAssigning ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
+              Potvrdiť a priradiť
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
