@@ -26,7 +26,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Pencil, Trash2, FileText, Settings, Layout, Loader2, Palette, Package, Search, Shield, Copy, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Eye, EyeOff, Lock, Unlock, Check, Hash, Info, X, DollarSign, Percent, Calculator, CreditCard, TrendingUp, Bell, CheckCircle2, XCircle, Key, AlertTriangle, Upload, FileDown, Edit, Save, Download, ArrowUpDown, Paperclip, Globe, RefreshCw, BarChart3, Target, Sparkles, MapPin, Layers, Filter, Brain, Network, ArrowRight, ClipboardList } from "lucide-react";
+import { Plus, Pencil, Trash2, FileText, Settings, Layout, Loader2, Palette, Package, Search, Shield, Copy, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Eye, EyeOff, Lock, Unlock, Check, Hash, Info, X, DollarSign, Percent, Calculator, CreditCard, TrendingUp, Bell, CheckCircle2, XCircle, Key, AlertTriangle, Upload, FileDown, Edit, Save, Download, ArrowUpDown, Paperclip, Globe, RefreshCw, BarChart3, Target, Sparkles, MapPin, Layers, Filter, Brain, Network, ArrowRight, ClipboardList, Share2, ThumbsUp, ThumbsDown, Zap, GitMerge, Users, Building2, User, Mail, Phone, Award } from "lucide-react";
 import { COUNTRIES, CURRENCIES, getCurrencySymbol } from "@shared/schema";
 import { InvoiceDesigner, InvoiceDesignerConfig } from "@/components/invoice-designer";
 import { ContractTemplatesManager } from "@/components/contract-templates-manager";
@@ -17935,10 +17935,425 @@ function CourierFormDialog({
   );
 }
 
+function EntityGraphTab() {
+  const { toast } = useToast();
+  const [entities, setEntities] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [segmentFilter, setSegmentFilter] = useState("all");
+  const [selectedEntity, setSelectedEntity] = useState<any>(null);
+  const [resolving, setResolving] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/lead-entities?limit=200", { credentials: "include" }).then(r => r.json()).then(data => { setEntities(Array.isArray(data) ? data : []); setLoading(false); }).catch(() => setLoading(false));
+  }, []);
+
+  const reload = () => { fetch("/api/lead-entities?limit=200", { credentials: "include" }).then(r => r.json()).then(data => setEntities(Array.isArray(data) ? data : [])); };
+
+  const filtered = entities.filter(e => {
+    if (segmentFilter !== "all" && e.segment !== segmentFilter) return false;
+    if (search && !e.canonicalName?.toLowerCase().includes(search.toLowerCase()) && !e.primaryEmail?.toLowerCase().includes(search.toLowerCase())) return false;
+    return true;
+  });
+
+  const segments = [...new Set(entities.map(e => e.segment).filter(Boolean))];
+
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-2 items-center flex-wrap">
+        <Input data-testid="input-entity-search" placeholder="Hľadať entity..." value={search} onChange={e => setSearch(e.target.value)} className="max-w-xs" />
+        <select data-testid="select-entity-segment" className="text-sm border rounded-md px-2 py-1.5 bg-background" value={segmentFilter} onChange={e => setSegmentFilter(e.target.value)}>
+          <option value="all">Všetky segmenty</option>
+          {segments.map(s => <option key={s} value={s}>{s}</option>)}
+        </select>
+        <Button data-testid="button-resolve-entities" variant="outline" size="sm" disabled={resolving} onClick={async () => {
+          setResolving(true);
+          try {
+            const resp = await fetch("/api/lead-entities/resolve", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({}) });
+            const data = await resp.json();
+            toast({ title: "Entity resolution", description: `${data.created} vytvorených, ${data.merged} zlúčených` });
+            reload();
+          } catch (e: any) { toast({ title: "Chyba", description: e.message, variant: "destructive" }); }
+          setResolving(false);
+        }}>{resolving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <GitMerge className="h-4 w-4 mr-1" />} Resolve entity</Button>
+        <Button data-testid="button-analyze-sources" variant="outline" size="sm" onClick={async () => {
+          const resp = await fetch("/api/source-learning/analyze", { method: "POST", credentials: "include" });
+          const data = await resp.json();
+          toast({ title: "Analýza zdrojov", description: data.message });
+        }}><Brain className="h-4 w-4 mr-1" /> Analyzovať zdroje</Button>
+        <Button data-testid="button-calculate-scores" variant="outline" size="sm" onClick={async () => {
+          const resp = await fetch("/api/contact-scores/calculate-all", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({}) });
+          const data = await resp.json();
+          toast({ title: "Skóre kontaktov", description: data.message });
+        }}><Award className="h-4 w-4 mr-1" /> Vypočítať skóre</Button>
+        <div className="ml-auto text-sm text-muted-foreground">{filtered.length} entít</div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2">
+          <Card>
+            <CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><Share2 className="h-4 w-4" /> Znalostný graf entít</CardTitle></CardHeader>
+            <CardContent>
+              {loading ? <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div> : filtered.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Share2 className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p>Žiadne entity. Spustite "Resolve entity" pre vytvorenie znalostného grafu z výsledkov vyhľadávania.</p>
+                </div>
+              ) : (
+                <div className="space-y-1 max-h-[600px] overflow-y-auto">
+                  {filtered.map(entity => (
+                    <div key={entity.id} data-testid={`entity-row-${entity.id}`} className={cn("flex items-center gap-3 p-2 rounded-md cursor-pointer transition-colors", selectedEntity?.id === entity.id ? "bg-primary/10 border border-primary/20" : "hover:bg-muted/50")} onClick={() => {
+                      fetch(`/api/lead-entities/${entity.id}`, { credentials: "include" }).then(r => r.json()).then(data => setSelectedEntity(data));
+                    }}>
+                      <div className={cn("h-8 w-8 rounded-full flex items-center justify-center text-xs font-medium", entity.entityType === "person" ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700" : "bg-violet-100 dark:bg-violet-900/30 text-violet-700")}>
+                        {entity.entityType === "person" ? <User className="h-4 w-4" /> : <Building2 className="h-4 w-4" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium truncate">{entity.canonicalName}</div>
+                        <div className="text-xs text-muted-foreground flex gap-2">
+                          {entity.countryCode && <span>{entity.countryCode}</span>}
+                          {entity.segment && <span>{entity.segment}</span>}
+                          {entity.city && <span>{entity.city}</span>}
+                        </div>
+                      </div>
+                      <div className="flex gap-2 items-center text-xs">
+                        {entity.primaryEmail && <Mail className="h-3 w-3 text-green-600" />}
+                        {entity.primaryPhone && <Phone className="h-3 w-3 text-blue-600" />}
+                        <div className="flex items-center gap-1">
+                          <span className="text-muted-foreground">Trust:</span>
+                          <div className="w-12 h-1.5 bg-muted rounded-full overflow-hidden"><div className="h-full bg-green-500 rounded-full" style={{ width: `${entity.trustScore || 0}%` }} /></div>
+                          <span className="text-[10px]">{entity.trustScore || 0}</span>
+                        </div>
+                        <span className="text-muted-foreground ml-1">{entity.totalSources}x</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        <div>
+          {selectedEntity ? (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base flex items-center gap-2">
+                  {selectedEntity.entityType === "person" ? <User className="h-4 w-4" /> : <Building2 className="h-4 w-4" />}
+                  {selectedEntity.canonicalName}
+                </CardTitle>
+                <CardDescription>{selectedEntity.segment} {selectedEntity.countryCode && `| ${selectedEntity.countryCode}`} {selectedEntity.city && `| ${selectedEntity.city}`}</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="p-2 bg-muted/50 rounded"><span className="text-muted-foreground block">Completeness</span><span className="font-medium text-sm">{selectedEntity.completenessScore || 0}%</span></div>
+                  <div className="p-2 bg-muted/50 rounded"><span className="text-muted-foreground block">Trust</span><span className="font-medium text-sm">{selectedEntity.trustScore || 0}%</span></div>
+                  <div className="p-2 bg-muted/50 rounded"><span className="text-muted-foreground block">Zdroje</span><span className="font-medium text-sm">{selectedEntity.totalSources || 1}</span></div>
+                  <div className="p-2 bg-muted/50 rounded"><span className="text-muted-foreground block">IČO</span><span className="font-medium text-sm">{selectedEntity.ico || "—"}</span></div>
+                </div>
+                {selectedEntity.primaryEmail && <div className="flex items-center gap-2 text-sm"><Mail className="h-3 w-3 text-muted-foreground" />{selectedEntity.primaryEmail}</div>}
+                {selectedEntity.primaryPhone && <div className="flex items-center gap-2 text-sm"><Phone className="h-3 w-3 text-muted-foreground" />{selectedEntity.primaryPhone}</div>}
+                {selectedEntity.primaryWebsite && <div className="flex items-center gap-2 text-sm"><Globe className="h-3 w-3 text-muted-foreground" /><a href={selectedEntity.primaryWebsite} target="_blank" className="text-blue-600 hover:underline truncate">{selectedEntity.primaryWebsite}</a></div>}
+                {selectedEntity.address && <div className="flex items-center gap-2 text-sm"><MapPin className="h-3 w-3 text-muted-foreground" />{selectedEntity.address}</div>}
+                {selectedEntity.relations?.length > 0 && (
+                  <div>
+                    <h4 className="text-xs font-medium text-muted-foreground mb-1">Vzťahy ({selectedEntity.relations.length})</h4>
+                    {selectedEntity.relations.map((rel: any) => (
+                      <div key={rel.id} className="flex items-center gap-2 text-xs p-1.5 bg-muted/30 rounded mb-1">
+                        <ArrowRight className="h-3 w-3 text-muted-foreground" />
+                        <span className="text-muted-foreground">{rel.relationType}</span>
+                        <span className="font-medium">{rel.relatedEntity?.canonicalName || `Entity #${rel.fromEntityId === selectedEntity.id ? rel.toEntityId : rel.fromEntityId}`}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {selectedEntity.evidences?.length > 0 && (
+                  <div>
+                    <h4 className="text-xs font-medium text-muted-foreground mb-1">Dôkazy ({selectedEntity.evidences.length})</h4>
+                    {selectedEntity.evidences.slice(0, 10).map((ev: any) => (
+                      <div key={ev.id} className="flex items-center justify-between text-xs p-1 border-b last:border-0">
+                        <span><span className="text-muted-foreground">{ev.field}:</span> {ev.value}</span>
+                        <span className="text-muted-foreground">{ev.confidence}%</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardContent className="py-8 text-center text-muted-foreground text-sm">
+                <Share2 className="h-6 w-6 mx-auto mb-2 opacity-50" />
+                Vyberte entitu pre zobrazenie detailov
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FeedbackLearningTab() {
+  const { toast } = useToast();
+  const [patterns, setPatterns] = useState<any[]>([]);
+  const [sourceLearning, setSourceLearning] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([
+      fetch("/api/feedback-patterns", { credentials: "include" }).then(r => r.json()),
+      fetch("/api/source-learning", { credentials: "include" }).then(r => r.json()),
+    ]).then(([p, s]) => {
+      setPatterns(Array.isArray(p) ? p : []);
+      setSourceLearning(Array.isArray(s) ? s : []);
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  }, []);
+
+  if (loading) return <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin" /></div>;
+
+  const goodPatterns = patterns.filter(p => p.patternType === "correct_contact" || p.patternType === "good_source" || p.patternType === "preferred_role");
+  const badPatterns = patterns.filter(p => p.patternType === "incorrect_contact" || p.patternType === "bad_source");
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card><CardContent className="pt-4">
+          <div className="text-2xl font-bold text-green-600">{goodPatterns.reduce((a, p) => a + (p.sampleCount || 0), 0)}</div>
+          <div className="text-xs text-muted-foreground flex items-center gap-1"><ThumbsUp className="h-3 w-3" /> Pozitívne hodnotenia</div>
+        </CardContent></Card>
+        <Card><CardContent className="pt-4">
+          <div className="text-2xl font-bold text-red-600">{badPatterns.reduce((a, p) => a + (p.sampleCount || 0), 0)}</div>
+          <div className="text-xs text-muted-foreground flex items-center gap-1"><ThumbsDown className="h-3 w-3" /> Negatívne hodnotenia</div>
+        </CardContent></Card>
+        <Card><CardContent className="pt-4">
+          <div className="text-2xl font-bold">{sourceLearning.length}</div>
+          <div className="text-xs text-muted-foreground flex items-center gap-1"><Network className="h-3 w-3" /> Analyzované zdroje</div>
+        </CardContent></Card>
+        <Card><CardContent className="pt-4">
+          <div className="text-2xl font-bold">{patterns.filter(p => p.patternType === "preferred_role").length}</div>
+          <div className="text-xs text-muted-foreground flex items-center gap-1"><Users className="h-3 w-3" /> Preferované roly</div>
+        </CardContent></Card>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><Brain className="h-4 w-4" /> Naučené vzory</CardTitle></CardHeader>
+          <CardContent>
+            {patterns.length === 0 ? (
+              <div className="text-center py-6 text-muted-foreground text-sm">
+                <Brain className="h-6 w-6 mx-auto mb-2 opacity-50" />
+                Zatiaľ žiadne vzory. Systém sa začne učiť po označení výsledkov (palec hore/dole).
+              </div>
+            ) : (
+              <div className="space-y-1 max-h-[400px] overflow-y-auto">
+                {patterns.map(p => (
+                  <div key={p.id} className="flex items-center justify-between p-2 rounded border text-xs">
+                    <div className="flex items-center gap-2">
+                      {(p.patternType === "correct_contact" || p.patternType === "good_source" || p.patternType === "preferred_role") ? <ThumbsUp className="h-3 w-3 text-green-600" /> : <ThumbsDown className="h-3 w-3 text-red-600" />}
+                      <span className="font-medium">{p.patternType}</span>
+                      {p.segment && <span className="text-muted-foreground">({p.segment})</span>}
+                      {p.patternKey !== p.patternType && <span className="text-primary">{p.patternKey}</span>}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-muted-foreground">Váha: {p.weight}</span>
+                      <span className="text-muted-foreground">Vzorky: {p.sampleCount}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><Network className="h-4 w-4" /> Kvalita zdrojov (učenie)</CardTitle></CardHeader>
+          <CardContent>
+            {sourceLearning.length === 0 ? (
+              <div className="text-center py-6 text-muted-foreground text-sm">
+                <Network className="h-6 w-6 mx-auto mb-2 opacity-50" />
+                Spustite "Analyzovať zdroje" v záložke Entity Graf.
+              </div>
+            ) : (
+              <div className="space-y-1 max-h-[400px] overflow-y-auto">
+                {sourceLearning.map(s => (
+                  <div key={s.id} className="p-2 rounded border text-xs space-y-1">
+                    <div className="flex justify-between"><span className="font-medium">Zdroj #{s.sourceId}</span><span className="text-muted-foreground">{s.totalContactsFound} kontaktov</span></div>
+                    <div className="grid grid-cols-4 gap-1">
+                      <div><span className="text-muted-foreground">Email:</span> <div className="w-full h-1.5 bg-muted rounded-full mt-0.5"><div className="h-full bg-green-500 rounded-full" style={{ width: `${s.emailQuality}%` }} /></div></div>
+                      <div><span className="text-muted-foreground">Telefón:</span> <div className="w-full h-1.5 bg-muted rounded-full mt-0.5"><div className="h-full bg-blue-500 rounded-full" style={{ width: `${s.phoneQuality}%` }} /></div></div>
+                      <div><span className="text-muted-foreground">Adresa:</span> <div className="w-full h-1.5 bg-muted rounded-full mt-0.5"><div className="h-full bg-violet-500 rounded-full" style={{ width: `${s.addressQuality}%` }} /></div></div>
+                      <div><span className="text-muted-foreground">Osoba:</span> <div className="w-full h-1.5 bg-muted rounded-full mt-0.5"><div className="h-full bg-orange-500 rounded-full" style={{ width: `${s.contactPersonQuality}%` }} /></div></div>
+                    </div>
+                    <div className="flex gap-2 text-[10px] text-muted-foreground">
+                      <span>Kompletné: {s.completeContacts}</span>
+                      <span>Duplicitné: {s.duplicateContacts}</span>
+                      <span>Neplatné: {s.invalidContacts}</span>
+                      {s.bestForSegments?.length > 0 && <span>Najlepšie pre: {s.bestForSegments.join(", ")}</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+function LifecycleTab() {
+  const { toast } = useToast();
+  const [lifecycle, setLifecycle] = useState<any[]>([]);
+  const [analytics, setAnalytics] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [stageFilter, setStageFilter] = useState("all");
+
+  useEffect(() => {
+    Promise.all([
+      fetch("/api/lead-lifecycle", { credentials: "include" }).then(r => r.json()),
+      fetch("/api/lead-lifecycle/analytics", { credentials: "include" }).then(r => r.json()),
+    ]).then(([lc, an]) => {
+      setLifecycle(Array.isArray(lc) ? lc : []);
+      setAnalytics(an);
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  }, []);
+
+  const reload = () => {
+    Promise.all([
+      fetch("/api/lead-lifecycle", { credentials: "include" }).then(r => r.json()),
+      fetch("/api/lead-lifecycle/analytics", { credentials: "include" }).then(r => r.json()),
+    ]).then(([lc, an]) => { setLifecycle(Array.isArray(lc) ? lc : []); setAnalytics(an); });
+  };
+
+  if (loading) return <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin" /></div>;
+
+  const stages = ["new", "contacted", "replied", "deal", "converted", "invalid"];
+  const stageLabels: Record<string, string> = { new: "Nový", contacted: "Kontaktovaný", replied: "Odpovedal", deal: "Deal", converted: "Konvertovaný", invalid: "Neplatný" };
+  const stageColors: Record<string, string> = { new: "bg-gray-500", contacted: "bg-blue-500", replied: "bg-green-500", deal: "bg-violet-500", converted: "bg-emerald-500", invalid: "bg-red-500" };
+  const filtered = stageFilter === "all" ? lifecycle : lifecycle.filter(l => l.stage === stageFilter);
+
+  return (
+    <div className="space-y-4">
+      {analytics && (
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
+          <Card><CardContent className="pt-3 pb-3"><div className="text-xl font-bold">{analytics.total}</div><div className="text-[10px] text-muted-foreground">Celkovo leadov</div></CardContent></Card>
+          <Card><CardContent className="pt-3 pb-3"><div className="text-xl font-bold text-blue-600">{analytics.contacted}</div><div className="text-[10px] text-muted-foreground">Kontaktovaných</div></CardContent></Card>
+          <Card><CardContent className="pt-3 pb-3"><div className="text-xl font-bold text-green-600">{analytics.replied}</div><div className="text-[10px] text-muted-foreground">Odpovedalo</div></CardContent></Card>
+          <Card><CardContent className="pt-3 pb-3"><div className="text-xl font-bold text-violet-600">{analytics.deals}</div><div className="text-[10px] text-muted-foreground">Deals</div></CardContent></Card>
+          <Card><CardContent className="pt-3 pb-3"><div className="text-xl font-bold text-red-600">{analytics.invalid}</div><div className="text-[10px] text-muted-foreground">Neplatných</div></CardContent></Card>
+          <Card><CardContent className="pt-3 pb-3"><div className="text-xl font-bold text-emerald-600">{analytics.conversionRate}%</div><div className="text-[10px] text-muted-foreground">Konverzný pomer</div></CardContent></Card>
+          <Card><CardContent className="pt-3 pb-3"><div className="text-xl font-bold">{analytics.avgConversionDays}d</div><div className="text-[10px] text-muted-foreground">Priem. čas konverzie</div></CardContent></Card>
+        </div>
+      )}
+
+      <div className="flex gap-1">
+        <button className={cn("px-3 py-1 rounded-md text-xs border transition-colors", stageFilter === "all" ? "border-primary bg-primary/10 text-primary" : "hover:border-primary/30")} onClick={() => setStageFilter("all")}>Všetky ({lifecycle.length})</button>
+        {stages.map(s => {
+          const count = lifecycle.filter(l => l.stage === s).length;
+          return <button key={s} className={cn("px-3 py-1 rounded-md text-xs border transition-colors", stageFilter === s ? "border-primary bg-primary/10 text-primary" : "hover:border-primary/30")} onClick={() => setStageFilter(s)}>{stageLabels[s] || s} ({count})</button>;
+        })}
+      </div>
+
+      <Card>
+        <CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><TrendingUp className="h-4 w-4" /> Životný cyklus leadov</CardTitle></CardHeader>
+        <CardContent>
+          {filtered.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground text-sm">
+              <TrendingUp className="h-8 w-8 mx-auto mb-2 opacity-50" />
+              <p>Žiadne záznamy. Leady sa do lifecycle dostanú po zlúčení do CRM.</p>
+            </div>
+          ) : (
+            <div className="space-y-1 max-h-[500px] overflow-y-auto">
+              {filtered.map(lc => (
+                <div key={lc.id} data-testid={`lifecycle-row-${lc.id}`} className="flex items-center gap-3 p-2 rounded border text-xs">
+                  <div className={cn("h-2 w-2 rounded-full", stageColors[lc.stage] || "bg-gray-400")} />
+                  <span className="font-medium w-20">{stageLabels[lc.stage] || lc.stage}</span>
+                  <span className="text-muted-foreground">{lc.crmType} #{lc.crmId}</span>
+                  <span className="text-muted-foreground">{lc.segment}</span>
+                  <span className="text-muted-foreground">{lc.country}</span>
+                  <div className="flex-1" />
+                  <div className="flex gap-1">
+                    {!lc.wasContacted && lc.stage === "new" && (
+                      <Button size="sm" variant="outline" className="h-5 text-[10px] px-1.5" data-testid={`lifecycle-contact-${lc.id}`} onClick={async () => {
+                        await fetch(`/api/lead-lifecycle/${lc.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ wasContacted: true, stage: "contacted" }) });
+                        reload();
+                      }}><Mail className="h-3 w-3 mr-0.5" /> Kontaktovaný</Button>
+                    )}
+                    {lc.wasContacted && !lc.emailReplied && (
+                      <Button size="sm" variant="outline" className="h-5 text-[10px] px-1.5" data-testid={`lifecycle-replied-${lc.id}`} onClick={async () => {
+                        await fetch(`/api/lead-lifecycle/${lc.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ emailReplied: true, stage: "replied" }) });
+                        reload();
+                      }}><Check className="h-3 w-3 mr-0.5" /> Odpovedal</Button>
+                    )}
+                    {!lc.dealCreated && !lc.contactInvalid && (
+                      <>
+                        <Button size="sm" variant="outline" className="h-5 text-[10px] px-1.5 text-green-600 border-green-200" data-testid={`lifecycle-deal-${lc.id}`} onClick={async () => {
+                          await fetch(`/api/lead-lifecycle/${lc.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ dealCreated: true, stage: "deal" }) });
+                          reload();
+                          toast({ title: "Deal vytvorený" });
+                        }}><TrendingUp className="h-3 w-3 mr-0.5" /> Deal</Button>
+                        <Button size="sm" variant="ghost" className="h-5 text-[10px] px-1.5 text-red-600" data-testid={`lifecycle-invalid-${lc.id}`} onClick={async () => {
+                          await fetch(`/api/lead-lifecycle/${lc.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ contactInvalid: true, stage: "invalid", invalidReason: "manual" }) });
+                          reload();
+                        }}><X className="h-3 w-3 mr-0.5" /> Neplatný</Button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {analytics?.bySource?.length > 0 && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <Card>
+            <CardHeader className="pb-2"><CardTitle className="text-sm">Top zdroje (podľa konverzií)</CardTitle></CardHeader>
+            <CardContent>
+              {analytics.bySource.map((s: any, i: number) => (
+                <div key={i} className="flex justify-between items-center text-xs p-1 border-b last:border-0">
+                  <span>Zdroj #{s.sourceId}</span>
+                  <div className="flex gap-3">
+                    <span className="text-green-600">{s.conversions} konverzií</span>
+                    <span className="text-red-600">{s.invalids} neplatných</span>
+                    <span className="text-muted-foreground">{s.total} celkovo</span>
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2"><CardTitle className="text-sm">Konverzie podľa segmentu</CardTitle></CardHeader>
+            <CardContent>
+              {analytics.bySegment?.map((s: any, i: number) => (
+                <div key={i} className="flex justify-between items-center text-xs p-1 border-b last:border-0">
+                  <span>{s.segment}</span>
+                  <div className="flex gap-3">
+                    <span className="text-green-600">{s.conversions} konverzií</span>
+                    <span className="text-muted-foreground">{s.total} celkovo</span>
+                    <span className="font-medium">{s.total > 0 ? Math.round((s.conversions / s.total) * 100) : 0}%</span>
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function LeadSearchTab() {
   const { t } = useI18n();
   const { toast } = useToast();
-  const [activeSubTab, setActiveSubTab] = useState<"dashboard" | "search" | "sources" | "campaigns" | "templates" | "webhooks">("dashboard");
+  const [activeSubTab, setActiveSubTab] = useState<"dashboard" | "search" | "sources" | "campaigns" | "templates" | "webhooks" | "entities" | "feedback" | "lifecycle">("dashboard");
+  const [goalText, setGoalText] = useState("");
+  const [goalParsing, setGoalParsing] = useState(false);
+  const [parsedGoal, setParsedGoal] = useState<any>(null);
   const [searchForm, setSearchForm] = useState({
     name: "",
     targetModule: "hospitals" as "hospitals" | "clinics" | "collaborators",
@@ -18306,6 +18721,9 @@ function LeadSearchTab() {
           { key: "campaigns" as const, label: "Kampane", Icon: RefreshCw },
           { key: "templates" as const, label: "Šablóny", Icon: Layers },
           { key: "webhooks" as const, label: "Webhooky", Icon: Bell },
+          { key: "entities" as const, label: "Entity Graf", Icon: Share2 },
+          { key: "feedback" as const, label: "Učenie", Icon: Brain },
+          { key: "lifecycle" as const, label: "Konverzie", Icon: TrendingUp },
         ] as const).map(tab => (
           <button
             key={tab.key}
@@ -18865,6 +19283,44 @@ function LeadSearchTab() {
       {activeSubTab === "search" && (
       <div className="space-y-6">
 
+      <Card className="border-primary/20 bg-gradient-to-r from-primary/5 to-transparent">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base flex items-center gap-2"><Zap className="h-4 w-4 text-primary" /> Inteligentný cieľ vyhľadávania</CardTitle>
+          <CardDescription>Popíšte čo hľadáte prirodzeným jazykom — systém sa naučí z histórie a odporučí najlepšie zdroje</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-2">
+            <Input data-testid="input-goal-text" placeholder="napr. nájdi ambulancie gynekológie v SK s emailom a telefónom" value={goalText} onChange={e => setGoalText(e.target.value)} className="flex-1" />
+            <Button data-testid="button-parse-goal" disabled={!goalText.trim() || goalParsing} onClick={async () => {
+              setGoalParsing(true);
+              try {
+                const resp = await fetch("/api/lead-intelligence/parse-goal", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ goal: goalText, country: searchForm.country || "SK" }) });
+                const data = await resp.json();
+                if (data.error) throw new Error(data.error);
+                setParsedGoal(data);
+                if (data.segment) {
+                  const modMap: Record<string, string> = { hospitals: "hospitals", clinics: "clinics", ambulances: "hospitals", laboratories: "hospitals", pharmacies: "clinics", gynaecology: "hospitals", pediatrics: "hospitals", maternity: "hospitals" };
+                  setSearchForm(f => ({ ...f, targetModule: (modMap[data.segment] || "collaborators") as any, country: data.country || f.country, keywords: data.keywords?.join(", ") || f.keywords, segment: data.segment }));
+                }
+                toast({ title: "Cieľ analyzovaný", description: `Segment: ${data.segment}, Kľúčové slová: ${data.keywords?.join(", ")}` });
+              } catch (e: any) { toast({ title: "Chyba", description: e.message, variant: "destructive" }); }
+              setGoalParsing(false);
+            }}>{goalParsing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />} Analyzovať</Button>
+          </div>
+          {parsedGoal && (
+            <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-2">
+              <div className="p-2 rounded-md bg-background border text-xs"><span className="text-muted-foreground">Segment:</span> <span className="font-medium">{parsedGoal.segment}</span></div>
+              <div className="p-2 rounded-md bg-background border text-xs"><span className="text-muted-foreground">Krajina:</span> <span className="font-medium">{parsedGoal.country}</span></div>
+              <div className="p-2 rounded-md bg-background border text-xs"><span className="text-muted-foreground">Intent:</span> <span className="font-medium">{parsedGoal.intent}</span></div>
+              <div className="p-2 rounded-md bg-background border text-xs"><span className="text-muted-foreground">Outreach:</span> <span className="font-medium">{parsedGoal.outreachType || "—"}</span></div>
+              {parsedGoal.requiredFields?.length > 0 && <div className="col-span-2 p-2 rounded-md bg-background border text-xs"><span className="text-muted-foreground">Povinné polia:</span> <span className="font-medium">{parsedGoal.requiredFields.join(", ")}</span></div>}
+              {parsedGoal.learnedPreferences && <div className="col-span-2 p-2 rounded-md bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800 border text-xs"><Brain className="h-3 w-3 inline mr-1 text-green-600" /><span className="text-green-700 dark:text-green-400">Naučené preferencie: {parsedGoal.learnedPreferences.preferredRoles?.map((r: any) => r.role).join(", ")}</span></div>}
+              {parsedGoal.recommendedSourceIds && <div className="col-span-2 p-2 rounded-md bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800 border text-xs"><Award className="h-3 w-3 inline mr-1 text-blue-600" /><span className="text-blue-700 dark:text-blue-400">Odporúčané zdroje ({parsedGoal.recommendedSourceIds.length}) na základe histórie</span></div>}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
         <div className="xl:col-span-4 space-y-4">
           <Card>
@@ -19370,6 +19826,16 @@ function LeadSearchTab() {
                                 Obnoviť
                               </Button>
                             )}
+                            <div className="flex gap-0.5 ml-1 border-l pl-1">
+                              <Button size="sm" variant="ghost" className="h-5 w-5 p-0 text-green-600 hover:bg-green-50" data-testid={`feedback-good-${r.id}`} title="Správny kontakt" onClick={async () => {
+                                await fetch("/api/lead-feedback", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ resultId: r.id, feedbackType: "correct_contact", segment: r.segment }) });
+                                toast({ title: "Spätná väzba", description: "Označené ako správny kontakt" });
+                              }}><ThumbsUp className="h-3 w-3" /></Button>
+                              <Button size="sm" variant="ghost" className="h-5 w-5 p-0 text-red-600 hover:bg-red-50" data-testid={`feedback-bad-${r.id}`} title="Nesprávny kontakt" onClick={async () => {
+                                await fetch("/api/lead-feedback", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ resultId: r.id, feedbackType: "incorrect_contact", segment: r.segment }) });
+                                toast({ title: "Spätná väzba", description: "Označené ako nesprávny kontakt" });
+                              }}><ThumbsDown className="h-3 w-3" /></Button>
+                            </div>
                           </div>
                         </td>
                       </tr>
@@ -19820,6 +20286,18 @@ function LeadSearchTab() {
             </CardContent>
           </Card>
         </div>
+      )}
+
+      {activeSubTab === "entities" && (
+        <EntityGraphTab />
+      )}
+
+      {activeSubTab === "feedback" && (
+        <FeedbackLearningTab />
+      )}
+
+      {activeSubTab === "lifecycle" && (
+        <LifecycleTab />
       )}
 
     </div>

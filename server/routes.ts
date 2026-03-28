@@ -33,6 +33,7 @@ import {
   callLogs, campaignContacts, campaignContactHistory, campaignContactSessions, campaigns, customers, users, entityCampaignTimeline, mobileContacts, collaborators, billingDetails,
   collections, executiveSummaries, collectionLabResults, collectionSprievodnyList, cbuReportAudit, cbuReportOtp, searchResults, searchJobs, leadCampaigns,
   insertLeadSourceSchema, insertLeadCampaignSchema, queryTemplates, insertQueryTemplateSchema, webhookConfigs, insertWebhookConfigSchema, leadSources,
+  sourceLearningMetrics, contactScores, leadFeedback, feedbackPatterns, leadEntities, entityRelations, entityEvidences, leadLifecycle,
   insertSopCategorySchema, insertSopArticleSchema,
   agentSessions, agentSessionActivities, agentBreaks, scheduledReports, agentQueueStatus,
   inboundCallLogs, inboundQueues, ariSettings, sipExtensions, clinicReferrals, clinicEvents,
@@ -28635,6 +28636,13 @@ Odpovedz VÝHRADNE ako JSON pole objektov s kľúčmi: url, name, type, countryC
 
       await db.update(searchResults).set({ status: "merged", mergedTo, reviewedAt: new Date() }).where(eq(searchResults.id, id));
       await fireWebhook("result.merged", { resultId: id, mergedTo, companyName: result.companyName });
+      const [crmTypeStr, crmIdStr] = mergedTo.split(":");
+      try {
+        await db.insert(leadLifecycle).values({
+          resultId: id, crmType: crmTypeStr, crmId: crmIdStr, stage: "new",
+          sourceId: null, segment: result.segment, country: result.country,
+        });
+      } catch {}
 
       res.json({ success: true, mergedTo });
     } catch (error: any) { res.status(500).json({ error: error.message }); }
@@ -28975,6 +28983,531 @@ Odpovedz VÝHRADNE ako JSON pole objektov s kľúčmi: url, name, type, countryC
       }
 
       res.json({ sources: selected, totalAvailable: filtered.length });
+    } catch (error: any) { res.status(500).json({ error: error.message }); }
+  });
+
+  // ═══════════════════════════════════════════════════════════
+  // LAYER 1: Goal-based Search
+  // ═══════════════════════════════════════════════════════════
+  app.post("/api/lead-intelligence/parse-goal", requireAuth, async (req, res) => {
+    try {
+      const { goal, country } = req.body;
+      if (!goal) return res.status(400).json({ error: "Goal text required" });
+      const openai = new (await import("openai")).default();
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: `You parse natural language lead search goals into structured search criteria. Return JSON only.
+Output format: { "segment": string, "country": string, "keywords": string[], "requiredFields": string[], "filters": { "maxAge"?: number, "city"?: string, "region"?: string, "role"?: string }, "outreachType"?: "cold"|"warm"|"referral", "intent": string }
+Required fields can be: email, phone, website, address, contactPerson, role, ico.
+Segment should be one of: hospitals, clinics, ambulances, laboratories, pharmacies, insurance, gynaecology, pediatrics, maternity, PR agencies, marketing agencies, other.` },
+          { role: "user", content: `Parse this goal for country ${country || "SK"}: "${goal}"` }
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0.2,
+      });
+      const parsed = JSON.parse(response.choices[0].message.content || "{}");
+      const patterns = await db.select().from(feedbackPatterns)
+        .where(and(
+          eq(feedbackPatterns.segment, parsed.segment || ""),
+          eq(feedbackPatterns.patternType, "preferred_role")
+        )).limit(5);
+      if (patterns.length > 0) {
+        parsed.learnedPreferences = { preferredRoles: patterns.map(p => ({ role: p.patternKey, weight: p.weight })) };
+      }
+      const sourceMetrics = await db.select().from(sourceLearningMetrics)
+        .where(sql`${parsed.segment} = ANY(${sourceLearningMetrics.bestForSegments})`)
+        .orderBy(desc(sourceLearningMetrics.completeContacts))
+        .limit(5);
+      if (sourceMetrics.length > 0) {
+        parsed.recommendedSourceIds = sourceMetrics.map(m => m.sourceId);
+      }
+      res.json(parsed);
+    } catch (error: any) { res.status(500).json({ error: error.message }); }
+  });
+
+  // ═══════════════════════════════════════════════════════════
+  // LAYER 2: Source Learning Metrics
+  // ═══════════════════════════════════════════════════════════
+  app.get("/api/source-learning", requireAuth, async (req, res) => {
+    try {
+      const metrics = await db.select().from(sourceLearningMetrics).orderBy(desc(sourceLearningMetrics.completeContacts));
+      res.json(metrics);
+    } catch (error: any) { res.status(500).json({ error: error.message }); }
+  });
+
+  app.get("/api/source-learning/:sourceId", requireAuth, async (req, res) => {
+    try {
+      const sourceId = parseInt(req.params.sourceId);
+      const metrics = await db.select().from(sourceLearningMetrics).where(eq(sourceLearningMetrics.sourceId, sourceId));
+      res.json(metrics);
+    } catch (error: any) { res.status(500).json({ error: error.message }); }
+  });
+
+  app.post("/api/source-learning/analyze", requireAuth, async (req, res) => {
+    try {
+      const allSources = await db.select().from(leadSources);
+      const allResults = await db.select().from(searchResults);
+      let updated = 0;
+      for (const source of allSources) {
+        const domain = source.domain;
+        const sourceResults = allResults.filter(r => {
+          const sd = (r as any).sourceDomain || "";
+          return sd === domain || (r as any).website?.includes(domain);
+        });
+        if (sourceResults.length === 0) continue;
+        const complete = sourceResults.filter(r => r.email && r.phone && r.name).length;
+        const withEmail = sourceResults.filter(r => r.email).length;
+        const withPhone = sourceResults.filter(r => r.phone).length;
+        const withAddress = sourceResults.filter(r => (r as any).address).length;
+        const withPerson = sourceResults.filter(r => (r as any).contactPerson).length;
+        const duplicates = sourceResults.filter(r => (r as any).status === "duplicate").length;
+        const invalid = sourceResults.filter(r => (r as any).status === "rejected").length;
+        const segments = [...new Set(sourceResults.map(r => r.segment).filter(Boolean))];
+        const emailQuality = sourceResults.length > 0 ? Math.round((withEmail / sourceResults.length) * 100) : 50;
+        const phoneQuality = sourceResults.length > 0 ? Math.round((withPhone / sourceResults.length) * 100) : 50;
+        const addressQuality = sourceResults.length > 0 ? Math.round((withAddress / sourceResults.length) * 100) : 50;
+        const contactPersonQuality = sourceResults.length > 0 ? Math.round((withPerson / sourceResults.length) * 100) : 50;
+        const existing = await db.select().from(sourceLearningMetrics).where(and(eq(sourceLearningMetrics.sourceId, source.id), isNull(sourceLearningMetrics.segment)));
+        if (existing.length > 0) {
+          await db.update(sourceLearningMetrics).set({
+            totalContactsFound: sourceResults.length, completeContacts: complete, duplicateContacts: duplicates, invalidContacts: invalid,
+            emailQuality, phoneQuality, addressQuality, contactPersonQuality, bestForSegments: segments as string[], lastAnalyzedAt: new Date(), updatedAt: new Date(),
+          }).where(eq(sourceLearningMetrics.id, existing[0].id));
+        } else {
+          await db.insert(sourceLearningMetrics).values({
+            sourceId: source.id, totalContactsFound: sourceResults.length, completeContacts: complete, duplicateContacts: duplicates, invalidContacts: invalid,
+            emailQuality, phoneQuality, addressQuality, contactPersonQuality, bestForSegments: segments as string[], lastAnalyzedAt: new Date(),
+          });
+        }
+        updated++;
+      }
+      res.json({ message: `Analyzed ${updated} sources`, updated });
+    } catch (error: any) { res.status(500).json({ error: error.message }); }
+  });
+
+  // ═══════════════════════════════════════════════════════════
+  // LAYER 4: Contact Multi-Score Calculation
+  // ═══════════════════════════════════════════════════════════
+  app.post("/api/contact-scores/calculate/:resultId", requireAuth, async (req, res) => {
+    try {
+      const resultId = parseInt(req.params.resultId);
+      const [result] = await db.select().from(searchResults).where(eq(searchResults.id, resultId));
+      if (!result) return res.status(404).json({ error: "Result not found" });
+      const r: any = result;
+      const hasEmail = !!r.email;
+      const hasPhone = !!r.phone;
+      const hasWebsite = !!r.website;
+      const hasAddress = !!(r.address || r.city);
+      const hasContactPerson = !!r.contactPerson;
+      const hasRole = !!r.contactRole;
+      let completeness = 0;
+      if (hasEmail) completeness += 20;
+      if (hasPhone) completeness += 20;
+      if (hasWebsite) completeness += 15;
+      if (hasAddress) completeness += 15;
+      if (hasContactPerson) completeness += 20;
+      if (hasRole) completeness += 10;
+      let relevance = r.confidenceScore || 50;
+      let trust = 40;
+      const sourceDomain = r.sourceDomain || r.website || "";
+      if (r.website && sourceDomain === r.website) trust += 20;
+      if (r.email && r.phone) trust += 15;
+      if (r.ico) trust += 15;
+      const evidences = await db.select().from(entityEvidences).where(sql`${entityEvidences.value} = ${r.email} OR ${entityEvidences.value} = ${r.phone}`);
+      if (evidences.length > 1) trust += Math.min(10, evidences.length * 3);
+      trust = Math.min(100, trust);
+      let outreach = 30;
+      if (hasEmail) {
+        const emailStr = (r.email || "").toLowerCase();
+        if (emailStr.startsWith("info@") || emailStr.startsWith("office@") || emailStr.startsWith("kontakt@")) outreach += 10;
+        else if (emailStr.includes("@")) outreach += 25;
+      }
+      if (hasContactPerson) outreach += 20;
+      if (hasRole) {
+        const role = (r.contactRole || "").toLowerCase();
+        if (role.includes("ceo") || role.includes("riaditeľ") || role.includes("director") || role.includes("owner") || role.includes("majiteľ")) outreach += 20;
+        else if (role.includes("manager") || role.includes("vedúci") || role.includes("head")) outreach += 15;
+        else outreach += 5;
+      }
+      outreach = Math.min(100, outreach);
+      const totalScore = Math.round(completeness * 0.25 + relevance * 0.25 + trust * 0.25 + outreach * 0.25);
+      const emailType = r.email ? (r.email.startsWith("info@") || r.email.startsWith("office@") ? "generic" : "personal") : null;
+      const existing = await db.select().from(contactScores).where(eq(contactScores.resultId, resultId));
+      let score;
+      if (existing.length > 0) {
+        [score] = await db.update(contactScores).set({
+          completenessScore: completeness, relevanceScore: relevance, trustScore: trust, outreachScore: outreach, totalScore,
+          hasEmail, hasPhone, hasWebsite, hasAddress, hasContactPerson, hasRole, emailType, contactRole: r.contactRole,
+          sourceCount: evidences.length || 1, calculatedAt: new Date(),
+        }).where(eq(contactScores.id, existing[0].id)).returning();
+      } else {
+        [score] = await db.insert(contactScores).values({
+          resultId, completenessScore: completeness, relevanceScore: relevance, trustScore: trust, outreachScore: outreach, totalScore,
+          hasEmail, hasPhone, hasWebsite, hasAddress, hasContactPerson, hasRole, emailType, contactRole: r.contactRole,
+          sourceCount: evidences.length || 1,
+        }).returning();
+      }
+      res.json(score);
+    } catch (error: any) { res.status(500).json({ error: error.message }); }
+  });
+
+  app.post("/api/contact-scores/calculate-all", requireAuth, async (req, res) => {
+    try {
+      const { jobId } = req.body;
+      const whereClause = jobId ? eq(searchResults.jobId, jobId) : undefined;
+      const results = await db.select().from(searchResults).where(whereClause);
+      let calculated = 0;
+      for (const result of results) {
+        try {
+          const r: any = result;
+          const hasEmail = !!r.email; const hasPhone = !!r.phone; const hasWebsite = !!r.website;
+          const hasAddress = !!(r.address || r.city); const hasContactPerson = !!r.contactPerson; const hasRole = !!r.contactRole;
+          let completeness = 0;
+          if (hasEmail) completeness += 20; if (hasPhone) completeness += 20; if (hasWebsite) completeness += 15;
+          if (hasAddress) completeness += 15; if (hasContactPerson) completeness += 20; if (hasRole) completeness += 10;
+          const relevance = r.confidenceScore || 50;
+          let trust = 40;
+          if (r.website && r.sourceDomain === r.website) trust += 20;
+          if (r.email && r.phone) trust += 15;
+          if (r.ico) trust += 15;
+          trust = Math.min(100, trust);
+          let outreach = 30;
+          if (hasEmail) {
+            const e = (r.email || "").toLowerCase();
+            if (e.startsWith("info@") || e.startsWith("office@") || e.startsWith("kontakt@")) outreach += 10;
+            else outreach += 25;
+          }
+          if (hasContactPerson) outreach += 20;
+          if (hasRole) outreach += 15;
+          outreach = Math.min(100, outreach);
+          const totalScore = Math.round(completeness * 0.25 + relevance * 0.25 + trust * 0.25 + outreach * 0.25);
+          const emailType = r.email ? (r.email.startsWith("info@") || r.email.startsWith("office@") ? "generic" : "personal") : null;
+          const existing = await db.select().from(contactScores).where(eq(contactScores.resultId, result.id));
+          if (existing.length > 0) {
+            await db.update(contactScores).set({
+              completenessScore: completeness, relevanceScore: relevance, trustScore: trust, outreachScore: outreach, totalScore,
+              hasEmail, hasPhone, hasWebsite, hasAddress, hasContactPerson, hasRole, emailType, contactRole: r.contactRole, calculatedAt: new Date(),
+            }).where(eq(contactScores.id, existing[0].id));
+          } else {
+            await db.insert(contactScores).values({
+              resultId: result.id, completenessScore: completeness, relevanceScore: relevance, trustScore: trust, outreachScore: outreach, totalScore,
+              hasEmail, hasPhone, hasWebsite, hasAddress, hasContactPerson, hasRole, emailType, contactRole: r.contactRole,
+            });
+          }
+          calculated++;
+        } catch {}
+      }
+      res.json({ message: `Calculated scores for ${calculated}/${results.length} results`, calculated });
+    } catch (error: any) { res.status(500).json({ error: error.message }); }
+  });
+
+  app.get("/api/contact-scores/:resultId", requireAuth, async (req, res) => {
+    try {
+      const resultId = parseInt(req.params.resultId);
+      const [score] = await db.select().from(contactScores).where(eq(contactScores.resultId, resultId));
+      res.json(score || null);
+    } catch (error: any) { res.status(500).json({ error: error.message }); }
+  });
+
+  app.get("/api/contact-scores", requireAuth, async (req, res) => {
+    try {
+      const { jobId } = req.query;
+      if (!jobId) return res.status(400).json({ error: "jobId required" });
+      const results = await db.select().from(searchResults).where(eq(searchResults.jobId, jobId as string));
+      const resultIds = results.map(r => r.id);
+      if (resultIds.length === 0) return res.json([]);
+      const scores = await db.select().from(contactScores).where(sql`${contactScores.resultId} IN (${sql.join(resultIds.map(id => sql`${id}`), sql`, `)})`);
+      res.json(scores);
+    } catch (error: any) { res.status(500).json({ error: error.message }); }
+  });
+
+  // ═══════════════════════════════════════════════════════════
+  // LAYER 5: Feedback Learning
+  // ═══════════════════════════════════════════════════════════
+  app.post("/api/lead-feedback", requireAuth, async (req, res) => {
+    try {
+      const { resultId, sourceId, entityId, feedbackType, segment, role, metadata } = req.body;
+      if (!feedbackType) return res.status(400).json({ error: "feedbackType required" });
+      const [fb] = await db.insert(leadFeedback).values({ resultId, sourceId, entityId, feedbackType, segment, role, metadata }).returning();
+      if (feedbackType === "correct_contact" || feedbackType === "incorrect_contact" || feedbackType === "good_source" || feedbackType === "bad_source" || feedbackType === "preferred_role") {
+        const patternKey = feedbackType === "preferred_role" ? (role || "unknown") : feedbackType;
+        const existing = await db.select().from(feedbackPatterns).where(and(
+          eq(feedbackPatterns.patternType, feedbackType),
+          eq(feedbackPatterns.patternKey, patternKey),
+          segment ? eq(feedbackPatterns.segment, segment) : isNull(feedbackPatterns.segment),
+        ));
+        if (existing.length > 0) {
+          const delta = feedbackType.startsWith("correct") || feedbackType.startsWith("good") || feedbackType === "preferred_role" ? 1 : -1;
+          await db.update(feedbackPatterns).set({
+            weight: sql`${feedbackPatterns.weight} + ${delta}`,
+            sampleCount: sql`${feedbackPatterns.sampleCount} + 1`,
+            updatedAt: new Date(),
+          }).where(eq(feedbackPatterns.id, existing[0].id));
+        } else {
+          await db.insert(feedbackPatterns).values({
+            patternType: feedbackType, segment: segment || null, patternKey,
+            patternValue: String(sourceId || resultId || ""), weight: 1, sampleCount: 1, targetModule: "lead_search",
+          });
+        }
+      }
+      if (sourceId && (feedbackType === "good_source" || feedbackType === "bad_source")) {
+        const fbCount = await db.select({ count: sql<number>`count(*)` }).from(leadFeedback)
+          .where(and(eq(leadFeedback.sourceId, sourceId), eq(leadFeedback.feedbackType, feedbackType)));
+        const goodCount = await db.select({ count: sql<number>`count(*)` }).from(leadFeedback)
+          .where(and(eq(leadFeedback.sourceId, sourceId), eq(leadFeedback.feedbackType, "good_source")));
+        const badCount = await db.select({ count: sql<number>`count(*)` }).from(leadFeedback)
+          .where(and(eq(leadFeedback.sourceId, sourceId), eq(leadFeedback.feedbackType, "bad_source")));
+        const good = Number(goodCount[0]?.count || 0);
+        const bad = Number(badCount[0]?.count || 0);
+        const total = good + bad;
+        if (total > 0) {
+          const feedbackScore = Math.round((good / total) * 100);
+          await db.update(leadSources).set({ qualityScore: feedbackScore }).where(eq(leadSources.id, sourceId));
+        }
+      }
+      res.json(fb);
+    } catch (error: any) { res.status(500).json({ error: error.message }); }
+  });
+
+  app.get("/api/lead-feedback/:resultId", requireAuth, async (req, res) => {
+    try {
+      const resultId = parseInt(req.params.resultId);
+      const fb = await db.select().from(leadFeedback).where(eq(leadFeedback.resultId, resultId)).orderBy(desc(leadFeedback.createdAt));
+      res.json(fb);
+    } catch (error: any) { res.status(500).json({ error: error.message }); }
+  });
+
+  app.get("/api/feedback-patterns", requireAuth, async (req, res) => {
+    try {
+      const { segment, patternType } = req.query;
+      let query = db.select().from(feedbackPatterns);
+      const conditions: any[] = [];
+      if (segment) conditions.push(eq(feedbackPatterns.segment, segment as string));
+      if (patternType) conditions.push(eq(feedbackPatterns.patternType, patternType as string));
+      const patterns = conditions.length > 0 ? await query.where(and(...conditions)).orderBy(desc(feedbackPatterns.weight)) : await query.orderBy(desc(feedbackPatterns.weight));
+      res.json(patterns);
+    } catch (error: any) { res.status(500).json({ error: error.message }); }
+  });
+
+  // ═══════════════════════════════════════════════════════════
+  // LAYER 6: Entity Knowledge Graph
+  // ═══════════════════════════════════════════════════════════
+  app.get("/api/lead-entities", requireAuth, async (req, res) => {
+    try {
+      const { country, segment, search, limit: lim } = req.query;
+      const conditions: any[] = [];
+      if (country) conditions.push(eq(leadEntities.countryCode, country as string));
+      if (segment) conditions.push(eq(leadEntities.segment, segment as string));
+      if (search) conditions.push(sql`(${leadEntities.canonicalName} ILIKE ${'%' + search + '%'} OR ${leadEntities.primaryEmail} ILIKE ${'%' + search + '%'})`);
+      const entities = await db.select().from(leadEntities)
+        .where(conditions.length > 0 ? and(...conditions) : undefined)
+        .orderBy(desc(leadEntities.trustScore))
+        .limit(parseInt(lim as string) || 100);
+      res.json(entities);
+    } catch (error: any) { res.status(500).json({ error: error.message }); }
+  });
+
+  app.get("/api/lead-entities/:id", requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const [entity] = await db.select().from(leadEntities).where(eq(leadEntities.id, id));
+      if (!entity) return res.status(404).json({ error: "Entity not found" });
+      const relations = await db.select().from(entityRelations).where(or(eq(entityRelations.fromEntityId, id), eq(entityRelations.toEntityId, id)));
+      const relatedIds = [...new Set(relations.map(r => r.fromEntityId === id ? r.toEntityId : r.fromEntityId))];
+      const relatedEntities = relatedIds.length > 0 ? await db.select().from(leadEntities).where(sql`${leadEntities.id} IN (${sql.join(relatedIds.map(rid => sql`${rid}`), sql`, `)})`) : [];
+      const evidences = await db.select().from(entityEvidences).where(eq(entityEvidences.entityId, id)).orderBy(desc(entityEvidences.confidence));
+      const lifecycle = await db.select().from(leadLifecycle).where(eq(leadLifecycle.entityId, id));
+      res.json({ ...entity, relations: relations.map(r => ({
+        ...r,
+        relatedEntity: relatedEntities.find(e => e.id === (r.fromEntityId === id ? r.toEntityId : r.fromEntityId))
+      })), evidences, lifecycle: lifecycle[0] || null });
+    } catch (error: any) { res.status(500).json({ error: error.message }); }
+  });
+
+  app.post("/api/lead-entities/resolve", requireAuth, async (req, res) => {
+    try {
+      const { jobId } = req.body;
+      const whereClause = jobId ? eq(searchResults.jobId, jobId) : undefined;
+      const results = await db.select().from(searchResults).where(whereClause);
+      let created = 0, merged = 0;
+      for (const r of results) {
+        const ra: any = r;
+        const name = r.name?.trim();
+        if (!name) continue;
+        const normalized = name.toLowerCase().replace(/[^a-záäčďéíĺľňóôŕšťúýž0-9\s]/g, "").replace(/\s+/g, " ").trim();
+        const existing = await db.select().from(leadEntities).where(or(
+          eq(leadEntities.normalizedName, normalized),
+          r.email ? eq(leadEntities.primaryEmail, r.email) : sql`false`,
+          ra.ico ? eq(leadEntities.ico, ra.ico) : sql`false`,
+        ));
+        if (existing.length > 0) {
+          const entity = existing[0];
+          const mergedIds = entity.mergedResultIds || [];
+          if (!mergedIds.includes(r.id)) mergedIds.push(r.id);
+          const newSources = entity.totalSources! + 1;
+          let newTrust = entity.trustScore || 0;
+          if (newSources > 1) newTrust = Math.min(100, newTrust + 5);
+          await db.update(leadEntities).set({
+            totalSources: newSources, trustScore: newTrust, mergedResultIds: mergedIds,
+            lastSeenAt: new Date(), updatedAt: new Date(),
+            primaryEmail: entity.primaryEmail || r.email,
+            primaryPhone: entity.primaryPhone || r.phone,
+            primaryWebsite: entity.primaryWebsite || ra.website,
+          }).where(eq(leadEntities.id, entity.id));
+          if (r.email) {
+            await db.insert(entityEvidences).values({ entityId: entity.id, sourceUrl: ra.website || ra.sourceDomain, sourceType: "search_result", field: "email", value: r.email, confidence: 70, resultId: r.id });
+          }
+          if (r.phone) {
+            await db.insert(entityEvidences).values({ entityId: entity.id, sourceUrl: ra.website || ra.sourceDomain, sourceType: "search_result", field: "phone", value: r.phone, confidence: 70, resultId: r.id });
+          }
+          merged++;
+        } else {
+          let completeness = 0;
+          if (r.email) completeness += 20; if (r.phone) completeness += 20; if (ra.website) completeness += 15;
+          if (ra.address || ra.city) completeness += 15; if (ra.contactPerson) completeness += 20; if (ra.contactRole) completeness += 10;
+          let trust = 30;
+          if (r.email && r.phone) trust += 15;
+          if (ra.ico) trust += 15;
+          const [entity] = await db.insert(leadEntities).values({
+            entityType: "company", canonicalName: name, normalizedName: normalized, countryCode: r.country || ra.country,
+            city: ra.city, segment: r.segment, primaryEmail: r.email, primaryPhone: r.phone, primaryWebsite: ra.website,
+            address: ra.address, ico: ra.ico, totalSources: 1, completenessScore: completeness, trustScore: trust,
+            lastSeenAt: new Date(), mergedResultIds: [r.id],
+          }).returning();
+          if (r.email) await db.insert(entityEvidences).values({ entityId: entity.id, sourceUrl: ra.website, sourceType: "search_result", field: "email", value: r.email, confidence: 70, resultId: r.id });
+          if (r.phone) await db.insert(entityEvidences).values({ entityId: entity.id, sourceUrl: ra.website, sourceType: "search_result", field: "phone", value: r.phone, confidence: 70, resultId: r.id });
+          if (ra.contactPerson) {
+            const [personEntity] = await db.insert(leadEntities).values({
+              entityType: "person", canonicalName: ra.contactPerson, normalizedName: ra.contactPerson?.toLowerCase(),
+              countryCode: r.country, segment: r.segment, completenessScore: ra.contactRole ? 60 : 30, trustScore: 40,
+              lastSeenAt: new Date(), mergedResultIds: [r.id], rawData: { role: ra.contactRole },
+            }).returning();
+            await db.insert(entityRelations).values({ fromEntityId: personEntity.id, toEntityId: entity.id, relationType: "works_at", confidence: 70, sourceResultId: r.id });
+          }
+          created++;
+        }
+      }
+      res.json({ message: `Entity resolution: ${created} created, ${merged} merged from ${results.length} results`, created, merged });
+    } catch (error: any) { res.status(500).json({ error: error.message }); }
+  });
+
+  app.get("/api/lead-entities/:id/relations", requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const rels = await db.select().from(entityRelations).where(or(eq(entityRelations.fromEntityId, id), eq(entityRelations.toEntityId, id)));
+      res.json(rels);
+    } catch (error: any) { res.status(500).json({ error: error.message }); }
+  });
+
+  // ═══════════════════════════════════════════════════════════
+  // LAYER 7: CRM Closed Loop
+  // ═══════════════════════════════════════════════════════════
+  app.get("/api/lead-lifecycle", requireAuth, async (req, res) => {
+    try {
+      const { stage, country, segment } = req.query;
+      const conditions: any[] = [];
+      if (stage) conditions.push(eq(leadLifecycle.stage, stage as string));
+      if (country) conditions.push(eq(leadLifecycle.country, country as string));
+      if (segment) conditions.push(eq(leadLifecycle.segment, segment as string));
+      const items = await db.select().from(leadLifecycle)
+        .where(conditions.length > 0 ? and(...conditions) : undefined)
+        .orderBy(desc(leadLifecycle.updatedAt))
+        .limit(200);
+      res.json(items);
+    } catch (error: any) { res.status(500).json({ error: error.message }); }
+  });
+
+  app.post("/api/lead-lifecycle", requireAuth, async (req, res) => {
+    try {
+      const { resultId, entityId, crmType, crmId, stage, sourceId, segment, country } = req.body;
+      const [lc] = await db.insert(leadLifecycle).values({ resultId, entityId, crmType, crmId, stage: stage || "new", sourceId, segment, country }).returning();
+      res.json(lc);
+    } catch (error: any) { res.status(500).json({ error: error.message }); }
+  });
+
+  app.patch("/api/lead-lifecycle/:id", requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const updates: any = { ...req.body, updatedAt: new Date() };
+      if (updates.wasContacted && !updates.contactedAt) updates.contactedAt = new Date();
+      if (updates.dealCreated && updates.createdAt) {
+        const created = new Date(updates.createdAt);
+        updates.conversionDays = Math.round((Date.now() - created.getTime()) / (1000 * 60 * 60 * 24));
+      }
+      const [lc] = await db.update(leadLifecycle).set(updates).where(eq(leadLifecycle.id, id)).returning();
+      if (lc && (lc.contactInvalid || lc.dealCreated)) {
+        const resultId = lc.resultId;
+        if (resultId) {
+          const [result] = await db.select().from(searchResults).where(eq(searchResults.id, resultId));
+          if (result) {
+            const sourceDomain = (result as any).sourceDomain;
+            if (sourceDomain) {
+              const [source] = await db.select().from(leadSources).where(eq(leadSources.domain, sourceDomain));
+              if (source) {
+                const feedbackType = lc.dealCreated ? "conversion" : (lc.contactInvalid ? "invalid_contact" : "neutral");
+                await db.insert(leadFeedback).values({
+                  resultId, sourceId: source.id, feedbackType, segment: lc.segment,
+                  metadata: { stage: lc.stage, conversionDays: lc.conversionDays, dealValue: lc.dealValue },
+                });
+                const conversions = await db.select({ count: sql<number>`count(*)` }).from(leadLifecycle)
+                  .where(and(eq(leadLifecycle.sourceId, source.id), eq(leadLifecycle.dealCreated, true)));
+                const invalids = await db.select({ count: sql<number>`count(*)` }).from(leadLifecycle)
+                  .where(and(eq(leadLifecycle.sourceId, source.id), eq(leadLifecycle.contactInvalid, true)));
+                const convCount = Number(conversions[0]?.count || 0);
+                const invCount = Number(invalids[0]?.count || 0);
+                const totalTracked = convCount + invCount;
+                if (totalTracked > 0) {
+                  const conversionBonus = Math.round((convCount / totalTracked) * 30);
+                  const penalty = Math.round((invCount / totalTracked) * 20);
+                  const currentScore = source.qualityScore || 50;
+                  const adjusted = Math.max(0, Math.min(100, currentScore + conversionBonus - penalty));
+                  await db.update(leadSources).set({ qualityScore: adjusted }).where(eq(leadSources.id, source.id));
+                }
+              }
+            }
+          }
+        }
+      }
+      res.json(lc);
+    } catch (error: any) { res.status(500).json({ error: error.message }); }
+  });
+
+  app.get("/api/lead-lifecycle/analytics", requireAuth, async (req, res) => {
+    try {
+      const totalLeads = await db.select({ count: sql<number>`count(*)` }).from(leadLifecycle);
+      const contacted = await db.select({ count: sql<number>`count(*)` }).from(leadLifecycle).where(eq(leadLifecycle.wasContacted, true));
+      const replied = await db.select({ count: sql<number>`count(*)` }).from(leadLifecycle).where(eq(leadLifecycle.emailReplied, true));
+      const deals = await db.select({ count: sql<number>`count(*)` }).from(leadLifecycle).where(eq(leadLifecycle.dealCreated, true));
+      const invalid = await db.select({ count: sql<number>`count(*)` }).from(leadLifecycle).where(eq(leadLifecycle.contactInvalid, true));
+      const totalValue = await db.select({ sum: sql<number>`COALESCE(SUM(deal_value), 0)` }).from(leadLifecycle).where(eq(leadLifecycle.dealCreated, true));
+      const avgConversion = await db.select({ avg: sql<number>`COALESCE(AVG(conversion_days), 0)` }).from(leadLifecycle).where(eq(leadLifecycle.dealCreated, true));
+      const bySource = await db.select({
+        sourceId: leadLifecycle.sourceId,
+        total: sql<number>`count(*)`,
+        conversions: sql<number>`count(*) FILTER (WHERE deal_created = true)`,
+        invalids: sql<number>`count(*) FILTER (WHERE contact_invalid = true)`,
+      }).from(leadLifecycle).where(sql`${leadLifecycle.sourceId} IS NOT NULL`).groupBy(leadLifecycle.sourceId).orderBy(sql`count(*) FILTER (WHERE deal_created = true) DESC`).limit(10);
+      const bySegment = await db.select({
+        segment: leadLifecycle.segment,
+        total: sql<number>`count(*)`,
+        conversions: sql<number>`count(*) FILTER (WHERE deal_created = true)`,
+      }).from(leadLifecycle).where(sql`${leadLifecycle.segment} IS NOT NULL`).groupBy(leadLifecycle.segment).orderBy(sql`count(*) FILTER (WHERE deal_created = true) DESC`);
+      const byStage = await db.select({
+        stage: leadLifecycle.stage,
+        count: sql<number>`count(*)`,
+      }).from(leadLifecycle).groupBy(leadLifecycle.stage);
+      res.json({
+        total: Number(totalLeads[0]?.count || 0),
+        contacted: Number(contacted[0]?.count || 0),
+        replied: Number(replied[0]?.count || 0),
+        deals: Number(deals[0]?.count || 0),
+        invalid: Number(invalid[0]?.count || 0),
+        totalDealValue: Number(totalValue[0]?.sum || 0),
+        avgConversionDays: Math.round(Number(avgConversion[0]?.avg || 0)),
+        conversionRate: Number(totalLeads[0]?.count) > 0 ? Math.round((Number(deals[0]?.count || 0) / Number(totalLeads[0]?.count)) * 100) : 0,
+        bySource, bySegment, byStage,
+      });
     } catch (error: any) { res.status(500).json({ error: error.message }); }
   });
 

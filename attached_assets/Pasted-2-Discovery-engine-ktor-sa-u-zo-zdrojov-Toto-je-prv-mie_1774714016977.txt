@@ -1,0 +1,191 @@
+2. Discovery engine, ktorý sa učí zo zdrojov
+
+Toto je prvé miesto, kde má „samoučenie“ obrovský zmysel.
+
+Systém si pri každej doméne alebo type zdroja ukladá:
+	•	koľko relevantných kontaktov tam našiel,
+	•	koľko z nich bolo úplných,
+	•	koľko bolo duplicitných,
+	•	koľko bolo nesprávnych,
+	•	ako často sa tam mení štruktúra stránky,
+	•	ako rýchlo sa stránka načítava,
+	•	či má stránka kontaktnú sekciu.
+
+Výsledok
+
+Po čase systém vie:
+	•	ktoré zdroje sú kvalitné,
+	•	ktoré zdroje sú balast,
+	•	ktoré domény sú vhodné pre aký segment.
+
+Príklad
+
+Pre „ambulancie“ sa naučí, že:
+	•	určité katalógy majú dobré telefóny, ale slabé emaily,
+	•	firemné weby majú lepšie emaily,
+	•	určité verejné registre majú dobré adresy, ale slabé kontaktné osoby.
+
+Teda ďalší job už neštartuje od nuly, ale podľa historického rankingu zdrojov.
+
+⸻
+
+3. Hybridný extrakčný engine
+
+Tu by som spojil 3 prístupy naraz:
+
+A. Pravidlá
+	•	regex na emaily
+	•	regex na telefóny
+	•	parsovanie HTML
+	•	detekcia sekcií „Kontakt“, „O nás“, „Tím“, „Pobočka“
+
+B. Heuristiky
+	•	ak stránka obsahuje „MUDr.“, „ambulancia“, „ordinačné hodiny“, ide pravdepodobne o zdravotnícky subjekt
+	•	ak obsahuje „CEO“, „marketing“, „team“, „contact us“, ide skôr o firemný web
+	•	ak sú na stránke 3 emaily, systém vie odhadnúť primárny
+
+C. AI extrakcia
+
+AI použiješ iba na:
+	•	vytiahnutie kontaktnej osoby z textu,
+	•	rozpoznanie roly osoby,
+	•	určenie, či je kontakt relevantný,
+	•	normalizáciu do JSON.
+
+To je najlepší model.
+Nie „AI rob všetko“, ale pravidlá + heuristiky + AI nadstavba.
+
+⸻
+
+4. Samoučiace skórovanie kvality kontaktu
+
+Toto je podľa mňa jadro celého systému.
+
+Každý kontakt dostane viac skóre:
+
+1. Completeness score
+
+Ako kompletný je kontakt:
+	•	email
+	•	telefón
+	•	web
+	•	adresa
+	•	kontaktná osoba
+	•	rola osoby
+
+2. Relevance score
+
+Ako veľmi sedí na zadaný segment.
+
+3. Trust score
+
+Ako dôveryhodný je zdroj:
+	•	vlastný firemný web > katalóg
+	•	kontakt stránka > footer > anonymný text
+	•	viac nezávislých zdrojov = vyššia dôveryhodnosť
+
+4. Outreach score
+
+Aký vhodný je kontakt na oslovenie:
+	•	generický email typu info@ má nižšie skóre
+	•	osobný email alebo meno osoby má vyššie
+	•	kontakt s funkciou decision-maker ešte vyššie
+
+⸻
+
+5. Feedback learning vrstva
+
+Toto je reálne „samoučenie“, ktoré má zmysel.
+
+Používateľ pri výsledkoch označuje:
+	•	správny kontakt
+	•	nesprávny kontakt
+	•	duplicitný
+	•	relevantný segment
+	•	nirelevantný segment
+	•	dobrý zdroj
+	•	zlý zdroj
+
+Systém z toho učí 3 veci:
+
+A. čo je dobrý výsledok
+
+Napríklad sa naučí, že pri segmente „PR agentúra“ majú vysokú hodnotu:
+	•	web + tímová stránka + meno account managera
+
+B. čo je zlý zdroj
+
+Napríklad katalóg, ktorý síce obsahuje firmy, ale 70 % údajov je starých.
+
+C. čo je preferovaný kontakt
+
+Používateľ môže preferovať:
+	•	obchodného riaditeľa
+	•	recepciu
+	•	majiteľa
+	•	medicínskeho koordinátora
+
+A systém začne tieto roly pri ďalších behov zvýhodňovať.
+
+⸻
+
+6. Model znalostí o entitách
+
+Tu sa z obyčajného scrape systému stáva entity intelligence systém.
+
+Namiesto toho, aby si mal len riadky v tabuľke, vytvoríš si entity graph.
+
+Entity:
+	•	firma
+	•	osoba
+	•	webdoména
+	•	email
+	•	telefón
+	•	adresa
+	•	segment
+	•	zdroj
+
+Vzťahy:
+	•	osoba pracuje vo firme
+	•	email patrí firme
+	•	telefón patrí pobočke
+	•	zdroj potvrdzuje entitu
+	•	entita patrí do segmentu
+
+Príklad
+
+Jedna ambulancia môže byť nájdená:
+	•	na vlastnom webe,
+	•	v katalógu,
+	•	v registri,
+	•	v Google snippet texte,
+	•	na FB stránke.
+
+Namiesto 5 záznamov vznikne 1 entita s viacerými dôkazmi.
+
+To je strašne silné, lebo potom vieš:
+	•	lepšie deduplikovať,
+	•	lepšie potvrdiť pravdivosť,
+	•	lepšie skórovať,
+	•	lepšie exportovať.
+
+⸻
+
+7. Uzavretá slučka s CRM
+
+Ak chceš naozaj inteligentný systém, nesmie končiť exportom CSV.
+
+Mal by sa vedieť napojiť na CRM a sledovať:
+	•	bol lead použitý?
+	•	bol oslovený?
+	•	otvoril email?
+	•	odpovedal?
+	•	vznikol deal?
+	•	bol kontakt neplatný?
+
+A potom sa systém učí:
+	•	ktoré zdroje prinášajú dobré leady,
+	•	ktoré typy kontaktov vedú ku konverzii,
+	•	ktoré segmenty majú lepšiu úspešnosť.
+
+Toto je najcennejšie samoučenie, lebo sa neučí len „čo vyzerá pekne“, ale čo reálne funguje obchodne.

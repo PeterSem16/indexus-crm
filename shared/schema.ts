@@ -6676,3 +6676,152 @@ export const webhookConfigs = pgTable("webhook_configs", {
 export const insertWebhookConfigSchema = createInsertSchema(webhookConfigs).omit({ id: true, createdAt: true });
 export type InsertWebhookConfig = z.infer<typeof insertWebhookConfigSchema>;
 export type WebhookConfig = typeof webhookConfigs.$inferSelect;
+
+// ═══════════════════════════════════════════════════════════
+// Layer 2: Source Learning Metrics
+// ═══════════════════════════════════════════════════════════
+export const sourceLearningMetrics = pgTable("source_learning_metrics", {
+  id: serial("id").primaryKey(),
+  sourceId: integer("source_id").notNull(),
+  segment: text("segment"),
+  totalContactsFound: integer("total_contacts_found").default(0),
+  completeContacts: integer("complete_contacts").default(0),
+  duplicateContacts: integer("duplicate_contacts").default(0),
+  invalidContacts: integer("invalid_contacts").default(0),
+  emailQuality: integer("email_quality").default(50),
+  phoneQuality: integer("phone_quality").default(50),
+  addressQuality: integer("address_quality").default(50),
+  contactPersonQuality: integer("contact_person_quality").default(50),
+  avgResponseMs: integer("avg_response_ms"),
+  structureChanges: integer("structure_changes").default(0),
+  hasContactSection: boolean("has_contact_section").default(false),
+  bestForSegments: text("best_for_segments").array(),
+  lastAnalyzedAt: timestamp("last_analyzed_at"),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+// ═══════════════════════════════════════════════════════════
+// Layer 4: Contact Multi-Score System
+// ═══════════════════════════════════════════════════════════
+export const contactScores = pgTable("contact_scores", {
+  id: serial("id").primaryKey(),
+  resultId: integer("result_id").notNull(),
+  completenessScore: integer("completeness_score").default(0),
+  relevanceScore: integer("relevance_score").default(0),
+  trustScore: integer("trust_score").default(0),
+  outreachScore: integer("outreach_score").default(0),
+  totalScore: integer("total_score").default(0),
+  hasEmail: boolean("has_email").default(false),
+  hasPhone: boolean("has_phone").default(false),
+  hasWebsite: boolean("has_website").default(false),
+  hasAddress: boolean("has_address").default(false),
+  hasContactPerson: boolean("has_contact_person").default(false),
+  hasRole: boolean("has_role").default(false),
+  emailType: text("email_type"),
+  contactRole: text("contact_role"),
+  sourceCount: integer("source_count").default(1),
+  sourceTypes: text("source_types").array(),
+  calculatedAt: timestamp("calculated_at").notNull().default(sql`now()`),
+});
+
+// ═══════════════════════════════════════════════════════════
+// Layer 5: Feedback Learning
+// ═══════════════════════════════════════════════════════════
+export const leadFeedback = pgTable("lead_feedback", {
+  id: serial("id").primaryKey(),
+  resultId: integer("result_id"),
+  sourceId: integer("source_id"),
+  entityId: integer("entity_id"),
+  feedbackType: text("feedback_type").notNull(),
+  segment: text("segment"),
+  role: text("role"),
+  metadata: jsonb("metadata").$type<Record<string, any>>(),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const feedbackPatterns = pgTable("feedback_patterns", {
+  id: serial("id").primaryKey(),
+  patternType: text("pattern_type").notNull(),
+  segment: text("segment"),
+  country: text("country"),
+  targetModule: text("target_module"),
+  patternKey: text("pattern_key").notNull(),
+  patternValue: text("pattern_value"),
+  weight: integer("weight").default(0),
+  sampleCount: integer("sample_count").default(0),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+// ═══════════════════════════════════════════════════════════
+// Layer 6: Entity Knowledge Graph
+// ═══════════════════════════════════════════════════════════
+export const leadEntities = pgTable("lead_entities", {
+  id: serial("id").primaryKey(),
+  entityType: text("entity_type").notNull(),
+  canonicalName: text("canonical_name").notNull(),
+  normalizedName: text("normalized_name"),
+  countryCode: text("country_code"),
+  city: text("city"),
+  segment: text("segment"),
+  primaryEmail: text("primary_email"),
+  primaryPhone: text("primary_phone"),
+  primaryWebsite: text("primary_website"),
+  address: text("address"),
+  ico: text("ico"),
+  totalSources: integer("total_sources").default(1),
+  completenessScore: integer("completeness_score").default(0),
+  trustScore: integer("trust_score").default(0),
+  lastSeenAt: timestamp("last_seen_at"),
+  mergedResultIds: integer("merged_result_ids").array(),
+  rawData: jsonb("raw_data").$type<Record<string, any>>(),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const entityRelations = pgTable("entity_relations", {
+  id: serial("id").primaryKey(),
+  fromEntityId: integer("from_entity_id").notNull(),
+  toEntityId: integer("to_entity_id").notNull(),
+  relationType: text("relation_type").notNull(),
+  confidence: integer("confidence").default(50),
+  sourceResultId: integer("source_result_id"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const entityEvidences = pgTable("entity_evidences", {
+  id: serial("id").primaryKey(),
+  entityId: integer("entity_id").notNull(),
+  sourceUrl: text("source_url"),
+  sourceType: text("source_type"),
+  field: text("field").notNull(),
+  value: text("value"),
+  confidence: integer("confidence").default(50),
+  resultId: integer("result_id"),
+  discoveredAt: timestamp("discovered_at").notNull().default(sql`now()`),
+});
+
+// ═══════════════════════════════════════════════════════════
+// Layer 7: CRM Closed Loop Tracking
+// ═══════════════════════════════════════════════════════════
+export const leadLifecycle = pgTable("lead_lifecycle", {
+  id: serial("id").primaryKey(),
+  resultId: integer("result_id"),
+  entityId: integer("entity_id"),
+  crmType: text("crm_type"),
+  crmId: text("crm_id"),
+  stage: text("stage").notNull().default("new"),
+  wasContacted: boolean("was_contacted").default(false),
+  contactedAt: timestamp("contacted_at"),
+  emailOpened: boolean("email_opened").default(false),
+  emailReplied: boolean("email_replied").default(false),
+  dealCreated: boolean("deal_created").default(false),
+  dealValue: integer("deal_value"),
+  contactInvalid: boolean("contact_invalid").default(false),
+  invalidReason: text("invalid_reason"),
+  sourceId: integer("source_id"),
+  segment: text("segment"),
+  country: text("country"),
+  conversionDays: integer("conversion_days"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
