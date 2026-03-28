@@ -26,7 +26,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Pencil, Trash2, FileText, Settings, Layout, Loader2, Palette, Package, Search, Shield, Copy, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Eye, EyeOff, Lock, Unlock, Check, Hash, Info, X, DollarSign, Percent, Calculator, CreditCard, TrendingUp, Bell, CheckCircle2, XCircle, Key, AlertTriangle, Upload, FileDown, Edit, Save, Download, ArrowUpDown, Paperclip, Globe, RefreshCw } from "lucide-react";
+import { Plus, Pencil, Trash2, FileText, Settings, Layout, Loader2, Palette, Package, Search, Shield, Copy, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Eye, EyeOff, Lock, Unlock, Check, Hash, Info, X, DollarSign, Percent, Calculator, CreditCard, TrendingUp, Bell, CheckCircle2, XCircle, Key, AlertTriangle, Upload, FileDown, Edit, Save, Download, ArrowUpDown, Paperclip, Globe, RefreshCw, BarChart3, Target, Sparkles, MapPin, Layers, Filter, Brain, Network, ArrowRight, ClipboardList } from "lucide-react";
 import { COUNTRIES, CURRENCIES, getCurrencySymbol } from "@shared/schema";
 import { InvoiceDesigner, InvoiceDesignerConfig } from "@/components/invoice-designer";
 import { ContractTemplatesManager } from "@/components/contract-templates-manager";
@@ -17963,7 +17963,7 @@ function LeadSearchTab() {
   const [editingSource, setEditingSource] = useState<any>(null);
   const [aiSourceSuggestions, setAiSourceSuggestions] = useState<any[]>([]);
   const [aiSourceLoading, setAiSourceLoading] = useState(false);
-  const [aiSourceFilter, setAiSourceFilter] = useState({ country: "", segment: "", targetModule: "hospitals" });
+  const [aiSourceFilter, setAiSourceFilter] = useState({ country: "", segment: "", targetModule: "hospitals", depth: "standard" as string });
 
   const { data: analytics } = useQuery<any>({ queryKey: ["/api/lead-search/analytics"] });
   const { data: leadSources = [], refetch: refetchSources } = useQuery<any[]>({ queryKey: ["/api/lead-sources"] });
@@ -18293,22 +18293,22 @@ function LeadSearchTab() {
   return (
     <div className="space-y-4">
       <div className="flex gap-1 p-1 bg-muted/50 rounded-lg w-fit">
-        {[
-          { key: "dashboard" as const, label: "Dashboard", icon: "📊" },
-          { key: "search" as const, label: "Vyhľadávanie", icon: "🔍" },
-          { key: "sources" as const, label: "Zdroje", icon: "🌐" },
-          { key: "campaigns" as const, label: "Kampane", icon: "🔄" },
-        ].map(tab => (
+        {([
+          { key: "dashboard" as const, label: "Dashboard", Icon: BarChart3 },
+          { key: "search" as const, label: "Vyhľadávanie", Icon: Target },
+          { key: "sources" as const, label: "Zdroje", Icon: Network },
+          { key: "campaigns" as const, label: "Kampane", Icon: RefreshCw },
+        ] as const).map(tab => (
           <button
             key={tab.key}
             data-testid={`subtab-${tab.key}`}
             className={cn(
-              "px-3 py-1.5 rounded-md text-sm font-medium transition-all",
+              "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all",
               activeSubTab === tab.key ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
             )}
             onClick={() => setActiveSubTab(tab.key)}
           >
-            <span className="mr-1.5">{tab.icon}</span>{tab.label}
+            <tab.Icon className="h-3.5 w-3.5" />{tab.label}
           </button>
         ))}
       </div>
@@ -18553,7 +18553,7 @@ function LeadSearchTab() {
                           <td className="py-2 px-2 text-right">
                             <div className="flex items-center gap-1 justify-end">
                               <Button size="sm" variant="outline" className="h-7 text-xs" data-testid={`edit-source-${source.id}`} onClick={() => setEditingSource({...source})}>
-                                ✏️
+                                <Pencil className="h-3 w-3" />
                               </Button>
                               <Button size="sm" variant="outline" className="h-7 text-xs" data-testid={`toggle-source-${source.id}`} onClick={() => toggleSourceStatus(source)}>
                                 {source.status === "active" ? "Blokovať" : "Aktivovať"}
@@ -18789,7 +18789,7 @@ function LeadSearchTab() {
                             {campaign.isActive ? "Pozastaviť" : "Aktivovať"}
                           </Button>
                           <Button size="sm" variant="outline" className="h-7 text-xs" data-testid={`history-campaign-${campaign.id}`} onClick={() => setExpandedCampaign(expandedCampaign === campaign.id ? null : campaign.id)}>
-                            📋 História
+                            <ClipboardList className="h-3 w-3 mr-1" /> História
                           </Button>
                           <Button size="sm" variant="ghost" className="h-7 text-xs text-red-600" data-testid={`delete-campaign-${campaign.id}`} onClick={() => deleteCampaign(campaign.id)}>
                             <Trash2 className="h-3 w-3" />
@@ -18808,112 +18808,180 @@ function LeadSearchTab() {
 
       {activeSubTab === "search" && (
       <div className="space-y-6">
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-1">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Search className="h-4 w-4" />
-              Nové vyhľadávanie
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div>
-              <label className="text-sm font-medium mb-1 block">Názov</label>
-              <Input
-                data-testid="input-search-name"
-                placeholder="napr. Nemocnice Bratislava"
-                value={searchForm.name}
-                onChange={(e) => setSearchForm({ ...searchForm, name: e.target.value })}
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium mb-1 block">Cieľový modul</label>
-              <Select value={searchForm.targetModule} onValueChange={(v: any) => setSearchForm({ ...searchForm, targetModule: v })}>
-                <SelectTrigger data-testid="select-target-module">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="hospitals">Nemocnice</SelectItem>
-                  <SelectItem value="clinics">Ambulancie</SelectItem>
-                  <SelectItem value="collaborators">Spolupracovníci</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <label className="text-sm font-medium mb-1 block">Krajina</label>
-              <Select value={searchForm.country || "all"} onValueChange={(v) => setSearchForm({ ...searchForm, country: v === "all" ? "" : v })}>
-                <SelectTrigger data-testid="select-country">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Všetky</SelectItem>
-                  {COUNTRIES.map(c => <SelectItem key={c.code} value={c.code}>{c.flag} {c.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="border rounded-lg p-2.5 bg-gradient-to-r from-violet-50 to-blue-50 dark:from-violet-950/20 dark:to-blue-950/20">
+        <div className="lg:col-span-1 space-y-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Target className="h-4 w-4" />
+                Konfigurácia vyhľadávania
+              </CardTitle>
+              <p className="text-xs text-muted-foreground">Nastavte parametre alebo použite AI asistenta</p>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div>
+                <label className="text-xs font-medium mb-1 block text-muted-foreground uppercase tracking-wider">Názov</label>
+                <Input data-testid="input-search-name" placeholder="napr. Nemocnice Bratislava" className="h-9" value={searchForm.name} onChange={(e) => setSearchForm({ ...searchForm, name: e.target.value })} />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-xs font-medium mb-1 block text-muted-foreground uppercase tracking-wider">Modul</label>
+                  <Select value={searchForm.targetModule} onValueChange={(v: any) => setSearchForm({ ...searchForm, targetModule: v })}>
+                    <SelectTrigger data-testid="select-target-module" className="h-9"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="hospitals"><span className="flex items-center gap-1.5"><Building2 className="h-3.5 w-3.5" /> Nemocnice</span></SelectItem>
+                      <SelectItem value="clinics"><span className="flex items-center gap-1.5"><Briefcase className="h-3.5 w-3.5" /> Ambulancie</span></SelectItem>
+                      <SelectItem value="collaborators"><span className="flex items-center gap-1.5"><Users className="h-3.5 w-3.5" /> Spolupracovníci</span></SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-xs font-medium mb-1 block text-muted-foreground uppercase tracking-wider">Krajina</label>
+                  <Select value={searchForm.country || "all"} onValueChange={(v) => setSearchForm({ ...searchForm, country: v === "all" ? "" : v })}>
+                    <SelectTrigger data-testid="select-country" className="h-9"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Všetky</SelectItem>
+                      {COUNTRIES.map(c => <SelectItem key={c.code} value={c.code}>{c.flag} {c.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="space-y-2 pt-1">
+                <div>
+                  <label className="text-xs font-medium mb-1 flex items-center gap-1.5 text-muted-foreground uppercase tracking-wider"><Layers className="h-3 w-3" /> Segment</label>
+                  <Input data-testid="input-segment" placeholder="napr. gynekológia, neonatológia" className="h-9" value={searchForm.segment} onChange={(e) => setSearchForm({ ...searchForm, segment: e.target.value })} />
+                </div>
+                <div>
+                  <label className="text-xs font-medium mb-1 flex items-center gap-1.5 text-muted-foreground uppercase tracking-wider"><MapPin className="h-3 w-3" /> Lokalita</label>
+                  <Input data-testid="input-location" placeholder="napr. Bratislava, Košice" className="h-9" value={searchForm.location} onChange={(e) => setSearchForm({ ...searchForm, location: e.target.value })} />
+                </div>
+                <div>
+                  <label className="text-xs font-medium mb-1 flex items-center gap-1.5 text-muted-foreground uppercase tracking-wider"><Key className="h-3 w-3" /> Kľúčové slová</label>
+                  <Input data-testid="input-keywords" placeholder="napr. pôrodnica, kmeňové bunky" className="h-9" value={searchForm.keywords} onChange={(e) => setSearchForm({ ...searchForm, keywords: e.target.value })} />
+                </div>
+              </div>
+              <div className="pt-2 space-y-2">
+                <Button onClick={startSearch} className="w-full h-10" data-testid="button-start-search">
+                  <Search className="h-4 w-4 mr-2" />
+                  Spustiť vyhľadávanie
+                </Button>
+                <Button variant="outline" size="sm" className="w-full" data-testid="button-create-campaign-from-search" onClick={() => {
+                  setCampaignForm({ name: searchForm.name || `Kampaň - ${searchForm.targetModule}`, targetModule: searchForm.targetModule, country: searchForm.country || "", segment: searchForm.segment || "", location: searchForm.location || "", keywords: searchForm.keywords || "", schedule: "weekly" });
+                  setActiveSubTab("campaigns");
+                }}>
+                  <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+                  Vytvoriť opakovanú kampaň
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-primary/20 bg-gradient-to-b from-primary/[0.03] to-transparent">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Brain className="h-4 w-4 text-primary" />
+                AI Stratég
+              </CardTitle>
+              <p className="text-[11px] text-muted-foreground">Inteligentná analýza medzier v pokrytí, učenie z histórie, prioritizácia segmentov</p>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex gap-1.5">
+                {(["quick", "standard", "deep"] as const).map(d => (
+                  <button key={d} data-testid={`depth-${d}`} className={cn("flex-1 py-1.5 px-2 rounded-md text-[10px] font-medium border transition-all",
+                    (aiSourceFilter as any).depth === d ? "border-primary bg-primary/10 text-primary" : "border-border hover:border-primary/40"
+                  )} onClick={() => setAiSourceFilter((f: any) => ({ ...f, depth: d }))}>
+                    {d === "quick" ? "Rýchly" : d === "standard" ? "Štandardný" : "Hĺbkový"}
+                    <span className="block text-[9px] text-muted-foreground font-normal">{d === "quick" ? "3 scenáre" : d === "standard" ? "6 scenárov" : "10 scenárov"}</span>
+                  </button>
+                ))}
+              </div>
               <Button
-                variant="outline"
-                size="sm"
-                className="w-full mb-2 border-violet-300 text-violet-700 hover:bg-violet-100 dark:border-violet-600 dark:text-violet-300"
-                onClick={getAiSuggestions}
+                className="w-full"
+                variant="default"
+                onClick={() => {
+                  setAiSuggesting(true);
+                  setAiSuggestions([]);
+                  setSelectedSuggestions([]);
+                  fetch("/api/lead-search/ai-suggest", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
+                    body: JSON.stringify({ targetModule: searchForm.targetModule, country: searchForm.country, depth: (aiSourceFilter as any).depth || "standard" })
+                  }).then(r => r.json()).then(data => { setAiSuggestions(data.suggestions || []); setAiSuggesting(false); })
+                  .catch(() => { toast({ title: "Chyba pri generovaní návrhov", variant: "destructive" }); setAiSuggesting(false); });
+                }}
                 disabled={aiSuggesting}
                 data-testid="button-ai-suggest"
               >
-                {aiSuggesting ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <Globe className="h-3.5 w-3.5 mr-1.5" />}
-                {aiSuggesting ? "AI generuje návrhy..." : "AI Návrhy vyhľadávania"}
+                {aiSuggesting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
+                {aiSuggesting ? "AI analyzuje..." : "Navrhnúť stratégiu"}
               </Button>
+
               {aiSuggestions.length > 0 && (
-                <div className="space-y-1.5">
+                <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] text-muted-foreground">Vyberte 1 alebo viac scenárov:</span>
-                    {selectedSuggestions.length > 0 && (
-                      <Button size="sm" variant="default" className="h-5 text-[10px] px-2 bg-violet-600 hover:bg-violet-700" onClick={applySelectedSuggestions} data-testid="button-apply-suggestions">
-                        Použiť {selectedSuggestions.length} vybraných
-                      </Button>
-                    )}
+                    <span className="text-[10px] text-muted-foreground font-medium">{aiSuggestions.length} scenárov</span>
+                    <div className="flex gap-1">
+                      {selectedSuggestions.length > 0 && (
+                        <Button size="sm" variant="default" className="h-6 text-[10px] px-2" onClick={applySelectedSuggestions} data-testid="button-apply-suggestions">
+                          <Check className="h-3 w-3 mr-1" />
+                          Použiť {selectedSuggestions.length}
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                  <div className="space-y-1.5 max-h-[300px] overflow-y-auto">
+                  <div className="space-y-1.5 max-h-[350px] overflow-y-auto pr-1">
                     {aiSuggestions.map((s: any, i: number) => (
-                      <div
-                        key={i}
-                        className={`rounded-lg border p-2.5 cursor-pointer transition-all group ${
-                          selectedSuggestions.includes(i)
-                            ? "border-violet-500 bg-violet-50 dark:bg-violet-950/30 shadow-sm"
-                            : "bg-white dark:bg-zinc-900 hover:border-violet-300"
-                        }`}
-                        data-testid={`ai-suggestion-${i}`}
-                      >
+                      <div key={i} className={cn("rounded-lg border p-2.5 cursor-pointer transition-all",
+                        selectedSuggestions.includes(i) ? "border-primary bg-primary/5 shadow-sm" : "hover:border-primary/30"
+                      )} data-testid={`ai-suggestion-${i}`} onClick={() => toggleSuggestion(i)}>
                         <div className="flex items-start gap-2">
-                          <input
-                            type="checkbox"
-                            className="mt-0.5 rounded border-violet-300"
-                            checked={selectedSuggestions.includes(i)}
-                            onChange={() => toggleSuggestion(i)}
-                          />
-                          <div className="flex-1 min-w-0" onClick={() => toggleSuggestion(i)}>
-                            <div className="flex items-start justify-between gap-1">
-                              <span className="text-xs font-semibold text-violet-700 dark:text-violet-300 leading-tight">{s.name}</span>
-                              <button className="text-[9px] text-blue-600 hover:underline flex-shrink-0 font-medium" onClick={(e) => { e.stopPropagation(); applySingleSuggestion(s); }} data-testid={`apply-suggestion-${i}`}>Použiť</button>
+                          <input type="checkbox" className="mt-0.5 rounded border-muted-foreground/40 accent-primary" checked={selectedSuggestions.includes(i)} onChange={() => toggleSuggestion(i)} />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-1 mb-0.5">
+                              <span className="text-xs font-semibold leading-tight">{s.name}</span>
+                              <div className="flex items-center gap-1 shrink-0">
+                                {s.priority && (
+                                  <span className={cn("text-[9px] px-1.5 py-0.5 rounded-full font-medium",
+                                    s.priority === "high" ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" :
+                                    s.priority === "medium" ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" :
+                                    "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
+                                  )}>{s.priority === "high" ? "Vysoká" : s.priority === "medium" ? "Stredná" : "Nízka"}</span>
+                                )}
+                                <button className="text-[9px] text-primary hover:underline font-medium" onClick={(e) => { e.stopPropagation(); applySingleSuggestion(s); }} data-testid={`apply-suggestion-${i}`}>
+                                  <ArrowRight className="h-3 w-3" />
+                                </button>
+                              </div>
                             </div>
-                            {s.reason && <div className="text-[10px] text-muted-foreground mt-0.5 leading-snug italic">{s.reason}</div>}
-                            <div className="flex flex-wrap gap-1 mt-1.5">
+                            {s.reason && <p className="text-[10px] text-muted-foreground leading-snug mb-1.5">{s.reason}</p>}
+                            <div className="flex flex-wrap gap-1">
                               {s.segment && (
-                                <button className="bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 px-1.5 py-0.5 rounded text-[9px] font-medium hover:bg-violet-200 dark:hover:bg-violet-800/40 transition-colors" onClick={(e) => { e.stopPropagation(); setSearchForm(f => ({ ...f, segment: s.segment })); }} data-testid={`use-segment-${i}`}>
-                                  📋 {s.segment}
+                                <button className="inline-flex items-center gap-0.5 bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300 px-1.5 py-0.5 rounded text-[9px] font-medium hover:bg-violet-100 dark:hover:bg-violet-800/30 transition-colors border border-violet-200/50 dark:border-violet-700/30" onClick={(e) => { e.stopPropagation(); setSearchForm(f => ({ ...f, segment: s.segment })); }} data-testid={`use-segment-${i}`}>
+                                  <Layers className="h-2.5 w-2.5" /> {s.segment}
                                 </button>
                               )}
                               {s.location && (
-                                <button className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded text-[9px] font-medium hover:bg-blue-200 dark:hover:bg-blue-800/40 transition-colors" onClick={(e) => { e.stopPropagation(); setSearchForm(f => ({ ...f, location: s.location })); }} data-testid={`use-location-${i}`}>
-                                  📍 {s.location}
+                                <button className="inline-flex items-center gap-0.5 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded text-[9px] font-medium hover:bg-blue-100 dark:hover:bg-blue-800/30 transition-colors border border-blue-200/50 dark:border-blue-700/30" onClick={(e) => { e.stopPropagation(); setSearchForm(f => ({ ...f, location: s.location })); }} data-testid={`use-location-${i}`}>
+                                  <MapPin className="h-2.5 w-2.5" /> {s.location}
                                 </button>
                               )}
                               {s.keywords && (
-                                <button className="bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 px-1.5 py-0.5 rounded text-[9px] font-medium hover:bg-amber-200 dark:hover:bg-amber-800/40 transition-colors" onClick={(e) => { e.stopPropagation(); setSearchForm(f => ({ ...f, keywords: s.keywords })); }} data-testid={`use-keywords-${i}`}>
-                                  🔑 {s.keywords}
+                                <button className="inline-flex items-center gap-0.5 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 px-1.5 py-0.5 rounded text-[9px] font-medium hover:bg-amber-100 dark:hover:bg-amber-800/30 transition-colors border border-amber-200/50 dark:border-amber-700/30" onClick={(e) => { e.stopPropagation(); setSearchForm(f => ({ ...f, keywords: s.keywords })); }} data-testid={`use-keywords-${i}`}>
+                                  <Key className="h-2.5 w-2.5" /> {s.keywords}
                                 </button>
                               )}
                             </div>
+                            {(s.estimatedResults || s.searchDepth || s.relatedSegments) && (
+                              <div className="flex items-center gap-2 mt-1.5 text-[9px] text-muted-foreground">
+                                {s.estimatedResults && <span className="flex items-center gap-0.5"><Target className="h-2.5 w-2.5" /> ~{s.estimatedResults} výsledkov</span>}
+                                {s.searchDepth && <span className="flex items-center gap-0.5"><Filter className="h-2.5 w-2.5" /> {s.searchDepth === "broad" ? "Široký" : "Cielený"}</span>}
+                              </div>
+                            )}
+                            {s.relatedSegments && s.relatedSegments.length > 0 && (
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {s.relatedSegments.map((rs: string, ri: number) => (
+                                  <span key={ri} className="text-[8px] text-muted-foreground bg-muted/50 px-1 py-0.5 rounded">{rs}</span>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -18921,59 +18989,13 @@ function LeadSearchTab() {
                   </div>
                 </div>
               )}
-            </div>
-            <div>
-              <label className="text-sm font-medium mb-1 block">Segment / Špecializácia</label>
-              <Input
-                data-testid="input-segment"
-                placeholder="napr. kardiológia, ortopédia"
-                value={searchForm.segment}
-                onChange={(e) => setSearchForm({ ...searchForm, segment: e.target.value })}
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium mb-1 block">Lokalita</label>
-              <Input
-                data-testid="input-location"
-                placeholder="napr. Bratislava, Košice"
-                value={searchForm.location}
-                onChange={(e) => setSearchForm({ ...searchForm, location: e.target.value })}
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium mb-1 block">Kľúčové slová</label>
-              <Input
-                data-testid="input-keywords"
-                placeholder="napr. laboratórium, diagnostika"
-                value={searchForm.keywords}
-                onChange={(e) => setSearchForm({ ...searchForm, keywords: e.target.value })}
-              />
-            </div>
-            <Button onClick={startSearch} className="w-full" data-testid="button-start-search">
-              <Search className="h-4 w-4 mr-2" />
-              Spustiť vyhľadávanie
-            </Button>
-            <Button variant="outline" className="w-full" data-testid="button-create-campaign-from-search" onClick={() => {
-              setCampaignForm({
-                name: searchForm.name || `Kampaň - ${searchForm.targetModule}`,
-                targetModule: searchForm.targetModule,
-                country: searchForm.country || "",
-                segment: searchForm.segment || "",
-                location: searchForm.location || "",
-                keywords: searchForm.keywords || "",
-                schedule: "weekly",
-              });
-              setActiveSubTab("campaigns");
-            }}>
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Vytvoriť opakovanú kampaň
-            </Button>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </div>
 
         <Card className="lg:col-span-2">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">História vyhľadávaní</CardTitle>
+            <CardTitle className="text-base flex items-center gap-2"><Clock className="h-4 w-4" /> História vyhľadávaní</CardTitle>
           </CardHeader>
           <CardContent>
             {jobs.length === 0 ? (

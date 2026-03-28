@@ -26876,72 +26876,112 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
 
   app.post("/api/lead-search/ai-suggest", requireAuth, async (req, res) => {
     try {
-      const { targetModule, country } = req.body;
+      const { targetModule, country, depth } = req.body;
       if (!targetModule) return res.status(400).json({ error: "Target module required" });
 
       const countryNames: Record<string, string> = { SK: "Slovensko", CZ: "Česko", HU: "Maďarsko", PL: "Poľsko", AT: "Rakúsko", DE: "Nemecko", RO: "Rumunsko", IT: "Taliansko" };
-      const countryName = country ? (countryNames[country] || country) : "všetky krajiny";
+      const countryName = country ? (countryNames[country] || country) : "všetky krajiny strednej Európy";
 
       const moduleDescriptions: Record<string, string> = {
-        hospitals: "nemocnice a zdravotnícke zariadenia s pôrodnicami, neonatologickými oddeleniami, transfúznymi stanicami - pre spoluprácu v oblasti bankovania pupočníkovej krvi",
-        clinics: "ambulancie, gynekologické ordinácie, pôrodníci, pediatri, prenatálne poradne - lekári ktorí odporúčajú bankovanie pupočníkovej krvi",
-        collaborators: "obchodní partneri, sprostredkovatelia, medical representatives, lekári-spolupracovníci v oblasti pupočníkovej krvi a kmeňových buniek"
+        hospitals: "nemocnice, univerzitné nemocnice, fakultné nemocnice, špecializované ústavy, pôrodnice, neonatologické oddelenia, transfúzne stanice, onkologické centrá, transplantačné centrá",
+        clinics: "ambulancie, gynekologické ordinácie, pôrodníci, pediatri, prenatálne poradne, IVF centrá, reprodukčná medicína, genetické poradne",
+        collaborators: "obchodní partneri, medical representatives, sprostredkovatelia, lekári-spolupracovníci, farmaceutické spoločnosti, distribútori"
       };
 
-      const existingRecordsInfo = await (async () => {
+      const existingData = await (async () => {
         try {
           if (targetModule === "hospitals") {
             const hospitals = await storage.getHospitals();
             const countries = [...new Set(hospitals.map(h => h.countryCode).filter(Boolean))];
-            const cities = [...new Set(hospitals.map(h => h.city).filter(Boolean))].slice(0, 20);
-            return `Existujúce nemocnice (${hospitals.length}): krajiny: ${countries.join(", ")}; mestá: ${cities.join(", ")}`;
+            const cities = [...new Set(hospitals.map(h => h.city).filter(Boolean))];
+            const regions = [...new Set(hospitals.map(h => h.region).filter(Boolean))];
+            return { count: hospitals.length, countries, cities: cities.slice(0, 30), regions: regions.slice(0, 15), coveredCities: cities };
           } else if (targetModule === "clinics") {
             const clinics = await storage.getClinics();
-            const specs = [...new Set(clinics.map((c: any) => c.specialization).filter(Boolean))].slice(0, 15);
-            const cities = [...new Set(clinics.map((c: any) => c.city).filter(Boolean))].slice(0, 20);
-            return `Existujúce ambulancie (${clinics.length}): špecializácie: ${specs.join(", ")}; mestá: ${cities.join(", ")}`;
+            const specs = [...new Set(clinics.map((c: any) => c.specialization).filter(Boolean))];
+            const cities = [...new Set(clinics.map((c: any) => c.city).filter(Boolean))];
+            return { count: clinics.length, specializations: specs.slice(0, 20), cities: cities.slice(0, 30), coveredCities: cities };
           } else {
             const collabs = await storage.getCollaborators();
-            const types = [...new Set(collabs.map((c: any) => c.collaboratorType).filter(Boolean))].slice(0, 10);
-            return `Existujúci spolupracovníci (${collabs.length}): typy: ${types.join(", ")}`;
+            const types = [...new Set(collabs.map((c: any) => c.collaboratorType).filter(Boolean))];
+            const cities = [...new Set(collabs.map((c: any) => c.city).filter(Boolean))];
+            return { count: collabs.length, types: types.slice(0, 15), cities: cities.slice(0, 30), coveredCities: cities };
           }
-        } catch { return ""; }
+        } catch { return { count: 0, cities: [], coveredCities: [] }; }
       })();
 
-      const prompt = `Si expert na B2B lead generáciu pre spoločnosť INDEXUS (bankovanie pupočníkovej krvi a kmeňových buniek).
+      const sources = await storage.getAllLeadSources();
+      const activeSources = sources.filter((s: any) => s.status === "active");
+      const sourceInfo = activeSources.length > 0
+        ? `Aktívne zdroje (${activeSources.length}): ${activeSources.map((s: any) => `${s.name} (${s.url})`).slice(0, 10).join(", ")}`
+        : "Žiadne aktívne zdroje";
 
-ÚLOHA: Navrhni 5 rôznych vyhľadávacích scenárov pre modul "${targetModule}" (${moduleDescriptions[targetModule]}).
-Krajina: ${countryName}
+      const priorJobs = await db.select({ name: searchJobs.name, country: searchJobs.country, segment: searchJobs.segment, location: searchJobs.location, keywords: searchJobs.keywords, totalResults: searchJobs.totalResults, status: searchJobs.status })
+        .from(searchJobs).orderBy(sql`${searchJobs.createdAt} DESC`).limit(10);
+      const successfulJobs = priorJobs.filter(j => j.status === "completed" && (j.totalResults || 0) > 0);
+      const failedJobs = priorJobs.filter(j => j.status === "completed" && (j.totalResults || 0) === 0);
+      const learningContext = successfulJobs.length > 0
+        ? `Úspešné vyhľadávania (${successfulJobs.length}): ${successfulJobs.map(j => `"${j.segment || ''}/${j.location || ''}/${j.keywords || ''}" → ${j.totalResults} výsledkov`).join("; ")}`
+        : "";
+      const avoidContext = failedJobs.length > 0
+        ? `Neúspešné kombinácie (vyhni sa im): ${failedJobs.map(j => `"${j.segment || ''}/${j.location || ''}"`).join("; ")}`
+        : "";
 
-${existingRecordsInfo}
+      const scenarioCount = depth === "deep" ? 10 : depth === "quick" ? 3 : 6;
+
+      const prompt = `Si senior B2B lead generation stratég pre INDEXUS — medzinárodnú spoločnosť zameranú na bankovanie pupočníkovej krvi, kmeňových buniek a regeneratívnu medicínu.
+
+KONTEXT SPOLOČNOSTI:
+- INDEXUS pôsobí v strednej Európe (SK, CZ, HU, PL, AT, DE, RO, IT)
+- Hlavné cieľové skupiny: gynekológovia, pôrodníci, neonatológovia, pediatri, onkológovia, hematológovia, transplantační chirurgovia
+- Sekundárne cieľové skupiny: IVF centrá, genetické poradne, pôrodné domy, repromedika, rodinné centrá, prenatálne kurzy
+- Konkurenčné výhody: najväčšia banka kmeňových buniek v regióne, akreditované laboratóriá, medzinárodné transplantácie
+
+AKTUÁLNY STAV DATABÁZY:
+- Modul: ${targetModule} (${moduleDescriptions[targetModule]})
+- Krajina: ${countryName}
+- Existujúcich záznamov: ${existingData.count}
+${existingData.coveredCities?.length > 0 ? `- Už pokryté mestá: ${existingData.coveredCities.slice(0, 25).join(", ")}` : ""}
+${(existingData as any).specializations?.length > 0 ? `- Pokryté špecializácie: ${(existingData as any).specializations.join(", ")}` : ""}
+${(existingData as any).types?.length > 0 ? `- Typy spolupracovníkov: ${(existingData as any).types.join(", ")}` : ""}
+${sourceInfo}
+
+UČENIE Z HISTÓRIE:
+${learningContext || "Zatiaľ žiadna história vyhľadávaní."}
+${avoidContext}
+
+ÚLOHA: Navrhni ${scenarioCount} inteligentných vyhľadávacích scenárov. Použi ANALYTICKÝ prístup:
+1. Identifikuj MEDZERY v pokrytí (mestá/regióny/segmenty kde ešte nemáme záznamy)
+2. Odporúč VYSOKOHODNOTNÉ segmenty s najväčším potenciálom konverzie
+3. Navrhni KONKRÉTNE kľúčové slová optimalizované pre web scraping a Google dorky
+4. Prioritizuj podľa OČAKÁVANÉHO VÝNOSU (počet kontaktov × kvalita)
 
 Pre každý scenár vygeneruj:
-- name: krátky názov vyhľadávania (po slovensky)
-- segment: špecializácia/segment (napr. "gynekológia a pôrodníctvo", "neonatológia", "transfúzna medicína")
-- location: konkrétne mesto alebo región (ak je zvolená krajina)
-- keywords: 3-5 kľúčových slov oddelených čiarkou, relevantných pre daný segment
-- reason: krátke vysvetlenie prečo je tento scenár užitočný (1 veta)
+- name: výstižný názov (slovensky, max 50 znakov)
+- segment: presná špecializácia/segment
+- location: konkrétne mesto, región alebo "celá krajina" (VYHNI sa už pokrytým mestám ak je to možné)
+- keywords: 5–8 kľúčových slov oddelených čiarkou (vrátane lokálnych výrazov v jazyku krajiny)
+- reason: 1–2 vety prečo je tento scenár strategicky hodnotný
+- priority: "high" | "medium" | "low" (podľa očakávaného výnosu)
+- estimatedResults: odhadovaný počet nájdených kontaktov (číslo)
+- searchDepth: "broad" (veľa výsledkov, nižšia kvalita) alebo "targeted" (menej ale presnejšie)
+- relatedSegments: pole 2–3 súvisiacich segmentov na cross-referenčné vyhľadávanie
 
-PRAVIDLÁ:
-- Scenáre musia byť rôznorodé (rôzne segmenty, lokality)
-- Kľúčové slová musia byť relevantné pre bankovanie pupočníkovej krvi
-- Zahrň aj menej obvyklé ale hodnotné segmenty (napr. repromedika, IVF centrá, pôrodné domy)
-- Lokality prispôsob zvolenej krajine (reálne mestá a regióny)
-- Ak nie je zvolená krajina, navrhni scenáre pre rôzne krajiny
-
-Vráť VÝLUČNE JSON pole, nič iné:
-[{"name":"...","segment":"...","location":"...","keywords":"...","reason":"..."}]`;
+Odpovedz VÝLUČNE ako JSON objekt s kľúčom "suggestions" obsahujúcim pole scenárov.`;
 
       const response = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
+        model: "gpt-4o",
         messages: [{ role: "user", content: prompt }],
-        temperature: 0.7,
-        max_tokens: 2000,
+        response_format: { type: "json_object" },
+        temperature: 0.6,
+        max_tokens: 4000,
       });
 
-      const content = response.choices[0]?.message?.content || "[]";
-      const suggestions = JSON.parse(content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim());
-      res.json({ suggestions });
+      const content = response.choices[0]?.message?.content || "{}";
+      let parsed: any;
+      try { parsed = JSON.parse(content); } catch { parsed = { suggestions: [] }; }
+      const suggestions = Array.isArray(parsed) ? parsed : (parsed.suggestions || parsed.scenarios || []);
+      res.json({ suggestions, meta: { existingCount: existingData.count, coveredCities: existingData.coveredCities?.length || 0, activeSources: activeSources.length, historicalJobs: priorJobs.length } });
     } catch (e: any) {
       console.error("[LeadSearch] AI suggest error:", e);
       res.status(500).json({ error: "AI suggestion failed" });
