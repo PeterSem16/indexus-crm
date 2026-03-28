@@ -156,6 +156,9 @@ import {
   type WebFormSubmission, type InsertWebFormSubmission,
   type WebFormOtp, type InsertWebFormOtp,
   type WebFormAuditLog, type InsertWebFormAuditLog,
+  searchJobs, searchResults,
+  type SearchJob, type InsertSearchJob,
+  type SearchResult, type InsertSearchResult,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, inArray, sql, desc, and, or, asc, gte, lte, lt, isNull, isNotNull } from "drizzle-orm";
@@ -6878,6 +6881,37 @@ export class DatabaseStorage implements IStorage {
   }
   async getWebFormAuditLogs(formId: string): Promise<WebFormAuditLog[]> {
     return db.select().from(webFormAuditLog).where(eq(webFormAuditLog.formId, formId)).orderBy(desc(webFormAuditLog.createdAt));
+  }
+  // Lead Search
+  async createSearchJob(data: InsertSearchJob): Promise<SearchJob> {
+    const [job] = await db.insert(searchJobs).values(data).returning();
+    return job;
+  }
+  async getSearchJob(id: number): Promise<SearchJob | undefined> {
+    const [job] = await db.select().from(searchJobs).where(eq(searchJobs.id, id));
+    return job;
+  }
+  async getAllSearchJobs(): Promise<SearchJob[]> {
+    return db.select().from(searchJobs).orderBy(desc(searchJobs.createdAt));
+  }
+  async updateSearchJob(id: number, data: Partial<InsertSearchJob>): Promise<SearchJob> {
+    const [job] = await db.update(searchJobs).set(data).where(eq(searchJobs.id, id)).returning();
+    return job;
+  }
+  async createSearchResult(data: InsertSearchResult): Promise<SearchResult> {
+    const [result] = await db.insert(searchResults).values(data).returning();
+    return result;
+  }
+  async getSearchResults(jobId: number): Promise<SearchResult[]> {
+    return db.select().from(searchResults).where(eq(searchResults.jobId, jobId)).orderBy(desc(searchResults.confidenceScore));
+  }
+  async updateSearchResult(id: number, data: Partial<InsertSearchResult>): Promise<SearchResult> {
+    const [result] = await db.update(searchResults).set(data).where(eq(searchResults.id, id)).returning();
+    return result;
+  }
+  async createSearchResults(data: InsertSearchResult[]): Promise<SearchResult[]> {
+    if (data.length === 0) return [];
+    return db.insert(searchResults).values(data).returning();
   }
 }
 

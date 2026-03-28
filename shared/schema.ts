@@ -6542,3 +6542,49 @@ export const customerDebtCollection = pgTable("customer_debt_collection", {
 });
 
 export type CustomerDebtCollection = typeof customerDebtCollection.$inferSelect;
+
+// Lead Search System
+export const searchJobs = pgTable("search_jobs", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  targetModule: text("target_module").notNull(), // 'hospitals' | 'clinics' | 'collaborators'
+  country: text("country"),
+  segment: text("segment"),
+  location: text("location"),
+  keywords: text("keywords"),
+  status: text("status").notNull().default("pending"), // pending | running | completed | failed
+  totalResults: integer("total_results").default(0),
+  assignedResults: integer("assigned_results").default(0),
+  errorMessage: text("error_message"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  completedAt: timestamp("completed_at"),
+});
+
+export const insertSearchJobSchema = createInsertSchema(searchJobs).omit({ id: true, createdAt: true, completedAt: true });
+export type InsertSearchJob = z.infer<typeof insertSearchJobSchema>;
+export type SearchJob = typeof searchJobs.$inferSelect;
+
+export const searchResults = pgTable("search_results", {
+  id: serial("id").primaryKey(),
+  jobId: integer("job_id").notNull(),
+  companyName: text("company_name"),
+  contactPerson: text("contact_person"),
+  email: text("email"),
+  phone: text("phone"),
+  website: text("website"),
+  address: text("address"),
+  city: text("city"),
+  countryCode: text("country_code"),
+  specialization: text("specialization"),
+  sourceUrl: text("source_url"),
+  confidenceScore: integer("confidence_score").default(0),
+  rawData: jsonb("raw_data").$type<Record<string, any>>(),
+  status: text("status").notNull().default("new"), // new | assigned | skipped
+  assignedTo: text("assigned_to"), // 'hospital:uuid' | 'clinic:uuid' | 'collaborator:uuid'
+  assignedAt: timestamp("assigned_at"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const insertSearchResultSchema = createInsertSchema(searchResults).omit({ id: true, createdAt: true });
+export type InsertSearchResult = z.infer<typeof insertSearchResultSchema>;
+export type SearchResult = typeof searchResults.$inferSelect;

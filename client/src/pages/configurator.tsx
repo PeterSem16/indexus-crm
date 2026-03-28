@@ -17934,6 +17934,309 @@ function CourierFormDialog({
   );
 }
 
+function LeadSearchTab() {
+  const { t } = useI18n();
+  const { toast } = useToast();
+  const [searchForm, setSearchForm] = useState({
+    name: "",
+    targetModule: "hospitals" as "hospitals" | "clinics" | "collaborators",
+    country: "",
+    segment: "",
+    location: "",
+    keywords: "",
+  });
+  const [selectedJobId, setSelectedJobId] = useState<number | null>(null);
+
+  const { data: jobs = [], refetch: refetchJobs } = useQuery<any[]>({
+    queryKey: ["/api/lead-search/jobs"],
+  });
+
+  const { data: results = [], refetch: refetchResults } = useQuery<any[]>({
+    queryKey: ["/api/lead-search/jobs", selectedJobId, "results"],
+    queryFn: () => selectedJobId ? fetch(`/api/lead-search/jobs/${selectedJobId}/results`, { credentials: "include" }).then(r => r.json()) : Promise.resolve([]),
+    enabled: !!selectedJobId,
+  });
+
+  const selectedJob = jobs.find((j: any) => j.id === selectedJobId);
+
+  useEffect(() => {
+    if (selectedJob?.status === "running") {
+      const interval = setInterval(() => {
+        refetchJobs();
+        if (selectedJobId) refetchResults();
+      }, 3000);
+      return () => clearInterval(interval);
+    }
+  }, [selectedJob?.status, selectedJobId]);
+
+  const startSearch = async () => {
+    if (!searchForm.name) {
+      toast({ title: "Zadajte názov vyhľadávania", variant: "destructive" });
+      return;
+    }
+    try {
+      const resp = await fetch("/api/lead-search/jobs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(searchForm),
+      });
+      if (!resp.ok) throw new Error("Failed");
+      const job = await resp.json();
+      toast({ title: "Vyhľadávanie spustené" });
+      setSelectedJobId(job.id);
+      refetchJobs();
+      setSearchForm({ name: "", targetModule: "hospitals", country: "", segment: "", location: "", keywords: "" });
+    } catch (e) {
+      toast({ title: "Chyba pri spustení vyhľadávania", variant: "destructive" });
+    }
+  };
+
+  const assignResult = async (resultId: number, targetModule: string) => {
+    try {
+      const resp = await fetch(`/api/lead-search/results/${resultId}/assign`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ targetModule }),
+      });
+      if (!resp.ok) throw new Error("Failed");
+      toast({ title: "Kontakt priradený" });
+      refetchResults();
+      refetchJobs();
+    } catch (e) {
+      toast({ title: "Chyba pri priradení", variant: "destructive" });
+    }
+  };
+
+  const COUNTRIES = [
+    { code: "SK", flag: "🇸🇰", name: "Slovensko" },
+    { code: "CZ", flag: "🇨🇿", name: "Česko" },
+    { code: "HU", flag: "🇭🇺", name: "Maďarsko" },
+    { code: "PL", flag: "🇵🇱", name: "Poľsko" },
+    { code: "AT", flag: "🇦🇹", name: "Rakúsko" },
+    { code: "DE", flag: "🇩🇪", name: "Nemecko" },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <Card className="lg:col-span-1">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Search className="h-4 w-4" />
+              Nové vyhľadávanie
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div>
+              <label className="text-sm font-medium mb-1 block">Názov</label>
+              <Input
+                data-testid="input-search-name"
+                placeholder="napr. Nemocnice Bratislava"
+                value={searchForm.name}
+                onChange={(e) => setSearchForm({ ...searchForm, name: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-1 block">Cieľový modul</label>
+              <Select value={searchForm.targetModule} onValueChange={(v: any) => setSearchForm({ ...searchForm, targetModule: v })}>
+                <SelectTrigger data-testid="select-target-module">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="hospitals">Nemocnice</SelectItem>
+                  <SelectItem value="clinics">Ambulancie</SelectItem>
+                  <SelectItem value="collaborators">Spolupracovníci</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-1 block">Krajina</label>
+              <Select value={searchForm.country || "all"} onValueChange={(v) => setSearchForm({ ...searchForm, country: v === "all" ? "" : v })}>
+                <SelectTrigger data-testid="select-country">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Všetky</SelectItem>
+                  {COUNTRIES.map(c => <SelectItem key={c.code} value={c.code}>{c.flag} {c.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-1 block">Segment / Špecializácia</label>
+              <Input
+                data-testid="input-segment"
+                placeholder="napr. kardiológia, ortopédia"
+                value={searchForm.segment}
+                onChange={(e) => setSearchForm({ ...searchForm, segment: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-1 block">Lokalita</label>
+              <Input
+                data-testid="input-location"
+                placeholder="napr. Bratislava, Košice"
+                value={searchForm.location}
+                onChange={(e) => setSearchForm({ ...searchForm, location: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-1 block">Kľúčové slová</label>
+              <Input
+                data-testid="input-keywords"
+                placeholder="napr. laboratórium, diagnostika"
+                value={searchForm.keywords}
+                onChange={(e) => setSearchForm({ ...searchForm, keywords: e.target.value })}
+              />
+            </div>
+            <Button onClick={startSearch} className="w-full" data-testid="button-start-search">
+              <Search className="h-4 w-4 mr-2" />
+              Spustiť vyhľadávanie
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card className="lg:col-span-2">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">História vyhľadávaní</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {jobs.length === 0 ? (
+              <div className="text-center text-muted-foreground py-8">
+                Žiadne vyhľadávania. Vytvorte nové vyhľadávanie vľavo.
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                {jobs.map((job: any) => (
+                  <div
+                    key={job.id}
+                    data-testid={`job-row-${job.id}`}
+                    className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors ${
+                      selectedJobId === job.id ? "bg-primary/10 border-primary" : "hover:bg-accent/50"
+                    }`}
+                    onClick={() => setSelectedJobId(job.id)}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-sm truncate">{job.name}</div>
+                      <div className="text-xs text-muted-foreground flex items-center gap-2 mt-0.5">
+                        <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
+                          job.status === "completed" ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" :
+                          job.status === "running" ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" :
+                          job.status === "failed" ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" :
+                          "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400"
+                        }`}>
+                          {job.status === "running" && <Loader2 className="h-3 w-3 animate-spin" />}
+                          {job.status === "completed" && <CheckCircle2 className="h-3 w-3" />}
+                          {job.status === "failed" && <XCircle className="h-3 w-3" />}
+                          {job.status}
+                        </span>
+                        <span>{job.targetModule}</span>
+                        <span>{job.totalResults || 0} výsledkov</span>
+                        <span>{job.assignedResults || 0} priradených</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {selectedJobId && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              Výsledky: {selectedJob?.name}
+              {selectedJob?.status === "running" && <Loader2 className="h-4 w-4 animate-spin" />}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {results.length === 0 ? (
+              <div className="text-center text-muted-foreground py-8">
+                {selectedJob?.status === "running" ? "Vyhľadávanie prebieha..." : "Žiadne výsledky"}
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left py-2 px-2 font-medium">Názov</th>
+                      <th className="text-left py-2 px-2 font-medium">Kontakt</th>
+                      <th className="text-left py-2 px-2 font-medium">Email</th>
+                      <th className="text-left py-2 px-2 font-medium">Telefón</th>
+                      <th className="text-left py-2 px-2 font-medium">Mesto</th>
+                      <th className="text-left py-2 px-2 font-medium">Skóre</th>
+                      <th className="text-left py-2 px-2 font-medium">Status</th>
+                      <th className="text-right py-2 px-2 font-medium">Akcie</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {results.map((r: any) => (
+                      <tr key={r.id} data-testid={`result-row-${r.id}`} className="border-b hover:bg-accent/30">
+                        <td className="py-2 px-2">
+                          <div className="font-medium">{r.companyName || "-"}</div>
+                          {r.website && (
+                            <a href={r.website} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline">
+                              {r.website}
+                            </a>
+                          )}
+                        </td>
+                        <td className="py-2 px-2 text-xs">{r.contactPerson || "-"}</td>
+                        <td className="py-2 px-2 text-xs">{r.email || "-"}</td>
+                        <td className="py-2 px-2 text-xs">{r.phone || "-"}</td>
+                        <td className="py-2 px-2 text-xs">{r.city || "-"} {r.countryCode || ""}</td>
+                        <td className="py-2 px-2">
+                          <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${
+                            (r.confidenceScore || 0) >= 70 ? "bg-green-100 text-green-700" :
+                            (r.confidenceScore || 0) >= 40 ? "bg-yellow-100 text-yellow-700" :
+                            "bg-gray-100 text-gray-700"
+                          }`}>
+                            {r.confidenceScore || 0}%
+                          </span>
+                        </td>
+                        <td className="py-2 px-2">
+                          <span className={`text-xs px-1.5 py-0.5 rounded ${
+                            r.status === "assigned" ? "bg-green-100 text-green-700" :
+                            r.status === "skipped" ? "bg-gray-100 text-gray-500" :
+                            "bg-blue-100 text-blue-700"
+                          }`}>
+                            {r.status === "assigned" ? "Priradený" : r.status === "skipped" ? "Preskočený" : "Nový"}
+                          </span>
+                        </td>
+                        <td className="py-2 px-2 text-right">
+                          {r.status === "new" && (
+                            <div className="flex items-center gap-1 justify-end">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-xs"
+                                data-testid={`assign-result-${r.id}`}
+                                onClick={() => assignResult(r.id, selectedJob?.targetModule || "hospitals")}
+                              >
+                                <Plus className="h-3 w-3 mr-1" />
+                                Priradiť
+                              </Button>
+                            </div>
+                          )}
+                          {r.status === "assigned" && (
+                            <span className="text-xs text-muted-foreground">{r.assignedTo}</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
 export default function ConfiguratorPage() {
   const { t } = useI18n();
 
@@ -17977,6 +18280,10 @@ export default function ConfiguratorPage() {
           <TabsTrigger value="web-forms" className="flex items-center gap-2 text-xs sm:text-sm" data-testid="tab-web-forms">
             <Globe className="h-4 w-4 shrink-0" />
             <span className="hidden md:inline">{t.konfigurator.webFormsTab || "Web Formuláre"}</span>
+          </TabsTrigger>
+          <TabsTrigger value="lead-search" className="flex items-center gap-2 text-xs sm:text-sm" data-testid="tab-lead-search">
+            <Search className="h-4 w-4 shrink-0" />
+            <span className="hidden md:inline">Lead Search</span>
           </TabsTrigger>
         </TabsList>
 
@@ -18195,6 +18502,10 @@ export default function ConfiguratorPage() {
               <WebFormsPage embedded />
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="lead-search">
+          <LeadSearchTab />
         </TabsContent>
 
       </Tabs>

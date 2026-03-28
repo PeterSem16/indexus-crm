@@ -31,7 +31,7 @@ import {
   campaignDispositions, insertCampaignDispositionSchema,
   DEFAULT_PHONE_DISPOSITIONS, DEFAULT_EMAIL_DISPOSITIONS, DEFAULT_SMS_DISPOSITIONS, DISPOSITION_NAME_TRANSLATIONS,
   callLogs, campaignContacts, campaignContactHistory, campaignContactSessions, campaigns, customers, users, entityCampaignTimeline, mobileContacts, collaborators, billingDetails,
-  collections, executiveSummaries, collectionLabResults, collectionSprievodnyList, cbuReportAudit, cbuReportOtp,
+  collections, executiveSummaries, collectionLabResults, collectionSprievodnyList, cbuReportAudit, cbuReportOtp, searchResults,
   insertSopCategorySchema, insertSopArticleSchema,
   agentSessions, agentSessionActivities, agentBreaks, scheduledReports, agentQueueStatus,
   inboundCallLogs, inboundQueues, ariSettings, sipExtensions, clinicReferrals, clinicEvents,
@@ -26770,6 +26770,323 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
     }
   });
 
+
+  // Lead Search System
+  app.get("/api/lead-search/jobs", requireAuth, async (req, res) => {
+    try {
+      const jobs = await storage.getAllSearchJobs();
+      res.json(jobs);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch jobs" });
+    }
+  });
+
+  app.get("/api/lead-search/jobs/:id", requireAuth, async (req, res) => {
+    try {
+      const job = await storage.getSearchJob(parseInt(req.params.id));
+      if (!job) return res.status(404).json({ error: "Job not found" });
+      res.json(job);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch job" });
+    }
+  });
+
+  app.get("/api/lead-search/jobs/:id/results", requireAuth, async (req, res) => {
+    try {
+      const results = await storage.getSearchResults(parseInt(req.params.id));
+      res.json(results);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch results" });
+    }
+  });
+
+  app.post("/api/lead-search/jobs", requireAuth, async (req, res) => {
+    try {
+      const { name, targetModule, country, segment, location, keywords } = req.body;
+      if (!name || !targetModule) {
+        return res.status(400).json({ error: "Name and target module are required" });
+      }
+
+      const job = await storage.createSearchJob({
+        name,
+        targetModule,
+        country: country || null,
+        segment: segment || null,
+        location: location || null,
+        keywords: keywords || null,
+        status: "running",
+        totalResults: 0,
+        assignedResults: 0,
+      });
+
+      res.json(job);
+
+      // Run search in background
+      (async () => {
+        try {
+          const searchQueries: string[] = [];
+          const parts = [segment, location, country].filter(Boolean);
+          const base = parts.join(" ");
+
+          if (targetModule === "hospitals") {
+            searchQueries.push(`${base} nemocnica kontakt email`.trim());
+            searchQueries.push(`${base} hospital contact email phone`.trim());
+          } else if (targetModule === "clinics") {
+            searchQueries.push(`${base} ambulancia lekár kontakt email`.trim());
+            searchQueries.push(`${base} clinic doctor contact email`.trim());
+          } else if (targetModule === "collaborators") {
+            searchQueries.push(`${base} spolupráca kontakt email telefón`.trim());
+            searchQueries.push(`${base} collaborator partner contact`.trim());
+          }
+
+          if (keywords) {
+            searchQueries.push(`${keywords} ${country || ""} kontakt email`.trim());
+          }
+
+          // Fetch search results using fetch to web search APIs
+          const allSnippets: Array<{title: string, url: string, snippet: string}> = [];
+
+          for (const query of searchQueries.slice(0, 3)) {
+            try {
+              // Use DuckDuckGo instant answer API (no key required)
+              const encoded = encodeURIComponent(query);
+              const ddgResp = await fetch(`https://api.duckduckgo.com/?q=${encoded}&format=json&no_html=1&skip_disambig=1`);
+              if (ddgResp.ok) {
+                const ddgData = await ddgResp.json() as any;
+                if (ddgData.RelatedTopics) {
+                  for (const topic of ddgData.RelatedTopics.slice(0, 5)) {
+                    if (topic.Text && topic.FirstURL) {
+                      allSnippets.push({ title: topic.Text.substring(0, 100), url: topic.FirstURL, snippet: topic.Text });
+                    }
+                  }
+                }
+              }
+            } catch (e) {
+              console.error("[LeadSearch] Search error:", e);
+            }
+          }
+
+          // Also try to scrape some results directly using the queries
+          for (const query of searchQueries.slice(0, 2)) {
+            try {
+              const encoded = encodeURIComponent(query);
+              const resp = await fetch(`https://html.duckduckgo.com/html/?q=${encoded}`, {
+                headers: { "User-Agent": "Mozilla/5.0 (compatible; INDEXUS-CRM/1.0)" }
+              });
+              if (resp.ok) {
+                const html = await resp.text();
+                // Extract result snippets from HTML
+                const resultRegex = /<a[^>]+class="result__a"[^>]*href="([^"]*)"[^>]*>([^<]*)<\/a>/gi;
+                const snippetRegex = /<a[^>]+class="result__snippet"[^>]*>([^<]*)<\/a>/gi;
+                let match;
+                const urls: string[] = [];
+                const titles: string[] = [];
+                while ((match = resultRegex.exec(html)) !== null && urls.length < 8) {
+                  let url = match[1];
+                  if (url.startsWith("//duckduckgo.com/l/?uddg=")) {
+                    url = decodeURIComponent(url.replace("//duckduckgo.com/l/?uddg=", "").split("&")[0]);
+                  }
+                  urls.push(url);
+                  titles.push(match[2].replace(/<[^>]+>/g, ''));
+                }
+                const snippets: string[] = [];
+                while ((match = snippetRegex.exec(html)) !== null && snippets.length < 8) {
+                  snippets.push(match[1].replace(/<[^>]+>/g, ''));
+                }
+                for (let i = 0; i < urls.length; i++) {
+                  allSnippets.push({
+                    title: titles[i] || "",
+                    url: urls[i],
+                    snippet: snippets[i] || titles[i] || ""
+                  });
+                }
+              }
+            } catch (e) {
+              console.error("[LeadSearch] HTML search error:", e);
+            }
+          }
+
+          // Deduplicate by URL
+          const uniqueSnippets = allSnippets.filter((s, i, arr) =>
+            arr.findIndex(x => x.url === s.url) === i
+          ).slice(0, 15);
+
+          if (uniqueSnippets.length === 0) {
+            await storage.updateSearchJob(job.id, { status: "completed", totalResults: 0, completedAt: new Date() } as any);
+            return;
+          }
+
+          // Use AI to extract structured contacts
+          const contactPrompt = `You are a contact extraction assistant. From the following search results, extract contact information for ${targetModule === "hospitals" ? "hospitals/medical facilities" : targetModule === "clinics" ? "clinics/doctor offices/ambulances" : "potential collaborators/partners"}.
+
+Target country: ${country || "any"}
+Segment: ${segment || "general"}
+Location: ${location || "any"}
+
+Search results:
+${uniqueSnippets.map((s, i) => `[${i+1}] ${s.title}\nURL: ${s.url}\n${s.snippet}`).join("\n\n")}
+
+For each valid contact found, return a JSON array of objects with these fields:
+- company_name (string)
+- contact_person (string or null)
+- email (string or null) 
+- phone (string or null)
+- website (string or null)
+- address (string or null)
+- city (string or null)
+- country_code (string, 2-letter code)
+- specialization (string or null)
+- source_url (string)
+- confidence_score (integer 0-100, higher = more reliable data)
+
+IMPORTANT: Only return contacts that have at least a company name and one of: email, phone, or website.
+Return ONLY the JSON array, no other text.`;
+
+          try {
+            const aiResponse = await openai.chat.completions.create({
+              model: "gpt-4o-mini",
+              messages: [{ role: "user", content: contactPrompt }],
+              temperature: 0.1,
+              max_tokens: 4000,
+            });
+
+            const content = aiResponse.choices[0]?.message?.content || "[]";
+            let contacts: any[] = [];
+            try {
+              const cleaned = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+              contacts = JSON.parse(cleaned);
+            } catch (e) {
+              console.error("[LeadSearch] AI response parse error:", e);
+              contacts = [];
+            }
+
+            if (contacts.length > 0) {
+              const insertData = contacts.map((c: any) => ({
+                jobId: job.id,
+                companyName: c.company_name || null,
+                contactPerson: c.contact_person || null,
+                email: c.email || null,
+                phone: c.phone || null,
+                website: c.website || null,
+                address: c.address || null,
+                city: c.city || null,
+                countryCode: c.country_code || country || null,
+                specialization: c.specialization || null,
+                sourceUrl: c.source_url || null,
+                confidenceScore: c.confidence_score || 50,
+                rawData: c,
+                status: "new",
+              }));
+
+              await storage.createSearchResults(insertData);
+            }
+
+            await storage.updateSearchJob(job.id, {
+              status: "completed",
+              totalResults: contacts.length,
+              completedAt: new Date(),
+            } as any);
+          } catch (aiError: any) {
+            console.error("[LeadSearch] AI extraction error:", aiError);
+            // Still save raw snippets as results
+            const fallbackData = uniqueSnippets.map(s => ({
+              jobId: job.id,
+              companyName: s.title || null,
+              sourceUrl: s.url || null,
+              rawData: s as any,
+              confidenceScore: 20,
+              status: "new",
+            }));
+            await storage.createSearchResults(fallbackData);
+            await storage.updateSearchJob(job.id, {
+              status: "completed",
+              totalResults: uniqueSnippets.length,
+              completedAt: new Date(),
+            } as any);
+          }
+        } catch (error: any) {
+          console.error("[LeadSearch] Job error:", error);
+          await storage.updateSearchJob(job.id, {
+            status: "failed",
+            errorMessage: error.message,
+          } as any);
+        }
+      })();
+    } catch (error) {
+      console.error("[LeadSearch] Create job error:", error);
+      res.status(500).json({ error: "Failed to create search job" });
+    }
+  });
+
+  // Assign search result to module
+  app.post("/api/lead-search/results/:id/assign", requireAuth, async (req, res) => {
+    try {
+      const resultId = parseInt(req.params.id);
+      const { targetModule } = req.body;
+
+      if (!targetModule || !["hospitals", "clinics", "collaborators"].includes(targetModule)) {
+        return res.status(400).json({ error: "Invalid target module" });
+      }
+
+      const [searchResult] = await db.select().from(searchResults).where(eq(searchResults.id, resultId));
+      if (!searchResult) return res.status(404).json({ error: "Result not found" });
+      if (searchResult.status === "assigned") return res.status(400).json({ error: "Already assigned" });
+
+      let assignedId: string = "";
+
+      if (targetModule === "hospitals") {
+        const hospital = await storage.createHospital({
+          name: searchResult.companyName || "Unknown",
+          fullName: searchResult.companyName || "",
+          streetNumber: searchResult.address || "",
+          city: searchResult.city || "",
+          countryCode: searchResult.countryCode || "SK",
+          isActive: true,
+        } as any);
+        assignedId = `hospital:${hospital.id}`;
+      } else if (targetModule === "clinics") {
+        const clinic = await storage.createClinic({
+          doctorName: searchResult.contactPerson || searchResult.companyName || "Unknown",
+          city: searchResult.city || "",
+          countryCode: searchResult.countryCode || "SK",
+          phone: searchResult.phone || "",
+          email: searchResult.email || "",
+          website: searchResult.website || "",
+          isActive: true,
+        } as any);
+        assignedId = `clinic:${clinic.id}`;
+      } else if (targetModule === "collaborators") {
+        const nameParts = (searchResult.contactPerson || searchResult.companyName || "Unknown").split(" ");
+        const collaborator = await storage.createCollaborator({
+          firstName: nameParts[0] || "Unknown",
+          lastName: nameParts.slice(1).join(" ") || "",
+          countryCode: searchResult.countryCode || "SK",
+          phone: searchResult.phone || "",
+          email: searchResult.email || "",
+        } as any);
+        assignedId = `collaborator:${collaborator.id}`;
+      }
+
+      await storage.updateSearchResult(resultId, {
+        status: "assigned",
+        assignedTo: assignedId,
+        assignedAt: new Date(),
+      } as any);
+
+      // Update job assigned count
+      const job = await storage.getSearchJob(searchResult.jobId);
+      if (job) {
+        await storage.updateSearchJob(job.id, {
+          assignedResults: (job.assignedResults || 0) + 1,
+        } as any);
+      }
+
+      res.json({ success: true, assignedTo: assignedId });
+    } catch (error: any) {
+      console.error("[LeadSearch] Assign error:", error);
+      res.status(500).json({ error: "Failed to assign: " + error.message });
+    }
+  });
 
   // Contract Templates
   app.get("/api/contracts/templates", requireAuth, async (req, res) => {
