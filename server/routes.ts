@@ -30256,7 +30256,8 @@ Segment should be one of: hospitals, clinics, ambulances, laboratories, pharmaci
       const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
       const search = req.query.search as string;
       if (req.query.page || req.query.limit || req.query.search) {
-        const result = await storage.getContractInstancesPaginated(page, limit, search, status as string, customerId as string);
+        const country = req.query.country as string;
+        const result = await storage.getContractInstancesPaginated(page, limit, search, status as string, customerId as string, country);
         return res.json(result);
       }
       let contracts;

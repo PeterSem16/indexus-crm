@@ -264,9 +264,30 @@ export default function CustomerInvoicesPage() {
     setSelectedScheduledIds([]);
   };
 
-  const { data: invoices = [], isLoading } = useQuery<Invoice[]>({
-    queryKey: ["/api/invoices", { countries: selectedCountries }],
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchTerm), 400);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  useEffect(() => { setPage(1); }, [debouncedSearch, statusFilter, countryFilter]);
+
+  const { data: invoicesPaginated, isLoading } = useQuery<{ data: Invoice[], total: number }>({
+    queryKey: ["/api/invoices", { page, limit: perPage, search: debouncedSearch, status: statusFilter !== "all" ? statusFilter : undefined }],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      params.set("page", String(page));
+      params.set("limit", String(perPage));
+      if (debouncedSearch) params.set("search", debouncedSearch);
+      if (statusFilter !== "all") params.set("status", statusFilter);
+      const res = await fetch(`/api/invoices?${params.toString()}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch");
+      return res.json();
+    },
   });
+  const invoices = invoicesPaginated?.data || [];
+  const totalInvoiceCount = invoicesPaginated?.total || 0;
 
   const { data: customers = [] } = useQuery<any[]>({
     queryKey: ["/api/customers/lookup"],
@@ -505,67 +526,9 @@ export default function CustomerInvoicesPage() {
     return Array.from(companies.entries()).sort((a, b) => a[1].localeCompare(b[1]));
   }, [enrichedInvoices]);
 
-  const filteredInvoices = useMemo(() => {
-    let result = [...enrichedInvoices];
-
-    if (statusFilter !== "all") {
-      result = result.filter(inv => inv.status === statusFilter);
-    }
-
-    if (countryFilter !== "all") {
-      result = result.filter(inv => inv.customerCountry === countryFilter);
-    }
-
-    if (billingCompanyFilter !== "all") {
-      result = result.filter(inv => inv.billingDetailsId === billingCompanyFilter);
-    }
-
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      result = result.filter(inv =>
-        inv.invoiceNumber?.toLowerCase().includes(term) ||
-        inv.customerName?.toLowerCase().includes(term) ||
-        inv.billingCompanyName?.toLowerCase().includes(term)
-      );
-    }
-
-    result.sort((a, b) => {
-      let comparison = 0;
-      switch (sortField) {
-        case "invoiceNumber":
-          comparison = (a.invoiceNumber || "").localeCompare(b.invoiceNumber || "");
-          break;
-        case "issueDate":
-          comparison = new Date(a.issueDate || 0).getTime() - new Date(b.issueDate || 0).getTime();
-          break;
-        case "dueDate":
-          comparison = new Date(a.dueDate || 0).getTime() - new Date(b.dueDate || 0).getTime();
-          break;
-        case "totalAmount":
-          comparison = parseFloat(a.totalAmount || "0") - parseFloat(b.totalAmount || "0");
-          break;
-        case "status":
-          comparison = (a.status || "").localeCompare(b.status || "");
-          break;
-        case "customerName":
-          comparison = (a.customerName || "").localeCompare(b.customerName || "");
-          break;
-        case "wizardCreatedAt":
-          comparison = new Date(a.wizardCreatedAt || 0).getTime() - new Date(b.wizardCreatedAt || 0).getTime();
-          break;
-      }
-      return sortDirection === "asc" ? comparison : -comparison;
-    });
-
-    return result;
-  }, [enrichedInvoices, statusFilter, countryFilter, billingCompanyFilter, searchTerm, sortField, sortDirection]);
-
-  const paginatedInvoices = useMemo(() => {
-    const start = (page - 1) * perPage;
-    return filteredInvoices.slice(start, start + perPage);
-  }, [filteredInvoices, page, perPage]);
-
-  const totalPages = Math.ceil(filteredInvoices.length / perPage);
+  const filteredInvoices = enrichedInvoices;
+  const paginatedInvoices = enrichedInvoices;
+  const totalPages = Math.ceil(totalInvoiceCount / perPage);
 
   const handleQuickDownloadPdf = async (invoiceId: string, invoiceNumber: string, type: "invoice" | "scheduled" = "invoice") => {
     setDownloadingPdfId(invoiceId);
@@ -1111,7 +1074,7 @@ export default function CustomerInvoicesPage() {
               {totalPages > 1 && (
                 <div className="flex items-center justify-between mt-4">
                   <span className="text-sm text-muted-foreground" data-testid="text-pagination-info">
-                    {t.common?.showing || "Showing"} {((page - 1) * perPage) + 1}-{Math.min(page * perPage, filteredInvoices.length)} {t.common?.of || "of"} {filteredInvoices.length}
+                    {t.common?.showing || "Showing"} {((page - 1) * perPage) + 1}-{Math.min(page * perPage, totalInvoiceCount)} {t.common?.of || "of"} {totalInvoiceCount}
                   </span>
                   <div className="flex items-center gap-2">
                     <Button

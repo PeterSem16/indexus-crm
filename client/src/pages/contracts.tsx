@@ -560,10 +560,37 @@ export default function ContractsPage() {
     queryKey: ["/api/contracts/categories"],
   });
 
-  const { data: contracts = [], isLoading: contractsLoading } = useQuery<ContractInstance[]>({
-    queryKey: ["/api/contracts"],
+  const [contractSearchTerm, setContractSearchTerm] = useState("");
+  const [debouncedContractSearch, setDebouncedContractSearch] = useState("");
+  const [contractStatusFilter, setContractStatusFilter] = useState<string>("all");
+  const [contractSortOrder, setContractSortOrder] = useState<"asc" | "desc">("desc");
+  const [contractPage, setContractPage] = useState(1);
+  const CONTRACTS_PER_PAGE = 50;
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedContractSearch(contractSearchTerm), 400);
+    return () => clearTimeout(timer);
+  }, [contractSearchTerm]);
+
+  useEffect(() => { setContractPage(1); }, [debouncedContractSearch, contractStatusFilter, selectedCountry]);
+
+  const { data: contractsPaginated, isLoading: contractsLoading } = useQuery<{ data: ContractInstance[], total: number }>({
+    queryKey: ["/api/contracts", { page: contractPage, limit: CONTRACTS_PER_PAGE, search: debouncedContractSearch, status: contractStatusFilter, country: selectedCountry }],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      params.set("page", String(contractPage));
+      params.set("limit", String(CONTRACTS_PER_PAGE));
+      if (debouncedContractSearch) params.set("search", debouncedContractSearch);
+      if (contractStatusFilter && contractStatusFilter !== "all") params.set("status", contractStatusFilter);
+      if (selectedCountry) params.set("country", selectedCountry);
+      const res = await fetch(`/api/contracts?${params.toString()}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch");
+      return res.json();
+    },
     refetchInterval: 30000,
   });
+  const contracts = contractsPaginated?.data || [];
+  const totalContracts = contractsPaginated?.total || 0;
 
   const { data: customers = [], isLoading: customersLoading } = useQuery<any[]>({
     queryKey: ["/api/customers/lookup"],
@@ -1630,35 +1657,10 @@ export default function ContractsPage() {
     !selectedCountry || t.countryCode === selectedCountry
   );
 
-  const [contractSearchTerm, setContractSearchTerm] = useState("");
-  const [contractStatusFilter, setContractStatusFilter] = useState<string | string[]>("all");
-  const [contractSortOrder, setContractSortOrder] = useState<"asc" | "desc">("desc");
-  const [contractPage, setContractPage] = useState(1);
   const [showAnalytics, setShowAnalytics] = useState(false);
-  const CONTRACTS_PER_PAGE = 15;
 
-  const filteredContracts = contracts.filter(c => {
-    const customer = customers.find(cust => cust.id === c.customerId);
-    const matchesCountry = !selectedCountry || customer?.country === selectedCountry;
-    const matchesSearch = !contractSearchTerm || 
-      c.contractNumber?.toLowerCase().includes(contractSearchTerm.toLowerCase()) ||
-      (customer && `${customer.firstName} ${customer.lastName}`.toLowerCase().includes(contractSearchTerm.toLowerCase()));
-    const matchesStatus = contractStatusFilter === "all" || 
-      (Array.isArray(contractStatusFilter) ? contractStatusFilter.includes(c.status) : c.status === contractStatusFilter);
-    return matchesCountry && matchesSearch && matchesStatus;
-  }).sort((a, b) => {
-    const dateA = new Date(a.createdAt || 0).getTime();
-    const dateB = new Date(b.createdAt || 0).getTime();
-    return contractSortOrder === "asc" ? dateA - dateB : dateB - dateA;
-  });
-
-  const totalContractPages = Math.ceil(filteredContracts.length / CONTRACTS_PER_PAGE);
-  const paginatedContracts = filteredContracts.slice(
-    (contractPage - 1) * CONTRACTS_PER_PAGE,
-    contractPage * CONTRACTS_PER_PAGE
-  );
-
-  useEffect(() => { setContractPage(1); }, [contractSearchTerm, contractStatusFilter, contractSortOrder, selectedCountry]);
+  const paginatedContracts = contracts;
+  const totalContractPages = Math.ceil(totalContracts / CONTRACTS_PER_PAGE);
 
   const analyticsData = useMemo(() => {
     const countryContracts = contracts.filter(c => {
@@ -2292,7 +2294,7 @@ export default function ContractsPage() {
                   data-testid="input-contract-search"
                 />
               </div>
-              <Select value={Array.isArray(contractStatusFilter) ? "custom" : contractStatusFilter} onValueChange={(val) => setContractStatusFilter(val)}>
+              <Select value={contractStatusFilter} onValueChange={(val) => setContractStatusFilter(val)}>
                 <SelectTrigger className="w-[180px]" data-testid="select-contract-status-filter">
                   <SelectValue placeholder={t.contractsModule.allStatuses} />
                 </SelectTrigger>
@@ -2322,7 +2324,7 @@ export default function ContractsPage() {
                 <ArrowUpDown className="h-4 w-4 mr-1" />
                 {contractSortOrder === "desc" ? (t.common.newest || "Najnovšie") : (t.common.oldest || "Najstaršie")}
               </Button>
-              {(contractSearchTerm || contractStatusFilter !== "all" && !(Array.isArray(contractStatusFilter) && contractStatusFilter.length === 0)) && (
+              {(contractSearchTerm || contractStatusFilter !== "all") && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -2517,7 +2519,7 @@ export default function ContractsPage() {
               {totalContractPages > 1 && (
                 <div className="flex items-center justify-between gap-4 px-4 py-3 border-t flex-wrap">
                   <span className="text-sm text-muted-foreground">
-                    {(contractPage - 1) * CONTRACTS_PER_PAGE + 1}-{Math.min(contractPage * CONTRACTS_PER_PAGE, filteredContracts.length)} / {filteredContracts.length}
+                    {(contractPage - 1) * CONTRACTS_PER_PAGE + 1}-{Math.min(contractPage * CONTRACTS_PER_PAGE, totalContracts)} / {totalContracts}
                   </span>
                   <div className="flex items-center gap-1">
                     <Button

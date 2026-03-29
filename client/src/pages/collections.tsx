@@ -166,9 +166,32 @@ export default function CollectionsPage() {
   
   const dateFnsLocale = dateLocales[locale] || enUS;
 
-  const { data: collections = [], isLoading } = useQuery<Collection[]>({
-    queryKey: ["/api/collections"],
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [collectionPage, setCollectionPage] = useState(1);
+  const COLLECTIONS_PER_PAGE = 50;
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchQuery), 400);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  useEffect(() => { setCollectionPage(1); }, [debouncedSearch, listStatusFilter, selectedCountries]);
+
+  const { data: collectionsPaginated, isLoading } = useQuery<{ data: Collection[], total: number }>({
+    queryKey: ["/api/collections", { page: collectionPage, limit: COLLECTIONS_PER_PAGE, search: debouncedSearch, status: listStatusFilter, countries: selectedCountries }],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      params.set("page", String(collectionPage));
+      params.set("limit", String(COLLECTIONS_PER_PAGE));
+      if (debouncedSearch) params.set("search", debouncedSearch);
+      if (listStatusFilter) params.set("status", listStatusFilter);
+      const res = await fetch(`/api/collections?${params.toString()}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch");
+      return res.json();
+    },
   });
+  const collections = collectionsPaginated?.data || [];
+  const totalCollections = collectionsPaginated?.total || 0;
 
   const { data: collection, isLoading: isLoadingCollection } = useQuery<Collection>({
     queryKey: ["/api/collections", collectionId],
@@ -887,29 +910,7 @@ export default function CollectionsPage() {
     },
   });
 
-  const countryFilteredCollections = collections.filter((c) => {
-    if (selectedCountries.length > 0 && !selectedCountries.includes(c.countryCode)) {
-      return false;
-    }
-    return true;
-  });
-
-  const filteredCollections = countryFilteredCollections.filter((c) => {
-    if (!searchQuery) return true;
-    const query = searchQuery.toLowerCase();
-    const statusObj = collectionStatuses.find(s => String(s.id) === c.state);
-    const stateLabel = (statusObj?.name || c.state || "").toLowerCase();
-    return (
-      (c.cbuNumber || "").toLowerCase().includes(query) ||
-      (c.clientFirstName || "").toLowerCase().includes(query) ||
-      (c.clientLastName || "").toLowerCase().includes(query) ||
-      (c.childFirstName || "").toLowerCase().includes(query) ||
-      (c.childLastName || "").toLowerCase().includes(query) ||
-      (c.countryCode || "").toLowerCase().includes(query) ||
-      stateLabel.includes(query) ||
-      (c.collectionDate ? format(new Date(c.collectionDate), "dd.MM.yyyy") : "").includes(query)
-    );
-  });
+  const filteredCollections = collections;
 
   const notAvailable = t.common.noData;
 
@@ -2742,7 +2743,7 @@ export default function CollectionsPage() {
               </div>
               <div>
                 <p className="text-sm text-rose-600/70 dark:text-rose-400/70">{dashboardT.totalCollections}</p>
-                <p className="text-2xl font-bold text-rose-800 dark:text-rose-200">{filteredCollections.length}</p>
+                <p className="text-2xl font-bold text-rose-800 dark:text-rose-200">{totalCollections}</p>
               </div>
             </div>
           </CardContent>
@@ -3579,7 +3580,7 @@ export default function CollectionsPage() {
                   }`}
                   data-testid="tile-status-all"
                 >
-                  <div className="text-2xl font-bold text-gray-800 dark:text-gray-200">{filteredCollections.length}</div>
+                  <div className="text-2xl font-bold text-gray-800 dark:text-gray-200">{totalCollections}</div>
                   <div className="text-xs font-medium text-gray-600 dark:text-gray-400 truncate">{locale === "sk" ? "Všetky" : "All"}</div>
                 </div>
                 {statusTiles.map(st => (

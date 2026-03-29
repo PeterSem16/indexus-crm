@@ -5201,7 +5201,7 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(contractInstances).orderBy(desc(contractInstances.createdAt));
   }
 
-  async getContractInstancesPaginated(page: number, limit: number, search?: string, status?: string, customerId?: string): Promise<{ data: ContractInstance[], total: number }> {
+  async getContractInstancesPaginated(page: number, limit: number, search?: string, status?: string, customerId?: string, country?: string): Promise<{ data: ContractInstance[], total: number }> {
     const offset = (page - 1) * limit;
     const conditions: any[] = [];
     if (search && search.trim()) {
@@ -5211,11 +5211,27 @@ export class DatabaseStorage implements IStorage {
         OR ${contractInstances.internalId} ILIKE ${s}
       )`);
     }
-    if (status && status.trim()) {
-      conditions.push(eq(contractInstances.status, status.trim()));
+    if (status && status.trim() && status !== "all") {
+      const statusGroups: Record<string, string[]> = {
+        draft: ['draft', 'created'],
+        sent: ['sent', 'received', 'returned'],
+        pending: ['pending_signature', 'verified'],
+        signed: ['signed', 'executed', 'completed'],
+      };
+      const statuses = statusGroups[status.trim()] || [status.trim()];
+      conditions.push(inArray(contractInstances.status, statuses));
     }
     if (customerId && customerId.trim()) {
       conditions.push(eq(contractInstances.customerId, customerId.trim()));
+    }
+    if (country && country.trim()) {
+      const customerIds = await db.select({ id: customers.id }).from(customers).where(eq(customers.country, country.trim()));
+      const ids = customerIds.map(c => c.id);
+      if (ids.length > 0) {
+        conditions.push(inArray(contractInstances.customerId, ids));
+      } else {
+        return { data: [], total: 0 };
+      }
     }
     const where = conditions.length > 0 ? and(...conditions) : undefined;
     const [countResult] = await db.select({ count: sql<number>`count(*)::int` }).from(contractInstances).where(where);
@@ -6373,13 +6389,15 @@ export class DatabaseStorage implements IStorage {
       conditions.push(sql`(
         ${collections.cbuNumber} ILIKE ${s} OR ${collections.motherName} ILIKE ${s}
         OR ${collections.fatherName} ILIKE ${s}
+        OR ${collections.clientFirstName} ILIKE ${s} OR ${collections.clientLastName} ILIKE ${s}
+        OR ${collections.childFirstName} ILIKE ${s} OR ${collections.childLastName} ILIKE ${s}
       )`);
     }
     if (countryCodes && countryCodes.length > 0) {
       conditions.push(inArray(collections.countryCode, countryCodes));
     }
     if (status && status.trim()) {
-      conditions.push(eq(collections.status, status.trim()));
+      conditions.push(eq(collections.state, status.trim()));
     }
     const where = conditions.length > 0 ? and(...conditions) : undefined;
     const [countResult] = await db.select({ count: sql<number>`count(*)::int` }).from(collections).where(where);
