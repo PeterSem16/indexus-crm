@@ -136,11 +136,9 @@ export default function CollectionsPage() {
   const [formData, setFormData] = useState<CollectionFormData>(initialFormData);
   const [activeTab, setActiveTab] = useState("client");
   const [viewMode, setViewMode] = useState<"dashboard" | "list" | "calendar" | "executive">("dashboard");
-  const [listPage, setListPage] = useState(1);
   const [listSortField, setListSortField] = useState<string>("collectionDate");
   const [listSortDir, setListSortDir] = useState<"asc" | "desc">("desc");
   const [listStatusFilter, setListStatusFilter] = useState<string | null>(null);
-  const listPageSize = 15;
   const [calendarMonth, setCalendarMonth] = useState(new Date());
   const [esCountry, setEsCountry] = useState<string>("all");
   const [esPeriod, setEsPeriod] = useState<string>("monthly");
@@ -3566,10 +3564,7 @@ export default function CollectionsPage() {
         renderCalendar()
       ) : (
         (() => {
-          const statusFiltered = listStatusFilter
-            ? filteredCollections.filter(c => c.state === listStatusFilter)
-            : filteredCollections;
-          const sorted = [...statusFiltered].sort((a, b) => {
+          const sorted = [...filteredCollections].sort((a, b) => {
             let va: any = "";
             let vb: any = "";
             if (listSortField === "cbuNumber") { va = a.cbuNumber || ""; vb = b.cbuNumber || ""; }
@@ -3581,15 +3576,15 @@ export default function CollectionsPage() {
             return listSortDir === "asc" ? va - vb : vb - va;
           });
 
-          const totalPages = Math.max(1, Math.ceil(sorted.length / listPageSize));
-          const safePage = Math.min(listPage, totalPages);
-          const paginated = sorted.slice((safePage - 1) * listPageSize, safePage * listPageSize);
+          const totalPages = Math.max(1, Math.ceil(totalCollections / COLLECTIONS_PER_PAGE));
+          const safePage = Math.min(collectionPage, totalPages);
+          const paginated = sorted;
 
           const renderSortHeader = (field: string, label: any) => (
             <th
               key={field}
               className="text-left py-3 px-3 font-medium cursor-pointer select-none hover:text-primary transition-colors"
-              onClick={() => { if (listSortField === field) { setListSortDir(d => d === "asc" ? "desc" : "asc"); } else { setListSortField(field); setListSortDir("asc"); } setListPage(1); }}
+              onClick={() => { if (listSortField === field) { setListSortDir(d => d === "asc" ? "desc" : "asc"); } else { setListSortField(field); setListSortDir("asc"); } setCollectionPage(1); }}
             >
               <div className="flex items-center gap-1">
                 {label}
@@ -3622,7 +3617,7 @@ export default function CollectionsPage() {
             <div className="space-y-4">
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
                 <div
-                  onClick={() => { setListStatusFilter(null); setListPage(1); }}
+                  onClick={() => { setListStatusFilter(null); setCollectionPage(1); }}
                   className={`cursor-pointer rounded-xl border p-3 transition-all hover:shadow-md ${
                     listStatusFilter === null
                       ? "bg-gradient-to-br from-gray-100 to-gray-200/50 dark:from-gray-800 dark:to-gray-700/50 border-primary ring-2 ring-primary/30 shadow-sm"
@@ -3636,7 +3631,7 @@ export default function CollectionsPage() {
                 {statusTiles.map(st => (
                   <div
                     key={st.id}
-                    onClick={() => { setListStatusFilter(listStatusFilter === String(st.id) ? null : String(st.id)); setListPage(1); }}
+                    onClick={() => { setListStatusFilter(listStatusFilter === String(st.id) ? null : String(st.id)); setCollectionPage(1); }}
                     className={`cursor-pointer rounded-xl border p-3 transition-all hover:shadow-md ${
                       listStatusFilter === String(st.id)
                         ? `bg-gradient-to-br ${st.style.bg} ${st.style.border} ring-2 ring-primary/30 shadow-sm`
@@ -3658,13 +3653,13 @@ export default function CollectionsPage() {
                     <Input
                       placeholder={locale === "sk" ? "Hľadať podľa mena, CBU, krajiny, stavu..." : "Search by name, CBU, country, status..."}
                       value={searchQuery}
-                      onChange={(e) => { setSearchQuery(e.target.value); setListPage(1); }}
+                      onChange={(e) => { setSearchQuery(e.target.value); setCollectionPage(1); }}
                       className="pl-10"
                       data-testid="input-search-collections"
                     />
                   </div>
                   {listStatusFilter && (
-                    <Button variant="ghost" size="sm" onClick={() => { setListStatusFilter(null); setListPage(1); }} className="text-xs" data-testid="button-clear-status-filter">
+                    <Button variant="ghost" size="sm" onClick={() => { setListStatusFilter(null); setCollectionPage(1); }} className="text-xs" data-testid="button-clear-status-filter">
                       <X className="h-3 w-3 mr-1" />
                       {getStateLabel(listStatusFilter)}
                     </Button>
@@ -3753,7 +3748,7 @@ export default function CollectionsPage() {
                           {locale === "sk" ? `Strana ${safePage} z ${totalPages}` : `Page ${safePage} of ${totalPages}`}
                         </span>
                         <div className="flex items-center gap-1">
-                          <Button variant="outline" size="sm" disabled={safePage <= 1} onClick={() => setListPage(p => Math.max(1, p - 1))} data-testid="button-list-prev">
+                          <Button variant="outline" size="sm" disabled={safePage <= 1} onClick={() => setCollectionPage(p => Math.max(1, p - 1))} data-testid="button-list-prev">
                             <ChevronLeft className="h-4 w-4" />
                           </Button>
                           {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
@@ -3768,13 +3763,13 @@ export default function CollectionsPage() {
                                 variant={pageNum === safePage ? "default" : "outline"}
                                 size="sm"
                                 className="w-8 h-8 p-0"
-                                onClick={() => setListPage(pageNum)}
+                                onClick={() => setCollectionPage(pageNum)}
                               >
                                 {pageNum}
                               </Button>
                             );
                           })}
-                          <Button variant="outline" size="sm" disabled={safePage >= totalPages} onClick={() => setListPage(p => Math.min(totalPages, p + 1))} data-testid="button-list-next">
+                          <Button variant="outline" size="sm" disabled={safePage >= totalPages} onClick={() => setCollectionPage(p => Math.min(totalPages, p + 1))} data-testid="button-list-next">
                             <ChevronRight className="h-4 w-4" />
                           </Button>
                         </div>
