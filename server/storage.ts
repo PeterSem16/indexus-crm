@@ -6432,6 +6432,77 @@ export class DatabaseStorage implements IStorage {
     return { data, total: countResult.count };
   }
 
+  async getCollectionDashboardStats(countryCodes?: string[]): Promise<{
+    total: number;
+    thisMonth: number;
+    lastMonth: number;
+    pendingLab: number;
+    byStatus: { state: string; count: number }[];
+    byCountry: { countryCode: string; count: number }[];
+    byHospital: { hospitalId: number; hospitalName: string; count: number }[];
+    monthlyTrend: { month: string; count: number }[];
+    recent: Collection[];
+  }> {
+    const where = countryCodes && countryCodes.length > 0 ? inArray(collections.countryCode, countryCodes) : undefined;
+
+    const [totalResult] = await db.select({ count: sql<number>`count(*)::int` }).from(collections).where(where);
+
+    const now = new Date();
+    const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+
+    const thisMonthConditions = [sql`${collections.collectionDate} >= ${thisMonthStart.toISOString()} AND ${collections.collectionDate} < ${nextMonthStart.toISOString()}`];
+    if (where) thisMonthConditions.push(where as any);
+    const [thisMonthResult] = await db.select({ count: sql<number>`count(*)::int` }).from(collections).where(and(...thisMonthConditions));
+
+    const lastMonthConditions = [sql`${collections.collectionDate} >= ${lastMonthStart.toISOString()} AND ${collections.collectionDate} < ${thisMonthStart.toISOString()}`];
+    if (where) lastMonthConditions.push(where as any);
+    const [lastMonthResult] = await db.select({ count: sql<number>`count(*)::int` }).from(collections).where(and(...lastMonthConditions));
+
+    const pendingConditions = [inArray(collections.state, ["created", "paired", "evaluated"])];
+    if (where) pendingConditions.push(where as any);
+    const [pendingResult] = await db.select({ count: sql<number>`count(*)::int` }).from(collections).where(and(...pendingConditions));
+
+    const byStatus = await db.select({
+      state: collections.state,
+      count: sql<number>`count(*)::int`
+    }).from(collections).where(where).groupBy(collections.state);
+
+    const byCountry = await db.select({
+      countryCode: collections.countryCode,
+      count: sql<number>`count(*)::int`
+    }).from(collections).where(where).groupBy(collections.countryCode);
+
+    const byHospital = await db.select({
+      hospitalId: collections.hospitalId,
+      hospitalName: sql<string>`COALESCE((SELECT name FROM hospitals WHERE id = ${collections.hospitalId}), 'Unknown')`,
+      count: sql<number>`count(*)::int`
+    }).from(collections).where(where).groupBy(collections.hospitalId).orderBy(sql`count(*) DESC`).limit(8);
+
+    const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+    const trendConditions = [sql`${collections.collectionDate} >= ${sixMonthsAgo.toISOString()}`];
+    if (where) trendConditions.push(where as any);
+    const monthlyTrend = await db.select({
+      month: sql<string>`to_char(${collections.collectionDate}, 'YYYY-MM')`,
+      count: sql<number>`count(*)::int`
+    }).from(collections).where(and(...trendConditions)).groupBy(sql`to_char(${collections.collectionDate}, 'YYYY-MM')`).orderBy(sql`to_char(${collections.collectionDate}, 'YYYY-MM')`);
+
+    const recent = await db.select().from(collections).where(where).orderBy(desc(collections.collectionDate)).limit(5);
+
+    return {
+      total: totalResult.count,
+      thisMonth: thisMonthResult.count,
+      lastMonth: lastMonthResult.count,
+      pendingLab: pendingResult.count,
+      byStatus: byStatus.filter(s => s.state),
+      byCountry: byCountry.filter(c => c.countryCode),
+      byHospital,
+      monthlyTrend,
+      recent
+    };
+  }
+
   async getCollectionsByCountry(countryCodes: string[]): Promise<Collection[]> {
     if (countryCodes.length === 0) {
       return this.getAllCollections();

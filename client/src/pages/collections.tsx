@@ -192,6 +192,29 @@ export default function CollectionsPage() {
   const collections = collectionsPaginated?.data || [];
   const totalCollections = collectionsPaginated?.total || 0;
 
+  const isDashboardView = viewMode === "dashboard" || viewMode === "executive";
+  const { data: dashboardStats } = useQuery<{
+    total: number;
+    thisMonth: number;
+    lastMonth: number;
+    pendingLab: number;
+    byStatus: { state: string; count: number }[];
+    byCountry: { countryCode: string; count: number }[];
+    byHospital: { hospitalId: number; hospitalName: string; count: number }[];
+    monthlyTrend: { month: string; count: number }[];
+    recent: Collection[];
+  }>({
+    queryKey: ["/api/collections/dashboard-stats", { countries: selectedCountries }],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (selectedCountries.length > 0) params.set("countries", selectedCountries.join(","));
+      const res = await fetch(`/api/collections/dashboard-stats?${params.toString()}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch dashboard stats");
+      return res.json();
+    },
+    enabled: isDashboardView && !isEditing,
+  });
+
   const { data: collection, isLoading: isLoadingCollection } = useQuery<Collection>({
     queryKey: ["/api/collections", collectionId],
     enabled: isEditing,
@@ -2655,68 +2678,47 @@ export default function CollectionsPage() {
   const statesT = t.collections?.states || {};
 
 
-  const statusData = useMemo(() => collectionStatuses.map(status => ({
-    name: status.name,
-    value: filteredCollections.filter(c => c.state === String(status.id)).length,
-    state: String(status.id)
-  })).filter(d => d.value > 0), [collectionStatuses, filteredCollections]);
+  const statusData = useMemo(() => {
+    if (!dashboardStats) return [];
+    return dashboardStats.byStatus.map(s => {
+      const status = collectionStatuses.find(cs => String(cs.id) === s.state);
+      return { name: status?.name || s.state, value: s.count, state: s.state };
+    }).filter(d => d.value > 0);
+  }, [dashboardStats, collectionStatuses]);
   
   const totalForPercent = useMemo(() => statusData.reduce((acc, d) => acc + d.value, 0), [statusData]);
 
-  const countryData = useMemo(() => selectedCountries.map(code => ({
-    name: code,
-    value: filteredCollections.filter(c => c.countryCode === code).length,
-    fill: COUNTRY_CHART_COLORS[code] || PASTEL_CHART_COLORS[0]
-  })).filter(d => d.value > 0).sort((a, b) => b.value - a.value), [selectedCountries, filteredCollections]);
+  const countryData = useMemo(() => {
+    if (!dashboardStats) return [];
+    return dashboardStats.byCountry.map(c => ({
+      name: c.countryCode,
+      value: c.count,
+      fill: COUNTRY_CHART_COLORS[c.countryCode] || PASTEL_CHART_COLORS[0]
+    })).filter(d => d.value > 0).sort((a, b) => b.value - a.value);
+  }, [dashboardStats]);
   
-  const hospitalData = useMemo(() => hospitals
-    .map(h => ({
-      name: h.name.length > 20 ? h.name.substring(0, 20) + "..." : h.name,
-      fullName: h.name,
-      value: filteredCollections.filter(c => c.hospitalId === h.id).length
-    }))
-    .filter(d => d.value > 0)
-    .sort((a, b) => b.value - a.value)
-    .slice(0, 8), [hospitals, filteredCollections]);
+  const hospitalData = useMemo(() => {
+    if (!dashboardStats) return [];
+    return dashboardStats.byHospital.map(h => ({
+      name: h.hospitalName.length > 20 ? h.hospitalName.substring(0, 20) + "..." : h.hospitalName,
+      fullName: h.hospitalName,
+      value: h.count
+    })).filter(d => d.value > 0);
+  }, [dashboardStats]);
 
-  const now = useMemo(() => new Date(), []);
-  const thisMonth = useMemo(() => filteredCollections.filter(c => {
-    if (!c.collectionDate) return false;
-    const date = new Date(c.collectionDate);
-    return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
-  }).length, [filteredCollections, now]);
+  const thisMonth = dashboardStats?.thisMonth || 0;
+  const lastMonth = dashboardStats?.lastMonth || 0;
+  const pendingLab = dashboardStats?.pendingLab || 0;
 
-  const lastMonthDate = useMemo(() => new Date(now.getFullYear(), now.getMonth() - 1, 1), [now]);
-  const lastMonth = useMemo(() => filteredCollections.filter(c => {
-    if (!c.collectionDate) return false;
-    const date = new Date(c.collectionDate);
-    return date.getMonth() === lastMonthDate.getMonth() && date.getFullYear() === lastMonthDate.getFullYear();
-  }).length, [filteredCollections, lastMonthDate]);
+  const monthlyData = useMemo(() => {
+    if (!dashboardStats) return [];
+    return dashboardStats.monthlyTrend.map(m => ({
+      name: format(new Date(m.month + "-01"), "MMM", { locale: dateFnsLocale }),
+      count: m.count
+    }));
+  }, [dashboardStats, dateFnsLocale]);
 
-  const pendingLab = useMemo(() => filteredCollections.filter(c => 
-    c.state === "created" || c.state === "paired" || c.state === "evaluated"
-  ).length, [filteredCollections]);
-
-  const monthlyData = useMemo(() => Array.from({ length: 6 }, (_, i) => {
-    const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
-    const monthCollections = filteredCollections.filter(c => {
-      if (!c.collectionDate) return false;
-      const date = new Date(c.collectionDate);
-      return date.getMonth() === d.getMonth() && date.getFullYear() === d.getFullYear();
-    });
-    return {
-      name: format(d, "MMM", { locale: dateFnsLocale }),
-      count: monthCollections.length
-    };
-  }), [filteredCollections, now, dateFnsLocale]);
-
-  const recentCollections = useMemo(() => [...filteredCollections]
-    .sort((a, b) => {
-      const dateA = a.collectionDate ? new Date(a.collectionDate).getTime() : 0;
-      const dateB = b.collectionDate ? new Date(b.collectionDate).getTime() : 0;
-      return dateB - dateA;
-    })
-    .slice(0, 5), [filteredCollections]);
+  const recentCollections = dashboardStats?.recent || [];
 
   const renderDashboard = () => (
     <div className="space-y-6">
@@ -2729,7 +2731,7 @@ export default function CollectionsPage() {
               </div>
               <div>
                 <p className="text-sm text-rose-600/70 dark:text-rose-400/70">{dashboardT.totalCollections}</p>
-                <p className="text-2xl font-bold text-rose-800 dark:text-rose-200">{totalCollections}</p>
+                <p className="text-2xl font-bold text-rose-800 dark:text-rose-200">{dashboardStats?.total || 0}</p>
               </div>
             </div>
           </CardContent>
