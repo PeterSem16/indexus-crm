@@ -112,12 +112,14 @@ function table(headers, rows) {
 }
 
 function progressBar(current, total, label, startTime) {
-  const pct = Math.round((current / total) * 100);
+  if (total <= 0) return;
+  const safeCurrent = Math.min(current, total);
+  const pct = Math.round((safeCurrent / total) * 100);
   const barLen = 30;
-  const filled = Math.round((current / total) * barLen);
+  const filled = Math.min(barLen, Math.round((safeCurrent / total) * barLen));
   const bar = '█'.repeat(filled) + '░'.repeat(barLen - filled);
   const elapsed = ((Date.now() - startTime) / 1000).toFixed(0);
-  const eta = current > 0 ? Math.round(((Date.now() - startTime) / current) * (total - current) / 1000) : '?';
+  const eta = safeCurrent > 0 ? Math.round(((Date.now() - startTime) / safeCurrent) * (total - safeCurrent) / 1000) : '?';
   process.stdout.write(`\r  [${bar}] ${pct}% (${current}/${total}) ${label} | ${elapsed}s elapsed, ~${eta}s left   `);
   if (current >= total) process.stdout.write('\n');
 }
@@ -3554,7 +3556,7 @@ async function step12_customerInvoices() {
   const totalChunks = Math.ceil(cseIdListInv.length / CHUNK_SIZE);
   let inserted = 0, skipped = 0, errors = 0, insertedSI = 0, siErrors = 0;
   const invStart = Date.now();
-  let totalInvoicesProcessed = 0;
+  let totalInvoicesFound = 0;
 
   log(`  Spracovávam faktúry v ${totalChunks} chunkoch po ${CHUNK_SIZE} cse_ids...`);
 
@@ -3670,12 +3672,13 @@ async function step12_customerInvoices() {
       pdRecs.length = 0;
     } catch (err) { log(`    WARN PaymentDates: ${err.message}`); }
 
+    totalInvoicesFound += chunkInvoices.length;
+
     // Process invoices in this chunk
     for (let ii = 0; ii < chunkInvoices.length; ii++) {
       const r = chunkInvoices[ii];
-      totalInvoicesProcessed++;
       if (ii % 5000 === 0 || ii === chunkInvoices.length - 1) {
-        progressBar(totalInvoicesProcessed, cseIdListInv.length, 'faktúry', invStart);
+        progressBar(ii + 1, chunkInvoices.length, `faktúry chunk${chunkIdx+1}`, invStart);
       }
 
       const cliId = cseToClient[String(r.cse_id)];
