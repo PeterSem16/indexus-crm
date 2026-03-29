@@ -1,22 +1,33 @@
 #!/usr/bin/env node
 /**
- * CBC → INDEXUS Test Migration (20 records per entity)
+ * CBC → INDEXUS Migrácia v20.4 (2026-03-29)
  * 
- * Testovací scenár:
- *   Step 1: Test connection + zobraz vzorky dát z CBC
- *   Step 2: Reference data (CollectionStatuses, Laboratories)
- *   Step 3: Hospitals (TOP 20)
- *   Step 4: Collaborators (TOP 20)
- *   Step 5: Customers/Clients (TOP 20)
- *   Step 6: Collections + Lab Results (TOP 20)
- *   Step 7: Verification — porovnanie zdrojových vs prenesených dát
+ * Kroky:
+ *   step1:  Test pripojenia + vzorky dát z CBC
+ *   step2:  Referenčné dáta (StatusyOdberov, Laboratóriá)
+ *   step3:  Nemocnice
+ *   step4:  Spolupracovníci
+ *   step4b: Dohody spolupracovníkov
+ *   step4c: Úkony spolupracovníkov
+ *   step5:  Klientky/Zákazníci
+ *   step6:  Odbery + Lab výsledky
+ *   step6b: Cases — otcovské dáta
+ *   step8:  Poznámky (Remarks)
+ *   step9:  Telefonické komunikácie
+ *   step11: Zmluvy zákazníkov
+ *   step12: Faktúry zákazníkov
+ *   step13: Vymáhanie pohľadávok
+ *   step14: Potenciálni klienti
+ *   verify: Verifikácia
  *
- * Run on Ubuntu: cd /var/www/indexus-crm/script/migration && node test-migration-20.cjs
- * Requires: npm install mssql pg
+ * Spustenie: node test-migration-20.cjs [step1 step2 ...] [--no-cleanup]
+ *            node test-migration-20.cjs all              (všetky kroky)
+ *            MIGRATION_LIMIT=999999 node test-migration-20.cjs step6
  *
  * BEZPEČNÉ: Neprepisuje existujúce dáta (skip ak legacy_id existuje)
- * BEZ: Invoices, Billing Companies, Rewards
  */
+const MIGRATION_VERSION = 'v20.5';
+const MIGRATION_BUILD = '2026-03-29T22:00:00Z';
 const sql = require('mssql');
 const { Pool } = require('pg');
 const { normalizePhone, normalizeEmail, normalizeName, normalizeNationalId, normalizePostalCode, normalizeCity } = require('./consolidate-contacts.cjs');
@@ -95,6 +106,17 @@ function table(headers, rows) {
   for (const row of rows) {
     console.log('  ' + row.map((c, i) => String(c || '—').slice(0, 30).padEnd(adjustedWidths[i])).join(' | '));
   }
+}
+
+function progressBar(current, total, label, startTime) {
+  const pct = Math.round((current / total) * 100);
+  const barLen = 30;
+  const filled = Math.round((current / total) * barLen);
+  const bar = '█'.repeat(filled) + '░'.repeat(barLen - filled);
+  const elapsed = ((Date.now() - startTime) / 1000).toFixed(0);
+  const eta = current > 0 ? Math.round(((Date.now() - startTime) / current) * (total - current) / 1000) : '?';
+  process.stdout.write(`\r  [${bar}] ${pct}% (${current}/${total}) ${label} | ${elapsed}s elapsed, ~${eta}s left   `);
+  if (current >= total) process.stdout.write('\n');
 }
 
 function normalizeCountryCode(cbcCode) {
@@ -780,7 +802,11 @@ async function step3_hospitals() {
   for (const r of pgExisting.rows) existingHosSet.add(r.legacy_id);
 
   let inserted = 0, skipped = 0, errors = 0;
-  for (const row of hospitals.recordset) {
+  const hosTotal = hospitals.recordset.length;
+  const hosStart = Date.now();
+  for (let hi = 0; hi < hosTotal; hi++) {
+    const row = hospitals.recordset[hi];
+    if (hi % 100 === 0 || hi === hosTotal - 1) progressBar(hi + 1, hosTotal, 'nemocnice', hosStart);
     try {
       if (existingHosSet.has(String(row.hos_id))) { skipped++; continue; }
 
@@ -963,7 +989,11 @@ async function step4_collaborators() {
 
   let hiMatched = 0, hiUnmatched = 0;
   let inserted = 0, skipped = 0, errors = 0, addrInserted = 0, repMatched = 0;
-  for (const row of collabs.recordset) {
+  const collTotal = collabs.recordset.length;
+  const collStart = Date.now();
+  for (let ci = 0; ci < collTotal; ci++) {
+    const row = collabs.recordset[ci];
+    if (ci % 500 === 0 || ci === collTotal - 1) progressBar(ci + 1, collTotal, 'spolupracovníci', collStart);
     try {
       const existing = await pgPool.query('SELECT id, data_source, representative_id, health_insurance_id, hospital_ids, bank_account_iban, note FROM collaborators WHERE legacy_id = $1', [String(row.doc_id)]);
       if (existing.rows.length > 0) {
@@ -1260,7 +1290,11 @@ async function step4b_agreements() {
   for (const r of pgExistAgr.rows) existingAgrSet.add(r.legacy_id);
 
   let inserted = 0, skipped = 0, errors = 0;
-  for (const row of agreements.recordset) {
+  const agrTotal = agreements.recordset.length;
+  const agrStart = Date.now();
+  for (let ai = 0; ai < agrTotal; ai++) {
+    const row = agreements.recordset[ai];
+    if (ai % 1000 === 0 || ai === agrTotal - 1) progressBar(ai + 1, agrTotal, 'dohody', agrStart);
     try {
       if (existingAgrSet.has(String(row.cag_id))) { skipped++; continue; }
 
@@ -1441,13 +1475,19 @@ async function step4c_activities() {
     log(`    ${code}: ${cnt}`);
   }
 
-  // Insert into collaborator_activities
+  const existingActSet = new Set();
+  const pgExistAct = await pgPool.query("SELECT legacy_id FROM collaborator_activities WHERE legacy_id IS NOT NULL AND legacy_id LIKE 'cc_%'");
+  for (const r of pgExistAct.rows) existingActSet.add(r.legacy_id);
+
   let inserted = 0, skipped = 0, errors = 0;
-  for (const row of ukonyRows.recordset) {
+  const actTotal = ukonyRows.recordset.length;
+  const actStart = Date.now();
+  for (let ai = 0; ai < actTotal; ai++) {
+    const row = ukonyRows.recordset[ai];
+    if (ai % 5000 === 0 || ai === actTotal - 1) progressBar(ai + 1, actTotal, 'úkony', actStart);
     try {
       const legacyId = `cc_${row.doc_id}_${row.sco_id}_${row.agt_id}`;
-      const existing = await pgPool.query('SELECT id FROM collaborator_activities WHERE legacy_id = $1', [legacyId]);
-      if (existing.rows.length > 0) { skipped++; continue; }
+      if (existingActSet.has(legacyId)) { skipped++; continue; }
 
       const collaboratorId = collabLookup[String(row.doc_id)];
       if (!collaboratorId) { skipped++; continue; }
@@ -1587,7 +1627,11 @@ async function step5_customers() {
   for (const r of pgExistCust.rows) existingCustSet.add(r.internal_id);
 
   let inserted = 0, skipped = 0, errors = 0;
-  for (const row of clients.recordset) {
+  const custTotal = clients.recordset.length;
+  const custStart = Date.now();
+  for (let ci = 0; ci < custTotal; ci++) {
+    const row = clients.recordset[ci];
+    if (ci % 2000 === 0 || ci === custTotal - 1) progressBar(ci + 1, custTotal, 'klientky', custStart);
     try {
       if (existingCustSet.has(String(row.cli_id))) { skipped++; continue; }
 
@@ -1752,7 +1796,11 @@ async function step6_collections() {
   for (const r of pgExistColl.rows) existingCollSet.add(r.legacy_id);
 
   let inserted = 0, skipped = 0, errors = 0;
-  for (const row of collections.recordset) {
+  const scoTotal = collections.recordset.length;
+  const scoStart = Date.now();
+  for (let si = 0; si < scoTotal; si++) {
+    const row = collections.recordset[si];
+    if (si % 5000 === 0 || si === scoTotal - 1) progressBar(si + 1, scoTotal, 'odbery', scoStart);
     try {
       if (existingCollSet.has(String(row.sco_id))) { skipped++; continue; }
 
@@ -1871,6 +1919,9 @@ async function step6_collections() {
     let labInserted = 0, labSkipped = 0, labErrors = 0;
     const labBatch = [];
     const LAB_BATCH_SIZE = 200;
+    const labGroupTotal = Object.keys(grouped).length;
+    const labGroupStart = Date.now();
+    let labGroupIdx = 0;
 
     async function flushLabBatch() {
       if (labBatch.length === 0) return;
@@ -1907,6 +1958,8 @@ async function step6_collections() {
     }
 
     for (const [scoId, fields] of Object.entries(grouped)) {
+      labGroupIdx++;
+      if (labGroupIdx % 5000 === 0 || labGroupIdx === labGroupTotal) progressBar(labGroupIdx, labGroupTotal, 'lab výsledky', labGroupStart);
       const collectionId = collLookup[scoId];
       if (!collectionId) continue;
       if (existingLabSet.has(collectionId)) { labSkipped++; continue; }
@@ -2101,7 +2154,11 @@ async function step6b_cases() {
 
   let inserted = 0, skipped = 0, errors = 0;
   const processed = new Set();
-  for (const row of potData.recordset) {
+  const potTotal = potData.recordset.length;
+  const potStart = Date.now();
+  for (let pi = 0; pi < potTotal; pi++) {
+    const row = potData.recordset[pi];
+    if (pi % 5000 === 0 || pi === potTotal - 1) progressBar(pi + 1, potTotal, 'potenciálne prípady', potStart);
     const cliIdStr = String(row.cli_id);
     if (processed.has(cliIdStr)) continue;
     processed.add(cliIdStr);
@@ -2275,7 +2332,9 @@ async function step8_remarks() {
 
   let inserted = 0, skipped = 0, errors = 0;
   const BATCH_PG = 500;
+  const remStart = Date.now();
   for (let bi = 0; bi < totalRemarks; bi += BATCH_PG) {
+    if (bi % 2000 === 0 || bi + BATCH_PG >= totalRemarks) progressBar(Math.min(bi + BATCH_PG, totalRemarks), totalRemarks, 'poznámky', remStart);
     const batch = remarkRecords.slice(bi, bi + BATCH_PG);
     const values = [];
     const params = [];
@@ -2394,7 +2453,9 @@ async function step9_phoneCommunications() {
 
   let inserted = 0, skipped = 0, errors = 0;
   const BATCH_PG_PH = 500;
+  const phStart = Date.now();
   for (let bi = 0; bi < totalPhones; bi += BATCH_PG_PH) {
+    if (bi % 2000 === 0 || bi + BATCH_PG_PH >= totalPhones) progressBar(Math.min(bi + BATCH_PG_PH, totalPhones), totalPhones, 'hovory', phStart);
     const batch = phoneRecords.slice(bi, bi + BATCH_PG_PH);
     const values = [];
     const params = [];
@@ -3071,7 +3132,11 @@ async function step11_customerContracts() {
   } catch (err) { log(`  WARN currency map: ${err.message}`); }
 
   let insertedCI = 0, insertedCD = 0, skipped = 0, errors = 0;
-  for (const r of contracts.recordset) {
+  const conTotal = contracts.recordset.length;
+  const conStart = Date.now();
+  for (let ci = 0; ci < conTotal; ci++) {
+    const r = contracts.recordset[ci];
+    if (ci % 2000 === 0 || ci === conTotal - 1) progressBar(ci + 1, conTotal, 'zmluvy', conStart);
     const customerId = customerMap[String(r.cli_id)];
     if (!customerId) { skipped++; continue; }
 
@@ -3648,7 +3713,11 @@ async function step12_customerInvoices() {
   log(`  Mapy načítané: items=${Object.keys(invoiceItemsMap).length} faktúr, scheduledPayments=${Object.keys(scheduledPaymentsMap).length} faktúr, realizedPayments=${Object.keys(realizedPaymentsMap).length} faktúr`);
 
   let inserted = 0, skipped = 0, errors = 0;
-  for (const r of invoices.recordset) {
+  const invTotal = invoices.recordset.length;
+  const invStart = Date.now();
+  for (let ii = 0; ii < invTotal; ii++) {
+    const r = invoices.recordset[ii];
+    if (ii % 2000 === 0 || ii === invTotal - 1) progressBar(ii + 1, invTotal, 'faktúry', invStart);
     const cliId = cseToClient[String(r.cse_id)];
     const customerId = cliId ? customerMap[cliId] : null;
     if (!customerId) { skipped++; continue; }
@@ -4055,7 +4124,11 @@ async function step13_debtCollection() {
       }
 
       let inserted = 0, skipped = 0, errors = 0;
-      for (const r of debtors.recordset) {
+      const debtTotal = debtors.recordset.length;
+      const debtStart = Date.now();
+      for (let di = 0; di < debtTotal; di++) {
+        const r = debtors.recordset[di];
+        if (di % 1000 === 0 || di === debtTotal - 1) progressBar(di + 1, debtTotal, `vymáhanie ${dt.table}`, debtStart);
         const customerId = customerMap[String(r.cli_id)];
         if (!customerId) { skipped++; continue; }
 
@@ -4495,7 +4568,11 @@ async function step14_potentialClients() {
   );
 
   let inserted = 0, skipped = 0, errors = 0;
-  for (const row of potClients.recordset) {
+  const potCliTotal = potClients.recordset.length;
+  const potCliStart = Date.now();
+  for (let pci = 0; pci < potCliTotal; pci++) {
+    const row = potClients.recordset[pci];
+    if (pci % 1000 === 0 || pci === potCliTotal - 1) progressBar(pci + 1, potCliTotal, 'potenciálni klienti', potCliStart);
     try {
       const internalId = `pot_${row.pot_id}`;
       const existing = await pgPool.query('SELECT id FROM customers WHERE internal_id = $1', [internalId]);
@@ -4617,16 +4694,20 @@ async function main() {
   const noCleanup = args.includes('--no-cleanup');
 
   console.log('');
-  console.log('╔══════════════════════════════════════════════════════════════════╗');
-  console.log(`║   CBC → INDEXUS  Migrácia (${LIMIT} záznamov)`.padEnd(66) + '║');
-  console.log('║   S: Zmluvy, Faktúry, Vymáhanie, Potenciálni klienti           ║');
-  console.log('╚══════════════════════════════════════════════════════════════════╝');
-
+  console.log('╔══════════════════════════════════════════════════════════════════════╗');
+  console.log(`║  CBC → INDEXUS CRM Migrácia                                        ║`);
+  console.log(`║  Verzia: ${MIGRATION_VERSION}  |  Build: ${MIGRATION_BUILD}              ║`);
+  console.log(`║  Limit: ${String(LIMIT).padEnd(10)} | Čas: ${new Date().toLocaleString('sk-SK')}          ║`);
+  console.log('╠══════════════════════════════════════════════════════════════════════╣');
   if (requestedSteps.length === 0 || requestedSteps.includes('all')) {
-    console.log('║   Režim: VŠETKY KROKY                                           ║');
+    console.log('║  Režim: ★ VŠETKY KROKY                                             ║');
   } else {
-    console.log(`║   Režim: ${requestedSteps.join(', ').padEnd(56)}║`);
+    console.log(`║  Režim: ► ${requestedSteps.join(', ').padEnd(58)}║`);
   }
+  if (noCleanup) {
+    console.log('║  Flag:  --no-cleanup (preskočí mazanie starých dát)                ║');
+  }
+  console.log('╚══════════════════════════════════════════════════════════════════════╝');
   console.log('');
 
   if (requestedSteps.length > 0 && !requestedSteps.includes('all')) {
@@ -4641,6 +4722,7 @@ async function main() {
   try {
     await step1_testConnection();
 
+    const mainStart = Date.now();
     let stepsToRun;
     if (requestedSteps.length === 0 || requestedSteps.includes('all')) {
       stepsToRun = Object.entries(STEP_REGISTRY)
@@ -4667,19 +4749,28 @@ async function main() {
       if (!info || !info.fn) continue;
 
       const stepStart = Date.now();
-      log(`\n${'═'.repeat(70)}`);
-      log(`  ŠTART: ${stepKey} — ${info.desc}`);
-      log(`${'═'.repeat(70)}`);
+      const stepNum = results.length + 1;
+      const totalStepsCount = stepsToRun.filter(s => s !== 'step1').length;
+      console.log('');
+      console.log(`  ┌─────────────────────────────────────────────────────────────┐`);
+      console.log(`  │  [${MIGRATION_VERSION}] KROK ${String(stepNum).padStart(2)}/${String(totalStepsCount).padStart(2)}: ${(stepKey + ' — ' + info.desc).padEnd(42)}│`);
+      console.log(`  │  Štart: ${new Date().toLocaleString('sk-SK').padEnd(52)}│`);
+      console.log(`  └─────────────────────────────────────────────────────────────┘`);
 
       try {
         await info.fn();
         const elapsed = ((Date.now() - stepStart) / 1000).toFixed(1);
         results.push({ step: stepKey, desc: info.desc, status: 'OK', time: elapsed });
-        log(`  ✓ ${stepKey} DOKONČENÝ za ${elapsed}s`);
+        console.log(`  ╔═══════════════════════════════════════════════════════╗`);
+        console.log(`  ║  ✓ ${stepKey} DOKONČENÝ za ${elapsed}s`.padEnd(57) + `║`);
+        console.log(`  ╚═══════════════════════════════════════════════════════╝`);
       } catch (err) {
         const elapsed = ((Date.now() - stepStart) / 1000).toFixed(1);
         results.push({ step: stepKey, desc: info.desc, status: 'CHYBA', time: elapsed, error: err.message });
-        log(`  ✗ ${stepKey} ZLYHAL za ${elapsed}s: ${err.message}`);
+        console.log(`  ╔═══════════════════════════════════════════════════════╗`);
+        console.log(`  ║  ✗ ${stepKey} ZLYHAL za ${elapsed}s`.padEnd(57) + `║`);
+        console.log(`  ║  Chyba: ${err.message.substring(0, 47).padEnd(48)}║`);
+        console.log(`  ╚═══════════════════════════════════════════════════════╝`);
         console.error(err.stack);
         if (requestedSteps.length > 0 && !requestedSteps.includes('all')) {
           log('  Zastavujem — spustené boli len vybrané kroky');
@@ -4689,17 +4780,26 @@ async function main() {
       }
     }
 
-    separator('SÚHRN MIGRÁCIE');
-    log('  Krok     | Status | Čas      | Popis');
-    log('  ─────────┼────────┼──────────┼──────────────────────────────────');
+    const totalElapsed = ((Date.now() - mainStart) / 1000).toFixed(1);
+    const totalMin = (parseFloat(totalElapsed) / 60).toFixed(1);
+    console.log('');
+    console.log('╔══════════════════════════════════════════════════════════════════════╗');
+    console.log(`║  SÚHRN MIGRÁCIE  [${MIGRATION_VERSION}]`.padEnd(70) + '║');
+    console.log('╠══════════════════════════════════════════════════════════════════════╣');
+    console.log('║  Krok      │ Status  │ Čas       │ Popis                            ║');
+    console.log('║────────────┼─────────┼───────────┼──────────────────────────────────║');
     for (const r of results) {
-      const status = r.status === 'OK' ? '✓ OK  ' : '✗ CHYBA';
-      log(`  ${r.step.padEnd(9)}| ${status}| ${(r.time + 's').padEnd(9)}| ${r.desc}${r.error ? ' — ' + r.error : ''}`);
+      const status = r.status === 'OK' ? '✓ OK   ' : '✗ CHYBA';
+      const timeStr = parseFloat(r.time) >= 60 ? `${(parseFloat(r.time)/60).toFixed(1)}m` : `${r.time}s`;
+      console.log(`║  ${r.step.padEnd(10)}│ ${status} │ ${timeStr.padEnd(9)} │ ${r.desc.substring(0, 32).padEnd(32)} ║`);
     }
-    log('');
+    console.log('╠══════════════════════════════════════════════════════════════════════╣');
     const ok = results.filter(r => r.status === 'OK').length;
     const fail = results.filter(r => r.status !== 'OK').length;
-    log(`  Celkom: ${ok} úspešných, ${fail} neúspešných z ${results.length} krokov`);
+    console.log(`║  Celkom: ${ok} úspešných, ${fail} neúspešných z ${results.length} krokov`.padEnd(70) + '║');
+    console.log(`║  Celkový čas: ${totalElapsed}s (${totalMin} min)`.padEnd(70) + '║');
+    console.log(`║  Koniec: ${new Date().toLocaleString('sk-SK')}`.padEnd(70) + '║');
+    console.log('╚══════════════════════════════════════════════════════════════════════╝');
 
   } catch (err) {
     log(`FATAL: ${err.message}`);
