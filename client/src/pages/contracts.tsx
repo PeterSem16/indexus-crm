@@ -592,6 +592,17 @@ export default function ContractsPage() {
   const contracts = contractsPaginated?.data || [];
   const totalContracts = contractsPaginated?.total || 0;
 
+  const { data: contractStats } = useQuery<{ total: number, signed: number, pending: number, drafts: number, cancelled: number }>({
+    queryKey: ["/api/contracts/stats", { country: selectedCountry }],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (selectedCountry) params.set("country", selectedCountry);
+      const res = await fetch(`/api/contracts/stats?${params.toString()}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch");
+      return res.json();
+    },
+  });
+
   const { data: customers = [], isLoading: customersLoading } = useQuery<any[]>({
     queryKey: ["/api/customers/lookup"],
   });
@@ -2030,52 +2041,36 @@ export default function ContractsPage() {
           <TabsContent value="contracts" className="mt-0 min-w-0">
             {/* Contract Dashboard Stats */}
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
-              {(() => {
-                const countryContracts = contracts.filter(c => {
-                  if (!selectedCountry) return true;
-                  const customer = customers.find(cust => cust.id === c.customerId);
-                  return customer?.country === selectedCountry;
-                });
-                const total = countryContracts.length;
-                const signed = countryContracts.filter(c => c.status === "signed" || c.status === "executed" || c.status === "completed").length;
-                const pending = countryContracts.filter(c => c.status === "sent" || c.status === "pending_signature").length;
-                const drafts = countryContracts.filter(c => c.status === "draft" || c.status === "created").length;
-                const cancelled = countryContracts.filter(c => c.status === "cancelled" || c.status === "terminated").length;
-                return (
-                  <>
                     <Card className="cursor-pointer hover-elevate" onClick={() => setContractStatusFilter("all")} data-testid="stat-total-contracts">
                       <CardContent className="p-3">
                         <div className="text-xs text-muted-foreground">{t.contractsModule.totalContracts}</div>
-                        <div className="text-2xl font-bold mt-1">{total}</div>
+                        <div className="text-2xl font-bold mt-1">{contractStats?.total ?? "—"}</div>
                       </CardContent>
                     </Card>
                     <Card className="cursor-pointer hover-elevate" onClick={() => setContractStatusFilter(["signed", "executed", "completed"])} data-testid="stat-signed-contracts">
                       <CardContent className="p-3">
                         <div className="text-xs text-muted-foreground">{t.contractsModule.signedContracts}</div>
-                        <div className="text-2xl font-bold mt-1 text-green-600">{signed}</div>
+                        <div className="text-2xl font-bold mt-1 text-green-600">{contractStats?.signed ?? "—"}</div>
                       </CardContent>
                     </Card>
                     <Card className="cursor-pointer hover-elevate" onClick={() => setContractStatusFilter(["sent", "pending_signature"])} data-testid="stat-pending-contracts">
                       <CardContent className="p-3">
                         <div className="text-xs text-muted-foreground">{t.contractsModule.pendingContracts}</div>
-                        <div className="text-2xl font-bold mt-1 text-orange-500">{pending}</div>
+                        <div className="text-2xl font-bold mt-1 text-orange-500">{contractStats?.pending ?? "—"}</div>
                       </CardContent>
                     </Card>
                     <Card className="cursor-pointer hover-elevate" onClick={() => setContractStatusFilter(["draft", "created"])} data-testid="stat-draft-contracts">
                       <CardContent className="p-3">
                         <div className="text-xs text-muted-foreground">{t.contractsModule.draftContracts}</div>
-                        <div className="text-2xl font-bold mt-1">{drafts}</div>
+                        <div className="text-2xl font-bold mt-1">{contractStats?.drafts ?? "—"}</div>
                       </CardContent>
                     </Card>
                     <Card className="cursor-pointer hover-elevate" onClick={() => setContractStatusFilter(["cancelled", "terminated"])} data-testid="stat-cancelled-contracts">
                       <CardContent className="p-3">
                         <div className="text-xs text-muted-foreground">{t.contractsModule.cancelledContracts}</div>
-                        <div className="text-2xl font-bold mt-1 text-destructive">{cancelled}</div>
+                        <div className="text-2xl font-bold mt-1 text-destructive">{contractStats?.cancelled ?? "—"}</div>
                       </CardContent>
                     </Card>
-                  </>
-                );
-              })()}
             </div>
 
             {/* Analytics Toggle */}

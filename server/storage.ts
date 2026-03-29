@@ -5245,6 +5245,28 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(contractInstances.createdAt));
   }
 
+  async getContractInstanceStats(country?: string): Promise<{ total: number, signed: number, pending: number, drafts: number, cancelled: number }> {
+    const conditions: any[] = [];
+    if (country) {
+      const custIds = await db.select({ id: customers.id }).from(customers).where(eq(customers.country, country));
+      const ids = custIds.map(c => c.id);
+      if (ids.length === 0) return { total: 0, signed: 0, pending: 0, drafts: 0, cancelled: 0 };
+      conditions.push(inArray(contractInstances.customerId, ids));
+    }
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+    const rows = await db.select({ status: contractInstances.status, cnt: count() }).from(contractInstances).where(whereClause).groupBy(contractInstances.status);
+    let total = 0, signed = 0, pending = 0, drafts = 0, cancelled = 0;
+    for (const r of rows) {
+      const c = Number(r.cnt);
+      total += c;
+      if (['signed', 'executed', 'completed'].includes(r.status || '')) signed += c;
+      else if (['sent', 'pending_signature'].includes(r.status || '')) pending += c;
+      else if (['draft', 'created'].includes(r.status || '')) drafts += c;
+      else if (['cancelled', 'terminated'].includes(r.status || '')) cancelled += c;
+    }
+    return { total, signed, pending, drafts, cancelled };
+  }
+
   async getContractInstancesByStatus(status: string): Promise<ContractInstance[]> {
     return db.select().from(contractInstances)
       .where(eq(contractInstances.status, status))
@@ -6387,8 +6409,7 @@ export class DatabaseStorage implements IStorage {
     if (search && search.trim()) {
       const s = `%${search.trim()}%`;
       conditions.push(sql`(
-        ${collections.cbuNumber} ILIKE ${s} OR ${collections.motherName} ILIKE ${s}
-        OR ${collections.fatherName} ILIKE ${s}
+        ${collections.cbuNumber} ILIKE ${s}
         OR ${collections.clientFirstName} ILIKE ${s} OR ${collections.clientLastName} ILIKE ${s}
         OR ${collections.childFirstName} ILIKE ${s} OR ${collections.childLastName} ILIKE ${s}
       )`);

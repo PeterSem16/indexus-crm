@@ -24710,6 +24710,17 @@ Rules:
   // CONTRACT MANAGEMENT ENDPOINTS
   // ============================================
 
+  app.get("/api/contracts/stats", requireAuth, async (req, res) => {
+    try {
+      const country = req.query.country as string | undefined;
+      const stats = await storage.getContractInstanceStats(country || undefined);
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching contract stats:", error);
+      res.status(500).json({ error: "Failed to fetch contract stats" });
+    }
+  });
+
   // Contract Categories
   app.get("/api/contracts/categories", requireAuth, async (req, res) => {
     try {
