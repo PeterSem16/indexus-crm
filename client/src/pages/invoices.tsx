@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Search, FileText, Download, Users, CheckCircle } from "lucide-react";
+import { Search, FileText, Download, Users, CheckCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,12 +36,35 @@ export default function InvoicesPage() {
   const { toast } = useToast();
   const { t, locale } = useI18n();
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const pageSize = 50;
   const [isBulkDialogOpen, setIsBulkDialogOpen] = useState(false);
   const [selectedCustomers, setSelectedCustomers] = useState<string[]>([]);
 
-  const { data: invoices = [], isLoading: invoicesLoading } = useQuery<Invoice[]>({
-    queryKey: ["/api/invoices"],
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  const { data: paginatedResult, isLoading: invoicesLoading } = useQuery<{ data: Invoice[], total: number }>({
+    queryKey: ["/api/invoices", { page, limit: pageSize, search: debouncedSearch }],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      params.set("page", String(page));
+      params.set("limit", String(pageSize));
+      if (debouncedSearch) params.set("search", debouncedSearch);
+      const res = await fetch(`/api/invoices?${params.toString()}`);
+      if (!res.ok) throw new Error("Failed to fetch");
+      return res.json();
+    },
   });
+  const invoices = paginatedResult?.data || [];
+  const totalInvoices = paginatedResult?.total || 0;
+  const totalPages = Math.ceil(totalInvoices / pageSize);
 
   const { data: customers = [], isLoading: customersLoading } = useQuery<Customer[]>({
     queryKey: ["/api/customers"],
@@ -108,10 +131,7 @@ export default function InvoicesPage() {
     }
   };
 
-  const filteredInvoices = invoices.filter(invoice =>
-    invoice.invoiceNumber.toLowerCase().includes(search.toLowerCase()) ||
-    getCustomerName(invoice.customerId).toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredInvoices = invoices;
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -230,7 +250,7 @@ export default function InvoicesPage() {
               />
             </div>
             <div className="text-sm text-muted-foreground">
-              {filteredInvoices.length} {t.invoices.title.toLowerCase()}
+              {totalInvoices} {t.invoices.title.toLowerCase()}
             </div>
           </div>
         </CardContent>
@@ -243,6 +263,22 @@ export default function InvoicesPage() {
         emptyMessage={t.invoices.noInvoices}
         getRowKey={(i) => i.id}
       />
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between px-2">
+          <div className="text-sm text-muted-foreground">
+            {t.common.page || "Strana"} {page} / {totalPages}
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1} data-testid="button-prev-page">
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} data-testid="button-next-page">
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
 
       <Dialog open={isBulkDialogOpen} onOpenChange={setIsBulkDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">

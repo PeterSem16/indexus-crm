@@ -6325,16 +6325,38 @@ export default function CustomersPage() {
   
   // Pagination
   const [page, setPage] = useState(1);
-  const pageSize = 30;
+  const pageSize = 50;
   
   // Sorting
   const [sortField, setSortField] = useState<string>("name");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
-  const { data: allCustomers = [], isLoading, refetch: refetchCustomers } = useQuery<Customer[]>({
-    queryKey: ["/api/customers"],
-    refetchInterval: 30000, // Auto-refresh every 30 seconds
+  // Debounced search for server-side query
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  const { data: paginatedResult, isLoading, refetch: refetchCustomers } = useQuery<{ data: Customer[], total: number }>({
+    queryKey: ["/api/customers", { page, limit: pageSize, search: debouncedSearch, country: countryFilter !== "_all" ? countryFilter : undefined }],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      params.set("page", String(page));
+      params.set("limit", String(pageSize));
+      if (debouncedSearch) params.set("search", debouncedSearch);
+      if (countryFilter !== "_all") params.set("country", countryFilter);
+      const res = await fetch(`/api/customers?${params.toString()}`);
+      if (!res.ok) throw new Error("Failed to fetch");
+      return res.json();
+    },
+    refetchInterval: 60000,
   });
+  const allCustomers = paginatedResult?.data || [];
+  const serverTotal = paginatedResult?.total || 0;
 
   // Fetch user's email accounts (shared mailboxes) for email sending
   const { user } = useAuth();
@@ -6607,9 +6629,7 @@ export default function CustomersPage() {
     }
   }, [pendingViewCustomerId, allCustomers, isLoading, toast]);
 
-  const customers = allCustomers.filter(c => 
-    selectedCountries.includes(c.country as any)
-  );
+  const customers = allCustomers;
 
   // Keep viewingCustomer in sync with latest data from query
   useEffect(() => {
@@ -6671,39 +6691,16 @@ export default function CustomersPage() {
     },
   });
 
-  // Filtered and sorted customers
+  // Filtered and sorted customers (search + country filter is server-side)
   const filteredAndSortedCustomers = useMemo(() => {
-    // First filter
     let result = customers.filter(customer => {
-      const searchLower = search.toLowerCase();
-      const matchesSearch = search === "" || 
-        customer.id.toLowerCase().includes(searchLower) ||
-        (customer.internalId && customer.internalId.toLowerCase().includes(searchLower)) ||
-        customer.firstName.toLowerCase().includes(searchLower) ||
-        customer.lastName.toLowerCase().includes(searchLower) ||
-        (customer.maidenName && customer.maidenName.toLowerCase().includes(searchLower)) ||
-        customer.email.toLowerCase().includes(searchLower) ||
-        (customer.email2 && customer.email2.toLowerCase().includes(searchLower)) ||
-        (customer.phone && customer.phone.toLowerCase().includes(searchLower)) ||
-        (customer.mobile && customer.mobile.toLowerCase().includes(searchLower)) ||
-        (customer.mobile2 && customer.mobile2.toLowerCase().includes(searchLower)) ||
-        (customer.nationalId && customer.nationalId.toLowerCase().includes(searchLower)) ||
-        (customer.idCardNumber && customer.idCardNumber.toLowerCase().includes(searchLower)) ||
-        (customer.city && customer.city.toLowerCase().includes(searchLower)) ||
-        (customer.address && customer.address.toLowerCase().includes(searchLower)) ||
-        (customer.postalCode && customer.postalCode.toLowerCase().includes(searchLower)) ||
-        (customer.region && customer.region.toLowerCase().includes(searchLower)) ||
-        (customer.bankAccount && customer.bankAccount.toLowerCase().includes(searchLower)) ||
-        (customer.notes && customer.notes.toLowerCase().includes(searchLower));
-      
       const matchesPhone = phoneFilter === "" || 
         (customer.phone && customer.phone.toLowerCase().includes(phoneFilter.toLowerCase()));
-      const matchesCountry = countryFilter === "_all" || customer.country === countryFilter;
       const matchesServiceType = serviceTypeFilter === "_all" || customer.serviceType === serviceTypeFilter;
       const matchesStatus = statusFilter === "_all" || customer.status === statusFilter;
       const matchesClientStatus = clientStatusFilter === "_all" || customer.clientStatus === clientStatusFilter;
       
-      return matchesSearch && matchesPhone && matchesCountry && matchesServiceType && matchesStatus && matchesClientStatus;
+      return matchesPhone && matchesServiceType && matchesStatus && matchesClientStatus;
     });
     
     // Then sort
@@ -6747,13 +6744,10 @@ export default function CustomersPage() {
     });
     
     return result;
-  }, [customers, search, phoneFilter, countryFilter, serviceTypeFilter, statusFilter, clientStatusFilter, sortField, sortDirection]);
+  }, [customers, phoneFilter, serviceTypeFilter, statusFilter, clientStatusFilter, sortField, sortDirection]);
   
-  const totalPages = Math.ceil(filteredAndSortedCustomers.length / pageSize);
-  const paginatedCustomers = filteredAndSortedCustomers.slice(
-    (page - 1) * pageSize,
-    page * pageSize
-  );
+  const totalPages = Math.ceil(serverTotal / pageSize);
+  const paginatedCustomers = filteredAndSortedCustomers;
   
   const handleFilterChange = () => {
     setPage(1);
@@ -7147,7 +7141,7 @@ export default function CustomersPage() {
             {/* Header with count and export buttons */}
             <div className="flex items-center justify-between">
               <div className="text-sm text-muted-foreground">
-                {filteredAndSortedCustomers.length} {t.common.of} {allCustomers.length} {t.common.records}
+                {serverTotal} {t.common.records}
               </div>
               <div className="flex items-center gap-2">
                 <Button
@@ -7358,7 +7352,7 @@ export default function CustomersPage() {
           {totalPages > 1 && (
             <div className="flex items-center justify-between mt-4 pt-4 border-t">
               <div className="text-sm text-muted-foreground">
-                {t.common.showing} {((page - 1) * pageSize) + 1} - {Math.min(page * pageSize, filteredAndSortedCustomers.length)} {t.common.of} {filteredAndSortedCustomers.length}
+                {t.common.showing} {((page - 1) * pageSize) + 1} - {Math.min(page * pageSize, serverTotal)} {t.common.of} {serverTotal}
               </div>
               <div className="flex items-center gap-2">
                 <Button

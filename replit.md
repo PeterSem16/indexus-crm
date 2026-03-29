@@ -104,6 +104,13 @@ Preferred communication style: Simple, everyday language.
 - SIP.js (WebRTC SIP phone)
 - Jira API (Issue tracking)
 
+### Server-Side Pagination
+- **Customers** (`/api/customers`): Server-side paginated with `?page=&limit=&search=&country=` params. Returns `{ data: [], total: N }`. Frontend uses debounced search (400ms). Page size: 50.
+- **Invoices** (`/api/invoices`): Server-side paginated with `?page=&limit=&search=` params. Returns `{ data: [], total: N }`. Frontend uses debounced search (400ms). Page size: 50.
+- **Contracts** (`/api/contracts`): Server-side pagination endpoint available, currently using client-side filtering.
+- **Collections** (`/api/collections`): Server-side pagination endpoint available, currently using client-side filtering.
+- Backwards-compatible: endpoints return plain array when no pagination params are sent.
+
 ### ISCBC Migration
 - Migration from MSSQL CBC database.
 - Migrated data includes customers, contracts, invoices, collections, collaborators, hospitals, notes, calls, debt collection, potential clients.

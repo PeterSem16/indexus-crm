@@ -2160,6 +2160,14 @@ export async function registerRoutes(
   // Customers API (protected)
   app.get("/api/customers", requireAuth, async (req, res) => {
     try {
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
+      const search = req.query.search as string;
+      const country = req.query.country as string;
+      if (req.query.page || req.query.limit || req.query.search) {
+        const result = await storage.getCustomersPaginated(page, limit, search, country);
+        return res.json(result);
+      }
       const customers = await storage.getAllCustomers();
       res.json(customers);
     } catch (error) {
@@ -6957,6 +6965,15 @@ Return ONLY valid JSON, no markdown code blocks.`,
   // Invoices API (protected)
   app.get("/api/invoices", requireAuth, async (req, res) => {
     try {
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
+      const search = req.query.search as string;
+      const status = req.query.status as string;
+      const customerId = req.query.customerId as string;
+      if (req.query.page || req.query.limit || req.query.search) {
+        const result = await storage.getInvoicesPaginated(page, limit, search, status, customerId);
+        return res.json(result);
+      }
       const invoices = await storage.getAllInvoices();
       res.json(invoices);
     } catch (error) {
@@ -30123,6 +30140,13 @@ Segment should be one of: hospitals, clinics, ambulances, laboratories, pharmaci
   app.get("/api/contracts", requireAuth, async (req, res) => {
     try {
       const { customerId, status } = req.query;
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
+      const search = req.query.search as string;
+      if (req.query.page || req.query.limit || req.query.search) {
+        const result = await storage.getContractInstancesPaginated(page, limit, search, status as string, customerId as string);
+        return res.json(result);
+      }
       let contracts;
       if (customerId) {
         contracts = await storage.getContractInstancesByCustomer(customerId as string);
@@ -33950,11 +33974,17 @@ Guidelines:
     try {
       const user = req.session.user!;
       let countryCodes: string[] = [];
-      
       if (user.role !== "admin" && user.assignedCountries && user.assignedCountries.length > 0) {
         countryCodes = user.assignedCountries;
       }
-      
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
+      const search = req.query.search as string;
+      const status = req.query.status as string;
+      if (req.query.page || req.query.limit || req.query.search) {
+        const result = await storage.getCollectionsPaginated(page, limit, search, countryCodes.length > 0 ? countryCodes : undefined, status);
+        return res.json(result);
+      }
       const coll = await storage.getCollectionsByCountry(countryCodes);
       res.json(coll);
     } catch (error) {

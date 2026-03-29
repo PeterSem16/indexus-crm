@@ -1363,6 +1363,27 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(customers);
   }
 
+  async getCustomersPaginated(page: number, limit: number, search?: string, country?: string): Promise<{ data: Customer[], total: number }> {
+    const offset = (page - 1) * limit;
+    const conditions: any[] = [];
+    if (search && search.trim()) {
+      const s = `%${search.trim()}%`;
+      conditions.push(sql`(
+        ${customers.firstName} ILIKE ${s} OR ${customers.lastName} ILIKE ${s}
+        OR ${customers.email} ILIKE ${s} OR ${customers.phone} ILIKE ${s}
+        OR ${customers.mobile} ILIKE ${s} OR ${customers.internalId} ILIKE ${s}
+        OR CONCAT(${customers.firstName}, ' ', ${customers.lastName}) ILIKE ${s}
+      )`);
+    }
+    if (country && country.trim()) {
+      conditions.push(eq(customers.country, country.trim()));
+    }
+    const where = conditions.length > 0 ? and(...conditions) : undefined;
+    const [countResult] = await db.select({ count: sql<number>`count(*)::int` }).from(customers).where(where);
+    const data = await db.select().from(customers).where(where).orderBy(desc(customers.createdAt)).limit(limit).offset(offset);
+    return { data, total: countResult.count };
+  }
+
   async getCustomersByCountry(countryCodes: string[]): Promise<Customer[]> {
     const allCustomers = await db.select().from(customers);
     return allCustomers.filter(c => countryCodes.includes(c.country));
@@ -1705,6 +1726,29 @@ export class DatabaseStorage implements IStorage {
 
   async getAllInvoices(): Promise<Invoice[]> {
     return db.select().from(invoices);
+  }
+
+  async getInvoicesPaginated(page: number, limit: number, search?: string, status?: string, customerId?: string): Promise<{ data: Invoice[], total: number }> {
+    const offset = (page - 1) * limit;
+    const conditions: any[] = [];
+    if (search && search.trim()) {
+      const s = `%${search.trim()}%`;
+      conditions.push(sql`(
+        ${invoices.invoiceNumber} ILIKE ${s} OR ${invoices.variableSymbol} ILIKE ${s}
+        OR ${invoices.customerName} ILIKE ${s} OR ${invoices.billingCompanyName} ILIKE ${s}
+        OR ${invoices.legacyId} ILIKE ${s}
+      )`);
+    }
+    if (status && status.trim()) {
+      conditions.push(eq(invoices.status, status.trim()));
+    }
+    if (customerId && customerId.trim()) {
+      conditions.push(eq(invoices.customerId, customerId.trim()));
+    }
+    const where = conditions.length > 0 ? and(...conditions) : undefined;
+    const [countResult] = await db.select({ count: sql<number>`count(*)::int` }).from(invoices).where(where);
+    const data = await db.select().from(invoices).where(where).orderBy(desc(invoices.createdAt)).limit(limit).offset(offset);
+    return { data, total: countResult.count };
   }
 
   async createInvoice(invoice: InsertInvoice): Promise<Invoice> {
@@ -5070,6 +5114,28 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(contractInstances).orderBy(desc(contractInstances.createdAt));
   }
 
+  async getContractInstancesPaginated(page: number, limit: number, search?: string, status?: string, customerId?: string): Promise<{ data: ContractInstance[], total: number }> {
+    const offset = (page - 1) * limit;
+    const conditions: any[] = [];
+    if (search && search.trim()) {
+      const s = `%${search.trim()}%`;
+      conditions.push(sql`(
+        ${contractInstances.contractNumber} ILIKE ${s} OR ${contractInstances.customerName} ILIKE ${s}
+        OR ${contractInstances.internalId} ILIKE ${s}
+      )`);
+    }
+    if (status && status.trim()) {
+      conditions.push(eq(contractInstances.status, status.trim()));
+    }
+    if (customerId && customerId.trim()) {
+      conditions.push(eq(contractInstances.customerId, customerId.trim()));
+    }
+    const where = conditions.length > 0 ? and(...conditions) : undefined;
+    const [countResult] = await db.select({ count: sql<number>`count(*)::int` }).from(contractInstances).where(where);
+    const data = await db.select().from(contractInstances).where(where).orderBy(desc(contractInstances.createdAt)).limit(limit).offset(offset);
+    return { data, total: countResult.count };
+  }
+
   async getContractInstancesByCustomer(customerId: string): Promise<ContractInstance[]> {
     return db.select().from(contractInstances)
       .where(eq(contractInstances.customerId, customerId))
@@ -6210,6 +6276,28 @@ export class DatabaseStorage implements IStorage {
 
   async getAllCollections(): Promise<Collection[]> {
     return db.select().from(collections).orderBy(desc(collections.createdAt));
+  }
+
+  async getCollectionsPaginated(page: number, limit: number, search?: string, countryCodes?: string[], status?: string): Promise<{ data: Collection[], total: number }> {
+    const offset = (page - 1) * limit;
+    const conditions: any[] = [];
+    if (search && search.trim()) {
+      const s = `%${search.trim()}%`;
+      conditions.push(sql`(
+        ${collections.cbuNumber} ILIKE ${s} OR ${collections.motherName} ILIKE ${s}
+        OR ${collections.fatherName} ILIKE ${s}
+      )`);
+    }
+    if (countryCodes && countryCodes.length > 0) {
+      conditions.push(inArray(collections.countryCode, countryCodes));
+    }
+    if (status && status.trim()) {
+      conditions.push(eq(collections.status, status.trim()));
+    }
+    const where = conditions.length > 0 ? and(...conditions) : undefined;
+    const [countResult] = await db.select({ count: sql<number>`count(*)::int` }).from(collections).where(where);
+    const data = await db.select().from(collections).where(where).orderBy(desc(collections.createdAt)).limit(limit).offset(offset);
+    return { data, total: countResult.count };
   }
 
   async getCollectionsByCountry(countryCodes: string[]): Promise<Collection[]> {
