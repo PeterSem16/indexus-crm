@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useI18n } from "@/i18n";
 import { useCountryFilter } from "@/contexts/country-filter-context";
@@ -199,34 +199,57 @@ export default function CollectionsPage() {
     enabled: isEditing,
   });
 
+  const needsLookups = isListView || isEditing || isNew;
+
   const { data: billingCompanies = [] } = useQuery<BillingDetails[]>({
     queryKey: ["/api/billing-details"],
     staleTime: 5 * 60 * 1000,
+    enabled: needsLookups,
   });
 
   const { data: products = [] } = useQuery<Product[]>({
     queryKey: ["/api/products"],
     staleTime: 5 * 60 * 1000,
+    enabled: needsLookups,
   });
 
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [debouncedCustomerSearch, setDebouncedCustomerSearch] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedCustomerSearch(customerSearch), 300);
+    return () => clearTimeout(t);
+  }, [customerSearch]);
+
   const { data: customers = [] } = useQuery<any[]>({
-    queryKey: ["/api/customers/lookup"],
+    queryKey: ["/api/customers/lookup", { search: debouncedCustomerSearch || undefined, limit: debouncedCustomerSearch ? 50 : 200 }],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (debouncedCustomerSearch) params.set("search", debouncedCustomerSearch);
+      params.set("limit", debouncedCustomerSearch ? "50" : "200");
+      const res = await fetch(`/api/customers/lookup?${params.toString()}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
     staleTime: 5 * 60 * 1000,
+    enabled: needsLookups,
   });
 
   const { data: collaborators = [] } = useQuery<any[]>({
     queryKey: ["/api/collaborators/lookup"],
     staleTime: 5 * 60 * 1000,
+    enabled: needsLookups,
   });
 
   const { data: hospitals = [] } = useQuery<any[]>({
     queryKey: ["/api/hospitals/lookup"],
     staleTime: 5 * 60 * 1000,
+    enabled: needsLookups,
   });
 
   const { data: productSets = [] } = useQuery<ProductSet[]>({
     queryKey: ["/api/product-sets"],
     staleTime: 5 * 60 * 1000,
+    enabled: needsLookups,
   });
 
   const { data: collectionStatuses = [] } = useQuery<CollectionStatusType[]>({
@@ -1038,22 +1061,42 @@ export default function CollectionsPage() {
     ? productSets.filter(ps => ps.productId === formData.productId)
     : [];
 
+  const selectedCustomerName = useMemo(() => {
+    if (!formData.customerId) return "";
+    const found = customers.find(c => c.id === formData.customerId);
+    return found ? `${found.firstName} ${found.lastName}` : (collection as any)?._customerName || formData.customerId;
+  }, [formData.customerId, customers, collection]);
+
   const renderClientForm = () => (
     <div className="space-y-4">
       <div className="space-y-2">
         <Label>{t.customers?.title}</Label>
-        <Select value={formData.customerId} onValueChange={handleCustomerSelect}>
-          <SelectTrigger data-testid="select-customer">
-            <SelectValue placeholder={t.common.select} />
-          </SelectTrigger>
-          <SelectContent>
-            {customers.map((c) => (
-              <SelectItem key={c.id} value={c.id}>
-                {c.firstName} {c.lastName}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="relative">
+          <Input
+            placeholder={selectedCustomerName || t.common?.search || "Search customer..."}
+            value={customerSearch}
+            onChange={(e) => setCustomerSearch(e.target.value)}
+            data-testid="input-customer-search"
+            className="mb-1"
+          />
+          {formData.customerId && !customerSearch && (
+            <div className="text-sm text-muted-foreground px-1">{selectedCustomerName}</div>
+          )}
+          {customerSearch && customers.length > 0 && (
+            <div className="absolute z-50 w-full bg-popover border rounded-md shadow-md max-h-48 overflow-y-auto mt-1">
+              {customers.map((c) => (
+                <div
+                  key={c.id}
+                  className="px-3 py-2 text-sm cursor-pointer hover:bg-accent"
+                  onClick={() => { handleCustomerSelect(c.id); setCustomerSearch(""); }}
+                  data-testid={`option-customer-${c.id}`}
+                >
+                  {c.firstName} {c.lastName}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">

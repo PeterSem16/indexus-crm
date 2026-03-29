@@ -1363,8 +1363,8 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(customers);
   }
 
-  async getCustomersLookup(): Promise<{ id: string; firstName: string; lastName: string; country: string; email: string; status: string; serviceType: string | null }[]> {
-    return db.select({
+  async getCustomersLookup(search?: string, limit?: number): Promise<{ id: string; firstName: string; lastName: string; country: string; email: string; status: string; serviceType: string | null }[]> {
+    const q = db.select({
       id: customers.id,
       firstName: customers.firstName,
       lastName: customers.lastName,
@@ -1373,6 +1373,12 @@ export class DatabaseStorage implements IStorage {
       status: customers.status,
       serviceType: customers.serviceType,
     }).from(customers);
+    if (search && search.trim()) {
+      const s = `%${search.trim()}%`;
+      (q as any).where(sql`(${customers.firstName} ILIKE ${s} OR ${customers.lastName} ILIKE ${s} OR ${customers.email} ILIKE ${s})`);
+    }
+    if (limit) (q as any).limit(limit);
+    return q;
   }
 
   async getCustomersPaginated(page: number, limit: number, search?: string, country?: string): Promise<{ data: Customer[], total: number }> {

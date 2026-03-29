@@ -2160,7 +2160,9 @@ export async function registerRoutes(
   // Lightweight lookup endpoints (id + name only, for dropdowns and cross-references)
   app.get("/api/customers/lookup", requireAuth, async (req, res) => {
     try {
-      const data = await storage.getCustomersLookup();
+      const search = req.query.search as string | undefined;
+      const limit = req.query.limit ? Math.min(parseInt(req.query.limit as string) || 100, 500) : undefined;
+      const data = await storage.getCustomersLookup(search, limit);
       res.json(data);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch customer lookup" });
@@ -34124,7 +34126,30 @@ Guidelines:
       if (!collection) {
         return res.status(404).json({ error: "Collection not found" });
       }
-      res.json(collection);
+      const enriched: any = { ...collection };
+      const promises: Promise<void>[] = [];
+      if (collection.customerId) {
+        promises.push(storage.getCustomer(collection.customerId).then(c => {
+          if (c) enriched._customerName = `${c.firstName} ${c.lastName}`;
+        }));
+      }
+      if (collection.hospitalId) {
+        promises.push(storage.getHospital(collection.hospitalId).then(h => {
+          if (h) enriched._hospitalName = h.name;
+        }));
+      }
+      if (collection.cordBloodCollectorId) {
+        promises.push(storage.getCollaborator(collection.cordBloodCollectorId).then(c => {
+          if (c) enriched._cordBloodCollectorName = `${c.firstName} ${c.lastName}`;
+        }));
+      }
+      if (collection.tissueCollectorId) {
+        promises.push(storage.getCollaborator(collection.tissueCollectorId).then(c => {
+          if (c) enriched._tissueCollectorName = `${c.firstName} ${c.lastName}`;
+        }));
+      }
+      await Promise.all(promises);
+      res.json(enriched);
     } catch (error) {
       console.error("Error fetching collection:", error);
       res.status(500).json({ error: "Failed to fetch collection" });
