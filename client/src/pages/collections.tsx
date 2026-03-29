@@ -189,6 +189,7 @@ export default function CollectionsPage() {
       if (!res.ok) throw new Error("Failed to fetch");
       return res.json();
     },
+    enabled: isListView,
   });
   const collections = collectionsPaginated?.data || [];
   const totalCollections = collectionsPaginated?.total || 0;
@@ -200,30 +201,37 @@ export default function CollectionsPage() {
 
   const { data: billingCompanies = [] } = useQuery<BillingDetails[]>({
     queryKey: ["/api/billing-details"],
+    staleTime: 5 * 60 * 1000,
   });
 
   const { data: products = [] } = useQuery<Product[]>({
     queryKey: ["/api/products"],
+    staleTime: 5 * 60 * 1000,
   });
 
   const { data: customers = [] } = useQuery<any[]>({
     queryKey: ["/api/customers/lookup"],
+    staleTime: 5 * 60 * 1000,
   });
 
   const { data: collaborators = [] } = useQuery<any[]>({
     queryKey: ["/api/collaborators/lookup"],
+    staleTime: 5 * 60 * 1000,
   });
 
   const { data: hospitals = [] } = useQuery<any[]>({
     queryKey: ["/api/hospitals/lookup"],
+    staleTime: 5 * 60 * 1000,
   });
 
   const { data: productSets = [] } = useQuery<ProductSet[]>({
     queryKey: ["/api/product-sets"],
+    staleTime: 5 * 60 * 1000,
   });
 
   const { data: collectionStatuses = [] } = useQuery<CollectionStatusType[]>({
     queryKey: ["/api/config/collection-statuses"],
+    staleTime: 5 * 60 * 1000,
   });
 
   const esSummariesUrl = esCountry === "all"
