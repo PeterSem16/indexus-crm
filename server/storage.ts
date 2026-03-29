@@ -1746,7 +1746,7 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(invoices);
   }
 
-  async getInvoicesPaginated(page: number, limit: number, search?: string, status?: string, customerId?: string): Promise<{ data: Invoice[], total: number }> {
+  async getInvoicesPaginated(page: number, limit: number, search?: string, status?: string, customerId?: string, countries?: string[]): Promise<{ data: Invoice[], total: number }> {
     const offset = (page - 1) * limit;
     const conditions: any[] = [];
     if (search && search.trim()) {
@@ -1762,6 +1762,15 @@ export class DatabaseStorage implements IStorage {
     }
     if (customerId && customerId.trim()) {
       conditions.push(eq(invoices.customerId, customerId.trim()));
+    }
+    if (countries && countries.length > 0) {
+      const custIds = await db.select({ id: customers.id }).from(customers).where(inArray(customers.country, countries));
+      const ids = custIds.map(c => c.id);
+      if (ids.length > 0) {
+        conditions.push(inArray(invoices.customerId, ids));
+      } else {
+        return { data: [], total: 0 };
+      }
     }
     const where = conditions.length > 0 ? and(...conditions) : undefined;
     const [countResult] = await db.select({ count: sql<number>`count(*)::int` }).from(invoices).where(where);
@@ -5207,7 +5216,7 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(contractInstances).orderBy(desc(contractInstances.createdAt));
   }
 
-  async getContractInstancesPaginated(page: number, limit: number, search?: string, status?: string, customerId?: string, country?: string): Promise<{ data: ContractInstance[], total: number }> {
+  async getContractInstancesPaginated(page: number, limit: number, search?: string, status?: string, customerId?: string, country?: string, countries?: string[]): Promise<{ data: ContractInstance[], total: number }> {
     const offset = (page - 1) * limit;
     const conditions: any[] = [];
     if (search && search.trim()) {
@@ -5223,6 +5232,7 @@ export class DatabaseStorage implements IStorage {
         sent: ['sent', 'received', 'returned'],
         pending: ['pending_signature', 'verified'],
         signed: ['signed', 'executed', 'completed'],
+        cancelled: ['cancelled', 'terminated'],
       };
       const statuses = statusGroups[status.trim()] || [status.trim()];
       conditions.push(inArray(contractInstances.status, statuses));
@@ -5230,7 +5240,15 @@ export class DatabaseStorage implements IStorage {
     if (customerId && customerId.trim()) {
       conditions.push(eq(contractInstances.customerId, customerId.trim()));
     }
-    if (country && country.trim()) {
+    if (countries && countries.length > 0) {
+      const customerIds = await db.select({ id: customers.id }).from(customers).where(inArray(customers.country, countries));
+      const ids = customerIds.map(c => c.id);
+      if (ids.length > 0) {
+        conditions.push(inArray(contractInstances.customerId, ids));
+      } else {
+        return { data: [], total: 0 };
+      }
+    } else if (country && country.trim()) {
       const customerIds = await db.select({ id: customers.id }).from(customers).where(eq(customers.country, country.trim()));
       const ids = customerIds.map(c => c.id);
       if (ids.length > 0) {
@@ -5251,9 +5269,14 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(contractInstances.createdAt));
   }
 
-  async getContractInstanceStats(country?: string): Promise<{ total: number, signed: number, pending: number, drafts: number, cancelled: number }> {
+  async getContractInstanceStats(country?: string, countries?: string[]): Promise<{ total: number, signed: number, pending: number, drafts: number, cancelled: number }> {
     const conditions: any[] = [];
-    if (country) {
+    if (countries && countries.length > 0) {
+      const custIds = await db.select({ id: customers.id }).from(customers).where(inArray(customers.country, countries));
+      const ids = custIds.map(c => c.id);
+      if (ids.length === 0) return { total: 0, signed: 0, pending: 0, drafts: 0, cancelled: 0 };
+      conditions.push(inArray(contractInstances.customerId, ids));
+    } else if (country) {
       const custIds = await db.select({ id: customers.id }).from(customers).where(eq(customers.country, country));
       const ids = custIds.map(c => c.id);
       if (ids.length === 0) return { total: 0, signed: 0, pending: 0, drafts: 0, cancelled: 0 };

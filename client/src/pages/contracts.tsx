@@ -572,17 +572,17 @@ export default function ContractsPage() {
     return () => clearTimeout(timer);
   }, [contractSearchTerm]);
 
-  useEffect(() => { setContractPage(1); }, [debouncedContractSearch, contractStatusFilter, selectedCountry]);
+  useEffect(() => { setContractPage(1); }, [debouncedContractSearch, contractStatusFilter, selectedCountries]);
 
   const { data: contractsPaginated, isLoading: contractsLoading } = useQuery<{ data: ContractInstance[], total: number }>({
-    queryKey: ["/api/contracts", { page: contractPage, limit: CONTRACTS_PER_PAGE, search: debouncedContractSearch, status: contractStatusFilter, country: selectedCountry }],
+    queryKey: ["/api/contracts", { page: contractPage, limit: CONTRACTS_PER_PAGE, search: debouncedContractSearch, status: contractStatusFilter, countries: selectedCountries }],
     queryFn: async () => {
       const params = new URLSearchParams();
       params.set("page", String(contractPage));
       params.set("limit", String(CONTRACTS_PER_PAGE));
       if (debouncedContractSearch) params.set("search", debouncedContractSearch);
       if (contractStatusFilter && contractStatusFilter !== "all") params.set("status", contractStatusFilter);
-      if (selectedCountry) params.set("country", selectedCountry);
+      if (selectedCountries.length > 0) params.set("countries", selectedCountries.join(","));
       const res = await fetch(`/api/contracts?${params.toString()}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch");
       return res.json();
@@ -593,10 +593,10 @@ export default function ContractsPage() {
   const totalContracts = contractsPaginated?.total || 0;
 
   const { data: contractStats } = useQuery<{ total: number, signed: number, pending: number, drafts: number, cancelled: number }>({
-    queryKey: ["/api/contracts/stats", { country: selectedCountry }],
+    queryKey: ["/api/contracts/stats", { countries: selectedCountries }],
     queryFn: async () => {
       const params = new URLSearchParams();
-      if (selectedCountry) params.set("country", selectedCountry);
+      if (selectedCountries.length > 0) params.set("countries", selectedCountries.join(","));
       const res = await fetch(`/api/contracts/stats?${params.toString()}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch");
       return res.json();
@@ -2047,25 +2047,25 @@ export default function ContractsPage() {
                         <div className="text-2xl font-bold mt-1">{contractStats?.total ?? "—"}</div>
                       </CardContent>
                     </Card>
-                    <Card className="cursor-pointer hover-elevate" onClick={() => setContractStatusFilter(["signed", "executed", "completed"])} data-testid="stat-signed-contracts">
+                    <Card className="cursor-pointer hover-elevate" onClick={() => setContractStatusFilter("signed")} data-testid="stat-signed-contracts">
                       <CardContent className="p-3">
                         <div className="text-xs text-muted-foreground">{t.contractsModule.signedContracts}</div>
                         <div className="text-2xl font-bold mt-1 text-green-600">{contractStats?.signed ?? "—"}</div>
                       </CardContent>
                     </Card>
-                    <Card className="cursor-pointer hover-elevate" onClick={() => setContractStatusFilter(["sent", "pending_signature"])} data-testid="stat-pending-contracts">
+                    <Card className="cursor-pointer hover-elevate" onClick={() => setContractStatusFilter("pending")} data-testid="stat-pending-contracts">
                       <CardContent className="p-3">
                         <div className="text-xs text-muted-foreground">{t.contractsModule.pendingContracts}</div>
                         <div className="text-2xl font-bold mt-1 text-orange-500">{contractStats?.pending ?? "—"}</div>
                       </CardContent>
                     </Card>
-                    <Card className="cursor-pointer hover-elevate" onClick={() => setContractStatusFilter(["draft", "created"])} data-testid="stat-draft-contracts">
+                    <Card className="cursor-pointer hover-elevate" onClick={() => setContractStatusFilter("draft")} data-testid="stat-draft-contracts">
                       <CardContent className="p-3">
                         <div className="text-xs text-muted-foreground">{t.contractsModule.draftContracts}</div>
                         <div className="text-2xl font-bold mt-1">{contractStats?.drafts ?? "—"}</div>
                       </CardContent>
                     </Card>
-                    <Card className="cursor-pointer hover-elevate" onClick={() => setContractStatusFilter(["cancelled", "terminated"])} data-testid="stat-cancelled-contracts">
+                    <Card className="cursor-pointer hover-elevate" onClick={() => setContractStatusFilter("cancelled")} data-testid="stat-cancelled-contracts">
                       <CardContent className="p-3">
                         <div className="text-xs text-muted-foreground">{t.contractsModule.cancelledContracts}</div>
                         <div className="text-2xl font-bold mt-1 text-destructive">{contractStats?.cancelled ?? "—"}</div>

@@ -7043,8 +7043,9 @@ Return ONLY valid JSON, no markdown code blocks.`,
       const search = req.query.search as string;
       const status = req.query.status as string;
       const customerId = req.query.customerId as string;
-      if (req.query.page || req.query.limit || req.query.search || req.query.status) {
-        const result = await storage.getInvoicesPaginated(page, limit, search, status, customerId);
+      const countries = req.query.countries ? (req.query.countries as string).split(",").filter(Boolean) : undefined;
+      if (req.query.page || req.query.limit || req.query.search || req.query.status || countries) {
+        const result = await storage.getInvoicesPaginated(page, limit, search, status, customerId, countries);
         return res.json(result);
       }
       const invoices = await storage.getAllInvoices();
@@ -24715,7 +24716,8 @@ Rules:
   app.get("/api/contracts/stats", requireAuth, async (req, res) => {
     try {
       const country = req.query.country as string | undefined;
-      const stats = await storage.getContractInstanceStats(country || undefined);
+      const countries = req.query.countries ? (req.query.countries as string).split(",").filter(Boolean) : undefined;
+      const stats = await storage.getContractInstanceStats(country || undefined, countries);
       res.json(stats);
     } catch (error) {
       console.error("Error fetching contract stats:", error);
@@ -30268,9 +30270,10 @@ Segment should be one of: hospitals, clinics, ambulances, laboratories, pharmaci
       const page = parseInt(req.query.page as string) || 1;
       const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
       const search = req.query.search as string;
-      if (req.query.page || req.query.limit || req.query.search || req.query.status) {
+      if (req.query.page || req.query.limit || req.query.search || req.query.status || req.query.countries) {
         const country = req.query.country as string;
-        const result = await storage.getContractInstancesPaginated(page, limit, search, status as string, customerId as string, country);
+        const countries = req.query.countries ? (req.query.countries as string).split(",").filter(Boolean) : undefined;
+        const result = await storage.getContractInstancesPaginated(page, limit, search, status as string, customerId as string, country, countries);
         return res.json(result);
       }
       let contracts;
