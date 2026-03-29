@@ -6432,6 +6432,14 @@ export class DatabaseStorage implements IStorage {
     return { data, total: countResult.count };
   }
 
+  async getCollectionStatusCounts(countryCodes?: string[]): Promise<{ state: string; count: number }[]> {
+    const where = countryCodes && countryCodes.length > 0 ? inArray(collections.countryCode, countryCodes) : undefined;
+    return db.select({
+      state: collections.state,
+      count: sql<number>`count(*)::int`
+    }).from(collections).where(where).groupBy(collections.state);
+  }
+
   async getCollectionDashboardStats(countryCodes?: string[]): Promise<{
     total: number;
     thisMonth: number;

@@ -34095,6 +34095,25 @@ Guidelines:
   // COLLECTIONS (Odbery) API Routes
   // ========================================
 
+  app.get("/api/collections/status-counts", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user!;
+      let countryCodes: string[] = [];
+      if (user.role !== "admin" && user.assignedCountries && user.assignedCountries.length > 0) {
+        countryCodes = user.assignedCountries;
+      }
+      if (req.query.countries) {
+        const qc = (req.query.countries as string).split(",").filter(Boolean);
+        if (qc.length > 0) countryCodes = qc;
+      }
+      const counts = await storage.getCollectionStatusCounts(countryCodes.length > 0 ? countryCodes : undefined);
+      res.json(counts);
+    } catch (error: any) {
+      console.error("Status counts error:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   app.get("/api/collections/dashboard-stats", requireAuth, async (req, res) => {
     try {
       const user = req.session.user!;

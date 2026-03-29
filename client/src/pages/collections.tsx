@@ -215,6 +215,18 @@ export default function CollectionsPage() {
     enabled: isDashboardView && !isEditing,
   });
 
+  const { data: statusCounts } = useQuery<{ state: string; count: number }[]>({
+    queryKey: ["/api/collections/status-counts", { countries: selectedCountries }],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (selectedCountries.length > 0) params.set("countries", selectedCountries.join(","));
+      const res = await fetch(`/api/collections/status-counts?${params.toString()}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch status counts");
+      return res.json();
+    },
+    enabled: isListView,
+  });
+
   const { data: collection, isLoading: isLoadingCollection } = useQuery<Collection>({
     queryKey: ["/api/collections", collectionId],
     enabled: isEditing,
@@ -3546,11 +3558,12 @@ export default function CollectionsPage() {
             return { bg: "from-violet-50 to-violet-100/50 dark:from-violet-950/30 dark:to-violet-900/20", border: "border-violet-200 dark:border-violet-800", text: "text-violet-700 dark:text-violet-300", count: "text-violet-800 dark:text-violet-200" };
           };
 
+          const statusCountMap = new Map((statusCounts || []).map(sc => [sc.state, sc.count]));
           const statusTiles = collectionStatuses
             .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
             .map(status => ({
               ...status,
-              count: filteredCollections.filter(c => c.state === String(status.id)).length,
+              count: statusCountMap.get(String(status.id)) || 0,
               style: getStatusTileStyle(status),
             }));
 
