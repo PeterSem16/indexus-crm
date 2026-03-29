@@ -2287,25 +2287,24 @@ export default function CollectionsPage() {
                 </TabsTrigger>
               </TabsList>
 
-              <TabsContent value="client">{activeTab === "client" ? renderClientForm() : null}</TabsContent>
-              <TabsContent value="child">{activeTab === "child" ? renderChildForm() : null}</TabsContent>
-              <TabsContent value="collection">{activeTab === "collection" ? renderCollectionForm() : null}</TabsContent>
-              <TabsContent value="status">{activeTab === "status" ? renderStatusForm() : null}</TabsContent>
-              <TabsContent value="lab">
-                {activeTab === "lab" ? (isLoadingLabResults ? (
-                  <div className="flex items-center justify-center py-12">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                  </div>
-                ) : (
-                  renderLabResultsForm()
-                )) : null}
-              </TabsContent>
-              <TabsContent value="sprievodny">
-                {activeTab === "sprievodny" ? (isLoadingSprievodny ? (
-                  <div className="flex items-center justify-center py-12">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                  </div>
-                ) : !sprievodnyData ? (
+            </Tabs>
+            <div className="mt-2">
+              {activeTab === "client" && renderClientForm()}
+              {activeTab === "child" && renderChildForm()}
+              {activeTab === "collection" && renderCollectionForm()}
+              {activeTab === "status" && renderStatusForm()}
+              {activeTab === "lab" && (isLoadingLabResults ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                </div>
+              ) : (
+                renderLabResultsForm()
+              ))}
+              {activeTab === "sprievodny" && (isLoadingSprievodny ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                </div>
+              ) : !sprievodnyData ? (
                   <div className="flex flex-col items-center justify-center py-16 text-center space-y-4">
                     {sprievodnyUploading ? (
                       <div className="w-full max-w-lg space-y-6 px-4" data-testid="sprievodny-upload-progress">
@@ -2700,9 +2699,8 @@ export default function CollectionsPage() {
                       </div>
                     </div>
                   );
-                })()) : null}
-              </TabsContent>
-            </Tabs>
+                })())}
+            </div>
 
             <div className="flex items-center justify-end mt-6 pt-6 border-t">
               <Button onClick={handleSave} disabled={updateMutation.isPending} data-testid="button-save">
