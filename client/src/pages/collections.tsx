@@ -1180,7 +1180,7 @@ export default function CollectionsPage() {
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>{t.common.country}</Label>
-          <Select value={formData.countryCode} onValueChange={(v) => handleFieldChange("countryCode", v)}>
+          <Select value={formData.countryCode || undefined} onValueChange={(v) => handleFieldChange("countryCode", v)}>
             <SelectTrigger data-testid="select-country">
               <SelectValue placeholder={t.common.select} />
             </SelectTrigger>
@@ -1193,13 +1193,13 @@ export default function CollectionsPage() {
         </div>
         <div className="space-y-2">
           <Label>{t.collaborators?.fields?.billingCompany}</Label>
-          <Select value={formData.billingCompanyId} onValueChange={(v) => handleFieldChange("billingCompanyId", v)}>
+          <Select value={formData.billingCompanyId || undefined} onValueChange={(v) => handleFieldChange("billingCompanyId", v)}>
             <SelectTrigger data-testid="select-billing-company">
               <SelectValue placeholder={t.common.select} />
             </SelectTrigger>
             <SelectContent>
-              {billingCompanies.map((bc) => (
-                <SelectItem key={bc.id} value={bc.id}>{bc.companyName}</SelectItem>
+              {billingCompanies.map((bc: any) => (
+                <SelectItem key={bc.id} value={String(bc.id)}>{bc.companyName}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -1208,7 +1208,7 @@ export default function CollectionsPage() {
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>{t.products?.title}</Label>
-          <Select value={formData.productId} onValueChange={(v) => {
+          <Select value={formData.productId || undefined} onValueChange={(v) => {
             handleFieldChange("productId", v);
             handleFieldChange("billsetId", "");
           }}>
@@ -1216,8 +1216,8 @@ export default function CollectionsPage() {
               <SelectValue placeholder={t.common.select} />
             </SelectTrigger>
             <SelectContent>
-              {products.map((p) => (
-                <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+              {products.map((p: any) => (
+                <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -1225,7 +1225,7 @@ export default function CollectionsPage() {
         <div className="space-y-2">
           <Label>{t.collections?.billset}</Label>
           <Select 
-            value={formData.billsetId} 
+            value={formData.billsetId || undefined} 
             onValueChange={(v) => handleFieldChange("billsetId", v)}
             disabled={!formData.productId || productBillsets.length === 0}
           >
@@ -1233,8 +1233,8 @@ export default function CollectionsPage() {
               <SelectValue placeholder={productBillsets.length === 0 ? notAvailable : t.common.select} />
             </SelectTrigger>
             <SelectContent>
-              {productBillsets.map((ps) => (
-                <SelectItem key={ps.id} value={ps.id}>{ps.name}</SelectItem>
+              {productBillsets.map((ps: any) => (
+                <SelectItem key={ps.id} value={String(ps.id)}>{ps.name}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -1265,7 +1265,7 @@ export default function CollectionsPage() {
       </div>
       <div className="space-y-2">
         <Label>{t.collections?.gender}</Label>
-        <Select value={formData.childGender} onValueChange={(v) => handleFieldChange("childGender", v)}>
+        <Select value={formData.childGender || undefined} onValueChange={(v) => handleFieldChange("childGender", v)}>
           <SelectTrigger data-testid="select-child-gender">
             <SelectValue placeholder={t.common.select} />
           </SelectTrigger>
@@ -1301,13 +1301,13 @@ export default function CollectionsPage() {
       </div>
       <div className="space-y-2">
         <Label>{t.collections?.hospital}</Label>
-        <Select value={formData.hospitalId} onValueChange={(v) => handleFieldChange("hospitalId", v)}>
+        <Select value={formData.hospitalId || undefined} onValueChange={(v) => handleFieldChange("hospitalId", v)}>
           <SelectTrigger data-testid="select-hospital">
             <SelectValue placeholder={t.common.select} />
           </SelectTrigger>
           <SelectContent>
-            {hospitals.map((h) => (
-              <SelectItem key={h.id} value={h.id}>{h.name}</SelectItem>
+            {hospitals.map((h: any) => (
+              <SelectItem key={h.id} value={String(h.id)}>{h.name}</SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -1315,26 +1315,26 @@ export default function CollectionsPage() {
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>{t.collections?.cordBloodCollector}</Label>
-          <Select value={formData.cordBloodCollectorId} onValueChange={(v) => handleFieldChange("cordBloodCollectorId", v)}>
+          <Select value={formData.cordBloodCollectorId || undefined} onValueChange={(v) => handleFieldChange("cordBloodCollectorId", v)}>
             <SelectTrigger data-testid="select-cord-blood-collector">
               <SelectValue placeholder={t.common.select} />
             </SelectTrigger>
             <SelectContent>
-              {collaborators.map((c) => (
-                <SelectItem key={c.id} value={c.id}>{c.firstName} {c.lastName}</SelectItem>
+              {collaborators.map((c: any) => (
+                <SelectItem key={c.id} value={String(c.id)}>{c.firstName} {c.lastName}</SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
         <div className="space-y-2">
           <Label>{t.collections?.tissueCollector}</Label>
-          <Select value={formData.tissueCollectorId} onValueChange={(v) => handleFieldChange("tissueCollectorId", v)}>
+          <Select value={formData.tissueCollectorId || undefined} onValueChange={(v) => handleFieldChange("tissueCollectorId", v)}>
             <SelectTrigger data-testid="select-tissue-collector">
               <SelectValue placeholder={t.common.select} />
             </SelectTrigger>
             <SelectContent>
-              {collaborators.map((c) => (
-                <SelectItem key={c.id} value={c.id}>{c.firstName} {c.lastName}</SelectItem>
+              {collaborators.map((c: any) => (
+                <SelectItem key={c.id} value={String(c.id)}>{c.firstName} {c.lastName}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -1343,26 +1343,26 @@ export default function CollectionsPage() {
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>{t.collections?.placentaCollector}</Label>
-          <Select value={formData.placentaCollectorId} onValueChange={(v) => handleFieldChange("placentaCollectorId", v)}>
+          <Select value={formData.placentaCollectorId || undefined} onValueChange={(v) => handleFieldChange("placentaCollectorId", v)}>
             <SelectTrigger data-testid="select-placenta-collector">
               <SelectValue placeholder={t.common.select} />
             </SelectTrigger>
             <SelectContent>
-              {collaborators.map((c) => (
-                <SelectItem key={c.id} value={c.id}>{c.firstName} {c.lastName}</SelectItem>
+              {collaborators.map((c: any) => (
+                <SelectItem key={c.id} value={String(c.id)}>{c.firstName} {c.lastName}</SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
         <div className="space-y-2">
           <Label>{t.collections?.assistantNurse}</Label>
-          <Select value={formData.assistantNurseId} onValueChange={(v) => handleFieldChange("assistantNurseId", v)}>
+          <Select value={formData.assistantNurseId || undefined} onValueChange={(v) => handleFieldChange("assistantNurseId", v)}>
             <SelectTrigger data-testid="select-assistant-nurse">
               <SelectValue placeholder={t.common.select} />
             </SelectTrigger>
             <SelectContent>
-              {collaborators.map((c) => (
-                <SelectItem key={c.id} value={c.id}>{c.firstName} {c.lastName}</SelectItem>
+              {collaborators.map((c: any) => (
+                <SelectItem key={c.id} value={String(c.id)}>{c.firstName} {c.lastName}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -1371,26 +1371,26 @@ export default function CollectionsPage() {
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>{t.collections?.secondNurse}</Label>
-          <Select value={formData.secondNurseId} onValueChange={(v) => handleFieldChange("secondNurseId", v)}>
+          <Select value={formData.secondNurseId || undefined} onValueChange={(v) => handleFieldChange("secondNurseId", v)}>
             <SelectTrigger data-testid="select-second-nurse">
               <SelectValue placeholder={t.common.select} />
             </SelectTrigger>
             <SelectContent>
-              {collaborators.map((c) => (
-                <SelectItem key={c.id} value={c.id}>{c.firstName} {c.lastName}</SelectItem>
+              {collaborators.map((c: any) => (
+                <SelectItem key={c.id} value={String(c.id)}>{c.firstName} {c.lastName}</SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
         <div className="space-y-2">
           <Label>{t.collections?.representative}</Label>
-          <Select value={formData.representativeId} onValueChange={(v) => handleFieldChange("representativeId", v)}>
+          <Select value={formData.representativeId || undefined} onValueChange={(v) => handleFieldChange("representativeId", v)}>
             <SelectTrigger data-testid="select-representative">
               <SelectValue placeholder={t.common.select} />
             </SelectTrigger>
             <SelectContent>
-              {collaborators.map((c) => (
-                <SelectItem key={c.id} value={c.id}>{c.firstName} {c.lastName}</SelectItem>
+              {collaborators.map((c: any) => (
+                <SelectItem key={c.id} value={String(c.id)}>{c.firstName} {c.lastName}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -1403,7 +1403,7 @@ export default function CollectionsPage() {
     <div className="space-y-4">
       <div className="space-y-2">
         <Label>{t.collections?.status}</Label>
-        <Select value={formData.state} onValueChange={(v) => handleFieldChange("state", v)}>
+        <Select value={formData.state || undefined} onValueChange={(v) => handleFieldChange("state", v)}>
           <SelectTrigger data-testid="select-state">
             <SelectValue placeholder={t.common.select} />
           </SelectTrigger>
@@ -1424,13 +1424,13 @@ export default function CollectionsPage() {
       </div>
       <div className="space-y-2">
         <Label>{t.collections?.coordinator}</Label>
-        <Select value={formData.responsibleCoordinatorId} onValueChange={(v) => handleFieldChange("responsibleCoordinatorId", v)}>
+        <Select value={formData.responsibleCoordinatorId || undefined} onValueChange={(v) => handleFieldChange("responsibleCoordinatorId", v)}>
           <SelectTrigger data-testid="select-coordinator">
             <SelectValue placeholder={t.common.select} />
           </SelectTrigger>
           <SelectContent>
-            {collaborators.map((c) => (
-              <SelectItem key={c.id} value={c.id}>{c.firstName} {c.lastName}</SelectItem>
+            {collaborators.map((c: any) => (
+              <SelectItem key={c.id} value={String(c.id)}>{c.firstName} {c.lastName}</SelectItem>
             ))}
           </SelectContent>
         </Select>
