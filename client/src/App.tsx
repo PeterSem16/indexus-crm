@@ -58,16 +58,17 @@ import NotFound from "@/pages/not-found";
 import { Loader2 } from "lucide-react";
 import { Component as ReactComponent, type ErrorInfo, type ReactNode } from "react";
 
-class ErrorBoundary extends ReactComponent<{ children: ReactNode; fallback?: ReactNode }, { hasError: boolean; error: Error | null }> {
+class ErrorBoundary extends ReactComponent<{ children: ReactNode; fallback?: ReactNode }, { hasError: boolean; error: Error | null; componentStack: string | null }> {
   constructor(props: { children: ReactNode; fallback?: ReactNode }) {
     super(props);
-    this.state = { hasError: false, error: null };
+    this.state = { hasError: false, error: null, componentStack: null };
   }
   static getDerivedStateFromError(error: Error) {
     return { hasError: true, error };
   }
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("[ErrorBoundary] Caught error:", error, errorInfo);
+    this.setState({ componentStack: (errorInfo as any).componentStack || null });
   }
   render() {
     if (this.state.hasError) {
@@ -75,8 +76,14 @@ class ErrorBoundary extends ReactComponent<{ children: ReactNode; fallback?: Rea
         <div style={{ padding: "2rem", color: "red" }}>
           <h2>Component Error</h2>
           <pre style={{ whiteSpace: "pre-wrap", fontSize: "0.85rem" }}>{this.state.error?.message}</pre>
+          {this.state.componentStack && (
+            <div style={{ marginTop: "1rem" }}>
+              <h3 style={{ color: "#333", fontSize: "0.9rem" }}>Component Stack:</h3>
+              <pre style={{ whiteSpace: "pre-wrap", fontSize: "0.75rem", color: "#666", background: "#f5f5f5", padding: "0.5rem", borderRadius: "4px" }}>{this.state.componentStack}</pre>
+            </div>
+          )}
           <pre style={{ whiteSpace: "pre-wrap", fontSize: "0.75rem", marginTop: "1rem", color: "#666" }}>{this.state.error?.stack}</pre>
-          <button onClick={() => this.setState({ hasError: false, error: null })} style={{ marginTop: "1rem", padding: "0.5rem 1rem", cursor: "pointer" }}>Retry</button>
+          <button onClick={() => this.setState({ hasError: false, error: null, componentStack: null })} style={{ marginTop: "1rem", padding: "0.5rem 1rem", cursor: "pointer" }}>Retry</button>
         </div>
       );
     }
@@ -190,9 +197,9 @@ function AuthenticatedApp() {
                     <Route path="/visit-events" component={VisitEventsPage} />
                     <Route path="/collaborators" component={CollaboratorsPage} />
                     <Route path="/collaborator-reports" component={CollaboratorReportsPage} />
-                    <Route path="/collections" component={CollectionsPage} />
-                    <Route path="/collections/new" component={CollectionsPage} />
-                    <Route path="/collections/:id" component={CollectionsPage} />
+                    <Route path="/collections">{() => <CollectionsPage key="list" />}</Route>
+                    <Route path="/collections/new">{() => <CollectionsPage key="new" />}</Route>
+                    <Route path="/collections/:id">{() => <CollectionsPage key="edit" />}</Route>
                     <Route path="/campaigns" component={CampaignsPage} />
                     <Route path="/campaigns/:id" component={CampaignDetailPage} />
                     <Route path="/campaigns/:id/reports" component={CampaignReportsPage} />

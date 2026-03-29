@@ -3587,13 +3587,14 @@ export default function CollectionsPage() {
           const safePage = Math.min(listPage, totalPages);
           const paginated = sorted.slice((safePage - 1) * listPageSize, safePage * listPageSize);
 
-          const SortHeader = ({ field, children }: { field: string; children: any }) => (
+          const renderSortHeader = (field: string, label: any) => (
             <th
+              key={field}
               className="text-left py-3 px-3 font-medium cursor-pointer select-none hover:text-primary transition-colors"
               onClick={() => { if (listSortField === field) { setListSortDir(d => d === "asc" ? "desc" : "asc"); } else { setListSortField(field); setListSortDir("asc"); } setListPage(1); }}
             >
               <div className="flex items-center gap-1">
-                {children}
+                {label}
                 {listSortField === field && (
                   listSortDir === "asc" ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />
                 )}
@@ -3689,11 +3690,11 @@ export default function CollectionsPage() {
                       <table className="w-full text-sm">
                         <thead>
                           <tr className="border-b bg-muted/30">
-                            <SortHeader field="cbuNumber">{t.collections?.cbuNumber}</SortHeader>
-                            <SortHeader field="name">{t.common.name}</SortHeader>
-                            <SortHeader field="country">{t.common.country}</SortHeader>
-                            <SortHeader field="collectionDate">{t.collections?.collectionDate || (locale === "sk" ? "Dátum" : "Date")}</SortHeader>
-                            <SortHeader field="state">{t.collections?.status}</SortHeader>
+                            {renderSortHeader("cbuNumber", t.collections?.cbuNumber)}
+                            {renderSortHeader("name", t.common.name)}
+                            {renderSortHeader("country", t.common.country)}
+                            {renderSortHeader("collectionDate", t.collections?.collectionDate || (locale === "sk" ? "Dátum" : "Date"))}
+                            {renderSortHeader("state", t.collections?.status)}
                             <th className="text-right py-3 px-3 font-medium">{t.common.actions}</th>
                           </tr>
                         </thead>
