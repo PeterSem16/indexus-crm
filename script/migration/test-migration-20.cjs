@@ -4023,7 +4023,11 @@ async function step13_debtCollection() {
         ])
       );
 
-      for (const r of aopRes.recordset) {
+      const aopTotal = aopRes.recordset.length;
+      const aopStart = Date.now();
+      for (let ai = 0; ai < aopTotal; ai++) {
+        const r = aopRes.recordset[ai];
+        if (ai % 2000 === 0 || ai === aopTotal - 1) progressBar(ai + 1, aopTotal, 'ApplicationOfPayments', aopStart);
         const customerId = customerMap[String(r.cli_id)];
         if (!customerId) { totalSkipped++; continue; }
         const legacyId = `aop_${r.aop_id}`;
