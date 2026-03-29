@@ -1,286 +1,396 @@
-# ISCBC → INDEXUS CRM Migration Guide
+# ISCBC → INDEXUS CRM Migration Guide (v20.5)
 
 ## Overview
 
-Migration from legacy ISCBC system (MSSQL database `CBC` on `10.1.2.2:1433`) to INDEXUS CRM (PostgreSQL).
+Complete migration from legacy ISCBC system (MSSQL database `CBC` on `10.1.2.2:1433`) to INDEXUS CRM (PostgreSQL `indexus_crm`).
 
-**Current phase**: 100-record test migration (no billing/rewards in this phase, but invoice data is migrated to both `customer_documents` and `invoices` modules).
+**Migračný skript**: `script/migration/test-migration-20.cjs`
+**Verzia**: v20.5 (2026-03-29)
+
+---
 
 ## Architecture
 
-### Source
-- **Database**: Microsoft SQL Server
+### Source (MSSQL)
 - **Server**: `10.1.2.2:1433`
-- **Database name**: `CBC`
-- **Credentials**: `cbcuser` / `XqU0nNND`
+- **Database**: `CBC`
+- **User**: `cbcuser` / `XqU0nNND`
 
-### Target
-- **Database**: PostgreSQL
-- **Connection**: `localhost`, user `indexus`, database `indexus_crm`, password `HanyurIfKisck`
+### Target (PostgreSQL)
+- **Host**: `localhost`
+- **Database**: `indexus_crm`
+- **User**: `indexus` / `HanyurIfKisck`
 
-### Migration Scripts
-| File | Purpose |
-|------|---------|
-| `script/migration/test-migration-20.cjs` | Main migration script (20 steps) |
-| `script/migration/cleanup-test-migration.cjs` | Cleanup script to remove all migrated data before re-running |
+---
 
-## Migration Steps (test-migration-20.cjs)
+## Postup migrácie — krok po kroku
 
-### Step 1: Customers (Clients + Persons)
-- Source: `CBC.Clients` joined with `CBC.Persons`
-- Target: `customers`
-- Key mapping: `internal_id = "cbc_{cli_id}"`
-- Includes: personal data, contact info, country, status
+### Príprava
 
-### Step 2: Customer Contacts (Phones, Emails)
-- Source: `CBC.Contacts`
-- Target: `customers` (phone, email fields updated)
+```bash
+cd /var/www/indexus-crm
+git pull
+npm run build
+npx drizzle-kit push --force
+```
 
-### Step 3: Customer Addresses
-- Source: `CBC.Addresses`
-- Target: `customer_addresses`
+### 1. Cleanup (voliteľné — pri prvom spustení)
 
-### Step 4: Collections (Odbery)
-- Source: `CBC.Collections` + `CBC.CollectionStatuses`
-- Target: `collections`
-- Key mapping: `legacy_id = cbc_col_id`
+Vymaže všetky predtým migrované dáta z PostgreSQL.
 
-### Step 5: Collection Lab Results
-- Source: `CBC.LabResults`
-- Target: `collection_lab_results`
+```bash
+MIGRATION_LIMIT=999999 node --max-old-space-size=8192 script/migration/test-migration-20.cjs cleanup
+```
 
-### Step 6: Hospitals
-- Source: `CBC.Hospitals`
-- Target: `hospitals`
-- Key mapping: `legacy_id = cbc_hos_id`
+**Čo zmaže:**
+| Tabuľka | Podmienka |
+|---------|-----------|
+| `scheduled_invoices` | `created_by = 'migration-v20'` |
+| `customer_debt_collection` | `data_source = 'iscbc'` |
+| `invoices` | `data_source = 'iscbc'` |
+| `customer_documents` | `data_source = 'iscbc'` |
+| `contract_instances` | `data_source = 'iscbc'` |
+| `communication_messages` | `external_id LIKE 'cbc_pho_%'` |
+| `customer_notes` | `data_source = 'iscbc'` |
+| `customer_potential_cases` | zákazníci s `data_source = 'iscbc'` |
+| `collection_lab_results` | kolekcie s `data_source = 'iscbc'` |
+| `collections` | `data_source = 'iscbc'` |
+| `collaborator_activities` | `legacy_id LIKE 'cc_%'` |
+| `collaborator_agreements` | `legacy_id IS NOT NULL` |
+| `collaborator_addresses` | spolupracovníci s `data_source = 'iscbc'` |
+| `collaborators` | `data_source = 'iscbc'` |
+| `customers` | `data_source = 'iscbc'` |
+| `hospitals` | `data_source = 'iscbc'` |
 
-### Step 7: Collaborators (Spolupracovníci)
-- Source: `CBC.Collaborators` + `CBC.Persons`
-- Target: `collaborators`
-- Key mapping: `legacy_id = cbc_col_id`
+---
 
-### Step 8: Collaborator Activities
-- Source: `CBC.CollaboratorActivities`
-- Target: `collaborator_activities`
+### 2. Step 3 — Nemocnice
 
-### Step 9: Collaborator Addresses
-- Source: `CBC.CollaboratorAddresses`
-- Target: `collaborator_addresses`
+```bash
+MIGRATION_LIMIT=999999 node --max-old-space-size=8192 script/migration/test-migration-20.cjs step3 --no-cleanup
+```
 
-### Step 10: Collaborator Agreements
-- Source: `CBC.CollaboratorAgreements`
-- Target: `collaborator_agreements`
+- **Zdroj**: `CBC.Hospitals` + `CBC.HospitalCategories` + `CBC.MailAddresses`
+- **Cieľ**: `hospitals`
+- **Mapovanie**: `legacy_id = "cbc_{hos_id}"`, `data_source = 'iscbc'`
+- **Čas**: ~1 minúta
 
-### Step 11: Contracts → contract_instances
-- Source: `CBC.Contracts` joined with `CBC.ContractStatuses`, `CBC.ContractSets`
-- Target: `contract_instances`
-- Key mapping: `internal_id = "contract_{con_id}"`
-- Hospital/collaborator lookup uses `legacy_id` (not `internal_id`)
-- `hospitalId` stored as `varchar` (hospitals use UUID PKs)
-- `dataSource = 'iscbc'`, `legacyData` stores full CBC row as JSON
-- Status mapped from `REG_CSA_*` codes
+---
 
-### Step 12: Invoices → customer_documents + invoices
-- Source: `CBC.Invoices` joined with `CBC.InvoiceStatuses`, `CBC.InvoiceTypes`, `CBC.ContractSets`, `CBC.Contracts`, `CBC.Clients`, `CBC.Companies`, `CBC.Currencies`
-- Additional sources preloaded into `legacyData`:
-  - `CBC.InvoiceItems` — invoice line items (item name, qty, unit, unit prices, VAT rate, totals)
-  - `CBC.InvoicePayments` — payment records (name, amounts, due date, status)
-  - `CBC.InvoicePaymentItems` / `CBC.PaymentSubItems` — payment sub-items (payment date, amounts, exchange rate, payment type, document, account, bank, VS, message, note)
-- Target: **dual insert** into:
-  1. `customer_documents` (customer profile Documents tab)
-  2. `invoices` (main Invoices module)
-- Key mapping: `legacy_id = cbc_inv_id`
-- Invoice number in module: `CBC-{original_number}` (unique prefix)
-- Company name: chain `Contracts.cli_id → Clients.com_id → Companies.com_name`
-- Contract instance link: `contract_instance_id` via `internal_id = "contract_{con_id}"`
-- Legacy data structure in `legacyData` JSON field includes `items[]`, `payments[].subItems[]`
-- New column: `invoices.pdf_downloaded_at` — tracks when PDF was downloaded from INDEXUS
-- UI: "Legacy" tab in Invoice Detail drawer shows items, payments with expandable sub-items
+### 3. Step 4 + 4b + 4c — Spolupracovníci
 
-#### Status Mapping
-| CBC Status Code | Normalized | Invoices Module Status |
-|----------------|------------|----------------------|
+```bash
+MIGRATION_LIMIT=999999 node --max-old-space-size=8192 script/migration/test-migration-20.cjs step4 step4b step4c --no-cleanup
+```
+
+#### Step 4: Spolupracovníci (Collaborators)
+- **Zdroj**: `CBC.Collaborators` + `CBC.Persons` + `CBC.MailAddresses` + `CBC.Contacts`
+- **Cieľ**: `collaborators` + `collaborator_addresses`
+- **Mapovanie**: `legacy_id = "cbc_{clb_id}"`, `data_source = 'iscbc'`
+
+#### Step 4b: Dohody spolupracovníkov (Agreements)
+- **Zdroj**: `CBC.CollaboratorAgreements`
+- **Cieľ**: `collaborator_agreements`
+- **Mapovanie**: `legacy_id = "cbc_cag_{cag_id}"`
+
+#### Step 4c: Úkony spolupracovníkov (Activities)
+- **Zdroj**: `CBC.CollectionCollaborators` + `CBC.Collaborators`
+- **Cieľ**: `collaborator_activities`
+- **Mapovanie**: `legacy_id = "cc_{col_id}_{clb_id}"`
+
+- **Čas**: ~5 minút
+
+---
+
+### 4. Step 5 — Zákazníci
+
+```bash
+MIGRATION_LIMIT=999999 node --max-old-space-size=8192 script/migration/test-migration-20.cjs step5 --no-cleanup
+```
+
+- **Zdroj**: `CBC.Clients` + `CBC.Persons` + `CBC.Contacts` + `CBC.MailAddresses`
+- **Cieľ**: `customers`
+- **Mapovanie**: `internal_id = "{cli_id}"`, `data_source = 'iscbc'`
+- **Obsahuje**: meno, priezvisko, email, telefón, adresa, krajina, stav
+- **Čas**: ~10-15 minút
+
+---
+
+### 5. Step 6 + 6b — Odbery a Cases
+
+```bash
+MIGRATION_LIMIT=999999 node --max-old-space-size=8192 script/migration/test-migration-20.cjs step6 step6b --no-cleanup
+```
+
+#### Step 6: Odbery + Lab výsledky
+- **Zdroj**: `CBC.Collections` + `CBC.CollectionStatuses` + `CBC.LabResults` + `CBC.CollectionAttendees`
+- **Cieľ**: `collections` + `collection_lab_results`
+- **Mapovanie**: `legacy_id = "cbc_{col_id}"`, `data_source = 'iscbc'`
+
+#### Step 6b: Cases (otcovské dáta)
+- **Zdroj**: `CBC.Fathers` / zákaznícke dáta
+- **Cieľ**: `customer_potential_cases`
+
+- **Čas**: ~15-20 minút
+
+---
+
+### 6. Step 8 — Poznámky
+
+```bash
+MIGRATION_LIMIT=999999 node --max-old-space-size=8192 script/migration/test-migration-20.cjs step8 --no-cleanup
+```
+
+- **Zdroj**: `CBC.ClientRemarks`
+- **Cieľ**: `customer_notes`
+- **Mapovanie**: `legacy_id = "remark_{clr_id}"`, `data_source = 'iscbc'`
+- **Čas**: ~5 minút
+
+---
+
+### 7. Step 9 — Telefonické komunikácie
+
+```bash
+MIGRATION_LIMIT=999999 node --max-old-space-size=8192 script/migration/test-migration-20.cjs step9 --no-cleanup
+```
+
+- **Zdroj**: `CBC.PhoneCommunications`
+- **Cieľ**: `communication_messages`
+- **Mapovanie**: `external_id = "cbc_pho_{pho_id}"`
+- **Čas**: ~10 minút
+
+---
+
+### 8. Step 11 — Zmluvy zákazníkov
+
+```bash
+MIGRATION_LIMIT=999999 node --max-old-space-size=8192 script/migration/test-migration-20.cjs step11 --no-cleanup
+```
+
+- **Zdroj**: `CBC.Contracts` + `CBC.ContractStatuses` + `CBC.ContractServices` + `CBC.ContractServicePricings` + `CBC.HistoryCSPs` + `CBC.ContractHistory` + `CBC.Surcharges` + `CBC.Prepayments` + `CBC.SchedulePayments`
+- **Cieľ**: `contract_instances` + `customer_documents`
+- **Mapovanie**: `internal_id = "contract_{con_id}"`, `data_source = 'iscbc'`
+- **Obsahuje**: kompletný `legacyData` JSON so všetkými službami, cenníkmi, historiou, príplatkami
+- **Čas**: ~30-40 minút
+
+#### Status mapping
+| CBC kód | Normalizovaný |
+|---------|---------------|
+| `REG_CSA_ACTIVE` | active |
+| `REG_CSA_FINISHED` | finished |
+| `REG_CSA_CANCELLED` | cancelled |
+| `REG_CSA_SUSPENDED` | suspended |
+| `REG_CSA_CREATED` | created |
+
+---
+
+### 9. Step 12 — Faktúry (chunk-based)
+
+```bash
+MIGRATION_LIMIT=999999 node --max-old-space-size=8192 script/migration/test-migration-20.cjs step12 --no-cleanup
+```
+
+- **Zdroj**: `CBC.Invoices` + `CBC.InvoiceItems` + `CBC.ScheduledPayments` + `CBC.RealizedPayments` + `CBC.InvoiceSchedulesPaymentDates` + `CBC.InvoiceStatuses` + `CBC.InvoiceTypes` + `CBC.Companies` + `CBC.CompanyDetails` + `CBC.CompanyAccounts` + `CBC.VATs`
+- **Cieľ**: **duálny insert** do:
+  1. `customer_documents` (záložka Dokumenty na profile zákazníka)
+  2. `invoices` (modul Faktúry)
+  3. `scheduled_invoices` (nezaplatené splátky z ScheduledPayments)
+- **Mapovanie**: `legacy_id = "invoice_{inv_id}"`, `data_source = 'iscbc'`
+- **Číslo faktúry v module**: `CBC-{pôvodné_číslo}`
+- **Chunk-based processing**: 25,000 cse_ids na chunk (kvôli OOM s ~1M+ faktúrami)
+- **Čas**: ~120-130 minút
+
+#### Status mapping (faktúry)
+| CBC kód | Normalizovaný | Modul Invoices |
+|---------|---------------|----------------|
 | `REG_IST_NEW` | new | generated |
 | `REG_IST_FILLED` | filled | generated |
 | `REG_IST_INDUE` | in_due | sent |
+| `REG_IST_SENT` | sent | sent |
 | `REG_IST_PAID` | paid | paid |
+| `REG_IST_PARTIALLY_PAID` | partially_paid | partially_paid |
 | `REG_IST_OVERDUE` | overdue | overdue |
-| `REG_IST_CANCELLED` | cancelled | cancelled |
+| `REG_IST_STORNO` | cancelled | cancelled |
+| `REG_IST_CREDIT_NOTE` | credit_note | cancelled |
 
-#### Type Mapping
-| CBC Type Code | Display |
-|--------------|---------|
-| `REG_ITY_INVOICE` | Invoice |
-| `REG_ITY_CREDIT_NOTE` | Credit Note |
-| `REG_ITY_PROFORMA` | Proforma |
+#### Type mapping
+| CBC kód | Typ |
+|---------|-----|
+| `REG_ITY_INVOICE` | Faktúra |
+| `REG_ITY_CREDIT_NOTE` | Dobropis |
+| `REG_ITY_PROFORMA` | Zálohovka |
+| `REG_ITY_ADVANCE` | Preddavok |
+| `REG_ITY_DEBIT_NOTE` | Ťarchopis |
 
-### Step 13: Debt Collection (Vymáhanie)
-- Source: `CBC.DebtCollection`
-- Target: `customer_debt_collection`
-- `dataSource = 'iscbc'`
+---
 
-### Step 14: Customer Notes
-- Source: `CBC.Notes`
-- Target: `customer_notes`
-- `legacy_id` set
+### 10. Step 13 — Vymáhanie pohľadávok
 
-### Step 15: Phone Calls / Communication
-- Source: `CBC.PhoneCalls`
-- Target: `communication_messages`
-- `provider = 'cbc_legacy'`
-
-### Step 16: Potential Clients
-- Source: `CBC.PotentialClients`
-- Target: `customers` with `client_status = 'potential'`
-- Key mapping: `internal_id = "pot_{id}"`
-
-### Steps 17-20: Verification & Summary
-- Record counts per table
-- Error summary
-- Migration timestamp log
-
-## Running the Migration
-
-### Prerequisites
-1. Ensure PostgreSQL schema is up to date:
-   ```bash
-   npm run build
-   npx drizzle-kit push --force
-   ```
-
-2. Ensure MSSQL is accessible from the server (network connectivity to `10.1.2.2:1433`)
-
-### Full Migration Command (Ubuntu server — no limits)
 ```bash
-cd /var/www/indexus-crm && \
-  git pull && \
-  npm run build && \
-  npx drizzle-kit push --force && \
-  node script/migration/cleanup-test-migration.cjs && \
-  MIGRATION_LIMIT=999999 node script/migration/test-migration-20.cjs 2>&1 | tee /tmp/migration-full.txt && \
-  pm2 restart indexus-crm
+MIGRATION_LIMIT=999999 node --max-old-space-size=8192 script/migration/test-migration-20.cjs step13 --no-cleanup
 ```
 
-### Test Migration Command (limited)
+- **Zdroj**: `CBC.DebtorsSKRest`, `CBC.DebtorsCZ`, `CBC.DebtorsEurocord`, `CBC.DebtorsHU`, `CBC.DebtorsRO`
+- **Cieľ**: `customer_debt_collection`
+- **Mapovanie**: `data_source = 'iscbc'`
+- **Čas**: ~5 minút
+
+---
+
+### 11. Step 14 — Potenciálni klienti
+
 ```bash
-cd /var/www/indexus-crm && \
-  node script/migration/cleanup-test-migration.cjs && \
-  MIGRATION_LIMIT=100 node script/migration/test-migration-20.cjs 2>&1 | tee /tmp/migration-v20.txt && \
-  pm2 restart indexus-crm
+MIGRATION_LIMIT=999999 node --max-old-space-size=8192 script/migration/test-migration-20.cjs step14 --no-cleanup
 ```
 
-### Environment Variable
-- `MIGRATION_LIMIT=100` — limits to first 100 clients (for testing)
-- `MIGRATION_LIMIT=999999` — effectively no limit (full migration)
+- **Zdroj**: `CBC.PotentialClients` (bez existujúcej zmluvy)
+- **Cieľ**: `customers` s `client_status = 'potential'`
+- **Mapovanie**: `internal_id = "pot_{id}"`, `data_source = 'iscbc'`
+- **Čas**: ~5-10 minút
 
-### Performance Notes
-- MSSQL request timeout: 10 minutes (600s)
-- Large queries are automatically batched (5000 IDs per batch) to avoid MSSQL timeouts
-- Full migration with ~192K clients, ~264K contracts, ~2.8M invoices may take several hours
+---
 
-### Re-running
-The cleanup script removes all migrated data before re-running:
+### 12. Verifikácia
+
 ```bash
-node script/migration/cleanup-test-migration.cjs
+MIGRATION_LIMIT=999999 node --max-old-space-size=8192 script/migration/test-migration-20.cjs verify --no-cleanup
 ```
-It deletes data with markers: `data_source = 'iscbc'`, `legacy_id IS NOT NULL`, `internal_id IS NOT NULL`, `provider = 'cbc_legacy'`.
+
+Zobrazí porovnávaciu tabuľku počtov záznamov v CBC vs INDEXUS CRM.
+
+---
+
+## Kompletný beh (všetky kroky naraz)
+
+Ak chcete spustiť úplne všetko od čistenia po verifikáciu:
+
+```bash
+cd /var/www/indexus-crm && git pull && npm run build && npx drizzle-kit push --force
+
+MIGRATION_LIMIT=999999 node --max-old-space-size=8192 script/migration/test-migration-20.cjs cleanup
+
+MIGRATION_LIMIT=999999 node --max-old-space-size=8192 script/migration/test-migration-20.cjs step3 --no-cleanup
+
+MIGRATION_LIMIT=999999 node --max-old-space-size=8192 script/migration/test-migration-20.cjs step4 step4b step4c --no-cleanup
+
+MIGRATION_LIMIT=999999 node --max-old-space-size=8192 script/migration/test-migration-20.cjs step5 --no-cleanup
+
+MIGRATION_LIMIT=999999 node --max-old-space-size=8192 script/migration/test-migration-20.cjs step6 step6b --no-cleanup
+
+MIGRATION_LIMIT=999999 node --max-old-space-size=8192 script/migration/test-migration-20.cjs step8 step9 --no-cleanup
+
+MIGRATION_LIMIT=999999 node --max-old-space-size=8192 script/migration/test-migration-20.cjs step11 --no-cleanup
+
+MIGRATION_LIMIT=999999 node --max-old-space-size=8192 script/migration/test-migration-20.cjs step12 --no-cleanup
+
+MIGRATION_LIMIT=999999 node --max-old-space-size=8192 script/migration/test-migration-20.cjs step13 step14 --no-cleanup
+
+MIGRATION_LIMIT=999999 node --max-old-space-size=8192 script/migration/test-migration-20.cjs verify --no-cleanup
+
+pm2 restart indexus-crm
+```
+
+**Celkový odhadovaný čas: ~3.5-4 hodiny**
+
+---
+
+## Dôležité poznámky
+
+### Pamäť (OOM ochrana)
+- Vždy používajte `--max-old-space-size=8192` (8GB heap)
+- Step 11 a Step 12 spúšťajte **samostatne** (nie spolu), aby sa neuvoľnená pamäť z jedného kroku nekombinovala s druhým
+- Step 12 spracováva faktúry v chunkoch po 25k cse_ids
+
+### Reštart vs pokračovanie
+- `--no-cleanup` zabráni mazaniu starých dát — kroky preskočia existujúce záznamy (idempotentné)
+- Pri opakovanom spustení s `--no-cleanup` sa vložia len nové záznamy (duplicity sa preskočia podľa `legacy_id`)
+- Bez `--no-cleanup` sa najskôr všetko vymaže a potom znova naimportuje
+
+### MSSQL batch size
+- Veľké dotazy sú automaticky rozdelené na dávky po 5000 IDs
+- Timeout na MSSQL request: 10 minút (600s)
+
+### Environment variable
+- `MIGRATION_LIMIT=100` — test s prvými 100 klientmi
+- `MIGRATION_LIMIT=999999` — plná migrácia (bez limitu)
+
+---
+
+## Verifikačné SQL dotazy
+
+```bash
+PGPASSWORD=HanyurIfKisck psql -h localhost -U indexus -d indexus_crm -c "
+SELECT 'hospitals' as tabulka, count(*) as pocet FROM hospitals WHERE data_source = 'iscbc'
+UNION ALL SELECT 'collaborators', count(*) FROM collaborators WHERE data_source = 'iscbc'
+UNION ALL SELECT 'collaborator_agreements', count(*) FROM collaborator_agreements WHERE legacy_id IS NOT NULL
+UNION ALL SELECT 'collaborator_activities', count(*) FROM collaborator_activities WHERE legacy_id LIKE 'cc_%'
+UNION ALL SELECT 'customers', count(*) FROM customers WHERE data_source = 'iscbc'
+UNION ALL SELECT 'collections', count(*) FROM collections WHERE data_source = 'iscbc'
+UNION ALL SELECT 'collection_lab_results', count(*) FROM collection_lab_results WHERE collection_id IN (SELECT id FROM collections WHERE data_source = 'iscbc')
+UNION ALL SELECT 'customer_notes', count(*) FROM customer_notes WHERE data_source = 'iscbc'
+UNION ALL SELECT 'communication_messages', count(*) FROM communication_messages WHERE external_id LIKE 'cbc_pho_%'
+UNION ALL SELECT 'contract_instances', count(*) FROM contract_instances WHERE data_source = 'iscbc'
+UNION ALL SELECT 'customer_documents', count(*) FROM customer_documents WHERE data_source = 'iscbc'
+UNION ALL SELECT 'invoices', count(*) FROM invoices WHERE data_source = 'iscbc'
+UNION ALL SELECT 'scheduled_invoices', count(*) FROM scheduled_invoices WHERE created_by = 'migration-v20'
+UNION ALL SELECT 'customer_debt_collection', count(*) FROM customer_debt_collection WHERE data_source = 'iscbc'
+ORDER BY tabulka;
+"
+```
+
+---
+
+## Referencia CBC tabuliek
+
+| CBC tabuľka | Krok | Popis |
+|-------------|------|-------|
+| `Hospitals`, `HospitalCategories` | step3 | Nemocnice |
+| `Collaborators`, `Persons` | step4 | Spolupracovníci |
+| `CollaboratorAgreements` | step4b | Dohody |
+| `CollectionCollaborators` | step4c | Úkony |
+| `Clients`, `Persons`, `Contacts` | step5 | Zákazníci |
+| `Collections`, `LabResults` | step6 | Odbery |
+| `Fathers` | step6b | Cases |
+| `ClientRemarks` | step8 | Poznámky |
+| `PhoneCommunications` | step9 | Komunikácie |
+| `Contracts`, `ContractServices`, `ContractServicePricings` | step11 | Zmluvy |
+| `Invoices`, `InvoiceItems`, `ScheduledPayments`, `RealizedPayments` | step12 | Faktúry |
+| `DebtorsSKRest`, `DebtorsCZ`, `DebtorsEurocord`, `DebtorsHU`, `DebtorsRO` | step13 | Vymáhanie |
+| `PotentialClients` | step14 | Potenciálni klienti |
+
+---
 
 ## ISCBC Badge
 
-Migrated records display an orange **ISCBC** badge in the UI:
-- **Contracts list** (`/contracts`) — next to contract number
-- **Contract detail** — in the header
-- **Invoices list** (`/invoices`) — next to invoice number
-- **Customer Invoices** (`/customer-invoices`) — in list and detail panel
-- **Customer Documents tab** — on each migrated document row
+Migrované záznamy zobrazujú oranžový **ISCBC** badge v UI:
+- Zoznam zmlúv (`/contracts`) — vedľa čísla zmluvy
+- Detail zmluvy — v hlavičke
+- Zoznam faktúr (`/invoices`) — vedľa čísla faktúry
+- Zákaznícke faktúry (`/customer-invoices`) — v zozname aj detaile
+- Záložka Dokumenty na profile zákazníka — na každom migrovanom riadku
 
-## Data Deduplication
+## Schémové rozšírenia pre migráciu
 
-The Documents tab on customer profile handles deduplication:
-- ISCBC contracts: shown from `contract_instances` (not duplicated from `customer_documents`)
-- ISCBC invoices: shown from `invoices` module (not duplicated from `customer_documents`)
-- Dedup is by `legacyData.inv_id` / `legacyData.contract_instance_id`
+### `contract_instances`
+- `dataSource` (text) — `'indexus'` alebo `'iscbc'`
+- `legacyData` (jsonb) — kompletný CBC záznam
+- `hospitalId` zmenený na `varchar`
 
-## Schema Extensions for Migration
-
-### `contract_instances` table
-- `dataSource` (text) — `'indexus'` or `'iscbc'`
-- `legacyData` (jsonb) — full CBC row
-- `hospitalId` changed to `varchar` (was integer)
-
-### `invoices` table
-- `dataSource` (text) — `'indexus'` or `'iscbc'`
-- `legacyData` (jsonb) — full CBC row
-- `contractInstanceId` (varchar) — link to contract
+### `invoices`
+- `dataSource` (text) — `'indexus'` alebo `'iscbc'`
+- `legacyData` (jsonb) — kompletný CBC záznam vrátane items, payments
+- `contractInstanceId` (varchar) — link na zmluvu
 - `note` (text)
+- `pdf_downloaded_at` (timestamp)
 
-### `customer_documents` table
+### `customer_documents`
 - `variableSymbol`, `amountNoVat`, `paidAmount`, `fullyPaid`, `contractInstanceId`
 
-## Localization
+## Lokalizácia
 
-All CBC status codes are localized in 7 languages (EN, SK, CS, HU, RO, IT, DE):
-- `REG_IST_*` (invoice statuses)
-- `REG_CSA_*` (contract statuses)
-- `REG_ITY_*` (invoice types)
+Všetky CBC status kódy sú lokalizované v 7 jazykoch (EN, SK, CS, HU, RO, IT, DE):
+- `REG_IST_*` (stavy faktúr)
+- `REG_CSA_*` (stavy zmlúv)
+- `REG_ITY_*` (typy faktúr)
 
-Labels use `getDocumentStatusLabel()` and `getDocumentTypeLabel()` from `client/src/lib/document-status.ts`.
-
-## CBC Database Reference
-
-### Key Tables Used
-| CBC Table | Purpose |
-|-----------|---------|
-| `Clients` | Customer master data |
-| `Persons` | Personal details (name, birth date) |
-| `Contacts` | Phone, email |
-| `Addresses` | Customer addresses |
-| `Contracts` | Customer contracts |
-| `ContractSets` | Contract-to-client linkage |
-| `ContractStatuses` | Status registry (`REG_CSA_*`) |
-| `Invoices` | Invoice records |
-| `InvoiceStatuses` | Invoice status registry (`REG_IST_*`) |
-| `InvoiceTypes` | Invoice type registry (`REG_ITY_*`) |
-| `Companies` | Billing company details |
-| `Currencies` | Currency codes |
-| `Collections` | Blood collection records |
-| `LabResults` | Lab analysis results |
-| `Hospitals` | Hospital registry |
-| `Collaborators` | Sales collaborators |
-| `DebtCollection` | Debt collection cases |
-| `Notes` | Customer notes |
-| `PhoneCalls` | Call history |
-| `PotentialClients` | Lead/prospect data |
-
-### Important Column Notes
-- `Invoices.cur_code_account` (NOT `cur_code_accounting`)
-- `Invoices.inv_date_of_payment` used as due date (no `inv_due_date` column exists)
-- No `inv_storno`, `inv_storno_date` columns exist
-- Company name chain: `Contracts.cli_id → Clients.com_id → Companies.com_name`
-- Contract instance internal_id format: `contract_{con_id}`
-
-## Verification
-
-After migration, check the summary output:
-```
-=== MIGRÁCIA DOKONČENÁ ===
-Customers (migrated):          100
-Collections (migrated):        XX
-Contracts (migrated):          128
-Documents-Invoices (migrated): 293
-Invoices-Module (migrated):    293
-DebtCollection (migrated):     XX
-```
-
-### PostgreSQL Verification Queries
-```sql
--- Count migrated records
-SELECT 'customers' as t, COUNT(*) FROM customers WHERE internal_id IS NOT NULL
-UNION ALL SELECT 'contracts', COUNT(*) FROM contract_instances WHERE data_source = 'iscbc'
-UNION ALL SELECT 'invoices', COUNT(*) FROM invoices WHERE data_source = 'iscbc'
-UNION ALL SELECT 'documents', COUNT(*) FROM customer_documents WHERE data_source = 'iscbc';
-
--- Check invoice-contract linking
-SELECT COUNT(*) as linked FROM invoices 
-WHERE data_source = 'iscbc' AND contract_instance_id IS NOT NULL;
-```
+Labels používajú `getDocumentStatusLabel()` a `getDocumentTypeLabel()` z `client/src/lib/document-status.ts`.
