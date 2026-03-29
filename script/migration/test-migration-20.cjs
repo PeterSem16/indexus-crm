@@ -67,7 +67,9 @@ async function batchMssqlQuery(idList, queryTemplate, label) {
     }
     const sql = queryTemplate.replace(/\$\{BATCH_IDS\}/g, batch.join(','));
     const result = await mssqlPool.request().query(sql);
-    allResults.push(...result.recordset);
+    for (let ri = 0; ri < result.recordset.length; ri++) {
+      allResults.push(result.recordset[ri]);
+    }
   }
   return allResults;
 }
