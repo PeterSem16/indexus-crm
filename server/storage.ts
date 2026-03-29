@@ -164,7 +164,7 @@ import {
   type LeadCampaign, type InsertLeadCampaign,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, inArray, sql, desc, and, or, asc, gte, lte, lt, isNull, isNotNull } from "drizzle-orm";
+import { eq, inArray, sql, desc, and, or, asc, gte, lte, lt, isNull, isNotNull, count } from "drizzle-orm";
 import bcrypt from "bcrypt";
 
 const SALT_ROUNDS = 10;
