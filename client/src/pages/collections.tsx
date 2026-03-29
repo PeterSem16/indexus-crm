@@ -1276,6 +1276,8 @@ export default function CollectionsPage() {
     </div>
   );
 
+  const nativeSelectClass = "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22currentColor%22%20stroke-width%3D%222%22%3E%3Cpath%20d%3D%22m6%209%206%206%206-6%22%2F%3E%3C%2Fsvg%3E')] bg-[length:1rem] bg-[right_0.5rem_center] bg-no-repeat pr-8";
+
   const renderCollectionForm = () => (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
@@ -1299,99 +1301,71 @@ export default function CollectionsPage() {
       </div>
       <div className="space-y-2">
         <Label>{t.collections?.hospital}</Label>
-        <Select value={formData.hospitalId || undefined} onValueChange={(v) => handleFieldChange("hospitalId", v)}>
-          <SelectTrigger data-testid="select-hospital">
-            <SelectValue placeholder={t.common.select} />
-          </SelectTrigger>
-          <SelectContent>
-            {hospitals.map((h: any) => (
-              <SelectItem key={h.id} value={String(h.id)}>{h.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <select className={nativeSelectClass} value={formData.hospitalId || ""} onChange={(e) => handleFieldChange("hospitalId", e.target.value)} data-testid="select-hospital">
+          <option value="">{t.common.select}</option>
+          {hospitals.map((h: any) => (
+            <option key={h.id} value={String(h.id)}>{h.name}</option>
+          ))}
+        </select>
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>{t.collections?.cordBloodCollector}</Label>
-          <Select value={formData.cordBloodCollectorId || undefined} onValueChange={(v) => handleFieldChange("cordBloodCollectorId", v)}>
-            <SelectTrigger data-testid="select-cord-blood-collector">
-              <SelectValue placeholder={t.common.select} />
-            </SelectTrigger>
-            <SelectContent>
-              {collaborators.map((c: any) => (
-                <SelectItem key={c.id} value={String(c.id)}>{c.firstName} {c.lastName}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <select className={nativeSelectClass} value={formData.cordBloodCollectorId || ""} onChange={(e) => handleFieldChange("cordBloodCollectorId", e.target.value)} data-testid="select-cord-blood-collector">
+            <option value="">{t.common.select}</option>
+            {collaborators.map((c: any) => (
+              <option key={c.id} value={String(c.id)}>{c.firstName} {c.lastName}</option>
+            ))}
+          </select>
         </div>
         <div className="space-y-2">
           <Label>{t.collections?.tissueCollector}</Label>
-          <Select value={formData.tissueCollectorId || undefined} onValueChange={(v) => handleFieldChange("tissueCollectorId", v)}>
-            <SelectTrigger data-testid="select-tissue-collector">
-              <SelectValue placeholder={t.common.select} />
-            </SelectTrigger>
-            <SelectContent>
-              {collaborators.map((c: any) => (
-                <SelectItem key={c.id} value={String(c.id)}>{c.firstName} {c.lastName}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <select className={nativeSelectClass} value={formData.tissueCollectorId || ""} onChange={(e) => handleFieldChange("tissueCollectorId", e.target.value)} data-testid="select-tissue-collector">
+            <option value="">{t.common.select}</option>
+            {collaborators.map((c: any) => (
+              <option key={c.id} value={String(c.id)}>{c.firstName} {c.lastName}</option>
+            ))}
+          </select>
         </div>
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>{t.collections?.placentaCollector}</Label>
-          <Select value={formData.placentaCollectorId || undefined} onValueChange={(v) => handleFieldChange("placentaCollectorId", v)}>
-            <SelectTrigger data-testid="select-placenta-collector">
-              <SelectValue placeholder={t.common.select} />
-            </SelectTrigger>
-            <SelectContent>
-              {collaborators.map((c: any) => (
-                <SelectItem key={c.id} value={String(c.id)}>{c.firstName} {c.lastName}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <select className={nativeSelectClass} value={formData.placentaCollectorId || ""} onChange={(e) => handleFieldChange("placentaCollectorId", e.target.value)} data-testid="select-placenta-collector">
+            <option value="">{t.common.select}</option>
+            {collaborators.map((c: any) => (
+              <option key={c.id} value={String(c.id)}>{c.firstName} {c.lastName}</option>
+            ))}
+          </select>
         </div>
         <div className="space-y-2">
           <Label>{t.collections?.assistantNurse}</Label>
-          <Select value={formData.assistantNurseId || undefined} onValueChange={(v) => handleFieldChange("assistantNurseId", v)}>
-            <SelectTrigger data-testid="select-assistant-nurse">
-              <SelectValue placeholder={t.common.select} />
-            </SelectTrigger>
-            <SelectContent>
-              {collaborators.map((c: any) => (
-                <SelectItem key={c.id} value={String(c.id)}>{c.firstName} {c.lastName}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <select className={nativeSelectClass} value={formData.assistantNurseId || ""} onChange={(e) => handleFieldChange("assistantNurseId", e.target.value)} data-testid="select-assistant-nurse">
+            <option value="">{t.common.select}</option>
+            {collaborators.map((c: any) => (
+              <option key={c.id} value={String(c.id)}>{c.firstName} {c.lastName}</option>
+            ))}
+          </select>
         </div>
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>{t.collections?.secondNurse}</Label>
-          <Select value={formData.secondNurseId || undefined} onValueChange={(v) => handleFieldChange("secondNurseId", v)}>
-            <SelectTrigger data-testid="select-second-nurse">
-              <SelectValue placeholder={t.common.select} />
-            </SelectTrigger>
-            <SelectContent>
-              {collaborators.map((c: any) => (
-                <SelectItem key={c.id} value={String(c.id)}>{c.firstName} {c.lastName}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <select className={nativeSelectClass} value={formData.secondNurseId || ""} onChange={(e) => handleFieldChange("secondNurseId", e.target.value)} data-testid="select-second-nurse">
+            <option value="">{t.common.select}</option>
+            {collaborators.map((c: any) => (
+              <option key={c.id} value={String(c.id)}>{c.firstName} {c.lastName}</option>
+            ))}
+          </select>
         </div>
         <div className="space-y-2">
           <Label>{t.collections?.representative}</Label>
-          <Select value={formData.representativeId || undefined} onValueChange={(v) => handleFieldChange("representativeId", v)}>
-            <SelectTrigger data-testid="select-representative">
-              <SelectValue placeholder={t.common.select} />
-            </SelectTrigger>
-            <SelectContent>
-              {collaborators.map((c: any) => (
-                <SelectItem key={c.id} value={String(c.id)}>{c.firstName} {c.lastName}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <select className={nativeSelectClass} value={formData.representativeId || ""} onChange={(e) => handleFieldChange("representativeId", e.target.value)} data-testid="select-representative">
+            <option value="">{t.common.select}</option>
+            {collaborators.map((c: any) => (
+              <option key={c.id} value={String(c.id)}>{c.firstName} {c.lastName}</option>
+            ))}
+          </select>
         </div>
       </div>
     </div>
@@ -1401,16 +1375,12 @@ export default function CollectionsPage() {
     <div className="space-y-4">
       <div className="space-y-2">
         <Label>{t.collections?.status}</Label>
-        <Select value={formData.state || undefined} onValueChange={(v) => handleFieldChange("state", v)}>
-          <SelectTrigger data-testid="select-state">
-            <SelectValue placeholder={t.common.select} />
-          </SelectTrigger>
-          <SelectContent>
-            {collectionStatuses.map((status) => (
-              <SelectItem key={status.id} value={String(status.id)}>{status.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <select className={nativeSelectClass} value={formData.state || ""} onChange={(e) => handleFieldChange("state", e.target.value)} data-testid="select-state">
+          <option value="">{t.common.select}</option>
+          {collectionStatuses.map((status) => (
+            <option key={status.id} value={String(status.id)}>{status.name}</option>
+          ))}
+        </select>
       </div>
       <div className="space-y-2">
         <Label>{t.collections?.certificate}</Label>
@@ -1422,16 +1392,12 @@ export default function CollectionsPage() {
       </div>
       <div className="space-y-2">
         <Label>{t.collections?.coordinator}</Label>
-        <Select value={formData.responsibleCoordinatorId || undefined} onValueChange={(v) => handleFieldChange("responsibleCoordinatorId", v)}>
-          <SelectTrigger data-testid="select-coordinator">
-            <SelectValue placeholder={t.common.select} />
-          </SelectTrigger>
-          <SelectContent>
-            {collaborators.map((c: any) => (
-              <SelectItem key={c.id} value={String(c.id)}>{c.firstName} {c.lastName}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <select className={nativeSelectClass} value={formData.responsibleCoordinatorId || ""} onChange={(e) => handleFieldChange("responsibleCoordinatorId", e.target.value)} data-testid="select-coordinator">
+          <option value="">{t.common.select}</option>
+          {collaborators.map((c: any) => (
+            <option key={c.id} value={String(c.id)}>{c.firstName} {c.lastName}</option>
+          ))}
+        </select>
       </div>
       <div className="space-y-2">
         <Label>{t.collections?.note}</Label>
