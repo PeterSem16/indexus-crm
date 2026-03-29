@@ -4559,70 +4559,153 @@ async function step14_potentialClients() {
 }
 
 // ============================================================
+// Step registry — maps step names to functions and descriptions
+// ============================================================
+const STEP_REGISTRY = {
+  cleanup:  { fn: null, desc: 'Cleanup — vymazanie starých migrovaných dát', order: 0 },
+  step1:    { fn: step1_testConnection, desc: 'Test pripojenia + vzorky dát', order: 1 },
+  step2:    { fn: step2_referenceData, desc: 'Referenčné dáta (firmy, statusy)', order: 2 },
+  step3:    { fn: step3_hospitals, desc: 'Nemocnice', order: 3 },
+  step4:    { fn: step4_collaborators, desc: 'Spolupracovníci', order: 4 },
+  'step4b': { fn: step4b_agreements, desc: 'Dohody spolupracovníkov', order: 4.5 },
+  'step4c': { fn: step4c_activities, desc: 'Úkony spolupracovníkov', order: 4.6 },
+  step5:    { fn: step5_customers, desc: 'Klientky/Zákazníci', order: 5 },
+  step6:    { fn: step6_collections, desc: 'Odbery + Lab výsledky', order: 6 },
+  'step6b': { fn: step6b_cases, desc: 'Cases — otcovské dáta', order: 6.5 },
+  step8:    { fn: step8_remarks, desc: 'Poznámky (Remarks)', order: 8 },
+  step9:    { fn: step9_phoneCommunications, desc: 'Telefonické komunikácie', order: 9 },
+  step11:   { fn: step11_customerContracts, desc: 'Zmluvy zákazníkov', order: 11 },
+  step12:   { fn: step12_customerInvoices, desc: 'Faktúry zákazníkov', order: 12 },
+  step13:   { fn: step13_debtCollection, desc: 'Vymáhanie pohľadávok', order: 13 },
+  step14:   { fn: step14_potentialClients, desc: 'Potenciálni klienti', order: 14 },
+  verify:   { fn: step10_verification, desc: 'Verifikácia', order: 99 },
+};
+
+async function runCleanup() {
+  separator('STEP 0: Cleanup — vymazanie starých migrovaných dát');
+  try {
+    const tables = [
+      { table: 'scheduled_invoices', where: "created_by = 'migration-v20'" },
+      { table: 'customer_debt_collection', where: "data_source = 'iscbc'" },
+      { table: 'invoices', where: "data_source = 'iscbc'" },
+      { table: 'customer_documents', where: "data_source = 'iscbc'" },
+      { table: 'contract_instances', where: "data_source = 'iscbc'" },
+      { table: 'communication_messages', where: "external_id LIKE 'cbc_pho_%'" },
+      { table: 'customer_notes', where: "data_source = 'iscbc'" },
+      { table: 'customer_potential_cases', where: "customer_id IN (SELECT id FROM customers WHERE data_source = 'iscbc')" },
+      { table: 'collection_lab_results', where: "collection_id IN (SELECT id FROM collections WHERE data_source = 'iscbc')" },
+      { table: 'collections', where: "data_source = 'iscbc'" },
+      { table: 'collaborator_activities', where: "legacy_id IS NOT NULL AND legacy_id LIKE 'cc_%'" },
+      { table: 'collaborator_agreements', where: "legacy_id IS NOT NULL" },
+      { table: 'collaborator_addresses', where: "collaborator_id IN (SELECT id FROM collaborators WHERE data_source = 'iscbc')" },
+      { table: 'collaborators', where: "data_source = 'iscbc'" },
+      { table: 'customers', where: "data_source = 'iscbc'" },
+      { table: 'hospitals', where: "data_source = 'iscbc'" },
+    ];
+    for (const { table, where } of tables) {
+      try {
+        const res = await pgPool.query(`DELETE FROM ${table} WHERE ${where}`);
+        if (res.rowCount > 0) log(`  ${table}: ${res.rowCount} vymazaných`);
+      } catch (e) {
+        log(`  WARN ${table}: ${e.message}`);
+      }
+    }
+    log('  ✓ Cleanup dokončený');
+  } catch (e) { log(`  WARN cleanup: ${e.message}`); }
+}
+
+STEP_REGISTRY.cleanup.fn = runCleanup;
+
 async function main() {
+  const args = process.argv.slice(2).filter(a => !a.startsWith('MIGRATION_LIMIT'));
+  const requestedSteps = args.filter(a => !a.startsWith('-'));
+  const noCleanup = args.includes('--no-cleanup');
+
   console.log('');
   console.log('╔══════════════════════════════════════════════════════════════════╗');
-  console.log(`║   CBC → INDEXUS  Testovací migračný scenár (${LIMIT} záznamov)`.padEnd(66) + '║');
+  console.log(`║   CBC → INDEXUS  Migrácia (${LIMIT} záznamov)`.padEnd(66) + '║');
   console.log('║   S: Zmluvy, Faktúry, Vymáhanie, Potenciálni klienti           ║');
   console.log('╚══════════════════════════════════════════════════════════════════╝');
+
+  if (requestedSteps.length === 0 || requestedSteps.includes('all')) {
+    console.log('║   Režim: VŠETKY KROKY                                           ║');
+  } else {
+    console.log(`║   Režim: ${requestedSteps.join(', ').padEnd(56)}║`);
+  }
   console.log('');
+
+  if (requestedSteps.length > 0 && !requestedSteps.includes('all')) {
+    console.log('Dostupné kroky:');
+    for (const [key, info] of Object.entries(STEP_REGISTRY)) {
+      const mark = requestedSteps.includes(key) ? '►' : ' ';
+      console.log(`  ${mark} ${key.padEnd(8)} — ${info.desc}`);
+    }
+    console.log('');
+  }
 
   try {
     await step1_testConnection();
 
-    separator('STEP 0: Cleanup — vymazanie starých migrovaných dát');
-    try {
-      const tables = [
-        { table: 'scheduled_invoices', where: "created_by = 'migration-v20'" },
-        { table: 'customer_debt_collection', where: "data_source = 'iscbc'" },
-        { table: 'invoices', where: "data_source = 'iscbc'" },
-        { table: 'customer_documents', where: "data_source = 'iscbc'" },
-        { table: 'contract_instances', where: "data_source = 'iscbc'" },
-        { table: 'communication_messages', where: "external_id LIKE 'cbc_pho_%'" },
-        { table: 'customer_notes', where: "data_source = 'iscbc'" },
-        { table: 'customer_potential_cases', where: "customer_id IN (SELECT id FROM customers WHERE data_source = 'iscbc')" },
-        { table: 'collection_lab_results', where: "collection_id IN (SELECT id FROM collections WHERE data_source = 'iscbc')" },
-        { table: 'collections', where: "data_source = 'iscbc'" },
-        { table: 'collaborator_activities', where: "legacy_id IS NOT NULL AND legacy_id LIKE 'cc_%'" },
-        { table: 'collaborator_agreements', where: "legacy_id IS NOT NULL" },
-        { table: 'collaborator_addresses', where: "collaborator_id IN (SELECT id FROM collaborators WHERE data_source = 'iscbc')" },
-        { table: 'collaborators', where: "data_source = 'iscbc'" },
-        { table: 'customers', where: "data_source = 'iscbc'" },
-        { table: 'hospitals', where: "data_source = 'iscbc'" },
-      ];
-      for (const { table, where } of tables) {
-        try {
-          const res = await pgPool.query(`DELETE FROM ${table} WHERE ${where}`);
-          if (res.rowCount > 0) log(`  ${table}: ${res.rowCount} vymazaných`);
-        } catch (e) {
-          log(`  WARN ${table}: ${e.message}`);
-        }
+    let stepsToRun;
+    if (requestedSteps.length === 0 || requestedSteps.includes('all')) {
+      stepsToRun = Object.entries(STEP_REGISTRY)
+        .sort((a, b) => a[1].order - b[1].order)
+        .map(([key]) => key);
+    } else {
+      stepsToRun = requestedSteps.filter(s => STEP_REGISTRY[s]);
+      const unknown = requestedSteps.filter(s => !STEP_REGISTRY[s]);
+      if (unknown.length > 0) {
+        log(`WARN: Neznáme kroky: ${unknown.join(', ')}`);
+        log(`Dostupné: ${Object.keys(STEP_REGISTRY).join(', ')}`);
       }
-      log('  ✓ Cleanup dokončený');
-    } catch (e) { log(`  WARN cleanup: ${e.message}`); }
+    }
 
-    await step2_referenceData();
-    await step3_hospitals();
-    await step4_collaborators();
-    await step4b_agreements();
-    await step4c_activities();
-    await step5_customers();
-    await step6_collections();
-    await step6b_cases();
-    await step8_remarks();
-    await step9_phoneCommunications();
-    await step11_customerContracts();
-    await step12_customerInvoices();
-    await step13_debtCollection();
-    await step14_potentialClients();
-    await step10_verification();
+    if (noCleanup) {
+      stepsToRun = stepsToRun.filter(s => s !== 'cleanup');
+      log('--no-cleanup: Preskakujem cleanup krok');
+    }
 
-    separator('HOTOVO');
-    log('Testovací prenos 20 záznamov bol úspešne dokončený.');
-    log('Skontrolujte výsledky vyššie a overte dáta v INDEXUS CRM.');
+    const results = [];
+    for (const stepKey of stepsToRun) {
+      if (stepKey === 'step1') continue;
+      const info = STEP_REGISTRY[stepKey];
+      if (!info || !info.fn) continue;
+
+      const stepStart = Date.now();
+      log(`\n${'═'.repeat(70)}`);
+      log(`  ŠTART: ${stepKey} — ${info.desc}`);
+      log(`${'═'.repeat(70)}`);
+
+      try {
+        await info.fn();
+        const elapsed = ((Date.now() - stepStart) / 1000).toFixed(1);
+        results.push({ step: stepKey, desc: info.desc, status: 'OK', time: elapsed });
+        log(`  ✓ ${stepKey} DOKONČENÝ za ${elapsed}s`);
+      } catch (err) {
+        const elapsed = ((Date.now() - stepStart) / 1000).toFixed(1);
+        results.push({ step: stepKey, desc: info.desc, status: 'CHYBA', time: elapsed, error: err.message });
+        log(`  ✗ ${stepKey} ZLYHAL za ${elapsed}s: ${err.message}`);
+        console.error(err.stack);
+        if (requestedSteps.length > 0 && !requestedSteps.includes('all')) {
+          log('  Zastavujem — spustené boli len vybrané kroky');
+          break;
+        }
+        log('  Pokračujem s ďalším krokom...');
+      }
+    }
+
+    separator('SÚHRN MIGRÁCIE');
+    log('  Krok     | Status | Čas      | Popis');
+    log('  ─────────┼────────┼──────────┼──────────────────────────────────');
+    for (const r of results) {
+      const status = r.status === 'OK' ? '✓ OK  ' : '✗ CHYBA';
+      log(`  ${r.step.padEnd(9)}| ${status}| ${(r.time + 's').padEnd(9)}| ${r.desc}${r.error ? ' — ' + r.error : ''}`);
+    }
     log('');
-    log('Ak chcete vymazať testovacích 20 záznamov:');
-    log('  node cleanup-test-migration.cjs');
+    const ok = results.filter(r => r.status === 'OK').length;
+    const fail = results.filter(r => r.status !== 'OK').length;
+    log(`  Celkom: ${ok} úspešných, ${fail} neúspešných z ${results.length} krokov`);
+
   } catch (err) {
     log(`FATAL: ${err.message}`);
     console.error(err.stack);
