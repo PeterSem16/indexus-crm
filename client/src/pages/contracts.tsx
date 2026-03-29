@@ -572,17 +572,17 @@ export default function ContractsPage() {
     return () => clearTimeout(timer);
   }, [contractSearchTerm]);
 
-  useEffect(() => { setContractPage(1); }, [debouncedContractSearch, contractStatusFilter, selectedCountries]);
+  useEffect(() => { setContractPage(1); }, [debouncedContractSearch, contractStatusFilter, selectedCountry]);
 
   const { data: contractsPaginated, isLoading: contractsLoading } = useQuery<{ data: ContractInstance[], total: number }>({
-    queryKey: ["/api/contracts", { page: contractPage, limit: CONTRACTS_PER_PAGE, search: debouncedContractSearch, status: contractStatusFilter, countries: selectedCountries }],
+    queryKey: ["/api/contracts", { page: contractPage, limit: CONTRACTS_PER_PAGE, search: debouncedContractSearch, status: contractStatusFilter, country: selectedCountry }],
     queryFn: async () => {
       const params = new URLSearchParams();
       params.set("page", String(contractPage));
       params.set("limit", String(CONTRACTS_PER_PAGE));
       if (debouncedContractSearch) params.set("search", debouncedContractSearch);
       if (contractStatusFilter && contractStatusFilter !== "all") params.set("status", contractStatusFilter);
-      if (selectedCountries.length > 0) params.set("countries", selectedCountries.join(","));
+      if (selectedCountry) params.set("country", selectedCountry);
       const res = await fetch(`/api/contracts?${params.toString()}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch");
       return res.json();
@@ -593,10 +593,10 @@ export default function ContractsPage() {
   const totalContracts = contractsPaginated?.total || 0;
 
   const { data: contractStats } = useQuery<{ total: number, signed: number, pending: number, drafts: number, cancelled: number }>({
-    queryKey: ["/api/contracts/stats", { countries: selectedCountries }],
+    queryKey: ["/api/contracts/stats", { country: selectedCountry }],
     queryFn: async () => {
       const params = new URLSearchParams();
-      if (selectedCountries.length > 0) params.set("countries", selectedCountries.join(","));
+      if (selectedCountry) params.set("country", selectedCountry);
       const res = await fetch(`/api/contracts/stats?${params.toString()}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch");
       return res.json();

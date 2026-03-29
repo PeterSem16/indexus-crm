@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Search, FileText, Download, Users, CheckCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import { useI18n } from "@/i18n";
-import { useCountryFilter } from "@/contexts/country-filter-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -36,7 +35,6 @@ const LOCALE_MAP: Record<string, string> = {
 export default function InvoicesPage() {
   const { toast } = useToast();
   const { t, locale } = useI18n();
-  const { selectedCountries } = useCountryFilter();
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -52,17 +50,14 @@ export default function InvoicesPage() {
     return () => clearTimeout(timer);
   }, [search]);
 
-  useEffect(() => { setPage(1); }, [selectedCountries]);
-
   const { data: paginatedResult, isLoading: invoicesLoading } = useQuery<{ data: Invoice[], total: number }>({
-    queryKey: ["/api/invoices", { page, limit: pageSize, search: debouncedSearch, countries: selectedCountries }],
+    queryKey: ["/api/invoices", { page, limit: pageSize, search: debouncedSearch }],
     queryFn: async () => {
       const params = new URLSearchParams();
       params.set("page", String(page));
       params.set("limit", String(pageSize));
       if (debouncedSearch) params.set("search", debouncedSearch);
-      if (selectedCountries.length > 0) params.set("countries", selectedCountries.join(","));
-      const res = await fetch(`/api/invoices?${params.toString()}`, { credentials: "include" });
+      const res = await fetch(`/api/invoices?${params.toString()}`);
       if (!res.ok) throw new Error("Failed to fetch");
       return res.json();
     },
