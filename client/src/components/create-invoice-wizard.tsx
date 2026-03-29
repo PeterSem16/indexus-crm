@@ -388,8 +388,8 @@ export function CreateInvoiceWizard({
     enabled: open && !!customerId,
   });
 
-  const { data: allCustomers = [] } = useQuery<Customer[]>({
-    queryKey: ["/api/customers"],
+  const { data: allCustomers = [] } = useQuery<any[]>({
+    queryKey: ["/api/customers/lookup"],
     enabled: open && !customerId,
   });
 

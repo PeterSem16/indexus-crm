@@ -1343,8 +1343,8 @@ function CollaboratorForm({
     queryKey: ["/api/config/health-insurance"],
   });
 
-  const { data: hospitals = [] } = useQuery<Hospital[]>({
-    queryKey: ["/api/hospitals"],
+  const { data: hospitals = [] } = useQuery<any[]>({
+    queryKey: ["/api/hospitals/lookup"],
   });
 
   const filteredHealthInsurances = formData.countryCode

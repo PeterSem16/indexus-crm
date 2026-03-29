@@ -78,16 +78,16 @@ export default function CollaboratorReportsPage() {
   const [isDownloading, setIsDownloading] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const { data: collaborators = [], isLoading: collaboratorsLoading, refetch: refetchCollaborators } = useQuery<Collaborator[]>({
-    queryKey: ["/api/collaborators"],
+  const { data: collaborators = [], isLoading: collaboratorsLoading, refetch: refetchCollaborators } = useQuery<any[]>({
+    queryKey: ["/api/collaborators/lookup"],
   });
 
   const { data: visitEvents = [], isLoading: eventsLoading, refetch: refetchEvents } = useQuery<VisitEvent[]>({
     queryKey: ["/api/visit-events"],
   });
 
-  const { data: hospitals = [], refetch: refetchHospitals } = useQuery<Hospital[]>({
-    queryKey: ["/api/hospitals"],
+  const { data: hospitals = [], refetch: refetchHospitals } = useQuery<any[]>({
+    queryKey: ["/api/hospitals/lookup"],
   });
 
   const handleRefresh = async () => {

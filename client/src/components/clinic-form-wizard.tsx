@@ -332,7 +332,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
   };
   const [formData, setFormData] = useState<ClinicFormData>(() => buildFormData(initialData));
 
-  const { data: allClinics } = useQuery<Clinic[]>({ queryKey: ["/api/clinics"] });
+  const { data: allClinics } = useQuery<any[]>({ queryKey: ["/api/clinics/lookup"] });
 
   const { data: existingReferrals } = useQuery<Array<{ id: string; clinicId: string; referringClinicId: string; referralType: string; referringClinic: Clinic | null }>>({
     queryKey: ["/api/clinic-referrals", initialData?.id],

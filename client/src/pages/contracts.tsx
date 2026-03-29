@@ -565,8 +565,8 @@ export default function ContractsPage() {
     refetchInterval: 30000,
   });
 
-  const { data: customers = [], isLoading: customersLoading } = useQuery<Customer[]>({
-    queryKey: ["/api/customers"],
+  const { data: customers = [], isLoading: customersLoading } = useQuery<any[]>({
+    queryKey: ["/api/customers/lookup"],
   });
 
   useEffect(() => {

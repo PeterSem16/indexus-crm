@@ -66,8 +66,8 @@ export default function InvoicesPage() {
   const totalInvoices = paginatedResult?.total || 0;
   const totalPages = Math.ceil(totalInvoices / pageSize);
 
-  const { data: customers = [], isLoading: customersLoading } = useQuery<Customer[]>({
-    queryKey: ["/api/customers"],
+  const { data: customers = [], isLoading: customersLoading } = useQuery<any[]>({
+    queryKey: ["/api/customers/lookup"],
   });
 
   const bulkGenerateMutation = useMutation({

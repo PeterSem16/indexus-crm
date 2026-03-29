@@ -114,6 +114,13 @@ Preferred communication style: Simple, everyday language.
 - **Collections** (`/api/collections`): Server-side pagination endpoint available, currently using client-side filtering.
 - Backwards-compatible: endpoints return plain array when no pagination params are sent.
 
+### Lightweight Lookup Endpoints
+- `/api/customers/lookup` — Returns id, firstName, lastName, country, email, status, serviceType only. Used by contracts, collections, invoices, pipeline, email client, quick-create, and all components that need customer dropdowns/cross-references.
+- `/api/hospitals/lookup` — Returns id, name, countryCode only. Used by collaborators, contracts, collections, campaign filters, and form wizards.
+- `/api/clinics/lookup` — Returns id, name, countryCode, doctorName only. Used by dashboard lookups and clinic form wizard.
+- `/api/collaborators/lookup` — Returns id, firstName, lastName, countryCode only. Used by collections, configurator, and collaborator reports.
+- `/api/dashboard/stats` — Server-side aggregated dashboard statistics (customer counts, invoice totals/amounts). Replaces full customer + invoice dataset fetches on the dashboard.
+
 ### ISCBC Migration
 - Migration from MSSQL CBC database.
 - Migrated data includes customers, contracts, invoices, collections, collaborators, hospitals, notes, calls, debt collection, potential clients.

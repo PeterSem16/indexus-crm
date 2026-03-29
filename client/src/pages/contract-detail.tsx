@@ -142,16 +142,16 @@ export default function ContractDetailPage() {
     enabled: !!contractId,
   });
 
-  const { data: hospitals = [] } = useQuery<Hospital[]>({
-    queryKey: ["/api/hospitals"],
+  const { data: hospitals = [] } = useQuery<any[]>({
+    queryKey: ["/api/hospitals/lookup"],
   });
 
   const { data: products = [] } = useQuery<Product[]>({
     queryKey: ["/api/products"],
   });
 
-  const { data: customers = [] } = useQuery<Customer[]>({
-    queryKey: ["/api/customers"],
+  const { data: customers = [] } = useQuery<any[]>({
+    queryKey: ["/api/customers/lookup"],
   });
 
   const contract: ContractInstance | undefined = contractDetail;

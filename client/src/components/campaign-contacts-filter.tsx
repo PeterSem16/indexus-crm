@@ -183,8 +183,8 @@ export function CampaignContactsFilter({
   const CONTACT_STATUSES = useMemo(() => getContactStatuses(t), [t]);
   const SERVICE_TYPES = useMemo(() => getServiceTypes(t), [t]);
 
-  const { data: hospitals = [] } = useQuery<Hospital[]>({
-    queryKey: ["/api/hospitals"],
+  const { data: hospitals = [] } = useQuery<any[]>({
+    queryKey: ["/api/hospitals/lookup"],
   });
 
   const filteredHospitals = countryCodes.length > 0 

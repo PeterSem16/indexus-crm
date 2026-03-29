@@ -2157,6 +2157,77 @@ export async function registerRoutes(
     }
   });
 
+  // Lightweight lookup endpoints (id + name only, for dropdowns and cross-references)
+  app.get("/api/customers/lookup", requireAuth, async (req, res) => {
+    try {
+      const data = await storage.getCustomersLookup();
+      res.json(data);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch customer lookup" });
+    }
+  });
+
+  app.get("/api/hospitals/lookup", requireAuth, async (req, res) => {
+    try {
+      const data = await storage.getHospitalsLookup();
+      res.json(data);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch hospital lookup" });
+    }
+  });
+
+  app.get("/api/clinics/lookup", requireAuth, async (req, res) => {
+    try {
+      const data = await storage.getClinicsLookup();
+      res.json(data);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch clinic lookup" });
+    }
+  });
+
+  app.get("/api/collaborators/lookup", requireAuth, async (req, res) => {
+    try {
+      const data = await storage.getCollaboratorsLookup();
+      res.json(data);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch collaborator lookup" });
+    }
+  });
+
+  // Dashboard summary stats (server-side aggregation)
+  app.get("/api/dashboard/stats", requireAuth, async (req, res) => {
+    try {
+      const { customers: customersTable, invoices: invoicesTable } = await import("@shared/schema");
+
+      const [customerStats] = await db.select({
+        total: sql<number>`count(*)::int`,
+        active: sql<number>`count(*) FILTER (WHERE ${customersTable.status} = 'active')::int`,
+        pending: sql<number>`count(*) FILTER (WHERE ${customersTable.status} = 'pending')::int`,
+      }).from(customersTable);
+
+      const [invoiceStats] = await db.select({
+        total: sql<number>`count(*)::int`,
+        paid: sql<number>`count(*) FILTER (WHERE ${invoicesTable.status} = 'paid')::int`,
+        unpaid: sql<number>`count(*) FILTER (WHERE ${invoicesTable.status} != 'paid')::int`,
+        overdue: sql<number>`count(*) FILTER (WHERE ${invoicesTable.status} != 'paid' AND ${invoicesTable.dueDate} < now())::int`,
+        totalAmount: sql<string>`COALESCE(sum(${invoicesTable.totalAmount}::numeric), 0)::text`,
+        paidAmount: sql<string>`COALESCE(sum(CASE WHEN ${invoicesTable.status} = 'paid' THEN ${invoicesTable.totalAmount}::numeric ELSE 0 END), 0)::text`,
+        unpaidAmount: sql<string>`COALESCE(sum(CASE WHEN ${invoicesTable.status} != 'paid' THEN ${invoicesTable.totalAmount}::numeric ELSE 0 END), 0)::text`,
+      }).from(invoicesTable);
+
+      const recentCustomers = await db.select().from(customersTable).orderBy(desc(customersTable.createdAt)).limit(5);
+
+      res.json({
+        customers: customerStats,
+        invoices: invoiceStats,
+        recentCustomers,
+      });
+    } catch (error) {
+      console.error("Dashboard stats error:", error);
+      res.status(500).json({ error: "Failed to fetch dashboard stats" });
+    }
+  });
+
   // Customers API (protected)
   app.get("/api/customers", requireAuth, async (req, res) => {
     try {

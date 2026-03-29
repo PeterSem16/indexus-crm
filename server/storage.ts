@@ -1363,6 +1363,18 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(customers);
   }
 
+  async getCustomersLookup(): Promise<{ id: string; firstName: string; lastName: string; country: string; email: string; status: string; serviceType: string | null }[]> {
+    return db.select({
+      id: customers.id,
+      firstName: customers.firstName,
+      lastName: customers.lastName,
+      country: customers.country,
+      email: customers.email,
+      status: customers.status,
+      serviceType: customers.serviceType,
+    }).from(customers);
+  }
+
   async getCustomersPaginated(page: number, limit: number, search?: string, country?: string): Promise<{ data: Customer[], total: number }> {
     const offset = (page - 1) * limit;
     const conditions: any[] = [];
@@ -2807,6 +2819,10 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(hospitals).orderBy(hospitals.name);
   }
 
+  async getHospitalsLookup(): Promise<{ id: string; name: string; countryCode: string }[]> {
+    return db.select({ id: hospitals.id, name: hospitals.name, countryCode: hospitals.countryCode }).from(hospitals).orderBy(hospitals.name);
+  }
+
   async getHospitalsPaginated(page: number, limit: number, search?: string, countryCode?: string): Promise<{ data: Hospital[], total: number }> {
     const offset = (page - 1) * limit;
     const conditions: any[] = [];
@@ -2862,6 +2878,10 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(clinics).orderBy(clinics.name);
   }
 
+  async getClinicsLookup(): Promise<{ id: string; name: string; countryCode: string; doctorName: string | null }[]> {
+    return db.select({ id: clinics.id, name: clinics.name, countryCode: clinics.countryCode, doctorName: clinics.doctorName }).from(clinics).orderBy(clinics.name);
+  }
+
   async getClinicsPaginated(page: number, limit: number, search?: string, countryCode?: string): Promise<{ data: Clinic[], total: number }> {
     const offset = (page - 1) * limit;
     const conditions: any[] = [];
@@ -2915,6 +2935,10 @@ export class DatabaseStorage implements IStorage {
 
   async getAllCollaborators(): Promise<Collaborator[]> {
     return db.select().from(collaborators).orderBy(collaborators.lastName, collaborators.firstName);
+  }
+
+  async getCollaboratorsLookup(): Promise<{ id: string; firstName: string; lastName: string; countryCode: string }[]> {
+    return db.select({ id: collaborators.id, firstName: collaborators.firstName, lastName: collaborators.lastName, countryCode: collaborators.countryCode }).from(collaborators).orderBy(collaborators.lastName, collaborators.firstName);
   }
 
   async getCollaboratorsPaginated(page: number, limit: number, search?: string, countryCode?: string): Promise<{ data: Collaborator[], total: number }> {

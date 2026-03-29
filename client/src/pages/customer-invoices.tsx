@@ -268,8 +268,8 @@ export default function CustomerInvoicesPage() {
     queryKey: ["/api/invoices", { countries: selectedCountries }],
   });
 
-  const { data: customers = [] } = useQuery<Customer[]>({
-    queryKey: ["/api/customers"],
+  const { data: customers = [] } = useQuery<any[]>({
+    queryKey: ["/api/customers/lookup"],
   });
 
   const { data: billingDetails = [] } = useQuery<BillingDetails[]>({

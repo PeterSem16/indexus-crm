@@ -2756,7 +2756,7 @@ export default function EmailClientPage() {
   });
 
   const { data: allCustomers = [] } = useQuery<any[]>({
-    queryKey: ["/api/customers"],
+    queryKey: ["/api/customers/lookup"],
     enabled: !!user?.id,
   });
 

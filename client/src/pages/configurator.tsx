@@ -15806,7 +15806,7 @@ function BillingCompaniesTab() {
   });
 
   const { data: allCollaborators = [] } = useQuery<any[]>({
-    queryKey: ["/api/collaborators"],
+    queryKey: ["/api/collaborators/lookup"],
   });
 
   const { data: allNumberRanges = [] } = useQuery<NumberRange[]>({

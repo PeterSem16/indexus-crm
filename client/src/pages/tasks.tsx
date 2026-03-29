@@ -110,8 +110,8 @@ export default function TasksPage() {
     queryKey: ["/api/users"],
   });
 
-  const { data: customers = [] } = useQuery<Customer[]>({
-    queryKey: ["/api/customers"],
+  const { data: customers = [] } = useQuery<any[]>({
+    queryKey: ["/api/customers/lookup"],
   });
 
   const updateTaskMutation = useMutation({

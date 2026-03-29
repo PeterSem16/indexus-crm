@@ -2313,8 +2313,8 @@ function HistoryTabContent({ collaboratorId, t }: { collaboratorId: string; t: a
     queryKey: ["/api/users"],
   });
 
-  const { data: hospitals = [] } = useQuery<Hospital[]>({
-    queryKey: ["/api/hospitals"],
+  const { data: hospitals = [] } = useQuery<any[]>({
+    queryKey: ["/api/hospitals/lookup"],
   });
 
   const getUserName = (userId: string) => {
@@ -2634,8 +2634,8 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
     queryKey: ["/api/config/health-insurance"],
   });
 
-  const { data: hospitals = [] } = useQuery<Hospital[]>({
-    queryKey: ["/api/hospitals"],
+  const { data: hospitals = [] } = useQuery<any[]>({
+    queryKey: ["/api/hospitals/lookup"],
   });
 
   const { data: availableSipExtensions = [] } = useQuery<any[]>({

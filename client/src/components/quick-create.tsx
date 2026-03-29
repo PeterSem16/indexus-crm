@@ -103,8 +103,8 @@ export function QuickCreate() {
     queryKey: ["/api/users"],
   });
 
-  const { data: customers = [] } = useQuery<Customer[]>({
-    queryKey: ["/api/customers"],
+  const { data: customers = [] } = useQuery<any[]>({
+    queryKey: ["/api/customers/lookup"],
   });
 
   // Filter customers based on search
@@ -177,6 +177,7 @@ export function QuickCreate() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/customers/lookup"] });
       toast({
         title: t.quickCreate.contactCreated,
         description: t.quickCreate.contactCreatedDesc,

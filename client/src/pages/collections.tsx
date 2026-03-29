@@ -183,16 +183,16 @@ export default function CollectionsPage() {
     queryKey: ["/api/products"],
   });
 
-  const { data: customers = [] } = useQuery<Customer[]>({
-    queryKey: ["/api/customers"],
+  const { data: customers = [] } = useQuery<any[]>({
+    queryKey: ["/api/customers/lookup"],
   });
 
-  const { data: collaborators = [] } = useQuery<Collaborator[]>({
-    queryKey: ["/api/collaborators"],
+  const { data: collaborators = [] } = useQuery<any[]>({
+    queryKey: ["/api/collaborators/lookup"],
   });
 
-  const { data: hospitals = [] } = useQuery<Hospital[]>({
-    queryKey: ["/api/hospitals"],
+  const { data: hospitals = [] } = useQuery<any[]>({
+    queryKey: ["/api/hospitals/lookup"],
   });
 
   const { data: productSets = [] } = useQuery<ProductSet[]>({

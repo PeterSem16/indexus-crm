@@ -60,16 +60,16 @@ export default function Dashboard() {
   const [socialCheckLoading, setSocialCheckLoading] = useState(false);
   const [callNote, setCallNote] = useState("");
 
-  const { data: customers = [], isLoading: customersLoading } = useQuery<Customer[]>({
-    queryKey: ["/api/customers"],
+  const { data: dashboardStats, isLoading: customersLoading } = useQuery<any>({
+    queryKey: ["/api/dashboard/stats"],
+  });
+
+  const { data: customersLookup = [] } = useQuery<any[]>({
+    queryKey: ["/api/customers/lookup"],
   });
 
   const { data: users = [] } = useQuery<UserType[]>({
     queryKey: ["/api/users"],
-  });
-
-  const { data: invoices = [] } = useQuery<Invoice[]>({
-    queryKey: ["/api/invoices"],
   });
 
   const { data: webForms = [] } = useQuery<WebForm[]>({
@@ -83,11 +83,11 @@ export default function Dashboard() {
   });
 
   const { data: hospitals = [] } = useQuery<any[]>({
-    queryKey: ["/api/hospitals"],
+    queryKey: ["/api/hospitals/lookup"],
   });
 
   const { data: clinics = [] } = useQuery<any[]>({
-    queryKey: ["/api/clinics"],
+    queryKey: ["/api/clinics/lookup"],
   });
 
   const { data: healthInsuranceCompanies = [] } = useQuery<any[]>({
@@ -136,7 +136,8 @@ export default function Dashboard() {
       console.log("[Approve] Success:", data);
       queryClient.invalidateQueries({ queryKey: ["/api/web-forms", selectedFormId, "submissions"] });
       queryClient.invalidateQueries({ queryKey: ["/api/web-forms/stats"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/customers/lookup"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
       toast({ title: "Registrácia schválená" });
       if (data.customerId) {
         setSelectedSubmission(null);
@@ -185,33 +186,18 @@ export default function Dashboard() {
     },
   });
 
-  const filteredCustomers = customers.filter(c =>
-    selectedCountries.includes(c.country as any)
-  );
+  const stats = dashboardStats || { customers: { total: 0, active: 0, pending: 0 }, invoices: { total: 0, paid: 0, unpaid: 0, overdue: 0, totalAmount: "0", paidAmount: "0", unpaidAmount: "0" }, recentCustomers: [] };
 
-  const filteredCustomerIds = new Set(filteredCustomers.map(c => c.id));
-  const filteredInvoices = invoices.filter(inv => filteredCustomerIds.has(inv.customerId));
-
-  const activeCustomers = filteredCustomers.filter(c => c.status === "active").length;
-  const pendingCustomers = filteredCustomers.filter(c => c.status === "pending").length;
+  const activeCustomers = stats.customers.active;
+  const pendingCustomers = stats.customers.pending;
   const activeUsers = users.filter(u => u.isActive).length;
 
-  const totalInvoices = filteredInvoices.length;
-  const paidInvoices = filteredInvoices.filter(inv => inv.status === "paid");
-  const unpaidInvoices = filteredInvoices.filter(inv => inv.status !== "paid");
-  const overdueInvoices = filteredInvoices.filter(inv => {
-    if (inv.status === "paid") return false;
-    if (!inv.dueDate) return false;
-    return new Date(inv.dueDate) < new Date();
-  });
+  const totalInvoices = stats.invoices.total;
+  const totalInvoiceAmount = parseFloat(stats.invoices.totalAmount || "0");
+  const paidAmount = parseFloat(stats.invoices.paidAmount || "0");
+  const unpaidAmount = parseFloat(stats.invoices.unpaidAmount || "0");
 
-  const totalInvoiceAmount = filteredInvoices.reduce((sum, inv) => sum + parseFloat(inv.totalAmount || "0"), 0);
-  const paidAmount = paidInvoices.reduce((sum, inv) => sum + parseFloat(inv.totalAmount || "0"), 0);
-  const unpaidAmount = unpaidInvoices.reduce((sum, inv) => sum + parseFloat(inv.totalAmount || "0"), 0);
-
-  const recentCustomers = [...filteredCustomers]
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-    .slice(0, 5);
+  const recentCustomers = stats.recentCustomers || [];
 
   const formStats = useMemo(() => {
     const statsMap = new Map<string, { formName: string; countryCode: string; pending: number; approved: number; total: number }>();
@@ -231,7 +217,7 @@ export default function Dashboard() {
       .filter(s => s.total > 0 || webForms.find(f => f.id === s.formId)?.isActive);
   }, [webForms, allSubmissions]);
 
-  const customerMap = useMemo(() => new Map(customers.map(c => [c.id, c])), [customers]);
+  const customerMap = useMemo(() => new Map(customersLookup.map(c => [c.id, c])), [customersLookup]);
 
   const lookupMaps = useMemo(() => {
     const hospitalMap = new Map(hospitals.map((h: any) => [h.id, h.name]));

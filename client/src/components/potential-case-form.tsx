@@ -235,8 +235,8 @@ export function PotentialCaseForm({ customer, open, onClose }: PotentialCaseForm
     enabled: open,
   });
 
-  const { data: hospitals = [] } = useQuery<Hospital[]>({
-    queryKey: ["/api/hospitals"],
+  const { data: hospitals = [] } = useQuery<any[]>({
+    queryKey: ["/api/hospitals/lookup"],
   });
 
   const { data: products = [] } = useQuery<Product[]>({
@@ -762,8 +762,8 @@ export function EmbeddedPotentialCaseForm({ customer }: EmbeddedPotentialCaseFor
     },
   });
 
-  const { data: hospitals = [] } = useQuery<Hospital[]>({
-    queryKey: ["/api/hospitals"],
+  const { data: hospitals = [] } = useQuery<any[]>({
+    queryKey: ["/api/hospitals/lookup"],
   });
 
   const { data: products = [] } = useQuery<Product[]>({

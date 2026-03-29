@@ -2766,8 +2766,8 @@ export default function PipelinePage() {
     enabled: !!activePipelineId,
   });
 
-  const { data: customers = [] } = useQuery<Customer[]>({
-    queryKey: ["/api/customers"],
+  const { data: customers = [] } = useQuery<any[]>({
+    queryKey: ["/api/customers/lookup"],
   });
 
   const { data: campaigns = [] } = useQuery<Campaign[]>({
