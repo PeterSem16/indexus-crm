@@ -1054,7 +1054,7 @@ async function step4_collaborators() {
       const birth = decomposeBirthDate(row.pda_birth_date);
 
       const hospIdsRaw = (hospMap[row.doc_id] || []).map(legId => hospitalLookup[legId]).filter(Boolean);
-      const hospIds = hospIdsRaw.length > 0 ? `{${hospIdsRaw.join(',')}}` : '{}';
+      const hospIds = hospIdsRaw.length > 0 ? hospIdsRaw : [];
 
       let healthInsId = null;
       if (row.pda_health_insurance_code) {
@@ -1110,7 +1110,7 @@ async function step4_collaborators() {
         row.doc_active === true || row.doc_active === 1,
         row.doc_svet_zdravia === true || row.doc_svet_zdravia === 1,
         row.doc_monthly_rewards === true || row.doc_monthly_rewards === 1,
-        row.doc_note, normalizeCollaboratorType(row.cty_code), hospIds, healthInsId,
+        row.doc_note, normalizeCollaboratorType(row.cty_code), hospIds.length > 0 ? hospIds : '{}', healthInsId,
         repName, 'iscbc', Object.keys(legacyCompany).length > 0 ? JSON.stringify(legacyCompany) : null,
         row.doc_inserted || new Date(), new Date(),
       ]);

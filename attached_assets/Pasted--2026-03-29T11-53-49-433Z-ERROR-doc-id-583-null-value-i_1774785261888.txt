@@ -1,0 +1,23 @@
+[2026-03-29T11:53:49.433Z]   ERROR doc_id=583: null value in column "hospital_ids" of relation "collaborators" violates not-null constraint
+[2026-03-29T11:53:49.441Z]   ERROR doc_id=576: null value in column "hospital_ids" of relation "collaborators" violates not-null constraint
+[2026-03-29T11:53:49.458Z]   ERROR doc_id=557: null value in column "hospital_ids" of relation "collaborators" violates not-null constraint
+[2026-03-29T11:53:49.471Z]   ERROR doc_id=549: null value in column "hospital_ids" of relation "collaborators" violates not-null constraint
+[2026-03-29T11:53:49.646Z]   ERROR doc_id=377: null value in column "hospital_ids" of relation "collaborators" violates not-null constraint
+[2026-03-29T11:53:49.659Z]   ERROR doc_id=370: null value in column "hospital_ids" of relation "collaborators" violates not-null constraint
+[2026-03-29T11:53:49.667Z]   ERROR doc_id=365: null value in column "hospital_ids" of relation "collaborators" violates not-null constraint
+[2026-03-29T11:53:49.675Z]   ERROR doc_id=359: null value in column "hospital_ids" of relation "collaborators" violates not-null constraint
+[2026-03-29T11:53:49.683Z]   ERROR doc_id=352: null value in column "hospital_ids" of relation "collaborators" violates not-null constraint
+[2026-03-29T11:53:49.691Z]   ERROR doc_id=346: null value in column "hospital_ids" of relation "collaborators" violates not-null constraint
+[2026-03-29T11:53:49.712Z]   ERROR doc_id=329: null value in column "hospital_ids" of relation "collaborators" violates not-null constraint
+[2026-03-29T11:53:49.739Z]   ERROR doc_id=307: null value in column "hospital_ids" of relation "collaborators" violates not-null constraint
+[2026-03-29T11:53:49.767Z]   ERROR doc_id=266: null value in column "hospital_ids" of relation "collaborators" violates not-null constraint
+[2026-03-29T11:53:49.775Z]   ERROR doc_id=263: null value in column "hospital_ids" of relation "collaborators" violates not-null constraint
+[2026-03-29T11:53:49.807Z]   ERROR doc_id=226: null value in column "hospital_ids" of relation "collaborators" violates not-null constraint
+[2026-03-29T11:53:49.815Z]   ERROR doc_id=225: null value in column "hospital_ids" of relation "collaborators" violates not-null constraint
+[2026-03-29T11:53:49.840Z]   ERROR doc_id=197: null value in column "hospital_ids" of relation "collaborators" violates not-null constraint
+[2026-03-29T11:53:49.853Z]   ERROR doc_id=194: null value in column "hospital_ids" of relation "collaborators" violates not-null constraint
+[2026-03-29T11:53:49.861Z]   ERROR doc_id=185: null value in column "hospital_ids" of relation "collaborators" violates not-null constraint
+[2026-03-29T11:53:49.874Z]   ERROR doc_id=141: null value in column "hospital_ids" of relation "collaborators" violates not-null constraint
+[2026-03-29T11:53:49.882Z]   ERROR doc_id=128: null value in column "hospital_ids" of relation "collaborators" violates not-null constraint
+[2026-03-29T11:53:49.910Z]   ERROR doc_id=1: null value in column "hospital_ids" of relation "collaborators" violates not-null constraint
+  [██████████░░░░░░░░░░░░░░░░░░░░] 34% (5001/14708) spolupracovníci | 23s elapsed, ~45s left   ^C
