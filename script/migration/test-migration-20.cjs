@@ -3528,106 +3528,8 @@ async function step12_customerInvoices() {
     SELECT cse_id FROM ContractServices WHERE con_id IN (\${BATCH_IDS})
   `, 'CSE for invoices');
   const cseIdListInv = cseIdsForInvoices.map(r => r.cse_id);
+  cseIdsForInvoices.length = 0;
   log(`  CSE IDs pre faktúry: ${cseIdListInv.length}`);
-
-  let invoices;
-  try {
-    const invRecords = await batchMssqlQuery(cseIdListInv, `
-      SELECT i.inv_id, i.cse_id, i.ist_id, i.ity_id,
-             i.inv_invoice_number, i.inv_variable_symbol, i.inv_specific_symbol, i.inv_constant_symbol,
-             i.inv_date_of_issue, i.inv_date_of_delivery, i.inv_date_of_payment, i.inv_dispatch_date,
-             i.inv_amount_cur_home_with_vat, i.inv_amount_cur_home_no_vat,
-             i.inv_amount_cur_account_with_vat, i.inv_amount_cur_account_no_vat,
-             i.inv_paid_cur_home, i.inv_paid_cur_account,
-             i.inv_prepaid_cur_home, i.inv_prepaid_cur_account,
-             i.inv_exchange_rate, i.cur_code_home, i.cur_code_account,
-             i.inv_fully_paid, i.inv_note, i.inv_writeoff,
-             i.inv_inserted, i.inv_inserted_by, i.inv_updated, i.inv_updated_by,
-             i.inv_period_from, i.inv_period_to, i.inv_emailed, i.inv_bsp_note,
-             i.inv_id_credit_note_to, i.inv_id_proforma_link,
-             i.add_id_company, i.add_id_invoice,
-             ac.add_name AS billing_addr_name, ac.add_street_and_number AS billing_addr_street,
-             ac.add_city AS billing_addr_city, ac.add_zip AS billing_addr_zip,
-             ac.add_country AS billing_addr_country, ac.add_area AS billing_addr_area
-      FROM Invoices i
-      LEFT JOIN MailAddresses ac ON ac.add_id = i.add_id_company
-      WHERE i.cse_id IN (\${BATCH_IDS})
-      ORDER BY i.inv_id
-    `, 'Invoices');
-    invoices = { recordset: invRecords };
-  } catch (err) {
-    log(`  WARN: Extended query failed (${err.message}), trying basic query...`);
-    try {
-      const invRecordsBasic = await batchMssqlQuery(cseIdListInv, `
-        SELECT i.inv_id, i.cse_id, i.ist_id, i.ity_id,
-               i.inv_invoice_number, i.inv_variable_symbol,
-               i.inv_date_of_issue, i.inv_date_of_delivery, i.inv_date_of_payment, i.inv_dispatch_date,
-               i.inv_amount_cur_home_with_vat, i.inv_amount_cur_home_no_vat,
-               i.inv_paid_cur_home, i.cur_code_home,
-               i.inv_fully_paid, i.inv_note, i.inv_inserted, i.inv_writeoff
-        FROM Invoices i
-        WHERE i.cse_id IN (\${BATCH_IDS})
-        ORDER BY i.inv_id
-      `, 'Invoices(basic)');
-      invoices = { recordset: invRecordsBasic };
-    } catch (err2) {
-      log(`  ERROR: Invoices query failed: ${err2.message}`);
-      return;
-    }
-  }
-
-  log(`  Nájdených ${invoices.recordset.length} faktúr`);
-
-  if (invoices.recordset.length > 0) {
-    table(
-      ['inv_id', 'Číslo', 'VS', 'Vydaná', 'Splatnosť', 'Suma', 'Mena', 'Zapl.', 'Stav', 'Typ', 'Firma'],
-      invoices.recordset.slice(0, 10).map(r => {
-        const cliId = cseToClient[String(r.cse_id)];
-        return [
-          r.inv_id,
-          r.inv_invoice_number || '-',
-          r.inv_variable_symbol || '-',
-          r.inv_date_of_issue ? new Date(r.inv_date_of_issue).toLocaleDateString('sk') : '-',
-          (r.inv_due_date || r.inv_date_of_payment) ? new Date(r.inv_due_date || r.inv_date_of_payment).toLocaleDateString('sk') : '-',
-          r.inv_amount_cur_home_with_vat != null ? String(r.inv_amount_cur_home_with_vat) : '-',
-          r.cur_code_home || '-',
-          r.inv_fully_paid ? 'Áno' : 'Nie',
-          invoiceStatusRaw[r.ist_id] || '-',
-          invoiceTypeRaw[r.ity_id] || '-',
-          cliId ? (companyMap[cliId] || '-') : '-'
-        ];
-      })
-    );
-
-    // Status distribution
-    const statusDist = {};
-    for (const r of invoices.recordset) {
-      const code = invoiceStatusRaw[r.ist_id] || 'unknown';
-      statusDist[code] = (statusDist[code] || 0) + 1;
-    }
-    log(`  Rozdelenie podľa statusu: ${Object.entries(statusDist).map(([k,v]) => `${k}=${v}`).join(', ')}`);
-
-    // Type distribution
-    const typeDist = {};
-    for (const r of invoices.recordset) {
-      const code = invoiceTypeRaw[r.ity_id] || 'unknown';
-      typeDist[code] = (typeDist[code] || 0) + 1;
-    }
-    log(`  Rozdelenie podľa typu: ${Object.entries(typeDist).map(([k,v]) => `${k}=${v}`).join(', ')}`);
-
-    // Currency distribution
-    const curDist = {};
-    for (const r of invoices.recordset) {
-      const cur = r.cur_code_home || 'unknown';
-      curDist[cur] = (curDist[cur] || 0) + 1;
-    }
-    log(`  Rozdelenie podľa meny: ${Object.entries(curDist).map(([k,v]) => `${k}=${v}`).join(', ')}`);
-
-    // Paid distribution
-    let paidCount = 0, unpaidCount = 0;
-    for (const r of invoices.recordset) { if (r.inv_fully_paid) paidCount++; else unpaidCount++; }
-    log(`  Zaplatené: ${paidCount}, Nezaplatené: ${unpaidCount}`);
-  }
 
   // Ensure pdf_downloaded_at column
   try {
@@ -3635,451 +3537,367 @@ async function step12_customerInvoices() {
     log('  ✓ invoices.pdf_downloaded_at stĺpec overený');
   } catch (err) { log(`  WARN pdf_downloaded_at: ${err.message}`); }
 
-  // --- Preload InvoiceItems (legacy invoice line items) ---
-  const invoiceItemsMap = {}; // inv_id → items[]
-  try {
-    const iiCols = await mssqlPool.request().query(`
-      SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'InvoiceItems' ORDER BY ORDINAL_POSITION
-    `);
-    if (iiCols.recordset.length > 0) {
-      log(`  InvoiceItems stĺpce: ${iiCols.recordset.map(r => r.COLUMN_NAME).join(', ')}`);
-      const invIdList = invoices.recordset.map(r => r.inv_id);
-      const iiResRecords = await batchMssqlQuery(invIdList, `
-        SELECT * FROM InvoiceItems WHERE inv_id IN (\${BATCH_IDS}) ORDER BY inv_id, iit_id
-      `, 'InvoiceItems');
-      log(`  InvoiceItems: ${iiResRecords.length} záznamov`);
-      if (iiResRecords.length > 0) {
-        log(`  Vzorka InvoiceItem: ${JSON.stringify(iiResRecords[0])}`);
+  // Preload existing legacy_ids to skip duplicates
+  const existingInvSet = new Set();
+  const existInvRes = await pgPool.query(`SELECT legacy_id FROM customer_documents WHERE legacy_id LIKE 'invoice_%' AND data_source = 'iscbc'`);
+  for (const r of existInvRes.rows) existingInvSet.add(r.legacy_id);
+  log(`  Existujúcich faktúr: ${existingInvSet.size}`);
+
+  const INVOICES_MODULE_STATUS_MAP = {
+    'new': 'generated', 'filled': 'generated', 'in_due': 'sent', 'sent': 'sent',
+    'paid': 'paid', 'partially_paid': 'partially_paid', 'overdue': 'overdue',
+    'cancelled': 'cancelled', 'credit_note': 'cancelled',
+  };
+
+  // === CHUNK-BASED PROCESSING ===
+  const CHUNK_SIZE = 25000;
+  const totalChunks = Math.ceil(cseIdListInv.length / CHUNK_SIZE);
+  let inserted = 0, skipped = 0, errors = 0, insertedSI = 0, siErrors = 0;
+  const invStart = Date.now();
+  let totalInvoicesProcessed = 0;
+
+  log(`  Spracovávam faktúry v ${totalChunks} chunkoch po ${CHUNK_SIZE} cse_ids...`);
+
+  for (let chunkIdx = 0; chunkIdx < totalChunks; chunkIdx++) {
+    const chunkCseIds = cseIdListInv.slice(chunkIdx * CHUNK_SIZE, (chunkIdx + 1) * CHUNK_SIZE);
+    log(`  Chunk ${chunkIdx + 1}/${totalChunks}: ${chunkCseIds.length} cse_ids...`);
+
+    // Load invoices for this chunk
+    let chunkInvoices;
+    try {
+      chunkInvoices = await batchMssqlQuery(chunkCseIds, `
+        SELECT i.inv_id, i.cse_id, i.ist_id, i.ity_id,
+               i.inv_invoice_number, i.inv_variable_symbol, i.inv_specific_symbol, i.inv_constant_symbol,
+               i.inv_date_of_issue, i.inv_date_of_delivery, i.inv_date_of_payment, i.inv_dispatch_date,
+               i.inv_amount_cur_home_with_vat, i.inv_amount_cur_home_no_vat,
+               i.inv_amount_cur_account_with_vat, i.inv_amount_cur_account_no_vat,
+               i.inv_paid_cur_home, i.inv_paid_cur_account,
+               i.inv_prepaid_cur_home, i.inv_prepaid_cur_account,
+               i.inv_exchange_rate, i.cur_code_home, i.cur_code_account,
+               i.inv_fully_paid, i.inv_note, i.inv_writeoff,
+               i.inv_inserted, i.inv_inserted_by, i.inv_updated, i.inv_updated_by,
+               i.inv_period_from, i.inv_period_to, i.inv_emailed, i.inv_bsp_note,
+               i.inv_id_credit_note_to, i.inv_id_proforma_link,
+               i.add_id_company, i.add_id_invoice,
+               ac.add_name AS billing_addr_name, ac.add_street_and_number AS billing_addr_street,
+               ac.add_city AS billing_addr_city, ac.add_zip AS billing_addr_zip,
+               ac.add_country AS billing_addr_country, ac.add_area AS billing_addr_area
+        FROM Invoices i
+        LEFT JOIN MailAddresses ac ON ac.add_id = i.add_id_company
+        WHERE i.cse_id IN (\${BATCH_IDS})
+        ORDER BY i.inv_id
+      `, `Invoices-chunk${chunkIdx+1}`);
+    } catch (err) {
+      log(`  WARN chunk ${chunkIdx+1} extended query failed, trying basic...`);
+      try {
+        chunkInvoices = await batchMssqlQuery(chunkCseIds, `
+          SELECT i.inv_id, i.cse_id, i.ist_id, i.ity_id,
+                 i.inv_invoice_number, i.inv_variable_symbol,
+                 i.inv_date_of_issue, i.inv_date_of_delivery, i.inv_date_of_payment, i.inv_dispatch_date,
+                 i.inv_amount_cur_home_with_vat, i.inv_amount_cur_home_no_vat,
+                 i.inv_paid_cur_home, i.cur_code_home,
+                 i.inv_fully_paid, i.inv_note, i.inv_inserted, i.inv_writeoff
+          FROM Invoices i
+          WHERE i.cse_id IN (\${BATCH_IDS})
+          ORDER BY i.inv_id
+        `, `Invoices-basic-chunk${chunkIdx+1}`);
+      } catch (err2) {
+        log(`  ERROR chunk ${chunkIdx+1}: ${err2.message}`);
+        continue;
       }
-      for (const item of iiResRecords) {
+    }
+    log(`    Faktúr v chunk: ${chunkInvoices.length}`);
+    if (chunkInvoices.length === 0) continue;
+
+    // Load related data for this chunk's invoices
+    const chunkInvIds = chunkInvoices.map(r => r.inv_id);
+
+    // InvoiceItems
+    const chunkItemsMap = {};
+    try {
+      const iiRecs = await batchMssqlQuery(chunkInvIds, `
+        SELECT * FROM InvoiceItems WHERE inv_id IN (\${BATCH_IDS}) ORDER BY inv_id, iit_id
+      `, `Items-chunk${chunkIdx+1}`);
+      for (const item of iiRecs) {
         const vatRecord = vatRatesMap[String(item.vat_id)];
         item.vat_rate = vatRecord ? (vatRecord.vat_rate != null ? parseFloat(vatRecord.vat_rate) : null) : null;
         const key = String(item.inv_id);
-        if (!invoiceItemsMap[key]) invoiceItemsMap[key] = [];
-        invoiceItemsMap[key].push(item);
+        if (!chunkItemsMap[key]) chunkItemsMap[key] = [];
+        chunkItemsMap[key].push(item);
       }
-      iiResRecords.length = 0;
-    } else {
-      log('  InvoiceItems tabuľka neexistuje alebo je prázdna');
-    }
-  } catch (err) { log(`  WARN InvoiceItems: ${err.message}`); }
+      iiRecs.length = 0;
+    } catch (err) { log(`    WARN InvoiceItems: ${err.message}`); }
 
-  // --- Preload ScheduledPayments (plánované splátky k faktúram) ---
-  const scheduledPaymentsMap = {}; // inv_id → payments[]
-  try {
-    const invIdListSP = invoices.recordset.map(r => r.inv_id);
-    const spResRecords = await batchMssqlQuery(invIdListSP, `
-      SELECT sp.*, ips.ips_code, ips.ips_default_name
-      FROM ScheduledPayments sp
-      LEFT JOIN InvoicePaymentStatuses ips ON ips.ips_id = sp.ips_id
-      WHERE sp.inv_id IN (\${BATCH_IDS})
-      ORDER BY sp.inv_id, sp.spa_id
-    `, 'ScheduledPayments');
-    log(`  ScheduledPayments: ${spResRecords.length} záznamov`);
-    if (spResRecords.length > 0) {
-      log(`  Vzorka ScheduledPayment: ${JSON.stringify(spResRecords[0])}`);
-    }
-    for (const pay of spResRecords) {
-      const key = String(pay.inv_id);
-      if (!scheduledPaymentsMap[key]) scheduledPaymentsMap[key] = [];
-      scheduledPaymentsMap[key].push(pay);
-    }
-    spResRecords.length = 0;
-  } catch (err) { log(`  WARN ScheduledPayments: ${err.message}`); }
-
-  // --- Preload RealizedPayments (skutočné úhrady k faktúram) ---
-  const realizedPaymentsMap = {}; // inv_id → realized[]
-  try {
-    const invIdListRP = invoices.recordset.map(r => r.inv_id);
-    const rpResRecords = await batchMssqlQuery(invIdListRP, `
-      SELECT * FROM RealizedPayments
-      WHERE inv_id IN (\${BATCH_IDS})
-      ORDER BY inv_id, rpa_id
-    `, 'RealizedPayments');
-    log(`  RealizedPayments: ${rpResRecords.length} záznamov`);
-    if (rpResRecords.length > 0) {
-      log(`  Vzorka RealizedPayment: ${JSON.stringify(rpResRecords[0])}`);
-    }
-    for (const rp of rpResRecords) {
-      const key = String(rp.inv_id);
-      if (!realizedPaymentsMap[key]) realizedPaymentsMap[key] = [];
-      realizedPaymentsMap[key].push(rp);
-    }
-    rpResRecords.length = 0;
-  } catch (err) { log(`  WARN RealizedPayments: ${err.message}`); }
-
-  // --- Preload InvoiceSchedulesPaymentDates (dátumy splátok) ---
-  const paymentDatesMap = {}; // inv_id → dates object
-  try {
-    const invIdListPD = invoices.recordset.map(r => r.inv_id);
-    const pdResRecords = await batchMssqlQuery(invIdListPD, `
-      SELECT * FROM InvoiceSchedulesPaymentDates
-      WHERE inv_id IN (\${BATCH_IDS})
-    `, 'PaymentDates');
-    log(`  InvoiceSchedulesPaymentDates: ${pdResRecords.length} záznamov`);
-    for (const pd of pdResRecords) {
-      paymentDatesMap[String(pd.inv_id)] = pd;
-    }
-    pdResRecords.length = 0;
-  } catch (err) { log(`  WARN InvoiceSchedulesPaymentDates: ${err.message}`); }
-
-  log(`  Mapy načítané: items=${Object.keys(invoiceItemsMap).length} faktúr, scheduledPayments=${Object.keys(scheduledPaymentsMap).length} faktúr, realizedPayments=${Object.keys(realizedPaymentsMap).length} faktúr`);
-
-  let inserted = 0, skipped = 0, errors = 0;
-  const invTotal = invoices.recordset.length;
-  const invStart = Date.now();
-  for (let ii = 0; ii < invTotal; ii++) {
-    const r = invoices.recordset[ii];
-    if (ii % 2000 === 0 || ii === invTotal - 1) progressBar(ii + 1, invTotal, 'faktúry', invStart);
-    const cliId = cseToClient[String(r.cse_id)];
-    const customerId = cliId ? customerMap[cliId] : null;
-    if (!customerId) { skipped++; continue; }
-
-    const legacyId = `invoice_${r.inv_id}`;
-    const existing = await pgPool.query(`SELECT id FROM customer_documents WHERE legacy_id = $1`, [legacyId]);
-    if (existing.rows.length > 0) { skipped++; continue; }
-
-    // Resolve contract_instance reference (internal_id format is "contract_${con_id}")
-    const cbcConId = cseToConId[String(r.cse_id)];
-    const contractInstanceId = cbcConId ? (contractInstanceLookup[`contract_${cbcConId}`] || null) : null;
-
-    // Map status code → normalized
-    const statusCode = invoiceStatusRaw[r.ist_id] || '';
-    const normalizedStatus = INVOICE_STATUS_MAP[statusCode] || statusCode || (r.inv_fully_paid ? 'paid' : 'new');
-
-    // Map type code
-    const typeCode = invoiceTypeRaw[r.ity_id] || null;
-
-    // Company from contract chain
-    const companyName = cliId ? (companyMap[cliId] || null) : null;
-
-    // Build legacy data object
-    const legacyData = {
-      inv_id: r.inv_id,
-      cse_id: r.cse_id,
-      con_id: cbcConId || null,
-      ist_id: r.ist_id,
-      ity_id: r.ity_id,
-      ist_code: statusCode,
-      ity_code: typeCode,
-      writeoff: r.inv_writeoff || null,
-      specific_symbol: r.inv_specific_symbol || null,
-      constant_symbol: r.inv_constant_symbol || null,
-      exchange_rate: r.inv_exchange_rate || null,
-      amount_account_vat: r.inv_amount_cur_account_with_vat || null,
-      amount_account_no_vat: r.inv_amount_cur_account_no_vat || null,
-      paid_account: r.inv_paid_cur_account || null,
-      prepaid_home: r.inv_prepaid_cur_home || null,
-      prepaid_account: r.inv_prepaid_cur_account || null,
-      period_from: r.inv_period_from || null,
-      period_to: r.inv_period_to || null,
-      emailed: r.inv_emailed || null,
-      bsp_note: r.inv_bsp_note || null,
-      credit_note_to: r.inv_id_credit_note_to || null,
-      proforma_link: r.inv_id_proforma_link || null,
-      inserted_by: r.inv_inserted_by || null,
-      updated_by: r.inv_updated_by || null,
-      accountingCode: r.cse_id ? (accountingCodeByCseId[String(r.cse_id)] || accountingCodeByConId[String(cbcConId)] || null) : null,
-      legacyBillingCompany: cliId ? (companyInfoMap[cliId] || null) : null,
-      billingAddress: r.billing_addr_name ? {
-        name: r.billing_addr_name, street: r.billing_addr_street,
-        city: r.billing_addr_city, zip: r.billing_addr_zip,
-        country: r.billing_addr_country, area: r.billing_addr_area,
-      } : null,
-      companyDetails: (() => {
-        const comp = cliId ? (companyInfoMap[cliId] || {}) : {};
-        const comId = comp.com_id ? String(comp.com_id) : null;
-        const cd = comId ? (companyDetailsMap[comId] || {}) : {};
-        const ca = comId ? ((companyAccountsMap[comId] || [])[0] || {}) : {};
-        return {
-          ico: cd.cod_ico || null,
-          dic: cd.cod_dic || null,
-          vatDic: cd.cod_vat_dic || null,
-          bankName: ca.acc_bank_name || null,
-          iban: ca.acc_IBAN || null,
-          swift: ca.acc_SWIFT || null,
-          bankCode: ca.acc_account_bank_code || null,
-        };
-      })(),
-      items: invoiceItemsMap[String(r.inv_id)] || [],
-      scheduledPayments: scheduledPaymentsMap[String(r.inv_id)] || [],
-      realizedPayments: realizedPaymentsMap[String(r.inv_id)] || [],
-      paymentDates: paymentDatesMap[String(r.inv_id)] || null,
-    };
-
-    // Map invoice status to invoices module status
-    const INVOICES_MODULE_STATUS_MAP = {
-      'new': 'generated',
-      'filled': 'generated',
-      'in_due': 'sent',
-      'sent': 'sent',
-      'paid': 'paid',
-      'partially_paid': 'partially_paid',
-      'overdue': 'overdue',
-      'cancelled': 'cancelled',
-      'credit_note': 'cancelled',
-    };
-    const invoicesModuleStatus = INVOICES_MODULE_STATUS_MAP[normalizedStatus] || 'generated';
-
+    // ScheduledPayments
+    const chunkSPMap = {};
     try {
-      // 1) Insert into customer_documents (Documents tab)
-      await pgPool.query(`
-        INSERT INTO customer_documents (
-          id, legacy_id, customer_id, document_type, data_source,
-          invoice_number, variable_symbol, invoice_type, invoice_status,
-          domestic_currency, accounting_currency,
-          amount, amount_no_vat, paid_amount, fully_paid,
-          issue_date, due_date, sent_date, delivery_date,
-          company_name, contract_instance_id,
-          note, legacy_data, created_at
-        )
-        VALUES (
-          gen_random_uuid(), $1, $2, 'invoice', 'iscbc',
-          $3, $4, $5, $6,
-          $7, $8,
-          $9, $10, $11, $12,
-          $13, $14, $15, $16,
-          $17, $18,
-          $19, $20, $21
-        )
-      `, [
-        legacyId,
-        customerId,
-        r.inv_invoice_number || null,
-        r.inv_variable_symbol || null,
-        typeCode,
-        normalizedStatus,
-        r.cur_code_home || null,
-        r.cur_code_account || null,
-        r.inv_amount_cur_home_with_vat != null ? String(r.inv_amount_cur_home_with_vat) : null,
-        r.inv_amount_cur_home_no_vat != null ? String(r.inv_amount_cur_home_no_vat) : null,
-        r.inv_paid_cur_home != null ? String(r.inv_paid_cur_home) : null,
-        r.inv_fully_paid ? true : false,
-        r.inv_date_of_issue || null,
-        r.inv_date_of_payment || null,
-        r.inv_dispatch_date || null,
-        r.inv_date_of_delivery || null,
-        companyName,
-        contractInstanceId,
-        r.inv_note || null,
-        JSON.stringify(legacyData),
-        r.inv_inserted || r.inv_date_of_issue || new Date(),
-      ]);
+      const spRecs = await batchMssqlQuery(chunkInvIds, `
+        SELECT sp.*, ips.ips_code, ips.ips_default_name
+        FROM ScheduledPayments sp
+        LEFT JOIN InvoicePaymentStatuses ips ON ips.ips_id = sp.ips_id
+        WHERE sp.inv_id IN (\${BATCH_IDS})
+        ORDER BY sp.inv_id, sp.spa_id
+      `, `SP-chunk${chunkIdx+1}`);
+      for (const pay of spRecs) {
+        const key = String(pay.inv_id);
+        if (!chunkSPMap[key]) chunkSPMap[key] = [];
+        chunkSPMap[key].push(pay);
+      }
+      spRecs.length = 0;
+    } catch (err) { log(`    WARN ScheduledPayments: ${err.message}`); }
 
-      // 2) Insert into invoices module (main invoices table)
-      const rawInvNum = r.inv_invoice_number || r.inv_variable_symbol || `${r.inv_id}`;
-      const invoiceNumberForModule = `CBC-${rawInvNum}`;
-      const invComp = cliId ? (companyInfoMap[cliId] || {}) : {};
-      const invComId = invComp.com_id ? String(invComp.com_id) : null;
-      const invCompDetails = invComId ? (companyDetailsMap[invComId] || {}) : {};
-      const invCompAccounts = invComId ? ((companyAccountsMap[invComId] || [])[0] || {}) : {};
+    // RealizedPayments
+    const chunkRPMap = {};
+    try {
+      const rpRecs = await batchMssqlQuery(chunkInvIds, `
+        SELECT * FROM RealizedPayments WHERE inv_id IN (\${BATCH_IDS}) ORDER BY inv_id, rpa_id
+      `, `RP-chunk${chunkIdx+1}`);
+      for (const rp of rpRecs) {
+        const key = String(rp.inv_id);
+        if (!chunkRPMap[key]) chunkRPMap[key] = [];
+        chunkRPMap[key].push(rp);
+      }
+      rpRecs.length = 0;
+    } catch (err) { log(`    WARN RealizedPayments: ${err.message}`); }
 
-      // Determine payment_date for paid invoices from RealizedPayments
-      let resolvedPaymentDate = null;
-      if (normalizedStatus === 'paid' || r.inv_fully_paid) {
-        const realized = realizedPaymentsMap[String(r.inv_id)] || [];
-        if (realized.length > 0) {
-          // Use the last realized payment date
-          const lastPayment = realized[realized.length - 1];
-          resolvedPaymentDate = lastPayment.rpa_date || lastPayment.rpa_date_of_payment || lastPayment.rpa_inserted || null;
-        }
-        // Fallback: if no realized payment, try payment dates map
-        if (!resolvedPaymentDate) {
-          const pd = paymentDatesMap[String(r.inv_id)];
-          if (pd) resolvedPaymentDate = pd.ispd_date || pd.ispd_date_of_payment || null;
-        }
-        // Final fallback: use due date as approximation for fully paid invoices
-        if (!resolvedPaymentDate && r.inv_date_of_payment) {
-          resolvedPaymentDate = r.inv_date_of_payment;
-        }
+    // PaymentDates
+    const chunkPDMap = {};
+    try {
+      const pdRecs = await batchMssqlQuery(chunkInvIds, `
+        SELECT * FROM InvoiceSchedulesPaymentDates WHERE inv_id IN (\${BATCH_IDS})
+      `, `PD-chunk${chunkIdx+1}`);
+      for (const pd of pdRecs) chunkPDMap[String(pd.inv_id)] = pd;
+      pdRecs.length = 0;
+    } catch (err) { log(`    WARN PaymentDates: ${err.message}`); }
+
+    // Process invoices in this chunk
+    for (let ii = 0; ii < chunkInvoices.length; ii++) {
+      const r = chunkInvoices[ii];
+      totalInvoicesProcessed++;
+      if (ii % 5000 === 0 || ii === chunkInvoices.length - 1) {
+        progressBar(totalInvoicesProcessed, cseIdListInv.length, 'faktúry', invStart);
       }
 
-      await pgPool.query(`
-        INSERT INTO invoices (
-          id, invoice_number, legacy_id, customer_id,
-          total_amount, subtotal, paid_amount,
-          currency, status,
-          variable_symbol, specific_symbol, constant_symbol,
-          delivery_date, issue_date, send_date, due_date,
-          period_from, period_to,
-          billing_company_name, billing_address, billing_country,
-          billing_tax_id, billing_vat_id,
-          billing_bank_name, billing_bank_iban, billing_bank_swift,
-          contract_instance_id,
-          payment_date,
-          customer_name,
-          data_source, legacy_data, note,
-          generated_at, created_at
-        )
-        VALUES (
-          gen_random_uuid(), $1, $2, $3,
-          $4, $5, $6,
-          $7, $8,
-          $9, $10, $11,
-          $12, $13, $14, $15,
-          $16, $17,
-          $18, $19, $20,
-          $21, $22,
-          $23, $24, $25,
-          $26,
-          $27,
-          $28,
-          'iscbc', $29, $30,
-          $31, $31
-        )
-      `, [
-        invoiceNumberForModule,                                                        // $1
-        legacyId,                                                                      // $2
-        customerId,                                                                    // $3
-        r.inv_amount_cur_home_with_vat != null ? String(r.inv_amount_cur_home_with_vat) : '0', // $4
-        r.inv_amount_cur_home_no_vat != null ? String(r.inv_amount_cur_home_no_vat) : null, // $5
-        r.inv_paid_cur_home != null ? String(r.inv_paid_cur_home) : '0',               // $6
-        r.cur_code_home || 'EUR',                                                      // $7
-        invoicesModuleStatus,                                                          // $8
-        r.inv_variable_symbol || null,                                                 // $9
-        r.inv_specific_symbol || null,                                                 // $10
-        r.inv_constant_symbol || null,                                                 // $11
-        r.inv_date_of_delivery || null,                                                // $12
-        r.inv_date_of_issue || null,                                                   // $13
-        r.inv_dispatch_date || null,                                                   // $14
-        r.inv_date_of_payment || null,                                                 // $15 due_date
-        r.inv_period_from || null,                                                     // $16
-        r.inv_period_to || null,                                                       // $17
-        companyName,                                                                   // $18
-        r.billing_addr_street ? [r.billing_addr_street, r.billing_addr_city, r.billing_addr_zip].filter(Boolean).join(', ') : null, // $19 billing_address
-        r.billing_addr_country ? r.billing_addr_country.replace('COUNTRY_', '') : null,  // $20 billing_country
-        invCompDetails.cod_ico || null,                                                // $21 billing_tax_id (IČO)
-        invCompDetails.cod_dic || invCompDetails.cod_vat_dic || null,                  // $22 billing_vat_id (DIČ)
-        invCompAccounts.acc_bank_name || null,                                         // $23 billing_bank_name
-        invCompAccounts.acc_IBAN || null,                                              // $24 billing_bank_iban
-        invCompAccounts.acc_SWIFT || null,                                             // $25 billing_bank_swift
-        contractInstanceId,                                                            // $26
-        resolvedPaymentDate,                                                           // $27 payment_date
-        customerNameLookup[customerId] || null,                                        // $28 customer_name
-        JSON.stringify(legacyData),                                                    // $29
-        r.inv_note || null,                                                            // $30
-        r.inv_inserted || r.inv_date_of_issue || new Date(),                           // $31
-      ]);
+      const cliId = cseToClient[String(r.cse_id)];
+      const customerId = cliId ? customerMap[cliId] : null;
+      if (!customerId) { skipped++; continue; }
 
-      inserted++;
-    } catch (err) {
-      errors++;
-      if (errors <= 5) log(`  ERROR inv_id=${r.inv_id}: ${err.message}`);
+      const legacyId = `invoice_${r.inv_id}`;
+      if (existingInvSet.has(legacyId)) { skipped++; continue; }
+
+      const cbcConId = cseToConId[String(r.cse_id)];
+      const contractInstanceId = cbcConId ? (contractInstanceLookup[`contract_${cbcConId}`] || null) : null;
+      const statusCode = invoiceStatusRaw[r.ist_id] || '';
+      const normalizedStatus = INVOICE_STATUS_MAP[statusCode] || statusCode || (r.inv_fully_paid ? 'paid' : 'new');
+      const typeCode = invoiceTypeRaw[r.ity_id] || null;
+      const companyName = cliId ? (companyMap[cliId] || null) : null;
+
+      const legacyData = {
+        inv_id: r.inv_id, cse_id: r.cse_id, con_id: cbcConId || null,
+        ist_id: r.ist_id, ity_id: r.ity_id, ist_code: statusCode, ity_code: typeCode,
+        writeoff: r.inv_writeoff || null,
+        specific_symbol: r.inv_specific_symbol || null, constant_symbol: r.inv_constant_symbol || null,
+        exchange_rate: r.inv_exchange_rate || null,
+        amount_account_vat: r.inv_amount_cur_account_with_vat || null,
+        amount_account_no_vat: r.inv_amount_cur_account_no_vat || null,
+        paid_account: r.inv_paid_cur_account || null,
+        prepaid_home: r.inv_prepaid_cur_home || null, prepaid_account: r.inv_prepaid_cur_account || null,
+        period_from: r.inv_period_from || null, period_to: r.inv_period_to || null,
+        emailed: r.inv_emailed || null, bsp_note: r.inv_bsp_note || null,
+        credit_note_to: r.inv_id_credit_note_to || null, proforma_link: r.inv_id_proforma_link || null,
+        inserted_by: r.inv_inserted_by || null, updated_by: r.inv_updated_by || null,
+        accountingCode: r.cse_id ? (accountingCodeByCseId[String(r.cse_id)] || accountingCodeByConId[String(cbcConId)] || null) : null,
+        legacyBillingCompany: cliId ? (companyInfoMap[cliId] || null) : null,
+        billingAddress: r.billing_addr_name ? {
+          name: r.billing_addr_name, street: r.billing_addr_street,
+          city: r.billing_addr_city, zip: r.billing_addr_zip,
+          country: r.billing_addr_country, area: r.billing_addr_area,
+        } : null,
+        companyDetails: (() => {
+          const comp = cliId ? (companyInfoMap[cliId] || {}) : {};
+          const comId = comp.com_id ? String(comp.com_id) : null;
+          const cd = comId ? (companyDetailsMap[comId] || {}) : {};
+          const ca = comId ? ((companyAccountsMap[comId] || [])[0] || {}) : {};
+          return { ico: cd.cod_ico || null, dic: cd.cod_dic || null, vatDic: cd.cod_vat_dic || null,
+            bankName: ca.acc_bank_name || null, iban: ca.acc_IBAN || null, swift: ca.acc_SWIFT || null, bankCode: ca.acc_account_bank_code || null };
+        })(),
+        items: chunkItemsMap[String(r.inv_id)] || [],
+        scheduledPayments: chunkSPMap[String(r.inv_id)] || [],
+        realizedPayments: chunkRPMap[String(r.inv_id)] || [],
+        paymentDates: chunkPDMap[String(r.inv_id)] || null,
+      };
+
+      const invoicesModuleStatus = INVOICES_MODULE_STATUS_MAP[normalizedStatus] || 'generated';
+
+      try {
+        await pgPool.query(`
+          INSERT INTO customer_documents (
+            id, legacy_id, customer_id, document_type, data_source,
+            invoice_number, variable_symbol, invoice_type, invoice_status,
+            domestic_currency, accounting_currency,
+            amount, amount_no_vat, paid_amount, fully_paid,
+            issue_date, due_date, sent_date, delivery_date,
+            company_name, contract_instance_id,
+            note, legacy_data, created_at
+          ) VALUES (
+            gen_random_uuid(), $1, $2, 'invoice', 'iscbc',
+            $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
+            $13, $14, $15, $16, $17, $18, $19, $20, $21
+          )
+        `, [
+          legacyId, customerId,
+          r.inv_invoice_number || null, r.inv_variable_symbol || null, typeCode, normalizedStatus,
+          r.cur_code_home || null, r.cur_code_account || null,
+          r.inv_amount_cur_home_with_vat != null ? String(r.inv_amount_cur_home_with_vat) : null,
+          r.inv_amount_cur_home_no_vat != null ? String(r.inv_amount_cur_home_no_vat) : null,
+          r.inv_paid_cur_home != null ? String(r.inv_paid_cur_home) : null,
+          r.inv_fully_paid ? true : false,
+          r.inv_date_of_issue || null, r.inv_date_of_payment || null,
+          r.inv_dispatch_date || null, r.inv_date_of_delivery || null,
+          companyName, contractInstanceId,
+          r.inv_note || null, JSON.stringify(legacyData),
+          r.inv_inserted || r.inv_date_of_issue || new Date(),
+        ]);
+
+        const rawInvNum = r.inv_invoice_number || r.inv_variable_symbol || `${r.inv_id}`;
+        const invoiceNumberForModule = `CBC-${rawInvNum}`;
+        const invComp = cliId ? (companyInfoMap[cliId] || {}) : {};
+        const invComId = invComp.com_id ? String(invComp.com_id) : null;
+        const invCompDetails = invComId ? (companyDetailsMap[invComId] || {}) : {};
+        const invCompAccounts = invComId ? ((companyAccountsMap[invComId] || [])[0] || {}) : {};
+
+        let resolvedPaymentDate = null;
+        if (normalizedStatus === 'paid' || r.inv_fully_paid) {
+          const realized = chunkRPMap[String(r.inv_id)] || [];
+          if (realized.length > 0) {
+            const lastPayment = realized[realized.length - 1];
+            resolvedPaymentDate = lastPayment.rpa_date || lastPayment.rpa_date_of_payment || lastPayment.rpa_inserted || null;
+          }
+          if (!resolvedPaymentDate) {
+            const pd = chunkPDMap[String(r.inv_id)];
+            if (pd) resolvedPaymentDate = pd.ispd_date || pd.ispd_date_of_payment || null;
+          }
+          if (!resolvedPaymentDate && r.inv_date_of_payment) resolvedPaymentDate = r.inv_date_of_payment;
+        }
+
+        await pgPool.query(`
+          INSERT INTO invoices (
+            id, invoice_number, legacy_id, customer_id,
+            total_amount, subtotal, paid_amount, currency, status,
+            variable_symbol, specific_symbol, constant_symbol,
+            delivery_date, issue_date, send_date, due_date,
+            period_from, period_to,
+            billing_company_name, billing_address, billing_country,
+            billing_tax_id, billing_vat_id,
+            billing_bank_name, billing_bank_iban, billing_bank_swift,
+            contract_instance_id, payment_date, customer_name,
+            data_source, legacy_data, note, generated_at, created_at
+          ) VALUES (
+            gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8,
+            $9, $10, $11, $12, $13, $14, $15, $16, $17,
+            $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28,
+            'iscbc', $29, $30, $31, $31
+          )
+        `, [
+          invoiceNumberForModule, legacyId, customerId,
+          r.inv_amount_cur_home_with_vat != null ? String(r.inv_amount_cur_home_with_vat) : '0',
+          r.inv_amount_cur_home_no_vat != null ? String(r.inv_amount_cur_home_no_vat) : null,
+          r.inv_paid_cur_home != null ? String(r.inv_paid_cur_home) : '0',
+          r.cur_code_home || 'EUR', invoicesModuleStatus,
+          r.inv_variable_symbol || null, r.inv_specific_symbol || null, r.inv_constant_symbol || null,
+          r.inv_date_of_delivery || null, r.inv_date_of_issue || null,
+          r.inv_dispatch_date || null, r.inv_date_of_payment || null,
+          r.inv_period_from || null, r.inv_period_to || null,
+          companyName,
+          r.billing_addr_street ? [r.billing_addr_street, r.billing_addr_city, r.billing_addr_zip].filter(Boolean).join(', ') : null,
+          r.billing_addr_country ? r.billing_addr_country.replace('COUNTRY_', '') : null,
+          invCompDetails.cod_ico || null, invCompDetails.cod_dic || invCompDetails.cod_vat_dic || null,
+          invCompAccounts.acc_bank_name || null, invCompAccounts.acc_IBAN || null, invCompAccounts.acc_SWIFT || null,
+          contractInstanceId, resolvedPaymentDate, customerNameLookup[customerId] || null,
+          JSON.stringify(legacyData), r.inv_note || null,
+          r.inv_inserted || r.inv_date_of_issue || new Date(),
+        ]);
+
+        inserted++;
+      } catch (err) {
+        errors++;
+        if (errors <= 5) log(`  ERROR inv_id=${r.inv_id}: ${err.message}`);
+      }
+
+      // Scheduled invoices from ScheduledPayments
+      const payments = chunkSPMap[String(r.inv_id)] || [];
+      if (payments.length >= 2) {
+        const unpaidPayments = payments.filter(p => {
+          const status = (p.ips_code || '').toUpperCase();
+          return status !== 'REG_IPS_PAID';
+        });
+        if (unpaidPayments.length > 0) {
+          const invoiceCurrency = r.cur_code_home || 'EUR';
+          const customerNameStr = customerNameLookup[customerId] || null;
+          const invComp2 = cliId ? (companyInfoMap[cliId] || {}) : {};
+          const comId2 = invComp2.com_id ? String(invComp2.com_id) : null;
+          const compDet2 = comId2 ? (companyDetailsMap[comId2] || {}) : {};
+          const compAcc2 = comId2 ? ((companyAccountsMap[comId2] || [])[0] || {}) : {};
+          const vatRate = compDet2.cod_vat_dic ? '20' : '0';
+          const cseId = String(r.cse_id);
+          const cbcConId2 = cseToConId[cseId];
+          const itemAccountingCode = accountingCodeByCseId[cseId] || (cbcConId2 ? accountingCodeByConId[cbcConId2] : null) || null;
+          const invItems = chunkItemsMap[String(r.inv_id)] || [];
+          const itemLabel = invItems.length > 0 ? (invItems[0].iit_label || null) : null;
+          const totalInstallments = payments.length;
+
+          for (const sp of unpaidPayments) {
+            const amount = parseFloat(sp.spa_amount_home) || 0;
+            if (amount <= 0) continue;
+            const scheduledDate = sp.spa_date_of_payment ? new Date(sp.spa_date_of_payment) : null;
+            if (!scheduledDate) continue;
+            const installmentNumber = sp.spa_installments_id || 1;
+            const baseItemName = itemLabel || sp.spa_name || 'Splátka';
+            const itemEntry = { name: baseItemName, quantity: 1, unitPrice: amount.toFixed(2), totalPrice: amount.toFixed(2), vatRate: vatRate };
+            if (itemAccountingCode) itemEntry.accountingCode = itemAccountingCode;
+
+            try {
+              await pgPool.query(`
+                INSERT INTO scheduled_invoices (
+                  id, customer_id, scheduled_date, installment_number, total_installments,
+                  status, currency, payment_term_days, items, total_amount,
+                  customer_name, created_at, created_by,
+                  billing_company_name, billing_country,
+                  billing_tax_id, billing_vat_id,
+                  billing_bank_name, billing_bank_iban, billing_bank_swift
+                ) VALUES (
+                  gen_random_uuid(), $1, $2, $3, $4,
+                  'pending', $5, 14, $6, $7, $8, $9, 'migration-v20',
+                  $10, $11, $12, $13, $14, $15, $16
+                )
+              `, [
+                customerId, scheduledDate, installmentNumber, totalInstallments,
+                invoiceCurrency, JSON.stringify([itemEntry]), amount.toFixed(2),
+                customerNameStr, r.inv_inserted || r.inv_date_of_issue || new Date(),
+                invComp2.com_name || null, invComp2.com_country_code || null,
+                compDet2.cod_ico || null, compDet2.cod_dic || compDet2.cod_vat_dic || null,
+                compAcc2.acc_bank_name || null, compAcc2.acc_IBAN || null, compAcc2.acc_SWIFT || null,
+              ]);
+              insertedSI++;
+            } catch (siErr) {
+              siErrors++;
+              if (siErrors <= 5) log(`  WARN scheduled_invoice inv_id=${r.inv_id}: ${siErr.message}`);
+            }
+          }
+        }
+      }
     }
+
+    // Free chunk data
+    chunkInvoices.length = 0;
+    log(`    Chunk ${chunkIdx + 1}/${totalChunks} hotový: ins=${inserted}, skip=${skipped}, err=${errors}`);
   }
 
   log(`  customer_documents: ${inserted} faktúr vložených`);
   log(`  invoices (modul): ${inserted} faktúr vložených`);
+  log(`  scheduled_invoices: ${insertedSI} vložených`);
   log(`  Preskočených: ${skipped}, Chýb: ${errors}`);
-
-  // --- Create scheduled_invoices from actual ScheduledPayments per invoice ---
-  let insertedSI = 0, siErrors = 0;
-  for (const r of invoices.recordset) {
-    const cliId = cseToClient[String(r.cse_id)];
-    const customerId = cliId ? customerMap[cliId] : null;
-    if (!customerId) continue;
-
-    const payments = scheduledPaymentsMap[String(r.inv_id)] || [];
-    if (payments.length < 2) continue; // skip single-payment invoices (one time payment = not a schedule)
-
-    // Only create scheduled_invoices for unpaid/partially paid installments
-    const unpaidPayments = payments.filter(p => {
-      const status = (p.ips_code || '').toUpperCase();
-      return status !== 'REG_IPS_PAID';
-    });
-    if (unpaidPayments.length === 0) continue;
-
-    const invoiceCurrency = r.cur_code_home || 'EUR';
-    const customerNameStr = customerNameLookup[customerId] || null;
-
-    const invComp = cliId ? (companyInfoMap[cliId] || {}) : {};
-    const comId = invComp.com_id ? String(invComp.com_id) : null;
-    const compDet = comId ? (companyDetailsMap[comId] || {}) : {};
-    const compAcc = comId ? ((companyAccountsMap[comId] || [])[0] || {}) : {};
-    const vatRate = compDet.cod_vat_dic ? '20' : '0';
-    const cseId = String(r.cse_id);
-    const cbcConId = cseToConId[cseId];
-    const itemAccountingCode = accountingCodeByCseId[cseId] || (cbcConId ? accountingCodeByConId[cbcConId] : null) || null;
-
-    // Get invoice item label for naming
-    const invItems = invoiceItemsMap[String(r.inv_id)] || [];
-    const itemLabel = invItems.length > 0 ? (invItems[0].iit_label || null) : null;
-
-    const totalInstallments = payments.length;
-
-    for (const sp of unpaidPayments) {
-      const amount = parseFloat(sp.spa_amount_home) || 0;
-      if (amount <= 0) continue;
-
-      const scheduledDate = sp.spa_date_of_payment ? new Date(sp.spa_date_of_payment) : null;
-      if (!scheduledDate) continue;
-
-      const installmentNumber = sp.spa_installments_id || 1;
-      const baseItemName = itemLabel || sp.spa_name || 'Splátka';
-      const itemEntry = {
-        name: baseItemName,
-        quantity: 1,
-        unitPrice: amount.toFixed(2),
-        totalPrice: amount.toFixed(2),
-        vatRate: vatRate,
-      };
-      if (itemAccountingCode) itemEntry.accountingCode = itemAccountingCode;
-      const items = JSON.stringify([itemEntry]);
-
-      try {
-        await pgPool.query(`
-          INSERT INTO scheduled_invoices (
-            id, customer_id, scheduled_date, installment_number, total_installments,
-            status, currency, payment_term_days, items, total_amount,
-            customer_name,
-            created_at, created_by,
-            billing_company_name, billing_country,
-            billing_tax_id, billing_vat_id,
-            billing_bank_name, billing_bank_iban, billing_bank_swift
-          ) VALUES (
-            gen_random_uuid(), $1, $2, $3, $4,
-            'pending', $5, 14, $6, $7,
-            $8,
-            $9, 'migration-v20',
-            $10, $11,
-            $12, $13,
-            $14, $15, $16
-          )
-        `, [
-          customerId,
-          scheduledDate,
-          installmentNumber,
-          totalInstallments,
-          invoiceCurrency,
-          items,
-          amount.toFixed(2),
-          customerNameStr,
-          r.inv_inserted || r.inv_date_of_issue || new Date(),
-          invComp.com_name || null,
-          invComp.com_country_code || null,
-          compDet.cod_ico || null,
-          compDet.cod_dic || compDet.cod_vat_dic || null,
-          compAcc.acc_bank_name || null,
-          compAcc.acc_IBAN || null,
-          compAcc.acc_SWIFT || null,
-        ]);
-        insertedSI++;
-      } catch (siErr) {
-        siErrors++;
-        if (siErrors <= 5) log(`  WARN scheduled_invoice inv_id=${r.inv_id}: ${siErr.message}`);
-      }
-    }
-  }
-  log(`  scheduled_invoices: ${insertedSI} vložených (z ScheduledPayments — nezaplatené splátky)`);
   if (siErrors > 0) log(`  scheduled_invoices chyby: ${siErrors}`);
-  if (Object.keys(contractInstanceLookup).length > 0) {
-    let linked = 0;
-    for (const r of invoices.recordset) {
-      const cbcConId = cseToConId[String(r.cse_id)];
-      if (cbcConId && contractInstanceLookup[`contract_${cbcConId}`]) linked++;
-    }
-    log(`  Faktúry prepojené na contract_instances: ${linked}/${invoices.recordset.length}`);
-  }
 }
 
 // ============================================================
