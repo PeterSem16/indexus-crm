@@ -1595,7 +1595,8 @@ async function step5_customers() {
         AND (c.cli_deleted = 0 OR c.cli_deleted IS NULL)
       ORDER BY c.cli_id DESC
     `);
-    allClientRecords.push(...batchResult.recordset);
+    for (const r of batchResult.recordset) allClientRecords.push(r);
+    batchResult.recordset = null;
   }
   const clients = { recordset: allClientRecords };
   log(`  Celkovo načítaných klientov: ${clients.recordset.length}`);
@@ -2314,7 +2315,8 @@ async function step8_remarks() {
       AND (rem_deleted = 0 OR rem_deleted IS NULL)
       AND rem_note IS NOT NULL AND LTRIM(RTRIM(rem_note)) != ''
   `, 'Remarks(cli)');
-  remarkRecords.push(...cliRemarks);
+  for (const r of cliRemarks) remarkRecords.push(r);
+  cliRemarks.length = 0;
   if (conIdKeys.length > 0) {
     const conRemarks = await batchMssqlQuery(conIdKeys, `
       SELECT rem_id, cli_id, con_id, rem_date, rem_login, rem_note
@@ -2323,7 +2325,8 @@ async function step8_remarks() {
         AND (rem_deleted = 0 OR rem_deleted IS NULL)
         AND rem_note IS NOT NULL AND LTRIM(RTRIM(rem_note)) != ''
     `, 'Remarks(con)');
-    remarkRecords.push(...conRemarks);
+    for (const r of conRemarks) remarkRecords.push(r);
+    conRemarks.length = 0;
   }
   const totalRemarks = remarkRecords.length;
   log(`  Nájdených ${totalRemarks} poznámok pre ${migratedCustomers.rows.length} klientov`);
@@ -2435,7 +2438,8 @@ async function step9_phoneCommunications() {
     WHERE cli_id IN (\${BATCH_IDS})
       AND (pho_deleted = 0 OR pho_deleted IS NULL)
   `, 'Phones(cli)');
-  phoneRecords.push(...cliPhones);
+  for (const r of cliPhones) phoneRecords.push(r);
+  cliPhones.length = 0;
   if (conIdKeysP.length > 0) {
     const conPhones = await batchMssqlQuery(conIdKeysP, `
       SELECT pho_id, pot_id, con_id, cli_id, phr_id,
@@ -2444,7 +2448,8 @@ async function step9_phoneCommunications() {
       WHERE con_id IN (\${BATCH_IDS}) AND cli_id IS NULL
         AND (pho_deleted = 0 OR pho_deleted IS NULL)
     `, 'Phones(con)');
-    phoneRecords.push(...conPhones);
+    for (const r of conPhones) phoneRecords.push(r);
+    conPhones.length = 0;
   }
   const totalPhones = phoneRecords.length;
   log(`  Nájdených ${totalPhones} hovorov pre ${migratedCustomers.rows.length} klientov`);
