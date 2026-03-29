@@ -1902,22 +1902,37 @@ export default function CollaboratorsPage() {
 
   // Pagination
   const [page, setPage] = useState(1);
-  const pageSize = 30;
+  const pageSize = 50;
   
   // Sorting
   const [sortField, setSortField] = useState<string>("name");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
-  const { data: collaborators = [], isLoading, refetch: refetchCollaborators } = useQuery<Collaborator[]>({
-    queryKey: ["/api/collaborators", selectedCountries.join(",")],
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+      setPage(1);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  const { data: collaboratorsPaginatedResult, isLoading, refetch: refetchCollaborators } = useQuery<{ data: Collaborator[], total: number }>({
+    queryKey: ["/api/collaborators", { page, limit: pageSize, search: debouncedSearch, country: filterCountry || undefined }],
     queryFn: async () => {
-      const params = selectedCountries.length > 0 ? `?countries=${selectedCountries.join(",")}` : "";
-      const res = await fetch(`/api/collaborators${params}`, { credentials: "include" });
+      const params = new URLSearchParams();
+      params.set("page", String(page));
+      params.set("limit", String(pageSize));
+      if (debouncedSearch) params.set("search", debouncedSearch);
+      if (filterCountry) params.set("country", filterCountry);
+      const res = await fetch(`/api/collaborators?${params.toString()}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch collaborators");
       return res.json();
     },
-    refetchInterval: 30000, // Auto-refresh every 30 seconds for online status
+    refetchInterval: 60000,
   });
+  const collaborators = collaboratorsPaginatedResult?.data || [];
+  const serverCollaboratorsTotal = collaboratorsPaginatedResult?.total || 0;
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => apiRequest("DELETE", `/api/collaborators/${id}`),
@@ -1934,21 +1949,14 @@ export default function CollaboratorsPage() {
 
   // Filtered and sorted collaborators
   const filteredAndSortedCollaborators = (() => {
-    // First filter
     let result = collaborators.filter((c) => {
-      const nameMatch = `${c.firstName} ${c.lastName}`.toLowerCase().includes(searchQuery.toLowerCase());
-      const emailMatch = c.email?.toLowerCase().includes(searchQuery.toLowerCase());
-      const phoneMatch = c.phone?.toLowerCase().includes(searchQuery.toLowerCase()) || c.mobile?.toLowerCase().includes(searchQuery.toLowerCase());
-      const textMatch = searchQuery === "" || nameMatch || emailMatch || phoneMatch;
-      
-      const countryMatch = filterCountry === "" || c.countryCode === filterCountry || (c.countryCodes && c.countryCodes.includes(filterCountry));
       const typeMatch = filterType === "" || c.collaboratorType === filterType;
       const statusMatch = filterStatus === "" || 
         (filterStatus === "active" && c.isActive) || 
         (filterStatus === "inactive" && !c.isActive);
       const expiredMatch = !filterExpiredAgreement || (c as any).hasExpiredAgreement === true;
       
-      return textMatch && countryMatch && typeMatch && statusMatch && expiredMatch;
+      return typeMatch && statusMatch && expiredMatch;
     });
     
     // Then sort
@@ -1994,11 +2002,8 @@ export default function CollaboratorsPage() {
     return result;
   })();
   
-  const totalPages = Math.ceil(filteredAndSortedCollaborators.length / pageSize);
-  const paginatedCollaborators = filteredAndSortedCollaborators.slice(
-    (page - 1) * pageSize,
-    page * pageSize
-  );
+  const totalPages = Math.ceil(serverCollaboratorsTotal / pageSize);
+  const paginatedCollaborators = filteredAndSortedCollaborators;
   
   // Reset page when filters change
   const handleFilterChange = () => {
@@ -2242,7 +2247,7 @@ export default function CollaboratorsPage() {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div className="text-sm text-muted-foreground">
-                {filteredAndSortedCollaborators.length} {t.common.of} {collaborators.length} {t.common.records}
+                {serverCollaboratorsTotal} {t.common.records}
               </div>
               <div className="flex items-center gap-2">
                 <Button
@@ -2417,7 +2422,7 @@ export default function CollaboratorsPage() {
               {totalPages > 1 && (
                 <div className="flex items-center justify-between mt-4 pt-4 border-t">
                   <div className="text-sm text-muted-foreground">
-                    {t.common.showing} {((page - 1) * pageSize) + 1} - {Math.min(page * pageSize, filteredAndSortedCollaborators.length)} {t.common.of} {filteredAndSortedCollaborators.length}
+                    {t.common.showing} {((page - 1) * pageSize) + 1} - {Math.min(page * pageSize, serverCollaboratorsTotal)} {t.common.of} {serverCollaboratorsTotal}
                   </div>
                   <div className="flex items-center gap-2">
                     <Button

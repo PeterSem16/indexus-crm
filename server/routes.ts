@@ -13575,6 +13575,14 @@ Return ONLY valid JSON, no markdown code blocks.`,
   // Hospitals
   app.get("/api/hospitals", requireAuth, async (req, res) => {
     try {
+      const page = parseInt(req.query.page as string) || 0;
+      const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
+      const search = req.query.search as string;
+      const country = req.query.country as string;
+      if (req.query.page || req.query.search) {
+        const result = await storage.getHospitalsPaginated(page || 1, limit, search, country);
+        return res.json(result);
+      }
       const countryCodes = req.query.countries as string;
       const hospitals = countryCodes 
         ? await storage.getHospitalsByCountry(countryCodes.split(","))
@@ -13687,6 +13695,14 @@ Return ONLY valid JSON, no markdown code blocks.`,
   // Clinics (Ambulancie) routes
   app.get("/api/clinics", requireAuth, async (req, res) => {
     try {
+      const page = parseInt(req.query.page as string) || 0;
+      const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
+      const search = req.query.search as string;
+      const country = req.query.country as string;
+      if (req.query.page || req.query.search) {
+        const result = await storage.getClinicsPaginated(page || 1, limit, search, country);
+        return res.json(result);
+      }
       const countryCodes = req.query.countries as string;
       const clinicsList = countryCodes 
         ? await storage.getClinicsByCountry(countryCodes.split(","))
@@ -13902,6 +13918,31 @@ Return ONLY valid JSON, no markdown code blocks.`,
   // Collaborators routes
   app.get("/api/collaborators", requireAuth, async (req, res) => {
     try {
+      const page = parseInt(req.query.page as string) || 0;
+      const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
+      const search = req.query.search as string;
+      const country = req.query.country as string;
+      if (req.query.page || req.query.search) {
+        const result = await storage.getCollaboratorsPaginated(page || 1, limit, search, country);
+        const today = new Date();
+        const enrichedData = await Promise.all(
+          result.data.map(async (collab) => {
+            try {
+              const agreements = await storage.getCollaboratorAgreements(collab.id);
+              let hasExpiredAgreement = false;
+              let hasValidAgreement = false;
+              for (const agreement of agreements) {
+                if (agreement.validToYear && agreement.validToMonth && agreement.validToDay) {
+                  const validTo = new Date(agreement.validToYear, agreement.validToMonth - 1, agreement.validToDay);
+                  if (validTo < today) { hasExpiredAgreement = true; } else if (agreement.isValid) { hasValidAgreement = true; }
+                } else if (agreement.isValid) { hasValidAgreement = true; }
+              }
+              return { ...collab, hasExpiredAgreement: hasExpiredAgreement && !hasValidAgreement };
+            } catch { return { ...collab, hasExpiredAgreement: false }; }
+          })
+        );
+        return res.json({ data: enrichedData, total: result.total });
+      }
       const countryCodes = req.query.countries ? String(req.query.countries).split(",") : undefined;
       const collaborators = countryCodes 
         ? await storage.getCollaboratorsByCountry(countryCodes)

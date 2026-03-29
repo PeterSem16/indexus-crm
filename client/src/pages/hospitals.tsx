@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Plus, Pencil, Trash2, Search, Building2, FileText, Award, Gift, ListChecks, FileEdit, MapPin, Navigation, ExternalLink, Database, Loader2, Globe, Stethoscope, RefreshCw, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Filter, X, Download, FileSpreadsheet, Target, UserCheck, GraduationCap } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
@@ -888,7 +888,15 @@ export default function HospitalsPage() {
   
   // Clinic pagination
   const [clinicPage, setClinicPage] = useState(1);
-  const clinicPageSize = 30;
+  const clinicPageSize = 50;
+  const [debouncedClinicSearch, setDebouncedClinicSearch] = useState("");
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedClinicSearch(clinicSearchQuery);
+      setClinicPage(1);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [clinicSearchQuery]);
   
   // Clinic filters
   const [clinicCityFilter, setClinicCityFilter] = useState("");
@@ -903,7 +911,15 @@ export default function HospitalsPage() {
 
   // Hospital pagination
   const [hospitalPage, setHospitalPage] = useState(1);
-  const hospitalPageSize = 30;
+  const hospitalPageSize = 50;
+  const [debouncedHospitalSearch, setDebouncedHospitalSearch] = useState("");
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedHospitalSearch(searchQuery);
+      setHospitalPage(1);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
   
   // Hospital filters
   const [hospitalCityFilter, setHospitalCityFilter] = useState("");
@@ -916,15 +932,21 @@ export default function HospitalsPage() {
 
   const isAdmin = user?.role === "admin";
 
-  const { data: hospitals = [], isLoading } = useQuery<Hospital[]>({
-    queryKey: ["/api/hospitals", selectedCountries.join(",")],
+  const { data: hospitalsPaginatedResult, isLoading } = useQuery<{ data: Hospital[], total: number }>({
+    queryKey: ["/api/hospitals", { page: hospitalPage, limit: hospitalPageSize, search: debouncedHospitalSearch, country: countryTab !== "ALL" ? countryTab : undefined }],
     queryFn: async () => {
-      const params = selectedCountries.length > 0 ? `?countries=${selectedCountries.join(",")}` : "";
-      const res = await fetch(`/api/hospitals${params}`, { credentials: "include" });
+      const params = new URLSearchParams();
+      params.set("page", String(hospitalPage));
+      params.set("limit", String(hospitalPageSize));
+      if (debouncedHospitalSearch) params.set("search", debouncedHospitalSearch);
+      if (countryTab !== "ALL") params.set("country", countryTab);
+      const res = await fetch(`/api/hospitals?${params.toString()}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch hospitals");
       return res.json();
     },
   });
+  const hospitals = hospitalsPaginatedResult?.data || [];
+  const serverHospitalsTotal = hospitalsPaginatedResult?.total || 0;
 
   const { data: users = [] } = useQuery<SafeUser[]>({
     queryKey: ["/api/users"],
@@ -934,15 +956,21 @@ export default function HospitalsPage() {
     queryKey: ["/api/config/laboratories"],
   });
 
-  const { data: clinics = [], isLoading: isLoadingClinics, refetch: refetchClinics } = useQuery<Clinic[]>({
-    queryKey: ["/api/clinics", selectedCountries.join(",")],
+  const { data: clinicsPaginatedResult, isLoading: isLoadingClinics, refetch: refetchClinics } = useQuery<{ data: Clinic[], total: number }>({
+    queryKey: ["/api/clinics", { page: clinicPage, limit: clinicPageSize, search: debouncedClinicSearch, country: clinicCountryTab !== "ALL" ? clinicCountryTab : undefined }],
     queryFn: async () => {
-      const params = selectedCountries.length > 0 ? `?countries=${selectedCountries.join(",")}` : "";
-      const res = await fetch(`/api/clinics${params}`, { credentials: "include" });
+      const params = new URLSearchParams();
+      params.set("page", String(clinicPage));
+      params.set("limit", String(clinicPageSize));
+      if (debouncedClinicSearch) params.set("search", debouncedClinicSearch);
+      if (clinicCountryTab !== "ALL") params.set("country", clinicCountryTab);
+      const res = await fetch(`/api/clinics?${params.toString()}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch clinics");
       return res.json();
     },
   });
+  const clinics = clinicsPaginatedResult?.data || [];
+  const serverClinicsTotal = clinicsPaginatedResult?.total || 0;
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => apiRequest("DELETE", `/api/hospitals/${id}`),
@@ -999,14 +1027,7 @@ export default function HospitalsPage() {
   }, {} as Record<string, number>);
 
   const filteredAndSortedClinics = (() => {
-    // First filter
     let result = clinics.filter((clinic) => {
-      const matchesCountry = clinicCountryTab === "ALL" || clinic.countryCode === clinicCountryTab;
-      const matchesSearch = 
-        clinic.name.toLowerCase().includes(clinicSearchQuery.toLowerCase()) ||
-        (clinic.doctorName || [(clinic as any).doctorTitle, (clinic as any).doctorFirstName, (clinic as any).doctorLastName].filter(Boolean).join(" "))?.toLowerCase().includes(clinicSearchQuery.toLowerCase()) ||
-        clinic.city?.toLowerCase().includes(clinicSearchQuery.toLowerCase()) ||
-        clinic.address?.toLowerCase().includes(clinicSearchQuery.toLowerCase());
       const matchesCity = !clinicCityFilter || clinic.city?.toLowerCase().includes(clinicCityFilter.toLowerCase());
       const matchesStatus = clinicStatusFilter === "all" || 
         (clinicStatusFilter === "active" && clinic.isActive) ||
@@ -1028,7 +1049,7 @@ export default function HospitalsPage() {
           matchesPipeline = pVal === clinicPipelineFilter;
         }
       }
-      return matchesCountry && matchesSearch && matchesCity && matchesStatus && matchesWebsite && matchesPipeline;
+      return matchesCity && matchesStatus && matchesWebsite && matchesPipeline;
     });
     
     // Then sort
@@ -1070,11 +1091,8 @@ export default function HospitalsPage() {
     return result;
   })();
   
-  const totalClinicPages = Math.ceil(filteredAndSortedClinics.length / clinicPageSize);
-  const paginatedClinics = filteredAndSortedClinics.slice(
-    (clinicPage - 1) * clinicPageSize,
-    clinicPage * clinicPageSize
-  );
+  const totalClinicPages = Math.ceil(serverClinicsTotal / clinicPageSize);
+  const paginatedClinics = filteredAndSortedClinics;
 
   const KNOWN_PIPELINE_VALS = new Set([
     "initial:not_contacted", "initial:former", "initial:active_contract",
@@ -1138,21 +1156,14 @@ export default function HospitalsPage() {
   
   const hasActiveClinicFilters = clinicSearchQuery || clinicCityFilter || clinicStatusFilter !== "all" || clinicHasWebsite !== "all" || clinicPipelineFilter !== "all" || clinicCountryTab !== "ALL";
 
-  // Filtered and sorted hospitals
+  // Filtered and sorted hospitals (search + country done server-side)
   const filteredAndSortedHospitals = (() => {
-    // First filter
     let result = hospitals.filter((hospital) => {
-      const matchesCountry = countryTab === "ALL" || hospital.countryCode === countryTab;
-      const matchesSearch = 
-        hospital.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        hospital.city?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        hospital.region?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        hospital.streetNumber?.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesCity = !hospitalCityFilter || hospital.city?.toLowerCase().includes(hospitalCityFilter.toLowerCase());
       const matchesStatus = hospitalStatusFilter === "all" || 
         (hospitalStatusFilter === "active" && hospital.isActive) ||
         (hospitalStatusFilter === "inactive" && !hospital.isActive);
-      return matchesCountry && matchesSearch && matchesCity && matchesStatus;
+      return matchesCity && matchesStatus;
     });
     
     // Then sort
@@ -1190,11 +1201,8 @@ export default function HospitalsPage() {
     return result;
   })();
   
-  const totalHospitalPages = Math.ceil(filteredAndSortedHospitals.length / hospitalPageSize);
-  const paginatedHospitals = filteredAndSortedHospitals.slice(
-    (hospitalPage - 1) * hospitalPageSize,
-    hospitalPage * hospitalPageSize
-  );
+  const totalHospitalPages = Math.ceil(serverHospitalsTotal / hospitalPageSize);
+  const paginatedHospitals = filteredAndSortedHospitals;
   
   // Reset page when filters change
   const handleHospitalFilterChange = () => {
@@ -1642,7 +1650,7 @@ export default function HospitalsPage() {
             <CardHeader className="pb-4 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="text-sm text-muted-foreground">
-                  {filteredAndSortedHospitals.length} {t.common.of} {hospitals.length} {t.common.records}
+                  {serverHospitalsTotal} {t.common.records}
                 </div>
                 <div className="flex items-center gap-2">
                   <Button
@@ -1789,7 +1797,7 @@ export default function HospitalsPage() {
                   {totalHospitalPages > 1 && (
                     <div className="flex items-center justify-between mt-4 pt-4 border-t">
                       <div className="text-sm text-muted-foreground">
-                        {t.common.showing} {((hospitalPage - 1) * hospitalPageSize) + 1} - {Math.min(hospitalPage * hospitalPageSize, filteredAndSortedHospitals.length)} {t.common.of} {filteredAndSortedHospitals.length}
+                        {t.common.showing} {((hospitalPage - 1) * hospitalPageSize) + 1} - {Math.min(hospitalPage * hospitalPageSize, serverHospitalsTotal)} {t.common.of} {serverHospitalsTotal}
                       </div>
                       <div className="flex items-center gap-2">
                         <Button
@@ -1845,7 +1853,7 @@ export default function HospitalsPage() {
             <CardHeader className="pb-4 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="text-sm text-muted-foreground">
-                  {filteredAndSortedClinics.length} {t.common.of} {clinics.length} {t.common.records}
+                  {serverClinicsTotal} {t.common.records}
                 </div>
                 <div className="flex items-center gap-2">
                   <Button
@@ -2103,7 +2111,7 @@ export default function HospitalsPage() {
                   {totalClinicPages > 1 && (
                     <div className="flex items-center justify-between mt-4 pt-4 border-t">
                       <div className="text-sm text-muted-foreground">
-                        {t.common.showing || "Zobrazujem"} {((clinicPage - 1) * clinicPageSize) + 1} - {Math.min(clinicPage * clinicPageSize, filteredAndSortedClinics.length)} {t.common.of || "z"} {filteredAndSortedClinics.length}
+                        {t.common.showing || "Zobrazujem"} {((clinicPage - 1) * clinicPageSize) + 1} - {Math.min(clinicPage * clinicPageSize, serverClinicsTotal)} {t.common.of || "z"} {serverClinicsTotal}
                       </div>
                       <div className="flex items-center gap-2">
                         <Button

@@ -107,6 +107,9 @@ Preferred communication style: Simple, everyday language.
 ### Server-Side Pagination
 - **Customers** (`/api/customers`): Server-side paginated with `?page=&limit=&search=&country=` params. Returns `{ data: [], total: N }`. Frontend uses debounced search (400ms). Page size: 50.
 - **Invoices** (`/api/invoices`): Server-side paginated with `?page=&limit=&search=` params. Returns `{ data: [], total: N }`. Frontend uses debounced search (400ms). Page size: 50.
+- **Hospitals** (`/api/hospitals`): Server-side paginated with `?page=&limit=&search=&country=`. Returns `{ data: [], total: N }`. Debounced search + country tab filter. Page size: 50.
+- **Clinics** (`/api/clinics`): Server-side paginated with `?page=&limit=&search=&country=`. Returns `{ data: [], total: N }`. Debounced search + country tab filter. Page size: 50.
+- **Collaborators** (`/api/collaborators`): Server-side paginated with `?page=&limit=&search=&country=`. Returns `{ data: [], total: N }`. Debounced search + country filter. Page size: 50.
 - **Contracts** (`/api/contracts`): Server-side pagination endpoint available, currently using client-side filtering.
 - **Collections** (`/api/collections`): Server-side pagination endpoint available, currently using client-side filtering.
 - Backwards-compatible: endpoints return plain array when no pagination params are sent.

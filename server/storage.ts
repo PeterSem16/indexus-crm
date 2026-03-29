@@ -2807,6 +2807,27 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(hospitals).orderBy(hospitals.name);
   }
 
+  async getHospitalsPaginated(page: number, limit: number, search?: string, countryCode?: string): Promise<{ data: Hospital[], total: number }> {
+    const offset = (page - 1) * limit;
+    const conditions: any[] = [];
+    if (search && search.trim()) {
+      const s = `%${search.trim()}%`;
+      conditions.push(sql`(
+        ${hospitals.name} ILIKE ${s} OR ${hospitals.fullName} ILIKE ${s}
+        OR ${hospitals.city} ILIKE ${s} OR ${hospitals.contactPerson} ILIKE ${s}
+        OR ${hospitals.phone} ILIKE ${s} OR ${hospitals.email} ILIKE ${s}
+        OR ${hospitals.region} ILIKE ${s}
+      )`);
+    }
+    if (countryCode && countryCode.trim()) {
+      conditions.push(eq(hospitals.countryCode, countryCode.trim()));
+    }
+    const where = conditions.length > 0 ? and(...conditions) : undefined;
+    const [countResult] = await db.select({ count: sql<number>`count(*)::int` }).from(hospitals).where(where);
+    const data = await db.select().from(hospitals).where(where).orderBy(hospitals.name).limit(limit).offset(offset);
+    return { data, total: countResult.count };
+  }
+
   async getHospitalsByCountry(countryCodes: string[]): Promise<Hospital[]> {
     if (countryCodes.length === 0) {
       return this.getAllHospitals();
@@ -2841,6 +2862,27 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(clinics).orderBy(clinics.name);
   }
 
+  async getClinicsPaginated(page: number, limit: number, search?: string, countryCode?: string): Promise<{ data: Clinic[], total: number }> {
+    const offset = (page - 1) * limit;
+    const conditions: any[] = [];
+    if (search && search.trim()) {
+      const s = `%${search.trim()}%`;
+      conditions.push(sql`(
+        ${clinics.name} ILIKE ${s} OR ${clinics.doctorName} ILIKE ${s}
+        OR ${clinics.doctorFirstName} ILIKE ${s} OR ${clinics.doctorLastName} ILIKE ${s}
+        OR ${clinics.city} ILIKE ${s} OR ${clinics.phone} ILIKE ${s}
+        OR ${clinics.email} ILIKE ${s} OR ${clinics.address} ILIKE ${s}
+      )`);
+    }
+    if (countryCode && countryCode.trim()) {
+      conditions.push(eq(clinics.countryCode, countryCode.trim()));
+    }
+    const where = conditions.length > 0 ? and(...conditions) : undefined;
+    const [countResult] = await db.select({ count: sql<number>`count(*)::int` }).from(clinics).where(where);
+    const data = await db.select().from(clinics).where(where).orderBy(clinics.name).limit(limit).offset(offset);
+    return { data, total: countResult.count };
+  }
+
   async getClinicsByCountry(countryCodes: string[]): Promise<Clinic[]> {
     if (countryCodes.length === 0) {
       return this.getAllClinics();
@@ -2873,6 +2915,27 @@ export class DatabaseStorage implements IStorage {
 
   async getAllCollaborators(): Promise<Collaborator[]> {
     return db.select().from(collaborators).orderBy(collaborators.lastName, collaborators.firstName);
+  }
+
+  async getCollaboratorsPaginated(page: number, limit: number, search?: string, countryCode?: string): Promise<{ data: Collaborator[], total: number }> {
+    const offset = (page - 1) * limit;
+    const conditions: any[] = [];
+    if (search && search.trim()) {
+      const s = `%${search.trim()}%`;
+      conditions.push(sql`(
+        ${collaborators.firstName} ILIKE ${s} OR ${collaborators.lastName} ILIKE ${s}
+        OR ${collaborators.email} ILIKE ${s} OR ${collaborators.phone} ILIKE ${s}
+        OR ${collaborators.mobile} ILIKE ${s}
+        OR CONCAT(${collaborators.firstName}, ' ', ${collaborators.lastName}) ILIKE ${s}
+      )`);
+    }
+    if (countryCode && countryCode.trim()) {
+      conditions.push(sql`(${collaborators.countryCode} = ${countryCode.trim()} OR ${countryCode.trim()} = ANY(${collaborators.countryCodes}))`);
+    }
+    const where = conditions.length > 0 ? and(...conditions) : undefined;
+    const [countResult] = await db.select({ count: sql<number>`count(*)::int` }).from(collaborators).where(where);
+    const data = await db.select().from(collaborators).where(where).orderBy(collaborators.lastName, collaborators.firstName).limit(limit).offset(offset);
+    return { data, total: countResult.count };
   }
 
   async getCollaboratorsByCountry(countryCodes: string[]): Promise<Collaborator[]> {
