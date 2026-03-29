@@ -641,7 +641,7 @@ export default function Dashboard() {
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4" data-tour="stats-cards">
             <StatsCard
               title={t.dashboard.totalCustomers}
-              value={filteredCustomers.length}
+              value={stats.customers.total}
               trend={12}
               description=""
               icon={<Users className="h-6 w-6" />}
@@ -676,19 +676,19 @@ export default function Dashboard() {
             />
             <StatsCard
               title={t.dashboard.paidInvoices}
-              value={paidInvoices.length}
+              value={stats.invoices.paid}
               description={`${paidAmount.toFixed(0)} EUR ${t.dashboard.received}`}
               icon={<CheckCircle2 className="h-6 w-6" />}
             />
             <StatsCard
               title={t.dashboard.unpaidInvoices}
-              value={unpaidInvoices.length}
+              value={stats.invoices.unpaid}
               description={`${unpaidAmount.toFixed(0)} EUR ${t.dashboard.pendingAmount}`}
               icon={<Clock className="h-6 w-6" />}
             />
             <StatsCard
               title={t.dashboard.overdueInvoices}
-              value={overdueInvoices.length}
+              value={stats.invoices.overdue}
               description={t.dashboard.pastDueDate}
               icon={<AlertCircle className="h-6 w-6" />}
             />
@@ -793,7 +793,7 @@ export default function Dashboard() {
         <CardContent>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {selectedCountries.map(code => {
-              const count = filteredCustomers.filter(c => c.country === code).length;
+              const count = customersLookup.filter(c => c.country === code).length;
               return (
                 <div
                   key={code}
