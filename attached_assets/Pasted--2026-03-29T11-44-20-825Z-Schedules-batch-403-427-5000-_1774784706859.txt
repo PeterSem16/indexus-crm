@@ -1,0 +1,37 @@
+[2026-03-29T11:44:20.825Z]   Schedules batch 403/427 (5000 IDs)...
+[2026-03-29T11:44:21.111Z]   Schedules batch 404/427 (5000 IDs)...
+[2026-03-29T11:44:22.760Z]   Schedules batch 405/427 (5000 IDs)...
+[2026-03-29T11:44:24.185Z]   Schedules batch 406/427 (5000 IDs)...
+[2026-03-29T11:44:28.631Z]   Schedules batch 407/427 (5000 IDs)...
+[2026-03-29T11:44:30.143Z]   Schedules batch 408/427 (5000 IDs)...
+
+<--- Last few GCs --->
+
+[2843139:0x35bb2180]   539962 ms: Mark-Compact 4051.1 (4138.8) -> 4036.4 (4139.8) MB, 1698.26 / 0.00 ms  (average mu = 0.124, current mu = 0.018) allocation failure; scavenge might not succeed
+[2843139:0x35bb2180]   541446 ms: Mark-Compact 4049.7 (4139.8) -> 4036.5 (4140.1) MB, 1300.83 / 0.00 ms  (average mu = 0.124, current mu = 0.123) task; scavenge might not succeed
+
+
+<--- JS stacktrace --->
+
+FATAL ERROR: Ineffective mark-compacts near heap limit Allocation failed - JavaScript heap out of memory
+----- Native stack trace -----
+
+ 1: 0xb76db1 node::OOMErrorHandler(char const*, v8::OOMDetails const&) [node]
+ 2: 0xee62f0 v8::Utils::ReportOOMFailure(v8::internal::Isolate*, char const*, v8::OOMDetails const&) [node]
+ 3: 0xee65d7 v8::internal::V8::FatalProcessOutOfMemory(v8::internal::Isolate*, char const*, v8::OOMDetails const&) [node]
+ 4: 0x10f82d5  [node]
+ 5: 0x10f8864 v8::internal::Heap::RecomputeLimits(v8::internal::GarbageCollector) [node]
+ 6: 0x110f754 v8::internal::Heap::PerformGarbageCollection(v8::internal::GarbageCollector, v8::internal::GarbageCollectionReason, char const*) [node]
+ 7: 0x110ff6c v8::internal::Heap::CollectGarbage(v8::internal::AllocationSpace, v8::internal::GarbageCollectionReason, v8::GCCallbackFlags) [node]
+ 8: 0x1168d2c v8::internal::MinorGCJob::Task::RunInternal() [node]
+ 9: 0xd30cc6  [node]
+10: 0xd3426f node::PerIsolatePlatformData::FlushForegroundTasksInternal() [node]
+11: 0x18a7503  [node]
+12: 0x18bbf7b  [node]
+13: 0x18a8227 uv_run [node]
+14: 0xbb9be6 node::SpinEventLoopInternal(node::Environment*) [node]
+15: 0xd04bd1 node::NodeMainInstance::Run() [node]
+16: 0xc6653f node::Start(int, char**) [node]
+17: 0x7850d922a1ca  [/lib/x86_64-linux-gnu/libc.so.6]
+18: 0x7850d922a28b __libc_start_main [/lib/x86_64-linux-gnu/libc.so.6]
+19: 0xbb613e _start [node]

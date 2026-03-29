@@ -70,6 +70,7 @@ async function batchMssqlQuery(idList, queryTemplate, label) {
     for (let ri = 0; ri < result.recordset.length; ri++) {
       allResults.push(result.recordset[ri]);
     }
+    result.recordset = null;
   }
   return allResults;
 }
@@ -3046,19 +3047,24 @@ async function step11_customerContracts() {
           if (!paymentsByCshId[key]) paymentsByCshId[key] = [];
           paymentsByCshId[key].push(sp);
         }
+        schedulePayments.length = 0;
 
-        for (const sch of schRes.recordset) {
+        for (const sch of schResRecords) {
           const conId = hcsToConMap[String(sch.hcs_id)];
           if (conId) {
             if (!schedulesByConId[conId]) schedulesByConId[conId] = [];
             schedulesByConId[conId].push({
-              ...sch,
+              csh_id: sch.csh_id, sch_id: sch.sch_id, hcs_id: sch.hcs_id,
+              csh_name: sch.csh_name, csh_preliminary_schedule: sch.csh_preliminary_schedule,
+              csh_inserted: sch.csh_inserted, csh_inserted_by: sch.csh_inserted_by,
               cse_id: hcsToCseMap[String(sch.hcs_id)] || null,
               payments: paymentsByCshId[String(sch.csh_id)] || [],
             });
           }
         }
+        schResRecords.length = 0;
       }
+      hcsResRec.length = 0;
     }
   } catch (err) { log(`  WARN Schedules: ${err.message}`); }
 
@@ -3636,18 +3642,18 @@ async function step12_customerInvoices() {
       const iiResRecords = await batchMssqlQuery(invIdList, `
         SELECT * FROM InvoiceItems WHERE inv_id IN (\${BATCH_IDS}) ORDER BY inv_id, iit_id
       `, 'InvoiceItems');
-      const iiRes = { recordset: iiResRecords };
-      log(`  InvoiceItems: ${iiRes.recordset.length} záznamov`);
-      for (const item of iiRes.recordset) {
+      log(`  InvoiceItems: ${iiResRecords.length} záznamov`);
+      if (iiResRecords.length > 0) {
+        log(`  Vzorka InvoiceItem: ${JSON.stringify(iiResRecords[0])}`);
+      }
+      for (const item of iiResRecords) {
         const vatRecord = vatRatesMap[String(item.vat_id)];
         item.vat_rate = vatRecord ? (vatRecord.vat_rate != null ? parseFloat(vatRecord.vat_rate) : null) : null;
         const key = String(item.inv_id);
         if (!invoiceItemsMap[key]) invoiceItemsMap[key] = [];
         invoiceItemsMap[key].push(item);
       }
-      if (iiRes.recordset.length > 0) {
-        log(`  Vzorka InvoiceItem: ${JSON.stringify(iiRes.recordset[0])}`);
-      }
+      iiResRecords.length = 0;
     } else {
       log('  InvoiceItems tabuľka neexistuje alebo je prázdna');
     }
@@ -3664,16 +3670,16 @@ async function step12_customerInvoices() {
       WHERE sp.inv_id IN (\${BATCH_IDS})
       ORDER BY sp.inv_id, sp.spa_id
     `, 'ScheduledPayments');
-    const spRes = { recordset: spResRecords };
-    log(`  ScheduledPayments: ${spRes.recordset.length} záznamov`);
-    for (const pay of spRes.recordset) {
+    log(`  ScheduledPayments: ${spResRecords.length} záznamov`);
+    if (spResRecords.length > 0) {
+      log(`  Vzorka ScheduledPayment: ${JSON.stringify(spResRecords[0])}`);
+    }
+    for (const pay of spResRecords) {
       const key = String(pay.inv_id);
       if (!scheduledPaymentsMap[key]) scheduledPaymentsMap[key] = [];
       scheduledPaymentsMap[key].push(pay);
     }
-    if (spRes.recordset.length > 0) {
-      log(`  Vzorka ScheduledPayment: ${JSON.stringify(spRes.recordset[0])}`);
-    }
+    spResRecords.length = 0;
   } catch (err) { log(`  WARN ScheduledPayments: ${err.message}`); }
 
   // --- Preload RealizedPayments (skutočné úhrady k faktúram) ---
@@ -3685,16 +3691,16 @@ async function step12_customerInvoices() {
       WHERE inv_id IN (\${BATCH_IDS})
       ORDER BY inv_id, rpa_id
     `, 'RealizedPayments');
-    const rpRes = { recordset: rpResRecords };
-    log(`  RealizedPayments: ${rpRes.recordset.length} záznamov`);
-    for (const rp of rpRes.recordset) {
+    log(`  RealizedPayments: ${rpResRecords.length} záznamov`);
+    if (rpResRecords.length > 0) {
+      log(`  Vzorka RealizedPayment: ${JSON.stringify(rpResRecords[0])}`);
+    }
+    for (const rp of rpResRecords) {
       const key = String(rp.inv_id);
       if (!realizedPaymentsMap[key]) realizedPaymentsMap[key] = [];
       realizedPaymentsMap[key].push(rp);
     }
-    if (rpRes.recordset.length > 0) {
-      log(`  Vzorka RealizedPayment: ${JSON.stringify(rpRes.recordset[0])}`);
-    }
+    rpResRecords.length = 0;
   } catch (err) { log(`  WARN RealizedPayments: ${err.message}`); }
 
   // --- Preload InvoiceSchedulesPaymentDates (dátumy splátok) ---
@@ -3705,11 +3711,11 @@ async function step12_customerInvoices() {
       SELECT * FROM InvoiceSchedulesPaymentDates
       WHERE inv_id IN (\${BATCH_IDS})
     `, 'PaymentDates');
-    const pdRes = { recordset: pdResRecords };
-    log(`  InvoiceSchedulesPaymentDates: ${pdRes.recordset.length} záznamov`);
-    for (const pd of pdRes.recordset) {
+    log(`  InvoiceSchedulesPaymentDates: ${pdResRecords.length} záznamov`);
+    for (const pd of pdResRecords) {
       paymentDatesMap[String(pd.inv_id)] = pd;
     }
+    pdResRecords.length = 0;
   } catch (err) { log(`  WARN InvoiceSchedulesPaymentDates: ${err.message}`); }
 
   log(`  Mapy načítané: items=${Object.keys(invoiceItemsMap).length} faktúr, scheduledPayments=${Object.keys(scheduledPaymentsMap).length} faktúr, realizedPayments=${Object.keys(realizedPaymentsMap).length} faktúr`);
