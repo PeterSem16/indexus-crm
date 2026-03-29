@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback, startTransition } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useI18n } from "@/i18n";
 import { useCountryFilter } from "@/contexts/country-filter-context";
@@ -1065,6 +1065,8 @@ export default function CollectionsPage() {
     return found ? `${found.firstName} ${found.lastName}` : (collection as any)?._customerName || formData.customerId;
   }, [formData.customerId, customers, collection]);
 
+  const nativeSelectClass = "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22currentColor%22%20stroke-width%3D%222%22%3E%3Cpath%20d%3D%22m6%209%206%206%206-6%22%2F%3E%3C%2Fsvg%3E')] bg-[length:1rem] bg-[right_0.5rem_center] bg-no-repeat pr-8";
+
   const renderClientForm = () => (
     <div className="space-y-4">
       <div className="space-y-2">
@@ -1178,64 +1180,41 @@ export default function CollectionsPage() {
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>{t.common.country}</Label>
-          <Select value={formData.countryCode || undefined} onValueChange={(v) => handleFieldChange("countryCode", v)}>
-            <SelectTrigger data-testid="select-country">
-              <SelectValue placeholder={t.common.select} />
-            </SelectTrigger>
-            <SelectContent>
-              {availableCountries.map((code) => (
-                <SelectItem key={code} value={code}>{countryLabels[code] || code}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <select className={nativeSelectClass} value={formData.countryCode || ""} onChange={(e) => handleFieldChange("countryCode", e.target.value)} data-testid="select-country">
+            <option value="">{t.common.select}</option>
+            {availableCountries.map((code) => (
+              <option key={code} value={code}>{countryLabels[code] || code}</option>
+            ))}
+          </select>
         </div>
         <div className="space-y-2">
           <Label>{t.collaborators?.fields?.billingCompany}</Label>
-          <Select value={formData.billingCompanyId || undefined} onValueChange={(v) => handleFieldChange("billingCompanyId", v)}>
-            <SelectTrigger data-testid="select-billing-company">
-              <SelectValue placeholder={t.common.select} />
-            </SelectTrigger>
-            <SelectContent>
-              {billingCompanies.map((bc: any) => (
-                <SelectItem key={bc.id} value={String(bc.id)}>{bc.companyName}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <select className={nativeSelectClass} value={formData.billingCompanyId || ""} onChange={(e) => handleFieldChange("billingCompanyId", e.target.value)} data-testid="select-billing-company">
+            <option value="">{t.common.select}</option>
+            {billingCompanies.map((bc: any) => (
+              <option key={bc.id} value={String(bc.id)}>{bc.companyName}</option>
+            ))}
+          </select>
         </div>
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>{t.products?.title}</Label>
-          <Select value={formData.productId || undefined} onValueChange={(v) => {
-            handleFieldChange("productId", v);
-            handleFieldChange("billsetId", "");
-          }}>
-            <SelectTrigger data-testid="select-product">
-              <SelectValue placeholder={t.common.select} />
-            </SelectTrigger>
-            <SelectContent>
-              {products.map((p: any) => (
-                <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <select className={nativeSelectClass} value={formData.productId || ""} onChange={(e) => { handleFieldChange("productId", e.target.value); handleFieldChange("billsetId", ""); }} data-testid="select-product">
+            <option value="">{t.common.select}</option>
+            {products.map((p: any) => (
+              <option key={p.id} value={String(p.id)}>{p.name}</option>
+            ))}
+          </select>
         </div>
         <div className="space-y-2">
           <Label>{t.collections?.billset}</Label>
-          <Select 
-            value={formData.billsetId || undefined} 
-            onValueChange={(v) => handleFieldChange("billsetId", v)}
-            disabled={!formData.productId || productBillsets.length === 0}
-          >
-            <SelectTrigger data-testid="select-billset">
-              <SelectValue placeholder={productBillsets.length === 0 ? notAvailable : t.common.select} />
-            </SelectTrigger>
-            <SelectContent>
-              {productBillsets.map((ps: any) => (
-                <SelectItem key={ps.id} value={String(ps.id)}>{ps.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <select className={nativeSelectClass} value={formData.billsetId || ""} onChange={(e) => handleFieldChange("billsetId", e.target.value)} disabled={!formData.productId || productBillsets.length === 0} data-testid="select-billset">
+            <option value="">{productBillsets.length === 0 ? notAvailable : t.common.select}</option>
+            {productBillsets.map((ps: any) => (
+              <option key={ps.id} value={String(ps.id)}>{ps.name}</option>
+            ))}
+          </select>
         </div>
       </div>
     </div>
@@ -1263,20 +1242,14 @@ export default function CollectionsPage() {
       </div>
       <div className="space-y-2">
         <Label>{t.collections?.gender}</Label>
-        <Select value={formData.childGender || undefined} onValueChange={(v) => handleFieldChange("childGender", v)}>
-          <SelectTrigger data-testid="select-child-gender">
-            <SelectValue placeholder={t.common.select} />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="male">{t.collections?.male}</SelectItem>
-            <SelectItem value="female">{t.collections?.female}</SelectItem>
-          </SelectContent>
-        </Select>
+        <select className={nativeSelectClass} value={formData.childGender || ""} onChange={(e) => handleFieldChange("childGender", e.target.value)} data-testid="select-child-gender">
+          <option value="">{t.common.select}</option>
+          <option value="male">{t.collections?.male}</option>
+          <option value="female">{t.collections?.female}</option>
+        </select>
       </div>
     </div>
   );
-
-  const nativeSelectClass = "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22currentColor%22%20stroke-width%3D%222%22%3E%3Cpath%20d%3D%22m6%209%206%206%206-6%22%2F%3E%3C%2Fsvg%3E')] bg-[length:1rem] bg-[right_0.5rem_center] bg-no-repeat pr-8";
 
   const renderCollectionForm = () => (
     <div className="space-y-4">
@@ -2223,7 +2196,7 @@ export default function CollectionsPage() {
         
         <Card>
           <CardContent className="pt-6">
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <Tabs value={activeTab} onValueChange={(v) => startTransition(() => setActiveTab(v))}>
               <TabsList className="mb-6">
                 <TabsTrigger value="client" data-testid="tab-client">
                   <User className="h-4 w-4 mr-2" />
