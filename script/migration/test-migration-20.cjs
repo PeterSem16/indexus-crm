@@ -2247,40 +2247,46 @@ async function step8_remarks() {
     `, 'Remarks(con)');
     remarkRecords.push(...conRemarks);
   }
-  const remarks = { recordset: remarkRecords };
-  log(`  Nájdených ${remarks.recordset.length} poznámok pre ${migratedCustomers.rows.length} klientov`);
+  const totalRemarks = remarkRecords.length;
+  log(`  Nájdených ${totalRemarks} poznámok pre ${migratedCustomers.rows.length} klientov`);
+
+  const existingLegacyIds = new Set();
+  const existingRes = await pgPool.query(`SELECT legacy_id FROM customer_notes WHERE legacy_id IS NOT NULL AND data_source = 'iscbc'`);
+  for (const r of existingRes.rows) existingLegacyIds.add(r.legacy_id);
+  log(`  Existujúcich poznámok: ${existingLegacyIds.size}`);
 
   let inserted = 0, skipped = 0, errors = 0;
-  for (const r of remarks.recordset) {
-    let customerId = null;
-    if (r.cli_id) customerId = customerMap[String(r.cli_id)];
-    if (!customerId && r.con_id) customerId = contractToCustomer[String(r.con_id)];
-    if (!customerId) { skipped++; continue; }
-
-    const existing = await pgPool.query(
-      `SELECT id FROM customer_notes WHERE legacy_id = $1`, [String(r.rem_id)]
-    );
-    if (existing.rows.length > 0) { skipped++; continue; }
-
-    const contractInternalId = r.con_id ? `contract_${r.con_id}` : null;
-
-    try {
-      await pgPool.query(`
-        INSERT INTO customer_notes (id, customer_id, user_id, content, legacy_id, contract_id, data_source, created_at)
-        VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, 'iscbc', $6)
-      `, [
-        customerId,
-        r.rem_login || 'system',
-        r.rem_note,
-        String(r.rem_id),
-        contractInternalId,
-        r.rem_date || new Date(),
-      ]);
-      inserted++;
-    } catch (err) {
-      errors++;
-      if (errors <= 3) log(`  ERROR rem_id=${r.rem_id}: ${err.message}`);
+  const BATCH_PG = 500;
+  for (let bi = 0; bi < totalRemarks; bi += BATCH_PG) {
+    const batch = remarkRecords.slice(bi, bi + BATCH_PG);
+    const values = [];
+    const params = [];
+    let pi = 1;
+    for (const r of batch) {
+      let customerId = null;
+      if (r.cli_id) customerId = customerMap[String(r.cli_id)];
+      if (!customerId && r.con_id) customerId = contractToCustomer[String(r.con_id)];
+      if (!customerId) { skipped++; continue; }
+      if (existingLegacyIds.has(String(r.rem_id))) { skipped++; continue; }
+      const contractInternalId = r.con_id ? `contract_${r.con_id}` : null;
+      values.push(`(gen_random_uuid(), $${pi}, $${pi+1}, $${pi+2}, $${pi+3}, $${pi+4}, 'iscbc', $${pi+5})`);
+      params.push(customerId, r.rem_login || 'system', r.rem_note, String(r.rem_id), contractInternalId, r.rem_date || new Date());
+      pi += 6;
     }
+    if (values.length > 0) {
+      try {
+        await pgPool.query(`
+          INSERT INTO customer_notes (id, customer_id, user_id, content, legacy_id, contract_id, data_source, created_at)
+          VALUES ${values.join(', ')}
+          ON CONFLICT DO NOTHING
+        `, params);
+        inserted += values.length;
+      } catch (err) {
+        errors += values.length;
+        if (errors <= 3 * BATCH_PG) log(`  ERROR batch ${Math.floor(bi/BATCH_PG)}: ${err.message}`);
+      }
+    }
+    if ((bi % 50000) === 0 && bi > 0) log(`  Remarks progress: ${bi}/${totalRemarks} (${inserted} vložených)`);
   }
   log(`  Remarks: ${inserted} vložených, ${skipped} preskočených, ${errors} chýb`);
 
@@ -2360,50 +2366,55 @@ async function step9_phoneCommunications() {
     `, 'Phones(con)');
     phoneRecords.push(...conPhones);
   }
-  const phones = { recordset: phoneRecords };
-  log(`  Nájdených ${phones.recordset.length} hovorov pre ${migratedCustomers.rows.length} klientov`);
+  const totalPhones = phoneRecords.length;
+  log(`  Nájdených ${totalPhones} hovorov pre ${migratedCustomers.rows.length} klientov`);
+
+  const existingExtIds = new Set();
+  const existingPh = await pgPool.query(`SELECT external_id FROM communication_messages WHERE provider = 'cbc_legacy'`);
+  for (const r of existingPh.rows) existingExtIds.add(r.external_id);
+  log(`  Existujúcich hovorov: ${existingExtIds.size}`);
 
   let inserted = 0, skipped = 0, errors = 0;
-  for (const p of phones.recordset) {
-    let customerId = null;
-    if (p.cli_id) customerId = customerMap[String(p.cli_id)];
-    if (!customerId && p.con_id) customerId = contractToCustomer[String(p.con_id)];
-    if (!customerId) { skipped++; continue; }
-
-    const extId = 'cbc_pho_' + p.pho_id;
-    const existing = await pgPool.query(
-      `SELECT id FROM communication_messages WHERE external_id = $1`, [extId]
-    );
-    if (existing.rows.length > 0) { skipped++; continue; }
-
-    const callResult = p.phr_id ? (phoneResultMap[String(p.phr_id)] || '') : '';
-    const noteText = [p.pho_note, callResult ? `[Výsledok: ${callResult}]` : ''].filter(Boolean).join(' ');
-    const phoneContractInternalId = p.con_id ? `contract_${p.con_id}` : null;
-
-    try {
-      await pgPool.query(`
-        INSERT INTO communication_messages (
-          id, customer_id, user_id, type, direction, content,
-          recipient_phone, status, external_id, provider, contract_id, sent_at, created_at
-        ) VALUES (
-          gen_random_uuid(), $1, $2, 'phone', 'outbound', $3,
-          $4, 'delivered', $5, 'cbc_legacy', $6, $7, $8
-        )
-      `, [
-        customerId,
-        p.pho_caller || 'system',
-        noteText || '(bez poznámky)',
-        p.pho_number || null,
-        extId,
-        phoneContractInternalId,
-        p.pho_call_date || new Date(),
-        p.pho_call_date || new Date(),
-      ]);
-      inserted++;
-    } catch (err) {
-      errors++;
-      if (errors <= 3) log(`  ERROR pho_id=${p.pho_id}: ${err.message}`);
+  const BATCH_PG_PH = 500;
+  for (let bi = 0; bi < totalPhones; bi += BATCH_PG_PH) {
+    const batch = phoneRecords.slice(bi, bi + BATCH_PG_PH);
+    const values = [];
+    const params = [];
+    let pi = 1;
+    for (const p of batch) {
+      let customerId = null;
+      if (p.cli_id) customerId = customerMap[String(p.cli_id)];
+      if (!customerId && p.con_id) customerId = contractToCustomer[String(p.con_id)];
+      if (!customerId) { skipped++; continue; }
+      const extId = 'cbc_pho_' + p.pho_id;
+      if (existingExtIds.has(extId)) { skipped++; continue; }
+      const callResult = p.phr_id ? (phoneResultMap[String(p.phr_id)] || '') : '';
+      const noteText = [p.pho_note, callResult ? `[Výsledok: ${callResult}]` : ''].filter(Boolean).join(' ');
+      const phoneContractInternalId = p.con_id ? `contract_${p.con_id}` : null;
+      values.push(`(gen_random_uuid(), $${pi}, $${pi+1}, 'phone', 'outbound', $${pi+2}, $${pi+3}, 'delivered', $${pi+4}, 'cbc_legacy', $${pi+5}, $${pi+6}, $${pi+7})`);
+      params.push(
+        customerId, p.pho_caller || 'system', noteText || '(bez poznámky)',
+        p.pho_number || null, extId, phoneContractInternalId,
+        p.pho_call_date || new Date(), p.pho_call_date || new Date()
+      );
+      pi += 8;
     }
+    if (values.length > 0) {
+      try {
+        await pgPool.query(`
+          INSERT INTO communication_messages (
+            id, customer_id, user_id, type, direction, content,
+            recipient_phone, status, external_id, provider, contract_id, sent_at, created_at
+          ) VALUES ${values.join(', ')}
+          ON CONFLICT DO NOTHING
+        `, params);
+        inserted += values.length;
+      } catch (err) {
+        errors += values.length;
+        if (errors <= 3 * BATCH_PG_PH) log(`  ERROR batch ${Math.floor(bi/BATCH_PG_PH)}: ${err.message}`);
+      }
+    }
+    if ((bi % 50000) === 0 && bi > 0) log(`  Phones progress: ${bi}/${totalPhones} (${inserted} vložených)`);
   }
   log(`  PhoneCommunications: ${inserted} vložených, ${skipped} preskočených, ${errors} chýb`);
 
@@ -2631,8 +2642,8 @@ async function step11_customerContracts() {
           if (!prepaymentsByConId[key]) prepaymentsByConId[key] = [];
           prepaymentsByConId[key].push(p);
         }
-        if (preRes.recordset.length > 0) {
-          log(`  Vzorka Prepayment: ${JSON.stringify(preRes.recordset[0])}`);
+        if (preResRecords.length > 0) {
+          log(`  Vzorka Prepayment: ${JSON.stringify(preResRecords[0])}`);
         }
       } else {
         log('  Prepayments tabuľka neexistuje');
@@ -2698,11 +2709,12 @@ async function step11_customerContracts() {
       for (const csp of csps) allCspIds.push(csp.csp_id);
     }
     if (allCspIds.length > 0) {
-      const hRes = await mssqlPool.request().query(`
+      const hResRecords = await batchMssqlQuery(allCspIds, `
         SELECT * FROM HistoryContractServicePayments
-        WHERE csp_id IN (${allCspIds.join(',')})
+        WHERE csp_id IN (\${BATCH_IDS})
         ORDER BY csp_id, hsp_id
-      `);
+      `, 'HistoryCSP');
+      const hRes = { recordset: hResRecords };
       log(`  HistoryContractServicePayments: ${hRes.recordset.length} záznamov`);
       // Map hsp → con_id via csp_id
       const cspToConMap = {};
@@ -2811,11 +2823,12 @@ async function step11_customerContracts() {
       for (const s of svcs) allCseIds.push(s.cse_id);
     }
     if (allCseIds.length > 0) {
-      const hsRes = await mssqlPool.request().query(`
+      const hsResRecords = await batchMssqlQuery(allCseIds, `
         SELECT * FROM HistoryContractServices
-        WHERE cse_id IN (${allCseIds.join(',')})
+        WHERE cse_id IN (\${BATCH_IDS})
         ORDER BY cse_id, hcs_from
-      `);
+      `, 'HistoryContractServices');
+      const hsRes = { recordset: hsResRecords };
       log(`  HistoryContractServices: ${hsRes.recordset.length} záznamov`);
       const cseToConMap = {};
       for (const [conId, svcs] of Object.entries(contractServicesByConId)) {
@@ -2839,16 +2852,17 @@ async function step11_customerContracts() {
       for (const s of svcs) allCseIds.push(s.cse_id);
     }
     if (allCseIds.length > 0) {
-      const surRes = await mssqlPool.request().query(`
+      const surResRecords = await batchMssqlQuery(allCseIds, `
         SELECT css.css_id, css.cse_id, css.pls_id,
                css.css_original_price, css.css_actual_price,
                pls.pls_name, pls.pls_invoice_item_name,
                pls.pls_surcharge_fixed, pls.pls_surcharge_percentage
         FROM ContractServiceSurcharges css
         LEFT JOIN PriceListSurcharges pls ON pls.pls_id = css.pls_id
-        WHERE css.cse_id IN (${allCseIds.join(',')})
+        WHERE css.cse_id IN (\${BATCH_IDS})
         ORDER BY css.cse_id, css.css_id
-      `);
+      `, 'Surcharges');
+      const surRes = { recordset: surResRecords };
       log(`  ContractServiceSurcharges: ${surRes.recordset.length} záznamov`);
       const cseToConMap = {};
       for (const [conId, svcs] of Object.entries(contractServicesByConId)) {
@@ -2872,11 +2886,12 @@ async function step11_customerContracts() {
       for (const s of surs) allCssIds.push(s.css_id);
     }
     if (allCssIds.length > 0) {
-      const hssRes = await mssqlPool.request().query(`
+      const hssResRecords = await batchMssqlQuery(allCssIds, `
         SELECT * FROM HistoryContractServiceSurcharges
-        WHERE css_id IN (${allCssIds.join(',')})
+        WHERE css_id IN (\${BATCH_IDS})
         ORDER BY css_id, hss_from
-      `);
+      `, 'HistorySurcharges');
+      const hssRes = { recordset: hssResRecords };
       log(`  HistoryContractServiceSurcharges: ${hssRes.recordset.length} záznamov`);
       const cssToConMap = {};
       for (const [conId, surs] of Object.entries(surchargesByConId)) {
@@ -2903,9 +2918,10 @@ async function step11_customerContracts() {
     // But simpler: link via the cse_id lookup from HistoryContractServices
     if (allCseIds.length > 0) {
       // First get all hcs_ids for our cse_ids
-      const hcsRes = await mssqlPool.request().query(`
-        SELECT hcs_id, cse_id FROM HistoryContractServices WHERE cse_id IN (${allCseIds.join(',')})
-      `);
+      const hcsResRec = await batchMssqlQuery(allCseIds, `
+        SELECT hcs_id, cse_id FROM HistoryContractServices WHERE cse_id IN (\${BATCH_IDS})
+      `, 'HCS→Schedules');
+      const hcsRes = { recordset: hcsResRec };
       const hcsToConMap = {};
       const hcsToCseMap = {};
       const cseToConMap = {};
@@ -2920,23 +2936,25 @@ async function step11_customerContracts() {
       }
 
       if (allHcsIds.length > 0) {
-        const schRes = await mssqlPool.request().query(`
+        const schResRecords = await batchMssqlQuery(allHcsIds, `
           SELECT csh.csh_id, csh.sch_id, csh.hcs_id, csh.csh_name, csh.csh_preliminary_schedule,
                  csh.csh_inserted, csh.csh_inserted_by
           FROM ContractServiceSchedules csh
-          WHERE csh.hcs_id IN (${allHcsIds.join(',')})
+          WHERE csh.hcs_id IN (\${BATCH_IDS})
           ORDER BY csh.csh_id
-        `);
+        `, 'Schedules');
+        const schRes = { recordset: schResRecords };
         log(`  ContractServiceSchedules: ${schRes.recordset.length} záznamov`);
 
         const cshIds = schRes.recordset.map(r => r.csh_id);
         let schedulePayments = [];
         if (cshIds.length > 0) {
-          const spRes = await mssqlPool.request().query(`
+          const spResRecords = await batchMssqlQuery(cshIds, `
             SELECT * FROM ContractServiceSchedulePayments
-            WHERE csh_id IN (${cshIds.join(',')})
+            WHERE csh_id IN (\${BATCH_IDS})
             ORDER BY csh_id, csy_installments_id
-          `);
+          `, 'SchedulePayments');
+          const spRes = { recordset: spResRecords };
           schedulePayments = spRes.recordset;
           log(`  ContractServiceSchedulePayments: ${schedulePayments.length} záznamov`);
         }
@@ -3529,10 +3547,11 @@ async function step12_customerInvoices() {
     `);
     if (iiCols.recordset.length > 0) {
       log(`  InvoiceItems stĺpce: ${iiCols.recordset.map(r => r.COLUMN_NAME).join(', ')}`);
-      const invIds = invoices.recordset.map(r => r.inv_id).join(',');
-      const iiRes = await mssqlPool.request().query(`
-        SELECT * FROM InvoiceItems WHERE inv_id IN (${invIds}) ORDER BY inv_id, iit_id
-      `);
+      const invIdList = invoices.recordset.map(r => r.inv_id);
+      const iiResRecords = await batchMssqlQuery(invIdList, `
+        SELECT * FROM InvoiceItems WHERE inv_id IN (\${BATCH_IDS}) ORDER BY inv_id, iit_id
+      `, 'InvoiceItems');
+      const iiRes = { recordset: iiResRecords };
       log(`  InvoiceItems: ${iiRes.recordset.length} záznamov`);
       for (const item of iiRes.recordset) {
         const vatRecord = vatRatesMap[String(item.vat_id)];
@@ -3552,14 +3571,15 @@ async function step12_customerInvoices() {
   // --- Preload ScheduledPayments (plánované splátky k faktúram) ---
   const scheduledPaymentsMap = {}; // inv_id → payments[]
   try {
-    const invIds = invoices.recordset.map(r => r.inv_id).join(',');
-    const spRes = await mssqlPool.request().query(`
+    const invIdListSP = invoices.recordset.map(r => r.inv_id);
+    const spResRecords = await batchMssqlQuery(invIdListSP, `
       SELECT sp.*, ips.ips_code, ips.ips_default_name
       FROM ScheduledPayments sp
       LEFT JOIN InvoicePaymentStatuses ips ON ips.ips_id = sp.ips_id
-      WHERE sp.inv_id IN (${invIds})
+      WHERE sp.inv_id IN (\${BATCH_IDS})
       ORDER BY sp.inv_id, sp.spa_id
-    `);
+    `, 'ScheduledPayments');
+    const spRes = { recordset: spResRecords };
     log(`  ScheduledPayments: ${spRes.recordset.length} záznamov`);
     for (const pay of spRes.recordset) {
       const key = String(pay.inv_id);
@@ -3574,12 +3594,13 @@ async function step12_customerInvoices() {
   // --- Preload RealizedPayments (skutočné úhrady k faktúram) ---
   const realizedPaymentsMap = {}; // inv_id → realized[]
   try {
-    const invIds = invoices.recordset.map(r => r.inv_id).join(',');
-    const rpRes = await mssqlPool.request().query(`
+    const invIdListRP = invoices.recordset.map(r => r.inv_id);
+    const rpResRecords = await batchMssqlQuery(invIdListRP, `
       SELECT * FROM RealizedPayments
-      WHERE inv_id IN (${invIds})
+      WHERE inv_id IN (\${BATCH_IDS})
       ORDER BY inv_id, rpa_id
-    `);
+    `, 'RealizedPayments');
+    const rpRes = { recordset: rpResRecords };
     log(`  RealizedPayments: ${rpRes.recordset.length} záznamov`);
     for (const rp of rpRes.recordset) {
       const key = String(rp.inv_id);
@@ -3594,11 +3615,12 @@ async function step12_customerInvoices() {
   // --- Preload InvoiceSchedulesPaymentDates (dátumy splátok) ---
   const paymentDatesMap = {}; // inv_id → dates object
   try {
-    const invIds = invoices.recordset.map(r => r.inv_id).join(',');
-    const pdRes = await mssqlPool.request().query(`
+    const invIdListPD = invoices.recordset.map(r => r.inv_id);
+    const pdResRecords = await batchMssqlQuery(invIdListPD, `
       SELECT * FROM InvoiceSchedulesPaymentDates
-      WHERE inv_id IN (${invIds})
-    `);
+      WHERE inv_id IN (\${BATCH_IDS})
+    `, 'PaymentDates');
+    const pdRes = { recordset: pdResRecords };
     log(`  InvoiceSchedulesPaymentDates: ${pdRes.recordset.length} záznamov`);
     for (const pd of pdRes.recordset) {
       paymentDatesMap[String(pd.inv_id)] = pd;
