@@ -775,52 +775,32 @@ async function step3_hospitals() {
     ])
   );
 
-  let inserted = 0, skipped = 0, updated = 0, errors = 0, geocoded = 0;
+  const existingHosSet = new Set();
+  const pgExisting = await pgPool.query('SELECT legacy_id FROM hospitals WHERE legacy_id IS NOT NULL');
+  for (const r of pgExisting.rows) existingHosSet.add(r.legacy_id);
+
+  let inserted = 0, skipped = 0, errors = 0;
   for (const row of hospitals.recordset) {
     try {
+      if (existingHosSet.has(String(row.hos_id))) { skipped++; continue; }
+
       const countryCode = normalizeCountryCode(row.add_country || row.lab_country_code);
       const city = normalizeCity(row.add_city);
       const postalCode = normalizePostalCode(row.add_zip, countryCode);
-
-      const existing = await pgPool.query('SELECT id, latitude, data_source FROM hospitals WHERE legacy_id = $1', [String(row.hos_id)]);
-      if (existing.rows.length > 0) {
-        // Update existing record with GPS + data_source if missing
-        const ex = existing.rows[0];
-        if (!ex.latitude || !ex.data_source) {
-          let lat = ex.latitude, lng = null;
-          if (!ex.latitude) {
-            try {
-              const geo = await geocodeAddress(row.add_street_and_number, city, postalCode, countryCode);
-              if (geo) { lat = geo.lat; lng = geo.lng; geocoded++; }
-            } catch (geoErr) { /* skip */ }
-          }
-          await pgPool.query(`UPDATE hospitals SET data_source = COALESCE(data_source, 'iscbc'), latitude = COALESCE(latitude, $2), longitude = COALESCE(longitude, $3), updated_at = now() WHERE id = $1`,
-            [ex.id, lat, lng]);
-          updated++;
-        }
-        skipped++;
-        continue;
-      }
-
       const labId = row.lab_name ? (labLookup[row.lab_name] || null) : null;
-      let lat = null, lng = null;
-      try {
-        const geo = await geocodeAddress(row.add_street_and_number, city, postalCode, countryCode);
-        if (geo) { lat = geo.lat; lng = geo.lng; geocoded++; }
-      } catch (geoErr) { /* skip geocoding errors */ }
 
       await pgPool.query(`
         INSERT INTO hospitals (
           legacy_id, name, full_name, is_active, street_number, city, postal_code, region,
-          country_code, laboratory_id, svet_zdravia, latitude, longitude, data_source, created_at, updated_at
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+          country_code, laboratory_id, svet_zdravia, data_source, created_at, updated_at
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
       `, [
         String(row.hos_id), row.hos_name, row.hos_full_name,
         !!row.hos_active,
         row.add_street_and_number, city, postalCode, row.add_area,
         countryCode, labId,
         row.hos_svet_zdravia === true || row.hos_svet_zdravia === 1,
-        lat, lng, 'iscbc',
+        'iscbc',
         row.hos_inserted || new Date(), new Date(),
       ]);
       inserted++;
@@ -829,7 +809,7 @@ async function step3_hospitals() {
       log(`  ERROR hos_id=${row.hos_id}: ${err.message}`);
     }
   }
-  log(`\n  → ${inserted} vložených, ${skipped} preskočených (${updated} aktualizovaných), ${errors} chýb, ${geocoded} geocodovaných`);
+  log(`\n  → ${inserted} vložených, ${skipped} preskočených, ${errors} chýb`);
 }
 
 // ============================================================
@@ -850,8 +830,8 @@ async function step4_collaborators() {
   const docIdList = referencedDocIds.recordset.map(r => r.doc_id);
   log(`  Referencovaní spolupracovníci z odberov: ${docIdList.length} unikátnych doc_id`);
 
-  const collabs = docIdList.length > 0 ? await mssqlPool.request().query(`
-    SELECT d.doc_id, d.per_id, d.rer_id, d.add_id, d.add_id_firm,
+  const collabRecords = docIdList.length > 0 ? await batchMssqlQuery(docIdList,
+    `SELECT d.doc_id, d.per_id, d.rer_id, d.add_id, d.add_id_firm,
            d.doc_active, d.doc_note, d.doc_agreement_type,
            d.doc_IBAN, d.doc_SWIFT, d.doc_ICO, d.doc_DIC, d.doc_IC_DPH,
            d.doc_birth_place, d.doc_client_contract, d.doc_svet_zdravia,
@@ -866,9 +846,11 @@ async function step4_collaborators() {
     FROM Collaborators d
     LEFT JOIN CollaboratorTypes ct ON ct.cty_id = d.cty_id
     LEFT JOIN PersonalData pd ON pd.per_id = d.per_id AND pd.pda_valid = 1
-    WHERE d.doc_id IN (${docIdList.join(',')})
-    ORDER BY d.doc_id DESC
-  `) : { recordset: [] };
+    WHERE d.doc_id IN (\${BATCH_IDS})
+    ORDER BY d.doc_id DESC`,
+    'Collaborators'
+  ) : [];
+  const collabs = { recordset: collabRecords };
 
   // Representants lookup: rer_id → person name
   const repLookup = {};
@@ -901,15 +883,16 @@ async function step4_collaborators() {
       if (r.add_id) workAddIds.add(r.add_id);
     }
     if (perIds.size > 0) {
-      const addrs = await mssqlPool.request().query(`
-        SELECT a.add_id, a.per_id, a.mat_id, a.add_name, a.add_street_and_number, a.add_city, a.add_zip, a.add_area, a.add_country, a.add_valid,
+      const addrRecs = await batchMssqlQuery([...perIds],
+        `SELECT a.add_id, a.per_id, a.mat_id, a.add_name, a.add_street_and_number, a.add_city, a.add_zip, a.add_area, a.add_country, a.add_valid,
                mt.mat_code
         FROM MailAddresses a
         LEFT JOIN MailAddressTypes mt ON mt.mat_id = a.mat_id
-        WHERE a.per_id IN (${[...perIds].join(',')}) AND a.add_valid = 1
-        ORDER BY a.add_id DESC
-      `);
-      for (const a of addrs.recordset) {
+        WHERE a.per_id IN (\${BATCH_IDS}) AND a.add_valid = 1
+        ORDER BY a.add_id DESC`,
+        'MailAddresses'
+      );
+      for (const a of addrRecs) {
         if (!addressByPerId[a.per_id]) addressByPerId[a.per_id] = {};
         // mat_id: 1 = Trvalé bydlisko (permanent), 2 = Adresa pracoviska (work), 3 = Korešpondenčná adresa (correspondence)
         if (a.mat_id === 1 && !addressByPerId[a.per_id].permanent) {
@@ -927,12 +910,13 @@ async function step4_collaborators() {
     if (extraAddIds.size > 0) {
       const missing = [...extraAddIds].filter(id => !addressByAddId[id]);
       if (missing.length > 0) {
-        const extraAddrs = await mssqlPool.request().query(`
-          SELECT a.add_id, a.per_id, a.mat_id, a.add_name, a.add_street_and_number, a.add_city, a.add_zip, a.add_area, a.add_country
+        const extraAddrRecs = await batchMssqlQuery(missing,
+          `SELECT a.add_id, a.per_id, a.mat_id, a.add_name, a.add_street_and_number, a.add_city, a.add_zip, a.add_area, a.add_country
           FROM MailAddresses a
-          WHERE a.add_id IN (${missing.join(',')})
-        `);
-        for (const a of extraAddrs.recordset) {
+          WHERE a.add_id IN (\${BATCH_IDS})`,
+          'ExtraAddresses'
+        );
+        for (const a of extraAddrRecs) {
           addressByAddId[a.add_id] = a;
         }
       }
@@ -1164,10 +1148,10 @@ async function step4b_agreements() {
   const docIds = Object.keys(collabLookup);
   if (docIds.length === 0) { log('  Žiadni spolupracovníci, preskakujem'); return; }
 
-  let agreements;
+  let agreementRecords;
   try {
-    agreements = await mssqlPool.request().query(`
-      SELECT ca.cag_id, ca.doc_id, ca.com_id, ca.cag_number,
+    agreementRecords = await batchMssqlQuery(docIds,
+      `SELECT ca.cag_id, ca.doc_id, ca.com_id, ca.cag_number,
              ca.cag_from, ca.cag_to,
              ca.cag_agreement_sent, ca.cag_agreement_returned,
              ca.cag_valid, ca.cag_inserted, ca.afo_id,
@@ -1178,13 +1162,15 @@ async function step4b_agreements() {
              c.com_name, c.com_country_code
       FROM CollaboratorAgreements ca
       LEFT JOIN Companies c ON c.com_id = ca.com_id
-      WHERE ca.doc_id IN (${docIds.join(',')})
-      ORDER BY ca.cag_id DESC
-    `);
+      WHERE ca.doc_id IN (\${BATCH_IDS})
+      ORDER BY ca.cag_id DESC`,
+      'Agreements'
+    );
   } catch (err) {
     log(`  WARN: CollaboratorAgreements query: ${err.message}`);
     return;
   }
+  const agreements = { recordset: agreementRecords };
 
   log(`  Nájdených ${agreements.recordset.length} dohôd pre ${docIds.length} spolupracovníkov`);
 
@@ -1221,16 +1207,17 @@ async function step4b_agreements() {
     'REG_AGT_VEDONO': 'management',
   };
   try {
-    const ccForAgreements = await mssqlPool.request().query(`
-      SELECT DISTINCT cc.doc_id, ca.cag_id, at2.agt_code
+    const ccForAgreementsRecs = await batchMssqlQuery(docIds,
+      `SELECT DISTINCT cc.doc_id, ca.cag_id, at2.agt_code
       FROM CollectionCollaborators cc
       JOIN CollaborationAgreementTypes at2 ON at2.agt_id = cc.agt_id
       JOIN CollaboratorAgreements ca ON ca.doc_id = cc.doc_id
         AND ca.cag_from <= ISNULL((SELECT s.sco_date FROM ServiceCollections s WHERE s.sco_id = cc.sco_id), ca.cag_to)
         AND ca.cag_to >= ISNULL((SELECT s.sco_date FROM ServiceCollections s WHERE s.sco_id = cc.sco_id), ca.cag_from)
-      WHERE cc.doc_id IN (${docIds.join(',')})
-    `);
-    for (const r of ccForAgreements.recordset) {
+      WHERE cc.doc_id IN (\${BATCH_IDS})`,
+      'RewardTypes'
+    );
+    for (const r of ccForAgreementsRecs) {
       const key = String(r.cag_id);
       if (!rewardTypesMap[key]) rewardTypesMap[key] = new Set();
       const mapped = agtCodeToRewardType[r.agt_code];
@@ -1241,15 +1228,15 @@ async function step4b_agreements() {
     log(`  WARN: reward_types mapping: ${err.message}`);
     // Fallback: simpler query without date range
     try {
-      const ccSimple = await mssqlPool.request().query(`
-        SELECT DISTINCT cc.doc_id, at2.agt_code
+      const ccSimpleRecs = await batchMssqlQuery(docIds,
+        `SELECT DISTINCT cc.doc_id, at2.agt_code
         FROM CollectionCollaborators cc
         JOIN CollaborationAgreementTypes at2 ON at2.agt_id = cc.agt_id
-        WHERE cc.doc_id IN (${docIds.join(',')})
-      `);
-      // Group by doc_id and find matching cag_ids
+        WHERE cc.doc_id IN (\${BATCH_IDS})`,
+        'RewardTypesFallback'
+      );
       const docAgtCodes = {};
-      for (const r of ccSimple.recordset) {
+      for (const r of ccSimpleRecs) {
         const dk = String(r.doc_id);
         if (!docAgtCodes[dk]) docAgtCodes[dk] = new Set();
         const mapped = agtCodeToRewardType[r.agt_code];
@@ -1268,11 +1255,14 @@ async function step4b_agreements() {
     }
   }
 
+  const existingAgrSet = new Set();
+  const pgExistAgr = await pgPool.query('SELECT legacy_id FROM collaborator_agreements WHERE legacy_id IS NOT NULL');
+  for (const r of pgExistAgr.rows) existingAgrSet.add(r.legacy_id);
+
   let inserted = 0, skipped = 0, errors = 0;
   for (const row of agreements.recordset) {
     try {
-      const existing = await pgPool.query('SELECT id FROM collaborator_agreements WHERE legacy_id = $1', [String(row.cag_id)]);
-      if (existing.rows.length > 0) { skipped++; continue; }
+      if (existingAgrSet.has(String(row.cag_id))) { skipped++; continue; }
 
       const collaboratorId = collabLookup[String(row.doc_id)];
       if (!collaboratorId) { skipped++; continue; }
@@ -1358,11 +1348,8 @@ async function step4c_activities() {
   const ccCols = ccColsResult.recordset.map(r => r.COLUMN_NAME);
   log(`  CollectionCollaborators stĺpce: ${ccCols.join(', ')}`);
 
-  // Query CollectionCollaborators — this is the actual source of Úkony tab data
-  // Join to CollaboratorAgreements via doc_id + agt_id (no cag_id on cc)
-  const docIdList = docIds.join(',');
-  const ukonyRows = await mssqlPool.request().query(`
-    SELECT
+  const ukonyRecords = await batchMssqlQuery(docIds,
+    `SELECT
       cc.sco_id, cc.doc_id, cc.agt_id,
       ca.cag_id,
       at2.agt_default_name as typ_dohody,
@@ -1380,9 +1367,11 @@ async function step4c_activities() {
       ORDER BY cag2.cag_valid DESC, cag2.cag_id DESC
     ) ca
     LEFT JOIN ServiceCollections sc ON sc.sco_id = cc.sco_id
-    WHERE cc.doc_id IN (${docIdList})
-    ORDER BY sc.sco_collection_made DESC
-  `);
+    WHERE cc.doc_id IN (\${BATCH_IDS})
+    ORDER BY sc.sco_collection_made DESC`,
+    'Úkony'
+  );
+  const ukonyRows = { recordset: ukonyRecords };
 
   log(`  Nájdených ${ukonyRows.recordset.length} úkonov pre ${docIds.length} spolupracovníkov`);
 
@@ -1593,11 +1582,14 @@ async function step5_customers() {
     ])
   );
 
+  const existingCustSet = new Set();
+  const pgExistCust = await pgPool.query('SELECT internal_id FROM customers WHERE internal_id IS NOT NULL');
+  for (const r of pgExistCust.rows) existingCustSet.add(r.internal_id);
+
   let inserted = 0, skipped = 0, errors = 0;
   for (const row of clients.recordset) {
     try {
-      const existing = await pgPool.query('SELECT id FROM customers WHERE internal_id = $1', [String(row.cli_id)]);
-      if (existing.rows.length > 0) { skipped++; continue; }
+      if (existingCustSet.has(String(row.cli_id))) { skipped++; continue; }
 
       const country = normalizeCountryCode(row.perm_country || row.com_country_code);
       const firstName = normalizeName(row.pda_first_name) || 'N/A';
@@ -1755,11 +1747,14 @@ async function step6_collections() {
     ])
   );
 
+  const existingCollSet = new Set();
+  const pgExistColl = await pgPool.query('SELECT legacy_id FROM collections WHERE legacy_id IS NOT NULL');
+  for (const r of pgExistColl.rows) existingCollSet.add(r.legacy_id);
+
   let inserted = 0, skipped = 0, errors = 0;
   for (const row of collections.recordset) {
     try {
-      const existing = await pgPool.query('SELECT id FROM collections WHERE legacy_id = $1', [String(row.sco_id)]);
-      if (existing.rows.length > 0) { skipped++; continue; }
+      if (existingCollSet.has(String(row.sco_id))) { skipped++; continue; }
 
       const countryCode = normalizeCountryCode(companyCountry[row.com_id]);
       const hospitalId = hospitalLookup[String(row.hos_id)] || null;
@@ -1844,14 +1839,14 @@ async function step6_collections() {
   const scoIds = collections.recordset.map(r => r.sco_id);
   if (scoIds.length > 0) {
     log(`  Načítavam lab výsledky pre ${scoIds.length} odberov (batched)...`);
-    const evalResults = await batchMssqlQuery(mssqlPool,
+    const evalResults = await batchMssqlQuery(scoIds,
       `SELECT cer.sco_id, cer.cev_value_number, cer.cev_value_text, cer.cev_value_text_update,
              cet.cet_code, cet.cet_field_name
       FROM CollectionEvaluationResults cer
       JOIN CollectionEvaluationTemplates cet ON cet.cet_id = cer.cet_id
       WHERE cer.sco_id IN (\${BATCH_IDS})
       ORDER BY cer.sco_id, cet.cet_order`,
-      scoIds
+      'LabResults'
     );
     log(`  Načítaných ${evalResults.length} lab záznamov`);
 
