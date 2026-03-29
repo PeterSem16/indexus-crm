@@ -1837,19 +1837,26 @@ async function step6_collections() {
   const pgColls = await pgPool.query('SELECT id, legacy_id FROM collections WHERE legacy_id IS NOT NULL');
   for (const r of pgColls.rows) collLookup[r.legacy_id] = r.id;
 
+  const existingLabSet = new Set();
+  const existingLabs = await pgPool.query('SELECT collection_id FROM collection_lab_results');
+  for (const r of existingLabs.rows) existingLabSet.add(r.collection_id);
+
   const scoIds = collections.recordset.map(r => r.sco_id);
   if (scoIds.length > 0) {
-    const evalResults = await mssqlPool.request().query(`
-      SELECT cer.sco_id, cer.cev_value_number, cer.cev_value_text, cer.cev_value_text_update,
+    log(`  Načítavam lab výsledky pre ${scoIds.length} odberov (batched)...`);
+    const evalResults = await batchMssqlQuery(mssqlPool,
+      `SELECT cer.sco_id, cer.cev_value_number, cer.cev_value_text, cer.cev_value_text_update,
              cet.cet_code, cet.cet_field_name
       FROM CollectionEvaluationResults cer
       JOIN CollectionEvaluationTemplates cet ON cet.cet_id = cer.cet_id
-      WHERE cer.sco_id IN (${scoIds.join(',')})
-      ORDER BY cer.sco_id, cet.cet_order
-    `);
+      WHERE cer.sco_id IN (\${BATCH_IDS})
+      ORDER BY cer.sco_id, cet.cet_order`,
+      scoIds
+    );
+    log(`  Načítaných ${evalResults.length} lab záznamov`);
 
     const grouped = {};
-    for (const r of evalResults.recordset) {
+    for (const r of evalResults) {
       if (!grouped[r.sco_id]) grouped[r.sco_id] = {};
       const code = (r.cet_code || r.cet_field_name || '').toLowerCase();
       const value = r.cev_value_text_update || r.cev_value_text || (r.cev_value_number != null ? String(r.cev_value_number) : null);
@@ -1866,25 +1873,19 @@ async function step6_collections() {
       return null;
     };
 
-    let labInserted = 0;
-    for (const [scoId, fields] of Object.entries(grouped)) {
-      const collectionId = collLookup[scoId];
-      if (!collectionId) continue;
+    let labInserted = 0, labSkipped = 0, labErrors = 0;
+    const labBatch = [];
+    const LAB_BATCH_SIZE = 200;
 
-      const existing = await pgPool.query('SELECT id FROM collection_lab_results WHERE collection_id = $1', [collectionId]);
-      if (existing.rows.length > 0) continue;
-
+    async function flushLabBatch() {
+      if (labBatch.length === 0) return;
+      const COLS = 37;
+      const placeholders = labBatch.map((_, i) => {
+        const offset = i * COLS;
+        return `(${Array.from({length: COLS}, (_, j) => `$${offset + j + 1}`).join(',')})`;
+      }).join(',');
+      const values = labBatch.flat();
       try {
-        const noteText = findField(fields, 'note') || null;
-        const cbcCbu = findField(fields, 'cbu');
-        const cbcProduct = findField(fields, 'product');
-        const labstate = findField(fields, 'labstate');
-        const datePorod = findField(fields, 'datum porodu');
-        const casPorod = findField(fields, 'cas porodu');
-        const sterilityDate = findField(fields, 'sterility');
-        const evaluatedDate = findField(fields, 'evaluated');
-        const certDate = findField(fields, 'certif v ec vytlaceny');
-
         await pgPool.query(`
           INSERT INTO collection_lab_results (
             collection_id, client_result_id,
@@ -1899,51 +1900,73 @@ async function step6_collections() {
             cbu, processing, collection_for, status, final_analyses,
             date_of_collection, time_of_collection,
             lab_note
-          ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37)
-        `, [
-          collectionId, scoId,
-          findField(fields, 'standard_pouzitelnost', 'usability', 'pouzitelnost'),
-          findField(fields, 'sterilita vysledok', 'TP_sterilita_vysledok', 'sterilita'),
-          findField(fields, 'sterility_type', 'typ_sterility'),
-          findField(fields, 'sterilita vysledok', 'TP_sterilita_vysledok', 'result_of_sterility'),
-          findField(fields, 'p_sterilita vysledok'),
-          findField(fields, 'objem odobratej krvi', 'Standard_objem_odobratej_krvi', 'volume', 'objem'),
-          findField(fields, 'objem plk', 'Objem PLK', 'volume_in_bag'),
-          findField(fields, 'celkovy pocet zmraz bb_1x10e7', 'tnc', 'tnc_count'),
-          findField(fields, 'max_weight', 'hmotnost'),
-          findField(fields, 'infekcne agens', 'TP_infekcne_agens', 'infection_agents'),
-          findField(fields, 'spracovanie transplantatu', 'transplant_processing'),
-          findField(fields, 'transplantat_preradenyDo', 'transferred_to'),
-          findField(fields, 'transplantat', 'umbilical_tissue'),
-          findField(fields, 'tp', 'tissue_processed'),
-          findField(fields, 'tissue_sterility', 'sterilita_tkaniva'),
-          findField(fields, 'Premium_pouzitelnost', 'tissue_usability'),
-          findField(fields, 'tissue_infection_agents'),
-          findField(fields, 'Premium_stav', 'premium_status'),
-          findField(fields, 'standard_bb', 'Standard_BB', 'kriterium na certifikat'),
-          findField(fields, 'premium_objem_odobratej_krvi', 'bag_a_volume'),
-          findField(fields, 'bag_a_tnc'),
-          findField(fields, 'usability2', 'TP_pouzitelnost', 'bag_b_usability'),
-          findField(fields, 'bag_b_volume'),
-          findField(fields, 'bag_b_tnc'),
-          findField(fields, 'meno matky', 'Meno matky', 'first_name'),
-          findField(fields, 'priezvisko matky', 'Priezvisko matky', 'surname'),
-          findField(fields, 'rodne cislo', 'id_birth_number'),
-          cbcCbu,
-          findField(fields, 'spracovaniexx', 'spracovanieXX', 'processing'),
-          findField(fields, 'transplantat odobrany pre', 'collection_for'),
-          labstate || findField(fields, 'Premium_stav', 'status'),
-          findField(fields, 'transpl dovysetrovany', 'final_analyses'),
-          datePorod ? new Date(datePorod) : null,
-          casPorod,
-          noteText,
-        ]);
-        labInserted++;
+          ) VALUES ${placeholders}
+          ON CONFLICT DO NOTHING
+        `, values);
+        labInserted += labBatch.length;
       } catch (err) {
-        log(`  ERROR lab sco_id=${scoId}: ${err.message}`);
+        log(`  ERROR lab batch (${labBatch.length} rows): ${err.message}`);
+        labErrors += labBatch.length;
+      }
+      labBatch.length = 0;
+    }
+
+    for (const [scoId, fields] of Object.entries(grouped)) {
+      const collectionId = collLookup[scoId];
+      if (!collectionId) continue;
+      if (existingLabSet.has(collectionId)) { labSkipped++; continue; }
+
+      const noteText = findField(fields, 'note') || null;
+      const cbcCbu = findField(fields, 'cbu');
+      const labstate = findField(fields, 'labstate');
+      const datePorod = findField(fields, 'datum porodu');
+      const casPorod = findField(fields, 'cas porodu');
+
+      labBatch.push([
+        collectionId, scoId,
+        findField(fields, 'standard_pouzitelnost', 'usability', 'pouzitelnost'),
+        findField(fields, 'sterilita vysledok', 'TP_sterilita_vysledok', 'sterilita'),
+        findField(fields, 'sterility_type', 'typ_sterility'),
+        findField(fields, 'sterilita vysledok', 'TP_sterilita_vysledok', 'result_of_sterility'),
+        findField(fields, 'p_sterilita vysledok'),
+        findField(fields, 'objem odobratej krvi', 'Standard_objem_odobratej_krvi', 'volume', 'objem'),
+        findField(fields, 'objem plk', 'Objem PLK', 'volume_in_bag'),
+        findField(fields, 'celkovy pocet zmraz bb_1x10e7', 'tnc', 'tnc_count'),
+        findField(fields, 'max_weight', 'hmotnost'),
+        findField(fields, 'infekcne agens', 'TP_infekcne_agens', 'infection_agents'),
+        findField(fields, 'spracovanie transplantatu', 'transplant_processing'),
+        findField(fields, 'transplantat_preradenyDo', 'transferred_to'),
+        findField(fields, 'transplantat', 'umbilical_tissue'),
+        findField(fields, 'tp', 'tissue_processed'),
+        findField(fields, 'tissue_sterility', 'sterilita_tkaniva'),
+        findField(fields, 'Premium_pouzitelnost', 'tissue_usability'),
+        findField(fields, 'tissue_infection_agents'),
+        findField(fields, 'Premium_stav', 'premium_status'),
+        findField(fields, 'standard_bb', 'Standard_BB', 'kriterium na certifikat'),
+        findField(fields, 'premium_objem_odobratej_krvi', 'bag_a_volume'),
+        findField(fields, 'bag_a_tnc'),
+        findField(fields, 'usability2', 'TP_pouzitelnost', 'bag_b_usability'),
+        findField(fields, 'bag_b_volume'),
+        findField(fields, 'bag_b_tnc'),
+        findField(fields, 'meno matky', 'Meno matky', 'first_name'),
+        findField(fields, 'priezvisko matky', 'Priezvisko matky', 'surname'),
+        findField(fields, 'rodne cislo', 'id_birth_number'),
+        cbcCbu,
+        findField(fields, 'spracovaniexx', 'spracovanieXX', 'processing'),
+        findField(fields, 'transplantat odobrany pre', 'collection_for'),
+        labstate || findField(fields, 'Premium_stav', 'status'),
+        findField(fields, 'transpl dovysetrovany', 'final_analyses'),
+        datePorod ? new Date(datePorod) : null,
+        casPorod,
+        noteText,
+      ]);
+
+      if (labBatch.length >= LAB_BATCH_SIZE) {
+        await flushLabBatch();
       }
     }
-    log(`  Lab výsledky: ${labInserted} vložených (z ${Object.keys(grouped).length} skupín)`);
+    await flushLabBatch();
+    log(`  Lab výsledky: ${labInserted} vložených, ${labSkipped} preskočených, ${labErrors} chýb (z ${Object.keys(grouped).length} skupín)`);
   }
 }
 
