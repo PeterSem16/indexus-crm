@@ -2287,10 +2287,10 @@ export default function CollectionsPage() {
                 </TabsTrigger>
               </TabsList>
 
-              <TabsContent value="client">{activeTab === "client" && renderClientForm()}</TabsContent>
-              <TabsContent value="child">{activeTab === "child" && renderChildForm()}</TabsContent>
-              <TabsContent value="collection">{activeTab === "collection" && renderCollectionForm()}</TabsContent>
-              <TabsContent value="status">{activeTab === "status" && renderStatusForm()}</TabsContent>
+              <TabsContent value="client">{renderClientForm()}</TabsContent>
+              <TabsContent value="child">{renderChildForm()}</TabsContent>
+              <TabsContent value="collection">{renderCollectionForm()}</TabsContent>
+              <TabsContent value="status">{renderStatusForm()}</TabsContent>
               <TabsContent value="lab">
                 {isLoadingLabResults ? (
                   <div className="flex items-center justify-center py-12">
