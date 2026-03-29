@@ -2287,21 +2287,21 @@ export default function CollectionsPage() {
                 </TabsTrigger>
               </TabsList>
 
-              <TabsContent value="client">{renderClientForm()}</TabsContent>
-              <TabsContent value="child">{renderChildForm()}</TabsContent>
-              <TabsContent value="collection">{renderCollectionForm()}</TabsContent>
-              <TabsContent value="status">{renderStatusForm()}</TabsContent>
+              <TabsContent value="client">{activeTab === "client" ? renderClientForm() : null}</TabsContent>
+              <TabsContent value="child">{activeTab === "child" ? renderChildForm() : null}</TabsContent>
+              <TabsContent value="collection">{activeTab === "collection" ? renderCollectionForm() : null}</TabsContent>
+              <TabsContent value="status">{activeTab === "status" ? renderStatusForm() : null}</TabsContent>
               <TabsContent value="lab">
-                {isLoadingLabResults ? (
+                {activeTab === "lab" ? (isLoadingLabResults ? (
                   <div className="flex items-center justify-center py-12">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
                   </div>
                 ) : (
                   renderLabResultsForm()
-                )}
+                )) : null}
               </TabsContent>
               <TabsContent value="sprievodny">
-                {isLoadingSprievodny ? (
+                {activeTab === "sprievodny" ? (isLoadingSprievodny ? (
                   <div className="flex items-center justify-center py-12">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
                   </div>
@@ -2700,7 +2700,7 @@ export default function CollectionsPage() {
                       </div>
                     </div>
                   );
-                })()}
+                })()) : null}
               </TabsContent>
             </Tabs>
 
