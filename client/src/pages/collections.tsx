@@ -2287,10 +2287,10 @@ export default function CollectionsPage() {
                 </TabsTrigger>
               </TabsList>
 
-              <TabsContent value="client">{renderClientForm()}</TabsContent>
-              <TabsContent value="child">{renderChildForm()}</TabsContent>
-              <TabsContent value="collection">{renderCollectionForm()}</TabsContent>
-              <TabsContent value="status">{renderStatusForm()}</TabsContent>
+              <TabsContent value="client">{activeTab === "client" && renderClientForm()}</TabsContent>
+              <TabsContent value="child">{activeTab === "child" && renderChildForm()}</TabsContent>
+              <TabsContent value="collection">{activeTab === "collection" && renderCollectionForm()}</TabsContent>
+              <TabsContent value="status">{activeTab === "status" && renderStatusForm()}</TabsContent>
               <TabsContent value="lab">
                 {isLoadingLabResults ? (
                   <div className="flex items-center justify-center py-12">
@@ -2588,7 +2588,7 @@ export default function CollectionsPage() {
                           <div className="w-[50%] shrink-0 border rounded-lg overflow-hidden bg-muted/20 relative" data-testid="sprievodny-pdf-viewer">
                             <div className="relative w-full h-full overflow-auto">
                               <img
-                                src={`/api/collections/${collectionId}/sprievodny-list/image?t=${Date.now()}`}
+                                src={`/api/collections/${collectionId}/sprievodny-list/image`}
                                 alt={sp?.title || "Accompanying document"}
                                 className="w-full"
                                 style={{ display: "block" }}
@@ -2720,21 +2720,21 @@ export default function CollectionsPage() {
   const statesT = t.collections?.states || {};
 
 
-  const statusData = collectionStatuses.map(status => ({
+  const statusData = useMemo(() => collectionStatuses.map(status => ({
     name: status.name,
     value: filteredCollections.filter(c => c.state === String(status.id)).length,
     state: String(status.id)
-  })).filter(d => d.value > 0);
+  })).filter(d => d.value > 0), [collectionStatuses, filteredCollections]);
   
-  const totalForPercent = statusData.reduce((acc, d) => acc + d.value, 0);
+  const totalForPercent = useMemo(() => statusData.reduce((acc, d) => acc + d.value, 0), [statusData]);
 
-  const countryData = selectedCountries.map(code => ({
+  const countryData = useMemo(() => selectedCountries.map(code => ({
     name: code,
     value: filteredCollections.filter(c => c.countryCode === code).length,
     fill: COUNTRY_CHART_COLORS[code] || PASTEL_CHART_COLORS[0]
-  })).filter(d => d.value > 0).sort((a, b) => b.value - a.value);
+  })).filter(d => d.value > 0).sort((a, b) => b.value - a.value), [selectedCountries, filteredCollections]);
   
-  const hospitalData = hospitals
+  const hospitalData = useMemo(() => hospitals
     .map(h => ({
       name: h.name.length > 20 ? h.name.substring(0, 20) + "..." : h.name,
       fullName: h.name,
@@ -2742,27 +2742,27 @@ export default function CollectionsPage() {
     }))
     .filter(d => d.value > 0)
     .sort((a, b) => b.value - a.value)
-    .slice(0, 8);
+    .slice(0, 8), [hospitals, filteredCollections]);
 
-  const now = new Date();
-  const thisMonth = filteredCollections.filter(c => {
+  const now = useMemo(() => new Date(), []);
+  const thisMonth = useMemo(() => filteredCollections.filter(c => {
     if (!c.collectionDate) return false;
     const date = new Date(c.collectionDate);
     return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
-  }).length;
+  }).length, [filteredCollections, now]);
 
-  const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  const lastMonth = filteredCollections.filter(c => {
+  const lastMonthDate = useMemo(() => new Date(now.getFullYear(), now.getMonth() - 1, 1), [now]);
+  const lastMonth = useMemo(() => filteredCollections.filter(c => {
     if (!c.collectionDate) return false;
     const date = new Date(c.collectionDate);
     return date.getMonth() === lastMonthDate.getMonth() && date.getFullYear() === lastMonthDate.getFullYear();
-  }).length;
+  }).length, [filteredCollections, lastMonthDate]);
 
-  const pendingLab = filteredCollections.filter(c => 
+  const pendingLab = useMemo(() => filteredCollections.filter(c => 
     c.state === "created" || c.state === "paired" || c.state === "evaluated"
-  ).length;
+  ).length, [filteredCollections]);
 
-  const monthlyData = Array.from({ length: 6 }, (_, i) => {
+  const monthlyData = useMemo(() => Array.from({ length: 6 }, (_, i) => {
     const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
     const monthCollections = filteredCollections.filter(c => {
       if (!c.collectionDate) return false;
@@ -2773,15 +2773,15 @@ export default function CollectionsPage() {
       name: format(d, "MMM", { locale: dateFnsLocale }),
       count: monthCollections.length
     };
-  });
+  }), [filteredCollections, now, dateFnsLocale]);
 
-  const recentCollections = [...filteredCollections]
+  const recentCollections = useMemo(() => [...filteredCollections]
     .sort((a, b) => {
       const dateA = a.collectionDate ? new Date(a.collectionDate).getTime() : 0;
       const dateB = b.collectionDate ? new Date(b.collectionDate).getTime() : 0;
       return dateB - dateA;
     })
-    .slice(0, 5);
+    .slice(0, 5), [filteredCollections]);
 
   const renderDashboard = () => (
     <div className="space-y-6">

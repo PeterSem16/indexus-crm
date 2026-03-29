@@ -2237,7 +2237,7 @@ export async function registerRoutes(
       const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
       const search = req.query.search as string;
       const country = req.query.country as string;
-      if (req.query.page || req.query.limit || req.query.search) {
+      if (req.query.page || req.query.limit || req.query.search || req.query.status) {
         const result = await storage.getCustomersPaginated(page, limit, search, country);
         return res.json(result);
       }
@@ -7043,7 +7043,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
       const search = req.query.search as string;
       const status = req.query.status as string;
       const customerId = req.query.customerId as string;
-      if (req.query.page || req.query.limit || req.query.search) {
+      if (req.query.page || req.query.limit || req.query.search || req.query.status) {
         const result = await storage.getInvoicesPaginated(page, limit, search, status, customerId);
         return res.json(result);
       }
@@ -30268,7 +30268,7 @@ Segment should be one of: hospitals, clinics, ambulances, laboratories, pharmaci
       const page = parseInt(req.query.page as string) || 1;
       const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
       const search = req.query.search as string;
-      if (req.query.page || req.query.limit || req.query.search) {
+      if (req.query.page || req.query.limit || req.query.search || req.query.status) {
         const country = req.query.country as string;
         const result = await storage.getContractInstancesPaginated(page, limit, search, status as string, customerId as string, country);
         return res.json(result);
@@ -34107,7 +34107,7 @@ Guidelines:
       const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
       const search = req.query.search as string;
       const status = req.query.status as string;
-      if (req.query.page || req.query.limit || req.query.search) {
+      if (req.query.page || req.query.limit || req.query.search || req.query.status) {
         const result = await storage.getCollectionsPaginated(page, limit, search, countryCodes.length > 0 ? countryCodes : undefined, status);
         return res.json(result);
       }
