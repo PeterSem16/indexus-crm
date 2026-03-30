@@ -44,13 +44,17 @@ import {
   FileText,
   Minus,
   AlertCircle,
+  CheckCircle,
+  XCircle,
   Target,
   Save,
   Eye,
+  EyeOff,
   Variable,
   MousePointerClick,
   Phone,
   Mail,
+  CalendarPlus,
 } from "lucide-react";
 import {
   DndContext,
@@ -425,6 +429,127 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving }:
 
   const stepLabels = { untitled: sb.untitled, element: sb.element, elements: sb.elements, endStep: sb.endStep };
   const elementLabels = { required: sb.required };
+  const [showPreview, setShowPreview] = useState(false);
+
+  const renderPreviewElement = useCallback((element: ScriptElement) => {
+    switch (element.type) {
+      case "heading":
+        return (
+          <div className={`font-bold ${element.size === "lg" ? "text-xl" : element.size === "sm" ? "text-base" : "text-lg"}`}>
+            {element.content || element.label}
+          </div>
+        );
+      case "paragraph":
+        return <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">{element.content || element.label}</p>;
+      case "divider":
+        return <Separator />;
+      case "note": {
+        const noteStyles: Record<string, string> = {
+          info: "bg-blue-50 border-blue-200 text-blue-800 dark:bg-blue-900/20 dark:border-blue-800/50 dark:text-blue-300",
+          warning: "bg-amber-50 border-amber-200 text-amber-800 dark:bg-amber-900/20 dark:border-amber-800/50 dark:text-amber-300",
+          success: "bg-green-50 border-green-200 text-green-800 dark:bg-green-900/20 dark:border-green-800/50 dark:text-green-300",
+          error: "bg-red-50 border-red-200 text-red-800 dark:bg-red-900/20 dark:border-red-800/50 dark:text-red-300",
+        };
+        const noteIcons: Record<string, any> = { info: AlertCircle, warning: AlertCircle, success: CheckCircle, error: XCircle };
+        const NoteIcon = noteIcons[element.variant || "info"] || AlertCircle;
+        return (
+          <div className={`flex gap-3 p-3 rounded-md border ${noteStyles[element.style || element.variant || "info"] || noteStyles.info}`}>
+            <NoteIcon className="h-4 w-4 mt-0.5 flex-shrink-0" />
+            <p className="text-sm leading-relaxed">{element.content || element.label}</p>
+          </div>
+        );
+      }
+      case "select":
+        return (
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium">{element.label} {element.required && <span className="text-destructive">*</span>}</Label>
+            <Select disabled><SelectTrigger><SelectValue placeholder={element.placeholder || "Vyberte..."} /></SelectTrigger></Select>
+          </div>
+        );
+      case "multiselect":
+      case "checkboxGroup":
+        return (
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium">{element.label} {element.required && <span className="text-destructive">*</span>}</Label>
+            <div className="space-y-1">
+              {(element.options || []).map((opt, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <CheckSquare className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm">{opt.label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      case "radio":
+        return (
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium">{element.label} {element.required && <span className="text-destructive">*</span>}</Label>
+            <div className="space-y-1">
+              {(element.options || []).map((opt, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <CircleDot className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm">{opt.label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      case "checkbox":
+        return (
+          <div className="flex items-center gap-2">
+            <CheckSquare className="h-4 w-4 text-muted-foreground" />
+            <Label className="text-sm">{element.label} {element.required && <span className="text-destructive">*</span>}</Label>
+          </div>
+        );
+      case "textInput":
+        return (
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium">{element.label} {element.required && <span className="text-destructive">*</span>}</Label>
+            <Input disabled placeholder={element.placeholder || element.label} />
+          </div>
+        );
+      case "textarea":
+        return (
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium">{element.label} {element.required && <span className="text-destructive">*</span>}</Label>
+            <Textarea disabled placeholder={element.placeholder || element.label} rows={3} />
+          </div>
+        );
+      case "outcome":
+        return (
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium">{element.label} {element.required && <span className="text-destructive">*</span>}</Label>
+            <div className="flex flex-wrap gap-2">
+              {(element.options || []).map((opt, i) => (
+                <Button key={i} variant="outline" size="sm" disabled>{opt.label}</Button>
+              ))}
+            </div>
+          </div>
+        );
+      case "action_button": {
+        const iconMap: Record<string, any> = { mail: Mail, phone: Phone, calendar: CalendarPlus, file: FileText };
+        const ActionIcon = iconMap[element.actionIcon || ""] || null;
+        const variantMap: Record<string, "default" | "outline" | "secondary" | "destructive"> = {
+          primary: "default", secondary: "secondary", outline: "outline", destructive: "destructive",
+        };
+        const btnVariant = variantMap[element.variant || ""] || "default";
+        return (
+          <Card className="border-primary/30 bg-primary/5">
+            <CardContent className="p-4 space-y-2">
+              {element.content && <p className="text-sm text-foreground leading-relaxed">{element.content}</p>}
+              <Button className="w-full gap-2" variant={btnVariant} disabled data-testid={`preview-btn-${element.id}`}>
+                {ActionIcon && <ActionIcon className="h-4 w-4" />}
+                {element.actionLabel || element.label || "Vykonať akciu"}
+              </Button>
+            </CardContent>
+          </Card>
+        );
+      }
+      default:
+        return <div className="text-sm text-muted-foreground">{element.label}</div>;
+    }
+  }, []);
 
   return (
     <div className="flex h-full gap-4" data-testid="script-builder">
@@ -487,9 +612,10 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving }:
                   <Plus className="h-4 w-4 mr-1" /> {sb.addElement}
                 </Button>
               )}
-              {onPreview && (
-                <Button size="sm" variant="outline" onClick={() => onPreview(currentScript)} data-testid="button-preview-script">
-                  <Eye className="h-4 w-4 mr-1" /> {sb.preview}
+              {selectedStep && (
+                <Button size="sm" variant={showPreview ? "default" : "outline"} onClick={() => setShowPreview(!showPreview)} data-testid="button-toggle-preview">
+                  {showPreview ? <EyeOff className="h-4 w-4 mr-1" /> : <Eye className="h-4 w-4 mr-1" />}
+                  {sb.preview}
                 </Button>
               )}
               {onSave && (
@@ -556,33 +682,59 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving }:
               
               <Separator />
               
-              <div className="space-y-2">
-                <Label>{sb.stepElements}</Label>
-                <ScrollArea className="h-[200px]">
-                  <div className="space-y-2">
-                    {selectedStep.elements.map((element, index) => (
-                      <SortableElement
-                        key={element.id}
-                        element={element}
-                        isSelected={selectedElementId === element.id}
-                        onSelect={() => setSelectedElementId(element.id)}
-                        onDelete={() => deleteElement(element.id)}
-                        onMoveUp={() => moveElement(element.id, "up")}
-                        onMoveDown={() => moveElement(element.id, "down")}
-                        canMoveUp={index > 0}
-                        canMoveDown={index < selectedStep.elements.length - 1}
-                        labels={elementLabels}
-                        elementTypeConfig={elementTypeConfig}
-                      />
-                    ))}
-                    {selectedStep.elements.length === 0 && (
-                      <div className="text-center py-4 text-muted-foreground text-sm">
-                        {sb.addElementsToStep}
-                      </div>
-                    )}
+              {showPreview ? (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Eye className="h-4 w-4 text-primary" />
+                    <Label className="text-primary font-semibold">{sb.preview}</Label>
                   </div>
-                </ScrollArea>
-              </div>
+                  <Card className="border-primary/20 bg-muted/30">
+                    <CardContent className="p-4">
+                      <ScrollArea className="h-[250px]">
+                        <div className="space-y-4">
+                          {selectedStep.description && (
+                            <p className="text-sm text-muted-foreground italic">{selectedStep.description}</p>
+                          )}
+                          {selectedStep.elements.map((element) => (
+                            <div key={element.id}>{renderPreviewElement(element)}</div>
+                          ))}
+                          {selectedStep.elements.length === 0 && (
+                            <div className="text-center py-4 text-muted-foreground text-sm">{sb.addElementsToStep}</div>
+                          )}
+                        </div>
+                      </ScrollArea>
+                    </CardContent>
+                  </Card>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <Label>{sb.stepElements}</Label>
+                  <ScrollArea className="h-[200px]">
+                    <div className="space-y-2">
+                      {selectedStep.elements.map((element, index) => (
+                        <SortableElement
+                          key={element.id}
+                          element={element}
+                          isSelected={selectedElementId === element.id}
+                          onSelect={() => setSelectedElementId(element.id)}
+                          onDelete={() => deleteElement(element.id)}
+                          onMoveUp={() => moveElement(element.id, "up")}
+                          onMoveDown={() => moveElement(element.id, "down")}
+                          canMoveUp={index > 0}
+                          canMoveDown={index < selectedStep.elements.length - 1}
+                          labels={elementLabels}
+                          elementTypeConfig={elementTypeConfig}
+                        />
+                      ))}
+                      {selectedStep.elements.length === 0 && (
+                        <div className="text-center py-4 text-muted-foreground text-sm">
+                          {sb.addElementsToStep}
+                        </div>
+                      )}
+                    </div>
+                  </ScrollArea>
+                </div>
+              )}
             </div>
           ) : (
             <div className="text-center py-12 text-muted-foreground">
