@@ -1004,12 +1004,12 @@ export default function HospitalsPage() {
     },
   });
 
-  const countryCounts = hospitals.reduce((acc, h) => {
+  const countryCounts = serverHospitalStats?.byCountry ?? hospitals.reduce((acc, h) => {
     acc[h.countryCode] = (acc[h.countryCode] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
 
-  const clinicCountryCounts = clinics.reduce((acc, c) => {
+  const clinicCountryCounts = serverClinicStats?.byCountry ?? clinics.reduce((acc, c) => {
     acc[c.countryCode] = (acc[c.countryCode] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
@@ -1082,40 +1082,43 @@ export default function HospitalsPage() {
   const totalClinicPages = Math.ceil(serverClinicsTotal / clinicPageSize);
   const paginatedClinics = filteredAndSortedClinics;
 
-  const KNOWN_PIPELINE_VALS = new Set([
-    "initial:not_contacted", "initial:former", "initial:active_contract",
-    "coop:unknown", "coop:interested", "coop:not_interested",
-    "contract_int:unknown", "contract_int:interested", "contract_int:not_interested",
-    "contract:none", "contract:active",
-  ]);
+  const clinicStatsParams: Record<string, any> = {};
+  if (selectedCountries.length > 0) clinicStatsParams.countries = selectedCountries.join(",");
+  const { data: serverClinicStats } = useQuery<{
+    total: number;
+    pipeline: Record<string, number>;
+    noStatus: number;
+    otherStatus: number;
+    referralCount: number;
+    conferenceCount: number;
+    byCountry: Record<string, number>;
+  }>({
+    queryKey: ["/api/clinics/stats", clinicStatsParams],
+  });
 
   const pipelineStats = useMemo(() => {
-    const stats: Record<string, number> = {};
-    let noStatus = 0;
-    let otherStatus = 0;
-    let referralCount = 0;
-    let conferenceCount = 0;
-    for (const c of filteredAndSortedClinics) {
-      const clinic = c as any;
-      let val = "";
-      if (clinic.contractStatus) val = `contract:${clinic.contractStatus}`;
-      else if (clinic.interestContract) val = `contract_int:${clinic.interestContract}`;
-      else if (clinic.interestCooperation) val = `coop:${clinic.interestCooperation}`;
-      else if (clinic.initialStatus) val = `initial:${clinic.initialStatus}`;
-      if (val) {
-        if (KNOWN_PIPELINE_VALS.has(val)) {
-          stats[val] = (stats[val] || 0) + 1;
-        } else {
-          otherStatus++;
-        }
-      } else {
-        noStatus++;
-      }
-      if (clinic.isReferredByDoctor) referralCount++;
-      if (clinic.isFromConference) conferenceCount++;
+    if (serverClinicStats) {
+      return {
+        stats: serverClinicStats.pipeline,
+        noStatus: serverClinicStats.noStatus,
+        otherStatus: serverClinicStats.otherStatus,
+        referralCount: serverClinicStats.referralCount,
+        conferenceCount: serverClinicStats.conferenceCount,
+      };
     }
-    return { stats, noStatus, otherStatus, referralCount, conferenceCount };
-  }, [filteredAndSortedClinics]);
+    return { stats: {} as Record<string, number>, noStatus: 0, otherStatus: 0, referralCount: 0, conferenceCount: 0 };
+  }, [serverClinicStats]);
+
+  const hospitalStatsParams: Record<string, any> = {};
+  if (selectedCountries.length > 0) hospitalStatsParams.countries = selectedCountries.join(",");
+  const { data: serverHospitalStats } = useQuery<{
+    total: number;
+    active: number;
+    inactive: number;
+    byCountry: Record<string, number>;
+  }>({
+    queryKey: ["/api/hospitals/stats", hospitalStatsParams],
+  });
   
   // Reset page when filters change
   const handleClinicFilterChange = () => {
@@ -1638,7 +1641,7 @@ export default function HospitalsPage() {
             <CardHeader className="pb-4 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="text-sm text-muted-foreground">
-                  {serverHospitalsTotal} {t.common.records}
+                  {serverHospitalStats?.total ?? serverHospitalsTotal} {t.common.records}
                 </div>
                 <div className="flex items-center gap-2">
                   <Button
@@ -2070,7 +2073,7 @@ export default function HospitalsPage() {
                   )}
                   <div className="ml-auto pl-2">
                     <Badge className="text-[10px] px-2.5 py-1 font-bold bg-primary/10 text-primary border-primary/30 hover:bg-primary/20" data-testid="stat-total">
-                      {(t.clinics as any).pipelineSummary?.total || "Total"}: {serverClinicsTotal}
+                      {(t.clinics as any).pipelineSummary?.total || "Total"}: {serverClinicStats?.total ?? serverClinicsTotal}
                     </Badge>
                   </div>
                 </div>

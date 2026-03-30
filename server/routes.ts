@@ -13821,6 +13821,75 @@ Return ONLY valid JSON, no markdown code blocks.`,
     }
   });
 
+  app.get("/api/clinics/stats", requireAuth, async (req, res) => {
+    try {
+      const countries = req.query.countries ? (req.query.countries as string).split(",").filter(Boolean) : [];
+      const conditions: any[] = [];
+      if (countries.length > 0) conditions.push(inArray(clinics.countryCode, countries));
+      const where = conditions.length > 0 ? and(...conditions) : undefined;
+      const allClinics = await db.select({
+        initialStatus: clinics.initialStatus,
+        interestCooperation: clinics.interestCooperation,
+        interestContract: clinics.interestContract,
+        contractStatus: clinics.contractStatus,
+        isReferredByDoctor: clinics.isReferredByDoctor,
+        isFromConference: clinics.isFromConference,
+        countryCode: clinics.countryCode,
+      }).from(clinics).where(where);
+
+      const KNOWN = new Set([
+        "initial:not_contacted", "initial:former", "initial:active_contract",
+        "coop:unknown", "coop:interested", "coop:not_interested",
+        "contract_int:unknown", "contract_int:interested", "contract_int:not_interested",
+        "contract:none", "contract:active",
+      ]);
+      const pipeline: Record<string, number> = {};
+      let noStatus = 0, otherStatus = 0, referralCount = 0, conferenceCount = 0;
+      const byCountry: Record<string, number> = {};
+      for (const c of allClinics) {
+        let val = "";
+        if (c.contractStatus) val = `contract:${c.contractStatus}`;
+        else if (c.interestContract) val = `contract_int:${c.interestContract}`;
+        else if (c.interestCooperation) val = `coop:${c.interestCooperation}`;
+        else if (c.initialStatus) val = `initial:${c.initialStatus}`;
+        if (val) {
+          if (KNOWN.has(val)) pipeline[val] = (pipeline[val] || 0) + 1;
+          else otherStatus++;
+        } else noStatus++;
+        if (c.isReferredByDoctor) referralCount++;
+        if (c.isFromConference) conferenceCount++;
+        byCountry[c.countryCode] = (byCountry[c.countryCode] || 0) + 1;
+      }
+      res.json({ total: allClinics.length, pipeline, noStatus, otherStatus, referralCount, conferenceCount, byCountry });
+    } catch (error) {
+      console.error("Error fetching clinic stats:", error);
+      res.status(500).json({ error: "Failed to fetch clinic stats" });
+    }
+  });
+
+  app.get("/api/hospitals/stats", requireAuth, async (req, res) => {
+    try {
+      const countries = req.query.countries ? (req.query.countries as string).split(",").filter(Boolean) : [];
+      const conditions: any[] = [];
+      if (countries.length > 0) conditions.push(inArray(hospitals.countryCode, countries));
+      const where = conditions.length > 0 ? and(...conditions) : undefined;
+      const allHospitals = await db.select({
+        isActive: hospitals.isActive,
+        countryCode: hospitals.countryCode,
+      }).from(hospitals).where(where);
+      let active = 0, inactive = 0;
+      const byCountry: Record<string, number> = {};
+      for (const h of allHospitals) {
+        if (h.isActive) active++; else inactive++;
+        byCountry[h.countryCode] = (byCountry[h.countryCode] || 0) + 1;
+      }
+      res.json({ total: allHospitals.length, active, inactive, byCountry });
+    } catch (error) {
+      console.error("Error fetching hospital stats:", error);
+      res.status(500).json({ error: "Failed to fetch hospital stats" });
+    }
+  });
+
   // Clinics (Ambulancie) routes
   app.get("/api/clinics", requireAuth, async (req, res) => {
     try {
