@@ -1550,10 +1550,32 @@ export default function CampaignsPage() {
     }
   }, [currentCampaignAgents, agentsDialogCampaign]);
 
-  const dialogCallCenterRoleId = dialogRoles.find(r => r.name === "Call Center")?.id;
-  const callCenterUsers = useMemo(() => {
-    return users.filter(u => u.role === "admin" || (dialogCallCenterRoleId && u.roleId === dialogCallCenterRoleId));
-  }, [users, dialogCallCenterRoleId]);
+  const allActiveUsers = useMemo(() => {
+    return users.filter(u => u.isActive !== false);
+  }, [users]);
+
+  const usersGroupedByRole = useMemo(() => {
+    const groups: Array<{ roleId: string; roleName: string; users: typeof allActiveUsers }> = [];
+    const roleMap = new Map<string, typeof allActiveUsers>();
+    
+    for (const u of allActiveUsers) {
+      const key = u.roleId || "__legacy__" + (u.role || "unknown");
+      if (!roleMap.has(key)) roleMap.set(key, []);
+      roleMap.get(key)!.push(u);
+    }
+    
+    for (const [key, groupUsers] of roleMap) {
+      const roleName = key.startsWith("__legacy__")
+        ? (key.replace("__legacy__", "").charAt(0).toUpperCase() + key.replace("__legacy__", "").slice(1))
+        : (dialogRoles.find(r => r.id === key)?.name || "Unknown");
+      groups.push({ roleId: key, roleName, users: groupUsers.sort((a, b) => (a.fullName || "").localeCompare(b.fullName || "")) });
+    }
+    
+    return groups.sort((a, b) => a.roleName.localeCompare(b.roleName));
+  }, [allActiveUsers, dialogRoles]);
+
+  const [expandedRoleGroups, setExpandedRoleGroups] = useState<Set<string>>(new Set());
+  const [agentSearchQuery, setAgentSearchQuery] = useState("");
 
   const activeFilterCount = [filterStatus, filterType, filterChannel, filterCreatedBy].filter(f => f !== "all").length;
 
@@ -2269,62 +2291,112 @@ export default function CampaignsPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!agentsDialogCampaign} onOpenChange={(open) => {
+      <Sheet open={!!agentsDialogCampaign} onOpenChange={(open) => {
         if (!open) {
           setAgentsDialogCampaign(null);
           setSelectedAgentIds([]);
+          setExpandedRoleGroups(new Set());
+          setAgentSearchQuery("");
         }
       }}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Priradiť agentov</DialogTitle>
-            <DialogDescription>
+        <SheetContent side="right" className="w-[480px] sm:max-w-[480px] flex flex-col">
+          <SheetHeader>
+            <SheetTitle>Priradiť agentov</SheetTitle>
+            <SheetDescription>
               Vyberte agentov pre kampaň: {agentsDialogCampaign?.name}
-            </DialogDescription>
-          </DialogHeader>
+            </SheetDescription>
+          </SheetHeader>
           
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Dostupní agenti</Label>
-              <div className="grid gap-2 max-h-64 overflow-y-auto border rounded-md p-2">
-                {callCenterUsers.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-4">
-                    Žiadni agenti nie sú k dispozícii
-                  </p>
-                ) : (
-                  callCenterUsers.map((user) => (
-                    <div key={user.id} className="flex items-center gap-2">
-                      <Checkbox
-                        id={`agent-${user.id}`}
-                        checked={selectedAgentIds.includes(user.id)}
-                        onCheckedChange={(checked) => {
-                          if (checked) {
-                            setSelectedAgentIds([...selectedAgentIds, user.id]);
-                          } else {
-                            setSelectedAgentIds(selectedAgentIds.filter(id => id !== user.id));
-                          }
-                        }}
-                        data-testid={`checkbox-agent-${user.id}`}
-                      />
-                      <Label htmlFor={`agent-${user.id}`} className="flex-1 cursor-pointer">
-                        {user.fullName}
-                      </Label>
+          <div className="flex-1 overflow-hidden flex flex-col gap-4 pt-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Hľadať používateľov..."
+                value={agentSearchQuery}
+                onChange={(e) => setAgentSearchQuery(e.target.value)}
+                className="pl-9"
+                data-testid="input-search-agents"
+              />
+            </div>
+
+            <div className="text-xs text-muted-foreground">
+              {selectedAgentIds.length} vybraných
+            </div>
+
+            <div className="flex-1 overflow-y-auto space-y-1 pr-1">
+              {usersGroupedByRole.map((group) => {
+                const filteredGroupUsers = agentSearchQuery
+                  ? group.users.filter(u => u.fullName?.toLowerCase().includes(agentSearchQuery.toLowerCase()))
+                  : group.users;
+                if (filteredGroupUsers.length === 0) return null;
+
+                const isExpanded = expandedRoleGroups.has(group.roleId) || agentSearchQuery.length > 0;
+                const selectedInGroup = filteredGroupUsers.filter(u => selectedAgentIds.includes(u.id)).length;
+
+                return (
+                  <div key={group.roleId} className="border rounded-md overflow-hidden">
+                    <button
+                      type="button"
+                      className="w-full flex items-center gap-2 px-3 py-2 hover:bg-muted/50 transition-colors"
+                      onClick={() => {
+                        const next = new Set(expandedRoleGroups);
+                        if (next.has(group.roleId)) next.delete(group.roleId);
+                        else next.add(group.roleId);
+                        setExpandedRoleGroups(next);
+                      }}
+                      data-testid={`button-toggle-role-${group.roleId}`}
+                    >
+                      {isExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                      <span className="font-medium text-sm flex-1 text-left">{group.roleName}</span>
                       <Badge variant="outline" className="text-xs">
-                        {dialogRoles.find(r => r.id === user.roleId)?.name || user.role}
+                        {selectedInGroup > 0 ? `${selectedInGroup}/` : ""}{filteredGroupUsers.length}
                       </Badge>
-                    </div>
-                  ))
-                )}
-              </div>
+                    </button>
+                    {isExpanded && (
+                      <div className="border-t px-3 py-1 space-y-1">
+                        {filteredGroupUsers.map((u) => (
+                          <div key={u.id} className="flex items-center gap-2 py-1">
+                            <Checkbox
+                              id={`agent-${u.id}`}
+                              checked={selectedAgentIds.includes(u.id)}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setSelectedAgentIds([...selectedAgentIds, u.id]);
+                                } else {
+                                  setSelectedAgentIds(selectedAgentIds.filter(id => id !== u.id));
+                                }
+                              }}
+                              data-testid={`checkbox-agent-${u.id}`}
+                            />
+                            <Label htmlFor={`agent-${u.id}`} className="flex-1 cursor-pointer text-sm">
+                              {u.fullName}
+                            </Label>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              {usersGroupedByRole.every(g => {
+                const f = agentSearchQuery ? g.users.filter(u => u.fullName?.toLowerCase().includes(agentSearchQuery.toLowerCase())) : g.users;
+                return f.length === 0;
+              }) && (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  Žiadni používatelia nie sú k dispozícii
+                </p>
+              )}
             </div>
           </div>
 
-          <div className="flex justify-end gap-2 pt-4">
+          <div className="flex justify-end gap-2 pt-4 border-t">
             <Button 
               variant="outline" 
               onClick={() => {
                 setAgentsDialogCampaign(null);
                 setSelectedAgentIds([]);
+                setExpandedRoleGroups(new Set());
+                setAgentSearchQuery("");
               }}
               data-testid="button-cancel-agents"
             >
@@ -2345,8 +2417,8 @@ export default function CampaignsPage() {
               {updateAgentsMutation.isPending ? t.common.saving : t.common.save}
             </Button>
           </div>
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
