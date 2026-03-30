@@ -2231,14 +2231,34 @@ export async function registerRoutes(
   });
 
   // Customers API (protected)
+  app.get("/api/customers/status-counts", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user!;
+      let countryCodes: string[] = [];
+      if (user.role !== "admin" && user.assignedCountries && user.assignedCountries.length > 0) {
+        countryCodes = user.assignedCountries;
+      }
+      if (req.query.countries) {
+        const qc = (req.query.countries as string).split(",").filter(Boolean);
+        if (qc.length > 0) countryCodes = qc;
+      }
+      const counts = await storage.getCustomerStatusCounts(countryCodes.length > 0 ? countryCodes : undefined);
+      res.json(counts);
+    } catch (error: any) {
+      console.error("Customer status counts error:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   app.get("/api/customers", requireAuth, async (req, res) => {
     try {
       const page = parseInt(req.query.page as string) || 1;
       const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
       const search = req.query.search as string;
       const country = req.query.country as string;
-      if (req.query.page || req.query.limit || req.query.search || req.query.status) {
-        const result = await storage.getCustomersPaginated(page, limit, search, country);
+      const countries = req.query.countries ? (req.query.countries as string).split(",").filter(Boolean) : undefined;
+      if (req.query.page || req.query.limit || req.query.search || req.query.status || countries) {
+        const result = await storage.getCustomersPaginated(page, limit, search, country, countries);
         return res.json(result);
       }
       const customers = await storage.getAllCustomers();

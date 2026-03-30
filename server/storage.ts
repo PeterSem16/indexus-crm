@@ -1381,7 +1381,15 @@ export class DatabaseStorage implements IStorage {
     return q;
   }
 
-  async getCustomersPaginated(page: number, limit: number, search?: string, country?: string): Promise<{ data: Customer[], total: number }> {
+  async getCustomerStatusCounts(countries?: string[]): Promise<{ clientStatus: string; count: number }[]> {
+    const where = countries && countries.length > 0 ? inArray(customers.country, countries) : undefined;
+    return db.select({
+      clientStatus: customers.clientStatus,
+      count: sql<number>`count(*)::int`
+    }).from(customers).where(where).groupBy(customers.clientStatus);
+  }
+
+  async getCustomersPaginated(page: number, limit: number, search?: string, country?: string, countries?: string[]): Promise<{ data: Customer[], total: number }> {
     const offset = (page - 1) * limit;
     const conditions: any[] = [];
     if (search && search.trim()) {
@@ -1393,7 +1401,9 @@ export class DatabaseStorage implements IStorage {
         OR CONCAT(${customers.firstName}, ' ', ${customers.lastName}) ILIKE ${s}
       )`);
     }
-    if (country && country.trim()) {
+    if (countries && countries.length > 0) {
+      conditions.push(inArray(customers.country, countries));
+    } else if (country && country.trim()) {
       conditions.push(eq(customers.country, country.trim()));
     }
     const where = conditions.length > 0 ? and(...conditions) : undefined;

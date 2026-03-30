@@ -6341,14 +6341,18 @@ export default function CustomersPage() {
     return () => clearTimeout(timer);
   }, [search]);
 
+  useEffect(() => { setPage(1); }, [selectedCountries]);
+
+  const effectiveCountries = countryFilter !== "_all" ? [countryFilter] : selectedCountries;
+
   const { data: paginatedResult, isLoading, refetch: refetchCustomers } = useQuery<{ data: Customer[], total: number }>({
-    queryKey: ["/api/customers", { page, limit: pageSize, search: debouncedSearch, country: countryFilter !== "_all" ? countryFilter : undefined }],
+    queryKey: ["/api/customers", { page, limit: pageSize, search: debouncedSearch, countries: effectiveCountries }],
     queryFn: async () => {
       const params = new URLSearchParams();
       params.set("page", String(page));
       params.set("limit", String(pageSize));
       if (debouncedSearch) params.set("search", debouncedSearch);
-      if (countryFilter !== "_all") params.set("country", countryFilter);
+      if (effectiveCountries.length > 0) params.set("countries", effectiveCountries.join(","));
       const res = await fetch(`/api/customers?${params.toString()}`);
       if (!res.ok) throw new Error("Failed to fetch");
       return res.json();
@@ -6357,6 +6361,17 @@ export default function CustomersPage() {
   });
   const allCustomers = paginatedResult?.data || [];
   const serverTotal = paginatedResult?.total || 0;
+
+  const { data: customerStatusCounts } = useQuery<{ clientStatus: string; count: number }[]>({
+    queryKey: ["/api/customers/status-counts", { countries: effectiveCountries }],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (effectiveCountries.length > 0) params.set("countries", effectiveCountries.join(","));
+      const res = await fetch(`/api/customers/status-counts?${params.toString()}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch");
+      return res.json();
+    },
+  });
 
   // Fetch user's email accounts (shared mailboxes) for email sending
   const { user } = useAuth();
@@ -7106,11 +7121,12 @@ export default function CustomersPage() {
       </PageHeader>
 
       {(() => {
+        const statusCountMap = new Map((customerStatusCounts || []).map(r => [r.clientStatus, r.count]));
         const statusCounts = {
-          potential: allCustomers.filter(c => c.clientStatus === "potential").length,
-          in_process: allCustomers.filter(c => c.clientStatus === "in_process").length,
-          acquired: allCustomers.filter(c => c.clientStatus === "acquired").length,
-          terminated: allCustomers.filter(c => c.clientStatus === "terminated").length,
+          potential: statusCountMap.get("potential") || 0,
+          in_process: statusCountMap.get("in_process") || 0,
+          acquired: statusCountMap.get("acquired") || 0,
+          terminated: statusCountMap.get("terminated") || 0,
         };
         const tiles = [
           { key: "potential", label: t.customers.clientStatuses?.potential || "Potenciálny", count: statusCounts.potential, bg: "bg-blue-50 dark:bg-blue-950", border: "border-blue-200 dark:border-blue-800", text: "text-blue-700 dark:text-blue-300", countColor: "text-blue-900 dark:text-blue-100" },
