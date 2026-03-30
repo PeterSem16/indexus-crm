@@ -1,0 +1,81 @@
+seman@CORPCRM01:~/indexus-crm/mobile-app/android$ # Pozrite či beží Node.js aplikácia
+sudo systemctl status indexus-crm
+
+# Alebo ak používate PM2
+pm2 status
+
+# Pozrite logy
+pm2 logs --lines 20
+Unit indexus-crm.service could not be found.
+┌────┬────────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+│ id │ name           │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+├────┼────────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
+│ 0  │ indexus-crm    │ default     │ 1.0.0   │ fork    │ 4013588  │ 6m     │ 185  │ online    │ 0%       │ 213.9mb  │ seman    │ disabled │
+└────┴────────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
+[TAILING] Tailing last 20 lines for [all] processes (change the value with --lines option)
+/home/seman/.pm2/pm2.log last 20 lines:
+PM2        | 2026-03-30T08:14:25: PM2 log: App [indexus-crm:0] exited with code [0] via signal [SIGINT]
+PM2        | 2026-03-30T08:14:25: PM2 log: pid=4000762 msg=process killed
+PM2        | 2026-03-30T08:14:25: PM2 log: App [indexus-crm:0] starting in -fork mode-
+PM2        | 2026-03-30T08:14:25: PM2 log: App [indexus-crm:0] online
+PM2        | 2026-03-30T08:23:16: PM2 log: Stopping app:indexus-crm id:0
+PM2        | 2026-03-30T08:23:16: PM2 log: App [indexus-crm:0] exited with code [0] via signal [SIGINT]
+PM2        | 2026-03-30T08:23:16: PM2 log: pid=4001012 msg=process killed
+PM2        | 2026-03-30T08:23:16: PM2 log: App [indexus-crm:0] starting in -fork mode-
+PM2        | 2026-03-30T08:23:16: PM2 log: App [indexus-crm:0] online
+PM2        | 2026-03-30T08:30:47: PM2 log: App [indexus-crm:0] exited with code [0] via signal [SIGABRT]
+PM2        | 2026-03-30T08:30:47: PM2 log: App [indexus-crm:0] starting in -fork mode-
+PM2        | 2026-03-30T08:30:47: PM2 log: App [indexus-crm:0] online
+PM2        | 2026-03-30T10:48:12: PM2 error: Error: ENOSPC: no space left on device, write
+PM2        | 2026-03-30T11:20:36: PM2 error: Error: ENOSPC: no space left on device, write
+PM2        | 2026-03-30T11:20:36: PM2 log: App [indexus-crm:0] exited with code [1] via signal [SIGINT]
+PM2        | 2026-03-30T11:20:36: PM2 log: App [indexus-crm:0] starting in -fork mode-
+PM2        | 2026-03-30T11:20:36: PM2 log: App [indexus-crm:0] online
+PM2        | 2026-03-30T11:44:53: PM2 log: App [indexus-crm:0] exited with code [1] via signal [SIGINT]
+PM2        | 2026-03-30T11:44:53: PM2 log: App [indexus-crm:0] starting in -fork mode-
+PM2        | 2026-03-30T11:44:53: PM2 log: App [indexus-crm:0] online
+
+/home/seman/.pm2/logs/indexus-crm-error.log last 20 lines:
+0|indexus- |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+0|indexus- |     at async /var/www/indexus-crm/dist/index.cjs:70:38148
+0|indexus- |     at async h3.endStaleSessions (/var/www/indexus-crm/dist/index.cjs:141:168761)
+0|indexus- |     at async Timeout._onTimeout (/var/www/indexus-crm/dist/index.cjs:1362:14877) {
+0|indexus- |   errno: -111,
+0|indexus- |   code: 'ECONNREFUSED',
+0|indexus- |   syscall: 'connect',
+0|indexus- |   address: '127.0.0.1',
+0|indexus- |   port: 5432
+0|indexus- | }
+0|indexus- | Error cleaning up expired PKCE entries: Error: connect ECONNREFUSED 127.0.0.1:5432
+0|indexus- |     at /var/www/indexus-crm/dist/index.cjs:64:13359
+0|indexus- |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+0|indexus- |     at async h3.cleanupExpiredPkceEntries (/var/www/indexus-crm/dist/index.cjs:150:15718) {
+0|indexus- |   errno: -111,
+0|indexus- |   code: 'ECONNREFUSED',
+0|indexus- |   syscall: 'connect',
+0|indexus- |   address: '127.0.0.1',
+0|indexus- |   port: 5432
+0|indexus- | }
+
+/home/seman/.pm2/logs/indexus-crm-out.log last 20 lines:
+0|indexus- | 11:49:04 AM [express] POST /api/auth/heartbeat 500 in 1ms :: {"message":"connect ECONNREFUSED 127.0.0.1:5432"}
+0|indexus- | 11:49:06 AM [express] POST /api/auth/logout 500 in 1ms :: {"message":"connect ECONNREFUSED 127.0.0.1:5432"}
+0|indexus- | 11:49:06 AM [express] POST /api/auth/heartbeat 500 in 0ms :: {"message":"connect ECONNREFUSED 127.0.0.1:5432"}
+0|indexus- | 11:49:06 AM [express] POST /api/auth/heartbeat 500 in 1ms :: {"message":"connect ECONNREFUSED 127.0.0.1:5432"}
+0|indexus- | 11:49:08 AM [express] POST /api/auth/heartbeat 500 in 1ms :: {"message":"connect ECONNREFUSED 127.0.0.1:5432"}
+0|indexus- | 11:49:08 AM [express] GET /api/dashboard/stats 500 in 1ms :: {"message":"connect ECONNREFUSED 127.0.0.1:5432"}
+0|indexus- | 11:49:08 AM [express] GET /api/web-forms 500 in 1ms :: {"message":"connect ECONNREFUSED 127.0.0.1:5432"}
+0|indexus- | 11:49:08 AM [express] GET /api/web-forms/stats 500 in 1ms :: {"message":"connect ECONNREFUSED 127.0.0.1:5432"}
+0|indexus- | 11:49:08 AM [express] GET /api/hospitals/lookup 500 in 1ms :: {"message":"connect ECONNREFUSED 127.0.0.1:5432"}
+0|indexus- | 11:49:08 AM [express] GET /api/clinics/lookup 500 in 1ms :: {"message":"connect ECONNREFUSED 127.0.0.1:5432"}
+0|indexus- | 11:49:08 AM [express] GET /api/config/health-insurance 500 in 2ms :: {"message":"connect ECONNREFUSED 127.0.0.1:5432"}
+0|indexus- | 11:49:08 AM [express] GET /api/product-sets 500 in 1ms :: {"message":"connect ECONNREFUSED 127.0.0.1:5432"}
+0|indexus- | 11:49:08 AM [express] GET /api/products 500 in 1ms :: {"message":"connect ECONNREFUSED 127.0.0.1:5432"}
+0|indexus- | 11:49:10 AM [express] POST /api/auth/logout 500 in 1ms :: {"message":"connect ECONNREFUSED 127.0.0.1:5432"}
+0|indexus- | 11:49:10 AM [express] POST /api/auth/heartbeat 500 in 1ms :: {"message":"connect ECONNREFUSED 127.0.0.1:5432"}
+0|indexus- | 11:49:10 AM [express] POST /api/auth/heartbeat 500 in 1ms :: {"message":"connect ECONNREFUSED 127.0.0.1:5432"}
+0|indexus- | [EmailMonitor] Failed to decrypt tokens for user c8c9999c-6881-4ca3-91cc-99d4ec1da6df
+0|indexus- | [EmailMonitor] Failed to decrypt tokens for user 95c58392-d61e-41e2-b5d3-ed1f9d93147d
+0|indexus- | [EmailMonitor] Failed to decrypt tokens for user c8c9999c-6881-4ca3-91cc-99d4ec1da6df
+0|indexus- | [EmailMonitor] Failed to decrypt tokens for user 95c58392-d61e-41e2-b5d3-ed1f9d93147d
+
