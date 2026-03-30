@@ -1004,6 +1004,31 @@ export default function HospitalsPage() {
     },
   });
 
+  const clinicStatsParams: Record<string, any> = {};
+  if (selectedCountries.length > 0) clinicStatsParams.countries = selectedCountries.join(",");
+  const { data: serverClinicStats } = useQuery<{
+    total: number;
+    pipeline: Record<string, number>;
+    noStatus: number;
+    otherStatus: number;
+    referralCount: number;
+    conferenceCount: number;
+    byCountry: Record<string, number>;
+  }>({
+    queryKey: ["/api/clinics/stats", clinicStatsParams],
+  });
+
+  const hospitalStatsParams: Record<string, any> = {};
+  if (selectedCountries.length > 0) hospitalStatsParams.countries = selectedCountries.join(",");
+  const { data: serverHospitalStats } = useQuery<{
+    total: number;
+    active: number;
+    inactive: number;
+    byCountry: Record<string, number>;
+  }>({
+    queryKey: ["/api/hospitals/stats", hospitalStatsParams],
+  });
+
   const countryCounts = serverHospitalStats?.byCountry ?? hospitals.reduce((acc, h) => {
     acc[h.countryCode] = (acc[h.countryCode] || 0) + 1;
     return acc;
@@ -1082,20 +1107,6 @@ export default function HospitalsPage() {
   const totalClinicPages = Math.ceil(serverClinicsTotal / clinicPageSize);
   const paginatedClinics = filteredAndSortedClinics;
 
-  const clinicStatsParams: Record<string, any> = {};
-  if (selectedCountries.length > 0) clinicStatsParams.countries = selectedCountries.join(",");
-  const { data: serverClinicStats } = useQuery<{
-    total: number;
-    pipeline: Record<string, number>;
-    noStatus: number;
-    otherStatus: number;
-    referralCount: number;
-    conferenceCount: number;
-    byCountry: Record<string, number>;
-  }>({
-    queryKey: ["/api/clinics/stats", clinicStatsParams],
-  });
-
   const pipelineStats = useMemo(() => {
     if (serverClinicStats) {
       return {
@@ -1108,17 +1119,6 @@ export default function HospitalsPage() {
     }
     return { stats: {} as Record<string, number>, noStatus: 0, otherStatus: 0, referralCount: 0, conferenceCount: 0 };
   }, [serverClinicStats]);
-
-  const hospitalStatsParams: Record<string, any> = {};
-  if (selectedCountries.length > 0) hospitalStatsParams.countries = selectedCountries.join(",");
-  const { data: serverHospitalStats } = useQuery<{
-    total: number;
-    active: number;
-    inactive: number;
-    byCountry: Record<string, number>;
-  }>({
-    queryKey: ["/api/hospitals/stats", hospitalStatsParams],
-  });
   
   // Reset page when filters change
   const handleClinicFilterChange = () => {
