@@ -4430,10 +4430,10 @@ export default function AgentWorkspacePage() {
   }, [scheduledQueueItems]);
 
   useEffect(() => {
-    if (user && hasRoleAccess && !hasAccess && workspaceAccess !== undefined) {
+    if (user && hasModuleAccess && !hasAccess && workspaceAccess !== undefined) {
       setLocation("/");
     }
-  }, [user, hasRoleAccess, hasAccess, setLocation, workspaceAccess]);
+  }, [user, hasModuleAccess, hasAccess, setLocation, workspaceAccess]);
 
   useEffect(() => {
     if (hasAccess && !agentSession.isSessionActive && !agentSession.isLoading) {
