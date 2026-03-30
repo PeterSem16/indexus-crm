@@ -4564,9 +4564,9 @@ export default function AgentWorkspacePage() {
   }, [baseCampaigns, campaignFilters]);
 
   const loginCampaigns = useMemo(() => {
-    const source = user?.role === "admin" ? allCampaigns : assignedCampaigns;
+    const source = assignedCampaigns.length > 0 ? assignedCampaigns : allCampaigns;
     return source.filter((c) => campaignFilters.isAvailable(c) && campaignFilters.countryFilter(c));
-  }, [allCampaigns, assignedCampaigns, user?.role, campaignFilters]);
+  }, [allCampaigns, assignedCampaigns, campaignFilters]);
 
   const { data: myQueues = [] } = useQuery<Array<{
     id: string; name: string; description: string | null; countryCode: string | null;
