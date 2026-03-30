@@ -596,196 +596,100 @@ export default function CustomerInvoicesPage() {
 
   const CHART_COLORS = ["#93C5FD", "#86EFAC", "#FCA5A5", "#FDE68A", "#C4B5FD", "#FDBA74", "#A5F3FC", "#F9A8D4", "#D9F99D", "#E9D5FF"];
 
+  const { data: serverReportData } = useQuery<{
+    totals: { issuedCount: number; issuedTotal: number; paidTotal: number; unpaidTotal: number; avgValue: number };
+    byStatus: { status: string; count: number; totalAmount: number }[];
+    byCurrency: { currency: string; count: number; total: number }[];
+    byCompany: { company: string; count: number; total: number }[];
+    byCountry: { country: string; count: number; currency: string; total: number; paid: number; unpaid: number }[];
+    byYear: { year: number; count: number; total: number; paid: number }[];
+    byMonth: { month: string; count: number; total: number }[];
+    bySource: { source: string; count: number; total: number; paid: number; paidCount: number; unpaidCount: number }[];
+  }>({
+    queryKey: ["/api/invoices/report", { countries: selectedCountries }],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (selectedCountries.length > 0) params.set("countries", selectedCountries.join(","));
+      const res = await fetch(`/api/invoices/report?${params.toString()}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch");
+      return res.json();
+    },
+  });
+
   const reportData = useMemo(() => {
-    const now = new Date();
-    const months: { label: string; month: number; year: number }[] = [];
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      months.push({
-        label: d.toLocaleDateString("sk-SK", { month: "short", year: "2-digit" }),
-        month: d.getMonth(),
-        year: d.getFullYear(),
-      });
-    }
-    for (let i = 1; i <= 6; i++) {
-      const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
-      months.push({
-        label: d.toLocaleDateString("sk-SK", { month: "short", year: "2-digit" }),
-        month: d.getMonth(),
-        year: d.getFullYear(),
-      });
-    }
+    const rd = serverReportData;
+    const totals = rd?.totals || { issuedCount: 0, issuedTotal: 0, paidTotal: 0, unpaidTotal: 0, avgValue: 0 };
 
-    const monthlyData = months.map(m => {
-      let issuedTotal = 0;
-      let issuedCount = 0;
-      let plannedTotal = 0;
-      let plannedCount = 0;
+    const monthlyData = (rd?.byMonth || []).map(m => ({
+      name: m.month,
+      issued: m.total,
+      issuedCount: m.count,
+    }));
 
-      invoices.forEach(inv => {
-        if (inv.issueDate) {
-          const d = new Date(inv.issueDate);
-          if (d.getMonth() === m.month && d.getFullYear() === m.year) {
-            issuedTotal += convertToEur(inv.totalAmount || "0", inv.currency);
-            issuedCount++;
-          }
-        }
-      });
-
-      scheduledInvoices.forEach(inv => {
-        if (inv.status === "pending") {
-          const d = new Date(inv.scheduledDate);
-          if (d.getMonth() === m.month && d.getFullYear() === m.year) {
-            plannedTotal += convertToEur(inv.totalAmount || "0", inv.currency);
-            plannedCount++;
-          }
-        }
-      });
-
-      return {
-        name: m.label,
-        issued: issuedTotal,
-        planned: plannedTotal,
-        issuedCount,
-        plannedCount,
-      };
-    });
-
-    const byCustomer = new Map<string, { name: string; issued: number; planned: number }>();
-    invoices.forEach(inv => {
-      const customer = customerMap.get(inv.customerId);
-      const name = customer ? `${customer.firstName} ${customer.lastName}` : "N/A";
-      const existing = byCustomer.get(inv.customerId) || { name, issued: 0, planned: 0 };
-      existing.issued += convertToEur(inv.totalAmount || "0", inv.currency);
-      byCustomer.set(inv.customerId, existing);
-    });
-    scheduledInvoices.filter(s => s.status === "pending").forEach(inv => {
-      const customer = customerMap.get(inv.customerId);
-      const name = customer ? `${customer.firstName} ${customer.lastName}` : "N/A";
-      const existing = byCustomer.get(inv.customerId) || { name, issued: 0, planned: 0 };
-      existing.planned += convertToEur(inv.totalAmount || "0", inv.currency);
-      byCustomer.set(inv.customerId, existing);
-    });
-
-    const customerData = Array.from(byCustomer.values())
-      .sort((a, b) => (b.issued + b.planned) - (a.issued + a.planned))
-      .slice(0, 10);
-
-    const totals = {
-      issuedTotal: invoices.reduce((sum, inv) => sum + convertToEur(inv.totalAmount || "0", inv.currency), 0),
-      issuedCount: invoices.length,
-      plannedTotal: scheduledInvoices.filter(s => s.status === "pending").reduce((sum, inv) => sum + convertToEur(inv.totalAmount || "0", inv.currency), 0),
-      plannedCount: scheduledInvoices.filter(s => s.status === "pending").length,
-    };
-
-    const pieData = [
-      { name: "Vydané", value: totals.issuedTotal },
-      { name: "Plánované", value: totals.plannedTotal },
-    ];
-
-    const paidTotal = invoices.reduce((sum, inv) => sum + convertToEur(inv.paidAmount || "0", inv.currency), 0);
-    const unpaidTotal = totals.issuedTotal - paidTotal;
     const paymentPieData = [
-      { name: "Uhradené", value: paidTotal },
-      { name: "Neuhradené", value: unpaidTotal > 0 ? unpaidTotal : 0 },
+      { name: "Uhradené", value: totals.paidTotal },
+      { name: "Neuhradené", value: totals.unpaidTotal > 0 ? totals.unpaidTotal : 0 },
     ];
 
-    const byCurrency = new Map<string, { count: number; total: number; totalEur: number }>();
-    invoices.forEach(inv => {
-      const cur = inv.currency || "EUR";
-      const existing = byCurrency.get(cur) || { count: 0, total: 0, totalEur: 0 };
-      existing.count++;
-      existing.total += parseFloat(inv.totalAmount || "0");
-      existing.totalEur += convertToEur(inv.totalAmount || "0", inv.currency);
-      byCurrency.set(cur, existing);
-    });
-    const currencyData = Array.from(byCurrency.entries())
-      .map(([currency, data]) => ({ currency, ...data }))
-      .sort((a, b) => b.totalEur - a.totalEur);
+    const currencyData = (rd?.byCurrency || []).map(c => ({
+      currency: c.currency,
+      count: c.count,
+      total: c.total,
+      totalEur: c.total,
+    }));
 
-    const byStatus = new Map<string, number>();
-    invoices.forEach(inv => {
-      const st = inv.status || "draft";
-      byStatus.set(st, (byStatus.get(st) || 0) + 1);
-    });
-    const statusData = Array.from(byStatus.entries())
-      .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value);
+    const companyData = (rd?.byCompany || []).map(c => ({
+      name: c.company,
+      count: c.count,
+      totalEur: c.total,
+    }));
 
-    const byCompany = new Map<string, { count: number; totalEur: number }>();
-    invoices.forEach(inv => {
-      const comp = inv.billingCompanyName || "N/A";
-      const existing = byCompany.get(comp) || { count: 0, totalEur: 0 };
-      existing.count++;
-      existing.totalEur += convertToEur(inv.totalAmount || "0", inv.currency);
-      byCompany.set(comp, existing);
-    });
-    const companyData = Array.from(byCompany.entries())
-      .map(([name, data]) => ({ name, ...data }))
-      .sort((a, b) => b.totalEur - a.totalEur);
-
-    const avgInvoiceValue = totals.issuedCount > 0 ? totals.issuedTotal / totals.issuedCount : 0;
-
-    const iscbcInvoices = invoices.filter(inv => (inv as any).dataSource === 'iscbc');
-    const indexusInvoices = invoices.filter(inv => (inv as any).dataSource !== 'iscbc');
+    const iscbc = (rd?.bySource || []).find(s => s.source === 'iscbc') || { count: 0, total: 0, paid: 0, paidCount: 0, unpaidCount: 0 };
+    const indexus = (rd?.bySource || []).find(s => s.source === 'indexus') || { count: 0, total: 0, paid: 0, paidCount: 0, unpaidCount: 0 };
     const sourceData = {
-      iscbc: {
-        count: iscbcInvoices.length,
-        totalEur: iscbcInvoices.reduce((sum, inv) => sum + convertToEur(inv.totalAmount || "0", inv.currency), 0),
-        paidEur: iscbcInvoices.reduce((sum, inv) => sum + convertToEur(inv.paidAmount || "0", inv.currency), 0),
-        paidCount: iscbcInvoices.filter(inv => inv.status === 'paid').length,
-        unpaidCount: iscbcInvoices.filter(inv => inv.status !== 'paid' && inv.status !== 'cancelled').length,
-      },
-      indexus: {
-        count: indexusInvoices.length,
-        totalEur: indexusInvoices.reduce((sum, inv) => sum + convertToEur(inv.totalAmount || "0", inv.currency), 0),
-        paidEur: indexusInvoices.reduce((sum, inv) => sum + convertToEur(inv.paidAmount || "0", inv.currency), 0),
-        paidCount: indexusInvoices.filter(inv => inv.status === 'paid').length,
-        unpaidCount: indexusInvoices.filter(inv => inv.status !== 'paid' && inv.status !== 'cancelled').length,
-      },
+      iscbc: { count: iscbc.count, totalEur: iscbc.total, paidEur: iscbc.paid, paidCount: iscbc.paidCount, unpaidCount: iscbc.unpaidCount },
+      indexus: { count: indexus.count, totalEur: indexus.total, paidEur: indexus.paid, paidCount: indexus.paidCount, unpaidCount: indexus.unpaidCount },
     };
 
-    const byCountry = new Map<string, { count: number; currency: string; totalLocal: number; totalEur: number; paidLocal: number; paidEur: number; unpaidLocal: number; unpaidEur: number }>();
-    const countryToCurrency: Record<string, string> = {
-      'SK': 'EUR', 'AT': 'EUR', 'DE': 'EUR', 'CZ': 'CZK', 'HU': 'HUF',
-      'RO': 'RON', 'PL': 'PLN', 'HR': 'EUR', 'BG': 'BGN', 'RS': 'RSD',
-      'SI': 'EUR', 'UA': 'UAH', 'GB': 'GBP', 'CH': 'CHF',
+    const countryData = (rd?.byCountry || []).map(c => ({
+      country: c.country,
+      count: c.count,
+      currency: c.currency,
+      totalLocal: c.total,
+      totalEur: c.total,
+      paidLocal: c.paid,
+      paidEur: c.paid,
+      unpaidLocal: c.unpaid,
+      unpaidEur: c.unpaid,
+    }));
+
+    const yearData = (rd?.byYear || []).map(y => ({
+      year: y.year,
+      count: y.count,
+      totalEur: y.total,
+      paidEur: y.paid,
+    }));
+
+    const plannedTotal = scheduledInvoices.filter(s => s.status === "pending").reduce((sum, inv) => sum + convertToEur(inv.totalAmount || "0", inv.currency), 0);
+    const plannedCount = scheduledInvoices.filter(s => s.status === "pending").length;
+
+    return {
+      monthlyData,
+      customerData: [] as any[],
+      totals: { ...totals, plannedTotal, plannedCount },
+      pieData: [{ name: "Vydané", value: totals.issuedTotal }, { name: "Plánované", value: plannedTotal }],
+      paymentPieData,
+      currencyData,
+      statusData: (rd?.byStatus || []).map(s => ({ name: s.status, value: s.count })),
+      companyData,
+      avgInvoiceValue: totals.avgValue,
+      paidTotal: totals.paidTotal,
+      unpaidTotal: totals.unpaidTotal,
+      sourceData,
+      countryData,
+      yearData,
     };
-    invoices.forEach(inv => {
-      const country = inv.billingCountry || 'N/A';
-      const cur = inv.currency || 'EUR';
-      const existing = byCountry.get(country) || { count: 0, currency: countryToCurrency[country] || cur, totalLocal: 0, totalEur: 0, paidLocal: 0, paidEur: 0, unpaidLocal: 0, unpaidEur: 0 };
-      existing.count++;
-      const amt = parseFloat(inv.totalAmount || "0");
-      const paidAmt = parseFloat(inv.paidAmount || "0");
-      existing.totalLocal += amt;
-      existing.totalEur += convertToEur(inv.totalAmount || "0", inv.currency);
-      existing.paidLocal += paidAmt;
-      existing.paidEur += convertToEur(inv.paidAmount || "0", inv.currency);
-      existing.unpaidLocal += Math.max(0, amt - paidAmt);
-      existing.unpaidEur += Math.max(0, convertToEur(inv.totalAmount || "0", inv.currency) - convertToEur(inv.paidAmount || "0", inv.currency));
-      byCountry.set(country, existing);
-    });
-    const countryData = Array.from(byCountry.entries())
-      .map(([country, data]) => ({ country, ...data }))
-      .sort((a, b) => b.totalEur - a.totalEur);
-
-    const byYear = new Map<number, { count: number; totalEur: number; paidEur: number }>();
-    invoices.forEach(inv => {
-      const year = inv.issueDate ? new Date(inv.issueDate).getFullYear() : 0;
-      if (year < 2000) return;
-      const existing = byYear.get(year) || { count: 0, totalEur: 0, paidEur: 0 };
-      existing.count++;
-      existing.totalEur += convertToEur(inv.totalAmount || "0", inv.currency);
-      existing.paidEur += convertToEur(inv.paidAmount || "0", inv.currency);
-      byYear.set(year, existing);
-    });
-    const yearData = Array.from(byYear.entries())
-      .map(([year, data]) => ({ year, ...data }))
-      .sort((a, b) => a.year - b.year);
-
-    return { monthlyData, customerData, totals, pieData, paymentPieData, currencyData, statusData, companyData, avgInvoiceValue, paidTotal, unpaidTotal, sourceData, countryData, yearData };
-  }, [invoices, scheduledInvoices, customerMap, convertToEur]);
+  }, [serverReportData, scheduledInvoices, convertToEur]);
 
   if (isLoading) {
     return (

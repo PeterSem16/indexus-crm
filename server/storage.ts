@@ -1759,6 +1759,112 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(invoices);
   }
 
+  async getInvoiceReportData(countries?: string[]): Promise<{
+    totals: { issuedCount: number; issuedTotal: number; paidTotal: number; unpaidTotal: number; avgValue: number };
+    byStatus: { status: string; count: number; totalAmount: number }[];
+    byCurrency: { currency: string; count: number; total: number }[];
+    byCompany: { company: string; count: number; total: number }[];
+    byCountry: { country: string; count: number; currency: string; total: number; paid: number; unpaid: number }[];
+    byYear: { year: number; count: number; total: number; paid: number }[];
+    byMonth: { month: string; count: number; total: number }[];
+    bySource: { source: string; count: number; total: number; paid: number; paidCount: number; unpaidCount: number }[];
+  }> {
+    const conditions: any[] = [];
+    let customerCountryMap: Map<string, string> | undefined;
+    if (countries && countries.length > 0) {
+      const custRows = await db.select({ id: customers.id, country: customers.country }).from(customers).where(inArray(customers.country, countries));
+      const ids = custRows.map(c => c.id);
+      if (ids.length === 0) {
+        return { totals: { issuedCount: 0, issuedTotal: 0, paidTotal: 0, unpaidTotal: 0, avgValue: 0 }, byStatus: [], byCurrency: [], byCompany: [], byCountry: [], byYear: [], byMonth: [], bySource: [] };
+      }
+      conditions.push(inArray(invoices.customerId, ids));
+      customerCountryMap = new Map(custRows.map(c => [c.id, c.country]));
+    }
+    const where = conditions.length > 0 ? and(...conditions) : undefined;
+    const allInvoices = await db.select().from(invoices).where(where);
+
+    if (!customerCountryMap) {
+      const allCustRows = await db.select({ id: customers.id, country: customers.country }).from(customers);
+      customerCountryMap = new Map(allCustRows.map(c => [c.id, c.country]));
+    }
+
+    let issuedTotal = 0, paidTotal = 0;
+    const statusMap = new Map<string, { count: number; totalAmount: number }>();
+    const currencyMap = new Map<string, { count: number; total: number }>();
+    const companyMap = new Map<string, { count: number; total: number }>();
+    const countryMap = new Map<string, { count: number; currency: string; total: number; paid: number; unpaid: number }>();
+    const yearMap = new Map<number, { count: number; total: number; paid: number }>();
+    const monthMap = new Map<string, { count: number; total: number }>();
+    const sourceMap = new Map<string, { count: number; total: number; paid: number; paidCount: number; unpaidCount: number }>();
+
+    const countryToCurrency: Record<string, string> = {
+      'SK': 'EUR', 'AT': 'EUR', 'DE': 'EUR', 'CZ': 'CZK', 'HU': 'HUF',
+      'RO': 'RON', 'PL': 'PLN', 'HR': 'EUR', 'BG': 'BGN', 'RS': 'RSD',
+      'SI': 'EUR', 'UA': 'UAH', 'GB': 'GBP', 'CH': 'CHF', 'IT': 'EUR',
+    };
+
+    for (const inv of allInvoices) {
+      const amt = parseFloat(inv.totalAmount || "0");
+      const paidAmt = parseFloat(inv.paidAmount || "0");
+      issuedTotal += amt;
+      paidTotal += paidAmt;
+
+      const st = inv.status || "draft";
+      const se = statusMap.get(st) || { count: 0, totalAmount: 0 };
+      se.count++; se.totalAmount += amt;
+      statusMap.set(st, se);
+
+      const cur = inv.currency || "EUR";
+      const ce = currencyMap.get(cur) || { count: 0, total: 0 };
+      ce.count++; ce.total += amt;
+      currencyMap.set(cur, ce);
+
+      const comp = (inv as any).billingCompanyName || "N/A";
+      const coe = companyMap.get(comp) || { count: 0, total: 0 };
+      coe.count++; coe.total += amt;
+      companyMap.set(comp, coe);
+
+      const ctry = (inv as any).billingCountry || customerCountryMap?.get(inv.customerId) || "N/A";
+      const cte = countryMap.get(ctry) || { count: 0, currency: countryToCurrency[ctry] || cur, total: 0, paid: 0, unpaid: 0 };
+      cte.count++; cte.total += amt; cte.paid += paidAmt; cte.unpaid += Math.max(0, amt - paidAmt);
+      countryMap.set(ctry, cte);
+
+      if (inv.issueDate) {
+        const d = new Date(inv.issueDate);
+        const year = d.getFullYear();
+        if (year >= 2000) {
+          const ye = yearMap.get(year) || { count: 0, total: 0, paid: 0 };
+          ye.count++; ye.total += amt; ye.paid += paidAmt;
+          yearMap.set(year, ye);
+        }
+        const mKey = `${year}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        const me = monthMap.get(mKey) || { count: 0, total: 0 };
+        me.count++; me.total += amt;
+        monthMap.set(mKey, me);
+      }
+
+      const src = (inv as any).dataSource === 'iscbc' ? 'iscbc' : 'indexus';
+      const sre = sourceMap.get(src) || { count: 0, total: 0, paid: 0, paidCount: 0, unpaidCount: 0 };
+      sre.count++; sre.total += amt; sre.paid += paidAmt;
+      if (inv.status === 'paid') sre.paidCount++; else if (inv.status !== 'cancelled') sre.unpaidCount++;
+      sourceMap.set(src, sre);
+    }
+
+    const unpaidTotal = Math.max(0, issuedTotal - paidTotal);
+    const avgValue = allInvoices.length > 0 ? issuedTotal / allInvoices.length : 0;
+
+    return {
+      totals: { issuedCount: allInvoices.length, issuedTotal, paidTotal, unpaidTotal, avgValue },
+      byStatus: Array.from(statusMap.entries()).map(([status, d]) => ({ status, ...d })).sort((a, b) => b.count - a.count),
+      byCurrency: Array.from(currencyMap.entries()).map(([currency, d]) => ({ currency, ...d })).sort((a, b) => b.total - a.total),
+      byCompany: Array.from(companyMap.entries()).map(([company, d]) => ({ company, ...d })).sort((a, b) => b.total - a.total),
+      byCountry: Array.from(countryMap.entries()).map(([country, d]) => ({ country, ...d })).sort((a, b) => b.total - a.total),
+      byYear: Array.from(yearMap.entries()).map(([year, d]) => ({ year, ...d })).sort((a, b) => a.year - b.year),
+      byMonth: Array.from(monthMap.entries()).map(([month, d]) => ({ month, ...d })).sort((a, b) => a.month.localeCompare(b.month)),
+      bySource: Array.from(sourceMap.entries()).map(([source, d]) => ({ source, ...d })),
+    };
+  }
+
   async getInvoiceStatusCounts(countries?: string[]): Promise<{ status: string; count: number }[]> {
     const conditions: any[] = [];
     if (countries && countries.length > 0) {

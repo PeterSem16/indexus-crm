@@ -7057,6 +7057,17 @@ Return ONLY valid JSON, no markdown code blocks.`,
   });
 
   // Invoices API (protected)
+  app.get("/api/invoices/report", requireAuth, async (req, res) => {
+    try {
+      const countries = req.query.countries ? (req.query.countries as string).split(",").filter(Boolean) : undefined;
+      const data = await storage.getInvoiceReportData(countries && countries.length > 0 ? countries : undefined);
+      res.json(data);
+    } catch (error: any) {
+      console.error("Invoice report error:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   app.get("/api/invoices/status-counts", requireAuth, async (req, res) => {
     try {
       const countries = req.query.countries ? (req.query.countries as string).split(",").filter(Boolean) : undefined;
