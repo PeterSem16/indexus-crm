@@ -1890,6 +1890,9 @@ export default function CollaboratorsPage() {
   const { canAdd, canEdit } = usePermissions();
   const [searchQuery, setSearchQuery] = useState("");
   const [filterCountry, setFilterCountry] = useState("");
+  useEffect(() => {
+    if (selectedCountries.length > 0) setFilterCountry("");
+  }, [selectedCountries]);
   const [filterType, setFilterType] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
   const [filterExpiredAgreement, setFilterExpiredAgreement] = useState(false);
@@ -1917,18 +1920,12 @@ export default function CollaboratorsPage() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
+  const collabQueryParams: Record<string, any> = { page, limit: pageSize };
+  if (debouncedSearch) collabQueryParams.search = debouncedSearch;
+  if (filterCountry) collabQueryParams.country = filterCountry;
+  if (selectedCountries.length > 0) collabQueryParams.countries = selectedCountries.join(",");
   const { data: collaboratorsPaginatedResult, isLoading, refetch: refetchCollaborators } = useQuery<{ data: Collaborator[], total: number }>({
-    queryKey: ["/api/collaborators", { page, limit: pageSize, search: debouncedSearch, country: filterCountry || undefined }],
-    queryFn: async () => {
-      const params = new URLSearchParams();
-      params.set("page", String(page));
-      params.set("limit", String(pageSize));
-      if (debouncedSearch) params.set("search", debouncedSearch);
-      if (filterCountry) params.set("country", filterCountry);
-      const res = await fetch(`/api/collaborators?${params.toString()}`, { credentials: "include" });
-      if (!res.ok) throw new Error("Failed to fetch collaborators");
-      return res.json();
-    },
+    queryKey: ["/api/collaborators", collabQueryParams],
     refetchInterval: 60000,
   });
   const collaborators = collaboratorsPaginatedResult?.data || [];
@@ -2304,6 +2301,7 @@ export default function CollaboratorsPage() {
             </div>
             {showFilters && (
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                {selectedCountries.length === 0 && (
                 <div className="space-y-2">
                   <Label>{t.common.country}</Label>
                   <Select value={filterCountry || "_all"} onValueChange={(val) => { setFilterCountry(val === "_all" ? "" : val); handleFilterChange(); }}>
@@ -2320,6 +2318,7 @@ export default function CollaboratorsPage() {
                     </SelectContent>
                   </Select>
                 </div>
+                )}
                 <div className="space-y-2">
                   <Label>{t.collaborators.fields.collaboratorType}</Label>
                   <Select value={filterType || "_all"} onValueChange={(val) => { setFilterType(val === "_all" ? "" : val); handleFilterChange(); }}>

@@ -14120,8 +14120,9 @@ Return ONLY valid JSON, no markdown code blocks.`,
       const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
       const search = req.query.search as string;
       const country = req.query.country as string;
+      const countries = req.query.countries ? (req.query.countries as string).split(",").filter(Boolean) : undefined;
       if (req.query.page || req.query.search) {
-        const result = await storage.getCollaboratorsPaginated(page || 1, limit, search, country);
+        const result = await storage.getCollaboratorsPaginated(page || 1, limit, search, country, countries);
         const today = new Date();
         const enrichedData = await Promise.all(
           result.data.map(async (collab) => {

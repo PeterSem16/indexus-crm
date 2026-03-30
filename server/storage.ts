@@ -3091,7 +3091,7 @@ export class DatabaseStorage implements IStorage {
     return db.select({ id: collaborators.id, firstName: collaborators.firstName, lastName: collaborators.lastName, countryCode: collaborators.countryCode }).from(collaborators).orderBy(collaborators.lastName, collaborators.firstName);
   }
 
-  async getCollaboratorsPaginated(page: number, limit: number, search?: string, countryCode?: string): Promise<{ data: Collaborator[], total: number }> {
+  async getCollaboratorsPaginated(page: number, limit: number, search?: string, countryCode?: string, countries?: string[]): Promise<{ data: Collaborator[], total: number }> {
     const offset = (page - 1) * limit;
     const conditions: any[] = [];
     if (search && search.trim()) {
@@ -3103,7 +3103,10 @@ export class DatabaseStorage implements IStorage {
         OR CONCAT(${collaborators.firstName}, ' ', ${collaborators.lastName}) ILIKE ${s}
       )`);
     }
-    if (countryCode && countryCode.trim()) {
+    if (countries && countries.length > 0) {
+      const countrySql = countries.map(c => sql`(${collaborators.countryCode} = ${c} OR ${c} = ANY(${collaborators.countryCodes}))`);
+      conditions.push(sql`(${sql.join(countrySql, sql` OR `)})`);
+    } else if (countryCode && countryCode.trim()) {
       conditions.push(sql`(${collaborators.countryCode} = ${countryCode.trim()} OR ${countryCode.trim()} = ANY(${collaborators.countryCodes}))`);
     }
     const where = conditions.length > 0 ? and(...conditions) : undefined;
