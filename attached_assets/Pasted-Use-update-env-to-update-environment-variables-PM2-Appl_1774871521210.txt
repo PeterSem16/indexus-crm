@@ -1,0 +1,42 @@
+Use --update-env to update environment variables
+[PM2] Applying action restartProcessId on app [indexus-crm](ids: [ 0 ])
+[PM2] [indexus-crm](0) ✓
+┌────┬────────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+│ id │ name           │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+├────┼────────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
+│ 0  │ indexus-crm    │ default     │ 1.0.0   │ fork    │ 4013769  │ 0s     │ 186  │ online    │ 0%       │ 17.6mb   │ seman    │ disabled │
+└────┴────────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
+[TAILING] Tailing last 5 lines for [all] processes (change the value with --lines option)
+/home/seman/.pm2/pm2.log last 5 lines:
+PM2        | 2026-03-30T11:51:46: PM2 log: Stopping app:indexus-crm id:0
+PM2        | 2026-03-30T11:51:46: PM2 log: App [indexus-crm:0] exited with code [0] via signal [SIGINT]
+PM2        | 2026-03-30T11:51:46: PM2 log: pid=4013588 msg=process killed
+PM2        | 2026-03-30T11:51:46: PM2 log: App [indexus-crm:0] starting in -fork mode-
+PM2        | 2026-03-30T11:51:46: PM2 log: App [indexus-crm:0] online
+
+/home/seman/.pm2/logs/indexus-crm-error.log last 5 lines:
+0|indexus- |   code: 'ECONNREFUSED',
+0|indexus- |   syscall: 'connect',
+0|indexus- |   address: '127.0.0.1',
+0|indexus- |   port: 5432
+0|indexus- | }
+
+/home/seman/.pm2/logs/indexus-crm-out.log last 5 lines:
+0|indexus- | [EmailMonitor] Failed to decrypt tokens for user c8c9999c-6881-4ca3-91cc-99d4ec1da6df
+0|indexus- | [EmailMonitor] Failed to decrypt tokens for user 95c58392-d61e-41e2-b5d3-ed1f9d93147d
+0|indexus- | [EmailMonitor] Failed to decrypt tokens for user c8c9999c-6881-4ca3-91cc-99d4ec1da6df
+0|indexus- | [EmailMonitor] Failed to decrypt tokens for user 95c58392-d61e-41e2-b5d3-ed1f9d93147d
+0|indexus- | [server] Received SIGINT, shutting down...
+
+0|indexus-crm  | [Storage] Data root: /var/www/indexus-crm/data
+0|indexus-crm  | [Storage] All directories initialized
+0|indexus-crm  | [migration] Customer columns ensured
+0|indexus-crm  | [migration] Updated web form customers to in_process
+0|indexus-crm  | Notification WebSocket server initialized on /ws/notifications
+0|indexus-crm  | Inbound call WebSocket server initialized on /ws/inbound-calls
+0|indexus-crm  | [EmailMonitor] Will start email monitoring in 30s (waiting for server warmup)...
+0|indexus-crm  | [Startup] Cleaned up 1 stale user sessions
+0|indexus-crm  | [Chat] WebSocket server initialized on path /ws/chat
+0|indexus-crm  | [ExchangeRates] Scheduled update in 728 minutes (at midnight)
+0|indexus-crm  | 11:51:48 AM [express] serving on port 5000
+0|indexus-crm  | [AlertEvaluator] Starting alert evaluator with 60000ms interval
