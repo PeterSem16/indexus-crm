@@ -3,6 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useI18n } from "@/i18n";
 import { useAuth } from "@/contexts/auth-context";
+import { usePermissions } from "@/contexts/permissions-context";
 import { SopPanel } from "@/components/agent/SopPanel";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -4398,19 +4399,19 @@ export default function AgentWorkspacePage() {
   const acceptingCallRef = useRef(false);
   const dialingRef = useRef(false);
 
-  const allowedRoles = ["callCenter", "admin"];
-  const hasRoleAccess = user && allowedRoles.includes(user.role);
+  const { canAccessModule } = usePermissions();
+  const hasModuleAccess = user && canAccessModule("nexusPulse");
 
   const { data: workspaceAccess = [] } = useQuery<any[]>({
     queryKey: ["/api/agent-workspace-access/current"],
-    enabled: !!hasRoleAccess,
+    enabled: !!hasModuleAccess,
   });
 
   const allowedCountries = useMemo(() => {
     return workspaceAccess.map((a: any) => a.countryCode);
   }, [workspaceAccess]);
 
-  const hasAccess = user && hasRoleAccess && (user.role === "admin" || allowedCountries.length > 0);
+  const hasAccess = user && hasModuleAccess && (user.role === "admin" || allowedCountries.length > 0);
 
   const { data: scheduledQueueItems = [] } = useQuery<ScheduledItem[]>({
     queryKey: ["/api/agent/scheduled-queue", "badge"],
@@ -5189,7 +5190,7 @@ export default function AgentWorkspacePage() {
           <AlertCircle className="h-12 w-12 mx-auto mb-4 text-destructive" />
           <h2 className="text-lg font-semibold mb-2">Prístup zamietnutý</h2>
           <p className="text-muted-foreground">
-            Táto stránka je dostupná len pre operátorov call centra.
+            Nemáte oprávnenie na prístup do NEXUS Pulse. Kontaktujte administrátora.
           </p>
         </Card>
       </div>
