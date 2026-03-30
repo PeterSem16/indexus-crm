@@ -4227,7 +4227,7 @@ export default function CampaignDetailPage() {
       </Dialog>
 
       <Dialog open={showImportDialog} onOpenChange={(open) => { if (!open) { setShowImportDialog(false); setImportFile(null); setImportResult(null); setUpdateExisting(false); setImportContactType("customer"); } }}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{t.campaigns.detail.importContacts}</DialogTitle>
             <DialogDescription>
@@ -4291,41 +4291,34 @@ export default function CampaignDetailPage() {
           ) : (
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label className="text-sm font-medium">Typ kontaktu</Label>
-                <div className="grid grid-cols-2 gap-2">
+                <Label className="text-xs font-medium">Typ kontaktu</Label>
+                <div className="grid grid-cols-4 gap-1.5">
                   {([
-                    { value: "customer" as const, label: "Zákazník", icon: User, desc: "Fyzická osoba" },
-                    { value: "clinic" as const, label: "Ambulancia", icon: Building2, desc: "Lekárska ambulancia" },
-                    { value: "hospital" as const, label: "Nemocnica", icon: Building2, desc: "Zdravotnícke zariadenie" },
-                    { value: "collaborator" as const, label: "Spolupracovník", icon: Users, desc: "Partner / spolupracovník" },
+                    { value: "customer" as const, label: "Zákazník", icon: User },
+                    { value: "clinic" as const, label: "Ambulancia", icon: Building2 },
+                    { value: "hospital" as const, label: "Nemocnica", icon: Building2 },
+                    { value: "collaborator" as const, label: "Spoluprac.", icon: Users },
                   ]).map((ct) => (
                     <button
                       key={ct.value}
                       type="button"
                       onClick={() => setImportContactType(ct.value)}
-                      className={`flex items-center gap-2 p-3 rounded-lg border text-left transition-all ${
+                      className={`flex flex-col items-center gap-1 p-2 rounded-md border text-center transition-all ${
                         importContactType === ct.value
                           ? "border-primary bg-primary/5 shadow-sm"
                           : "border-border hover:border-muted-foreground/50"
                       }`}
                       data-testid={`button-import-type-${ct.value}`}
                     >
-                      <div className={`w-8 h-8 rounded-md flex items-center justify-center shrink-0 ${
-                        importContactType === ct.value ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-                      }`}>
-                        <ct.icon className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <div className="text-sm font-medium">{ct.label}</div>
-                        <div className="text-[11px] text-muted-foreground">{ct.desc}</div>
-                      </div>
+                      <ct.icon className={`w-4 h-4 ${importContactType === ct.value ? "text-primary" : "text-muted-foreground"}`} />
+                      <span className="text-[11px] font-medium leading-tight">{ct.label}</span>
                     </button>
                   ))}
                 </div>
               </div>
 
               <div
-                className={`relative border-2 border-dashed rounded-md p-8 text-center transition-colors ${
+                className={`relative border-2 border-dashed rounded-md p-4 text-center transition-colors ${
                   isDragging ? "border-primary bg-primary/5" : "border-muted-foreground/25"
                 }`}
                 onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
@@ -4339,21 +4332,21 @@ export default function CampaignDetailPage() {
                 data-testid="dropzone-import"
               >
                 {importFile ? (
-                  <div className="flex flex-col items-center gap-2">
-                    <FileUp className="h-8 w-8 text-primary" />
-                    <p className="text-sm font-medium">{importFile.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {(importFile.size / 1024).toFixed(1)} KB
-                    </p>
-                    <Button variant="outline" size="sm" onClick={() => setImportFile(null)} data-testid="button-remove-file">
+                  <div className="flex items-center gap-3 justify-center">
+                    <FileUp className="h-5 w-5 text-primary shrink-0" />
+                    <div className="text-left">
+                      <p className="text-sm font-medium truncate max-w-[200px]">{importFile.name}</p>
+                      <p className="text-[11px] text-muted-foreground">{(importFile.size / 1024).toFixed(1)} KB</p>
+                    </div>
+                    <Button variant="outline" size="sm" className="text-xs h-7 shrink-0" onClick={() => setImportFile(null)} data-testid="button-remove-file">
                       {t.campaigns.detail.remove}
                     </Button>
                   </div>
                 ) : (
-                  <div className="flex flex-col items-center gap-2">
-                    <Upload className="h-8 w-8 text-muted-foreground" />
+                  <div className="flex flex-col items-center gap-1.5">
+                    <Upload className="h-6 w-6 text-muted-foreground" />
                     <p className="text-sm font-medium">{t.campaigns.detail.dragFileHere}</p>
-                    <p className="text-xs text-muted-foreground">{t.campaigns.detail.orClickToSelect}</p>
+                    <p className="text-[11px] text-muted-foreground">{t.campaigns.detail.orClickToSelect}</p>
                     <input
                       type="file"
                       accept=".csv,.xlsx,.xls"
@@ -4369,24 +4362,28 @@ export default function CampaignDetailPage() {
                 )}
               </div>
 
-              <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
                 <Button
                   variant="ghost"
                   size="sm"
+                  className="text-xs h-7 gap-1.5"
                   onClick={() => {
                     window.open(`/api/campaigns/contacts/import-template?type=${importContactType}`, "_blank");
                   }}
                   data-testid="button-download-template"
                 >
-                  <Download className="w-4 h-4 mr-2" />
-                  Stiahnuť vzorový CSV ({importContactType === "customer" ? "Zákazník" : importContactType === "clinic" ? "Ambulancia" : importContactType === "hospital" ? "Nemocnica" : "Spolupracovník"})
+                  <Download className="w-3.5 h-3.5" />
+                  Vzorový CSV ({importContactType === "customer" ? "Zákazník" : importContactType === "clinic" ? "Ambulancia" : importContactType === "hospital" ? "Nemocnica" : "Spoluprac."})
                 </Button>
               </div>
 
-              <Card>
-                <CardContent className="pt-4">
-                  <p className="text-xs font-medium mb-2">{t.campaigns.detail.expectedColumns}:</p>
-                  <div className="grid grid-cols-2 gap-1">
+              <details className="group">
+                <summary className="text-xs font-medium cursor-pointer text-muted-foreground hover:text-foreground flex items-center gap-1">
+                  <ChevronRight className="h-3 w-3 transition-transform group-open:rotate-90" />
+                  {t.campaigns.detail.expectedColumns}
+                </summary>
+                <div className="mt-2 p-2 bg-muted/50 rounded-md">
+                  <div className="flex flex-wrap gap-1">
                     {(importContactType === "customer" ? [
                       "meno", "priezvisko", "telefon", "telefon_2", "email", "krajina", "datum_ocakavaneho_porodu", "extra_pole_1", "extra_pole_2"
                     ] : importContactType === "clinic" ? [
@@ -4396,14 +4393,14 @@ export default function CampaignDetailPage() {
                     ] : [
                       "meno", "priezvisko", "titul_pred", "titul_za", "telefon", "mobil", "email", "krajina", "typ_spoluprace", "poznamka"
                     ]).map(col => (
-                      <span key={col} className="text-xs text-muted-foreground font-mono bg-muted px-1.5 py-0.5 rounded">{col}</span>
+                      <span key={col} className="text-[10px] text-muted-foreground font-mono bg-background px-1.5 py-0.5 rounded border">{col}</span>
                     ))}
                   </div>
-                  <p className="text-xs text-muted-foreground mt-2">
-                    <strong>krajina</strong> (SK, CZ, HU, RO, IT, DE, US) &middot; <strong>formát</strong>: CSV (;) alebo Excel (.xlsx)
+                  <p className="text-[10px] text-muted-foreground mt-1.5">
+                    <strong>krajina</strong> (SK, CZ, HU, RO, IT, DE, US) · <strong>formát</strong>: CSV (;) / Excel (.xlsx)
                   </p>
-                </CardContent>
-              </Card>
+                </div>
+              </details>
 
               <label className="flex items-center gap-2 cursor-pointer" data-testid="checkbox-update-existing">
                 <input
