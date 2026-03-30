@@ -2746,7 +2746,7 @@ export default function CampaignDetailPage() {
               {t.campaigns.statuses[campaign.status as keyof typeof t.campaigns.statuses] || campaign.status}
             </Badge>
           </div>
-          <p className="text-muted-foreground">
+          <p className="text-muted-foreground line-clamp-2">
             {campaign.description || ""}
           </p>
         </div>
