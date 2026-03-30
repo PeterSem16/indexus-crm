@@ -143,6 +143,10 @@ app.use((req, res, next) => {
       startAlertEvaluator(60 * 1000);
       startSessionCleanup();
       startScheduledReportRunner();
+
+      import("./variable-registry-seed").then(({ seedVariableRegistry }) => {
+        seedVariableRegistry().catch(err => console.error("[Variable Registry] Seed error:", err));
+      });
     },
   );
 })();

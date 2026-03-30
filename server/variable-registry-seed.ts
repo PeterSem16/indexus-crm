@@ -10,6 +10,7 @@ const VARIABLE_BLOCKS: InsertVariableBlock[] = [
   { code: "witness", displayName: "Svedok", displayNameEn: "Witness", icon: "Users", priority: 6 },
   { code: "collaborator", displayName: "Spolupracovník", displayNameEn: "Collaborator", icon: "Briefcase", priority: 7 },
   { code: "hospital", displayName: "Nemocnica", displayNameEn: "Hospital", icon: "Hospital", priority: 8 },
+  { code: "clinic", displayName: "Ambulancia / Klinika", displayNameEn: "Clinic", icon: "Building2", priority: 9 },
   { code: "invoice", displayName: "Faktúra", displayNameEn: "Invoice", icon: "Receipt", priority: 9 },
   { code: "payment", displayName: "Platba", displayNameEn: "Payment", icon: "CreditCard", priority: 10 },
   { code: "product", displayName: "Produkt", displayNameEn: "Product", icon: "Package", priority: 11 },
@@ -134,6 +135,37 @@ const BLOCK_KEYWORDS: Record<string, { keyword: string; locale: string; weight: 
     { keyword: "produs", locale: "ro", weight: 10 },
     { keyword: "produkt", locale: "cs", weight: 10 },
   ],
+  collaborator: [
+    { keyword: "spolupracovník", locale: "sk", weight: 10 },
+    { keyword: "spolupracovníčka", locale: "sk", weight: 10 },
+    { keyword: "representant", locale: "sk", weight: 8 },
+    { keyword: "poradca", locale: "sk", weight: 8 },
+    { keyword: "agent", locale: "sk", weight: 5 },
+    { keyword: "collaborator", locale: "en", weight: 10 },
+    { keyword: "representative", locale: "en", weight: 8 },
+    { keyword: "agent", locale: "en", weight: 5 },
+    { keyword: "collaboratore", locale: "it", weight: 10 },
+    { keyword: "mitarbeiter", locale: "de", weight: 10 },
+    { keyword: "munkatárs", locale: "hu", weight: 10 },
+    { keyword: "colaborator", locale: "ro", weight: 10 },
+    { keyword: "spolupracovník", locale: "cs", weight: 10 },
+  ],
+  clinic: [
+    { keyword: "ambulancia", locale: "sk", weight: 10 },
+    { keyword: "klinika", locale: "sk", weight: 10 },
+    { keyword: "lekár", locale: "sk", weight: 8 },
+    { keyword: "doktor", locale: "sk", weight: 8 },
+    { keyword: "gynekológ", locale: "sk", weight: 8 },
+    { keyword: "clinic", locale: "en", weight: 10 },
+    { keyword: "doctor", locale: "en", weight: 8 },
+    { keyword: "ambulance", locale: "en", weight: 5 },
+    { keyword: "clinica", locale: "it", weight: 10 },
+    { keyword: "klinik", locale: "de", weight: 10 },
+    { keyword: "klinika", locale: "hu", weight: 10 },
+    { keyword: "clinică", locale: "ro", weight: 10 },
+    { keyword: "ambulance", locale: "cs", weight: 10 },
+    { keyword: "klinika", locale: "cs", weight: 10 },
+  ],
   system: [
     { keyword: "dátum", locale: "sk", weight: 5 },
     { keyword: "dnes", locale: "sk", weight: 5 },
@@ -209,9 +241,39 @@ const VARIABLES_BY_BLOCK: Record<string, Omit<InsertVariable, "blockId">[]> = {
   ],
   hospital: [
     { key: "hospital.name", label: "Názov nemocnice", labelEn: "Hospital Name", dataType: "text", example: "Univerzitná nemocnica Bratislava", priority: 1 },
-    { key: "hospital.address", label: "Adresa nemocnice", labelEn: "Hospital Address", dataType: "address", example: "Antolská 11, 851 07 Bratislava", priority: 2 },
-    { key: "hospital.department", label: "Oddelenie", labelEn: "Department", dataType: "text", example: "Pôrodnica", priority: 3 },
-    { key: "hospital.phone", label: "Telefón nemocnice", labelEn: "Hospital Phone", dataType: "phone", example: "+421 2 6867 1111", priority: 4 },
+    { key: "hospital.fullName", label: "Plný názov nemocnice", labelEn: "Hospital Full Name", dataType: "text", example: "Univerzitná nemocnica Bratislava - Petržalka", priority: 2 },
+    { key: "hospital.streetNumber", label: "Ulica a číslo", labelEn: "Street & Number", dataType: "text", example: "Antolská 11", priority: 3 },
+    { key: "hospital.city", label: "Mesto", labelEn: "City", dataType: "text", example: "Bratislava", priority: 4 },
+    { key: "hospital.postalCode", label: "PSČ", labelEn: "Postal Code", dataType: "text", example: "851 07", priority: 5 },
+    { key: "hospital.region", label: "Oblasť / Región", labelEn: "Region", dataType: "text", example: "Bratislavský kraj", priority: 6 },
+    { key: "hospital.countryCode", label: "Kód krajiny", labelEn: "Country Code", dataType: "text", example: "SK", priority: 7 },
+    { key: "hospital.contactPerson", label: "Kontaktná osoba", labelEn: "Contact Person", dataType: "text", example: "MUDr. Jana Nováková", priority: 8 },
+    { key: "hospital.phone", label: "Telefón nemocnice", labelEn: "Hospital Phone", dataType: "phone", example: "+421 2 6867 1111", priority: 9 },
+    { key: "hospital.email", label: "E-mail nemocnice", labelEn: "Hospital Email", dataType: "email", example: "info@unb.sk", priority: 10 },
+    { key: "hospital.latitude", label: "GPS šírka", labelEn: "Latitude", dataType: "number", example: "48.1234567", priority: 11 },
+    { key: "hospital.longitude", label: "GPS dĺžka", labelEn: "Longitude", dataType: "number", example: "17.1234567", priority: 12 },
+  ],
+  clinic: [
+    { key: "clinic.name", label: "Názov ambulancie", labelEn: "Clinic Name", dataType: "text", example: "Gynekologická ambulancia MUDr. Kováčová", priority: 1 },
+    { key: "clinic.doctorName", label: "Meno lekára", labelEn: "Doctor Name", dataType: "text", example: "MUDr. Kováčová", priority: 2 },
+    { key: "clinic.doctorTitle", label: "Titul lekára", labelEn: "Doctor Title", dataType: "text", example: "MUDr.", priority: 3 },
+    { key: "clinic.doctorFirstName", label: "Meno lekára (krstné)", labelEn: "Doctor First Name", dataType: "text", example: "Zuzana", priority: 4 },
+    { key: "clinic.doctorLastName", label: "Priezvisko lekára", labelEn: "Doctor Last Name", dataType: "text", example: "Kováčová", priority: 5 },
+    { key: "clinic.address", label: "Adresa ambulancie", labelEn: "Clinic Address", dataType: "address", example: "Odbojárov 3, 831 04 Bratislava", priority: 6 },
+    { key: "clinic.city", label: "Mesto ambulancie", labelEn: "Clinic City", dataType: "text", example: "Bratislava", priority: 7 },
+    { key: "clinic.postalCode", label: "PSČ ambulancie", labelEn: "Clinic Postal Code", dataType: "text", example: "831 04", priority: 8 },
+    { key: "clinic.countryCode", label: "Kód krajiny", labelEn: "Country Code", dataType: "text", example: "SK", priority: 9 },
+    { key: "clinic.phone", label: "Telefón ambulancie", labelEn: "Clinic Phone", dataType: "phone", example: "+421 2 1234 5678", priority: 10 },
+    { key: "clinic.email", label: "E-mail ambulancie", labelEn: "Clinic Email", dataType: "email", example: "ambulancia@klinika.sk", priority: 11 },
+    { key: "clinic.website", label: "Web stránka", labelEn: "Website", dataType: "text", example: "www.klinika.sk", priority: 12 },
+    { key: "clinic.notes", label: "Poznámky", labelEn: "Notes", dataType: "text", example: "Spolupráca od 2024", priority: 13 },
+    { key: "clinic.contractStatus", label: "Stav zmluvy", labelEn: "Contract Status", dataType: "text", example: "active", priority: 14 },
+    { key: "clinic.lastCallResult", label: "Výsledok posledného hovoru", labelEn: "Last Call Result", dataType: "text", example: "Záujem o spoluprácu", priority: 15 },
+    { key: "clinic.lastCallNote", label: "Poznámka k poslednému hovoru", labelEn: "Last Call Note", dataType: "text", example: "Dohodnúť stretnutie", priority: 16 },
+    { key: "clinic.nextContactDate", label: "Dátum ďalšieho kontaktu", labelEn: "Next Contact Date", dataType: "date", example: "15.04.2026", priority: 17 },
+    { key: "clinic.conferenceName", label: "Názov konferencie", labelEn: "Conference Name", dataType: "text", example: "Gynekologický kongres 2026", priority: 18 },
+    { key: "clinic.latitude", label: "GPS šírka", labelEn: "Latitude", dataType: "number", example: "48.1234567", priority: 19 },
+    { key: "clinic.longitude", label: "GPS dĺžka", labelEn: "Longitude", dataType: "number", example: "17.1234567", priority: 20 },
   ],
   payment: [
     { key: "payment.amount", label: "Suma platby", labelEn: "Payment Amount", dataType: "number", example: "150,00 €", priority: 1 },
@@ -224,6 +286,39 @@ const VARIABLES_BY_BLOCK: Record<string, Omit<InsertVariable, "blockId">[]> = {
     { key: "product.price", label: "Cena produktu", labelEn: "Product Price", dataType: "number", example: "790,00 €", priority: 2 },
     { key: "product.description", label: "Popis produktu", labelEn: "Product Description", dataType: "text", example: "Odber a skladovanie pupočníkovej krvi", priority: 3 },
   ],
+  collaborator: [
+    { key: "collaborator.titleBefore", label: "Titul pred menom", labelEn: "Title Before", dataType: "text", example: "MUDr.", priority: 1 },
+    { key: "collaborator.firstName", label: "Meno", labelEn: "First Name", dataType: "text", example: "Peter", priority: 2 },
+    { key: "collaborator.lastName", label: "Priezvisko", labelEn: "Last Name", dataType: "text", example: "Horváth", priority: 3 },
+    { key: "collaborator.titleAfter", label: "Titul za menom", labelEn: "Title After", dataType: "text", example: "PhD.", priority: 4 },
+    { key: "collaborator.fullName", label: "Celé meno", labelEn: "Full Name", dataType: "text", example: "MUDr. Peter Horváth, PhD.", priority: 5 },
+    { key: "collaborator.maidenName", label: "Rodné priezvisko", labelEn: "Maiden Name", dataType: "text", example: "Kováčová", priority: 6 },
+    { key: "collaborator.birthNumber", label: "Rodné číslo", labelEn: "Birth Number", dataType: "text", example: "880620/1234", priority: 7 },
+    { key: "collaborator.birthDay", label: "Deň narodenia", labelEn: "Birth Day", dataType: "number", example: "20", priority: 8 },
+    { key: "collaborator.birthMonth", label: "Mesiac narodenia", labelEn: "Birth Month", dataType: "number", example: "6", priority: 9 },
+    { key: "collaborator.birthYear", label: "Rok narodenia", labelEn: "Birth Year", dataType: "number", example: "1988", priority: 10 },
+    { key: "collaborator.birthPlace", label: "Miesto narodenia", labelEn: "Birth Place", dataType: "text", example: "Bratislava", priority: 11 },
+    { key: "collaborator.maritalStatus", label: "Rodinný stav", labelEn: "Marital Status", dataType: "text", example: "ženatý", priority: 12 },
+    { key: "collaborator.collaboratorType", label: "Typ spolupracovníka", labelEn: "Collaborator Type", dataType: "text", example: "externý", priority: 13 },
+    { key: "collaborator.phone", label: "Telefón", labelEn: "Phone", dataType: "phone", example: "+421 900 123 456", priority: 14 },
+    { key: "collaborator.mobile", label: "Mobil", labelEn: "Mobile", dataType: "phone", example: "+421 900 123 456", priority: 15 },
+    { key: "collaborator.mobile2", label: "Mobil 2", labelEn: "Mobile 2", dataType: "phone", example: "+421 901 234 567", priority: 16 },
+    { key: "collaborator.email", label: "E-mail", labelEn: "Email", dataType: "email", example: "peter.horvath@email.sk", priority: 17 },
+    { key: "collaborator.otherContact", label: "Iný kontakt", labelEn: "Other Contact", dataType: "text", example: "Skype: peter.horvath", priority: 18 },
+    { key: "collaborator.bankAccountIban", label: "IBAN", labelEn: "IBAN", dataType: "iban", example: "SK89 1100 0000 0012 3456 7890", priority: 19 },
+    { key: "collaborator.swiftCode", label: "SWIFT kód", labelEn: "SWIFT Code", dataType: "text", example: "TATRSKBX", priority: 20 },
+    { key: "collaborator.companyName", label: "Názov firmy", labelEn: "Company Name", dataType: "text", example: "Horváth s.r.o.", priority: 21 },
+    { key: "collaborator.ico", label: "IČO", labelEn: "Company ID", dataType: "text", example: "12345678", priority: 22 },
+    { key: "collaborator.dic", label: "DIČ", labelEn: "Tax ID", dataType: "text", example: "2012345678", priority: 23 },
+    { key: "collaborator.icDph", label: "IČ DPH", labelEn: "VAT Number", dataType: "text", example: "SK2012345678", priority: 24 },
+    { key: "collaborator.companyIban", label: "IBAN firmy", labelEn: "Company IBAN", dataType: "iban", example: "SK44 1111 0000 0013 8851 9013", priority: 25 },
+    { key: "collaborator.companySwift", label: "SWIFT firmy", labelEn: "Company SWIFT", dataType: "text", example: "TATRSKBX", priority: 26 },
+    { key: "collaborator.countryCode", label: "Kód krajiny", labelEn: "Country Code", dataType: "text", example: "SK", priority: 27 },
+    { key: "collaborator.note", label: "Poznámka", labelEn: "Note", dataType: "text", example: "Spolupracuje od 2020", priority: 28 },
+    { key: "collaborator.rewardType", label: "Typ odmeny", labelEn: "Reward Type", dataType: "text", example: "fixed", priority: 29 },
+    { key: "collaborator.fixedRewardAmount", label: "Fixná odmena", labelEn: "Fixed Reward Amount", dataType: "number", example: "50,00 €", priority: 30 },
+    { key: "collaborator.fixedRewardCurrency", label: "Mena odmeny", labelEn: "Reward Currency", dataType: "text", example: "EUR", priority: 31 },
+  ],
   system: [
     { key: "today", label: "Dnešný dátum", labelEn: "Today's Date", dataType: "date", example: "7. 1. 2026", priority: 1 },
     { key: "currentYear", label: "Aktuálny rok", labelEn: "Current Year", dataType: "text", example: "2026", priority: 2 },
@@ -234,46 +329,69 @@ export async function seedVariableRegistry(): Promise<void> {
   console.log("[Variable Registry] Starting seed...");
   
   const existingBlocks = await storage.getAllVariableBlocks();
-  if (existingBlocks.length > 0) {
-    console.log("[Variable Registry] Registry already seeded, skipping...");
-    return;
-  }
-
   const blockIdMap: Record<string, string> = {};
+  const existingBlockCodes = new Set<string>();
 
+  for (const block of existingBlocks) {
+    blockIdMap[block.code] = block.id;
+    existingBlockCodes.add(block.code);
+  }
+
+  let createdBlocks = 0;
   for (const blockData of VARIABLE_BLOCKS) {
-    const block = await storage.createVariableBlock(blockData);
-    blockIdMap[blockData.code] = block.id;
-    console.log(`[Variable Registry] Created block: ${blockData.code}`);
-  }
-
-  for (const [blockCode, keywords] of Object.entries(BLOCK_KEYWORDS)) {
-    const blockId = blockIdMap[blockCode];
-    if (!blockId) continue;
-
-    for (const kw of keywords) {
-      await storage.createVariableKeyword({
-        blockId,
-        keyword: kw.keyword,
-        locale: kw.locale,
-        weight: kw.weight,
-      });
+    if (!existingBlockCodes.has(blockData.code)) {
+      const block = await storage.createVariableBlock(blockData);
+      blockIdMap[blockData.code] = block.id;
+      createdBlocks++;
+      console.log(`[Variable Registry] Created block: ${blockData.code}`);
     }
-    console.log(`[Variable Registry] Created ${keywords.length} keywords for block: ${blockCode}`);
   }
 
+  if (existingBlocks.length === 0) {
+    for (const [blockCode, keywords] of Object.entries(BLOCK_KEYWORDS)) {
+      const blockId = blockIdMap[blockCode];
+      if (!blockId) continue;
+      for (const kw of keywords) {
+        await storage.createVariableKeyword({ blockId, keyword: kw.keyword, locale: kw.locale, weight: kw.weight });
+      }
+      console.log(`[Variable Registry] Created ${keywords.length} keywords for block: ${blockCode}`);
+    }
+  } else if (createdBlocks > 0) {
+    for (const [blockCode, keywords] of Object.entries(BLOCK_KEYWORDS)) {
+      if (existingBlockCodes.has(blockCode)) continue;
+      const blockId = blockIdMap[blockCode];
+      if (!blockId) continue;
+      for (const kw of keywords) {
+        await storage.createVariableKeyword({ blockId, keyword: kw.keyword, locale: kw.locale, weight: kw.weight });
+      }
+      console.log(`[Variable Registry] Created ${keywords.length} keywords for new block: ${blockCode}`);
+    }
+  }
+
+  const registry = await storage.getFullVariableRegistry();
+  const existingVarKeys = new Set<string>();
+  for (const block of registry.blocks || []) {
+    for (const v of block.variables || []) {
+      existingVarKeys.add(v.key);
+    }
+  }
+
+  let createdVars = 0;
   for (const [blockCode, vars] of Object.entries(VARIABLES_BY_BLOCK)) {
     const blockId = blockIdMap[blockCode];
     if (!blockId) continue;
 
     for (const v of vars) {
-      await storage.createVariable({
-        ...v,
-        blockId,
-      });
+      if (!existingVarKeys.has(v.key)) {
+        await storage.createVariable({ ...v, blockId });
+        createdVars++;
+      }
     }
-    console.log(`[Variable Registry] Created ${vars.length} variables for block: ${blockCode}`);
   }
 
-  console.log("[Variable Registry] Seed completed successfully!");
+  if (createdBlocks > 0 || createdVars > 0) {
+    console.log(`[Variable Registry] Seed completed: ${createdBlocks} new blocks, ${createdVars} new variables added.`);
+  } else {
+    console.log("[Variable Registry] Registry up to date, no changes needed.");
+  }
 }
