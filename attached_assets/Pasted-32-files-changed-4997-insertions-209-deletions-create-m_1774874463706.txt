@@ -1,0 +1,33 @@
+32 files changed, 4997 insertions(+), 209 deletions(-)
+ create mode 100644 .agents/agent_assets_metadata.toml
+ create mode 100644 attached_assets/Pasted--Akcia-V-sledok-Next-step-Callback-Status-0-Vytvorenie-_1774871823863.txt
+ create mode 100644 attached_assets/Pasted-Use-update-env-to-update-environment-variables-PM2-Appl_1774871521210.txt
+ create mode 100644 attached_assets/Pasted-flowchart-TD-A-tart-kampane-B-De-0-Email-1-List-1-br-Pr_1774871793027.txt
+ create mode 100644 attached_assets/Pasted-seman-CORPCRM01-indexus-crm-cd-indexus-crm-npm-install-_1774869442234.txt
+ create mode 100644 attached_assets/Pasted-seman-CORPCRM01-indexus-crm-mobile-app-android-Pozrite-_1774871486782.txt
+ create mode 100644 "attached_assets/Sni\314\201mka_obrazovky_2026-03-30_o_10.50.24_1774860711173.png"
+ create mode 100644 "attached_assets/Sni\314\201mka_obrazovky_2026-03-30_o_10.58.15_1774861112153.png"
+ create mode 100644 "attached_assets/Sni\314\201mka_obrazovky_2026-03-30_o_10.58.56_1774861210550.png"
+ create mode 100644 "attached_assets/Sni\314\201mka_obrazovky_2026-03-30_o_11.56.05_1774864582448.png"
+ create mode 100644 "attached_assets/Sni\314\201mka_obrazovky_2026-03-30_o_12.00.58_1774864888657.png"
+ create mode 100644 "attached_assets/Sni\314\201mka_obrazovky_2026-03-30_o_12.08.55_1774865355719.png"
+ create mode 100644 client/src/pages/reports.tsx
+ create mode 100644 mobile-app/hooks/useClinics.ts
+ create mode 100644 script/migration/create-partner-acquisition-campaign.cjs
+ create mode 100644 script/migration/delete-iscbc-invoices.cjs
+ create mode 100644 script/migration/partner-acquisition-admin-guide.md
+ create mode 100644 script/migration/partner-acquisition-agent-guide.md
+ create mode 100644 script/migration/partner-acquisition-callcenter-guide.md
+ create mode 100644 script/migration/update-campaign-callscript-v2.cjs
+ create mode 100644 script/migration/update-campaign-callscript.cjs
+/var/www/indexus-crm/node_modules/pg-pool/index.js:45
+    Error.captureStackTrace(err)
+          ^
+
+Error: SASL: SCRAM-SERVER-FIRST-MESSAGE: client password must be a string
+    at /var/www/indexus-crm/node_modules/pg-pool/index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async updateCallScript (/var/www/indexus-crm/script/migration/update-campaign-callscript-v2.cjs:34:18)
+
+Node.js v20.20.0
+seman@CORPCRM01:/var/www/indexus-crm$
