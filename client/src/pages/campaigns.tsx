@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Plus, Pencil, Trash2, Search, Megaphone, PlayCircle, CheckCircle, Clock, XCircle, ExternalLink, FileText, Calendar, LayoutList, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, BarChart3, TrendingUp, Phone, RefreshCw, Users, Mail, MessageSquare, User, Check, Loader2, Shield, Headphones, X, Download, HelpCircle, BookOpen, Type, AlignLeft, ListOrdered, CircleDot, Target, Square, TextCursorInput, Variable, GripVertical, Copy, ArrowUp, ArrowDown, Mic, Coffee, GitBranch, Voicemail, Bot, Filter } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Megaphone, PlayCircle, CheckCircle, Clock, XCircle, ExternalLink, FileText, Calendar, LayoutList, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, BarChart3, TrendingUp, Phone, RefreshCw, Users, Mail, MessageSquare, User, Check, Loader2, Shield, Headphones, X, Download, HelpCircle, BookOpen, Type, AlignLeft, ListOrdered, CircleDot, Target, Square, TextCursorInput, Variable, GripVertical, Copy, ArrowUp, ArrowDown, Mic, Coffee, GitBranch, Voicemail, Bot, Filter, Settings, Globe } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { TranscriptSearchContent } from "@/pages/transcript-search";
 import { BreakTypesTab } from "@/components/campaigns/BreakTypesTab";
@@ -613,6 +613,8 @@ function CampaignForm({
   onCancel: () => void;
   t: any;
 }) {
+  const [formTab, setFormTab] = useState("general");
+
   const getDefaultValues = () => {
     if (initialData) {
       return {
@@ -667,232 +669,283 @@ function CampaignForm({
     defaultValues: getDefaultValues(),
   });
 
+  const sidebarItems = [
+    { key: "general", label: t.campaigns?.detail?.general || "Základné", icon: Settings },
+    { key: "countries", label: t.campaigns?.targetCountries || "Krajiny", icon: Globe },
+    { key: "script", label: "Scenár", icon: FileText },
+  ];
+
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <FormField
-          control={form.control}
-          name="name"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>{t.campaigns.campaignName}</FormLabel>
-              <FormControl>
-                <Input placeholder={t.campaigns.campaignName} {...field} data-testid="input-campaign-name" />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+      <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col h-full">
+        <div className="flex flex-1 min-h-0">
+          <div className="w-48 shrink-0 border-r bg-muted/30 py-2">
+            {sidebarItems.map((item) => {
+              const Icon = item.icon;
+              return (
+                <button
+                  key={item.key}
+                  type="button"
+                  onClick={() => setFormTab(item.key)}
+                  className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-left transition-colors ${
+                    formTab === item.key
+                      ? "bg-primary/10 text-primary font-medium border-r-2 border-primary"
+                      : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                  }`}
+                  data-testid={`tab-form-${item.key}`}
+                >
+                  <Icon className="w-4 h-4 shrink-0" />
+                  {item.label}
+                </button>
+              );
+            })}
+          </div>
 
-        <div className="space-y-1.5">
-          <Label className="text-sm">{t.campaigns?.callerIdNumber || "Caller ID"}</Label>
-          <Input
-            data-testid="input-caller-id"
-            placeholder="+421..."
-            value={form.watch("callerIdNumber") || ""}
-            onChange={e => form.setValue("callerIdNumber", e.target.value)}
-          />
-          <p className="text-xs text-muted-foreground italic">{t.campaigns?.callerIdHelp || "Číslo zobrazené volajúcemu pri odchádzajúcich hovoroch"}</p>
-        </div>
-
-        <FormField
-          control={form.control}
-          name="description"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>{t.campaigns.description}</FormLabel>
-              <FormControl>
-                <Textarea 
-                  placeholder={t.campaigns.description} 
-                  {...field} 
-                  data-testid="input-campaign-description"
+          <div className="flex-1 overflow-y-auto p-6">
+            {formTab === "general" && (
+              <div className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t.campaigns.campaignName}</FormLabel>
+                      <FormControl>
+                        <Input placeholder={t.campaigns.campaignName} {...field} data-testid="input-campaign-name" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
 
-        <div className="grid grid-cols-2 gap-4">
-          <FormField
-            control={form.control}
-            name="type"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>{t.campaigns.type}</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                  <FormControl>
-                    <SelectTrigger data-testid="select-campaign-type">
-                      <SelectValue placeholder={t.campaigns.selectType} />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {CAMPAIGN_TYPES.map((type) => (
-                      <SelectItem key={type} value={type}>
-                        {t.campaigns?.types?.[type] || type}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+                <FormField
+                  control={form.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t.campaigns.description}</FormLabel>
+                      <FormControl>
+                        <Textarea 
+                          placeholder={t.campaigns.description} 
+                          {...field} 
+                          data-testid="input-campaign-description"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-          <FormField
-            control={form.control}
-            name="channel"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>{t.campaigns.channel}</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                  <FormControl>
-                    <SelectTrigger data-testid="select-campaign-channel">
-                      <SelectValue placeholder={t.campaigns.selectChannel} />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {CAMPAIGN_CHANNELS.map((channel) => (
-                      <SelectItem key={channel} value={channel}>
-                        {t.campaigns?.channels?.[channel] || channel}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+                <div className="space-y-1.5">
+                  <Label className="text-sm">{t.campaigns?.callerIdNumber || "Caller ID"}</Label>
+                  <Input
+                    data-testid="input-caller-id"
+                    placeholder="+421..."
+                    value={form.watch("callerIdNumber") || ""}
+                    onChange={e => form.setValue("callerIdNumber", e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground italic">{t.campaigns?.callerIdHelp || "Číslo zobrazené volajúcemu pri odchádzajúcich hovoroch"}</p>
+                </div>
 
-          <FormField
-            control={form.control}
-            name="defaultActiveTab"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Predvolený tab</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value || "phone"}>
-                  <FormControl>
-                    <SelectTrigger data-testid="select-campaign-default-tab">
-                      <SelectValue placeholder="Vybrať predvolený tab" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="phone">Hovor</SelectItem>
-                    <SelectItem value="script">Script</SelectItem>
-                    <SelectItem value="email">Email</SelectItem>
-                    <SelectItem value="sms">SMS</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="type"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t.campaigns.type}</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-campaign-type">
+                              <SelectValue placeholder={t.campaigns.selectType} />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {CAMPAIGN_TYPES.map((type) => (
+                              <SelectItem key={type} value={type}>
+                                {t.campaigns?.types?.[type] || type}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-          <FormField
-            control={form.control}
-            name="status"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>{t.campaigns.status}</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                  <FormControl>
-                    <SelectTrigger data-testid="select-campaign-status">
-                      <SelectValue placeholder={t.campaigns.selectStatus} />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {CAMPAIGN_STATUSES.map((status) => (
-                      <SelectItem key={status} value={status}>
-                        {t.campaigns?.statuses?.[status] || status}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
+                  <FormField
+                    control={form.control}
+                    name="channel"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t.campaigns.channel}</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-campaign-channel">
+                              <SelectValue placeholder={t.campaigns.selectChannel} />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {CAMPAIGN_CHANNELS.map((channel) => (
+                              <SelectItem key={channel} value={channel}>
+                                {t.campaigns?.channels?.[channel] || channel}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-        <div className="grid grid-cols-2 gap-4">
-          <FormField
-            control={form.control}
-            name="startDate"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>{t.campaigns.startDate}</FormLabel>
-                <FormControl>
-                  <Input type="date" {...field} data-testid="input-campaign-start-date" />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+                  <FormField
+                    control={form.control}
+                    name="defaultActiveTab"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Predvolený tab</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value || "phone"}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-campaign-default-tab">
+                              <SelectValue placeholder="Vybrať predvolený tab" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="phone">Hovor</SelectItem>
+                            <SelectItem value="script">Script</SelectItem>
+                            <SelectItem value="email">Email</SelectItem>
+                            <SelectItem value="sms">SMS</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-          <FormField
-            control={form.control}
-            name="endDate"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>{t.campaigns.endDate}</FormLabel>
-                <FormControl>
-                  <Input type="date" {...field} data-testid="input-campaign-end-date" />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
+                  <FormField
+                    control={form.control}
+                    name="status"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t.campaigns.status}</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-campaign-status">
+                              <SelectValue placeholder={t.campaigns.selectStatus} />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {CAMPAIGN_STATUSES.map((status) => (
+                              <SelectItem key={status} value={status}>
+                                {t.campaigns?.statuses?.[status] || status}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
 
-        <FormField
-          control={form.control}
-          name="countryCodes"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>{t.campaigns.targetCountries}</FormLabel>
-              <div className="grid grid-cols-4 gap-2">
-                {COUNTRIES.map((country) => (
-                  <div key={country.code} className="flex items-center gap-2">
-                    <Checkbox
-                      id={`country-${country.code}`}
-                      checked={field.value.includes(country.code)}
-                      onCheckedChange={(checked) => {
-                        const newValue = checked
-                          ? [...field.value, country.code]
-                          : field.value.filter((c) => c !== country.code);
-                        field.onChange(newValue);
-                      }}
-                      data-testid={`checkbox-country-${country.code}`}
-                    />
-                    <Label htmlFor={`country-${country.code}`} className="text-sm">
-                      {country.flag} {country.code}
-                    </Label>
-                  </div>
-                ))}
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="startDate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t.campaigns.startDate}</FormLabel>
+                        <FormControl>
+                          <Input type="date" {...field} data-testid="input-campaign-start-date" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="endDate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t.campaigns.endDate}</FormLabel>
+                        <FormControl>
+                          <Input type="date" {...field} data-testid="input-campaign-end-date" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
               </div>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+            )}
 
-        <FormField
-          control={form.control}
-          name="script"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel className="flex items-center gap-2">
-                <FileText className="h-4 w-4" />
-                Scenár (Script)
-              </FormLabel>
-              <FormControl>
-                <ScriptBuilder value={field.value || ""} onChange={field.onChange} t={t} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+            {formTab === "countries" && (
+              <div className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="countryCodes"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t.campaigns.targetCountries}</FormLabel>
+                      <div className="grid grid-cols-3 gap-3 mt-2">
+                        {COUNTRIES.map((country) => (
+                          <div key={country.code} className={`flex items-center gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-colors ${field.value.includes(country.code) ? 'bg-primary/10 border-primary/30' : 'hover:bg-muted/50'}`}
+                            onClick={() => {
+                              const newValue = field.value.includes(country.code)
+                                ? field.value.filter((c) => c !== country.code)
+                                : [...field.value, country.code];
+                              field.onChange(newValue);
+                            }}
+                          >
+                            <Checkbox
+                              id={`country-${country.code}`}
+                              checked={field.value.includes(country.code)}
+                              onCheckedChange={(checked) => {
+                                const newValue = checked
+                                  ? [...field.value, country.code]
+                                  : field.value.filter((c) => c !== country.code);
+                                field.onChange(newValue);
+                              }}
+                              data-testid={`checkbox-country-${country.code}`}
+                            />
+                            <Label htmlFor={`country-${country.code}`} className="text-sm cursor-pointer">
+                              {country.flag} {country.code}
+                            </Label>
+                          </div>
+                        ))}
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            )}
 
-        <div className="flex justify-end gap-2 pt-4">
+            {formTab === "script" && (
+              <div className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="script"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="flex items-center gap-2">
+                        <FileText className="h-4 w-4" />
+                        Scenár (Script)
+                      </FormLabel>
+                      <FormControl>
+                        <ScriptBuilder value={field.value || ""} onChange={field.onChange} t={t} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-2 p-4 border-t shrink-0">
           <Button type="button" variant="outline" onClick={onCancel} data-testid="button-cancel-campaign">
             {t.common.cancel}
           </Button>
@@ -1962,8 +2015,8 @@ export default function CampaignsPage() {
           setSelectedTemplate(null);
         }
       }}>
-        <SheetContent className="w-[600px] sm:max-w-[600px] overflow-y-auto" data-testid="sheet-campaign-edit">
-          <SheetHeader>
+        <SheetContent className="w-[900px] sm:max-w-[900px] p-0 flex flex-col" data-testid="sheet-campaign-edit">
+          <SheetHeader className="px-6 pt-6 pb-4 border-b shrink-0">
             <SheetTitle>
               {editingCampaign 
                 ? t.campaigns.editCampaign
@@ -1974,37 +2027,36 @@ export default function CampaignsPage() {
                 ? t.campaigns.editCampaignDesc
                 : t.campaigns.addCampaignDesc}
             </SheetDescription>
+            {!editingCampaign && templates.length > 0 && (
+              <div className="space-y-2 pt-3">
+                <Label className="text-sm font-medium">Použiť šablónu</Label>
+                <Select 
+                  value={selectedTemplate?.id || ""} 
+                  onValueChange={(value) => {
+                    const template = templates.find(t => t.id === value);
+                    setSelectedTemplate(template || null);
+                  }}
+                >
+                  <SelectTrigger data-testid="select-template">
+                    <SelectValue placeholder="Vybrať šablónu (voliteľné)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Bez šablóny</SelectItem>
+                    {templates.map((template) => (
+                      <SelectItem key={template.id} value={template.id}>
+                        <div className="flex items-center gap-2">
+                          <FileText className="w-4 h-4" />
+                          {template.name}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </SheetHeader>
           
-          {!editingCampaign && templates.length > 0 && (
-            <div className="space-y-2 pb-4 border-b mt-4">
-              <Label className="text-sm font-medium">Použiť šablónu</Label>
-              <Select 
-                value={selectedTemplate?.id || ""} 
-                onValueChange={(value) => {
-                  const template = templates.find(t => t.id === value);
-                  setSelectedTemplate(template || null);
-                }}
-              >
-                <SelectTrigger data-testid="select-template">
-                  <SelectValue placeholder="Vybrať šablónu (voliteľné)" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">Bez šablóny</SelectItem>
-                  {templates.map((template) => (
-                    <SelectItem key={template.id} value={template.id}>
-                      <div className="flex items-center gap-2">
-                        <FileText className="w-4 h-4" />
-                        {template.name}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-          
-          <div className="mt-4">
+          <div className="flex-1 min-h-0">
             <CampaignForm
               key={selectedTemplate?.id || "new"}
               initialData={editingCampaign || undefined}
