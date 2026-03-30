@@ -1588,15 +1588,13 @@ export default function CampaignsPage() {
     if (badges.length === 0) return null;
 
     return (
-      <div className="flex gap-1 mt-1 flex-wrap">
+      <div className="flex items-center gap-2 mt-0.5">
         {badges.map((b, i) => {
-          const color = b.pct >= 100 ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-            : b.pct >= 70 ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
-            : b.pct >= 30 ? "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400"
-            : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400";
+          const dotColor = b.pct >= 100 ? "bg-green-500" : b.pct >= 70 ? "bg-yellow-500" : b.pct >= 30 ? "bg-orange-500" : "bg-red-500";
           return (
-            <span key={i} className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${color}`} data-testid={`badge-kpi-${campaign.id}-${i}`}>
-              {b.label}
+            <span key={i} className="inline-flex items-center gap-1 text-[10px] text-muted-foreground" data-testid={`badge-kpi-${campaign.id}-${i}`}>
+              <span className={`h-1.5 w-1.5 rounded-full ${dotColor}`} />
+              {b.pct}%
             </span>
           );
         })}
