@@ -86,7 +86,7 @@ export function AppSidebar() {
 
   const nexusNavItems = [
     { title: "NEXUS Omni", url: "/email", icon: Network, testId: "nexus-omni", moduleKey: "email" },
-    { title: "NEXUS Pulse", url: "/agent-workspace", icon: Zap, testId: "nexus-pulse", moduleKey: "campaigns", roles: ["callCenter", "admin"] },
+    { title: "NEXUS Pulse", url: "/agent-workspace", icon: Zap, testId: "nexus-pulse", moduleKey: "nexusPulse", roles: ["callCenter", "admin"] },
     { title: "NEXUS Missions", url: "/campaigns", icon: Target, testId: "nexus-missions", moduleKey: "campaigns" },
   ];
 

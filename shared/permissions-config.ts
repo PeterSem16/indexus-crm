@@ -258,17 +258,30 @@ export const CRM_MODULES: ModuleDefinition[] = [
     ],
   },
   {
+    key: "nexusPulse",
+    label: "NEXUS Pulse",
+    icon: "Zap",
+    category: "nexus",
+    defaultAccess: "visible",
+    fields: [
+      { key: "agent_workspace", label: "Agent Workspace", defaultPermission: "editable" },
+      { key: "call_interface", label: "Call Interface", defaultPermission: "editable" },
+      { key: "call_scripts", label: "Call Scripts", defaultPermission: "editable" },
+      { key: "contact_queue", label: "Contact Queue", defaultPermission: "editable" },
+      { key: "call_history", label: "Call History", defaultPermission: "readonly" },
+    ],
+  },
+  {
     key: "campaigns",
-    label: "NEXUS Missions & Pulse",
+    label: "NEXUS Missions",
     icon: "Target",
     category: "nexus",
     defaultAccess: "visible",
     fields: [
       { key: "campaign_management", label: "Campaign Management", defaultPermission: "editable" },
       { key: "campaign_contacts", label: "Campaign Contacts", defaultPermission: "editable" },
-      { key: "agent_workspace", label: "Agent Workspace (Pulse)", defaultPermission: "editable" },
-      { key: "call_scripts", label: "Call Scripts", defaultPermission: "editable" },
       { key: "campaign_reports", label: "Campaign Reports", defaultPermission: "readonly" },
+      { key: "campaign_templates", label: "Campaign Templates", defaultPermission: "editable" },
     ],
   },
 
