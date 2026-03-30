@@ -318,14 +318,7 @@ export default function CustomerInvoicesPage() {
     dueThisQuarterAmount: string; dueThisHalfAmount: string;
     createdAmount: string;
   }>({
-    queryKey: ["/api/scheduled-invoices/stats", { countries: selectedCountries }],
-    queryFn: async () => {
-      const params = new URLSearchParams();
-      if (selectedCountries.length > 0) params.set("countries", selectedCountries.join(","));
-      const res = await fetch(`/api/scheduled-invoices/stats?${params.toString()}`, { credentials: "include" });
-      if (!res.ok) throw new Error("Failed to fetch");
-      return res.json();
-    },
+    queryKey: ["/api/scheduled-invoices/stats", selectedCountries.length > 0 ? { countries: selectedCountries.join(",") } : {}],
   });
 
   const exchangeRateMap = useMemo(() => {
@@ -603,7 +596,7 @@ export default function CustomerInvoicesPage() {
 
   const CHART_COLORS = ["#93C5FD", "#86EFAC", "#FCA5A5", "#FDE68A", "#C4B5FD", "#FDBA74", "#A5F3FC", "#F9A8D4", "#D9F99D", "#E9D5FF"];
 
-  const { data: serverReportData } = useQuery<{
+  const { data: serverReportData, isLoading: isLoadingReport, error: reportError } = useQuery<{
     totals: { issuedCount: number; issuedTotal: number; paidTotal: number; unpaidTotal: number; avgValue: number };
     byStatus: { status: string; count: number; totalAmount: number }[];
     byCurrency: { currency: string; count: number; total: number }[];
@@ -613,14 +606,7 @@ export default function CustomerInvoicesPage() {
     byMonth: { month: string; count: number; total: number }[];
     bySource: { source: string; count: number; total: number; paid: number; paidCount: number; unpaidCount: number }[];
   }>({
-    queryKey: ["/api/invoices/report", { countries: selectedCountries }],
-    queryFn: async () => {
-      const params = new URLSearchParams();
-      if (selectedCountries.length > 0) params.set("countries", selectedCountries.join(","));
-      const res = await fetch(`/api/invoices/report?${params.toString()}`, { credentials: "include" });
-      if (!res.ok) throw new Error("Failed to fetch");
-      return res.json();
-    },
+    queryKey: ["/api/invoices/report", selectedCountries.length > 0 ? { countries: selectedCountries.join(",") } : {}],
   });
 
   const reportData = useMemo(() => {
@@ -1557,6 +1543,17 @@ export default function CustomerInvoicesPage() {
 
 
         <TabsContent value="report">
+          {isLoadingReport ? (
+            <div className="flex items-center justify-center h-64">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              <span className="ml-2 text-muted-foreground">Načítavam report...</span>
+            </div>
+          ) : reportError ? (
+            <div className="flex items-center justify-center h-64 text-destructive">
+              <AlertCircle className="h-8 w-8 mr-2" />
+              <span>Chyba pri načítaní reportu</span>
+            </div>
+          ) : (
           <div className="space-y-6">
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
               <Card className="bg-blue-50/50 dark:bg-blue-950/10 border-blue-100 dark:border-blue-900" data-testid="card-issued-total">
@@ -2092,6 +2089,7 @@ export default function CustomerInvoicesPage() {
               </CardContent>
             </Card>
           </div>
+          )}
         </TabsContent>
       </Tabs>
 
