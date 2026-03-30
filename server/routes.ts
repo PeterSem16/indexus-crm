@@ -13071,6 +13071,44 @@ Return ONLY valid JSON, no markdown code blocks.`,
     }
   });
 
+  app.post("/api/campaigns/:id/phases/:phaseId/sync", requireAuth, async (req, res) => {
+    try {
+      const phase = await storage.getCampaignPhase(req.params.phaseId);
+      if (!phase || phase.campaignId !== req.params.id) return res.status(404).json({ error: "Phase not found" });
+
+      const campaignContacts = await storage.getCampaignContacts(req.params.id);
+      const campaignContactIds = new Set(campaignContacts.map(cc => cc.id));
+
+      const contactPhases = await storage.getCampaignContactPhases(phase.id);
+      const existingContactIds = new Set(contactPhases.map(cp => cp.contactId));
+
+      const orphanedIds = contactPhases
+        .filter(cp => !campaignContactIds.has(cp.contactId))
+        .map(cp => cp.id);
+
+      if (orphanedIds.length > 0) {
+        await storage.deleteCampaignContactPhasesByIds(orphanedIds);
+      }
+
+      const missingContacts = campaignContacts.filter(cc => !existingContactIds.has(cc.id));
+      let added: any[] = [];
+      if (missingContacts.length > 0) {
+        added = await storage.createCampaignContactPhases(
+          missingContacts.map(cc => ({
+            campaignId: req.params.id,
+            contactId: cc.id,
+            phaseId: phase.id,
+            status: "pending" as const,
+          }))
+        );
+      }
+
+      res.json({ removed: orphanedIds.length, added: added.length, total: campaignContacts.length });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to sync phase contacts" });
+    }
+  });
+
   app.post("/api/campaigns/:id/phases/:phaseId/contacts/:contactPhaseId/reset", requireAuth, async (req, res) => {
     try {
       const phase = await storage.getCampaignPhase(req.params.phaseId);

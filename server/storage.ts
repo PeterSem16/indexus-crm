@@ -399,6 +399,7 @@ export interface IStorage {
   getCampaignContactPhases(phaseId: string): Promise<CampaignContactPhase[]>;
   getContactPhaseHistory(campaignId: string, contactId: string): Promise<CampaignContactPhase[]>;
   createCampaignContactPhases(data: InsertCampaignContactPhase[]): Promise<CampaignContactPhase[]>;
+  deleteCampaignContactPhasesByIds(ids: string[]): Promise<void>;
   updateCampaignContactPhase(id: string, data: Partial<CampaignContactPhase>): Promise<CampaignContactPhase | undefined>;
 
   // Entity Campaign Timeline
@@ -2652,6 +2653,13 @@ export class DatabaseStorage implements IStorage {
   async createCampaignContactPhases(data: InsertCampaignContactPhase[]): Promise<CampaignContactPhase[]> {
     if (data.length === 0) return [];
     return db.insert(campaignContactPhases).values(data).returning();
+  }
+
+  async deleteCampaignContactPhasesByIds(ids: string[]): Promise<void> {
+    if (ids.length === 0) return;
+    for (const id of ids) {
+      await db.delete(campaignContactPhases).where(eq(campaignContactPhases.id, id));
+    }
   }
 
   async updateCampaignContactPhase(id: string, data: Partial<CampaignContactPhase>): Promise<CampaignContactPhase | undefined> {

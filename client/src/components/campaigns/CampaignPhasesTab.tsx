@@ -13,7 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import {
   Plus, Phone, Mail, Play, CheckCircle, ArrowRight, Trash2,
-  Clock, Users, BarChart3, Pencil, Eye, ChevronRight, Layers, Target, Percent, RotateCcw
+  Clock, Users, BarChart3, Pencil, Eye, ChevronRight, Layers, Target, Percent, RotateCcw, RefreshCw
 } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import type { CampaignPhase, CampaignContactPhase, CampaignDisposition } from "@shared/schema";
@@ -86,6 +86,9 @@ const phasesT: Record<string, Record<string, string>> = {
     resetContactConfirm: "Naozaj chcete resetovať tento kontakt do stavu čakajúce?",
     resetContactSuccess: "Kontakt bol resetovaný",
     confirm: "Potvrdiť",
+    syncContacts: "Synchronizovať kontakty",
+    syncContactsDesc: "Odstráni neplatné a pridá nové kontakty z kampane",
+    syncSuccess: "Synchronizácia dokončená",
   },
   en: {
     title: "Campaign Phases",
@@ -153,6 +156,9 @@ const phasesT: Record<string, Record<string, string>> = {
     resetContactConfirm: "Are you sure you want to reset this contact back to pending?",
     resetContactSuccess: "Contact has been reset",
     confirm: "Confirm",
+    syncContacts: "Sync Contacts",
+    syncContactsDesc: "Removes orphaned and adds new contacts from campaign",
+    syncSuccess: "Sync completed",
   },
   cs: {
     title: "Fáze kampaně",
@@ -220,6 +226,9 @@ const phasesT: Record<string, Record<string, string>> = {
     resetContactConfirm: "Opravdu chcete resetovat tento kontakt do stavu čekající?",
     resetContactSuccess: "Kontakt byl resetován",
     confirm: "Potvrdit",
+    syncContacts: "Synchronizovat kontakty",
+    syncContactsDesc: "Odstraní neplatné a přidá nové kontakty z kampaně",
+    syncSuccess: "Synchronizace dokončena",
   },
   hu: {
     title: "Kampányfázisok",
@@ -287,6 +296,9 @@ const phasesT: Record<string, Record<string, string>> = {
     resetContactConfirm: "Biztosan vissza akarja állítani ezt a kapcsolatot függőben állapotba?",
     resetContactSuccess: "A kapcsolat visszaállítva",
     confirm: "Megerősítés",
+    syncContacts: "Kapcsolatok szinkronizálása",
+    syncContactsDesc: "Eltávolítja az érvénytelen és hozzáadja az új kapcsolatokat",
+    syncSuccess: "Szinkronizálás kész",
   },
   ro: {
     title: "Fazele campaniei",
@@ -354,6 +366,9 @@ const phasesT: Record<string, Record<string, string>> = {
     resetContactConfirm: "Sigur doriți să resetați acest contact la starea în așteptare?",
     resetContactSuccess: "Contactul a fost resetat",
     confirm: "Confirmă",
+    syncContacts: "Sincronizare contacte",
+    syncContactsDesc: "Elimină contactele invalide și adaugă altele noi din campanie",
+    syncSuccess: "Sincronizare completă",
   },
   it: {
     title: "Fasi della campagna",
@@ -421,6 +436,9 @@ const phasesT: Record<string, Record<string, string>> = {
     resetContactConfirm: "Sei sicuro di voler reimpostare questo contatto allo stato di attesa?",
     resetContactSuccess: "Il contatto è stato reimpostato",
     confirm: "Conferma",
+    syncContacts: "Sincronizza contatti",
+    syncContactsDesc: "Rimuove i contatti non validi e aggiunge quelli nuovi dalla campagna",
+    syncSuccess: "Sincronizzazione completata",
   },
   de: {
     title: "Kampagnenphasen",
@@ -488,6 +506,9 @@ const phasesT: Record<string, Record<string, string>> = {
     resetContactConfirm: "Sind Sie sicher, dass Sie diesen Kontakt auf den Status ausstehend zurücksetzen möchten?",
     resetContactSuccess: "Kontakt wurde zurückgesetzt",
     confirm: "Bestätigen",
+    syncContacts: "Kontakte synchronisieren",
+    syncContactsDesc: "Entfernt ungültige und fügt neue Kontakte aus der Kampagne hinzu",
+    syncSuccess: "Synchronisierung abgeschlossen",
   },
 };
 
@@ -619,6 +640,19 @@ export default function CampaignPhasesTab({ campaignId }: { campaignId: string }
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "phases"] });
       setShowTransitionDialog(null);
       toast({ title: pt.transition, description: `${result.transitioned} ${pt.transitioned} ${pt.of} ${result.total}` });
+    },
+  });
+
+  const syncPhaseMutation = useMutation({
+    mutationFn: (phaseId: string) => apiRequest("POST", `/api/campaigns/${campaignId}/phases/${phaseId}/sync`),
+    onSuccess: async (res) => {
+      const result = await res.json();
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "phases"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "phases", viewContactsPhaseId, "contacts"] });
+      toast({ title: pt.syncContacts, description: `${pt.syncSuccess}: -${result.removed} / +${result.added}` });
+    },
+    onError: (err: any) => {
+      toast({ title: "Chyba", description: err.message || "Sync failed", variant: "destructive" });
     },
   });
 
@@ -906,6 +940,18 @@ export default function CampaignPhasesTab({ campaignId }: { campaignId: string }
                       setNewTargetResponseRate(phase.targetResponseRate != null ? String(phase.targetResponseRate) : "");
                     }} data-testid={`button-edit-${phase.id}`}>
                       <Pencil className="w-3.5 h-3.5" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-blue-600"
+                      onClick={() => syncPhaseMutation.mutate(phase.id)}
+                      disabled={syncPhaseMutation.isPending}
+                      data-testid={`button-sync-phase-${phase.id}`}
+                      title={pt.syncContactsDesc}
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 mr-1 ${syncPhaseMutation.isPending ? "animate-spin" : ""}`} />
+                      {pt.syncContacts}
                     </Button>
                     {phase.status !== "draft" && (
                       <AlertDialog>
