@@ -6,3 +6,9 @@ id = "RwqYmszvVQqKx4SwXgh3A"
 uri = "file://script/migration/partner-acquisition-agent-guide.md"
 type = "text"
 title = "Partner Acquisition — Návod pre agenta"
+
+[[outputs]]
+id = "8qA5pUV_LCDxAkXc5XPkj"
+uri = "file://script/migration/partner-acquisition-callcenter-guide.md"
+type = "text"
+title = "Partner Acquisition — Návod pre call centrum"
