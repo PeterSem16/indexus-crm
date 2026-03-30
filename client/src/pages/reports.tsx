@@ -13,7 +13,7 @@ import {
   Search, FileText, Download, Printer, User, Phone, Mail, MapPin, Calendar,
   FileCheck, CreditCard, AlertTriangle, FlaskConical, Activity, MessageSquare,
   Shield, Baby, Building2, Heart, Clock, CheckCircle2, XCircle, ChevronRight,
-  BarChart3, Briefcase, Receipt, Scale, Beaker, History, Target
+  BarChart3, Briefcase, Receipt, Scale, Beaker, History, Target, Loader2
 } from "lucide-react";
 
 type Customer = any;
@@ -84,215 +84,497 @@ function InfoRow({ label, value, icon: Icon }: { label: string; value: any; icon
   );
 }
 
-function parseDetails(details: string | null | undefined): Record<string, any> | null {
-  if (!details) return null;
-  try { return JSON.parse(details); } catch { return null; }
-}
+function CustomerHistorySection({ customerId, customerName }: { customerId: string; customerName: string }) {
+  const [filterType, setFilterType] = useState("all");
 
-function formatActivityDescription(action: string, details: string | null | undefined, entityType: string | null | undefined): string {
-  const parsed = parseDetails(details);
-  switch (action) {
-    case "update": {
-      if (parsed?.changes && Array.isArray(parsed.changes)) {
-        const fields = parsed.changes.filter((f: string) => !["updatedAt", "createdAt"].includes(f));
-        if (fields.length > 0) return `Updated fields: ${fields.join(", ")}`;
-      }
-      if (parsed?.changes && typeof parsed.changes === "object" && !Array.isArray(parsed.changes)) {
-        const entries = Object.entries(parsed.changes);
-        return entries.map(([k, v]: [string, any]) => {
-          if (v && typeof v === "object" && "from" in v && "to" in v) return `${k}: "${v.from}" → "${v.to}"`;
-          return `${k}: ${JSON.stringify(v)}`;
-        }).join("; ");
-      }
-      return `Record updated (${entityType || "entity"})`;
+  const { data: activityLogs = [] } = useQuery<any[]>({
+    queryKey: ["/api/customers", customerId, "activity-logs"],
+    enabled: !!customerId,
+  });
+
+  const { data: documents = [] } = useQuery<any[]>({
+    queryKey: ["/api/customers", customerId, "documents"],
+    enabled: !!customerId,
+  });
+
+  const { data: notes = [] } = useQuery<any[]>({
+    queryKey: ["/api/customers", customerId, "notes"],
+    enabled: !!customerId,
+  });
+
+  const { data: messages = [] } = useQuery<any[]>({
+    queryKey: ["/api/customers", customerId, "messages"],
+    enabled: !!customerId,
+  });
+
+  const { data: customerEmails = [] } = useQuery<any[]>({
+    queryKey: ["/api/customers", customerId, "emails"],
+    queryFn: async () => {
+      const res = await fetch(`/api/customers/${customerId}/emails`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!customerId,
+  });
+
+  const { data: callLogs = [] } = useQuery<any[]>({
+    queryKey: ["/api/customers", customerId, "call-logs"],
+    queryFn: async () => {
+      const res = await fetch(`/api/call-logs?customerId=${customerId}&includeRecordings=true`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!customerId,
+  });
+
+  const { data: inboundCallLogs = [] } = useQuery<any[]>({
+    queryKey: ["/api/inbound-call-logs/by-customer", customerId],
+    queryFn: async () => {
+      const res = await fetch(`/api/inbound-call-logs/by-customer/${customerId}`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!customerId,
+  });
+
+  const { data: users = [] } = useQuery<any[]>({
+    queryKey: ["/api/users"],
+  });
+
+  const { data: contactHistory = [] } = useQuery<any[]>({
+    queryKey: ["/api/customers", customerId, "contact-history-audit"],
+    queryFn: async () => {
+      const res = await fetch(`/api/customers/${customerId}/audit-report`, { credentials: "include" });
+      if (!res.ok) return [];
+      const data = await res.json();
+      return data.contactHistory || [];
+    },
+    enabled: !!customerId,
+  });
+
+  const getUserName = (userId: string) => {
+    const user = users.find((u: any) => u.id === userId);
+    return user?.fullName || user?.username || "System";
+  };
+
+  type TimelineEvent = {
+    id: string;
+    type: string;
+    title: string;
+    description: string;
+    date: string;
+    userName: string;
+    icon: any;
+    color: string;
+    details?: string;
+  };
+
+  const events: TimelineEvent[] = [];
+
+  activityLogs.forEach((log: any) => {
+    let details: any = {};
+    if (log.details) {
+      try { details = typeof log.details === "string" ? JSON.parse(log.details) : log.details; } catch { details = {}; }
     }
-    case "create": return `New ${entityType || "record"} created`;
-    case "upsert": return `Record created/updated (${entityType || "entity"})`;
-    case "campaign_joined": {
-      const name = parsed?.campaignName || parsed?.campaignId || "";
-      return `Joined campaign${name ? `: ${name}` : ""}`;
-    }
-    case "campaign_status_changed": {
-      return `Campaign status changed${parsed?.status ? ` to "${parsed.status}"` : ""}`;
-    }
-    case "email_sent": {
-      const subj = parsed?.subject || parsed?.to || "";
-      return `Email sent${subj ? `: ${subj}` : ""}`;
-    }
-    case "send_sms": {
-      const to = parsed?.to || parsed?.phone || "";
-      return `SMS sent${to ? ` to ${to}` : ""}`;
-    }
-    case "create_note":
-    case "note_added":
-      return `Note added${parsed?.note ? `: ${parsed.note.substring(0, 100)}` : ""}`;
-    case "upload_file":
-      return `File uploaded${parsed?.fileName ? `: ${parsed.fileName}` : ""}`;
-    case "reassign":
-      return `Reassigned${parsed?.to ? ` to ${parsed.to}` : ""}${parsed?.from ? ` from ${parsed.from}` : ""}`;
-    case "web_form_submission":
-      return "Web form submitted";
-    case "marketing_action":
-      return `Marketing action${parsed?.action ? `: ${parsed.action}` : ""}`;
-    case "generated_invoice_number":
-      return `Invoice number generated${parsed?.number ? `: ${parsed.number}` : ""}`;
-    default: {
-      if (parsed) {
-        const keys = Object.keys(parsed);
-        if (keys.length <= 3) {
-          return keys.map(k => `${k}: ${typeof parsed[k] === "string" ? parsed[k] : JSON.stringify(parsed[k])}`).join("; ");
+
+    let type = "data";
+    let title = log.action?.replace(/_/g, " ") || "Activity";
+    let description = log.entityName || customerName;
+    let icon = <Clock className="h-4 w-4" />;
+    let color = "border-blue-400";
+    let extraDetails = "";
+
+    switch (log.action) {
+      case "create":
+        title = "Vytvorenie záznamu";
+        description = `Nový ${log.entityType || "záznam"} vytvorený`;
+        icon = <CheckCircle2 className="h-4 w-4 text-green-500" />;
+        color = "border-green-500";
+        type = "data";
+        break;
+      case "update":
+        title = "Aktualizácia údajov";
+        icon = <Clock className="h-4 w-4 text-blue-500" />;
+        color = "border-blue-500";
+        type = "data";
+        if (details?.changes && Array.isArray(details.changes)) {
+          const fields = details.changes.filter((f: string) => !["updatedAt", "createdAt"].includes(f));
+          if (fields.length > 0) description = `Zmenené polia: ${fields.join(", ")}`;
+          if (details.changes.includes("status") || details.changes.includes("clientStatus")) {
+            title = "Zmena statusu";
+            type = "status";
+            color = "border-orange-500";
+            icon = <Activity className="h-4 w-4 text-orange-500" />;
+          }
+          if (details.changes.includes("pipelineStageId")) {
+            title = "Presun v pipeline";
+            type = "pipeline";
+            color = "border-cyan-500";
+            icon = <ChevronRight className="h-4 w-4 text-cyan-500" />;
+          }
         }
-        return `${action} (${keys.length} fields changed)`;
-      }
-      return action.replace(/_/g, " ");
+        if (details?.oldValues && details?.newValues) {
+          const changed = Object.keys(details.newValues).filter(k => details.oldValues[k] !== details.newValues[k] && !["updatedAt","createdAt"].includes(k));
+          extraDetails = changed.map(k => `${k}: "${details.oldValues[k] || "—"}" → "${details.newValues[k] || "—"}"`).join("\n");
+        }
+        break;
+      case "pipeline_move":
+      case "stage_changed":
+        title = "Presun v pipeline";
+        type = "pipeline";
+        icon = <ChevronRight className="h-4 w-4 text-cyan-500" />;
+        color = "border-cyan-500";
+        description = `${details?.fromStageName || "—"} → ${details?.toStageName || "—"}`;
+        break;
+      case "create_note":
+      case "note_added":
+      case "add_note":
+        title = "Pridanie poznámky";
+        type = "note";
+        icon = <MessageSquare className="h-4 w-4 text-amber-500" />;
+        color = "border-amber-500";
+        description = details?.content?.substring(0, 150) || details?.note?.substring(0, 150) || "Poznámka";
+        break;
+      case "email_sent":
+        title = "Odoslaný email";
+        type = "email";
+        icon = <Mail className="h-4 w-4 text-blue-500" />;
+        color = "border-blue-400";
+        description = details?.subject || details?.to || "Email";
+        break;
+      case "send_sms":
+        title = "Odoslaná SMS";
+        type = "call";
+        icon = <Phone className="h-4 w-4 text-emerald-500" />;
+        color = "border-emerald-500";
+        description = `SMS na ${details?.to || details?.phone || "—"}`;
+        break;
+      case "campaign_joined":
+        title = "Pridaný do kampane";
+        type = "campaign";
+        icon = <Target className="h-4 w-4 text-violet-500" />;
+        color = "border-violet-500";
+        description = details?.campaignName || "Kampaň";
+        break;
+      case "campaign_left":
+        title = "Odstránený z kampane";
+        type = "campaign";
+        icon = <Target className="h-4 w-4 text-red-400" />;
+        color = "border-red-400";
+        description = details?.campaignName || "Kampaň";
+        break;
+      case "campaign_status_changed":
+        title = "Zmena statusu v kampani";
+        type = "campaign";
+        icon = <Target className="h-4 w-4 text-violet-500" />;
+        color = "border-violet-500";
+        description = `${details?.campaignName || "Kampaň"}: ${details?.previousStatus || "—"} → ${details?.newStatus || details?.status || "—"}`;
+        break;
+      case "campaign_note_added":
+        title = "Poznámka ku kampani";
+        type = "campaign";
+        icon = <Target className="h-4 w-4 text-violet-500" />;
+        color = "border-violet-500";
+        description = details?.campaignName || "Kampaň";
+        break;
+      case "upload_file":
+        title = "Nahraný súbor";
+        type = "document";
+        icon = <FileCheck className="h-4 w-4 text-purple-500" />;
+        color = "border-purple-500";
+        description = details?.fileName || "Súbor";
+        break;
+      case "consent_granted":
+        title = "Udelenie súhlasu";
+        type = "consent";
+        icon = <Shield className="h-4 w-4 text-green-500" />;
+        color = "border-green-500";
+        description = details?.consentType || "Súhlas";
+        break;
+      case "consent_revoked":
+        title = "Odvolanie súhlasu";
+        type = "consent";
+        icon = <Shield className="h-4 w-4 text-red-500" />;
+        color = "border-red-500";
+        description = details?.consentType || "Súhlas";
+        break;
+      case "add_product":
+        title = "Pridanie produktu";
+        type = "product";
+        icon = <Briefcase className="h-4 w-4 text-indigo-500" />;
+        color = "border-indigo-500";
+        description = details?.productName || "Produkt";
+        break;
+      case "remove_product":
+        title = "Odobratie produktu";
+        type = "product";
+        icon = <Briefcase className="h-4 w-4 text-red-500" />;
+        color = "border-red-500";
+        description = details?.productName || "Produkt";
+        break;
+      case "marketing_action":
+        title = "Webový formulár";
+        type = "campaign";
+        icon = <Target className="h-4 w-4 text-orange-500" />;
+        color = "border-orange-500";
+        description = details?.message || details?.formName || "Marketing";
+        break;
+      default:
+        title = log.action?.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()) || "Aktivita";
+        description = log.entityName || customerName;
     }
-  }
-}
 
-function getActionIcon(action: string) {
-  switch (action) {
-    case "update": return <Clock className="h-4 w-4 text-blue-500" />;
-    case "create": return <CheckCircle2 className="h-4 w-4 text-green-500" />;
-    case "email_sent": return <Mail className="h-4 w-4 text-indigo-500" />;
-    case "send_sms": return <Phone className="h-4 w-4 text-emerald-500" />;
-    case "create_note": case "note_added": return <MessageSquare className="h-4 w-4 text-amber-500" />;
-    case "upload_file": return <FileCheck className="h-4 w-4 text-purple-500" />;
-    case "campaign_joined": case "campaign_status_changed": return <Target className="h-4 w-4 text-rose-500" />;
-    case "reassign": return <User className="h-4 w-4 text-sky-500" />;
-    default: return <Activity className="h-4 w-4 text-muted-foreground" />;
-  }
-}
+    events.push({
+      id: log.id,
+      type,
+      title,
+      description,
+      date: log.createdAt,
+      userName: getUserName(log.userId),
+      icon,
+      color,
+      details: extraDetails || undefined,
+    });
+  });
 
-function getActionLabel(action: string): string {
-  const labels: Record<string, string> = {
-    update: "Update", create: "Created", upsert: "Created/Updated",
-    email_sent: "Email", send_sms: "SMS", create_note: "Note", note_added: "Note",
-    upload_file: "Upload", campaign_joined: "Campaign", campaign_status_changed: "Campaign",
-    reassign: "Reassign", web_form_submission: "Web Form", marketing_action: "Marketing",
-    generated_invoice_number: "Invoice",
+  documents.forEach((doc: any) => {
+    const docType = doc.documentType || doc.type;
+    const isContract = docType === "contract";
+    const docNumber = doc.contractNumber || doc.invoiceNumber || doc.number || "";
+    const amount = doc.totalAmount || doc.amount;
+    const currency = doc.domesticCurrency || doc.currency;
+    let desc = docNumber;
+    if (amount && currency) desc += ` — ${amount} ${currency}`;
+
+    events.push({
+      id: `doc-${doc.id}`,
+      type: "document",
+      title: isContract ? "Zmluva" : "Faktúra",
+      description: desc || "Dokument",
+      date: doc.issueDate || doc.validFrom || doc.createdAt,
+      userName: getUserName(doc.createdBy),
+      icon: isContract ? <FileText className="h-4 w-4 text-emerald-500" /> : <Receipt className="h-4 w-4 text-amber-500" />,
+      color: isContract ? "border-emerald-500" : "border-amber-500",
+    });
+  });
+
+  notes.forEach((note: any) => {
+    const alreadyInLogs = events.some(e => e.type === "note" && e.id === note.id);
+    if (!alreadyInLogs) {
+      events.push({
+        id: `note-${note.id}`,
+        type: "note",
+        title: "Poznámka",
+        description: note.content?.substring(0, 200) || "—",
+        date: note.createdAt,
+        userName: getUserName(note.userId),
+        icon: <MessageSquare className="h-4 w-4 text-amber-500" />,
+        color: "border-amber-500",
+      });
+    }
+  });
+
+  messages.forEach((msg: any) => {
+    const isInbound = msg.direction === "inbound";
+    const isSms = msg.type === "sms";
+    events.push({
+      id: `msg-${msg.id}`,
+      type: isSms ? "call" : "email",
+      title: isSms ? (isInbound ? "Prijatá SMS" : "Odoslaná SMS") : (isInbound ? "Prijatý email" : "Odoslaný email"),
+      description: msg.subject || msg.content?.substring(0, 100) || "—",
+      date: msg.sentAt || msg.createdAt,
+      userName: getUserName(msg.userId),
+      icon: isSms
+        ? <Phone className="h-4 w-4 text-emerald-500" />
+        : (isInbound ? <Mail className="h-4 w-4 text-green-500" /> : <Mail className="h-4 w-4 text-blue-500" />),
+      color: isSms ? "border-emerald-500" : (isInbound ? "border-green-500" : "border-blue-400"),
+    });
+  });
+
+  customerEmails.forEach((email: any) => {
+    const isOutbound = email.direction === "outbound";
+    events.push({
+      id: `email-${email.id}`,
+      type: "email",
+      title: isOutbound ? "Odoslaný email" : "Prijatý email",
+      description: `${email.subject || "(bez predmetu)"}${email.bodyPreview ? ` — ${email.bodyPreview.substring(0, 100)}` : ""}`,
+      date: email.receivedAt || email.createdAt,
+      userName: email.senderName || email.senderEmail || "—",
+      icon: isOutbound ? <Mail className="h-4 w-4 text-blue-500" /> : <Mail className="h-4 w-4 text-green-500" />,
+      color: isOutbound ? "border-blue-400" : "border-green-500",
+    });
+  });
+
+  callLogs.forEach((call: any) => {
+    const isOutbound = call.direction === "outbound";
+    const duration = call.durationSeconds
+      ? `${Math.floor(call.durationSeconds / 60)}:${String(call.durationSeconds % 60).padStart(2, '0')}`
+      : "—";
+    const statusLabels: Record<string, string> = {
+      completed: "Dokončený", answered: "Zodvihnutý", failed: "Neúspešný",
+      missed: "Zmeškaný", no_answer: "Bez odpovede", busy: "Obsadené",
+      cancelled: "Zrušený", initiated: "Iniciovaný", ringing: "Zvoní",
+    };
+    let desc = `${call.phoneNumber} — ${statusLabels[call.status] || call.status}`;
+    if (call.durationSeconds) desc += ` — Trvanie: ${duration}`;
+    if (call.notes) desc += ` — ${call.notes}`;
+
+    events.push({
+      id: `call-${call.id}`,
+      type: "call",
+      title: isOutbound ? "Odchádzajúci hovor" : "Prichádzajúci hovor",
+      description: desc,
+      date: call.startedAt || call.createdAt,
+      userName: getUserName(call.userId),
+      icon: isOutbound ? <Phone className="h-4 w-4 text-violet-500" /> : <Phone className="h-4 w-4 text-cyan-500" />,
+      color: isOutbound ? "border-violet-500" : "border-cyan-500",
+    });
+  });
+
+  inboundCallLogs.forEach((log: any) => {
+    const statusLabels: Record<string, string> = {
+      queued: "Vo fronte", ringing: "Zvoní", answered: "Zodvihnutý",
+      completed: "Dokončený", abandoned: "Zmeškaný", timeout: "Timeout",
+    };
+    const isAbandoned = ["abandoned", "timeout", "overflow"].includes(log.status);
+    let desc = `${log.callerNumber} — ${statusLabels[log.status] || log.status}`;
+    if (log.queueName) desc += ` | Fronta: ${log.queueName}`;
+    if (log.agentName) desc += ` | Agent: ${log.agentName}`;
+
+    events.push({
+      id: `inbound-${log.id}`,
+      type: "call",
+      title: isAbandoned ? "Zmeškaný hovor (Fronta)" : "Prichádzajúci hovor (Fronta)",
+      description: desc,
+      date: log.enteredQueueAt || log.createdAt,
+      userName: log.agentName || "System",
+      icon: isAbandoned ? <XCircle className="h-4 w-4 text-red-500" /> : <Phone className="h-4 w-4 text-cyan-500" />,
+      color: isAbandoned ? "border-red-500" : "border-cyan-500",
+    });
+  });
+
+  contactHistory.forEach((ch: any) => {
+    events.push({
+      id: `contact-${ch.id || Math.random()}`,
+      type: ch.contactType === "email" ? "email" : "call",
+      title: `Kontakt — ${ch.contactType || "hovor"}`,
+      description: `${ch.disposition || ch.result || "Kontakt"}${ch.notes ? ` — ${ch.notes}` : ""}`,
+      date: ch.contactedAt || ch.createdAt,
+      userName: ch.agentName || getUserName(ch.agentId),
+      icon: ch.contactType === "email" ? <Mail className="h-4 w-4 text-indigo-500" /> : <Phone className="h-4 w-4 text-emerald-500" />,
+      color: ch.contactType === "email" ? "border-indigo-500" : "border-emerald-500",
+    });
+  });
+
+  events.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  const typeCounts: Record<string, number> = { all: events.length };
+  events.forEach(e => { typeCounts[e.type] = (typeCounts[e.type] || 0) + 1; });
+
+  const filterTabs = [
+    { id: "all", label: "Všetko", icon: History, color: "bg-slate-100 dark:bg-slate-800" },
+    { id: "data", label: "Dáta", icon: Clock, color: "bg-blue-50 dark:bg-blue-900/30" },
+    { id: "document", label: "Dokumenty", icon: FileText, color: "bg-emerald-50 dark:bg-emerald-900/30" },
+    { id: "note", label: "Poznámky", icon: MessageSquare, color: "bg-amber-50 dark:bg-amber-900/30" },
+    { id: "email", label: "Emaily", icon: Mail, color: "bg-blue-50 dark:bg-blue-900/30" },
+    { id: "call", label: "Hovory", icon: Phone, color: "bg-cyan-50 dark:bg-cyan-900/30" },
+    { id: "status", label: "Status", icon: Activity, color: "bg-orange-50 dark:bg-orange-900/30" },
+    { id: "pipeline", label: "Pipeline", icon: ChevronRight, color: "bg-cyan-50 dark:bg-cyan-900/30" },
+    { id: "campaign", label: "Misie", icon: Target, color: "bg-violet-50 dark:bg-violet-900/30" },
+    { id: "consent", label: "Súhlas", icon: Shield, color: "bg-green-50 dark:bg-green-900/30" },
+    { id: "product", label: "Produkty", icon: Briefcase, color: "bg-indigo-50 dark:bg-indigo-900/30" },
+  ].filter(t => (typeCounts[t.id] || 0) > 0 || t.id === "all");
+
+  const filtered = filterType === "all" ? events : events.filter(e => e.type === filterType);
+
+  const groupByMonth = (items: TimelineEvent[]) => {
+    const groups: Record<string, TimelineEvent[]> = {};
+    items.forEach(e => {
+      const d = new Date(e.date);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const label = d.toLocaleDateString("sk-SK", { month: "long", year: "numeric" }).toUpperCase();
+      if (!groups[`${key}|${label}`]) groups[`${key}|${label}`] = [];
+      groups[`${key}|${label}`].push(e);
+    });
+    return Object.entries(groups).sort((a, b) => b[0].localeCompare(a[0]));
   };
-  return labels[action] || action.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
-}
 
-function CustomerHistorySection({ report }: { report: AuditReport }) {
-  const [historyTab, setHistoryTab] = useState("all");
-
-  const categorizeActivity = (a: any) => {
-    const action = a.action?.toLowerCase() || "";
-    if (action.includes("email") || action === "email_sent") return "emails";
-    if (action.includes("sms") || action === "send_sms") return "calls";
-    if (action.includes("note") || action === "create_note" || action === "note_added") return "notes";
-    if (action.includes("campaign") || action === "campaign_joined" || action === "campaign_status_changed") return "campaigns";
-    if (action === "upload_file") return "documents";
-    return "changes";
-  };
-
-  const activityItems = report.activityLogs.map((a: any) => ({
-    date: a.createdAt,
-    category: categorizeActivity(a),
-    action: a.action,
-    text: formatActivityDescription(a.action, a.details, a.entityType),
-    entityType: a.entityType,
-    icon: getActionIcon(a.action),
-    label: getActionLabel(a.action),
-  }));
-
-  const contactItems = report.contactHistory.map((ch: any) => ({
-    date: ch.contactedAt,
-    category: ch.contactType === "email" ? "emails" : "calls",
-    action: "contact",
-    text: `${ch.disposition || ch.result || "Contact"} via ${ch.contactType || ch.channel || "phone"}${ch.notes ? ` — ${ch.notes}` : ""}`,
-    entityType: "campaign",
-    icon: ch.contactType === "email" ? <Mail className="h-4 w-4 text-indigo-500" /> : <Phone className="h-4 w-4 text-emerald-500" />,
-    label: ch.contactType === "email" ? "Email" : "Call",
-  }));
-
-  const emailItems = (report.emailNotifications || []).map((e: any) => ({
-    date: e.receivedAt || e.createdAt,
-    category: "emails" as const,
-    action: "email_notification",
-    text: `${e.direction === "inbound" ? "Received" : "Sent"}: "${e.subject}"${e.senderName ? ` from ${e.senderName}` : ""}${e.bodyPreview ? ` — ${e.bodyPreview.substring(0, 120)}` : ""}`,
-    entityType: "email",
-    icon: <Mail className="h-4 w-4 text-indigo-500" />,
-    label: e.direction === "inbound" ? "Received" : "Sent",
-  }));
-
-  const allItems = [...activityItems, ...contactItems, ...emailItems]
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-  const filtered = historyTab === "all" ? allItems : allItems.filter(i => i.category === historyTab);
-
-  const categoryCounts = {
-    all: allItems.length,
-    changes: allItems.filter(i => i.category === "changes").length,
-    emails: allItems.filter(i => i.category === "emails").length,
-    calls: allItems.filter(i => i.category === "calls").length,
-    notes: allItems.filter(i => i.category === "notes").length,
-    campaigns: allItems.filter(i => i.category === "campaigns").length,
-    documents: allItems.filter(i => i.category === "documents").length,
-  };
-
-  const tabs = [
-    { id: "all", label: "All", icon: History, count: categoryCounts.all },
-    { id: "changes", label: "Changes", icon: Clock, count: categoryCounts.changes },
-    { id: "emails", label: "Emails", icon: Mail, count: categoryCounts.emails },
-    { id: "calls", label: "Calls / SMS", icon: Phone, count: categoryCounts.calls },
-    { id: "notes", label: "Notes", icon: MessageSquare, count: categoryCounts.notes },
-    { id: "campaigns", label: "Campaigns", icon: Target, count: categoryCounts.campaigns },
-    { id: "documents", label: "Documents", icon: FileCheck, count: categoryCounts.documents },
-  ].filter(t => t.count > 0 || t.id === "all");
+  const grouped = groupByMonth(filtered);
 
   return (
     <Card>
       <CardHeader className="pb-3">
-        <SectionTitle icon={History} title="Customer History" count={allItems.length} />
-        <div className="flex flex-wrap gap-1.5 mt-2">
-          {tabs.map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setHistoryTab(tab.id)}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                historyTab === tab.id
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "bg-muted/60 text-muted-foreground hover:bg-muted"
-              }`}
-              data-testid={`tab-history-${tab.id}`}
-            >
-              <tab.icon className="h-3.5 w-3.5" />
-              {tab.label}
-              <span className={`ml-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
-                historyTab === tab.id ? "bg-primary-foreground/20" : "bg-background"
-              }`}>{tab.count}</span>
-            </button>
-          ))}
-        </div>
+        <SectionTitle icon={History} title="Kompletná História Zákazníka" count={events.length} />
       </CardHeader>
-      <CardContent>
-        {filtered.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-6">No records in this category</p>
-        ) : (
-          <div className="space-y-0 max-h-[600px] overflow-y-auto">
-            {filtered.map((event, i) => (
-              <div key={i} className="flex items-start gap-3 py-3 px-2 border-b last:border-0 hover:bg-muted/30 rounded transition-colors" data-testid={`history-row-${i}`}>
-                <div className="mt-0.5 shrink-0 p-1.5 rounded-lg bg-muted/50">
-                  {event.icon}
+      <CardContent className="space-y-4">
+        <div className="flex flex-wrap gap-2">
+          {filterTabs.map(tab => {
+            const count = typeCounts[tab.id] || 0;
+            const isActive = filterType === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setFilterType(tab.id)}
+                className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg text-xs font-medium transition-all min-w-[64px] ${
+                  isActive
+                    ? "bg-primary text-primary-foreground shadow-md ring-2 ring-primary/30"
+                    : `${tab.color} text-foreground hover:shadow-sm`
+                }`}
+                data-testid={`tab-audit-${tab.id}`}
+              >
+                <tab.icon className="h-4 w-4" />
+                <span className="text-lg font-bold leading-none">{count}</span>
+                <span className="text-[10px] leading-none">{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="max-h-[800px] overflow-y-auto space-y-6 pr-1">
+          {grouped.map(([key, items]) => {
+            const label = key.split("|")[1];
+            return (
+              <div key={key}>
+                <div className="flex items-center gap-2 mb-3 sticky top-0 bg-background/95 backdrop-blur py-1 z-10">
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-xs font-bold text-muted-foreground tracking-wider">{label}</span>
+                  <span className="text-xs text-muted-foreground">{items.length}</span>
+                  <div className="flex-1 border-t border-dashed" />
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <Badge variant="outline" className="text-[10px] px-2 py-0 font-bold shrink-0">{event.label}</Badge>
-                    {event.entityType && event.category === "changes" && (
-                      <Badge variant="secondary" className="text-[9px] px-1.5 py-0">{event.entityType}</Badge>
-                    )}
-                  </div>
-                  <p className="text-sm leading-relaxed break-words">{event.text}</p>
-                </div>
-                <div className="text-[11px] text-muted-foreground whitespace-nowrap shrink-0 pt-0.5">
-                  {formatDateTime(event.date)}
+                <div className="relative ml-3 pl-6 border-l-2 border-muted space-y-0">
+                  {items.map((event, i) => (
+                    <div key={event.id || i} className="relative pb-4 last:pb-0" data-testid={`audit-event-${i}`}>
+                      <div className={`absolute -left-[31px] top-1 w-4 h-4 rounded-full bg-background border-2 ${event.color} flex items-center justify-center`}>
+                        <div className={`w-2 h-2 rounded-full ${event.color.replace("border-", "bg-")}`} />
+                      </div>
+                      <div className="bg-card border rounded-lg p-3 ml-1 hover:shadow-sm transition-shadow">
+                        <div className="flex items-start gap-3">
+                          <div className="shrink-0 mt-0.5">{event.icon}</div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-semibold text-sm">{event.title}</span>
+                            </div>
+                            <p className="text-sm text-muted-foreground mt-0.5 break-words leading-relaxed">{event.description}</p>
+                            {event.details && (
+                              <pre className="text-xs text-muted-foreground mt-1.5 bg-muted/30 rounded p-2 whitespace-pre-wrap font-mono">{event.details}</pre>
+                            )}
+                          </div>
+                          <div className="text-right shrink-0">
+                            <div className="text-[11px] text-muted-foreground">{formatDateTime(event.date)}</div>
+                            <div className="text-[10px] text-muted-foreground/70 mt-0.5">{event.userName}</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
-            ))}
-          </div>
-        )}
+            );
+          })}
+          {filtered.length === 0 && (
+            <p className="text-sm text-muted-foreground text-center py-8">Žiadne záznamy v tejto kategórii</p>
+          )}
+        </div>
       </CardContent>
     </Card>
   );
@@ -702,7 +984,7 @@ function CustomerAuditReport({ customerId }: { customerId: string }) {
         </Card>
       )}
 
-      <CustomerHistorySection report={report} />
+      <CustomerHistorySection customerId={customerId} customerName={report.customer?.fullName || report.customer?.firstName || "—"} />
     </div>
   );
 }
