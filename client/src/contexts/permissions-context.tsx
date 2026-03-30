@@ -53,9 +53,7 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
     
     if (!user.roleId || !roleData) {
       const moduleDef = CRM_MODULES.find(m => m.key === moduleKey);
-      const result = moduleDef?.defaultAccess !== "hidden";
-      if (moduleKey === "nexusPulse") console.log("[PERM_DEBUG] nexusPulse: no roleId/roleData, defaultAccess:", moduleDef?.defaultAccess, "result:", result, "roleId:", user.roleId, "roleData:", !!roleData);
-      return result;
+      return moduleDef?.defaultAccess !== "hidden";
     }
     
     if (roleData.legacyRole === "admin") {
@@ -66,11 +64,9 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
     
     if (!modulePerm) {
       const moduleDef = CRM_MODULES.find(m => m.key === moduleKey);
-      if (moduleKey === "nexusPulse") console.log("[PERM_DEBUG] nexusPulse: no modulePerm found, defaultAccess:", moduleDef?.defaultAccess);
       return moduleDef?.defaultAccess !== "hidden";
     }
     
-    if (moduleKey === "nexusPulse") console.log("[PERM_DEBUG] nexusPulse: modulePerm.access:", modulePerm.access);
     return modulePerm.access === "visible";
   };
   

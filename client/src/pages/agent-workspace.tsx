@@ -4400,9 +4400,7 @@ export default function AgentWorkspacePage() {
   const dialingRef = useRef(false);
 
   const { canAccessModule } = usePermissions();
-  const canAccess = canAccessModule("nexusPulse");
-  const hasModuleAccess = user && canAccess;
-  console.log("[PULSE_DEBUG] user:", user?.id, "role:", user?.role, "roleId:", (user as any)?.roleId, "canAccess:", canAccess, "hasModuleAccess:", !!hasModuleAccess);
+  const hasModuleAccess = user && canAccessModule("nexusPulse");
 
   const { data: workspaceAccess = [] } = useQuery<any[]>({
     queryKey: ["/api/agent-workspace-access/current"],
@@ -4414,7 +4412,6 @@ export default function AgentWorkspacePage() {
   }, [workspaceAccess]);
 
   const hasAccess = user && hasModuleAccess;
-  console.log("[PULSE_DEBUG] hasAccess:", !!hasAccess, "sessionActive:", agentSession.isSessionActive, "sessionLoading:", agentSession.isLoading);
 
   const { data: scheduledQueueItems = [] } = useQuery<ScheduledItem[]>({
     queryKey: ["/api/agent/scheduled-queue", "badge"],
@@ -5991,7 +5988,7 @@ export default function AgentWorkspacePage() {
         />
       )}
       <Dialog open={sessionLoginOpen && !agentSession.isSessionActive} onOpenChange={(open) => { if (!open) { setSessionLoginOpen(false); setLocation("/"); } }}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-lg overflow-hidden">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Headphones className="h-5 w-5" />

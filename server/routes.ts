@@ -20965,24 +20965,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
             };
             const clinic = await storage.createClinic(clinicData);
 
-            const customerData: any = {
-              firstName: firstName || entityName || "Ambulancia",
-              lastName: lastName || entityName || "Import",
-              phone: phone || null,
-              mobile: phone || null,
-              email: email || `clinic-${Date.now()}-${i}@noemail.local`,
-              country: country?.toUpperCase() || countryCode,
-              status: "active",
-              clientStatus: "potential",
-              leadStatus: "cold",
-              leadScore: 0,
-              newsletter: false,
-              useCorrespondenceAddress: false,
-              notes: `Ambulancia: ${entityName}\nClinic ID: ${clinic.id}\nImportovaný z kampane: ${campaign.name}`,
-            };
-            const customer = await storage.createCustomer(customerData);
-            existingCustomerIds.add(customer.id);
-            const [newContact] = await storage.createCampaignContacts([{ campaignId: campaign.id, customerId: customer.id, status: "pending", attemptCount: 0, priorityScore: 50 }]);
+            const [newContact] = await storage.createCampaignContacts([{ campaignId: campaign.id, clinicId: clinic.id, contactType: "clinic", status: "pending", attemptCount: 0, priorityScore: 50 }]);
             if (newContact) results.importedContactIds.push(newContact.id);
             results.created++;
 
@@ -21003,24 +20986,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
             };
             const hospital = await storage.createHospital(hospitalData);
 
-            const customerData: any = {
-              firstName: contactPerson?.split(" ")[0] || entityName || "Nemocnica",
-              lastName: contactPerson?.split(" ").slice(1).join(" ") || entityName || "Import",
-              phone: phone || null,
-              mobile: phone || null,
-              email: email || `hospital-${Date.now()}-${i}@noemail.local`,
-              country: country?.toUpperCase() || countryCode,
-              status: "active",
-              clientStatus: "potential",
-              leadStatus: "cold",
-              leadScore: 0,
-              newsletter: false,
-              useCorrespondenceAddress: false,
-              notes: `Nemocnica: ${entityName}\nHospital ID: ${hospital.id}\nImportovaný z kampane: ${campaign.name}`,
-            };
-            const customer = await storage.createCustomer(customerData);
-            existingCustomerIds.add(customer.id);
-            const [newContact] = await storage.createCampaignContacts([{ campaignId: campaign.id, customerId: customer.id, status: "pending", attemptCount: 0, priorityScore: 50 }]);
+            const [newContact] = await storage.createCampaignContacts([{ campaignId: campaign.id, hospitalId: hospital.id, contactType: "hospital", status: "pending", attemptCount: 0, priorityScore: 50 }]);
             if (newContact) results.importedContactIds.push(newContact.id);
             results.created++;
 
@@ -21039,24 +21005,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
             };
             const collaborator = await storage.createCollaborator(collabData);
 
-            const customerData: any = {
-              firstName: firstName || "Neznámy",
-              lastName: lastName || "Neznámy",
-              phone: phone || null,
-              mobile: phone2 || phone || null,
-              email: email || `collab-${Date.now()}-${i}@noemail.local`,
-              country: country?.toUpperCase() || countryCode,
-              status: "active",
-              clientStatus: "potential",
-              leadStatus: "cold",
-              leadScore: 0,
-              newsletter: false,
-              useCorrespondenceAddress: false,
-              notes: `Spolupracovník: ${doctorTitle || ""} ${firstName} ${lastName}\nCollaborator ID: ${collaborator.id}\nTyp: ${collaboratorType || "N/A"}\nImportovaný z kampane: ${campaign.name}`.trim(),
-            };
-            const customer = await storage.createCustomer(customerData);
-            existingCustomerIds.add(customer.id);
-            const [newContact] = await storage.createCampaignContacts([{ campaignId: campaign.id, customerId: customer.id, status: "pending", attemptCount: 0, priorityScore: 50 }]);
+            const [newContact] = await storage.createCampaignContacts([{ campaignId: campaign.id, collaboratorId: collaborator.id, contactType: "collaborator", status: "pending", attemptCount: 0, priorityScore: 50 }]);
             if (newContact) results.importedContactIds.push(newContact.id);
             results.created++;
 
