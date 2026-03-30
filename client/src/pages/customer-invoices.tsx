@@ -225,7 +225,7 @@ export default function CustomerInvoicesPage() {
   const [page, setPage] = useState(1);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [showCreateWizard, setShowCreateWizard] = useState(false);
-  const [activeTab, setActiveTab] = useState("list");
+  const [activeTab, setActiveTab] = useState("report");
   const [selectedCustomers, setSelectedCustomers] = useState<string[]>([]);
   const [bulkSearch, setBulkSearch] = useState("");
   const [selectedScheduledInvoice, setSelectedScheduledInvoice] = useState<ScheduledInvoice | null>(null);
@@ -318,7 +318,14 @@ export default function CustomerInvoicesPage() {
     dueThisQuarterAmount: string; dueThisHalfAmount: string;
     createdAmount: string;
   }>({
-    queryKey: ["/api/scheduled-invoices/stats"],
+    queryKey: ["/api/scheduled-invoices/stats", { countries: selectedCountries }],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (selectedCountries.length > 0) params.set("countries", selectedCountries.join(","));
+      const res = await fetch(`/api/scheduled-invoices/stats?${params.toString()}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch");
+      return res.json();
+    },
   });
 
   const exchangeRateMap = useMemo(() => {
@@ -724,6 +731,10 @@ export default function CustomerInvoicesPage() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="mb-4">
+          <TabsTrigger value="report" data-testid="tab-invoices-report">
+            <BarChart3 className="h-4 w-4 mr-2" />
+            Report
+          </TabsTrigger>
           <TabsTrigger value="list" data-testid="tab-invoices-list">
             <FileText className="h-4 w-4 mr-2" />
             {t.invoices?.listTab || "Invoice List"}
@@ -736,10 +747,6 @@ export default function CustomerInvoicesPage() {
                 {scheduledInvoices.filter(s => s.status === "pending").length}
               </Badge>
             )}
-          </TabsTrigger>
-          <TabsTrigger value="report" data-testid="tab-invoices-report">
-            <BarChart3 className="h-4 w-4 mr-2" />
-            Report
           </TabsTrigger>
         </TabsList>
 

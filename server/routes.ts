@@ -9696,7 +9696,19 @@ Return ONLY valid JSON, no markdown code blocks.`,
   // Scheduled invoices dashboard stats
   app.get("/api/scheduled-invoices/stats", requireAuth, async (req, res) => {
     try {
-      const all = await db.select().from(scheduledInvoices);
+      const countriesParam = req.query.countries ? (req.query.countries as string).split(",").filter(Boolean) : [];
+      let all;
+      if (countriesParam.length > 0) {
+        const custIds = await db.select({ id: customers.id }).from(customers).where(inArray(customers.country, countriesParam));
+        const ids = custIds.map(c => c.id);
+        if (ids.length > 0) {
+          all = await db.select().from(scheduledInvoices).where(inArray(scheduledInvoices.customerId, ids));
+        } else {
+          all = [];
+        }
+      } else {
+        all = await db.select().from(scheduledInvoices);
+      }
       const now = new Date();
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       const endOfToday = new Date(today.getTime() + 24 * 60 * 60 * 1000 - 1);
