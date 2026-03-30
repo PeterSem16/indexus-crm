@@ -1005,8 +1005,9 @@ export default function ReportsPage() {
 
   const selectCustomer = (cust: any) => {
     setSelectedCustomerId(cust.id);
-    setSelectedCustomerName(`${cust.firstName} ${cust.lastName}`);
-    setCustomerSearch(`${cust.firstName} ${cust.lastName}`);
+    const nameWithCity = [cust.firstName, cust.lastName, cust.city ? `(${cust.city})` : null].filter(Boolean).join(" ");
+    setSelectedCustomerName(nameWithCity);
+    setCustomerSearch(nameWithCity);
     setDebouncedSearch("");
   };
 
@@ -1078,17 +1079,19 @@ export default function ReportsPage() {
                           <button
                             key={c.id}
                             onClick={() => selectCustomer(c)}
-                            className="w-full text-left px-4 py-3 hover:bg-muted transition-colors flex items-center gap-3 border-b last:border-0"
+                            className="w-full text-left px-4 py-3 hover:bg-muted transition-colors border-b last:border-0"
                             data-testid={`customer-result-${c.id}`}
                           >
-                            <User className="h-4 w-4 text-muted-foreground shrink-0" />
-                            <div className="flex-1 min-w-0">
-                              <div className="text-sm font-medium">{c.firstName} {c.lastName}</div>
-                              <div className="text-xs text-muted-foreground">{[c.email, c.phone, c.city, c.countryCode].filter(Boolean).join(" · ")}</div>
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <User className="h-4 w-4 text-muted-foreground shrink-0" />
+                                <span className="text-sm font-bold">{c.firstName} {c.lastName}</span>
+                                <StatusBadge status={c.clientStatus} variant={c.clientStatus === "acquired" ? "success" : c.clientStatus === "terminated" ? "danger" : "info"} />
+                                <StatusBadge status={c.status} variant={c.status === "active" ? "success" : "warning"} />
+                              </div>
                             </div>
-                            <div className="flex flex-col items-end gap-1 shrink-0">
-                              <Badge variant="outline" className="text-[9px]">{c.clientStatus || c.status || "—"}</Badge>
-                              <span className="text-[9px] text-muted-foreground font-mono">{c.id?.substring(0, 8)}</span>
+                            <div className="text-xs text-muted-foreground mt-1 ml-6">
+                              {[c.email, c.phone, c.city, c.region].filter(Boolean).join(" · ")}
                             </div>
                           </button>
                         ))}
