@@ -48,6 +48,9 @@ import {
   Save,
   Eye,
   Variable,
+  MousePointerClick,
+  Phone,
+  Mail,
 } from "lucide-react";
 import {
   DndContext,
@@ -264,6 +267,7 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving }:
     divider: { icon: Minus, label: sb.divider, description: sb.dividerDesc },
     note: { icon: AlertCircle, label: sb.note, description: sb.noteDesc },
     outcome: { icon: Target, label: sb.outcome, description: sb.outcomeDesc },
+    action_button: { icon: MousePointerClick, label: sb.actionButton, description: sb.actionButtonDesc },
   };
 
   const sensors = useSensors(
@@ -341,10 +345,11 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving }:
       type,
       label: config.label,
       required: false,
-      content: type === "paragraph" || type === "heading" || type === "note" ? "" : undefined,
+      content: type === "paragraph" || type === "heading" || type === "note" || type === "action_button" ? "" : undefined,
       options: ["select", "multiselect", "radio", "checkboxGroup", "outcome"].includes(type)
         ? [{ value: "option1", label: `${sb.options} 1` }]
         : undefined,
+      ...(type === "action_button" ? { action: "openPhone", actionLabel: "Zavolať", actionIcon: "phone", variant: "primary" } : {}),
     };
     updateStep(selectedStepId, {
       elements: [...(selectedStep?.elements || []), newElement],
@@ -746,7 +751,85 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving }:
                   </div>
                 )}
 
-                {!["divider", "heading", "paragraph"].includes(selectedElement.type) && (
+                {selectedElement.type === "action_button" && (
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="element-content">{sb.content || "Text"}</Label>
+                      <Textarea
+                        id="element-content"
+                        value={selectedElement.content || ""}
+                        onChange={(e) => updateElement(selectedElement.id, { content: e.target.value })}
+                        rows={2}
+                        placeholder="Popis akcie..."
+                        data-testid="textarea-action-content"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{sb.actionType}</Label>
+                      <Select
+                        value={selectedElement.action || "openPhone"}
+                        onValueChange={(v) => updateElement(selectedElement.id, { action: v })}
+                      >
+                        <SelectTrigger data-testid="select-action-type">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="openPhone"><div className="flex items-center gap-2"><Phone className="h-3 w-3" /> Otvoriť telefón</div></SelectItem>
+                          <SelectItem value="makeCall"><div className="flex items-center gap-2"><Phone className="h-3 w-3" /> Zavolať</div></SelectItem>
+                          <SelectItem value="openEmail"><div className="flex items-center gap-2"><Mail className="h-3 w-3" /> Otvoriť email</div></SelectItem>
+                          <SelectItem value="openDisposition"><div className="flex items-center gap-2"><Target className="h-3 w-3" /> Dispozícia</div></SelectItem>
+                          <SelectItem value="openPhoneDisposition"><div className="flex items-center gap-2"><Phone className="h-3 w-3" /> Dispozícia (hovor)</div></SelectItem>
+                          <SelectItem value="openEmailDisposition"><div className="flex items-center gap-2"><Mail className="h-3 w-3" /> Dispozícia (email)</div></SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{sb.actionLabel}</Label>
+                      <Input
+                        value={selectedElement.actionLabel || ""}
+                        onChange={(e) => updateElement(selectedElement.id, { actionLabel: e.target.value })}
+                        placeholder="Zavolať / Poslať email..."
+                        data-testid="input-action-label"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{sb.actionIcon}</Label>
+                      <Select
+                        value={selectedElement.actionIcon || "phone"}
+                        onValueChange={(v) => updateElement(selectedElement.id, { actionIcon: v })}
+                      >
+                        <SelectTrigger data-testid="select-action-icon">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="phone"><div className="flex items-center gap-2"><Phone className="h-3 w-3" /> Telefón</div></SelectItem>
+                          <SelectItem value="mail"><div className="flex items-center gap-2"><Mail className="h-3 w-3" /> Email</div></SelectItem>
+                          <SelectItem value="calendar"><div className="flex items-center gap-2"><Target className="h-3 w-3" /> Kalendár</div></SelectItem>
+                          <SelectItem value="file"><div className="flex items-center gap-2"><FileText className="h-3 w-3" /> Súbor</div></SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{sb.buttonStyle}</Label>
+                      <Select
+                        value={selectedElement.variant || "primary"}
+                        onValueChange={(v) => updateElement(selectedElement.id, { variant: v })}
+                      >
+                        <SelectTrigger data-testid="select-action-variant">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="primary">Primary</SelectItem>
+                          <SelectItem value="secondary">Secondary</SelectItem>
+                          <SelectItem value="outline">Outline</SelectItem>
+                          <SelectItem value="destructive">Destructive</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                )}
+
+                {!["divider", "heading", "paragraph", "action_button"].includes(selectedElement.type) && (
                   <div className="flex items-center gap-2">
                     <Switch
                       id="element-required"

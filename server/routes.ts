@@ -14135,7 +14135,8 @@ Return ONLY valid JSON, no markdown code blocks.`,
         }
       }
       res.json(clinic);
-    } catch (error) {
+    } catch (error: any) {
+      console.error("[Clinics] PUT error:", error?.message || error);
       res.status(500).json({ error: "Failed to update clinic" });
     }
   });

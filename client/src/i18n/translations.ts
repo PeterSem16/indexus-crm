@@ -1555,6 +1555,12 @@ export interface Translations {
         noteDesc: string;
         outcome: string;
         outcomeDesc: string;
+        actionButton: string;
+        actionButtonDesc: string;
+        actionType: string;
+        actionLabel: string;
+        actionIcon: string;
+        buttonStyle: string;
         untitled: string;
         element: string;
         elements: string;
@@ -7298,6 +7304,12 @@ export const translations: Record<Locale, Translations> = {
           noteDesc: 'Highlighted note',
           outcome: 'Call Outcome',
           outcomeDesc: 'Final call status',
+          actionButton: 'Action Button',
+          actionButtonDesc: 'Button that triggers action (call, email, disposition)',
+          actionType: 'Action Type',
+          actionLabel: 'Button Text',
+          actionIcon: 'Icon',
+          buttonStyle: 'Style',
           untitled: 'Untitled',
           element: 'element',
           elements: 'elements',
@@ -12482,6 +12494,12 @@ export const translations: Record<Locale, Translations> = {
           noteDesc: 'Zvýraznená poznámka',
           outcome: 'Výsledok hovoru',
           outcomeDesc: 'Záverečný stav hovoru',
+          actionButton: 'Akčné tlačidlo',
+          actionButtonDesc: 'Tlačidlo na spustenie akcie (hovor, email, dispozícia)',
+          actionType: 'Typ akcie',
+          actionLabel: 'Text tlačidla',
+          actionIcon: 'Ikona',
+          buttonStyle: 'Štýl',
           untitled: 'Bez názvu',
           element: 'prvok',
           elements: 'prvkov',
@@ -17605,6 +17623,12 @@ export const translations: Record<Locale, Translations> = {
           noteDesc: 'Zvýrazněná poznámka',
           outcome: 'Výsledek hovoru',
           outcomeDesc: 'Závěrečný stav hovoru',
+          actionButton: 'Akční tlačítko',
+          actionButtonDesc: 'Tlačítko pro spuštění akce (hovor, email, dispozice)',
+          actionType: 'Typ akce',
+          actionLabel: 'Text tlačítka',
+          actionIcon: 'Ikona',
+          buttonStyle: 'Styl',
           untitled: 'Bez názvu',
           element: 'prvek',
           elements: 'prvků',
@@ -22690,6 +22714,12 @@ export const translations: Record<Locale, Translations> = {
           noteDesc: 'Kiemelt megjegyzés',
           outcome: 'Hívás eredménye',
           outcomeDesc: 'Végső hívás állapot',
+          actionButton: 'Művelet gomb',
+          actionButtonDesc: 'Gomb művelet indításához (hívás, email, diszpozíció)',
+          actionType: 'Művelet típusa',
+          actionLabel: 'Gomb szövege',
+          actionIcon: 'Ikon',
+          buttonStyle: 'Stílus',
           untitled: 'Cím nélkül',
           element: 'elem',
           elements: 'elem',
@@ -27697,6 +27727,12 @@ export const translations: Record<Locale, Translations> = {
           noteDesc: 'Notă evidențiată',
           outcome: 'Rezultat apel',
           outcomeDesc: 'Stare finală apel',
+          actionButton: 'Buton acțiune',
+          actionButtonDesc: 'Buton pentru a declanșa o acțiune (apel, email, dispoziție)',
+          actionType: 'Tip acțiune',
+          actionLabel: 'Text buton',
+          actionIcon: 'Pictogramă',
+          buttonStyle: 'Stil',
           untitled: 'Fără titlu',
           element: 'element',
           elements: 'elemente',
@@ -32705,6 +32741,12 @@ export const translations: Record<Locale, Translations> = {
           noteDesc: 'Nota evidenziata',
           outcome: 'Esito chiamata',
           outcomeDesc: 'Stato finale della chiamata',
+          actionButton: 'Pulsante azione',
+          actionButtonDesc: 'Pulsante per avviare azione (chiamata, email, disposizione)',
+          actionType: 'Tipo di azione',
+          actionLabel: 'Testo pulsante',
+          actionIcon: 'Icona',
+          buttonStyle: 'Stile',
           untitled: 'Senza titolo',
           element: 'elemento',
           elements: 'elementi',
@@ -37713,6 +37755,12 @@ export const translations: Record<Locale, Translations> = {
           noteDesc: 'Hervorgehobener Hinweis',
           outcome: 'Anrufergebnis',
           outcomeDesc: 'Endstatus des Anrufs',
+          actionButton: 'Aktionsschaltfläche',
+          actionButtonDesc: 'Schaltfläche zum Auslösen einer Aktion (Anruf, E-Mail, Disposition)',
+          actionType: 'Aktionstyp',
+          actionLabel: 'Schaltflächentext',
+          actionIcon: 'Symbol',
+          buttonStyle: 'Stil',
           untitled: 'Ohne Titel',
           element: 'Element',
           elements: 'Elemente',

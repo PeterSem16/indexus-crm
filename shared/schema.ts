@@ -3205,7 +3205,8 @@ export const scriptElementTypes = [
   "textarea",
   "divider",
   "note",
-  "outcome"
+  "outcome",
+  "action_button"
 ] as const;
 
 export type ScriptElementType = typeof scriptElementTypes[number];
@@ -3224,6 +3225,10 @@ export const scriptElementSchema = z.object({
   })).optional(),
   style: z.enum(["default", "info", "warning", "success", "error"]).optional(),
   size: z.enum(["sm", "md", "lg"]).optional(),
+  action: z.string().optional(),
+  actionLabel: z.string().optional(),
+  actionIcon: z.string().optional(),
+  variant: z.string().optional(),
 });
 
 export type ScriptElement = z.infer<typeof scriptElementSchema>;
