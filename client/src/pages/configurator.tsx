@@ -11419,6 +11419,75 @@ const SYSTEM_VARIABLES = {
     { key: "{{company.address}}", label: "Adresa spoločnosti" },
     { key: "{{company.website}}", label: "Web stránka" },
   ],
+  clinic: [
+    { key: "{{clinic.name}}", label: "Názov ambulancie" },
+    { key: "{{clinic.doctorName}}", label: "Meno lekára" },
+    { key: "{{clinic.doctorTitle}}", label: "Titul lekára" },
+    { key: "{{clinic.doctorFirstName}}", label: "Meno lekára (krstné)" },
+    { key: "{{clinic.doctorLastName}}", label: "Priezvisko lekára" },
+    { key: "{{clinic.address}}", label: "Adresa ambulancie" },
+    { key: "{{clinic.city}}", label: "Mesto ambulancie" },
+    { key: "{{clinic.postalCode}}", label: "PSČ ambulancie" },
+    { key: "{{clinic.countryCode}}", label: "Kód krajiny" },
+    { key: "{{clinic.phone}}", label: "Telefón ambulancie" },
+    { key: "{{clinic.email}}", label: "E-mail ambulancie" },
+    { key: "{{clinic.website}}", label: "Web stránka" },
+    { key: "{{clinic.notes}}", label: "Poznámky" },
+    { key: "{{clinic.contractStatus}}", label: "Stav zmluvy" },
+    { key: "{{clinic.lastCallResult}}", label: "Výsledok posledného hovoru" },
+    { key: "{{clinic.lastCallNote}}", label: "Poznámka k poslednému hovoru" },
+    { key: "{{clinic.nextContactDate}}", label: "Dátum ďalšieho kontaktu" },
+    { key: "{{clinic.conferenceName}}", label: "Názov konferencie" },
+    { key: "{{clinic.latitude}}", label: "GPS šírka" },
+    { key: "{{clinic.longitude}}", label: "GPS dĺžka" },
+  ],
+  hospital: [
+    { key: "{{hospital.name}}", label: "Názov nemocnice" },
+    { key: "{{hospital.fullName}}", label: "Plný názov nemocnice" },
+    { key: "{{hospital.streetNumber}}", label: "Ulica a číslo" },
+    { key: "{{hospital.city}}", label: "Mesto" },
+    { key: "{{hospital.postalCode}}", label: "PSČ" },
+    { key: "{{hospital.region}}", label: "Oblasť / Región" },
+    { key: "{{hospital.countryCode}}", label: "Kód krajiny" },
+    { key: "{{hospital.contactPerson}}", label: "Kontaktná osoba" },
+    { key: "{{hospital.phone}}", label: "Telefón nemocnice" },
+    { key: "{{hospital.email}}", label: "E-mail nemocnice" },
+    { key: "{{hospital.latitude}}", label: "GPS šírka" },
+    { key: "{{hospital.longitude}}", label: "GPS dĺžka" },
+  ],
+  collaborator: [
+    { key: "{{collaborator.titleBefore}}", label: "Titul pred menom" },
+    { key: "{{collaborator.firstName}}", label: "Meno" },
+    { key: "{{collaborator.lastName}}", label: "Priezvisko" },
+    { key: "{{collaborator.titleAfter}}", label: "Titul za menom" },
+    { key: "{{collaborator.fullName}}", label: "Celé meno" },
+    { key: "{{collaborator.maidenName}}", label: "Rodné priezvisko" },
+    { key: "{{collaborator.birthNumber}}", label: "Rodné číslo" },
+    { key: "{{collaborator.birthDay}}", label: "Deň narodenia" },
+    { key: "{{collaborator.birthMonth}}", label: "Mesiac narodenia" },
+    { key: "{{collaborator.birthYear}}", label: "Rok narodenia" },
+    { key: "{{collaborator.birthPlace}}", label: "Miesto narodenia" },
+    { key: "{{collaborator.maritalStatus}}", label: "Rodinný stav" },
+    { key: "{{collaborator.collaboratorType}}", label: "Typ spolupracovníka" },
+    { key: "{{collaborator.phone}}", label: "Telefón" },
+    { key: "{{collaborator.mobile}}", label: "Mobil" },
+    { key: "{{collaborator.mobile2}}", label: "Mobil 2" },
+    { key: "{{collaborator.email}}", label: "E-mail" },
+    { key: "{{collaborator.otherContact}}", label: "Iný kontakt" },
+    { key: "{{collaborator.bankAccountIban}}", label: "IBAN" },
+    { key: "{{collaborator.swiftCode}}", label: "SWIFT kód" },
+    { key: "{{collaborator.companyName}}", label: "Názov firmy" },
+    { key: "{{collaborator.ico}}", label: "IČO" },
+    { key: "{{collaborator.dic}}", label: "DIČ" },
+    { key: "{{collaborator.icDph}}", label: "IČ DPH" },
+    { key: "{{collaborator.companyIban}}", label: "IBAN firmy" },
+    { key: "{{collaborator.companySwift}}", label: "SWIFT firmy" },
+    { key: "{{collaborator.countryCode}}", label: "Kód krajiny" },
+    { key: "{{collaborator.note}}", label: "Poznámka" },
+    { key: "{{collaborator.rewardType}}", label: "Typ odmeny" },
+    { key: "{{collaborator.fixedRewardAmount}}", label: "Fixná odmena" },
+    { key: "{{collaborator.fixedRewardCurrency}}", label: "Mena odmeny" },
+  ],
   system: [
     { key: "{{date.today}}", label: "Dnešný dátum" },
     { key: "{{date.tomorrow}}", label: "Zajtrajší dátum" },
@@ -12278,10 +12347,10 @@ function MessageTemplatesTab() {
                       {t.konfigurator.insertVariable}
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-[500px] z-[10001]" align="end">
+                  <PopoverContent className="w-[700px] z-[10001]" align="end">
                     <div className="space-y-3">
                       <h4 className="font-medium text-sm">{t.konfigurator.availableVariables}</h4>
-                      <div className="grid grid-cols-2 gap-4 max-h-[400px] overflow-y-auto pr-2">
+                      <div className="grid grid-cols-3 gap-4 max-h-[400px] overflow-y-auto pr-2">
                         {Object.entries(SYSTEM_VARIABLES).map(([category, variables]) => (
                           <div key={category} className="space-y-1">
                             <h5 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide border-b pb-1">
@@ -12291,6 +12360,9 @@ function MessageTemplatesTab() {
                                category === "contract" ? t.nav.contracts :
                                category === "invoice" ? t.nav.invoices :
                                category === "company" ? t.konfigurator.company :
+                               category === "clinic" ? (t.nav.clinics || "Ambulancie") :
+                               category === "hospital" ? (t.nav.hospitals || "Nemocnice") :
+                               category === "collaborator" ? (t.nav.collaborators || "Spolupracovníci") :
                                t.konfigurator.system}
                             </h5>
                             {variables.map((variable) => (
