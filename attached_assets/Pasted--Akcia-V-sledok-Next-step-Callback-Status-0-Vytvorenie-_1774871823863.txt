@@ -1,0 +1,182 @@
+
+
+Akcia
+Výsledok
+Next step
+Callback
+Status
+0
+Vytvorenie leadu / zaradenie do kampane
+Odoslať Email 1 alebo List 1 s predstavením spoločnosti a služieb
+Partner bol oslovený
+Call 1
+2 pracovné dni
+EMAIL1_SENT
+1
+Uplynuli 2 pracovné dni od Email 1
+Call 1 – nadviazať kontakt, dohodnúť termín s lekárom, uviesť referenciu
+Termín dohodnutý
+Call 2
+podľa dohodnutého termínu
+CALL1_DONE
+1A
+Call 1 – lekár/ambulancia nedostupní
+Nastaviť nový pokus o kontakt
+Kontakt sa nepodaril
+Opakovať Call 1
+ďalší pracovný deň / podľa dohody
+CALL1_CALLBACK
+1B
+Call 1 – okamžité odmietnutie
+Ukončiť aktívny flow
+Odmietnuté
+Nurturing / recontact
+6 mesiacov
+DECLINED_6M
+2
+Nastal dohodnutý termín
+Call 2 – zistiť potenciálny záujem, získať súhlas so zaslaním detailov, uviesť referenciu ak ešte nebola uvedená
+Potenciálny záujem potvrdený
+Email 2
+ihneď
+INTEREST_CONFIRMED
+2A
+Call 2 – potrebuje čas
+Poznámka do CRM + follow-up
+Zatiaľ nerozhodnutý
+Call 3 / follow-up
+1 týždeň
+INTEREST_PENDING
+2B
+Call 2 – odmieta
+Ukončiť aktívny flow
+Odmietnuté
+Nurturing / recontact
+6 mesiacov
+DECLINED_6M
+3
+Pozitívny výsledok Call 2
+Odoslať Email 2 s detailnými informáciami o službách
+Informácie odoslané
+Call 3
+1 týždeň
+INFO_SENT
+4
+Uplynul 1 týždeň od Email 2
+Call 3 – zistiť súhlas so spoluprácou, odpovedať na otázky, vysvetliť proces zmluvy
+Súhlas so spoluprácou
+List 3
+ihneď
+COOPERATION_AGREED
+4A
+Call 3 – partner váha
+Evidovať otázky a posunúť follow-up
+Zatiaľ nerozhodnutý
+Opakovať Call 3
+podľa dohody
+COOPERATION_PENDING
+4B
+Call 3 – odmieta
+Ukončiť aktívny flow
+Odmietnuté
+Nurturing / recontact
+6 mesiacov
+DECLINED_6M
+5
+Partner súhlasí po Call 3
+Odoslať List 3: sprievodný list, 2 kópie zmluvy s prílohami, návratová obálka
+Zmluva odoslaná
+Call 4
+1 týždeň
+CONTRACT_SENT
+6
+Uplynul 1 týždeň od odoslania zmluvy
+Call 4 – overiť doručenie zmluvy, či bola zaslaná späť, či sú otázky
+Partner zmluvu ešte neposlal
+Opakovať Call 4
+1 týždeň
+CONTRACT_AWAITING_RETURN
+6A
+Call 4 – partner zmluvu odoslal
+Čakať na doručenie a internú evidenciu
+Zmluva na ceste / v spracovaní
+Kontrola doručenia
+priebežne
+CONTRACT_INBOUND_PENDING
+6B
+Zmluva nedoručená do 2 týždňov
+Call 4.a – informovať o zaslaní novej kópie
+Potrebné opätovné zaslanie
+List 3.a
+ihneď
+CONTRACT_NOT_DELIVERED
+6C
+Po Call 4.a
+Odoslať List 3.a: 1 originál zmluvy + návratová obálka
+Náhradná zmluva odoslaná
+Call 4
+1 týždeň
+CONTRACT_RESENT
+6D
+Zmluva prišla bez podpisu
+Informovať partnera, že je potrebné nové zaslanie
+Neplatná zmluva
+Call 4.a / List 3.a
+1 týždeň
+CONTRACT_UNSIGNED
+6E
+Zmluva prišla bez potrebných údajov
+Call 4.b – získať chýbajúce údaje
+Chýbajúce údaje doplnené
+Validácia zmluvy
+bezodkladne
+CONTRACT_INCOMPLETE
+7
+Chýbajúce údaje získané alebo zmluva prišla kompletná
+Interná validácia a zaevidovanie zmluvy
+Zmluva validovaná
+Call 5
+next working day
+CONTRACT_VALIDATED
+8
+Next working day po validácii
+Call 5 – potvrdiť prijatie originálu, opýtať sa na možnosť umiestniť materiály a na záujem o tehotenské knižky
+Súhlas s materiálmi
+Odoslanie materiálov
+ihneď
+ONBOARDING_CONFIRMED
+8A
+Call 5 – bez záujmu o materiály
+Partner aktívny bez podpory tlačenými materiálmi
+Onboarding ukončený
+Servisný follow-up
+3 mesiace
+ACTIVE_NO_MATERIALS
+9
+Súhlas s materiálmi v Call 5
+Zaslať 50 ks letákov, prípadne poster, prípadne 50 ks tehotenských knižiek, Pocket Guide, brožúru, email s PDF
+Materiály odoslané
+Call 6
+1 týždeň
+MATERIALS_SENT
+10
+Uplynul 1 týždeň od odoslania materiálov
+Call 6 – overiť doručenie materiálov a potreby partnera
+Doručenie potvrdené
+Dlhodobý follow-up
+3 mesiace
+MATERIALS_DELIVERED
+11
+Partner odmietol spoluprácu v ktorejkoľvek fáze
+Ukončiť aktuálnu vetvu kampane
+Lead neuzavretý
+Reaktivačný kontakt
+6 mesiacov
+DECLINED_6M
+12
+Po odmietnutí bola získaná nová referencia
+Reaktivovať lead, ale nie okamžite
+Možnosť znovuotvorenia
+Restart flow od Call 1 alebo Call 2 podľa kontextu
+najskôr 3 mesiace po odmietnutí
+DECLINED_REFERENCE_3M

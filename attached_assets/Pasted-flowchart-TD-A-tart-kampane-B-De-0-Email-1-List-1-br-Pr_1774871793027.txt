@@ -1,0 +1,56 @@
+flowchart TD
+    A([Štart kampane]) --> B[Deň 0: Email 1 / List 1<br/>Predstavenie spoločnosti a služieb]
+    B --> C[Čakať 2 pracovné dni]
+    C --> D[Call 1<br/>Nadviazať kontakt a dohodnúť termín s lekárom<br/>Uviesť referenciu]
+
+    D -->|Termín dohodnutý| E[Call 2 v dohodnutom termíne<br/>Zistiť potenciálny záujem<br/>Získať súhlas so zaslaním detailov]
+    D -->|Nedostupný| D1[Callback podľa dohody / ďalší pracovný deň]
+    D1 --> D
+    D -->|Odmietnutie| X[Status: Odmietnuté]
+    X --> X1[Callback o 6 mesiacov]
+
+    E -->|Má záujem| F[Zaslať Email 2<br/>Detailnejšie informácie]
+    E -->|Potrebuje čas| F1[Follow-up callback o 1 týždeň]
+    E -->|Odmieta| X
+    F --> G[Callback o 1 týždeň]
+    F1 --> G
+
+    G --> H[Call 3<br/>Potvrdiť záujem o spoluprácu<br/>Zodpovedať otázky<br/>Informovať o zaslaní zmluvy]
+    H -->|Súhlasí| I[Zaslať List 3<br/>Sprievodný list + 2x zmluva + prílohy + návratová obálka]
+    H -->|Ešte váha| H1[Callback podľa dohody]
+    H1 --> H
+    H -->|Odmieta| X
+
+    I --> J[Callback o 1 týždeň]
+    J --> K[Call 4<br/>Overiť doručenie zmluvy<br/>Či bola zaslaná späť<br/>Či sú otázky]
+
+    K -->|Neodoslal ešte| K1[Callback o 1 týždeň]
+    K1 --> K
+
+    K -->|Odoslal| L{Zmluva fyzicky doručená a skontrolovaná?}
+
+    L -->|Áno, validná| M[Po validácii: next working day]
+    M --> N[Call 5<br/>Potvrdiť prijatie originálu<br/>Ponúknuť letáky/poster/tehotenské knižky]
+
+    L -->|Nedoručená do 2 týždňov| O[Call 4.a<br/>Informovať o zaslaní novej kópie]
+    O --> P[List 3.a<br/>1x originál zmluvy + návratová obálka]
+    P --> P1[Callback o 1 týždeň]
+    P1 --> K
+
+    L -->|Doručená bez podpisu| O
+    L -->|Doručená bez údajov| Q[Call 4.b<br/>Získať chýbajúce údaje]
+    Q --> R[Doplnenie údajov do zmluvy]
+    R --> M
+
+    N -->|Súhlas s materiálmi| S[Zaslať 50 ks letákov<br/>Poster podľa potreby<br/>50 ks tehotenských knižiek podľa záujmu<br/>Pocket Guide + brožúra + PDF email]
+    N -->|Bez záujmu o materiály| T[Partner aktívny bez materiálov]
+
+    S --> U[Callback o 1 týždeň]
+    U --> V[Call 6<br/>Overiť doručenie materiálov]
+    T --> W[Callback o 3 mesiace]
+    V --> W[Callback o 3 mesiace]
+
+    X1 --> Y{Získaná nová referencia?}
+    Y -->|Nie| Z[Rekontakt o 6 mesiacov]
+    Y -->|Áno| Z1[Reštart procesu najskôr o 3 mesiace po odmietnutí]
+    Z1 --> D
