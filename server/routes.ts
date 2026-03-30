@@ -34164,11 +34164,15 @@ Guidelines:
       if (user.role !== "admin" && user.assignedCountries && user.assignedCountries.length > 0) {
         countryCodes = user.assignedCountries;
       }
+      if (req.query.countries) {
+        const qc = (req.query.countries as string).split(",").filter(Boolean);
+        if (qc.length > 0) countryCodes = qc;
+      }
       const page = parseInt(req.query.page as string) || 1;
       const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
       const search = req.query.search as string;
       const status = req.query.status as string;
-      if (req.query.page || req.query.limit || req.query.search || req.query.status) {
+      if (req.query.page || req.query.limit || req.query.search || req.query.status || req.query.countries) {
         const result = await storage.getCollectionsPaginated(page, limit, search, countryCodes.length > 0 ? countryCodes : undefined, status);
         return res.json(result);
       }

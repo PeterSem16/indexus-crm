@@ -183,6 +183,7 @@ export default function CollectionsPage() {
       params.set("limit", String(COLLECTIONS_PER_PAGE));
       if (debouncedSearch) params.set("search", debouncedSearch);
       if (listStatusFilter) params.set("status", listStatusFilter);
+      if (selectedCountries.length > 0) params.set("countries", selectedCountries.join(","));
       const res = await fetch(`/api/collections?${params.toString()}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch");
       return res.json();
@@ -3559,44 +3560,89 @@ export default function CollectionsPage() {
           };
 
           const statusCountMap = new Map((statusCounts || []).map(sc => [sc.state, sc.count]));
-          const statusTiles = collectionStatuses
+          const allTiles = collectionStatuses
             .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
             .map(status => ({
               ...status,
               count: statusCountMap.get(String(status.id)) || 0,
               style: getStatusTileStyle(status),
             }));
+          const branch1Tiles = allTiles.filter(s => s.branch === 1);
+          const branch2Tiles = allTiles.filter(s => s.branch === 2);
 
           return (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
-                <div
-                  onClick={() => { setListStatusFilter(null); setCollectionPage(1); }}
-                  className={`cursor-pointer rounded-xl border p-3 transition-all hover:shadow-md ${
-                    listStatusFilter === null
-                      ? "bg-gradient-to-br from-gray-100 to-gray-200/50 dark:from-gray-800 dark:to-gray-700/50 border-primary ring-2 ring-primary/30 shadow-sm"
-                      : "bg-gradient-to-br from-gray-50 to-gray-100/50 dark:from-gray-900/30 dark:to-gray-800/20 border-gray-200 dark:border-gray-700 hover:border-gray-300"
-                  }`}
-                  data-testid="tile-status-all"
-                >
-                  <div className="text-2xl font-bold text-gray-800 dark:text-gray-200">{totalCollections}</div>
-                  <div className="text-xs font-medium text-gray-600 dark:text-gray-400 truncate">{locale === "sk" ? "Všetky" : "All"}</div>
-                </div>
-                {statusTiles.map(st => (
-                  <div
-                    key={st.id}
-                    onClick={() => { setListStatusFilter(listStatusFilter === String(st.id) ? null : String(st.id)); setCollectionPage(1); }}
-                    className={`cursor-pointer rounded-xl border p-3 transition-all hover:shadow-md ${
-                      listStatusFilter === String(st.id)
-                        ? `bg-gradient-to-br ${st.style.bg} ${st.style.border} ring-2 ring-primary/30 shadow-sm`
-                        : `bg-gradient-to-br ${st.style.bg} ${st.style.border} hover:shadow-sm opacity-80 hover:opacity-100`
-                    }`}
-                    data-testid={`tile-status-${st.id}`}
-                  >
-                    <div className={`text-2xl font-bold ${st.style.count}`}>{st.count}</div>
-                    <div className={`text-xs font-medium ${st.style.text} truncate`}>{st.name}</div>
+              <div
+                onClick={() => { setListStatusFilter(null); setCollectionPage(1); }}
+                className={`cursor-pointer rounded-xl border p-3 transition-all hover:shadow-md max-w-[180px] ${
+                  listStatusFilter === null
+                    ? "bg-gradient-to-br from-gray-100 to-gray-200/50 dark:from-gray-800 dark:to-gray-700/50 border-primary ring-2 ring-primary/30 shadow-sm"
+                    : "bg-gradient-to-br from-gray-50 to-gray-100/50 dark:from-gray-900/30 dark:to-gray-800/20 border-gray-200 dark:border-gray-700 hover:border-gray-300"
+                }`}
+                data-testid="tile-status-all"
+              >
+                <div className="text-2xl font-bold text-gray-800 dark:text-gray-200">{totalCollections}</div>
+                <div className="text-xs font-medium text-gray-600 dark:text-gray-400 truncate">{locale === "sk" ? "Všetky" : "All"}</div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 px-1">
+                    <div className="w-6 h-6 rounded-md flex items-center justify-center bg-gradient-to-br from-emerald-500 to-teal-600 text-white">
+                      <Check className="h-3.5 w-3.5" />
+                    </div>
+                    <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">{locale === "sk" ? "Vydaný odber" : "Active Collection"}</span>
                   </div>
-                ))}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+                    {branch1Tiles.map(st => (
+                      <div
+                        key={st.id}
+                        onClick={() => { setListStatusFilter(listStatusFilter === String(st.id) ? null : String(st.id)); setCollectionPage(1); }}
+                        className={`cursor-pointer rounded-xl border p-3 transition-all hover:shadow-md ${
+                          listStatusFilter === String(st.id)
+                            ? `bg-gradient-to-br ${st.style.bg} ${st.style.border} ring-2 ring-primary/30 shadow-sm`
+                            : `bg-gradient-to-br ${st.style.bg} ${st.style.border} hover:shadow-sm opacity-80 hover:opacity-100`
+                        }`}
+                        data-testid={`tile-status-${st.id}`}
+                      >
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <span className="w-5 h-5 rounded-md flex items-center justify-center bg-emerald-200 dark:bg-emerald-800 text-emerald-700 dark:text-emerald-200 text-[10px] font-bold">{st.sortOrder}</span>
+                          <span className={`text-2xl font-bold ${st.style.count}`}>{st.count}</span>
+                        </div>
+                        <div className={`text-xs font-medium ${st.style.text} truncate`}>{st.name}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 px-1">
+                    <div className="w-6 h-6 rounded-md flex items-center justify-center bg-gradient-to-br from-red-500 to-orange-600 text-white">
+                      <Activity className="h-3.5 w-3.5" />
+                    </div>
+                    <span className="text-sm font-semibold text-red-700 dark:text-red-300">{locale === "sk" ? "Likvidácia" : "Disposal"}</span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+                    {branch2Tiles.map(st => (
+                      <div
+                        key={st.id}
+                        onClick={() => { setListStatusFilter(listStatusFilter === String(st.id) ? null : String(st.id)); setCollectionPage(1); }}
+                        className={`cursor-pointer rounded-xl border p-3 transition-all hover:shadow-md ${
+                          listStatusFilter === String(st.id)
+                            ? `bg-gradient-to-br ${st.style.bg} ${st.style.border} ring-2 ring-primary/30 shadow-sm`
+                            : `bg-gradient-to-br ${st.style.bg} ${st.style.border} hover:shadow-sm opacity-80 hover:opacity-100`
+                        }`}
+                        data-testid={`tile-status-${st.id}`}
+                      >
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <span className="w-5 h-5 rounded-md flex items-center justify-center bg-red-200 dark:bg-red-800 text-red-700 dark:text-red-200 text-[10px] font-bold">{st.sortOrder}</span>
+                          <span className={`text-2xl font-bold ${st.style.count}`}>{st.count}</span>
+                        </div>
+                        <div className={`text-xs font-medium ${st.style.text} truncate`}>{st.name}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
 
             <Card>
