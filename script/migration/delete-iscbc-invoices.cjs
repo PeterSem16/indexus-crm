@@ -10,11 +10,31 @@ async function deleteIscbcInvoices() {
   try {
     console.log('=== DELETE ISCBC INVOICES MIGRATION ===\n');
 
+    const bdResult = await client.query(
+      "SELECT id, code, company_name FROM billing_details WHERE LOWER(code) = 'iscbc' OR LOWER(company_name) LIKE '%iscbc%'"
+    );
+
+    if (bdResult.rows.length === 0) {
+      console.log('No ISCBC billing company found. Listing all billing companies:');
+      const allBd = await client.query("SELECT id, code, company_name FROM billing_details ORDER BY code");
+      allBd.rows.forEach(row => {
+        console.log(`  ${row.code || '(no code)'} | ${row.company_name} | ${row.id}`);
+      });
+      return;
+    }
+
+    const iscbcIds = bdResult.rows.map(r => r.id);
+    console.log('Found ISCBC billing companies:');
+    bdResult.rows.forEach(row => {
+      console.log(`  ${row.code} | ${row.company_name} | ${row.id}`);
+    });
+
     const countResult = await client.query(
-      "SELECT COUNT(*) as total FROM invoices WHERE LOWER(billing_company) = 'iscbc'"
+      "SELECT COUNT(*) as total FROM invoices WHERE billing_details_id = ANY($1)",
+      [iscbcIds]
     );
     const totalInvoices = parseInt(countResult.rows[0].total);
-    console.log(`Found ${totalInvoices} ISCBC invoices to delete`);
+    console.log(`\nFound ${totalInvoices} ISCBC invoices to delete`);
 
     if (totalInvoices === 0) {
       console.log('No ISCBC invoices found. Nothing to delete.');
@@ -22,7 +42,8 @@ async function deleteIscbcInvoices() {
     }
 
     const preview = await client.query(
-      "SELECT id, invoice_number, status, total_amount, issue_date FROM invoices WHERE LOWER(billing_company) = 'iscbc' ORDER BY issue_date DESC LIMIT 10"
+      "SELECT id, invoice_number, status, total_amount, issue_date FROM invoices WHERE billing_details_id = ANY($1) ORDER BY issue_date DESC LIMIT 10",
+      [iscbcIds]
     );
     console.log('\nSample invoices to be deleted:');
     preview.rows.forEach(row => {
@@ -33,7 +54,8 @@ async function deleteIscbcInvoices() {
     }
 
     const scheduledCount = await client.query(
-      "SELECT COUNT(*) as total FROM scheduled_invoices WHERE LOWER(billing_company) = 'iscbc'"
+      "SELECT COUNT(*) as total FROM scheduled_invoices WHERE billing_details_id = ANY($1)",
+      [iscbcIds]
     );
     const totalScheduled = parseInt(scheduledCount.rows[0].total);
     console.log(`\nFound ${totalScheduled} ISCBC scheduled invoices to delete`);
@@ -41,13 +63,15 @@ async function deleteIscbcInvoices() {
     await client.query('BEGIN');
 
     const deletedInvoices = await client.query(
-      "DELETE FROM invoices WHERE LOWER(billing_company) = 'iscbc' RETURNING id"
+      "DELETE FROM invoices WHERE billing_details_id = ANY($1) RETURNING id",
+      [iscbcIds]
     );
     console.log(`\nDeleted ${deletedInvoices.rowCount} invoices`);
 
     if (totalScheduled > 0) {
       const deletedScheduled = await client.query(
-        "DELETE FROM scheduled_invoices WHERE LOWER(billing_company) = 'iscbc' RETURNING id"
+        "DELETE FROM scheduled_invoices WHERE billing_details_id = ANY($1) RETURNING id",
+        [iscbcIds]
       );
       console.log(`Deleted ${deletedScheduled.rowCount} scheduled invoices`);
     }
