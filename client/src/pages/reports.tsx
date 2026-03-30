@@ -76,10 +76,10 @@ function SectionTitle({ icon: Icon, title, count }: { icon: any; title: string; 
 
 function InfoRow({ label, value, icon: Icon }: { label: string; value: any; icon?: any }) {
   return (
-    <div className="flex items-start gap-2 py-1.5 border-b border-dashed border-muted last:border-0">
-      {Icon && <Icon className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />}
-      <span className="text-sm text-muted-foreground min-w-[140px] shrink-0">{label}:</span>
-      <span className="text-sm font-medium break-all">{value || "—"}</span>
+    <div className="flex items-center gap-2 py-1.5 border-b border-dashed border-muted last:border-0">
+      {Icon && <Icon className="h-4 w-4 text-muted-foreground shrink-0" />}
+      <span className="text-sm text-muted-foreground whitespace-nowrap">{label}:</span>
+      <span className="text-sm font-medium truncate">{value || "—"}</span>
     </div>
   );
 }
@@ -530,49 +530,40 @@ function CustomerHistorySection({ customerId, customerName }: { customerId: stri
           })}
         </div>
 
-        <div className="max-h-[800px] overflow-y-auto space-y-6 pr-1">
-          {grouped.map(([key, items]) => {
-            const label = key.split("|")[1];
-            return (
-              <div key={key}>
-                <div className="flex items-center gap-2 mb-3 sticky top-0 bg-background/95 backdrop-blur py-1 z-10">
-                  <Calendar className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-xs font-bold text-muted-foreground tracking-wider">{label}</span>
-                  <span className="text-xs text-muted-foreground">{items.length}</span>
-                  <div className="flex-1 border-t border-dashed" />
-                </div>
-                <div className="relative ml-3 pl-6 border-l-2 border-muted space-y-0">
-                  {items.map((event, i) => (
-                    <div key={event.id || i} className="relative pb-4 last:pb-0" data-testid={`audit-event-${i}`}>
-                      <div className={`absolute -left-[31px] top-1 w-4 h-4 rounded-full bg-background border-2 ${event.color} flex items-center justify-center`}>
-                        <div className={`w-2 h-2 rounded-full ${event.color.replace("border-", "bg-")}`} />
-                      </div>
-                      <div className="bg-card border rounded-lg p-3 ml-1 hover:shadow-sm transition-shadow">
-                        <div className="flex items-start gap-3">
-                          <div className="shrink-0 mt-0.5">{event.icon}</div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-semibold text-sm">{event.title}</span>
-                            </div>
-                            <p className="text-sm text-muted-foreground mt-0.5 break-words leading-relaxed">{event.description}</p>
-                            {event.details && (
-                              <pre className="text-xs text-muted-foreground mt-1.5 bg-muted/30 rounded p-2 whitespace-pre-wrap font-mono">{event.details}</pre>
-                            )}
-                          </div>
-                          <div className="text-right shrink-0">
-                            <div className="text-[11px] text-muted-foreground">{formatDateTime(event.date)}</div>
-                            <div className="text-[10px] text-muted-foreground/70 mt-0.5">{event.userName}</div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-          {filtered.length === 0 && (
+        <div className="max-h-[800px] overflow-y-auto">
+          {filtered.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-8">Žiadne záznamy v tejto kategórii</p>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b bg-muted/30">
+                  <th className="text-left py-2 px-3 text-xs font-semibold text-muted-foreground w-[140px]">Dátum</th>
+                  <th className="text-left py-2 px-3 text-xs font-semibold text-muted-foreground w-[180px]">Typ</th>
+                  <th className="text-left py-2 px-3 text-xs font-semibold text-muted-foreground">Popis</th>
+                  <th className="text-left py-2 px-3 text-xs font-semibold text-muted-foreground w-[140px]">Používateľ</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((event, i) => (
+                  <tr key={event.id || i} className="border-b last:border-0 hover:bg-muted/20 transition-colors" data-testid={`audit-event-${i}`}>
+                    <td className="py-2 px-3 text-xs text-muted-foreground whitespace-nowrap align-top">{formatDateTime(event.date)}</td>
+                    <td className="py-2 px-3 align-top">
+                      <div className="flex items-center gap-2">
+                        {event.icon}
+                        <span className="text-xs font-semibold">{event.title}</span>
+                      </div>
+                    </td>
+                    <td className="py-2 px-3 align-top">
+                      <span className="text-sm">{event.description}</span>
+                      {event.details && (
+                        <div className="text-xs text-muted-foreground mt-1 bg-muted/20 rounded px-2 py-1 font-mono whitespace-pre-wrap">{event.details}</div>
+                      )}
+                    </td>
+                    <td className="py-2 px-3 text-xs text-muted-foreground align-top">{event.userName}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           )}
         </div>
       </CardContent>
@@ -671,29 +662,31 @@ function CustomerAuditReport({ customerId }: { customerId: string }) {
         </div>
       </div>
 
-      <Card className="border-2 border-primary/20 bg-gradient-to-r from-primary/5 to-transparent print:border print:bg-white">
+      <Card className="border-2 border-primary/20 print:border print:bg-white">
         <CardContent className="pt-6">
-          <div className="flex items-start gap-6">
-            <div className="p-4 rounded-2xl bg-primary/10 shrink-0 print:bg-gray-100">
-              <User className="h-12 w-12 text-primary" />
+          <div className="flex items-start gap-4">
+            <div className="p-3 rounded-xl bg-primary/10 shrink-0">
+              <User className="h-10 w-10 text-primary" />
             </div>
-            <div className="flex-1 min-w-0">
-              <h2 className="text-2xl font-bold mb-1" data-testid="text-customer-name">
-                {c.titleBefore} {c.firstName} {c.lastName} {c.titleAfter}
+            <div className="flex-1">
+              <h2 className="text-2xl font-bold" data-testid="text-customer-name">
+                {[c.titleBefore, c.firstName, c.lastName, c.titleAfter].filter(Boolean).join(" ")}
               </h2>
-              <div className="flex flex-wrap gap-2 mb-3">
+              <div className="flex flex-wrap gap-2 mt-1 mb-4">
                 <StatusBadge status={c.clientStatus} variant={c.clientStatus === "acquired" ? "success" : c.clientStatus === "terminated" ? "danger" : "info"} />
                 <StatusBadge status={c.status} variant={c.status === "active" ? "success" : "warning"} />
                 {c.leadStatus && <StatusBadge status={`Lead: ${c.leadStatus}`} variant={c.leadStatus === "hot" ? "danger" : c.leadStatus === "warm" ? "warning" : "info"} />}
-                {c.leadScore && <Badge variant="outline" className="text-[10px]">Score: {c.leadScore}</Badge>}
+                {c.leadScore != null && <Badge variant="outline" className="text-[10px]">Score: {c.leadScore}</Badge>}
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-1">
+              <div className="grid grid-cols-2 gap-x-12 gap-y-0.5">
                 <InfoRow label="Email" value={c.email} icon={Mail} />
                 <InfoRow label="Phone" value={c.phone} icon={Phone} />
                 <InfoRow label="Mobile" value={c.mobile} icon={Phone} />
                 <InfoRow label="Birth Date" value={formatDate(c.dateOfBirth)} icon={Calendar} />
                 <InfoRow label="National ID" value={c.nationalId} icon={Shield} />
                 <InfoRow label="ID Card" value={c.idCardNumber} icon={FileCheck} />
+                <InfoRow label="Address" value={[c.address, c.city, c.postalCode].filter(Boolean).join(", ")} icon={MapPin} />
+                <InfoRow label="Country" value={c.country || c.countryCode} icon={MapPin} />
               </div>
             </div>
           </div>
