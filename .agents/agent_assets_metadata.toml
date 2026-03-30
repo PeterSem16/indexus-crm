@@ -12,3 +12,9 @@ id = "8qA5pUV_LCDxAkXc5XPkj"
 uri = "file://script/migration/partner-acquisition-callcenter-guide.md"
 type = "text"
 title = "Partner Acquisition — Návod pre call centrum"
+
+[[outputs]]
+id = "fWb91GjfMTTCKWghSil10"
+uri = "file://script/migration/partner-acquisition-admin-guide.md"
+type = "text"
+title = "Partner Acquisition — Návod pre správcu kampane"
