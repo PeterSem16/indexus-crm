@@ -1,6 +1,7 @@
 import { createContext, useContext, ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "./auth-context";
+import { CRM_MODULES } from "@shared/permissions-config";
 
 type ModuleAccess = "visible" | "hidden";
 type FieldAccess = "editable" | "readonly" | "hidden";
@@ -63,10 +64,8 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
     const modulePerm = roleData.modulePermissions.find(p => p.moduleKey === moduleKey);
     
     if (!modulePerm) {
-      if (roleData.modulePermissions.length > 0) {
-        return false;
-      }
-      return true;
+      const moduleDef = CRM_MODULES.find(m => m.key === moduleKey);
+      return moduleDef?.defaultAccess !== "hidden";
     }
     
     return modulePerm.access === "visible";

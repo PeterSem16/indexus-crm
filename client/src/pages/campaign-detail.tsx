@@ -3117,7 +3117,7 @@ export default function CampaignDetailPage() {
 
         {/* Settings Sheet - slides in from right */}
         <Sheet open={showSettingsSheet} onOpenChange={setShowSettingsSheet}>
-          <SheetContent className="w-[640px] sm:max-w-[640px] p-0 flex flex-col" data-testid="sheet-campaign-settings">
+          <SheetContent className="w-[900px] sm:max-w-[900px] p-0 flex flex-col" data-testid="sheet-campaign-settings">
             <SheetHeader className="px-6 pt-6 pb-4 border-b">
               <SheetTitle className="flex items-center gap-2">
                 <Settings className="w-5 h-5" />
@@ -3125,34 +3125,34 @@ export default function CampaignDetailPage() {
               </SheetTitle>
               <SheetDescription>{campaign.name}</SheetDescription>
             </SheetHeader>
-            <div className="flex-1 overflow-y-auto">
-              <Tabs value={settingsSubTab} onValueChange={setSettingsSubTab} className="flex flex-col h-full">
-                <div className="px-6 pt-4 border-b">
-                  <TabsList className="w-full justify-start">
-                    <TabsTrigger value="general" data-testid="subtab-general">
-                      <Settings className="w-4 h-4 mr-1.5" />
-                      {t.campaigns.detail.general}
-                    </TabsTrigger>
-                    <TabsTrigger value="scheduling" data-testid="subtab-scheduling">
-                      <Clock className="w-4 h-4 mr-1.5" />
-                      {t.campaigns.detail.scheduling}
-                    </TabsTrigger>
-                    <TabsTrigger value="operators" data-testid="subtab-operators">
-                      <Shield className="w-4 h-4 mr-1.5" />
-                      {t.campaigns.detail.operator}
-                    </TabsTrigger>
-                    <TabsTrigger value="dispositions" data-testid="subtab-dispositions">
-                      <CheckCheck className="w-4 h-4 mr-1.5" />
-                      {t.campaigns.detail.dispositions}
-                    </TabsTrigger>
-                    <TabsTrigger value="kpi" data-testid="subtab-kpi">
-                      <Target className="w-4 h-4 mr-1.5" />
-                      {t.campaigns.detail.kpiTargets}
-                    </TabsTrigger>
-                  </TabsList>
+            <div className="flex-1 overflow-hidden flex">
+              <Tabs value={settingsSubTab} onValueChange={setSettingsSubTab} className="flex flex-1 h-full" orientation="vertical">
+                <div className="w-48 border-r bg-muted/30 py-4 px-2 flex flex-col gap-1 shrink-0">
+                  {[
+                    { value: "general", icon: Settings, label: t.campaigns.detail.general },
+                    { value: "scheduling", icon: Clock, label: t.campaigns.detail.scheduling },
+                    { value: "operators", icon: Shield, label: t.campaigns.detail.operator },
+                    { value: "dispositions", icon: CheckCheck, label: t.campaigns.detail.dispositions },
+                    { value: "kpi", icon: Target, label: t.campaigns.detail.kpiTargets },
+                  ].map((tab) => (
+                    <button
+                      key={tab.value}
+                      type="button"
+                      onClick={() => setSettingsSubTab(tab.value)}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors text-left w-full ${
+                        settingsSubTab === tab.value
+                          ? "bg-background shadow-sm text-foreground"
+                          : "text-muted-foreground hover:text-foreground hover:bg-background/50"
+                      }`}
+                      data-testid={`subtab-${tab.value}`}
+                    >
+                      <tab.icon className="w-4 h-4 shrink-0" />
+                      {tab.label}
+                    </button>
+                  ))}
                 </div>
 
-                <div className="px-6 py-4 flex-1 overflow-y-auto">
+                <div className="flex-1 overflow-y-auto px-6 py-4">
                   <TabsContent value="general" className="space-y-6 mt-0">
                     <CampaignDetailsCard campaign={campaign} />
                     <Card>
