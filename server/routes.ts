@@ -32,6 +32,7 @@ import {
   DEFAULT_PHONE_DISPOSITIONS, DEFAULT_EMAIL_DISPOSITIONS, DEFAULT_SMS_DISPOSITIONS, DISPOSITION_NAME_TRANSLATIONS,
   callLogs, campaignContacts, campaignContactHistory, campaignContactSessions, campaigns, customers, users, entityCampaignTimeline, mobileContacts, collaborators, billingDetails,
   collections, executiveSummaries, collectionLabResults, collectionSprievodnyList, cbuReportAudit, cbuReportOtp, searchResults, searchJobs, leadCampaigns,
+  customerDocuments, customerDebtCollection, customerConsents, activityLogs as activityLogsTable,
   insertLeadSourceSchema, insertLeadCampaignSchema, queryTemplates, insertQueryTemplateSchema, webhookConfigs, insertWebhookConfigSchema, leadSources,
   sourceLearningMetrics, contactScores, leadFeedback, feedbackPatterns, leadEntities, entityRelations, entityEvidences, leadLifecycle,
   insertSopCategorySchema, insertSopArticleSchema,
@@ -2302,6 +2303,66 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error looking up customer by phone:", error);
       res.status(500).json({ error: "Failed to lookup customer" });
+    }
+  });
+
+  app.get("/api/customers/:id/audit-report", requireAuth, async (req, res) => {
+    try {
+      const customer = await storage.getCustomer(req.params.id);
+      if (!customer) return res.status(404).json({ error: "Customer not found" });
+
+      const [documents, debtRecords, notes, potentialCase, invoices, consents] = await Promise.all([
+        db.select().from(customerDocuments).where(eq(customerDocuments.customerId, req.params.id)).orderBy(customerDocuments.createdAt),
+        db.select().from(customerDebtCollection).where(eq(customerDebtCollection.customerId, req.params.id)),
+        storage.getCustomerNotes(req.params.id),
+        storage.getCustomerPotentialCase(req.params.id),
+        storage.getInvoicesByCustomer(req.params.id),
+        db.select().from(customerConsents).where(eq(customerConsents.customerId, req.params.id)),
+      ]);
+
+      const contracts = documents.filter(d => d.documentType === "contract");
+      const docInvoices = documents.filter(d => d.documentType === "invoice");
+
+      const customerCollections = await db.select().from(collections).where(eq(collections.customerId, req.params.id));
+      const labResults = [];
+      for (const col of customerCollections) {
+        const results = await storage.getCollectionLabResultsByCollection(col.id);
+        labResults.push({ collection: col, results });
+      }
+
+      let activityLogs: any[] = [];
+      try {
+        activityLogs = await db.select().from(activityLogsTable)
+          .where(eq(activityLogsTable.entityId, req.params.id))
+          .orderBy(activityLogsTable.createdAt)
+          .limit(200);
+      } catch {}
+
+      let contactHistory: any[] = [];
+      try {
+        contactHistory = await db.select().from(campaignContactHistory)
+          .where(eq(campaignContactHistory.customerId, req.params.id))
+          .orderBy(campaignContactHistory.contactedAt)
+          .limit(100);
+      } catch {}
+
+      res.json({
+        customer,
+        contracts,
+        documentInvoices: docInvoices,
+        invoices,
+        debtRecords,
+        notes,
+        potentialCase,
+        collections: customerCollections,
+        labResults,
+        activityLogs,
+        contactHistory,
+        consents,
+      });
+    } catch (error) {
+      console.error("Error fetching customer audit report:", error);
+      res.status(500).json({ error: "Failed to fetch audit report" });
     }
   });
 

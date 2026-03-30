@@ -52,6 +52,7 @@ import CampaignReportsPage from "@/pages/campaign-reports";
 import CustomerInvoicesPage from "@/pages/customer-invoices";
 import AgentWorkspacePage from "@/pages/agent-workspace";
 import SopManagementPage from "@/pages/sop-management";
+import ReportsPage from "@/pages/reports";
 import PublicFormPage from "@/pages/public-form";
 import { AgentSessionProvider } from "@/contexts/agent-session-context";
 import NotFound from "@/pages/not-found";
@@ -211,6 +212,7 @@ function AuthenticatedApp() {
                     <Route path="/contracts/:id" component={ContractDetailPage} />
                     <Route path="/contracts" component={ContractsPage} />
                     <Route path="/customer-invoices" component={CustomerInvoicesPage} />
+                    <Route path="/reports" component={ReportsPage} />
                     <Route path="/settings" component={SettingsPage} />
                     <Route path="/configurator" component={ConfiguratorPage} />
                     <Route path="/ms365" component={MS365IntegrationPage} />
