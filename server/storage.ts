@@ -5240,7 +5240,7 @@ export class DatabaseStorage implements IStorage {
       const statusGroups: Record<string, string[]> = {
         draft: ['draft', 'created'],
         sent: ['sent', 'received', 'returned'],
-        pending: ['pending_signature', 'verified'],
+        pending: ['sent', 'pending_signature', 'verified'],
         signed: ['signed', 'executed', 'completed'],
         cancelled: ['cancelled', 'terminated'],
       };
