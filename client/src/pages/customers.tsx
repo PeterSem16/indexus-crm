@@ -6345,14 +6345,17 @@ export default function CustomersPage() {
 
   const effectiveCountries = countryFilter !== "_all" ? [countryFilter] : selectedCountries;
 
+  useEffect(() => { setPage(1); }, [clientStatusFilter]);
+
   const { data: paginatedResult, isLoading, refetch: refetchCustomers } = useQuery<{ data: Customer[], total: number }>({
-    queryKey: ["/api/customers", { page, limit: pageSize, search: debouncedSearch, countries: effectiveCountries }],
+    queryKey: ["/api/customers", { page, limit: pageSize, search: debouncedSearch, countries: effectiveCountries, clientStatus: clientStatusFilter }],
     queryFn: async () => {
       const params = new URLSearchParams();
       params.set("page", String(page));
       params.set("limit", String(pageSize));
       if (debouncedSearch) params.set("search", debouncedSearch);
       if (effectiveCountries.length > 0) params.set("countries", effectiveCountries.join(","));
+      if (clientStatusFilter !== "_all") params.set("clientStatus", clientStatusFilter);
       const res = await fetch(`/api/customers?${params.toString()}`);
       if (!res.ok) throw new Error("Failed to fetch");
       return res.json();

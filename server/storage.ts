@@ -1389,7 +1389,7 @@ export class DatabaseStorage implements IStorage {
     }).from(customers).where(where).groupBy(customers.clientStatus);
   }
 
-  async getCustomersPaginated(page: number, limit: number, search?: string, country?: string, countries?: string[]): Promise<{ data: Customer[], total: number }> {
+  async getCustomersPaginated(page: number, limit: number, search?: string, country?: string, countries?: string[], clientStatus?: string): Promise<{ data: Customer[], total: number }> {
     const offset = (page - 1) * limit;
     const conditions: any[] = [];
     if (search && search.trim()) {
@@ -1405,6 +1405,9 @@ export class DatabaseStorage implements IStorage {
       conditions.push(inArray(customers.country, countries));
     } else if (country && country.trim()) {
       conditions.push(eq(customers.country, country.trim()));
+    }
+    if (clientStatus && clientStatus.trim()) {
+      conditions.push(eq(customers.clientStatus, clientStatus.trim()));
     }
     const where = conditions.length > 0 ? and(...conditions) : undefined;
     const [countResult] = await db.select({ count: sql<number>`count(*)::int` }).from(customers).where(where);

@@ -2257,8 +2257,9 @@ export async function registerRoutes(
       const search = req.query.search as string;
       const country = req.query.country as string;
       const countries = req.query.countries ? (req.query.countries as string).split(",").filter(Boolean) : undefined;
-      if (req.query.page || req.query.limit || req.query.search || req.query.status || countries) {
-        const result = await storage.getCustomersPaginated(page, limit, search, country, countries);
+      const clientStatus = req.query.clientStatus as string;
+      if (req.query.page || req.query.limit || req.query.search || req.query.status || countries || clientStatus) {
+        const result = await storage.getCustomersPaginated(page, limit, search, country, countries, clientStatus);
         return res.json(result);
       }
       const customers = await storage.getAllCustomers();
