@@ -30,6 +30,7 @@ type AuditReport = {
   activityLogs: any[];
   contactHistory: any[];
   consents: any[];
+  emailNotifications: any[];
 };
 
 function formatDate(d: string | null | undefined) {
@@ -80,6 +81,220 @@ function InfoRow({ label, value, icon: Icon }: { label: string; value: any; icon
       <span className="text-sm text-muted-foreground min-w-[140px] shrink-0">{label}:</span>
       <span className="text-sm font-medium break-all">{value || "—"}</span>
     </div>
+  );
+}
+
+function parseDetails(details: string | null | undefined): Record<string, any> | null {
+  if (!details) return null;
+  try { return JSON.parse(details); } catch { return null; }
+}
+
+function formatActivityDescription(action: string, details: string | null | undefined, entityType: string | null | undefined): string {
+  const parsed = parseDetails(details);
+  switch (action) {
+    case "update": {
+      if (parsed?.changes && Array.isArray(parsed.changes)) {
+        const fields = parsed.changes.filter((f: string) => !["updatedAt", "createdAt"].includes(f));
+        if (fields.length > 0) return `Updated fields: ${fields.join(", ")}`;
+      }
+      if (parsed?.changes && typeof parsed.changes === "object" && !Array.isArray(parsed.changes)) {
+        const entries = Object.entries(parsed.changes);
+        return entries.map(([k, v]: [string, any]) => {
+          if (v && typeof v === "object" && "from" in v && "to" in v) return `${k}: "${v.from}" → "${v.to}"`;
+          return `${k}: ${JSON.stringify(v)}`;
+        }).join("; ");
+      }
+      return `Record updated (${entityType || "entity"})`;
+    }
+    case "create": return `New ${entityType || "record"} created`;
+    case "upsert": return `Record created/updated (${entityType || "entity"})`;
+    case "campaign_joined": {
+      const name = parsed?.campaignName || parsed?.campaignId || "";
+      return `Joined campaign${name ? `: ${name}` : ""}`;
+    }
+    case "campaign_status_changed": {
+      return `Campaign status changed${parsed?.status ? ` to "${parsed.status}"` : ""}`;
+    }
+    case "email_sent": {
+      const subj = parsed?.subject || parsed?.to || "";
+      return `Email sent${subj ? `: ${subj}` : ""}`;
+    }
+    case "send_sms": {
+      const to = parsed?.to || parsed?.phone || "";
+      return `SMS sent${to ? ` to ${to}` : ""}`;
+    }
+    case "create_note":
+    case "note_added":
+      return `Note added${parsed?.note ? `: ${parsed.note.substring(0, 100)}` : ""}`;
+    case "upload_file":
+      return `File uploaded${parsed?.fileName ? `: ${parsed.fileName}` : ""}`;
+    case "reassign":
+      return `Reassigned${parsed?.to ? ` to ${parsed.to}` : ""}${parsed?.from ? ` from ${parsed.from}` : ""}`;
+    case "web_form_submission":
+      return "Web form submitted";
+    case "marketing_action":
+      return `Marketing action${parsed?.action ? `: ${parsed.action}` : ""}`;
+    case "generated_invoice_number":
+      return `Invoice number generated${parsed?.number ? `: ${parsed.number}` : ""}`;
+    default: {
+      if (parsed) {
+        const keys = Object.keys(parsed);
+        if (keys.length <= 3) {
+          return keys.map(k => `${k}: ${typeof parsed[k] === "string" ? parsed[k] : JSON.stringify(parsed[k])}`).join("; ");
+        }
+        return `${action} (${keys.length} fields changed)`;
+      }
+      return action.replace(/_/g, " ");
+    }
+  }
+}
+
+function getActionIcon(action: string) {
+  switch (action) {
+    case "update": return <Clock className="h-4 w-4 text-blue-500" />;
+    case "create": return <CheckCircle2 className="h-4 w-4 text-green-500" />;
+    case "email_sent": return <Mail className="h-4 w-4 text-indigo-500" />;
+    case "send_sms": return <Phone className="h-4 w-4 text-emerald-500" />;
+    case "create_note": case "note_added": return <MessageSquare className="h-4 w-4 text-amber-500" />;
+    case "upload_file": return <FileCheck className="h-4 w-4 text-purple-500" />;
+    case "campaign_joined": case "campaign_status_changed": return <Target className="h-4 w-4 text-rose-500" />;
+    case "reassign": return <User className="h-4 w-4 text-sky-500" />;
+    default: return <Activity className="h-4 w-4 text-muted-foreground" />;
+  }
+}
+
+function getActionLabel(action: string): string {
+  const labels: Record<string, string> = {
+    update: "Update", create: "Created", upsert: "Created/Updated",
+    email_sent: "Email", send_sms: "SMS", create_note: "Note", note_added: "Note",
+    upload_file: "Upload", campaign_joined: "Campaign", campaign_status_changed: "Campaign",
+    reassign: "Reassign", web_form_submission: "Web Form", marketing_action: "Marketing",
+    generated_invoice_number: "Invoice",
+  };
+  return labels[action] || action.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function CustomerHistorySection({ report }: { report: AuditReport }) {
+  const [historyTab, setHistoryTab] = useState("all");
+
+  const categorizeActivity = (a: any) => {
+    const action = a.action?.toLowerCase() || "";
+    if (action.includes("email") || action === "email_sent") return "emails";
+    if (action.includes("sms") || action === "send_sms") return "calls";
+    if (action.includes("note") || action === "create_note" || action === "note_added") return "notes";
+    if (action.includes("campaign") || action === "campaign_joined" || action === "campaign_status_changed") return "campaigns";
+    if (action === "upload_file") return "documents";
+    return "changes";
+  };
+
+  const activityItems = report.activityLogs.map((a: any) => ({
+    date: a.createdAt,
+    category: categorizeActivity(a),
+    action: a.action,
+    text: formatActivityDescription(a.action, a.details, a.entityType),
+    entityType: a.entityType,
+    icon: getActionIcon(a.action),
+    label: getActionLabel(a.action),
+  }));
+
+  const contactItems = report.contactHistory.map((ch: any) => ({
+    date: ch.contactedAt,
+    category: ch.contactType === "email" ? "emails" : "calls",
+    action: "contact",
+    text: `${ch.disposition || ch.result || "Contact"} via ${ch.contactType || ch.channel || "phone"}${ch.notes ? ` — ${ch.notes}` : ""}`,
+    entityType: "campaign",
+    icon: ch.contactType === "email" ? <Mail className="h-4 w-4 text-indigo-500" /> : <Phone className="h-4 w-4 text-emerald-500" />,
+    label: ch.contactType === "email" ? "Email" : "Call",
+  }));
+
+  const emailItems = (report.emailNotifications || []).map((e: any) => ({
+    date: e.receivedAt || e.createdAt,
+    category: "emails" as const,
+    action: "email_notification",
+    text: `${e.direction === "inbound" ? "Received" : "Sent"}: "${e.subject}"${e.senderName ? ` from ${e.senderName}` : ""}${e.bodyPreview ? ` — ${e.bodyPreview.substring(0, 120)}` : ""}`,
+    entityType: "email",
+    icon: <Mail className="h-4 w-4 text-indigo-500" />,
+    label: e.direction === "inbound" ? "Received" : "Sent",
+  }));
+
+  const allItems = [...activityItems, ...contactItems, ...emailItems]
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  const filtered = historyTab === "all" ? allItems : allItems.filter(i => i.category === historyTab);
+
+  const categoryCounts = {
+    all: allItems.length,
+    changes: allItems.filter(i => i.category === "changes").length,
+    emails: allItems.filter(i => i.category === "emails").length,
+    calls: allItems.filter(i => i.category === "calls").length,
+    notes: allItems.filter(i => i.category === "notes").length,
+    campaigns: allItems.filter(i => i.category === "campaigns").length,
+    documents: allItems.filter(i => i.category === "documents").length,
+  };
+
+  const tabs = [
+    { id: "all", label: "All", icon: History, count: categoryCounts.all },
+    { id: "changes", label: "Changes", icon: Clock, count: categoryCounts.changes },
+    { id: "emails", label: "Emails", icon: Mail, count: categoryCounts.emails },
+    { id: "calls", label: "Calls / SMS", icon: Phone, count: categoryCounts.calls },
+    { id: "notes", label: "Notes", icon: MessageSquare, count: categoryCounts.notes },
+    { id: "campaigns", label: "Campaigns", icon: Target, count: categoryCounts.campaigns },
+    { id: "documents", label: "Documents", icon: FileCheck, count: categoryCounts.documents },
+  ].filter(t => t.count > 0 || t.id === "all");
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <SectionTitle icon={History} title="Customer History" count={allItems.length} />
+        <div className="flex flex-wrap gap-1.5 mt-2">
+          {tabs.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setHistoryTab(tab.id)}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                historyTab === tab.id
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "bg-muted/60 text-muted-foreground hover:bg-muted"
+              }`}
+              data-testid={`tab-history-${tab.id}`}
+            >
+              <tab.icon className="h-3.5 w-3.5" />
+              {tab.label}
+              <span className={`ml-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+                historyTab === tab.id ? "bg-primary-foreground/20" : "bg-background"
+              }`}>{tab.count}</span>
+            </button>
+          ))}
+        </div>
+      </CardHeader>
+      <CardContent>
+        {filtered.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-6">No records in this category</p>
+        ) : (
+          <div className="space-y-0 max-h-[600px] overflow-y-auto">
+            {filtered.map((event, i) => (
+              <div key={i} className="flex items-start gap-3 py-3 px-2 border-b last:border-0 hover:bg-muted/30 rounded transition-colors" data-testid={`history-row-${i}`}>
+                <div className="mt-0.5 shrink-0 p-1.5 rounded-lg bg-muted/50">
+                  {event.icon}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <Badge variant="outline" className="text-[10px] px-2 py-0 font-bold shrink-0">{event.label}</Badge>
+                    {event.entityType && event.category === "changes" && (
+                      <Badge variant="secondary" className="text-[9px] px-1.5 py-0">{event.entityType}</Badge>
+                    )}
+                  </div>
+                  <p className="text-sm leading-relaxed break-words">{event.text}</p>
+                </div>
+                <div className="text-[11px] text-muted-foreground whitespace-nowrap shrink-0 pt-0.5">
+                  {formatDateTime(event.date)}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -487,60 +702,7 @@ function CustomerAuditReport({ customerId }: { customerId: string }) {
         </Card>
       )}
 
-      <Card>
-        <CardHeader className="pb-3">
-          <SectionTitle icon={History} title="Activity Timeline" count={report.activityLogs.length + report.contactHistory.length} />
-        </CardHeader>
-        <CardContent>
-          {report.activityLogs.length === 0 && report.contactHistory.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-4">No activity logs found</p>
-          ) : (
-            <div className="space-y-1 max-h-[500px] overflow-y-auto">
-              {[
-                ...report.activityLogs.map((a: any) => ({
-                  date: a.createdAt,
-                  type: "activity",
-                  action: a.action,
-                  description: a.description || a.details,
-                  user: a.userName || a.userId,
-                  entityType: a.entityType,
-                })),
-                ...report.contactHistory.map((ch: any) => ({
-                  date: ch.contactedAt,
-                  type: "contact",
-                  action: ch.disposition || ch.result || "Contact",
-                  description: ch.notes || ch.note,
-                  user: ch.agentName || ch.agentId,
-                  channel: ch.contactType || ch.channel,
-                })),
-              ]
-                .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                .map((event, i) => (
-                  <div key={i} className="flex items-start gap-3 py-2 border-b border-dashed last:border-0 hover:bg-muted/20" data-testid={`activity-row-${i}`}>
-                    <div className="mt-1">
-                      {event.type === "contact" ? (
-                        <Target className="h-4 w-4 text-blue-500" />
-                      ) : (
-                        <Clock className="h-4 w-4 text-muted-foreground" />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-xs font-medium">{event.action}</span>
-                        {(event as any).channel && <Badge variant="outline" className="text-[9px]">{(event as any).channel}</Badge>}
-                        {event.entityType && <Badge variant="outline" className="text-[9px]">{event.entityType}</Badge>}
-                      </div>
-                      {event.description && <p className="text-xs text-muted-foreground mt-0.5 truncate">{event.description}</p>}
-                    </div>
-                    <div className="text-[10px] text-muted-foreground whitespace-nowrap shrink-0">
-                      {formatDateTime(event.date)}
-                    </div>
-                  </div>
-                ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <CustomerHistorySection report={report} />
     </div>
   );
 }

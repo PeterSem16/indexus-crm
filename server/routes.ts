@@ -32,7 +32,7 @@ import {
   DEFAULT_PHONE_DISPOSITIONS, DEFAULT_EMAIL_DISPOSITIONS, DEFAULT_SMS_DISPOSITIONS, DISPOSITION_NAME_TRANSLATIONS,
   callLogs, campaignContacts, campaignContactHistory, campaignContactSessions, campaigns, customers, users, entityCampaignTimeline, mobileContacts, collaborators, billingDetails,
   collections, executiveSummaries, collectionLabResults, collectionSprievodnyList, cbuReportAudit, cbuReportOtp, searchResults, searchJobs, leadCampaigns,
-  customerDocuments, customerDebtCollection, customerConsents, activityLogs as activityLogsTable,
+  customerDocuments, customerDebtCollection, customerConsents, activityLogs as activityLogsTable, customerEmailNotifications,
   insertLeadSourceSchema, insertLeadCampaignSchema, queryTemplates, insertQueryTemplateSchema, webhookConfigs, insertWebhookConfigSchema, leadSources,
   sourceLearningMetrics, contactScores, leadFeedback, feedbackPatterns, leadEntities, entityRelations, entityEvidences, leadLifecycle,
   insertSopCategorySchema, insertSopArticleSchema,
@@ -2346,6 +2346,14 @@ export async function registerRoutes(
           .limit(100);
       } catch {}
 
+      let emailNotifications: any[] = [];
+      try {
+        emailNotifications = await db.select().from(customerEmailNotifications)
+          .where(eq(customerEmailNotifications.customerId, req.params.id))
+          .orderBy(customerEmailNotifications.receivedAt)
+          .limit(100);
+      } catch {}
+
       res.json({
         customer,
         contracts,
@@ -2359,6 +2367,7 @@ export async function registerRoutes(
         activityLogs,
         contactHistory,
         consents,
+        emailNotifications,
       });
     } catch (error) {
       console.error("Error fetching customer audit report:", error);
