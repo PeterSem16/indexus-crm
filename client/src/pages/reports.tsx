@@ -141,8 +141,8 @@ function CustomerHistorySection({ customerId, customerName }: { customerId: stri
     queryKey: ["/api/users"],
   });
 
-  const { data: contactHistory = [] } = useQuery<any[]>({
-    queryKey: ["/api/customers", customerId, "contact-history-audit"],
+  const { data: campaignContacts = [] } = useQuery<any[]>({
+    queryKey: ["/api/customers", customerId, "campaign-contacts-audit"],
     queryFn: async () => {
       const res = await fetch(`/api/customers/${customerId}/audit-report`, { credentials: "include" });
       if (!res.ok) return [];
@@ -453,7 +453,7 @@ function CustomerHistorySection({ customerId, customerName }: { customerId: stri
     });
   });
 
-  contactHistory.forEach((ch: any) => {
+  campaignContacts.forEach((ch: any) => {
     events.push({
       id: `contact-${ch.id || Math.random()}`,
       type: ch.contactType === "email" ? "email" : "call",
@@ -1084,9 +1084,12 @@ export default function ReportsPage() {
                             <User className="h-4 w-4 text-muted-foreground shrink-0" />
                             <div className="flex-1 min-w-0">
                               <div className="text-sm font-medium">{c.firstName} {c.lastName}</div>
-                              <div className="text-xs text-muted-foreground">{c.email || c.phone || c.nationalId || ""}</div>
+                              <div className="text-xs text-muted-foreground">{[c.email, c.phone, c.city, c.countryCode].filter(Boolean).join(" · ")}</div>
                             </div>
-                            <Badge variant="outline" className="text-[9px] shrink-0">{c.clientStatus || c.status || "—"}</Badge>
+                            <div className="flex flex-col items-end gap-1 shrink-0">
+                              <Badge variant="outline" className="text-[9px]">{c.clientStatus || c.status || "—"}</Badge>
+                              <span className="text-[9px] text-muted-foreground font-mono">{c.id?.substring(0, 8)}</span>
+                            </div>
                           </button>
                         ))}
                       </div>
