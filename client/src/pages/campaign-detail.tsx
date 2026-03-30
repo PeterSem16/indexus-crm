@@ -197,6 +197,13 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
 import { CriteriaBuilder, type CriteriaGroup, criteriaToDescription } from "@/components/criteria-builder";
 import { ScheduleEditor, type ScheduleConfig, getDefaultScheduleConfig } from "@/components/schedule-editor";
 import { CampaignContactsFilter, type CampaignContactFilters, applyContactFilters } from "@/components/campaign-contacts-filter";
@@ -1964,6 +1971,7 @@ export default function CampaignDetailPage() {
   };
   const [activeTab, setActiveTab] = useState("overview");
   const [settingsSubTab, setSettingsSubTab] = useState("general");
+  const [showSettingsSheet, setShowSettingsSheet] = useState(false);
   const [contactFilters, setContactFilters] = useState<CampaignContactFilters>({});
   const [selectedContact, setSelectedContact] = useState<EnrichedContact | null>(null);
   const [sortConfig, setSortConfig] = useState<SortConfig | null>(null);
@@ -2767,6 +2775,10 @@ export default function CampaignDetailPage() {
               {t.campaigns.statuses.active}
             </Button>
           )}
+          <Button variant="outline" onClick={() => setShowSettingsSheet(true)} data-testid="button-campaign-settings">
+            <Settings className="w-4 h-4 mr-2" />
+            {t.campaigns.detail.settings}
+          </Button>
           <Link href={`/campaigns/${campaign.id}/reports`}>
             <Button variant="outline" data-testid="button-campaign-reports">
               <BarChart3 className="w-4 h-4 mr-2" />
@@ -2810,10 +2822,6 @@ export default function CampaignDetailPage() {
           <TabsTrigger value="contacts" data-testid="tab-contacts">
             <Users className="w-4 h-4 mr-2" />
             {t.campaigns.detail.contacts}
-          </TabsTrigger>
-          <TabsTrigger value="settings" data-testid="tab-settings">
-            <Settings className="w-4 h-4 mr-2" />
-            {t.campaigns.detail.settings}
           </TabsTrigger>
           <TabsTrigger value="reporting" data-testid="tab-reporting">
             <BarChart3 className="w-4 h-4 mr-2" />
@@ -3107,166 +3115,181 @@ export default function CampaignDetailPage() {
           )}
         </TabsContent>
 
-        <TabsContent value="settings" className="space-y-4">
-          <Tabs value={settingsSubTab} onValueChange={setSettingsSubTab}>
-            <TabsList>
-              <TabsTrigger value="general" data-testid="subtab-general">
-                <Settings className="w-4 h-4 mr-2" />
-                {t.campaigns.detail.general}
-              </TabsTrigger>
-              <TabsTrigger value="scheduling" data-testid="subtab-scheduling">
-                <Clock className="w-4 h-4 mr-2" />
-                {t.campaigns.detail.scheduling}
-              </TabsTrigger>
-              <TabsTrigger value="operators" data-testid="subtab-operators">
-                <Shield className="w-4 h-4 mr-2" />
-                {t.campaigns.detail.operator}
-              </TabsTrigger>
-              <TabsTrigger value="dispositions" data-testid="subtab-dispositions">
-                <CheckCheck className="w-4 h-4 mr-2" />
-                {t.campaigns.detail.dispositions}
-              </TabsTrigger>
-              <TabsTrigger value="kpi" data-testid="subtab-kpi">
-                <Target className="w-4 h-4 mr-2" />
-                {t.campaigns.detail.kpiTargets}
-              </TabsTrigger>
-            </TabsList>
+        {/* Settings Sheet - slides in from right */}
+        <Sheet open={showSettingsSheet} onOpenChange={setShowSettingsSheet}>
+          <SheetContent className="w-[640px] sm:max-w-[640px] p-0 flex flex-col" data-testid="sheet-campaign-settings">
+            <SheetHeader className="px-6 pt-6 pb-4 border-b">
+              <SheetTitle className="flex items-center gap-2">
+                <Settings className="w-5 h-5" />
+                {t.campaigns.detail.settings}
+              </SheetTitle>
+              <SheetDescription>{campaign.name}</SheetDescription>
+            </SheetHeader>
+            <div className="flex-1 overflow-y-auto">
+              <Tabs value={settingsSubTab} onValueChange={setSettingsSubTab} className="flex flex-col h-full">
+                <div className="px-6 pt-4 border-b">
+                  <TabsList className="w-full justify-start">
+                    <TabsTrigger value="general" data-testid="subtab-general">
+                      <Settings className="w-4 h-4 mr-1.5" />
+                      {t.campaigns.detail.general}
+                    </TabsTrigger>
+                    <TabsTrigger value="scheduling" data-testid="subtab-scheduling">
+                      <Clock className="w-4 h-4 mr-1.5" />
+                      {t.campaigns.detail.scheduling}
+                    </TabsTrigger>
+                    <TabsTrigger value="operators" data-testid="subtab-operators">
+                      <Shield className="w-4 h-4 mr-1.5" />
+                      {t.campaigns.detail.operator}
+                    </TabsTrigger>
+                    <TabsTrigger value="dispositions" data-testid="subtab-dispositions">
+                      <CheckCheck className="w-4 h-4 mr-1.5" />
+                      {t.campaigns.detail.dispositions}
+                    </TabsTrigger>
+                    <TabsTrigger value="kpi" data-testid="subtab-kpi">
+                      <Target className="w-4 h-4 mr-1.5" />
+                      {t.campaigns.detail.kpiTargets}
+                    </TabsTrigger>
+                  </TabsList>
+                </div>
 
-            <TabsContent value="general" className="space-y-6">
-              <CampaignDetailsCard campaign={campaign} />
-              <Card>
-                <CardHeader>
-                  <CardTitle>{t.campaigns.detail.defaultAgentTab}</CardTitle>
-                  <CardDescription>
-                    {t.campaigns.detail.defaultAgentTabDesc}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Select 
-                    value={campaign.defaultActiveTab || "phone"} 
-                    onValueChange={(v) => {
-                      apiRequest("PATCH", `/api/campaigns/${campaign.id}`, { defaultActiveTab: v })
-                        .then(() => {
-                          toast({ title: t.campaigns.detail.settingsSaved });
-                          queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id] });
-                        })
-                        .catch(() => toast({ title: t.campaigns.detail.error, variant: "destructive" }));
-                    }}
-                  >
-                    <SelectTrigger className="w-64" data-testid="select-default-active-tab">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="phone">{t.campaigns.detail.phone}</SelectItem>
-                      <SelectItem value="script">{t.campaigns.detail.script}</SelectItem>
-                      <SelectItem value="email">{t.campaigns.detail.email}</SelectItem>
-                      <SelectItem value="sms">SMS</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </CardContent>
-              </Card>
+                <div className="px-6 py-4 flex-1 overflow-y-auto">
+                  <TabsContent value="general" className="space-y-6 mt-0">
+                    <CampaignDetailsCard campaign={campaign} />
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>{t.campaigns.detail.defaultAgentTab}</CardTitle>
+                        <CardDescription>
+                          {t.campaigns.detail.defaultAgentTabDesc}
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <Select 
+                          value={campaign.defaultActiveTab || "phone"} 
+                          onValueChange={(v) => {
+                            apiRequest("PATCH", `/api/campaigns/${campaign.id}`, { defaultActiveTab: v })
+                              .then(() => {
+                                toast({ title: t.campaigns.detail.settingsSaved });
+                                queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id] });
+                              })
+                              .catch(() => toast({ title: t.campaigns.detail.error, variant: "destructive" }));
+                          }}
+                        >
+                          <SelectTrigger className="w-64" data-testid="select-default-active-tab">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="phone">{t.campaigns.detail.phone}</SelectItem>
+                            <SelectItem value="script">{t.campaigns.detail.script}</SelectItem>
+                            <SelectItem value="email">{t.campaigns.detail.email}</SelectItem>
+                            <SelectItem value="sms">SMS</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </CardContent>
+                    </Card>
+                    <CampaignSopSettingsCard campaignId={campaign.id} />
+                    <AutoModeCard campaign={campaign} />
+                    <CriteriaCard campaign={campaign} />
+                  </TabsContent>
 
-              <CampaignSopSettingsCard campaignId={campaign.id} />
-              <AutoModeCard campaign={campaign} />
-              <CriteriaCard campaign={campaign} />
-            </TabsContent>
+                  <TabsContent value="scheduling" className="space-y-6 mt-0">
+                    <SchedulingCard campaign={campaign} />
+                  </TabsContent>
 
-            <TabsContent value="scheduling" className="space-y-6">
-              <SchedulingCard campaign={campaign} />
-            </TabsContent>
-
-            <TabsContent value="operators" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Shield className="w-5 h-5" />
-                    {t.campaigns.detail.assignedOperators}
-                  </CardTitle>
-                  <CardDescription>
-                    {t.campaigns.detail.assignedOperatorsDesc}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {assignableUsers.length === 0 ? (
-                      <p className="text-sm text-muted-foreground text-center py-8">
-                        {t.campaigns.detail.noOperatorsAvailable}
-                      </p>
-                    ) : (
-                      <div className="grid gap-3">
-                        {assignableUsers.map((user) => {
-                          const isAssigned = assignedAgentIds.includes(user.id);
-                          return (
-                            <div 
-                              key={user.id} 
-                              className={`flex items-center justify-between gap-3 p-3 rounded-lg border ${isAssigned ? 'bg-primary/5 border-primary/20' : 'bg-muted/30'}`}
-                            >
-                              <div className="flex items-center gap-3">
-                                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isAssigned ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
-                                  <User className="w-5 h-5" />
-                                </div>
-                                <div>
-                                  <p className="font-medium">{user.fullName}</p>
-                                  <p className="text-sm text-muted-foreground">{roles.find(r => r.id === user.roleId)?.name || user.role}</p>
-                                </div>
-                              </div>
-                              <Button
-                                variant={isAssigned ? "default" : "outline"}
-                                size="sm"
-                                onClick={() => {
-                                  const newAgentIds = isAssigned
-                                    ? assignedAgentIds.filter(id => id !== user.id)
-                                    : [...assignedAgentIds, user.id];
-                                  updateAgentsMutation.mutate(newAgentIds);
-                                }}
-                                disabled={updateAgentsMutation.isPending}
-                                data-testid={`button-toggle-agent-settings-${user.id}`}
-                              >
-                                {isAssigned ? (
-                                  <>
-                                    <CheckCheck className="w-4 h-4 mr-2" />
-                                    {t.campaigns.detail.assigned}
-                                  </>
-                                ) : (
-                                  t.campaigns.detail.assign
-                                )}
-                              </Button>
+                  <TabsContent value="operators" className="space-y-6 mt-0">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <Shield className="w-5 h-5" />
+                          {t.campaigns.detail.assignedOperators}
+                        </CardTitle>
+                        <CardDescription>
+                          {t.campaigns.detail.assignedOperatorsDesc}
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-4">
+                          {assignableUsers.length === 0 ? (
+                            <p className="text-sm text-muted-foreground text-center py-8">
+                              {t.campaigns.detail.noOperatorsAvailable}
+                            </p>
+                          ) : (
+                            <div className="grid gap-3">
+                              {assignableUsers.map((user) => {
+                                const isAssigned = assignedAgentIds.includes(user.id);
+                                return (
+                                  <div 
+                                    key={user.id} 
+                                    className={`flex items-center justify-between gap-3 p-3 rounded-lg border ${isAssigned ? 'bg-primary/5 border-primary/20' : 'bg-muted/30'}`}
+                                  >
+                                    <div className="flex items-center gap-3">
+                                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isAssigned ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
+                                        <User className="w-5 h-5" />
+                                      </div>
+                                      <div>
+                                        <p className="font-medium">{user.fullName}</p>
+                                        <p className="text-sm text-muted-foreground">{roles.find(r => r.id === user.roleId)?.name || user.role}</p>
+                                      </div>
+                                    </div>
+                                    <Button
+                                      variant={isAssigned ? "default" : "outline"}
+                                      size="sm"
+                                      onClick={() => {
+                                        const newAgentIds = isAssigned
+                                          ? assignedAgentIds.filter(id => id !== user.id)
+                                          : [...assignedAgentIds, user.id];
+                                        updateAgentsMutation.mutate(newAgentIds);
+                                      }}
+                                      disabled={updateAgentsMutation.isPending}
+                                      data-testid={`button-toggle-agent-settings-${user.id}`}
+                                    >
+                                      {isAssigned ? (
+                                        <>
+                                          <CheckCheck className="w-4 h-4 mr-2" />
+                                          {t.campaigns.detail.assigned}
+                                        </>
+                                      ) : (
+                                        t.campaigns.detail.assign
+                                      )}
+                                    </Button>
+                                  </div>
+                                );
+                              })}
                             </div>
-                          );
-                        })}
-                      </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                    {assignedAgentIds.length > 0 && (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>{t.campaigns.detail.campaignSummary}</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="secondary" className="text-sm">
+                              {assignedAgentIds.length} {t.campaigns.detail.operator}
+                            </Badge>
+                            <span className="text-sm text-muted-foreground">
+                              {t.campaigns.detail.assignedOperators}
+                            </span>
+                          </div>
+                        </CardContent>
+                      </Card>
                     )}
-                  </div>
-                </CardContent>
-              </Card>
-              {assignedAgentIds.length > 0 && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>{t.campaigns.detail.campaignSummary}</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="secondary" className="text-sm">
-                        {assignedAgentIds.length} {t.campaigns.detail.operator}
-                      </Badge>
-                      <span className="text-sm text-muted-foreground">
-                        {t.campaigns.detail.assignedOperators}
-                      </span>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-            </TabsContent>
+                  </TabsContent>
 
-            <TabsContent value="dispositions" className="space-y-4">
-              <DispositionsTab campaignId={campaignId} embedded />
-            </TabsContent>
+                  <TabsContent value="dispositions" className="space-y-4 mt-0">
+                    <DispositionsTab campaignId={campaignId} embedded />
+                  </TabsContent>
 
-            <TabsContent value="kpi" className="space-y-6">
-              <KpiTargetsCard campaign={campaign} />
-            </TabsContent>
-          </Tabs>
-        </TabsContent>
+                  <TabsContent value="kpi" className="space-y-6 mt-0">
+                    <KpiTargetsCard campaign={campaign} />
+                  </TabsContent>
+                </div>
+              </Tabs>
+            </div>
+          </SheetContent>
+        </Sheet>
 
         <TabsContent value="reporting" className="space-y-6">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
