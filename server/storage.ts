@@ -4025,8 +4025,19 @@ export class DatabaseStorage implements IStorage {
 
   async updateCampaign(id: string, data: Partial<InsertCampaign>): Promise<Campaign | undefined> {
     const updateData: any = { ...data, updatedAt: new Date() };
-    if (data.startDate) updateData.startDate = new Date(data.startDate);
-    if (data.endDate) updateData.endDate = new Date(data.endDate);
+    if (data.startDate && typeof data.startDate === "string") {
+      const d = new Date(data.startDate);
+      updateData.startDate = isNaN(d.getTime()) ? null : d;
+    } else if (data.startDate === null || data.startDate === "") {
+      updateData.startDate = null;
+    }
+    if (data.endDate && typeof data.endDate === "string") {
+      const d = new Date(data.endDate);
+      updateData.endDate = isNaN(d.getTime()) ? null : d;
+    } else if (data.endDate === null || data.endDate === "") {
+      updateData.endDate = null;
+    }
+    if ('id' in updateData) delete updateData.id;
     
     const [updated] = await db.update(campaigns).set(updateData).where(eq(campaigns.id, id)).returning();
     return updated || undefined;
