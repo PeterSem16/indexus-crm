@@ -706,6 +706,20 @@ class MobileSipEngine {
     }
   }
 
+  async toggleSpeaker(): Promise<boolean> {
+    try {
+      const newSpeaker = !this._callInfo.isSpeaker;
+      const InCallManager = (await import('react-native-incall-manager')).default;
+      InCallManager.setForceSpeakerphoneOn(newSpeaker);
+      this.updateCallInfo({ isSpeaker: newSpeaker });
+      this.emit('debug', `Speaker toggled: ${newSpeaker}`);
+      return newSpeaker;
+    } catch (e: any) {
+      this.emit('debug', `toggleSpeaker error: ${e?.message}`);
+      return this._callInfo.isSpeaker;
+    }
+  }
+
   private async startAudioSession(speaker: boolean = false) {
     try {
       const InCallManager = (await import('react-native-incall-manager')).default;

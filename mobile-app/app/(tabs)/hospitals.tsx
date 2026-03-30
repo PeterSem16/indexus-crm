@@ -7,34 +7,63 @@ import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useHospitals, Hospital } from '@/hooks/useHospitals';
+import { useClinics, Clinic } from '@/hooks/useClinics';
 import { useSipStore } from '@/stores/sipStore';
 import { Colors, Spacing, FontSizes } from '@/constants/colors';
+
+type ViewTab = 'hospitals' | 'clinics';
+
+interface ListItem {
+  id: string;
+  name: string;
+  subtitle?: string;
+  phone?: string;
+  email?: string;
+  city?: string;
+  type: 'hospital' | 'clinic';
+  latitude?: string;
+  longitude?: string;
+  streetNumber?: string;
+}
 
 export default function HospitalsScreen() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeTab, setActiveTab] = useState<ViewTab>('hospitals');
   const { translations } = useTranslation();
-  const { data: hospitals = [], isLoading, error, refetch } = useHospitals();
+  const { data: hospitals = [], isLoading: hospitalsLoading, error: hospitalsError, refetch: refetchHospitals } = useHospitals();
+  const { data: clinics = [], isLoading: clinicsLoading, error: clinicsError, refetch: refetchClinics } = useClinics();
   const [refreshing, setRefreshing] = useState(false);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await refetch();
+    if (activeTab === 'hospitals') {
+      await refetchHospitals();
+    } else {
+      await refetchClinics();
+    }
     setRefreshing(false);
-  }, [refetch]);
+  }, [refetchHospitals, refetchClinics, activeTab]);
 
-  const openMap = (hospital: Hospital) => {
-    if (hospital.latitude && hospital.longitude) {
-      const lat = hospital.latitude;
-      const lng = hospital.longitude;
-      const label = encodeURIComponent(hospital.name);
+  const openMap = (item: ListItem) => {
+    if (item.latitude && item.longitude) {
+      const lat = item.latitude;
+      const lng = item.longitude;
+      const label = encodeURIComponent(item.name);
       const url = Platform.select({
         ios: `maps:0,0?q=${label}@${lat},${lng}`,
         android: `geo:${lat},${lng}?q=${lat},${lng}(${label})`,
       });
       if (url) Linking.openURL(url);
-    } else if (hospital.streetNumber && hospital.city) {
-      const address = encodeURIComponent(`${hospital.streetNumber}, ${hospital.city}`);
+    } else if (item.streetNumber && item.city) {
+      const address = encodeURIComponent(`${item.streetNumber}, ${item.city}`);
+      const url = Platform.select({
+        ios: `maps:0,0?q=${address}`,
+        android: `geo:0,0?q=${address}`,
+      });
+      if (url) Linking.openURL(url);
+    } else if (item.city) {
+      const address = encodeURIComponent(item.city);
       const url = Platform.select({
         ios: `maps:0,0?q=${address}`,
         android: `geo:0,0?q=${address}`,
@@ -45,7 +74,7 @@ export default function HospitalsScreen() {
 
   const { registrationState, makeCall } = useSipStore();
 
-  const callHospital = (phone: string, name?: string) => {
+  const callItem = (phone: string) => {
     if (registrationState === 'registered') {
       makeCall(phone);
     } else {
@@ -53,64 +82,102 @@ export default function HospitalsScreen() {
     }
   };
 
-  const filteredHospitals = useMemo(() => {
-    if (!searchQuery.trim()) return hospitals;
-    
-    const query = searchQuery.toLowerCase();
-    return hospitals.filter((h) =>
-      h.name.toLowerCase().includes(query) ||
-      (h.city?.toLowerCase() || '').includes(query) ||
-      (h.streetNumber?.toLowerCase() || '').includes(query) ||
-      (h.region?.toLowerCase() || '').includes(query) ||
-      (h.phone?.toLowerCase() || '').includes(query) ||
-      (h.email?.toLowerCase() || '').includes(query)
-    );
-  }, [hospitals, searchQuery]);
+  const hospitalItems: ListItem[] = useMemo(() => {
+    return hospitals.map((h: Hospital) => ({
+      id: String(h.id),
+      name: h.name,
+      subtitle: [h.streetNumber, h.city].filter(Boolean).join(', '),
+      phone: h.phone,
+      email: h.email,
+      city: h.city,
+      type: 'hospital' as const,
+      latitude: h.latitude,
+      longitude: h.longitude,
+      streetNumber: h.streetNumber,
+    }));
+  }, [hospitals]);
 
-  const navigateToDetail = (hospitalId: string) => {
-    router.push(`/hospital/${hospitalId}`);
+  const clinicItems: ListItem[] = useMemo(() => {
+    return clinics.map((c: Clinic) => ({
+      id: String(c.id),
+      name: c.name,
+      subtitle: [c.doctorName, c.city].filter(Boolean).join(' · '),
+      phone: c.phone,
+      email: c.email,
+      city: c.city,
+      type: 'clinic' as const,
+    }));
+  }, [clinics]);
+
+  const currentItems = activeTab === 'hospitals' ? hospitalItems : clinicItems;
+  const isLoading = activeTab === 'hospitals' ? hospitalsLoading : clinicsLoading;
+  const error = activeTab === 'hospitals' ? hospitalsError : clinicsError;
+
+  const filteredItems = useMemo(() => {
+    if (!searchQuery.trim()) return currentItems;
+
+    const query = searchQuery.toLowerCase();
+    return currentItems.filter((item) =>
+      item.name.toLowerCase().includes(query) ||
+      (item.subtitle?.toLowerCase() || '').includes(query) ||
+      (item.city?.toLowerCase() || '').includes(query) ||
+      (item.phone?.toLowerCase() || '').includes(query) ||
+      (item.email?.toLowerCase() || '').includes(query)
+    );
+  }, [currentItems, searchQuery]);
+
+  const navigateToDetail = (itemId: string) => {
+    if (activeTab === 'hospitals') {
+      router.push(`/hospital/${itemId}`);
+    }
   };
 
-  const renderHospital = ({ item }: { item: Hospital }) => (
-    <Pressable 
-      onPress={() => navigateToDetail(String(item.id))}
-      testID={`hospital-card-${item.id}`}
+  const renderItem = ({ item }: { item: ListItem }) => (
+    <Pressable
+      onPress={() => navigateToDetail(item.id)}
+      testID={`${item.type}-card-${item.id}`}
     >
-      <Card style={styles.hospitalCard}>
-        <View style={styles.hospitalIcon}>
-          <Ionicons name="business" size={24} color={Colors.primary} />
+      <Card style={styles.itemCard}>
+        <View style={[styles.itemIcon, item.type === 'clinic' && styles.clinicIcon]}>
+          <Ionicons
+            name={item.type === 'hospital' ? 'business' : 'medkit'}
+            size={24}
+            color={item.type === 'hospital' ? Colors.primary : '#10b981'}
+          />
         </View>
-        <View style={styles.hospitalInfo}>
-          <Text style={styles.hospitalName} numberOfLines={2}>{item.name}</Text>
-          {(item.streetNumber || item.city) && (
-            <Text style={styles.hospitalAddress} numberOfLines={1}>
-              {[item.streetNumber, item.city].filter(Boolean).join(', ')}
-            </Text>
+        <View style={styles.itemInfo}>
+          <Text style={styles.itemName} numberOfLines={2}>{item.name}</Text>
+          {item.subtitle && (
+            <Text style={styles.itemSubtitle} numberOfLines={1}>{item.subtitle}</Text>
           )}
           {item.email && (
-            <Text style={styles.hospitalEmail} numberOfLines={1}>{item.email}</Text>
+            <Text style={styles.itemEmail} numberOfLines={1}>{item.email}</Text>
           )}
         </View>
         <View style={styles.actionButtons}>
           {item.phone && (
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.actionButton}
-              onPress={() => callHospital(item.phone!)}
+              onPress={() => callItem(item.phone!)}
               activeOpacity={0.6}
-              data-testid={`button-call-hospital-${item.id}`}
+              testID={`button-call-${item.type}-${item.id}`}
             >
               <Ionicons name="call" size={18} color={Colors.primary} />
             </TouchableOpacity>
           )}
-          <TouchableOpacity 
-            style={styles.actionButton}
-            onPress={() => openMap(item)}
-            activeOpacity={0.6}
-            data-testid={`button-map-hospital-${item.id}`}
-          >
-            <Ionicons name="navigate" size={18} color={Colors.primary} />
-          </TouchableOpacity>
-          <Ionicons name="chevron-forward" size={18} color={Colors.textSecondary} />
+          {(item.city || item.streetNumber) && (
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => openMap(item)}
+              activeOpacity={0.6}
+              testID={`button-map-${item.type}-${item.id}`}
+            >
+              <Ionicons name="navigate" size={18} color={Colors.primary} />
+            </TouchableOpacity>
+          )}
+          {item.type === 'hospital' && (
+            <Ionicons name="chevron-forward" size={18} color={Colors.textSecondary} />
+          )}
         </View>
       </Card>
     </Pressable>
@@ -123,17 +190,53 @@ export default function HospitalsScreen() {
         <Text style={styles.subtitle}>{translations.hospitals.subtitle}</Text>
       </View>
 
+      <View style={styles.tabContainer}>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'hospitals' && styles.tabActive]}
+          onPress={() => { setActiveTab('hospitals'); setSearchQuery(''); }}
+          activeOpacity={0.7}
+          testID="tab-hospitals"
+        >
+          <Ionicons name="business" size={16} color={activeTab === 'hospitals' ? Colors.primary : Colors.textSecondary} />
+          <Text style={[styles.tabText, activeTab === 'hospitals' && styles.tabTextActive]}>
+            {translations.hospitals.hospitalsTab || 'Hospitals'}
+          </Text>
+          <View style={[styles.tabBadge, activeTab === 'hospitals' && styles.tabBadgeActive]}>
+            <Text style={[styles.tabBadgeText, activeTab === 'hospitals' && styles.tabBadgeTextActive]}>
+              {hospitals.length}
+            </Text>
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'clinics' && styles.tabActive]}
+          onPress={() => { setActiveTab('clinics'); setSearchQuery(''); }}
+          activeOpacity={0.7}
+          testID="tab-clinics"
+        >
+          <Ionicons name="medkit" size={16} color={activeTab === 'clinics' ? '#10b981' : Colors.textSecondary} />
+          <Text style={[styles.tabText, activeTab === 'clinics' && styles.tabTextActive]}>
+            {translations.hospitals.clinicsTab || 'Clinics'}
+          </Text>
+          <View style={[styles.tabBadge, activeTab === 'clinics' && styles.tabBadgeActive]}>
+            <Text style={[styles.tabBadgeText, activeTab === 'clinics' && styles.tabBadgeTextActive]}>
+              {clinics.length}
+            </Text>
+          </View>
+        </TouchableOpacity>
+      </View>
+
       <View style={styles.searchContainer}>
         <Ionicons name="search" size={20} color={Colors.textSecondary} style={styles.searchIcon} />
         <Input
-          placeholder={translations.hospitals.searchPlaceholder}
+          placeholder={activeTab === 'hospitals' ? (translations.hospitals.searchPlaceholder) : (translations.hospitals.searchClinicsPlaceholder || 'Search clinics...')}
           value={searchQuery}
           onChangeText={setSearchQuery}
           containerStyle={styles.searchInput}
-          testID="input-search-hospitals"
+          testID="input-search-facilities"
         />
         {searchQuery.length > 0 && (
-          <Pressable 
+          <Pressable
             style={styles.clearButton}
             onPress={() => setSearchQuery('')}
           >
@@ -151,18 +254,18 @@ export default function HospitalsScreen() {
         <View style={styles.emptyState}>
           <Ionicons name="alert-circle-outline" size={48} color={Colors.error} />
           <Text style={styles.emptyText}>{translations.hospitals.loadError}</Text>
-          <Pressable 
+          <Pressable
             style={styles.retryButton}
-            onPress={() => refetch()}
+            onPress={() => activeTab === 'hospitals' ? refetchHospitals() : refetchClinics()}
           >
             <Text style={styles.retryText}>{translations.hospitals.retryText}</Text>
           </Pressable>
         </View>
       ) : (
         <FlatList
-          data={filteredHospitals}
-          renderItem={renderHospital}
-          keyExtractor={(item) => String(item.id)}
+          data={filteredItems}
+          renderItem={renderItem}
+          keyExtractor={(item) => `${item.type}-${item.id}`}
           contentContainerStyle={styles.listContent}
           refreshControl={
             <RefreshControl
@@ -174,12 +277,15 @@ export default function HospitalsScreen() {
           }
           ListEmptyComponent={
             <View style={styles.emptyState}>
-              <Ionicons name="business-outline" size={48} color={Colors.textSecondary} />
+              <Ionicons name={activeTab === 'hospitals' ? 'business-outline' : 'medkit-outline'} size={48} color={Colors.textSecondary} />
               <Text style={styles.emptyText}>
-                {searchQuery ? translations.hospitals.noResults : translations.hospitals.noHospitals}
+                {searchQuery
+                  ? translations.hospitals.noResults
+                  : (activeTab === 'hospitals' ? translations.hospitals.noHospitals : (translations.hospitals.noClinics || 'No clinics found'))
+                }
               </Text>
               {searchQuery && (
-                <Pressable 
+                <Pressable
                   style={styles.clearSearchButton}
                   onPress={() => setSearchQuery('')}
                 >
@@ -190,7 +296,10 @@ export default function HospitalsScreen() {
           }
           ListHeaderComponent={
             <Text style={styles.countText}>
-              {filteredHospitals.length} {filteredHospitals.length === 1 ? translations.hospitals.hospitalCount : translations.hospitals.hospitalsCount}
+              {filteredItems.length} {activeTab === 'hospitals'
+                ? (filteredItems.length === 1 ? translations.hospitals.hospitalCount : translations.hospitals.hospitalsCount)
+                : (filteredItems.length === 1 ? (translations.hospitals.clinicCount || 'clinic') : (translations.hospitals.clinicsCount || 'clinics'))
+              }
             </Text>
           }
         />
@@ -220,6 +329,56 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     marginTop: 2,
   },
+  tabContainer: {
+    flexDirection: 'row',
+    backgroundColor: Colors.white,
+    paddingHorizontal: Spacing.md,
+    paddingBottom: Spacing.sm,
+    gap: Spacing.sm,
+  },
+  tab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: Spacing.sm,
+    borderRadius: 8,
+    backgroundColor: Colors.surface,
+  },
+  tabActive: {
+    backgroundColor: Colors.primary + '15',
+    borderWidth: 1,
+    borderColor: Colors.primary + '30',
+  },
+  tabText: {
+    fontSize: FontSizes.sm,
+    fontWeight: '500',
+    color: Colors.textSecondary,
+  },
+  tabTextActive: {
+    color: Colors.primary,
+    fontWeight: '600',
+  },
+  tabBadge: {
+    backgroundColor: Colors.border,
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    minWidth: 22,
+    alignItems: 'center',
+  },
+  tabBadgeActive: {
+    backgroundColor: Colors.primary,
+  },
+  tabBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+  },
+  tabBadgeTextActive: {
+    color: Colors.white,
+  },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -244,12 +403,12 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     paddingBottom: Spacing.xxl,
   },
-  hospitalCard: {
+  itemCard: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: Spacing.sm,
   },
-  hospitalIcon: {
+  itemIcon: {
     width: 48,
     height: 48,
     borderRadius: 24,
@@ -258,20 +417,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: Spacing.md,
   },
-  hospitalInfo: {
+  clinicIcon: {
+    backgroundColor: '#ecfdf5',
+  },
+  itemInfo: {
     flex: 1,
   },
-  hospitalName: {
+  itemName: {
     fontSize: FontSizes.md,
     fontWeight: '600',
     color: Colors.text,
   },
-  hospitalAddress: {
+  itemSubtitle: {
     fontSize: FontSizes.sm,
     color: Colors.textSecondary,
     marginTop: 2,
   },
-  hospitalEmail: {
+  itemEmail: {
     fontSize: FontSizes.xs,
     color: Colors.primary,
     marginTop: 2,

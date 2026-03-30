@@ -20,6 +20,7 @@ interface SipStoreState {
   hangup: () => void;
   toggleMute: () => void;
   toggleHold: () => Promise<void>;
+  toggleSpeaker: () => Promise<void>;
   sendDtmf: (tone: string) => void;
   clearError: () => void;
   startRecording: () => Promise<void>;
@@ -130,6 +131,10 @@ export const useSipStore = create<SipStoreState>((set, get) => {
 
     toggleHold: async () => {
       await mobileSipEngine.toggleHold();
+    },
+
+    toggleSpeaker: async () => {
+      await mobileSipEngine.toggleSpeaker();
     },
 
     sendDtmf: (tone: string) => {

@@ -93,6 +93,7 @@ type TranslationKeys = {
     hold: string;
     unhold: string;
     speaker: string;
+    earpiece: string;
     dialpad: string;
     recording: string;
     uploadingRecording: string;
@@ -226,6 +227,12 @@ type TranslationKeys = {
     searchPlaceholder: string;
     hospitalCount: string;
     hospitalsCount: string;
+    hospitalsTab: string;
+    clinicsTab: string;
+    searchClinicsPlaceholder: string;
+    noClinics: string;
+    clinicCount: string;
+    clinicsCount: string;
     name: string;
     city: string;
     address: string;
@@ -422,6 +429,7 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       hold: 'Podrzat',
       unhold: 'Pokracovat',
       speaker: 'Reproduktor',
+      earpiece: 'Sluchatko',
       dialpad: 'Klavesnica',
       recording: 'Nahravanie',
       uploadingRecording: 'Nahravanie sa uklada...',
@@ -555,6 +563,12 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       searchPlaceholder: 'Hladat podla nazvu, mesta, adresy...',
       hospitalCount: 'nemocnica',
       hospitalsCount: 'nemocnic',
+      hospitalsTab: 'Nemocnice',
+      clinicsTab: 'Ambulancie',
+      searchClinicsPlaceholder: 'Hladat ambulancie...',
+      noClinics: 'Ziadne ambulancie',
+      clinicCount: 'ambulancia',
+      clinicsCount: 'ambulancii',
       name: 'Nazov',
       city: 'Mesto',
       address: 'Adresa',
@@ -749,6 +763,7 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       hold: 'Podrzet',
       unhold: 'Pokracovat',
       speaker: 'Reproduktor',
+      earpiece: 'Sluchatko',
       dialpad: 'Klavesnice',
       recording: 'Nahravani',
       uploadingRecording: 'Nahravka se uklada...',
@@ -882,6 +897,12 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       searchPlaceholder: 'Hledat podle nazvu, mesta, adresy...',
       hospitalCount: 'nemocnice',
       hospitalsCount: 'nemocnic',
+      hospitalsTab: 'Nemocnice',
+      clinicsTab: 'Ambulance',
+      searchClinicsPlaceholder: 'Hledat ambulance...',
+      noClinics: 'Zadne ambulance',
+      clinicCount: 'ambulance',
+      clinicsCount: 'ambulanci',
       name: 'Nazev',
       city: 'Mesto',
       address: 'Adresa',
@@ -1076,6 +1097,7 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       hold: 'Tartasba',
       unhold: 'Folytatas',
       speaker: 'Hangszoro',
+      earpiece: 'Fulhallgato',
       dialpad: 'Billentyuzet',
       recording: 'Felvetel',
       uploadingRecording: 'Felvetel feltoltese...',
@@ -1209,6 +1231,12 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       searchPlaceholder: 'Kereses nev, varos, cim szerint...',
       hospitalCount: 'korhaz',
       hospitalsCount: 'korhaz',
+      hospitalsTab: 'Korhazak',
+      clinicsTab: 'Rendelok',
+      searchClinicsPlaceholder: 'Rendelo keresese...',
+      noClinics: 'Nincs rendelo',
+      clinicCount: 'rendelo',
+      clinicsCount: 'rendelo',
       name: 'Nev',
       city: 'Varos',
       address: 'Cim',
@@ -1403,6 +1431,7 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       hold: 'Halten',
       unhold: 'Fortsetzen',
       speaker: 'Lautsprecher',
+      earpiece: 'Horer',
       dialpad: 'Tastatur',
       recording: 'Aufnahme',
       uploadingRecording: 'Aufnahme wird hochgeladen...',
@@ -1536,6 +1565,12 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       searchPlaceholder: 'Nach Name, Stadt, Adresse suchen...',
       hospitalCount: 'Krankenhaus',
       hospitalsCount: 'Krankenhauser',
+      hospitalsTab: 'Krankenhauser',
+      clinicsTab: 'Praxen',
+      searchClinicsPlaceholder: 'Praxen suchen...',
+      noClinics: 'Keine Praxen',
+      clinicCount: 'Praxis',
+      clinicsCount: 'Praxen',
       name: 'Name',
       city: 'Stadt',
       address: 'Adresse',
@@ -1730,6 +1765,7 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       hold: 'Attesa',
       unhold: 'Riprendi',
       speaker: 'Altoparlante',
+      earpiece: 'Auricolare',
       dialpad: 'Tastiera',
       recording: 'Registrazione',
       uploadingRecording: 'Caricamento registrazione...',
@@ -1863,6 +1899,12 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       searchPlaceholder: 'Cerca per nome, citta, indirizzo...',
       hospitalCount: 'ospedale',
       hospitalsCount: 'ospedali',
+      hospitalsTab: 'Ospedali',
+      clinicsTab: 'Ambulatori',
+      searchClinicsPlaceholder: 'Cerca ambulatori...',
+      noClinics: 'Nessun ambulatorio',
+      clinicCount: 'ambulatorio',
+      clinicsCount: 'ambulatori',
       name: 'Nome',
       city: 'Citta',
       address: 'Indirizzo',
@@ -2057,6 +2099,7 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       hold: 'Pauza',
       unhold: 'Reluare',
       speaker: 'Difuzor',
+      earpiece: 'Casca',
       dialpad: 'Tastatura',
       recording: 'Inregistrare',
       uploadingRecording: 'Se incarca inregistrarea...',
@@ -2190,6 +2233,12 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       searchPlaceholder: 'Cauta dupa nume, oras, adresa...',
       hospitalCount: 'spital',
       hospitalsCount: 'spitale',
+      hospitalsTab: 'Spitale',
+      clinicsTab: 'Cabinete',
+      searchClinicsPlaceholder: 'Cauta cabinete...',
+      noClinics: 'Niciun cabinet',
+      clinicCount: 'cabinet',
+      clinicsCount: 'cabinete',
       name: 'Nume',
       city: 'Oras',
       address: 'Adresa',
@@ -2384,6 +2433,7 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       hold: 'Hold',
       unhold: 'Resume',
       speaker: 'Speaker',
+      earpiece: 'Earpiece',
       dialpad: 'Dialpad',
       recording: 'Recording',
       uploadingRecording: 'Uploading recording...',
@@ -2517,6 +2567,12 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       searchPlaceholder: 'Search by name, city, address...',
       hospitalCount: 'hospital',
       hospitalsCount: 'hospitals',
+      hospitalsTab: 'Hospitals',
+      clinicsTab: 'Clinics',
+      searchClinicsPlaceholder: 'Search clinics...',
+      noClinics: 'No clinics found',
+      clinicCount: 'clinic',
+      clinicsCount: 'clinics',
       name: 'Name',
       city: 'City',
       address: 'Address',

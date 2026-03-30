@@ -144,7 +144,7 @@ export default function PhoneScreen() {
     registrationState, callState, callInfo, isConnecting,
     recordingState, callRecordingEnabled, debugMessages,
     connect, disconnect, makeCall, answerCall, rejectCall,
-    hangup, toggleMute, toggleHold, sendDtmf,
+    hangup, toggleMute, toggleHold, toggleSpeaker, sendDtmf,
     startRecording, stopAndUploadRecording,
   } = useSipStore();
 
@@ -642,6 +642,17 @@ export default function PhoneScreen() {
                       <Ionicons name={callInfo.isOnHold ? 'play' : 'pause'} size={24} color={Colors.white} />
                       <Text style={styles.callActionLabel}>
                         {callInfo.isOnHold ? translations.phone.unhold : translations.phone.hold}
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[styles.callActionBtn, callInfo.isSpeaker && styles.callActionBtnActive]}
+                      onPress={toggleSpeaker}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name={callInfo.isSpeaker ? 'volume-high' : 'volume-low'} size={24} color={Colors.white} />
+                      <Text style={styles.callActionLabel}>
+                        {callInfo.isSpeaker ? (translations.phone.earpiece || 'Earpiece') : (translations.phone.speaker || 'Speaker')}
                       </Text>
                     </TouchableOpacity>
 
