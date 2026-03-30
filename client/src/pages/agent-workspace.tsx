@@ -4400,7 +4400,9 @@ export default function AgentWorkspacePage() {
   const dialingRef = useRef(false);
 
   const { canAccessModule } = usePermissions();
-  const hasModuleAccess = user && canAccessModule("nexusPulse");
+  const canAccess = canAccessModule("nexusPulse");
+  const hasModuleAccess = user && canAccess;
+  console.log("[PULSE_DEBUG] user:", user?.id, "role:", user?.role, "roleId:", (user as any)?.roleId, "canAccess:", canAccess, "hasModuleAccess:", !!hasModuleAccess);
 
   const { data: workspaceAccess = [] } = useQuery<any[]>({
     queryKey: ["/api/agent-workspace-access/current"],
@@ -4412,6 +4414,7 @@ export default function AgentWorkspacePage() {
   }, [workspaceAccess]);
 
   const hasAccess = user && hasModuleAccess;
+  console.log("[PULSE_DEBUG] hasAccess:", !!hasAccess, "sessionActive:", agentSession.isSessionActive, "sessionLoading:", agentSession.isLoading);
 
   const { data: scheduledQueueItems = [] } = useQuery<ScheduledItem[]>({
     queryKey: ["/api/agent/scheduled-queue", "badge"],
