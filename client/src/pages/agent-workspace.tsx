@@ -4411,7 +4411,7 @@ export default function AgentWorkspacePage() {
     return workspaceAccess.map((a: any) => a.countryCode);
   }, [workspaceAccess]);
 
-  const hasAccess = user && hasModuleAccess && (user.role === "admin" || allowedCountries.length > 0);
+  const hasAccess = user && hasModuleAccess;
 
   const { data: scheduledQueueItems = [] } = useQuery<ScheduledItem[]>({
     queryKey: ["/api/agent/scheduled-queue", "badge"],
@@ -4552,7 +4552,7 @@ export default function AgentWorkspacePage() {
     };
     const countryFilter = (c: Campaign) => {
       if (user?.role === "admin") return true;
-      if (allowedCountries.length === 0) return false;
+      if (allowedCountries.length === 0) return true;
       if (!c.countryCodes || c.countryCodes.length === 0) return true;
       return c.countryCodes.some((code: string) => allowedCountries.includes(code));
     };
