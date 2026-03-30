@@ -27,6 +27,13 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -1948,29 +1955,29 @@ export default function CampaignsPage() {
         </TabsContent>
       </Tabs>
 
-      <Dialog open={isDialogOpen} onOpenChange={(open) => {
+      <Sheet open={isDialogOpen} onOpenChange={(open) => {
         setIsDialogOpen(open);
         if (!open) {
           setEditingCampaign(null);
           setSelectedTemplate(null);
         }
       }}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
+        <SheetContent className="w-[600px] sm:max-w-[600px] overflow-y-auto" data-testid="sheet-campaign-edit">
+          <SheetHeader>
+            <SheetTitle>
               {editingCampaign 
                 ? t.campaigns.editCampaign
                 : t.campaigns.addCampaign}
-            </DialogTitle>
-            <DialogDescription>
+            </SheetTitle>
+            <SheetDescription>
               {editingCampaign 
                 ? t.campaigns.editCampaignDesc
                 : t.campaigns.addCampaignDesc}
-            </DialogDescription>
-          </DialogHeader>
+            </SheetDescription>
+          </SheetHeader>
           
           {!editingCampaign && templates.length > 0 && (
-            <div className="space-y-2 pb-4 border-b">
+            <div className="space-y-2 pb-4 border-b mt-4">
               <Label className="text-sm font-medium">Použiť šablónu</Label>
               <Select 
                 value={selectedTemplate?.id || ""} 
@@ -1997,21 +2004,23 @@ export default function CampaignsPage() {
             </div>
           )}
           
-          <CampaignForm
-            key={selectedTemplate?.id || "new"}
-            initialData={editingCampaign || undefined}
-            templateData={selectedTemplate}
-            onSubmit={handleSubmit}
-            isLoading={createMutation.isPending || updateMutation.isPending}
-            onCancel={() => {
-              setIsDialogOpen(false);
-              setEditingCampaign(null);
-              setSelectedTemplate(null);
-            }}
-            t={t}
-          />
-        </DialogContent>
-      </Dialog>
+          <div className="mt-4">
+            <CampaignForm
+              key={selectedTemplate?.id || "new"}
+              initialData={editingCampaign || undefined}
+              templateData={selectedTemplate}
+              onSubmit={handleSubmit}
+              isLoading={createMutation.isPending || updateMutation.isPending}
+              onCancel={() => {
+                setIsDialogOpen(false);
+                setEditingCampaign(null);
+                setSelectedTemplate(null);
+              }}
+              t={t}
+            />
+          </div>
+        </SheetContent>
+      </Sheet>
 
       <AlertDialog open={!!deletingCampaign} onOpenChange={() => setDeletingCampaign(null)}>
         <AlertDialogContent>
