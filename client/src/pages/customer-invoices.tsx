@@ -215,6 +215,7 @@ export default function CustomerInvoicesPage() {
   const { t, locale } = useI18n();
   const { toast } = useToast();
   const { selectedCountries } = useCountryFilter();
+  const { user } = useAuth();
 
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -607,6 +608,7 @@ export default function CustomerInvoicesPage() {
     bySource: { source: string; count: number; total: number; paid: number; paidCount: number; unpaidCount: number }[];
   }>({
     queryKey: ["/api/invoices/report", selectedCountries.length > 0 ? { countries: selectedCountries.join(",") } : {}],
+    enabled: !!user,
   });
 
   const reportData = useMemo(() => {
