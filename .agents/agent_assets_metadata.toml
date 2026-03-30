@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "RwqYmszvVQqKx4SwXgh3A"
+uri = "file://script/migration/partner-acquisition-agent-guide.md"
+type = "text"
+title = "Partner Acquisition — Návod pre agenta"
