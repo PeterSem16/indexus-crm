@@ -20780,17 +20780,47 @@ Return ONLY valid JSON, no markdown code blocks.`,
 
   // Download sample CSV template for external contacts import
   app.get("/api/campaigns/contacts/import-template", requireAuth, (req, res) => {
-    const headers = [
-      "meno", "priezvisko", "telefon", "telefon_2", "email",
-      "krajina", "datum_ocakavaneho_porodu", "extra_pole_1", "extra_pole_2"
-    ];
-    const sampleRows = [
-      ["Jana", "Nováková", "+421901234567", "+421912345678", "jana.novakova@email.com", "SK", "2026-06-15", "Poznámka 1", "Hodnota 1"],
-      ["Mária", "Kováčová", "+421903456789", "", "maria.kovacova@email.com", "CZ", "2026-08-20", "", ""],
-    ];
-    const csvContent = [headers.join(";"), ...sampleRows.map(r => r.join(";"))].join("\n");
+    const contactType = (req.query.type as string) || "customer";
+
+    const templates: Record<string, { headers: string[]; rows: string[][]; filename: string }> = {
+      customer: {
+        headers: ["meno", "priezvisko", "telefon", "telefon_2", "email", "krajina", "datum_ocakavaneho_porodu", "extra_pole_1", "extra_pole_2"],
+        rows: [
+          ["Jana", "Nováková", "+421901234567", "+421912345678", "jana.novakova@email.com", "SK", "2026-06-15", "Poznámka 1", "Hodnota 1"],
+          ["Mária", "Kováčová", "+421903456789", "", "maria.kovacova@email.com", "CZ", "2026-08-20", "", ""],
+        ],
+        filename: "vzor_import_zakaznikov.csv",
+      },
+      clinic: {
+        headers: ["nazov", "lekar_meno", "lekar_priezvisko", "lekar_titul", "adresa", "mesto", "psc", "krajina", "telefon", "email", "web", "poznamka"],
+        rows: [
+          ["Ambulancia Dr. Novák", "Ján", "Novák", "MUDr.", "Hlavná 15", "Bratislava", "81101", "SK", "+421212345678", "ambulancia@novak.sk", "www.novak.sk", "Gynekológia"],
+          ["Pediatrická ambulancia", "Eva", "Kováčová", "MUDr.", "Štúrova 8", "Košice", "04001", "SK", "+421556789012", "pediatria@kovacova.sk", "", "Detská ambulancia"],
+        ],
+        filename: "vzor_import_ambulancii.csv",
+      },
+      hospital: {
+        headers: ["nazov", "plny_nazov", "ulica_cislo", "mesto", "psc", "krajina", "kontaktna_osoba", "telefon", "email"],
+        rows: [
+          ["FN Bratislava", "Fakultná nemocnica Bratislava", "Antolská 11", "Bratislava", "85107", "SK", "Ing. Peter Horváth", "+421248234567", "info@fnba.sk"],
+          ["UN Martin", "Univerzitná nemocnica Martin", "Kollárova 2", "Martin", "03601", "SK", "PhDr. Anna Štefanová", "+421434203456", "sekretariat@unm.sk"],
+        ],
+        filename: "vzor_import_nemocnic.csv",
+      },
+      collaborator: {
+        headers: ["meno", "priezvisko", "titul_pred", "titul_za", "telefon", "mobil", "email", "krajina", "typ_spoluprace", "poznamka"],
+        rows: [
+          ["Ján", "Novák", "MUDr.", "PhD.", "+421212345678", "+421901234567", "jan.novak@email.com", "SK", "Lekár", "Gynekológ - Bratislava"],
+          ["Eva", "Kováčová", "Mgr.", "", "", "+421903456789", "eva.kovacova@email.com", "CZ", "Pôrodná asistentka", "Spolupráca od 2024"],
+        ],
+        filename: "vzor_import_spolupracovnikov.csv",
+      },
+    };
+
+    const tmpl = templates[contactType] || templates.customer;
+    const csvContent = [tmpl.headers.join(";"), ...tmpl.rows.map(r => r.join(";"))].join("\n");
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
-    res.setHeader("Content-Disposition", "attachment; filename=vzor_import_kontaktov.csv");
+    res.setHeader("Content-Disposition", `attachment; filename=${tmpl.filename}`);
     res.send("\uFEFF" + csvContent);
   });
 
@@ -20835,16 +20865,28 @@ Return ONLY valid JSON, no markdown code blocks.`,
 
       if (rows.length === 0) return res.status(400).json({ error: "No data rows found in file" });
 
+      const contactType = req.body?.contactType || "customer";
+
       const fieldMap: Record<string, string[]> = {
-        firstName: ["meno", "first_name", "firstname", "krstne_meno", "krstné_meno", "name"],
-        lastName: ["priezvisko", "last_name", "lastname", "surname"],
+        firstName: ["meno", "first_name", "firstname", "krstne_meno", "krstné_meno", "name", "lekar_meno"],
+        lastName: ["priezvisko", "last_name", "lastname", "surname", "lekar_priezvisko"],
         phone: ["telefon", "telefón", "phone", "tel", "tel_1", "telefon_1"],
-        phone2: ["telefon_2", "telefón_2", "phone_2", "tel_2", "mobile_2"],
+        phone2: ["telefon_2", "telefón_2", "phone_2", "tel_2", "mobile_2", "mobil"],
         email: ["email", "e-mail", "e_mail", "mail"],
         country: ["krajina", "country", "kraj", "land", "paese", "tara", "ország"],
         expectedDeliveryDate: ["datum_ocakavaneho_porodu", "dátum_očakávaného_pôrodu", "expected_delivery_date", "due_date", "termin_porodu", "termín_pôrodu"],
         extra1: ["extra_pole_1", "extra_1", "extra1", "poznamka", "poznámka", "note"],
         extra2: ["extra_pole_2", "extra_2", "extra2", "poznamka_2", "poznámka_2", "note_2"],
+        name: ["nazov", "name", "název"],
+        fullName: ["plny_nazov", "full_name", "plný_názov"],
+        address: ["adresa", "address", "ulica_cislo", "street_number"],
+        city: ["mesto", "city", "obec"],
+        postalCode: ["psc", "postal_code", "psč"],
+        contactPerson: ["kontaktna_osoba", "contact_person", "kontaktná_osoba"],
+        website: ["web", "website", "www"],
+        doctorTitle: ["lekar_titul", "doctor_title", "titul", "titul_pred", "title_before"],
+        titleAfter: ["titul_za", "title_after"],
+        collaboratorType: ["typ_spoluprace", "collaborator_type", "typ_spolupráce"],
       };
 
       function findField(row: Record<string, string>, candidates: string[]): string {
@@ -20882,25 +20924,173 @@ Return ONLY valid JSON, no markdown code blocks.`,
         const expectedDate = findField(row, fieldMap.expectedDeliveryDate);
         const extra1 = findField(row, fieldMap.extra1);
         const extra2 = findField(row, fieldMap.extra2);
+        const entityName = findField(row, fieldMap.name);
+        const entityFullName = findField(row, fieldMap.fullName);
+        const address = findField(row, fieldMap.address);
+        const city = findField(row, fieldMap.city);
+        const postalCode = findField(row, fieldMap.postalCode);
+        const contactPerson = findField(row, fieldMap.contactPerson);
+        const website = findField(row, fieldMap.website);
+        const doctorTitle = findField(row, fieldMap.doctorTitle);
+        const titleAfter = findField(row, fieldMap.titleAfter);
+        const collaboratorType = findField(row, fieldMap.collaboratorType);
 
-        if (!firstName && !lastName) {
+        const hasIdentifier = contactType === "customer" || contactType === "collaborator"
+          ? (firstName || lastName)
+          : entityName;
+
+        if (!hasIdentifier) {
           results.skipped++;
-          results.errors.push(`Riadok ${i + 2}: Chýba meno alebo priezvisko`);
+          results.errors.push(`Riadok ${i + 2}: Chýba ${contactType === "customer" || contactType === "collaborator" ? "meno alebo priezvisko" : "názov"}`);
           continue;
         }
 
         try {
-          let existingCustomer: any = null;
-          if (email && !email.includes("@noemail.local")) {
-            existingCustomer = emailIndex.get(email.toLowerCase());
-          }
-          if (!existingCustomer && phone) {
-            existingCustomer = phoneIndex.get(phone);
-          }
+          if (contactType === "clinic") {
+            const clinicData: any = {
+              name: entityName || `${doctorTitle || ""} ${firstName} ${lastName}`.trim(),
+              doctorName: `${doctorTitle || ""} ${firstName} ${lastName}`.trim() || null,
+              doctorTitle: doctorTitle || null,
+              doctorFirstName: firstName || null,
+              doctorLastName: lastName || null,
+              address: address || null,
+              city: city || null,
+              postalCode: postalCode || null,
+              countryCode: country?.toUpperCase() || countryCode,
+              phone: phone || null,
+              email: email || null,
+              website: website || null,
+              notes: extra1 || null,
+              isActive: true,
+            };
+            const clinic = await storage.createClinic(clinicData);
 
-          let customer;
-          if (existingCustomer) {
-            if (existingCustomerIds.has(existingCustomer.id)) {
+            const customerData: any = {
+              firstName: firstName || entityName || "Ambulancia",
+              lastName: lastName || entityName || "Import",
+              phone: phone || null,
+              mobile: phone || null,
+              email: email || `clinic-${Date.now()}-${i}@noemail.local`,
+              country: country?.toUpperCase() || countryCode,
+              status: "active",
+              clientStatus: "potential",
+              leadStatus: "cold",
+              leadScore: 0,
+              newsletter: false,
+              useCorrespondenceAddress: false,
+              notes: `Ambulancia: ${entityName}\nClinic ID: ${clinic.id}\nImportovaný z kampane: ${campaign.name}`,
+            };
+            const customer = await storage.createCustomer(customerData);
+            existingCustomerIds.add(customer.id);
+            const [newContact] = await storage.createCampaignContacts([{ campaignId: campaign.id, customerId: customer.id, status: "pending", attemptCount: 0, priorityScore: 50 }]);
+            if (newContact) results.importedContactIds.push(newContact.id);
+            results.created++;
+
+          } else if (contactType === "hospital") {
+            const hospitalData: any = {
+              name: entityName || "Nemocnica",
+              fullName: entityFullName || entityName || null,
+              streetNumber: address || null,
+              city: city || null,
+              postalCode: postalCode || null,
+              countryCode: country?.toUpperCase() || countryCode,
+              contactPerson: contactPerson || null,
+              phone: phone || null,
+              email: email || null,
+              isActive: true,
+              autoRecruiting: false,
+              svetZdravia: false,
+            };
+            const hospital = await storage.createHospital(hospitalData);
+
+            const customerData: any = {
+              firstName: contactPerson?.split(" ")[0] || entityName || "Nemocnica",
+              lastName: contactPerson?.split(" ").slice(1).join(" ") || entityName || "Import",
+              phone: phone || null,
+              mobile: phone || null,
+              email: email || `hospital-${Date.now()}-${i}@noemail.local`,
+              country: country?.toUpperCase() || countryCode,
+              status: "active",
+              clientStatus: "potential",
+              leadStatus: "cold",
+              leadScore: 0,
+              newsletter: false,
+              useCorrespondenceAddress: false,
+              notes: `Nemocnica: ${entityName}\nHospital ID: ${hospital.id}\nImportovaný z kampane: ${campaign.name}`,
+            };
+            const customer = await storage.createCustomer(customerData);
+            existingCustomerIds.add(customer.id);
+            const [newContact] = await storage.createCampaignContacts([{ campaignId: campaign.id, customerId: customer.id, status: "pending", attemptCount: 0, priorityScore: 50 }]);
+            if (newContact) results.importedContactIds.push(newContact.id);
+            results.created++;
+
+          } else if (contactType === "collaborator") {
+            const collabData: any = {
+              firstName: firstName || "Neznámy",
+              lastName: lastName || "Neznámy",
+              titleBefore: doctorTitle || null,
+              titleAfter: titleAfter || null,
+              phone: phone || null,
+              mobile: phone2 || phone || null,
+              email: email || null,
+              countryCode: country?.toUpperCase() || countryCode,
+              countryCodes: [country?.toUpperCase() || countryCode],
+              collaboratorType: collaboratorType || null,
+            };
+            const collaborator = await storage.createCollaborator(collabData);
+
+            const customerData: any = {
+              firstName: firstName || "Neznámy",
+              lastName: lastName || "Neznámy",
+              phone: phone || null,
+              mobile: phone2 || phone || null,
+              email: email || `collab-${Date.now()}-${i}@noemail.local`,
+              country: country?.toUpperCase() || countryCode,
+              status: "active",
+              clientStatus: "potential",
+              leadStatus: "cold",
+              leadScore: 0,
+              newsletter: false,
+              useCorrespondenceAddress: false,
+              notes: `Spolupracovník: ${doctorTitle || ""} ${firstName} ${lastName}\nCollaborator ID: ${collaborator.id}\nTyp: ${collaboratorType || "N/A"}\nImportovaný z kampane: ${campaign.name}`.trim(),
+            };
+            const customer = await storage.createCustomer(customerData);
+            existingCustomerIds.add(customer.id);
+            const [newContact] = await storage.createCampaignContacts([{ campaignId: campaign.id, customerId: customer.id, status: "pending", attemptCount: 0, priorityScore: 50 }]);
+            if (newContact) results.importedContactIds.push(newContact.id);
+            results.created++;
+
+          } else {
+            let existingCustomer: any = null;
+            if (email && !email.includes("@noemail.local")) {
+              existingCustomer = emailIndex.get(email.toLowerCase());
+            }
+            if (!existingCustomer && phone) {
+              existingCustomer = phoneIndex.get(phone);
+            }
+
+            let customer;
+            if (existingCustomer) {
+              if (existingCustomerIds.has(existingCustomer.id)) {
+                if (updateExisting) {
+                  const updateData: any = {};
+                  if (firstName) updateData.firstName = firstName;
+                  if (lastName) updateData.lastName = lastName;
+                  if (phone) { updateData.phone = phone; updateData.mobile = phone; }
+                  if (phone2) updateData.mobile2 = phone2;
+                  if (country) updateData.country = country.toUpperCase();
+                  if (Object.keys(updateData).length > 0) {
+                    await storage.updateCustomer(existingCustomer.id, updateData);
+                    results.updated++;
+                  } else {
+                    results.duplicates++;
+                  }
+                  continue;
+                }
+                results.duplicates++;
+                results.errors.push(`Riadok ${i + 2}: ${firstName} ${lastName} - už je v kampani`);
+                continue;
+              }
               if (updateExisting) {
                 const updateData: any = {};
                 if (firstName) updateData.firstName = firstName;
@@ -20911,85 +21101,59 @@ Return ONLY valid JSON, no markdown code blocks.`,
                 if (Object.keys(updateData).length > 0) {
                   await storage.updateCustomer(existingCustomer.id, updateData);
                   results.updated++;
-                } else {
-                  results.duplicates++;
                 }
-                continue;
               }
-              results.duplicates++;
-              results.errors.push(`Riadok ${i + 2}: ${firstName} ${lastName} - už je v kampani`);
-              continue;
-            }
-            if (updateExisting) {
-              const updateData: any = {};
-              if (firstName) updateData.firstName = firstName;
-              if (lastName) updateData.lastName = lastName;
-              if (phone) { updateData.phone = phone; updateData.mobile = phone; }
-              if (phone2) updateData.mobile2 = phone2;
-              if (country) updateData.country = country.toUpperCase();
-              if (Object.keys(updateData).length > 0) {
-                await storage.updateCustomer(existingCustomer.id, updateData);
-                results.updated++;
-              }
-            }
-            customer = existingCustomer;
-          } else {
-            const customerData: any = {
-              firstName: firstName || "Neznámy",
-              lastName: lastName || "Neznámy",
-              phone: phone || null,
-              mobile: phone || null,
-              mobile2: phone2 || null,
-              email: email || `import-${Date.now()}-${i}@noemail.local`,
-              country: country?.toUpperCase() || countryCode,
-              status: "active",
-              clientStatus: "potential",
-              leadStatus: "cold",
-              leadScore: 0,
-              newsletter: false,
-              useCorrespondenceAddress: false,
-              notes: [
-                extra1 ? `Extra 1: ${extra1}` : "",
-                extra2 ? `Extra 2: ${extra2}` : "",
-                expectedDate ? `Očakávaný dátum pôrodu: ${expectedDate}` : "",
-                `Importovaný z kampane: ${campaign.name}`,
-              ].filter(Boolean).join("\n"),
-            };
+              customer = existingCustomer;
+            } else {
+              const customerData: any = {
+                firstName: firstName || "Neznámy",
+                lastName: lastName || "Neznámy",
+                phone: phone || null,
+                mobile: phone || null,
+                mobile2: phone2 || null,
+                email: email || `import-${Date.now()}-${i}@noemail.local`,
+                country: country?.toUpperCase() || countryCode,
+                status: "active",
+                clientStatus: "potential",
+                leadStatus: "cold",
+                leadScore: 0,
+                newsletter: false,
+                useCorrespondenceAddress: false,
+                notes: [
+                  extra1 ? `Extra 1: ${extra1}` : "",
+                  extra2 ? `Extra 2: ${extra2}` : "",
+                  expectedDate ? `Očakávaný dátum pôrodu: ${expectedDate}` : "",
+                  `Importovaný z kampane: ${campaign.name}`,
+                ].filter(Boolean).join("\n"),
+              };
 
-            if (expectedDate) {
-              try {
-                let parsed: Date | null = null;
-                const ddmmyyyy = expectedDate.match(/^(\d{1,2})[.\/\-](\d{1,2})[.\/\-](\d{4})$/);
-                const yyyymmdd = expectedDate.match(/^(\d{4})[.\/\-](\d{1,2})[.\/\-](\d{1,2})$/);
-                if (ddmmyyyy) {
-                  parsed = new Date(parseInt(ddmmyyyy[3]), parseInt(ddmmyyyy[2]) - 1, parseInt(ddmmyyyy[1]));
-                } else if (yyyymmdd) {
-                  parsed = new Date(parseInt(yyyymmdd[1]), parseInt(yyyymmdd[2]) - 1, parseInt(yyyymmdd[3]));
-                }
-                if (parsed && !isNaN(parsed.getTime()) && parsed.getFullYear() > 1900 && parsed.getFullYear() < 2100) {
-                  customerData.dateOfBirth = parsed;
-                }
-              } catch {}
+              if (expectedDate) {
+                try {
+                  let parsed: Date | null = null;
+                  const ddmmyyyy = expectedDate.match(/^(\d{1,2})[.\/\-](\d{1,2})[.\/\-](\d{4})$/);
+                  const yyyymmdd = expectedDate.match(/^(\d{4})[.\/\-](\d{1,2})[.\/\-](\d{1,2})$/);
+                  if (ddmmyyyy) {
+                    parsed = new Date(parseInt(ddmmyyyy[3]), parseInt(ddmmyyyy[2]) - 1, parseInt(ddmmyyyy[1]));
+                  } else if (yyyymmdd) {
+                    parsed = new Date(parseInt(yyyymmdd[1]), parseInt(yyyymmdd[2]) - 1, parseInt(yyyymmdd[3]));
+                  }
+                  if (parsed && !isNaN(parsed.getTime()) && parsed.getFullYear() > 1900 && parsed.getFullYear() < 2100) {
+                    customerData.dateOfBirth = parsed;
+                  }
+                } catch {}
+              }
+
+              customer = await storage.createCustomer(customerData);
+              if (customer.email) emailIndex.set(customer.email.toLowerCase(), customer);
+              if (customer.phone) phoneIndex.set(customer.phone, customer);
+              if (customer.mobile) phoneIndex.set(customer.mobile, customer);
             }
 
-            customer = await storage.createCustomer(customerData);
-            if (customer.email) emailIndex.set(customer.email.toLowerCase(), customer);
-            if (customer.phone) phoneIndex.set(customer.phone, customer);
-            if (customer.mobile) phoneIndex.set(customer.mobile, customer);
+            existingCustomerIds.add(customer.id);
+            const [newContact] = await storage.createCampaignContacts([{ campaignId: campaign.id, customerId: customer.id, status: "pending", attemptCount: 0, priorityScore: 50 }]);
+            if (newContact) results.importedContactIds.push(newContact.id);
+            results.created++;
           }
-
-          existingCustomerIds.add(customer.id);
-
-          const [newContact] = await storage.createCampaignContacts([{
-            campaignId: campaign.id,
-            customerId: customer.id,
-            status: "pending",
-            attemptCount: 0,
-            priorityScore: 50,
-          }]);
-
-          if (newContact) results.importedContactIds.push(newContact.id);
-          results.created++;
         } catch (err: any) {
           results.errors.push(`Riadok ${i + 2}: ${err.message || "Neznáma chyba"}`);
           results.skipped++;

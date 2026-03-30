@@ -1982,6 +1982,7 @@ export default function CampaignDetailPage() {
   const [scriptMode, setScriptMode] = useState<"builder" | "preview" | "legacy">("builder");
   const [structuredScriptModified, setStructuredScriptModified] = useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
+  const [importContactType, setImportContactType] = useState<"customer" | "clinic" | "hospital" | "collaborator">("customer");
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importResult, setImportResult] = useState<{ created: number; skipped: number; duplicates?: number; updated?: number; errors: string[]; importedContactIds?: string[] } | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -2217,6 +2218,7 @@ export default function CampaignDetailPage() {
       const formData = new FormData();
       formData.append("file", file);
       formData.append("updateExisting", String(updateExisting));
+      formData.append("contactType", importContactType);
       return new Promise<any>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
         xhr.open("POST", `/api/campaigns/${campaignId}/contacts/import`);
@@ -3127,29 +3129,39 @@ export default function CampaignDetailPage() {
             </SheetHeader>
             <div className="flex-1 overflow-hidden flex">
               <Tabs value={settingsSubTab} onValueChange={setSettingsSubTab} className="flex flex-1 h-full" orientation="vertical">
-                <div className="w-48 border-r bg-muted/30 py-4 px-2 flex flex-col gap-1 shrink-0">
+                <div className="w-56 border-r bg-muted/20 py-3 px-3 flex flex-col gap-1 shrink-0">
                   {[
-                    { value: "general", icon: Settings, label: t.campaigns.detail.general },
-                    { value: "scheduling", icon: Clock, label: t.campaigns.detail.scheduling },
-                    { value: "operators", icon: Shield, label: t.campaigns.detail.operator },
-                    { value: "dispositions", icon: CheckCheck, label: t.campaigns.detail.dispositions },
-                    { value: "kpi", icon: Target, label: t.campaigns.detail.kpiTargets },
-                  ].map((tab) => (
-                    <button
-                      key={tab.value}
-                      type="button"
-                      onClick={() => setSettingsSubTab(tab.value)}
-                      className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors text-left w-full ${
-                        settingsSubTab === tab.value
-                          ? "bg-background shadow-sm text-foreground"
-                          : "text-muted-foreground hover:text-foreground hover:bg-background/50"
-                      }`}
-                      data-testid={`subtab-${tab.value}`}
-                    >
-                      <tab.icon className="w-4 h-4 shrink-0" />
-                      {tab.label}
-                    </button>
-                  ))}
+                    { value: "general", icon: Settings, label: t.campaigns.detail.general, desc: "Základné nastavenia" },
+                    { value: "scheduling", icon: Clock, label: t.campaigns.detail.scheduling, desc: "Pracovné hodiny" },
+                    { value: "operators", icon: Shield, label: t.campaigns.detail.operator, desc: "Priradení operátori" },
+                    { value: "dispositions", icon: CheckCheck, label: t.campaigns.detail.dispositions, desc: "Stavy a výsledky" },
+                    { value: "kpi", icon: Target, label: t.campaigns.detail.kpiTargets, desc: "Ciele a metriky" },
+                  ].map((tab) => {
+                    const isActive = settingsSubTab === tab.value;
+                    return (
+                      <button
+                        key={tab.value}
+                        type="button"
+                        onClick={() => setSettingsSubTab(tab.value)}
+                        className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-left w-full transition-all ${
+                          isActive
+                            ? "bg-background shadow-sm border border-border"
+                            : "hover:bg-background/60"
+                        }`}
+                        data-testid={`subtab-${tab.value}`}
+                      >
+                        <div className={`w-8 h-8 rounded-md flex items-center justify-center shrink-0 ${
+                          isActive ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                        }`}>
+                          <tab.icon className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className={`text-sm font-medium truncate ${isActive ? "text-foreground" : "text-muted-foreground"}`}>{tab.label}</div>
+                          <div className="text-[11px] text-muted-foreground truncate">{tab.desc}</div>
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
 
                 <div className="flex-1 overflow-y-auto px-6 py-4">
@@ -4190,12 +4202,12 @@ export default function CampaignDetailPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showImportDialog} onOpenChange={(open) => { if (!open) { setShowImportDialog(false); setImportFile(null); setImportResult(null); setUpdateExisting(false); } }}>
+      <Dialog open={showImportDialog} onOpenChange={(open) => { if (!open) { setShowImportDialog(false); setImportFile(null); setImportResult(null); setUpdateExisting(false); setImportContactType("customer"); } }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>{t.campaigns.detail.importContacts}</DialogTitle>
             <DialogDescription>
-              {t.campaigns.detail.importContacts}
+              Importovať kontakty z CSV/Excel súboru
             </DialogDescription>
           </DialogHeader>
 
@@ -4254,6 +4266,40 @@ export default function CampaignDetailPage() {
             </div>
           ) : (
             <div className="space-y-4">
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Typ kontaktu</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {([
+                    { value: "customer" as const, label: "Zákazník", icon: User, desc: "Fyzická osoba" },
+                    { value: "clinic" as const, label: "Ambulancia", icon: Building2, desc: "Lekárska ambulancia" },
+                    { value: "hospital" as const, label: "Nemocnica", icon: Building2, desc: "Zdravotnícke zariadenie" },
+                    { value: "collaborator" as const, label: "Spolupracovník", icon: Users, desc: "Partner / spolupracovník" },
+                  ]).map((ct) => (
+                    <button
+                      key={ct.value}
+                      type="button"
+                      onClick={() => setImportContactType(ct.value)}
+                      className={`flex items-center gap-2 p-3 rounded-lg border text-left transition-all ${
+                        importContactType === ct.value
+                          ? "border-primary bg-primary/5 shadow-sm"
+                          : "border-border hover:border-muted-foreground/50"
+                      }`}
+                      data-testid={`button-import-type-${ct.value}`}
+                    >
+                      <div className={`w-8 h-8 rounded-md flex items-center justify-center shrink-0 ${
+                        importContactType === ct.value ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                      }`}>
+                        <ct.icon className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <div className="text-sm font-medium">{ct.label}</div>
+                        <div className="text-[11px] text-muted-foreground">{ct.desc}</div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <div
                 className={`relative border-2 border-dashed rounded-md p-8 text-center transition-colors ${
                   isDragging ? "border-primary bg-primary/5" : "border-muted-foreground/25"
@@ -4304,12 +4350,12 @@ export default function CampaignDetailPage() {
                   variant="ghost"
                   size="sm"
                   onClick={() => {
-                    window.open("/api/campaigns/contacts/import-template", "_blank");
+                    window.open(`/api/campaigns/contacts/import-template?type=${importContactType}`, "_blank");
                   }}
                   data-testid="button-download-template"
                 >
                   <Download className="w-4 h-4 mr-2" />
-                  {t.campaigns.detail.downloadSampleCsv}
+                  Stiahnuť vzorový CSV ({importContactType === "customer" ? "Zákazník" : importContactType === "clinic" ? "Ambulancia" : importContactType === "hospital" ? "Nemocnica" : "Spolupracovník"})
                 </Button>
               </div>
 
@@ -4317,18 +4363,20 @@ export default function CampaignDetailPage() {
                 <CardContent className="pt-4">
                   <p className="text-xs font-medium mb-2">{t.campaigns.detail.expectedColumns}:</p>
                   <div className="grid grid-cols-2 gap-1">
-                    {[
-                      "meno", "priezvisko", "telefon", "telefon_2",
-                      "email", "krajina", "datum_ocakavaneho_porodu", "extra_pole_1", "extra_pole_2"
-                    ].map(col => (
+                    {(importContactType === "customer" ? [
+                      "meno", "priezvisko", "telefon", "telefon_2", "email", "krajina", "datum_ocakavaneho_porodu", "extra_pole_1", "extra_pole_2"
+                    ] : importContactType === "clinic" ? [
+                      "nazov", "lekar_meno", "lekar_priezvisko", "lekar_titul", "adresa", "mesto", "psc", "krajina", "telefon", "email", "web", "poznamka"
+                    ] : importContactType === "hospital" ? [
+                      "nazov", "plny_nazov", "ulica_cislo", "mesto", "psc", "krajina", "kontaktna_osoba", "telefon", "email"
+                    ] : [
+                      "meno", "priezvisko", "titul_pred", "titul_za", "telefon", "mobil", "email", "krajina", "typ_spoluprace", "poznamka"
+                    ]).map(col => (
                       <span key={col} className="text-xs text-muted-foreground font-mono bg-muted px-1.5 py-0.5 rounded">{col}</span>
                     ))}
                   </div>
                   <p className="text-xs text-muted-foreground mt-2">
-                    <strong>krajina</strong> (SK, CZ, HU, RO, IT, DE, US) &middot; <strong>datum</strong> (YYYY-MM-DD, DD.MM.YYYY, DD/MM/YYYY)
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {t.campaigns.detail.supportedFormats}
+                    <strong>krajina</strong> (SK, CZ, HU, RO, IT, DE, US) &middot; <strong>formát</strong>: CSV (;) alebo Excel (.xlsx)
                   </p>
                 </CardContent>
               </Card>
