@@ -81,7 +81,7 @@ export function AppSidebar() {
     { title: t.nav.dashboard, url: "/", icon: LayoutDashboard, testId: "dashboard", moduleKey: "dashboard" },
     { title: t.nav.hospitalsAndClinics, url: "/hospitals", icon: Building2, testId: "hospitals", moduleKey: "hospitals" },
     { title: "Pipeline", url: "/pipeline", icon: Kanban, testId: "pipeline", moduleKey: "pipeline" },
-    { title: "Reports", url: "/reports", icon: BarChart3, testId: "reports", moduleKey: "dashboard" },
+    { title: "Reports", url: "/reports", icon: BarChart3, testId: "reports", moduleKey: "reports" },
   ];
 
   const nexusNavItems = [
@@ -100,7 +100,7 @@ export function AppSidebar() {
   const collaboratorSubItems = [
     { title: t.nav.collaborators, url: "/collaborators", testId: "collaborators", moduleKey: "collaborators" },
     { title: t.nav.visitEvents, url: "/visit-events", testId: "visit-events", moduleKey: "visitEvents" },
-    { title: t.nav.collaboratorReports, url: "/collaborator-reports", testId: "collaborator-reports", moduleKey: "collaborators" },
+    { title: t.nav.collaboratorReports, url: "/collaborator-reports", testId: "collaborator-reports", moduleKey: "collaboratorReports" },
   ];
   
   const adminNavItems = [

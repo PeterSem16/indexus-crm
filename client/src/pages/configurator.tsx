@@ -37,7 +37,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import type { ServiceConfiguration, ServiceInstance, InvoiceTemplate, InvoiceLayout, Product, Role, RoleModulePermission, RoleFieldPermission, Department, BillingDetails, NumberRange, ExchangeRate, EmailRoutingRule, EmailTag, GsmSenderConfig } from "@shared/schema";
 import { EMAIL_PRIORITIES, EMAIL_IMPORTANCE, EMAIL_CONDITION_TYPES, EMAIL_ACTION_TYPES, GSM_SENDER_ID_TYPES } from "@shared/schema";
-import { CRM_MODULES, DEPARTMENTS, type ModuleDefinition, type FieldPermission, type ModuleAccess } from "@shared/permissions-config";
+import { CRM_MODULES, MODULE_CATEGORIES, DEPARTMENTS, getModulesByCategory, type ModuleDefinition, type FieldPermission, type ModuleAccess } from "@shared/permissions-config";
 import { Building2, User, Mail, Phone, Smartphone, RefreshCw, Wallet, MessageSquare, Calendar, Clock, Star, Heart, Users, Folder, Send, Inbox, Archive, Bookmark, Tag, Gift, Briefcase, Building, ShoppingCart, Truck, Zap, Award } from "lucide-react";
 import { DepartmentTree } from "@/components/department-tree";
 import { NotificationRulesManager } from "@/components/notification-center";
@@ -15331,120 +15331,139 @@ function PermissionsRolesTab() {
               </div>
             </div>
 
-            <div className="space-y-2">
-              {CRM_MODULES.map((module) => {
-                const access = getModuleAccess(module.key);
-                const isExpanded = expandedModules.includes(module.key);
-                const isVisible = access === "visible";
+            <div className="space-y-4">
+              {MODULE_CATEGORIES.map((category) => {
+                const categoryModules = getModulesByCategory(category.key);
+                if (categoryModules.length === 0) return null;
+                const visibleCount = categoryModules.filter(m => getModuleAccess(m.key) === "visible").length;
 
                 return (
-                  <div key={module.key} className="border rounded-md" data-testid={`module-${module.key}`}>
-                    <div className="p-3 flex items-center justify-between gap-4">
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => toggleModuleExpand(module.key)}
-                          disabled={!isVisible}
-                          data-testid={`button-expand-${module.key}`}
-                        >
-                          {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                        </Button>
-                        <span className="font-medium">{module.label}</span>
-                        <Badge variant={isVisible ? "default" : "secondary"} className="ml-auto">
-                          {isVisible ? (
-                            <><Eye className="h-3 w-3 mr-1" />{t.konfigurator.visible}</>
-                          ) : (
-                            <><EyeOff className="h-3 w-3 mr-1" />{t.konfigurator.hidden}</>
-                          )}
-                        </Badge>
+                  <div key={category.key} className="border rounded-lg" data-testid={`category-${category.key}`}>
+                    <div className="px-4 py-2.5 bg-muted/40 border-b flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold">{category.label}</span>
                       </div>
-                      <div className="flex items-center gap-4">
-                        {isVisible && (
-                          <>
-                            <div className="flex items-center gap-2">
-                              <Label className="text-xs text-muted-foreground">{t.konfigurator.canAdd}</Label>
-                              <Switch
-                                checked={getModuleCanAdd(module.key)}
-                                onCheckedChange={(checked) => {
-                                  updateModulePermission.mutate({
-                                    roleId: selectedRole.id,
-                                    moduleKey: module.key,
-                                    canAdd: checked,
-                                  });
-                                }}
-                                data-testid={`switch-can-add-${module.key}`}
-                              />
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Label className="text-xs text-muted-foreground">{t.konfigurator.canEdit}</Label>
-                              <Switch
-                                checked={getModuleCanEdit(module.key)}
-                                onCheckedChange={(checked) => {
-                                  updateModulePermission.mutate({
-                                    roleId: selectedRole.id,
-                                    moduleKey: module.key,
-                                    canEdit: checked,
-                                  });
-                                }}
-                                data-testid={`switch-can-edit-${module.key}`}
-                              />
-                            </div>
-                          </>
-                        )}
-                        <Switch
-                          checked={isVisible}
-                          onCheckedChange={(checked) => {
-                            updateModulePermission.mutate({
-                              roleId: selectedRole.id,
-                              moduleKey: module.key,
-                              access: checked ? "visible" : "hidden",
-                            });
-                          }}
-                          data-testid={`switch-module-${module.key}`}
-                        />
-                      </div>
+                      <Badge variant="outline" className="text-xs">{visibleCount}/{categoryModules.length}</Badge>
                     </div>
+                    <div className="divide-y">
+                      {categoryModules.map((module) => {
+                        const access = getModuleAccess(module.key);
+                        const isExpanded = expandedModules.includes(module.key);
+                        const isVisible = access === "visible";
 
-                    {isExpanded && isVisible && (
-                      <div className="border-t p-3 bg-muted/30">
-                        <h4 className="text-sm font-medium mb-3">{t.konfigurator.fieldPermissions}</h4>
-                        <div className="grid gap-2">
-                          {module.fields.map((field) => {
-                            const permission = getFieldPermission(module.key, field.key);
-                            return (
-                              <div
-                                key={field.key}
-                                className="flex items-center justify-between gap-2 p-2 rounded bg-background"
-                                data-testid={`field-${module.key}-${field.key}`}
-                              >
-                                <span className="text-sm">{field.label}</span>
-                                <Select
-                                  value={permission}
-                                  onValueChange={(value: FieldPermission) => {
-                                    updateFieldPermission.mutate({
+                        return (
+                          <div key={module.key} data-testid={`module-${module.key}`}>
+                            <div className="p-3 flex items-center justify-between gap-4">
+                              <div className="flex items-center gap-3 flex-1 min-w-0">
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-7 w-7"
+                                  onClick={() => toggleModuleExpand(module.key)}
+                                  disabled={!isVisible}
+                                  data-testid={`button-expand-${module.key}`}
+                                >
+                                  {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                                </Button>
+                                <span className={`text-sm font-medium ${!isVisible ? 'text-muted-foreground line-through' : ''}`}>{module.label}</span>
+                                <Badge variant="outline" className="text-[10px] ml-1">{module.fields.length} fields</Badge>
+                                {isVisible && (
+                                  <Badge variant="default" className="text-[10px] ml-auto">
+                                    <Eye className="h-3 w-3 mr-1" />
+                                    {t.konfigurator.visible}
+                                  </Badge>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-4 shrink-0">
+                                {isVisible && (
+                                  <>
+                                    <div className="flex items-center gap-1.5">
+                                      <Label className="text-xs text-muted-foreground">{t.konfigurator.canAdd}</Label>
+                                      <Switch
+                                        checked={getModuleCanAdd(module.key)}
+                                        onCheckedChange={(checked) => {
+                                          updateModulePermission.mutate({
+                                            roleId: selectedRole.id,
+                                            moduleKey: module.key,
+                                            canAdd: checked,
+                                          });
+                                        }}
+                                        data-testid={`switch-can-add-${module.key}`}
+                                      />
+                                    </div>
+                                    <div className="flex items-center gap-1.5">
+                                      <Label className="text-xs text-muted-foreground">{t.konfigurator.canEdit}</Label>
+                                      <Switch
+                                        checked={getModuleCanEdit(module.key)}
+                                        onCheckedChange={(checked) => {
+                                          updateModulePermission.mutate({
+                                            roleId: selectedRole.id,
+                                            moduleKey: module.key,
+                                            canEdit: checked,
+                                          });
+                                        }}
+                                        data-testid={`switch-can-edit-${module.key}`}
+                                      />
+                                    </div>
+                                  </>
+                                )}
+                                <Switch
+                                  checked={isVisible}
+                                  onCheckedChange={(checked) => {
+                                    updateModulePermission.mutate({
                                       roleId: selectedRole.id,
                                       moduleKey: module.key,
-                                      fieldKey: field.key,
-                                      permission: value,
+                                      access: checked ? "visible" : "hidden",
                                     });
                                   }}
-                                >
-                                  <SelectTrigger className="w-32" data-testid={`select-field-${module.key}-${field.key}`}>
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="editable">{t.konfigurator.editable}</SelectItem>
-                                    <SelectItem value="readonly">{t.konfigurator.readonly}</SelectItem>
-                                    <SelectItem value="hidden">{t.konfigurator.hidden}</SelectItem>
-                                  </SelectContent>
-                                </Select>
+                                  data-testid={`switch-module-${module.key}`}
+                                />
                               </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
+                            </div>
+
+                            {isExpanded && isVisible && (
+                              <div className="border-t p-3 bg-muted/30">
+                                <h4 className="text-sm font-medium mb-3">{t.konfigurator.fieldPermissions}</h4>
+                                <div className="grid gap-2">
+                                  {module.fields.map((field) => {
+                                    const permission = getFieldPermission(module.key, field.key);
+                                    return (
+                                      <div
+                                        key={field.key}
+                                        className="flex items-center justify-between gap-2 p-2 rounded bg-background"
+                                        data-testid={`field-${module.key}-${field.key}`}
+                                      >
+                                        <span className="text-sm">{field.label}</span>
+                                        <Select
+                                          value={permission}
+                                          onValueChange={(value: FieldPermission) => {
+                                            updateFieldPermission.mutate({
+                                              roleId: selectedRole.id,
+                                              moduleKey: module.key,
+                                              fieldKey: field.key,
+                                              permission: value,
+                                            });
+                                          }}
+                                        >
+                                          <SelectTrigger className="w-32" data-testid={`select-field-${module.key}-${field.key}`}>
+                                            <SelectValue />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                            <SelectItem value="editable">{t.konfigurator.editable}</SelectItem>
+                                            <SelectItem value="readonly">{t.konfigurator.readonly}</SelectItem>
+                                            <SelectItem value="hidden">{t.konfigurator.hidden}</SelectItem>
+                                          </SelectContent>
+                                        </Select>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 );
               })}
