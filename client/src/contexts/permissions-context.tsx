@@ -49,12 +49,11 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
   const canAccessModule = (moduleKey: string): boolean => {
     if (!user) return false;
     
-    if (!user.roleId) {
-      return user.role === "admin";
-    }
+    if (user.role === "admin") return true;
     
-    if (!roleData) {
-      return user.role === "admin";
+    if (!user.roleId || !roleData) {
+      const moduleDef = CRM_MODULES.find(m => m.key === moduleKey);
+      return moduleDef?.defaultAccess !== "hidden";
     }
     
     if (roleData.legacyRole === "admin") {
@@ -73,13 +72,10 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
   
   const canAdd = (moduleKey: string): boolean => {
     if (!user) return false;
+    if (user.role === "admin") return true;
     
-    if (!user.roleId) {
-      return user.role === "admin";
-    }
-    
-    if (!roleData) {
-      return user.role === "admin";
+    if (!user.roleId || !roleData) {
+      return true;
     }
     
     if (roleData.legacyRole === "admin") {
@@ -97,13 +93,10 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
   
   const canEdit = (moduleKey: string): boolean => {
     if (!user) return false;
+    if (user.role === "admin") return true;
     
-    if (!user.roleId) {
-      return user.role === "admin";
-    }
-    
-    if (!roleData) {
-      return user.role === "admin";
+    if (!user.roleId || !roleData) {
+      return true;
     }
     
     if (roleData.legacyRole === "admin") {
