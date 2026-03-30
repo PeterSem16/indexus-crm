@@ -63,6 +63,9 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
     const modulePerm = roleData.modulePermissions.find(p => p.moduleKey === moduleKey);
     
     if (!modulePerm) {
+      if (roleData.modulePermissions.length > 0) {
+        return false;
+      }
       return true;
     }
     
