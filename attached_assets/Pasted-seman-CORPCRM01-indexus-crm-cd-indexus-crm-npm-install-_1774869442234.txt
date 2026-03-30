@@ -1,0 +1,38 @@
+seman@CORPCRM01:~/indexus-crm$ cd ~/indexus-crm
+npm install pg
+node script/migration/delete-iscbc-invoices.cjs
+npm warn EBADENGINE Unsupported engine {
+npm warn EBADENGINE   package: '@azure/msal-node@1.18.4',
+npm warn EBADENGINE   required: { node: '10 || 12 || 14 || 16 || 18' },
+npm warn EBADENGINE   current: { node: 'v20.20.0', npm: '10.8.2' }
+npm warn EBADENGINE }
+npm warn deprecated sudo-prompt@9.1.1: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
+npm warn deprecated rimraf@3.0.2: Rimraf versions prior to v4 are no longer supported
+npm warn deprecated npmlog@5.0.1: This package is no longer supported.
+npm warn deprecated lodash.get@4.4.2: This package is deprecated. Use the optional chaining (?.) operator instead.
+npm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
+npm warn deprecated gauge@3.0.2: This package is no longer supported.
+npm warn deprecated are-we-there-yet@2.0.0: This package is no longer supported.
+npm warn deprecated atlassian-jwt@2.0.3: DEPRECATED: atlassian-jwt has moved to @atlassian/atlassian-jwt. The latest version is 2.1.1. Please update your dependency.
+npm warn deprecated adal-node@0.2.4: This package is no longer supported. Please migrate to @azure/msal-node.
+npm warn deprecated @oclif/screen@3.0.8: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
+npm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported
+npm warn deprecated rimraf@2.4.5: Rimraf versions prior to v4 are no longer supported
+npm warn deprecated glob@6.0.4: Glob versions prior to v9 are no longer supported
+npm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported
+npm warn deprecated uuid@3.4.0: Please upgrade  to version 7 or higher.  Older versions may use Math.random() in certain circumstances, which is known to be problematic.  See https://v8.dev/blog/math-random for details.
+npm warn deprecated @xmldom/xmldom@0.7.13: this version is no longer supported, please update to at least 0.8.*
+npm warn deprecated @azure/msal-node@1.18.4: A newer major version of this library is available. Please upgrade to the latest available version.
+npm warn tar TAR_ENTRY_ERROR ENOSPC: no space left on device, write
+npm error A complete log of this run can be found in: /home/seman/.npm/_logs/2026-03-30T11_16_50_397Z-debug-0.log
+/home/seman/indexus-crm/node_modules/pg-pool/index.js:45
+    Error.captureStackTrace(err)
+          ^
+
+Error: SASL: SCRAM-SERVER-FIRST-MESSAGE: client password must be a string
+    at /home/seman/indexus-crm/node_modules/pg-pool/index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async deleteIscbcInvoices (/home/seman/indexus-crm/script/migration/delete-iscbc-invoices.cjs:8:18)
+
+Node.js v20.20.0
+seman@CORPCRM01:~/indexus-crm$
