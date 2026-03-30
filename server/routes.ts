@@ -13045,6 +13045,50 @@ Return ONLY valid JSON, no markdown code blocks.`,
     }
   });
 
+  app.post("/api/campaigns/:id/phases/:phaseId/reset", requireAuth, async (req, res) => {
+    try {
+      const phase = await storage.getCampaignPhase(req.params.phaseId);
+      if (!phase || phase.campaignId !== req.params.id) return res.status(404).json({ error: "Phase not found" });
+
+      const contactPhases = await storage.getCampaignContactPhases(phase.id);
+      const resetPromises = contactPhases.map(cp =>
+        storage.updateCampaignContactPhase(cp.id, {
+          status: "pending",
+          result: null,
+          completedAt: null,
+        })
+      );
+      await Promise.all(resetPromises);
+
+      const updated = await storage.updateCampaignPhase(phase.id, {
+        status: "draft",
+        completedAt: null,
+      });
+
+      res.json({ reset: contactPhases.length, phase: updated });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to reset phase" });
+    }
+  });
+
+  app.post("/api/campaigns/:id/phases/:phaseId/contacts/:contactPhaseId/reset", requireAuth, async (req, res) => {
+    try {
+      const phase = await storage.getCampaignPhase(req.params.phaseId);
+      if (!phase || phase.campaignId !== req.params.id) return res.status(404).json({ error: "Phase not found" });
+
+      const updated = await storage.updateCampaignContactPhase(req.params.contactPhaseId, {
+        status: "pending",
+        result: null,
+        completedAt: null,
+      });
+      if (!updated) return res.status(404).json({ error: "Contact phase not found" });
+
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to reset contact" });
+    }
+  });
+
   app.patch("/api/campaigns/:id/phases/:phaseId/contacts/:contactPhaseId", requireAuth, async (req, res) => {
     try {
       const phaseCheck = await storage.getCampaignPhase(req.params.phaseId);

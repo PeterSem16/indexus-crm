@@ -13,8 +13,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import {
   Plus, Phone, Mail, Play, CheckCircle, ArrowRight, Trash2,
-  Clock, Users, BarChart3, Pencil, Eye, ChevronRight, Layers, Target, Percent
+  Clock, Users, BarChart3, Pencil, Eye, ChevronRight, Layers, Target, Percent, RotateCcw
 } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import type { CampaignPhase, CampaignContactPhase, CampaignDisposition } from "@shared/schema";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
@@ -78,6 +79,13 @@ const phasesT: Record<string, Record<string, string>> = {
     targetResponseRate: "Cieľ odozvy (%)",
     achieved: "Dosiahnuté",
     noTargets: "Žiadne ciele",
+    resetPhase: "Resetovať fázu",
+    resetPhaseConfirm: "Naozaj chcete resetovať túto fázu? Všetky kontakty budú vrátené do stavu čakajúce.",
+    resetPhaseSuccess: "Fáza bola resetovaná",
+    resetContact: "Resetovať kontakt",
+    resetContactConfirm: "Naozaj chcete resetovať tento kontakt do stavu čakajúce?",
+    resetContactSuccess: "Kontakt bol resetovaný",
+    confirm: "Potvrdiť",
   },
   en: {
     title: "Campaign Phases",
@@ -138,6 +146,13 @@ const phasesT: Record<string, Record<string, string>> = {
     targetResponseRate: "Target Response Rate (%)",
     achieved: "Achieved",
     noTargets: "No targets",
+    resetPhase: "Reset Phase",
+    resetPhaseConfirm: "Are you sure you want to reset this phase? All contacts will be set back to pending.",
+    resetPhaseSuccess: "Phase has been reset",
+    resetContact: "Reset Contact",
+    resetContactConfirm: "Are you sure you want to reset this contact back to pending?",
+    resetContactSuccess: "Contact has been reset",
+    confirm: "Confirm",
   },
   cs: {
     title: "Fáze kampaně",
@@ -198,6 +213,13 @@ const phasesT: Record<string, Record<string, string>> = {
     targetResponseRate: "Cíl odezvy (%)",
     achieved: "Dosaženo",
     noTargets: "Žádné cíle",
+    resetPhase: "Resetovat fázi",
+    resetPhaseConfirm: "Opravdu chcete resetovat tuto fázi? Všechny kontakty budou vráceny do stavu čekající.",
+    resetPhaseSuccess: "Fáze byla resetována",
+    resetContact: "Resetovat kontakt",
+    resetContactConfirm: "Opravdu chcete resetovat tento kontakt do stavu čekající?",
+    resetContactSuccess: "Kontakt byl resetován",
+    confirm: "Potvrdit",
   },
   hu: {
     title: "Kampányfázisok",
@@ -258,6 +280,13 @@ const phasesT: Record<string, Record<string, string>> = {
     targetResponseRate: "Válaszarány cél (%)",
     achieved: "Elért",
     noTargets: "Nincsenek célok",
+    resetPhase: "Fázis visszaállítása",
+    resetPhaseConfirm: "Biztosan vissza akarja állítani ezt a fázist? Minden kapcsolat visszakerül függőben állapotba.",
+    resetPhaseSuccess: "A fázis visszaállítva",
+    resetContact: "Kapcsolat visszaállítása",
+    resetContactConfirm: "Biztosan vissza akarja állítani ezt a kapcsolatot függőben állapotba?",
+    resetContactSuccess: "A kapcsolat visszaállítva",
+    confirm: "Megerősítés",
   },
   ro: {
     title: "Fazele campaniei",
@@ -318,6 +347,13 @@ const phasesT: Record<string, Record<string, string>> = {
     targetResponseRate: "Obiectiv rată răspuns (%)",
     achieved: "Realizat",
     noTargets: "Nu există obiective",
+    resetPhase: "Resetare fază",
+    resetPhaseConfirm: "Sigur doriți să resetați această fază? Toate contactele vor fi readuse la starea în așteptare.",
+    resetPhaseSuccess: "Faza a fost resetată",
+    resetContact: "Resetare contact",
+    resetContactConfirm: "Sigur doriți să resetați acest contact la starea în așteptare?",
+    resetContactSuccess: "Contactul a fost resetat",
+    confirm: "Confirmă",
   },
   it: {
     title: "Fasi della campagna",
@@ -378,6 +414,13 @@ const phasesT: Record<string, Record<string, string>> = {
     targetResponseRate: "Obiettivo tasso risposta (%)",
     achieved: "Raggiunto",
     noTargets: "Nessun obiettivo",
+    resetPhase: "Reimposta fase",
+    resetPhaseConfirm: "Sei sicuro di voler reimpostare questa fase? Tutti i contatti torneranno in stato di attesa.",
+    resetPhaseSuccess: "La fase è stata reimpostata",
+    resetContact: "Reimposta contatto",
+    resetContactConfirm: "Sei sicuro di voler reimpostare questo contatto allo stato di attesa?",
+    resetContactSuccess: "Il contatto è stato reimpostato",
+    confirm: "Conferma",
   },
   de: {
     title: "Kampagnenphasen",
@@ -438,6 +481,13 @@ const phasesT: Record<string, Record<string, string>> = {
     targetResponseRate: "Antwortrate-Ziel (%)",
     achieved: "Erreicht",
     noTargets: "Keine Ziele",
+    resetPhase: "Phase zurücksetzen",
+    resetPhaseConfirm: "Sind Sie sicher, dass Sie diese Phase zurücksetzen möchten? Alle Kontakte werden auf den Status ausstehend zurückgesetzt.",
+    resetPhaseSuccess: "Phase wurde zurückgesetzt",
+    resetContact: "Kontakt zurücksetzen",
+    resetContactConfirm: "Sind Sie sicher, dass Sie diesen Kontakt auf den Status ausstehend zurücksetzen möchten?",
+    resetContactSuccess: "Kontakt wurde zurückgesetzt",
+    confirm: "Bestätigen",
   },
 };
 
@@ -569,6 +619,30 @@ export default function CampaignPhasesTab({ campaignId }: { campaignId: string }
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "phases"] });
       setShowTransitionDialog(null);
       toast({ title: pt.transition, description: `${result.transitioned} ${pt.transitioned} ${pt.of} ${result.total}` });
+    },
+  });
+
+  const resetPhaseMutation = useMutation({
+    mutationFn: (phaseId: string) => apiRequest("POST", `/api/campaigns/${campaignId}/phases/${phaseId}/reset`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "phases"] });
+      toast({ title: pt.resetPhase, description: pt.resetPhaseSuccess });
+    },
+    onError: (err: any) => {
+      toast({ title: "Chyba", description: err.message || "Reset failed", variant: "destructive" });
+    },
+  });
+
+  const resetContactMutation = useMutation({
+    mutationFn: ({ phaseId, contactPhaseId }: { phaseId: string; contactPhaseId: string }) =>
+      apiRequest("POST", `/api/campaigns/${campaignId}/phases/${phaseId}/contacts/${contactPhaseId}/reset`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "phases"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "phases", viewContactsPhaseId, "contacts"] });
+      toast({ title: pt.resetContact, description: pt.resetContactSuccess });
+    },
+    onError: (err: any) => {
+      toast({ title: "Chyba", description: err.message || "Reset failed", variant: "destructive" });
     },
   });
 
@@ -833,6 +907,28 @@ export default function CampaignPhasesTab({ campaignId }: { campaignId: string }
                     }} data-testid={`button-edit-${phase.id}`}>
                       <Pencil className="w-3.5 h-3.5" />
                     </Button>
+                    {phase.status !== "draft" && (
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button size="sm" variant="ghost" className="text-orange-600" data-testid={`button-reset-phase-${phase.id}`}>
+                            <RotateCcw className="w-3.5 h-3.5 mr-1" />
+                            {pt.resetPhase}
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>{pt.resetPhase}</AlertDialogTitle>
+                            <AlertDialogDescription>{pt.resetPhaseConfirm}</AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>{pt.cancel}</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => resetPhaseMutation.mutate(phase.id)} data-testid={`button-confirm-reset-phase-${phase.id}`}>
+                              {pt.confirm}
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    )}
                     {phase.status === "draft" && (
                       <Button size="sm" variant="ghost" className="text-destructive" onClick={() => deletePhaseMutation.mutate(phase.id)} data-testid={`button-delete-${phase.id}`}>
                         <Trash2 className="w-3.5 h-3.5" />
@@ -1172,9 +1268,32 @@ export default function CampaignPhasesTab({ campaignId }: { campaignId: string }
                         {formatDate(cp.enteredAt)}
                       </td>
                       <td className="py-2 px-2 text-right">
-                        <Button size="sm" variant="ghost" onClick={() => setViewTimelineContactId(cp.contactId)} data-testid={`button-timeline-${cp.contactId}`}>
-                          <ChevronRight className="w-4 h-4" />
-                        </Button>
+                        <div className="flex items-center justify-end gap-1">
+                          {cp.status !== "pending" && viewContactsPhaseId && (
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button size="sm" variant="ghost" className="text-orange-600 h-7 w-7 p-0" data-testid={`button-reset-contact-${cp.id}`}>
+                                  <RotateCcw className="w-3.5 h-3.5" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>{pt.resetContact}</AlertDialogTitle>
+                                  <AlertDialogDescription>{pt.resetContactConfirm}</AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>{pt.cancel}</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => resetContactMutation.mutate({ phaseId: viewContactsPhaseId, contactPhaseId: cp.id })} data-testid={`button-confirm-reset-contact-${cp.id}`}>
+                                    {pt.confirm}
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          )}
+                          <Button size="sm" variant="ghost" onClick={() => setViewTimelineContactId(cp.contactId)} data-testid={`button-timeline-${cp.contactId}`}>
+                            <ChevronRight className="w-4 h-4" />
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ))}
