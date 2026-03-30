@@ -932,18 +932,12 @@ export default function HospitalsPage() {
 
   const isAdmin = user?.role === "admin";
 
+  const hospitalQueryParams: Record<string, any> = { page: hospitalPage, limit: hospitalPageSize };
+  if (debouncedHospitalSearch) hospitalQueryParams.search = debouncedHospitalSearch;
+  if (countryTab !== "ALL") hospitalQueryParams.country = countryTab;
+  if (selectedCountries.length > 0) hospitalQueryParams.countries = selectedCountries.join(",");
   const { data: hospitalsPaginatedResult, isLoading } = useQuery<{ data: Hospital[], total: number }>({
-    queryKey: ["/api/hospitals", { page: hospitalPage, limit: hospitalPageSize, search: debouncedHospitalSearch, country: countryTab !== "ALL" ? countryTab : undefined }],
-    queryFn: async () => {
-      const params = new URLSearchParams();
-      params.set("page", String(hospitalPage));
-      params.set("limit", String(hospitalPageSize));
-      if (debouncedHospitalSearch) params.set("search", debouncedHospitalSearch);
-      if (countryTab !== "ALL") params.set("country", countryTab);
-      const res = await fetch(`/api/hospitals?${params.toString()}`, { credentials: "include" });
-      if (!res.ok) throw new Error("Failed to fetch hospitals");
-      return res.json();
-    },
+    queryKey: ["/api/hospitals", hospitalQueryParams],
   });
   const hospitals = hospitalsPaginatedResult?.data || [];
   const serverHospitalsTotal = hospitalsPaginatedResult?.total || 0;
@@ -956,18 +950,12 @@ export default function HospitalsPage() {
     queryKey: ["/api/config/laboratories"],
   });
 
+  const clinicQueryParams: Record<string, any> = { page: clinicPage, limit: clinicPageSize };
+  if (debouncedClinicSearch) clinicQueryParams.search = debouncedClinicSearch;
+  if (clinicCountryTab !== "ALL") clinicQueryParams.country = clinicCountryTab;
+  if (selectedCountries.length > 0) clinicQueryParams.countries = selectedCountries.join(",");
   const { data: clinicsPaginatedResult, isLoading: isLoadingClinics, refetch: refetchClinics } = useQuery<{ data: Clinic[], total: number }>({
-    queryKey: ["/api/clinics", { page: clinicPage, limit: clinicPageSize, search: debouncedClinicSearch, country: clinicCountryTab !== "ALL" ? clinicCountryTab : undefined }],
-    queryFn: async () => {
-      const params = new URLSearchParams();
-      params.set("page", String(clinicPage));
-      params.set("limit", String(clinicPageSize));
-      if (debouncedClinicSearch) params.set("search", debouncedClinicSearch);
-      if (clinicCountryTab !== "ALL") params.set("country", clinicCountryTab);
-      const res = await fetch(`/api/clinics?${params.toString()}`, { credentials: "include" });
-      if (!res.ok) throw new Error("Failed to fetch clinics");
-      return res.json();
-    },
+    queryKey: ["/api/clinics", clinicQueryParams],
   });
   const clinics = clinicsPaginatedResult?.data || [];
   const serverClinicsTotal = clinicsPaginatedResult?.total || 0;
@@ -2082,7 +2070,7 @@ export default function HospitalsPage() {
                   )}
                   <div className="ml-auto pl-2">
                     <Badge className="text-[10px] px-2.5 py-1 font-bold bg-primary/10 text-primary border-primary/30 hover:bg-primary/20" data-testid="stat-total">
-                      {(t.clinics as any).pipelineSummary?.total || "Total"}: {filteredAndSortedClinics.length}
+                      {(t.clinics as any).pipelineSummary?.total || "Total"}: {serverClinicsTotal}
                     </Badge>
                   </div>
                 </div>

@@ -2969,7 +2969,7 @@ export class DatabaseStorage implements IStorage {
     return db.select({ id: hospitals.id, name: hospitals.name, countryCode: hospitals.countryCode }).from(hospitals).orderBy(hospitals.name);
   }
 
-  async getHospitalsPaginated(page: number, limit: number, search?: string, countryCode?: string): Promise<{ data: Hospital[], total: number }> {
+  async getHospitalsPaginated(page: number, limit: number, search?: string, countryCode?: string, countries?: string[]): Promise<{ data: Hospital[], total: number }> {
     const offset = (page - 1) * limit;
     const conditions: any[] = [];
     if (search && search.trim()) {
@@ -2981,7 +2981,9 @@ export class DatabaseStorage implements IStorage {
         OR ${hospitals.region} ILIKE ${s}
       )`);
     }
-    if (countryCode && countryCode.trim()) {
+    if (countries && countries.length > 0) {
+      conditions.push(inArray(hospitals.countryCode, countries));
+    } else if (countryCode && countryCode.trim()) {
       conditions.push(eq(hospitals.countryCode, countryCode.trim()));
     }
     const where = conditions.length > 0 ? and(...conditions) : undefined;
@@ -3028,7 +3030,7 @@ export class DatabaseStorage implements IStorage {
     return db.select({ id: clinics.id, name: clinics.name, countryCode: clinics.countryCode, doctorName: clinics.doctorName }).from(clinics).orderBy(clinics.name);
   }
 
-  async getClinicsPaginated(page: number, limit: number, search?: string, countryCode?: string): Promise<{ data: Clinic[], total: number }> {
+  async getClinicsPaginated(page: number, limit: number, search?: string, countryCode?: string, countries?: string[]): Promise<{ data: Clinic[], total: number }> {
     const offset = (page - 1) * limit;
     const conditions: any[] = [];
     if (search && search.trim()) {
@@ -3040,7 +3042,9 @@ export class DatabaseStorage implements IStorage {
         OR ${clinics.email} ILIKE ${s} OR ${clinics.address} ILIKE ${s}
       )`);
     }
-    if (countryCode && countryCode.trim()) {
+    if (countries && countries.length > 0) {
+      conditions.push(inArray(clinics.countryCode, countries));
+    } else if (countryCode && countryCode.trim()) {
       conditions.push(eq(clinics.countryCode, countryCode.trim()));
     }
     const where = conditions.length > 0 ? and(...conditions) : undefined;
