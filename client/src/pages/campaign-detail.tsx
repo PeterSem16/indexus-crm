@@ -3934,6 +3934,30 @@ export default function CampaignDetailPage() {
                 </div>
               )}
               
+              <div className="flex gap-2 mb-4">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={async () => {
+                    try {
+                      const res = await fetch(`/api/campaigns/${id}/generate-acquisition-script`, {
+                        method: "POST",
+                        credentials: "include",
+                      });
+                      if (res.ok) {
+                        queryClient.invalidateQueries({ queryKey: ["/api/campaigns", id] });
+                        toast({ title: "Akvizičný scenár vygenerovaný", description: "Scenár bol úspešne nastavený pre kampaň." });
+                      }
+                    } catch {}
+                  }}
+                  data-testid="btn-generate-acquisition-script"
+                >
+                  <Wand2 className="h-4 w-4" />
+                  Generovať akvizičný scenár
+                </Button>
+              </div>
+
               {scriptMode === "legacy" && (
                 <div className="space-y-4">
                   <div className="space-y-2">

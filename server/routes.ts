@@ -21165,6 +21165,328 @@ Return ONLY valid JSON, no markdown code blocks.`,
   });
 
   // Campaign Contacts
+  app.post("/api/campaigns/:id/generate-acquisition-script", requireAuth, async (req, res) => {
+    try {
+      const campaign = await storage.getCampaign(req.params.id);
+      if (!campaign) return res.status(404).json({ error: "Campaign not found" });
+
+      const acquisitionScript = {
+        version: 2,
+        name: "Akvizičný scenár",
+        description: "Kompletný akvizičný scenár s fázami: email → telefonát → follow-up",
+        startStepId: "phase1-intro",
+        steps: [
+          {
+            id: "phase1-intro",
+            title: "Fáza 1: OUTREACH — Prvý kontakt emailom",
+            description: "Odoslanie úvodného emailu potenciálnemu partnerovi / klientovi",
+            nextStepId: "phase1-email-action",
+            elements: [
+              { id: "p1-heading", type: "heading", label: "Prvý kontakt", content: "Kontaktujeme {{customer.fullName}} z {{customer.city}} prvýkrát. Odošlite úvodný email s predstavením služieb." },
+              { id: "p1-note", type: "note", variant: "info", content: "Pred odoslaním skontrolujte správnosť emailovej adresy: {{customer.email}}" },
+              { id: "p1-phone-info", type: "paragraph", label: "Telefón", content: "{{customer.phone}}" },
+            ]
+          },
+          {
+            id: "phase1-email-action",
+            title: "Fáza 1: Odoslanie emailu",
+            description: "Otvorte emailový panel a vyberte šablónu pre prvý kontakt",
+            nextStepId: "phase1-email-result",
+            elements: [
+              { id: "p1-action-email", type: "action_button", action: "openEmail", actionLabel: "Otvoriť email a vybrať šablónu", actionIcon: "mail", content: "Kliknite pre otvorenie emailového panela. Vyberte šablónu 'Prvý kontakt' alebo 'Úvodný email' a odošlite kontaktu {{customer.fullName}}.", variant: "primary" },
+              { id: "p1-note2", type: "note", variant: "warning", content: "Po odoslaní emailu sa vráťte späť do scenára a zaznamenajte výsledok." },
+            ]
+          },
+          {
+            id: "phase1-email-result",
+            title: "Fáza 1: Výsledok odoslania emailu",
+            description: "Zaznamenajte výsledok prvého emailu",
+            elements: [
+              { id: "p1-result", type: "outcome", label: "Výsledok emailu", required: true, options: [
+                { value: "email_sent", label: "✉️ Email odoslaný", nextStepId: "phase1-schedule" },
+                { value: "email_failed", label: "❌ Email neodoslaný (zlá adresa)", nextStepId: "phase1-bad-email" },
+                { value: "no_email", label: "📵 Nemá email", nextStepId: "phase1-call-instead" },
+              ]},
+            ]
+          },
+          {
+            id: "phase1-schedule",
+            title: "Fáza 1: Naplánovanie follow-up hovoru",
+            description: "Email bol odoslaný, naplánujte telefonický follow-up o 2 dni",
+            isEndStep: true,
+            elements: [
+              { id: "p1-sched-info", type: "note", variant: "success", content: "Email bol úspešne odoslaný kontaktu {{customer.fullName}}." },
+              { id: "p1-sched-text", type: "paragraph", content: "Teraz naplánujte follow-up telefonát o 2 dni. Vyberte výsledok 'Preplánovať' a nastavte dátum callback-u." },
+              { id: "p1-action-disp", type: "action_button", action: "openEmailDisposition", actionLabel: "Zaznamenať výsledok a naplánovať callback", actionIcon: "calendar", variant: "primary" },
+            ]
+          },
+          {
+            id: "phase1-bad-email",
+            title: "Fáza 1: Neplatný email",
+            description: "Emailová adresa je neplatná, pokúste sa zavolať",
+            nextStepId: "phase1-call-instead",
+            elements: [
+              { id: "p1-bad-note", type: "note", variant: "error", content: "Emailová adresa {{customer.email}} je neplatná alebo neexistuje." },
+              { id: "p1-bad-text", type: "paragraph", content: "Pokúste sa kontaktovať {{customer.fullName}} telefonicky alebo opravte emailovú adresu v karte zákazníka." },
+            ]
+          },
+          {
+            id: "phase1-call-instead",
+            title: "Fáza 1: Alternatíva — telefonát",
+            description: "Kontakt nemá email, zavolajte priamo",
+            isEndStep: true,
+            elements: [
+              { id: "p1-call-text", type: "paragraph", content: "Kontakt nemá platnú emailovú adresu. Prejdite priamo na telefonický kontakt." },
+              { id: "p1-action-call", type: "action_button", action: "openPhone", actionLabel: "Zavolať na {{customer.phone}}", actionIcon: "phone", variant: "primary" },
+              { id: "p1-action-disp2", type: "action_button", action: "openPhoneDisposition", actionLabel: "Zaznamenať výsledok hovoru", actionIcon: "file", variant: "secondary" },
+            ]
+          },
+          {
+            id: "phase2-intro",
+            title: "Fáza 2: CONTACT — Telefonát č. 1",
+            description: "Prvý follow-up telefonát po odoslaní emailu",
+            nextStepId: "phase2-script",
+            elements: [
+              { id: "p2-heading", type: "heading", label: "Follow-up hovor", content: "Volajte {{customer.fullName}} — follow-up po úvodnom emaile (Fáza 1)." },
+              { id: "p2-note", type: "note", variant: "info", content: "Overte, či kontakt dostal email. Pripravte si argumenty pre stretnutie/spoluprácu." },
+              { id: "p2-action-call", type: "action_button", action: "openPhone", actionLabel: "Zavolať na {{customer.phone}}", actionIcon: "phone", variant: "primary" },
+            ]
+          },
+          {
+            id: "phase2-script",
+            title: "Fáza 2: Scenár hovoru",
+            description: "Scenár pre prvý follow-up telefonát",
+            nextStepId: "phase2-result",
+            elements: [
+              { id: "p2-greeting", type: "heading", label: "Úvod", content: "\"Dobrý deň, {{customer.greeting}}, volám Vám z INDEXUS. Posielali sme Vám minulý týždeň email ohľadom spolupráce. Mali ste možnosť si ho prečítať?\"" },
+              { id: "p2-pitch", type: "paragraph", label: "Hlavná ponuka", content: "\"Radi by sme Vám predstavili naše služby osobne. Mohli by sme si dohodnúť krátke stretnutie, kde Vám ukážeme konkrétne výhody spolupráce?\"" },
+              { id: "p2-objections", type: "paragraph", label: "Námietky", content: "• \"Nemám čas\" → \"Stretnutie zaberie maximálne 15 minút, môžeme sa prispôsobiť Vášmu harmonogramu.\"\n• \"Nemám záujem\" → \"Rozumiem, môžem Vám aspoň poslať krátky prehľad výhod emailom?\"\n• \"Už spolupracujem s niekým\" → \"To je úplne v poriadku. Naše služby sú komplementárne a veľa klientov používa obe riešenia.\"" },
+            ]
+          },
+          {
+            id: "phase2-result",
+            title: "Fáza 2: Výsledok hovoru",
+            description: "Zaznamenajte výsledok follow-up telefonátu",
+            elements: [
+              { id: "p2-result", type: "outcome", label: "Výsledok hovoru", required: true, options: [
+                { value: "appointment_set", label: "📅 Stretnutie dohodnuté", nextStepId: "phase2-appointment" },
+                { value: "send_more_info", label: "📧 Chce viac info (email)", nextStepId: "phase2-send-info" },
+                { value: "callback_later", label: "🔄 Zavolať neskôr", nextStepId: "phase2-callback" },
+                { value: "no_answer_p2", label: "📵 Nedvíha", nextStepId: "phase2-noanswer" },
+                { value: "not_interested_p2", label: "❌ Nemá záujem", nextStepId: "phase2-decline" },
+              ]},
+            ]
+          },
+          {
+            id: "phase2-appointment",
+            title: "Fáza 2: Stretnutie dohodnuté",
+            isEndStep: true,
+            elements: [
+              { id: "p2-apt-note", type: "note", variant: "success", content: "Stretnutie s {{customer.fullName}} bolo dohodnuté! Naplánujte ho v kalendári." },
+              { id: "p2-apt-text", type: "paragraph", content: "Zaznamenajte dátum a čas stretnutia do poznámok a nastavte callback na deň pred stretnutím pre pripomienku." },
+              { id: "p2-apt-disp", type: "action_button", action: "openPhoneDisposition", actionLabel: "Zaznamenať výsledok", actionIcon: "calendar", variant: "primary" },
+            ]
+          },
+          {
+            id: "phase2-send-info",
+            title: "Fáza 2: Odoslanie detailných informácií",
+            isEndStep: true,
+            elements: [
+              { id: "p2-info-text", type: "paragraph", content: "Kontakt chce viac informácií. Odošlite detailný email s ponukou a naplánujte follow-up telefonát o 3 dni." },
+              { id: "p2-info-email", type: "action_button", action: "openEmail", actionLabel: "Otvoriť email — odoslať detaily", actionIcon: "mail", variant: "primary" },
+              { id: "p2-info-disp", type: "action_button", action: "openPhoneDisposition", actionLabel: "Zaznamenať a naplánovať follow-up", actionIcon: "calendar", variant: "secondary" },
+            ]
+          },
+          {
+            id: "phase2-callback",
+            title: "Fáza 2: Zavolať neskôr",
+            isEndStep: true,
+            elements: [
+              { id: "p2-cb-text", type: "paragraph", content: "Kontakt požiadal o zavolanie neskôr. Naplánujte callback na požadovaný dátum." },
+              { id: "p2-cb-disp", type: "action_button", action: "openPhoneDisposition", actionLabel: "Naplánovať callback", actionIcon: "calendar", variant: "primary" },
+            ]
+          },
+          {
+            id: "phase2-noanswer",
+            title: "Fáza 2: Nedvíha",
+            isEndStep: true,
+            elements: [
+              { id: "p2-na-note", type: "note", variant: "warning", content: "Kontakt {{customer.fullName}} nedvíha telefón. Naplánujte ďalší pokus o 1 deň." },
+              { id: "p2-na-disp", type: "action_button", action: "openPhoneDisposition", actionLabel: "Zaznamenať a naplánovať ďalší pokus", actionIcon: "calendar", variant: "primary" },
+            ]
+          },
+          {
+            id: "phase2-decline",
+            title: "Fáza 2: Nemá záujem",
+            isEndStep: true,
+            elements: [
+              { id: "p2-dec-note", type: "note", variant: "error", content: "Kontakt {{customer.fullName}} momentálne nemá záujem o spoluprácu." },
+              { id: "p2-dec-text", type: "paragraph", content: "Zaznamenajte dôvod odmietnutia do poznámok. Kontakt môže byť oslovený znova o 6 mesiacov." },
+              { id: "p2-dec-disp", type: "action_button", action: "openPhoneDisposition", actionLabel: "Zaznamenať výsledok", actionIcon: "file", variant: "destructive" },
+            ]
+          },
+          {
+            id: "phase3-intro",
+            title: "Fáza 3: QUALIFICATION — Telefonát č. 2",
+            description: "Kvalifikačný hovor — zistenie záujmu a odoslanie detailných materiálov",
+            nextStepId: "phase3-script",
+            elements: [
+              { id: "p3-heading", type: "heading", label: "Kvalifikačný hovor", content: "Druhý telefonát s {{customer.fullName}} — overenie záujmu po detailnom emaile." },
+              { id: "p3-action-call", type: "action_button", action: "openPhone", actionLabel: "Zavolať na {{customer.phone}}", actionIcon: "phone", variant: "primary" },
+            ]
+          },
+          {
+            id: "phase3-script",
+            title: "Fáza 3: Scenár hovoru",
+            description: "Kvalifikačný scenár",
+            nextStepId: "phase3-result",
+            elements: [
+              { id: "p3-greeting", type: "heading", label: "Úvod", content: "\"Dobrý deň, {{customer.greeting}}, volám z INDEXUS. Posielali sme Vám podrobnejšie informácie o spolupráci. Mali ste čas si ich prezrieť?\"" },
+              { id: "p3-qualify", type: "paragraph", label: "Kvalifikačné otázky", content: "1. \"Aký typ spolupráce by Vás zaujímal?\"\n2. \"Koľko pacientov/klientov mesačne ošetrujete?\"\n3. \"Máte záujem o exkluzívnu spoluprácu alebo preferujete flexibilný model?\"" },
+              { id: "p3-close", type: "paragraph", label: "Uzavretie", content: "\"Na základe toho, čo ste mi povedali, myslím, že by pre Vás bola ideálna naša [služba]. Môžem Vám poslať návrh zmluvy na prezretie?\"" },
+            ]
+          },
+          {
+            id: "phase3-result",
+            title: "Fáza 3: Výsledok kvalifikácie",
+            elements: [
+              { id: "p3-result", type: "outcome", label: "Výsledok", required: true, options: [
+                { value: "send_contract", label: "📝 Odoslať zmluvu", nextStepId: "phase3-send-contract" },
+                { value: "needs_meeting", label: "📅 Chce osobné stretnutie", nextStepId: "phase3-meeting" },
+                { value: "callback_p3", label: "🔄 Zavolať neskôr", nextStepId: "phase3-callback" },
+                { value: "not_interested_p3", label: "❌ Nemá záujem", nextStepId: "phase3-decline" },
+              ]},
+            ]
+          },
+          {
+            id: "phase3-send-contract",
+            title: "Fáza 3: Odoslanie zmluvy",
+            isEndStep: true,
+            elements: [
+              { id: "p3-contract-note", type: "note", variant: "success", content: "Kontakt má záujem! Odošlite návrh zmluvy emailom." },
+              { id: "p3-contract-email", type: "action_button", action: "openEmail", actionLabel: "Otvoriť email — odoslať zmluvu", actionIcon: "mail", variant: "primary" },
+              { id: "p3-contract-disp", type: "action_button", action: "openPhoneDisposition", actionLabel: "Zaznamenať a naplánovať follow-up o 5 dní", actionIcon: "calendar", variant: "secondary" },
+            ]
+          },
+          {
+            id: "phase3-meeting",
+            title: "Fáza 3: Stretnutie",
+            isEndStep: true,
+            elements: [
+              { id: "p3-meet-note", type: "note", variant: "success", content: "Kontakt chce osobné stretnutie." },
+              { id: "p3-meet-text", type: "paragraph", content: "Dohodnite termín a miesto stretnutia. Zaznamenajte detaily do poznámok." },
+              { id: "p3-meet-disp", type: "action_button", action: "openPhoneDisposition", actionLabel: "Zaznamenať a naplánovať", actionIcon: "calendar", variant: "primary" },
+            ]
+          },
+          {
+            id: "phase3-callback",
+            title: "Fáza 3: Zavolať neskôr",
+            isEndStep: true,
+            elements: [
+              { id: "p3-cb-disp", type: "action_button", action: "openPhoneDisposition", actionLabel: "Naplánovať callback", actionIcon: "calendar", variant: "primary" },
+            ]
+          },
+          {
+            id: "phase3-decline",
+            title: "Fáza 3: Nemá záujem",
+            isEndStep: true,
+            elements: [
+              { id: "p3-dec-note", type: "note", variant: "error", content: "Kontakt momentálne nemá záujem. Naplánujte oslovenie o 6 mesiacov." },
+              { id: "p3-dec-disp", type: "action_button", action: "openPhoneDisposition", actionLabel: "Zaznamenať výsledok", actionIcon: "file", variant: "destructive" },
+            ]
+          },
+          {
+            id: "phase4-intro",
+            title: "Fáza 4: AGREEMENT — Telefonát č. 3",
+            description: "Overenie zmluvy a potvrdenie spolupráce",
+            nextStepId: "phase4-script",
+            elements: [
+              { id: "p4-heading", type: "heading", label: "Overenie zmluvy", content: "Telefonát s {{customer.fullName}} — overenie či dostal zmluvu a potvrdenie spolupráce." },
+              { id: "p4-action-call", type: "action_button", action: "openPhone", actionLabel: "Zavolať na {{customer.phone}}", actionIcon: "phone", variant: "primary" },
+            ]
+          },
+          {
+            id: "phase4-script",
+            title: "Fáza 4: Scenár hovoru",
+            nextStepId: "phase4-result",
+            elements: [
+              { id: "p4-greeting", type: "heading", label: "Úvod", content: "\"Dobrý deň, {{customer.greeting}}, volám ohľadom návrhu zmluvy, ktorý sme Vám posielali. Mali ste možnosť si ho prezrieť?\"" },
+              { id: "p4-questions", type: "paragraph", label: "Otázky", content: "1. \"Máte nejaké otázky k podmienkam spolupráce?\"\n2. \"Je niečo, čo by ste chceli upraviť?\"\n3. \"Kedy by ste mohli zmluvu podpísať a zaslať späť?\"" },
+            ]
+          },
+          {
+            id: "phase4-result",
+            title: "Fáza 4: Výsledok",
+            elements: [
+              { id: "p4-result", type: "outcome", label: "Výsledok", required: true, options: [
+                { value: "contract_signed", label: "✅ Zmluva podpísaná", nextStepId: "phase4-success" },
+                { value: "contract_pending", label: "⏳ Čaká na podpis", nextStepId: "phase4-pending" },
+                { value: "contract_changes", label: "📝 Požaduje zmeny", nextStepId: "phase4-changes" },
+                { value: "contract_declined", label: "❌ Odmietol", nextStepId: "phase4-decline" },
+              ]},
+            ]
+          },
+          {
+            id: "phase4-success",
+            title: "Fáza 4: Zmluva podpísaná!",
+            isEndStep: true,
+            elements: [
+              { id: "p4-success-note", type: "note", variant: "success", content: "Gratulujeme! {{customer.fullName}} podpísal zmluvu. Pokračujte do fázy onboardingu." },
+              { id: "p4-success-disp", type: "action_button", action: "openPhoneDisposition", actionLabel: "Zaznamenať úspech", actionIcon: "file", variant: "primary" },
+            ]
+          },
+          {
+            id: "phase4-pending",
+            title: "Fáza 4: Čaká na podpis",
+            isEndStep: true,
+            elements: [
+              { id: "p4-pend-text", type: "paragraph", content: "Kontakt si zmluvu ešte prezrie. Naplánujte follow-up o 5 dní." },
+              { id: "p4-pend-disp", type: "action_button", action: "openPhoneDisposition", actionLabel: "Naplánovať follow-up", actionIcon: "calendar", variant: "primary" },
+            ]
+          },
+          {
+            id: "phase4-changes",
+            title: "Fáza 4: Požaduje zmeny",
+            isEndStep: true,
+            elements: [
+              { id: "p4-chg-text", type: "paragraph", content: "Kontakt požaduje zmeny v zmluve. Zaznamenajte požiadavky a odošlite upravenú verziu." },
+              { id: "p4-chg-email", type: "action_button", action: "openEmail", actionLabel: "Odoslať upravenú zmluvu", actionIcon: "mail", variant: "primary" },
+              { id: "p4-chg-disp", type: "action_button", action: "openPhoneDisposition", actionLabel: "Zaznamenať a naplánovať", actionIcon: "calendar", variant: "secondary" },
+            ]
+          },
+          {
+            id: "phase4-decline",
+            title: "Fáza 4: Odmietol zmluvu",
+            isEndStep: true,
+            elements: [
+              { id: "p4-dec-note", type: "note", variant: "error", content: "Kontakt odmietol zmluvu. Zaznamenajte dôvod." },
+              { id: "p4-dec-disp", type: "action_button", action: "openPhoneDisposition", actionLabel: "Zaznamenať výsledok", actionIcon: "file", variant: "destructive" },
+            ]
+          },
+          {
+            id: "phase5-onboarding",
+            title: "Fáza 5: ONBOARDING — Aktivácia spolupráce",
+            description: "Úvodný hovor po podpise zmluvy",
+            isEndStep: true,
+            elements: [
+              { id: "p5-heading", type: "heading", label: "Onboarding hovor", content: "Volajte {{customer.fullName}} — aktivácia spolupráce a ponuka marketingových materiálov." },
+              { id: "p5-action-call", type: "action_button", action: "openPhone", actionLabel: "Zavolať na {{customer.phone}}", actionIcon: "phone", variant: "primary" },
+              { id: "p5-script", type: "paragraph", label: "Scenár", content: "\"Dobrý deň, {{customer.greeting}}, volám ohľadom aktivácie Vašej spolupráce s INDEXUS. Zmluva bola spracovaná a radi by sme Vám ponúkli:\n\n1. Marketingové materiály pre Vašu ambulanciu/prevádzku\n2. Školenie pre Váš tím\n3. Prístup do partnerského portálu\n\nČo z toho by Vás zaujímalo?\"" },
+              { id: "p5-disp", type: "action_button", action: "openPhoneDisposition", actionLabel: "Zaznamenať výsledok onboardingu", actionIcon: "file", variant: "primary" },
+            ]
+          },
+        ],
+      };
+
+      await storage.updateCampaign(req.params.id, { script: JSON.stringify(acquisitionScript) });
+      const updated = await storage.getCampaign(req.params.id);
+      res.json(updated);
+    } catch (error) {
+      console.error("Failed to generate acquisition script:", error);
+      res.status(500).json({ error: "Failed to generate acquisition script" });
+    }
+  });
+
   app.get("/api/campaigns/:id/contacts", requireAuth, async (req, res) => {
     try {
       const contacts = await storage.getCampaignContacts(req.params.id);

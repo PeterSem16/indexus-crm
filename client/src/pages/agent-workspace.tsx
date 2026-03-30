@@ -311,6 +311,10 @@ interface ScriptElement {
   required?: boolean;
   placeholder?: string;
   options?: { value: string; label: string; nextStepId?: string }[];
+  action?: string;
+  actionLabel?: string;
+  actionIcon?: string;
+  variant?: string;
 }
 
 interface ScriptStep {
@@ -916,7 +920,7 @@ function TaskListPanel({
   );
 }
 
-function ScriptViewer({ script, contact, campaignContactId, campaignId, initialStepId }: { script: string | null; contact?: Customer | null; campaignContactId?: string | null; campaignId?: string | null; initialStepId?: string | null }) {
+function ScriptViewer({ script, contact, campaignContactId, campaignId, initialStepId, onAction }: { script: string | null; contact?: Customer | null; campaignContactId?: string | null; campaignId?: string | null; initialStepId?: string | null; onAction?: (action: string, data?: any) => void }) {
   const SCRIPT_VARIABLES: Record<string, string> = {
     "{{customer.firstName}}": contact?.firstName || "",
     "{{customer.lastName}}": contact?.lastName || "",
@@ -1296,16 +1300,69 @@ function ScriptViewer({ script, contact, campaignContactId, campaignId, initialS
           </Card>
         );
 
+      case "action_button": {
+        const iconMap: Record<string, any> = { mail: Mail, phone: Phone, calendar: CalendarPlus, file: FileText };
+        const ActionIcon = iconMap[element.actionIcon || ""] || null;
+        const variantMap: Record<string, "default" | "outline" | "secondary" | "destructive"> = {
+          primary: "default", secondary: "secondary", outline: "outline", destructive: "destructive",
+        };
+        const btnVariant = variantMap[element.variant || ""] || "default";
+        return (
+          <Card className="border-primary/30 bg-primary/5">
+            <CardContent className="p-4 space-y-2">
+              {element.content && (
+                <p className="text-sm text-foreground leading-relaxed">{substituteVariables(element.content)}</p>
+              )}
+              <Button
+                className="w-full gap-2"
+                variant={btnVariant}
+                onClick={() => {
+                  if (element.action && onAction) {
+                    onAction(element.action, { elementId: element.id, stepId: currentStep?.id });
+                  }
+                }}
+                data-testid={`btn-script-action-${element.id}`}
+              >
+                {ActionIcon && <ActionIcon className="h-4 w-4" />}
+                {substituteVariables(element.actionLabel || element.label || "Vykonať akciu")}
+              </Button>
+            </CardContent>
+          </Card>
+        );
+      }
+
+      case "note": {
+        const noteStyles: Record<string, string> = {
+          info: "bg-blue-50 border-blue-200 text-blue-800 dark:bg-blue-900/20 dark:border-blue-800/50 dark:text-blue-300",
+          warning: "bg-amber-50 border-amber-200 text-amber-800 dark:bg-amber-900/20 dark:border-amber-800/50 dark:text-amber-300",
+          success: "bg-green-50 border-green-200 text-green-800 dark:bg-green-900/20 dark:border-green-800/50 dark:text-green-300",
+          error: "bg-red-50 border-red-200 text-red-800 dark:bg-red-900/20 dark:border-red-800/50 dark:text-red-300",
+        };
+        const noteIcons: Record<string, any> = { info: AlertCircle, warning: AlertCircle, success: CheckCircle, error: XCircle };
+        const NoteIcon = noteIcons[element.variant || "info"] || AlertCircle;
+        return (
+          <Card className={noteStyles[element.variant || "info"] || noteStyles.info}>
+            <CardContent className="p-4 flex items-start gap-3">
+              <NoteIcon className="h-4 w-4 mt-0.5 shrink-0" />
+              <div>
+                {element.label && <p className="text-xs font-semibold uppercase tracking-wide mb-1">{substituteVariables(element.label)}</p>}
+                <p className="text-sm leading-relaxed">{substituteVariables(element.content || "")}</p>
+              </div>
+            </CardContent>
+          </Card>
+        );
+      }
+
       default:
         if (element.content || element.label) {
           return (
             <Card>
               <CardContent className="p-4">
                 {element.label && (
-                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-1">{element.label}</label>
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-1">{substituteVariables(element.label)}</label>
                 )}
                 {element.content && (
-                  <p className="text-sm leading-relaxed text-foreground whitespace-pre-wrap">{element.content}</p>
+                  <p className="text-sm leading-relaxed text-foreground whitespace-pre-wrap">{substituteVariables(element.content || "")}</p>
                 )}
               </CardContent>
             </Card>
@@ -1477,6 +1534,7 @@ function CommunicationCanvas({
   collaboratorData,
   campaignContactId,
   initialScriptStepId,
+  onScriptAction,
 }: {
   contact: Customer | null;
   campaign: Campaign | null;
@@ -1518,6 +1576,7 @@ function CommunicationCanvas({
   collaboratorData?: Collaborator | null;
   campaignContactId?: string | null;
   initialScriptStepId?: string | null;
+  onScriptAction?: (action: string, data?: any) => void;
 }) {
   const { t } = useI18n();
   const { user } = useAuth();
@@ -2065,7 +2124,7 @@ function CommunicationCanvas({
           >
             <Maximize2 className="h-3.5 w-3.5" />
           </Button>
-          <ScriptViewer script={campaign?.script || null} contact={contact} campaignContactId={campaignContactId} campaignId={campaign?.id} initialStepId={initialScriptStepId} />
+          <ScriptViewer script={campaign?.script || null} contact={contact} campaignContactId={campaignContactId} campaignId={campaign?.id} initialStepId={initialScriptStepId} onAction={onScriptAction} />
         </div>
       )}
 
@@ -6249,6 +6308,22 @@ export default function AgentWorkspacePage() {
           collaboratorData={currentCollaboratorData}
           campaignContactId={currentCampaignContactId}
           initialScriptStepId={currentCampaignContact?.currentScriptStepId || null}
+          onScriptAction={(action, data) => {
+            if (action === "openEmail") {
+              setActiveChannel("email");
+            } else if (action === "openPhone" || action === "makeCall") {
+              setActiveChannel("phone");
+            } else if (action === "openDisposition") {
+              setDispositionChannelFilter(null);
+              setDispositionModalOpen(true);
+            } else if (action === "openEmailDisposition") {
+              setDispositionChannelFilter("email");
+              setDispositionModalOpen(true);
+            } else if (action === "openPhoneDisposition") {
+              setDispositionChannelFilter("phone");
+              setDispositionModalOpen(true);
+            }
+          }}
         />
 
         <CustomerInfoPanel
@@ -6948,7 +7023,14 @@ export default function AgentWorkspacePage() {
           </DialogHeader>
           <div className="flex-1 min-h-0 -mx-6 px-6">
             <div className="h-full max-h-[65vh]">
-              <ScriptViewer script={selectedCampaign?.script || null} contact={currentContact} campaignContactId={currentCampaignContactId} campaignId={selectedCampaignId} initialStepId={currentCampaignContact?.currentScriptStepId} />
+              <ScriptViewer script={selectedCampaign?.script || null} contact={currentContact} campaignContactId={currentCampaignContactId} campaignId={selectedCampaignId} initialStepId={currentCampaignContact?.currentScriptStepId} onAction={(action) => {
+                if (action === "openEmail") setActiveChannel("email");
+                else if (action === "openPhone" || action === "makeCall") setActiveChannel("phone");
+                else if (action === "openDisposition") { setDispositionChannelFilter(null); setDispositionModalOpen(true); }
+                else if (action === "openEmailDisposition") { setDispositionChannelFilter("email"); setDispositionModalOpen(true); }
+                else if (action === "openPhoneDisposition") { setDispositionChannelFilter("phone"); setDispositionModalOpen(true); }
+                setScriptModalOpen(false);
+              }} />
             </div>
           </div>
         </DialogContent>
