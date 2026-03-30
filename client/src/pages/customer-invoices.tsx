@@ -609,6 +609,9 @@ export default function CustomerInvoicesPage() {
   }>({
     queryKey: ["/api/invoices/report", selectedCountries.length > 0 ? { countries: selectedCountries.join(",") } : {}],
     enabled: !!user,
+    retry: 3,
+    retryDelay: 1000,
+    staleTime: 30000,
   });
 
   const reportData = useMemo(() => {
@@ -1549,11 +1552,6 @@ export default function CustomerInvoicesPage() {
             <div className="flex items-center justify-center h-64">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
               <span className="ml-2 text-muted-foreground">Načítavam report...</span>
-            </div>
-          ) : reportError ? (
-            <div className="flex items-center justify-center h-64 text-destructive">
-              <AlertCircle className="h-8 w-8 mr-2" />
-              <span>Chyba pri načítaní reportu</span>
             </div>
           ) : (
           <div className="space-y-6">
