@@ -2090,7 +2090,12 @@ export default function CampaignDetailPage() {
   }, [campaignDispositions]);
 
   const callCenterRoleId = roles.find(r => r.name === "Call Center")?.id;
-  const callCenterUsers = allUsers.filter(u => u.role === "admin" || u.role === "callCenter" || (callCenterRoleId && u.roleId === callCenterRoleId));
+  const representantRoleId = roles.find(r => r.name?.toLowerCase().includes("representant") || r.name?.toLowerCase().includes("reprezentant"))?.id;
+  const assignableUsers = allUsers.filter(u => 
+    u.role === "admin" || u.role === "callCenter" || u.role === "representant" ||
+    (callCenterRoleId && u.roleId === callCenterRoleId) ||
+    (representantRoleId && u.roleId === representantRoleId)
+  );
   const assignedAgentIds = campaignAgents.map(a => a.userId);
 
   const getStageName = (stageId: string) => {
@@ -3183,13 +3188,13 @@ export default function CampaignDetailPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {callCenterUsers.length === 0 ? (
+                    {assignableUsers.length === 0 ? (
                       <p className="text-sm text-muted-foreground text-center py-8">
                         {t.campaigns.detail.noOperatorsAvailable}
                       </p>
                     ) : (
                       <div className="grid gap-3">
-                        {callCenterUsers.map((user) => {
+                        {assignableUsers.map((user) => {
                           const isAssigned = assignedAgentIds.includes(user.id);
                           return (
                             <div 
