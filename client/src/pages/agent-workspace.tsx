@@ -915,7 +915,7 @@ function TaskListPanel({
   );
 }
 
-function ScriptViewer({ script, contact }: { script: string | null; contact?: Customer | null }) {
+function ScriptViewer({ script, contact, campaignContactId, campaignId, initialStepId }: { script: string | null; contact?: Customer | null; campaignContactId?: string | null; campaignId?: string | null; initialStepId?: string | null }) {
   const SCRIPT_VARIABLES: Record<string, string> = {
     "{{customer.firstName}}": contact?.firstName || "",
     "{{customer.lastName}}": contact?.lastName || "",
@@ -948,6 +948,7 @@ function ScriptViewer({ script, contact }: { script: string | null; contact?: Cu
   const [selectedValues, setSelectedValues] = useState<Record<string, string>>({});
   const [visitedSteps, setVisitedSteps] = useState<Set<number>>(new Set([0]));
   const [stepHistory, setStepHistory] = useState<number[]>([0]);
+  const [stepInitialized, setStepInitialized] = useState(false);
 
   useEffect(() => {
     setVisitedSteps(prev => {
@@ -956,6 +957,32 @@ function ScriptViewer({ script, contact }: { script: string | null; contact?: Cu
       return next;
     });
   }, [currentStepIndex]);
+
+  useEffect(() => {
+    if (!initialStepId || stepInitialized) return;
+    try {
+      if (!script) return;
+      const parsed = JSON.parse(script);
+      if (!parsed?.steps) return;
+      const idx = parsed.steps.findIndex((s: any) => s.id === initialStepId);
+      if (idx >= 0) {
+        setCurrentStepIndex(idx);
+        setStepHistory([idx]);
+        setVisitedSteps(new Set([idx]));
+      }
+      setStepInitialized(true);
+    } catch {}
+  }, [initialStepId, script, stepInitialized]);
+
+  const saveScriptStep = useCallback((stepId: string) => {
+    if (!campaignContactId || !campaignId) return;
+    fetch(`/api/campaigns/${campaignId}/contacts/${campaignContactId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ currentScriptStepId: stepId }),
+    }).catch(() => {});
+  }, [campaignContactId, campaignId]);
 
   if (!script) {
     return (
@@ -1024,6 +1051,9 @@ function ScriptViewer({ script, contact }: { script: string | null; contact?: Cu
   const navigateToStep = (idx: number) => {
     setStepHistory(prev => [...prev, idx]);
     setCurrentStepIndex(idx);
+    if (parsedScript?.steps[idx]) {
+      saveScriptStep(parsedScript.steps[idx].id);
+    }
   };
 
   const handleStepClick = (idx: number) => {
@@ -1444,6 +1474,8 @@ function CommunicationCanvas({
   hospitalData,
   clinicData,
   collaboratorData,
+  campaignContactId,
+  initialScriptStepId,
 }: {
   contact: Customer | null;
   campaign: Campaign | null;
@@ -1483,6 +1515,8 @@ function CommunicationCanvas({
   hospitalData?: Hospital | null;
   clinicData?: Clinic | null;
   collaboratorData?: Collaborator | null;
+  campaignContactId?: string | null;
+  initialScriptStepId?: string | null;
 }) {
   const { t } = useI18n();
   const { user } = useAuth();
@@ -2030,7 +2064,7 @@ function CommunicationCanvas({
           >
             <Maximize2 className="h-3.5 w-3.5" />
           </Button>
-          <ScriptViewer script={campaign?.script || null} contact={contact} />
+          <ScriptViewer script={campaign?.script || null} contact={contact} campaignContactId={campaignContactId} campaignId={campaign?.id} initialStepId={initialScriptStepId} />
         </div>
       )}
 
@@ -4622,6 +4656,11 @@ export default function AgentWorkspacePage() {
     );
   }, [rawCampaignContacts, disposedContactIds]);
 
+  const currentCampaignContact = useMemo(() => {
+    if (!currentCampaignContactId) return null;
+    return rawCampaignContacts.find(cc => cc.id === currentCampaignContactId) || null;
+  }, [rawCampaignContacts, currentCampaignContactId]);
+
   const selectedCampaign = useMemo(() => {
     return campaigns.find((c) => c.id === selectedCampaignId) || null;
   }, [campaigns, selectedCampaignId]);
@@ -6207,6 +6246,8 @@ export default function AgentWorkspacePage() {
           hospitalData={currentHospitalData}
           clinicData={currentClinicData}
           collaboratorData={currentCollaboratorData}
+          campaignContactId={currentCampaignContactId}
+          initialScriptStepId={currentCampaignContact?.currentScriptStepId || null}
         />
 
         <CustomerInfoPanel
@@ -6906,7 +6947,7 @@ export default function AgentWorkspacePage() {
           </DialogHeader>
           <div className="flex-1 min-h-0 -mx-6 px-6">
             <div className="h-full max-h-[65vh]">
-              <ScriptViewer script={selectedCampaign?.script || null} contact={currentContact} />
+              <ScriptViewer script={selectedCampaign?.script || null} contact={currentContact} campaignContactId={currentCampaignContactId} campaignId={selectedCampaignId} initialStepId={currentCampaignContact?.currentScriptStepId} />
             </div>
           </div>
         </DialogContent>

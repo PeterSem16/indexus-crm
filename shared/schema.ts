@@ -2876,6 +2876,7 @@ export const campaignContacts = pgTable("campaign_contacts", {
   callbackDate: timestamp("callback_date"),
   contactedAt: timestamp("contacted_at"),
   completedAt: timestamp("completed_at"),
+  currentScriptStepId: text("current_script_step_id"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
