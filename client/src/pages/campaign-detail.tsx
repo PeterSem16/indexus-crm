@@ -2202,9 +2202,11 @@ export default function CampaignDetailPage() {
     },
     onSuccess: (data: any) => {
       setImportResult(null);
+      setSelectedContacts(new Set());
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "contacts"] });
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "stats"] });
-      toast({ title: t.campaigns.detail.importDeleted, description: `${data.deleted}` });
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns/contact-counts"] });
+      toast({ title: t.campaigns.detail.importDeleted, description: `Vymazaných: ${data.deleted} kontaktov` });
     },
     onError: () => {
       toast({ title: t.campaigns.detail.error, description: t.campaigns.detail.importDeleteError, variant: "destructive" });
@@ -3005,6 +3007,19 @@ export default function CampaignDetailPage() {
                       <DropdownMenuItem onClick={() => handleBulkStatusUpdate("pending")} data-testid="menu-bulk-pending">
                         <Clock className="w-4 h-4 mr-2" />
                         {t.campaigns.detail.resetPending}
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        className="text-destructive focus:text-destructive"
+                        onClick={() => {
+                          if (window.confirm(`Naozaj chcete vymazať ${selectedContacts.size} kontaktov z kampane? Táto akcia je nevratná.`)) {
+                            deleteImportMutation.mutate(Array.from(selectedContacts));
+                          }
+                        }}
+                        data-testid="menu-bulk-delete"
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Vymazať z kampane ({selectedContacts.size})
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem onClick={() => setSelectedContacts(new Set())} data-testid="menu-clear-selection">
