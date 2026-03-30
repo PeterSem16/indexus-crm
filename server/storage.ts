@@ -1759,6 +1759,18 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(invoices);
   }
 
+  async getInvoiceStatusCounts(countries?: string[]): Promise<{ status: string; count: number }[]> {
+    const conditions: any[] = [];
+    if (countries && countries.length > 0) {
+      const custIds = await db.select({ id: customers.id }).from(customers).where(inArray(customers.country, countries));
+      const ids = custIds.map(c => c.id);
+      if (ids.length === 0) return [];
+      conditions.push(inArray(invoices.customerId, ids));
+    }
+    const where = conditions.length > 0 ? and(...conditions) : undefined;
+    return db.select({ status: invoices.status, count: sql<number>`count(*)::int` }).from(invoices).where(where).groupBy(invoices.status);
+  }
+
   async getInvoicesPaginated(page: number, limit: number, search?: string, status?: string, customerId?: string, countries?: string[]): Promise<{ data: Invoice[], total: number }> {
     const offset = (page - 1) * limit;
     const conditions: any[] = [];

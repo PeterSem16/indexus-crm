@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Search, FileText, Download, Users, CheckCircle, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, FileText, Download, Users, CheckCircle, ChevronLeft, ChevronRight, Clock, Send, CreditCard, AlertTriangle } from "lucide-react";
 import { useI18n } from "@/i18n";
+import { useCountryFilter } from "@/contexts/country-filter-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -35,10 +36,12 @@ const LOCALE_MAP: Record<string, string> = {
 export default function InvoicesPage() {
   const { toast } = useToast();
   const { t, locale } = useI18n();
+  const { selectedCountries } = useCountryFilter();
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [page, setPage] = useState(1);
   const pageSize = 50;
+  const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [isBulkDialogOpen, setIsBulkDialogOpen] = useState(false);
   const [selectedCustomers, setSelectedCustomers] = useState<string[]>([]);
 
@@ -50,13 +53,17 @@ export default function InvoicesPage() {
     return () => clearTimeout(timer);
   }, [search]);
 
+  useEffect(() => { setPage(1); }, [selectedCountries, statusFilter]);
+
   const { data: paginatedResult, isLoading: invoicesLoading } = useQuery<{ data: Invoice[], total: number }>({
-    queryKey: ["/api/invoices", { page, limit: pageSize, search: debouncedSearch }],
+    queryKey: ["/api/invoices", { page, limit: pageSize, search: debouncedSearch, countries: selectedCountries, status: statusFilter }],
     queryFn: async () => {
       const params = new URLSearchParams();
       params.set("page", String(page));
       params.set("limit", String(pageSize));
       if (debouncedSearch) params.set("search", debouncedSearch);
+      if (selectedCountries.length > 0) params.set("countries", selectedCountries.join(","));
+      if (statusFilter) params.set("status", statusFilter);
       const res = await fetch(`/api/invoices?${params.toString()}`);
       if (!res.ok) throw new Error("Failed to fetch");
       return res.json();
@@ -65,6 +72,17 @@ export default function InvoicesPage() {
   const invoices = paginatedResult?.data || [];
   const totalInvoices = paginatedResult?.total || 0;
   const totalPages = Math.ceil(totalInvoices / pageSize);
+
+  const { data: invoiceStatusCounts } = useQuery<{ status: string; count: number }[]>({
+    queryKey: ["/api/invoices/status-counts", { countries: selectedCountries }],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (selectedCountries.length > 0) params.set("countries", selectedCountries.join(","));
+      const res = await fetch(`/api/invoices/status-counts?${params.toString()}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch");
+      return res.json();
+    },
+  });
 
   const { data: customers = [], isLoading: customersLoading } = useQuery<any[]>({
     queryKey: ["/api/customers/lookup"],
@@ -236,6 +254,53 @@ export default function InvoicesPage() {
         </Button>
       </PageHeader>
 
+      {(() => {
+        const statusCountMap = new Map((invoiceStatusCounts || []).map(r => [r.status, r.count]));
+        const totalAll = (invoiceStatusCounts || []).reduce((sum, r) => sum + r.count, 0);
+        const tiles = [
+          { key: "generated", label: locale === "sk" ? "Vygenerované" : "Generated", count: statusCountMap.get("generated") || 0, icon: FileText, bg: "bg-blue-50 dark:bg-blue-950", border: "border-blue-200 dark:border-blue-800", text: "text-blue-700 dark:text-blue-300", countColor: "text-blue-900 dark:text-blue-100" },
+          { key: "sent", label: locale === "sk" ? "Odoslané" : "Sent", count: statusCountMap.get("sent") || 0, icon: Send, bg: "bg-amber-50 dark:bg-amber-950", border: "border-amber-200 dark:border-amber-800", text: "text-amber-700 dark:text-amber-300", countColor: "text-amber-900 dark:text-amber-100" },
+          { key: "paid", label: locale === "sk" ? "Zaplatené" : "Paid", count: statusCountMap.get("paid") || 0, icon: CreditCard, bg: "bg-green-50 dark:bg-green-950", border: "border-green-200 dark:border-green-800", text: "text-green-700 dark:text-green-300", countColor: "text-green-900 dark:text-green-100" },
+          { key: "overdue", label: locale === "sk" ? "Po splatnosti" : "Overdue", count: statusCountMap.get("overdue") || 0, icon: AlertTriangle, bg: "bg-red-50 dark:bg-red-950", border: "border-red-200 dark:border-red-800", text: "text-red-700 dark:text-red-300", countColor: "text-red-900 dark:text-red-100" },
+          { key: "unpaid", label: locale === "sk" ? "Nezaplatené" : "Unpaid", count: statusCountMap.get("unpaid") || 0, icon: Clock, bg: "bg-orange-50 dark:bg-orange-950", border: "border-orange-200 dark:border-orange-800", text: "text-orange-700 dark:text-orange-300", countColor: "text-orange-900 dark:text-orange-100" },
+        ].filter(t => t.count > 0 || t.key === "generated" || t.key === "sent" || t.key === "paid");
+        return (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2" data-testid="invoice-status-tiles">
+            <div
+              onClick={() => { setStatusFilter(null); setPage(1); }}
+              className={`cursor-pointer rounded-xl border-2 p-4 transition-all hover:shadow-md ${
+                statusFilter === null
+                  ? "bg-gray-100 dark:bg-gray-800 border-primary ring-2 ring-primary/30 shadow-sm"
+                  : "bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700 opacity-80 hover:opacity-100"
+              }`}
+              data-testid="tile-invoice-all"
+            >
+              <div className="text-2xl font-bold text-gray-800 dark:text-gray-200">{totalAll}</div>
+              <div className="text-xs font-medium text-gray-600 dark:text-gray-400">{locale === "sk" ? "Všetky" : "All"}</div>
+            </div>
+            {tiles.map(tile => {
+              const Icon = tile.icon;
+              return (
+                <div
+                  key={tile.key}
+                  onClick={() => { setStatusFilter(statusFilter === tile.key ? null : tile.key); setPage(1); }}
+                  className={`cursor-pointer rounded-xl border-2 p-4 transition-all hover:shadow-md ${tile.bg} ${
+                    statusFilter === tile.key ? `${tile.border} ring-2 ring-offset-1 ring-current shadow-md` : `${tile.border} opacity-80 hover:opacity-100`
+                  }`}
+                  data-testid={`tile-invoice-${tile.key}`}
+                >
+                  <div className="flex items-center gap-2">
+                    <Icon className={`h-4 w-4 ${tile.text}`} />
+                    <span className={`text-2xl font-bold ${tile.countColor}`}>{tile.count}</span>
+                  </div>
+                  <div className={`text-xs font-medium mt-1 ${tile.text}`}>{tile.label}</div>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })()}
+
       <Card>
         <CardContent className="p-4">
           <div className="flex items-center gap-4">
@@ -249,6 +314,11 @@ export default function InvoicesPage() {
                 data-testid="input-search-invoices"
               />
             </div>
+            {statusFilter && (
+              <Badge variant="secondary" className="cursor-pointer" onClick={() => setStatusFilter(null)} data-testid="badge-clear-status">
+                {statusFilter} ✕
+              </Badge>
+            )}
             <div className="text-sm text-muted-foreground">
               {totalInvoices} {t.invoices.title.toLowerCase()}
             </div>
