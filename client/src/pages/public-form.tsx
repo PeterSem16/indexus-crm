@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, CheckCircle2, AlertCircle, Send, Shield, Sparkles, PartyPopper, Star, Rocket, Heart, Search, X, ChevronDown } from "lucide-react";
+import { Loader2, CheckCircle2, AlertCircle, Send, Shield, Sparkles, PartyPopper, Star, Rocket, Heart, Search, X, ChevronDown, Calendar } from "lucide-react";
 
 interface FormConfig {
   form: any;
@@ -46,11 +46,61 @@ function normalizePhone(phone: string, countryCode: string): string {
   return rawPrefix + p;
 }
 
-function formatDateDisplay(dateStr: string): string {
+function formatDateByFormat(dateStr: string, fmt: string): string {
   if (!dateStr) return "";
   const parts = dateStr.split("-");
-  if (parts.length === 3) return `${parts[2]}.${parts[1]}.${parts[0]}`;
-  return dateStr;
+  if (parts.length !== 3) return dateStr;
+  const [y, m, d] = parts;
+  switch (fmt) {
+    case "mm/dd/yyyy": return `${m}/${d}/${y}`;
+    case "dd/mm/yyyy": return `${d}/${m}/${y}`;
+    case "yyyy-mm-dd": return dateStr;
+    case "dd-mm-yyyy": return `${d}-${m}-${y}`;
+    case "dd.mm.yyyy":
+    default: return `${d}.${m}.${y}`;
+  }
+}
+
+function FormDateInput({ value, onChange, onBlur, className, placeholder, dateFormat, dataTestId, hasError }: {
+  value: string;
+  onChange: (val: string) => void;
+  onBlur: () => void;
+  className?: string;
+  placeholder?: string;
+  dateFormat: string;
+  dataTestId?: string;
+  hasError?: boolean;
+}) {
+  const hiddenRef = useRef<HTMLInputElement>(null);
+  const displayVal = value ? formatDateByFormat(value, dateFormat) : "";
+  const placeholderText = placeholder || dateFormat.toUpperCase();
+
+  return (
+    <div className="relative">
+      <input
+        type="text"
+        readOnly
+        value={displayVal}
+        placeholder={placeholderText}
+        className={className}
+        style={{ color: value ? "#1a1a1a" : undefined, cursor: "pointer" }}
+        onClick={() => hiddenRef.current?.showPicker?.() || hiddenRef.current?.click()}
+        data-testid={dataTestId}
+      />
+      <Calendar
+        className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none"
+      />
+      <input
+        ref={hiddenRef}
+        type="date"
+        value={value || ""}
+        onChange={e => onChange(e.target.value)}
+        onBlur={onBlur}
+        className="absolute inset-0 opacity-0 cursor-pointer"
+        tabIndex={-1}
+      />
+    </div>
+  );
 }
 
 function AutocompleteInput({ value, onChange, onBlur, options, placeholder, className, dataTestId, allowCustom, alwaysOptions }: {
@@ -1179,11 +1229,12 @@ export default function PublicFormPage() {
     );
 
     const inputClass = `h-10 bg-white border-gray-300 focus:border-2 rounded-lg transition-colors ${err ? "border-red-400 focus:border-red-500" : ""}`;
+    const inputStyle = { color: "#1a1a1a" };
 
     if (field.fieldType === "select_insurance") {
       return fieldWrapper(
         <Select value={val} onValueChange={v => updateField(key, v)}>
-          <SelectTrigger className={inputClass} data-testid={`select-${key}`} onBlur={() => blurField(key)}>
+          <SelectTrigger className={inputClass} style={inputStyle} data-testid={`select-${key}`} onBlur={() => blurField(key)}>
             <SelectValue placeholder={placeholder || "Vyberte poisťovňu..."} />
           </SelectTrigger>
           <SelectContent>
@@ -1341,13 +1392,29 @@ export default function PublicFormPage() {
       );
     }
 
+    if (field.fieldType === "date") {
+      return fieldWrapper(
+        <FormDateInput
+          value={val}
+          onChange={v => updateField(key, v)}
+          onBlur={() => blurField(key)}
+          className={inputClass}
+          placeholder={placeholder}
+          dateFormat={dateFormat}
+          dataTestId={`input-${key}`}
+          hasError={!!err}
+        />
+      );
+    }
+
     return fieldWrapper(
       <Input
-        type={field.fieldType === "date" ? "date" : field.fieldType === "email" ? "email" : field.fieldType === "tel" ? "tel" : field.fieldType === "number" ? "number" : "text"}
+        type={field.fieldType === "email" ? "email" : field.fieldType === "tel" ? "tel" : field.fieldType === "number" ? "number" : "text"}
         value={val}
         onChange={e => updateField(key, e.target.value)}
         onBlur={() => blurField(key)}
         className={inputClass}
+        style={inputStyle}
         placeholder={placeholder}
         data-testid={`input-${key}`}
       />
@@ -1728,6 +1795,18 @@ export default function PublicFormPage() {
     }
     .public-form-root input[type="date"]:invalid::-webkit-datetime-edit {
       color: ${placeholderColor};
+    }
+    .public-form-root input,
+    .public-form-root textarea,
+    .public-form-root select,
+    .public-form-root [role="combobox"],
+    .public-form-root button[role="combobox"] span {
+      color: #1a1a1a !important;
+    }
+    .public-form-root input:focus,
+    .public-form-root textarea:focus,
+    .public-form-root select:focus {
+      color: #1a1a1a !important;
     }
   `;
 
