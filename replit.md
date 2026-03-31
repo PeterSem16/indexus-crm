@@ -48,6 +48,7 @@ Preferred communication style: Simple, everyday language.
 - **IVR Audio Management**: Upload or generate multi-language audio files for IVR prompts using OpenAI TTS.
 - **IVR Menu Builder**: Visual tool for designing IVR decision trees.
 - **DID Routing**: Configuration for mapping DID numbers.
+- **Medical Partner Network (MPN)**: Unified module for managing medical partner relationships. Includes partner categories (10 predefined: hospital directors, department heads, nurses, midwives, ambulatory gynecologists, etc.), contact assignments (person ↔ institution mapping with category, department, position, role, subcategory A/B/C), contact channels (unlimited phones, emails, WhatsApp, Viber, Signal per person), communication schedules (configurable frequencies per category/subcategory), and first contact protocols (step-by-step workflows with required documents). API routes under `/api/mpn/*`. DB tables: `partner_categories`, `contact_assignments`, `contact_channels`, `communication_schedules`, `first_contact_protocols`. Migration script: `scripts/seed-medical-partner-network.sql`.
 - **Inbound Call Reports**: Reports on queue performance, SLA, and agent statistics.
 - **Voicemail Management**: Voicemail box configuration with greetings, email notifications, and transcription.
 - **Entity Campaign Timeline**: Automatic recording of campaign interactions on entity detail pages (customers, hospitals, clinics, collaborators).

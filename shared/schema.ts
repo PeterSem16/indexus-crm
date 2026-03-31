@@ -6831,3 +6831,92 @@ export const leadLifecycle = pgTable("lead_lifecycle", {
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
+
+// ========== MEDICAL PARTNER NETWORK ==========
+
+export const partnerCategories = pgTable("partner_categories", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  code: text("code").notNull().unique(),
+  name: text("name").notNull(),
+  nameEn: text("name_en"),
+  entityScope: text("entity_scope").notNull().default("hospital"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const insertPartnerCategorySchema = createInsertSchema(partnerCategories).omit({ id: true, createdAt: true });
+export type InsertPartnerCategory = z.infer<typeof insertPartnerCategorySchema>;
+export type PartnerCategory = typeof partnerCategories.$inferSelect;
+
+export const contactAssignments = pgTable("contact_assignments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  personId: varchar("person_id").notNull(),
+  entityType: text("entity_type").notNull().default("hospital"),
+  entityId: varchar("entity_id").notNull(),
+  categoryId: varchar("category_id"),
+  department: text("department"),
+  position: text("position"),
+  role: text("role"),
+  subcategory: text("subcategory"),
+  isPrimary: boolean("is_primary").notNull().default(false),
+  notes: text("notes"),
+  isActive: boolean("is_active").notNull().default(true),
+  startDate: timestamp("start_date"),
+  endDate: timestamp("end_date"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const insertContactAssignmentSchema = createInsertSchema(contactAssignments).omit({ id: true, createdAt: true, updatedAt: true }).extend({
+  entityType: z.enum(["hospital", "clinic"]).default("hospital"),
+  startDate: z.string().optional().nullable(),
+  endDate: z.string().optional().nullable(),
+});
+export type InsertContactAssignment = z.infer<typeof insertContactAssignmentSchema>;
+export type ContactAssignment = typeof contactAssignments.$inferSelect;
+
+export const contactChannels = pgTable("contact_channels", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  personId: varchar("person_id").notNull(),
+  channelType: text("channel_type").notNull(),
+  value: text("value").notNull(),
+  label: text("label"),
+  isPrimary: boolean("is_primary").notNull().default(false),
+  isActive: boolean("is_active").notNull().default(true),
+  notes: text("notes"),
+  assignmentId: varchar("assignment_id"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const insertContactChannelSchema = createInsertSchema(contactChannels).omit({ id: true, createdAt: true }).extend({
+  channelType: z.enum(["phone", "mobile", "landline", "email", "whatsapp", "viber", "signal"]),
+});
+export type InsertContactChannel = z.infer<typeof insertContactChannelSchema>;
+export type ContactChannel = typeof contactChannels.$inferSelect;
+
+export const communicationSchedules = pgTable("communication_schedules", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  categoryId: varchar("category_id").notNull(),
+  subcategory: text("subcategory"),
+  channelType: text("channel_type").notNull(),
+  frequencyMonths: integer("frequency_months").notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+});
+
+export const insertCommunicationScheduleSchema = createInsertSchema(communicationSchedules).omit({ id: true });
+export type InsertCommunicationSchedule = z.infer<typeof insertCommunicationScheduleSchema>;
+export type CommunicationSchedule = typeof communicationSchedules.$inferSelect;
+
+export const firstContactProtocols = pgTable("first_contact_protocols", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  categoryId: varchar("category_id").notNull(),
+  stepOrder: integer("step_order").notNull().default(1),
+  description: text("description").notNull(),
+  requiredDocuments: text("required_documents").array().notNull().default(sql`ARRAY[]::text[]`),
+  isActive: boolean("is_active").notNull().default(true),
+});
+
+export const insertFirstContactProtocolSchema = createInsertSchema(firstContactProtocols).omit({ id: true });
+export type InsertFirstContactProtocol = z.infer<typeof insertFirstContactProtocolSchema>;
+export type FirstContactProtocol = typeof firstContactProtocols.$inferSelect;

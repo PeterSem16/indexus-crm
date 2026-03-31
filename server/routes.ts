@@ -40,7 +40,9 @@ import {
   inboundCallLogs, inboundQueues, ariSettings, sipExtensions, clinicReferrals, clinicEvents,
   type SafeUser, type Customer, type Product, type BillingDetails, type ActivityLog, type LeadScoringCriteria,
   type ServiceConfiguration, type InvoiceTemplate, type InvoiceLayout, type Role,
-  type Campaign, type CampaignContact, type ContractInstance
+  type Campaign, type CampaignContact, type ContractInstance,
+  partnerCategories, contactAssignments, contactChannels, communicationSchedules, firstContactProtocols,
+  insertPartnerCategorySchema, insertContactAssignmentSchema, insertContactChannelSchema, insertCommunicationScheduleSchema, insertFirstContactProtocolSchema
 } from "@shared/schema";
 import Handlebars from "handlebars";
 import { z } from "zod";
@@ -40101,6 +40103,295 @@ DÔLEŽITÉ: Vráť IBA JSON pole, žiadny iný text.`;
       console.error("[WebForm TestEmail] Error:", e);
       res.status(500).json({ error: e.message });
     }
+  });
+
+  // ============ MEDICAL PARTNER NETWORK API ============
+
+  // --- Partner Categories ---
+  app.get("/api/mpn/categories", requireAuth, async (req, res) => {
+    try {
+      const rows = await db.select().from(partnerCategories).orderBy(asc(partnerCategories.sortOrder));
+      res.json(rows);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/mpn/categories", requireAuth, async (req, res) => {
+    try {
+      const data = insertPartnerCategorySchema.parse(req.body);
+      const [row] = await db.insert(partnerCategories).values(data).returning();
+      res.json(row);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  app.patch("/api/mpn/categories/:id", requireAuth, async (req, res) => {
+    try {
+      const [row] = await db.update(partnerCategories).set(req.body).where(eq(partnerCategories.id, req.params.id)).returning();
+      res.json(row);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  app.delete("/api/mpn/categories/:id", requireAuth, async (req, res) => {
+    try {
+      await db.delete(partnerCategories).where(eq(partnerCategories.id, req.params.id));
+      res.json({ success: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // --- Contact Assignments ---
+  app.get("/api/mpn/assignments", requireAuth, async (req, res) => {
+    try {
+      const { personId, entityType, entityId } = req.query;
+      let conditions: any[] = [];
+      if (personId) conditions.push(eq(contactAssignments.personId, personId as string));
+      if (entityType) conditions.push(eq(contactAssignments.entityType, entityType as string));
+      if (entityId) conditions.push(eq(contactAssignments.entityId, entityId as string));
+
+      const rows = await db.select({
+        assignment: contactAssignments,
+        categoryName: partnerCategories.name,
+        categoryCode: partnerCategories.code,
+      })
+      .from(contactAssignments)
+      .leftJoin(partnerCategories, eq(contactAssignments.categoryId, partnerCategories.id))
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(contactAssignments.createdAt));
+
+      res.json(rows);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/mpn/assignments", requireAuth, async (req, res) => {
+    try {
+      const data = insertContactAssignmentSchema.parse(req.body);
+      const insertData: any = { ...data };
+      if (data.startDate) insertData.startDate = new Date(data.startDate);
+      if (data.endDate) insertData.endDate = new Date(data.endDate);
+      const [row] = await db.insert(contactAssignments).values(insertData).returning();
+      res.json(row);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  app.patch("/api/mpn/assignments/:id", requireAuth, async (req, res) => {
+    try {
+      const updateData: any = { ...req.body, updatedAt: new Date() };
+      if (updateData.startDate) updateData.startDate = new Date(updateData.startDate);
+      if (updateData.endDate) updateData.endDate = new Date(updateData.endDate);
+      const [row] = await db.update(contactAssignments).set(updateData).where(eq(contactAssignments.id, req.params.id)).returning();
+      res.json(row);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  app.delete("/api/mpn/assignments/:id", requireAuth, async (req, res) => {
+    try {
+      await db.delete(contactAssignments).where(eq(contactAssignments.id, req.params.id));
+      res.json({ success: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // --- Contact Channels ---
+  app.get("/api/mpn/channels", requireAuth, async (req, res) => {
+    try {
+      const { personId } = req.query;
+      let conditions: any[] = [];
+      if (personId) conditions.push(eq(contactChannels.personId, personId as string));
+
+      const rows = await db.select().from(contactChannels)
+        .where(conditions.length > 0 ? and(...conditions) : undefined)
+        .orderBy(desc(contactChannels.isPrimary), asc(contactChannels.channelType));
+
+      res.json(rows);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/mpn/channels", requireAuth, async (req, res) => {
+    try {
+      const data = insertContactChannelSchema.parse(req.body);
+      const [row] = await db.insert(contactChannels).values(data).returning();
+      res.json(row);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  app.patch("/api/mpn/channels/:id", requireAuth, async (req, res) => {
+    try {
+      const [row] = await db.update(contactChannels).set(req.body).where(eq(contactChannels.id, req.params.id)).returning();
+      res.json(row);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  app.delete("/api/mpn/channels/:id", requireAuth, async (req, res) => {
+    try {
+      await db.delete(contactChannels).where(eq(contactChannels.id, req.params.id));
+      res.json({ success: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // --- Communication Schedules ---
+  app.get("/api/mpn/schedules", requireAuth, async (req, res) => {
+    try {
+      const rows = await db.select({
+        schedule: communicationSchedules,
+        categoryName: partnerCategories.name,
+        categoryCode: partnerCategories.code,
+      })
+      .from(communicationSchedules)
+      .leftJoin(partnerCategories, eq(communicationSchedules.categoryId, partnerCategories.id))
+      .orderBy(asc(partnerCategories.sortOrder), asc(communicationSchedules.subcategory));
+
+      res.json(rows);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/mpn/schedules", requireAuth, async (req, res) => {
+    try {
+      const data = insertCommunicationScheduleSchema.parse(req.body);
+      const [row] = await db.insert(communicationSchedules).values(data).returning();
+      res.json(row);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  app.patch("/api/mpn/schedules/:id", requireAuth, async (req, res) => {
+    try {
+      const [row] = await db.update(communicationSchedules).set(req.body).where(eq(communicationSchedules.id, req.params.id)).returning();
+      res.json(row);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  app.delete("/api/mpn/schedules/:id", requireAuth, async (req, res) => {
+    try {
+      await db.delete(communicationSchedules).where(eq(communicationSchedules.id, req.params.id));
+      res.json({ success: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // --- First Contact Protocols ---
+  app.get("/api/mpn/protocols", requireAuth, async (req, res) => {
+    try {
+      const { categoryId } = req.query;
+      let conditions: any[] = [];
+      if (categoryId) conditions.push(eq(firstContactProtocols.categoryId, categoryId as string));
+
+      const rows = await db.select({
+        protocol: firstContactProtocols,
+        categoryName: partnerCategories.name,
+        categoryCode: partnerCategories.code,
+      })
+      .from(firstContactProtocols)
+      .leftJoin(partnerCategories, eq(firstContactProtocols.categoryId, partnerCategories.id))
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(asc(partnerCategories.sortOrder), asc(firstContactProtocols.stepOrder));
+
+      res.json(rows);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/mpn/protocols", requireAuth, async (req, res) => {
+    try {
+      const data = insertFirstContactProtocolSchema.parse(req.body);
+      const [row] = await db.insert(firstContactProtocols).values(data).returning();
+      res.json(row);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  app.patch("/api/mpn/protocols/:id", requireAuth, async (req, res) => {
+    try {
+      const [row] = await db.update(firstContactProtocols).set(req.body).where(eq(firstContactProtocols.id, req.params.id)).returning();
+      res.json(row);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  app.delete("/api/mpn/protocols/:id", requireAuth, async (req, res) => {
+    try {
+      await db.delete(firstContactProtocols).where(eq(firstContactProtocols.id, req.params.id));
+      res.json({ success: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // --- MPN Dashboard Stats ---
+  app.get("/api/mpn/stats", requireAuth, async (req, res) => {
+    try {
+      const [hospitalsCount] = await db.select({ count: count() }).from(hospitals);
+      const [clinicsCount] = await db.select({ count: count() }).from(clinics);
+      const [collaboratorsCount] = await db.select({ count: count() }).from(collaborators);
+      const [assignmentsCount] = await db.select({ count: count() }).from(contactAssignments).where(eq(contactAssignments.isActive, true));
+      const [channelsCount] = await db.select({ count: count() }).from(contactChannels).where(eq(contactChannels.isActive, true));
+      const [categoriesCount] = await db.select({ count: count() }).from(partnerCategories).where(eq(partnerCategories.isActive, true));
+
+      const unassignedPersons = await db.execute(sql`
+        SELECT count(*)::int as count FROM collaborators c
+        WHERE NOT EXISTS (SELECT 1 FROM contact_assignments ca WHERE ca.person_id = c.id AND ca.is_active = true)
+      `);
+
+      const unassignedInstitutions = await db.execute(sql`
+        SELECT count(*)::int as count FROM (
+          SELECT h.id FROM hospitals h WHERE NOT EXISTS (SELECT 1 FROM contact_assignments ca WHERE ca.entity_id = h.id AND ca.entity_type = 'hospital' AND ca.is_active = true)
+          UNION ALL
+          SELECT cl.id FROM clinics cl WHERE NOT EXISTS (SELECT 1 FROM contact_assignments ca WHERE ca.entity_id = cl.id AND ca.entity_type = 'clinic' AND ca.is_active = true)
+        ) unassigned
+      `);
+
+      res.json({
+        totalHospitals: hospitalsCount.count,
+        totalClinics: clinicsCount.count,
+        totalPersons: collaboratorsCount.count,
+        totalAssignments: assignmentsCount.count,
+        totalChannels: channelsCount.count,
+        totalCategories: categoriesCount.count,
+        unassignedPersons: unassignedPersons.rows?.[0]?.count || 0,
+        unassignedInstitutions: unassignedInstitutions.rows?.[0]?.count || 0,
+      });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // --- MPN: Get institution personnel (persons assigned to a hospital or clinic) ---
+  app.get("/api/mpn/institution/:entityType/:entityId/personnel", requireAuth, async (req, res) => {
+    try {
+      const { entityType, entityId } = req.params;
+      const rows = await db.execute(sql`
+        SELECT
+          ca.id as assignment_id, ca.department, ca.position, ca.role, ca.subcategory, ca.is_primary, ca.is_active, ca.notes,
+          ca.start_date, ca.end_date,
+          pc.code as category_code, pc.name as category_name,
+          c.id as person_id, c.title_before, c.first_name, c.last_name, c.title_after, c.email, c.phone, c.mobile,
+          json_agg(json_build_object(
+            'id', ch.id, 'channelType', ch.channel_type, 'value', ch.value, 'label', ch.label, 'isPrimary', ch.is_primary, 'isActive', ch.is_active, 'notes', ch.notes
+          )) FILTER (WHERE ch.id IS NOT NULL) as channels
+        FROM contact_assignments ca
+        JOIN collaborators c ON c.id = ca.person_id
+        LEFT JOIN partner_categories pc ON pc.id = ca.category_id
+        LEFT JOIN contact_channels ch ON ch.person_id = c.id AND ch.is_active = true
+        WHERE ca.entity_type = ${entityType} AND ca.entity_id = ${entityId}
+        GROUP BY ca.id, pc.code, pc.name, c.id
+        ORDER BY pc.sort_order, c.last_name
+      `);
+      res.json(rows.rows || []);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // --- MPN: Get person's assignments (institutions where a person works) ---
+  app.get("/api/mpn/person/:personId/assignments", requireAuth, async (req, res) => {
+    try {
+      const { personId } = req.params;
+      const rows = await db.execute(sql`
+        SELECT
+          ca.*,
+          pc.code as category_code, pc.name as category_name,
+          CASE
+            WHEN ca.entity_type = 'hospital' THEN h.name
+            WHEN ca.entity_type = 'clinic' THEN cl.name
+          END as entity_name,
+          CASE
+            WHEN ca.entity_type = 'hospital' THEN h.city
+            WHEN ca.entity_type = 'clinic' THEN cl.city
+          END as entity_city
+        FROM contact_assignments ca
+        LEFT JOIN partner_categories pc ON pc.id = ca.category_id
+        LEFT JOIN hospitals h ON ca.entity_type = 'hospital' AND h.id = ca.entity_id
+        LEFT JOIN clinics cl ON ca.entity_type = 'clinic' AND cl.id = ca.entity_id
+        WHERE ca.person_id = ${personId}
+        ORDER BY ca.is_active DESC, ca.created_at DESC
+      `);
+      res.json(rows.rows || []);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
   setTimeout(() => {
