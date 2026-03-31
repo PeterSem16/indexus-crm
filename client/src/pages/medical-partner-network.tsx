@@ -270,8 +270,8 @@ function InstitutionsTab() {
                   </Badge>
                 </TableCell>
                 <TableCell>
-                  <Button variant="ghost" size="sm" onClick={() => setSelectedInstitution({ type: inst.type, id: inst.id, name: inst.name })} data-testid={`btn-view-personnel-${inst.id}`}>
-                    <Users className="h-4 w-4 mr-1" /> {t.mpn.personnel}
+                  <Button variant="ghost" size="sm" onClick={() => setSelectedInstitution({ type: inst.type, id: inst.id, name: inst.name })} data-testid={`btn-view-detail-${inst.id}`}>
+                    <Building2 className="h-4 w-4 mr-1" /> {t.mpn.detail || "Detail"}
                     <ChevronRight className="h-4 w-4 ml-1" />
                   </Button>
                 </TableCell>
@@ -299,7 +299,7 @@ function InstitutionsTab() {
       )}
 
       {selectedInstitution && (
-        <PersonnelDialog
+        <InstitutionDetailDialog
           entityType={selectedInstitution.type}
           entityId={selectedInstitution.id}
           entityName={selectedInstitution.name}
@@ -310,75 +310,244 @@ function InstitutionsTab() {
   );
 }
 
-function PersonnelDialog({ entityType, entityId, entityName, onClose }: { entityType: string; entityId: string; entityName: string; onClose: () => void }) {
+function InstitutionDetailDialog({ entityType, entityId, entityName, onClose }: { entityType: string; entityId: string; entityName: string; onClose: () => void }) {
   const { t } = useI18n();
-  const { data: personnel = [] } = useQuery<any[]>({
-    queryKey: ["/api/mpn/institution", entityType, entityId, "personnel"],
+  const [detailTab, setDetailTab] = useState("info");
+
+  const { data: detail, isLoading } = useQuery<any>({
+    queryKey: ["/api/mpn/institution", entityType, entityId, "detail"],
     queryFn: async () => {
-      const res = await fetch(`/api/mpn/institution/${entityType}/${entityId}/personnel`, { credentials: "include" });
+      const res = await fetch(`/api/mpn/institution/${entityType}/${entityId}/detail`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch");
       return res.json();
     },
   });
 
+  const info = detail?.info;
+  const assignedPersonnel: any[] = detail?.assignedPersonnel || [];
+  const legacyCollabs: any[] = detail?.legacyLinkedCollaborators || [];
+  const clinicDoctor = detail?.clinicDoctor;
+  const schedules: any[] = detail?.communicationSchedules || [];
+  const protocols: any[] = detail?.firstContactProtocols || [];
+
+  const allPersonnel = [...assignedPersonnel, ...legacyCollabs];
+  const totalPersons = allPersonnel.length + (clinicDoctor ? 1 : 0);
+
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-5xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Building2 className="h-5 w-5" />
-            {entityName} — {t.mpn.personnel}
+            {entityType === "hospital" ? <Hospital className="h-5 w-5 text-orange-500" /> : <Stethoscope className="h-5 w-5 text-green-500" />}
+            {entityName}
+            <Badge variant="outline" className="ml-2">{entityType === "hospital" ? t.mpn.hospital : t.mpn.clinic}</Badge>
           </DialogTitle>
         </DialogHeader>
-        {personnel.length === 0 ? (
-          <p className="text-muted-foreground text-center py-8">{t.mpn.noData}</p>
+
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : !info ? (
+          <p className="text-center text-muted-foreground py-8">{t.mpn.noData}</p>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{t.mpn.name}</TableHead>
-                <TableHead>{t.mpn.category}</TableHead>
-                <TableHead>{t.mpn.department}</TableHead>
-                <TableHead>{t.mpn.position}</TableHead>
-                <TableHead>{t.mpn.contactInfo}</TableHead>
-                <TableHead>{t.mpn.status}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {personnel.map((p: any) => (
-                <TableRow key={p.assignment_id} data-testid={`row-personnel-${p.person_id}`}>
-                  <TableCell className="font-medium">
-                    {[p.title_before, p.first_name, p.last_name, p.title_after].filter(Boolean).join(" ")}
-                    {p.is_primary && <Star className="h-3 w-3 text-amber-500 inline ml-1" />}
-                  </TableCell>
-                  <TableCell>{p.category_name || "—"}</TableCell>
-                  <TableCell>{p.department || "—"}</TableCell>
-                  <TableCell>{p.position || "—"}</TableCell>
-                  <TableCell>
-                    <div className="space-y-1">
-                      {(p.channels || []).slice(0, 3).map((ch: any) => (
-                        <div key={ch.id} className="flex items-center gap-1 text-xs">
-                          {channelIcon(ch.channelType)}
-                          <span>{ch.value}</span>
-                          {ch.isPrimary && <Star className="h-3 w-3 text-amber-400" />}
-                        </div>
-                      ))}
-                      {(!p.channels || p.channels.length === 0) && (
-                        <span className="text-xs text-muted-foreground">
-                          {p.email || p.phone || p.mobile || "—"}
-                        </span>
-                      )}
+          <Tabs value={detailTab} onValueChange={setDetailTab}>
+            <TabsList className="mb-4">
+              <TabsTrigger value="info" data-testid="tab-detail-info">
+                <Building2 className="h-4 w-4 mr-1" /> {t.mpn.info || "Info"}
+              </TabsTrigger>
+              <TabsTrigger value="personnel" data-testid="tab-detail-personnel">
+                <Users className="h-4 w-4 mr-1" /> {t.mpn.personnel} ({totalPersons})
+              </TabsTrigger>
+              <TabsTrigger value="schedule" data-testid="tab-detail-schedule">
+                <Clock className="h-4 w-4 mr-1" /> {t.mpn.communicationPlan || "Communication"}
+              </TabsTrigger>
+              <TabsTrigger value="protocol" data-testid="tab-detail-protocol">
+                <Link2 className="h-4 w-4 mr-1" /> {t.mpn.firstContact}
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="info">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Card className="p-4 space-y-3">
+                  <h4 className="text-sm font-semibold">{t.mpn.contactInfo}</h4>
+                  <div className="space-y-2 text-sm">
+                    {info.phone && <div className="flex items-center gap-2"><Phone className="h-4 w-4 text-muted-foreground" /> {info.phone}</div>}
+                    {info.email && <div className="flex items-center gap-2"><Mail className="h-4 w-4 text-muted-foreground" /> {info.email}</div>}
+                    {info.website && <div className="flex items-center gap-2"><Link2 className="h-4 w-4 text-muted-foreground" /> {info.website}</div>}
+                  </div>
+                </Card>
+                <Card className="p-4 space-y-3">
+                  <h4 className="text-sm font-semibold">{t.mpn.address || "Address"}</h4>
+                  <div className="space-y-1 text-sm">
+                    {(info.address || info.streetNumber) && <div>{info.address || info.streetNumber}</div>}
+                    <div>{[info.postalCode, info.city].filter(Boolean).join(" ")}</div>
+                    {info.region && <div>{info.region}</div>}
+                    <Badge variant="secondary">{info.countryCode}</Badge>
+                  </div>
+                </Card>
+                {entityType === "clinic" && (
+                  <Card className="p-4 space-y-3">
+                    <h4 className="text-sm font-semibold">{t.mpn.contractStatus || "Contract"}</h4>
+                    <div className="space-y-1 text-sm">
+                      {info.contractStatus && <div className="flex items-center gap-2"><Badge>{info.contractStatus}</Badge></div>}
+                      {info.interestCooperation !== undefined && <div>{t.mpn.interestCooperation || "Interest"}: {info.interestCooperation ? "✓" : "—"}</div>}
+                      {info.interestContract !== undefined && <div>{t.mpn.interestContract || "Contract interest"}: {info.interestContract ? "✓" : "—"}</div>}
+                      {info.hasFlyers !== undefined && <div>{t.mpn.flyers || "Flyers"}: {info.hasFlyers ? "✓" : "—"}</div>}
                     </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={p.is_active ? "default" : "secondary"}>
-                      {p.is_active ? t.mpn.active : t.mpn.inactive}
-                    </Badge>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                  </Card>
+                )}
+                <Card className="p-4 space-y-3">
+                  <h4 className="text-sm font-semibold">{t.mpn.status}</h4>
+                  <div className="space-y-1 text-sm">
+                    <div className="flex items-center gap-2">
+                      <Badge variant={info.isActive ? "default" : "secondary"}>
+                        {info.isActive ? t.mpn.active : t.mpn.inactive}
+                      </Badge>
+                    </div>
+                    {info.notes && <div className="mt-2 text-muted-foreground">{info.notes}</div>}
+                  </div>
+                </Card>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="personnel">
+              <div className="space-y-4">
+                {clinicDoctor && (
+                  <Card className="p-4 border-green-200 bg-green-50/50 dark:bg-green-950/20">
+                    <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
+                      <Stethoscope className="h-4 w-4 text-green-600" /> {t.mpn.clinicDoctors}
+                    </h4>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-medium">{clinicDoctor.fullName}</div>
+                        <div className="text-xs text-muted-foreground space-x-3 mt-1">
+                          {clinicDoctor.phone && <span><Phone className="h-3 w-3 inline mr-1" />{clinicDoctor.phone}</span>}
+                          {clinicDoctor.email && <span><Mail className="h-3 w-3 inline mr-1" />{clinicDoctor.email}</span>}
+                        </div>
+                      </div>
+                      <Badge variant="outline" className="border-green-300 text-green-700">{t.mpn.clinicDoctors}</Badge>
+                    </div>
+                  </Card>
+                )}
+
+                {allPersonnel.length === 0 && !clinicDoctor ? (
+                  <p className="text-muted-foreground text-center py-8">{t.mpn.noData}</p>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{t.mpn.name}</TableHead>
+                        <TableHead>{t.mpn.role || "Role"}</TableHead>
+                        <TableHead>{t.mpn.category}</TableHead>
+                        <TableHead>{t.mpn.contactInfo}</TableHead>
+                        <TableHead>{t.mpn.status}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {allPersonnel.map((p: any) => (
+                        <TableRow key={p.assignment_id} data-testid={`row-personnel-${p.person_id}`}>
+                          <TableCell className="font-medium">
+                            <div className="flex items-center gap-1">
+                              {[p.title_before, p.first_name, p.last_name, p.title_after].filter(Boolean).join(" ")}
+                              {p.is_primary && <Star className="h-3 w-3 text-amber-500" />}
+                            </div>
+                            {p.collaborator_type && <span className="text-xs text-muted-foreground">{p.collaborator_type}</span>}
+                            {p.source === "legacy_link" && <Badge variant="outline" className="text-xs ml-1 border-blue-200 text-blue-600">legacy</Badge>}
+                          </TableCell>
+                          <TableCell>
+                            <div className="text-sm">
+                              {p.position && <div>{p.position}</div>}
+                              {p.department && <div className="text-xs text-muted-foreground">{p.department}</div>}
+                            </div>
+                          </TableCell>
+                          <TableCell>{p.category_name || "—"}</TableCell>
+                          <TableCell>
+                            <div className="space-y-1">
+                              {(p.channels || []).slice(0, 3).map((ch: any) => (
+                                <div key={ch.id} className="flex items-center gap-1 text-xs">
+                                  {channelIcon(ch.channelType)}
+                                  <span>{ch.value}</span>
+                                  {ch.isPrimary && <Star className="h-3 w-3 text-amber-400" />}
+                                </div>
+                              ))}
+                              {(!p.channels || p.channels.length === 0) && (
+                                <span className="text-xs text-muted-foreground">
+                                  {p.email || p.phone || p.mobile || "—"}
+                                </span>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={p.is_active ? "default" : "secondary"}>
+                              {p.is_active ? t.mpn.active : t.mpn.inactive}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="schedule">
+              {schedules.length === 0 ? (
+                <p className="text-muted-foreground text-center py-8">{t.mpn.noData}</p>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {schedules.map((s: any) => (
+                    <Card key={s.id} className="p-4">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <div className="font-medium text-sm">{s.name}</div>
+                          {s.description && <div className="text-xs text-muted-foreground mt-1">{s.description}</div>}
+                        </div>
+                        <Badge variant="outline">
+                          {s.frequencyMonths === 1 ? (t.mpn.monthly || "Monthly") :
+                           s.frequencyMonths === 3 ? (t.mpn.quarterly || "Quarterly") :
+                           s.frequencyMonths === 6 ? (t.mpn.semiAnnual || "Semi-annual") :
+                           s.frequencyMonths === 12 ? (t.mpn.annual || "Annual") :
+                           `${s.frequencyMonths}m`}
+                        </Badge>
+                      </div>
+                      <div className="mt-2 text-xs text-muted-foreground space-x-3">
+                        {s.channelType && <span className="flex items-center gap-1 inline-flex">{channelIcon(s.channelType)} {s.channelType}</span>}
+                        {s.isInPerson && <span>👤 {t.mpn.inPerson}</span>}
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="protocol">
+              {protocols.length === 0 ? (
+                <p className="text-muted-foreground text-center py-8">{t.mpn.noData}</p>
+              ) : (
+                <div className="space-y-3">
+                  {protocols.map((p: any, idx: number) => (
+                    <Card key={p.id} className="p-4">
+                      <div className="flex items-start gap-4">
+                        <div className="flex-shrink-0 h-8 w-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold">
+                          {p.stepOrder || idx + 1}
+                        </div>
+                        <div className="flex-1">
+                          <div className="font-medium text-sm">{p.name}</div>
+                          {p.description && <div className="text-xs text-muted-foreground mt-1">{p.description}</div>}
+                          {p.requiredDocuments && (
+                            <div className="mt-2 text-xs">
+                              <span className="font-medium">{t.mpn.requiredDocuments}:</span> {p.requiredDocuments}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
         )}
       </DialogContent>
     </Dialog>

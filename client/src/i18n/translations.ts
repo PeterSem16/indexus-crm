@@ -124,6 +124,20 @@ export interface Translations {
     hospitalContacts: string;
     persons: string;
     source: string;
+    detail: string;
+    info: string;
+    address: string;
+    communicationPlan: string;
+    contractStatus: string;
+    interestCooperation: string;
+    interestContract: string;
+    flyers: string;
+    monthly: string;
+    quarterly: string;
+    semiAnnual: string;
+    annual: string;
+    more: string;
+    role: string;
   };
   collaboratorReports: {
     title: string;
@@ -5546,6 +5560,20 @@ export const translations: Record<Locale, Translations> = {
       hospitalContacts: 'Hospital Contacts',
       persons: 'persons',
       source: 'Source',
+      detail: 'Detail',
+      info: 'Info',
+      address: 'Address',
+      communicationPlan: 'Communication Plan',
+      contractStatus: 'Contract Status',
+      interestCooperation: 'Interest in Cooperation',
+      interestContract: 'Interest in Contract',
+      flyers: 'Flyers',
+      monthly: 'Monthly',
+      quarterly: 'Quarterly',
+      semiAnnual: 'Semi-annual',
+      annual: 'Annual',
+      more: 'more',
+      role: 'Role',
     },
     collaboratorReports: {
       title: 'Collaborator Reports',
@@ -10850,6 +10878,20 @@ export const translations: Record<Locale, Translations> = {
       hospitalContacts: 'Kontakty z nemocníc',
       persons: 'osôb',
       source: 'Zdroj',
+      detail: 'Detail',
+      info: 'Info',
+      address: 'Adresa',
+      communicationPlan: 'Komunikačný plán',
+      contractStatus: 'Stav zmluvy',
+      interestCooperation: 'Záujem o spoluprácu',
+      interestContract: 'Záujem o zmluvu',
+      flyers: 'Letáky',
+      monthly: 'Mesačne',
+      quarterly: 'Štvrťročne',
+      semiAnnual: 'Polročne',
+      annual: 'Ročne',
+      more: 'ďalších',
+      role: 'Rola',
     },
     collaboratorReports: {
       title: 'Reporty spolupracovnikov',
@@ -16107,6 +16149,20 @@ export const translations: Record<Locale, Translations> = {
       hospitalContacts: 'Kontakty z nemocnic',
       persons: 'osob',
       source: 'Zdroj',
+      detail: 'Detail',
+      info: 'Info',
+      address: 'Adresa',
+      communicationPlan: 'Komunikační plán',
+      contractStatus: 'Stav smlouvy',
+      interestCooperation: 'Zájem o spolupráci',
+      interestContract: 'Zájem o smlouvu',
+      flyers: 'Letáky',
+      monthly: 'Měsíčně',
+      quarterly: 'Čtvrtletně',
+      semiAnnual: 'Pololetně',
+      annual: 'Ročně',
+      more: 'dalších',
+      role: 'Role',
     },
     collaboratorReports: {
       title: 'Reporty spolupracovniku',
@@ -21289,6 +21345,20 @@ export const translations: Record<Locale, Translations> = {
       hospitalContacts: 'Kórházi kapcsolatok',
       persons: 'személy',
       source: 'Forrás',
+      detail: 'Részletek',
+      info: 'Információ',
+      address: 'Cím',
+      communicationPlan: 'Kommunikációs terv',
+      contractStatus: 'Szerződés állapota',
+      interestCooperation: 'Együttműködési érdeklődés',
+      interestContract: 'Szerződési érdeklődés',
+      flyers: 'Szórólapok',
+      monthly: 'Havonta',
+      quarterly: 'Negyedévente',
+      semiAnnual: 'Félévente',
+      annual: 'Évente',
+      more: 'további',
+      role: 'Szerep',
     },
     collaboratorReports: {
       title: 'Munkatárs jelentések',
@@ -26471,6 +26541,20 @@ export const translations: Record<Locale, Translations> = {
       hospitalContacts: 'Contacte spital',
       persons: 'persoane',
       source: 'Sursă',
+      detail: 'Detalii',
+      info: 'Informații',
+      address: 'Adresă',
+      communicationPlan: 'Plan de comunicare',
+      contractStatus: 'Starea contractului',
+      interestCooperation: 'Interes cooperare',
+      interestContract: 'Interes contract',
+      flyers: 'Pliante',
+      monthly: 'Lunar',
+      quarterly: 'Trimestrial',
+      semiAnnual: 'Semestrial',
+      annual: 'Anual',
+      more: 'mai mult',
+      role: 'Rol',
     },
     collaboratorReports: {
       title: 'Rapoarte colaboratori',
@@ -31575,6 +31659,20 @@ export const translations: Record<Locale, Translations> = {
       hospitalContacts: 'Contatti ospedale',
       persons: 'persone',
       source: 'Fonte',
+      detail: 'Dettaglio',
+      info: 'Informazioni',
+      address: 'Indirizzo',
+      communicationPlan: 'Piano di comunicazione',
+      contractStatus: 'Stato contratto',
+      interestCooperation: 'Interesse cooperazione',
+      interestContract: 'Interesse contratto',
+      flyers: 'Volantini',
+      monthly: 'Mensile',
+      quarterly: 'Trimestrale',
+      semiAnnual: 'Semestrale',
+      annual: 'Annuale',
+      more: 'altri',
+      role: 'Ruolo',
     },
     collaboratorReports: {
       title: 'Report collaboratori',
@@ -36680,6 +36778,20 @@ export const translations: Record<Locale, Translations> = {
       hospitalContacts: 'Krankenhauskontakte',
       persons: 'Personen',
       source: 'Quelle',
+      detail: 'Detail',
+      info: 'Info',
+      address: 'Adresse',
+      communicationPlan: 'Kommunikationsplan',
+      contractStatus: 'Vertragsstatus',
+      interestCooperation: 'Kooperationsinteresse',
+      interestContract: 'Vertragsinteresse',
+      flyers: 'Flyer',
+      monthly: 'Monatlich',
+      quarterly: 'Vierteljährlich',
+      semiAnnual: 'Halbjährlich',
+      annual: 'Jährlich',
+      more: 'weitere',
+      role: 'Rolle',
     },
     collaboratorReports: {
       title: 'Mitarbeiterberichte',

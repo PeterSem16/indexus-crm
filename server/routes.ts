@@ -40632,6 +40632,114 @@ DÔLEŽITÉ: Vráť IBA JSON pole, žiadny iný text.`;
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
+  // --- MPN: Get full institution detail (info + linked collaborators from all sources) ---
+  app.get("/api/mpn/institution/:entityType/:entityId/detail", requireAuth, async (req, res) => {
+    try {
+      const { entityType, entityId } = req.params;
+      let info: any = null;
+
+      if (entityType === "hospital") {
+        const [row] = await db.select().from(hospitals).where(eq(hospitals.id, entityId));
+        if (row) info = { ...row, type: "hospital" };
+      } else if (entityType === "clinic") {
+        const [row] = await db.select().from(clinics).where(eq(clinics.id, entityId));
+        if (row) info = { ...row, type: "clinic" };
+      }
+
+      if (!info) return res.status(404).json({ error: "Institution not found" });
+
+      const assignmentRows = await db.execute(sql`
+        SELECT
+          ca.id as assignment_id, ca.department, ca.position, ca.role, ca.subcategory,
+          ca.is_primary, ca.is_active, ca.notes, ca.start_date, ca.end_date,
+          pc.code as category_code, pc.name as category_name, pc.sort_order,
+          c.id as person_id, c.title_before, c.first_name, c.last_name, c.title_after,
+          c.email, c.phone, c.mobile, c.collaborator_type,
+          json_agg(json_build_object(
+            'id', ch.id, 'channelType', ch.channel_type, 'value', ch.value,
+            'label', ch.label, 'isPrimary', ch.is_primary, 'isActive', ch.is_active
+          )) FILTER (WHERE ch.id IS NOT NULL) as channels
+        FROM contact_assignments ca
+        JOIN collaborators c ON c.id = ca.person_id
+        LEFT JOIN partner_categories pc ON pc.id = ca.category_id
+        LEFT JOIN contact_channels ch ON ch.person_id = c.id AND ch.is_active = true
+        WHERE ca.entity_type = ${entityType} AND ca.entity_id = ${entityId}
+        GROUP BY ca.id, pc.code, pc.name, pc.sort_order, c.id
+        ORDER BY ca.is_primary DESC, pc.sort_order, c.last_name
+      `);
+
+      const collabsViaHospitalId = await db.select({
+        id: collaborators.id,
+        titleBefore: collaborators.titleBefore,
+        firstName: collaborators.firstName,
+        lastName: collaborators.lastName,
+        titleAfter: collaborators.titleAfter,
+        phone: collaborators.phone,
+        mobile: collaborators.mobile,
+        email: collaborators.email,
+        isActive: collaborators.isActive,
+        collaboratorType: collaborators.collaboratorType,
+        hospitalId: collaborators.hospitalId,
+        hospitalIds: collaborators.hospitalIds,
+      }).from(collaborators);
+
+      const assignedPersonIds = new Set((assignmentRows.rows || []).map((r: any) => r.person_id));
+      const extraCollabs: any[] = [];
+      for (const c of collabsViaHospitalId) {
+        if (assignedPersonIds.has(c.id)) continue;
+        const linkedIds: string[] = [];
+        if (c.hospitalId) linkedIds.push(c.hospitalId);
+        if (c.hospitalIds && Array.isArray(c.hospitalIds)) linkedIds.push(...c.hospitalIds);
+        if (entityType === "hospital" && linkedIds.includes(entityId)) {
+          extraCollabs.push({
+            assignment_id: `legacy-${c.id}`,
+            department: null, position: null, role: null, subcategory: null,
+            is_primary: false, is_active: c.isActive, notes: null,
+            start_date: null, end_date: null,
+            category_code: null, category_name: null, sort_order: 999,
+            person_id: c.id,
+            title_before: c.titleBefore, first_name: c.firstName,
+            last_name: c.lastName, title_after: c.titleAfter,
+            email: c.email, phone: c.phone, mobile: c.mobile,
+            collaborator_type: c.collaboratorType,
+            channels: null,
+            source: "legacy_link",
+          });
+        }
+      }
+
+      let doctorPerson: any = null;
+      if (entityType === "clinic" && info.doctorName) {
+        doctorPerson = {
+          fullName: info.doctorFirstName
+            ? [info.doctorTitle, info.doctorFirstName, info.doctorLastName].filter(Boolean).join(" ")
+            : info.doctorName,
+          title: info.doctorTitle || "",
+          firstName: info.doctorFirstName || "",
+          lastName: info.doctorLastName || "",
+          phone: info.phone || "",
+          email: info.email || "",
+        };
+      }
+
+      const scheduleRows = await db.select().from(communicationSchedules)
+        .where(eq(communicationSchedules.entityType, entityType === "hospital" ? "hospital" : "clinic"));
+
+      const protocolRows = await db.select().from(firstContactProtocols)
+        .where(eq(firstContactProtocols.entityType, entityType === "hospital" ? "hospital" : "clinic"))
+        .orderBy(asc(firstContactProtocols.stepOrder));
+
+      res.json({
+        info,
+        assignedPersonnel: assignmentRows.rows || [],
+        legacyLinkedCollaborators: extraCollabs,
+        clinicDoctor: doctorPerson,
+        communicationSchedules: scheduleRows,
+        firstContactProtocols: protocolRows,
+      });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
   // --- MPN: Get institution personnel (persons assigned to a hospital or clinic) ---
   app.get("/api/mpn/institution/:entityType/:entityId/personnel", requireAuth, async (req, res) => {
     try {
