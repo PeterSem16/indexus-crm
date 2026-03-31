@@ -252,6 +252,78 @@ interface ClinicFormSheetProps {
   mode?: "sheet" | "inline";
 }
 
+function ClinicPersonnelTab({ clinicId, clinicName }: { clinicId: string; clinicName: string }) {
+  const { t } = useI18n();
+  const { data: assignments = [], isLoading } = useQuery<any[]>({
+    queryKey: ["/api/mpn/assignments", { entityType: "clinic", entityId: clinicId }],
+  });
+  const { data: collaborators = [] } = useQuery<any[]>({
+    queryKey: ["/api/collaborators"],
+  });
+
+  const collabMap: Record<string, any> = {};
+  (Array.isArray(collaborators) ? collaborators : []).forEach((c: any) => { collabMap[c.id] = c; });
+
+  if (isLoading) {
+    return <div className="space-y-3">{[1,2,3].map(i => <div key={i} className="h-16 bg-muted animate-pulse rounded-lg" />)}</div>;
+  }
+
+  if (assignments.length === 0) {
+    return (
+      <div className="text-center py-12 text-muted-foreground">
+        <Users className="h-10 w-10 mx-auto mb-3 opacity-40" />
+        <p className="text-sm">{(t as any).medicalPartnerNetwork?.noPersonnel || "No personnel assigned"}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3" data-testid="clinic-personnel-tab-content">
+      <div className="flex items-center gap-2 mb-4">
+        <Badge variant="outline" className="bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-950 dark:text-violet-300 dark:border-violet-800">
+          <Users className="h-3 w-3 mr-1" />
+          {assignments.length}
+        </Badge>
+        <span className="text-sm text-muted-foreground">{(t as any).medicalPartnerNetwork?.personnelAssigned || "personnel assigned"}</span>
+      </div>
+      {assignments.map((row: any) => {
+        const a = row.assignment || row;
+        const collab = collabMap[a.personId];
+        return (
+          <div key={a.id} className="flex items-start gap-4 p-4 rounded-lg border bg-card hover:shadow-sm transition-shadow" data-testid={`clinic-personnel-row-${a.id}`}>
+            <div className="flex-shrink-0 w-10 h-10 rounded-full bg-violet-100 dark:bg-violet-900 flex items-center justify-center">
+              <Users className="h-5 w-5 text-violet-600 dark:text-violet-400" />
+            </div>
+            <div className="flex-1 min-w-0 space-y-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-medium text-sm">
+                  {collab ? `${collab.titleBefore || ""} ${collab.firstName || ""} ${collab.lastName || ""}`.trim() : a.personId}
+                </span>
+                {row.categoryName && (
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0">{row.categoryName}</Badge>
+                )}
+                {a.isPrimary && (
+                  <Badge className="text-[10px] px-1.5 py-0 bg-amber-100 text-amber-800 border-amber-300">{(t.common as any).primary || "Primary"}</Badge>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                {a.department && <span>{(t as any).medicalPartnerNetwork?.department || "Dept"}: {a.department}</span>}
+                {a.position && <span>{(t as any).medicalPartnerNetwork?.position || "Position"}: {a.position}</span>}
+                {a.role && <span>{(t as any).medicalPartnerNetwork?.role || "Role"}: {a.role}</span>}
+                {collab?.email && <span>{collab.email}</span>}
+                {collab?.phone && <span>{collab.phone}</span>}
+              </div>
+            </div>
+            <Badge variant={a.isActive !== false ? "default" : "secondary"} className="text-[10px] shrink-0">
+              {a.isActive !== false ? t.common.active : t.common.inactive}
+            </Badge>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export function ClinicFormWizard({ initialData, onSuccess, onCancel }: { initialData?: Clinic | null; onSuccess: () => void; onCancel?: () => void }) {
   return (
     <ClinicFormSheet
@@ -1133,7 +1205,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
             </div>
           ) : (
           <Tabs value={activeTab} onValueChange={setActiveTab} className="px-6">
-            <TabsList className={cn("grid w-full h-auto p-1 gap-0.5", initialData ? "grid-cols-5" : "grid-cols-4")}>
+            <TabsList className={cn("grid w-full h-auto p-1 gap-0.5", initialData ? "grid-cols-6" : "grid-cols-4")}>
               <TabsTrigger value="source" data-testid="tab-clinic-source" className="text-xs px-2 py-1.5 data-[state=active]:shadow-sm">
                 <CircleDot className="h-3 w-3 mr-1 hidden sm:inline" />
                 {t.clinics.steps?.source || "Zdroj"}
@@ -1156,6 +1228,12 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                 <FileText className="h-3 w-3 mr-1 hidden sm:inline" />
                 {t.clinics.steps?.settings || "Nastavenia"}
               </TabsTrigger>
+              {initialData && (
+                <TabsTrigger value="personnel" data-testid="tab-clinic-personnel" className="text-xs px-2 py-1.5 data-[state=active]:shadow-sm">
+                  <Users className="h-3 w-3 mr-1 hidden sm:inline" />
+                  {(t as any).medicalPartnerNetwork?.personnel || "Personnel"}
+                </TabsTrigger>
+              )}
             </TabsList>
 
             {/* ===== LEAD SOURCE TAB ===== */}
@@ -1728,6 +1806,11 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, mo
                     </div>
                   </div>
                 )}
+              </TabsContent>
+            )}
+            {initialData && (
+              <TabsContent value="personnel" className="space-y-4 mt-4 pb-4">
+                <ClinicPersonnelTab clinicId={initialData.id} clinicName={initialData.name} />
               </TabsContent>
             )}
           </Tabs>

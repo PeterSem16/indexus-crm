@@ -1398,6 +1398,9 @@ export interface Translations {
       statusNotRealized: string;
     };
     expiredAgreement: string;
+    validAgreement: string;
+    noAgreement: string;
+    agreement: string;
   };
   campaigns: {
     title: string;
@@ -7261,6 +7264,9 @@ export const translations: Record<Locale, Translations> = {
         statusNotRealized: 'Not Realized',
       },
       expiredAgreement: 'Expired Agreement',
+    validAgreement: 'Valid Agreement',
+    noAgreement: 'No Agreement',
+    agreement: 'Agreement',
     },
     campaigns: {
       title: 'Missions',
@@ -12565,6 +12571,9 @@ export const translations: Record<Locale, Translations> = {
         statusNotRealized: 'Nerealizovaný',
       },
       expiredAgreement: 'Vypršaná zmluva',
+    validAgreement: 'Platná zmluva',
+    noAgreement: 'Bez zmluvy',
+    agreement: 'Zmluva',
     },
     campaigns: {
       title: 'Misie',
@@ -17808,6 +17817,9 @@ export const translations: Record<Locale, Translations> = {
         statusNotRealized: 'Nerealizovaný',
       },
       expiredAgreement: 'Vypršená smlouva',
+    validAgreement: 'Platná smlouva',
+    noAgreement: 'Bez smlouvy',
+    agreement: 'Smlouva',
     },
     campaigns: {
       title: 'Mise',
@@ -21507,6 +21519,8 @@ export const translations: Record<Locale, Translations> = {
       exporting: 'Exportálás...',
       exportSuccess: 'Export sikeres',
       records: 'rekord',
+    found: 'találat',
+    total: 'összesen',
       online: 'Online',
       offline: 'Offline',
       indexusConnect: 'Aktivitás',
@@ -23013,6 +23027,9 @@ export const translations: Record<Locale, Translations> = {
         statusNotRealized: 'Nem valósult meg',
       },
       expiredAgreement: 'Lejárt szerződés',
+    validAgreement: 'Érvényes szerződés',
+    noAgreement: 'Nincs szerződés',
+    agreement: 'Szerződés',
     },
     campaigns: {
       title: 'Missziók',
@@ -26711,6 +26728,8 @@ export const translations: Record<Locale, Translations> = {
       exporting: 'Se exporta...',
       exportSuccess: 'Export reusit',
       records: 'inregistrari',
+    found: 'găsite',
+    total: 'total',
       online: 'Online',
       offline: 'Offline',
       indexusConnect: 'Activitate',
@@ -28140,6 +28159,9 @@ export const translations: Record<Locale, Translations> = {
         statusNotRealized: 'Nerealizat',
       },
       expiredAgreement: 'Contract expirat',
+    validAgreement: 'Contract valid',
+    noAgreement: 'Fără contract',
+    agreement: 'Contract',
     },
     campaigns: {
       title: 'Misiuni',
@@ -31839,6 +31861,8 @@ export const translations: Record<Locale, Translations> = {
       exporting: 'Esportazione...',
       exportSuccess: 'Esportazione riuscita',
       records: 'record',
+    found: 'trovati',
+    total: 'totale',
       online: 'Online',
       offline: 'Offline',
       indexusConnect: 'Attività',
@@ -33268,6 +33292,9 @@ export const translations: Record<Locale, Translations> = {
         statusNotRealized: 'Non realizzato',
       },
       expiredAgreement: 'Contratto scaduto',
+    validAgreement: 'Contratto valido',
+    noAgreement: 'Senza contratto',
+    agreement: 'Contratto',
     },
     campaigns: {
       title: 'Missioni',
@@ -36967,6 +36994,8 @@ export const translations: Record<Locale, Translations> = {
       exporting: 'Exportieren...',
       exportSuccess: 'Export erfolgreich',
       records: 'Datensätze',
+    found: 'gefunden',
+    total: 'gesamt',
       online: 'Online',
       offline: 'Offline',
       indexusConnect: 'Aktivität',
@@ -38396,6 +38425,9 @@ export const translations: Record<Locale, Translations> = {
         statusNotRealized: 'Nicht realisiert',
       },
       expiredAgreement: 'Abgelaufener Vertrag',
+    validAgreement: 'Gültiger Vertrag',
+    noAgreement: 'Kein Vertrag',
+    agreement: 'Vertrag',
     },
     campaigns: {
       title: 'Missionen',

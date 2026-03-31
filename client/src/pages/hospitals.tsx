@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, Search, Building2, FileText, Award, Gift, ListChecks, FileEdit, MapPin, Navigation, ExternalLink, Database, Loader2, Globe, Stethoscope, RefreshCw, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Filter, X, Download, FileSpreadsheet, Target, UserCheck, GraduationCap, Users } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Building2, FileText, Award, Gift, ListChecks, FileEdit, MapPin, Navigation, ExternalLink, Database, Loader2, Globe, Stethoscope, RefreshCw, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Filter, X, Download, FileSpreadsheet, Target, UserCheck, GraduationCap, Users, ListFilter } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { HospitalFormWizard } from "@/components/hospital-form-wizard";
 import EntityCampaignTimeline from "@/components/campaigns/EntityCampaignTimeline";
@@ -86,6 +86,81 @@ const defaultFormData: HospitalFormData = {
   latitude: "",
   longitude: "",
 };
+
+function PersonnelTabContent({ entityType, entityId, entityName }: { entityType: string; entityId: string; entityName: string }) {
+  const { t } = useI18n();
+  const { data: assignments = [], isLoading } = useQuery<any[]>({
+    queryKey: ["/api/mpn/assignments", { entityType, entityId }],
+  });
+  const { data: collaborators = [] } = useQuery<any[]>({
+    queryKey: ["/api/collaborators"],
+  });
+
+  const collabMap = useMemo(() => {
+    const m: Record<string, any> = {};
+    (Array.isArray(collaborators) ? collaborators : []).forEach((c: any) => { m[c.id] = c; });
+    return m;
+  }, [collaborators]);
+
+  if (isLoading) {
+    return <div className="space-y-3">{[1,2,3].map(i => <div key={i} className="h-16 bg-muted animate-pulse rounded-lg" />)}</div>;
+  }
+
+  if (assignments.length === 0) {
+    return (
+      <div className="text-center py-12 text-muted-foreground">
+        <Users className="h-10 w-10 mx-auto mb-3 opacity-40" />
+        <p className="text-sm">{(t as any).medicalPartnerNetwork?.noPersonnel || "No personnel assigned"}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3" data-testid="personnel-tab-content">
+      <div className="flex items-center gap-2 mb-4">
+        <Badge variant="outline" className="bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-950 dark:text-violet-300 dark:border-violet-800">
+          <Users className="h-3 w-3 mr-1" />
+          {assignments.length}
+        </Badge>
+        <span className="text-sm text-muted-foreground">{(t as any).medicalPartnerNetwork?.personnelAssigned || "personnel assigned"}</span>
+      </div>
+      {assignments.map((row: any) => {
+        const a = row.assignment || row;
+        const collab = collabMap[a.personId];
+        return (
+          <div key={a.id} className="flex items-start gap-4 p-4 rounded-lg border bg-card hover:shadow-sm transition-shadow" data-testid={`personnel-row-${a.id}`}>
+            <div className="flex-shrink-0 w-10 h-10 rounded-full bg-violet-100 dark:bg-violet-900 flex items-center justify-center">
+              <Users className="h-5 w-5 text-violet-600 dark:text-violet-400" />
+            </div>
+            <div className="flex-1 min-w-0 space-y-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-medium text-sm">
+                  {collab ? `${collab.titleBefore || ""} ${collab.firstName || ""} ${collab.lastName || ""}`.trim() : a.personId}
+                </span>
+                {row.categoryName && (
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0">{row.categoryName}</Badge>
+                )}
+                {a.isPrimary && (
+                  <Badge className="text-[10px] px-1.5 py-0 bg-amber-100 text-amber-800 border-amber-300">{(t.common as any).primary || "Primary"}</Badge>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                {a.department && <span>{(t as any).medicalPartnerNetwork?.department || "Dept"}: {a.department}</span>}
+                {a.position && <span>{(t as any).medicalPartnerNetwork?.position || "Position"}: {a.position}</span>}
+                {a.role && <span>{(t as any).medicalPartnerNetwork?.role || "Role"}: {a.role}</span>}
+                {collab?.email && <span>{collab.email}</span>}
+                {collab?.phone && <span>{collab.phone}</span>}
+              </div>
+            </div>
+            <Badge variant={a.isActive !== false ? "default" : "secondary"} className="text-[10px] shrink-0">
+              {a.isActive !== false ? t.common.active : t.common.inactive}
+            </Badge>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 function HospitalForm({
   hospital,
@@ -197,7 +272,7 @@ function HospitalForm({
     <>
     <form onSubmit={handleSubmit} className="space-y-4">
       <Tabs value={formTab} onValueChange={setFormTab}>
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className={`grid w-full ${hospital ? 'grid-cols-6' : 'grid-cols-4'}`}>
           <TabsTrigger value="basic" data-testid="tab-form-basic">
             <Building2 className="h-4 w-4 mr-2" />
             {t.clinics.steps.basic}
@@ -218,6 +293,12 @@ function HospitalForm({
             <TabsTrigger value="campaigns" data-testid="tab-form-campaigns">
               <Target className="h-4 w-4 mr-2" />
               Kampane
+            </TabsTrigger>
+          )}
+          {hospital && (
+            <TabsTrigger value="personnel" data-testid="tab-form-personnel">
+              <Users className="h-4 w-4 mr-2" />
+              {(t as any).medicalPartnerNetwork?.personnel || "Personnel"}
             </TabsTrigger>
           )}
         </TabsList>
@@ -487,6 +568,11 @@ function HospitalForm({
         {hospital && (
           <TabsContent value="campaigns" className="space-y-4 mt-4">
             <EntityCampaignTimeline entityType="hospital" entityId={hospital.id} entityName={hospital.name} />
+          </TabsContent>
+        )}
+        {hospital && (
+          <TabsContent value="personnel" className="space-y-4 mt-4">
+            <PersonnelTabContent entityType="hospital" entityId={hospital.id} entityName={hospital.name} />
           </TabsContent>
         )}
       </Tabs>
@@ -969,6 +1055,10 @@ export default function HospitalsPage() {
   const clinics = clinicsPaginatedResult?.data || [];
   const serverClinicsTotal = clinicsPaginatedResult?.total || 0;
 
+  const { data: personnelCounts = {} } = useQuery<Record<string, number>>({
+    queryKey: ["/api/mpn/entity-personnel-counts"],
+  });
+
   const deleteMutation = useMutation({
     mutationFn: (id: string) => apiRequest("DELETE", `/api/hospitals/${id}`),
     onSuccess: () => {
@@ -1394,26 +1484,35 @@ export default function HospitalsPage() {
     {
       key: "name",
       header: <SortableHeader field="name" label={t.clinics.name} />,
-      cell: (clinic: Clinic) => (
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="font-medium">{clinic.name}</span>
-          {!clinic.isActive && (
-            <Badge variant="secondary">{t.common.inactive}</Badge>
-          )}
-          {(clinic as any).isReferredByDoctor && (
-            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-purple-100 text-purple-700 border border-purple-300 dark:bg-purple-900/60 dark:text-purple-300 dark:border-purple-700" data-testid={`badge-referral-${clinic.id}`}>
-              <UserCheck className="h-2.5 w-2.5" />
-              Referral
-            </span>
-          )}
-          {(clinic as any).isFromConference && (
-            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-rose-100 text-rose-700 border border-rose-300 dark:bg-rose-900/60 dark:text-rose-300 dark:border-rose-700" data-testid={`badge-conference-${clinic.id}`}>
-              <GraduationCap className="h-2.5 w-2.5" />
-              Conference
-            </span>
-          )}
-        </div>
-      ),
+      cell: (clinic: Clinic) => {
+        const pCount = personnelCounts[`clinic:${clinic.id}`] || 0;
+        return (
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-medium">{clinic.name}</span>
+            {pCount > 0 && (
+              <Badge variant="outline" className="text-[10px] px-1.5 py-0 gap-0.5 bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-950 dark:text-violet-300 dark:border-violet-800" data-testid={`badge-personnel-clinic-${clinic.id}`}>
+                <Users className="h-2.5 w-2.5" />
+                {pCount}
+              </Badge>
+            )}
+            {!clinic.isActive && (
+              <Badge variant="secondary">{t.common.inactive}</Badge>
+            )}
+            {(clinic as any).isReferredByDoctor && (
+              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-purple-100 text-purple-700 border border-purple-300 dark:bg-purple-900/60 dark:text-purple-300 dark:border-purple-700" data-testid={`badge-referral-${clinic.id}`}>
+                <UserCheck className="h-2.5 w-2.5" />
+                Referral
+              </span>
+            )}
+            {(clinic as any).isFromConference && (
+              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-rose-100 text-rose-700 border border-rose-300 dark:bg-rose-900/60 dark:text-rose-300 dark:border-rose-700" data-testid={`badge-conference-${clinic.id}`}>
+                <GraduationCap className="h-2.5 w-2.5" />
+                Conference
+              </span>
+            )}
+          </div>
+        );
+      },
     },
     {
       key: "doctorName",
@@ -1534,19 +1633,28 @@ export default function HospitalsPage() {
     {
       key: "name",
       header: <HospitalSortableHeader field="name" label={t.hospitals.name} />,
-      cell: (hospital: Hospital) => (
-        <div className="flex items-center gap-2">
-          <span className="font-medium">{hospital.name}</span>
-          {(hospital as any).dataSource === 'iscbc' && (
-            <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800">
-              ISCBC
-            </Badge>
-          )}
-          {!hospital.isActive && (
-            <Badge variant="secondary">{t.common.inactive}</Badge>
-          )}
-        </div>
-      ),
+      cell: (hospital: Hospital) => {
+        const pCount = personnelCounts[`hospital:${hospital.id}`] || 0;
+        return (
+          <div className="flex items-center gap-2">
+            <span className="font-medium">{hospital.name}</span>
+            {pCount > 0 && (
+              <Badge variant="outline" className="text-[10px] px-1.5 py-0 gap-0.5 bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-950 dark:text-violet-300 dark:border-violet-800" data-testid={`badge-personnel-hospital-${hospital.id}`}>
+                <Users className="h-2.5 w-2.5" />
+                {pCount}
+              </Badge>
+            )}
+            {(hospital as any).dataSource === 'iscbc' && (
+              <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800">
+                ISCBC
+              </Badge>
+            )}
+            {!hospital.isActive && (
+              <Badge variant="secondary">{t.common.inactive}</Badge>
+            )}
+          </div>
+        );
+      },
     },
     {
       key: "country",
@@ -1667,8 +1775,23 @@ export default function HospitalsPage() {
           <Card>
             <CardHeader className="pb-4 space-y-3">
               <div className="flex items-center justify-between">
-                <div className="text-sm text-muted-foreground">
-                  {serverHospitalStats?.total ?? serverHospitalsTotal} {t.common.records}
+                <div className="flex items-center gap-3 p-2.5 bg-gradient-to-r from-slate-50 to-blue-50/50 dark:from-slate-900 dark:to-blue-950/30 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm" data-testid="hospitals-summary-bar">
+                  <div className="flex items-center justify-center w-6 h-6 rounded-lg bg-primary/10">
+                    <ListFilter className="h-3.5 w-3.5 text-primary" />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold text-foreground">
+                      {hasActiveHospitalFilters
+                        ? `${filteredAndSortedHospitals.length} ${(t.common as any).found || "found"}`
+                        : `${serverHospitalStats?.total ?? serverHospitalsTotal} ${t.common.records}`
+                      }
+                    </span>
+                    {hasActiveHospitalFilters && (serverHospitalStats?.total ?? serverHospitalsTotal) > 0 && (
+                      <span className="text-xs text-muted-foreground">
+                        / {serverHospitalStats?.total ?? serverHospitalsTotal} {(t.common as any).total || "total"}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <Button
@@ -1872,8 +1995,23 @@ export default function HospitalsPage() {
           <Card>
             <CardHeader className="pb-4 space-y-3">
               <div className="flex items-center justify-between">
-                <div className="text-sm text-muted-foreground">
-                  {serverClinicsTotal} {t.common.records}
+                <div className="flex items-center gap-3 p-2.5 bg-gradient-to-r from-slate-50 to-teal-50/50 dark:from-slate-900 dark:to-teal-950/30 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm" data-testid="clinics-summary-bar">
+                  <div className="flex items-center justify-center w-6 h-6 rounded-lg bg-primary/10">
+                    <ListFilter className="h-3.5 w-3.5 text-primary" />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold text-foreground">
+                      {hasActiveClinicFilters
+                        ? `${filteredAndSortedClinics.length} ${(t.common as any).found || "found"}`
+                        : `${serverClinicsTotal} ${t.common.records}`
+                      }
+                    </span>
+                    {hasActiveClinicFilters && serverClinicsTotal > 0 && (
+                      <span className="text-xs text-muted-foreground">
+                        / {serverClinicsTotal} {(t.common as any).total || "total"}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <Button

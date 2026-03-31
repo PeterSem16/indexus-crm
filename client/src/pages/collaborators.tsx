@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, Search, User, MapPin, FileText, Award, Gift, Activity, ClipboardList, Upload, Download, Eye, X, Filter, ListChecks, FileEdit, Smartphone, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, ArrowUpDown, ArrowUp, ArrowDown, FileSpreadsheet, RefreshCw, Building2, Clock, Target } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, User, MapPin, FileText, Award, Gift, Activity, ClipboardList, Upload, Download, Eye, X, Filter, ListChecks, FileEdit, Smartphone, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, ArrowUpDown, ArrowUp, ArrowDown, FileSpreadsheet, RefreshCw, Building2, Clock, Target, Hospital, Stethoscope, ListFilter } from "lucide-react";
 import { CollaboratorFormWizard } from "@/components/collaborator-form-wizard";
 import EntityCampaignTimeline from "@/components/campaigns/EntityCampaignTimeline";
 import { Button } from "@/components/ui/button";
@@ -1895,7 +1895,7 @@ export default function CollaboratorsPage() {
   }, [selectedCountries]);
   const [filterType, setFilterType] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
-  const [filterExpiredAgreement, setFilterExpiredAgreement] = useState(false);
+  const [filterAgreement, setFilterAgreement] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [useWizardForm, setUseWizardForm] = useState(true);
@@ -1951,9 +1951,12 @@ export default function CollaboratorsPage() {
       const statusMatch = filterStatus === "" || 
         (filterStatus === "active" && c.isActive) || 
         (filterStatus === "inactive" && !c.isActive);
-      const expiredMatch = !filterExpiredAgreement || (c as any).hasExpiredAgreement === true;
+      let agreementMatch = true;
+      if (filterAgreement === "valid") agreementMatch = (c as any).hasValidAgreement === true;
+      else if (filterAgreement === "expired") agreementMatch = (c as any).hasExpiredAgreement === true;
+      else if (filterAgreement === "none") agreementMatch = (c as any).hasNoAgreement === true;
       
-      return typeMatch && statusMatch && expiredMatch;
+      return typeMatch && statusMatch && agreementMatch;
     });
     
     // Then sort
@@ -2022,10 +2025,11 @@ export default function CollaboratorsPage() {
     setFilterCountry("");
     setFilterType("");
     setFilterStatus("");
+    setFilterAgreement("");
     setPage(1);
   };
   
-  const hasActiveFilters = searchQuery || filterCountry || filterType || filterStatus || filterExpiredAgreement;
+  const hasActiveFilters = searchQuery || filterCountry || filterType || filterStatus || filterAgreement;
 
   // Export functions
   const exportToCsv = useCallback((data: any[], filename: string, columns: { key: string; header: string }[]) => {
@@ -2129,16 +2133,32 @@ export default function CollaboratorsPage() {
     {
       key: "name",
       header: <SortableHeader field="name" label={t.common.name} />,
-      cell: (c: Collaborator) => (
-        <div className="flex items-center gap-2">
-          <span className="font-medium">{c.firstName} {c.lastName}</span>
-          {(c as any).dataSource === 'iscbc' && (
-            <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800">
-              ISCBC
-            </Badge>
-          )}
-        </div>
-      ),
+      cell: (c: Collaborator) => {
+        const hCount = (c as any).hospitalCount || 0;
+        const cCount = (c as any).clinicCount || 0;
+        return (
+          <div className="flex items-center gap-2">
+            <span className="font-medium">{c.firstName} {c.lastName}</span>
+            {(c as any).dataSource === 'iscbc' && (
+              <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800">
+                ISCBC
+              </Badge>
+            )}
+            {hCount > 0 && (
+              <Badge variant="outline" className="text-[10px] px-1.5 py-0 gap-0.5 bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950 dark:text-indigo-300 dark:border-indigo-800" data-testid={`badge-hospitals-${c.id}`}>
+                <Hospital className="h-2.5 w-2.5" />
+                {hCount}
+              </Badge>
+            )}
+            {cCount > 0 && (
+              <Badge variant="outline" className="text-[10px] px-1.5 py-0 gap-0.5 bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950 dark:text-teal-300 dark:border-teal-800" data-testid={`badge-clinics-${c.id}`}>
+                <Stethoscope className="h-2.5 w-2.5" />
+                {cCount}
+              </Badge>
+            )}
+          </div>
+        );
+      },
     },
     {
       key: "country",
@@ -2348,17 +2368,19 @@ export default function CollaboratorsPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2 flex items-end">
-                  <div className="flex items-center gap-2 h-9 px-3 border rounded-md">
-                    <Switch 
-                      checked={filterExpiredAgreement}
-                      onCheckedChange={(val) => { setFilterExpiredAgreement(val); handleFilterChange(); }}
-                      data-testid="switch-filter-expired-agreement"
-                    />
-                    <Label className="text-sm cursor-pointer" onClick={() => { setFilterExpiredAgreement(!filterExpiredAgreement); handleFilterChange(); }}>
-                      {t.collaborators.expiredAgreement}
-                    </Label>
-                  </div>
+                <div className="space-y-2">
+                  <Label>{(t.collaborators as any).agreement || "Agreement"}</Label>
+                  <Select value={filterAgreement || "_all"} onValueChange={(val) => { setFilterAgreement(val === "_all" ? "" : val); handleFilterChange(); }}>
+                    <SelectTrigger data-testid="select-filter-agreement">
+                      <SelectValue placeholder={t.common.all} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_all">{t.common.all}</SelectItem>
+                      <SelectItem value="valid">{(t.collaborators as any).validAgreement || "Valid agreement"}</SelectItem>
+                      <SelectItem value="expired">{t.collaborators.expiredAgreement}</SelectItem>
+                      <SelectItem value="none">{(t.collaborators as any).noAgreement || "No agreement"}</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             )}
@@ -2386,6 +2408,12 @@ export default function CollaboratorsPage() {
                     <X className="h-3 w-3 cursor-pointer" onClick={() => { setFilterStatus(""); handleFilterChange(); }} />
                   </Badge>
                 )}
+                {filterAgreement && (
+                  <Badge variant="secondary" className="gap-1">
+                    {filterAgreement === "valid" ? ((t.collaborators as any).validAgreement || "Valid agreement") : filterAgreement === "expired" ? t.collaborators.expiredAgreement : ((t.collaborators as any).noAgreement || "No agreement")}
+                    <X className="h-3 w-3 cursor-pointer" onClick={() => { setFilterAgreement(""); handleFilterChange(); }} />
+                  </Badge>
+                )}
                 <Button
                   variant="ghost"
                   size="sm"
@@ -2397,6 +2425,26 @@ export default function CollaboratorsPage() {
               </div>
             )}
           </div>
+          {!isLoading && (
+            <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-slate-50 to-indigo-50/50 dark:from-slate-900 dark:to-indigo-950/30 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm" data-testid="collaborators-summary-bar">
+              <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-primary/10">
+                <ListFilter className="h-4 w-4 text-primary" />
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold text-foreground">
+                  {hasActiveFilters 
+                    ? `${filteredAndSortedCollaborators.length} ${(t.common as any).found || "found"}`
+                    : `${serverCollaboratorsTotal} ${t.common.records}`
+                  }
+                </span>
+                {hasActiveFilters && serverCollaboratorsTotal > 0 && (
+                  <span className="text-xs text-muted-foreground">
+                    / {serverCollaboratorsTotal} {(t.common as any).total || "total"}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
         </CardHeader>
         <CardContent>
           {isLoading ? (

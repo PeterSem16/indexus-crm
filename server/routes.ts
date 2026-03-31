@@ -14304,20 +14304,32 @@ Return ONLY valid JSON, no markdown code blocks.`,
       if (req.query.page || req.query.search) {
         const result = await storage.getCollaboratorsPaginated(page || 1, limit, search, country, countries);
         const today = new Date();
+        const allAssignments = await db.select({
+          personId: contactAssignments.personId,
+          entityType: contactAssignments.entityType,
+        }).from(contactAssignments).where(eq(contactAssignments.isActive, true));
+        const assignmentMap: Record<string, { hospitalCount: number; clinicCount: number }> = {};
+        for (const a of allAssignments) {
+          if (!assignmentMap[a.personId]) assignmentMap[a.personId] = { hospitalCount: 0, clinicCount: 0 };
+          if (a.entityType === 'hospital') assignmentMap[a.personId].hospitalCount++;
+          else if (a.entityType === 'clinic') assignmentMap[a.personId].clinicCount++;
+        }
         const enrichedData = await Promise.all(
           result.data.map(async (collab) => {
             try {
               const agreements = await storage.getCollaboratorAgreements(collab.id);
               let hasExpiredAgreement = false;
               let hasValidAgreement = false;
+              const hasNoAgreement = agreements.length === 0;
               for (const agreement of agreements) {
                 if (agreement.validToYear && agreement.validToMonth && agreement.validToDay) {
                   const validTo = new Date(agreement.validToYear, agreement.validToMonth - 1, agreement.validToDay);
                   if (validTo < today) { hasExpiredAgreement = true; } else if (agreement.isValid) { hasValidAgreement = true; }
                 } else if (agreement.isValid) { hasValidAgreement = true; }
               }
-              return { ...collab, hasExpiredAgreement: hasExpiredAgreement && !hasValidAgreement };
-            } catch { return { ...collab, hasExpiredAgreement: false }; }
+              const counts = assignmentMap[collab.id] || { hospitalCount: 0, clinicCount: 0 };
+              return { ...collab, hasExpiredAgreement: hasExpiredAgreement && !hasValidAgreement, hasValidAgreement, hasNoAgreement, ...counts };
+            } catch { return { ...collab, hasExpiredAgreement: false, hasValidAgreement: false, hasNoAgreement: true, hospitalCount: 0, clinicCount: 0 }; }
           })
         );
         return res.json({ data: enrichedData, total: result.total });
@@ -14327,39 +14339,37 @@ Return ONLY valid JSON, no markdown code blocks.`,
         ? await storage.getCollaboratorsByCountry(countryCodes)
         : await storage.getAllCollaborators();
       
-      // Enrich with agreement expiration status
       const today = new Date();
+      const allAssignments2 = await db.select({
+        personId: contactAssignments.personId,
+        entityType: contactAssignments.entityType,
+      }).from(contactAssignments).where(eq(contactAssignments.isActive, true));
+      const assignmentMap2: Record<string, { hospitalCount: number; clinicCount: number }> = {};
+      for (const a of allAssignments2) {
+        if (!assignmentMap2[a.personId]) assignmentMap2[a.personId] = { hospitalCount: 0, clinicCount: 0 };
+        if (a.entityType === 'hospital') assignmentMap2[a.personId].hospitalCount++;
+        else if (a.entityType === 'clinic') assignmentMap2[a.personId].clinicCount++;
+      }
       const enrichedCollaborators = await Promise.all(
         collaborators.map(async (collab) => {
           try {
             const agreements = await storage.getCollaboratorAgreements(collab.id);
             let hasExpiredAgreement = false;
             let hasValidAgreement = false;
-            
+            const hasNoAgreement = agreements.length === 0;
             for (const agreement of agreements) {
               if (agreement.validToYear && agreement.validToMonth && agreement.validToDay) {
                 const validTo = new Date(agreement.validToYear, agreement.validToMonth - 1, agreement.validToDay);
-                if (validTo < today) {
-                  hasExpiredAgreement = true;
-                } else if (agreement.isValid) {
-                  hasValidAgreement = true;
-                }
-              } else if (agreement.isValid) {
-                hasValidAgreement = true;
-              }
+                if (validTo < today) { hasExpiredAgreement = true; } else if (agreement.isValid) { hasValidAgreement = true; }
+              } else if (agreement.isValid) { hasValidAgreement = true; }
             }
-            
-            // Only flag as expired if has expired agreement but no valid one
-            return {
-              ...collab,
-              hasExpiredAgreement: hasExpiredAgreement && !hasValidAgreement,
-            };
+            const counts = assignmentMap2[collab.id] || { hospitalCount: 0, clinicCount: 0 };
+            return { ...collab, hasExpiredAgreement: hasExpiredAgreement && !hasValidAgreement, hasValidAgreement, hasNoAgreement, ...counts };
           } catch {
-            return { ...collab, hasExpiredAgreement: false };
+            return { ...collab, hasExpiredAgreement: false, hasValidAgreement: false, hasNoAgreement: true, hospitalCount: 0, clinicCount: 0 };
           }
         })
       );
-      
       res.json(enrichedCollaborators);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch collaborators" });
@@ -40159,6 +40169,23 @@ DÔLEŽITÉ: Vráť IBA JSON pole, žiadny iný text.`;
     try {
       await db.delete(partnerCategories).where(eq(partnerCategories.id, req.params.id));
       res.json({ success: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.get("/api/mpn/entity-personnel-counts", requireAuth, async (req, res) => {
+    try {
+      const rows = await db.select({
+        entityType: contactAssignments.entityType,
+        entityId: contactAssignments.entityId,
+        count: count(),
+      }).from(contactAssignments)
+        .where(eq(contactAssignments.isActive, true))
+        .groupBy(contactAssignments.entityType, contactAssignments.entityId);
+      const result: Record<string, number> = {};
+      for (const r of rows) {
+        result[`${r.entityType}:${r.entityId}`] = Number(r.count);
+      }
+      res.json(result);
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
