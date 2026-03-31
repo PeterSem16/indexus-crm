@@ -972,10 +972,8 @@ export default function HospitalsPage() {
   const [countryTab, setCountryTab] = useState<string>("ALL");
 
   useEffect(() => {
-    if (selectedCountries.length > 0) {
-      setCountryTab("ALL");
-      setClinicCountryTab("ALL");
-    }
+    setCountryTab("ALL");
+    setClinicCountryTab("ALL");
   }, [selectedCountries]);
   
   // Clinic pagination
@@ -1908,7 +1906,6 @@ export default function HospitalsPage() {
               {showHospitalFilters && (
                 <div className="space-y-3">
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    {selectedCountries.length === 0 && (
                     <div>
                       <label className="text-xs font-medium mb-1.5 block text-muted-foreground">{t.common.country}</label>
                       <Select value={countryTab} onValueChange={(val) => { setCountryTab(val); handleHospitalFilterChange(); }}>
@@ -1929,7 +1926,6 @@ export default function HospitalsPage() {
                         </SelectContent>
                       </Select>
                     </div>
-                    )}
                     <div>
                       <label className="text-xs font-medium mb-1.5 block text-muted-foreground">{t.common.status}</label>
                       <Select value={hospitalStatusFilter} onValueChange={(val) => { setHospitalStatusFilter(val); handleHospitalFilterChange(); }}>
@@ -2195,7 +2191,6 @@ export default function HospitalsPage() {
               {showClinicFilters && (
                 <div className="space-y-3">
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    {selectedCountries.length === 0 && (
                     <div>
                       <label className="text-xs font-medium mb-1.5 block text-muted-foreground">{t.common.country}</label>
                       <Select value={clinicCountryTab} onValueChange={(val) => { setClinicCountryTab(val); handleClinicFilterChange(); }}>
@@ -2216,7 +2211,6 @@ export default function HospitalsPage() {
                         </SelectContent>
                       </Select>
                     </div>
-                    )}
                     <div>
                       <label className="text-xs font-medium mb-1.5 block text-muted-foreground">{t.common.status}</label>
                       <Select value={clinicStatusFilter} onValueChange={(val) => { setClinicStatusFilter(val); handleClinicFilterChange(); }}>

@@ -13881,6 +13881,45 @@ Return ONLY valid JSON, no markdown code blocks.`,
   });
 
   // Hospitals
+  app.get("/api/hospitals/stats", requireAuth, async (req, res) => {
+    try {
+      const countries = req.query.countries ? (req.query.countries as string).split(",").filter(Boolean) : [];
+      const conditions: any[] = [];
+      if (countries.length > 0) conditions.push(inArray(hospitals.countryCode, countries));
+      const where = conditions.length > 0 ? and(...conditions) : undefined;
+      const allHospitals = await db.select({
+        id: hospitals.id,
+        isActive: hospitals.isActive,
+        countryCode: hospitals.countryCode,
+      }).from(hospitals).where(where);
+      let active = 0, inactive = 0;
+      const byCountry: Record<string, number> = {};
+      for (const h of allHospitals) {
+        if (h.isActive) active++; else inactive++;
+        byCountry[h.countryCode] = (byCountry[h.countryCode] || 0) + 1;
+      }
+      const hospitalIds = allHospitals.map(h => h.id);
+      let withPersonnel = 0;
+      if (hospitalIds.length > 0) {
+        const assignedHospitals = await db.selectDistinct({ entityId: contactAssignments.entityId })
+          .from(contactAssignments)
+          .where(and(eq(contactAssignments.entityType, 'hospital'), eq(contactAssignments.isActive, true)));
+        const assignedSet = new Set(assignedHospitals.map(a => a.entityId));
+        const legacyLinked = await db.selectDistinct({ hospitalId: collaborators.hospitalId })
+          .from(collaborators)
+          .where(sql`${collaborators.hospitalId} IS NOT NULL`);
+        for (const l of legacyLinked) {
+          if (l.hospitalId) assignedSet.add(l.hospitalId);
+        }
+        withPersonnel = hospitalIds.filter(id => assignedSet.has(id)).length;
+      }
+      res.json({ total: allHospitals.length, active, inactive, withPersonnel, withoutPersonnel: allHospitals.length - withPersonnel, byCountry });
+    } catch (error) {
+      console.error("Error fetching hospital stats:", error);
+      res.status(500).json({ error: "Failed to fetch hospital stats" });
+    }
+  });
+
   app.get("/api/hospitals", requireAuth, async (req, res) => {
     try {
       const page = parseInt(req.query.page as string) || 0;
@@ -14043,45 +14082,6 @@ Return ONLY valid JSON, no markdown code blocks.`,
     } catch (error) {
       console.error("Error fetching clinic stats:", error);
       res.status(500).json({ error: "Failed to fetch clinic stats" });
-    }
-  });
-
-  app.get("/api/hospitals/stats", requireAuth, async (req, res) => {
-    try {
-      const countries = req.query.countries ? (req.query.countries as string).split(",").filter(Boolean) : [];
-      const conditions: any[] = [];
-      if (countries.length > 0) conditions.push(inArray(hospitals.countryCode, countries));
-      const where = conditions.length > 0 ? and(...conditions) : undefined;
-      const allHospitals = await db.select({
-        id: hospitals.id,
-        isActive: hospitals.isActive,
-        countryCode: hospitals.countryCode,
-      }).from(hospitals).where(where);
-      let active = 0, inactive = 0;
-      const byCountry: Record<string, number> = {};
-      for (const h of allHospitals) {
-        if (h.isActive) active++; else inactive++;
-        byCountry[h.countryCode] = (byCountry[h.countryCode] || 0) + 1;
-      }
-      const hospitalIds = allHospitals.map(h => h.id);
-      let withPersonnel = 0;
-      if (hospitalIds.length > 0) {
-        const assignedHospitals = await db.selectDistinct({ entityId: contactAssignments.entityId })
-          .from(contactAssignments)
-          .where(and(eq(contactAssignments.entityType, 'hospital'), eq(contactAssignments.isActive, true)));
-        const assignedSet = new Set(assignedHospitals.map(a => a.entityId));
-        const legacyLinked = await db.selectDistinct({ hospitalId: collaborators.hospitalId })
-          .from(collaborators)
-          .where(sql`${collaborators.hospitalId} IS NOT NULL`);
-        for (const l of legacyLinked) {
-          if (l.hospitalId) assignedSet.add(l.hospitalId);
-        }
-        withPersonnel = hospitalIds.filter(id => assignedSet.has(id)).length;
-      }
-      res.json({ total: allHospitals.length, active, inactive, withPersonnel, withoutPersonnel: allHospitals.length - withPersonnel, byCountry });
-    } catch (error) {
-      console.error("Error fetching hospital stats:", error);
-      res.status(500).json({ error: "Failed to fetch hospital stats" });
     }
   });
 

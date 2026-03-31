@@ -2359,7 +2359,6 @@ export default function CollaboratorsPage() {
             </div>
             {showFilters && (
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                {selectedCountries.length === 0 && (
                 <div className="space-y-2">
                   <Label>{t.common.country}</Label>
                   <Select value={filterCountry || "_all"} onValueChange={(val) => { setFilterCountry(val === "_all" ? "" : val); handleFilterChange(); }}>
@@ -2376,7 +2375,6 @@ export default function CollaboratorsPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                )}
                 <div className="space-y-2">
                   <Label>{t.collaborators.fields.collaboratorType}</Label>
                   <Select value={filterType || "_all"} onValueChange={(val) => { setFilterType(val === "_all" ? "" : val); handleFilterChange(); }}>
