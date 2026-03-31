@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, Search, Building2, FileText, Award, Gift, ListChecks, FileEdit, MapPin, Navigation, ExternalLink, Database, Loader2, Globe, Stethoscope, RefreshCw, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Filter, X, Download, FileSpreadsheet, Target, UserCheck, GraduationCap } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Building2, FileText, Award, Gift, ListChecks, FileEdit, MapPin, Navigation, ExternalLink, Database, Loader2, Globe, Stethoscope, RefreshCw, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Filter, X, Download, FileSpreadsheet, Target, UserCheck, GraduationCap, Users } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { HospitalFormWizard } from "@/components/hospital-form-wizard";
 import EntityCampaignTimeline from "@/components/campaigns/EntityCampaignTimeline";
 import { ClinicFormSheet } from "@/components/clinic-form-wizard";
+import { InstitutionPersonnelPanel } from "@/components/institution-personnel-panel";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -883,6 +884,7 @@ export default function HospitalsPage() {
   const [clinicToDelete, setClinicToDelete] = useState<Clinic | null>(null);
   const [activeTab, setActiveTab] = useState("hospital");
   const [useWizardForm, setUseWizardForm] = useState(true);
+  const [personnelEntity, setPersonnelEntity] = useState<{ type: "hospital" | "clinic"; id: string; name: string } | null>(null);
   const [clinicCountryTab, setClinicCountryTab] = useState<string>("ALL");
   const [countryTab, setCountryTab] = useState<string>("ALL");
 
@@ -1494,6 +1496,15 @@ export default function HospitalsPage() {
       header: t.common.actions,
       cell: (clinic: Clinic) => (
         <div className="flex items-center gap-2">
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={() => setPersonnelEntity({ type: "clinic", id: clinic.id, name: clinic.name })}
+            data-testid={`button-personnel-clinic-${clinic.id}`}
+            title={(t as any).medicalPartnerNetwork?.personnel || "Personnel"}
+          >
+            <Users className="h-4 w-4" />
+          </Button>
           {canEdit("hospitals") && (
             <Button
               size="icon"
@@ -1566,6 +1577,15 @@ export default function HospitalsPage() {
       header: t.common.actions,
       cell: (hospital: Hospital) => (
         <div className="flex items-center gap-2">
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={() => setPersonnelEntity({ type: "hospital", id: hospital.id, name: hospital.name })}
+            data-testid={`button-personnel-hospital-${hospital.id}`}
+            title={(t as any).medicalPartnerNetwork?.personnel || "Personnel"}
+          >
+            <Users className="h-4 w-4" />
+          </Button>
           {canEdit("hospitals") && (
             <Button
               size="icon"
@@ -2308,6 +2328,16 @@ export default function HospitalsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {personnelEntity && (
+        <InstitutionPersonnelPanel
+          entityType={personnelEntity.type}
+          entityId={personnelEntity.id}
+          entityName={personnelEntity.name}
+          open={!!personnelEntity}
+          onOpenChange={(open) => { if (!open) setPersonnelEntity(null); }}
+        />
+      )}
     </div>
   );
 }

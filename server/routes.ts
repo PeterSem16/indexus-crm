@@ -40792,6 +40792,169 @@ DÔLEŽITÉ: Vráť IBA JSON pole, žiadny iný text.`;
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
+  // --- Hospital/Clinic Personnel: Get collaborators linked to an institution ---
+  app.get("/api/institutions/:entityType/:entityId/personnel", requireAuth, async (req, res) => {
+    try {
+      const { entityType, entityId } = req.params;
+      if (!["hospital", "clinic"].includes(entityType)) {
+        return res.status(400).json({ error: "Invalid entity type" });
+      }
+
+      // 1. Get collaborators via contact_assignments
+      const assignmentRows = await db.execute(sql`
+        SELECT
+          ca.id as assignment_id, ca.department, ca.position, ca.role, ca.subcategory,
+          ca.is_primary, ca.is_active, ca.notes, ca.start_date, ca.end_date,
+          ca.category_id,
+          pc.code as category_code, pc.name as category_name,
+          c.id as person_id, c.title_before, c.first_name, c.last_name, c.title_after,
+          c.email, c.phone, c.mobile, c.collaborator_type, c.is_active as person_active,
+          c.country_code
+        FROM contact_assignments ca
+        JOIN collaborators c ON c.id = ca.person_id
+        LEFT JOIN partner_categories pc ON pc.id = ca.category_id
+        WHERE ca.entity_type = ${entityType} AND ca.entity_id = ${entityId}
+        ORDER BY ca.is_primary DESC, c.last_name, c.first_name
+      `);
+
+      // 2. Get legacy-linked collaborators (hospital_id / hospital_ids) for hospitals
+      const assignedPersonIds = new Set((assignmentRows.rows || []).map((r: any) => r.person_id));
+      let legacyRows: any[] = [];
+      if (entityType === "hospital") {
+        const allCollabs = await db.select({
+          id: collaborators.id,
+          titleBefore: collaborators.titleBefore,
+          firstName: collaborators.firstName,
+          lastName: collaborators.lastName,
+          titleAfter: collaborators.titleAfter,
+          phone: collaborators.phone,
+          mobile: collaborators.mobile,
+          email: collaborators.email,
+          isActive: collaborators.isActive,
+          collaboratorType: collaborators.collaboratorType,
+          hospitalId: collaborators.hospitalId,
+          hospitalIds: collaborators.hospitalIds,
+          countryCode: collaborators.countryCode,
+        }).from(collaborators);
+        for (const c of allCollabs) {
+          if (assignedPersonIds.has(c.id)) continue;
+          const linkedIds: string[] = [];
+          if (c.hospitalId) linkedIds.push(c.hospitalId);
+          if (c.hospitalIds && Array.isArray(c.hospitalIds)) linkedIds.push(...c.hospitalIds);
+          if (linkedIds.includes(entityId)) {
+            legacyRows.push({
+              assignment_id: null,
+              department: null, position: null, role: null, subcategory: null,
+              is_primary: false, is_active: c.isActive, notes: null,
+              start_date: null, end_date: null, category_id: null,
+              category_code: null, category_name: null,
+              person_id: c.id,
+              title_before: c.titleBefore, first_name: c.firstName,
+              last_name: c.lastName, title_after: c.titleAfter,
+              email: c.email, phone: c.phone, mobile: c.mobile,
+              collaborator_type: c.collaboratorType,
+              person_active: c.isActive,
+              country_code: c.countryCode,
+              source: "legacy_link",
+            });
+          }
+        }
+      }
+
+      // 3. For clinics, also include embedded doctor as a virtual person
+      let clinicDoctor: any = null;
+      if (entityType === "clinic") {
+        const [clinic] = await db.select().from(clinics).where(eq(clinics.id, entityId));
+        if (clinic && clinic.doctorName) {
+          clinicDoctor = {
+            fullName: (clinic as any).doctorFirstName
+              ? [(clinic as any).doctorTitle, (clinic as any).doctorFirstName, (clinic as any).doctorLastName].filter(Boolean).join(" ")
+              : clinic.doctorName,
+            phone: clinic.phone || "",
+            email: clinic.email || "",
+          };
+        }
+      }
+
+      res.json({
+        assigned: assignmentRows.rows || [],
+        legacy: legacyRows,
+        clinicDoctor,
+      });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // --- Hospital/Clinic Personnel: Assign existing collaborator to institution ---
+  app.post("/api/institutions/:entityType/:entityId/personnel", requireAuth, async (req, res) => {
+    try {
+      const { entityType, entityId } = req.params;
+      if (!["hospital", "clinic"].includes(entityType)) {
+        return res.status(400).json({ error: "Invalid entity type" });
+      }
+      const { personId, department, position, role, categoryId, isPrimary, notes } = req.body;
+      if (!personId) return res.status(400).json({ error: "personId is required" });
+
+      // Check if assignment already exists
+      const existing = await db.execute(sql`
+        SELECT id FROM contact_assignments
+        WHERE person_id = ${personId} AND entity_type = ${entityType} AND entity_id = ${entityId} AND is_active = true
+      `);
+      if ((existing.rows || []).length > 0) {
+        return res.status(409).json({ error: "Person is already assigned to this institution" });
+      }
+
+      const [row] = await db.insert(contactAssignments).values({
+        personId,
+        entityType,
+        entityId,
+        department: department || null,
+        position: position || null,
+        role: role || null,
+        categoryId: categoryId || null,
+        isPrimary: isPrimary || false,
+        notes: notes || null,
+        isActive: true,
+      }).returning();
+      res.json(row);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // --- Hospital/Clinic Personnel: Update assignment ---
+  app.put("/api/institutions/:entityType/:entityId/personnel/:assignmentId", requireAuth, async (req, res) => {
+    try {
+      const { assignmentId } = req.params;
+      const { department, position, role, categoryId, isPrimary, notes, isActive } = req.body;
+      const [row] = await db.update(contactAssignments)
+        .set({
+          ...(department !== undefined && { department }),
+          ...(position !== undefined && { position }),
+          ...(role !== undefined && { role }),
+          ...(categoryId !== undefined && { categoryId }),
+          ...(isPrimary !== undefined && { isPrimary }),
+          ...(notes !== undefined && { notes }),
+          ...(isActive !== undefined && { isActive }),
+          updatedAt: new Date(),
+        })
+        .where(eq(contactAssignments.id, assignmentId))
+        .returning();
+      if (!row) return res.status(404).json({ error: "Assignment not found" });
+      res.json(row);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // --- Hospital/Clinic Personnel: Remove assignment ---
+  app.delete("/api/institutions/:entityType/:entityId/personnel/:assignmentId", requireAuth, async (req, res) => {
+    try {
+      const { assignmentId } = req.params;
+      const [row] = await db.update(contactAssignments)
+        .set({ isActive: false, updatedAt: new Date() })
+        .where(eq(contactAssignments.id, assignmentId))
+        .returning();
+      if (!row) return res.status(404).json({ error: "Assignment not found" });
+      res.json({ success: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
   setTimeout(() => {
     autoConnectAri().catch(err => console.error("[ARI AutoConnect] Error:", err.message));
   }, 10000);
