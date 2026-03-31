@@ -93,15 +93,19 @@ type Institution = {
 
 type Person = {
   id: string;
-  titleBefore: string | null;
+  source: "collaborator" | "clinic" | "hospital";
+  titleBefore: string;
   firstName: string;
   lastName: string;
-  titleAfter: string | null;
-  phone: string | null;
-  mobile: string | null;
-  email: string | null;
+  titleAfter: string;
+  fullName: string;
+  phone: string;
+  mobile: string;
+  email: string;
   isActive: boolean;
   countryCode: string;
+  institutionName: string;
+  institutionId: string;
 };
 
 function channelIcon(type: string) {
@@ -379,18 +383,50 @@ function PersonnelDialog({ entityType, entityId, entityName, onClose }: { entity
   );
 }
 
+function sourceLabel(source: string, t: any) {
+  switch (source) {
+    case "collaborator": return t.mpn.collaborator || "Collaborator";
+    case "clinic": return t.mpn.clinic;
+    case "hospital": return t.mpn.hospital;
+    default: return source;
+  }
+}
+
+function sourceBadgeColor(source: string) {
+  switch (source) {
+    case "collaborator": return "border-blue-300 text-blue-700";
+    case "clinic": return "border-green-300 text-green-700";
+    case "hospital": return "border-orange-300 text-orange-700";
+    default: return "";
+  }
+}
+
 function PersonsTab() {
   const { t } = useI18n();
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [sourceFilter, setSourceFilter] = useState("all");
+  const [page, setPage] = useState(1);
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
 
-  const { data: allPersons = [] } = useQuery<Person[]>({ queryKey: ["/api/mpn/persons"] });
+  const searchTimeout = useState<any>(null);
+  const handleSearch = (val: string) => {
+    setSearch(val);
+    if (searchTimeout[0]) clearTimeout(searchTimeout[0]);
+    searchTimeout[1] = setTimeout(() => { setDebouncedSearch(val); setPage(1); }, 300);
+  };
 
-  const filtered = allPersons.filter((p) => {
-    if (!search) return true;
-    const full = `${p.titleBefore || ""} ${p.firstName} ${p.lastName} ${p.email || ""} ${p.phone || ""} ${p.mobile || ""}`.toLowerCase();
-    return full.includes(search.toLowerCase());
+  const queryParams: Record<string, string> = { page: String(page), limit: "100" };
+  if (debouncedSearch) queryParams.search = debouncedSearch;
+  if (sourceFilter !== "all") queryParams.source = sourceFilter;
+
+  const { data: result, isLoading } = useQuery<{ data: Person[]; total: number; page: number; totalPages: number }>({
+    queryKey: ["/api/mpn/persons", queryParams],
   });
+
+  const filtered = result?.data || [];
+  const total = result?.total || 0;
+  const totalPages = result?.totalPages || 1;
 
   return (
     <div className="space-y-4">
@@ -400,32 +436,62 @@ function PersonsTab() {
           <Input
             placeholder={`${t.mpn.name}, ${t.mpn.email}...`}
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => handleSearch(e.target.value)}
             className="pl-9"
             data-testid="input-search-persons"
           />
         </div>
+        <Select value={sourceFilter} onValueChange={(v) => { setSourceFilter(v); setPage(1); }}>
+          <SelectTrigger className="w-52" data-testid="select-source-filter">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t.mpn.allSources || "All Sources"}</SelectItem>
+            <SelectItem value="collaborator">{t.mpn.collaborator || "Collaborator"}</SelectItem>
+            <SelectItem value="clinic">{t.mpn.clinicDoctors || "Clinic Doctors"}</SelectItem>
+            <SelectItem value="hospital">{t.mpn.hospitalContacts || "Hospital Contacts"}</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground" data-testid="text-persons-count">
+          {total} {t.mpn.persons || "persons"} {debouncedSearch && `(${t.mpn.filtered})`}
+        </p>
       </div>
 
       <Card>
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : (
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead>{t.mpn.source || "Source"}</TableHead>
               <TableHead>{t.mpn.name}</TableHead>
+              <TableHead>{t.mpn.institutionName}</TableHead>
               <TableHead>{t.mpn.contactInfo}</TableHead>
               <TableHead>{t.mpn.country}</TableHead>
               <TableHead>{t.mpn.status}</TableHead>
-              <TableHead></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filtered.length === 0 ? (
-              <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">{t.mpn.noData}</TableCell></TableRow>
-            ) : filtered.slice(0, 100).map((p) => (
-              <TableRow key={p.id} className="cursor-pointer hover:bg-muted/50" data-testid={`row-person-${p.id}`}>
-                <TableCell className="font-medium">
-                  {[p.titleBefore, p.firstName, p.lastName, p.titleAfter].filter(Boolean).join(" ")}
+              <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">{t.mpn.noData}</TableCell></TableRow>
+            ) : filtered.map((p) => (
+              <TableRow key={p.id} className="hover:bg-muted/50" data-testid={`row-person-${p.id}`}>
+                <TableCell>
+                  <Badge variant="outline" className={`gap-1 ${sourceBadgeColor(p.source)}`}>
+                    {p.source === "collaborator" && <UserCheck className="h-3 w-3" />}
+                    {p.source === "clinic" && <Stethoscope className="h-3 w-3" />}
+                    {p.source === "hospital" && <Hospital className="h-3 w-3" />}
+                    {sourceLabel(p.source, t)}
+                  </Badge>
                 </TableCell>
+                <TableCell className="font-medium">{p.fullName || [p.titleBefore, p.firstName, p.lastName, p.titleAfter].filter(Boolean).join(" ")}</TableCell>
+                <TableCell className="text-sm">{p.institutionName || "—"}</TableCell>
                 <TableCell>
                   <div className="space-y-0.5 text-xs">
                     {p.email && <div className="flex items-center gap-1"><Mail className="h-3 w-3" /> {p.email}</div>}
@@ -439,17 +505,28 @@ function PersonsTab() {
                     {p.isActive ? t.mpn.active : t.mpn.inactive}
                   </Badge>
                 </TableCell>
-                <TableCell>
-                  <Button variant="ghost" size="sm" onClick={() => setSelectedPerson(p)} data-testid={`btn-view-workplaces-${p.id}`}>
-                    <Building2 className="h-4 w-4 mr-1" /> {t.mpn.workplaces}
-                    <ChevronRight className="h-4 w-4 ml-1" />
-                  </Button>
-                </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
+        )}
       </Card>
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            {t.mpn.page} {page} / {totalPages}
+          </p>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(p => p - 1)} data-testid="btn-persons-prev">
+              ← {t.mpn.previous}
+            </Button>
+            <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)} data-testid="btn-persons-next">
+              {t.mpn.next} →
+            </Button>
+          </div>
+        </div>
+      )}
 
       {selectedPerson && (
         <PersonDetailDialog person={selectedPerson} onClose={() => setSelectedPerson(null)} />

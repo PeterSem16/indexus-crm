@@ -118,6 +118,12 @@ export interface Translations {
     page: string;
     previous: string;
     next: string;
+    allSources: string;
+    collaborator: string;
+    clinicDoctors: string;
+    hospitalContacts: string;
+    persons: string;
+    source: string;
   };
   collaboratorReports: {
     title: string;
@@ -5534,6 +5540,12 @@ export const translations: Record<Locale, Translations> = {
       page: 'Page',
       previous: 'Previous',
       next: 'Next',
+      allSources: 'All Sources',
+      collaborator: 'Collaborator',
+      clinicDoctors: 'Clinic Doctors',
+      hospitalContacts: 'Hospital Contacts',
+      persons: 'persons',
+      source: 'Source',
     },
     collaboratorReports: {
       title: 'Collaborator Reports',
@@ -10832,6 +10844,12 @@ export const translations: Record<Locale, Translations> = {
       page: 'Strana',
       previous: 'Predchádzajúca',
       next: 'Nasledujúca',
+      allSources: 'Všetky zdroje',
+      collaborator: 'Spolupracovník',
+      clinicDoctors: 'Lekári z kliník',
+      hospitalContacts: 'Kontakty z nemocníc',
+      persons: 'osôb',
+      source: 'Zdroj',
     },
     collaboratorReports: {
       title: 'Reporty spolupracovnikov',
@@ -16083,6 +16101,12 @@ export const translations: Record<Locale, Translations> = {
       page: 'Strana',
       previous: 'Předchozí',
       next: 'Další',
+      allSources: 'Všechny zdroje',
+      collaborator: 'Spolupracovník',
+      clinicDoctors: 'Lékaři z klinik',
+      hospitalContacts: 'Kontakty z nemocnic',
+      persons: 'osob',
+      source: 'Zdroj',
     },
     collaboratorReports: {
       title: 'Reporty spolupracovniku',
@@ -21259,6 +21283,12 @@ export const translations: Record<Locale, Translations> = {
       page: 'Oldal',
       previous: 'Előző',
       next: 'Következő',
+      allSources: 'Minden forrás',
+      collaborator: 'Munkatárs',
+      clinicDoctors: 'Klinikai orvosok',
+      hospitalContacts: 'Kórházi kapcsolatok',
+      persons: 'személy',
+      source: 'Forrás',
     },
     collaboratorReports: {
       title: 'Munkatárs jelentések',
@@ -26435,6 +26465,12 @@ export const translations: Record<Locale, Translations> = {
       page: 'Pagina',
       previous: 'Anterioară',
       next: 'Următoarea',
+      allSources: 'Toate sursele',
+      collaborator: 'Colaborator',
+      clinicDoctors: 'Medici clinici',
+      hospitalContacts: 'Contacte spital',
+      persons: 'persoane',
+      source: 'Sursă',
     },
     collaboratorReports: {
       title: 'Rapoarte colaboratori',
@@ -31533,6 +31569,12 @@ export const translations: Record<Locale, Translations> = {
       page: 'Pagina',
       previous: 'Precedente',
       next: 'Successiva',
+      allSources: 'Tutte le fonti',
+      collaborator: 'Collaboratore',
+      clinicDoctors: 'Medici clinica',
+      hospitalContacts: 'Contatti ospedale',
+      persons: 'persone',
+      source: 'Fonte',
     },
     collaboratorReports: {
       title: 'Report collaboratori',
@@ -36632,6 +36674,12 @@ export const translations: Record<Locale, Translations> = {
       page: 'Seite',
       previous: 'Vorherige',
       next: 'Nächste',
+      allSources: 'Alle Quellen',
+      collaborator: 'Mitarbeiter',
+      clinicDoctors: 'Klinikärzte',
+      hospitalContacts: 'Krankenhauskontakte',
+      persons: 'Personen',
+      source: 'Quelle',
     },
     collaboratorReports: {
       title: 'Mitarbeiterberichte',
