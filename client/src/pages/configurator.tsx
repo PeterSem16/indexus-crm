@@ -26,7 +26,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Pencil, Trash2, FileText, Settings, Layout, Loader2, Palette, Package, Search, Shield, Copy, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Eye, EyeOff, Lock, Unlock, Check, Hash, Info, X, DollarSign, Percent, Calculator, CreditCard, TrendingUp, Bell, CheckCircle2, XCircle, Key, AlertTriangle, Upload, FileDown, Edit, Save, Download, ArrowUpDown, Paperclip, Globe, RefreshCw, BarChart3, Target, Sparkles, MapPin, Layers, Filter, Brain, Network, ArrowRight, ClipboardList, Share2, ThumbsUp, ThumbsDown, Zap, GitMerge, Users, Building2, User, Mail, Phone, Award, SlidersHorizontal } from "lucide-react";
+import { Plus, Pencil, Trash2, FileText, Settings, Layout, Loader2, Palette, Package, Search, Shield, Copy, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Eye, EyeOff, Lock, Unlock, Check, Hash, Info, X, DollarSign, Percent, Calculator, CreditCard, TrendingUp, Bell, CheckCircle2, XCircle, Key, AlertTriangle, Upload, FileDown, Edit, Save, Download, ArrowUpDown, Paperclip, Globe, RefreshCw, BarChart3, Target, Sparkles, MapPin, Layers, Filter, Brain, Network, ArrowRight, ClipboardList, Share2, ThumbsUp, ThumbsDown, Zap, GitMerge, Users, Building2, User, Mail, Phone, Award, SlidersHorizontal, Code } from "lucide-react";
 import { COUNTRIES, CURRENCIES, getCurrencySymbol } from "@shared/schema";
 import { InvoiceDesigner, InvoiceDesignerConfig } from "@/components/invoice-designer";
 import { ContractTemplatesManager } from "@/components/contract-templates-manager";
@@ -11534,6 +11534,7 @@ function MessageTemplatesTab() {
   const [templateDescription, setTemplateDescription] = useState("");
   const [templateType, setTemplateType] = useState<"email" | "sms">("email");
   const [templateFormat, setTemplateFormat] = useState<"text" | "html">("text");
+  const [htmlSourceMode, setHtmlSourceMode] = useState(false);
   const [templateSubject, setTemplateSubject] = useState("");
   const [templateContent, setTemplateContent] = useState("");
   const [templateContentHtml, setTemplateContentHtml] = useState("");
@@ -11727,6 +11728,7 @@ function MessageTemplatesTab() {
     setTemplateSubject("");
     setTemplateContent("");
     setTemplateContentHtml("");
+    setHtmlSourceMode(false);
     setTemplateCategoryId("");
     setTemplateLanguage("sk");
     setTemplateTags("");
@@ -12340,6 +12342,18 @@ function MessageTemplatesTab() {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label>{templateFormat === "html" ? t.konfigurator.templateContentHtml : t.konfigurator.templateContent}</Label>
+                <div className="flex items-center gap-2">
+                  {templateFormat === "html" && (
+                    <Button
+                      variant={htmlSourceMode ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setHtmlSourceMode(!htmlSourceMode)}
+                      data-testid="button-toggle-html-source"
+                    >
+                      <Code className="h-4 w-4 mr-2" />
+                      HTML kód
+                    </Button>
+                  )}
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button variant="outline" size="sm" data-testid="button-insert-variable">
@@ -12383,37 +12397,55 @@ function MessageTemplatesTab() {
                     </div>
                   </PopoverContent>
                 </Popover>
+                </div>
               </div>
               {templateFormat === "html" ? (
-                <div className="border rounded-md" data-testid="input-template-content-html">
-                  <ReactQuill
-                    ref={quillRef}
-                    theme="snow"
-                    value={templateContentHtml}
-                    onChange={setTemplateContentHtml}
-                    modules={{
-                      toolbar: [
-                        [{ header: [1, 2, 3, false] }],
-                        ["bold", "italic", "underline", "strike"],
-                        [{ color: [] }, { background: [] }],
-                        [{ list: "ordered" }, { list: "bullet" }],
-                        [{ align: [] }],
-                        ["link", "image"],
-                        ["clean"],
-                      ],
-                    }}
-                    formats={[
-                      "header",
-                      "bold", "italic", "underline", "strike",
-                      "color", "background",
-                      "list", "bullet",
-                      "align",
-                      "link", "image",
-                    ]}
-                    placeholder={t.konfigurator.templateContentHtml}
-                    style={{ minHeight: "200px" }}
-                  />
-                </div>
+                htmlSourceMode ? (
+                  <div className="space-y-2">
+                    <Textarea
+                      value={templateContentHtml}
+                      onChange={(e) => setTemplateContentHtml(e.target.value)}
+                      placeholder="<div style='...'>\n  <h1>Nadpis</h1>\n  <p>Obsah emailu...</p>\n</div>"
+                      rows={16}
+                      className="font-mono text-xs leading-relaxed"
+                      data-testid="textarea-html-source"
+                    />
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Code className="h-3 w-3" />
+                      <span>Zadajte kompletný HTML kód emailu vrátane inline štýlov. Premenné: {"{{clinic.doctorLastName}}"}, {"{{user.fullName}}"}, atď.</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="border rounded-md" data-testid="input-template-content-html">
+                    <ReactQuill
+                      ref={quillRef}
+                      theme="snow"
+                      value={templateContentHtml}
+                      onChange={setTemplateContentHtml}
+                      modules={{
+                        toolbar: [
+                          [{ header: [1, 2, 3, false] }],
+                          ["bold", "italic", "underline", "strike"],
+                          [{ color: [] }, { background: [] }],
+                          [{ list: "ordered" }, { list: "bullet" }],
+                          [{ align: [] }],
+                          ["link", "image"],
+                          ["clean"],
+                        ],
+                      }}
+                      formats={[
+                        "header",
+                        "bold", "italic", "underline", "strike",
+                        "color", "background",
+                        "list", "bullet",
+                        "align",
+                        "link", "image",
+                      ]}
+                      placeholder={t.konfigurator.templateContentHtml}
+                      style={{ minHeight: "200px" }}
+                    />
+                  </div>
+                )
               ) : (
                 <Textarea
                   ref={textareaRef}
