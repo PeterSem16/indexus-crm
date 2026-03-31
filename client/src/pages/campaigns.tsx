@@ -1438,7 +1438,7 @@ export default function CampaignsPage() {
   const [agentsDialogCampaign, setAgentsDialogCampaign] = useState<Campaign | null>(null);
   const [selectedAgentIds, setSelectedAgentIds] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState("campaigns");
-  const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [filterStatus, setFilterStatus] = useState<string>("active");
   const [filterType, setFilterType] = useState<string>("all");
   const [filterChannel, setFilterChannel] = useState<string>("all");
   const [filterCreatedBy, setFilterCreatedBy] = useState<string>("all");
