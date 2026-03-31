@@ -1798,30 +1798,68 @@ function CommunicationCanvas({
   });
 
   const replaceTemplateVars = useCallback((content: string): string => {
-    if (!content || !contact) return content;
+    if (!content) return content;
     const selectedAccount = allEmailAccounts.find(a => a.id === selectedFromAccount);
     const userPhone = user?.phone ? `${(user as any)?.phonePrefix || ""}${user.phone}` : "";
     const now = new Date();
+    const cl = clinicData as any;
+    const hosp = hospitalData as any;
+    const collab = collaboratorData as any;
+    const doctorFullName = cl ? `${cl.doctorTitle || ""} ${cl.doctorFirstName || ""} ${cl.doctorLastName || ""}`.replace(/\s+/g, " ").trim() : "";
     const replacements: Record<string, string> = {
-      "{{customer.firstName}}": contact.firstName || "",
-      "{{customer.lastName}}": contact.lastName || "",
-      "{{customer.fullName}}": `${contact.firstName || ""} ${contact.lastName || ""}`.trim(),
-      "{{customer.email}}": contact.email || "",
-      "{{customer.email2}}": (contact as any).email2 || "",
-      "{{customer.phone}}": contact.phone || "",
-      "{{customer.phone2}}": (contact as any).phone2 || "",
-      "{{customer.address}}": contact.address || "",
-      "{{customer.city}}": contact.city || "",
-      "{{customer.postalCode}}": contact.postalCode || "",
-      "{{customer.country}}": contact.country || "",
-      "{{customer.birthDate}}": (contact as any).birthDate || "",
-      "{{customer.deliveryDate}}": (contact as any).deliveryDate || "",
+      "{{customer.firstName}}": contact?.firstName || "",
+      "{{customer.lastName}}": contact?.lastName || "",
+      "{{customer.fullName}}": contact ? `${contact.firstName || ""} ${contact.lastName || ""}`.trim() : "",
+      "{{customer.email}}": contact?.email || "",
+      "{{customer.email2}}": (contact as any)?.email2 || "",
+      "{{customer.phone}}": contact?.phone || "",
+      "{{customer.phone2}}": (contact as any)?.phone2 || "",
+      "{{customer.address}}": contact?.address || "",
+      "{{customer.city}}": contact?.city || "",
+      "{{customer.postalCode}}": contact?.postalCode || "",
+      "{{customer.country}}": contact?.country || "",
+      "{{customer.birthDate}}": (contact as any)?.birthDate || "",
+      "{{customer.deliveryDate}}": (contact as any)?.deliveryDate || "",
       "{{user.fullName}}": user?.fullName || "",
       "{{user.email}}": selectedAccount?.email || user?.email || "",
       "{{user.phone}}": userPhone,
       "{{user.position}}": (user as any)?.position || "",
       "{{user.signature}}": (user as any)?.signature || "",
+      "{{clinic.name}}": cl?.clinicName || cl?.name || "",
+      "{{clinic.doctorName}}": doctorFullName,
+      "{{clinic.doctorTitle}}": cl?.doctorTitle || "",
+      "{{clinic.doctorFirstName}}": cl?.doctorFirstName || "",
+      "{{clinic.doctorLastName}}": cl?.doctorLastName || "",
+      "{{clinic.address}}": cl?.address || "",
+      "{{clinic.city}}": cl?.city || "",
+      "{{clinic.postalCode}}": cl?.postalCode || "",
+      "{{clinic.countryCode}}": cl?.countryCode || "",
+      "{{clinic.phone}}": cl?.phone || "",
+      "{{clinic.email}}": cl?.email || "",
+      "{{clinic.website}}": cl?.website || "",
+      "{{clinic.notes}}": cl?.notes || "",
+      "{{clinic.contractStatus}}": cl?.contractStatus || "",
+      "{{hospital.name}}": hosp?.name || "",
+      "{{hospital.fullName}}": hosp?.fullName || hosp?.name || "",
+      "{{hospital.streetNumber}}": hosp?.streetNumber || "",
+      "{{hospital.city}}": hosp?.city || "",
+      "{{hospital.postalCode}}": hosp?.postalCode || "",
+      "{{hospital.region}}": hosp?.region || "",
+      "{{hospital.countryCode}}": hosp?.countryCode || "",
+      "{{hospital.contactPerson}}": hosp?.contactPerson || "",
+      "{{hospital.phone}}": hosp?.phone || "",
+      "{{hospital.email}}": hosp?.email || "",
+      "{{collaborator.titleBefore}}": collab?.titleBefore || "",
+      "{{collaborator.firstName}}": collab?.firstName || "",
+      "{{collaborator.lastName}}": collab?.lastName || "",
+      "{{collaborator.titleAfter}}": collab?.titleAfter || "",
+      "{{collaborator.fullName}}": collab ? `${collab.titleBefore || ""} ${collab.firstName || ""} ${collab.lastName || ""} ${collab.titleAfter || ""}`.replace(/\s+/g, " ").trim() : "",
+      "{{collaborator.phone}}": collab?.phone || "",
+      "{{collaborator.mobile}}": collab?.mobile || "",
+      "{{collaborator.email}}": collab?.email || "",
+      "{{collaborator.companyName}}": collab?.companyName || "",
       "{{system.today}}": now.toLocaleDateString("sk-SK"),
+      "{{date.today}}": now.toLocaleDateString("sk-SK"),
       "{{system.currentDate}}": now.toLocaleDateString("sk-SK"),
       "{{system.currentTime}}": now.toLocaleTimeString("sk-SK"),
       "{{system.currentDateTime}}": now.toLocaleString("sk-SK"),
@@ -1839,7 +1877,7 @@ function CommunicationCanvas({
       result = result.split(variable).join(value);
     }
     return result;
-  }, [contact, user, allEmailAccounts, selectedFromAccount]);
+  }, [contact, user, allEmailAccounts, selectedFromAccount, clinicData, hospitalData, collaboratorData]);
 
   const handleSelectEmailTemplate = (templateId: string) => {
     const template = emailTemplates.find(t => t.id === templateId);
