@@ -19094,15 +19094,29 @@ Return ONLY valid JSON, no markdown code blocks.`,
           ccNotes: campaignContacts.notes,
           ccAssignedTo: campaignContacts.assignedTo,
           ccStatus: campaignContacts.status,
+          ccContactType: campaignContacts.contactType,
+          ccClinicId: campaignContacts.clinicId,
+          ccHospitalId: campaignContacts.hospitalId,
+          ccCollaboratorId: campaignContacts.collaboratorId,
           customerFirstName: customers.firstName,
           customerLastName: customers.lastName,
           customerPhone: customers.phone,
           customerEmail: customers.email,
+          clinicName: clinics.name,
+          clinicDoctorFirstName: clinics.doctorFirstName,
+          clinicDoctorLastName: clinics.doctorLastName,
+          clinicPhone: clinics.phone,
+          clinicEmail: clinics.email,
+          hospitalName: hospitals.name,
+          hospitalPhone: hospitals.phone,
+          hospitalEmail: hospitals.email,
           campaignName: campaigns.name,
           campaignChannel: campaigns.channel,
         })
         .from(campaignContacts)
-        .innerJoin(customers, eq(campaignContacts.customerId, customers.id))
+        .leftJoin(customers, eq(campaignContacts.customerId, customers.id))
+        .leftJoin(clinics, eq(campaignContacts.clinicId, clinics.id))
+        .leftJoin(hospitals, eq(campaignContacts.hospitalId, hospitals.id))
         .innerJoin(campaigns, eq(campaignContacts.campaignId, campaigns.id))
         .where(
           and(
@@ -19125,16 +19139,29 @@ Return ONLY valid JSON, no markdown code blocks.`,
           sessionUserId: campaignContactSessions.userId,
           ccCustomerId: campaignContacts.customerId,
           ccCampaignId: campaignContacts.campaignId,
+          ccContactType: campaignContacts.contactType,
+          ccClinicId: campaignContacts.clinicId,
+          ccHospitalId: campaignContacts.hospitalId,
           customerFirstName: customers.firstName,
           customerLastName: customers.lastName,
           customerPhone: customers.phone,
           customerEmail: customers.email,
+          clinicName: clinics.name,
+          clinicDoctorFirstName: clinics.doctorFirstName,
+          clinicDoctorLastName: clinics.doctorLastName,
+          clinicPhone: clinics.phone,
+          clinicEmail: clinics.email,
+          hospitalName: hospitals.name,
+          hospitalPhone: hospitals.phone,
+          hospitalEmail: hospitals.email,
           campaignName: campaigns.name,
           campaignChannel: campaigns.channel,
         })
         .from(campaignContactSessions)
         .innerJoin(campaignContacts, eq(campaignContactSessions.campaignContactId, campaignContacts.id))
-        .innerJoin(customers, eq(campaignContacts.customerId, customers.id))
+        .leftJoin(customers, eq(campaignContacts.customerId, customers.id))
+        .leftJoin(clinics, eq(campaignContacts.clinicId, clinics.id))
+        .leftJoin(hospitals, eq(campaignContacts.hospitalId, hospitals.id))
         .innerJoin(campaigns, eq(campaignContacts.campaignId, campaigns.id))
         .where(
           and(
@@ -19162,13 +19189,36 @@ Return ONLY valid JSON, no markdown code blocks.`,
         const key = `cc-${row.ccId}`;
         if (seenIds.has(key)) continue;
         seenIds.add(key);
+        const contactType = row.ccContactType || "customer";
+        let contactName = "";
+        let contactPhone = "";
+        let contactEmail = "";
+        let contactId = row.ccCustomerId;
+        if (contactType === "clinic") {
+          contactName = row.clinicDoctorLastName 
+            ? `${row.clinicDoctorFirstName || ""} ${row.clinicDoctorLastName}`.trim() + (row.clinicName ? ` (${row.clinicName})` : "")
+            : row.clinicName || "";
+          contactPhone = row.clinicPhone || "";
+          contactEmail = row.clinicEmail || "";
+          contactId = row.ccClinicId || row.ccCustomerId;
+        } else if (contactType === "hospital") {
+          contactName = row.hospitalName || "";
+          contactPhone = row.hospitalPhone || "";
+          contactEmail = row.hospitalEmail || "";
+          contactId = row.ccHospitalId || row.ccCustomerId;
+        } else {
+          contactName = `${row.customerFirstName || ""} ${row.customerLastName || ""}`.trim();
+          contactPhone = row.customerPhone || "";
+          contactEmail = row.customerEmail || "";
+        }
         items.push({
           id: row.ccId,
           type: channelTypeMap[row.campaignChannel || "phone"] || "callback",
-          contactId: row.ccCustomerId,
-          contactName: `${row.customerFirstName || ""} ${row.customerLastName || ""}`.trim(),
-          contactPhone: row.customerPhone || "",
-          contactEmail: row.customerEmail || "",
+          contactId,
+          contactName,
+          contactPhone,
+          contactEmail,
+          contactType,
           campaignId: row.ccCampaignId,
           campaignName: row.campaignName,
           scheduledAt: row.ccCallbackDate,
@@ -19181,13 +19231,36 @@ Return ONLY valid JSON, no markdown code blocks.`,
         const key = `session-${row.sessionId}`;
         if (seenIds.has(key)) continue;
         seenIds.add(key);
+        const sContactType = row.ccContactType || "customer";
+        let sContactName = "";
+        let sContactPhone = "";
+        let sContactEmail = "";
+        let sContactId = row.ccCustomerId;
+        if (sContactType === "clinic") {
+          sContactName = row.clinicDoctorLastName 
+            ? `${row.clinicDoctorFirstName || ""} ${row.clinicDoctorLastName}`.trim() + (row.clinicName ? ` (${row.clinicName})` : "")
+            : row.clinicName || "";
+          sContactPhone = row.clinicPhone || "";
+          sContactEmail = row.clinicEmail || "";
+          sContactId = row.ccClinicId || row.ccCustomerId;
+        } else if (sContactType === "hospital") {
+          sContactName = row.hospitalName || "";
+          sContactPhone = row.hospitalPhone || "";
+          sContactEmail = row.hospitalEmail || "";
+          sContactId = row.ccHospitalId || row.ccCustomerId;
+        } else {
+          sContactName = `${row.customerFirstName || ""} ${row.customerLastName || ""}`.trim();
+          sContactPhone = row.customerPhone || "";
+          sContactEmail = row.customerEmail || "";
+        }
         items.push({
           id: row.sessionId,
           type: channelTypeMap[row.campaignChannel || "phone"] || "callback",
-          contactId: row.ccCustomerId,
-          contactName: `${row.customerFirstName || ""} ${row.customerLastName || ""}`.trim(),
-          contactPhone: row.customerPhone || "",
-          contactEmail: row.customerEmail || "",
+          contactId: sContactId,
+          contactName: sContactName,
+          contactPhone: sContactPhone,
+          contactEmail: sContactEmail,
+          contactType: sContactType,
           campaignId: row.ccCampaignId,
           campaignName: row.campaignName,
           scheduledAt: row.sessionCallbackDate,
