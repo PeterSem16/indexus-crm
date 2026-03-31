@@ -80,10 +80,16 @@ export function AppSidebar() {
 
   const mainNavItems = [
     { title: t.nav.dashboard, url: "/", icon: LayoutDashboard, testId: "dashboard", moduleKey: "dashboard" },
-    { title: t.nav.hospitalsAndClinics, url: "/hospitals", icon: Building2, testId: "hospitals", moduleKey: "hospitals" },
-    { title: t.nav.medicalPartnerNetwork, url: "/medical-partner-network", icon: HeartPulse, testId: "mpn", moduleKey: "hospitals" },
     { title: "Pipeline", url: "/pipeline", icon: Kanban, testId: "pipeline", moduleKey: "pipeline" },
     { title: "Reports", url: "/reports", icon: BarChart3, testId: "reports", moduleKey: "reports" },
+  ];
+
+  const mpnSubItems = [
+    { title: t.nav.medicalPartnerNetwork, url: "/medical-partner-network", testId: "mpn", moduleKey: "hospitals" },
+    { title: t.nav.hospitalsAndClinics, url: "/hospitals", testId: "hospitals", moduleKey: "hospitals" },
+    { title: t.nav.collaborators, url: "/collaborators", testId: "collaborators", moduleKey: "collaborators" },
+    { title: t.nav.visitEvents, url: "/visit-events", testId: "visit-events", moduleKey: "visitEvents" },
+    { title: t.nav.collaboratorReports, url: "/collaborator-reports", testId: "collaborator-reports", moduleKey: "collaboratorReports" },
   ];
 
   const nexusNavItems = [
@@ -99,11 +105,7 @@ export function AppSidebar() {
     { title: t.nav.customerInvoices, url: "/customer-invoices", testId: "customer-invoices", moduleKey: "invoices" },
   ];
 
-  const collaboratorSubItems = [
-    { title: t.nav.collaborators, url: "/collaborators", testId: "collaborators", moduleKey: "collaborators" },
-    { title: t.nav.visitEvents, url: "/visit-events", testId: "visit-events", moduleKey: "visitEvents" },
-    { title: t.nav.collaboratorReports, url: "/collaborator-reports", testId: "collaborator-reports", moduleKey: "collaboratorReports" },
-  ];
+  const collaboratorSubItems = mpnSubItems.filter(i => ["collaborators", "visit-events", "collaborator-reports"].includes(i.testId));
   
   const adminNavItems = [
     { title: t.nav.users, url: "/users", icon: UserCog, testId: "users", moduleKey: "users" },
@@ -207,32 +209,24 @@ export function AppSidebar() {
                 </SidebarMenuItem>
               </Collapsible>
 
-              <Collapsible defaultOpen={false} className="group/collapsible-collab">
+              <Collapsible defaultOpen={location === "/medical-partner-network" || location === "/hospitals" || location === "/collaborators" || location === "/visit-events" || location === "/collaborator-reports"} className="group/collapsible-mpn">
                 <SidebarMenuItem>
                   <CollapsibleTrigger asChild>
-                    <SidebarMenuButton isActive={location === "/collaborators" || location === "/visit-events" || location === "/collaborator-reports"}>
-                      <Handshake className="h-4 w-4" />
-                      <span>{t.nav.collaborators}</span>
-                      <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible-collab:rotate-180" />
+                    <SidebarMenuButton isActive={location === "/medical-partner-network" || location === "/hospitals" || location === "/collaborators" || location === "/visit-events" || location === "/collaborator-reports"}>
+                      <HeartPulse className="h-4 w-4" />
+                      <span>{t.nav.medicalPartnerNetwork}</span>
+                      <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible-mpn:rotate-180" />
                     </SidebarMenuButton>
                   </CollapsibleTrigger>
                   <CollapsibleContent>
                     <SidebarMenuSub>
-                      {collaboratorSubItems.filter(item => canAccessModule(item.moduleKey)).map((item, index, filteredArray) => (
-                        <SidebarMenuSubItem key={item.testId} className="relative">
+                      {mpnSubItems.filter(item => canAccessModule(item.moduleKey)).map((item) => (
+                        <SidebarMenuSubItem key={item.testId}>
                           <SidebarMenuSubButton asChild isActive={location === item.url}>
-                            <Link href={item.url} data-testid={`nav-${item.testId}`} className="flex items-center gap-2">
-                              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-medium text-primary-foreground shrink-0">
-                                {index + 1}
-                              </span>
+                            <Link href={item.url} data-testid={`nav-${item.testId}`}>
                               <span>{item.title}</span>
                             </Link>
                           </SidebarMenuSubButton>
-                          {index < filteredArray.length - 1 && (
-                            <div className="absolute left-[18px] top-full flex items-center justify-center h-2">
-                              <ArrowDown className="h-3 w-3 text-primary" />
-                            </div>
-                          )}
                         </SidebarMenuSubItem>
                       ))}
                     </SidebarMenuSub>
