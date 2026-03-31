@@ -40376,7 +40376,7 @@ DÔLEŽITÉ: Vráť IBA JSON pole, žiadny iný text.`;
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
-  // --- MPN Persons (merged: collaborators + clinic doctors + hospital contacts) ---
+  // --- MPN Persons (merged: collaborators with institution links + clinic doctors + hospital contacts) ---
   app.get("/api/mpn/persons", requireAuth, async (req, res) => {
     try {
       const search = (req.query.search as string || "").trim().toLowerCase();
@@ -40400,9 +40400,19 @@ DÔLEŽITÉ: Vráť IBA JSON pole, žiadny iný text.`;
         countryCode: string;
         institutionName: string;
         institutionId: string;
+        linkedInstitutions: { type: string; id: string; name: string }[];
+        collaboratorType: string;
       };
 
       const persons: MpnPerson[] = [];
+
+      // --- Helper: build hospital name lookup ---
+      const allHospitalRows = await db.select({ id: hospitals.id, name: hospitals.name }).from(hospitals);
+      const hospitalNameMap = new Map(allHospitalRows.map(h => [h.id, h.name]));
+
+      // --- Helper: build clinic name lookup ---
+      const allClinicRows = await db.select({ id: clinics.id, name: clinics.name }).from(clinics);
+      const clinicNameMap = new Map(allClinicRows.map(c => [c.id, c.name]));
 
       if (!sourceFilter || sourceFilter === "collaborator") {
         const collabRows = await db.select({
@@ -40416,9 +40426,52 @@ DÔLEŽITÉ: Vráť IBA JSON pole, žiadny iný text.`;
           email: collaborators.email,
           isActive: collaborators.isActive,
           countryCode: collaborators.countryCode,
+          hospitalId: collaborators.hospitalId,
+          hospitalIds: collaborators.hospitalIds,
+          collaboratorType: collaborators.collaboratorType,
         }).from(collaborators);
 
+        const assignmentRows = await db.select({
+          personId: contactAssignments.personId,
+          entityType: contactAssignments.entityType,
+          entityId: contactAssignments.entityId,
+        }).from(contactAssignments);
+
+        const assignmentsByPerson = new Map<string, { type: string; id: string }[]>();
+        for (const a of assignmentRows) {
+          if (!assignmentsByPerson.has(a.personId)) assignmentsByPerson.set(a.personId, []);
+          assignmentsByPerson.get(a.personId)!.push({ type: a.entityType, id: a.entityId });
+        }
+
         for (const c of collabRows) {
+          const linkedInstitutions: { type: string; id: string; name: string }[] = [];
+          const seenIds = new Set<string>();
+
+          if (c.hospitalId && !seenIds.has(c.hospitalId)) {
+            seenIds.add(c.hospitalId);
+            linkedInstitutions.push({ type: "hospital", id: c.hospitalId, name: hospitalNameMap.get(c.hospitalId) || c.hospitalId });
+          }
+
+          if (c.hospitalIds && Array.isArray(c.hospitalIds)) {
+            for (const hid of c.hospitalIds) {
+              if (hid && !seenIds.has(hid)) {
+                seenIds.add(hid);
+                linkedInstitutions.push({ type: "hospital", id: hid, name: hospitalNameMap.get(hid) || hid });
+              }
+            }
+          }
+
+          const assignments = assignmentsByPerson.get(c.id) || [];
+          for (const a of assignments) {
+            if (!seenIds.has(a.id)) {
+              seenIds.add(a.id);
+              const name = a.type === "hospital" ? (hospitalNameMap.get(a.id) || a.id) : (clinicNameMap.get(a.id) || a.id);
+              linkedInstitutions.push({ type: a.type, id: a.id, name });
+            }
+          }
+
+          const instNames = linkedInstitutions.map(i => i.name).join(", ");
+
           persons.push({
             id: c.id,
             source: "collaborator",
@@ -40432,8 +40485,10 @@ DÔLEŽITÉ: Vráť IBA JSON pole, žiadny iný text.`;
             email: c.email || "",
             isActive: c.isActive !== false,
             countryCode: c.countryCode || "",
-            institutionName: "",
-            institutionId: "",
+            institutionName: instNames,
+            institutionId: linkedInstitutions[0]?.id || "",
+            linkedInstitutions,
+            collaboratorType: c.collaboratorType || "",
           });
         }
       }
@@ -40481,6 +40536,8 @@ DÔLEŽITÉ: Vráť IBA JSON pole, žiadny iný text.`;
             countryCode: cl.countryCode || "",
             institutionName: cl.name || "",
             institutionId: cl.id,
+            linkedInstitutions: [{ type: "clinic", id: cl.id, name: cl.name || "" }],
+            collaboratorType: "",
           });
         }
       }
@@ -40514,6 +40571,8 @@ DÔLEŽITÉ: Vráť IBA JSON pole, žiadny iný text.`;
             countryCode: h.countryCode || "",
             institutionName: h.name || "",
             institutionId: h.id,
+            linkedInstitutions: [{ type: "hospital", id: h.id, name: h.name || "" }],
+            collaboratorType: "",
           });
         }
       }
@@ -40521,7 +40580,7 @@ DÔLEŽITÉ: Vráť IBA JSON pole, žiadny iný text.`;
       let filtered = persons;
       if (search) {
         filtered = persons.filter(p => {
-          const text = `${p.fullName} ${p.email} ${p.phone} ${p.mobile} ${p.institutionName} ${p.countryCode}`.toLowerCase();
+          const text = `${p.fullName} ${p.email} ${p.phone} ${p.mobile} ${p.institutionName} ${p.countryCode} ${p.collaboratorType}`.toLowerCase();
           return text.includes(search);
         });
       }

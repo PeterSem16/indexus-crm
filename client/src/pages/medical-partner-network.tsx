@@ -106,6 +106,8 @@ type Person = {
   countryCode: string;
   institutionName: string;
   institutionId: string;
+  linkedInstitutions: { type: string; id: string; name: string }[];
+  collaboratorType: string;
 };
 
 function channelIcon(type: string) {
@@ -490,8 +492,27 @@ function PersonsTab() {
                     {sourceLabel(p.source, t)}
                   </Badge>
                 </TableCell>
-                <TableCell className="font-medium">{p.fullName || [p.titleBefore, p.firstName, p.lastName, p.titleAfter].filter(Boolean).join(" ")}</TableCell>
-                <TableCell className="text-sm">{p.institutionName || "—"}</TableCell>
+                <TableCell className="font-medium">
+                  <div>{p.fullName || [p.titleBefore, p.firstName, p.lastName, p.titleAfter].filter(Boolean).join(" ")}</div>
+                  {p.collaboratorType && <span className="text-xs text-muted-foreground">{p.collaboratorType}</span>}
+                </TableCell>
+                <TableCell className="text-sm">
+                  {p.linkedInstitutions && p.linkedInstitutions.length > 0 ? (
+                    <div className="space-y-0.5">
+                      {p.linkedInstitutions.slice(0, 3).map((inst, i) => (
+                        <div key={i} className="flex items-center gap-1 text-xs">
+                          {inst.type === "hospital" ? <Hospital className="h-3 w-3 text-orange-500" /> : <Stethoscope className="h-3 w-3 text-green-500" />}
+                          <span className="truncate max-w-[200px]">{inst.name}</span>
+                        </div>
+                      ))}
+                      {p.linkedInstitutions.length > 3 && (
+                        <span className="text-xs text-muted-foreground">+{p.linkedInstitutions.length - 3} {t.mpn.more || "more"}</span>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="text-muted-foreground">—</span>
+                  )}
+                </TableCell>
                 <TableCell>
                   <div className="space-y-0.5 text-xs">
                     {p.email && <div className="flex items-center gap-1"><Mail className="h-3 w-3" /> {p.email}</div>}
